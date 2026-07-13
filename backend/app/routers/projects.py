@@ -3125,6 +3125,41 @@ def upload_logo(
     return {"logo_url": project.logo_r2_url, "logo_position": project.logo_position}
 
 
+@router.delete("/{project_id}/logo")
+def delete_logo(
+    project_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Remove the project's uploaded logo (clears R2 object + local file + refs)."""
+    project = _get_user_project(project_id, user.id, db)
+
+    if r2_storage.is_r2_configured() and project.logo_r2_key:
+        try:
+            r2_storage.delete_object(project.logo_r2_key)
+        except Exception as e:
+            logger.error(
+                "[PROJECTS] Logo R2 delete failed for project %s: %s",
+                project_id,
+                e,
+                extra={"project_id": project_id, "user_id": user.id},
+            )
+
+    logo_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project_id}")
+    if os.path.isdir(logo_dir):
+        for name in os.listdir(logo_dir):
+            if name.startswith("logo."):
+                try:
+                    os.remove(os.path.join(logo_dir, name))
+                except OSError:
+                    pass
+
+    project.logo_r2_key = None
+    project.logo_r2_url = None
+    db.commit()
+    return {"detail": "Logo removed"}
+
+
 @router.get("", response_model=list[ProjectListOut])
 def list_projects(
     user: User = Depends(get_current_user),

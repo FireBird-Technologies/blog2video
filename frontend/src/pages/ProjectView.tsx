@@ -25,6 +25,7 @@ import {
   getValidLayouts,
   updateProjectLogo,
   uploadLogo,
+  deleteLogo,
   Project,
   Scene,
   BACKEND_URL,
@@ -644,6 +645,7 @@ export default function ProjectView() {
   const { showNotice } = useNoticeModal();
   const [logoSaving, setLogoSaving] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
+  const [logoRemoving, setLogoRemoving] = useState(false);
   const logoFileInputRef = useRef<HTMLInputElement>(null);
   const [logoPosition, setLogoPosition] = useState<string>("bottom_right");
   const [logoSize, setLogoSize] = useState<number>(100);
@@ -658,6 +660,9 @@ export default function ProjectView() {
   const [settingsTextColor, setSettingsTextColor] = useState("#000000");
   const [savingColors, setSavingColors] = useState(false);
   const [settingsFontId, setSettingsFontId] = useState<string | null>(null);
+  const settingsFontPreviewFamily =
+    resolveFontFamily(settingsFontId) ??
+    "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
   const [savingFontFamily, setSavingFontFamily] = useState(false);
   const [showFontDropdown, setShowFontDropdown] = useState(false);
   const [playbackSpeedDraft, setPlaybackSpeedDraft] = useState<number>(1);
@@ -3319,6 +3324,20 @@ export default function ProjectView() {
       showError(getErrorMessage(err, "Failed to upload logo."));
     } finally {
       setLogoUploading(false);
+    }
+  };
+
+  const handleRemoveLogo = async () => {
+    if (!project) return;
+    setLogoRemoving(true);
+    try {
+      await deleteLogo(project.id);
+      await loadProject();
+      if (logoFileInputRef.current) logoFileInputRef.current.value = "";
+    } catch (err) {
+      showError(getErrorMessage(err, "Failed to remove logo."));
+    } finally {
+      setLogoRemoving(false);
     }
   };
 
@@ -6281,6 +6300,255 @@ export default function ProjectView() {
 
        {activeTab === "settings" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-visible">
+          {/* 4. Colors & Font */}
+          <div>
+            <h2 className="text-base font-medium text-gray-900 mb-1">Colors &amp; Font</h2>
+            <p className="text-xs text-gray-400 mb-5">Theme colors and font applied across all scenes.</p>
+            <div className="glass-card p-6 flex flex-col gap-5 overflow-visible relative z-30">
+              {/* Row 1: Colors + Save colors */}
+              <div className="flex items-end justify-between gap-4">
+                <div className="flex flex-col gap-2 min-w-0">
+                  <p className="text-xs font-semibold text-gray-900">Colors</p>
+                  <div className="flex items-center gap-5 flex-wrap">
+                    {(
+                      [
+                        { label: "Accent", hint: "Buttons & highlights", value: settingsAccentColor, setter: setSettingsAccentColor },
+                        { label: "Text", hint: "On-screen text", value: settingsTextColor, setter: setSettingsTextColor },
+                        { label: "Background", hint: "Scene background", value: settingsBgColor, setter: setSettingsBgColor },
+                      ] as const
+                    ).map(({ label, hint, value, setter }) => (
+                      <div key={label} className="flex items-center gap-2">
+                        <div
+                          className="w-9 h-9 rounded-lg border border-gray-200 shadow-sm cursor-pointer overflow-hidden flex-shrink-0"
+                          style={{ backgroundColor: value }}
+                          onClick={() => (document.getElementById(`color-input-${label}`) as HTMLInputElement)?.click()}
+                        >
+                          <input
+                            id={`color-input-${label}`}
+                            type="color"
+                            value={value}
+                            onChange={(e) => setter(e.target.value)}
+                            className="opacity-0 w-full h-full cursor-pointer"
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-medium text-gray-700 leading-tight">{label}</p>
+                          <p className="text-[10px] text-gray-400 leading-tight mt-0.5">{hint}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled={savingColors || anyJobRunning}
+                  onClick={async () => {
+                    setSavingColors(true);
+                    try {
+                      await updateProject(project.id, {
+                        accent_color: settingsAccentColor,
+                        bg_color: settingsBgColor,
+                        text_color: settingsTextColor,
+                      });
+                      await loadProject();
+                    } catch (err) {
+                      showError(getErrorMessage(err, "Failed to save colors."));
+                    } finally {
+                      setSavingColors(false);
+                    }
+                  }}
+                  className="flex-shrink-0 ml-auto px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
+                >
+                  {savingColors ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Saving…
+                    </>
+                  ) : (
+                    "Save colors"
+                  )}
+                </button>
+              </div>
+
+              {/* Row 2: Font family + Save font */}
+              <div className="border-t border-gray-100 pt-5">
+                <div className="flex flex-col gap-2 min-w-0">
+                  <p className="text-xs font-semibold text-gray-900">Font family</p>
+                  {/* Controls line: dropdown (+ inline preview at sm) + Save font */}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div ref={fontDropdownRef} className="relative w-40 flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setShowFontDropdown((v) => !v)}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg bg-white hover:border-purple-300 focus:outline-none focus:ring-1 focus:ring-purple-300 flex items-center justify-between gap-1"
+                        data-action="font-selector"
+                      >
+                        <span className="truncate">
+                          {settingsFontId
+                            ? FONT_REGISTRY[settingsFontId as keyof typeof FONT_REGISTRY]?.label || settingsFontId
+                            : "Default (template)"}
+                        </span>
+                        <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      {showFontDropdown && (
+                        <div className="absolute z-40 mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-lg p-2 max-h-72 overflow-y-auto">
+                          <div className="grid grid-cols-1 gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSettingsFontId(null);
+                                setShowFontDropdown(false);
+                              }}
+                              className={`text-left px-2.5 py-2 text-xs rounded-lg transition-colors ${
+                                !settingsFontId ? "bg-purple-50 text-purple-700" : "hover:bg-gray-50 text-gray-700"
+                              }`}
+                            >
+                              Default
+                            </button>
+                            {Object.values(FONT_REGISTRY)
+                              .filter((opt) => opt.id !== "fira_code")
+                              .map((opt) => (
+                                <button
+                                  key={opt.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setSettingsFontId(opt.id);
+                                    setShowFontDropdown(false);
+                                  }}
+                                  className={`text-left px-2.5 py-2 text-xs rounded-lg transition-colors ${
+                                    settingsFontId === opt.id
+                                      ? "bg-purple-50 text-purple-700"
+                                      : "hover:bg-gray-50 text-gray-700"
+                                  }`}
+                                >
+                                  {opt.label}
+                                </button>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    {/* Preview sits inline from sm up; on mobile it moves to its own full-width row below. */}
+                    {settingsFontId && (
+                      <div
+                        className="hidden sm:block flex-1 min-w-0 truncate px-3 py-2 rounded-lg border border-dashed border-gray-200 bg-gray-50 text-xs text-gray-800"
+                        title="The quick brown fox jumps over the lazy dog."
+                        style={{ fontFamily: settingsFontPreviewFamily }}
+                      >
+                        The quick brown fox jumps over the lazy dog.
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      disabled={savingFontFamily || anyJobRunning}
+                      onClick={async () => {
+                        setSavingFontFamily(true);
+                        try {
+                          await updateProject(project.id, {
+                            font_family: settingsFontId || null,
+                          });
+                          await loadProject();
+                        } catch (err) {
+                          showError(getErrorMessage(err, "Failed to save font family."));
+                        } finally {
+                          setSavingFontFamily(false);
+                        }
+                      }}
+                      className="flex-shrink-0 ml-auto px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
+                    >
+                      {savingFontFamily ? (
+                        <>
+                          <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Saving…
+                        </>
+                      ) : (
+                        "Save font"
+                      )}
+                    </button>
+                  </div>
+                  {settingsFontId && (
+                    <div
+                      className="sm:hidden w-full px-3 py-2 rounded-lg border border-dashed border-gray-200 bg-gray-50 text-xs text-gray-800"
+                      style={{ fontFamily: settingsFontPreviewFamily }}
+                    >
+                      The quick brown fox jumps over the lazy dog.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 5. Global Text Sizes */}
+          <div>
+            <h2 className="text-base font-medium text-gray-900 mb-1">Global Text Sizes</h2>
+            <p className="text-xs text-gray-400 mb-3">Applied to all scenes at once.</p>
+            <div className="glass-card p-6 flex flex-col gap-5">
+              <div>
+                <label className="text-xs text-gray-500 mb-1.5 flex items-center justify-between">
+                  <span>Title font size</span>
+                  <span className="text-purple-600 font-semibold tabular-nums">{globalTitleSize}</span>
+                </label>
+                <input
+                  type="range"
+                  min={20}
+                  max={200}
+                  step={1}
+                  value={globalTitleSize}
+                  onChange={(e) => setGlobalTitleSize(Number(e.target.value))}
+                  className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 mb-1.5 flex items-center justify-between">
+                  <span>Display text size</span>
+                  <span className="text-purple-600 font-semibold tabular-nums">{globalDescSize}</span>
+                </label>
+                <input
+                  type="range"
+                  min={12}
+                  max={80}
+                  step={1}
+                  value={globalDescSize}
+                  onChange={(e) => setGlobalDescSize(Number(e.target.value))}
+                  className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
+                />
+              </div>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  disabled={savingGlobalTypography || anyJobRunning}
+                  onClick={async () => {
+                    setSavingGlobalTypography(true);
+                    try {
+                      await bulkUpdateSceneTypography(project.id, {
+                        title_font_size: globalTitleSize,
+                        description_font_size: globalDescSize,
+                      });
+                      await loadProject();
+                    } catch (err) {
+                      showError(getErrorMessage(err, "Failed to update typography."));
+                    } finally {
+                      setSavingGlobalTypography(false);
+                    }
+                  }}
+                  className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
+                >
+                  {savingGlobalTypography ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Applying…
+                    </>
+                  ) : (
+                    "Apply to all Scenes"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+
           {/* 1. Template */}
           <div data-tour="template-picker">
           <ProjectTemplateSettingsCard
@@ -6400,6 +6668,7 @@ export default function ProjectView() {
               {/* 3b. Captions */}
               {(() => {
               const hasVoiceover = (project.scenes || []).some((s) => !!s.voiceover_path);
+              const captionControlsDisabled = !captionsEnabledDraft || !hasVoiceover;
               return (
               <div>
                 <h2 className="text-base font-medium text-gray-900 mb-1">Captions</h2>
@@ -6424,90 +6693,90 @@ export default function ProjectView() {
                     </p>
                   )}
 
-                  {captionsEnabledDraft && hasVoiceover && (
-                    <div className="flex flex-col gap-2">
-                      {/* Row 1: Offset (2-col) + Size slider */}
-                      <div className="grid grid-cols-2 gap-2 items-start">
+                  <div className={`flex flex-col gap-2 ${captionControlsDisabled ? "opacity-60" : ""}`}>
+                    {/* Row 1: Offset (2-col) + Size slider */}
+                    <div className="grid grid-cols-2 gap-2 items-start">
 
-                        {/* Offset — always bottom; slider nudges up/down */}
-                        <div>
-                          <div className="flex items-center justify-between mb-1">
-                            <label className="block text-[10px] font-medium text-gray-400 uppercase tracking-wide">Offset</label>
-                            <button
-                              type="button"
-                              onClick={() => setCaptionOffsetDraft(0)}
-                              className={`text-[10px] font-semibold ${captionOffsetDraft === 0 ? "text-gray-400" : "text-purple-600 hover:text-purple-700"}`}
-                            >
-                              {captionOffsetDraft === 0 ? "Default" : "Reset"}
-                            </button>
-                          </div>
-                          <div className="flex flex-col justify-center pt-1">
-                            <input
-                              type="range"
-                              min={-100}
-                              max={100}
-                              step={1}
-                              value={captionOffsetDraft}
-                              onChange={(e) => setCaptionOffsetDraft(Number(e.target.value))}
-                              className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600 cursor-pointer"
-                            />
-                            <div className="flex justify-between mt-1">
-                              <span className="text-[9px] text-gray-400">Down</span>
-                              <span className="text-[9px] text-gray-400">Up</span>
-                            </div>
+                      {/* Offset — always bottom; slider nudges up/down */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-[10px] font-medium text-gray-400 uppercase tracking-wide">Offset</label>
+                          <button
+                            type="button"
+                            disabled={captionControlsDisabled}
+                            onClick={() => setCaptionOffsetDraft(0)}
+                            className={`text-[10px] font-semibold disabled:cursor-not-allowed ${captionOffsetDraft === 0 ? "text-gray-400" : "text-purple-600 hover:text-purple-700 disabled:text-gray-400 disabled:hover:text-gray-400"}`}
+                          >
+                            {captionOffsetDraft === 0 ? "Default" : "Reset"}
+                          </button>
+                        </div>
+                        <div className="flex flex-col justify-center pt-1">
+                          <input
+                            type="range"
+                            min={-100}
+                            max={100}
+                            step={1}
+                            disabled={captionControlsDisabled}
+                            value={captionOffsetDraft}
+                            onChange={(e) => setCaptionOffsetDraft(Number(e.target.value))}
+                            className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600 cursor-pointer disabled:cursor-not-allowed disabled:accent-gray-400"
+                          />
+                          <div className="flex justify-between mt-1">
+                            <span className="text-[9px] text-gray-400">Down</span>
+                            <span className="text-[9px] text-gray-400">Up</span>
                           </div>
                         </div>
-
-                        {/* Font Size — free slider 12–64px */}
-                        <div>
-                          <label className="block text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-1">Size</label>
-                          <div className="flex flex-col justify-center pt-1">
-                            <input
-                              type="range"
-                              min={12}
-                              max={64}
-                              step={1}
-                              value={captionFontSizeDraft}
-                              onChange={(e) => setCaptionFontSizeDraft(Number(e.target.value))}
-                              className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600 cursor-pointer"
-                            />
-                            <div className="flex justify-between mt-1">
-                              <span className="text-[9px] text-gray-400">12</span>
-                              <span className="text-[9px] font-semibold text-purple-600">{captionFontSizeDraft}px</span>
-                            </div>
-                          </div>
-                        </div>
-
                       </div>
+
+                      {/* Font Size — free slider 12–64px */}
+                      <div>
+                        <label className="block text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-1">Size</label>
+                        <div className="flex flex-col justify-center pt-1">
+                          <input
+                            type="range"
+                            min={12}
+                            max={64}
+                            step={1}
+                            disabled={captionControlsDisabled}
+                            value={captionFontSizeDraft}
+                            onChange={(e) => setCaptionFontSizeDraft(Number(e.target.value))}
+                            className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600 cursor-pointer disabled:cursor-not-allowed disabled:accent-gray-400"
+                          />
+                          <div className="flex justify-between mt-1">
+                            <span className="text-[9px] text-gray-400">12</span>
+                            <span className={`text-[9px] font-semibold ${captionControlsDisabled ? "text-gray-400" : "text-purple-600"}`}>{captionFontSizeDraft}px</span>
+                          </div>
+                        </div>
+                      </div>
+
                     </div>
-                  )}
+                  </div>
 
                   <div className="flex items-end justify-between mt-auto gap-3">
-                    {/* Font Family — shown in save row when captions enabled */}
-                    {captionsEnabledDraft && hasVoiceover ? (
-                      <div className="relative flex-1 max-w-[180px]">
-                        <label className="block text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-1.5">Font</label>
-                        <div className="relative">
-                          <select
-                            value={captionFontFamilyDraft}
-                            onChange={(e) => setCaptionFontFamilyDraft(e.target.value)}
-                            style={{ fontFamily: FONT_REGISTRY[captionFontFamilyDraft as keyof typeof FONT_REGISTRY]?.cssFamily }}
-                            className="w-full text-[11px] font-medium text-gray-700 bg-white border border-gray-200 rounded-md pl-2 pr-6 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-400/40 focus:border-purple-300 cursor-pointer appearance-none"
-                          >
-                            {(["inter","poppins","montserrat","roboto_slab","oswald","lora","patrick_hand","arimo","archivo_black","merriweather","playfair_display","fira_code"] as const).map((fontId) => (
-                              <option key={fontId} value={fontId} style={{ fontFamily: FONT_REGISTRY[fontId]?.cssFamily }}>
-                                {FONT_REGISTRY[fontId]?.label ?? fontId}
-                              </option>
-                            ))}
-                          </select>
-                          <div className="pointer-events-none absolute inset-y-0 right-1.5 flex items-center">
-                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="text-gray-400">
-                              <path d="M2 3.5l3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          </div>
+                    {/* Font Family — always shown; disabled when captions are off */}
+                    <div className={`relative flex-1 max-w-[180px] ${captionControlsDisabled ? "opacity-60" : ""}`}>
+                      <label className="block text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-1.5">Font</label>
+                      <div className="relative">
+                        <select
+                          value={captionFontFamilyDraft}
+                          disabled={captionControlsDisabled}
+                          onChange={(e) => setCaptionFontFamilyDraft(e.target.value)}
+                          style={{ fontFamily: FONT_REGISTRY[captionFontFamilyDraft as keyof typeof FONT_REGISTRY]?.cssFamily }}
+                          className="w-full text-[11px] font-medium text-gray-700 bg-white border border-gray-200 rounded-md pl-2 pr-6 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-400/40 focus:border-purple-300 cursor-pointer appearance-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
+                        >
+                          {(["inter","poppins","montserrat","roboto_slab","oswald","lora","patrick_hand","arimo","archivo_black","merriweather","playfair_display","fira_code"] as const).map((fontId) => (
+                            <option key={fontId} value={fontId} style={{ fontFamily: FONT_REGISTRY[fontId]?.cssFamily }}>
+                              {FONT_REGISTRY[fontId]?.label ?? fontId}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-1.5 flex items-center">
+                          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="text-gray-400">
+                            <path d="M2 3.5l3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
                         </div>
                       </div>
-                    ) : <div />}
+                    </div>
                     <button
                       type="button"
                       disabled={savingCaptions || !hasVoiceover || anyJobRunning}
@@ -6547,265 +6816,6 @@ export default function ProjectView() {
 
             </>
           )}
-
-          {/* 4. Colors & Font */}
-          <div>
-            <h2 className="text-base font-medium text-gray-900 mb-1">Colors &amp; Font</h2>
-            <p className="text-xs text-gray-400 mb-5">Theme colors and font applied across all scenes.</p>
-            <div className="glass-card p-6 grid grid-cols-1 sm:grid-cols-2 gap-6 overflow-visible relative z-30">
-              {/* Colors */}
-              <div className="flex flex-col gap-5">
-                <p className="text-xs font-semibold text-gray-900">Colors</p>
-                {(
-                  [
-                    { label: "Accent color", value: settingsAccentColor, setter: setSettingsAccentColor, hint: "Buttons, highlights, and brand color" },
-                    { label: "Text color", value: settingsTextColor, setter: setSettingsTextColor, hint: "Primary on-screen text" },
-                    { label: "Background color", value: settingsBgColor, setter: setSettingsBgColor, hint: "Scene background" },
-                  ] as const
-                ).map(({ label, value, setter, hint }) => (
-                  <div key={label} className="flex items-center justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-gray-700">{label}</p>
-                      <p className="text-[11px] text-gray-400 mt-0.5">{hint}</p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <div
-                        className="w-8 h-8 rounded-lg border border-gray-200 shadow-sm cursor-pointer overflow-hidden"
-                        style={{ backgroundColor: value }}
-                        onClick={() => (document.getElementById(`color-input-${label}`) as HTMLInputElement)?.click()}
-                      >
-                        <input
-                          id={`color-input-${label}`}
-                          type="color"
-                          value={value}
-                          onChange={(e) => setter(e.target.value)}
-                          className="opacity-0 w-full h-full cursor-pointer"
-                        />
-                      </div>
-                      <input
-                        type="text"
-                        value={value}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          if (/^#[0-9A-Fa-f]{0,6}$/.test(v)) setter(v);
-                        }}
-                        className="w-24 px-2 py-1.5 text-xs font-mono border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-300 bg-white"
-                        placeholder="#000000"
-                        maxLength={7}
-                      />
-                    </div>
-                  </div>
-                ))}
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    disabled={savingColors || anyJobRunning}
-                    onClick={async () => {
-                      setSavingColors(true);
-                      try {
-                        await updateProject(project.id, {
-                          accent_color: settingsAccentColor,
-                          bg_color: settingsBgColor,
-                          text_color: settingsTextColor,
-                        });
-                        await loadProject();
-                      } catch (err) {
-                        showError(getErrorMessage(err, "Failed to save colors."));
-                      } finally {
-                        setSavingColors(false);
-                      }
-                    }}
-                    className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
-                  >
-                    {savingColors ? (
-                      <>
-                        <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        Saving…
-                      </>
-                    ) : (
-                      "Save colors"
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {/* Font family */}
-              <div className="flex flex-col gap-4 sm:border-l sm:border-gray-100 sm:pl-6">
-                <div>
-                  <p className="text-xs font-semibold text-gray-900">Font family</p>
-                  <p className="text-[11px] text-gray-400 mt-0.5">Leave as Default to use the template’s built-in fonts.</p>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <div ref={fontDropdownRef} className="relative w-full max-w-sm">
-                    <button
-                      type="button"
-                      onClick={() => setShowFontDropdown((v) => !v)}
-                      className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg bg-white hover:border-purple-300 focus:outline-none focus:ring-1 focus:ring-purple-300 flex items-center justify-between"
-                      data-action="font-selector"
-                    >
-                      <span>
-                        {settingsFontId
-                          ? FONT_REGISTRY[settingsFontId as keyof typeof FONT_REGISTRY]?.label || settingsFontId
-                          : "Default (template)"}
-                      </span>
-                      <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                    {showFontDropdown && (
-                      <div className="absolute z-40 mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-lg p-2 max-h-72 overflow-y-auto">
-                        <div className="grid grid-cols-1 gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSettingsFontId(null);
-                              setShowFontDropdown(false);
-                            }}
-                            className={`text-left px-2.5 py-2 text-xs rounded-lg transition-colors ${
-                              !settingsFontId ? "bg-purple-50 text-purple-700" : "hover:bg-gray-50 text-gray-700"
-                            }`}
-                          >
-                            Default
-                          </button>
-                          {Object.values(FONT_REGISTRY)
-                            .filter((opt) => opt.id !== "fira_code")
-                            .map((opt) => (
-                              <button
-                                key={opt.id}
-                                type="button"
-                                onClick={() => {
-                                  setSettingsFontId(opt.id);
-                                  setShowFontDropdown(false);
-                                }}
-                                className={`text-left px-2.5 py-2 text-xs rounded-lg transition-colors ${
-                                  settingsFontId === opt.id
-                                    ? "bg-purple-50 text-purple-700"
-                                    : "hover:bg-gray-50 text-gray-700"
-                                }`}
-                              >
-                                {opt.label}
-                              </button>
-                            ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                {settingsFontId && (
-                  <div className="mt-2">
-                    <p className="text-[11px] text-gray-500 mb-1">Preview</p>
-                    <div
-                      className="px-3 py-2 rounded-lg border border-dashed border-gray-200 bg-gray-50 text-xs text-gray-800"
-                      style={{
-                        fontFamily:
-                          resolveFontFamily(settingsFontId) ??
-                          "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-                      }}
-                    >
-                      The quick brown fox jumps over the lazy dog.
-                    </div>
-                  </div>
-                )}
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    disabled={savingFontFamily || anyJobRunning}
-                    onClick={async () => {
-                      setSavingFontFamily(true);
-                      try {
-                        await updateProject(project.id, {
-                          font_family: settingsFontId || null,
-                        });
-                        await loadProject();
-                      } catch (err) {
-                        showError(getErrorMessage(err, "Failed to save font family."));
-                      } finally {
-                        setSavingFontFamily(false);
-                      }
-                    }}
-                    className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
-                  >
-                    {savingFontFamily ? (
-                      <>
-                        <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        Saving…
-                      </>
-                    ) : (
-                      "Save font"
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 5. Global Text Sizes */}
-          <div>
-            <h2 className="text-base font-medium text-gray-900 mb-1">Global Text Sizes</h2>
-            <p className="text-xs text-gray-400 mb-3">Applied to all scenes at once.</p>
-            <div className="glass-card p-4 flex flex-col gap-2">
-              <div>
-                <label className="text-xs text-gray-500 mb-1.5 flex items-center justify-between">
-                  <span>Title font size</span>
-                  <span className="text-purple-600 font-semibold tabular-nums">{globalTitleSize}</span>
-                </label>
-                <input
-                  type="range"
-                  min={20}
-                  max={200}
-                  step={1}
-                  value={globalTitleSize}
-                  onChange={(e) => setGlobalTitleSize(Number(e.target.value))}
-                  className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500 mb-1.5 flex items-center justify-between">
-                  <span>Display text size</span>
-                  <span className="text-purple-600 font-semibold tabular-nums">{globalDescSize}</span>
-                </label>
-                <input
-                  type="range"
-                  min={12}
-                  max={80}
-                  step={1}
-                  value={globalDescSize}
-                  onChange={(e) => setGlobalDescSize(Number(e.target.value))}
-                  className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
-                />
-              </div>
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  disabled={savingGlobalTypography || anyJobRunning}
-                  onClick={async () => {
-                    setSavingGlobalTypography(true);
-                    try {
-                      await bulkUpdateSceneTypography(project.id, {
-                        title_font_size: globalTitleSize,
-                        description_font_size: globalDescSize,
-                      });
-                      await loadProject();
-                    } catch (err) {
-                      showError(getErrorMessage(err, "Failed to update typography."));
-                    } finally {
-                      setSavingGlobalTypography(false);
-                    }
-                  }}
-                  className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
-                >
-                  {savingGlobalTypography ? (
-                    <>
-                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Applying…
-                    </>
-                  ) : (
-                    "Apply to all Scenes"
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
 
         </div>
       )}
@@ -6914,11 +6924,22 @@ export default function ProjectView() {
                       type="button"
                       data-action="upload-logo"
                       onClick={() => logoFileInputRef.current?.click()}
-                      disabled={logoUploading}
+                      disabled={logoUploading || logoRemoving}
                       className="px-3 py-2 rounded-lg text-xs font-medium bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200/60 transition-all disabled:opacity-60 disabled:pointer-events-none"
                     >
                       {logoUploading ? "Uploading…" : "Replace logo"}
                     </button>
+                    {project?.logo_r2_url && (
+                      <button
+                        type="button"
+                        data-action="remove-logo"
+                        onClick={handleRemoveLogo}
+                        disabled={logoUploading || logoRemoving}
+                        className="px-3 py-2 rounded-lg text-xs font-medium bg-red-50 text-red-600 hover:bg-red-100 border border-red-200/60 transition-all disabled:opacity-60 disabled:pointer-events-none"
+                      >
+                        {logoRemoving ? "Removing…" : "Remove logo"}
+                      </button>
+                    )}
                   </div>
                   <div>
                     <label className="text-xs text-gray-400 mb-1 block">Position</label>

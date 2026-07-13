@@ -301,7 +301,7 @@ export default function ProjectVoiceSettingsCard({
       >
         The narration voice for this project…
       </p>
-      <div className="glass-card p-4 flex flex-col gap-2" style={{ paddingBottom: 18 }}>
+      <div className="glass-card p-5 flex flex-col gap-3" style={{ paddingBottom: 22 }}>
         {/* Current voice — preview only (spinner while a custom voice resolves) */}
         {!hasVoiceover ? (
           <div className="flex items-center gap-3 rounded-xl border-2 border-gray-200/60 bg-white/60 p-3">
