@@ -69,6 +69,8 @@ export interface VoiceItemProps {
   disabled?: boolean;
   /** Optional badge (e.g. "Pro") */
   badge?: ReactNode;
+  /** Tighter padding and a smaller play button, for the side-by-side settings card. */
+  compact?: boolean;
 }
 
 export default function VoiceItem({
@@ -83,10 +85,12 @@ export default function VoiceItem({
   onClick,
   disabled = false,
   badge,
+  compact = false,
 }: VoiceItemProps) {
   const base =
-    "flex items-center gap-3 rounded-xl border-2 p-3 transition-all " +
+    `flex items-center rounded-xl border-2 transition-all ${compact ? "gap-2.5 p-2" : "gap-3 p-3"} ` +
     (disabled ? "cursor-not-allowed " : onClick ? "cursor-pointer " : "");
+  const playSize = compact ? "w-8 h-8" : "w-10 h-10";
   const variant = isSelected
     ? "border-purple-500 bg-purple-50/60 shadow-[0_0_0_4px_rgba(124,58,237,0.08)]"
     : "border-gray-200/60 bg-white/60 hover:border-purple-300/60 hover:bg-purple-50/20";
@@ -107,7 +111,7 @@ export default function VoiceItem({
             if (!disabled) onPlay();
           }}
           disabled={disabled}
-          className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+          className={`flex-shrink-0 ${playSize} rounded-full flex items-center justify-center transition-all ${
             disabled
               ? "bg-gray-50 text-gray-300 cursor-not-allowed"
               : isPlaying
@@ -127,11 +131,11 @@ export default function VoiceItem({
           )}
         </button>
       ) : (
-        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-300" />
+        <div className={`flex-shrink-0 ${playSize} rounded-full bg-gray-50 flex items-center justify-center text-gray-300`} />
       )}
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-semibold text-gray-800 truncate">{name}</div>
-        <p className="text-[11px] text-gray-500 mt-0.5 leading-relaxed truncate" title={subtitle}>{subtitle}</p>
+        <div className={`${compact ? "text-xs" : "text-sm"} font-semibold text-gray-800 truncate`}>{name}</div>
+        <p className="text-[11px] text-gray-500 mt-0.5 leading-snug truncate" title={subtitle}>{subtitle}</p>
       </div>
       {badge}
       {actions}

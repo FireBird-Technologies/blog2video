@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import ConfirmDeleteModal from "./ConfirmDeleteModal";
 import CraftYourVoiceCard from "./CraftYourVoiceCard";
@@ -64,7 +65,9 @@ interface VoiceDisplay {
 }
 
 /**
- * Settings-tab card showing the project's current voice (preview only).
+ * The Voice column of the Settings tab's "Voice & Language" card — shows the project's
+ * current voice (preview only). Renders as a bare column body: the shared `.glass-card`
+ * shell and the section heading come from ProjectVoiceLanguageSettingsCard.
  *
  * - "Change voice" / "Add voiceover" opens a modal to pick a voice; confirming
  *   regenerates every scene's voiceover verbatim in that voice (counts as a new
@@ -267,7 +270,7 @@ export default function ProjectVoiceSettingsCard({
   };
 
   return (
-    <div>
+    <div className="h-full">
       <ConfirmDeleteModal
         open={showVoiceConfirm}
         onClose={() => setShowVoiceConfirm(false)}
@@ -294,31 +297,33 @@ export default function ProjectVoiceSettingsCard({
           await handleDelete();
         }}
       />
-      <h2 className="text-base font-medium text-gray-900 mb-1">Voice</h2>
-      <p
-        className="text-xs text-gray-400 mb-3 truncate"
-        title="The narration voice for this project. Changing it regenerates every scene's voiceover and counts as a new video."
-      >
-        The narration voice for this project…
-      </p>
-      <div className="glass-card p-5 flex flex-col gap-3" style={{ paddingBottom: 22 }}>
+      <div className="flex flex-col gap-2 h-full">
+        <div>
+          <h3 className="text-sm font-medium text-gray-900">Voice</h3>
+          <p
+            className="text-[11px] text-gray-400 truncate"
+            title="The narration voice for this project. Changing it regenerates every scene's voiceover and counts as a new video."
+          >
+            The narration voice for this project…
+          </p>
+        </div>
         {/* Current voice — preview only (spinner while a custom voice resolves) */}
         {!hasVoiceover ? (
-          <div className="flex items-center gap-3 rounded-xl border-2 border-gray-200/60 bg-white/60 p-3">
-            <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
-              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="flex items-center gap-2.5 rounded-xl border-2 border-gray-200/60 bg-white/60 p-2">
+            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l4-4m0 4l-4-4" />
               </svg>
             </div>
             <div className="min-w-0">
               <p className="text-xs font-medium text-gray-700">No voiceover</p>
-              <p className="text-[11px] text-gray-400">This video is muted. Add a voiceover to narrate it.</p>
+              <p className="text-[11px] text-gray-400 truncate">This video is muted. Add a voiceover to narrate it.</p>
             </div>
           </div>
         ) : loadingVoices && currentCustom ? (
-          <div className="flex items-center gap-3 rounded-xl border-2 border-gray-200/60 bg-white/60 p-3">
-            <span className="w-5 h-5 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin shrink-0" />
+          <div className="flex items-center gap-2.5 rounded-xl border-2 border-gray-200/60 bg-white/60 p-2 min-h-[3rem]">
+            <span className="w-4 h-4 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin shrink-0 ml-2" />
             <p className="text-xs text-gray-500">Loading voice…</p>
           </div>
         ) : (
@@ -329,22 +334,18 @@ export default function ProjectVoiceSettingsCard({
             isPlaying={playingKey === currentVoice.previewKey}
             onPlay={() => playPreview(currentVoice.previewKey, currentVoice.previewUrl)}
             isSelected
+            compact
           />
         )}
 
-        <div className="flex items-center justify-between gap-3 pt-4">
-          <p className="text-[11px] text-gray-400">
-            {hasVoiceover
-              ? "Changing the voice uses one video credit."
-              : "Adding a voiceover uses one video credit."}
-          </p>
+        <div className="mt-auto flex flex-col gap-1.5 pt-2">
           <div className="flex items-center gap-2 shrink-0">
             {hasVoiceover && (
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirm(true)}
                 disabled={deleting || disabled}
-                className="px-4 py-2.5 text-xs font-semibold rounded-xl transition-colors text-red-600 bg-red-50 hover:bg-red-100 border border-red-200/60 disabled:opacity-50 flex items-center gap-2"
+                className="px-3 py-2 text-xs font-semibold rounded-lg transition-colors text-red-600 bg-red-50 hover:bg-red-100 border border-red-200/60 disabled:opacity-50 flex items-center gap-2"
               >
                 {deleting ? (
                   <>
@@ -360,15 +361,24 @@ export default function ProjectVoiceSettingsCard({
               type="button"
               onClick={openModal}
               disabled={deleting || disabled}
-              className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-xl transition-colors disabled:opacity-50"
+              className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-50"
             >
               {hasVoiceover ? "Change voice" : "Add voiceover"}
             </button>
           </div>
+          <p className="text-[11px] text-gray-400">
+            {hasVoiceover
+              ? "Changing the voice uses one video credit."
+              : "Adding a voiceover uses one video credit."}
+          </p>
         </div>
       </div>
 
-      {modalOpen && (
+      {/* Portalled to <body>: the enclosing `.glass-card` sets `backdrop-filter`, which
+          makes it the containing block for `fixed` descendants — the overlay would size
+          itself to the card instead of the viewport. Same reason as the language dropdown. */}
+      {modalOpen &&
+        createPortal(
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4"
           onClick={closeModal}
@@ -555,7 +565,8 @@ export default function ProjectVoiceSettingsCard({
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

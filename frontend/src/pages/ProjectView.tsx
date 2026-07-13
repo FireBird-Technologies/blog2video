@@ -85,13 +85,12 @@ import RegenerateScriptModal from "../components/RegenerateScriptModal";
 import VerifyScriptModal from "../components/VerifyScriptModal";
 import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge, PopularTemplateBadge } from "../components/templatePreviewRegistry";
 import ProjectTemplateSettingsCard, { TemplateAssignPreview } from "../components/ProjectTemplateSettingsCard";
-import ProjectVoiceSettingsCard from "../components/ProjectVoiceSettingsCard";
+import ProjectVoiceLanguageSettingsCard from "../components/ProjectVoiceLanguageSettingsCard";
 import { BgmTrackDropdown } from "../components/BgmTrackDropdown";
 import VoiceOperationModal from "../components/VoiceOperationModal";
 import LanguageChangeTracker, {
   type LanguageChangeProgress,
 } from "../components/LanguageChangeTracker";
-import ProjectLanguageSettingsCard from "../components/ProjectLanguageSettingsCard";
 import { getLanguageName } from "../constants/languages";
 import ProjectTabs, { type ProjectTabId, type ProjectTabItem } from "../components/ProjectTabs";
 import SceneListRow from "../components/SceneListRow";
@@ -6678,35 +6677,36 @@ export default function ProjectView() {
           />
           </div>
 
-          {/* 2. Voiceover — Add (when muted) / Change + Delete (when present) */}
+          {/* 2. Voice & Language — one card, voice on the left, language on the right */}
           {(
             <>
-              <ProjectVoiceSettingsCard
-                projectId={project.id}
-                voiceGender={project.voice_gender}
-                voiceAccent={project.voice_accent}
-                customVoiceId={project.custom_voice_id}
-                voiceEmotion={project.voice_emotion ?? null}
-                isPro={effectiveIsPro}
-                onError={(msg) => showError(msg)}
-                onUpgrade={() => setShowUpgrade(true)}
-                onOperationStarted={(op) => setVoiceOpKickstart(op)}
-                disabled={anyJobRunning}
-                ownerAssetLabel={ownerAssetLabel}
-              />
-
-              <ProjectLanguageSettingsCard
-                projectId={project.id}
-                contentLanguage={project.content_language}
-                // Only the owner's own quota is knowable client-side. For a
-                // collaborator the backend's 403 names whose limit was hit.
-                canCreateVideo={
-                  useOwnerScopedAssets ? true : (user?.can_create_video ?? true)
-                }
-                isCollaborator={useOwnerScopedAssets}
-                onError={(msg, options) => showError(msg, options)}
-                onOperationStarted={(op) => setLanguageOpKickstart(op)}
-                disabled={anyJobRunning}
+              <ProjectVoiceLanguageSettingsCard
+                voice={{
+                  projectId: project.id,
+                  voiceGender: project.voice_gender,
+                  voiceAccent: project.voice_accent,
+                  customVoiceId: project.custom_voice_id,
+                  voiceEmotion: project.voice_emotion ?? null,
+                  isPro: effectiveIsPro,
+                  onError: (msg) => showError(msg),
+                  onUpgrade: () => setShowUpgrade(true),
+                  onOperationStarted: (op) => setVoiceOpKickstart(op),
+                  disabled: anyJobRunning,
+                  ownerAssetLabel,
+                }}
+                language={{
+                  projectId: project.id,
+                  contentLanguage: project.content_language,
+                  // Only the owner's own quota is knowable client-side. For a
+                  // collaborator the backend's 403 names whose limit was hit.
+                  canCreateVideo: useOwnerScopedAssets
+                    ? true
+                    : (user?.can_create_video ?? true),
+                  isCollaborator: useOwnerScopedAssets,
+                  onError: (msg, options) => showError(msg, options),
+                  onOperationStarted: (op) => setLanguageOpKickstart(op),
+                  disabled: anyJobRunning,
+                }}
               />
 
               {/* 3. Playback Speed */}

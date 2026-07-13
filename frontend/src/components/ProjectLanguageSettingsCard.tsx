@@ -161,7 +161,7 @@ export default function ProjectLanguageSettingsCard({
   };
 
   return (
-    <div>
+    <div className="h-full">
       <ConfirmDeleteModal
         open={showConfirm}
         onClose={() => setShowConfirm(false)}
@@ -181,21 +181,29 @@ export default function ProjectLanguageSettingsCard({
         }}
       />
 
-      <h2 className="text-base font-medium text-gray-900 mb-1">Language</h2>
-      <p className="text-xs text-gray-400 mb-5">
-        Translate the video — titles, on-screen text, narration and voiceovers.
-        Layouts and images preserved.
-      </p>
+      <div className="flex flex-col gap-2 h-full">
+        <div>
+          <h3 className="text-sm font-medium text-gray-900">Language</h3>
+          <p
+            className="text-[11px] text-gray-400 truncate"
+            title="Translate the video — titles, on-screen text, narration and voiceovers. Layouts and images preserved."
+          >
+            Translate the video — text, narration and voiceovers…
+          </p>
+        </div>
 
-      <div className="glass-card p-6 flex flex-col gap-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs text-gray-500 mb-2">Current language</label>
-            <p className="text-sm text-gray-900">{currentLabel}</p>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="min-w-0">
+            <span className="block text-[11px] text-gray-500 mb-1">Current language</span>
+            <div className="rounded-lg border border-gray-200/60 bg-white/60 px-2.5 py-2">
+              <p className="text-xs text-gray-700 truncate" title={currentLabel}>
+                {currentLabel}
+              </p>
+            </div>
           </div>
 
-          <div>
-            <span className="block text-xs text-gray-500 mb-2">Translate to</span>
+          <div className="min-w-0">
+            <span className="block text-[11px] text-gray-500 mb-1">Translate to</span>
             <div>
               <button
                 ref={triggerRef}
@@ -204,13 +212,13 @@ export default function ProjectLanguageSettingsCard({
                 aria-haspopup="listbox"
                 aria-expanded={open}
                 onClick={() => setOpen((v) => !v)}
-                className="w-full px-3 py-2.5 rounded-xl bg-white border border-gray-200 text-sm text-gray-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-400 flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full px-2.5 py-2 rounded-lg bg-white border border-gray-200 text-xs text-gray-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-400 flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <span className={selected ? "text-gray-700" : "text-gray-400"}>
+                <span className={`truncate ${selected ? "text-gray-700" : "text-gray-400"}`}>
                   {selectedLabel}
                 </span>
                 <svg
-                  className={`w-4 h-4 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`}
+                  className={`w-3.5 h-3.5 shrink-0 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -244,7 +252,7 @@ export default function ProjectLanguageSettingsCard({
                               setSelected(lang.code);
                               setOpen(false);
                             }}
-                            className={`w-full text-left px-3 py-2 text-sm hover:bg-purple-50 disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed ${
+                            className={`w-full text-left px-3 py-1.5 text-xs hover:bg-purple-50 disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed ${
                               lang.code === selected ? "bg-purple-50 text-purple-700" : "text-gray-700"
                             }`}
                           >
@@ -262,32 +270,34 @@ export default function ProjectLanguageSettingsCard({
         </div>
 
         {!canCreateVideo && (
-          <p className="text-xs text-amber-600">
+          <p className="text-[11px] text-amber-600">
             You have no video credits left. Upgrade your plan or buy more credits to
             translate this video.
           </p>
         )}
 
-        {/* Always rendered in its enabled purple style; it just no-ops until a
-            different language is selected (or while another job is running). */}
-        <button
-          type="button"
-          aria-disabled={!canSubmit}
-          onClick={() => {
-            if (!canSubmit) return;
-            setShowConfirm(true);
-          }}
-          className={`self-end rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 ${
-            canSubmit ? "cursor-pointer" : "cursor-not-allowed"
-          }`}
-        >
-          {changing ? "Starting..." : "Change language"}
-        </button>
+        <div className="mt-auto flex flex-col gap-1.5 pt-2">
+          {/* Always rendered in its enabled purple style; it just no-ops until a
+              different language is selected (or while another job is running). */}
+          <button
+            type="button"
+            aria-disabled={!canSubmit}
+            onClick={() => {
+              if (!canSubmit) return;
+              setShowConfirm(true);
+            }}
+            className={`self-start rounded-lg bg-purple-600 px-3 py-2 text-xs font-semibold text-white hover:bg-purple-700 ${
+              canSubmit ? "cursor-pointer" : "cursor-not-allowed"
+            }`}
+          >
+            {changing ? "Starting..." : "Change language"}
+          </button>
 
-        <p className="text-[11px] text-gray-400">
-          Counts as a new video (1 credit
-          {isCollaborator ? ", charged to the project owner" : ""}).
-        </p>
+          <p className="text-[11px] text-gray-400">
+            Counts as a new video (1 credit
+            {isCollaborator ? ", charged to the project owner" : ""}).
+          </p>
+        </div>
       </div>
     </div>
   );
