@@ -466,14 +466,6 @@ export const templateProfiles: TemplateProfile[] = [
     slug: "magazine",
     name: "Magazine",
     description:
-      "A polished print-editorial template in the style of a glossy feature magazine — bold cover mastheads, pull quotes, and structured feature spreads.",
-    bestFor: "Long-form features, profiles, essays, interviews, and narrative journalism.",
-    differentiator:
-      "Renders your article as a designed magazine feature — TIME-style cover, ruled columns, by-the-numbers panels, and 3D page-turn transitions — giving narrative writing the authority of a printed spread instead of a generic slideshow.",
-    styleFit: "Best for long-form, narrative-driven writing that deserves an editorial, print-magazine treatment.",
-    slug: "magazine",
-    name: "Magazine",
-    description:
       "A glossy editorial cover-story template that puts your subject on the cover of a TIME-style magazine, complete with feature spreads, pull quotes, and by-the-numbers panels.",
     bestFor: "Personal-brand features, founder and customer profiles, milestone announcements, and prestige storytelling that should feel like a magazine cover story.",
     differentiator:
@@ -483,28 +475,6 @@ export const templateProfiles: TemplateProfile[] = [
     layouts: [
       "magazine_cover",
       "feature",
-      "by_the_numbers",
-      "editorial_quote",
-      "interview_qa",
-      "timeline_journey",
-      "colorblock",
-      "comparison",
-      "text_narration",
-      "magazine_data_visualization",
-    ],
-    longDescription:
-      "The Magazine template turns written features into a designed print spread, complete with a bold cover masthead, ruled multi-column body copy, pull quotes, by-the-numbers stat panels, and Q&A interview layouts. Cinematic 3D page-turn transitions carry the reader from cover to feature to closing spread, so long-form articles read like a glossy magazine feature rather than a generic AI video. Layouts like Magazine Cover, Feature, Editorial Quote, Interview Q&A, Timeline Journey, and By the Numbers are built for profiles, essays, and narrative journalism where craft and editorial authority matter.",
-    idealFor: [
-      "Long-form features and cover stories",
-      "Profiles and interviews",
-      "Personal essays and opinion pieces",
-      "Narrative journalism and reporting",
-      "Brand and founder storytelling",
-    ],
-    exampleTopics: [
-      "The quiet revolution reshaping how we work",
-      "A profile of the team behind the redesign",
-      "The year in review, told as a feature",
       "editorial_quote",
       "interview_qa",
       "by_the_numbers",
