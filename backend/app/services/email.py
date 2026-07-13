@@ -52,11 +52,11 @@ _EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
 # requester — never to the internal team copy.
 _CONFIRMATION_NOTE = (
     "Please check your spam folder in case you don't hear back within "
-    "1–2 business days, or contact arslan@firebird-technologies.com"
+    f"1–2 business days, or contact {settings.INTERNAL_ALERT_EMAIL}"
 )
 
 # CC'd on every requester confirmation email for internal visibility.
-_CONFIRMATION_CC = ["arslan@firebird-technologies.com"]
+_CONFIRMATION_CC = [settings.INTERNAL_ALERT_EMAIL]
 
 
 def _extract_email(text: Optional[str]) -> Optional[str]:
@@ -563,7 +563,7 @@ class EmailService:
         contact_details: str,
         message: str,
         is_designer_request: bool = False,
-        to: str = "arslan@firebird-technologies.com",
+        to: str = settings.INTERNAL_ALERT_EMAIL,
     ) -> None:
         """
         Forward an enterprise contact form submission to the internal team.
@@ -637,7 +637,7 @@ class EmailService:
         rating: int,
         suggestion: Optional[str],
         plan: str,
-        to: str = "arslan@firebird-technologies.com",
+        to: str = settings.INTERNAL_ALERT_EMAIL,
     ) -> None:
         """
         Alert the internal team when a user leaves a low review (rating < 2) on a
@@ -675,6 +675,31 @@ class EmailService:
 
 
 
+    def send_render_failure_alert_email(
+        self,
+        project_id: int,
+        error_summary: str | None = None,
+        to: str = settings.INTERNAL_ALERT_EMAIL,
+    ) -> None:
+        """
+        Alert the internal team when a render has failed after exhausting all
+        retry attempts. Triggered from the final-failure branch in
+        services/remotion.py's render subprocess handler. Internal-only —
+        intentionally does NOT cc the project owner.
+        """
+        text = f"A render failed after 3 attempts and needs attention.\n\nProject id: {project_id}\n"
+        if error_summary:
+            text += f"\nLast error:\n{error_summary}\n"
+
+        self.provider.send_email(
+            to=to,
+            subject=f"[Render Failed] Project {project_id}",
+            text_content=text,
+            from_email="support@blog2video.app",
+        )
+
+
+
     def send_custom_template_request_email(
         self,
         user_name: str,
@@ -683,7 +708,7 @@ class EmailService:
         description: str,
         alternate_contact: str | None = None,
         company_information: str | None = None,
-        to: str = "arslan@firebird-technologies.com",
+        to: str = settings.INTERNAL_ALERT_EMAIL,
     ) -> None:
         """
         Forward a custom template request from a logged-in user to the internal team.
