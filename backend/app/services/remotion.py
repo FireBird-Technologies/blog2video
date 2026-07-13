@@ -346,6 +346,17 @@ def _write_generated_scene_files(workspace: str, template_id: str) -> None:
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(wrapped)
         logger.info("Wrote SceneContent%d.tsx (%d bytes)", i, len(wrapped))
+        # TEMP DEBUG (remove after): persist raw + wrapped variants to a stable
+        # dir that render cleanup never touches, so a broken variant can be read.
+        try:
+            _dbg = "/tmp/b2v-scene-debug"
+            os.makedirs(_dbg, exist_ok=True)
+            with open(os.path.join(_dbg, f"raw_SceneContent{i}.tsx"), "w", encoding="utf-8") as _f:
+                _f.write(code)
+            with open(os.path.join(_dbg, f"wrapped_SceneContent{i}.tsx"), "w", encoding="utf-8") as _f:
+                _f.write(wrapped)
+        except Exception:
+            pass
 
     # Write SceneContent.tsx that re-exports Content0 (backward compat for GeneratedVideo stub)
     if num_content > 0:
