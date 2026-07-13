@@ -48,6 +48,7 @@ from app.services.remotion import (
     write_remotion_data,
 )
 from app.services.doc_extractor import extract_from_documents
+from app.services.email import email_service, EmailServiceError
 from app.services.project_cleanup import (
     remove_failed_generation_project,
     PUBLIC_MSG_PIPELINE_FAILED,
@@ -3420,6 +3421,20 @@ def submit_project_review(
 
     db.commit()
     db.refresh(review)
+
+    if review.rating < 2:
+        try:
+            email_service.send_low_rating_alert_email(
+                user_name=user.name,
+                user_email=user.email,
+                project_id=project.id,
+                project_name=project.name,
+                rating=review.rating,
+                suggestion=review.suggestion,
+                plan=review.plan_at_submission,
+            )
+        except EmailServiceError:
+            logger.exception("Failed to send low-rating alert email for review %s", review.id)
 
     return ReviewSubmitResponse(
         review=ReviewOut.model_validate(review),

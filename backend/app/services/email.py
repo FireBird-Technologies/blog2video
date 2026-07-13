@@ -10,6 +10,7 @@ Notifications:
   - schedule_followup_email()      → optional follow-up e.g. 23.5h after project updated_at (scheduled via Resend)
   - send_enterprise_contact_email() → enterprise contact form submission
   - send_free_tier_video_limit_announcement() → campaign: free plan included-video limit raised
+  - send_low_rating_alert_email()   → low review (rating < 2) on a project, CC'd to the user
 """
 
 import hashlib
@@ -51,11 +52,11 @@ _EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
 # requester — never to the internal team copy.
 _CONFIRMATION_NOTE = (
     "Please check your spam folder in case you don't hear back within "
-    "1–2 business days, or contact arslan@firebird-technologies.com"
+    f"1–2 business days, or contact {settings.INTERNAL_ALERT_EMAIL}"
 )
 
 # CC'd on every requester confirmation email for internal visibility.
-_CONFIRMATION_CC = ["arslan@firebird-technologies.com"]
+_CONFIRMATION_CC = [settings.INTERNAL_ALERT_EMAIL]
 
 
 def _extract_email(text: Optional[str]) -> Optional[str]:
@@ -562,7 +563,7 @@ class EmailService:
         contact_details: str,
         message: str,
         is_designer_request: bool = False,
-        to: str = "arslan@firebird-technologies.com",
+        to: str = settings.INTERNAL_ALERT_EMAIL,
     ) -> None:
         """
         Forward an enterprise contact form submission to the internal team.
@@ -627,6 +628,78 @@ class EmailService:
 
 
 
+    def send_low_rating_alert_email(
+        self,
+        user_name: str,
+        user_email: str,
+        project_id: int,
+        project_name: str,
+        rating: int,
+        suggestion: Optional[str],
+        plan: str,
+        to: str = settings.INTERNAL_ALERT_EMAIL,
+    ) -> None:
+        """
+        Alert the internal team when a user leaves a low review (rating < 2) on a
+        video, CC'ing the user so the team can reply directly to diagnose the issue.
+        Triggered by POST /projects/{project_id}/review.
+
+        Written as a warm, first-person note addressed to the user (since they're
+        CC'd and will read it) rather than an internal data dump, so a reply-all
+        from the team reaches the user directly. Plain text only, no HTML, so it
+        reads like a real person wrote it rather than a template.
+        """
+        first_name = user_name.split()[0] if user_name.strip() else "there"
+
+        text = (
+            f"Hi {first_name},\n\n"
+            f"We saw that your recent video, \"{project_name}\", didn't meet your expectations "
+            f"({rating}/5). We're sorry about that, that's not the experience we want you to have.\n\n"
+        )
+        if suggestion:
+            text += f"Here's what you shared with us: {suggestion}\n\n"
+        text += (
+            "We'd love to help make this right. Just reply to this email and let us know "
+            "what went wrong, we're reading every reply personally.\n\n"
+            "Best regards,\n"
+            "Support Team, Blog2Video"
+        )
+
+        self.provider.send_email(
+            to=to,
+            subject="We noticed your experience wasn't great, how can we help?",
+            text_content=text,
+            from_email="support@blog2video.app",
+            cc=[user_email],
+        )
+
+
+
+    def send_render_failure_alert_email(
+        self,
+        project_id: int,
+        error_summary: str | None = None,
+        to: str = settings.INTERNAL_ALERT_EMAIL,
+    ) -> None:
+        """
+        Alert the internal team when a render has failed after exhausting all
+        retry attempts. Triggered from the final-failure branch in
+        services/remotion.py's render subprocess handler. Internal-only —
+        intentionally does NOT cc the project owner.
+        """
+        text = f"A render failed after 3 attempts and needs attention.\n\nProject id: {project_id}\n"
+        if error_summary:
+            text += f"\nLast error:\n{error_summary}\n"
+
+        self.provider.send_email(
+            to=to,
+            subject=f"[Render Failed] Project {project_id}",
+            text_content=text,
+            from_email="support@blog2video.app",
+        )
+
+
+
     def send_custom_template_request_email(
         self,
         user_name: str,
@@ -635,7 +708,7 @@ class EmailService:
         description: str,
         alternate_contact: str | None = None,
         company_information: str | None = None,
-        to: str = "arslan@firebird-technologies.com",
+        to: str = settings.INTERNAL_ALERT_EMAIL,
     ) -> None:
         """
         Forward a custom template request from a logged-in user to the internal team.
