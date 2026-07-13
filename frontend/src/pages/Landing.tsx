@@ -645,6 +645,14 @@ export default function Landing() {
         return;
       }
 
+      // Resume a collaboration invite the user opened before signing in.
+      const pendingInvite = localStorage.getItem("b2v_pending_invite");
+      if (pendingInvite) {
+        localStorage.removeItem("b2v_pending_invite");
+        navigate(`/invite/${pendingInvite}`, { replace: true });
+        return;
+      }
+
       navigate("/dashboard");
     } catch (err: any) {
       if (err?.response?.status === 403 && err?.response?.data?.detail === "account_deleted") {
@@ -668,6 +676,12 @@ export default function Landing() {
       if (localStorage.getItem("b2v_pending_mcp")) {
         localStorage.removeItem("b2v_pending_mcp");
         navigate("/mcp-connector");
+        return;
+      }
+      const pendingInvite = localStorage.getItem("b2v_pending_invite");
+      if (pendingInvite) {
+        localStorage.removeItem("b2v_pending_invite");
+        navigate(`/invite/${pendingInvite}`, { replace: true });
         return;
       }
       navigate("/dashboard");

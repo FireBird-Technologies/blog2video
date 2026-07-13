@@ -144,15 +144,22 @@ export const deriveLightWash = (bgColor?: string): { center: string; edge: strin
   };
 };
 
+// The template's DEFAULT text color, materialized in SakuraVideoComposition
+// (`textColor || SAKURA_DEFAULT_TEXT`). Near-black, tuned for the LIGHT scenes.
+// We treat this exact value as "user hasn't customized text" so the dark scenes
+// can fall back to washi for it, while still honoring any explicit user color.
+export const SAKURA_DEFAULT_TEXT = "#2A0A12";
+
 /**
  * Pick a legible text color for a given backdrop from the user's textColor.
  *
- * The template's DEFAULT text color (#2A0A12, near-black) is tuned for the light
- * scenes (near-black on cream). On the DARK scenes (intro / quote / stat) that
- * same near-black would be invisible, so we only honor the user's textColor there
- * when it is light enough to read — otherwise we fall back to the light `washi`
- * default. On light scenes we keep the color as-is (dark-on-cream is fine, and a
- * light user color would wash out — callers just use `textColor || SAKURA.ink`).
+ * On LIGHT scenes we keep the color as-is (dark-on-cream is fine). On DARK scenes
+ * (intro / quote / stat / ending) the near-black DEFAULT would be invisible, so:
+ *   - the untouched default → fall back to the light `washi` (clean cream look);
+ *   - an EXPLICIT user color that reads fine → use it verbatim;
+ *   - an EXPLICIT user color too dark for the dark ground → keep the user's HUE
+ *     but lift its lightness so the choice is still visibly applied (never
+ *     silently discarded — that made "change the text color" look like a no-op).
  *
  * `variant` is the backdrop tone; only "dark" applies the legibility guard.
  */
@@ -161,12 +168,17 @@ export const readableTextColor = (
   variant: "dark" | "light",
 ): string => {
   if (variant === "light") return textColor || SAKURA.ink;
-  const hsl = textColor ? hexToHsl(textColor) : null;
-  // Too dark to read on a dark ground → use the light washi default instead.
-  // Threshold sits below mid-tones (cyan/teal come through) but above the
-  // template's near-black default (#2A0A12, L≈0.10) so it correctly falls back.
-  if (!hsl || hsl.l < 0.42) return SAKURA.washi;
-  return textColor as string;
+  // Untouched default (or missing) → washi. Compare case-insensitively so an
+  // equivalent hex from the picker still counts as "not customized".
+  if (!textColor || textColor.toLowerCase() === SAKURA_DEFAULT_TEXT.toLowerCase())
+    return SAKURA.washi;
+  const hsl = hexToHsl(textColor);
+  if (!hsl) return SAKURA.washi;
+  // The user explicitly chose this color — always honor it. If it's too dark to
+  // read on the dark ground, keep its hue/saturation and raise lightness to a
+  // legible floor instead of throwing the choice away.
+  if (hsl.l < 0.55) return hslToHex(hsl.h, hsl.s, 0.7);
+  return textColor;
 };
 
 /**
@@ -2088,6 +2100,9 @@ export const GrowingSakuraTree: React.FC<{
   textFadeRect?: { x: number; y: number; w: number; h: number };
   /** opacity multiplier applied at the center of textFadeRect (feathered to edges) */
   textFadeOpacity?: number;
+  /** scene duration in real frames. When set, the wind sway eases back to rest
+   *  over the last ~20 frames so the tree isn't snapped away mid-swing at the cut. */
+  dur?: number;
 }> = ({
   width: w,
   height: h,
@@ -2110,6 +2125,7 @@ export const GrowingSakuraTree: React.FC<{
   shedIntensity = 1,
   textFadeRect,
   textFadeOpacity = 0.2,
+  dur,
 }) => {
   const frame = useSakuraFrame();
   const leanSign = lean === "left" ? -1 : 1;
@@ -2333,6 +2349,19 @@ export const GrowingSakuraTree: React.FC<{
         return Math.sin(frame * 0.035) * 0.7 * settle;
     }
   })();
+  // Ease the wind sway back to rest before the scene is cut, so the tree isn't
+  // snapped away mid-swing (that abrupt stop reads as a jerk). Real clock — an
+  // end-keyed ramp must not be tempo-scaled or it never reaches 0 at `dur`.
+  const realFrame = useCurrentFrame();
+  const SWAY_SETTLE = 20; // frames over which the sway eases to rest
+  const swaySettleOut =
+    dur != null
+      ? interpolate(realFrame, [dur - SWAY_SETTLE, dur], [1, 0], {
+          extrapolateLeft: "clamp",
+          extrapolateRight: "clamp",
+          easing: (t) => t * t, // ease-out so the last bit of motion is gentle
+        })
+      : 1;
 
   // Fade branches/blossoms toward `textFadeOpacity` where they cross the text
   // block, with feathered edges so they ease into the dimmed region.
@@ -2356,7 +2385,7 @@ export const GrowingSakuraTree: React.FC<{
       viewBox={`0 0 ${w} ${h}`}
       style={{ display: "block", overflow: "visible", opacity, pointerEvents: "none" }}
     >
-      <g transform={`rotate(${sway}, ${ox}, ${oy})`}>
+      <g transform={`rotate(${sway * swaySettleOut}, ${ox}, ${oy})`}>
         {branches.map((b, i) => {
           const t = segT(b.depth);
           if (t <= 0) return null;

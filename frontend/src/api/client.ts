@@ -142,6 +142,8 @@ export interface Asset {
 
 export interface Project {
   id: number;
+  // Owner user id — lets the editor tell owners from collaborators.
+  user_id: number;
   name: string;
   blog_url: string | null;
   blog_content: string | null;
@@ -168,6 +170,8 @@ export interface Project {
   aspect_ratio: string;
   video_style?: VideoStyleId;
   video_length?: "auto" | "short" | "medium" | "detailed" | "more_detailed";
+  /** ISO 639-1 content language ('en', 'es'). Null = auto-detected from the source. */
+  content_language?: string | null;
   playback_speed?: number;
   bgm_track_id?: string | null;
   bgm_volume?: number;
@@ -187,6 +191,16 @@ export interface Project {
   custom_template_missing?: boolean;
   brand_logo_url?: string | null;
   review_state?: ReviewState | null;
+  /** True when the project has ≥1 collaborator — gates the per-scene comment button. */
+  is_shared?: boolean;
+  /**
+   * True when the project OWNER is on a paid plan. On a shared project the owner
+   * pays, so collaborators gate Pro-only features (custom/crafted templates, paid
+   * voices) on this rather than their own plan.
+   */
+  owner_is_pro?: boolean;
+  /** The project OWNER's display name — used to attribute owner-scoped templates/voices in a collaborator's UI. */
+  owner_name?: string | null;
   created_at: string;
   updated_at: string;
   scenes: Scene[];
@@ -211,6 +225,9 @@ export interface ProjectListItem {
   created_at: string;
   updated_at: string;
   scene_count: number;
+  // Collaboration: acting user's role ("owner" | "editor") + owner display name.
+  role?: string;
+  owner_name?: string | null;
 }
 
 export interface ChatMessage {
@@ -798,6 +815,11 @@ export interface RebuildLayoutRequest {
   extra_props: PropDef[];
   image_base64?: string | null;
   image_mime_type?: string | null;
+  // Optional HTML / SVG mock to drive the redesign (paste or read from a file).
+  html_example?: string | null;
+  svg_example?: string | null;
+  // How the SVG should be used (e.g. "use as a full-bleed background").
+  svg_usage?: string | null;
 }
 
 export interface RebuildLayoutResponse {
@@ -820,12 +842,18 @@ export const rebuildTemplateLayoutFile = (payload: {
   instruction: string;
   extra_props: PropDef[];
   image: File;
+  html_example?: string | null;
+  svg_example?: string | null;
+  svg_usage?: string | null;
 }) => {
   const formData = new FormData();
   formData.append("template_id", payload.template_id);
   formData.append("layout_id", payload.layout_id);
   formData.append("instruction", payload.instruction);
   formData.append("extra_props_json", JSON.stringify(payload.extra_props || []));
+  if (payload.html_example) formData.append("html_example", payload.html_example);
+  if (payload.svg_example) formData.append("svg_example", payload.svg_example);
+  if (payload.svg_usage) formData.append("svg_usage", payload.svg_usage);
   formData.append("image", payload.image);
   return api.post<RebuildLayoutResponse>("/template-studio/ai-layout/rebuild-file", formData, {
     headers: { "Content-Type": "multipart/form-data" },
@@ -1172,6 +1200,9 @@ export const uploadLogo = (projectId: number, file: File) => {
   );
 };
 
+export const deleteLogo = (projectId: number) =>
+  api.delete<{ detail: string }>(`/projects/${projectId}/logo`);
+
 export interface ProjectLogoUpdate {
   logo_position?: string;
   logo_size?: number;
@@ -1305,6 +1336,44 @@ export const changeProjectVoice = (
 
 export const getVoiceChangeStatus = (projectId: number) =>
   api.get<VoiceChangeStatus>(`/projects/${projectId}/voice-change-status`);
+
+export interface LanguageChangeStartResponse {
+  started: boolean;
+  /** Scene count x 2 (translate pass + voiceover pass). */
+  total: number;
+  content_language: string;
+}
+
+export interface LanguageChangeStatus {
+  active: boolean;
+  done: boolean;
+  error: string | null;
+  total: number;
+  completed: number;
+  progress: number;
+  /** Which pass is running: "translating" then "voiceover". */
+  phase?: "translating" | "voiceover";
+  status: string;
+  r2_video_url: string | null;
+  kind?: string;
+  content_language: string | null;
+}
+
+/**
+ * Translate the whole project into a new language and regenerate every voiceover.
+ * Layouts, image assignments, colors, chart data and links are preserved — only the
+ * prose changes language.
+ *
+ * Any editor may trigger this, but it counts as a new video and deducts one credit
+ * from the project OWNER. Runs in the background — poll getLanguageChangeStatus.
+ */
+export const changeProjectLanguage = (projectId: number, contentLanguage: string) =>
+  api.post<LanguageChangeStartResponse>(`/projects/${projectId}/change-language`, {
+    content_language: contentLanguage,
+  });
+
+export const getLanguageChangeStatus = (projectId: number) =>
+  api.get<LanguageChangeStatus>(`/projects/${projectId}/language-change-status`);
 
 /**
  * Remove the project's voiceover and make the video mute. Does NOT deduct a video
@@ -1747,6 +1816,42 @@ export const getTemplateCode = (templateId: number) =>
   api.get<{ component_code: string | null; intro_code: string | null; outro_code: string | null; content_codes: string[] | null }>(
     `/custom-templates/${templateId}/code`
   );
+
+// ─── Project-scoped (owner-resolved) reads for shared projects ─────
+// On a shared project, a collaborator must see the OWNER's templates/voices,
+// not their own. These authorize via project membership on the backend and
+// resolve against the project owner. The frontend routes through them only
+// when the viewer is a collaborator (project.user_id !== user.id).
+
+export const listProjectCustomTemplates = (projectId: number) =>
+  api.get<CustomTemplateItem[]>(`/projects/${projectId}/custom-templates`);
+
+export const getProjectTemplateCode = (projectId: number, templateId: number) =>
+  api.get<{ component_code: string | null; intro_code: string | null; outro_code: string | null; content_codes: string[] | null }>(
+    `/projects/${projectId}/custom-templates/${templateId}/code`
+  );
+
+export const listProjectCraftedTemplates = (
+  projectId: number,
+  opts?: CraftedTemplateFetchOptions,
+) =>
+  api.get<CraftedTemplateSummary[]>(
+    `/projects/${projectId}/crafted-templates`,
+    craftedRequestConfig(opts),
+  );
+
+export const getProjectCraftedTemplateDetail = (
+  projectId: number,
+  templateId: string,
+  opts?: CraftedTemplateFetchOptions,
+) =>
+  api.get<CraftedTemplateDetail>(
+    `/projects/${projectId}/crafted-templates/${encodeURIComponent(templateId)}`,
+    craftedRequestConfig(opts),
+  );
+
+export const getProjectVoices = (projectId: number) =>
+  api.get<SavedVoiceFromAPI[]>(`/projects/${projectId}/voices`);
 
 // ─── Brand asset uploads ────────────────────────────────────
 

@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, Audio, Sequence } from "remotion";
+import { AbsoluteFill, Audio, Sequence, delayRender, continueRender } from "remotion";
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import { SAKURA_LAYOUT_REGISTRY as LAYOUT_REGISTRY, SakuraLayoutType, SceneLayoutProps } from "./layouts";
 import { LogoOverlay } from "../LogoOverlay";
@@ -47,16 +47,54 @@ export interface SakuraVideoCompositionProps {
 
 const FPS = 30;
 
+// The Sakura scene fonts (Noto Serif JP display + Shippori Mincho body) load asynchronously from
+// their @fontsource CSS. Without gating, the render captures frame 0 while the fallback serif is
+// still showing, then snaps to the real JP fonts a few frames in — a visible jerk at the very start
+// of the first scene. Hold the render (delayRender) until both fonts + weights are ready, mirroring
+// how captions gate on ensureCaptionFontLoaded. Resolves immediately in environments without the
+// Font Loading API. Weights match the @fontsource imports in sakuraStyle (JP: 400/700, body: 400/600).
+const useSakuraFontsLoaded = (): void => {
+  const [handle] = React.useState(() => delayRender("sakura-fonts"));
+  React.useEffect(() => {
+    const fontsApi = (typeof document !== "undefined" ? document.fonts : undefined) as
+      | FontFaceSet
+      | undefined;
+    if (!fontsApi) {
+      continueRender(handle);
+      return;
+    }
+    const load = (spec: string) => fontsApi.load(spec).catch(() => undefined);
+    Promise.all([
+      load('400 40px "Noto Serif JP"'),
+      load('700 40px "Noto Serif JP"'),
+      load('400 40px "Shippori Mincho"'),
+      load('600 40px "Shippori Mincho"'),
+    ])
+      .then(() => fontsApi.ready)
+      .catch(() => undefined)
+      .finally(() => continueRender(handle));
+  }, [handle]);
+};
+
+// Silent visual "hold" (~3s @ 30fps) appended to the END of every non-last Sakura scene's visual
+// window so each page gets a beat to breathe before its transition. Carries NO voiceover and NO
+// caption — audio/captions stay on the base scene window; only the TransitionSeries.Sequence length
+// and the total duration grow by it. Last scene gets no hold. 90 > max transition overlap (75), so
+// the hold always fully clears the boundary. Mirror byte-identical across all three Sakura trees.
+const SAKURA_EXTRA_HOLD_FRAMES = 45;
+
 // Resolve per-scene layout + duration frames once (shared by the render and the
 // duration computation so they stay in sync).
 const resolveScenes = (scenes: SakuraSceneInput[]) =>
-  scenes.map((scene) => {
+  scenes.map((scene, index, arr) => {
     const layoutKey: SakuraLayoutType =
       (scene.layout as SakuraLayoutType) in LAYOUT_REGISTRY
         ? (scene.layout as SakuraLayoutType)
         : ("sakura_section" as SakuraLayoutType);
     const durationFrames = Math.max(1, Math.round((Number(scene.durationSeconds) || 5) * FPS));
-    return { scene, layoutKey, durationFrames };
+    const sequenceFrames =
+      index === arr.length - 1 ? durationFrames : durationFrames + SAKURA_EXTRA_HOLD_FRAMES;
+    return { scene, layoutKey, durationFrames, sequenceFrames };
   });
 
 // A TransitionSeries transition may not exceed either neighbouring sequence, and
@@ -88,7 +126,7 @@ const boundaryFrames = (
 export const computeSakuraVideoTotalFrames = (scenes: SakuraSceneInput[]): number => {
   if (scenes.length === 0) return FPS * 5;
   const resolved = resolveScenes(scenes);
-  let total = resolved.reduce((sum, s) => sum + s.durationFrames, 0);
+  let total = resolved.reduce((sum, s) => sum + s.sequenceFrames, 0);
   for (let i = 0; i < resolved.length - 1; i++) {
     total -= boundaryFrames(resolved, i);
   }
@@ -114,6 +152,9 @@ export const SakuraVideoComposition: React.FC<SakuraVideoCompositionProps> = ({
   captionFontSize,
   captionOffset,
 }) => {
+  // Gate the render until the JP scene fonts are ready so the first scene doesn't jerk on font swap.
+  useSakuraFontsLoaded();
+
   const resolved = resolveScenes(scenes);
 
   // Absolute scene start frames (for voiceover audio), accounting for overlaps.
@@ -121,7 +162,7 @@ export const SakuraVideoComposition: React.FC<SakuraVideoCompositionProps> = ({
   const sceneStartFrames: number[] = [];
   resolved.forEach((s, i) => {
     sceneStartFrames[i] = runningFrame;
-    runningFrame += s.durationFrames;
+    runningFrame += s.sequenceFrames;
     if (i < resolved.length - 1) {
       runningFrame -= boundaryFrames(resolved, i);
     }
@@ -192,14 +233,14 @@ export const SakuraVideoComposition: React.FC<SakuraVideoCompositionProps> = ({
     <AbsoluteFill style={{ backgroundColor: bgColor || "#FDF6F0", fontFamily }}>
       <TransitionSeries>
         {resolved.map((s, index) => {
-          const { scene, layoutKey, durationFrames } = s;
+          const { scene, layoutKey, durationFrames, sequenceFrames } = s;
           const LayoutComponent = LAYOUT_REGISTRY[layoutKey] ?? LAYOUT_REGISTRY.sakura_section;
           const layoutProps = buildLayoutProps(scene, durationFrames);
 
           const sequence = (
             <TransitionSeries.Sequence
               key={`seq-${scene.id}-${index}`}
-              durationInFrames={durationFrames}
+              durationInFrames={sequenceFrames}
             >
               <LayoutComponent {...layoutProps} />
             </TransitionSeries.Sequence>
@@ -214,6 +255,7 @@ export const SakuraVideoComposition: React.FC<SakuraVideoCompositionProps> = ({
             index,
             layoutKey,
             resolved[index + 1].layoutKey,
+            accentColor,
           );
 
           return (

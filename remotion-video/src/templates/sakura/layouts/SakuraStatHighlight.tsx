@@ -12,6 +12,7 @@ import {
   hexToRgba,
   sakuraRand,
   readableTextColor,
+  deriveDarkWash,
 } from "../sakuraStyle";
 
 /**
@@ -45,6 +46,10 @@ export const SakuraStatHighlight: React.FC<SceneLayoutProps> = (props) => {
   // but a near-black text color would vanish on dark, so fall back to light washi.
   const crimson = accentColor || SAKURA.crimson;
   const ink = readableTextColor(textColor, "dark");
+  // The image scrim tints from the user's bgColor (same wash the quote/intro
+  // use), so changing the background color re-tints the photo vignette instead
+  // of it staying fixed-plum.
+  const darkWash = deriveDarkWash(bgColor); // { center, edge }
 
   // Never fall back to prose (e.g. an editor's "Hello World" title) for the big
   // number — the stat scene must always read as a NUMBER. Only accept `title` as
@@ -61,6 +66,9 @@ export const SakuraStatHighlight: React.FC<SceneLayoutProps> = (props) => {
 
   const statPx = titleFontSize ?? (p ? 190 : 240);
   const contextPx = descriptionFontSize ?? (p ? 28 : 24);
+  // Stat label (gold caps caption under the number) scales off the context/body
+  // size so it tracks the display-text slider.
+  const statLabelPx = Math.max(16, Math.round(contextPx * 1.0));
 
   const cx = width / 2;
   const cy = height / 2 - (p ? 40 : 30);
@@ -230,13 +238,13 @@ export const SakuraStatHighlight: React.FC<SceneLayoutProps> = (props) => {
           }}
         />
       </div>
-      {/* Plum scrim over the photo so the number reads cleanly on top. */}
+      {/* Background-tinted scrim over the photo so the number reads cleanly on top. */}
       <div
         style={{
           position: "absolute",
           inset: 0,
           borderRadius: "50%",
-          background: `radial-gradient(circle at 50% 50%, ${hexToRgba(SAKURA.plum, 0.55)}, ${hexToRgba(SAKURA.plum, 0.15)} 70%, transparent)`,
+          background: `radial-gradient(circle at 50% 50%, ${hexToRgba(darkWash.center, 0.55)}, ${hexToRgba(darkWash.center, 0.15)} 70%, transparent)`,
           maskImage: vignetteMask,
           WebkitMaskImage: vignetteMask,
         }}
@@ -358,8 +366,8 @@ export const SakuraStatHighlight: React.FC<SceneLayoutProps> = (props) => {
         {statLabel ? (
           <div
             style={{
-              fontFamily: SAKURA_BODY_FONT,
-              fontSize: p ? 26 : 26,
+              fontFamily: fontFamily ?? SAKURA_BODY_FONT,
+              fontSize: statLabelPx,
               color: SAKURA.gold,
               letterSpacing: "0.4em",
               textTransform: "uppercase",
@@ -376,7 +384,7 @@ export const SakuraStatHighlight: React.FC<SceneLayoutProps> = (props) => {
         {context ? (
           <div
             style={{
-              fontFamily: SAKURA_BODY_FONT,
+              fontFamily: fontFamily ?? SAKURA_BODY_FONT,
               fontStyle: "italic",
               fontSize: contextPx,
               color: hexToRgba(ink, 0.85),

@@ -94,6 +94,7 @@ export const SakuraDataChart: React.FC<SceneLayoutProps> = ({
   const dur = sceneDurationInFrames ?? durationInFrames;
   const p = aspectRatio === "portrait" || height > width;
   const bodyFont = fontFamily || SAKURA_BODY_FONT;
+  const displayFont = fontFamily || SAKURA_DISPLAY_FONT;
 
   const ink = textColor || SAKURA.ink;
   const accent = accentColor || SAKURA.crimson;
@@ -614,7 +615,7 @@ export const SakuraDataChart: React.FC<SceneLayoutProps> = ({
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", padding: p ? "12% 7% 6%" : "9% 7% 5%" }}>
         {/* Title */}
         <div style={{ opacity: titleOp, marginBottom: Math.round(height * 0.024), textAlign: "center" }}>
-          <div style={{ fontFamily: SAKURA_DISPLAY_FONT, fontWeight: 700, fontSize: titleSize, lineHeight: 1.08, color: ink, letterSpacing: "0.01em" }}>
+          <div style={{ fontFamily: displayFont, fontWeight: 700, fontSize: titleSize, lineHeight: 1.08, color: ink, letterSpacing: "0.01em" }}>
             {title}
           </div>
           <div style={{ display: "flex", justifyContent: "center", marginTop: Math.round(height * 0.012) }}>
@@ -669,7 +670,7 @@ export const SakuraDataChart: React.FC<SceneLayoutProps> = ({
                 </MeasuredChart>
               </div>
             ) : (
-              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: bodyFont, color: "rgba(26,10,15,0.50)", fontSize: descSize, fontStyle: "italic", opacity: ra }}>
+              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: bodyFont, color: hexToRgba(ink, 0.5), fontSize: descSize, fontStyle: "italic", opacity: ra }}>
                 No data — add data by editing this scene
               </div>
             )}

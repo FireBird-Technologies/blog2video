@@ -14,6 +14,7 @@ import {
   hexToRgba,
   readableTextColor,
   petalTint,
+  deriveDarkWash,
 } from "../sakuraStyle";
 
 export const SakuraIntro: React.FC<SceneLayoutProps> = (props) => {
@@ -30,6 +31,7 @@ export const SakuraIntro: React.FC<SceneLayoutProps> = (props) => {
     sceneDurationInFrames,
     titleFontSize,
     descriptionFontSize,
+    fontFamily,
   } = props;
 
   const p = aspectRatio === "portrait";
@@ -46,6 +48,10 @@ export const SakuraIntro: React.FC<SceneLayoutProps> = (props) => {
   // crimson → the reference blush), so the original pink+gold intro look is
   // preserved while custom accent colors still shift the petal tint.
   const petal = petalTint(accentColor);
+  // Hero-image overlays tint from the user's bgColor (same wash the quote scene
+  // uses), so changing the background color re-tints the intro's dark ground
+  // instead of it staying accent/plum-driven.
+  const darkWash = deriveDarkWash(bgColor); // { center, edge }
 
   const kanjiTitle = (props as any).kanjiTitle ?? title ?? "桜";
   const romanTitle = (props as any).romanTitle ?? "";
@@ -56,6 +62,9 @@ export const SakuraIntro: React.FC<SceneLayoutProps> = (props) => {
   const taglinePx = descriptionFontSize ?? (p ? 52 : 67);
   // Roman title scales with the kanji title so they grow/shrink together.
   const romanPx = Math.max(14, Math.round(titlePx * 0.19));
+  // Author byline is a faint micro-label; scale it off the tagline (the
+  // description-slider-driven sibling) so it tracks the display-text size.
+  const authorPx = Math.max(12, Math.round(taglinePx * 0.28));
 
   // Kanji blooms in
   const kanjiSpring = spring({ frame, fps, config: { damping: 18, stiffness: 60 } });
@@ -118,24 +127,24 @@ export const SakuraIntro: React.FC<SceneLayoutProps> = (props) => {
           pointerEvents: "none",
         }}
       />
-      {/* Accent tint: the palette's main color washed over the photo. */}
+      {/* Background tint: the chosen bgColor's dark wash washed over the photo. */}
       <div
         style={{
           position: "absolute",
           inset: 0,
-          background: crimson,
+          background: darkWash.center,
           mixBlendMode: "color",
           opacity: bgReveal * 0.4,
           pointerEvents: "none",
         }}
       />
-      {/* Plum→void vignette + accent multiply so the image settles into the
-          scene and the centered title always stays readable over it. */}
+      {/* Background-tinted vignette so the image settles into the scene and the
+          centered title always stays readable over it. */}
       <div
         style={{
           position: "absolute",
           inset: 0,
-          background: `radial-gradient(120% 120% at 50% 50%, transparent 0%, ${hexToRgba(SAKURA.plum, 0.5)} 55%, ${hexToRgba(SAKURA.void, 0.86)} 100%), linear-gradient(0deg, ${hexToRgba(SAKURA.void, 0.7)}, transparent 30%, transparent 70%, ${hexToRgba(SAKURA.void, 0.7)})`,
+          background: `radial-gradient(120% 120% at 50% 50%, transparent 0%, ${hexToRgba(darkWash.center, 0.5)} 55%, ${hexToRgba(darkWash.edge, 0.86)} 100%), linear-gradient(0deg, ${hexToRgba(darkWash.edge, 0.7)}, transparent 30%, transparent 70%, ${hexToRgba(darkWash.edge, 0.7)})`,
           pointerEvents: "none",
         }}
       />
@@ -181,7 +190,7 @@ export const SakuraIntro: React.FC<SceneLayoutProps> = (props) => {
         {/* Kanji title */}
         <div
           style={{
-            fontFamily: SAKURA_DISPLAY_FONT,
+            fontFamily: fontFamily ?? SAKURA_DISPLAY_FONT,
             fontWeight: 700,
             fontSize: titlePx,
             color: petal,
@@ -207,7 +216,7 @@ export const SakuraIntro: React.FC<SceneLayoutProps> = (props) => {
         {romanTitle ? (
           <div
             style={{
-              fontFamily: SAKURA_BODY_FONT,
+              fontFamily: fontFamily ?? SAKURA_BODY_FONT,
               fontSize: romanPx,
               color: SAKURA.gold,
               letterSpacing: "0.75em",
@@ -231,7 +240,7 @@ export const SakuraIntro: React.FC<SceneLayoutProps> = (props) => {
         {tagline ? (
           <div
             style={{
-              fontFamily: SAKURA_BODY_FONT,
+              fontFamily: fontFamily ?? SAKURA_BODY_FONT,
               fontStyle: "italic",
               fontSize: taglinePx,
               color: ink,
@@ -250,8 +259,8 @@ export const SakuraIntro: React.FC<SceneLayoutProps> = (props) => {
         {author ? (
           <div
             style={{
-              fontFamily: SAKURA_BODY_FONT,
-              fontSize: p ? 18 : 15,
+              fontFamily: fontFamily ?? SAKURA_BODY_FONT,
+              fontSize: authorPx,
               color: hexToRgba(ink, 0.32),
               letterSpacing: "0.6em",
               textTransform: "uppercase",

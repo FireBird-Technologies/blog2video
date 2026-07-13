@@ -41,6 +41,7 @@ import OutroScene from "./SceneOutro";
 import { CONTENT_VARIANTS } from "./contentRegistry";
 import { pickGeneratedTransition } from "./generatedTransitions";
 import { GeneratedCtaOverlay } from "./GeneratedCtaOverlay";
+import SceneErrorBoundary from "./SceneErrorBoundary";
 // Dedicated, deterministic data-viz scenes (chart + table) — rendered from a
 // bound table rather than AI code, so custom templates always get a reliable,
 // editable chart/table pair like the built-in templates.
@@ -380,7 +381,13 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             >
               <style>{`[data-scene-wrapper] img:not([data-logo]){object-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}[data-scene-wrapper] [data-content-img]{object-position:var(--img-pos,50% 50%) !important;background-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}`}</style>
               <div data-scene-wrapper style={{ width: "100%", height: "100%" }}>
-                <SceneComp {...sceneProps} />
+                <SceneErrorBoundary
+                  brandColors={brandColors}
+                  fallbackText={sceneProps.displayText}
+                  fontFamily={headingFont || resolvedFontFamily || undefined}
+                >
+                  <SceneComp {...sceneProps} />
+                </SceneErrorBoundary>
               </div>
             </AbsoluteFill>
           );

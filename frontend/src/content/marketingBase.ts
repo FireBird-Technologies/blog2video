@@ -427,6 +427,42 @@ export const templateProfiles: TemplateProfile[] = [
     ],
   },
   {
+    slug: "sakura",
+    name: "Sakura",
+    description:
+      "A serene Japanese-aesthetic template — cherry-blossom pinks, kanji titling, and washi-paper textures for calm, reflective storytelling.",
+    bestFor: "Cultural pieces, seasonal essays, mindful and lifestyle content, and reflective long-form storytelling.",
+    differentiator:
+      "Wraps your writing in a hand-crafted hanami aesthetic — drifting petals, kanji-and-roman titling, and soft plum-washi palettes — giving quiet, considered content a poetic identity no generic AI theme can match.",
+    styleFit: "Best for calm, cultural, and story-driven content that benefits from a gentle, contemplative mood.",
+    previewSceneKey: "preview-sakura",
+    layouts: [
+      "sakura_intro",
+      "sakura_section",
+      "sakura_quote",
+      "sakura_two_column_detail",
+      "sakura_stat_highlight",
+      "sakura_list_scene",
+      "sakura_text_narration",
+      "sakura_ending_socials",
+      "sakura_data_visualization",
+    ],
+    longDescription:
+      "The Sakura template renders your writing as a serene Japanese-inspired spread, with cherry-blossom pinks, kanji-and-roman titling, drifting petals, and soft washi-paper textures. Layouts like Sakura Intro, Section, Quote, Stat Highlight, List Scene, and Two-Column Detail are purpose-built for calm, reflective content where mood and craft matter as much as the message. Signature petal-gust transitions carry the eye between scenes, giving cultural essays, seasonal writing, and mindful storytelling a poetic, hand-made feel instead of a generic AI look.",
+    idealFor: [
+      "Cultural and travel storytelling",
+      "Seasonal and nature-themed essays",
+      "Mindfulness, wellness, and lifestyle content",
+      "Reflective personal-brand and narrative pieces",
+      "Calm, story-first educational writing",
+    ],
+    exampleTopics: [
+      "The brief, brilliant season of the cherry blossom",
+      "A slow-living guide to spring in Kyoto",
+      "What hanami teaches us about impermanence",
+    ],
+  },
+  {
     slug: "magazine",
     name: "Magazine",
     description:

@@ -60,13 +60,8 @@ def generate_embed_token(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> EmbedTokenResponse:
-    project = (
-        db.query(Project)
-        .filter(Project.id == project_id, Project.user_id == current_user.id)
-        .first()
-    )
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    from app.services.access import get_accessible_project
+    project = get_accessible_project(project_id, current_user, db)
 
     if not project.embed_token:
         project.embed_token = secrets.token_hex(32)

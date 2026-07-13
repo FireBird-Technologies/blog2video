@@ -10,8 +10,8 @@ NEWSCAST is a premium broadcast news video template system. Every frame feels li
 - Gold trim: `#D4AA50`
 - Never use purple, green, or pastels.
 
-## Optional scene image (`layoutProps.imageUrl`)
-- **Every layout** (including `opening` / Scene 0) may include `imageUrl` when a relevant image URL exists: a full-bleed background plate behind the NEWSCAST stack (globe, chrome, glass, type). Omit when no image is available or appropriate.
+## Scene image (`layoutProps.imageUrl`)
+- **Never output `imageUrl` yourself.** You are not given any real image URLs, so any value you invent here (including anything on `example.com` or a similar placeholder domain) is a hallucination and will break rendering. The full-bleed background plate behind the NEWSCAST stack (globe, chrome, glass, type) is assigned automatically by a separate system from the project's own images after your output is generated. Do not include `imageUrl` in `layoutProps` under any circumstances.
 
 ## Background field
 - Always `#060614` (deep space navy).
@@ -63,12 +63,12 @@ Legacy compatibility note: the renderer still accepts older IDs like `newscast_c
 **Props (use scene fields):**
 - `title`: 2–5 words. Split into first part (white) + last word/phrase (red).
 - `narration`: 8–16 words; becomes subtitle.
-- `imageUrl` (optional): full-bleed background plate under globe/chrome.
+- Do not output `imageUrl` — the background plate under globe/chrome is assigned automatically after generation.
 
 ---
 
 ## anchor_narrative (Anchor Narrative)
-**Visual:** Single frosted navy glass card centered (60–65% width). Red top border (3px) + red left accent bar (4px). Gold corner tick marks. Red category tag above. Oswald uppercase title. Barlow Condensed body paragraph. Optional right image if `imageUrl` exists.
+**Visual:** Single frosted navy glass card centered (60–65% width). Red top border (3px) + red left accent bar (4px). Gold corner tick marks. Red category tag above. Oswald uppercase title. Barlow Condensed body paragraph. Optional right image, assigned automatically after generation — do not output `imageUrl`.
 
 **Best for:** narrative context; main story explanation.
 
@@ -188,7 +188,7 @@ Legacy compatibility note: the renderer still accepts older IDs like `newscast_c
 
 **Best for:** image-focused scenes.
 
-**Props:** uses `imageUrl`, scene `title`, scene `narration`.
+**Props:** uses scene `title`, scene `narration`. Image is assigned automatically after generation — do not output `imageUrl`.
 
 ---
 
@@ -343,7 +343,7 @@ Comparison guidance:
 - `headline_insight`: extract one most powerful sentence into `quote`, then pick a single key word as `highlightWord`; attribution from narration when present.
 - `story_stack`: extract 2–3 parallel provisions into `items[]` and a `sectionLabel`.
 - `segment_break`: extract `chapterNumber` + `chapterLabel` when present; use scene `title`/`narration` for section title/subtitle when not.
-- `field_image_focus`: if image is available, use `imageUrl`, scene `title`, scene `narration`.
+- `field_image_focus`: use scene `title`, scene `narration`. Never output `imageUrl` — image is assigned automatically after generation.
 - `data_visualization`: if article/source contains numeric tables, scrape table headers + rows into `chartTable` and also emit best-fit chart props. For multiple tables, choose/merge comparable rows and columns for comparison charts. Comparison charts may be line or bar based on data shape. Select chart type automatically using rule above; cap line comparisons at 3 total series.
 
 ---
@@ -359,4 +359,5 @@ Comparison guidance:
 - [ ] Lower-third tag is gold; headline is white Oswald; sub is steel Barlow
 - [ ] Numbers are in `live_metrics_board`
 - [ ] No consecutive repeated layouts
+- [ ] No scene includes `imageUrl` in `layoutProps` — never invent one, images are assigned automatically after generation
 

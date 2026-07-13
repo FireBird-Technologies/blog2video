@@ -330,7 +330,7 @@ export const SakuraListScene: React.FC<SceneLayoutProps> = (props) => {
                 </svg>
                 <div
                   style={{
-                    fontFamily: SAKURA_BODY_FONT,
+                    fontFamily: fontFamily ?? SAKURA_BODY_FONT,
                     fontSize: effItemPx,
                     fontWeight: 500,
                     // Fuller ink so the copy reads confidently instead of pale.

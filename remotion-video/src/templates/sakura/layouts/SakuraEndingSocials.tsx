@@ -13,6 +13,8 @@ import {
   CornerBlossoms,
   SoftPetal,
   hexToRgba,
+  readableTextColor,
+  deriveLightWash,
 } from "../sakuraStyle";
 
 export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
@@ -21,6 +23,7 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
     narration,
     accentColor,
     bgColor,
+    textColor,
     aspectRatio,
     sceneDurationInFrames,
     titleFontSize,
@@ -34,6 +37,15 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
   const { fps, width, height } = useVideoConfig();
   const dur = sceneDurationInFrames ?? 150;
 
+  // Dark backdrop: accent drives the frame/blossom marks; text drives the brand +
+  // copy, but a near-black text color would vanish on dark, so readableTextColor
+  // falls back to light washi. Matches the other dark Sakura scenes.
+  const crimson = accentColor || SAKURA.crimson;
+  const ink = readableTextColor(textColor, "dark");
+  // Tagline uses a lighter shade of the user's background color (pale tint of the
+  // bg hue), so it recolors with the bg instead of the fixed blush.
+  const taglineColor = deriveLightWash(bgColor).center;
+
   const brandName = (props as any).brandName ?? title ?? "";
   const tagline = (props as any).tagline ?? narration ?? "";
   // Prefer the Studio-authored Sakura prop names, then fall back to the canonical
@@ -45,6 +57,11 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
 
   const titlePx = titleFontSize ?? (p ? 80 : 64);
   const taglinePx = descriptionFontSize ?? (p ? 26 : 20);
+  // CTA line, website URL and social handles all scale off the tagline size so
+  // they track the display-text slider.
+  const ctaPx = Math.max(15, Math.round(taglinePx * 0.95));
+  const websitePx = Math.max(13, Math.round(taglinePx * 0.88));
+  const handlePx = Math.max(12, Math.round(taglinePx * 0.8));
 
   const cx = width / 2;
   const cy = height / 2;
@@ -106,7 +123,6 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
     (Array.isArray(socials) ? socials.length > 0 : Object.keys(socials).length > 0);
 
   const boxW = p ? 480 : 420;
-  const boxH = p ? 96 : 84;
 
   return (
     <SakuraScene
@@ -203,7 +219,7 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
             fontFamily: fontFamily ?? SAKURA_DISPLAY_FONT,
             fontWeight: 700,
             fontSize: titlePx,
-            color: SAKURA.washi,
+            color: ink,
             letterSpacing: "0.08em",
             lineHeight: 1.15,
             opacity: brandOpacity,
@@ -218,9 +234,9 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
         {tagline ? (
           <div
             style={{
-              fontFamily: SAKURA_BODY_FONT,
+              fontFamily: fontFamily ?? SAKURA_BODY_FONT,
               fontSize: taglinePx,
-              color: SAKURA.blush,
+              color: taglineColor,
               letterSpacing: "0.45em",
               textTransform: "uppercase",
               textIndent: "0.45em",
@@ -254,14 +270,19 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
           ))}
         </svg>
 
-        {/* CTA box with corner blossoms */}
+        {/* CTA box with corner blossoms — auto-sizes to hug the text so the
+            crimson border always contains it, capped so it can't run off-frame */}
         {ctaText ? (
           <div
             style={{
               position: "relative",
-              width: boxW,
-              height: boxH,
-              border: `1.8px solid ${SAKURA.blush}`,
+              width: "auto",
+              height: "auto",
+              minWidth: p ? 320 : 300,
+              maxWidth: p ? "82%" : boxW,
+              padding: p ? "20px 34px" : "16px 30px",
+              boxSizing: "border-box",
+              border: `1.8px solid ${crimson}`,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -271,10 +292,10 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
             }}
           >
             {[
-              { left: -12, top: -12, rot: 0 },
-              { left: boxW - 10, top: -12, rot: 90 },
-              { left: -12, top: boxH - 10, rot: -90 },
-              { left: boxW - 10, top: boxH - 10, rot: 180 },
+              { pos: { left: -12, top: -12 }, rot: 0 },
+              { pos: { right: -12, top: -12 }, rot: 90 },
+              { pos: { left: -12, bottom: -12 }, rot: -90 },
+              { pos: { right: -12, bottom: -12 }, rot: 180 },
             ].map((c, i) => (
               <svg
                 key={i}
@@ -283,23 +304,24 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
                 viewBox="0 0 22 22"
                 style={{
                   position: "absolute",
-                  left: c.left,
-                  top: c.top,
+                  ...c.pos,
                   overflow: "visible",
                   transform: `scale(${cornerPetalScale(i)})`,
                 }}
               >
-                <SoftPetal cx={11} cy={11} r={9} rotation={c.rot} color={SAKURA.crimson} centerColor={SAKURA.gold} />
+                <SoftPetal cx={11} cy={11} r={9} rotation={c.rot} color={crimson} centerColor={SAKURA.gold} />
               </svg>
             ))}
             <div
               style={{
-                fontFamily: SAKURA_BODY_FONT,
-                fontSize: p ? 24 : 20,
-                color: SAKURA.washi,
+                fontFamily: fontFamily ?? SAKURA_BODY_FONT,
+                fontSize: ctaPx,
+                color: ink,
                 letterSpacing: "0.5em",
                 textTransform: "uppercase",
                 textIndent: "0.5em",
+                textAlign: "center",
+                lineHeight: 1.25,
               }}
             >
               {ctaText}
@@ -307,14 +329,18 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
           </div>
         ) : null}
 
-        {/* Website */}
+        {/* Website — constrained + wrapping so a long URL stays in-frame */}
         {websiteUrl ? (
           <div
             style={{
-              fontFamily: SAKURA_DETAIL_FONT,
-              fontSize: p ? 22 : 18,
+              fontFamily: fontFamily ?? SAKURA_DETAIL_FONT,
+              fontSize: websitePx,
               color: SAKURA.gold,
               letterSpacing: "0.35em",
+              maxWidth: p ? "88%" : "70%",
+              textAlign: "center",
+              overflowWrap: "anywhere",
+              wordBreak: "break-word",
               opacity: websiteReveal,
               marginBottom: hasSocials || socialHandles.length ? 30 : 0,
             }}
@@ -336,8 +362,8 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
             <SocialIcons
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               socials={socials as any}
-              accentColor={accentColor || SAKURA.crimson}
-              textColor={SAKURA.washi}
+              accentColor={crimson}
+              textColor={ink}
               maxPerRow={p ? 3 : 5}
               fontFamily={fontFamily ?? SAKURA_BODY_FONT}
               aspectRatio={aspectRatio}
@@ -357,9 +383,9 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
               <span
                 key={i}
                 style={{
-                  fontFamily: SAKURA_BODY_FONT,
-                  fontSize: p ? 20 : 16,
-                  color: hexToRgba(SAKURA.washi, 0.5),
+                  fontFamily: fontFamily ?? SAKURA_BODY_FONT,
+                  fontSize: handlePx,
+                  color: hexToRgba(ink, 0.5),
                   letterSpacing: "0.2em",
                 }}
               >

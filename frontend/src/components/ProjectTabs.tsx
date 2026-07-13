@@ -30,7 +30,7 @@ export default function ProjectTabs({ tabs, active, onChange, containerDataTour,
   const buttonBase =
     size === "lg"
       ? "flex-1 sm:flex-none px-5 sm:px-7 py-3 text-base font-semibold rounded-xl transition-all text-center"
-      : "flex-1 sm:flex-none px-2 sm:px-4 py-1.5 text-xs font-medium rounded-lg transition-all text-center";
+      : "flex-1 sm:flex-none px-1.5 sm:px-4 py-1.5 text-[10px] sm:text-xs font-medium rounded-lg transition-all text-center whitespace-nowrap";
 
   return (
     <div className={containerCls} data-tour={containerDataTour}>

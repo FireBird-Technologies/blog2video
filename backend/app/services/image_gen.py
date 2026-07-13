@@ -1,11 +1,16 @@
 """
-AI image generation providers (OpenAI, Gemini). Returns base64 image data.
+AI image generation providers (OpenAI, Gemini, GLM). Returns base64 image data.
 """
 import base64
 from abc import ABC, abstractmethod
 from typing import Optional
 
+import requests
+
 from app.config import settings
+
+# z.ai OpenAI-compatible base URL for GLM-Image generation.
+GLM_BASE_URL = "https://api.z.ai/api/paas/v4/"
 
 
 class ImageProvider(ABC):
@@ -107,6 +112,58 @@ class GeminiProvider(ImageProvider):
         return None
 
 
+class GLMProvider(ImageProvider):
+    """GLM image generation (GLM-Image via z.ai). Uses the OpenAI-compatible endpoint.
+
+    z.ai returns an image URL rather than base64, so we download it and encode.
+    """
+
+    def __init__(self, api_key: str):
+        from openai import OpenAI
+        self._api_key = api_key
+        self._client = OpenAI(api_key=api_key, base_url=GLM_BASE_URL)
+        self._model = (settings.GLM_IMAGE_MODEL or "glm-image").strip()
+
+    def generate(self, prompt: str, **kwargs) -> str:
+        size = kwargs.get("size") or "1024x1024"
+        url: Optional[str] = None
+        try:
+            response = self._client.images.generate(
+                model=self._model,
+                prompt=prompt,
+                size=size,
+                n=1,
+            )
+            if response.data:
+                url = getattr(response.data[0], "url", None)
+        except Exception:
+            # OpenAI-compat image route not accepted — fall back to a raw POST.
+            url = self._generate_raw(prompt, size)
+        if not url:
+            url = self._generate_raw(prompt, size)
+        if not url:
+            raise RuntimeError("No image returned from GLM")
+        image_bytes = requests.get(url, timeout=60).content
+        return base64.b64encode(image_bytes).decode("ascii")
+
+    def _generate_raw(self, prompt: str, size: str) -> Optional[str]:
+        """Raw POST to the z.ai images endpoint; returns the image URL or None."""
+        resp = requests.post(
+            f"{GLM_BASE_URL}images/generations",
+            headers={
+                "Authorization": f"Bearer {self._api_key}",
+                "Content-Type": "application/json",
+            },
+            json={"model": self._model, "prompt": prompt, "size": size},
+            timeout=120,
+        )
+        resp.raise_for_status()
+        data = (resp.json() or {}).get("data") or []
+        if data:
+            return data[0].get("url")
+        return None
+
+
 def get_image_provider() -> Optional[ImageProvider]:
     """Return the configured image provider from env, or None if not configured."""
     provider = (settings.IMAGE_PROVIDER or "openai").strip().lower()
@@ -120,4 +177,9 @@ def get_image_provider() -> Optional[ImageProvider]:
         if not key:
             return None
         return GeminiProvider(api_key=key)
+    if provider == "glm":
+        key = (settings.GLM_API_KEY or "").strip()
+        if not key:
+            return None
+        return GLMProvider(api_key=key)
     return None

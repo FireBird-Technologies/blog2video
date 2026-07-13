@@ -15,6 +15,20 @@ class PlanTier(str, enum.Enum):
 FREE_TIER_INCLUDED_VIDEOS = 2
 
 
+def _add_one_month(dt: datetime) -> datetime:
+    """Return ``dt`` advanced by exactly one calendar month.
+
+    Months vary in length, so we step by calendar month (same day-of-month,
+    same time-of-day) rather than a flat 30 days — this keeps the billing
+    anniversary stable and avoids the ~5-day/year drift a 30-day step causes.
+    When the next month is shorter than the anchor's day (e.g. Jan 31 → Feb),
+    the day is clamped to that month's last day. relativedelta handles both.
+    """
+    from dateutil.relativedelta import relativedelta
+
+    return dt + relativedelta(months=1)
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -68,8 +82,9 @@ class User(Base):
     brand_kits = relationship("BrandKit", back_populates="user", cascade="all, delete-orphan")
     crafted_template_entitlements = relationship("CraftedTemplateEntitlement", back_populates="user", cascade="all, delete-orphan")
     template_change_jobs = relationship("ProjectTemplateChangeJob", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
-    regenerate_script_jobs = relationship("ProjectRegenerateScriptJob", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
+    regenerate_script_jobs = relationship("ProjectRegenerateScriptJob", back_populates="user", foreign_keys="ProjectRegenerateScriptJob.user_id", cascade="all, delete-orphan", passive_deletes=True)
     voice_change_jobs = relationship("ProjectVoiceChangeJob", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
+    language_change_jobs = relationship("ProjectLanguageChangeJob", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
     referrals = relationship("Referral", foreign_keys="Referral.referrer_id", cascade="all, delete-orphan", passive_deletes=True)
     survey_response = relationship("SurveyResponse", uselist=False, cascade="all, delete-orphan", passive_deletes=True)
 
@@ -92,60 +107,131 @@ class User(Base):
     def can_create_video(self) -> bool:
         return self.videos_used_this_period < self.video_limit
 
-    def roll_video_period_if_due(self, db: Session) -> bool:
-        """Lazily reset the monthly video counter when Stripe won't.
+    def ensure_purchased_credit_usable(self, qty: int) -> None:
+        """After granting `qty` per-video credits, guarantee they are net-positive
+        headroom even if pre-existing usage was at/over the (possibly lowered) limit.
 
-        The monthly video allotment (30 Standard / 100 Pro) is reset by Stripe's
-        ``invoice.paid`` webhook each billing period. That works for MONTHLY
-        subscribers, but two cases never get a monthly Stripe invoice and would
-        otherwise be stuck once they hit the cap:
+        Because ``video_limit`` is blended (base + bonus + referral), a purchase that
+        only bumps ``video_limit_bonus`` can be fully swallowed when ``videos_used_this_period``
+        was already >= the limit (e.g. after the FREE base was lowered). This clamps
+        ``videos_used_this_period`` so the just-purchased ``qty`` always yields ``qty``
+        usable videos. Only ever lowers videos_used — the ``>`` guard makes it a no-op
+        for users who aren't maxed, so it is safe for all plans. Call AFTER
+        ``video_limit_bonus`` has been incremented so ``self.video_limit`` is current.
+        """
+        if self.videos_used_this_period > self.video_limit - qty:
+            self.videos_used_this_period = max(0, self.video_limit - qty)
+
+    def _needs_lazy_monthly_reset(self, db: Session) -> bool:
+        """True if this user's monthly allotment must be reset in-app rather than
+        by Stripe's ``invoice.paid`` webhook.
+
+        Stripe re-invoices MONTHLY subscribers every month, so their reset is
+        webhook-driven and must NOT be double-handled here. Two cases never get a
+        monthly Stripe invoice and so depend on the in-app reset:
 
           • **Lifetime** buyers — one-time payment, no recurring subscription, so
-            Stripe never re-invoices them at all.
+            Stripe never re-invoices them at all (no ``stripe_subscription_id``).
+            Their allotment (30 Standard / 100 Pro) refreshes every month forever.
           • **Annual** subscribers — Stripe issues ``invoice.paid`` only once a
-            YEAR, so the allotment would reset annually instead of monthly.
-
-        This opportunistic check (called at limit read/gate points) resets the
-        counter once 30 days have elapsed since ``period_start`` for exactly those
-        two cases. Monthly subscribers are left untouched so their Stripe-driven
-        reset is never double-handled. Returns True if a reset occurred.
+            YEAR, so without this the allotment would reset annually not monthly.
         """
         if self.plan not in (PlanTier.STANDARD, PlanTier.PRO):
             return False
-        if not self.period_start:
-            return False
-        # Cheap time gate first — a reset is only ever due once ~30 days pass.
-        if datetime.utcnow() - self.period_start < timedelta(days=30):
-            return False
 
-        # A recurring subscriber only needs the lazy reset if they're ANNUAL
-        # (monthly subscribers reset via Stripe's monthly invoice). Lifetime
-        # buyers have no stripe_subscription_id and always need it.
-        if self.stripe_subscription_id:
-            from app.models.subscription import (
-                Subscription,
-                SubscriptionStatus,
-                BillingInterval,
+        # Lifetime buyers have no recurring Stripe subscription → always in-app.
+        if not self.stripe_subscription_id:
+            return True
+
+        from app.models.subscription import (
+            Subscription,
+            SubscriptionStatus,
+            BillingInterval,
+        )
+
+        # Prefer the ACTIVE row, but fall back to the most recent matching row so a
+        # transient status blip (PAST_DUE→ACTIVE on an SCA/retry) can't silently
+        # freeze the reset forever. We only care about the plan's billing interval.
+        sub = (
+            db.query(Subscription)
+            .filter(
+                Subscription.stripe_subscription_id == self.stripe_subscription_id,
+                Subscription.status == SubscriptionStatus.ACTIVE,
             )
-
+            .first()
+        )
+        if sub is None:
             sub = (
                 db.query(Subscription)
                 .filter(
                     Subscription.stripe_subscription_id == self.stripe_subscription_id,
-                    Subscription.status == SubscriptionStatus.ACTIVE,
                 )
+                .order_by(Subscription.created_at.desc())
                 .first()
             )
-            is_annual = bool(
-                sub and sub.plan and sub.plan.billing_interval == BillingInterval.ANNUAL
-            )
-            if not is_annual:
-                return False
+        return bool(
+            sub and sub.plan and sub.plan.billing_interval == BillingInterval.ANNUAL
+        )
+
+    def reset_billing_period(self, db: Session, new_period_start: datetime) -> None:
+        """Roll the monthly allotment for one billing cycle.
+
+        Mirrors the reset performed by ``_handle_invoice_paid`` for monthly
+        subscribers so annual and lifetime users get an identical monthly
+        rollover: usage cleared, expired per-video credits dropped, referral
+        bonus reset.
+        Does NOT commit — the caller controls the transaction (so a multi-cycle
+        catch-up commits once).
+        """
+        # Imported lazily to avoid a circular import (billing imports User).
+        from app.routers.billing import _count_active_per_video_credits
 
         self.videos_used_this_period = 0
-        self.period_start = datetime.utcnow()
-        db.commit()
-        return True
+        self.period_start = new_period_start
+        # Recount non-expired per-video credits so expired ones fall off, exactly
+        # as invoice.paid does. Usage is already 0 so no delta adjustment needed.
+        self.video_limit_bonus = _count_active_per_video_credits(self.id, db)
+        # Referral bonus is earned once per billing cycle.
+        self.referral_video_bonus = 0
+
+    def roll_video_period_if_due(self, db: Session) -> bool:
+        """Lazily reset the monthly video counter when Stripe won't.
+
+        Opportunistic fallback called at limit read/gate points. The authoritative
+        driver is the hourly scheduled task (see main.py); this ensures a user who
+        acts before that task runs still sees a fresh allotment.
+
+        Uses **calendar-month** cycles anchored on ``period_start`` (not a flat
+        30 days) so the reset lands on the same day-of-month each month and never
+        drifts as month lengths vary. Catches up every whole cycle that has
+        elapsed, so a user who was idle for several months is rolled to the
+        current cycle in one pass. Returns True if any reset occurred.
+        """
+        if not self._needs_lazy_monthly_reset(db):
+            return False
+
+        now = datetime.utcnow()
+
+        # No anchor yet (e.g. comp account, or a checkout path that didn't set it):
+        # start the clock now so future cycles are well-defined. Nothing to reset.
+        if not self.period_start:
+            self.period_start = now
+            db.commit()
+            return False
+
+        rolled = False
+        # Advance one calendar month at a time until the next boundary is in the
+        # future. Guard the loop count so a bad clock/anchor can't spin forever.
+        for _ in range(120):
+            next_start = _add_one_month(self.period_start)
+            if next_start > now:
+                break
+            self.reset_billing_period(db, next_start)
+            rolled = True
+
+        if rolled:
+            db.commit()
+        return rolled
 
     @property
     def custom_template_limit(self) -> int:

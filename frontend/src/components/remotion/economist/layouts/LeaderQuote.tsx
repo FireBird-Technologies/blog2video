@@ -29,6 +29,7 @@ export const LeaderQuote: React.FC<EconomistLayoutProps> = ({
   accentColor = ECONOMIST_COLORS.accent,
   textColor = ECONOMIST_COLORS.ink,
   titleFontSize,
+  fontFamily,
   aspectRatio = "landscape",
 }) => {
   const frame = useCurrentFrame();
@@ -156,7 +157,7 @@ export const LeaderQuote: React.FC<EconomistLayoutProps> = ({
             <span style={{ width: 28, height: 6, background: accentColor }} />
             <span
               style={{
-                fontFamily: ECONOMIST_SANS_FONT,
+                fontFamily: fontFamily ?? ECONOMIST_SANS_FONT,
                 fontWeight: 700,
                 fontSize: isPortrait ? 19 : 18,
                 letterSpacing: 2.4,
@@ -172,7 +173,7 @@ export const LeaderQuote: React.FC<EconomistLayoutProps> = ({
         {/* Oversized opening quote mark blooming in like a drop of ink. */}
         <div
           style={{
-            fontFamily: ECONOMIST_SERIF_FONT,
+            fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT,
             fontWeight: 900,
             fontSize: splitView ? 150 : isPortrait ? 170 : 200,
             lineHeight: 0.7,
@@ -192,7 +193,7 @@ export const LeaderQuote: React.FC<EconomistLayoutProps> = ({
 
         <div
           style={{
-            fontFamily: ECONOMIST_SERIF_FONT,
+            fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT,
             fontWeight: 700,
             fontSize: quoteSize,
             lineHeight: 1.22,
@@ -228,7 +229,7 @@ export const LeaderQuote: React.FC<EconomistLayoutProps> = ({
             <div style={{ position: "relative", display: "inline-block" }}>
               <div
                 style={{
-                  fontFamily: ECONOMIST_SANS_FONT,
+                  fontFamily: fontFamily ?? ECONOMIST_SANS_FONT,
                   fontWeight: 700,
                   fontSize: isPortrait ? 24 : 24,
                   letterSpacing: 2,

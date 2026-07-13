@@ -43,6 +43,7 @@ export const CoverReveal: React.FC<EconomistLayoutProps> = ({
   accentColor = ECONOMIST_COLORS.accent,
   textColor = ECONOMIST_COLORS.ink,
   titleFontSize,
+  fontFamily,
   aspectRatio = "landscape",
 }) => {
   const frame = useCurrentFrame();
@@ -201,6 +202,7 @@ export const CoverReveal: React.FC<EconomistLayoutProps> = ({
               width={mastheadW}
               accentColor={accentColor}
               sweep={mastheadSweep > 0 && mastheadSweep < 1 ? mastheadSweep : undefined}
+              fontFamily={fontFamily}
             />
           )}
           {dateline && (
@@ -213,7 +215,7 @@ export const CoverReveal: React.FC<EconomistLayoutProps> = ({
                     <span
                       style={{
                         display: "inline-block",
-                        fontFamily: ECONOMIST_SANS_FONT,
+                        fontFamily: fontFamily ?? ECONOMIST_SANS_FONT,
                         fontWeight: 700,
                         fontSize: isPortrait ? 24 : 15,
                         letterSpacing: 2,
@@ -283,7 +285,7 @@ export const CoverReveal: React.FC<EconomistLayoutProps> = ({
                     style={{
                       flexShrink: 0,
                       display: "inline-block",
-                      fontFamily: ECONOMIST_SANS_FONT,
+                      fontFamily: fontFamily ?? ECONOMIST_SANS_FONT,
                       fontWeight: 800,
                       fontSize: teaserFont * 0.62,
                       letterSpacing: 0.5,
@@ -302,7 +304,7 @@ export const CoverReveal: React.FC<EconomistLayoutProps> = ({
                     <span
                       style={{
                         display: "inline-block",
-                        fontFamily: ECONOMIST_SERIF_FONT,
+                        fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT,
                         fontWeight: 600,
                         fontSize: teaserFont,
                         lineHeight: 1.18,
@@ -362,7 +364,7 @@ export const CoverReveal: React.FC<EconomistLayoutProps> = ({
           >
             <div
               style={{
-                fontFamily: ECONOMIST_SERIF_FONT,
+                fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT,
                 fontWeight: 900,
                 fontSize: headlineSize,
                 lineHeight: 1.04,

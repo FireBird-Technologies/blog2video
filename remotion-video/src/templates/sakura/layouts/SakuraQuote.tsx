@@ -30,6 +30,7 @@ export const SakuraQuote: React.FC<SceneLayoutProps> = (props) => {
     sceneDurationInFrames,
     titleFontSize,
     descriptionFontSize,
+    fontFamily,
   } = props;
 
   const p = aspectRatio === "portrait";
@@ -50,6 +51,10 @@ export const SakuraQuote: React.FC<SceneLayoutProps> = (props) => {
 
   const quotePx = titleFontSize ?? (p ? 92 : 76);
   const translationPx = descriptionFontSize ?? (p ? 52 : 48);
+  // Romaji sits directly under the quote, so it tracks the quote (title slider);
+  // the attribution tracks the translation/body (display-text slider).
+  const romajiPx = Math.max(16, Math.round(quotePx * 0.28));
+  const attributionPx = Math.max(12, Math.round(translationPx * 0.32));
 
   // ── Sumi-e brush choreography ───────────────────────────────────────────────
   // The quote is "written in" one glyph at a time (SumiBrushText). Everything
@@ -187,7 +192,7 @@ export const SakuraQuote: React.FC<SceneLayoutProps> = (props) => {
         <div style={{ marginBottom: 30 }}>
           <SumiBrushText
             text={quote}
-            fontFamily={SAKURA_DISPLAY_FONT}
+            fontFamily={fontFamily ?? SAKURA_DISPLAY_FONT}
             fontSize={quotePx}
             fontWeight={700}
             color={ink}
@@ -206,8 +211,8 @@ export const SakuraQuote: React.FC<SceneLayoutProps> = (props) => {
         {quoteRoman ? (
           <div
             style={{
-              fontFamily: SAKURA_BODY_FONT,
-              fontSize: p ? 24 : 22,
+              fontFamily: fontFamily ?? SAKURA_BODY_FONT,
+              fontSize: romajiPx,
               color: hexToRgba(ink, 0.72),
               letterSpacing: "0.5em",
               opacity: romanReveal,
@@ -233,7 +238,7 @@ export const SakuraQuote: React.FC<SceneLayoutProps> = (props) => {
         {/* Translation */}
         <div
           style={{
-            fontFamily: SAKURA_BODY_FONT,
+            fontFamily: fontFamily ?? SAKURA_BODY_FONT,
             fontStyle: "italic",
             fontSize: translationPx,
             color: hexToRgba(ink, 0.82),
@@ -251,7 +256,7 @@ export const SakuraQuote: React.FC<SceneLayoutProps> = (props) => {
         {body ? (
           <div
             style={{
-              fontFamily: SAKURA_BODY_FONT,
+              fontFamily: fontFamily ?? SAKURA_BODY_FONT,
               fontSize: Math.round(translationPx * 0.8),
               color: hexToRgba(ink, 0.7),
               letterSpacing: "0.02em",
@@ -280,8 +285,8 @@ export const SakuraQuote: React.FC<SceneLayoutProps> = (props) => {
           >
             <span
               style={{
-                fontFamily: SAKURA_BODY_FONT,
-                fontSize: p ? 18 : 15,
+                fontFamily: fontFamily ?? SAKURA_BODY_FONT,
+                fontSize: attributionPx,
                 color: hexToRgba(ink, 0.5),
                 letterSpacing: "0.4em",
                 textTransform: "uppercase",

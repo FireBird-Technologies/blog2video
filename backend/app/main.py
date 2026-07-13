@@ -40,7 +40,7 @@ from app.models.update_email import UpdateEmail
 from app.models.update_email_send import UpdateEmailSend
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
 from app.services import r2_storage
-from app.routers import projects, pipeline, chat, auth, billing, contact, custom_templates, crafted_templates, saved_voices, template_studio, embed, unsubscribe, affiliate, support, mcp_oauth, mcp_transport, free_templates, voice, background_music, stock_data
+from app.routers import projects, pipeline, chat, auth, billing, contact, custom_templates, crafted_templates, saved_voices, template_studio, embed, unsubscribe, affiliate, support, mcp_oauth, mcp_transport, free_templates, voice, background_music, stock_data, collaboration, collab_ws, collab_history, project_shared_assets
 from app.observability.tracing import init_tracing
 from app.observability.logging import configure_logging
 
@@ -203,6 +203,56 @@ async def _periodic_paid_tier_cleanup():
             db.rollback()
         finally:
             db.close()
+
+
+async def _periodic_monthly_allotment_reset():
+    """Reset the monthly video allotment for ANNUAL and LIFETIME subscribers.
+
+    MONTHLY subscribers are reset by Stripe's ``invoice.paid`` webhook each
+    month. Annual subscribers get that webhook only once a YEAR, and lifetime
+    buyers never (no recurring subscription), so without this their allotment
+    would never refresh mid-year. This task rolls every such user forward by
+    whole **calendar months** elapsed since their ``period_start`` anchor.
+
+    Safe to run repeatedly: ``roll_video_period_if_due`` is idempotent — once a
+    user is current, re-running it is a no-op. Runs once shortly after startup
+    (so users stuck under the old behavior are healed at deploy) and hourly
+    thereafter, so a reset lands within an hour of the user's monthly
+    anniversary regardless of restarts. (Single-instance deploy, so no leader
+    election is needed.)
+    """
+    # Small grace so the first sweep doesn't contend with the rest of startup,
+    # then run the sweep immediately (before the first hourly sleep) so already-
+    # stuck users are caught at deploy rather than an hour later.
+    await asyncio.sleep(10)
+    while True:
+        db = SessionLocal()
+        try:
+            # Only paid tiers can be annual/lifetime; roll_video_period_if_due
+            # re-checks the exact eligibility and skips monthly subscribers.
+            candidates = (
+                db.query(User)
+                .filter(User.plan.in_([PlanTier.STANDARD, PlanTier.PRO]))
+                .all()
+            )
+            reset_count = 0
+            for user in candidates:
+                try:
+                    if user.roll_video_period_if_due(db):
+                        reset_count += 1
+                except Exception as e:
+                    # One bad user must not abort the whole sweep.
+                    print(f"[BILLING] Monthly reset failed for user {user.id}: {e}")
+                    db.rollback()
+            if reset_count:
+                print(f"[BILLING] Monthly allotment reset for {reset_count} annual/lifetime user(s)")
+        except Exception as e:
+            print(f"[BILLING] Monthly allotment reset sweep error: {e}")
+            db.rollback()
+        finally:
+            db.close()
+        # Sleep AFTER the sweep so the first run happens at startup, not an hour in.
+        await asyncio.sleep(3600)  # hourly
 
 
 from app.constants import FREE_PREMADE_VOICE_IDS as KNOWN_PREMADE_VOICE_IDS
@@ -413,6 +463,7 @@ async def lifespan(app: FastAPI):
     free_cleanup = None
     paid_cleanup = None
     support_cleanup = None
+    monthly_reset = None
 
     # Raise the open-file-descriptor soft limit toward the hard limit. Headless
     # Chrome + node subprocesses (Remotion) plus HTTP connection pools can blow
@@ -442,10 +493,12 @@ async def lifespan(app: FastAPI):
                 recover_orphaned_regenerate_script_jobs,
                 reap_orphaned_template_change_jobs,
                 reap_orphaned_voice_change_jobs,
+                reap_orphaned_language_change_jobs,
             )
             recover_orphaned_regenerate_script_jobs()
             reap_orphaned_template_change_jobs()
             reap_orphaned_voice_change_jobs()
+            reap_orphaned_language_change_jobs()
         except Exception as e:
             print(f"[STARTUP] Orphaned-job recovery failed: {e}")
     except Exception as e:
@@ -458,6 +511,7 @@ async def lifespan(app: FastAPI):
     try:
         free_cleanup = asyncio.create_task(_periodic_free_tier_cleanup())
         paid_cleanup = asyncio.create_task(_periodic_paid_tier_cleanup())
+        monthly_reset = asyncio.create_task(_periodic_monthly_allotment_reset())
         update_email_sender = asyncio.create_task(_periodic_update_email_sender())
         from app.support.cleanup import periodic_support_cleanup
         support_cleanup = asyncio.create_task(periodic_support_cleanup())
@@ -486,6 +540,8 @@ async def lifespan(app: FastAPI):
             free_cleanup.cancel()
         if paid_cleanup:
             paid_cleanup.cancel()
+        if monthly_reset:
+            monthly_reset.cancel()
         if update_email_sender:
             update_email_sender.cancel()
         if support_cleanup:
@@ -527,6 +583,7 @@ _always_allowed = [
     "https://www.blog2video.app",
     "https://muhammad-mehdi-backend-b2v.hf.space",
     "https://blog2video.pages.dev",
+    "https://blog2video-prod-frontend.pages.dev",
     # MCP — Claude clients
     "https://claude.ai",
     "https://app.anthropic.com",
@@ -558,12 +615,20 @@ app.mount("/media", StaticFiles(directory=settings.MEDIA_DIR), name="media")
 # Include routers
 app.include_router(auth.router)
 app.include_router(billing.router)
+# Collaboration routes are registered before projects so the more specific
+# /api/projects/{id}/members and /api/projects/{id}/history|finalise|... paths
+# are matched ahead of the projects catch-all.
+app.include_router(collaboration.router)
+app.include_router(collaboration.accept_router)
+app.include_router(collab_history.router)
+app.include_router(collab_ws.router)
 app.include_router(projects.router)
 app.include_router(pipeline.router)
 app.include_router(chat.router)
 app.include_router(contact.router)
 app.include_router(custom_templates.router)
 app.include_router(crafted_templates.router)
+app.include_router(project_shared_assets.router)
 app.include_router(free_templates.router)
 app.include_router(saved_voices.router)
 app.include_router(voice.router)

@@ -1724,6 +1724,9 @@ def _handle_checkout_completed(session: dict, db: Session):
             user = db.query(User).filter(User.id == int(user_id)).first()
             if user:
                 user.video_limit_bonus = getattr(user, "video_limit_bonus", 0) + qty
+                # Guarantee the purchased credits are net-positive headroom even if
+                # prior usage was at/over the (possibly lowered) limit.
+                user.ensure_purchased_credit_usable(qty)
 
                 if plan:
                     sub = Subscription(
@@ -1773,6 +1776,9 @@ def _handle_checkout_completed(session: dict, db: Session):
         user = db.query(User).filter(User.id == int(user_id)).first() if user_id else None
         if user:
             user.video_limit_bonus = getattr(user, "video_limit_bonus", 0) + qty
+            # Guarantee the purchased credits are net-positive headroom even if
+            # prior usage was at/over the (possibly lowered) limit.
+            user.ensure_purchased_credit_usable(qty)
             if plan:
                 sub = Subscription(
                     user_id=user.id,
@@ -1829,8 +1835,9 @@ def _handle_checkout_completed(session: dict, db: Session):
             )
     elif checkout_type in ("standard_lifetime", "pro_lifetime"):
         # One-time lifetime payment (mode="payment", no recurring subscription).
-        # Grants the tier permanently — monthly allotment refreshes via the lazy
-        # reset in User.roll_video_period_if_due (no Stripe invoice to reset it).
+        # Grants the tier permanently — the monthly allotment (30/100) refreshes
+        # every month forever via User.roll_video_period_if_due (no Stripe
+        # invoice to reset it).
         user_id = metadata.get("user_id")
         user = db.query(User).filter(User.id == int(user_id)).first() if user_id else None
         now = datetime.utcnow()
@@ -2056,27 +2063,23 @@ def _handle_invoice_paid(invoice: dict, db: Session):
 
     user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
     if user:
-        user.videos_used_this_period = 0
-        user.period_start = datetime.utcnow()
+        prev_bonus = user.video_limit_bonus
+        prev_referral = user.referral_video_bonus
+        # Full monthly rollover — same routine the annual/lifetime in-app reset
+        # uses, so all plans reset identically (usage cleared, expired per-video
+        # credits dropped, referral bonus reset).
+        user.reset_billing_period(db, datetime.utcnow())
 
-        # Recount non-expired per-video credits so expired ones fall off naturally.
-        # We do a clean recalc here rather than just stripping — the period reset
-        # means videos_used is already 0, so no delta adjustment is needed.
-        new_bonus = _count_active_per_video_credits(user.id, db)
-        if user.video_limit_bonus != new_bonus:
+        if user.video_limit_bonus != prev_bonus:
             print(
                 f"[BILLING] invoice.paid: recalculated video_limit_bonus for user {user.id}: "
-                f"{user.video_limit_bonus} → {new_bonus} (expired credits dropped)"
+                f"{prev_bonus} → {user.video_limit_bonus} (expired credits dropped)"
             )
-        user.video_limit_bonus = new_bonus
-
-        # Referral bonus resets each billing period — users earn it once per cycle.
-        if user.referral_video_bonus:
+        if prev_referral:
             print(
                 f"[BILLING] invoice.paid: referral_video_bonus reset for user {user.id}: "
-                f"{user.referral_video_bonus} → 0"
+                f"{prev_referral} → 0"
             )
-        user.referral_video_bonus = 0
 
         # Reset usage on the Subscription record too
         if stripe_sub_id:

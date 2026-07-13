@@ -61,6 +61,7 @@ remotion-video/src/templates/wealth_your_way/
 # Local only
 CLAUDE.md
 .claude/
+docs/
 
 # Support bot generated artifacts (rebuilt in CI)
 backend/app/support/code_map.json
@@ -74,3 +75,6 @@ frontend/.env
 
 # Test virtualenv (Tier A QA suite)
 backend/.venv-test/
+
+# Local docs
+docs/

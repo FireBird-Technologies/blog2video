@@ -346,6 +346,17 @@ def _write_generated_scene_files(workspace: str, template_id: str) -> None:
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(wrapped)
         logger.info("Wrote SceneContent%d.tsx (%d bytes)", i, len(wrapped))
+        # TEMP DEBUG (remove after): persist raw + wrapped variants to a stable
+        # dir that render cleanup never touches, so a broken variant can be read.
+        try:
+            _dbg = "/tmp/b2v-scene-debug"
+            os.makedirs(_dbg, exist_ok=True)
+            with open(os.path.join(_dbg, f"raw_SceneContent{i}.tsx"), "w", encoding="utf-8") as _f:
+                _f.write(code)
+            with open(os.path.join(_dbg, f"wrapped_SceneContent{i}.tsx"), "w", encoding="utf-8") as _f:
+                _f.write(wrapped)
+        except Exception:
+            pass
 
     # Write SceneContent.tsx that re-exports Content0 (backward compat for GeneratedVideo stub)
     if num_content > 0:
@@ -687,6 +698,11 @@ def write_remotion_data(
     Includes layout descriptors in the scene data for data-driven rendering.
     Returns the path to data.json.
     """
+    # Soft-deleted scenes must never appear in a render. This is the single choke
+    # point for every render/workspace build (rebuild_workspace, render-still,
+    # _rebuild_workspace_safe, pipeline), so filter here regardless of caller.
+    scenes = [s for s in scenes if getattr(s, "is_active", True)]
+
     template_id = validate_template_id(getattr(project, "template", "default"))
     workspace = provision_workspace(project.id, template_id)
     public_dir = os.path.join(workspace, "public")
@@ -2543,6 +2559,20 @@ def upload_rendered_video_to_r2(project_id: int, local_path: str) -> Optional[st
             user = db.query(User).filter(User.id == project.user_id).first()
             db.commit()
             logger.info("[REMOTION] Video uploaded to R2 and project %s marked DONE", project_id)
+
+            # Tell live collaborators the render finished so their client reloads and
+            # picks up the new video URL / DONE status. Best-effort, in-process only.
+            # Exclude the user who triggered the render (recorded in the progress
+            # payload): their own client already polls /render-status to DONE.
+            try:
+                from app.routers.collab_ws import broadcast_project_reload
+                triggered_by = get_render_progress(project_id).get("_user_id")
+                broadcast_project_reload(project_id, exclude_user_id=triggered_by)
+            except Exception as broadcast_err:
+                logger.warning(
+                    "[REMOTION] Failed to broadcast render-complete reload for project %s: %s",
+                    project_id, broadcast_err,
+                )
 
             # Send download-ready email notification to the user
             try:
