@@ -29,7 +29,7 @@ export const helpPosts: HelpPost[] = [
     heroDescription:
       "Use this step-by-step guide to turn a blog post, article, PDF, or document into a new Blog2Video project.",
     primaryKeyword: "how to create a Blog2Video project",
-    keywordVariant: "create a project in Blog2Video",
+    keywordVariant: "create a project in Blog2Video, turn an article into a video, turn a blog post into a video",
     relatedPaths: ["/blog-to-video", "/url-to-video", "/templates/geometric-explainer", "/help/how-to-edit-a-scene"],
     steps: [
       {
