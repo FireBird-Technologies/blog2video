@@ -9,6 +9,8 @@ hero_image_alt: "Written content gaining a second life through video on YouTube 
 
 # The Content You Write Is Disappearing: Why Great Writing Deserves a Second Life
 
+> **TL;DR:** Blog posts, newsletters, and book chapters are written with real craft and then vanish. This is the case for giving every piece of written content a second life as video — the format where most people actually consume content in 2026.
+
 You spent four hours on that piece. You researched it. You went through two drafts. You found the right framing, built the argument properly, included the data points that made it credible. You published it.
 
 And then it disappeared.

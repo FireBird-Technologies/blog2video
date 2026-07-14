@@ -346,6 +346,17 @@ def _write_generated_scene_files(workspace: str, template_id: str) -> None:
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(wrapped)
         logger.info("Wrote SceneContent%d.tsx (%d bytes)", i, len(wrapped))
+        # TEMP DEBUG (remove after): persist raw + wrapped variants to a stable
+        # dir that render cleanup never touches, so a broken variant can be read.
+        try:
+            _dbg = "/tmp/b2v-scene-debug"
+            os.makedirs(_dbg, exist_ok=True)
+            with open(os.path.join(_dbg, f"raw_SceneContent{i}.tsx"), "w", encoding="utf-8") as _f:
+                _f.write(code)
+            with open(os.path.join(_dbg, f"wrapped_SceneContent{i}.tsx"), "w", encoding="utf-8") as _f:
+                _f.write(wrapped)
+        except Exception:
+            pass
 
     # Write SceneContent.tsx that re-exports Content0 (backward compat for GeneratedVideo stub)
     if num_content > 0:
@@ -2482,6 +2493,17 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
                 _set_project_status_generated(project_id)
                 delete_render_progress_snapshot(project_id)
                 _render_progress_last_upload_at.pop(project_id, None)
+
+                # Notify the internal team — best-effort, must never break the render flow.
+                try:
+                    email_service.send_render_failure_alert_email(
+                        project_id=project_id,
+                        error_summary=tail_text or None,
+                    )
+                except EmailServiceError as email_err:
+                    logger.error(f"[REMOTION] Render-failure alert email failed for project {project_id}: {email_err}")
+                except Exception as email_err:
+                    logger.error(f"[REMOTION] Unexpected error sending render-failure alert for project {project_id}: {email_err}", exc_info=True)
     except Exception as e:
         _render_progress[project_id]["error"] = str(e)
         _render_progress[project_id]["done"] = True

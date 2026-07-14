@@ -64,7 +64,7 @@ export const ADULT_KEYWORDS = [
 ];
 
 // Sites that might not be scrapable — warn but still allow.
-export const WARN_DOMAINS = ["youtube.com", "youtu.be", "m.youtube.com"];
+export const WARN_DOMAINS = ["youtube.com", "youtu.be", "m.youtube.com", "tiktok.com"];
 
 export const PUBLIC_SHARE_WARNING =
   "Make sure this chat/document is public — private links can't be scraped.";

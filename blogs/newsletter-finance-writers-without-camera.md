@@ -9,6 +9,8 @@ hero_image_alt: "Finance newsletter writer producing market analysis video witho
 
 # How Finance Writers Are Reaching Video Audiences Without Ever Going on Camera
 
+> **TL;DR:** Finance newsletter writers and analysts can build YouTube and LinkedIn audiences from their existing writing — no camera, recording, or video editing experience needed.
+
 The finance video space on YouTube and LinkedIn is dominated by talking heads. Charts-and-chyrons presentation style, someone explaining macro trends or stock analysis directly to camera, built over years of consistent posting. 
 
 Most finance newsletter writers look at that model and conclude it's not for them. The camera, the setup, the lighting, the need to perform on cue — it's a different skill set than writing, and it requires gear, time, and a certain comfort with being filmed that many analysts and researchers simply don't have.

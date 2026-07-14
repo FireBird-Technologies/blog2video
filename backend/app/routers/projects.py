@@ -23,6 +23,7 @@ from app.models.scene import Scene
 from app.models.project_template_change_job import ProjectTemplateChangeJob
 from app.models.project_regenerate_script_job import ProjectRegenerateScriptJob
 from app.models.project_voice_change_job import ProjectVoiceChangeJob
+from app.models.project_language_change_job import ProjectLanguageChangeJob
 from app.services import stall_recovery
 from app.services.stall_recovery import STALL_RETRY_MESSAGE
 from app.models.crafted_template import CraftedTemplate
@@ -34,7 +35,7 @@ from app.schemas.schemas import (
     ReviewOut, ReviewStateOut, ReviewSubmit, ReviewSubmitResponse, SceneOut,
     SceneUpdate, ReorderScenesRequest, RegenerateSceneRequest,
     SceneTypographyBulkUpdate, ProjectUpdate, ProjectTemplateChangeRequest,
-    ProjectTemplateChangeJobOut, ProjectVoiceChange,
+    ProjectTemplateChangeJobOut, ProjectVoiceChange, ProjectLanguageChange,
     ProjectRegenerateScriptJobOut,
     RegenerateScriptPreviewOut, RegenerateScriptPreviewScene,
 )
@@ -47,6 +48,7 @@ from app.services.remotion import (
     write_remotion_data,
 )
 from app.services.doc_extractor import extract_from_documents
+from app.services.email import email_service, EmailServiceError
 from app.services.project_cleanup import (
     remove_failed_generation_project,
     PUBLIC_MSG_PIPELINE_FAILED,
@@ -1500,6 +1502,23 @@ def _assert_no_active_job(project_id: int, db: Session, *, include_render: bool 
     if vprog and not vprog.get("done", True):
         raise HTTPException(status_code=409, detail="A job is already running for this project.")
 
+    # Language change (translate all copy + regenerate all voiceovers)
+    language = (
+        db.query(ProjectLanguageChangeJob)
+        .filter(
+            ProjectLanguageChangeJob.project_id == project_id,
+            ProjectLanguageChangeJob.status.in_(_JOB_ACTIVE_STATUSES),
+        )
+        .order_by(ProjectLanguageChangeJob.id.desc())
+        .first()
+    )
+    if language and _seconds_since(language.updated_at) < settings.STALL_THRESHOLD_LANGUAGE_SECONDS:
+        raise HTTPException(status_code=409, detail="A job is already running for this project.")
+    from app.services import language_change_progress
+    lprog = language_change_progress.get(project_id)
+    if lprog and not lprog.get("done", True):
+        raise HTTPException(status_code=409, detail="A job is already running for this project.")
+
     # Render
     if include_render:
         project = db.query(Project).filter(Project.id == project_id).first()
@@ -1969,6 +1988,102 @@ def maybe_reap_stale_voice_change(db: Session, job: ProjectVoiceChangeJob | None
     return recover_stalled_voice_change_job(db, job)
 
 
+def _restore_content_snapshot(db: Session, project: Project | None, snapshot_raw: str | None) -> None:
+    """Restore every scene's pre-change copy/descriptor and the project's language.
+
+    Counterpart of the snapshot taken in ``change_project_language``. Scenes are looked
+    up by id (order can't be trusted — the snapshot predates nothing else, but ids are
+    stable), and only the four fields the job touches are written back.
+    """
+    if not snapshot_raw:
+        return
+    try:
+        snap = json.loads(snapshot_raw)
+    except (json.JSONDecodeError, TypeError):
+        logger.warning("[LANG-CHANGE] unreadable content snapshot; cannot revert copy")
+        return
+
+    if project is not None:
+        project.content_language = snap.get("content_language")
+
+    for row in snap.get("scenes", []) or []:
+        scene = db.query(Scene).filter(Scene.id == row.get("id")).first()
+        if scene is None:
+            continue
+        scene.title = row.get("title")
+        scene.display_text = row.get("display_text")
+        scene.narration_text = row.get("narration_text")
+        scene.remotion_code = row.get("remotion_code")
+
+
+def recover_stalled_language_change_job(db: Session, job: ProjectLanguageChangeJob) -> bool:
+    """Reap a stuck language-change job: cancel, restore copy + audio, refund the owner."""
+    from app.services.remotion import rebuild_workspace
+
+    project = db.query(Project).filter(Project.id == job.project_id).first()
+
+    # Completion-race guard: the worker already finalized (status back to GENERATED).
+    if project and project.status == ProjectStatus.GENERATED:
+        db.execute(
+            update(ProjectLanguageChangeJob)
+            .where(ProjectLanguageChangeJob.id == job.id, ProjectLanguageChangeJob.status.in_(_JOB_ACTIVE_STATUSES))
+            .values(status="completed", completed_at=datetime.utcnow())
+        )
+        db.commit()
+        stall_recovery.clear("language", job.id)
+        return False
+
+    stall_recovery.request_cancel("language", job.id)
+    user_id, project_id, job_id = job.user_id, job.project_id, job.id
+    backed_up = job.audio_backed_up
+    snapshot_raw = job.content_snapshot
+
+    claimed = db.execute(
+        update(ProjectLanguageChangeJob)
+        .where(ProjectLanguageChangeJob.id == job.id, ProjectLanguageChangeJob.status.in_(_JOB_ACTIVE_STATUSES))
+        .values(status="failed", error_message=STALL_RETRY_MESSAGE, completed_at=datetime.utcnow())
+    )
+    if not claimed.rowcount:
+        db.rollback()
+        return False
+
+    # job.user_id IS the payer (project owner) — charge and refund key off the same column.
+    _refund_video_credit(db, user_id)
+    project = db.query(Project).filter(Project.id == project_id).first()
+    _restore_content_snapshot(db, project, snapshot_raw)
+    if project and project.status == ProjectStatus.LANGUAGE_REGENERATING:
+        project.status = ProjectStatus.GENERATED
+    db.commit()
+
+    if backed_up:
+        try:
+            _restore_project_audio(project_id, job_id)
+            _reupload_audio_to_r2(project_id, db)
+        except Exception:
+            logger.exception("[STALL] language-change audio restore failed for project=%s", project_id)
+    _cleanup_audio_backup(project_id, job_id)
+
+    # Rebuild so the workspace reflects the restored copy + audio.
+    try:
+        project = db.query(Project).filter(Project.id == project_id).first()
+        if project:
+            scenes = db.query(Scene).filter(Scene.project_id == project_id).order_by(Scene.order).all()
+            rebuild_workspace(project, scenes, db)
+    except Exception:
+        logger.exception("[STALL] language-change workspace rebuild failed for project=%s", project_id)
+
+    logger.warning("[STALL] reverted stalled language-change job=%s project=%s", job_id, project_id)
+    return True
+
+
+def maybe_reap_stale_language_change(db: Session, job: ProjectLanguageChangeJob | None) -> bool:
+    if job is None or job.status not in _JOB_ACTIVE_STATUSES:
+        return False
+    if _seconds_since(job.updated_at) < settings.STALL_THRESHOLD_LANGUAGE_SECONDS:
+        return False
+    return recover_stalled_language_change_job(db, job)
+
+
 def maybe_reap_stale_regenerate_script(db: Session, job: ProjectRegenerateScriptJob | None) -> bool:
     if job is None or job.status not in _JOB_ACTIVE_STATUSES:
         return False
@@ -2009,6 +2124,24 @@ def reap_orphaned_voice_change_jobs() -> None:
                 logger.exception("[STALL] boot recovery failed for voice-change job=%s", job.id)
     except Exception:
         logger.exception("[STALL] voice-change boot sweep failed")
+    finally:
+        db.close()
+
+
+def reap_orphaned_language_change_jobs() -> None:
+    """Boot sweep: any active language-change job is orphaned (its process is gone)."""
+    db = SessionLocal()
+    try:
+        jobs = db.query(ProjectLanguageChangeJob).filter(
+            ProjectLanguageChangeJob.status.in_(_JOB_ACTIVE_STATUSES)
+        ).all()
+        for job in jobs:
+            try:
+                recover_stalled_language_change_job(db, job)
+            except Exception:
+                logger.exception("[STALL] boot recovery failed for language-change job=%s", job.id)
+    except Exception:
+        logger.exception("[STALL] language-change boot sweep failed")
     finally:
         db.close()
 
@@ -3289,6 +3422,20 @@ def submit_project_review(
     db.commit()
     db.refresh(review)
 
+    if review.rating < 2:
+        try:
+            email_service.send_low_rating_alert_email(
+                user_name=user.name,
+                user_email=user.email,
+                project_id=project.id,
+                project_name=project.name,
+                rating=review.rating,
+                suggestion=review.suggestion,
+                plan=review.plan_at_submission,
+            )
+        except EmailServiceError:
+            logger.exception("Failed to send low-rating alert email for review %s", review.id)
+
     return ReviewSubmitResponse(
         review=ReviewOut.model_validate(review),
         review_state=_build_review_state(project, user, db),
@@ -3813,6 +3960,7 @@ def generate_scene_image(
         get_image_aspect_for_layout,
         get_openai_size,
         get_gemini_image_config,
+        get_glm_size,
     )
     from app.services.scene_image_context import build_scene_context_for_image
     from app.services.template_service import get_fallback_layout
@@ -3853,7 +4001,7 @@ def generate_scene_image(
     if not provider:
         raise HTTPException(
             status_code=503,
-            detail="Image generation not configured. Set IMAGE_PROVIDER and the corresponding API key (OPENAI_API_KEY or GEMINI_API_KEY)",
+            detail="Image generation not configured. Set IMAGE_PROVIDER and the corresponding API key (OPENAI_API_KEY, GEMINI_API_KEY, or GLM_API_KEY)",
         )
 
     layout_id = get_fallback_layout(project.template)
@@ -3881,6 +4029,13 @@ def generate_scene_image(
         logger.info(
             "[GENERATE_IMAGE] provider=openai layout=%r template=%r project_aspect=%r image_aspect=%r size=%s",
             layout_id, project.template, project_aspect, aspect_ratio, openai_size,
+        )
+    elif provider_name == "glm":
+        glm_size = get_glm_size(aspect_ratio)
+        gen_kwargs = {"size": glm_size}
+        logger.info(
+            "[GENERATE_IMAGE] provider=glm layout=%r template=%r project_aspect=%r image_aspect=%r size=%s",
+            layout_id, project.template, project_aspect, aspect_ratio, glm_size,
         )
     else:
         gemini_config = get_gemini_image_config(aspect_ratio)
@@ -5324,12 +5479,17 @@ async def change_project_voice(
 
 
 @router.get("/{project_id}/voice-change-status")
-async def voice_change_status(
+def voice_change_status(
     project_id: int,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Poll the progress of a running voice change (scene-by-scene)."""
+    """Poll the progress of a running voice change (scene-by-scene).
+
+    Plain ``def`` for the same reason as ``language_change_status``: it does only
+    blocking work (sync DB queries + a stall reap that can hit R2 and rebuild the
+    workspace) and is polled every 1.2s, so running it on the event loop stalls the app.
+    """
     from app.services import voice_change_progress
 
     project = _get_user_project(project_id, user.id, db)
@@ -5709,3 +5869,520 @@ def _name_from_files(files: list[UploadFile]) -> str:
         if name:
             return name
     return "Uploaded Document"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Change language: translate every scene's copy, then regenerate every voiceover.
+# Any editor may trigger it; the project OWNER pays (one video credit, refunded
+# on failure). Layouts, image assignments, colors, chart data and links are
+# preserved byte-for-byte — only prose changes language.
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def _scene_content_snapshot(scenes: list[Scene], prior_language: str | None) -> str:
+    """Serialize the pre-change copy so a failed/reaped run can restore it."""
+    return json.dumps({
+        "content_language": prior_language,
+        "scenes": [
+            {
+                "id": s.id,
+                "title": s.title,
+                "display_text": s.display_text,
+                "narration_text": s.narration_text,
+                "remotion_code": s.remotion_code,
+            }
+            for s in scenes
+        ],
+    })
+
+
+async def _translate_project_scenes(
+    project: Project,
+    scenes: list[Scene],
+    target_language: str,
+    db: Session,
+    on_scene_done,
+    *,
+    cancel_event=None,
+) -> None:
+    """Phase A: translate title / display_text / narration_text / layoutProps per scene.
+
+    One LLM call per scene keeps the whole scene's copy in a single context (so a
+    heading and its body agree) and bounds cost. The scene's descriptor keys, layout,
+    image assignment, numbers and links are never touched — see services/translation.
+
+    ``cancel_event`` is the cooperative-cancel ``threading.Event`` from stall_recovery;
+    we check it per scene so a reaped run stops promptly instead of translating on.
+    Already-translated scenes stay committed — the caller's revert restores them.
+    """
+    from app.dspy_modules.translate_content import ContentTranslator
+    from app.services.template_service import get_meta
+    from app.services.translation import (
+        apply_translations,
+        collect_translatable_props,
+        get_values_at,
+    )
+
+    translator = ContentTranslator(target_language=target_language)
+    # get_meta returns None for crafted/custom templates; the collector falls back to a
+    # prose heuristic when a layout has no declared schema.
+    meta = get_meta(project.template) or {}
+    schema = meta.get("layout_prop_schema") or {}
+
+    for scene in scenes:
+        if cancel_event is not None and cancel_event.is_set():
+            logger.warning("[LANG-CHANGE] translate phase cancelled at scene=%s", scene.id)
+            return
+
+        # ── scene-level text columns ──────────────────────────────────────
+        fields: list[tuple[str, str]] = []
+        if (scene.title or "").strip():
+            fields.append(("title", scene.title))
+        if (scene.display_text or "").strip():
+            fields.append(("display_text", scene.display_text))
+        if (scene.narration_text or "").strip():
+            fields.append(("narration_text", scene.narration_text))
+
+        context = f"Scene {scene.order} of a short explainer video."
+
+        if fields:
+            translated = await translator.translate([v for _, v in fields], context=context)
+            for (attr, original), new_value in zip(fields, translated):
+                setattr(scene, attr, new_value if (new_value or "").strip() else original)
+
+        # ── descriptor layoutProps ────────────────────────────────────────
+        if scene.remotion_code:
+            try:
+                descriptor = json.loads(scene.remotion_code)
+            except (json.JSONDecodeError, TypeError):
+                descriptor = None
+
+            if isinstance(descriptor, dict) and descriptor.get("layoutProps"):
+                layout = str(descriptor.get("layout") or "")
+                props = descriptor.get("layoutProps") or {}
+                paths = collect_translatable_props(layout, props, schema)
+                if paths:
+                    originals = get_values_at(props, paths)
+                    new_values = await translator.translate(originals, context=context)
+                    safe = [
+                        t if isinstance(t, str) and t.strip() else o
+                        for t, o in zip(new_values, originals)
+                    ]
+                    try:
+                        new_props = apply_translations(props, paths, safe)
+                        out = dict(descriptor)
+                        out["layoutProps"] = new_props
+                        scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(out))
+                    except ValueError:
+                        logger.exception(
+                            "[LANG-CHANGE] prop apply failed for scene=%s; keeping original", scene.id
+                        )
+
+        db.commit()
+        on_scene_done()
+
+
+def _run_language_change(project_id: int, job_id: int) -> None:
+    """Background worker: translate all scene copy, then regenerate every voiceover.
+
+    Runs in a thread-pool executor (like the template-change and script-regeneration
+    jobs) rather than as a coroutine on the event loop. The run mixes long awaited work
+    (LLM + TTS) with blocking work (R2 audio download, per-scene DB commits, workspace
+    rebuild); off-loading the whole thing keeps every blocking call away from the loop
+    so the rest of the app stays responsive. The async phases are driven with
+    ``asyncio.run`` inside this thread.
+
+    Uses its own DB session (the request's session closes once the response is sent) and
+    heartbeats ``ProjectLanguageChangeJob.updated_at`` once per scene per phase so a
+    stalled run can be reaped + reverted via the status-polling API.
+    """
+    from app.database import SessionLocal
+    from app.services.voiceover import generate_all_voiceovers
+    from app.services.remotion import rebuild_workspace
+    from app.services.language_detection import get_content_language_for_project
+    from app.services import language_change_progress
+
+    # Cooperative cancellation: a sync worker can't be `task.cancel()`ed, so the reaper
+    # sets this Event and we bail at the next checkpoint (same as the template job).
+    cancel_event = stall_recovery.arm("language", job_id)
+
+    db = SessionLocal()
+    job_user_id = None
+    audio_backed_up = False
+    snapshot_raw = None
+    try:
+        job = db.query(ProjectLanguageChangeJob).filter(ProjectLanguageChangeJob.id == job_id).first()
+        project = db.query(Project).filter(Project.id == project_id).first()
+        if not project or not job:
+            language_change_progress.finish(project_id, error="Project not found.")
+            if job:
+                job.status = "failed"
+                job.error_message = "Project not found."
+                job.completed_at = datetime.utcnow()
+                db.commit()
+            return
+
+        job_user_id = job.user_id
+        snapshot_raw = job.content_snapshot
+        scenes = (
+            db.query(Scene)
+            .filter(Scene.project_id == project_id)
+            .order_by(Scene.order)
+            .all()
+        )
+
+        # Back up existing audio BEFORE generate overwrites scene_N.mp3 in place, so a
+        # reaped/failed run can restore the originals. Pull from R2 first in case the
+        # local cache is cold (otherwise the backup would be empty).
+        _ensure_local_audio_from_r2(project_id, db)
+        _backup_project_audio(project_id, job_id)
+        audio_backed_up = True
+        job.status = "running"
+        job.total_scenes = 2 * len(scenes)
+        job.processed_scenes = 0
+        job.audio_backed_up = True
+        db.commit()
+
+        def _advance() -> None:
+            language_change_progress.advance(project_id)
+            # Heartbeat in a separate short-lived session so we never disturb the
+            # worker's session mid-generation.
+            hb = SessionLocal()
+            try:
+                hb.execute(
+                    update(ProjectLanguageChangeJob)
+                    .where(ProjectLanguageChangeJob.id == job_id)
+                    .values(
+                        processed_scenes=ProjectLanguageChangeJob.processed_scenes + 1,
+                        updated_at=datetime.utcnow(),
+                    )
+                )
+                hb.commit()
+            except Exception:
+                hb.rollback()
+            finally:
+                hb.close()
+
+        # ── Phase A: translate every scene's copy ─────────────────────────
+        # project.content_language was set to the target by the endpoint, so this
+        # resolves to the NEW language name (e.g. 'Spanish').
+        target_language = get_content_language_for_project(project)
+        asyncio.run(
+            _translate_project_scenes(
+                project, scenes, target_language, db, _advance, cancel_event=cancel_event
+            )
+        )
+
+        if cancel_event.is_set():
+            logger.warning("[LANG-CHANGE] job=%s superseded by reaper; aborting after translate", job_id)
+            return
+
+        # ── Phase B: regenerate every voiceover in the new language ───────
+        language_change_progress.set_phase(project_id, language_change_progress.PHASE_VOICEOVER)
+        # Re-fetch after asyncio.run() — running a loop inside the executor thread can
+        # leave pre-loaded ORM objects detached from this session.
+        project = db.query(Project).filter(Project.id == project_id).first()
+        scenes = (
+            db.query(Scene)
+            .filter(Scene.project_id == project_id)
+            .order_by(Scene.order)
+            .all()
+        )
+        new_paths = asyncio.run(
+            generate_all_voiceovers(
+                scenes,
+                db,
+                video_style=getattr(project, "video_style", None) or "explainer",
+                content_language=target_language,
+                # Speak the translated narration as-is; do not re-expand it (that would
+                # re-write the copy we just carefully translated).
+                verbatim=True,
+                progress_cb=_advance,
+            )
+        )
+
+        # generate_all_voiceovers swallows per-scene TTS failures (returns "" for a
+        # failed scene). A scene legitimately has no audio only when its narration is
+        # empty — so narration WITHOUT a new path means a partial failure. Don't accept
+        # it as success (that would delete the originals); raise so the except branch
+        # restores the backed-up audio + copy and refunds.
+        if getattr(project, "voice_gender", None) != "none":
+            failed_scenes = [
+                scenes[i].order
+                for i in range(len(scenes))
+                if (scenes[i].narration_text or "").strip()
+                and not (new_paths[i] if i < len(new_paths) else "")
+            ]
+            if failed_scenes:
+                raise RuntimeError(
+                    f"Voiceover regeneration failed for {len(failed_scenes)} scene(s): {failed_scenes}"
+                )
+
+        if cancel_event.is_set():
+            logger.warning("[LANG-CHANGE] job=%s superseded by reaper; aborting before finalize", job_id)
+            return
+
+        # Rebuild the Remotion workspace so the new copy + audio are referenced.
+        scenes = (
+            db.query(Scene)
+            .filter(Scene.project_id == project_id)
+            .order_by(Scene.order)
+            .all()
+        )
+        rebuild_workspace(project, scenes, db)
+
+        # Clear the stale rendered video and reset status so the user can re-render.
+        project.r2_video_url = None
+        project.status = ProjectStatus.GENERATED
+        # Finalize only if a reaper hasn't already claimed (failed/reverted) this job.
+        finalized = db.execute(
+            update(ProjectLanguageChangeJob)
+            .where(ProjectLanguageChangeJob.id == job_id, ProjectLanguageChangeJob.status.in_(_JOB_ACTIVE_STATUSES))
+            .values(status="completed", completed_at=datetime.utcnow())
+        )
+        db.commit()
+        if finalized.rowcount:
+            _cleanup_audio_backup(project_id, job_id)
+            actor_id = (language_change_progress.get(project_id) or {}).get("user_id")
+            language_change_progress.finish(project_id)
+            # Sync worker (no event loop here) → use the thread-safe broadcast helper.
+            from app.routers.collab_ws import broadcast_project_reload
+            broadcast_project_reload(project_id, exclude_user_id=actor_id)
+        else:
+            logger.warning("[LANG-CHANGE] job=%s already reaped; skipping completion", job_id)
+            language_change_progress.finish(project_id, error=STALL_RETRY_MESSAGE)
+
+    except Exception as e:  # noqa: BLE001
+        logger.exception("[LANG-CHANGE] Failed for project %s: %s", project_id, e)
+        try:
+            claimed = db.execute(
+                update(ProjectLanguageChangeJob)
+                .where(ProjectLanguageChangeJob.id == job_id, ProjectLanguageChangeJob.status.in_(_JOB_ACTIVE_STATUSES))
+                .values(status="failed", error_message=STALL_RETRY_MESSAGE, completed_at=datetime.utcnow())
+            )
+            # Refund only if WE claimed the job — otherwise a reaper already refunded.
+            if claimed.rowcount and job_user_id is not None:
+                _refund_video_credit(db, job_user_id)
+            project = db.query(Project).filter(Project.id == project_id).first()
+            if claimed.rowcount:
+                _restore_content_snapshot(db, project, snapshot_raw)
+            if project and project.status == ProjectStatus.LANGUAGE_REGENERATING:
+                project.status = ProjectStatus.GENERATED
+            db.commit()
+            if claimed.rowcount and audio_backed_up:
+                _restore_project_audio(project_id, job_id)
+                _reupload_audio_to_r2(project_id, db)
+            _cleanup_audio_backup(project_id, job_id)
+        except Exception:
+            db.rollback()
+        language_change_progress.finish(project_id, error=STALL_RETRY_MESSAGE)
+    finally:
+        stall_recovery.clear("language", job_id)
+        db.close()
+
+
+@router.post("/{project_id}/change-language")
+async def change_project_language(
+    project_id: int,
+    body: ProjectLanguageChange,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Translate the whole project into a new language and regenerate its voiceovers.
+
+    Every scene's title, display text, narration and on-screen layout text is translated
+    in place; layouts, image assignments, colors, chart data and links are untouched.
+    Counts as a new video, so it deducts one video credit from the project OWNER (a
+    collaborator may trigger it — the owner pays). Runs in the background (status ->
+    language_regenerating); poll ``/language-change-status`` for progress.
+    """
+    from app.services import language_change_progress
+    from app.services.language_detection import (
+        get_language_for_prompt,
+        normalize_preferred_language_code,
+    )
+    from app.services.access import project_owner, video_limit_message
+
+    # Editor role: any accepted collaborator may trigger a language change.
+    project = _get_user_project(project_id, user.id, db)
+
+    # Only one long-running job per project across all types.
+    _assert_no_active_job(project_id, db)
+
+    new_code = normalize_preferred_language_code(body.content_language)
+    if not new_code:
+        raise HTTPException(status_code=400, detail="A target language is required.")
+    if new_code == (project.content_language or "").strip().lower():
+        raise HTTPException(status_code=400, detail="Project is already in that language.")
+
+    # Owner pays: bill the OWNER's quota, not the acting collaborator's.
+    payer = project_owner(project, db)
+    # Align per-video credits with Stripe before the limit check (same as render).
+    payer.roll_video_period_if_due(db)
+    payer.sync_video_limit_bonus(db)
+    db.refresh(payer)
+    if not payer.can_create_video:
+        raise HTTPException(
+            status_code=403,
+            detail=video_limit_message(payer, user, "change the language"),
+        )
+
+    scenes = (
+        db.query(Scene)
+        .filter(Scene.project_id == project_id)
+        .order_by(Scene.order)
+        .all()
+    )
+    if not scenes:
+        raise HTTPException(status_code=400, detail="No scenes found. Generate the video first.")
+
+    # Snapshot the prior copy BEFORE translating, so a reaped/failed run can restore it.
+    content_snapshot = _scene_content_snapshot(scenes, project.content_language)
+
+    project.content_language = new_code
+    # Deduct one video credit from the OWNER and mark the project as language-regenerating.
+    payer.videos_used_this_period += 1
+    project.status = ProjectStatus.LANGUAGE_REGENERATING
+    job = ProjectLanguageChangeJob(
+        project_id=project_id,
+        # Payer = project owner. Charge and refund both key off this.
+        user_id=payer.id,
+        status="queued",
+        total_scenes=2 * len(scenes),
+        processed_scenes=0,
+        target_language=new_code,
+        content_snapshot=content_snapshot,
+    )
+    db.add(job)
+    # Log a non-revertable history entry, attributed to the ACTOR (not the payer).
+    # Show the human-readable language ("Urdu"), not the ISO code ("ur") — the history
+    # modal renders this label verbatim. Unknown codes fall through to the code itself.
+    from app.services.edit_tracker import log_project_event, prune_project_history
+    log_project_event(
+        db,
+        project_id=project_id,
+        label=f"Language changed to {get_language_for_prompt(new_code)}",
+        user_id=user.id,
+    )
+    prune_project_history(db, project_id)
+    db.commit()
+    db.refresh(job)
+
+    # Tell live collaborators to refetch so they see the language change start.
+    from app.routers.collab_ws import collab_manager
+    await collab_manager.broadcast(
+        project_id, {"type": "project_reloaded"}, exclude_user_id=user.id
+    )
+
+    language_change_progress.start(
+        project_id, 2 * len(scenes), user_id=user.id, target_language=new_code
+    )
+    # Off-load to the thread pool (like the template-change / script-regen jobs) so the
+    # run's blocking work (R2 audio pull, per-scene commits, workspace rebuild) never
+    # touches the event loop.
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(None, _run_language_change, project_id, job.id)
+
+    return {"started": True, "total": 2 * len(scenes), "content_language": new_code}
+
+
+@router.get("/{project_id}/language-change-status")
+def language_change_status(
+    project_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Poll the progress of a running language change (scene-by-scene, two phases).
+
+    Deliberately a plain ``def`` (like ``get_regenerate_script_status``), NOT ``async``:
+    every call here is blocking — synchronous SQLAlchemy queries, and a stall reap that
+    can pull audio from R2 and rebuild the Remotion workspace. As an ``async def`` those
+    would run straight on the event loop, and the frontend polls this every 1.2s while a
+    translation runs, stalling the whole app. FastAPI runs sync handlers in its
+    threadpool, keeping the loop free.
+    """
+    from app.services import language_change_progress
+
+    project = _get_user_project(project_id, user.id, db)
+
+    # Stall recovery: if the latest job is active but its heartbeat is stale, this poll
+    # reverts + refunds. The reaped job surfaces the retry copy.
+    latest_job = (
+        db.query(ProjectLanguageChangeJob)
+        .filter(ProjectLanguageChangeJob.project_id == project_id)
+        .order_by(ProjectLanguageChangeJob.id.desc())
+        .first()
+    )
+    if maybe_reap_stale_language_change(db, latest_job):
+        db.refresh(project)
+        language_change_progress.finish(project_id, error=STALL_RETRY_MESSAGE)
+        status_value = project.status.value if hasattr(project.status, "value") else str(project.status)
+        return {
+            "active": False,
+            "done": True,
+            "error": STALL_RETRY_MESSAGE,
+            "total": 0,
+            "completed": 0,
+            "progress": 100,
+            "status": status_value,
+            "r2_video_url": project.r2_video_url,
+            "kind": "language_change",
+            "content_language": project.content_language,
+        }
+
+    prog = language_change_progress.get(project_id)
+    status_value = project.status.value if hasattr(project.status, "value") else str(project.status)
+
+    if not prog:
+        # No in-memory record on this worker (after a refresh, or on another worker):
+        # fall back to the durable job row.
+        if latest_job and latest_job.status in _JOB_ACTIVE_STATUSES:
+            j_total = int(latest_job.total_scenes or 0)
+            j_completed = int(latest_job.processed_scenes or 0)
+            j_progress = int(min(j_completed / j_total, 1.0) * 100) if j_total > 0 else 0
+            return {
+                "active": True,
+                "done": False,
+                "error": None,
+                "total": j_total,
+                "completed": j_completed,
+                "progress": j_progress,
+                "status": status_value,
+                "r2_video_url": project.r2_video_url,
+                "kind": "language_change",
+                "content_language": project.content_language,
+            }
+        regenerating = project.status == ProjectStatus.LANGUAGE_REGENERATING
+        return {
+            "active": regenerating,
+            "done": not regenerating,
+            "error": None,
+            "total": 0,
+            "completed": 0,
+            "progress": 0 if regenerating else 100,
+            "status": status_value,
+            "r2_video_url": project.r2_video_url,
+            "kind": "language_change",
+            "content_language": project.content_language,
+        }
+
+    total = int(prog.get("total") or 0)
+    completed = int(prog.get("completed") or 0)
+    done = bool(prog.get("done"))
+    if total > 0:
+        progress = int(min(completed / total, 1.0) * 100)
+    else:
+        progress = 100 if done else 0
+    return {
+        "active": not done,
+        "done": done,
+        "error": prog.get("error"),
+        "total": total,
+        "completed": completed,
+        "progress": progress,
+        "phase": prog.get("phase"),
+        "status": status_value,
+        "r2_video_url": project.r2_video_url,
+        "kind": "language_change",
+        "content_language": project.content_language,
+    }

@@ -75,3 +75,6 @@ frontend/.env
 
 # Test virtualenv (Tier A QA suite)
 backend/.venv-test/
+
+# Local docs
+docs/

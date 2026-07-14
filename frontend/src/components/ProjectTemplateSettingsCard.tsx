@@ -50,7 +50,7 @@ export function TemplateAssignPreview({
     return (
       <div
         className={`flex w-full items-center justify-center bg-gray-100 text-center text-xs text-gray-400 ${
-          variant === "thumb" ? "min-h-[64px] max-h-[80px] p-2" : "aspect-video p-4"
+          variant === "thumb" ? "min-h-[90px] max-h-[100px] p-2" : "aspect-video p-4"
         }`}
       >
         Designer template preview unavailable
@@ -104,7 +104,7 @@ export function TemplateAssignPreview({
       );
       if (variant === "thumb") {
         return (
-          <div className="relative h-20 w-full overflow-hidden bg-gray-50">
+          <div className="relative h-24 w-full overflow-hidden bg-gray-50">
             {fallback}
           </div>
         );
@@ -114,7 +114,7 @@ export function TemplateAssignPreview({
     return (
       <div
         className={`flex w-full items-center justify-center bg-gray-100 text-center text-xs text-gray-400 ${
-          variant === "thumb" ? "min-h-[64px] max-h-[80px] p-2" : "aspect-video p-4"
+          variant === "thumb" ? "min-h-[80px] max-h-[96px] p-2" : "aspect-video p-4"
         }`}
       >
         Custom template preview unavailable
@@ -126,7 +126,7 @@ export function TemplateAssignPreview({
   if (Comp) {
     if (variant === "thumb") {
       return (
-        <div className="relative h-20 w-full overflow-hidden bg-gray-50">
+        <div className="relative h-24 w-full overflow-hidden bg-gray-50">
           <Comp key={templateId} thumbnailMode />
         </div>
       );
@@ -136,7 +136,7 @@ export function TemplateAssignPreview({
   return (
     <div
       className={`flex w-full items-center justify-center bg-gray-100 text-gray-300 ${
-        variant === "thumb" ? "min-h-[64px] max-h-[80px] text-[10px] px-1" : "aspect-video text-sm"
+        variant === "thumb" ? "min-h-[80px] max-h-[96px] text-[10px] px-1" : "aspect-video text-sm"
       }`}
     >
       {templateId}
@@ -188,9 +188,9 @@ export default function ProjectTemplateSettingsCard({
       <p className="text-xs text-gray-400 mb-5">
         Rebuild scene layouts for a new template while preserving narration, display text, voiceovers.
       </p>
-      <div className="glass-card p-6 overflow-visible relative z-20">
+      <div className="glass-card px-6 py-8 overflow-visible relative z-20">
         <div className="flex flex-row items-stretch gap-4">
-          <div className="shrink-0 self-start w-[9.5rem] sm:w-40 rounded-xl overflow-hidden border-2 border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.08)]">
+          <div className="shrink-0 self-start w-[10.5rem] sm:w-44 rounded-xl overflow-hidden border-2 border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.08)]">
             {previewOverride ?? (
               <TemplateAssignPreview
                 templateId={templateId}

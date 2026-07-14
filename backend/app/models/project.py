@@ -22,6 +22,10 @@ class ProjectStatus(str, enum.Enum):
     # voice-change-status endpoint doesn't need to guess whether GENERATING belongs
     # to a voice change or a template relayout.
     VOICE_REGENERATING = "voice_regenerating"
+    # Dedicated state for the language change job (translate all copy, then regenerate
+    # every voiceover). Distinct from VOICE_REGENERATING so the status endpoints and
+    # the stall reapers can tell the two jobs apart.
+    LANGUAGE_REGENERATING = "language_regenerating"
 
 
 class Project(Base):
@@ -93,7 +97,8 @@ class Project(Base):
 
     # Content language: ISO 639-1 code (e.g. 'en', 'es'). Defaults to scraped content language.
     # All generated content (script, display text, voiceover) is produced in this language.
-    # Null = auto-detect from blog_content when needed. Later: user choice / translate option.
+    # Null = auto-detect from blog_content when needed. Changed post-hoc by the
+    # change-language job, which translates every scene's copy and re-runs TTS.
     content_language: Mapped[str | None] = mapped_column(String(10), nullable=True)
 
     # Aspect ratio
@@ -139,3 +144,4 @@ class Project(Base):
     template_change_jobs = relationship("ProjectTemplateChangeJob", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
     regenerate_script_jobs = relationship("ProjectRegenerateScriptJob", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
     voice_change_jobs = relationship("ProjectVoiceChangeJob", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
+    language_change_jobs = relationship("ProjectLanguageChangeJob", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)

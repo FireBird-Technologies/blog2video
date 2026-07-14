@@ -84,7 +84,7 @@ Blog2Video User Manual — Complete Editing Guide
 
 To change the font for your entire video:
 1. Open your project and click the Settings tab.
-2. Under "Font", open the Font Family dropdown and choose from 16+ options: Inter, Roboto Slab, Patrick Hand, Arimo, Archivo Black, Poppins, Montserrat, Merriweather, Playfair Display, Oswald, Lora, Fira Code, Righteous, and more.
+2. Under "Font", open the Font Family dropdown and choose from 12 options: Inter, Roboto Slab, Patrick Hand, Arimo, Archivo Black, Poppins, Montserrat, Merriweather, Playfair Display, Oswald, Lora, Fira Code.
 3. Selecting a font immediately updates all scenes to use that typeface.
 
 To change font size:
@@ -111,14 +111,14 @@ You can also set colors during project creation (Step 3 — Branding).
 To switch the template on an existing project:
 1. Open your project and click the Settings tab.
 2. Find the Template section and open the template dropdown.
-3. Choose any built-in template (Geometric Explainer, Nightfall, Gridcraft, Spotlight, Matrix, Stick Man, Newspaper, Newscast, Black Swan, Mosaic, Bloomberg, Chronicle) or a custom template you have created.
+3. Choose any built-in template (Geometric Explainer, Nightfall, Gridcraft, Spotlight, Matrix, Stick Man, Stick Man 2: Night Edition, Stickman Football Match, Newspaper, Newscast, Black Swan, Mosaic, Bloomberg, Chronicle, The Economist, Magazine, Sakura) or a custom template you have created.
 4. Click "Apply template". Blog2Video reassigns every scene to the closest matching layout in the new template.
 
 Note: Switching templates may change scene layouts. Review all scenes after switching.
 
 == ALL AVAILABLE TEMPLATES ==
 
-Built-in templates: Geometric Explainer (default, clean purple/white), Nightfall (dark cinematic glass), Gridcraft (warm bento editorial), Spotlight (bold kinetic typography), Matrix (digital rain hacker), Stick Man / Whiteboard (hand-drawn storytelling), Newspaper (editorial news headlines), Newscast (broadcast news ticker), Black Swan (neon cinematic finance), Mosaic (tessellated tile data panels), Bloomberg (amber terminal finance dashboard), Chronicle (medieval parchment tome).
+Built-in templates: Geometric Explainer (default, clean purple/white), Nightfall (dark cinematic glass), Gridcraft (warm bento editorial), Spotlight (bold kinetic typography), Matrix (digital rain hacker), Stick Man / Whiteboard (hand-drawn storytelling), Stick Man 2: Night Edition (glowing chalk stories under the night sky), Stickman Football Match (hand-drawn football action for match recaps & highlights), Newspaper (editorial news headlines), Newscast (broadcast news ticker), Black Swan (neon cinematic finance), Mosaic (tessellated tile data panels), Bloomberg (amber terminal finance dashboard), Chronicle (medieval parchment tome), The Economist (editorial newspaper × economics — paper, red masthead, reference-grade charts), Magazine (glossy editorial storytelling), Sakura (Japanese-aesthetic blog-to-video theme).
 
 Custom templates: Created by you in the template builder. Appear in the Custom tab with a green "Custom" badge.
 Expert templates (Crafted): Professionally crafted brand templates available on some accounts. Appear in the Expert tab.
@@ -132,13 +132,13 @@ From bulk URLs: New Project → Bulk tab. Add up to 10 URLs, one per row, each w
 Project settings:
 - Video style: Explainer (educational step-by-step), Storytelling (narrative emotional), Promotional (persuasive CTA).
 - Video length: Short (~30s–1min), Medium (~1–3min), Detailed (~3–8min), More Detailed (8+ min).
-- Language: 50+ languages supported (English, Spanish, French, Arabic, Hindi, Chinese, Japanese, Korean, etc.).
+- Language: 39 languages supported (English, Spanish, French, Arabic, Hindi, Chinese, Japanese, Korean, etc.).
 - Voice: Female, Male, or None. Choose a prebuilt ElevenLabs voice or a custom voice clone.
 - Branding: Set accent color, background color, text color, and upload a logo during creation.
 
 == VOICE SETTINGS ==
 
-Choose voice gender (Female/Male/None) and pick from prebuilt ElevenLabs voices during project creation. To use a voice clone: go to Account → My Voices → Create Voice Clone, upload a 2-minute audio/video sample. Your clone appears in the voice picker.
+Choose voice gender (Female/Male/None) and pick from prebuilt ElevenLabs voices during project creation. To use a voice clone: go to Dashboard → Voices → "Create custom voice", upload an audio or video sample (about 2 minutes). Your clone appears in the voice picker. Voice cloning is available on Pro and Standard plans.
 
 Playback speed: In the video preview, use the speed control to choose 0.5×, 1×, 1.5×, 2×, or 2.5×.
 
@@ -223,9 +223,9 @@ Click "Regenerate" to send your request to the AI. The scene will update with ne
 
 == AI EDITING USAGE LIMITS ==
 
-Free plan: 3 AI-assisted scene edits total across all projects. An edit counter in the AI edit panel shows how many you have remaining.
+Free plan: 3 AI-assisted scene edits per project. An edit counter in the AI edit panel shows how many you have remaining for that project.
 
-Pro plan: Unlimited AI-assisted edits.
+Pro and Standard plans: Unlimited AI-assisted edits.
 
 Note: Manual edits (typing directly into fields) do not count toward the AI edit limit. Only clicks on the "Regenerate" button in AI mode use a credit.
 
@@ -258,7 +258,7 @@ The preview updates in real time. Click "Save" to apply the framing. The cropped
 
 Open the Settings tab inside your project (the gear icon or "Settings" in the tab bar).
 
-Font family: A dropdown with 16+ font options:
+Font family: A dropdown with 12 font options:
 - Inter (modern sans-serif, default for most templates)
 - Roboto Slab (serif, formal)
 - Patrick Hand (handwritten, informal)
@@ -271,8 +271,8 @@ Font family: A dropdown with 16+ font options:
 - Oswald (condensed sans-serif)
 - Lora (literary serif)
 - Fira Code (monospace, good for tech content)
-- Righteous (retro display)
-- And additional system fonts
+
+Note: Righteous is used as a display font inside the Black Swan template's built-in layouts, but it is not a selectable option in the global Font Family dropdown.
 
 Selecting a font updates all scenes to use that typeface globally. The preview refreshes immediately.
 
@@ -350,7 +350,7 @@ To render and download:
 
 Re-rendering:
 - If you have already rendered and want to incorporate new edits, click Download again — it will offer to re-render. This counts as a new video against your plan's video limit.
-- Free users get 3 total renders. Pro users get 100/month. Standard users get 30/month.
+- Free users get 2 total renders. Pro users get 100/month. Standard users get 30/month. Pay-as-you-go per-video purchases are also available.
 
 To cancel an in-progress render:
 - Click "Cancel render". If the render has already finished or been cancelled, a brief error appears — refresh the page to see the current status.
@@ -405,7 +405,7 @@ Note: Converting aspect ratio does not change the content — it adjusts how the
 
 == AI CHAT PANEL ==
 
-The AI Chat panel is a Pro-only feature that lets you make edits using natural language instructions instead of editing scenes one by one.
+The AI Chat panel is a Pro and Standard feature that lets you make edits using natural language instructions instead of editing scenes one by one.
 
 How to use:
 - Open the AI Chat panel (the chat icon or "AI Chat" tab in the sidebar).
@@ -417,7 +417,7 @@ How to use:
 - Click Send. The AI processes your instruction and applies edits across the relevant scenes.
 - The chat history shows your previous instructions and their outcomes.
 
-Gating: If you are on the free plan, the chat input is replaced by an upgrade prompt. Upgrade to Pro to unlock the AI Chat panel.
+Gating: If you are on the free plan, the chat input is replaced by an upgrade prompt. Upgrade to Pro or Standard to unlock the AI Chat panel.
 
 == SCRIPT TAB ==
 

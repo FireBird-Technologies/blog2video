@@ -2058,5 +2058,13 @@
   "marketing:/templates/sakura@c91c0d859824094b@98282f29": {
     "keep": true,
     "reason": "describes a Blog2Video template feature"
+  },
+  "blog:biggest-update-magazine-captions-custom-templates@eb5a7c68461ecb48@98282f29": {
+    "keep": true,
+    "reason": "describes Blog2Video features"
+  },
+  "marketing:/templates/magazine@581875b25e8801cf@98282f29": {
+    "keep": true,
+    "reason": "describes a Blog2Video feature"
   }
 }

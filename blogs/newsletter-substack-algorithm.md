@@ -9,6 +9,8 @@ hero_image_alt: "Substack discovery limits versus YouTube search-driven newslett
 
 # Why the Substack Algorithm Doesn't Care How Good Your Analysis Is (And What to Do About It)
 
+> **TL;DR:** Substack's discovery algorithm rewards consistency and social proof, not analytical quality. Finance and business writers who want to grow need a distribution channel that surfaces content on merit — here's why video is that channel.
+
 You can write the most accurate, well-researched macro analysis on Substack and grow slowly. Meanwhile, a newsletter with half the substance but a larger following gets featured, amplified, and recommended to thousands of new readers automatically.
 
 This isn't a quality problem. It's a structural one.

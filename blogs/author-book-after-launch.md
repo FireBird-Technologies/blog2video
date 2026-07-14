@@ -9,6 +9,8 @@ hero_image_alt: "Long-term book discovery timeline powered by consistent author 
 
 # What Happens to Your Book After the Launch: Video as a Long-Term Discovery Engine
 
+> **TL;DR:** Most book sales happen in the 12–36 months after launch, not during it. Video keeps your book discoverable long after the launch spike fades — here's how to build that long-term discovery engine.
+
 Here's the honest picture of how most nonfiction book launches go:
 
 **Weeks 1–3:** Pre-orders activate. Your network shares your posts. You do interviews. Sales spike. You may hit a bestseller list if the launch is well-coordinated.

@@ -9,6 +9,8 @@ hero_image_alt: "Bloomberg-style finance newsletter video with dark data-forward
 
 # The Bloomberg Terminal Aesthetic for Independent Finance Creators
 
+> **TL;DR:** Independent finance creators can now produce video with the visual language of professional financial media — no studio, production team, or Bloomberg subscription required. Here's how.
+
 There's a specific visual language that signals financial authority. You know it when you see it: dark backgrounds with high-contrast data graphics, clean typography with metric callouts, the compressed layout of a terminal or trading screen translated into broadcast media. Bloomberg, CNBC, financial Twitter's most-shared data threads — they all share the same visual DNA.
 
 That aesthetic isn't accidental. It communicates something specific: this content is from someone who takes markets seriously. The visual signals credibility before a word of analysis has been heard.
