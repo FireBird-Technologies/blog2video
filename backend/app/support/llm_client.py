@@ -19,8 +19,8 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_MODEL = os.environ.get("SUPPORT_LLM_MODEL", "qwen/qwen-2.5-7b-instruct")
-SUMMARY_MODEL = os.environ.get("SUPPORT_SUMMARY_MODEL", "qwen/qwen-2.5-7b-instruct")
+DEFAULT_MODEL = os.environ.get("SUPPORT_LLM_MODEL", "qwen/qwen3.5-9b")
+SUMMARY_MODEL = os.environ.get("SUPPORT_SUMMARY_MODEL", "qwen/qwen3.5-9b")
 
 # Persistent client — reuses TCP/TLS connections across all requests.
 # All traffic is HTTPS/TLS 1.3; the API key travels inside the encrypted channel.
@@ -107,6 +107,7 @@ async def complete_json(
         messages=messages,
         max_tokens=max_tokens,
         temperature=temperature,
+        extra_body={"reasoning": {"enabled": False}},
     )
     if use_json_mode:
         kwargs["response_format"] = {"type": "json_object"}
@@ -155,6 +156,7 @@ async def complete_text(
             messages=messages,
             max_tokens=max_tokens,
             temperature=temperature,
+            extra_body={"reasoning": {"enabled": False}},
         )
     except APITimeoutError as exc:
         logger.error("[LLM-SUMMARY] Request timed out: %s", exc)
@@ -190,6 +192,7 @@ async def stream_answer(
             max_tokens=1500,
             temperature=0.2,
             stream=True,
+            extra_body={"reasoning": {"enabled": False}},
         )
         async for chunk in stream:
             delta = chunk.choices[0].delta.content or ""

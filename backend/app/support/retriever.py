@@ -91,6 +91,10 @@ class BM25Retriever(Retriever):
     HISTORY_WEIGHT = 0.5
     ROUTE_BOOST = 3.0
     CONTINUITY_BOOST = 2.0
+    # help/support docs are authoritative, UI-grounded instructions; blog posts are
+    # SEO/marketing prose that often shares titles/keywords with the real how-to doc
+    # and would otherwise outrank it on pure BM25 score. Prefer the authoritative doc.
+    SOURCE_BOOST = {"help": 1.6, "support": 1.6}
 
     def __init__(self, docs: list[CorpusDoc]):
         self.docs = docs
@@ -176,7 +180,8 @@ class BM25Retriever(Retriever):
             body = self.BODY_WEIGHT * body_scores[i]
             route = self.ROUTE_BOOST if (page_path and self._page_matches(page_path, doc)) else 0.0
             cont = self.CONTINUITY_BOOST if doc.id in cited_set else 0.0
-            total = high + body + route + cont
+            source = self.SOURCE_BOOST.get(doc.source, 0.0) if (high + body) > 0 else 0.0
+            total = high + body + route + cont + source
             scored.append(
                 ScoredDoc(
                     doc=doc,
@@ -186,6 +191,7 @@ class BM25Retriever(Retriever):
                         "body": round(body, 3),
                         "route": route,
                         "continuity": cont,
+                        "source": source,
                         "total": round(total, 3),
                     },
                 )
@@ -204,7 +210,7 @@ class BM25Retriever(Retriever):
             passed = s.score >= min_score
             logger.info(
                 "[RETRIEVAL]   #%d [%s]: id=%s  title=%r  score=%.3f  "
-                "high_signal=%.3f  body=%.3f  route=%.1f  continuity=%.1f",
+                "high_signal=%.3f  body=%.3f  route=%.1f  continuity=%.1f  source=%.1f",
                 idx,
                 "PASS" if passed else "FAIL",
                 s.doc.id,
@@ -214,6 +220,7 @@ class BM25Retriever(Retriever):
                 s.breakdown["body"],
                 s.breakdown["route"],
                 s.breakdown["continuity"],
+                s.breakdown["source"],
             )
         if not result:
             logger.warning(
