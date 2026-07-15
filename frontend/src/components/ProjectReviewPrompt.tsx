@@ -22,7 +22,9 @@ interface ProjectReviewPromptProps {
   error: string | null;
   variant?: "inline" | "modal";
   onDismiss?: () => void;
-  onSubmit: (payload: { rating: 1 | 2 | 3 | 4 | 5; suggestion?: string }) => Promise<void> | void;
+  onSubmit: (payload: { rating: 1 | 2 | 3 | 4 | 5; suggestion?: string }) => Promise<void | boolean> | void;
+  onStarClick?: (rating: 1 | 2 | 3 | 4 | 5) => void;
+  initialRating?: 1 | 2 | 3 | 4 | 5 | null;
 }
 
 function StarButton({
@@ -69,12 +71,13 @@ export default function ProjectReviewPrompt({
   variant = "inline",
   onDismiss,
   onSubmit,
+  onStarClick,
+  initialRating,
 }: ProjectReviewPromptProps) {
   const isModal = variant === "modal";
-  const [rating, setRating] = useState<1 | 2 | 3 | 4 | 5 | null>(null);
+  const [rating, setRating] = useState<1 | 2 | 3 | 4 | 5 | null>(initialRating ?? null);
   const [hoveredRating, setHoveredRating] = useState<number | null>(null);
   const [suggestion, setSuggestion] = useState("");
-  const [showFeedbackField, setShowFeedbackField] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -90,7 +93,6 @@ export default function ProjectReviewPrompt({
 
   const displayError = localError || error;
   const hasSuggestion = suggestion.trim().length > 0;
-  const showComposer = isModal || showFeedbackField || hasSuggestion || Boolean(displayError);
   const showSubmit = Boolean(rating) || hasSuggestion;
 
   const handleSubmit = async () => {
@@ -186,27 +188,27 @@ export default function ProjectReviewPrompt({
               </svg>
               Share B2V to get 5 videos free
             </a> */}
-            <div className="flex items-center gap-3">
-              {onDismiss && (
-                <button
-                  type="button"
-                  onClick={onDismiss}
-                  className="text-sm font-medium text-gray-500 transition-colors hover:text-gray-700"
-                >
-                  Close
-                </button>
-              )}
-              {showSubmit && (
-                <button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={submitting}
-                  className="inline-flex items-center rounded-full bg-gradient-to-r from-violet-500 to-purple-600 px-4 py-2 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(124,58,237,0.28)] transition-all hover:from-violet-600 hover:to-purple-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {submitting ? "Sending..." : "Submit"}
-                </button>
-              )}
-            </div>
+            {onDismiss ? (
+              <button
+                type="button"
+                onClick={onDismiss}
+                className="text-sm font-medium text-gray-500 transition-colors hover:text-gray-700"
+              >
+                Close
+              </button>
+            ) : (
+              <span />
+            )}
+            {showSubmit && (
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="inline-flex items-center rounded-full bg-gradient-to-r from-violet-500 to-purple-600 px-4 py-2 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(124,58,237,0.28)] transition-all hover:from-violet-600 hover:to-purple-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {submitting ? "Sending..." : "Submit"}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -228,7 +230,11 @@ export default function ProjectReviewPrompt({
                 starClassName={ACTIVE_STAR_CLASSES[value - 1]}
                 onMouseEnter={() => setHoveredRating(value)}
                 onMouseLeave={() => setHoveredRating(null)}
-                onClick={() => setRating(value as 1 | 2 | 3 | 4 | 5)}
+                onClick={() => {
+                  const next = value as 1 | 2 | 3 | 4 | 5;
+                  setRating(next);
+                  onStarClick?.(next);
+                }}
               />
             );
           })}
@@ -236,47 +242,7 @@ export default function ProjectReviewPrompt({
         <span className="min-w-[72px] text-gray-400">
           {activeLabel ?? "\u00a0"}
         </span>
-        <button
-          type="button"
-          onClick={() => setShowFeedbackField((current) => !current)}
-          className="font-medium text-gray-400 transition-colors hover:text-gray-600"
-        >
-          {showComposer ? "Hide feedback" : "Add feedback"}
-        </button>
       </div>
-
-      {showComposer && (
-        <div className="w-full rounded-2xl border border-gray-200/80 bg-white/80 p-3 shadow-[0_8px_24px_rgba(15,23,42,0.06)] backdrop-blur-xl lg:w-[320px]">
-          <div className="flex flex-col gap-2">
-            <textarea
-              value={suggestion}
-              onChange={(event) => setSuggestion(event.target.value)}
-              rows={2}
-              placeholder="Optional feedback"
-              className="w-full resize-none rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 outline-none transition focus:border-purple-300 focus:ring-2 focus:ring-purple-500/20"
-            />
-            {displayError ? <p className="text-xs text-red-600">{displayError}</p> : null}
-          </div>
-        </div>
-      )}
-
-      {(showSubmit || displayError) && (
-        <div className="flex w-full items-center justify-between gap-3 lg:justify-end">
-          <div className="min-h-[16px]">
-            {!showComposer && displayError ? <p className="text-xs text-red-600">{displayError}</p> : null}
-          </div>
-          {showSubmit && (
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={submitting}
-              className="inline-flex items-center rounded-full bg-gradient-to-r from-violet-500 to-purple-600 px-3 py-1.5 text-[11px] font-semibold text-white shadow-[0_8px_20px_rgba(124,58,237,0.28)] transition-all hover:from-violet-600 hover:to-purple-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {submitting ? "Sending..." : "Submit"}
-            </button>
-          )}
-        </div>
-      )}
     </div>
   );
 }

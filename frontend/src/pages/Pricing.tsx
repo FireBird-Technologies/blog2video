@@ -729,7 +729,7 @@ export default function Pricing() {
                 { feature: "Unlimited AI edit & image generation", free: false, perVideo: false, standard: true, pro: true, customized: true },
                 { feature: "Custom video templates", free: String(FREE_CUSTOM_TEMPLATE_COUNT), perVideo: "—", standard: String(STANDARD_CUSTOM_TEMPLATE_COUNT), pro: String(PRO_CUSTOM_TEMPLATE_COUNT), customized: "Custom" },
                 { feature: "Premium voiceover + cloning", free: false, perVideo: false, standard: true, pro: true, customized: true },
-                { feature: "Music Addition", free: false, perVideo: false, standard: true, pro: true, customized: true },
+                { feature: "Music Addition", free: true, perVideo: true, standard: true, pro: true, customized: true },
                 { feature: "Advanced voiceover settings", free: false, perVideo: false, standard: true, pro: true, customized: true },
                 { feature: "Priority support", free: false, perVideo: false, standard: true, pro: true, customized: true },
                 { feature: "On-prem deployment", free: false, perVideo: false, standard: false, pro: false, customized: true },
