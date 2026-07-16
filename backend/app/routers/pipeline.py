@@ -1889,9 +1889,11 @@ def download_studio_endpoint(
         raise HTTPException(status_code=403, detail="Studio requires Pro plan or per-video purchase")
 
     try:
+        # Build workspace from latest DB state on demand (edits no longer sync eagerly).
+        rebuild_workspace(project, project.scenes, db)
         zip_path = create_studio_zip(project.id)
     except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="Workspace not found. Generate the video first.")
+        raise HTTPException(status_code=404, detail="Could not build studio workspace.")
 
     safe_name = project.name.replace(" ", "_")[:50] if project.name else "project"
     return FileResponse(
