@@ -1869,6 +1869,9 @@ export default function ProjectView() {
       // Clear the query param and refresh project to pick up studio_unlocked
       setSearchParams({}, { replace: true });
       loadProject();
+      // The purchase also granted AI-edit credits / video bonus on the user —
+      // refresh so the SceneEdit modal's credit count reflects the new balance.
+      void refreshUser();
     }
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -2173,6 +2176,9 @@ export default function ProjectView() {
           expectedRenderRunIdRef.current = String(runId);
         }
         renderKickoffPendingRef.current = false;
+        // A re-render (force_render) deducts a video server-side — refresh the
+        // count so the UI doesn't show a stale videos-remaining number.
+        if (forceReRender) void refreshUser();
       } catch (err: any) {
         renderKickoffPendingRef.current = false;
         const message = getErrorMessage(err, "");
@@ -2723,6 +2729,8 @@ export default function ProjectView() {
       const res = await changeProjectTemplateRegenerateLayouts(project.id, targetId);
       setTemplateRelayoutJob(res.data);
       startTemplateRelayoutPolling();
+      // The job start consumed a video server-side — refresh so the count isn't stale.
+      void refreshUser();
     } catch (err) {
       const status = err && typeof err === "object" && "response" in err
         ? (err as { response?: { status?: number } }).response?.status
@@ -2744,6 +2752,8 @@ export default function ProjectView() {
       regenerateScriptPreviewLoadedRef.current = false; // reload the preview when the new review is reached
       setRegenerateScriptJob(res.data);
       startRegenerateScriptPolling();
+      // The job start consumed a video server-side — refresh so the count isn't stale.
+      void refreshUser();
     } catch (err) {
       const status = err && typeof err === "object" && "response" in err
         ? (err as { response?: { status?: number } }).response?.status
@@ -6727,7 +6737,7 @@ export default function ProjectView() {
                   isPro: effectiveIsPro,
                   onError: (msg) => showError(msg),
                   onUpgrade: () => setShowUpgrade(true),
-                  onOperationStarted: (op) => setVoiceOpKickstart(op),
+                  onOperationStarted: (op) => { setVoiceOpKickstart(op); void refreshUser(); },
                   disabled: anyJobRunning,
                   ownerAssetLabel,
                 }}
@@ -6741,7 +6751,7 @@ export default function ProjectView() {
                     : (user?.can_create_video ?? true),
                   isCollaborator: useOwnerScopedAssets,
                   onError: (msg, options) => showError(msg, options),
-                  onOperationStarted: (op) => setLanguageOpKickstart(op),
+                  onOperationStarted: (op) => { setLanguageOpKickstart(op); void refreshUser(); },
                   disabled: anyJobRunning,
                 }}
               />

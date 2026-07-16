@@ -13,7 +13,7 @@ import stripe
 from app.config import settings
 from app.database import get_db
 from app.auth import get_current_user
-from app.models.user import User, PlanTier, FREE_TIER_INCLUDED_VIDEOS
+from app.models.user import User, PlanTier, FREE_TIER_INCLUDED_VIDEOS, AI_EDIT_CREDITS_PER_VIDEO
 from app.models.project import Project
 from app.models.subscription import (
     Subscription, SubscriptionStatus, SubscriptionPlan,
@@ -834,6 +834,7 @@ def change_plan(
             user.plan = PlanTier.STANDARD
         user.videos_used_this_period = 0
         user.period_start = now
+        user.reset_custom_template_period()
         _recalculate_video_limit_bonus(user, db)
 
         db.commit()
@@ -1718,6 +1719,13 @@ def _handle_checkout_completed(session: dict, db: Session):
             if project:
                 project.studio_unlocked = True
 
+                # A project-scoped per-video purchase is a single video (qty=1).
+                # Grant its AI-edit credits to the buying user, regardless of plan.
+                if user_id:
+                    buyer = db.query(User).filter(User.id == int(user_id)).first()
+                    if buyer:
+                        buyer.ai_edit_credits = (buyer.ai_edit_credits or 0) + AI_EDIT_CREDITS_PER_VIDEO
+
                 if plan and user_id:
                     sub = Subscription(
                         user_id=int(user_id),
@@ -1755,6 +1763,9 @@ def _handle_checkout_completed(session: dict, db: Session):
             user = db.query(User).filter(User.id == int(user_id)).first()
             if user:
                 user.video_limit_bonus = getattr(user, "video_limit_bonus", 0) + qty
+                # Grant AI-edit credits (+20 per video), per-user and non-expirable,
+                # regardless of plan (a paid buyer accrues them for use after downgrade).
+                user.ai_edit_credits = (user.ai_edit_credits or 0) + AI_EDIT_CREDITS_PER_VIDEO * qty
                 # Guarantee the purchased credits are net-positive headroom even if
                 # prior usage was at/over the (possibly lowered) limit.
                 user.ensure_purchased_credit_usable(qty)
@@ -1807,6 +1818,8 @@ def _handle_checkout_completed(session: dict, db: Session):
         user = db.query(User).filter(User.id == int(user_id)).first() if user_id else None
         if user:
             user.video_limit_bonus = getattr(user, "video_limit_bonus", 0) + qty
+            # +20 AI-edit credits per video in the pack, per-user and non-expirable.
+            user.ai_edit_credits = (user.ai_edit_credits or 0) + AI_EDIT_CREDITS_PER_VIDEO * qty
             # Guarantee the purchased credits are net-positive headroom even if
             # prior usage was at/over the (possibly lowered) limit.
             user.ensure_purchased_credit_usable(qty)
@@ -1883,6 +1896,7 @@ def _handle_checkout_completed(session: dict, db: Session):
             user.stripe_subscription_id = None
             user.videos_used_this_period = 0
             user.period_start = now
+            user.reset_custom_template_period()
 
             # Drop any free grants, keep paid per-video credits — same as the
             # recurring-subscription path.
@@ -1936,6 +1950,7 @@ def _handle_checkout_completed(session: dict, db: Session):
             user.stripe_subscription_id = subscription_id
             user.videos_used_this_period = 0
             user.period_start = datetime.utcnow()
+            user.reset_custom_template_period()
 
             # Strip free grants from video_limit_bonus — only keep paid per-video
             # credits that haven't expired. Adjust videos_used_this_period to
@@ -2031,6 +2046,7 @@ def _handle_subscription_updated(subscription_data: dict, db: Session):
                     if was_scheduled_downgrade:
                         user.videos_used_this_period = 0
                         user.period_start = datetime.utcnow()
+                        user.reset_custom_template_period()
 
             if status in ("active", "trialing") and sub.plan and sub.plan.slug.startswith("standard"):
                 user.plan = PlanTier.STANDARD

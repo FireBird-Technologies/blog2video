@@ -2762,5 +2762,117 @@
   "marketing:/pictory-alternative-for-substack-writers@cde6f411479b6803@20aaebd1": {
     "keep": true,
     "reason": "unparseable classifier response — kept by default"
+  },
+  "blog:agency-blog-posts-not-generating-leads@3448f1008906efd9@20aaebd1": {
+    "keep": true,
+    "reason": "Discusses repurposing blog posts into video, a Blog2Video feature."
+  },
+  "blog:agency-12-videos-one-afternoon@7933a13a768e8556@20aaebd1": {
+    "keep": true,
+    "reason": "Describes Blog2Video workflow for converting blog posts to videos."
+  },
+  "blog:agency-hidden-content-asset@ea1776671efbafb0@20aaebd1": {
+    "keep": true,
+    "reason": "Discusses converting client blog posts to video, a Blog2Video feature."
+  },
+  "blog:trojan-horse-stickman-animation@52af1e1e5a362f4e@20aaebd1": {
+    "keep": true,
+    "reason": "Describes creating a stickman animation from a story."
+  },
+  "blog:ai-ppt-maker-from-pdf@b5bd0b2143dcaf5c@20aaebd1": {
+    "keep": false,
+    "reason": "Compares Blog2Video against multiple competitors for PPT creation."
+  },
+  "blog:agency-video-deliverable@a2a68bf5d1874e3b@20aaebd1": {
+    "keep": true,
+    "reason": "Describes Blog2Video workflow for agencies without mentioning competitors."
+  },
+  "blog:author-book-after-launch@e3f8268110f7f782@20aaebd1": {
+    "keep": false,
+    "reason": "Document focuses on book marketing, not Blog2Video features."
+  },
+  "blog:author-chapter-to-6-months-video@0af65b8e96d8657b@20aaebd1": {
+    "keep": true,
+    "reason": "Describes using book chapters as video content source."
+  },
+  "blog:author-video-without-camera@e4e2e2aa475e571e@20aaebd1": {
+    "keep": true,
+    "reason": "Describes Blog2Video's no-camera video workflow and features."
+  },
+  "blog:blog2video-vs-video-editor@d6f705224c34ce7b@20aaebd1": {
+    "keep": true,
+    "reason": "Compares Blog2Video to hiring editors, not a competitor product."
+  },
+  "blog:author-big-ideas-shareable-video@b2c211e6d3200b10@20aaebd1": {
+    "keep": true,
+    "reason": "Describes Blog2Video workflow for authors using text to video."
+  },
+  "blog:blog-title-checker@eff98f79490584bf@20aaebd1": {
+    "keep": false,
+    "reason": "Describes competitor tools, not Blog2Video features."
+  },
+  "blog:author-book-launch-video@14c66bcce8546ec0@20aaebd1": {
+    "keep": true,
+    "reason": "Discusses creating book launch videos, a valid use case."
+  },
+  "blog:content-with-no-second-life@422396f9a7e71d85@20aaebd1": {
+    "keep": true,
+    "reason": "Discusses converting written content to video, a Blog2Video feature."
+  },
+  "blog:how-to-convert-pdf-into-video@d1cc2d7f164698f4@20aaebd1": {
+    "keep": false,
+    "reason": "Compares Blog2Video against multiple competitors."
+  },
+  "blog:headline-score@93890c4b2a52a736@20aaebd1": {
+    "keep": false,
+    "reason": "Describes competitor headline tools, not Blog2Video features"
+  },
+  "blog:linkedin-carousel-creator@6fa9e888ce37d1cf@20aaebd1": {
+    "keep": false,
+    "reason": "Compares Blog2Video against multiple competitors."
+  },
+  "blog:newsletter-best-newsletter-is-a-video@ad5a064b98f9b428@20aaebd1": {
+    "keep": false,
+    "reason": "Primarily describes Substack/Beehiiv, not Blog2Video features."
+  },
+  "blog:newsletter-bloomberg-aesthetic@3adc28cc8fa3eaa1@20aaebd1": {
+    "keep": true,
+    "reason": "Describes Blog2Video's ability to create professional finance video content."
+  },
+  "blog:newsletter-substack-algorithm@6a0805a8f1f222ca@20aaebd1": {
+    "keep": false,
+    "reason": "Document primarily describes Substack algorithm, not Blog2Video features."
+  },
+  "blog:newscast-template-for-students@84f299530dc403b1@20aaebd1": {
+    "keep": false,
+    "reason": "Document cuts off mid-sentence and appears incomplete."
+  },
+  "blog:how-to-make-a-pdf-into-a-video@8f30ec459bdf5c5c@20aaebd1": {
+    "keep": false,
+    "reason": "Compares Blog2Video against multiple named competitors."
+  },
+  "blog:newsletter-finance-writers-without-camera@7479064fc7ac9dc5@20aaebd1": {
+    "keep": true,
+    "reason": "Describes Blog2Video workflow for finance writers."
+  },
+  "blog:newsletter-market-breakdown-video@53a71ed0b9fbdfbd@20aaebd1": {
+    "keep": true,
+    "reason": "Describes converting newsletter content to video for YouTube/LinkedIn."
+  },
+  "blog:persephone-stick-figure-animation@fa3a5eab3db6282f@20aaebd1": {
+    "keep": false,
+    "reason": "Describes Remotion, not Blog2Video features."
+  },
+  "blog:youtube-title-score-checker@3fa5574a6da7716f@20aaebd1": {
+    "keep": false,
+    "reason": "Describes competitor tools, not Blog2Video features."
+  },
+  "blog:template-showcase-finance@50f0e4e6dd565b10@20aaebd1": {
+    "keep": true,
+    "reason": "Describes Blog2Video template features for finance content."
+  },
+  "blog:template-showcase-book-launch@134113df07589165@20aaebd1": {
+    "keep": true,
+    "reason": "Describes Blog2Video template selection for book launches."
   }
 }

@@ -203,6 +203,9 @@ def _prepare_project_response(project: Project, user: User, db: Session) -> Proj
     # attribute the owner's templates/voices to them.
     owner = db.query(User).filter(User.id == project.user_id).first()
     project.owner_is_pro = bool(owner and owner.plan in (PlanTier.STANDARD, PlanTier.PRO))
+    # Owner's per-user AI-edit credit pool — a FREE collaborator draws from it once
+    # the free per-project allowance is spent, so the UI needs the owner's balance.
+    project.owner_ai_edit_credits = (owner.ai_edit_credits or 0) if owner else 0
     project.owner_name = owner.name if owner else None
     return project
 
@@ -4417,20 +4420,20 @@ async def regenerate_scene(
 
     # Owner pays: the AI-editing entitlement/limit is charged to the project OWNER,
     # so a FREE collaborator inherits the owner's plan on a shared project.
-    from app.services.access import project_owner
+    from app.services.access import project_owner, can_use_ai_edit, consume_ai_edit
     from app.services.edit_tracker import new_change_set_id
     payer = project_owner(project, db)
     # Group every field this AI regeneration touches into one change-set, attributed
     # to the acting user, so the whole regen previews and reverts as a single unit.
     _regen_change_set = new_change_set_id()
 
-    # Check usage limits
-    if payer.plan not in (PlanTier.PRO, PlanTier.STANDARD):
-        if project.ai_assisted_editing_count >= 3:
-            raise HTTPException(
-                status_code=403,
-                detail="AI editing limit reached (3 uses per project). Upgrade to Pro or Standard for unlimited AI edits."
-            )
+    # Check usage limits: free per-project allowance, then the owner's purchased
+    # AI-edit credit pool; PRO/STANDARD owners are unlimited (see can_use_ai_edit).
+    if not can_use_ai_edit(payer, project):
+        raise HTTPException(
+            status_code=403,
+            detail="AI editing limit reached. Buy a video for +20 AI edits, or upgrade to Pro or Standard for unlimited AI edits."
+        )
 
     scene = (
         db.query(Scene)
@@ -4613,7 +4616,7 @@ async def regenerate_scene(
         # A layout change counts as an AI-assisted edit even though no LLM call is made.
         # Metered against the OWNER, who pays (see the gate at the top of this function).
         if payer.plan not in (PlanTier.PRO, PlanTier.STANDARD):
-            project.ai_assisted_editing_count += 1
+            consume_ai_edit(payer, project)
         db.commit()
         print(f"[REGENERATE] Variant switch → {normalized_layout} (counts as AI edit)")
 
@@ -4672,7 +4675,7 @@ async def regenerate_scene(
         # A layout change counts as an AI-assisted edit even though no LLM call is made.
         # Metered against the OWNER, who pays (see the gate at the top of this function).
         if payer.plan not in (PlanTier.PRO, PlanTier.STANDARD):
-            project.ai_assisted_editing_count += 1
+            consume_ai_edit(payer, project)
         db.commit()
         print(f"[REGENERATE] Layout switch → {normalized_layout} (counts as AI edit)")
 
@@ -4955,7 +4958,7 @@ async def regenerate_scene(
     # collaborator's, or a Free collaborator would burn the counter on a Pro project.
     used_ai = needs_layout_regen or should_regenerate_voiceover
     if used_ai and payer.plan not in (PlanTier.PRO, PlanTier.STANDARD):
-        project.ai_assisted_editing_count += 1
+        consume_ai_edit(payer, project)
 
     db.commit()
 

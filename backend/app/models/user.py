@@ -14,6 +14,15 @@ class PlanTier(str, enum.Enum):
 # Included videos for plan FREE (before video_limit_bonus). Used for limits and delete-account capping.
 FREE_TIER_INCLUDED_VIDEOS = 2
 
+# Included custom templates for plan FREE (before custom_template_bonus). Used for
+# the limit and for delete-account capping (mirrors FREE_TIER_INCLUDED_VIDEOS).
+FREE_TIER_CUSTOM_TEMPLATES = 1
+
+# AI-assisted edits granted per purchased video. Per-user, non-expirable pool,
+# spent only after a project's free per-project allowance is exhausted and only
+# while the owner is on the FREE plan (paid plans get unlimited edits).
+AI_EDIT_CREDITS_PER_VIDEO = 20
+
 
 def _add_one_month(dt: datetime) -> datetime:
     """Return ``dt`` advanced by exactly one calendar month.
@@ -44,6 +53,7 @@ class User(Base):
     stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     videos_used_this_period: Mapped[int] = mapped_column(Integer, default=0)
     video_limit_bonus: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # per-video credits purchased
+    ai_edit_credits: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # +20 per purchased video, per-user, non-expirable
     custom_template_bonus: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # +1 custom-template slot per $5 purchase
     custom_templates_created: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # lifetime counter, never decrements
     retention_offer_shown_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
@@ -193,6 +203,37 @@ class User(Base):
         self.video_limit_bonus = _count_active_per_video_credits(self.id, db)
         # Referral bonus is earned once per billing cycle.
         self.referral_video_bonus = 0
+        # Custom-template allowance is per-period for paid plans: refresh the base
+        # (via created→0) and consume only the purchased slots actually used.
+        self.reset_custom_template_period()
+
+    def _custom_template_base(self) -> int:
+        """Plan base custom-template allowance (before purchased bonus)."""
+        return {
+            PlanTier.FREE: FREE_TIER_CUSTOM_TEMPLATES,
+            PlanTier.STANDARD: 5,
+        }.get(self.plan, 20)  # Pro = 20
+
+    def reset_custom_template_period(self) -> None:
+        """Refresh the custom-template allowance for a new billing period.
+
+        The plan base refreshes each period (via ``custom_templates_created`` → 0).
+        Purchased $5 slots are NOT wiped wholesale — only the ones actually spent
+        this period are consumed: any templates created beyond the plan base drew
+        from the bonus, so deduct that overage from ``custom_template_bonus`` and
+        leave the remainder to carry forward. Called at every period-start point
+        (recurring renewal + plan-change/checkout resets). FREE users never reach
+        these paths, so their allowance stays a lifetime 1.
+
+        Uses the base of the plan held during the just-ended period (``self.plan``
+        at call time), which is the allowance the created templates were charged
+        against — correct for renewals, upgrades, and downgrades alike.
+        """
+        created = self.custom_templates_created or 0
+        overage = created - self._custom_template_base()
+        if overage > 0:
+            self.custom_template_bonus = max(0, (self.custom_template_bonus or 0) - overage)
+        self.custom_templates_created = 0
 
     def roll_video_period_if_due(self, db: Session) -> bool:
         """Lazily reset the monthly video counter when Stripe won't.
@@ -236,8 +277,7 @@ class User(Base):
     @property
     def custom_template_limit(self) -> int:
         """Max custom templates this user may create (plan base + purchased slots)."""
-        base = {PlanTier.FREE: 1, PlanTier.STANDARD: 5}.get(self.plan, 20)  # Pro = 20
-        return base + (self.custom_template_bonus or 0)
+        return self._custom_template_base() + (self.custom_template_bonus or 0)
 
     @property
     def can_create_custom_template(self) -> bool:

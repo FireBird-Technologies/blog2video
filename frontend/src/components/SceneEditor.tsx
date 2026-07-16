@@ -6,10 +6,12 @@ import {
   reorderScenes,
   regenerateScene,
   getValidLayouts,
+  createCheckoutSession,
   LayoutInfo,
 } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
+import { STANDARD_MONTHLY_PRICE, PRO_MONTHLY_PRICE } from "../content/pricingContent";
 
 // Auto-growing textarea component
 function AutoGrowTextarea({ value, onChange, className, placeholder, minRows = 2 }: {
@@ -73,7 +75,7 @@ export default function SceneEditor({
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [layouts, setLayouts] = useState<LayoutInfo | null>(null);
   const [loading, setLoading] = useState(false);
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { showError } = useErrorModal();
 
   // Cleanup image preview URL
@@ -93,12 +95,68 @@ export default function SceneEditor({
   const isCollaborator = user != null && project.user_id !== user.id;
   const effectiveIsPro = isCollaborator ? (project.owner_is_pro ?? false) : isPro;
   const aiUsageCount = project.ai_assisted_editing_count || 0;
-  const canUseAI = effectiveIsPro || aiUsageCount < 3;
-  const remainingAI = effectiveIsPro ? "Unlimited" : `${3 - aiUsageCount} remaining`;
-  // A collaborator can't lift the limit by upgrading — the owner must.
-  const aiLimitMessage = isCollaborator
-    ? "The project owner's AI-Assisted Editing limit has been reached. Ask the owner to upgrade."
-    : "The limit for AI-Assisted Editing has been reached.";
+  const freeAiRemaining = Math.max(0, 3 - aiUsageCount);
+  // Per-user purchased AI-edit credits (owner's pool on a shared project).
+  const aiCreditRemaining = isCollaborator
+    ? (project.owner_ai_edit_credits ?? 0)
+    : (user?.ai_edit_credits ?? 0);
+  // Consumption hierarchy: paid plan (unlimited) → free per-project allowance → credits.
+  const canUseAI = effectiveIsPro || freeAiRemaining > 0 || aiCreditRemaining > 0;
+  const remainingAI = effectiveIsPro
+    ? "Unlimited"
+    : `${freeAiRemaining + aiCreditRemaining} remaining`;
+  // A collaborator can't lift the limit by upgrading — the owner must. The lead
+  // (red) states the limit; the rest (grey) explains how to lift it.
+  const aiLimitLead = isCollaborator
+    ? "The project owner's AI-Assisted Editing limit has been reached."
+    : "You've used all your AI-Assisted edits.";
+
+  // Send the OWNER straight to Stripe checkout for the chosen plan (monthly).
+  const [upgradingPlan, setUpgradingPlan] = useState<null | "standard" | "pro">(null);
+  const goToPlanCheckout = async (plan: "standard" | "pro") => {
+    if (upgradingPlan) return;
+    setUpgradingPlan(plan);
+    try {
+      const res = await createCheckoutSession({ plan, billing_cycle: "monthly" });
+      if (res.data.checkout_url) window.location.href = res.data.checkout_url;
+      else window.location.href = "/pricing";
+    } catch {
+      window.location.href = "/pricing";
+    }
+  };
+  // Purple plan label — clickable for the owner, plain for collaborators.
+  const PlanLink = ({ plan, children }: { plan: "standard" | "pro"; children: React.ReactNode }) =>
+    isCollaborator ? (
+      <span className="font-medium text-purple-600">{children}</span>
+    ) : (
+      <button
+        type="button"
+        onClick={() => goToPlanCheckout(plan)}
+        disabled={upgradingPlan !== null}
+        className="font-medium text-purple-600 underline-offset-2 hover:underline disabled:opacity-60"
+      >
+        {children}
+      </button>
+    );
+  // The grey "how to lift it" line, shared by both render spots.
+  const aiLimitRest = (
+    <>
+      {isCollaborator ? "Ask the owner to upgrade to " : "Upgrade to "}
+      <PlanLink plan="standard">Standard (${STANDARD_MONTHLY_PRICE}/mo)</PlanLink> or{" "}
+      <PlanLink plan="pro">Pro (${PRO_MONTHLY_PRICE}/mo)</PlanLink> for unlimited AI edits,{" "}
+      {isCollaborator ? "or to buy a video for +20 AI edits." : "or buy a video for +20 AI edits."}
+    </>
+  );
+  // Owner-only CTA to the full pricing page (collaborators can't pay).
+  const viewAllPlansButton = !isCollaborator ? (
+    <button
+      type="button"
+      onClick={() => { window.location.href = "/pricing"; }}
+      className="mt-2 inline-flex items-center rounded-md bg-purple-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-purple-700"
+    >
+      View all plans
+    </button>
+  ) : null;
 
   // Load layouts when entering AI edit mode
   useEffect(() => {
@@ -195,6 +253,8 @@ export default function SceneEditor({
         selectedLayout || undefined,
         selectedImage || undefined
       );
+      // Refresh the user so the consumed AI-edit credit balance isn't shown stale.
+      void refreshUser();
       setEditMode("none");
       setEditingSceneId(null);
       setAiDescription("");
@@ -270,8 +330,10 @@ export default function SceneEditor({
           </div>
         )}
         {editMode === "ai" && !canUseAI && (
-          <div className="text-xs font-medium text-red-600">
-            {aiLimitMessage}
+          <div className="text-xs">
+            <p className="font-medium text-red-600">{aiLimitLead}</p>
+            <p className="mt-1 text-gray-600">{aiLimitRest}</p>
+            {viewAllPlansButton}
           </div>
         )}
       </div>
@@ -435,9 +497,11 @@ export default function SceneEditor({
             AI-Assisted Scene Editing
           </h3>
           {!canUseAI && (
-            <p className="text-sm font-medium text-red-600">
-              {aiLimitMessage}
-            </p>
+            <div className="text-sm">
+              <p className="font-medium text-red-600">{aiLimitLead}</p>
+              <p className="mt-1 text-gray-600">{aiLimitRest}</p>
+              {viewAllPlansButton}
+            </div>
           )}
           {scenes.map((scene) => (
             <div
