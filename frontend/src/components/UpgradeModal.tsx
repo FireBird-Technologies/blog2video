@@ -135,9 +135,6 @@ export default function UpgradeModal({
                 <ul className="space-y-1.5 mb-4">
                   {[
                     `+${AI_EDITS_PER_VIDEO} AI edits per video purchase (usable across all videos)`,
-                    "AI image generation",
-                    "Custom video templates",
-                    "Premium voiceover + cloning",
                     "Download project files",
                     "No subscription needed",
                   ].map((f) => (
