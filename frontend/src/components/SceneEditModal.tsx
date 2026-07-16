@@ -3298,7 +3298,55 @@ export default function SceneEditModal({
     if (!ds) ds = String(defaults.desc);
     setTitleFontSize(ts);
     setDescriptionFontSize(ds);
-  }, [open, scene.id, scene.title, scene.remotion_code, scene.extra_hold_seconds, project.template, project.aspect_ratio, project.blog_url, layouts?.layout_prop_schema, craftedFrontendFiles, isCraftedTemplate, openImageAdjustOnOpen]);
+  }, [open, scene.id, scene.title, scene.narration_text, scene.display_text, scene.remotion_code, scene.extra_hold_seconds, project.template, project.aspect_ratio, project.blog_url, openImageAdjustOnOpen]);
+
+  // When layout schema / crafted frontend config arrives async, merge missing defaults
+  // into the form WITHOUT re-running the full init above (that would wipe in-progress edits).
+  useEffect(() => {
+    if (!open) return;
+    if (!layouts?.layout_prop_schema && !craftedFrontendFiles) return;
+
+    let layoutId: string | null = null;
+    if (scene.remotion_code) {
+      try {
+        const desc = JSON.parse(scene.remotion_code);
+        layoutId = desc.layoutConfig?.arrangement ?? desc.layout ?? null;
+      } catch {
+        /* ignore */
+      }
+    }
+
+    setEditableLayoutProps((prev) =>
+      mergeLayoutSchemaDefaults(
+        prev,
+        layoutId,
+        layouts?.layout_prop_schema as
+          | Record<string, { defaults?: Record<string, unknown> }>
+          | undefined,
+        project.aspect_ratio || "landscape",
+        normalizedTemplateId,
+      ),
+    );
+
+    const defaults = resolveDefaultFontSizesForScene({
+      template: project.template || "default",
+      layoutId,
+      aspectRatio: project.aspect_ratio || "landscape",
+      layoutPropSchema: layouts?.layout_prop_schema,
+      craftedFrontendFiles,
+    });
+    setTitleFontSize((prev) => (prev !== "" ? prev : String(defaults.title)));
+    setDescriptionFontSize((prev) => (prev !== "" ? prev : String(defaults.desc)));
+  }, [
+    open,
+    scene.id,
+    scene.remotion_code,
+    layouts?.layout_prop_schema,
+    craftedFrontendFiles,
+    project.template,
+    project.aspect_ratio,
+    normalizedTemplateId,
+  ]);
 
   useEffect(() => {
     if (!open || !isCraftedTemplate || !project.template) {
