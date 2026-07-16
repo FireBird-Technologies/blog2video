@@ -15,7 +15,7 @@ import boto3
 from botocore.config import Config as BotoConfig
 from app.config import settings
 
-SOURCE_DIR = "/Users/faisalnazir/Desktop/FireBird/background_music"
+SOURCE_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "music")
 
 TRACKS = [
     {"track_id": "corporate_upbeat",   "filename": "joyinsound-corporate-upbeat-motivational-music-instrumental-496473.mp3"},
@@ -26,6 +26,12 @@ TRACKS = [
     {"track_id": "chasing_success",    "filename": "joyinsound-chasing-success-building-success-507156.mp3"},
     {"track_id": "relaxed_narrative",  "filename": "openmindaudio-podcast-background-relaxed-narrative-bed-469114.mp3"},
     {"track_id": "sad_violin",         "filename": "bfcmusic-sad-violin-music-479075.mp3"},
+    {"track_id": "dramatic_trailer",     "filename": "artmylife-powerful-dramatic-trailer-514242.mp3"},
+    {"track_id": "powerful_percussion",  "filename": "energysound-powerful-percussion-513717.mp3"},
+    {"track_id": "dark_cyberpunk",       "filename": "freemusiclab-dark-cyberpunk-i-free-background-music-i-free-music-lab-release-469493.mp3"},
+    {"track_id": "wonders_of_the_earth", "filename": "grand_project-wonders-of-the-earth-550792.mp3"},
+    {"track_id": "action_race_rock",     "filename": "magpiemusic-action-race-rock-music-513682.mp3"},
+    {"track_id": "moment_of_peace",      "filename": "mickeyscat-moment-of-peace-mickeyscat-554494.mp3"},
 ]
 
 

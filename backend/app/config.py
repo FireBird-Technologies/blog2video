@@ -28,12 +28,13 @@ class Settings(BaseSettings):
     GEMINI_CODE_MODEL: str = "gemini-3.5-flash"
     # Used when a reference image is attached (vision-guided layout editing / rebuild).
     GEMINI_CODE_MODEL_WITH_IMAGE: str = "gemini-3.5-flash"
-    # GLM image generation via z.ai (GLM-Image, the 16B model). Requires a z.ai
-    # API key — the OpenRouter key above does NOT serve GLM image models. Reached
-    # through the OpenAI-compatible endpoint at https://api.z.ai/api/paas/v4/.
     # Override GLM_IMAGE_MODEL in .env only if z.ai ships a newer GLM image model.
-    GLM_API_KEY: str = ""
     GLM_IMAGE_MODEL: str = "glm-image"
+    # Shared z.ai API key: GLM LM calls (dspy_modules._make_zai_lm, reached directly
+    # via LiteLLM's zai/ provider) AND GLM image generation (services.image_gen,
+    # the OpenAI-compatible endpoint at https://api.z.ai/api/paas/v4/). The
+    # OpenRouter key above does NOT serve either of these — z.ai requires its own key.
+    ZAI_API_KEY: str = ""
 
     # Template studio access password. Kept server-side so it doesn't leak in
     # the JS bundle. Empty disables the gate (any password passes — useful for

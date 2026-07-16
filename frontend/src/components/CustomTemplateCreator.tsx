@@ -748,6 +748,9 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
                     <p className="text-sm font-medium" style={{ color: theme.colors.text }}>
                       {genStep || "Generating template..."}
                     </p>
+                    <p className="text-xs px-6 text-center" style={{ color: theme.colors.muted }}>
+                      This usually takes 5–10 minutes — please be patient. You can close this and let it finish in the background.
+                    </p>
                     <p className="text-xs" style={{ color: theme.colors.muted }}>{elapsedSeconds}s elapsed</p>
                   </>
                 ) : codeGenError ? (

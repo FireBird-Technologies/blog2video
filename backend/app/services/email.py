@@ -515,6 +515,48 @@ class EmailService:
 
 
 
+    def send_subscription_thank_you_email(
+        self,
+        user_email: str,
+        user_name: str,
+        plan_label: str = "",
+    ) -> None:
+        """
+        Thank a user for subscribing, right after a successful subscription (or
+        lifetime) checkout. Points them at the internal contact for any issues
+        and mentions the paid designer-template offering for on-brand videos.
+        Triggered from _handle_checkout_completed in routers/billing.py.
+
+        Plain text only, no HTML, so it reads like a personal note rather than a
+        template.
+        """
+        first_name = user_name.split()[0] if user_name else "there"
+        support_email = settings.INTERNAL_ALERT_EMAIL
+        plan_bit = f" to {plan_label}" if plan_label else ""
+        subject = "Thanks for subscribing to Blog2Video"
+
+        text = (
+            f"Hi {first_name},\n\n"
+            f"Thank you for becoming a paid subscriber to Blog2Video. I am the "
+            f"owner of the project, if you ever need any support or have any "
+            f"feedback for us feel free to share.\n\n"
+            f"This is my personal email CC'ed, feel free to send over anything "
+            f"you need help with.\n\n"
+            f"Also, if you need a designer made premium template for your "
+            f"business, we are offering a discount to our paid users to get one.\n\n"
+            f"It will showcase your brand/company in every video — while being "
+            f"infinitely reusable.\n\n"
+            f"Thank you once again for subscribing!\n"
+        )
+        self.provider.send_email(
+            to=user_email,
+            subject=subject,
+            text_content=text,
+            from_email=getattr(settings, "NOREPLY_EMAIL", "noreply@blog2video.app"),
+            cc=[support_email],
+        )
+
+
     def schedule_followup_email(
         self,
         user_email: str,

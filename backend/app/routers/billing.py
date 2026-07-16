@@ -1630,6 +1630,37 @@ def _send_winback_coupon(db: Session, user: User, *, abandoned: bool, recovery_u
     return outcome
 
 
+_PLAN_LABELS = {
+    "standard_monthly": "Standard",
+    "standard_annual": "Standard",
+    "standard_lifetime": "Standard (Lifetime)",
+    "pro_monthly": "Pro",
+    "pro_annual": "Pro",
+    "pro_lifetime": "Pro (Lifetime)",
+}
+
+
+def _send_subscription_thank_you(user: User, plan_slug: str) -> None:
+    """
+    Send the post-subscription thank-you email to `user`. Best-effort: any
+    failure is logged and swallowed so a successful checkout is never turned
+    into an error for the user.
+    """
+    if not user or not user.email or getattr(user, "email_unsubscribed", False):
+        return
+    try:
+        email_service.send_subscription_thank_you_email(
+            user_email=user.email,
+            user_name=user.name or "",
+            plan_label=_PLAN_LABELS.get(plan_slug, ""),
+        )
+    except Exception as exc:
+        logger.error(
+            "[BILLING] subscription thank-you email failed for user %s: %s",
+            getattr(user, "id", None), exc, exc_info=True,
+        )
+
+
 def _handle_checkout_expired(session: dict, db: Session):
     """
     Stripe's official abandoned-checkout signal: a Checkout Session reached its
@@ -1886,6 +1917,10 @@ def _handle_checkout_completed(session: dict, db: Session):
                 plan_slug,
                 extra={"user_id": int(user_id)},
             )
+
+            # Thank the subscriber. Best-effort — a failed email must never fail
+            # the purchase webhook.
+            _send_subscription_thank_you(user, plan_slug)
     else:
         # ── Pro or Standard subscription checkout ───────────────────────────
         subscription_id = session.get("subscription")
@@ -1927,6 +1962,10 @@ def _handle_checkout_completed(session: dict, db: Session):
                 db.add(sub)
 
             db.commit()
+
+            # Thank the subscriber. Best-effort — a failed email must never fail
+            # the purchase webhook.
+            _send_subscription_thank_you(user, plan_slug)
 
 
 def _handle_subscription_updated(subscription_data: dict, db: Session):
