@@ -492,8 +492,6 @@ def revert_fields(
         r.reverted = not bool(getattr(r, "reverted", False))
 
     db.commit()
-    # Keep remotion workspace in sync after applying the change.
-    _rebuild_workspace_safe(project, db)
 
     # Push the applied values live to any collaborators connected on this project.
     # STRUCTURAL reverts — a scene un-delete/re-delete (is_active) or a scene reorder
@@ -546,15 +544,6 @@ def _coerce(value: Any, like: Any):
     except (ValueError, TypeError):
         return value
     return value
-
-
-def _rebuild_workspace_safe(project: Project, db: Session) -> None:
-    try:
-        from app.services.remotion import write_remotion_data
-        scenes = db.query(Scene).filter(Scene.project_id == project.id).order_by(Scene.order).all()
-        write_remotion_data(project, scenes, db)
-    except Exception as e:
-        logger.warning("[COLLAB] Failed to rebuild remotion workspace after revert: %s", e)
 
 
 # ─── Scene comments ──────────────────────────────────────────────────
