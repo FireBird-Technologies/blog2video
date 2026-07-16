@@ -58,8 +58,6 @@ export const PER_VIDEO_FEATURES = [
   "ElevenLabs voiceover",
   "Render & download MP4",
   `${AI_EDITS_PER_VIDEO} AI edits per video, usable across all videos`,
-  "AI image generation",
-  "Premium voiceover + cloning",
 ] as const;
 
 export const FREE_FEATURES_INCLUDED = [
@@ -119,8 +117,12 @@ export const pricingPlans: PricingPlan[] = [
     annualTotalPrice: null,
     videoLimit: null,
     videoLimitLabel: "Buy as many as you need",
-    featuresIncluded: ["No subscription needed", ...PER_VIDEO_FEATURES, "Custom video templates"],
-    featuresExcluded: [],
+    featuresIncluded: ["No subscription needed", ...PER_VIDEO_FEATURES],
+    featuresExcluded: [
+      "Unlimited AI edit & image generation",
+      "Custom video templates",
+      "Premium voiceover + cloning",
+    ],
     notes: [
       `1–${PER_VIDEO_CASUAL_MAX} videos: $${PER_VIDEO_CASUAL_PRICE.toFixed(2)}/video`,
       `${PER_VIDEO_CASUAL_MAX + 1}–${PER_VIDEO_PACK_MAX} videos: $${PER_VIDEO_PACK_PRICE.toFixed(2)}/video (pack tier)`,
