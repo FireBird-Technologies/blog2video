@@ -365,6 +365,19 @@ class GenerateSceneCode(dspy.Signature):
       just provide the brand recap beneath where those will sit. Echo the brand's SIGNATURE
       ARTIFACT (see IDENTITY KIT) as a quiet closing callback so the video bookends on its motif.
 
+    Safe-area centering (MANDATORY — content stays inside the frame, visually balanced):
+    - The whole composition MUST sit inside a CENTERED safe area with balanced margins. Give the
+      outermost content container a symmetric inset of ~6-8% of the frame on every side (e.g.
+      padding: isPortrait ? '8% 6%' : '6% 8%') so nothing hugs or spills off the screen edges.
+    - The scene's content group should read as centered/balanced within that safe area — center
+      the flex container (justifyContent/alignItems: 'center') even when the internal layout is
+      asymmetric. Asymmetry is EXPRESSED WITHIN the centered safe area (columns weighted 60/40,
+      offset stacks, side rails), NOT by pushing content against or past the frame edges.
+    - Full-bleed image backdrops may reach the edges, but the TEXT/focal blocks on top MUST stay
+      inside the safe-area inset. Nothing readable ever touches the outer 6% of the frame.
+    - This is about placement only — it does NOT force every scene to a single dead-center card;
+      keep the layout VARIETY below (splits, offsets, rails) fully intact, just centered in-frame.
+
     Per-scene visual composition (content scenes — MAKE EACH SCENE LOOK DIFFERENT):
     You are generating scene_index of total_scenes. scene_purpose names the composition assigned
     to THIS scene. Build the scene's GEOMETRY to match it — repeated centered cards are the #1
@@ -1375,6 +1388,22 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
             ),
         ),
     )
+
+    # ── Per-generation cache-buster ───────────────────────────────────────────
+    # DSPy's LM caches on the request signature (model + prompt + params). Every
+    # call to generate_component_code builds byte-identical scene_purpose kwargs
+    # for the same template, so a *regenerate* produces the identical cache key and
+    # replays the cached completion verbatim — including a scene that renders blank
+    # at runtime (a crash the static validator can't catch, so it passes final
+    # validation, gets stored, and can never be regenerated away). Confirmed in the
+    # wild: three back-to-back regenerate-code calls wrote byte-identical scene
+    # files (e.g. SceneContent3.tsx 10331 bytes each time). This is the same disk
+    # cache replay the failure-retry loop already busts via a nonce (see below) —
+    # here we bust it for EVERY generation, not just the failed-validation path, so
+    # a user hitting "Regenerate" always gets a genuinely fresh completion.
+    _gen_nonce = time.time_ns()
+    for _kw in scene_kwargs:
+        _kw["scene_purpose"] = f"{_kw['scene_purpose']} | [gen {_gen_nonce}]"
 
     scene_tuples = await asyncio.gather(*(_generate_single_scene(**kw) for kw in scene_kwargs))
     scenes = [code for code, _ in scene_tuples]

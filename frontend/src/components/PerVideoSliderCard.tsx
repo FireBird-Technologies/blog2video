@@ -14,6 +14,7 @@ import {
   PACK_PRICE_CENTS,
   BULK_PRICE_CENTS,
 } from "../lib/perVideoPricing";
+import { AI_EDITS_PER_VIDEO } from "../content/pricingContent";
 
 type Variant = "compact" | "full";
 
@@ -41,6 +42,7 @@ const DEFAULT_FEATURES = [
   "AI script generation",
   "ElevenLabs voiceover",
   "Render & download MP4",
+  `${AI_EDITS_PER_VIDEO} AI edits per video purchase, usable across all videos`,
 ];
 
 const DEFAULT_EXCLUDED_FEATURES = [

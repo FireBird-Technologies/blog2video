@@ -203,6 +203,9 @@ def _prepare_project_response(project: Project, user: User, db: Session) -> Proj
     # attribute the owner's templates/voices to them.
     owner = db.query(User).filter(User.id == project.user_id).first()
     project.owner_is_pro = bool(owner and owner.plan in (PlanTier.STANDARD, PlanTier.PRO))
+    # Owner's per-user AI-edit credit pool — a FREE collaborator draws from it once
+    # the free per-project allowance is spent, so the UI needs the owner's balance.
+    project.owner_ai_edit_credits = (owner.ai_edit_credits or 0) if owner else 0
     project.owner_name = owner.name if owner else None
     return project
 
@@ -545,7 +548,6 @@ def _run_project_template_change_job(job_id: int) -> None:
     from app.dspy_modules.template_layout_planner import TemplateLayoutPlanner
     from app.dspy_modules.template_scene_gen import TemplateSceneGenerator
     from app.routers.pipeline import _normalize_layout_id, _sanitize_script_layouts
-    from app.services.remotion import rebuild_workspace
 
     db = SessionLocal()
     try:
@@ -767,9 +769,6 @@ def _run_project_template_change_job(job_id: int) -> None:
         project.r2_video_key = None
         project.r2_video_url = None
         db.commit()
-
-        # Rebuild workspace with updated descriptors.
-        rebuild_workspace(project, scenes, db)
 
         # Only finalize if a reaper hasn't already claimed (failed) this job.
         finalized = db.execute(
@@ -1269,11 +1268,8 @@ def _rollback_regenerate_script(
     """Restore the project to its pre-regeneration state after a failure.
 
     Restores all scene rows from the snapshot, optionally restores on-disk voiceover
-    audio from the stage-B backup, then rebuilds the Remotion workspace so data.json
-    matches the restored scenes/audio/layouts. Never deducts a credit.
+    audio from the stage-B backup. Never deducts a credit.
     """
-    from app.services.remotion import rebuild_workspace
-
     if job_project_id is None:
         return
     # This runs from a job's except-handler, where the triggering failure was
@@ -1316,22 +1312,6 @@ def _rollback_regenerate_script(
             # originals back so the workspace's R2 fallback serves them too.
             _reupload_audio_to_r2(job_project_id, db)
 
-        # Rebuild the workspace from the restored scenes so a re-render/preview is
-        # consistent with the rolled-back state. Keep existing image assignments.
-        if project:
-            restored_scenes = (
-                db.query(Scene)
-                .filter(Scene.project_id == job_project_id)
-                .order_by(Scene.order)
-                .all()
-            )
-            try:
-                rebuild_workspace(project, restored_scenes, db, redistribute_images=False)
-            except Exception:
-                logger.exception(
-                    "[REGENERATE_SCRIPT_JOB] workspace rebuild failed during rollback for project=%s",
-                    job_project_id,
-                )
     except Exception as restore_err:
         logger.exception(
             "[REGENERATE_SCRIPT_JOB] restore failed for project=%s: %s",
@@ -1541,8 +1521,6 @@ def recover_stalled_template_change_job(db: Session, job: ProjectTemplateChangeJ
     Returns True if it reverted. False if the work had already landed (finalized as
     completed instead) or another caller claimed the job first.
     """
-    from app.services.remotion import rebuild_workspace
-
     project = db.query(Project).filter(Project.id == job.project_id).first()
 
     # Completion-race guard: the substantive work already landed (scenes written,
@@ -1576,12 +1554,6 @@ def recover_stalled_template_change_job(db: Session, job: ProjectTemplateChangeJ
         _restore_template_change_snapshot(db, project, snapshot_raw)
     db.commit()
 
-    if project:
-        try:
-            scenes = db.query(Scene).filter(Scene.project_id == project.id).order_by(Scene.order).all()
-            rebuild_workspace(project, scenes, db, redistribute_images=False)
-        except Exception:
-            logger.exception("[STALL] template-change workspace rebuild failed for project=%s", job.project_id)
     stall_recovery.clear("template", job.id)
     logger.warning("[STALL] reverted stalled template-change job=%s project=%s", job.id, job.project_id)
     return True
@@ -1653,7 +1625,6 @@ def _rollback_delete_voiceover(
     a credit (delete never charges one).
     """
     from app.models.asset import Asset, AssetType
-    from app.services.remotion import rebuild_workspace
 
     try:
         snap = json.loads(snapshot_raw or "{}")
@@ -1708,20 +1679,6 @@ def _rollback_delete_voiceover(
             _restore_project_audio(project_id, backup_id)
             _reupload_audio_to_r2(project_id, db)
 
-        # 5. Rebuild the workspace so data.json references the restored audio again.
-        scenes = (
-            db.query(Scene)
-            .filter(Scene.project_id == project_id)
-            .order_by(Scene.order)
-            .all()
-        )
-        try:
-            rebuild_workspace(project, scenes, db, redistribute_images=False)
-        except Exception:
-            logger.exception(
-                "[DELETE-VOICEOVER] workspace rebuild failed during rollback for project=%s",
-                project_id,
-            )
     except Exception:
         logger.exception("[DELETE-VOICEOVER] rollback failed for project=%s", project_id)
         try:
@@ -1808,8 +1765,6 @@ def _rollback_added_voiceover(db: Session, project_id: int, snapshot_raw: str | 
     mute. There is no audio backup to restore (none existed). Never refunds here — the
     caller handles the credit refund.
     """
-    from app.services.remotion import rebuild_workspace
-
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         return
@@ -1818,19 +1773,6 @@ def _rollback_added_voiceover(db: Session, project_id: int, snapshot_raw: str | 
         db.commit()
         _purge_project_audio(db, project)
         _reset_scenes_to_muted(db, project_id)
-        scenes = (
-            db.query(Scene)
-            .filter(Scene.project_id == project_id)
-            .order_by(Scene.order)
-            .all()
-        )
-        try:
-            rebuild_workspace(project, scenes, db, redistribute_images=False)
-        except Exception:
-            logger.exception(
-                "[VOICE-ADD] workspace rebuild failed during rollback for project=%s",
-                project_id,
-            )
         db.commit()
     except Exception:
         logger.exception("[VOICE-ADD] rollback failed for project=%s", project_id)
@@ -1863,8 +1805,6 @@ def recover_stalled_voice_change_job(db: Session, job: ProjectVoiceChangeJob) ->
     For a delete job the refund and status reset are skipped (deletes don't charge
     a credit and leave the project status/render untouched).
     """
-    from app.services.remotion import rebuild_workspace
-
     project = db.query(Project).filter(Project.id == job.project_id).first()
     is_delete = _is_delete_job(job)
 
@@ -1931,12 +1871,6 @@ def recover_stalled_voice_change_job(db: Session, job: ProjectVoiceChangeJob) ->
         # Push the restored originals back to R2 (overwriting the new-voice objects),
         # otherwise the workspace's R2 fallback would still serve the new voice.
         _reupload_audio_to_r2(project_id, db)
-        if project:
-            try:
-                scenes = db.query(Scene).filter(Scene.project_id == project_id).order_by(Scene.order).all()
-                rebuild_workspace(project, scenes, db, redistribute_images=False)
-            except Exception:
-                logger.exception("[STALL] voice-change workspace rebuild failed for project=%s", project_id)
     _cleanup_audio_backup(project_id, job_id)
     stall_recovery.clear("voice", job_id)
     logger.warning("[STALL] reverted stalled voice-change job=%s project=%s", job_id, project_id)
@@ -2018,8 +1952,6 @@ def _restore_content_snapshot(db: Session, project: Project | None, snapshot_raw
 
 def recover_stalled_language_change_job(db: Session, job: ProjectLanguageChangeJob) -> bool:
     """Reap a stuck language-change job: cancel, restore copy + audio, refund the owner."""
-    from app.services.remotion import rebuild_workspace
-
     project = db.query(Project).filter(Project.id == job.project_id).first()
 
     # Completion-race guard: the worker already finalized (status back to GENERATED).
@@ -2062,15 +1994,6 @@ def recover_stalled_language_change_job(db: Session, job: ProjectLanguageChangeJ
         except Exception:
             logger.exception("[STALL] language-change audio restore failed for project=%s", project_id)
     _cleanup_audio_backup(project_id, job_id)
-
-    # Rebuild so the workspace reflects the restored copy + audio.
-    try:
-        project = db.query(Project).filter(Project.id == project_id).first()
-        if project:
-            scenes = db.query(Scene).filter(Scene.project_id == project_id).order_by(Scene.order).all()
-            rebuild_workspace(project, scenes, db)
-    except Exception:
-        logger.exception("[STALL] language-change workspace rebuild failed for project=%s", project_id)
 
     logger.warning("[STALL] reverted stalled language-change job=%s project=%s", job_id, project_id)
     return True
@@ -2384,7 +2307,6 @@ def _run_regenerate_script_stage_b(job_id: int) -> None:
     credit is deducted.
     """
     from app.routers.pipeline import _generate_scenes
-    from app.services.remotion import rebuild_workspace
 
     db = SessionLocal()
     job_project_id = None
@@ -2469,10 +2391,6 @@ def _run_regenerate_script_stage_b(job_id: int) -> None:
         project.r2_video_key = None
         project.r2_video_url = None
         db.commit()
-
-        # Rebuild the remotion workspace before completing — if this throws, the except
-        # block rolls back and refunds the credit reserved at initiation.
-        rebuild_workspace(project, new_scenes, db, redistribute_images=True)
 
         # The video credit was already reserved when the job was created; nothing to charge
         # here. Just mark the job complete (the reserved credit is now kept) — unless a
@@ -3604,26 +3522,6 @@ def delete_asset(
                 extra={"project_id": project_id, "user_id": user.id},
             )
 
-    # Rebuild workspace so data.json reflects the deleted asset and
-    # updated hideImage flags immediately.
-    try:
-        from app.services.remotion import rebuild_workspace
-        project = _get_user_project(project_id, user.id, db)
-        all_scenes = (
-            db.query(Scene)
-            .filter(Scene.project_id == project_id)
-            .order_by(Scene.order)
-            .all()
-        )
-        rebuild_workspace(project, all_scenes, db)
-    except Exception as e:
-        logger.warning(
-            "[PROJECTS] Warning: workspace rebuild after asset deletion failed for project %s: %s",
-            project_id,
-            e,
-            extra={"project_id": project_id, "user_id": user.id},
-        )
-
     return {"detail": "Asset deleted"}
 
 
@@ -3696,7 +3594,6 @@ def update_scene(
 ):
     """Manually update a scene."""
     from app.models.scene import Scene
-    from app.services.remotion import write_remotion_data
 
     # Verify ownership
     project = _get_user_project(project_id, user.id, db)
@@ -3773,18 +3670,6 @@ def update_scene(
                 user_id=user.id, name=user.name, change_set_id=change_set_id,
             )
 
-    # Keep remotion-workspace in sync so preview/render use latest props
-    try:
-        scenes = (
-            db.query(Scene)
-            .filter(Scene.project_id == project_id)
-            .order_by(Scene.order)
-            .all()
-        )
-        write_remotion_data(project, scenes, db)
-    except Exception as e:
-        print(f"[PROJECTS] Warning: Failed to write remotion data after scene update: {e}")
-
     return scene
 
 @router.put("/{project_id}/bulk-update-scenes", response_model=list[SceneOut])
@@ -3796,7 +3681,6 @@ def bulk_update_scene_typography(
 ):
     """Update titleFontSize and descriptionFontSize for all scenes in a project."""
     from app.models.scene import Scene
-    from app.services.remotion import write_remotion_data
     import json
 
     project = _get_user_project(project_id, user.id, db)
@@ -3850,14 +3734,8 @@ def bulk_update_scene_typography(
 
     db.commit()
 
-    # Refresh and sync remotion workspace once after all updates
     for scene in scenes:
         db.refresh(scene)
-
-    try:
-        write_remotion_data(project, scenes, db)
-    except Exception as e:
-        print(f"[PROJECTS] Warning: Failed to write remotion data after bulk typography update: {e}")
 
     return scenes
 
@@ -3876,7 +3754,6 @@ def delete_scene(
     the history panel and un-delete is a normal one-field revert. ``order`` is left
     untouched (gaps allowed) so a revert restores the scene to its original position.
     """
-    from app.services.remotion import rebuild_workspace
     from app.services.edit_tracker import new_change_set_id, prune_project_history
 
     project = _get_user_project(project_id, user.id, db)
@@ -3907,17 +3784,6 @@ def delete_scene(
     )
     prune_project_history(db, project.id)
     db.commit()
-
-    remaining = (
-        db.query(Scene)
-        .filter(Scene.project_id == project_id, Scene.is_active == True)  # noqa: E712
-        .order_by(Scene.order)
-        .all()
-    )
-    try:
-        rebuild_workspace(project, remaining, db)
-    except Exception as e:
-        print(f"[PROJECTS] Warning: Failed to rebuild workspace after scene delete for project {project_id}: {e}")
 
     # A soft-delete removes the scene from every collaborator's list — a structural
     # change the field-level edit broadcast can't express, so trigger a re-sync.
@@ -4001,7 +3867,7 @@ def generate_scene_image(
     if not provider:
         raise HTTPException(
             status_code=503,
-            detail="Image generation not configured. Set IMAGE_PROVIDER and the corresponding API key (OPENAI_API_KEY, GEMINI_API_KEY, or GLM_API_KEY)",
+            detail="Image generation not configured. Set IMAGE_PROVIDER and the corresponding API key (OPENAI_API_KEY, GEMINI_API_KEY, or ZAI_API_KEY)",
         )
 
     layout_id = get_fallback_layout(project.template)
@@ -4071,7 +3937,6 @@ async def update_scene_image(
     import json
     from app.models.scene import Scene
     from app.models.asset import Asset, AssetType
-    from app.services.remotion import rebuild_workspace
 
     project = _get_user_project(project_id, user.id, db)
 
@@ -4143,11 +4008,6 @@ async def update_scene_image(
     db.commit()
     db.refresh(scene)
 
-    try:
-        rebuild_workspace(project, list(project.scenes), db)
-    except Exception as e:
-        print(f"[IMAGE_UPDATE] Warning: Failed to rebuild workspace: {e}")
-
     return scene
 
 
@@ -4159,8 +4019,6 @@ def update_scene_image_focus(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    from app.services.remotion import rebuild_workspace
-
     project = _get_user_project(project_id, user.id, db)
     scene = (
         db.query(Scene)
@@ -4187,10 +4045,6 @@ def update_scene_image_focus(
     db.commit()
     db.refresh(scene)
 
-    try:
-        rebuild_workspace(project, list(project.scenes), db)
-    except Exception as e:
-        logger.warning("[IMAGE_FOCUS] Workspace rebuild failed for project %s: %s", project_id, e)
     return scene
 
 
@@ -4201,8 +4055,6 @@ def move_scene_image(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    from app.services.remotion import rebuild_workspace
-
     project = _get_user_project(project_id, user.id, db)
     from_scene = db.query(Scene).filter(Scene.project_id == project_id, Scene.id == data.from_scene_id).first()
     to_scene = db.query(Scene).filter(Scene.project_id == project_id, Scene.id == data.to_scene_id).first()
@@ -4229,10 +4081,6 @@ def move_scene_image(
     from_scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(from_desc))
     to_scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(to_desc))
     db.commit()
-    try:
-        rebuild_workspace(project, list(project.scenes), db)
-    except Exception as e:
-        logger.warning("[IMAGE_MOVE] Workspace rebuild failed for project %s: %s", project_id, e)
     return {"detail": "Image moved"}
 
 
@@ -4243,8 +4091,6 @@ def swap_scene_images(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    from app.services.remotion import rebuild_workspace
-
     project = _get_user_project(project_id, user.id, db)
     first = db.query(Scene).filter(Scene.project_id == project_id, Scene.id == data.first_scene_id).first()
     second = db.query(Scene).filter(Scene.project_id == project_id, Scene.id == data.second_scene_id).first()
@@ -4290,10 +4136,6 @@ def swap_scene_images(
     first.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(first_desc))
     second.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(second_desc))
     db.commit()
-    try:
-        rebuild_workspace(project, list(project.scenes), db)
-    except Exception as e:
-        logger.warning("[IMAGE_SWAP] Workspace rebuild failed for project %s: %s", project_id, e)
     return {"detail": "Images swapped"}
 
 
@@ -4305,7 +4147,6 @@ def duplicate_scene_image(
     db: Session = Depends(get_db),
 ):
     from app.models.asset import Asset, AssetType
-    from app.services.remotion import rebuild_workspace
 
     project = _get_user_project(project_id, user.id, db)
     source_scene = db.query(Scene).filter(Scene.project_id == project_id, Scene.id == data.source_scene_id).first()
@@ -4339,10 +4180,6 @@ def duplicate_scene_image(
     target_scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(target_desc))
     db.commit()
 
-    try:
-        rebuild_workspace(project, list(project.scenes), db)
-    except Exception as e:
-        logger.warning("[IMAGE_DUPLICATE] Workspace rebuild failed for project %s: %s", project_id, e)
     return {"detail": "Image duplicated to target scene"}
 
 
@@ -4354,7 +4191,6 @@ def assign_existing_image_to_scene(
     db: Session = Depends(get_db),
 ):
     from app.models.asset import Asset, AssetType
-    from app.services.remotion import rebuild_workspace
 
     project = _get_user_project(project_id, user.id, db)
     target_scene = (
@@ -4389,10 +4225,6 @@ def assign_existing_image_to_scene(
     target_scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(target_desc))
 
     db.commit()
-    try:
-        rebuild_workspace(project, list(project.scenes), db)
-    except Exception as e:
-        logger.warning("[IMAGE_ASSIGN_EXISTING] Workspace rebuild failed for project %s: %s", project_id, e)
     return {"detail": "Image assigned to scene"}
 
 
@@ -4404,7 +4236,6 @@ def get_project_layouts(
 ):
     """Get valid layouts for a project's template."""
     import json as _json
-    from app.services.remotion import rebuild_workspace as _rebuild_workspace
     project = _get_user_project(project_id, user.id, db)
 
     valid_layouts = get_valid_layouts(project.template)
@@ -4584,26 +4415,25 @@ async def regenerate_scene(
     from app.dspy_modules.template_scene_gen import TemplateSceneGenerator
     from app.dspy_modules.narration_edit import rewrite_narration_if_requested
     from app.services.voiceover import generate_voiceover
-    from app.services.remotion import rebuild_workspace
     
     project = _get_user_project(project_id, user.id, db)
 
     # Owner pays: the AI-editing entitlement/limit is charged to the project OWNER,
     # so a FREE collaborator inherits the owner's plan on a shared project.
-    from app.services.access import project_owner
+    from app.services.access import project_owner, can_use_ai_edit, consume_ai_edit
     from app.services.edit_tracker import new_change_set_id
     payer = project_owner(project, db)
     # Group every field this AI regeneration touches into one change-set, attributed
     # to the acting user, so the whole regen previews and reverts as a single unit.
     _regen_change_set = new_change_set_id()
 
-    # Check usage limits
-    if payer.plan not in (PlanTier.PRO, PlanTier.STANDARD):
-        if project.ai_assisted_editing_count >= 3:
-            raise HTTPException(
-                status_code=403,
-                detail="AI editing limit reached (3 uses per project). Upgrade to Pro or Standard for unlimited AI edits."
-            )
+    # Check usage limits: free per-project allowance, then the owner's purchased
+    # AI-edit credit pool; PRO/STANDARD owners are unlimited (see can_use_ai_edit).
+    if not can_use_ai_edit(payer, project):
+        raise HTTPException(
+            status_code=403,
+            detail="AI editing limit reached. Buy a video for +20 AI edits, or upgrade to Pro or Standard for unlimited AI edits."
+        )
 
     scene = (
         db.query(Scene)
@@ -4786,13 +4616,10 @@ async def regenerate_scene(
         # A layout change counts as an AI-assisted edit even though no LLM call is made.
         # Metered against the OWNER, who pays (see the gate at the top of this function).
         if payer.plan not in (PlanTier.PRO, PlanTier.STANDARD):
-            project.ai_assisted_editing_count += 1
+            consume_ai_edit(payer, project)
         db.commit()
         print(f"[REGENERATE] Variant switch → {normalized_layout} (counts as AI edit)")
 
-        # Rebuild workspace and return
-        scenes = db.query(Scene).filter(Scene.project_id == project_id).order_by(Scene.order).all()
-        rebuild_workspace(project, scenes, db)
         db.refresh(scene)
         _broadcast_scene_regen(project_id, user.id)
         return scene
@@ -4848,12 +4675,10 @@ async def regenerate_scene(
         # A layout change counts as an AI-assisted edit even though no LLM call is made.
         # Metered against the OWNER, who pays (see the gate at the top of this function).
         if payer.plan not in (PlanTier.PRO, PlanTier.STANDARD):
-            project.ai_assisted_editing_count += 1
+            consume_ai_edit(payer, project)
         db.commit()
         print(f"[REGENERATE] Layout switch → {normalized_layout} (counts as AI edit)")
 
-        scenes = db.query(Scene).filter(Scene.project_id == project_id).order_by(Scene.order).all()
-        rebuild_workspace(project, scenes, db)
         db.refresh(scene)
         _broadcast_scene_regen(project_id, user.id)
         return scene
@@ -5133,13 +4958,9 @@ async def regenerate_scene(
     # collaborator's, or a Free collaborator would burn the counter on a Pro project.
     used_ai = needs_layout_regen or should_regenerate_voiceover
     if used_ai and payer.plan not in (PlanTier.PRO, PlanTier.STANDARD):
-        project.ai_assisted_editing_count += 1
+        consume_ai_edit(payer, project)
 
     db.commit()
-
-    # Rebuild Remotion workspace
-    scenes = db.query(Scene).filter(Scene.project_id == project_id).order_by(Scene.order).all()
-    rebuild_workspace(project, scenes, db)
 
     db.refresh(scene)
     _broadcast_scene_regen(project_id, user.id)
@@ -5170,7 +4991,6 @@ async def _run_voice_change(project_id: int, job_id: int) -> None:
     """
     from app.database import SessionLocal
     from app.services.voiceover import generate_all_voiceovers
-    from app.services.remotion import rebuild_workspace
     from app.services.language_detection import get_content_language_for_project
     from app.services import voice_change_progress
 
@@ -5264,15 +5084,6 @@ async def _run_voice_change(project_id: int, job_id: int) -> None:
                 raise RuntimeError(
                     f"Voiceover regeneration failed for {len(failed_scenes)} scene(s): {failed_scenes}"
                 )
-
-        # Rebuild the Remotion workspace so the new audio is referenced.
-        scenes = (
-            db.query(Scene)
-            .filter(Scene.project_id == project_id)
-            .order_by(Scene.order)
-            .all()
-        )
-        rebuild_workspace(project, scenes, db)
 
         # Clear the stale rendered video and reset status so the user can re-render.
         project.r2_video_url = None
@@ -5590,7 +5401,6 @@ async def _run_delete_voiceover(project_id: int, job_id: int) -> None:
     """
     from app.database import SessionLocal
     from app.services.voiceover import generate_all_voiceovers
-    from app.services.remotion import rebuild_workspace
     from app.services.language_detection import get_content_language_for_project
     from app.services import voice_change_progress
 
@@ -5676,16 +5486,8 @@ async def _run_delete_voiceover(project_id: int, job_id: int) -> None:
         # Delete the now-orphaned audio: R2 objects, Asset rows, and local files.
         _purge_project_audio(db, project)
 
-        # Rebuild the workspace (drops <Audio> tags). Deliberately keep r2_video_url and
-        # the project status — the prior render stays available; re-rendering to apply the
-        # mute is a paid re-render.
-        scenes = (
-            db.query(Scene)
-            .filter(Scene.project_id == project_id)
-            .order_by(Scene.order)
-            .all()
-        )
-        rebuild_workspace(project, scenes, db)
+        # Deliberately keep r2_video_url and the project status — the prior render stays
+        # available; re-rendering to apply the mute is a paid re-render.
         # Finalize only if a reaper hasn't already claimed (failed/reverted) this job.
         finalized = db.execute(
             update(ProjectVoiceChangeJob)
@@ -5998,7 +5800,6 @@ def _run_language_change(project_id: int, job_id: int) -> None:
     """
     from app.database import SessionLocal
     from app.services.voiceover import generate_all_voiceovers
-    from app.services.remotion import rebuild_workspace
     from app.services.language_detection import get_content_language_for_project
     from app.services import language_change_progress
 
@@ -6121,15 +5922,6 @@ def _run_language_change(project_id: int, job_id: int) -> None:
         if cancel_event.is_set():
             logger.warning("[LANG-CHANGE] job=%s superseded by reaper; aborting before finalize", job_id)
             return
-
-        # Rebuild the Remotion workspace so the new copy + audio are referenced.
-        scenes = (
-            db.query(Scene)
-            .filter(Scene.project_id == project_id)
-            .order_by(Scene.order)
-            .all()
-        )
-        rebuild_workspace(project, scenes, db)
 
         # Clear the stale rendered video and reset status so the user can re-render.
         project.r2_video_url = None

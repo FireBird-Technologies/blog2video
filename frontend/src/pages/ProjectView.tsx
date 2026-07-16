@@ -757,25 +757,6 @@ export default function ProjectView() {
       })()
     : "";
 
-  // Whether the current user may use Pro-gated background music, keyed off the OWNER's
-  // plan on a shared project (the owner pays). True on own projects when the user is Pro.
-  const canUseBgm = effectiveIsPro;
-
-  // Clicked a locked BGM control. On a personal project the free user is prompted to
-  // upgrade (checkout modal). On a shared project whose OWNER is free, the collaborator
-  // can't buy the owner's plan, so ask them to have the owner upgrade instead.
-  const handleBgmLockedClick = () => {
-    if (useOwnerScopedAssets) {
-      const owner = (project?.owner_name || "").trim();
-      showError(
-        `Background music is a paid feature. Ask ${owner || "the project owner"} to upgrade their plan to enable it for this shared project.`,
-        { variant: "warning" },
-      );
-    } else {
-      setShowUpgrade(true);
-    }
-  };
-
   const [ownerCraftedTemplates, setOwnerCraftedTemplates] = useState<CraftedTemplateItem[]>([]);
   const [ownerCraftedLoading, setOwnerCraftedLoading] = useState(false);
   // Lazily-fetched full crafted packages for the shared-project (owner-scoped)
@@ -1177,6 +1158,9 @@ export default function ProjectView() {
   const [inlineReviewSubmitted, setInlineReviewSubmitted] = useState(false);
   const [showReviewPopup, setShowReviewPopup] = useState(false);
   const [firstProjectPopupDismissed, setFirstProjectPopupDismissed] = useState(false);
+  const [starReviewModalOpen, setStarReviewModalOpen] = useState(false);
+  const [starReviewModalRating, setStarReviewModalRating] = useState<1 | 2 | 3 | 4 | 5 | null>(null);
+  const [showPostReviewInvite, setShowPostReviewInvite] = useState(false);
   const reviewPopupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const localSceneImageInputRef = useRef<HTMLInputElement>(null);
   const dismissTabsGuide = useCallback(() => {
@@ -1330,8 +1314,8 @@ export default function ProjectView() {
     source: "first_project_popup" | "inline_row";
     triggerEvent: "delayed_popup" | "manual";
     surface: "inline" | "popup";
-  }) => {
-    if (!project) return;
+  }): Promise<boolean> => {
+    if (!project) return false;
     setReviewSubmitting(true);
     setReviewError(null);
     try {
@@ -1354,8 +1338,10 @@ export default function ProjectView() {
         setShowReviewPopup(false);
         setInlineReviewSubmitted(false);
       }
+      return true;
     } catch (err) {
       setReviewError(getErrorMessage(err, "Failed to save your review."));
+      return false;
     } finally {
       setReviewSubmitting(false);
     }
@@ -1386,6 +1372,28 @@ export default function ProjectView() {
     triggerEvent: "delayed_popup",
     surface: "popup",
   }), [submitReview]);
+  const handleStarModalSubmitReview = useCallback(async ({
+    rating,
+    suggestion,
+  }: {
+    rating: 1 | 2 | 3 | 4 | 5;
+    suggestion?: string;
+  }) => {
+    const ok = await submitReview({
+      rating,
+      suggestion,
+      source: "inline_row",
+      triggerEvent: "manual",
+      surface: "inline",
+    });
+    if (ok) {
+      setStarReviewModalOpen(false);
+      setShowPostReviewInvite(true);
+    }
+  }, [submitReview]);
+  const handleDismissStarReviewModal = useCallback(() => {
+    setStarReviewModalOpen(false);
+  }, []);
   const handleDismissReviewPopup = useCallback(() => {
     if (!project) return;
     clearReviewPopupTimer();
@@ -1861,6 +1869,9 @@ export default function ProjectView() {
       // Clear the query param and refresh project to pick up studio_unlocked
       setSearchParams({}, { replace: true });
       loadProject();
+      // The purchase also granted AI-edit credits / video bonus on the user —
+      // refresh so the SceneEdit modal's credit count reflects the new balance.
+      void refreshUser();
     }
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -2165,6 +2176,9 @@ export default function ProjectView() {
           expectedRenderRunIdRef.current = String(runId);
         }
         renderKickoffPendingRef.current = false;
+        // A re-render (force_render) deducts a video server-side — refresh the
+        // count so the UI doesn't show a stale videos-remaining number.
+        if (forceReRender) void refreshUser();
       } catch (err: any) {
         renderKickoffPendingRef.current = false;
         const message = getErrorMessage(err, "");
@@ -2715,6 +2729,8 @@ export default function ProjectView() {
       const res = await changeProjectTemplateRegenerateLayouts(project.id, targetId);
       setTemplateRelayoutJob(res.data);
       startTemplateRelayoutPolling();
+      // The job start consumed a video server-side — refresh so the count isn't stale.
+      void refreshUser();
     } catch (err) {
       const status = err && typeof err === "object" && "response" in err
         ? (err as { response?: { status?: number } }).response?.status
@@ -2736,6 +2752,8 @@ export default function ProjectView() {
       regenerateScriptPreviewLoadedRef.current = false; // reload the preview when the new review is reached
       setRegenerateScriptJob(res.data);
       startRegenerateScriptPolling();
+      // The job start consumed a video server-side — refresh so the count isn't stale.
+      void refreshUser();
     } catch (err) {
       const status = err && typeof err === "object" && "response" in err
         ? (err as { response?: { status?: number } }).response?.status
@@ -4141,6 +4159,10 @@ export default function ProjectView() {
                           submitting={reviewSubmitting}
                           error={reviewError}
                           onSubmit={handleInlineSubmitReview}
+                          onStarClick={(value) => {
+                            setStarReviewModalRating(value);
+                            setStarReviewModalOpen(true);
+                          }}
                         />
                       )}
                     </div>
@@ -4240,6 +4262,27 @@ export default function ProjectView() {
               error={reviewError}
               onDismiss={handleDismissReviewPopup}
               onSubmit={handlePopupSubmitReview}
+            />
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {starReviewModalOpen && ReactDOM.createPortal(
+        <div className="fixed inset-0 z-[9997] flex items-center justify-center px-4">
+          <div
+            className="absolute inset-0 bg-black/45 backdrop-blur-sm"
+            onClick={handleDismissStarReviewModal}
+          />
+          <div className="relative w-full max-w-md" onClick={(event) => event.stopPropagation()}>
+            <ProjectReviewPrompt
+              variant="modal"
+              initialRating={starReviewModalRating}
+              submitted={false}
+              submitting={reviewSubmitting}
+              error={reviewError}
+              onDismiss={handleDismissStarReviewModal}
+              onSubmit={handleStarModalSubmitReview}
             />
           </div>
         </div>,
@@ -5148,14 +5191,18 @@ export default function ProjectView() {
           document.body
         )}
 
-      {/* Invite collaborators — opened from the Share menu. */}
+      {/* Invite collaborators — opened from the Share menu, or after submitting a star review. */}
       <ShareProjectModal
-        open={inviteOpen}
-        onClose={() => setInviteOpen(false)}
+        open={inviteOpen || showPostReviewInvite}
+        onClose={() => {
+          setInviteOpen(false);
+          setShowPostReviewInvite(false);
+        }}
         projectId={projectId}
         projectName={project.name}
         isOwner={project.user_id === user?.id}
         onLeft={() => navigate("/dashboard", { replace: true })}
+        successNote={showPostReviewInvite ? "Thanks for your review! Invite collaborators to help edit this video." : undefined}
       />
 
       {/* Edit history + comments (opens from any tab). */}
@@ -6690,7 +6737,7 @@ export default function ProjectView() {
                   isPro: effectiveIsPro,
                   onError: (msg) => showError(msg),
                   onUpgrade: () => setShowUpgrade(true),
-                  onOperationStarted: (op) => setVoiceOpKickstart(op),
+                  onOperationStarted: (op) => { setVoiceOpKickstart(op); void refreshUser(); },
                   disabled: anyJobRunning,
                   ownerAssetLabel,
                 }}
@@ -6704,7 +6751,7 @@ export default function ProjectView() {
                     : (user?.can_create_video ?? true),
                   isCollaborator: useOwnerScopedAssets,
                   onError: (msg, options) => showError(msg, options),
-                  onOperationStarted: (op) => setLanguageOpKickstart(op),
+                  onOperationStarted: (op) => { setLanguageOpKickstart(op); void refreshUser(); },
                   disabled: anyJobRunning,
                 }}
               />
@@ -7150,33 +7197,16 @@ export default function ProjectView() {
               </p>
             ) : (
               <div className="space-y-4">
-                {/* Project-level background music (track + default volume). Per-scene overrides live on each row below.
-                    Premium feature: gated on the OWNER's plan (effectiveIsPro). For non-Pro it's shown but disabled —
-                    clicking opens the upgrade flow (own project) or asks the owner to upgrade (shared project). */}
+                {/* Project-level background music (track + default volume). Per-scene overrides live on each row below. */}
                 {bgmTracks.length > 0 && (
                   <div className="glass-card p-5 relative">
-                    {!canUseBgm && (
-                      // Transparent overlay: clicking anywhere on the (visually dimmed, non-interactive)
-                      // card triggers the upgrade prompt instead of operating the track/volume controls.
-                      <button
-                        type="button"
-                        onClick={handleBgmLockedClick}
-                        className="absolute inset-0 z-10 cursor-pointer"
-                        aria-label="Background music is a premium feature — upgrade to enable"
-                      />
-                    )}
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <h2 className="text-base font-medium text-gray-900">Music</h2>
-                        {!canUseBgm && (
-                          <span className="inline-flex h-4 items-center justify-center rounded-full bg-purple-600 px-1.5 text-[9px] font-semibold text-white">
-                            Premium
-                          </span>
-                        )}
                       </div>
                       <span className="text-[11px] text-gray-400">Project default — fine-tune per scene below</span>
                     </div>
-                    <div className={`flex flex-col sm:flex-row sm:items-end gap-3${!canUseBgm ? " opacity-50" : ""}`}>
+                    <div className="flex flex-col sm:flex-row sm:items-end gap-3">
                       <div className="flex-1">
                         <label className="text-[11px] text-gray-500 mb-1 block">Track</label>
                         <BgmTrackDropdown
@@ -7316,7 +7346,7 @@ export default function ProjectView() {
                       scene={scene}
                       projectId={projectId}
                       audioAssets={audioAssets}
-                      hasBgm={isPro && !!project.bgm_track_id}
+                      hasBgm={!!project.bgm_track_id}
                       bgmTrackUrl={project.bgm_track_url ?? null}
                       projectBgmVolume={project.bgm_volume ?? 0.10}
                       onBgmSaved={loadProject}

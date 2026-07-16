@@ -12,7 +12,7 @@ from google.auth.transport import requests as google_requests
 
 from app.config import settings
 from app.database import get_db
-from app.models.user import User, PlanTier, FREE_TIER_INCLUDED_VIDEOS
+from app.models.user import User, PlanTier, FREE_TIER_INCLUDED_VIDEOS, FREE_TIER_CUSTOM_TEMPLATES
 from app.models.project import Project
 from app.models.subscription import Subscription
 from app.auth import create_access_token, get_current_user
@@ -45,6 +45,7 @@ class UserOut(BaseModel):
     videos_used_this_period: int
     video_limit: int
     can_create_video: bool
+    ai_edit_credits: int = 0
     custom_templates_created: int = 0
     custom_template_limit: int = 0
     can_create_custom_template: bool = True
@@ -207,6 +208,9 @@ def google_login(
         user.plan = PlanTier.FREE
         user.video_limit_bonus = 0
         user.referral_video_bonus = 0
+        # Wipe any purchased AI-edit credits (defense-in-depth for accounts deleted
+        # before delete zeroed them), consistent with the other purchased bonuses.
+        user.ai_edit_credits = 0
         user.period_start = None
         user.stripe_customer_id = None
         user.stripe_subscription_id = None
@@ -249,6 +253,7 @@ def google_login(
             videos_used_this_period=user.videos_used_this_period,
             video_limit=user.video_limit,
             can_create_video=user.can_create_video,
+            ai_edit_credits=user.ai_edit_credits or 0,
             custom_templates_created=user.custom_templates_created,
             custom_template_limit=user.custom_template_limit,
             can_create_custom_template=user.can_create_custom_template,
@@ -270,6 +275,7 @@ def get_me(user: User = Depends(get_current_user)):
         videos_used_this_period=user.videos_used_this_period,
         video_limit=user.video_limit,
         can_create_video=user.can_create_video,
+        ai_edit_credits=user.ai_edit_credits or 0,
         custom_templates_created=user.custom_templates_created,
         custom_template_limit=user.custom_template_limit,
         can_create_custom_template=user.can_create_custom_template,
@@ -367,7 +373,19 @@ def delete_account(
         user.plan = PlanTier.FREE
         user.video_limit_bonus = 0
         user.referral_video_bonus = 0
+        # Purchased AI-edit credits are wiped on teardown, consistent with the other
+        # purchased bonuses — they don't carry into a reactivated (fresh FREE) account.
+        user.ai_edit_credits = 0
         user.period_start = None
+        # Normalize the custom-template counter exactly like videos: cap it at the FREE
+        # base so a reactivated user who had created ≥1 template stays at the limit
+        # (can't create another), while a user at 0 stays at 0 (can create one). Drop
+        # purchased slots (bonus), mirroring video_limit_bonus = 0.
+        if was_paid:
+            user.custom_templates_created = FREE_TIER_CUSTOM_TEMPLATES
+        elif (user.custom_templates_created or 0) > FREE_TIER_CUSTOM_TEMPLATES:
+            user.custom_templates_created = FREE_TIER_CUSTOM_TEMPLATES
+        user.custom_template_bonus = 0
 
         db.commit()
         return {"detail": "Account deleted successfully"}

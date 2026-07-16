@@ -1,7 +1,7 @@
 import { useState } from "react";
 import ReactDOM from "react-dom";
 import { createCheckoutSession, createPerVideoCheckout } from "../api/client";
-import { PRO_MONTHLY_PRICE, PRO_ANNUAL_MONTHLY_PRICE } from "../content/pricingContent";
+import { PRO_MONTHLY_PRICE, PRO_ANNUAL_MONTHLY_PRICE, AI_EDITS_PER_VIDEO } from "../content/pricingContent";
 import { useAuth } from "../hooks/useAuth";
 
 interface Props {
@@ -134,7 +134,8 @@ export default function UpgradeModal({
                 </p>
                 <ul className="space-y-1.5 mb-4">
                   {[
-                    "Unlimited AI edit & image generation",
+                    `+${AI_EDITS_PER_VIDEO} AI edits per video purchase (usable across all videos)`,
+                    "AI image generation",
                     "Custom video templates",
                     "Premium voiceover + cloning",
                     "Download project files",

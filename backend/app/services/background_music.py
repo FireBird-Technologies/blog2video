@@ -11,6 +11,12 @@ BGM_TRACKS = [
     {"track_id": "chasing_success",    "display_name": "Chasing Success",    "mood": "Inspirational"},
     {"track_id": "relaxed_narrative",  "display_name": "Relaxed Narrative",  "mood": "Relaxed"},
     {"track_id": "sad_violin",         "display_name": "Sad Violin",         "mood": "Emotional"},
+    {"track_id": "dramatic_trailer",     "display_name": "Dramatic Trailer",     "mood": "Dramatic"},
+    {"track_id": "powerful_percussion",  "display_name": "Powerful Percussion",  "mood": "Energetic"},
+    {"track_id": "dark_cyberpunk",       "display_name": "Dark Cyberpunk",       "mood": "Dark"},
+    {"track_id": "wonders_of_the_earth", "display_name": "Wonders of the Earth", "mood": "Epic"},
+    {"track_id": "action_race_rock",     "display_name": "Action Race Rock",     "mood": "Action"},
+    {"track_id": "moment_of_peace",      "display_name": "Moment of Peace",      "mood": "Calm"},
 ]
 
 _TRACK_MAP = {t["track_id"]: t for t in BGM_TRACKS}

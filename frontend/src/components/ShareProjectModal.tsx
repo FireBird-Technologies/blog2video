@@ -18,6 +18,8 @@ interface Props {
   isOwner: boolean;
   /** Called after the current user leaves the project — navigate away from it. */
   onLeft?: () => void;
+  /** Optional success banner shown above the title, e.g. after a review was just submitted. */
+  successNote?: string;
 }
 
 /**
@@ -31,6 +33,7 @@ export default function ShareProjectModal({
   projectName,
   isOwner,
   onLeft,
+  successNote,
 }: Props) {
   const [members, setMembers] = useState<Member[]>([]);
   const [email, setEmail] = useState("");
@@ -166,12 +169,17 @@ export default function ShareProjectModal({
         aria-modal="true"
         aria-labelledby="share-title"
       >
+        {successNote && (
+          <div className="mb-3 rounded-lg border border-green-200 bg-green-50/90 px-3 py-2 text-sm text-green-800">
+            {successNote}
+          </div>
+        )}
         <h3 id="share-title" className="text-base font-semibold text-gray-900 mb-1">
           {isOwner ? `Share “${projectName}”` : `“${projectName}”`}
         </h3>
         <p className="text-sm text-gray-500 mb-3">
           {isOwner
-            ? "Invite people to co-edit this video. Collaborators can edit scenes; only you can finalise and delete."
+            ? "Invite people to co-edit this video. Collaborators can edit scenes/"
             : "You’re a collaborator on this video. You can edit scenes or leave the project from below menu."}
         </p>
 
@@ -285,7 +293,7 @@ export default function ShareProjectModal({
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 border border-gray-300 hover:border-gray-400 rounded-lg transition-colors shrink-0"
           >
-            Done
+            {successNote ? "Skip" : "Done"}
           </button>
         </div>
       </div>
