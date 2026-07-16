@@ -524,15 +524,21 @@ export default function CustomTemplates() {
                         </div>
                       )
                     ) : (
-                      <div className="flex items-center gap-2 text-xs text-gray-400">
-                        <div className="w-3 h-3 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
-                        Generating template...
+                      <div className="flex flex-col gap-1 text-xs text-gray-400">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                          Generating template...
+                        </div>
+                        <span className="text-[11px] text-gray-400">This may take 5–10 minutes.</span>
                       </div>
                     )
                   ) : regeneratingId === tpl.id ? (
-                    <div className="flex items-center gap-2 text-xs text-purple-500">
-                      <div className="w-3 h-3 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
-                      Regenerating...
+                    <div className="flex flex-col gap-1 text-xs text-purple-500">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                        Regenerating...
+                      </div>
+                      <span className="text-[11px] text-purple-400">This may take 5–10 minutes.</span>
                     </div>
                   ) : (
                     <div className="opacity-0 group-hover:opacity-100 transition-opacity space-y-3">

@@ -4001,7 +4001,7 @@ def generate_scene_image(
     if not provider:
         raise HTTPException(
             status_code=503,
-            detail="Image generation not configured. Set IMAGE_PROVIDER and the corresponding API key (OPENAI_API_KEY, GEMINI_API_KEY, or GLM_API_KEY)",
+            detail="Image generation not configured. Set IMAGE_PROVIDER and the corresponding API key (OPENAI_API_KEY, GEMINI_API_KEY, or ZAI_API_KEY)",
         )
 
     layout_id = get_fallback_layout(project.template)

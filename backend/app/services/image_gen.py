@@ -127,6 +127,7 @@ class GLMProvider(ImageProvider):
     def generate(self, prompt: str, **kwargs) -> str:
         size = kwargs.get("size") or "1024x1024"
         url: Optional[str] = None
+        route = "sdk"
         try:
             response = self._client.images.generate(
                 model=self._model,
@@ -136,13 +137,18 @@ class GLMProvider(ImageProvider):
             )
             if response.data:
                 url = getattr(response.data[0], "url", None)
-        except Exception:
+        except Exception as e:
             # OpenAI-compat image route not accepted — fall back to a raw POST.
+            print(f"[zai-image] SDK route failed model={self._model} err={type(e).__name__}: {str(e)[:300]}")
+            route = "raw"
             url = self._generate_raw(prompt, size)
         if not url:
+            route = "raw"
             url = self._generate_raw(prompt, size)
         if not url:
+            print(f"[zai-image] FAIL model={self._model} route={route}: no image URL returned")
             raise RuntimeError("No image returned from GLM")
+        print(f"[zai-image] OK   model={self._model} route={route}")
         image_bytes = requests.get(url, timeout=60).content
         return base64.b64encode(image_bytes).decode("ascii")
 
@@ -157,7 +163,11 @@ class GLMProvider(ImageProvider):
             json={"model": self._model, "prompt": prompt, "size": size},
             timeout=120,
         )
-        resp.raise_for_status()
+        try:
+            resp.raise_for_status()
+        except requests.HTTPError as e:
+            print(f"[zai-image] FAIL model={self._model} route=raw status={resp.status_code}: {str(e)[:300]}")
+            raise
         data = (resp.json() or {}).get("data") or []
         if data:
             return data[0].get("url")
@@ -178,7 +188,7 @@ def get_image_provider() -> Optional[ImageProvider]:
             return None
         return GeminiProvider(api_key=key)
     if provider == "glm":
-        key = (settings.GLM_API_KEY or "").strip()
+        key = (settings.ZAI_API_KEY or "").strip()
         if not key:
             return None
         return GLMProvider(api_key=key)

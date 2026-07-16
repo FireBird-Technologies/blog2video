@@ -38,7 +38,7 @@ type CorpusEntry = {
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 // Mirror the model the support bot uses (backend/app/support/llm_client.py).
-const CLASSIFIER_MODEL = process.env.SUPPORT_LLM_MODEL || "qwen/qwen-2.5-7b-instruct";
+const CLASSIFIER_MODEL = process.env.SUPPORT_LLM_MODEL || "qwen/qwen3.5-9b";
 const SKIP_LLM = process.env.SEO_CORPUS_SKIP_LLM === "1";
 const CACHE_PATH = path.resolve(process.cwd(), "scripts/.seo-corpus-classification-cache.json");
 const CLASSIFY_CONCURRENCY = 6;
@@ -124,6 +124,7 @@ async function classifyIsB2VOnly(entry: CorpusEntry, apiKey: string): Promise<Cl
       model: CLASSIFIER_MODEL,
       temperature: 0,
       max_tokens: 60,
+      reasoning: { enabled: false },
       messages: [
         { role: "system", content: CLASSIFIER_SYSTEM_PROMPT },
         { role: "user", content: `Document id: ${entry.id}\n\n${excerpt}` },
