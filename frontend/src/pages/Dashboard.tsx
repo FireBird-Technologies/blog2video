@@ -92,6 +92,10 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadProjects();
+    // Landing on the dashboard is a natural sync point: re-pull the user so counts
+    // mutated elsewhere (project creation, jobs, re-renders, AI edits) that consume
+    // videos / AI-edit credits / template slots aren't shown stale.
+    refreshUser();
     if (searchParams.get("upgraded") === "true") {
       trackGoogleAdsPurchaseConversion(searchParams.get("session_id"));
       refreshUser();

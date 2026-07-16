@@ -139,6 +139,7 @@ def _migrate_sqlite(eng) -> None:
             "stripe_subscription_id": "VARCHAR(255)",
             "videos_used_this_period": "INTEGER DEFAULT 0",
             "video_limit_bonus": "INTEGER DEFAULT 0",
+            "ai_edit_credits": "INTEGER DEFAULT 0",
             "custom_template_bonus": "INTEGER DEFAULT 0",
             "custom_templates_created": "INTEGER DEFAULT 0",
             "period_start": "DATETIME",

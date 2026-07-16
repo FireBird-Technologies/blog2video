@@ -95,6 +95,8 @@ export interface UserInfo {
   videos_used_this_period: number;
   video_limit: number;
   can_create_video: boolean;
+  /** Per-user, non-expirable pool of AI-assisted edits (+20 per purchased video). */
+  ai_edit_credits: number;
   custom_templates_created: number;
   custom_template_limit: number;
   can_create_custom_template: boolean;
@@ -199,6 +201,12 @@ export interface Project {
    * voices) on this rather than their own plan.
    */
   owner_is_pro?: boolean;
+  /**
+   * The project OWNER's remaining per-user purchased AI-edit credits. On a shared
+   * project a FREE collaborator draws from the owner's pool once the free
+   * per-project allowance is spent — the UI shows this balance for collaborators.
+   */
+  owner_ai_edit_credits?: number;
   /** The project OWNER's display name — used to attribute owner-scoped templates/voices in a collaborator's UI. */
   owner_name?: string | null;
   created_at: string;
