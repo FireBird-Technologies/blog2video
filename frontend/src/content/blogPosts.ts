@@ -17,6 +17,1038 @@ function faq(primary: string, variant: string) {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "2008-financial-crisis-stickman-explainer",
+    title: "The 2008 Financial Crisis, Explained in Four Steps with Stick Figures",
+    description:
+      "The whole thing nearly collapsed, and it started with a house. We stripped the 2008 crash down to four steps you can follow with a row of stick figures and a few charts — a documentary-style Remotion short.",
+    category: "Behind the scenes",
+    publishedAt: "2026-07-14",
+    readTime: "3 min read",
+    heroEyebrow: "Behind the scenes",
+    heroTitle: "The 2008 Financial Crisis, Explained in Four Steps with Stick Figures",
+    heroDescription:
+      "The whole thing nearly collapsed, and it started with a house. We stripped the 2008 crash down to four steps you can follow with a row of stick figures and a few charts — a documentary-style Remotion short.",
+    primaryKeyword: "2008 financial crisis explained",
+    keywordVariant: "subprime mortgage crisis explainer video",
+    relatedPaths: ["/for-finance-publishers", "/blogs/newsletter-market-breakdown-video", "/blog-to-video"],
+    sections: [
+      {
+        heading: "Overview",
+        paragraphs: [
+          "The whole thing nearly collapsed. It started with a house.",
+          "In 2008 the global economy came within a whisker of collapse — banks failed, markets crashed, and millions of people lost their homes. It sounds impossibly complicated. It isn't. This short strips the crisis down to four steps you can follow with nothing but a row of stick figures and a few charts.",
+        ],
+      },
+      {
+        heading: "The four steps",
+        paragraphs: [
+          "Step 1 — The housing bubble. For years, house prices did just one thing: they went up. And if prices always rise, a home looks like a sure bet. So everyone piled in — buyers, banks, investors. On screen, a single house floats inside a bubble that inflates bigger and bigger while its price tag ticks upward and \"SOLD\" signs pop onto every house in the row. The more people bought, the higher prices climbed.",
+          "Step 2 — The instruments. The real fuel came from Wall Street. Banks took thousands of individual home loans, bundled them into a single package, and sold slices of it as bonds — mortgage-backed securities. We show it literally: a stack of \"LOAN\" papers is swept together into one glowing box, a green AAA rating slams down on it, and it's snapped up by investors around the world. Rated safe as gold.",
+          "Step 3 — No due diligence. There was one problem. To keep that machine fed, lenders needed more and more mortgages, so they stopped asking questions. No income? No job? No down payment? A giant red APPROVED stamp comes down anyway — again, and again, and again — while a banker who never looks up builds a pile of rubber-stamped loans. As long as the loan could be bundled and sold off, nobody checked whether it would ever be paid back.",
+          "Step 4 — The crash and the bailout. Then homeowners began to default. The bubble bursts in a flash of shards, the price chart reverses and plunges red, and those \"safe\" bonds turn toxic overnight. Bank towers lean and topple like dominoes as foreclosure signs go up. To stop the entire system from going down with them, the government steps in with a bailout — hundreds of billions of taxpayer dollars, poured out of the Treasury to catch the banks as they fall. $700 billion.",
+        ],
+      },
+      {
+        heading: "How we made it",
+        paragraphs: [
+          "Where our other shorts lean cinematic, this one leans like a documentary whiteboard. Some of the craft:",
+        ],
+        bullets: [
+          "Diagrammatic, not mythic: cool slate-night backdrops, money-gold and crash-red accents, and clean primitives — houses, a price chart, a bond box, a loan desk, bank towers, and a columned Treasury.",
+          "Four beats, four camera setups, each timed to one narration segment on a single continuous clock so the visuals and the voice never drift apart.",
+          "A plain-spoken narrator: the same warm voice from our myth series, dialed back to a steady, measured documentary read, so the ideas are allowed to land.",
+          "Everything is code — built entirely in Remotion (React), with no stock footage and no AI-generated video. Voice and sound effects are generated with ElevenLabs, and it ships in both landscape (1920×1080) and portrait (1080×1920) from the same responsive composition.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "A crisis built on one simple idea — prices always go up — taken much too far. The point of the film isn't to assign blame; it's to prove that even the most complicated story can be made clear when you show it instead of explaining it.",
+          "Great writing deserves an audience, and complex ideas deserve to be understood. If you can explain the 2008 crash with stick figures, you can turn anything into a video worth watching. Turn yours into one at blog2video.app.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video free",
+      },
+    ],
+    faq: faq("2008 financial crisis explained", "subprime mortgage crisis explainer video"),
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "The 2008 Financial Crisis, Explained in Four Steps with Stick Figures",
+        angle:
+          "The whole thing nearly collapsed, and it started with a house. We stripped the 2008 crash down to four steps you can follow with a row of stick figures and a few charts — a documentary-style Remotion short.",
+      },
+      {
+        channel: "video",
+        title: "The 2008 Financial Crisis, Explained in Four Steps with Stick Figures — the 90-second version",
+        angle:
+          "Compress the article's core argument into a short narrated video with Blog2Video and link back to /blogs/2008-financial-crisis-stickman-explainer.",
+      },
+      {
+        channel: "twitter",
+        title: "Thread: The 2008 Financial Crisis, Explained in Four Steps with Stick Figures",
+        angle:
+          "Post the main takeaways as a thread and link the full article.",
+      },
+    ],
+  },
+  {
+    slug: "camping-night-stickman-animation",
+    title: "Camping Night: A Wholesome Stickman Short (and the Debut of the Stickdog)",
+    description:
+      "Every adventure is a story worth telling. A stickman and his stickdog hike into moonlit hills, build a fire, and watch the stars spell out B2V. One continuous campsite world, no cuts — and the debut of our four-legged companion.",
+    category: "Behind the scenes",
+    publishedAt: "2026-07-14",
+    readTime: "2 min read",
+    heroEyebrow: "Behind the scenes",
+    heroTitle: "Camping Night: A Wholesome Stickman Short (and the Debut of the Stickdog)",
+    heroDescription:
+      "Every adventure is a story worth telling. A stickman and his stickdog hike into moonlit hills, build a fire, and watch the stars spell out B2V. One continuous campsite world, no cuts — and the debut of our four-legged companion.",
+    primaryKeyword: "camping night stickman film",
+    keywordVariant: "wholesome stickman campfire film",
+    relatedPaths: ["/blogs/salaryman-stickman-animation", "/templates/stickman_2", "/blog-to-video"],
+    sections: [
+      {
+        heading: "Overview",
+        paragraphs: [
+          "Every adventure is a story worth telling.",
+          "After the fights and the tragedies, we wanted to make something purely warm — a forty-seven-second campfire short built to be shared, not to sell hard. It also introduces a new cast member.",
+        ],
+      },
+      {
+        heading: "The story",
+        paragraphs: [
+          "A stickman and his stickdog hike into moonlit hills, pitch a tent that draws itself in, build a campfire, toast a marshmallow, and lie back to watch the stars — fireflies drifting, shooting stars streaking — until the stars themselves spell out B2V in the night sky.",
+          "The narrator arrives only at the very end: \"Every adventure is a story worth telling.\"",
+        ],
+      },
+      {
+        heading: "How we made it",
+        paragraphs: [
+          "A cozy film lives or dies on continuity, so we kept it all in one world. Some of the craft:",
+        ],
+        bullets: [
+          "The whole thing is one continuous campsite world with no cuts — the sky, hills, and fire persist while a slow camera tilts up for the stargaze.",
+          "It introduces the stickdog: a four-legged companion with a wagging tail and trot, sit, and lie poses, always turned to face the action.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "Not every video needs a hard pitch. Some are just made to be shared — a quiet, wholesome moment that people pass along because it made them feel something.",
+          "That's still storytelling, and it's still what Blog2Video is built to help you make.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video free",
+      },
+    ],
+    faq: faq("camping night stickman film", "wholesome stickman campfire film"),
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Camping Night: A Wholesome Stickman Short (and the Debut of the Stickdog)",
+        angle:
+          "Every adventure is a story worth telling. A stickman and his stickdog hike into moonlit hills, build a fire, and watch the stars spell out B2V. One continuous campsite world, no cuts — and the debut of our four-legged companion.",
+      },
+      {
+        channel: "video",
+        title: "Camping Night — the 90-second version",
+        angle:
+          "Compress the article's core argument into a short narrated video with Blog2Video and link back to /blogs/camping-night-stickman-animation.",
+      },
+      {
+        channel: "twitter",
+        title: "Thread: Camping Night",
+        angle:
+          "Post the main takeaways as a thread and link the full article.",
+      },
+    ],
+  },
+  {
+    slug: "drive-title-sequence-stickman",
+    title: "Drive, in 25 Seconds: We Rebuilt a Movie's Title Sequence Entirely in Code",
+    description:
+      "An homage to the opening titles of Drive (2011), rebuilt as a synthwave stickman short — a neon-rimmed muscle car, hot-pink brush-script titles, and one line of dialogue. The shortest film in our series, and all of it is code.",
+    category: "Behind the scenes",
+    publishedAt: "2026-07-14",
+    readTime: "2 min read",
+    heroEyebrow: "Behind the scenes",
+    heroTitle: "Drive, in 25 Seconds: We Rebuilt a Movie's Title Sequence Entirely in Code",
+    heroDescription:
+      "An homage to the opening titles of Drive (2011), rebuilt as a synthwave stickman short — a neon-rimmed muscle car, hot-pink brush-script titles, and one line of dialogue. The shortest film in our series, and all of it is code.",
+    primaryKeyword: "drive title sequence stickman",
+    keywordVariant: "synthwave stickman title sequence",
+    relatedPaths: ["/blogs/one-shot-stickman-animation", "/tools/free-remotion-templates", "/blog-to-video"],
+    sections: [
+      {
+        heading: "Overview",
+        paragraphs: [
+          "You give me a blog. I give you a video.",
+          "Some films are about story. This one is about mood — proof that a whole cinematic identity can be rebuilt in code, in under half a minute. It's an homage to the opening titles of Drive (2011), and at roughly twenty-five seconds it's the shortest film in our stickman series.",
+        ],
+      },
+      {
+        heading: "The story",
+        paragraphs: [
+          "A quiet stickman Driver — white satin scorpion jacket, toothpick, driving gloves — glides a neon-rimmed muscle car through a synthwave Los Angeles night. Hot-pink brush-script titles bloom over the skyline.",
+          "He speaks only once, at the very end: \"You give me a blog. I give you a video. That's the deal.\"",
+        ],
+      },
+      {
+        heading: "How we made it",
+        paragraphs: [
+          "The entire film is carried by camera work and typography, cut like the movie's cold open. Five signature treatments:",
+          "1. A top-down aerial through a lit street grid.",
+          "2. Behind the wheel, with gloved fists at 10 and 2.",
+          "3. The profile shot, with streetlight bars sweeping across his face.",
+          "4. A hero side-scroll past palms and skyline parallax.",
+          "5. An outrun-grid finale where the car recedes to a single taillight.",
+          "The titles use the exact font energy of the movie poster — a hot-pink brush script (Kaushan Script) with a layered neon glow. And like the film, it's music-led: a dreamy outrun synth bed over a low V8 idle.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "Style is substance. You don't always need a plot to hold someone's attention — sometimes a look, a rhythm, and one perfectly timed line is the whole video.",
+          "That's the deal, and it's exactly what Blog2Video does with your writing: give it a blog, get back something that feels made, not generated.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video free",
+      },
+    ],
+    faq: faq("drive title sequence stickman", "synthwave stickman title sequence"),
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Drive, in 25 Seconds: We Rebuilt a Movie's Title Sequence Entirely in Code",
+        angle:
+          "An homage to the opening titles of Drive (2011), rebuilt as a synthwave stickman short — a neon-rimmed muscle car, hot-pink brush-script titles, and one line of dialogue. The shortest film in our series, and all of it is code.",
+      },
+      {
+        channel: "video",
+        title: "Drive, in 25 Seconds — the 90-second version",
+        angle:
+          "Compress the article's core argument into a short narrated video with Blog2Video and link back to /blogs/drive-title-sequence-stickman.",
+      },
+      {
+        channel: "twitter",
+        title: "Thread: Drive, in 25 Seconds",
+        angle:
+          "Post the main takeaways as a thread and link the full article.",
+      },
+    ],
+  },
+  {
+    slug: "icarus-stickman-animation",
+    title: "Icarus Flew Too Close to the Sun: The Myth as a Two-Minute Stickman Film",
+    description:
+      "Keep the middle course. We told the full myth of Icarus and Daedalus as a narrated stickman short — wings built feather by feather, the leap over a shining sea, and the fall everyone watches twice. Here's how we built it.",
+    category: "Behind the scenes",
+    publishedAt: "2026-07-14",
+    readTime: "2 min read",
+    heroEyebrow: "Behind the scenes",
+    heroTitle: "Icarus Flew Too Close to the Sun: The Myth as a Two-Minute Stickman Film",
+    heroDescription:
+      "Keep the middle course. We told the full myth of Icarus and Daedalus as a narrated stickman short — wings built feather by feather, the leap over a shining sea, and the fall everyone watches twice. Here's how we built it.",
+    primaryKeyword: "icarus myth animation",
+    keywordVariant: "icarus and daedalus stickman film",
+    relatedPaths: ["/blogs/pandoras-box-stickman-animation", "/blogs/prometheus-stickman-animation", "/templates/stickman_2"],
+    sections: [
+      {
+        heading: "Overview",
+        paragraphs: [
+          "Keep the middle course.",
+          "It's the oldest warning about ambition, and it earns its ending. We told the myth of Icarus in full — narrated, about two minutes long — and built the wings so that the fall would actually mean something.",
+        ],
+      },
+      {
+        heading: "The story",
+        paragraphs: [
+          "The craftsman Daedalus and his son Icarus are imprisoned in a sea-tower. Wings are built feather by feather from wax and hope, and the father gives his warning: keep the middle course.",
+          "Then the leap — soaring over a shining sea — until the boy climbs toward the sun. The wax melts. The feathers shed one by one. Icarus falls the whole way down into the water. The film closes on the series line: \"Every myth deserves to be a video.\"",
+        ],
+      },
+      {
+        heading: "How we made it",
+        paragraphs: [
+          "The whole emotional payload rides on one mechanic — the wings — so we built them to behave honestly. Some of the craft:",
+        ],
+        bullets: [
+          "It's narrated by the same warm British voice as Pandora's Box (\"George\"), the consistent voice of the myth series, tuned for smooth, flowing delivery.",
+          "The winged-flyer is an upright stick figure rotated along its direction of travel, with a fan of nine feather leaves per wing beating in sync. As the wax melts, the outer feathers drop first and the wingspan visibly recedes — twenty-six individual feathers flutter down to the sea.",
+          "The palette is a luminous morning-over-the-sea: deep blue into warm haze, a blazing sun with a glitter column on the water, a stone tower fading behind.",
+          "The camera follows him up toward the sun, then down into the plunge — splash rings, spray, and a camera jolt on impact. The film runs about a hundred and twenty-one seconds.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "Ambition is good; altitude control is better. And yes — the fall is the part everyone watches twice, which is exactly the point of putting a story in motion.",
+          "Your ideas deserve that kind of lift. That's what Blog2Video is for.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video free",
+      },
+    ],
+    faq: faq("icarus myth animation", "icarus and daedalus stickman film"),
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Icarus Flew Too Close to the Sun: The Myth as a Two-Minute Stickman Film",
+        angle:
+          "Keep the middle course. We told the full myth of Icarus and Daedalus as a narrated stickman short — wings built feather by feather, the leap over a shining sea, and the fall everyone watches twice. Here's how we built it.",
+      },
+      {
+        channel: "video",
+        title: "Icarus Flew Too Close to the Sun — the 90-second version",
+        angle:
+          "Compress the article's core argument into a short narrated video with Blog2Video and link back to /blogs/icarus-stickman-animation.",
+      },
+      {
+        channel: "twitter",
+        title: "Thread: Icarus Flew Too Close to the Sun",
+        angle:
+          "Post the main takeaways as a thread and link the full article.",
+      },
+    ],
+  },
+  {
+    slug: "neo-stops-ai-slop-stickman",
+    title: "Neo vs. AI Slop: A Matrix Kung-Fu Duel, Built Frame by Frame in Code",
+    description:
+      "Why, Mister Anderson? Because my content is worth it. We built a full Matrix-style stickman fight — Neo against a red-eyed agent of AI slop, hand-to-hand, bullet-time and all — with voices designed from scratch in ElevenLabs.",
+    category: "Behind the scenes",
+    publishedAt: "2026-07-14",
+    readTime: "2 min read",
+    heroEyebrow: "Behind the scenes",
+    heroTitle: "Neo vs. AI Slop: A Matrix Kung-Fu Duel, Built Frame by Frame in Code",
+    heroDescription:
+      "Why, Mister Anderson? Because my content is worth it. We built a full Matrix-style stickman fight — Neo against a red-eyed agent of AI slop, hand-to-hand, bullet-time and all — with voices designed from scratch in ElevenLabs.",
+    primaryKeyword: "matrix stickman parody",
+    keywordVariant: "matrix parody against ai content",
+    relatedPaths: ["/blogs/star-wars-stickman-parody", "/blogs/ai-videos-are-slop-unless-they-are-relevant", "/blog-to-video"],
+    sections: [
+      {
+        heading: "Overview",
+        paragraphs: [
+          "\"Why, Mister Anderson?\" — \"Because my content is worth it.\"",
+          "We wanted to make the argument against generic AI content as a fight scene, and there was only one film to parody. No lightsabers here — this one is pure hand-to-hand, about sixty-two seconds of Matrix-style stickman kung-fu.",
+        ],
+      },
+      {
+        heading: "The story",
+        paragraphs: [
+          "Neo — Matrix-green, trench coat, powered by Blog2Video — faces a hooded, red-eyed agent of AI slop. And Neo loses first: the slop dominates the whole opening fight and drives him to a knee.",
+          "In the grapple lock the slop snarls, \"Why, Mister Anderson?! Why do you persist?!\" And Neo, silent the entire film until now, answers: \"Because my content is worth it.\" Green surge. THE ONE. An empowered combo, a bullet-time jump kick, and the slop is sent flying. A Matrix code-decode outro spells it out: your content is worth it → blog2video.app → take the red pill.",
+        ],
+      },
+      {
+        heading: "How we made it",
+        paragraphs: [
+          "A believable fight is the hardest thing we've animated in this series. Some of the craft:",
+        ],
+        bullets: [
+          "Full fight choreography lives in code — punches, kicks, blocks, weaves, a clinch grapple, and a rotating bullet-time orbit — with impact sparks color-coded to who landed the hit (red while Neo's losing, green once he turns it around).",
+          "The world is built from digital rain, a glowing construct floor, dutch tilts, whip-pans, and low angles on the big impacts.",
+          "The voices were designed from scratch with ElevenLabs Voice Design rather than library presets — a cold, deep menace for the slop, a resolute hero for Neo, and a resonant trailer narrator.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "The structure is the whole pitch: the hero gets beaten first. Generic AI content wins on volume, right up until a creator who actually cares stands back up.",
+          "Your content is worth it. Blog2Video is how you make it look that way.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video free",
+      },
+    ],
+    faq: faq("matrix stickman parody", "matrix parody against ai content"),
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Neo vs. AI Slop: A Matrix Kung-Fu Duel, Built Frame by Frame in Code",
+        angle:
+          "Why, Mister Anderson? Because my content is worth it. We built a full Matrix-style stickman fight — Neo against a red-eyed agent of AI slop, hand-to-hand, bullet-time and all — with voices designed from scratch in ElevenLabs.",
+      },
+      {
+        channel: "video",
+        title: "Neo vs. AI Slop — the 90-second version",
+        angle:
+          "Compress the article's core argument into a short narrated video with Blog2Video and link back to /blogs/neo-stops-ai-slop-stickman.",
+      },
+      {
+        channel: "twitter",
+        title: "Thread: Neo vs. AI Slop",
+        angle:
+          "Post the main takeaways as a thread and link the full article.",
+      },
+    ],
+  },
+  {
+    slug: "one-shot-stickman-animation",
+    title: "One Shot: A Neon-Noir Stickman Short About Doing It Right the First Time",
+    description:
+      "One shot. Your videos. A calm stickman in a trench coat and fedora meets a knife-juggling burglar on a rain-slick street — and ends it with a single bullet. A neon-noir short about why you don't need ten takes.",
+    category: "Behind the scenes",
+    publishedAt: "2026-07-14",
+    readTime: "2 min read",
+    heroEyebrow: "Behind the scenes",
+    heroTitle: "One Shot: A Neon-Noir Stickman Short About Doing It Right the First Time",
+    heroDescription:
+      "One shot. Your videos. A calm stickman in a trench coat and fedora meets a knife-juggling burglar on a rain-slick street — and ends it with a single bullet. A neon-noir short about why you don't need ten takes.",
+    primaryKeyword: "one shot stickman noir",
+    keywordVariant: "neon noir stickman short",
+    relatedPaths: ["/blogs/drive-title-sequence-stickman", "/tools/free-remotion-templates", "/blog-to-video"],
+    sections: [
+      {
+        heading: "Overview",
+        paragraphs: [
+          "One shot. Your videos.",
+          "This one is pure genre — a forty-seven-second neon-noir with a single, clean payoff. The whole idea is restraint: no flurry, no ten takes, just one decisive move.",
+        ],
+      },
+      {
+        heading: "The story",
+        paragraphs: [
+          "Neon-noir night. A calm stickman in a brown trench coat and fedora strolls a rain-slick street. A burglar in a beanie and domino mask blocks his path and shows off with a knife — juggling it hand to hand, lunging stabs, crossing slashes that paint a fading X in the air.",
+          "Bored, the man draws a pistol and fires one shot. The burglar drops the knife and hits the pavement. The narrator speaks only at the end: \"One shot. Your videos, using Blog2Video dot app.\"",
+        ],
+      },
+      {
+        heading: "How we made it",
+        paragraphs: [
+          "Restraint has to be earned with good staging, so the camera does the work. Some of the craft:",
+        ],
+        bullets: [
+          "Four camera treatments carry the scene: a 2D side street, a head-on front-face knife routine, the man's POV (his own gun rising from the bottom of the frame), and back to the 2D side for the bang — white flash, muzzle burst, frame shake.",
+          "The coat is worn, not a cape: sleeves, lapels, belt, and a hem that sways with the gait, so the figure reads as a person in clothing rather than a silhouette.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "You don't need ten takes. One good video does the job — the same way one good shot ends the scene.",
+          "That's the promise of Blog2Video: turn the work you've already done into a single, clean result that lands.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video free",
+      },
+    ],
+    faq: faq("one shot stickman noir", "neon noir stickman short"),
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "One Shot: A Neon-Noir Stickman Short About Doing It Right the First Time",
+        angle:
+          "One shot. Your videos. A calm stickman in a trench coat and fedora meets a knife-juggling burglar on a rain-slick street — and ends it with a single bullet. A neon-noir short about why you don't need ten takes.",
+      },
+      {
+        channel: "video",
+        title: "One Shot — the 90-second version",
+        angle:
+          "Compress the article's core argument into a short narrated video with Blog2Video and link back to /blogs/one-shot-stickman-animation.",
+      },
+      {
+        channel: "twitter",
+        title: "Thread: One Shot",
+        angle:
+          "Post the main takeaways as a thread and link the full article.",
+      },
+    ],
+  },
+  {
+    slug: "pandoras-box-stickman-animation",
+    title: "Pandora's Box: A Greek Myth Retold in Two Minutes of Stickman Animation",
+    description:
+      "She only wanted a peek. We retold the myth of Pandora's box as a narrated stickman short under an enchanted night sky — every trouble of the world pouring out, and one warm light left inside. Here's how we built it in Remotion.",
+    category: "Behind the scenes",
+    publishedAt: "2026-07-14",
+    readTime: "2 min read",
+    heroEyebrow: "Behind the scenes",
+    heroTitle: "Pandora's Box: A Greek Myth Retold in Two Minutes of Stickman Animation",
+    heroDescription:
+      "She only wanted a peek. We retold the myth of Pandora's box as a narrated stickman short under an enchanted night sky — every trouble of the world pouring out, and one warm light left inside. Here's how we built it in Remotion.",
+    primaryKeyword: "pandora's box myth animation",
+    keywordVariant: "greek myth stickman short",
+    relatedPaths: ["/blogs/icarus-stickman-animation", "/blogs/persephone-stick-figure-animation", "/templates/stickman_2"],
+    sections: [
+      {
+        heading: "Overview",
+        paragraphs: [
+          "She only wanted a peek.",
+          "Pandora's box is one of those stories everyone half-remembers, so we retold it in full — narrated, under an enchanted night sky, in about two minutes and twenty seconds of stickman animation.",
+        ],
+      },
+      {
+        heading: "The story",
+        paragraphs: [
+          "The gods give Pandora a beautiful sealed golden box she must never open. It glows. It hums. It whispers her name. Curiosity wins — she lifts the lid, and every trouble of the world swarms out as dark, cyan-eyed sprites.",
+          "She slams it shut too late. But one thing remains inside: Hope, a single warm light that rises gently into the dark. The film closes on the line that ties the whole myth series together — \"Every myth deserves to be a video.\"",
+        ],
+      },
+      {
+        heading: "How we made it",
+        paragraphs: [
+          "This was the first film to lean fully on a narrator, and the box itself had to feel alive. Some of the craft:",
+        ],
+        bullets: [
+          "It's narrated throughout by a warm, wise British storyteller voice we call \"George\" — playful and flowing, with a storybook cadence (\"Well now.\" \"Just a peek…\" \"Out they poured!\").",
+          "Pandora is an articulated, pose-driven stickwoman — curious lean, reach-and-pull-back, recoil, calm watch — set against a violet-indigo night with twinkling stars and a haloed moon.",
+          "The box is treated as a character: golden bands, a glowing seam, and a light cone with god-rays when it opens — warm gold that turns eerie cyan as the troubles pour out.",
+          "Twenty-four individually animated wisp sprites carry the troubles; Hope is a glowing mote with fluttering wings and a sparkle trail.",
+          "The original score runs about a hundred and thirty-eight seconds and shifts from whimsical to ominous to hopeful.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "Timeless stories still stop thumbs. A three-thousand-year-old myth, given motion and a voice, holds attention as well as anything made this year.",
+          "That's the bet behind Blog2Video: myth plus motion equals attention — and your ideas deserve the same treatment.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video free",
+      },
+    ],
+    faq: faq("pandora's box myth animation", "greek myth stickman short"),
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Pandora's Box: A Greek Myth Retold in Two Minutes of Stickman Animation",
+        angle:
+          "She only wanted a peek. We retold the myth of Pandora's box as a narrated stickman short under an enchanted night sky — every trouble of the world pouring out, and one warm light left inside. Here's how we built it in Remotion.",
+      },
+      {
+        channel: "video",
+        title: "Pandora's Box — the 90-second version",
+        angle:
+          "Compress the article's core argument into a short narrated video with Blog2Video and link back to /blogs/pandoras-box-stickman-animation.",
+      },
+      {
+        channel: "twitter",
+        title: "Thread: Pandora's Box",
+        angle:
+          "Post the main takeaways as a thread and link the full article.",
+      },
+    ],
+  },
+  {
+    slug: "prometheus-stickman-animation",
+    title: "Prometheus and the Gift of Fire: The Longest Film in Our Stickman Myth Series",
+    description:
+      "No chain ever forged could take the fire back. We told the myth of Prometheus as a narrated stickman short — eight crossfaded shots, a valley lighting up fire by fire, and a Titan who smiles in his chains. Here's how we built it.",
+    category: "Behind the scenes",
+    publishedAt: "2026-07-14",
+    readTime: "2 min read",
+    heroEyebrow: "Behind the scenes",
+    heroTitle: "Prometheus and the Gift of Fire: The Longest Film in Our Stickman Myth Series",
+    heroDescription:
+      "No chain ever forged could take the fire back. We told the myth of Prometheus as a narrated stickman short — eight crossfaded shots, a valley lighting up fire by fire, and a Titan who smiles in his chains. Here's how we built it.",
+    primaryKeyword: "prometheus myth animation",
+    keywordVariant: "prometheus gift of fire stickman film",
+    relatedPaths: ["/blogs/icarus-stickman-animation", "/blogs/pandoras-box-stickman-animation", "/templates/stickman_2"],
+    sections: [
+      {
+        heading: "Overview",
+        paragraphs: [
+          "No chain ever forged could take the fire back.",
+          "Prometheus is a story about giving something away, so it belongs at the heart of a series that exists to argue for sharing ideas. It's also the longest film we've made — about a hundred and sixty-nine seconds, narrated end to end.",
+        ],
+      },
+      {
+        heading: "The story",
+        paragraphs: [
+          "A cold, dark world, where fire belongs to the gods alone and burns far away on Olympus. Prometheus — the Titan who shaped mankind from river clay — watches the mortals shiver, and decides they deserve better than the dark.",
+          "One moonless night he climbs, steals a single spark from the great golden hearth in a hollow fennel stalk, and carries it down. The first fire of mankind blooms; a thousand fires leap camp to camp until the valley twinkles like a fallen sky. Zeus's rage splits the heavens, and Prometheus is chained to the mountain rock — but chained, he smiles: every flame in the world is his. \"Your ideas are sparks too. Every story deserves to be told.\"",
+        ],
+      },
+      {
+        heading: "How we made it",
+        paragraphs: [
+          "This was our most ambitious cut yet, structured like a real edit rather than a single scene. Some of the craft:",
+        ],
+        bullets: [
+          "It's narrated by the same warm British voice as Pandora and Icarus (\"George\"), the myth-series voice, tuned lower here for quiet awe and defiance.",
+          "A structural first for the myth films: eight distinct shots crossfaded on one absolute clock — a wide valley, a close-up on the watching Titan, the hearth-interior heist, a silhouette descent, the campfire bloom, an aerial valley-of-lights, the storm-and-chains, and the final vista.",
+          "Fire is a character: a layered flicker-flame with rising embers plays the divine hearth, the fennel-stalk torch, and the first campfire, and forty-six individually timed fire dots ignite across the valley.",
+          "Scale tells the story — Prometheus towers as a Titan in his close-ups, then reads as a tiny point of light on the black flank of the mountain.",
+          "Lightning bolts, camera jolts, rain streaks, and iron chains slam on mid-shot, with a circling eagle over the final crag for those who know the rest of the myth.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "A single spark, given away, can light the whole world. Sharing ideas is the entire point — distribution is the gift.",
+          "Your ideas are sparks too. Blog2Video is how you carry them down the mountain.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video free",
+      },
+    ],
+    faq: faq("prometheus myth animation", "prometheus gift of fire stickman film"),
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Prometheus and the Gift of Fire: The Longest Film in Our Stickman Myth Series",
+        angle:
+          "No chain ever forged could take the fire back. We told the myth of Prometheus as a narrated stickman short — eight crossfaded shots, a valley lighting up fire by fire, and a Titan who smiles in his chains. Here's how we built it.",
+      },
+      {
+        channel: "video",
+        title: "Prometheus and the Gift of Fire — the 90-second version",
+        angle:
+          "Compress the article's core argument into a short narrated video with Blog2Video and link back to /blogs/prometheus-stickman-animation.",
+      },
+      {
+        channel: "twitter",
+        title: "Thread: Prometheus and the Gift of Fire",
+        angle:
+          "Post the main takeaways as a thread and link the full article.",
+      },
+    ],
+  },
+  {
+    slug: "reservoir-dogs-stickman-parody",
+    title: "Six Crooks, One Bill: We Rebuilt the Reservoir Dogs Diner Scene with Stick Figures",
+    description:
+      "A parody of the legendary Reservoir Dogs diner opening, rebuilt as a stickman short — six suited crooks, six ElevenLabs voices, and one argument over a tip. Here's how we made stick figures carry an ensemble dialogue scene.",
+    category: "Behind the scenes",
+    publishedAt: "2026-07-14",
+    readTime: "2 min read",
+    heroEyebrow: "Behind the scenes",
+    heroTitle: "Six Crooks, One Bill: We Rebuilt the Reservoir Dogs Diner Scene with Stick Figures",
+    heroDescription:
+      "A parody of the legendary Reservoir Dogs diner opening, rebuilt as a stickman short — six suited crooks, six ElevenLabs voices, and one argument over a tip. Here's how we made stick figures carry an ensemble dialogue scene.",
+    primaryKeyword: "reservoir dogs stickman parody",
+    keywordVariant: "stickman ensemble dialogue scene",
+    relatedPaths: ["/blogs/neo-stops-ai-slop-stickman", "/tools/free-remotion-templates", "/blog-to-video"],
+    sections: [
+      {
+        heading: "Overview",
+        paragraphs: [
+          "Six crooks. One bill. Zero agreement.",
+          "We wanted to prove that stick figures can carry a full ensemble dialogue scene — so we picked one of the most famous conversations in film and rebuilt it, line for line in spirit, with nothing but stickmen and generated voices.",
+        ],
+      },
+      {
+        heading: "The story",
+        paragraphs: [
+          "It's a parody of the legendary diner opening of Reservoir Dogs. A waitress pours coffee for six suited stickman crooks — then Mr. Pink announces he doesn't tip.",
+          "Mr. White insists. Mr. Blonde plays the world's smallest violin. Nice Guy Eddie gets loud. Mr. Orange rats Pink out. And Joe the boss ends the argument. Dollar bills hit the table, and it closes on the line: \"Some things are worth paying for. — blog2video.app.\"",
+        ],
+      },
+      {
+        heading: "How we made it",
+        paragraphs: [
+          "The hard part of an ensemble scene is making six characters feel like six people, not one figure repeated. Here's how we pulled it off:",
+        ],
+        bullets: [
+          "Six distinct characters sit at one table, each with his own ElevenLabs voice and his own look — gray slick with shades, thinning hair, long blond, curly auburn in a blue tracksuit, a boyish crop, and a bald boss with a mustache.",
+          "The camera is cut-driven: every line gets its own shot, zoomed on the speaker, with handheld shake on the loud beats and chattering mouths synced to the speech.",
+          "All of the dialogue is original parody that mirrors the scene's beats — about seventy-four seconds of pure argument.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "This one is a fun genre piece, but it makes a real point: stick figures can hold an entire dialogue-driven scene, six voices deep, and stay legible and funny the whole way through.",
+          "And, fittingly — good things, whether it's a waitress doing her job or a video that earns attention, are worth paying for.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video free",
+      },
+    ],
+    faq: faq("reservoir dogs stickman parody", "stickman ensemble dialogue scene"),
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Six Crooks, One Bill: We Rebuilt the Reservoir Dogs Diner Scene with Stick Figures",
+        angle:
+          "A parody of the legendary Reservoir Dogs diner opening, rebuilt as a stickman short — six suited crooks, six ElevenLabs voices, and one argument over a tip. Here's how we made stick figures carry an ensemble dialogue scene.",
+      },
+      {
+        channel: "video",
+        title: "Six Crooks, One Bill — the 90-second version",
+        angle:
+          "Compress the article's core argument into a short narrated video with Blog2Video and link back to /blogs/reservoir-dogs-stickman-parody.",
+      },
+      {
+        channel: "twitter",
+        title: "Thread: Six Crooks, One Bill",
+        angle:
+          "Post the main takeaways as a thread and link the full article.",
+      },
+    ],
+  },
+  {
+    slug: "robin-hood-stickman-animation",
+    title: "The Legend of Robin Hood: Taking Back Attention for the Little Guy",
+    description:
+      "They never caught him. We told the legend of Robin Hood as a narrated stickman short — a warning arrow, coins on doorsteps, and a golden arrow split clean in two. Here's how we built the greenwood in code.",
+    category: "Behind the scenes",
+    publishedAt: "2026-07-14",
+    readTime: "2 min read",
+    heroEyebrow: "Behind the scenes",
+    heroTitle: "The Legend of Robin Hood: Taking Back Attention for the Little Guy",
+    heroDescription:
+      "They never caught him. We told the legend of Robin Hood as a narrated stickman short — a warning arrow, coins on doorsteps, and a golden arrow split clean in two. Here's how we built the greenwood in code.",
+    primaryKeyword: "robin hood legend animation",
+    keywordVariant: "robin hood legend stickman short",
+    relatedPaths: ["/blogs/prometheus-stickman-animation", "/blogs/persephone-stick-figure-animation", "/blog-to-video"],
+    sections: [
+      {
+        heading: "Overview",
+        paragraphs: [
+          "They never caught him.",
+          "Robin Hood is the rare legend that's really about redistribution — of gold in the story, and of attention in ours. We told it end to end as a narrated stickman short, about a hundred and ninety-two seconds long.",
+        ],
+      },
+      {
+        heading: "The story",
+        paragraphs: [
+          "Old England groans under a greedy Sheriff, and all the gold in the shire flows one way — up the hill to the castle. But Sherwood keeps a secret: an outlaw with a longbow of yew who swears an oath — whatever was taken from the poor, he would take back.",
+          "One warning arrow stops the Sheriff's gold wagon dead; that night, coins appear on doorsteps through the sleeping village. The furious Sheriff baits a trap — a tournament with a golden arrow for a prize — and a hooded stranger splits the winning arrow clean in two. The soldiers lunge and grab at smoke. \"One man, with a bow and a good heart, became a legend that outlived every king.\"",
+        ],
+      },
+      {
+        heading: "How we made it",
+        paragraphs: [
+          "A legend needs a world, and the greenwood had to feel alive. Some of the craft:",
+        ],
+        bullets: [
+          "It's told by the same myth-series narrator (\"George\"), with a sly folk-tale twinkle this time — a merry, defiant legend rather than a tragedy.",
+          "There's a new archer stick figure: a lincoln-green pointed hood with a red feather, and a longbow that hangs at his side, rises in the oath, and goes to full draw — bent limbs, string to the cheek, nocked arrow and all.",
+          "Eight shots play out in a greenwood palette of deep forest greens warmed by gold: twilight Sherwood with the gold-windowed castle, the great-oak oath, the wagon ambush, a silhouette getaway sprint behind passing tree trunks, the doorstep coin-pour, the mist-bank vanish, and a lantern-lit dawn vista.",
+          "The tournament is the film's only daylight shot — banners, a silhouette crowd that leaps on cue, and the arrow split with a white-flash camera jolt.",
+          "Physical touches are everywhere: wagon wheels rotate from true distance travelled, coins arc individually from his hand and pile up glinting, and the split arrow's halves spin off the target.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "This one is about taking back attention for the little guy. Great stories don't die — they wait to be told again.",
+          "So tell yours. Blog2Video is how you put it back in front of people.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video free",
+      },
+    ],
+    faq: faq("robin hood legend animation", "robin hood legend stickman short"),
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "The Legend of Robin Hood: Taking Back Attention for the Little Guy",
+        angle:
+          "They never caught him. We told the legend of Robin Hood as a narrated stickman short — a warning arrow, coins on doorsteps, and a golden arrow split clean in two. Here's how we built the greenwood in code.",
+      },
+      {
+        channel: "video",
+        title: "The Legend of Robin Hood — the 90-second version",
+        angle:
+          "Compress the article's core argument into a short narrated video with Blog2Video and link back to /blogs/robin-hood-stickman-animation.",
+      },
+      {
+        channel: "twitter",
+        title: "Thread: The Legend of Robin Hood",
+        angle:
+          "Post the main takeaways as a thread and link the full article.",
+      },
+    ],
+  },
+  {
+    slug: "salaryman-stickman-animation",
+    title: "Salaryman: A Silent Slice-of-Life Stickman Film About the End of a Long Day",
+    description:
+      "Your day, worth a story. A tired salaryman trudges home, rides to the rooftop, and lets out one long sigh under a huge moon. A completely silent stickman short — proof the format can do mood, not just jokes.",
+    category: "Behind the scenes",
+    publishedAt: "2026-07-14",
+    readTime: "2 min read",
+    heroEyebrow: "Behind the scenes",
+    heroTitle: "Salaryman: A Silent Slice-of-Life Stickman Film About the End of a Long Day",
+    heroDescription:
+      "Your day, worth a story. A tired salaryman trudges home, rides to the rooftop, and lets out one long sigh under a huge moon. A completely silent stickman short — proof the format can do mood, not just jokes.",
+    primaryKeyword: "salaryman stickman film",
+    keywordVariant: "silent slice of life stickman film",
+    relatedPaths: ["/blogs/camping-night-stickman-animation", "/blogs/the-grind-stickman-animation", "/blog-to-video"],
+    sections: [
+      {
+        heading: "Overview",
+        paragraphs: [
+          "Your day, worth a story.",
+          "Not every film in the series is a myth or a joke. This one is quiet — about forty-nine seconds of mood, no dialogue, just the end of a long day. We made it to prove the format can hold an emotion as easily as a punchline.",
+        ],
+      },
+      {
+        heading: "The story",
+        paragraphs: [
+          "A tired salaryman trudges home through a night city, briefcase in hand. He rides the elevator to the top floor, steps onto the rooftop, and — under a huge moon — sips his coffee, draws on a cigarette, and lets out one long sigh of relief.",
+          "The film ends inside his own eyes: the sleeping city, the moon, his hands on the ledge. A subtle brand tag fades in — \"your day, worth a story.\"",
+        ],
+      },
+      {
+        heading: "How we made it",
+        paragraphs: [
+          "The challenge with a silent slice-of-life piece is making stillness feel intentional. Some of the craft:",
+        ],
+        bullets: [
+          "It's completely silent, carried by a lo-fi night bed and city ambience only.",
+          "Four staged sets crossfade on one clock: street, elevator interior, rooftop, and a first-person POV.",
+          "The walk is driven by distance rather than a looping cycle — each foot plants and slides back under the body, so the steps never skate regardless of how fast he's walking.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "Storytelling doesn't have to sell hard or land a gag. Sometimes the whole video is a mood — a sigh, a moon, a city winding down — and that's enough to make someone stop scrolling.",
+          "Every ordinary day is a story worth telling. Blog2Video is how you tell yours.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video free",
+      },
+    ],
+    faq: faq("salaryman stickman film", "silent slice of life stickman film"),
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Salaryman: A Silent Slice-of-Life Stickman Film About the End of a Long Day",
+        angle:
+          "Your day, worth a story. A tired salaryman trudges home, rides to the rooftop, and lets out one long sigh under a huge moon. A completely silent stickman short — proof the format can do mood, not just jokes.",
+      },
+      {
+        channel: "video",
+        title: "Salaryman — the 90-second version",
+        angle:
+          "Compress the article's core argument into a short narrated video with Blog2Video and link back to /blogs/salaryman-stickman-animation.",
+      },
+      {
+        channel: "twitter",
+        title: "Thread: Salaryman",
+        angle:
+          "Post the main takeaways as a thread and link the full article.",
+      },
+    ],
+  },
+  {
+    slug: "sisyphus-stickman-animation",
+    title: "The Myth of Sisyphus: We Ended the Film on the Reclimb, Not the Fall",
+    description:
+      "One must imagine Sisyphus happy. We animated the myth as a narrated stickman short with a physically honest boulder — and chose to end not on the stone thundering down, but on the man setting his hands to it again.",
+    category: "Behind the scenes",
+    publishedAt: "2026-07-14",
+    readTime: "2 min read",
+    heroEyebrow: "Behind the scenes",
+    heroTitle: "The Myth of Sisyphus: We Ended the Film on the Reclimb, Not the Fall",
+    heroDescription:
+      "One must imagine Sisyphus happy. We animated the myth as a narrated stickman short with a physically honest boulder — and chose to end not on the stone thundering down, but on the man setting his hands to it again.",
+    primaryKeyword: "myth of sisyphus animation",
+    keywordVariant: "sisyphus myth stickman short",
+    relatedPaths: ["/blogs/prometheus-stickman-animation", "/blogs/the-grind-stickman-animation", "/templates/stickman_2"],
+    sections: [
+      {
+        heading: "Overview",
+        paragraphs: [
+          "One must imagine Sisyphus happy.",
+          "The myth is usually remembered as futility — the endless push, the stone rolling back. We animated it as a narrated stickman short, about eighty-one seconds long, and made one deliberate choice about where to end.",
+        ],
+      },
+      {
+        heading: "The story",
+        paragraphs: [
+          "A lone stickman heaves a great boulder up a mountainside at mythic dusk. Near the summit the stone slips and thunders all the way back down. He watches, walks the long walk down… and sets his hands to the stone again.",
+          "A grave, measured narrator — a Morgan Freeman sort of cadence — tells the myth beat by beat and closes on Camus: \"One must imagine Sisyphus happy.\"",
+        ],
+      },
+      {
+        heading: "How we made it",
+        paragraphs: [
+          "We wanted the weight to feel real, so the physics do the acting. Some of the craft:",
+        ],
+        bullets: [
+          "The boulder is physically honest: its rotation is derived from the distance travelled along the slope, and the man leans into the hill at the true slope angle — a rigid, straight-spined push, head high, driving stride.",
+          "The sky is an indigo-to-amber dusk, with the gods' radiance glowing behind the peak, and running caption pills carry the narration.",
+          "Crucially, the film doesn't end on the fall — it ends on the reclimb.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "Publishing feels like this some weeks: you push, it rolls back, you start again. The point isn't the boulder. It's that he sets his hands to the stone one more time.",
+          "Push anyway — and when you do, Blog2Video helps make sure the work is seen.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video free",
+      },
+    ],
+    faq: faq("myth of sisyphus animation", "sisyphus myth stickman short"),
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "The Myth of Sisyphus: We Ended the Film on the Reclimb, Not the Fall",
+        angle:
+          "One must imagine Sisyphus happy. We animated the myth as a narrated stickman short with a physically honest boulder — and chose to end not on the stone thundering down, but on the man setting his hands to it again.",
+      },
+      {
+        channel: "video",
+        title: "The Myth of Sisyphus — the 90-second version",
+        angle:
+          "Compress the article's core argument into a short narrated video with Blog2Video and link back to /blogs/sisyphus-stickman-animation.",
+      },
+      {
+        channel: "twitter",
+        title: "Thread: The Myth of Sisyphus",
+        angle:
+          "Post the main takeaways as a thread and link the full article.",
+      },
+    ],
+  },
+  {
+    slug: "star-wars-stickman-parody",
+    title: "Luke vs. the Slop: A Star Wars Lightsaber Duel Against AI Content",
+    description:
+      "AI slop… I am your content. We staged a stickman lightsaber duel above the stars — Luke, powered by Blog2Video, against a caped figure who is AI slop — with procedural sabers and an original orchestral score.",
+    category: "Behind the scenes",
+    publishedAt: "2026-07-14",
+    readTime: "2 min read",
+    heroEyebrow: "Behind the scenes",
+    heroTitle: "Luke vs. the Slop: A Star Wars Lightsaber Duel Against AI Content",
+    heroDescription:
+      "AI slop… I am your content. We staged a stickman lightsaber duel above the stars — Luke, powered by Blog2Video, against a caped figure who is AI slop — with procedural sabers and an original orchestral score.",
+    primaryKeyword: "star wars stickman parody",
+    keywordVariant: "star wars stickman lightsaber parody",
+    relatedPaths: ["/blogs/neo-stops-ai-slop-stickman", "/blogs/ai-videos-are-slop-unless-they-are-relevant", "/blog-to-video"],
+    sections: [
+      {
+        heading: "Overview",
+        paragraphs: [
+          "\"AI slop… I am your content.\"",
+          "It's the franchise-parody companion to our Matrix film — the same core fight, craft versus slop, told through the most famous reveal in movie history. About forty-nine seconds, sabers and all.",
+        ],
+      },
+      {
+        heading: "The story",
+        paragraphs: [
+          "A lightsaber duel plays out on a platform above the stars: Luke — blue saber, powered by Blog2Video — against a caped, helmeted Vader figure who is AI slop. Vader tempts him, drives him to a knee, and delivers the reveal: \"AI slop… I am your content.\"",
+          "Luke pastes one blog link, the Force surges, and a force-push sends the slop flying. The card lands: join the light side — blog2video.app.",
+        ],
+      },
+      {
+        heading: "How we made it",
+        paragraphs: [
+          "Recreating a saber duel in code meant building the weapons and the world from nothing. Some of the craft:",
+        ],
+        bullets: [
+          "The sabers are drawn procedurally along each fighter's forearm and ignite mid-scene; the floor grid flips from red to blue at the surge.",
+          "The soundtrack is an original heroic orchestral bed generated with ElevenLabs' music model, plus ignite, hum, clash, and breath sound effects.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "Same message as the Matrix film, different galaxy: generic content can look powerful right up until a creator who cares refuses to give in. Craft wins.",
+          "Join the light side — turn your writing into video with Blog2Video.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video free",
+      },
+    ],
+    faq: faq("star wars stickman parody", "star wars stickman lightsaber parody"),
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Luke vs. the Slop: A Star Wars Lightsaber Duel Against AI Content",
+        angle:
+          "AI slop… I am your content. We staged a stickman lightsaber duel above the stars — Luke, powered by Blog2Video, against a caped figure who is AI slop — with procedural sabers and an original orchestral score.",
+      },
+      {
+        channel: "video",
+        title: "Luke vs. the Slop — the 90-second version",
+        angle:
+          "Compress the article's core argument into a short narrated video with Blog2Video and link back to /blogs/star-wars-stickman-parody.",
+      },
+      {
+        channel: "twitter",
+        title: "Thread: Luke vs. the Slop",
+        angle:
+          "Post the main takeaways as a thread and link the full article.",
+      },
+    ],
+  },
+  {
+    slug: "the-grind-stickman-animation",
+    title: "The Grind: We Animated Every Blogger's Worst Day",
+    description:
+      "A faceless stickman pours an entire day into the perfect blog post and earns exactly one like — his own. Here's the silent 50-second Remotion film we built, and why distribution, not writing, is the real problem.",
+    category: "Behind the scenes",
+    publishedAt: "2026-07-14",
+    readTime: "2 min read",
+    heroEyebrow: "Behind the scenes",
+    heroTitle: "The Grind: We Animated Every Blogger's Worst Day",
+    heroDescription:
+      "A faceless stickman pours an entire day into the perfect blog post and earns exactly one like — his own. Here's the silent 50-second Remotion film we built, and why distribution, not writing, is the real problem.",
+    primaryKeyword: "the grind stickman film",
+    keywordVariant: "faceless stickman film about blogging",
+    relatedPaths: ["/blogs/persephone-stick-figure-animation", "/blogs/content-with-no-second-life", "/blog-to-video"],
+    sections: [
+      {
+        heading: "Overview",
+        paragraphs: [
+          "He wrote the perfect blog post. One person liked it.",
+          "Every creator knows this exact day, and we wanted to animate it without a single word of dialogue. The result is The Grind — a silent, faceless stickman short, about fifty seconds long, built entirely in Remotion.",
+        ],
+      },
+      {
+        heading: "The story",
+        paragraphs: [
+          "A faceless stickman sits down at his desk under a ticking wall clock and pours an entire day into the \"perfect\" blog post. The window slides from morning sun to deep night, coffee cups and crumpled drafts pile up, and he never stops hammering the keys.",
+          "Finally he hits Publish — and the internet answers with silence. The post earns exactly one like: his own. He slumps behind the monitor as the card lands: \"Your blog is great. It just needs video to get attention.\"",
+        ],
+      },
+      {
+        heading: "How we made it",
+        paragraphs: [
+          "The whole film is faceless and silent by design. There is no dialogue, no captions, and no facial features — every emotion has to come from posture: the hunch, the head-in-hands blow-up, the hopeful sit-back, the slump.",
+          "Some of the craft we're proud of:",
+        ],
+        bullets: [
+          "Three cameras cut on one continuous timeline: the black back of the monitor (the film's \"resting\" view, which withholds what he's making), a side profile of the furious typist, and his own POV of the screen — the only place the writing, the Publish click, and the fatal stats are ever revealed.",
+          "The ending blows the lone like up to fill the whole frame: a giant heart, \"1 LIKE,\" \"0 COMMENTS · 0 SHARES.\"",
+          "Motion is built on layered, never-repeating typing rhythms, so the figure breathes, surges, and eases like a real person instead of ticking like a metronome.",
+          "Audio is diegetic only — room tone, the clock, an aggressive keyboard, one hopeful publish chime, then crickets.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "Every creator has lived this day. The work usually isn't the problem; distribution is. You can write the best post of your life and still publish it into silence — because text alone rarely travels.",
+          "That's the whole reason we build these films, and the whole reason Blog2Video exists: turn the post you already sweated over into a video that actually gets seen.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video free",
+      },
+    ],
+    faq: faq("the grind stickman film", "faceless stickman film about blogging"),
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "The Grind: We Animated Every Blogger's Worst Day",
+        angle:
+          "A faceless stickman pours an entire day into the perfect blog post and earns exactly one like — his own. Here's the silent 50-second Remotion film we built, and why distribution, not writing, is the real problem.",
+      },
+      {
+        channel: "video",
+        title: "The Grind — the 90-second version",
+        angle:
+          "Compress the article's core argument into a short narrated video with Blog2Video and link back to /blogs/the-grind-stickman-animation.",
+      },
+      {
+        channel: "twitter",
+        title: "Thread: The Grind",
+        angle:
+          "Post the main takeaways as a thread and link the full article.",
+      },
+    ],
+  },
+  {
     slug: "trojan-horse-stickman-animation",
     title: "The Trojan Horse: How a Story Beat an Army",
     description:
@@ -97,6 +1129,968 @@ export const blogPosts: BlogPost[] = [
       {
         channel: "twitter",
         title: "Thread: The Trojan Horse",
+        angle:
+          "Post the main takeaways as a thread and link the full article.",
+      },
+    ],
+  },
+  {
+    slug: "narcissus-stickman-animation",
+    title: "Narcissus: The Boy Who Fell for His Own Reflection, in Stickman Animation",
+    description:
+      "He fell for the only face that never looked back. We told the myth of Narcissus as a narrated stickman short — a waterline mirror, a point-of-view into the pool, and a flower where a boy used to kneel. Here's how we built it.",
+    category: "Behind the scenes",
+    publishedAt: "2026-07-16",
+    readTime: "2 min read",
+    heroEyebrow: "Behind the scenes",
+    heroTitle: "Narcissus: The Boy Who Fell for His Own Reflection, in Stickman Animation",
+    heroDescription:
+      "He fell for the only face that never looked back. We told the myth of Narcissus as a narrated stickman short — a waterline mirror, a point-of-view into the pool, and a flower where a boy used to kneel. Here's how we built it.",
+    primaryKeyword: "narcissus myth animation",
+    keywordVariant: "greek myth stickman short",
+    relatedPaths: ["/blogs/pandoras-box-stickman-animation", "/blogs/persephone-stick-figure-animation", "/templates/stickman_2"],
+    sections: [
+      {
+        heading: "Overview",
+        paragraphs: [
+          "He fell for the only face that never looked back.",
+          "Narcissus is a story about looking at yourself instead of an audience, so it fits a series that exists to argue the opposite. We kept it deliberately under two minutes — about a hundred and fourteen seconds, narrated end to end.",
+        ],
+      },
+      {
+        heading: "The story",
+        paragraphs: [
+          "A proud, cold boy stalks a meadow, too beautiful and too sure of it to love anyone. The blind seer Tiresias gives a riddle — the boy will live long, so long as he never knows himself. The nymph Echo loves him and is pushed away, fading until she is only a voice on the wind.",
+          "Then Narcissus kneels at a still pool and falls, instantly and hopelessly, for the face gazing up at him. He reaches — it ripples away. He wastes there at the water's edge as dusk falls, and at dawn the first narcissus flower blooms in his place.",
+        ],
+      },
+      {
+        heading: "How we made it",
+        paragraphs: [
+          "Two custom mechanics carry the whole film, both about the surface of the water. Some of the craft:",
+        ],
+        bullets: [
+          "It's narrated by the same warm British storyteller voice as Prometheus and Pandora (\"George\"), over a tender, lyrical score.",
+          "A Reflection component: a waterline mirror that flips and dims the figure into the pool with a live ripple, so his reflection reads as an image on real water.",
+          "A point-of-view shot — a turbulence-filtered view looking down at his own crowned, rippling face as he reaches for it and it breaks apart.",
+          "Scale and light carry the ending: the boy wastes at the edge as dusk falls, and the first narcissus flower opens at dawn where he knelt.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "Admiring your own work in a mirror gets you nothing. The reflection never claps, never shares, never buys.",
+          "Put the work in front of an audience instead. Blog2Video is how you turn the thing you made into something other people actually see.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video free",
+      },
+    ],
+    faq: faq("narcissus myth animation", "greek myth stickman short"),
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Narcissus: The Boy Who Fell for His Own Reflection, in Stickman Animation",
+        angle:
+          "He fell for the only face that never looked back. We told the myth of Narcissus as a narrated stickman short — a waterline mirror, a point-of-view into the pool, and a flower where a boy used to kneel.",
+      },
+      {
+        channel: "video",
+        title: "Narcissus — the 90-second version",
+        angle:
+          "Compress the article's core argument into a short narrated video with Blog2Video and link back to /blogs/narcissus-stickman-animation.",
+      },
+      {
+        channel: "twitter",
+        title: "Thread: Narcissus",
+        angle:
+          "Post the main takeaways as a thread and link the full article.",
+      },
+    ],
+  },
+  {
+    slug: "sword-in-the-stone-stickman-animation",
+    title: "The Sword in the Stone: The Excalibur Legend as a Stickman Comedy",
+    description:
+      "How (not) to lift a sword. We told the Excalibur legend as a comic stickman short — boastful knights flying backwards, a skinny squire pulling it free like a stick from mud, and one engineering trick that makes every heave read as real contact.",
+    category: "Behind the scenes",
+    publishedAt: "2026-07-16",
+    readTime: "2 min read",
+    heroEyebrow: "Behind the scenes",
+    heroTitle: "The Sword in the Stone: The Excalibur Legend as a Stickman Comedy",
+    heroDescription:
+      "How (not) to lift a sword. We told the Excalibur legend as a comic stickman short — boastful knights flying backwards, a skinny squire pulling it free like a stick from mud, and one engineering trick that makes every heave read as real contact.",
+    primaryKeyword: "sword in the stone animation",
+    keywordVariant: "excalibur legend stickman short",
+    relatedPaths: ["/blogs/robin-hood-stickman-animation", "/blogs/prometheus-stickman-animation", "/templates/stickman_2"],
+    sections: [
+      {
+        heading: "Overview",
+        paragraphs: [
+          "A fun take on the Excalibur legend — and a lesson in how not to lift a sword.",
+          "This one is a comedy: about a hundred and eleven seconds, narrated with a grin, shot in a portrait-friendly camera.",
+        ],
+      },
+      {
+        heading: "The story",
+        paragraphs: [
+          "A glowing sword stands planted in a churchyard stone. Burly, boastful knights line up to heave it out — and one by one they strain, grunt, and go flying backwards in a comic flyback, empty-handed.",
+          "Then a skinny squire named Arthur steps up, wraps one hand around the hilt, and draws it free as easily as pulling a stick from mud. The crowd drops to its knees. The boy is king.",
+        ],
+      },
+      {
+        heading: "How we made it",
+        paragraphs: [
+          "The comedy only works if every failed pull looks like it's really gripping the sword. Some of the craft:",
+        ],
+        bullets: [
+          "It's narrated by the same British storyteller voice as the myth films (\"George\"), here with a grin — \"…and how not to lift it.\"",
+          "The key engineering piece is a plantGrip helper that sizes and plants each figure so its gripping hand actually meets the seated hilt while its feet stay on the ground. Before it, pullers floated or stood too far from the sword; plantGrip is the fix that makes every heave read as real contact.",
+          "A comic flyback sends each knight tumbling backwards, empty-handed, while Arthur draws the sword free with no effort at all.",
+          "A non-looping, per-beat LOTR-style score gives each knight's failure and Arthur's triumph its own cue.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "The right tool in the right hand makes the impossible look easy. Everyone else strained; the boy just pulled.",
+          "That's the whole promise. Blog2Video is the tool that makes turning your writing into video look effortless.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video free",
+      },
+    ],
+    faq: faq("sword in the stone animation", "excalibur legend stickman short"),
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "The Sword in the Stone: The Excalibur Legend as a Stickman Comedy",
+        angle:
+          "How (not) to lift a sword. We told the Excalibur legend as a comic stickman short — boastful knights flying backwards, a skinny squire pulling it free like a stick from mud.",
+      },
+      {
+        channel: "video",
+        title: "The Sword in the Stone — the 90-second version",
+        angle:
+          "Compress the article's core argument into a short narrated video with Blog2Video and link back to /blogs/sword-in-the-stone-stickman-animation.",
+      },
+      {
+        channel: "twitter",
+        title: "Thread: The Sword in the Stone",
+        angle:
+          "Post the main takeaways as a thread and link the full article.",
+      },
+    ],
+  },
+  {
+    slug: "ship-of-theseus-stickman-animation",
+    title: "The Ship of Theseus: A Philosophy Puzzle in Stickman Animation",
+    description:
+      "Replace every plank, and is it still your ship? We told the Ship of Theseus paradox as a narrated stickman short — a galley rebuilt plank by plank on screen, and a twist about a second ship. Here's how we built it in Remotion.",
+    category: "Behind the scenes",
+    publishedAt: "2026-07-16",
+    readTime: "2 min read",
+    heroEyebrow: "Behind the scenes",
+    heroTitle: "The Ship of Theseus: A Philosophy Puzzle in Stickman Animation",
+    heroDescription:
+      "Replace every plank, and is it still your ship? We told the Ship of Theseus paradox as a narrated stickman short — a galley rebuilt plank by plank on screen, and a twist about a second ship. Here's how we built it in Remotion.",
+    primaryKeyword: "ship of theseus explained",
+    keywordVariant: "ship of theseus stickman animation",
+    relatedPaths: ["/blogs/narcissus-stickman-animation", "/blogs/2008-financial-crisis-stickman-explainer", "/templates/stickman_2"],
+    sections: [
+      {
+        heading: "Overview",
+        paragraphs: [
+          "Replace every plank, and is it still your ship?",
+          "The Ship of Theseus is a two-thousand-year-old thought experiment, so we made it something you can watch happen — about a hundred and five seconds, narrated end to end.",
+        ],
+      },
+      {
+        heading: "The story",
+        paragraphs: [
+          "Theseus sails home a hero, and Athens vows to preserve his ship forever. But wood rots. A shipwright pulls one rotten plank and nails in a fresh one. Then another. Time-lapses by — day and night flicker, a growing pile of old planks, a counter ticking N of 36 — until not one original board remains.",
+          "The philosophers argue: is it still the ship of Theseus? And then the twist: someone has kept every discarded plank and rebuilt a second ship from them. Now which one is real?",
+        ],
+      },
+      {
+        heading: "How we made it",
+        paragraphs: [
+          "The whole point is to make an abstract paradox literally visible, one plank at a time. Some of the craft:",
+        ],
+        bullets: [
+          "It's narrated by the same warm British voice as the myth films (\"George\"), over a contemplative score.",
+          "The centrepiece is a Ship primitive — a galley with a clipped nine-by-four grid of plank-cells and a swap mechanic that fades old boards to new ones one cell at a time, so the renewal is literally visible plank by plank.",
+          "A time-lapse of day and night, a growing pile of discarded planks, and a running counter of how many boards have been replaced.",
+          "Built entirely in Remotion (React) on a real clock — 3,139 frames, about a hundred and five seconds — and shipped in both landscape and portrait from one composition.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "Your story survives every edit, re-voice, and re-cut. The identity is the idea, not the boards.",
+          "So keep shipping. Blog2Video lets you rebuild the same story in a dozen formats, and it's still your story.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video free",
+      },
+    ],
+    faq: faq("ship of theseus explained", "ship of theseus stickman animation"),
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "The Ship of Theseus: A Philosophy Puzzle in Stickman Animation",
+        angle:
+          "Replace every plank, and is it still your ship? We told the Ship of Theseus paradox as a narrated stickman short — a galley rebuilt plank by plank on screen, and a twist about a second ship.",
+      },
+      {
+        channel: "video",
+        title: "The Ship of Theseus — the 90-second version",
+        angle:
+          "Compress the article's core argument into a short narrated video with Blog2Video and link back to /blogs/ship-of-theseus-stickman-animation.",
+      },
+      {
+        channel: "twitter",
+        title: "Thread: The Ship of Theseus",
+        angle:
+          "Post the main takeaways as a thread and link the full article.",
+      },
+    ],
+  },
+  {
+    slug: "pulp-fiction-stickman-parody",
+    title: "Pulp Fiction 'The Case': The Glowing Briefcase Scene as a Stickman Parody",
+    description:
+      "Whatever's in the case, it's worth the whole movie. We reimagined the Pulp Fiction briefcase-check as a stickman parody — two hitmen, a terrified man named Brett, and a glow we never quite let you see. Here's how we built it.",
+    category: "Behind the scenes",
+    publishedAt: "2026-07-16",
+    readTime: "2 min read",
+    heroEyebrow: "Behind the scenes",
+    heroTitle: "Pulp Fiction 'The Case': The Glowing Briefcase Scene as a Stickman Parody",
+    heroDescription:
+      "Whatever's in the case, it's worth the whole movie. We reimagined the Pulp Fiction briefcase-check as a stickman parody — two hitmen, a terrified man named Brett, and a glow we never quite let you see. Here's how we built it.",
+    primaryKeyword: "pulp fiction briefcase parody",
+    keywordVariant: "pulp fiction stickman parody",
+    relatedPaths: ["/blogs/reservoir-dogs-stickman-parody", "/blogs/drive-title-sequence-stickman", "/templates/stickman_2"],
+    sections: [
+      {
+        heading: "Overview",
+        paragraphs: [
+          "Whatever's in the case, it's worth the whole movie.",
+          "The briefcase-check is one of cinema's most famous withheld reveals, so we rebuilt it in stick figures — about sixty-seven seconds, three distinct voices, and a glow you never quite get to see.",
+        ],
+      },
+      {
+        heading: "The story",
+        paragraphs: [
+          "Two hitmen — one with a big afro, one with a bob — open a briefcase in front of a terrified, seated man named Brett. The case glows gold on their faces. They stare into it, transfixed, while Brett stammers.",
+          "We never quite see what's inside. But their faces tell you it's the most valuable thing in the world.",
+        ],
+      },
+      {
+        heading: "How we made it",
+        paragraphs: [
+          "The whole scene lives or dies on faces reacting to something the audience can't see. Some of the craft:",
+        ],
+        bullets: [
+          "White myth-style line figures with black hair — Jules' afro, Vincent's bob, and a scared, seated Brett.",
+          "Original parody dialogue in three distinct ElevenLabs voices, mirroring the scene's rhythm without lifting a line.",
+          "A glowing case that lights the hitmen's faces gold, plus a five-second case-POV upshot looking up into the golden light from inside.",
+          "Everything is code — built in Remotion (React), no stock footage — and it ends on the blog2video.app tag.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "The thing everyone leans in to see? That's your content, done right — the reveal people can't look away from.",
+          "Blog2Video is how you make it. Turn your writing into the thing worth staring at.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video free",
+      },
+    ],
+    faq: faq("pulp fiction briefcase parody", "pulp fiction stickman parody"),
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Pulp Fiction 'The Case': The Glowing Briefcase Scene as a Stickman Parody",
+        angle:
+          "Whatever's in the case, it's worth the whole movie. We reimagined the Pulp Fiction briefcase-check as a stickman parody — two hitmen, a terrified man named Brett, and a glow we never quite let you see.",
+      },
+      {
+        channel: "video",
+        title: "Pulp Fiction 'The Case' — the 60-second version",
+        angle:
+          "Compress the article's core argument into a short narrated video with Blog2Video and link back to /blogs/pulp-fiction-stickman-parody.",
+      },
+      {
+        channel: "twitter",
+        title: "Thread: Pulp Fiction 'The Case'",
+        angle:
+          "Post the main takeaways as a thread and link the full article.",
+      },
+    ],
+  },
+  {
+    slug: "american-psycho-stickman-parody",
+    title: "American Psycho: The Business Card Scene, Reimagined as a Stickman Ad",
+    description:
+      "Look at that subtle off-white coloring. We turned the American Psycho business-card scene into a stickman ad — execs one-upping each other with AI video tools, until Bateman lays down the one card nobody can stop staring at.",
+    category: "Behind the scenes",
+    publishedAt: "2026-07-16",
+    readTime: "2 min read",
+    heroEyebrow: "Behind the scenes",
+    heroTitle: "American Psycho: The Business Card Scene, Reimagined as a Stickman Ad",
+    heroDescription:
+      "Look at that subtle off-white coloring. We turned the American Psycho business-card scene into a stickman ad — execs one-upping each other with AI video tools, until Bateman lays down the one card nobody can stop staring at.",
+    primaryKeyword: "american psycho business card scene",
+    keywordVariant: "american psycho stickman parody",
+    relatedPaths: ["/blogs/reservoir-dogs-stickman-parody", "/blogs/neo-stops-ai-slop-stickman", "/templates/stickman_2"],
+    sections: [
+      {
+        heading: "Overview",
+        paragraphs: [
+          "Look at that subtle off-white coloring.",
+          "The business-card comparison is one of the most quotable scenes in film, so we turned it into an ad — about sixty-seven seconds, five voices, and a lot of sweat over a wordmark.",
+        ],
+      },
+      {
+        heading: "The story",
+        paragraphs: [
+          "A table of Pierce & Pierce executives one-up each other with their AI video generators — HeyGen, InVideo, Seedance — each card slid across the table with quiet menace.",
+          "Then Bateman lays down Paul Owen's card: blog2video. The tasteful thickness. The watermark. He can't stop staring at it, heartbeat pounding, sweat beading, as it plainly outclasses everything else on the table.",
+        ],
+      },
+      {
+        heading: "How we made it",
+        paragraphs: [
+          "The joke is all in the escalation and the reveal, so the cards had to be heroes in their own right. Some of the craft:",
+        ],
+        bullets: [
+          "Five distinct ElevenLabs voices for the execs, each card slid across the table with the scene's trademark quiet menace.",
+          "A heartbeat-and-sweat reveal as Bateman locks onto the final card.",
+          "Card-hero close-ups that linger on each wordmark so you can read every tool by name.",
+          "Everything is code — built in Remotion (React) — and it ends on blog2video as the card that wins the table.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "In a stack of interchangeable tools, the one with real craft is the one nobody can stop looking at.",
+          "That's the pitch, and it's the product. Blog2Video is the card you want to be holding.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video free",
+      },
+    ],
+    faq: faq("american psycho business card scene", "american psycho stickman parody"),
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "American Psycho: The Business Card Scene, Reimagined as a Stickman Ad",
+        angle:
+          "Look at that subtle off-white coloring. We turned the American Psycho business-card scene into a stickman ad — execs one-upping each other with AI video tools, until Bateman lays down the one card nobody can stop staring at.",
+      },
+      {
+        channel: "video",
+        title: "American Psycho: The Card Scene — the 60-second version",
+        angle:
+          "Compress the article's core argument into a short narrated video with Blog2Video and link back to /blogs/american-psycho-stickman-parody.",
+      },
+      {
+        channel: "twitter",
+        title: "Thread: American Psycho — The Card Scene",
+        angle:
+          "Post the main takeaways as a thread and link the full article.",
+      },
+    ],
+  },
+  {
+    slug: "neo-first-dodge-stickman",
+    title: "Neo — The First Dodge: The Bullet-Time Lean as a Stickman Short",
+    description:
+      "The only word the slop ever gets to say is 'Die.' We rebuilt the Matrix bullet-dodge as a stickman short — one lean, stretched and re-covered from every angle, where Neo wins by not being hit. Here's how we built it.",
+    category: "Behind the scenes",
+    publishedAt: "2026-07-16",
+    readTime: "2 min read",
+    heroEyebrow: "Behind the scenes",
+    heroTitle: "Neo — The First Dodge: The Bullet-Time Lean as a Stickman Short",
+    heroDescription:
+      "The only word the slop ever gets to say is 'Die.' We rebuilt the Matrix bullet-dodge as a stickman short — one lean, stretched and re-covered from every angle, where Neo wins by not being hit. Here's how we built it.",
+    primaryKeyword: "matrix bullet dodge animation",
+    keywordVariant: "neo bullet time stickman short",
+    relatedPaths: ["/blogs/neo-stops-ai-slop-stickman", "/blogs/star-wars-stickman-parody", "/templates/stickman_2"],
+    sections: [
+      {
+        heading: "Overview",
+        paragraphs: [
+          "\"Die\" is the only word the slop ever gets to say.",
+          "This is a tighter, colder cousin of our Matrix duel — the whole film is one dodge, stretched and re-covered so it never feels like a held pose. 960 frames.",
+        ],
+      },
+      {
+        heading: "The story",
+        paragraphs: [
+          "A single Agent raises a gun, says one word — \"Die.\" — and fires. Neo bends completely backwards on two planted legs as the bullets crawl past, tagged A.I. SLOP in the captions, through some thirteen seconds of bullet-time covered by rapid cuts, a slow orbit, and a Neo's-eye view of the Agent front-on.",
+          "He doesn't win by fighting. He wins by not being hit.",
+        ],
+      },
+      {
+        heading: "How we made it",
+        paragraphs: [
+          "The challenge was making one pose feel like a whole action sequence. Some of the craft:",
+        ],
+        bullets: [
+          "A fixed-row bullet-tag system that labels the incoming rounds A.I. SLOP as they crawl past.",
+          "An orbiting camera and a POV cut that scales with the lean, so the single dodge is re-covered from every angle and never reads as a frozen frame.",
+          "\"Die.\" is the only spoken line in the film — the Slop Overlord voice, designed in ElevenLabs.",
+          "All sound effects are reused from the earlier Matrix films, keeping the short lean and consistent with the series.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "Sometimes the flex isn't fighting the noise — it's being untouchable next to it.",
+          "That's what good content does in a feed full of slop. Blog2Video helps you make the thing the bullets miss.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video free",
+      },
+    ],
+    faq: faq("matrix bullet dodge animation", "neo bullet time stickman short"),
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Neo — The First Dodge: The Bullet-Time Lean as a Stickman Short",
+        angle:
+          "The only word the slop ever gets to say is 'Die.' We rebuilt the Matrix bullet-dodge as a stickman short — one lean, stretched and re-covered from every angle, where Neo wins by not being hit.",
+      },
+      {
+        channel: "video",
+        title: "Neo — The First Dodge — the short cut",
+        angle:
+          "Compress the article's core argument into a short narrated video with Blog2Video and link back to /blogs/neo-first-dodge-stickman.",
+      },
+      {
+        channel: "twitter",
+        title: "Thread: Neo — The First Dodge",
+        angle:
+          "Post the main takeaways as a thread and link the full article.",
+      },
+    ],
+  },
+  {
+    slug: "neo-vs-sith-stickman",
+    title: "Neo vs the Sith: A Matrix–Star Wars Crossover Saber Duel in Stickman",
+    description:
+      "Green versus red. Craft versus slop. We crossed our Matrix and Star Wars films into one stickman saber duel — Neo against a Sith embodiment of AI slop — and let the fight lead before the message lands.",
+    category: "Behind the scenes",
+    publishedAt: "2026-07-16",
+    readTime: "2 min read",
+    heroEyebrow: "Behind the scenes",
+    heroTitle: "Neo vs the Sith: A Matrix–Star Wars Crossover Saber Duel in Stickman",
+    heroDescription:
+      "Green versus red. Craft versus slop. We crossed our Matrix and Star Wars films into one stickman saber duel — Neo against a Sith embodiment of AI slop — and let the fight lead before the message lands.",
+    primaryKeyword: "neo vs sith crossover",
+    keywordVariant: "matrix star wars stickman parody",
+    relatedPaths: ["/blogs/neo-stops-ai-slop-stickman", "/blogs/star-wars-stickman-parody", "/templates/stickman_2"],
+    sections: [
+      {
+        heading: "Overview",
+        paragraphs: [
+          "Green versus red. Craft versus slop.",
+          "This one is a crossover — Matrix Neo takes on a Sith embodiment of AI slop in a fight-first saber duel, reusing systems from two earlier films to make something new.",
+        ],
+      },
+      {
+        heading: "The story",
+        paragraphs: [
+          "Green blade against red. The slop taunts him — \"Why, Mr Anderson?\" — Neo answers that his content is worth it, and a THE ONE surge turns the fight.",
+          "It ends, like all of them, at blog2video.app.",
+        ],
+      },
+      {
+        heading: "How we made it",
+        paragraphs: [
+          "The point of the crossover was to prove the systems are reusable — a saber film and a Matrix film combine cleanly. Some of the craft:",
+        ],
+        bullets: [
+          "Reuses the saber-duel and impact-spark systems from our Star Wars film, dressed in the green-vs-red colour language of the Matrix line.",
+          "Fresh ElevenLabs voices (Daniel, Liam, Brian) recast the taunt-and-answer beats.",
+          "Fight choreography leads throughout; the message only lands at the end.",
+          "Everything is code — built in Remotion (React) — and shipped in both landscape and portrait.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "However you dress the villain up, the story is the same: real work beats mass-produced noise.",
+          "Blog2Video is how you make the real work — and win the duel every time.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video free",
+      },
+    ],
+    faq: faq("neo vs sith crossover", "matrix star wars stickman parody"),
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Neo vs the Sith: A Matrix–Star Wars Crossover Saber Duel in Stickman",
+        angle:
+          "Green versus red. Craft versus slop. We crossed our Matrix and Star Wars films into one stickman saber duel — Neo against a Sith embodiment of AI slop.",
+      },
+      {
+        channel: "video",
+        title: "Neo vs the Sith — the short cut",
+        angle:
+          "Compress the article's core argument into a short narrated video with Blog2Video and link back to /blogs/neo-vs-sith-stickman.",
+      },
+      {
+        channel: "twitter",
+        title: "Thread: Neo vs the Sith",
+        angle:
+          "Post the main takeaways as a thread and link the full article.",
+      },
+    ],
+  },
+  {
+    slug: "matrix-red-dress-stickman",
+    title: "The Woman in the Red Dress: The Matrix Distraction Scene as a Stickman Parody",
+    description:
+      "Were you listening, or looking at the woman in the red dress? We rebuilt the Matrix training-program scene as a stickman parody — a grey crowd, one red accent, and a freeze-reveal that turns the distraction into the danger.",
+    category: "Behind the scenes",
+    publishedAt: "2026-07-16",
+    readTime: "2 min read",
+    heroEyebrow: "Behind the scenes",
+    heroTitle: "The Woman in the Red Dress: The Matrix Distraction Scene as a Stickman Parody",
+    heroDescription:
+      "Were you listening, or looking at the woman in the red dress? We rebuilt the Matrix training-program scene as a stickman parody — a grey crowd, one red accent, and a freeze-reveal that turns the distraction into the danger.",
+    primaryKeyword: "woman in the red dress matrix",
+    keywordVariant: "matrix red dress stickman parody",
+    relatedPaths: ["/blogs/neo-stops-ai-slop-stickman", "/blogs/ai-videos-are-slop-unless-they-are-relevant", "/templates/stickman_2"],
+    sections: [
+      {
+        heading: "Overview",
+        paragraphs: [
+          "\"Were you listening… or were you looking at the woman in the red dress?\"",
+          "The training-program scene is a perfect metaphor for slick, empty content, so we rebuilt it — a desaturated crowd, one red accent, and a hard freeze.",
+        ],
+      },
+      {
+        heading: "The story",
+        paragraphs: [
+          "A crowd of identical grey stickman pedestrians shuffles down a street — and among them, impossible to miss, is the woman in the red dress. \"Look again,\" says Agent Smith.",
+          "The crowd freezes; every grey figure snaps toward camera as a threat. The red dress was the distraction — the ordinary, generic content was the danger all along.",
+        ],
+      },
+      {
+        heading: "How we made it",
+        paragraphs: [
+          "One freeze-reveal mechanic carries the entire twist. Some of the craft:",
+        ],
+        bullets: [
+          "The whole crowd animates naturally, then hard-stops on cue and rotates to face front in unison — a single freeze-reveal that turns pedestrians into threats.",
+          "The red figure is the only colour accent in a fully desaturated world, so the eye goes exactly where the scene wants it.",
+          "Original parody dialogue in the Agent Smith register.",
+          "Everything is code — built in Remotion (React) — and ends on blog2video.app.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "Slick, generic content is the red dress — it grabs the eye and teaches you nothing.",
+          "Make the thing worth actually listening to. Blog2Video turns your real ideas into video people remember.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video free",
+      },
+    ],
+    faq: faq("woman in the red dress matrix", "matrix red dress stickman parody"),
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "The Woman in the Red Dress: The Matrix Distraction Scene as a Stickman Parody",
+        angle:
+          "Were you listening, or looking at the woman in the red dress? We rebuilt the Matrix training-program scene as a stickman parody — a grey crowd, one red accent, and a freeze-reveal that turns the distraction into the danger.",
+      },
+      {
+        channel: "video",
+        title: "The Woman in the Red Dress — the short cut",
+        angle:
+          "Compress the article's core argument into a short narrated video with Blog2Video and link back to /blogs/matrix-red-dress-stickman.",
+      },
+      {
+        channel: "twitter",
+        title: "Thread: The Woman in the Red Dress",
+        angle:
+          "Post the main takeaways as a thread and link the full article.",
+      },
+    ],
+  },
+  {
+    slug: "breaking-bad-stickman-parody",
+    title: "Breaking Bad 'RV Cook': The Calm-Under-Pressure Scene as a Stickman Parody",
+    description:
+      "Science, bitch. We turned the Breaking Bad RV scene into a stickman parody — panicked Jesse, unflappable Walt, one clean fix — and pointed the same calm, one-move solution at turning your blog into a video.",
+    category: "Behind the scenes",
+    publishedAt: "2026-07-16",
+    readTime: "2 min read",
+    heroEyebrow: "Behind the scenes",
+    heroTitle: "Breaking Bad 'RV Cook': The Calm-Under-Pressure Scene as a Stickman Parody",
+    heroDescription:
+      "Science, bitch. We turned the Breaking Bad RV scene into a stickman parody — panicked Jesse, unflappable Walt, one clean fix — and pointed the same calm, one-move solution at turning your blog into a video.",
+    primaryKeyword: "breaking bad rv scene parody",
+    keywordVariant: "breaking bad stickman parody",
+    relatedPaths: ["/blogs/reservoir-dogs-stickman-parody", "/blogs/american-psycho-stickman-parody", "/templates/stickman_2"],
+    sections: [
+      {
+        heading: "Overview",
+        paragraphs: [
+          "\"Science, bitch!\"",
+          "This is a two-hander character piece — panicked Jesse versus unflappable Walt — staged inside a single rattling RV, built around one rhythm: problem, calm solution, catchphrase.",
+        ],
+      },
+      {
+        heading: "The story",
+        paragraphs: [
+          "Inside a rattling RV, Jesse panics — the deadline's blown, nothing works, everything's on fire (figuratively, mostly). Walt stays calm, works the problem, and solves it in one clean move. Jesse's stunned; Walt delivers the line.",
+          "Cut to the pitch: the same calm, one-move fix, but for turning your blog into a video at blog2video.app.",
+        ],
+      },
+      {
+        heading: "How we made it",
+        paragraphs: [
+          "Two characters, one interior, and a beat map that lands the catchphrase. Some of the craft:",
+        ],
+        bullets: [
+          "A two-hander staged in a single RV interior — panicked Jesse and unflappable Walt playing off each other.",
+          "Distinct ElevenLabs voices for each, tuned to the panic-versus-calm contrast.",
+          "A beat map built around the \"problem → calm solution → catchphrase\" rhythm, so the joke lands on time.",
+          "Everything is code — built in Remotion (React) — and ends on the Blog2Video pitch.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "The right process turns a panic into a punchline. Let the tool be the calm one.",
+          "Blog2Video is the one clean move — paste the blog, get the video.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video free",
+      },
+    ],
+    faq: faq("breaking bad rv scene parody", "breaking bad stickman parody"),
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Breaking Bad 'RV Cook': The Calm-Under-Pressure Scene as a Stickman Parody",
+        angle:
+          "Science, bitch. We turned the Breaking Bad RV scene into a stickman parody — panicked Jesse, unflappable Walt, one clean fix.",
+      },
+      {
+        channel: "video",
+        title: "Breaking Bad 'RV Cook' — the short cut",
+        angle:
+          "Compress the article's core argument into a short narrated video with Blog2Video and link back to /blogs/breaking-bad-stickman-parody.",
+      },
+      {
+        channel: "twitter",
+        title: "Thread: Breaking Bad — RV Cook",
+        angle:
+          "Post the main takeaways as a thread and link the full article.",
+      },
+    ],
+  },
+  {
+    slug: "the-overlook-stickman-animation",
+    title: "The Overlook: A Silent Night-Drive Stickman Short",
+    description:
+      "Every story deserves to be told. Tell yours. The Overlook is a silent night-drive short — a climb up a cliff road, a cigarette over a sea of city lights, and a quiet reminder to go tell your own story.",
+    category: "Behind the scenes",
+    publishedAt: "2026-07-16",
+    readTime: "2 min read",
+    heroEyebrow: "Behind the scenes",
+    heroTitle: "The Overlook: A Silent Night-Drive Stickman Short",
+    heroDescription:
+      "Every story deserves to be told. Tell yours. The Overlook is a silent night-drive short — a climb up a cliff road, a cigarette over a sea of city lights, and a quiet reminder to go tell your own story.",
+    primaryKeyword: "night drive stickman film",
+    keywordVariant: "silent stickman short film",
+    relatedPaths: ["/blogs/salaryman-stickman-animation", "/blogs/one-shot-stickman-animation", "/templates/stickman_2"],
+    sections: [
+      {
+        heading: "Overview",
+        paragraphs: [
+          "Every story deserves to be told. Tell yours.",
+          "The Overlook is the reflective bookend to the series — a silent, mood-led night drive with no dialogue and no captions, built for a slow exhale at the end.",
+        ],
+      },
+      {
+        heading: "The story",
+        paragraphs: [
+          "A stickman pulls out of city traffic onto a winding cliff road and climbs into the dark, headlights carving the bends. At the top he parks at a vantage point, steps out, and lights a cigarette over a whole sea of skyscraper lights spread out below.",
+          "The card settles: every story deserves to be told — blog2video.app — tell yours.",
+        ],
+      },
+      {
+        heading: "How we made it",
+        paragraphs: [
+          "This one reuses the toolkit from earlier films to prove how much mood you can build from parts you already have. Some of the craft:",
+        ],
+        bullets: [
+          "Four cross-faded treatments on one clock — city traffic, the winding climb, the overlook, and a driver's POV.",
+          "Reuses the Salaryman skeleton and the Drive car, restaged for a night climb.",
+          "Carries the house Watermark — the half-opacity blog2video.app tag, bottom-right.",
+          "Completely silent and mood-led, built for a slow exhale at the end.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "After all the myths and fights, this is the quiet reminder: go tell your own story.",
+          "Blog2Video is where you start. Every story deserves to be told — tell yours.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video free",
+      },
+    ],
+    faq: faq("night drive stickman film", "silent stickman short film"),
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "The Overlook: A Silent Night-Drive Stickman Short",
+        angle:
+          "Every story deserves to be told. Tell yours. The Overlook is a silent night-drive short — a climb up a cliff road, a cigarette over a sea of city lights, and a quiet reminder to go tell your own story.",
+      },
+      {
+        channel: "video",
+        title: "The Overlook — the short cut",
+        angle:
+          "Compress the article's core argument into a short narrated video with Blog2Video and link back to /blogs/the-overlook-stickman-animation.",
+      },
+      {
+        channel: "twitter",
+        title: "Thread: The Overlook",
+        angle:
+          "Post the main takeaways as a thread and link the full article.",
+      },
+    ],
+  },
+  {
+    slug: "stickman-v2-showcase",
+    title: "Stickman v2 — The Showcase: A Product Changelog You'll Actually Watch",
+    description:
+      "Growth, new templates, and Collaboration. The mascot's second outing doubles as a release note — a bike intro, a dance, a high-five, and a quarter of updates threaded through it. Here's how we turned a changelog into a film.",
+    category: "Behind the scenes",
+    publishedAt: "2026-07-16",
+    readTime: "2 min read",
+    heroEyebrow: "Behind the scenes",
+    heroTitle: "Stickman v2 — The Showcase: A Product Changelog You'll Actually Watch",
+    heroDescription:
+      "Growth, new templates, and Collaboration. The mascot's second outing doubles as a release note — a bike intro, a dance, a high-five, and a quarter of updates threaded through it. Here's how we turned a changelog into a film.",
+    primaryKeyword: "blog2video stickman v2",
+    keywordVariant: "product update stickman video",
+    relatedPaths: ["/blogs/stickman-v3-journey-so-far", "/blogs/stickman-v4-jetpack-update", "/templates/stickman_2"],
+    sections: [
+      {
+        heading: "Overview",
+        paragraphs: [
+          "Growth, new templates, and Collaboration.",
+          "The mascot's second outing doubles as a release note — proof that a changelog nobody reads can become a video people actually watch.",
+        ],
+      },
+      {
+        heading: "The story",
+        paragraphs: [
+          "A bike intro, a dance, a fractal-tree petal catch, a high-five, and an \"I ♥ B2V\" playcard, threaded through the quarter's growth stats, the new Sakura template, and the launch of Collaboration.",
+          "It's personality laid on top of a product changelog — the same mascot, used to walk through real Blog2Video releases.",
+        ],
+      },
+      {
+        heading: "How we made it",
+        paragraphs: [
+          "This was the first film to lean hard on our reusable showcase system. Some of the craft:",
+        ],
+        bullets: [
+          "App-window mockups that carry each real feature — the new Sakura template, the launch of Collaboration, and the quarter's growth numbers.",
+          "A zoom rig and a landscape/portrait split rendered from one file.",
+          "Mascot bits — a bike intro, a dance, a petal catch, a high-five, an \"I ♥ B2V\" playcard — that give the changelog a personality.",
+          "It depends on the Sakura @fontsource packages being installed in the Remotion project.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "A changelog nobody reads becomes a video people actually watch.",
+          "That's the whole idea behind Blog2Video — even a release note deserves an audience. Turn yours into one.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video free",
+      },
+    ],
+    faq: faq("blog2video stickman v2", "product update stickman video"),
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Stickman v2 — The Showcase: A Product Changelog You'll Actually Watch",
+        angle:
+          "Growth, new templates, and Collaboration. The mascot's second outing doubles as a release note — a bike intro, a dance, a high-five, and a quarter of updates threaded through it.",
+      },
+      {
+        channel: "video",
+        title: "Stickman v2 — The Showcase",
+        angle:
+          "Compress the article's core argument into a short narrated video with Blog2Video and link back to /blogs/stickman-v2-showcase.",
+      },
+      {
+        channel: "twitter",
+        title: "Thread: Stickman v2 — The Showcase",
+        angle:
+          "Post the main takeaways as a thread and link the full article.",
+      },
+    ],
+  },
+  {
+    slug: "stickman-v3-journey-so-far",
+    title: "The Journey So Far — Stickman v3: 3,500 Creators, 6,000 Videos, 439K Scenes",
+    description:
+      "Numbers alone don't move anyone — an underdog climbing does. Stickman v3 is a growth-story arc: a mascot climbing a trail of milestones toward a summit while the numbers climb with him. Here's how we built it.",
+    category: "Behind the scenes",
+    publishedAt: "2026-07-16",
+    readTime: "2 min read",
+    heroEyebrow: "Behind the scenes",
+    heroTitle: "The Journey So Far — Stickman v3: 3,500 Creators, 6,000 Videos, 439K Scenes",
+    heroDescription:
+      "Numbers alone don't move anyone — an underdog climbing does. Stickman v3 is a growth-story arc: a mascot climbing a trail of milestones toward a summit while the numbers climb with him. Here's how we built it.",
+    primaryKeyword: "blog2video journey so far",
+    keywordVariant: "stickman v3 growth story video",
+    relatedPaths: ["/blogs/stickman-v2-showcase", "/blogs/stickman-v4-jetpack-update", "/templates/stickman_2"],
+    sections: [
+      {
+        heading: "Overview",
+        paragraphs: [
+          "3,500 creators. 6,000 videos. 439K scenes.",
+          "Stickman v3 wraps the quarter's numbers in a story — an underdog climbing toward a summit, with the metrics climbing alongside him.",
+        ],
+      },
+      {
+        heading: "The story",
+        paragraphs: [
+          "An underdog stickman climbs a trail of milestones toward a summit, and the numbers climb with him — 3,500 creators, 6,000 videos, 439K scenes.",
+          "Seven scenes carry it: Intro, Origin, the Trail, an MCP robot, a Collaboration high-five, the Growth summit, and the CTA.",
+        ],
+      },
+      {
+        heading: "How we made it",
+        paragraphs: [
+          "The trick was making a stats slide feel like an ascent. Some of the craft:",
+        ],
+        bullets: [
+          "Narrated by Nova, built on the shared stickman layout and the reusable showcase primitives.",
+          "New \"journey\" primitives debut here — the milestone trail and the summit.",
+          "Seven scenes on one clock, from Intro and Origin through an MCP robot and a Collaboration high-five to the Growth summit and the CTA.",
+          "Shipped in both landscape and portrait from one composition.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "Numbers alone don't move anyone — an underdog climbing does.",
+          "Wrap the metric in a story. Blog2Video is how you turn a stats slide into something people finish.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video free",
+      },
+    ],
+    faq: faq("blog2video journey so far", "stickman v3 growth story video"),
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "The Journey So Far — Stickman v3: 3,500 Creators, 6,000 Videos, 439K Scenes",
+        angle:
+          "Numbers alone don't move anyone — an underdog climbing does. Stickman v3 is a growth-story arc: a mascot climbing a trail of milestones toward a summit while the numbers climb with him.",
+      },
+      {
+        channel: "video",
+        title: "The Journey So Far — Stickman v3",
+        angle:
+          "Compress the article's core argument into a short narrated video with Blog2Video and link back to /blogs/stickman-v3-journey-so-far.",
+      },
+      {
+        channel: "twitter",
+        title: "Thread: The Journey So Far — Stickman v3",
+        angle:
+          "Post the main takeaways as a thread and link the full article.",
+      },
+    ],
+  },
+  {
+    slug: "stickman-v4-jetpack-update",
+    title: "What's New — Stickman v4: The Jetpack Update",
+    description:
+      "Strap in — a whole tank of updates just landed. Stickman v4 flies you through everything new on Blog2Video, one feature per scene, with a jetpack that sputters, ignites, and touches back down. Here's how we built it.",
+    category: "Behind the scenes",
+    publishedAt: "2026-07-16",
+    readTime: "2 min read",
+    heroEyebrow: "Behind the scenes",
+    heroTitle: "What's New — Stickman v4: The Jetpack Update",
+    heroDescription:
+      "Strap in — a whole tank of updates just landed. Stickman v4 flies you through everything new on Blog2Video, one feature per scene, with a jetpack that sputters, ignites, and touches back down. Here's how we built it.",
+    primaryKeyword: "blog2video jetpack update",
+    keywordVariant: "stickman v4 whats new video",
+    relatedPaths: ["/blogs/stickman-v3-journey-so-far", "/blogs/stickman-v2-showcase", "/templates/stickman_2"],
+    sections: [
+      {
+        heading: "Overview",
+        paragraphs: [
+          "Strap in — a whole tank of updates just landed.",
+          "Stickman v4 is our biggest product film yet: about a hundred and seven seconds, twelve scenes, and a jetpack that fights to start before it flies you through everything new.",
+        ],
+      },
+      {
+        heading: "The story",
+        paragraphs: [
+          "The mascot fights to start a jetpack in the intro — a couple of comic sputters, then ignition — then flies you through everything new on Blog2Video, one feature per scene: Collaboration (invite, comment, edit live), one-click language switching with automatic re-voicing, the new template preview, the Sakura template, a bigger music library that's now free for everyone, next-gen models for video, custom templates and image generation, email updates on signup and when a video's ready to review, up to 3× faster edits, and more AI edits with every per-video purchase.",
+          "It lands on the stats — 4,000 creators, 7,000 videos, 500K scenes, 5,500 AI edits — before the jetpack swoops back in and touches down. \"Go make something great. Made with love, by Firebird Technologies.\"",
+        ],
+      },
+      {
+        heading: "How we made it",
+        paragraphs: [
+          "Twelve features is a lot to hold together, so every scene pairs a real feature with a little mascot bit. Some of the craft:",
+        ],
+        bullets: [
+          "Narrated by Nova, with twelve scenes crossfaded on one clock.",
+          "Each scene pairs a real-UI mockup with a mascot bit — a handshake, a run-through, a moonwalk, a stair-climb, a dance, a cheer, a wave.",
+          "The jetpack is its own layered component — twin tanks, nozzles, and thrust-driven flame plumes — aligned to the same viewBox as the mascot so man and machine move as one.",
+          "The portrait cut runs its text and mockups a touch larger to fill the 9:16 frame.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "A product update is still a story — give it a hero, a stumble, and a landing, and people will watch your changelog to the end.",
+          "That's what Blog2Video does for any update you ship. Give your release note a jetpack.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video free",
+      },
+    ],
+    faq: faq("blog2video jetpack update", "stickman v4 whats new video"),
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "What's New — Stickman v4: The Jetpack Update",
+        angle:
+          "Strap in — a whole tank of updates just landed. Stickman v4 flies you through everything new on Blog2Video, one feature per scene, with a jetpack that sputters, ignites, and touches back down.",
+      },
+      {
+        channel: "video",
+        title: "What's New — Stickman v4 (The Jetpack Update)",
+        angle:
+          "Compress the article's core argument into a short narrated video with Blog2Video and link back to /blogs/stickman-v4-jetpack-update.",
+      },
+      {
+        channel: "twitter",
+        title: "Thread: What's New — Stickman v4",
         angle:
           "Post the main takeaways as a thread and link the full article.",
       },
