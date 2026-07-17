@@ -42,6 +42,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback((newToken: string, newUser: UserInfo) => {
     localStorage.setItem("b2v_token", newToken);
     localStorage.setItem("b2v_user", JSON.stringify(newUser));
+    // Flag a fresh sign-in so login-only surfaces (e.g. the designer-template
+    // marketing popup) can fire on real logins but NOT on page reloads, which
+    // restore the session via setUser without calling login().
+    try {
+      sessionStorage.setItem("b2v_just_logged_in", "1");
+    } catch {
+      /* ignore */
+    }
     setToken(newToken);
     setUser(newUser);
     // Migrate any active anonymous support conversation to this user.

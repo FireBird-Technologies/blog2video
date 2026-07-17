@@ -120,7 +120,7 @@ Note: Switching templates may change scene layouts. Review all scenes after swit
 
 Built-in templates: Geometric Explainer (default, clean purple/white), Nightfall (dark cinematic glass), Gridcraft (warm bento editorial), Spotlight (bold kinetic typography), Matrix (digital rain hacker), Stick Man / Whiteboard (hand-drawn storytelling), Stick Man 2: Night Edition (glowing chalk stories under the night sky), Stickman Football Match (hand-drawn football action for match recaps & highlights), Newspaper (editorial news headlines), Newscast (broadcast news ticker), Black Swan (neon cinematic finance), Mosaic (tessellated tile data panels), Bloomberg (amber terminal finance dashboard), Chronicle (medieval parchment tome), The Economist (editorial newspaper × economics — paper, red masthead, reference-grade charts), Magazine (glossy editorial storytelling), Sakura (Japanese-aesthetic blog-to-video theme).
 
-Custom templates: Created by you in the template builder. Appear in the Custom tab with a green "Custom" badge.
+Custom templates: Created by you in the template builder. Creating a custom template takes around 5–10 minutes. Appear in the Templates area with a green "Custom" badge.
 Expert templates (Crafted): Professionally crafted brand templates available on some accounts. Appear in the Expert tab.
 
 == CREATING A PROJECT ==

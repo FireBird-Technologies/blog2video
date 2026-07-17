@@ -2763,116 +2763,224 @@
     "keep": true,
     "reason": "unparseable classifier response — kept by default"
   },
-  "blog:agency-blog-posts-not-generating-leads@3448f1008906efd9@20aaebd1": {
-    "keep": true,
-    "reason": "Discusses repurposing blog posts into video, a Blog2Video feature."
-  },
-  "blog:agency-12-videos-one-afternoon@7933a13a768e8556@20aaebd1": {
-    "keep": true,
-    "reason": "Describes Blog2Video workflow for converting blog posts to videos."
-  },
-  "blog:agency-hidden-content-asset@ea1776671efbafb0@20aaebd1": {
-    "keep": true,
-    "reason": "Discusses converting client blog posts to video, a Blog2Video feature."
-  },
   "blog:trojan-horse-stickman-animation@52af1e1e5a362f4e@20aaebd1": {
     "keep": true,
-    "reason": "Describes creating a stickman animation from a story."
-  },
-  "blog:ai-ppt-maker-from-pdf@b5bd0b2143dcaf5c@20aaebd1": {
-    "keep": false,
-    "reason": "Compares Blog2Video against multiple competitors for PPT creation."
+    "reason": "Describes creating a stickman animation video from a story."
   },
   "blog:agency-video-deliverable@a2a68bf5d1874e3b@20aaebd1": {
     "keep": true,
     "reason": "Describes Blog2Video workflow for agencies without mentioning competitors."
   },
-  "blog:author-book-after-launch@e3f8268110f7f782@20aaebd1": {
+  "blog:agency-blog-posts-not-generating-leads@3448f1008906efd9@20aaebd1": {
+    "keep": true,
+    "reason": "Discusses repurposing blog posts into video, a Blog2Video feature."
+  },
+  "blog:ai-ppt-maker-from-pdf@b5bd0b2143dcaf5c@20aaebd1": {
     "keep": false,
-    "reason": "Document focuses on book marketing, not Blog2Video features."
+    "reason": "Compares Blog2Video against multiple competitors."
   },
-  "blog:author-chapter-to-6-months-video@0af65b8e96d8657b@20aaebd1": {
+  "blog:agency-hidden-content-asset@ea1776671efbafb0@20aaebd1": {
     "keep": true,
-    "reason": "Describes using book chapters as video content source."
+    "reason": "Discusses converting client blog posts to video, a Blog2Video feature."
   },
-  "blog:author-video-without-camera@e4e2e2aa475e571e@20aaebd1": {
+  "blog:author-big-ideas-shareable-video@b2c211e6d3200b10@20aaebd1": {
     "keep": true,
-    "reason": "Describes Blog2Video's no-camera video workflow and features."
+    "reason": "Describes Blog2Video workflow for authors."
+  },
+  "blog:author-book-launch-video@14c66bcce8546ec0@20aaebd1": {
+    "keep": true,
+    "reason": "Discusses creating book launch videos, a Blog2Video use case."
   },
   "blog:blog2video-vs-video-editor@d6f705224c34ce7b@20aaebd1": {
     "keep": true,
     "reason": "Compares Blog2Video to hiring editors, not a competitor product."
   },
-  "blog:author-big-ideas-shareable-video@b2c211e6d3200b10@20aaebd1": {
-    "keep": true,
-    "reason": "Describes Blog2Video workflow for authors using text to video."
-  },
   "blog:blog-title-checker@eff98f79490584bf@20aaebd1": {
     "keep": false,
-    "reason": "Describes competitor tools, not Blog2Video features."
+    "reason": "Describes competitor tools, not Blog2Video features"
   },
-  "blog:author-book-launch-video@14c66bcce8546ec0@20aaebd1": {
+  "blog:author-video-without-camera@e4e2e2aa475e571e@20aaebd1": {
     "keep": true,
-    "reason": "Discusses creating book launch videos, a valid use case."
+    "reason": "Describes Blog2Video's no-camera video workflow and features."
   },
-  "blog:content-with-no-second-life@422396f9a7e71d85@20aaebd1": {
+  "blog:agency-12-videos-one-afternoon@7933a13a768e8556@20aaebd1": {
     "keep": true,
-    "reason": "Discusses converting written content to video, a Blog2Video feature."
+    "reason": "Describes Blog2Video workflow for converting blog posts to videos."
+  },
+  "blog:headline-score@93890c4b2a52a736@20aaebd1": {
+    "keep": false,
+    "reason": "Describes headline tools, not Blog2Video features."
   },
   "blog:how-to-convert-pdf-into-video@d1cc2d7f164698f4@20aaebd1": {
     "keep": false,
     "reason": "Compares Blog2Video against multiple competitors."
   },
-  "blog:headline-score@93890c4b2a52a736@20aaebd1": {
-    "keep": false,
-    "reason": "Describes competitor headline tools, not Blog2Video features"
+  "blog:author-chapter-to-6-months-video@0af65b8e96d8657b@20aaebd1": {
+    "keep": true,
+    "reason": "Discusses using book chapters as video content source."
   },
   "blog:linkedin-carousel-creator@6fa9e888ce37d1cf@20aaebd1": {
     "keep": false,
-    "reason": "Compares Blog2Video against multiple competitors."
-  },
-  "blog:newsletter-best-newsletter-is-a-video@ad5a064b98f9b428@20aaebd1": {
-    "keep": false,
-    "reason": "Primarily describes Substack/Beehiiv, not Blog2Video features."
-  },
-  "blog:newsletter-bloomberg-aesthetic@3adc28cc8fa3eaa1@20aaebd1": {
-    "keep": true,
-    "reason": "Describes Blog2Video's ability to create professional finance video content."
-  },
-  "blog:newsletter-substack-algorithm@6a0805a8f1f222ca@20aaebd1": {
-    "keep": false,
-    "reason": "Document primarily describes Substack algorithm, not Blog2Video features."
-  },
-  "blog:newscast-template-for-students@84f299530dc403b1@20aaebd1": {
-    "keep": false,
-    "reason": "Document cuts off mid-sentence and appears incomplete."
+    "reason": "Compares Blog2Video against multiple named competitors."
   },
   "blog:how-to-make-a-pdf-into-a-video@8f30ec459bdf5c5c@20aaebd1": {
     "keep": false,
     "reason": "Compares Blog2Video against multiple named competitors."
   },
+  "blog:author-book-after-launch@e3f8268110f7f782@20aaebd1": {
+    "keep": false,
+    "reason": "Describes book marketing strategy, not Blog2Video features."
+  },
+  "blog:newsletter-best-newsletter-is-a-video@ad5a064b98f9b428@20aaebd1": {
+    "keep": false,
+    "reason": "Primarily describes Substack and Beehiiv, not Blog2Video."
+  },
+  "blog:newscast-template-for-students@84f299530dc403b1@20aaebd1": {
+    "keep": false,
+    "reason": "Document primarily lists other tools, not Blog2Video features."
+  },
+  "blog:content-with-no-second-life@422396f9a7e71d85@20aaebd1": {
+    "keep": true,
+    "reason": "Discusses converting written content to video, a Blog2Video feature."
+  },
+  "blog:newsletter-market-breakdown-video@53a71ed0b9fbdfbd@20aaebd1": {
+    "keep": true,
+    "reason": "Discusses converting newsletter content to video for YouTube/LinkedIn."
+  },
+  "blog:newsletter-bloomberg-aesthetic@3adc28cc8fa3eaa1@20aaebd1": {
+    "keep": true,
+    "reason": "Describes Blog2Video's ability to create professional finance video content."
+  },
   "blog:newsletter-finance-writers-without-camera@7479064fc7ac9dc5@20aaebd1": {
     "keep": true,
     "reason": "Describes Blog2Video workflow for finance writers."
   },
-  "blog:newsletter-market-breakdown-video@53a71ed0b9fbdfbd@20aaebd1": {
+  "blog:template-showcase-book-launch@134113df07589165@20aaebd1": {
     "keep": true,
-    "reason": "Describes converting newsletter content to video for YouTube/LinkedIn."
+    "reason": "Describes Blog2Video template selection for book launches."
   },
   "blog:persephone-stick-figure-animation@fa3a5eab3db6282f@20aaebd1": {
     "keep": false,
-    "reason": "Describes Remotion, not Blog2Video features."
-  },
-  "blog:youtube-title-score-checker@3fa5574a6da7716f@20aaebd1": {
-    "keep": false,
-    "reason": "Describes competitor tools, not Blog2Video features."
+    "reason": "Describes Remotion tool, not Blog2Video features"
   },
   "blog:template-showcase-finance@50f0e4e6dd565b10@20aaebd1": {
     "keep": true,
     "reason": "Describes Blog2Video template features for finance content."
   },
-  "blog:template-showcase-book-launch@134113df07589165@20aaebd1": {
+  "blog:newsletter-substack-algorithm@6a0805a8f1f222ca@20aaebd1": {
+    "keep": false,
+    "reason": "Document primarily describes Substack, not Blog2Video features."
+  },
+  "blog:youtube-title-score-checker@3fa5574a6da7716f@20aaebd1": {
+    "keep": false,
+    "reason": "Describes competitor tools, not Blog2Video features."
+  },
+  "blog:one-shot-stickman-animation@c1a6d995ded40d89@20aaebd1": {
+    "keep": false,
+    "reason": "Describes stickman animation, a feature Blog2Video lacks."
+  },
+  "blog:icarus-stickman-animation@b2577c3ea6e2436f@20aaebd1": {
     "keep": true,
-    "reason": "Describes Blog2Video template selection for book launches."
+    "reason": "Describes Blog2Video stickman animation workflow and features."
+  },
+  "blog:neo-stops-ai-slop-stickman@d1d84416465cda3c@20aaebd1": {
+    "keep": true,
+    "reason": "Describes Blog2Video workflow and features."
+  },
+  "blog:drive-title-sequence-stickman@bc838b2345985ded@20aaebd1": {
+    "keep": false,
+    "reason": "Describes a custom code project, not Blog2Video features."
+  },
+  "blog:pandoras-box-stickman-animation@11dc0084d68416a1@20aaebd1": {
+    "keep": false,
+    "reason": "Describes Remotion workflow, not Blog2Video features"
+  },
+  "blog:prometheus-stickman-animation@4e9abbd3c0f19f99@20aaebd1": {
+    "keep": true,
+    "reason": "Describes Blog2Video stickman animation workflow."
+  },
+  "blog:camping-night-stickman-animation@868643c97c86242f@20aaebd1": {
+    "keep": true,
+    "reason": "Describes Blog2Video animation features and storytelling."
+  },
+  "blog:2008-financial-crisis-stickman-explainer@a562f1cfd9c6a1a7@20aaebd1": {
+    "keep": false,
+    "reason": "Describes Remotion, a competitor tool, not Blog2Video."
+  },
+  "blog:reservoir-dogs-stickman-parody@acd38fec0bb475fd@20aaebd1": {
+    "keep": false,
+    "reason": "Describes ElevenLabs feature, not Blog2Video capabilities."
+  },
+  "blog:sisyphus-stickman-animation@0b92fb44895c4e2f@20aaebd1": {
+    "keep": false,
+    "reason": "Describes stickman animation, not Blog2Video features."
+  },
+  "blog:the-grind-stickman-animation@9724656ad6f6744b@20aaebd1": {
+    "keep": false,
+    "reason": "Describes Remotion, not Blog2Video features"
+  },
+  "blog:salaryman-stickman-animation@bb6765ffdfdef63f@20aaebd1": {
+    "keep": false,
+    "reason": "Describes a specific stickman film, not Blog2Video features."
+  },
+  "blog:star-wars-stickman-parody@7c9a317f5fdd07ae@20aaebd1": {
+    "keep": true,
+    "reason": "Describes Blog2Video feature usage in a creative context"
+  },
+  "blog:narcissus-stickman-animation@388e61fc86e3cae8@20aaebd1": {
+    "keep": true,
+    "reason": "Describes Blog2Video stickman animation workflow."
+  },
+  "blog:robin-hood-stickman-animation@c903357bba4c18be@20aaebd1": {
+    "keep": true,
+    "reason": "Describes creating a narrated stickman video, a Blog2Video feature."
+  },
+  "blog:sword-in-the-stone-stickman-animation@2f9393c4fc57d5bc@20aaebd1": {
+    "keep": true,
+    "reason": "Describes Blog2Video's stickman animation and voiceover features."
+  },
+  "blog:ship-of-theseus-stickman-animation@b9b0787d134e51d6@20aaebd1": {
+    "keep": false,
+    "reason": "Describes Remotion workflow, not Blog2Video features"
+  },
+  "blog:american-psycho-stickman-parody@f2bc353b13073c4e@20aaebd1": {
+    "keep": false,
+    "reason": "Compares Blog2Video against competitors HeyGen, InVideo, Seedance."
+  },
+  "blog:neo-first-dodge-stickman@c8247403cc3a0fed@20aaebd1": {
+    "keep": false,
+    "reason": "Describes a specific animation project, not Blog2Video features."
+  },
+  "blog:neo-vs-sith-stickman@d6042abf4b541ed8@20aaebd1": {
+    "keep": false,
+    "reason": "Describes Remotion and ElevenLabs, not Blog2Video features."
+  },
+  "blog:matrix-red-dress-stickman@6e8c471b948092a9@20aaebd1": {
+    "keep": false,
+    "reason": "Describes stickman animation, a feature Blog2Video lacks."
+  },
+  "blog:pulp-fiction-stickman-parody@d4bea250b6309408@20aaebd1": {
+    "keep": false,
+    "reason": "Mentions ElevenLabs, a competitor voice tool."
+  },
+  "blog:breaking-bad-stickman-parody@dae134f30d5d3f52@20aaebd1": {
+    "keep": false,
+    "reason": "Describes Remotion/React code, not Blog2Video features."
+  },
+  "blog:stickman-v3-journey-so-far@3fe1ee56b84b9ce6@20aaebd1": {
+    "keep": true,
+    "reason": "Describes Blog2Video's Stickman v3 features and workflow."
+  },
+  "blog:the-overlook-stickman-animation@b4f6ee6db7e46ec4@20aaebd1": {
+    "keep": true,
+    "reason": "Describes Blog2Video's stickman animation feature and workflow."
+  },
+  "blog:stickman-v4-jetpack-update@a268973601ab8ec4@20aaebd1": {
+    "keep": true,
+    "reason": "Describes Blog2Video features and updates."
+  },
+  "blog:stickman-v2-showcase@ef0b1c35abe2c497@20aaebd1": {
+    "keep": true,
+    "reason": "Describes Blog2Video's showcase system and features."
   }
 }

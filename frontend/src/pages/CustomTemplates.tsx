@@ -257,6 +257,35 @@ export default function CustomTemplates() {
     setShowRequestForm(true);
   };
 
+  // Custom-template usage meter ("X / Y Created"). Shown in both the populated
+  // header AND the empty state so the limit is always visible — even with zero
+  // templates (e.g. all deleted, or a reactivated account still at its cap).
+  const templateQuotaMeter =
+    user ? (() => {
+      const created = user.custom_templates_created ?? 0;
+      const limit = user.custom_template_limit ?? 1;
+      const pct = limit > 0 ? Math.min(100, Math.round((created / limit) * 100)) : 0;
+      return (
+        <div
+          className="flex items-center gap-2.5"
+          title="Templates created count toward your limit for life — deleting one does not free a slot. Buy more slots to raise your limit."
+        >
+          <span className="text-xs text-gray-400 whitespace-nowrap">
+            <span className="font-semibold text-gray-700 tabular-nums">{created}</span>
+            <span className="mx-0.5 text-gray-300">/</span>
+            <span className="tabular-nums">{limit}</span>
+            <span className="ml-1.5">Created</span>
+          </span>
+          <div className="h-1.5 w-20 overflow-hidden rounded-full bg-gray-200">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-purple-600 to-purple-500"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        </div>
+      );
+    })() : null;
+
   // ─── Empty state ──────────────────────────────────────────
   if (loaded && templates.length === 0 && readyCraftedTemplates.length === 0) {
     return (
@@ -268,6 +297,7 @@ export default function CustomTemplates() {
             </svg>
           </div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">No custom templates yet</h3>
+          {templateQuotaMeter && <div className="mb-4">{templateQuotaMeter}</div>}
           <p className="text-sm text-gray-400 mb-6 max-w-sm">
             Create your first custom template by providing a website URL. We'll extract
             colors, fonts, and style to build a video template that matches your brand.
@@ -289,6 +319,14 @@ export default function CustomTemplates() {
         <DesignerTemplateRequestModal
           open={showRequestForm}
           onClose={() => setShowRequestForm(false)}
+        />
+
+        {/* Quota upgrade modal — must also render here in the empty state, otherwise
+            an at-limit user with 0 templates (e.g. after deleting all of them or
+            reactivating a deleted account) clicks "Create" and nothing opens. */}
+        <CustomTemplateLimitModal
+          open={showUpgrade}
+          onClose={() => setShowUpgrade(false)}
         />
 
         {showCreator && (
@@ -334,30 +372,9 @@ export default function CustomTemplates() {
               </span>
             </h2>
             <div className="flex items-center gap-4">
-              {activeTemplatesTab === "custom" && user && (() => {
-                const created = user.custom_templates_created ?? 0;
-                const limit = user.custom_template_limit ?? 1;
-                const pct = limit > 0 ? Math.min(100, Math.round((created / limit) * 100)) : 0;
-                return (
-                  <div
-                    className="hidden sm:flex items-center gap-2.5"
-                    title="Templates created count toward your limit for life — deleting one does not free a slot. Buy more slots to raise your limit."
-                  >
-                    <span className="text-xs text-gray-400 whitespace-nowrap">
-                      <span className="font-semibold text-gray-700 tabular-nums">{created}</span>
-                      <span className="mx-0.5 text-gray-300">/</span>
-                      <span className="tabular-nums">{limit}</span>
-                      <span className="ml-1.5">Created</span>
-                    </span>
-                    <div className="h-1.5 w-20 overflow-hidden rounded-full bg-gray-200">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-purple-600 to-purple-500"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })()}
+              {activeTemplatesTab === "custom" && templateQuotaMeter && (
+                <div className="hidden sm:block">{templateQuotaMeter}</div>
+              )}
               {activeTemplatesTab === "custom" && (
                 <button
                   onClick={openCreator}
