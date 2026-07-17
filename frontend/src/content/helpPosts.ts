@@ -266,12 +266,19 @@ export const helpPosts: HelpPost[] = [
       {
         title: "Step 5: Create and reuse the template",
         body: [
-          "Save the custom template. Once it is generated and available, select it during project creation or apply it to an existing project through the template change flow.",
+          "Save the custom template. Generating a custom template takes around 5–10 minutes; once it is generated and available, select it during project creation or apply it to an existing project through the template change flow.",
           "Use the same custom template across related videos to make your content library feel consistent.",
         ],
       },
     ],
-    faq: helpFaq("custom template"),
+    faq: [
+      ...helpFaq("custom template"),
+      {
+        question: "How long does it take to create a custom template?",
+        answer:
+          "Generating a custom template takes around 5–10 minutes. Once it's ready, it appears in the Templates area with a green Custom badge.",
+      },
+    ],
   },
   {
     slug: "how-to-change-template-post-creation",

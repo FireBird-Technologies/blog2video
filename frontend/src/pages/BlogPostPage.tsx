@@ -14,6 +14,29 @@ import {
 import NotFoundPage from "./NotFoundPage";
 import { blogPostSchema } from "../seo/schema";
 
+const stickmanFilmEmbeds: Record<string, { id: string; title: string }> = {
+  "the-grind-stickman-animation": { id: "AKvw7WqFBe0", title: "The Grind — stickman animation" },
+  "reservoir-dogs-stickman-parody": { id: "reE8yqX8BC4", title: "Reservoir Dogs diner scene — stickman parody" },
+  "pandoras-box-stickman-animation": { id: "cxkFELt_GXc", title: "Pandora's Box — stickman animation" },
+  "drive-title-sequence-stickman": { id: "TidvCAtoZc8", title: "Drive title sequence — stickman animation" },
+  "icarus-stickman-animation": { id: "iX4zc7FZXPs", title: "Icarus — stickman animation" },
+  "neo-stops-ai-slop-stickman": { id: "LXankpnp6tA", title: "Neo vs. AI Slop — stickman animation" },
+  "sisyphus-stickman-animation": { id: "2oE_HOnhYHQ", title: "The Myth of Sisyphus — stickman animation" },
+  "salaryman-stickman-animation": { id: "aYXg353gVBg", title: "Salaryman — stickman animation" },
+  "one-shot-stickman-animation": { id: "sgH_ag5ME60", title: "One Shot — stickman animation" },
+  "camping-night-stickman-animation": { id: "Ky9iXuJyKXY", title: "Camping Night — stickman animation" },
+  "star-wars-stickman-parody": { id: "aA-TAqMQpBI", title: "Luke vs. the Slop — Star Wars stickman parody" },
+  "2008-financial-crisis-stickman-explainer": { id: "Air9XLQAcjU", title: "The 2008 Financial Crisis, explained with stick figures" },
+  "narcissus-stickman-animation": { id: "ojTSYzQ_fQM", title: "Narcissus — stickman animation" },
+  "sword-in-the-stone-stickman-animation": { id: "S8XidEUuBDI", title: "The Sword in the Stone — stickman animation" },
+  "ship-of-theseus-stickman-animation": { id: "T56x6j3zzXk", title: "The Ship of Theseus — stickman animation" },
+  "pulp-fiction-stickman-parody": { id: "ENaHA99Qwc4", title: "Pulp Fiction 'The Case' — stickman parody" },
+  "neo-first-dodge-stickman": { id: "lvS4OKa2dZk", title: "Neo — The First Dodge — stickman animation" },
+  "the-overlook-stickman-animation": { id: "4934h1lT0Hg", title: "The Overlook — stickman animation" },
+  "stickman-v3-journey-so-far": { id: "PK4mzwhbcro", title: "The Journey So Far — Stickman v3" },
+  "stickman-v4-jetpack-update": { id: "Wzg_0VBCgDI", title: "What's New — Stickman v4 (The Jetpack Update)" },
+};
+
 export default function BlogPostPage() {
   const { slug } = useParams<{ slug: string }>();
   const post = slug ? getBlogPost(slug) : undefined;
@@ -134,6 +157,19 @@ export default function BlogPostPage() {
                   height="100%"
                   src="https://www.youtube.com/embed/cUOBMu5tPhw"
                   title="The Trojan Horse — stick figure animation"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            )}
+            {stickmanFilmEmbeds[post.slug] && (
+              <div style={{ margin: "32px auto", borderRadius: 12, overflow: "hidden", aspectRatio: "9/16", maxWidth: 360 }}>
+                <iframe
+                  width="100%"
+                  height="100%"
+                  src={`https://www.youtube.com/embed/${stickmanFilmEmbeds[post.slug].id}`}
+                  title={stickmanFilmEmbeds[post.slug].title}
                   frameBorder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
