@@ -103,8 +103,8 @@ export default function SceneEditor({
   // Consumption hierarchy: paid plan (unlimited) → free per-project allowance → credits.
   const canUseAI = effectiveIsPro || freeAiRemaining > 0 || aiCreditRemaining > 0;
   const remainingAI = effectiveIsPro
-    ? "Unlimited"
-    : `${freeAiRemaining + aiCreditRemaining} remaining`;
+    ? "∞"
+    : `${freeAiRemaining + aiCreditRemaining > 100 ? "100+" : freeAiRemaining + aiCreditRemaining} remaining`;
   // A collaborator can't lift the limit by upgrading — the owner must. The lead
   // (red) states the limit; the rest (grey) explains how to lift it.
   const aiLimitLead = isCollaborator

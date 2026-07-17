@@ -151,7 +151,7 @@ export const VersusFolio: React.FC<ChronicleLayoutProps> = ({
       <div
         style={{
           fontFamily: fontFamily ?? CHRONICLE_BODY_FONT,
-          fontSize: descriptionFontSize ?? (p ? 26 : 24),
+          fontSize: descriptionFontSize ?? (p ? 39 : 30),
           color: textColor,
           lineHeight: 1.5,
           opacity: 0.92,
@@ -207,7 +207,7 @@ export const VersusFolio: React.FC<ChronicleLayoutProps> = ({
         <div
           style={{
             fontFamily: CHRONICLE_HEADING_FONT,
-            fontSize: (titleFontSize ?? (p ? 54 : 50)) * (p ? 0.7 : 0.8),
+            fontSize: (titleFontSize ?? (p ? 84 : 65)) * (p ? 0.7 : 0.8),
             fontWeight: 700,
             color: textColor,
             textAlign: "center",

@@ -2735,9 +2735,11 @@ export default function ProjectView() {
       const status = err && typeof err === "object" && "response" in err
         ? (err as { response?: { status?: number } }).response?.status
         : undefined;
+      // 403 = the payer's video limit is exhausted — a quota wall, not a failure.
+      // Show the soft "Oops" warning, matching the voice/language change flows.
       showError(
         getErrorMessage(err, "Failed to start template relayout."),
-        status === 403 ? { showUpgrade: true } : undefined
+        status === 403 ? { variant: "warning" } : undefined
       );
     } finally {
       setSubmittingTemplateRelayout(false);
@@ -2760,9 +2762,11 @@ export default function ProjectView() {
         : undefined;
       // 422 = out-of-context instruction; the modal already shows it inline, so don't also toast it.
       if (status !== 422) {
+        // 403 = video limit exhausted — show the soft "Oops" warning, matching the
+        // voice/language/template change flows.
         showError(
           getErrorMessage(err, "Failed to start script regeneration."),
-          status === 403 ? { showUpgrade: true } : undefined
+          status === 403 ? { variant: "warning" } : undefined
         );
       }
       throw err; // let the modal surface the error inline
@@ -5529,13 +5533,36 @@ export default function ProjectView() {
         <button
           type="button"
           onClick={() => setHistoryOpen(true)}
-          className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-medium text-gray-700 border border-gray-300 hover:border-gray-400 rounded-lg transition-colors shrink-0 ml-auto"
+          className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-medium text-gray-700 border border-gray-300 hover:border-gray-400 rounded-lg transition-colors shrink-0 mr-auto sm:mr-0 sm:ml-auto"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           Edit history
         </button>
+        {/* AI-edit credits remaining for this project. Paid owners are unlimited;
+            FREE owners get 3 per project + their purchased credit pool (the owner's
+            pool on a shared project). Mirrors the SceneEdit modal's entitlement. */}
+        {(() => {
+          const freeRemaining = Math.max(0, 3 - (project.ai_assisted_editing_count || 0));
+          const creditRemaining = useOwnerScopedAssets
+            ? (project.owner_ai_edit_credits ?? 0)
+            : (user?.ai_edit_credits ?? 0);
+          const total = freeRemaining + creditRemaining;
+          return (
+            <span
+              className="text-[10px] sm:text-xs font-medium text-gray-400 shrink-0 self-end pb-1"
+              title="AI-assisted edits remaining for this project. Buy a video for +20 edits, or upgrade to Pro/Standard for unlimited."
+            >
+              AI edit credits:{" "}
+              {effectiveIsPro ? (
+                <span className="text-2xl leading-none align-middle relative -top-0.5">∞</span>
+              ) : (
+                <span className="text-md leading-none align-middle relative -top-0.5">{total > 100 ? "100+" : total}</span>
+              )}
+            </span>
+          );
+        })()}
       </div>
 
       {/* Tab content */}
@@ -6735,7 +6762,7 @@ export default function ProjectView() {
                   customVoiceId: project.custom_voice_id,
                   voiceEmotion: project.voice_emotion ?? null,
                   isPro: effectiveIsPro,
-                  onError: (msg) => showError(msg),
+                  onError: (msg, options) => showError(msg, options),
                   onUpgrade: () => setShowUpgrade(true),
                   onOperationStarted: (op) => { setVoiceOpKickstart(op); void refreshUser(); },
                   disabled: anyJobRunning,
