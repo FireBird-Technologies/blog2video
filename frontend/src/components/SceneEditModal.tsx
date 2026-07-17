@@ -1,5 +1,5 @@
-import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from "react";
-import type { MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback, Fragment } from "react";
+import type { MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent, ReactNode } from "react";
 import ReactDOM from "react-dom";
 import {
   Scene,
@@ -2622,6 +2622,48 @@ export function SceneEditModalDemo({
   );
 }
 
+type ManualTab = "settings" | "props" | "typography";
+
+function ManualTabCard({
+  title,
+  open,
+  onToggle,
+  children,
+}: {
+  title: string;
+  open: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div>
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onToggle}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onToggle();
+          }
+        }}
+        className="w-full text-left glass-card p-4 border-l-2 border-l-purple-200 hover:border-l-purple-400 transition-all rounded-lg border cursor-pointer flex items-center justify-between"
+      >
+        <span className="text-sm font-medium text-gray-900">{title}</span>
+        <svg
+          className={`w-4 h-4 text-gray-300 transition-transform ${open ? "rotate-180" : ""}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </div>
+      {open && <div className="p-4 pt-3 space-y-4">{children}</div>}
+    </div>
+  );
+}
+
 export default function SceneEditModal({
   open,
   onClose,
@@ -2635,6 +2677,9 @@ export default function SceneEditModal({
 }: Props) {
   const isDemo = !!demoMode;
   const [editMode, setEditMode] = useState<EditMode>(demoMode?.editMode ?? "ai");
+  const [openManualTab, setOpenManualTab] = useState<ManualTab | null>("settings");
+  const toggleManualTab = (tab: ManualTab) =>
+    setOpenManualTab((cur) => (cur === tab ? null : tab));
   const [title, setTitle] = useState(scene.title);
   const [description, setDescription] = useState("");
   const [displayText, setDisplayText] = useState("");
@@ -4653,7 +4698,12 @@ export default function SceneEditModal({
 
           {/* ── Manual mode fields ── */}
           {editMode === "manual" && (
-            <div className="mt-4 space-y-4">
+            <div className="mt-4 space-y-3">
+              <ManualTabCard
+                title="Scene Settings"
+                open={openManualTab === "settings"}
+                onToggle={() => toggleManualTab("settings")}
+              >
               <div>
                 <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
                   {currentLayoutId === "magazine_cover" ? "Cover Line" : "Title"}
@@ -4697,9 +4747,17 @@ export default function SceneEditModal({
                   Add seconds after the voiceover ends so animations can complete before transitioning.
                 </p>
               </div>
+              </ManualTabCard>
 
               {/* ── Layout content fields (dynamic per layout type, with extras) ── */}
+              <ManualTabCard
+                title="Scene Props"
+                open={openManualTab === "props"}
+                onToggle={() => toggleManualTab("props")}
+              >
               {(() => {
+                const propsBlocks = [
+                (() => {
                 if (isEndingScene) {
                   const updateCta = (idx: number, patch: Partial<CtaDraft>) => {
                     setCtas((prev) =>
@@ -5690,10 +5748,10 @@ export default function SceneEditModal({
                   </div>
                 </div>
               );
-              })()}
+              })(),
 
-              {/* ── Structured content fields for custom templates ── */}
-              {(() => {
+              /* ── Structured content fields for custom templates ── */
+              (() => {
                 if (!isCustomTemplate) return null;
                 const ct = (editableStructuredContent.contentType as string) || "plain";
                 const scFields = CUSTOM_CONTENT_FIELDS[ct];
@@ -5879,8 +5937,28 @@ export default function SceneEditModal({
                     </div>
                   </div>
                 );
+                })(),
+                ];
+                const hasProps = propsBlocks.some((b) => b != null);
+                return hasProps ? (
+                  <>
+                    {propsBlocks.map((b, i) => (
+                      <Fragment key={i}>{b}</Fragment>
+                    ))}
+                  </>
+                ) : (
+                  <p className="text-xs text-gray-400 italic">
+                    No props for this scene.
+                  </p>
+                );
               })()}
+              </ManualTabCard>
 
+              <ManualTabCard
+                title="Typography"
+                open={openManualTab === "typography"}
+                onToggle={() => toggleManualTab("typography")}
+              >
               <div>
                 <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2.5">
                   Typography <span className="normal-case tracking-normal text-gray-300">(optional)</span>
@@ -5942,6 +6020,7 @@ export default function SceneEditModal({
                   </div>
                 </div>
               </div>
+              </ManualTabCard>
 
               <div>
                 <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
@@ -5953,7 +6032,7 @@ export default function SceneEditModal({
                     {imageItems.map(({ url, asset }) => (
                       <div
                         key={asset.id}
-                        className="relative group rounded-lg overflow-hidden border border-gray-200/40 w-20 h-20 flex-shrink-0"
+                        className="relative group rounded-lg overflow-hidden border border-gray-200/40 w-20 h-24 flex-shrink-0"
                       >
                         <img
                           src={url}
@@ -5991,7 +6070,7 @@ export default function SceneEditModal({
                       </div>
                     ))}
                     {selectedImageFile && imagePreviewUrl && (
-                      <div className="relative group rounded-lg overflow-hidden border-2 border-purple-400 w-20 h-20 flex-shrink-0">
+                      <div className="relative group rounded-lg overflow-hidden border-2 border-purple-400 w-20 h-24 flex-shrink-0">
                         <img
                           src={imagePreviewUrl}
                           alt="New image"
@@ -6023,8 +6102,21 @@ export default function SceneEditModal({
                     )}
                     <button
                       type="button"
+                      onClick={handleGenerateImageClick}
+                      className="group relative flex items-center justify-center w-20 h-24 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50/50 hover:bg-purple-100/50 transition-colors text-purple-700"
+                      title="Generate image with AI"
+                    >
+                      <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                      </svg>
+                      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 text-[10px] font-medium text-white bg-gray-900 rounded opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap max-w-[180px] text-center">
+                        Generate image with AI
+                      </span>
+                    </button>
+                    <button
+                      type="button"
                       onClick={handleOpenImageSourceChooser}
-                      className="flex items-center justify-center w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50/50 hover:bg-gray-100/50 transition-colors"
+                      className="flex items-center justify-center w-20 h-24 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50/50 hover:bg-gray-100/50 transition-colors"
                       title="Add image"
                     >
                       <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -6038,19 +6130,6 @@ export default function SceneEditModal({
                       onChange={(e) => setSelectedImageFile(e.target.files?.[0] || null)}
                       className="hidden"
                     />
-                    <button
-                      type="button"
-                      onClick={handleGenerateImageClick}
-                      className="group relative flex items-center justify-center w-20 h-20 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50/50 hover:bg-purple-100/50 transition-colors text-purple-700"
-                      title="Generate image with AI"
-                    >
-                      <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                      </svg>
-                      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 text-[10px] font-medium text-white bg-gray-900 rounded opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap max-w-[180px] text-center">
-                        Generate image with AI
-                      </span>
-                    </button>
                   </div>
                   {(imageItems.length > 0 || selectedImageFile) && (
                     <div className="mt-3">
@@ -6191,9 +6270,8 @@ export default function SceneEditModal({
                   {regenerateVoiceover && (
                     <div className="mt-3 ml-0 flex items-center justify-between gap-3 rounded-lg bg-gray-50 px-3 py-2.5">
                       <div className="min-w-0">
-                        <p className="text-xs font-medium text-gray-700">Speak it word-for-word</p>
-                        <p className="mt-0.5 text-[11px] text-gray-500">
-                          On: say the narration exactly. Off: let AI smooth the phrasing.
+                        <p className="text-xs font-medium text-gray-700">
+                          Speak word-for-word (On) or let AI rephase it(Off).
                         </p>
                       </div>
                       <button
@@ -6239,7 +6317,7 @@ export default function SceneEditModal({
                     <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 1a3 3 0 00-3 3v7a3 3 0 006 0V4a3 3 0 00-3-3zM5 10v1a7 7 0 0014 0v-1M12 18v4" />
                     </svg>
-                    <span>Voice: <span className="font-medium text-gray-500 capitalize">{voiceLabel}</span> — change in project Settings</span>
+                    <span>You can change the voiceover type from project Settings</span>
                   </div>
                 </div>
 
@@ -6248,7 +6326,7 @@ export default function SceneEditModal({
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-gray-800">Scene layout</p>
-                      <p className="mt-0.5 text-xs text-gray-500">How this scene is arranged on screen. Keep it, or let AI re-pick.</p>
+                      <p className="mt-0.5 text-xs text-gray-500">Select a scene layout. Let the current layout, set one manually, or let AI decide.</p>
                     </div>
                 <div className="flex items-center gap-2">
                   <span className="inline-block px-2.5 py-1 bg-purple-50 text-purple-600 rounded-lg text-xs font-medium">
