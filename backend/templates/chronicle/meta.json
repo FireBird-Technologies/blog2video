@@ -285,12 +285,12 @@
       "label": "Versus Folio",
       "defaults": {
         "titleFontSize": {
-          "portrait": 54,
-          "landscape": 50
+          "portrait": 84,
+          "landscape": 65
         },
         "descriptionFontSize": {
-          "portrait": 26,
-          "landscape": 24
+          "portrait": 39,
+          "landscape": 30
         },
         "leftLabel": "Thus Spoken",
         "rightLabel": "Thus Proven",
