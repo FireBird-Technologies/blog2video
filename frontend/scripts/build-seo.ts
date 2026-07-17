@@ -7,12 +7,22 @@ import {
   getHelpPost,
   getMarketingPage,
   getPublicPaths,
+  getToolByPath,
   helpPosts,
   marketingPages,
   siteName,
   siteUrl,
+  tools,
+  toolsHub,
 } from "../src/content/siteContent";
-import type { BlogPost, HelpPost, MarketingPage } from "../src/content/seoTypes";
+import {
+  getSubstackDirectoryNichePath,
+  getSubstackDirectoryPage,
+  getSubstackNichePublications,
+  pricingLabels,
+  type SubstackDirectoryPage,
+} from "../src/content/substackDirectory";
+import type { BlogPost, HelpPost, MarketingPage, ToolDefinition } from "../src/content/seoTypes";
 import {
   normalizeSchemaForJsonLd,
   SEO_JSON_LD_SCRIPT_ID,
@@ -27,6 +37,10 @@ import {
   helpPostSchema,
   marketingPageSchema,
   pricingSchema,
+  substackDirectoryNicheSchema,
+  substackDirectoryPublicationSchema,
+  toolPageSchema,
+  toolsHubSchema,
 } from "../src/seo/schema";
 
 const frontendRoot = process.cwd();
@@ -36,6 +50,8 @@ type SeoPayload = {
   title: string;
   description: string;
   path: string;
+  /** Set when this URL is a duplicate that should consolidate onto another URL. */
+  canonicalPath?: string;
   image?: string;
   schema?: Record<string, unknown>[] | Record<string, unknown>;
   noindex?: boolean;
@@ -127,6 +143,58 @@ function renderMarketingPageHtml(page: MarketingPage): string {
   return `<main><h1>${escapeHtml(page.heroTitle)}</h1><p>${escapeHtml(page.heroDescription)}</p>${sectionsHtml}${faqHtml}</main>`;
 }
 
+function renderFaqHtml(faq: { question: string; answer: string }[]): string {
+  if (!faq.length) return "";
+  return `<section><h2>Frequently Asked Questions</h2>${faq
+    .map((f) => `<div><h3>${escapeHtml(f.question)}</h3><p>${escapeHtml(f.answer)}</p></div>`)
+    .join("")}</section>`;
+}
+
+function renderToolsHubHtml(): string {
+  const toolsHtml = tools
+    .map(
+      (tool) =>
+        `<article><a href="${tool.path}"><h2>${escapeHtml(tool.title)}</h2></a><p>${escapeHtml(tool.description)}</p></article>`
+    )
+    .join("");
+  return `<main><h1>${escapeHtml(toolsHub.heroTitle)}</h1><p>${escapeHtml(toolsHub.heroDescription)}</p>${toolsHtml}</main>`;
+}
+
+function renderToolPageHtml(tool: ToolDefinition): string {
+  const sectionsHtml = tool.sections
+    .map((s) => {
+      const body = s.body.map((p) => `<p>${escapeHtml(p)}</p>`).join("");
+      const bullets = s.bullets?.length
+        ? `<ul>${s.bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join("")}</ul>`
+        : "";
+      return `<section><h2>${escapeHtml(s.title)}</h2>${body}${bullets}</section>`;
+    })
+    .join("");
+  const proofHtml = tool.proofPoints?.length
+    ? `<ul>${tool.proofPoints.map((p) => `<li>${escapeHtml(p)}</li>`).join("")}</ul>`
+    : "";
+  return `<main><p>${escapeHtml(tool.eyebrow)}</p><h1>${escapeHtml(tool.heroTitle)}</h1><p>${escapeHtml(tool.heroDescription)}</p>${proofHtml}${sectionsHtml}${renderFaqHtml(tool.faq)}</main>`;
+}
+
+function renderSubstackDirectoryHtml(page: SubstackDirectoryPage): string {
+  if (page.kind === "publication") {
+    const { publication } = page;
+    const bestFor = publication.bestFor.length
+      ? `<ul>${publication.bestFor.map((b) => `<li>${escapeHtml(b)}</li>`).join("")}</ul>`
+      : "";
+    return `<main><article><h1>${escapeHtml(publication.name)}</h1><p>${escapeHtml(publication.tagline)}</p><p>${escapeHtml(publication.description)}</p><section><h2>Who it is for</h2><p>${escapeHtml(publication.audience)}</p>${bestFor}</section><section><h2>Publication details</h2><ul><li>Pricing: ${escapeHtml(pricingLabels[publication.pricingModel])}</li><li>Cadence: ${escapeHtml(publication.cadence)}</li><li>Tone: ${escapeHtml(publication.tone)}</li></ul><p>${escapeHtml(publication.differentiator)}</p></section>${renderFaqHtml(page.faq)}</article></main>`;
+  }
+
+  const { niche } = page;
+  const publicationsHtml = page.publications
+    .map(
+      (publication) =>
+        `<article><a href="/tools/substack-directory/publication/${publication.slug}"><h3>${escapeHtml(publication.name)}</h3></a><p>${escapeHtml(publication.tagline)}</p><p>${escapeHtml(pricingLabels[publication.pricingModel])} · ${escapeHtml(publication.cadence)}</p></article>`
+    )
+    .join("");
+  return `<main><h1>${escapeHtml(page.title)}</h1><p>${escapeHtml(page.description)}</p><p>${escapeHtml(niche.audience)}</p><p>${escapeHtml(niche.angle)}</p><section><h2>Publications</h2>${publicationsHtml}</section>${renderFaqHtml(page.faq)}</main>`;
+}
+
 function getAppHtml(routePath: string): string {
   if (routePath === "/blogs") return renderBlogIndexHtml(blogPosts);
   if (routePath.startsWith("/blogs/")) {
@@ -140,7 +208,36 @@ function getAppHtml(routePath: string): string {
   }
   const page = getMarketingPage(routePath);
   if (page) return renderMarketingPageHtml(page);
+
+  if (routePath === toolsHub.path) return renderToolsHubHtml();
+
+  const tool = getToolByPath(routePath);
+  if (tool) return renderToolPageHtml(tool);
+
+  const directoryPage = getSubstackDirectoryPage(routePath);
+  if (directoryPage) return renderSubstackDirectoryHtml(directoryPage);
+
   return "";
+}
+
+// A pricing filter that resolves to the same publications as its parent niche is a
+// duplicate of that niche page. This happens when every publication in the niche
+// shares one pricing model, or when nothing matches and getSubstackNichePublications
+// falls back to returning the full list. Such pages stay crawlable and useful, but
+// they consolidate onto the parent niche instead of competing with it.
+function getDuplicatePricingParentPath(page: SubstackDirectoryPage): string | undefined {
+  if (page.kind !== "niche" || !page.pricing) return undefined;
+
+  const toKey = (publications: { slug: string }[]) =>
+    publications
+      .map((publication) => publication.slug)
+      .sort()
+      .join(",");
+
+  const parentKey = toKey(getSubstackNichePublications(page.niche));
+  if (toKey(page.publications) !== parentKey) return undefined;
+
+  return getSubstackDirectoryNichePath(page.niche.slug);
 }
 
 function getSeoPayload(routePath: string): SeoPayload {
@@ -239,6 +336,49 @@ function getSeoPayload(routePath: string): SeoPayload {
     };
   }
 
+  if (routePath === toolsHub.path) {
+    return {
+      title: toolsHub.title,
+      description: toolsHub.description,
+      path: routePath,
+      schema: toolsHubSchema(),
+    };
+  }
+
+  const tool = getToolByPath(routePath);
+  if (tool) {
+    return {
+      title: tool.title,
+      description: tool.description,
+      path: routePath,
+      schema: toolPageSchema(tool),
+    };
+  }
+
+  const directoryPage = getSubstackDirectoryPage(routePath);
+  if (directoryPage) {
+    return {
+      title: directoryPage.title,
+      description: directoryPage.description,
+      path: routePath,
+      canonicalPath: getDuplicatePricingParentPath(directoryPage),
+      schema:
+        directoryPage.kind === "publication"
+          ? substackDirectoryPublicationSchema(
+              directoryPage.publication,
+              directoryPage.path,
+              directoryPage.faq
+            )
+          : substackDirectoryNicheSchema(
+              directoryPage.niche,
+              directoryPage.publications,
+              directoryPage.path,
+              directoryPage.faq,
+              directoryPage.pricing
+            ),
+    };
+  }
+
   return {
     title: siteName,
     description: "Turn written content into polished videos.",
@@ -248,7 +388,7 @@ function getSeoPayload(routePath: string): SeoPayload {
 
 function buildHeadTags(routePath: string) {
   const payload = getSeoPayload(routePath);
-  const canonicalUrl = `${siteUrl}${payload.path}`;
+  const canonicalUrl = `${siteUrl}${payload.canonicalPath ?? payload.path}`;
   const fullTitle = payload.title.includes(siteName)
     ? payload.title
     : `${payload.title} | ${siteName}`;
@@ -299,9 +439,31 @@ async function ensureDirFor(filePath: string) {
   await mkdir(path.dirname(filePath), { recursive: true });
 }
 
+// The homepage is written back to dist/index.html, which is also the file we read
+// as the template. Re-running this script without a fresh `vite build` would
+// otherwise read the rendered homepage as the template and inject the homepage's
+// head into every page, compounding once per run. Sanitizing first makes the
+// build idempotent no matter what state dist/index.html is in.
+function sanitizeTemplate(template: string) {
+  return template
+    .replace(/<title>[\s\S]*?<\/title>\s*/gi, "")
+    .replace(/<meta\s+name="description"[^>]*>\s*/gi, "")
+    .replace(/<meta\s+name="robots"[^>]*>\s*/gi, "")
+    .replace(/<link\s+rel="canonical"[^>]*>\s*/gi, "")
+    .replace(/<meta\s+property="og:[^"]*"[^>]*>\s*/gi, "")
+    .replace(/<meta\s+name="twitter:[^"]*"[^>]*>\s*/gi, "")
+    .replace(
+      new RegExp(
+        `<script\\s+type="application/ld\\+json"\\s+id="${SEO_JSON_LD_SCRIPT_ID}">[\\s\\S]*?</script>\\s*`,
+        "gi"
+      ),
+      ""
+    )
+    .replace(/<div id="root">\s*<main>[\s\S]*<\/main>\s*<\/div>/i, '<div id="root"></div>');
+}
+
 function injectRenderedMarkup(template: string, appHtml: string, head: string) {
   return template
-    .replace(/<title>[\s\S]*?<\/title>/i, "")
     .replace("<div id=\"root\"></div>", `<div id="root">${appHtml}</div>`)
     .replace("</head>", `${head}\n</head>`);
 }
@@ -326,7 +488,7 @@ ${paths
 }
 
 async function buildPrerenderedPages() {
-  const template = await readFile(path.join(distDir, "index.html"), "utf8");
+  const template = sanitizeTemplate(await readFile(path.join(distDir, "index.html"), "utf8"));
   const publicPaths = getPublicPaths();
 
   for (const routePath of publicPaths) {
@@ -345,8 +507,15 @@ async function buildPrerenderedPages() {
   }
 }
 
+// A sitemap should only advertise canonical URLs. Pages that consolidate onto a
+// different URL stay crawlable but are not submitted for indexing.
+function isCanonicalPath(routePath: string) {
+  const { canonicalPath } = getSeoPayload(routePath);
+  return !canonicalPath || canonicalPath === routePath;
+}
+
 async function buildSeoFiles() {
-  const allPaths = getPublicPaths();
+  const allPaths = getPublicPaths().filter(isCanonicalPath);
   const blogPaths = blogPosts.map((post) => `/blogs/${post.slug}`);
   const pagePaths = allPaths.filter((entry) => !entry.startsWith("/blogs/"));
 
