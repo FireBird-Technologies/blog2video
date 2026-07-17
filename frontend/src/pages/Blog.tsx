@@ -1,4 +1,5 @@
 import { Link, useSearchParams } from "react-router-dom";
+import DirectoryLinks from "../components/public/DirectoryLinks";
 import PublicFooter from "../components/public/PublicFooter";
 import PublicHeader from "../components/public/PublicHeader";
 import Seo from "../components/seo/Seo";
@@ -189,6 +190,8 @@ export default function Blog() {
             )}
           </div>
         </section>
+
+        <DirectoryLinks />
       </main>
 
       <PublicFooter />
