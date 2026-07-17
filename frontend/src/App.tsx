@@ -15,6 +15,7 @@ import Subscription from "./pages/Subscription";
 import InviteOthers from "./pages/InviteOthers";
 import AcceptInvite from "./pages/AcceptInvite";
 import InviteDecisionModal from "./components/InviteDecisionModal";
+import MarketingDesignerPopup from "./components/MarketingDesignerPopup";
 import Contact from "./pages/Contact";
 import Blog from "./pages/Blog";
 import BlogPostPage from "./pages/BlogPostPage";
@@ -98,6 +99,7 @@ function AppRoutes() {
       <ScrollToTop />
       {user && <Navbar />}
       {user && <InviteDecisionModal />}
+      {user && <MarketingDesignerPopup />}
 
       <Routes>
         {/* Hidden: poster capture (scripts/capture-posters.ts) */}
