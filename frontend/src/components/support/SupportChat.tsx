@@ -109,29 +109,40 @@ export function SupportChat({ onClose }: { onClose: () => void }) {
   const submitMessage = async (text: string) => {
     if (!text || sending) return;
     setSending(true);
+    // Index of the assistant placeholder we're about to append. Tracked explicitly
+    // (not "last message") because input re-enables on answer_done, so the user may
+    // append new messages before this request's `done` event arrives.
+    const assistantIndex = messages.length + 1;
     setMessages((m) => [
       ...m,
       { role: "user", content: text },
       { role: "assistant", content: "", pending: true, streaming: true },
     ]);
+    const updateAssistant = (patch: LocalMessage) => {
+      setMessages((m) => {
+        if (assistantIndex >= m.length) return m;
+        const copy = m.slice();
+        copy[assistantIndex] = patch;
+        return copy;
+      });
+    };
     let accumulated = "";
     await sendChatStream(text, location.pathname, conversationIdRef.current, {
       onToken: (token) => {
         accumulated += token;
-        setMessages((m) => {
-          const copy = m.slice();
-          copy[copy.length - 1] = { role: "assistant", content: accumulated, pending: false, streaming: true };
-          return copy;
-        });
+        updateAssistant({ role: "assistant", content: accumulated, pending: false, streaming: true });
+      },
+      onAnswerDone: (data) => {
+        // Visible answer is complete — stop the cursor and unfreeze the input now.
+        // Citations and "Show me" buttons attach when `done` arrives a moment later.
+        conversationIdRef.current = data.conversation_id;
+        updateAssistant({ role: "assistant", content: accumulated.trim() || "Sorry — I couldn't form an answer.", streaming: false });
+        setSending(false);
       },
       onDone: (data) => {
         conversationIdRef.current = data.conversation_id;
         const answer = accumulated.trim() || "Sorry — I couldn't form an answer.";
-        setMessages((m) => {
-          const copy = m.slice();
-          copy[copy.length - 1] = { role: "assistant", content: answer, citations: data.citations, ui_guidance: data.ui_guidance, navigation: data.navigation, streaming: false };
-          return copy;
-        });
+        updateAssistant({ role: "assistant", content: answer, citations: data.citations, ui_guidance: data.ui_guidance, navigation: data.navigation, streaming: false });
         if (data.ui_guidance.length > 0 && !data.navigation) {
           const steps = data.ui_guidance.flatMap((g) => g.steps);
           if (steps.length > 0) startTour(steps);
@@ -139,11 +150,7 @@ export function SupportChat({ onClose }: { onClose: () => void }) {
       },
       onError: (err) => {
         console.error("support chat stream error", err);
-        setMessages((m) => {
-          const copy = m.slice();
-          copy[copy.length - 1] = { role: "assistant", content: "Sorry — something went wrong. Please try again in a moment.", streaming: false };
-          return copy;
-        });
+        updateAssistant({ role: "assistant", content: "Sorry — something went wrong. Please try again in a moment.", streaming: false });
       },
     });
     setSending(false);

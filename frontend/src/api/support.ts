@@ -102,6 +102,9 @@ export type StreamDonePayload = Omit<ChatResponse, "answer">;
 
 export type StreamCallbacks = {
   onToken: (token: string) => void;
+  /** Fired as soon as the visible answer finishes streaming — before citations/ui_guidance
+   *  are extracted — so the UI can stop the cursor and re-enable input immediately. */
+  onAnswerDone?: (data: { conversation_id: number }) => void;
   onDone: (data: StreamDonePayload) => void;
   onError: (err: Error) => void;
 };
@@ -155,6 +158,10 @@ export async function sendChatStream(
           if (eventType === "token") {
             // Empty data line represents a newline character (SSE can't embed raw newlines)
             callbacks.onToken(data === "" ? "\n" : data);
+          } else if (eventType === "answer_done") {
+            const parsed: { conversation_id: number } = JSON.parse(data);
+            setStoredConversationId(parsed.conversation_id);
+            callbacks.onAnswerDone?.(parsed);
           } else if (eventType === "done") {
             const parsed: StreamDonePayload = JSON.parse(data);
             setStoredConversationId(parsed.conversation_id);
