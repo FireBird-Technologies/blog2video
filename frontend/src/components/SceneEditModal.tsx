@@ -4604,9 +4604,13 @@ export default function SceneEditModal({
             {editMode === "ai" && canUseAI && (
               <p className="mt-2 text-xs text-gray-600 font-medium">
                 AI edits remaining:{" "}
-                {effectiveIsPro
-                  ? "Unlimited"
-                  : freeAiRemaining + aiCreditRemaining}
+                {effectiveIsPro ? (
+                  <span className="text-xl leading-none align-middle relative -top-0.5">∞</span>
+                ) : (
+                  freeAiRemaining + aiCreditRemaining > 100
+                    ? "100+"
+                    : freeAiRemaining + aiCreditRemaining
+                )}
               </p>
             )}
             {editMode === "ai" && !canUseAI && (

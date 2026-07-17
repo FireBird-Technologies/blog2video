@@ -39,7 +39,7 @@ interface Props {
   /** Current project voice tuning (the voice_emotion column value). */
   voiceEmotion: string | null;
   isPro: boolean;
-  onError: (message: string) => void;
+  onError: (message: string, options?: { variant?: "warning" }) => void;
   /** Prompt the user to upgrade when they pick a gated voice */
   onUpgrade?: () => void;
   /**
@@ -245,9 +245,16 @@ export default function ProjectVoiceSettingsCard({
       setModalOpen(false);
       onOperationStarted({ kind: "voice_change", total: data.total });
     } catch (err: unknown) {
-      const detail =
-        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      onError(detail || "Failed to change the voice. Please try again.");
+      const response = (err as { response?: { status?: number; data?: { detail?: string } } })
+        ?.response;
+      const detail = response?.data?.detail;
+      // 403 = the payer's video limit is exhausted (see video_limit_message on the
+      // backend). That's a quota wall, not a failure — show the soft "Oops" warning.
+      if (response?.status === 403 && detail) {
+        onError(detail, { variant: "warning" });
+      } else {
+        onError(detail || "Failed to change the voice. Please try again.");
+      }
     } finally {
       setChanging(false);
     }
@@ -261,9 +268,14 @@ export default function ProjectVoiceSettingsCard({
       const { data } = await deleteProjectVoiceover(projectId);
       onOperationStarted({ kind: "delete", total: data.total });
     } catch (err: unknown) {
-      const detail =
-        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      onError(detail || "Failed to delete the voiceover. Please try again.");
+      const response = (err as { response?: { status?: number; data?: { detail?: string } } })
+        ?.response;
+      const detail = response?.data?.detail;
+      if (response?.status === 403 && detail) {
+        onError(detail, { variant: "warning" });
+      } else {
+        onError(detail || "Failed to delete the voiceover. Please try again.");
+      }
     } finally {
       setDeleting(false);
     }
