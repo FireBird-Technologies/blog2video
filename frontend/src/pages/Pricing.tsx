@@ -38,6 +38,7 @@ import {
   FREE_CUSTOM_TEMPLATE_COUNT,
   STANDARD_CUSTOM_TEMPLATE_COUNT,
   PRO_CUSTOM_TEMPLATE_COUNT,
+  AI_EDITS_PER_VIDEO,
   pricingFaq,
 } from "../content/pricingContent";
 // import DiscountCodeBadge from "../components/DiscountCodeBadge";
@@ -395,6 +396,7 @@ export default function Pricing() {
                 "AI script generation",
                 "ElevenLabs voiceover",
                 "Render & download MP4",
+                `${AI_EDITS_PER_VIDEO} AI edits per video purchase, usable across all videos`,
               ]}
             />
           ) : (
@@ -407,6 +409,7 @@ export default function Pricing() {
                 "AI script generation",
                 "ElevenLabs voiceover",
                 "Render & download MP4",
+                `${AI_EDITS_PER_VIDEO} AI edits per video purchase, usable across all videos`,
               ]}
               customButton={
                 <div className="flex justify-center">
@@ -726,7 +729,8 @@ export default function Pricing() {
                 { feature: "Voice selection (4 options)", free: true, perVideo: true, standard: true, pro: true, customized: true },
                 { feature: "Video preview", free: true, perVideo: true, standard: true, pro: true, customized: true },
                 { feature: "Render & download MP4", free: true, perVideo: true, standard: true, pro: true, customized: true },
-                { feature: "Unlimited AI edit & image generation", free: false, perVideo: false, standard: true, pro: true, customized: true },
+                { feature: "AI-assisted edits", free: "3 / project", perVideo: `+${AI_EDITS_PER_VIDEO} per video purchase`, standard: "Unlimited", pro: "Unlimited", customized: "Unlimited" },
+                { feature: "AI image generation", free: false, perVideo: false, standard: true, pro: true, customized: true },
                 { feature: "Custom video templates", free: String(FREE_CUSTOM_TEMPLATE_COUNT), perVideo: "—", standard: String(STANDARD_CUSTOM_TEMPLATE_COUNT), pro: String(PRO_CUSTOM_TEMPLATE_COUNT), customized: "Custom" },
                 { feature: "Premium voiceover + cloning", free: false, perVideo: false, standard: true, pro: true, customized: true },
                 { feature: "Music Addition", free: true, perVideo: true, standard: true, pro: true, customized: true },

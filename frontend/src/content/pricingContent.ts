@@ -27,6 +27,11 @@ export const FREE_CUSTOM_TEMPLATE_COUNT = 1;
 export const STANDARD_CUSTOM_TEMPLATE_COUNT = 5;
 export const PRO_CUSTOM_TEMPLATE_COUNT = 20;
 
+// AI-assisted edits granted per purchased video. These accumulate into a single
+// per-user pool usable across ALL of the user's videos/projects (buy 4 → 80 shared
+// credits), not a per-video cap. Keep in sync with the backend AI_EDIT_CREDITS_PER_VIDEO.
+export const AI_EDITS_PER_VIDEO = 20;
+
 // ── Per-video tiers (re-exported for convenience) ────────────────────────────
 export const PER_VIDEO_CASUAL_PRICE  = CASUAL_PRICE_CENTS / 100;   // 4.00
 export const PER_VIDEO_PACK_PRICE    = PACK_PRICE_CENTS / 100;     // 3.00
@@ -44,6 +49,15 @@ export const COMMON_PAID_FEATURES = [
   "Render & download MP4",
   "Unlimited AI edit & image generation",
   "Premium voiceover + cloning",
+] as const;
+
+// Per-video buyers get the same features as subscribers EXCEPT AI edits are a
+// fixed per-video pool (20/video), not unlimited.
+export const PER_VIDEO_FEATURES = [
+  "AI script generation",
+  "ElevenLabs voiceover",
+  "Render & download MP4",
+  `${AI_EDITS_PER_VIDEO} AI edits per video, usable across all videos`,
 ] as const;
 
 export const FREE_FEATURES_INCLUDED = [
@@ -103,8 +117,12 @@ export const pricingPlans: PricingPlan[] = [
     annualTotalPrice: null,
     videoLimit: null,
     videoLimitLabel: "Buy as many as you need",
-    featuresIncluded: ["No subscription needed", ...COMMON_PAID_FEATURES, "Custom video templates"],
-    featuresExcluded: [],
+    featuresIncluded: ["No subscription needed", ...PER_VIDEO_FEATURES],
+    featuresExcluded: [
+      "Unlimited AI edit & image generation",
+      "Custom video templates",
+      "Premium voiceover + cloning",
+    ],
     notes: [
       `1–${PER_VIDEO_CASUAL_MAX} videos: $${PER_VIDEO_CASUAL_PRICE.toFixed(2)}/video`,
       `${PER_VIDEO_CASUAL_MAX + 1}–${PER_VIDEO_PACK_MAX} videos: $${PER_VIDEO_PACK_PRICE.toFixed(2)}/video (pack tier)`,
@@ -185,7 +203,7 @@ export const pricingFaq: FaqItem[] = [
   {
     question: "Can I edit the video after generation?",
     answer:
-      "Free and per-video users can preview and download. Pro and Standard users get unlimited AI edit & image generation.",
+      `Free users get 3 AI-assisted edits per project. Each video you buy adds ${AI_EDITS_PER_VIDEO} AI edits to a shared pool you can use across all your videos (buy 4 → 80 edits). Pro and Standard subscribers get unlimited AI edit & image generation.`,
   },
   {
     question: "What voices are available?",

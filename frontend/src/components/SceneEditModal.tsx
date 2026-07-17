@@ -11,6 +11,7 @@ import {
   updateSceneImageFocus,
   regenerateScene,
   getValidLayouts,
+  createCheckoutSession,
   LayoutInfo,
   type LayoutPropSchema,
   type LayoutPropFieldType,
@@ -20,6 +21,7 @@ import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import { useNavigate } from "react-router-dom";
 import UpgradePlanModal from "./UpgradePlanModal";
+import { STANDARD_MONTHLY_PRICE, PRO_MONTHLY_PRICE } from "../content/pricingContent";
 import GenerateSceneImageModal from "./GenerateSceneImageModal";
 import { getSceneLayoutLabel } from "../utils/layoutLabels";
 import { chartTableToLegacyRowProps } from "../utils/chartTableDataVizLegacy";
@@ -2496,22 +2498,22 @@ export function SceneEditModalDemo({
             <button
               type="button"
               className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${
-                editMode === "manual"
-                  ? "bg-white text-purple-600 shadow-sm"
-                  : "text-gray-400 hover:text-gray-600"
-              }`}
-            >
-              Manual editing
-            </button>
-            <button
-              type="button"
-              className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${
                 editMode === "ai"
                   ? "bg-white text-purple-600 shadow-sm"
                   : "text-gray-400 hover:text-gray-600"
               }`}
             >
               AI-Assisted editing
+            </button>
+            <button
+              type="button"
+              className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${
+                editMode === "manual"
+                  ? "bg-white text-purple-600 shadow-sm"
+                  : "text-gray-400 hover:text-gray-600"
+              }`}
+            >
+              Manual editing
             </button>
           </div>
           {editMode === "ai" && (
@@ -2756,7 +2758,7 @@ export default function SceneEditModal({
     startFy: number;
   } | null>(null);
   const shouldAutoOpenAdjustRef = useRef(false);
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { showError } = useErrorModal();
   const navigate = useNavigate();
 
@@ -2777,11 +2779,44 @@ export default function SceneEditModal({
   const isCollaborator = user != null && project.user_id !== user.id;
   const effectiveIsPro = isCollaborator ? (project.owner_is_pro ?? false) : isPro;
   const aiUsageCount = project.ai_assisted_editing_count || 0;
-  const canUseAI = effectiveIsPro || aiUsageCount < 3;
-  // A collaborator can't lift the limit by upgrading — the owner must.
-  const aiLimitMessage = isCollaborator
-    ? "The project owner's AI-Assisted Editing limit has been reached. Ask the owner to upgrade."
-    : "The limit for AI-Assisted Editing has been reached.";
+  const freeAiRemaining = Math.max(0, 3 - aiUsageCount);
+  // Per-user purchased AI-edit credits. On a shared project the OWNER pays, so a
+  // collaborator draws from the owner's pool (surfaced as owner_ai_edit_credits).
+  const aiCreditRemaining = isCollaborator
+    ? (project.owner_ai_edit_credits ?? 0)
+    : (user?.ai_edit_credits ?? 0);
+  // Consumption hierarchy: paid plan (unlimited) → free per-project allowance → credits.
+  const canUseAI = effectiveIsPro || freeAiRemaining > 0 || aiCreditRemaining > 0;
+
+  // Send the OWNER straight to Stripe checkout for the chosen plan (monthly). A
+  // collaborator can't lift the limit by paying — only the owner can, so the plan
+  // names are non-clickable for them.
+  const [upgradingPlan, setUpgradingPlan] = useState<null | "standard" | "pro">(null);
+  const goToPlanCheckout = async (plan: "standard" | "pro") => {
+    if (upgradingPlan) return;
+    setUpgradingPlan(plan);
+    try {
+      const res = await createCheckoutSession({ plan, billing_cycle: "monthly" });
+      if (res.data.checkout_url) window.location.href = res.data.checkout_url;
+      else window.location.href = "/pricing";
+    } catch {
+      window.location.href = "/pricing";
+    }
+  };
+  // Reusable purple plan label — clickable for the owner, plain for collaborators.
+  const PlanLink = ({ plan, children }: { plan: "standard" | "pro"; children: React.ReactNode }) =>
+    isCollaborator ? (
+      <span className="font-medium text-purple-600">{children}</span>
+    ) : (
+      <button
+        type="button"
+        onClick={() => goToPlanCheckout(plan)}
+        disabled={upgradingPlan !== null}
+        className="font-medium text-purple-600 underline-offset-2 hover:underline disabled:opacity-60"
+      >
+        {children}
+      </button>
+    );
 
   const isCustomTemplate = (project.template || "").startsWith("custom_");
   const isCraftedTemplate = (project.template || "").startsWith("crafted_");
@@ -3960,6 +3995,9 @@ export default function SceneEditModal({
           selectedImageFile || undefined,
           matchNarrationExactly
         );
+        // Refresh the user so the AI-edit credit balance (consumed server-side)
+        // is reflected in the UI rather than showing a stale count.
+        void refreshUser();
         onSaved();
         onClose();
       } catch (err: unknown) {
@@ -4532,21 +4570,14 @@ export default function SceneEditModal({
         <div className="px-8 py-6 overflow-y-auto flex-1">
           {/* Manual vs AI toggle (compact). AI-Assisted is the default selection. */}
           <div>
-            <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2">
+            <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1">
               Editing mode
             </h4>
+            <p className="mb-2 text-xs text-gray-500">
+              Pick a tab — use <span className="font-medium text-gray-600">AI-Assisted</span> to let AI change the
+              scene for you, or <span className="font-medium text-gray-600">Manual</span> to edit it yourself.
+            </p>
             <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
-              <button
-                type="button"
-                onClick={() => setEditMode("manual")}
-                className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${
-                  editMode === "manual"
-                    ? "bg-white text-purple-600 shadow-sm"
-                    : "text-gray-400 hover:text-gray-600"
-                }`}
-              >
-                Manual editing
-              </button>
               <button
                 type="button"
                 onClick={() => setEditMode("ai")}
@@ -4558,16 +4589,65 @@ export default function SceneEditModal({
               >
                 AI-Assisted editing
               </button>
+              <button
+                type="button"
+                onClick={() => setEditMode("manual")}
+                className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${
+                  editMode === "manual"
+                    ? "bg-white text-purple-600 shadow-sm"
+                    : "text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                Manual editing
+              </button>
             </div>
             {editMode === "ai" && canUseAI && (
               <p className="mt-2 text-xs text-gray-600 font-medium">
-                AI edits remaining: {effectiveIsPro ? "Unlimited" : `${Math.max(0, 3 - aiUsageCount)} of 3 for this project`}
+                AI edits remaining:{" "}
+                {effectiveIsPro ? (
+                  <span className="text-xl leading-none align-middle relative -top-0.5">∞</span>
+                ) : (
+                  freeAiRemaining + aiCreditRemaining > 100
+                    ? "100+"
+                    : freeAiRemaining + aiCreditRemaining
+                )}
               </p>
             )}
             {editMode === "ai" && !canUseAI && (
-              <p className="mt-2 text-xs font-medium text-red-600">
-                {aiLimitMessage}
-              </p>
+              <div className="mt-2 text-xs">
+                {isCollaborator ? (
+                  <>
+                    <p className="font-medium text-red-600">
+                      The project owner's AI-Assisted Editing limit has been reached.
+                    </p>
+                    <p className="mt-1 text-gray-600">
+                      Ask the owner to upgrade to{" "}
+                      <PlanLink plan="standard">Standard (${STANDARD_MONTHLY_PRICE}/mo)</PlanLink> or{" "}
+                      <PlanLink plan="pro">Pro (${PRO_MONTHLY_PRICE}/mo)</PlanLink> for unlimited AI
+                      edits, or to buy a video for +20 AI edits.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-medium text-red-600">
+                      You've used all your AI-Assisted edits.
+                    </p>
+                    <p className="mt-1 text-gray-600">
+                      Upgrade to{" "}
+                      <PlanLink plan="standard">Standard (${STANDARD_MONTHLY_PRICE}/mo)</PlanLink> or{" "}
+                      <PlanLink plan="pro">Pro (${PRO_MONTHLY_PRICE}/mo)</PlanLink> for unlimited AI
+                      edits, or buy a video to get +20 AI edits.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => navigate("/pricing")}
+                      className="mt-2 inline-flex items-center rounded-md bg-purple-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-purple-700"
+                    >
+                      View all plans
+                    </button>
+                  </>
+                )}
+              </div>
             )}
           </div>
 

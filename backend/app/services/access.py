@@ -94,6 +94,37 @@ def project_owner(project: Project, db: Session) -> User:
     return owner
 
 
+def can_use_ai_edit(payer: User, project: Project) -> bool:
+    """Whether an AI-assisted edit is permitted, charged to the paying ``payer``.
+
+    Consumption hierarchy:
+      1. Paid plan (PRO/STANDARD) → unlimited, consumes nothing.
+      2. Free per-project allowance (``ai_assisted_editing_count`` < 3).
+      3. The payer's per-user purchased AI-edit credit pool (``ai_edit_credits``).
+    """
+    from app.models.user import PlanTier
+
+    if payer.plan in (PlanTier.PRO, PlanTier.STANDARD):
+        return True
+    if (project.ai_assisted_editing_count or 0) < 3:
+        return True
+    return (payer.ai_edit_credits or 0) > 0
+
+
+def consume_ai_edit(payer: User, project: Project) -> None:
+    """Spend one AI-assisted edit for a non-paid ``payer`` after an edit occurred.
+
+    Mirrors ``can_use_ai_edit``'s hierarchy: fill the free per-project allowance
+    first, then draw from the per-user purchased credit pool. Never called for
+    PRO/STANDARD payers (their edits are unlimited and cost nothing). Mutates the
+    ORM objects in place; the caller owns the commit.
+    """
+    if (project.ai_assisted_editing_count or 0) < 3:
+        project.ai_assisted_editing_count = (project.ai_assisted_editing_count or 0) + 1
+    else:
+        payer.ai_edit_credits = max(0, (payer.ai_edit_credits or 0) - 1)
+
+
 def is_owner(project: Project, user: User) -> bool:
     return project.user_id == user.id
 
