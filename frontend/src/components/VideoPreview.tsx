@@ -231,9 +231,10 @@ const StableCustomComposition: React.FC<any> = ({
                   chartTable={(s.layoutProps as Record<string, unknown>)?.chartTable}
                   chartType={(s.layoutProps as Record<string, unknown>)?.chartType}
                   chartSummary={(s.layoutProps as Record<string, unknown>)?.chartSummary}
+                  logoUrl={undefined}
                 />
               ) : (
-                <SceneComp {...sceneProps} />
+                <SceneComp {...sceneProps} logoUrl={undefined} />
               )}
             </div>
           </AbsoluteFill>
