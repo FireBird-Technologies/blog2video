@@ -348,6 +348,13 @@ interface VideoPreviewProps {
    * owner-resolved endpoint instead. Undefined for owners / public previews.
    */
   ownerScopedProjectId?: number;
+  /**
+   * Applied-but-unsaved user recordings (sceneId → { url, duration }). When a
+   * scene has an entry here, its voiceover is played from this URL instead of the
+   * saved asset AND the scene length uses the recording's measured duration, so
+   * the preview reflects recordings (and their timing) before they're persisted.
+   */
+  pendingVoiceovers?: Map<number, { url: string; duration: number }>;
 }
 
 interface SceneInput {
@@ -1135,6 +1142,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     hideControls = false,
     precompiledCraftedDetail,
     ownerScopedProjectId,
+    pendingVoiceovers,
   },
   ref
 ) {
@@ -1555,8 +1563,15 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
       // voiceover_path format: ".../audio/scene_X.mp3" or "C:\...\audio\scene_X.mp3"
       // After reordering, voiceover_path still points to the original filename, so we use it directly
       let voiceoverUrl: string | undefined = undefined;
-      
-      if (scene.voiceover_path) {
+
+      // Applied-but-unsaved recording wins over any saved asset, so the preview
+      // plays the user's recorded voice before it's persisted.
+      const pending = pendingVoiceovers?.get(scene.id);
+      if (pending) {
+        voiceoverUrl = pending.url;
+      }
+
+      if (!voiceoverUrl && scene.voiceover_path) {
         // Extract filename from voiceover_path (handles Windows paths with mixed separators)
         // Path format: "C:\...\audio\scene_X.mp3" or ".../audio/scene_X.mp3"
         const pathParts = scene.voiceover_path.split(/[/\\]/);
@@ -1615,18 +1630,28 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
         ...(layoutConfig ? { layoutConfig } : {}),
         ...(structuredContent ? { structuredContent } : {}),
         ...(ctaProps ? { ctaProps } : {}),
-        durationSeconds: (Number(scene.duration_seconds) || 5) + (Number(scene.extra_hold_seconds) || 0),
+        // For an applied (unsaved) recording, mirror the backend's saved-scene math:
+        // round(max(MIN_SCENE_DURATION_SECONDS=7, recordedDuration + DURATION_PAD=1), 1),
+        // so pre-save timing matches the eventual saved scene. Else use the stored value.
+        durationSeconds:
+          (pending
+            ? Math.max(7, pending.duration + 1.0)
+            : Number(scene.duration_seconds) || 5) +
+          (Number(scene.extra_hold_seconds) || 0),
         // Spoken-audio window for caption timing: scene.duration_seconds = audio + ~1s pad,
         // so speech ≈ duration - 1.0s. Only meaningful when a voiceover exists.
-        speechDurationSeconds: scene.voiceover_path
-          ? Math.max(0.5, (Number(scene.duration_seconds) || 5) - 1.0)
-          : 0,
+        speechDurationSeconds:
+          pending
+            ? Math.max(0.5, pending.duration)
+            : scene.voiceover_path
+              ? Math.max(0.5, (Number(scene.duration_seconds) || 5) - 1.0)
+              : 0,
         bgmVolume: scene.bgm_volume ?? null,
         imageUrl: sceneImageMap[idx],
         voiceoverUrl,
       };
     });
-  }, [project, config, isCustom, effectiveLayoutPropSchema]);
+  }, [project, config, isCustom, effectiveLayoutPropSchema, pendingVoiceovers]);
 
   const totalDurationFrames = useMemo(() => {
     const FPS = 30;
@@ -1681,11 +1706,12 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
       );
       return Math.max(totalFrames, FPS * 5);
     }
-    const sceneFrames = project.scenes.map((s) => {
-      const base = Number(s.duration_seconds) || 5;
-      const extra = Number(s.extra_hold_seconds) || 0;
-      return getSceneDurationFrames(base + extra, FPS, 1);
-    });
+    // Use the derived `scenes` (which already applies pending-recording duration
+    // overrides and includes extra_hold_seconds) so the Player's total length
+    // reflects applied recordings before save — not just after loadProject.
+    const sceneFrames = scenes.map((s) =>
+      getSceneDurationFrames(Number(s.durationSeconds) || 5, FPS, 1),
+    );
     const sum = sceneFrames.reduce((a, b) => a + b, 0);
     return Math.max(sum, FPS * 5);
   }, [project.scenes, project.aspect_ratio, project.accent_color, templateId, scenes]);

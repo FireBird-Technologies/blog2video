@@ -179,7 +179,7 @@ export default function ShareProjectModal({
         </h3>
         <p className="text-sm text-gray-500 mb-3">
           {isOwner
-            ? "Invite people to co-edit this video. Collaborators can edit scenes/"
+            ? "Invite people to co-edit this video. Collaborators can edit your scenes and project settings."
             : "You’re a collaborator on this video. You can edit scenes or leave the project from below menu."}
         </p>
 
