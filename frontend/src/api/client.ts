@@ -1584,6 +1584,18 @@ export const regenerateScene = (
   );
 };
 
+// Generate and insert a new AI scene. `position` is 1-indexed among active scenes
+// (the new scene takes that slot, everything after shifts down); omit to append.
+export const addScene = (
+  projectId: number,
+  prompt: string,
+  position?: number
+) =>
+  api.post<Scene>(`/projects/${projectId}/scenes/add`, {
+    prompt,
+    position: position ?? null,
+  });
+
 export const launchStudio = (id: number) =>
   api.post<StudioResponse>(`/projects/${id}/launch-studio`);
 

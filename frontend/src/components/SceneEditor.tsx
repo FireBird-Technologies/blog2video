@@ -94,17 +94,21 @@ export default function SceneEditor({
   // so a Free collaborator inherits a paid owner's unlimited edits (and vice versa).
   const isCollaborator = user != null && project.user_id !== user.id;
   const effectiveIsPro = isCollaborator ? (project.owner_is_pro ?? false) : isPro;
-  const aiUsageCount = project.ai_assisted_editing_count || 0;
-  const freeAiRemaining = Math.max(0, 3 - aiUsageCount);
-  // Per-user purchased AI-edit credits (owner's pool on a shared project).
+  // Single per-user AI-edit credit pool, shared across all projects (starts at 6,
+  // +20 per purchased video); the owner's pool on a shared project.
   const aiCreditRemaining = isCollaborator
     ? (project.owner_ai_edit_credits ?? 0)
     : (user?.ai_edit_credits ?? 0);
-  // Consumption hierarchy: paid plan (unlimited) → free per-project allowance → credits.
-  const canUseAI = effectiveIsPro || freeAiRemaining > 0 || aiCreditRemaining > 0;
+  // Regenerating the voiceover costs 3 credits; other AI edits cost 1.
+  const aiEditCost = regenerateVoiceover ? 3 : 1;
+  // canUseAI — has ANY AI budget (drives the panel lock / paywall). canAffordThisEdit
+  // — pool covers THIS edit's cost (drives the Regenerate button + soft warning), so a
+  // user with credits left can turn the voiceover toggle off instead of being locked out.
+  const canUseAI = effectiveIsPro || aiCreditRemaining >= 1;
+  const canAffordThisEdit = effectiveIsPro || aiCreditRemaining >= aiEditCost;
   const remainingAI = effectiveIsPro
     ? "∞"
-    : `${freeAiRemaining + aiCreditRemaining > 100 ? "100+" : freeAiRemaining + aiCreditRemaining} remaining`;
+    : `${aiCreditRemaining > 100 ? "100+" : aiCreditRemaining} remaining`;
   // A collaborator can't lift the limit by upgrading — the owner must. The lead
   // (red) states the limit; the rest (grey) explains how to lift it.
   const aiLimitLead = isCollaborator
@@ -575,6 +579,27 @@ export default function SceneEditor({
                     </button>
                   </div>
 
+                  {/* Not enough credits for the voiceover (3), but the panel stays
+                      usable so the user can turn this toggle off and edit at cost 1. */}
+                  {regenerateVoiceover && !canAffordThisEdit && !effectiveIsPro && (
+                    <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5">
+                      <p className="text-xs font-medium text-amber-800">
+                        You have {aiCreditRemaining} AI edit
+                        {aiCreditRemaining === 1 ? "" : "s"} left — re-recording the voiceover costs 3.
+                      </p>
+                      <p className="mt-1 text-xs text-amber-700">
+                        <button
+                          type="button"
+                          onClick={() => setRegenerateVoiceover(false)}
+                          className="font-semibold underline underline-offset-2 hover:text-amber-900"
+                        >
+                          Turn off voiceover re-recording
+                        </button>{" "}
+                        to edit for 1 credit, or buy a video for +20 AI edits.
+                      </p>
+                    </div>
+                  )}
+
                   {layouts && (
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1.5">
@@ -637,7 +662,7 @@ export default function SceneEditor({
                   <div className="flex items-center gap-2 pt-2">
                     <button
                       onClick={handleRegenerate}
-                      disabled={loading || !aiDescription.trim() || (regenerateVoiceover && !displayText.trim())}
+                      disabled={loading || !aiDescription.trim() || !canAffordThisEdit || (regenerateVoiceover && !displayText.trim())}
                       className="px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {loading ? "Regenerating..." : "Regenerate Scene"}
