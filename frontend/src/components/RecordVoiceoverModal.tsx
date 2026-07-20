@@ -11,6 +11,11 @@ export interface RecordVoiceoverModalProps {
 
 type RecState = "idle" | "recording" | "recorded";
 
+/** Hard cap on recording length (seconds) — recording auto-stops here. */
+const MAX_SECONDS = 60;
+/** When elapsed reaches this, warn the user how long they have left. */
+const WARN_SECONDS = 45;
+
 /** Pick the first MediaRecorder mimeType the browser supports. */
 function pickMimeType(): string | undefined {
   if (typeof MediaRecorder === "undefined") return undefined;
@@ -221,6 +226,10 @@ export default function RecordVoiceoverModal({
 
   if (!open) return null;
 
+  // Length of the scene's existing/current voiceover, shown for reference so the
+  // user knows when a new recording exceeds it.
+  const prevDuration = Math.round(Number(scene.duration_seconds) || 0);
+
   const startRecording = async () => {
     setError(null);
     resetPreview();
@@ -276,7 +285,16 @@ export default function RecordVoiceoverModal({
       startTimeRef.current = performance.now();
       mediaRecorderRef.current = recorder;
       setRecState("recording");
-      timerRef.current = setInterval(() => setElapsed((s) => s + 1), 1000);
+      timerRef.current = setInterval(() => {
+        setElapsed((s) => {
+          const next = s + 1;
+          // Auto-stop once we hit the hard cap.
+          if (next >= MAX_SECONDS) {
+            stopRecording();
+          }
+          return Math.min(next, MAX_SECONDS);
+        });
+      }, 1000);
     } catch (err) {
       setAnalyser(null);
       cleanupStream();
@@ -393,15 +411,50 @@ export default function RecordVoiceoverModal({
             </div>
           </div>
 
+          {recState === "idle" && (
+            <p className="text-xs text-gray-500 text-center">
+              Maximum recording length is{" "}
+              <span className="font-medium text-gray-700 tabular-nums">
+                {formatTime(MAX_SECONDS)}
+              </span>
+              .
+            </p>
+          )}
+
           {recState === "recording" && (
             <>
               <p className="text-sm font-medium text-gray-700 tabular-nums">
                 {formatTime(elapsed)}
+                <span className="text-gray-400"> / {formatTime(MAX_SECONDS)}</span>
               </p>
               {analyser && (
                 <div className="w-64 max-w-full px-3 py-2 overflow-hidden">
                   <WaveformRecorder analyser={analyser} onLevel={setMicLevel} />
                 </div>
+              )}
+
+              {/* Previous voiceover length reference — flags when the recording
+                  exceeds the scene's current voiceover. */}
+              {prevDuration > 0 && (
+                <p
+                  className={`text-xs text-center tabular-nums ${
+                    elapsed > prevDuration ? "text-amber-600 font-medium" : "text-gray-400"
+                  }`}
+                >
+                  Current voiceover: {formatTime(prevDuration)}
+                  {elapsed > prevDuration && " — you're now exceeding it"}
+                </p>
+              )}
+
+              {/* Time-remaining warning past the warn threshold. */}
+              {elapsed >= WARN_SECONDS && (
+                <p className="text-xs text-center font-medium text-red-600">
+                  {MAX_SECONDS - elapsed > 0
+                    ? `${MAX_SECONDS - elapsed}s remaining — recording will stop at ${formatTime(
+                        MAX_SECONDS
+                      )}`
+                    : "Maximum length reached"}
+                </p>
               )}
             </>
           )}
