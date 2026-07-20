@@ -8,6 +8,9 @@ interface Props {
   expanded: boolean;
   /** Show the "Audio" status pill — false when project has no voiceover. */
   showAudio: boolean;
+  /** When set, overrides the displayed scene length (seconds) — e.g. an applied,
+   *  unsaved custom recording whose duration differs from the stored value. */
+  durationOverride?: number;
   isDragging?: boolean;
   isDropTarget?: boolean;
   /** Highlight the row's Edit button (used by help videos to draw the eye). */
@@ -35,6 +38,7 @@ export default function SceneListRow({
   index,
   expanded,
   showAudio,
+  durationOverride,
   isDragging = false,
   isDropTarget = false,
   highlightEdit = false,
@@ -164,7 +168,9 @@ export default function SceneListRow({
                       </span>
                     )}
                     <span className="text-[11px] text-gray-300 ml-1">
-                      {(scene.duration_seconds ?? 0) + (scene.extra_hold_seconds ?? 0)}s
+                      {durationOverride != null
+                        ? Math.round(durationOverride)
+                        : (scene.duration_seconds ?? 0) + (scene.extra_hold_seconds ?? 0)}s
                     </span>
 
                     <svg

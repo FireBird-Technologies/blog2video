@@ -107,13 +107,9 @@ export default function ProjectReviewPrompt({
     });
   };
 
+  // Once submitted, hide the prompt entirely (no confirmation pill).
   if (submitted) {
-    return (
-      <div className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50/90 px-3 py-1.5 text-xs text-green-800">
-        <span className="font-medium">Thanks for the review</span>
-        <span className="text-green-600">Saved</span>
-      </div>
-    );
+    return null;
   }
 
   if (isModal) {
@@ -217,7 +213,7 @@ export default function ProjectReviewPrompt({
 
   return (
     <div className="flex w-full flex-col gap-2 lg:w-auto lg:items-end">
-      <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-500 lg:justify-end">
+      <div className="flex w-full items-center justify-between gap-3 text-[11px] text-gray-500">
         <span className="font-medium text-gray-500">Rate this preview</span>
         <div className="flex items-center gap-0.5">
           {[1, 2, 3, 4, 5].map((value) => {
@@ -239,9 +235,6 @@ export default function ProjectReviewPrompt({
             );
           })}
         </div>
-        <span className="min-w-[72px] text-gray-400">
-          {activeLabel ?? "\u00a0"}
-        </span>
       </div>
     </div>
   );

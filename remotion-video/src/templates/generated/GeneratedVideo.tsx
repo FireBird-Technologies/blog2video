@@ -386,7 +386,7 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
                   fallbackText={sceneProps.displayText}
                   fontFamily={headingFont || resolvedFontFamily || undefined}
                 >
-                  <SceneComp {...sceneProps} />
+                  <SceneComp {...sceneProps} logoUrl={undefined} />
                 </SceneErrorBoundary>
               </div>
             </AbsoluteFill>

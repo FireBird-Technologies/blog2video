@@ -58,6 +58,12 @@ class ScrapedThemeData:
 _NAV_TAGS = {"header", "nav"}
 _NAV_ATTRS = {"header", "nav", "navbar", "navigation", "topbar", "top-bar", "site-header"}
 
+# How much raw HTML to scan for logo candidates. Matches _MAX_HTML_FOR_CSS —
+# a real header logo can sit well past the first 100K chars on long pages
+# (e.g. careem.com's logo <img> was found at ~366K), so this must be generous,
+# not the much smaller budget used for what's actually sent to the LLM.
+_MAX_HTML_FOR_LOGO_SCAN = 500_000
+
 
 def _is_in_nav(tag) -> bool:  # type: ignore[no-untyped-def]
     """Return True if this tag lives inside a <header> or <nav>, or a container
@@ -129,7 +135,7 @@ def _extract_logo_urls(html: str, base_url: str, og_image: str = "") -> list[str
     tiers: list[list[str]] = [[] for _ in range(8)]
 
     try:
-        soup = BeautifulSoup(html[:100_000], "html.parser")
+        soup = BeautifulSoup(html[:_MAX_HTML_FOR_LOGO_SCAN], "html.parser")
 
         # ── Tier 1 & 3: inline SVG logos ──────────────────────────────────
         for svg in soup.find_all("svg"):
