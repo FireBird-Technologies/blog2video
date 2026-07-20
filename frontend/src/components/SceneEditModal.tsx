@@ -1,5 +1,5 @@
-import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from "react";
-import type { MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback, Fragment } from "react";
+import type { MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent, ReactNode } from "react";
 import ReactDOM from "react-dom";
 import {
   Scene,
@@ -448,6 +448,25 @@ type FieldType =
   | "select"
   | "number"
   | "range";
+
+/**
+ * Field types that render a tabular data editor (chart / ticker / OHLCV / pipe
+ * tables). Scenes that expose any of these — data-visualisation and ticker-table
+ * scenes — surface their tabular data (and, per product decision, the rest of
+ * their data-viz layout content) in a dedicated "Chart data" manual tab instead
+ * of "Scene Props". Mirrors the backend `chartTable` / `tickerTable` fields
+ * saved into the remotion-code layout props.
+ */
+const TABLE_FIELD_TYPES: ReadonlySet<FieldType> = new Set<FieldType>([
+  "chart_table",
+  "ticker_table",
+  "ohlcv_table",
+  "pipe_table",
+]);
+
+function fieldsHaveTable(fields: FieldDef[] | null | undefined): boolean {
+  return !!fields?.some((f) => TABLE_FIELD_TYPES.has(f.type));
+}
 
 interface FieldDef {
   key: string;
@@ -2622,6 +2641,48 @@ export function SceneEditModalDemo({
   );
 }
 
+type ManualTab = "settings" | "props" | "chartdata";
+
+function ManualTabCard({
+  title,
+  open,
+  onToggle,
+  children,
+}: {
+  title: string;
+  open: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div>
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onToggle}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onToggle();
+          }
+        }}
+        className="w-full text-left glass-card p-4 border-l-2 border-l-purple-200 hover:border-l-purple-400 transition-all rounded-lg border cursor-pointer flex items-center justify-between"
+      >
+        <span className="text-sm font-medium text-gray-900">{title}</span>
+        <svg
+          className={`w-4 h-4 text-gray-300 transition-transform ${open ? "rotate-180" : ""}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </div>
+      {open && <div className="p-4 pt-3 space-y-4">{children}</div>}
+    </div>
+  );
+}
+
 export default function SceneEditModal({
   open,
   onClose,
@@ -2635,6 +2696,9 @@ export default function SceneEditModal({
 }: Props) {
   const isDemo = !!demoMode;
   const [editMode, setEditMode] = useState<EditMode>(demoMode?.editMode ?? "ai");
+  const [openManualTab, setOpenManualTab] = useState<ManualTab | null>("settings");
+  const toggleManualTab = (tab: ManualTab) =>
+    setOpenManualTab((cur) => (cur === tab ? null : tab));
   const [title, setTitle] = useState(scene.title);
   const [description, setDescription] = useState("");
   const [displayText, setDisplayText] = useState("");
@@ -4321,385 +4385,9 @@ export default function SceneEditModal({
 
   const clampFocus = (value: number) => Math.max(0, Math.min(100, value));
 
-  useEffect(() => {
-    imageAdjustFocusRef.current = { x: imageAdjustFocusX, y: imageAdjustFocusY };
-  }, [imageAdjustFocusX, imageAdjustFocusY]);
-
-  useEffect(() => {
-    if (!isAdjustDragging || !imageAdjustOpen || !imageAdjustSrc) return;
-    const pan = imageAdjustPanRef.current;
-    if (!pan) return;
-
-    const clamp = (v: number) => Math.max(0, Math.min(100, v));
-
-    const applyPan = (clientX: number, clientY: number) => {
-      const el = imageAdjustPreviewRef.current;
-      if (!el || !imageAdjustPanRef.current) return;
-      const rect = el.getBoundingClientRect();
-      if (rect.width <= 0 || rect.height <= 0) return;
-      const { startX, startY, startFx, startFy } = imageAdjustPanRef.current;
-      const dxPct = ((clientX - startX) / rect.width) * 100;
-      const dyPct = ((clientY - startY) / rect.height) * 100;
-      setImageAdjustFocusX(clamp(startFx - dxPct));
-      setImageAdjustFocusY(clamp(startFy - dyPct));
-    };
-
-    const onMouseMove = (e: MouseEvent) => applyPan(e.clientX, e.clientY);
-    const onTouchMove = (e: TouchEvent) => {
-      const touch = e.touches[0];
-      if (!touch) return;
-      e.preventDefault();
-      applyPan(touch.clientX, touch.clientY);
-    };
-    const endPan = () => {
-      setIsAdjustDragging(false);
-      imageAdjustPanRef.current = null;
-    };
-
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("touchmove", onTouchMove, { passive: false });
-    window.addEventListener("mouseup", endPan);
-    window.addEventListener("touchend", endPan);
-    return () => {
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("touchmove", onTouchMove);
-      window.removeEventListener("mouseup", endPan);
-      window.removeEventListener("touchend", endPan);
-    };
-  }, [isAdjustDragging, imageAdjustOpen, imageAdjustSrc]);
-
-  useLayoutEffect(() => {
-    if (!imageAdjustOpen || !imageAdjustSrc) return;
-    const el = imageAdjustPreviewRef.current;
-    if (!el) return;
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      const delta = e.deltaY;
-      setImageAdjustZoom((z) => {
-        const factor = delta > 0 ? 0.97 : 1.03;
-        const next = Math.min(
-          IMAGE_ADJUST_ZOOM_MAX,
-          Math.max(IMAGE_ADJUST_ZOOM_MIN, z * factor)
-        );
-        return Math.round(next * 100) / 100;
-      });
-    };
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, [imageAdjustOpen, imageAdjustSrc]);
-
-  const openImageAdjustModal = (src: string) => {
-    setImageAdjustSrc(src);
-    setIsAdjustDragging(false);
-    const currentZoom = Math.max(IMAGE_ADJUST_ZOOM_MIN, Number((editableLayoutProps.imageZoom as number) || 1));
-    setImageAdjustFocusX(imageFocusX);
-    setImageAdjustFocusY(imageFocusY);
-    setImageAdjustZoom(Math.min(IMAGE_ADJUST_ZOOM_MAX, Math.max(IMAGE_ADJUST_ZOOM_MIN, currentZoom)));
-
-    // Compute the preview box aspect ratio + circular flag from the image box
-    // config so the framing preview matches the layout's real image slot —
-    // mirroring the scene-details dropdown on the project view page.
-    const orientation = project.aspect_ratio === "portrait" ? "portrait" : "landscape";
-    let ar: string;
-    let circular = false;
-    if (isCustomTemplate) {
-      ar = resolveCustomImageBoxAr(scene, project);
-    } else if (isCraftedTemplate) {
-      ar =
-        _resolveCraftedImageBoxArFromFiles(craftedFrontendFiles, currentLayoutId, orientation) ||
-        (orientation === "portrait" ? "9 / 16" : "16 / 9");
-    } else {
-      const templateCfg = getTemplateConfig(project.template || "default");
-      ar = getImageBoxAspectRatio(
-        currentLayoutId ? normalizeLayoutId(currentLayoutId) : null,
-        orientation,
-        templateCfg.baseWidth,
-        templateCfg.baseHeight,
-      );
-      circular = isImageBoxCircular(currentLayoutId);
-    }
-    setImageAdjustAspectRatio(ar);
-    setImageAdjustCircular(circular);
-
-    imageAdjustPanRef.current = null;
-    setImageAdjustOpen(true);
-  };
-
-  const closeImageAdjustModal = () => {
-    setImageAdjustOpen(false);
-    setImageAdjustSrc(null);
-    setIsAdjustDragging(false);
-    imageAdjustPanRef.current = null;
-  };
-
-  const saveImageAdjustModal = async () => {
-    const nextFocusX = clampFocus(imageAdjustFocusX);
-    const nextFocusY = clampFocus(imageAdjustFocusY);
-    const nextZoom = Math.max(IMAGE_ADJUST_ZOOM_MIN, Math.min(IMAGE_ADJUST_ZOOM_MAX, imageAdjustZoom));
-    setImageFocusX(nextFocusX);
-    setImageFocusY(nextFocusY);
-    setEditableLayoutProps((prev) => ({ ...prev, imageZoom: nextZoom }));
-    closeImageAdjustModal();
-    await handleSave({ imageFocusX: nextFocusX, imageFocusY: nextFocusY, imageZoom: nextZoom });
-  };
-
-  const handleAdjustMouseDown = (e: ReactMouseEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    imageAdjustPanRef.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      startFx: imageAdjustFocusRef.current.x,
-      startFy: imageAdjustFocusRef.current.y,
-    };
-    setIsAdjustDragging(true);
-  };
-
-  const handleAdjustTouchStart = (e: ReactTouchEvent<HTMLDivElement>) => {
-    const touch = e.touches[0];
-    if (!touch) return;
-    e.preventDefault();
-    imageAdjustPanRef.current = {
-      startX: touch.clientX,
-      startY: touch.clientY,
-      startFx: imageAdjustFocusRef.current.x,
-      startFy: imageAdjustFocusRef.current.y,
-    };
-    setIsAdjustDragging(true);
-  };
-
-  const openImportPreview = useCallback(
-    (
-      matrix: string[][],
-      maxCols: number,
-      maxRows: number,
-      onApply: (t: { headers: string[]; rows: string[][] }) => void,
-      sheetNames?: string[],
-      activeSheet?: string,
-      wb?: import("xlsx").WorkBook,
-      isChartTable?: boolean,
-    ) => {
-      if (matrix.length === 0) return;
-      chartImportCallbackRef.current = onApply;
-      setImportPreview({ matrix, maxCols, maxRows, sheetNames, activeSheet, wb, isChartTable });
-    },
-    [],
-  );
-
-  const matrixFromSheet = useCallback((wb: import("xlsx").WorkBook, sheetName: string): string[][] => {
-    const ws = wb.Sheets[sheetName];
-    return XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, defval: "" }).map((r: string[]) =>
-      (r as unknown[]).map(String),
-    );
-  }, []);
-
-  const handleTableFileImport = useCallback(
-    (
-      file: File,
-      maxCols: number,
-      maxRows: number,
-      onApply: (t: { headers: string[]; rows: string[][] }) => void,
-      isChartTable?: boolean,
-    ) => {
-      const isExcel = /\.(xlsx|xls)$/i.test(file.name);
-      if (isExcel) {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          const data = new Uint8Array(ev.target?.result as ArrayBuffer);
-          const wb = XLSX.read(data, { type: "array" });
-          const firstSheet = wb.SheetNames[0];
-          const matrix = XLSX.utils.sheet_to_json<string[]>(wb.Sheets[firstSheet], {
-            header: 1,
-            defval: "",
-          }).map((r: string[]) => (r as unknown[]).map(String));
-          openImportPreview(
-            matrix,
-            maxCols,
-            maxRows,
-            onApply,
-            wb.SheetNames.length > 1 ? wb.SheetNames : undefined,
-            firstSheet,
-            wb.SheetNames.length > 1 ? wb : undefined,
-            isChartTable,
-          );
-        };
-        reader.readAsArrayBuffer(file);
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const text = ev.target?.result as string;
-        if (!text) return;
-        const lines = text.trim().split(/\r?\n/);
-        const matrix = lines.map((l) => l.split(",").map((c) => c.trim().replace(/^"|"$/g, "")));
-        openImportPreview(matrix, maxCols, maxRows, onApply, undefined, undefined, undefined, isChartTable);
-      };
-      reader.readAsText(file);
-    },
-    [openImportPreview],
-  );
-
-  if (!open) return null;
-
-  const manualOnly = editMode === "manual";
-
-  const modalTree = (
-    <>
-    <div className={isDemo ? "absolute inset-0 z-10 flex items-center justify-center" : "fixed inset-0 z-[100] flex items-center justify-center"}>
-      <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      <div
-        className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full mx-4 max-h-[92vh] overflow-hidden flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="px-8 py-5 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">
-            Edit Scene {scene.order}
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <div className="px-8 py-6 overflow-y-auto flex-1">
-          {/* Manual vs AI toggle (compact). AI-Assisted is the default selection. */}
-          <div>
-            <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1">
-              Editing mode
-            </h4>
-            <p className="mb-2 text-xs text-gray-500">
-              Pick a tab — use <span className="font-medium text-gray-600">AI-Assisted</span> to let AI change the
-              scene for you, or <span className="font-medium text-gray-600">Manual</span> to edit it yourself.
-            </p>
-            <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
-              <button
-                type="button"
-                onClick={() => setEditMode("ai")}
-                className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${
-                  editMode === "ai"
-                    ? "bg-white text-purple-600 shadow-sm"
-                    : "text-gray-400 hover:text-gray-600"
-                }`}
-              >
-                AI-Assisted editing
-              </button>
-              <button
-                type="button"
-                onClick={() => setEditMode("manual")}
-                className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${
-                  editMode === "manual"
-                    ? "bg-white text-purple-600 shadow-sm"
-                    : "text-gray-400 hover:text-gray-600"
-                }`}
-              >
-                Manual editing
-              </button>
-            </div>
-            {editMode === "ai" && canUseAI && (
-              <p className="mt-2 text-xs text-gray-600 font-medium">
-                AI edits remaining:{" "}
-                {effectiveIsPro ? (
-                  <span className="text-xl leading-none align-middle relative -top-0.5">∞</span>
-                ) : (
-                  freeAiRemaining + aiCreditRemaining > 100
-                    ? "100+"
-                    : freeAiRemaining + aiCreditRemaining
-                )}
-              </p>
-            )}
-            {editMode === "ai" && !canUseAI && (
-              <div className="mt-2 text-xs">
-                {isCollaborator ? (
-                  <>
-                    <p className="font-medium text-red-600">
-                      The project owner's AI-Assisted Editing limit has been reached.
-                    </p>
-                    <p className="mt-1 text-gray-600">
-                      Ask the owner to upgrade to{" "}
-                      <PlanLink plan="standard">Standard (${STANDARD_MONTHLY_PRICE}/mo)</PlanLink> or{" "}
-                      <PlanLink plan="pro">Pro (${PRO_MONTHLY_PRICE}/mo)</PlanLink> for unlimited AI
-                      edits, or to buy a video for +20 AI edits.
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <p className="font-medium text-red-600">
-                      You've used all your AI-Assisted edits.
-                    </p>
-                    <p className="mt-1 text-gray-600">
-                      Upgrade to{" "}
-                      <PlanLink plan="standard">Standard (${STANDARD_MONTHLY_PRICE}/mo)</PlanLink> or{" "}
-                      <PlanLink plan="pro">Pro (${PRO_MONTHLY_PRICE}/mo)</PlanLink> for unlimited AI
-                      edits, or buy a video to get +20 AI edits.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => navigate("/pricing")}
-                      className="mt-2 inline-flex items-center rounded-md bg-purple-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-purple-700"
-                    >
-                      View all plans
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* ── Manual mode fields ── */}
-          {editMode === "manual" && (
-            <div className="mt-4 space-y-4">
-              <div>
-                <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                  {currentLayoutId === "magazine_cover" ? "Cover Line" : "Title"}
-                </h4>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                />
-              </div>
-
-              <div>
-                <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                  Display text
-                </h4>
-                <AutoGrowTextarea
-                  value={displayText}
-                  onChange={(e) => setDisplayText(e.target.value)}
-                  placeholder="Enter the text that will be displayed on screen..."
-                  className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden"
-                  minRows={2}
-                />
-              </div>
-
-              <div>
-                <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                  Extra hold (seconds)
-                </h4>
-                <input
-                  type="number"
-                  min={0}
-                  max={30}
-                  step={0.5}
-                  value={extraHoldSeconds}
-                  onChange={(e) => setExtraHoldSeconds(e.target.value)}
-                  placeholder="0"
-                  className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                />
-                <p className="mt-1 text-[11px] text-gray-500">
-                  Add seconds after the voiceover ends so animations can complete before transitioning.
-                </p>
-              </div>
-
-              {/* ── Layout content fields (dynamic per layout type, with extras) ── */}
-              {(() => {
+  const renderLayoutContentBlock = (): { node: ReactNode; hasTables: boolean } => {
+    let __layoutHasTables = false;
+    const __node = (() => {
                 if (isEndingScene) {
                   const updateCta = (idx: number, patch: Partial<CtaDraft>) => {
                     setCtas((prev) =>
@@ -4945,6 +4633,7 @@ export default function SceneEditModal({
                   getLayoutFields(project.template || "default", currentLayoutId) ??
                   bundledMetaSchemaFields;
                 let layoutFields = (rawLayoutFields ?? []).filter((f) => !isHiddenLayoutPropKey(f.key));
+                __layoutHasTables = fieldsHaveTable(layoutFields);
 
                 if (isNewscastTemplate && currentLayoutId === "data_visualization") {
                   const chartTable = normalizeChartTableValue((editableLayoutProps as Record<string, unknown>).chartTable);
@@ -5690,10 +5379,491 @@ export default function SceneEditModal({
                   </div>
                 </div>
               );
-              })()}
+    })();
+    return { node: __node, hasTables: __layoutHasTables };
+  };
 
-              {/* ── Structured content fields for custom templates ── */}
+
+  useEffect(() => {
+    imageAdjustFocusRef.current = { x: imageAdjustFocusX, y: imageAdjustFocusY };
+  }, [imageAdjustFocusX, imageAdjustFocusY]);
+
+  useEffect(() => {
+    if (!isAdjustDragging || !imageAdjustOpen || !imageAdjustSrc) return;
+    const pan = imageAdjustPanRef.current;
+    if (!pan) return;
+
+    const clamp = (v: number) => Math.max(0, Math.min(100, v));
+
+    const applyPan = (clientX: number, clientY: number) => {
+      const el = imageAdjustPreviewRef.current;
+      if (!el || !imageAdjustPanRef.current) return;
+      const rect = el.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+      const { startX, startY, startFx, startFy } = imageAdjustPanRef.current;
+      const dxPct = ((clientX - startX) / rect.width) * 100;
+      const dyPct = ((clientY - startY) / rect.height) * 100;
+      setImageAdjustFocusX(clamp(startFx - dxPct));
+      setImageAdjustFocusY(clamp(startFy - dyPct));
+    };
+
+    const onMouseMove = (e: MouseEvent) => applyPan(e.clientX, e.clientY);
+    const onTouchMove = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      if (!touch) return;
+      e.preventDefault();
+      applyPan(touch.clientX, touch.clientY);
+    };
+    const endPan = () => {
+      setIsAdjustDragging(false);
+      imageAdjustPanRef.current = null;
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("mouseup", endPan);
+    window.addEventListener("touchend", endPan);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("mouseup", endPan);
+      window.removeEventListener("touchend", endPan);
+    };
+  }, [isAdjustDragging, imageAdjustOpen, imageAdjustSrc]);
+
+  useLayoutEffect(() => {
+    if (!imageAdjustOpen || !imageAdjustSrc) return;
+    const el = imageAdjustPreviewRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY;
+      setImageAdjustZoom((z) => {
+        const factor = delta > 0 ? 0.97 : 1.03;
+        const next = Math.min(
+          IMAGE_ADJUST_ZOOM_MAX,
+          Math.max(IMAGE_ADJUST_ZOOM_MIN, z * factor)
+        );
+        return Math.round(next * 100) / 100;
+      });
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [imageAdjustOpen, imageAdjustSrc]);
+
+  const openImageAdjustModal = (src: string) => {
+    setImageAdjustSrc(src);
+    setIsAdjustDragging(false);
+    const currentZoom = Math.max(IMAGE_ADJUST_ZOOM_MIN, Number((editableLayoutProps.imageZoom as number) || 1));
+    setImageAdjustFocusX(imageFocusX);
+    setImageAdjustFocusY(imageFocusY);
+    setImageAdjustZoom(Math.min(IMAGE_ADJUST_ZOOM_MAX, Math.max(IMAGE_ADJUST_ZOOM_MIN, currentZoom)));
+
+    // Compute the preview box aspect ratio + circular flag from the image box
+    // config so the framing preview matches the layout's real image slot —
+    // mirroring the scene-details dropdown on the project view page.
+    const orientation = project.aspect_ratio === "portrait" ? "portrait" : "landscape";
+    let ar: string;
+    let circular = false;
+    if (isCustomTemplate) {
+      ar = resolveCustomImageBoxAr(scene, project);
+    } else if (isCraftedTemplate) {
+      ar =
+        _resolveCraftedImageBoxArFromFiles(craftedFrontendFiles, currentLayoutId, orientation) ||
+        (orientation === "portrait" ? "9 / 16" : "16 / 9");
+    } else {
+      const templateCfg = getTemplateConfig(project.template || "default");
+      ar = getImageBoxAspectRatio(
+        currentLayoutId ? normalizeLayoutId(currentLayoutId) : null,
+        orientation,
+        templateCfg.baseWidth,
+        templateCfg.baseHeight,
+      );
+      circular = isImageBoxCircular(currentLayoutId);
+    }
+    setImageAdjustAspectRatio(ar);
+    setImageAdjustCircular(circular);
+
+    imageAdjustPanRef.current = null;
+    setImageAdjustOpen(true);
+  };
+
+  const closeImageAdjustModal = () => {
+    setImageAdjustOpen(false);
+    setImageAdjustSrc(null);
+    setIsAdjustDragging(false);
+    imageAdjustPanRef.current = null;
+  };
+
+  const saveImageAdjustModal = async () => {
+    const nextFocusX = clampFocus(imageAdjustFocusX);
+    const nextFocusY = clampFocus(imageAdjustFocusY);
+    const nextZoom = Math.max(IMAGE_ADJUST_ZOOM_MIN, Math.min(IMAGE_ADJUST_ZOOM_MAX, imageAdjustZoom));
+    setImageFocusX(nextFocusX);
+    setImageFocusY(nextFocusY);
+    setEditableLayoutProps((prev) => ({ ...prev, imageZoom: nextZoom }));
+    closeImageAdjustModal();
+    await handleSave({ imageFocusX: nextFocusX, imageFocusY: nextFocusY, imageZoom: nextZoom });
+  };
+
+  const handleAdjustMouseDown = (e: ReactMouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    imageAdjustPanRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startFx: imageAdjustFocusRef.current.x,
+      startFy: imageAdjustFocusRef.current.y,
+    };
+    setIsAdjustDragging(true);
+  };
+
+  const handleAdjustTouchStart = (e: ReactTouchEvent<HTMLDivElement>) => {
+    const touch = e.touches[0];
+    if (!touch) return;
+    e.preventDefault();
+    imageAdjustPanRef.current = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      startFx: imageAdjustFocusRef.current.x,
+      startFy: imageAdjustFocusRef.current.y,
+    };
+    setIsAdjustDragging(true);
+  };
+
+  const openImportPreview = useCallback(
+    (
+      matrix: string[][],
+      maxCols: number,
+      maxRows: number,
+      onApply: (t: { headers: string[]; rows: string[][] }) => void,
+      sheetNames?: string[],
+      activeSheet?: string,
+      wb?: import("xlsx").WorkBook,
+      isChartTable?: boolean,
+    ) => {
+      if (matrix.length === 0) return;
+      chartImportCallbackRef.current = onApply;
+      setImportPreview({ matrix, maxCols, maxRows, sheetNames, activeSheet, wb, isChartTable });
+    },
+    [],
+  );
+
+  const matrixFromSheet = useCallback((wb: import("xlsx").WorkBook, sheetName: string): string[][] => {
+    const ws = wb.Sheets[sheetName];
+    return XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, defval: "" }).map((r: string[]) =>
+      (r as unknown[]).map(String),
+    );
+  }, []);
+
+  const handleTableFileImport = useCallback(
+    (
+      file: File,
+      maxCols: number,
+      maxRows: number,
+      onApply: (t: { headers: string[]; rows: string[][] }) => void,
+      isChartTable?: boolean,
+    ) => {
+      const isExcel = /\.(xlsx|xls)$/i.test(file.name);
+      if (isExcel) {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const data = new Uint8Array(ev.target?.result as ArrayBuffer);
+          const wb = XLSX.read(data, { type: "array" });
+          const firstSheet = wb.SheetNames[0];
+          const matrix = XLSX.utils.sheet_to_json<string[]>(wb.Sheets[firstSheet], {
+            header: 1,
+            defval: "",
+          }).map((r: string[]) => (r as unknown[]).map(String));
+          openImportPreview(
+            matrix,
+            maxCols,
+            maxRows,
+            onApply,
+            wb.SheetNames.length > 1 ? wb.SheetNames : undefined,
+            firstSheet,
+            wb.SheetNames.length > 1 ? wb : undefined,
+            isChartTable,
+          );
+        };
+        reader.readAsArrayBuffer(file);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const text = ev.target?.result as string;
+        if (!text) return;
+        const lines = text.trim().split(/\r?\n/);
+        const matrix = lines.map((l) => l.split(",").map((c) => c.trim().replace(/^"|"$/g, "")));
+        openImportPreview(matrix, maxCols, maxRows, onApply, undefined, undefined, undefined, isChartTable);
+      };
+      reader.readAsText(file);
+    },
+    [openImportPreview],
+  );
+
+  if (!open) return null;
+
+  const manualOnly = editMode === "manual";
+
+  const modalTree = (
+    <>
+    <div className={isDemo ? "absolute inset-0 z-10 flex items-center justify-center" : "fixed inset-0 z-[100] flex items-center justify-center"}>
+      <div
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div
+        className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full mx-4 max-h-[92vh] overflow-hidden flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-8 py-5 border-b border-gray-100 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900">
+            Edit Scene {scene.order}
+          </h2>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="px-8 py-6 overflow-y-auto flex-1">
+          {/* Manual vs AI toggle (compact). AI-Assisted is the default selection. */}
+          <div>
+            <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1">
+              Editing mode
+            </h4>
+            <p className="mb-2 text-xs text-gray-500">
+              Pick a tab — use <span className="font-medium text-gray-600">AI-Assisted</span> to let AI change the
+              scene for you, or <span className="font-medium text-gray-600">Manual</span> to edit it yourself.
+            </p>
+            <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setEditMode("ai")}
+                className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${
+                  editMode === "ai"
+                    ? "bg-white text-purple-600 shadow-sm"
+                    : "text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                AI-Assisted editing
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditMode("manual")}
+                className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${
+                  editMode === "manual"
+                    ? "bg-white text-purple-600 shadow-sm"
+                    : "text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                Manual editing
+              </button>
+            </div>
+            {editMode === "ai" && canUseAI && (
+              <p className="mt-2 text-xs text-gray-600 font-medium">
+                AI edits remaining:{" "}
+                {effectiveIsPro ? (
+                  <span className="text-xl leading-none align-middle relative -top-0.5">∞</span>
+                ) : (
+                  freeAiRemaining + aiCreditRemaining > 100
+                    ? "100+"
+                    : freeAiRemaining + aiCreditRemaining
+                )}
+              </p>
+            )}
+            {editMode === "ai" && !canUseAI && (
+              <div className="mt-2 text-xs">
+                {isCollaborator ? (
+                  <>
+                    <p className="font-medium text-red-600">
+                      The project owner's AI-Assisted Editing limit has been reached.
+                    </p>
+                    <p className="mt-1 text-gray-600">
+                      Ask the owner to upgrade to{" "}
+                      <PlanLink plan="standard">Standard (${STANDARD_MONTHLY_PRICE}/mo)</PlanLink> or{" "}
+                      <PlanLink plan="pro">Pro (${PRO_MONTHLY_PRICE}/mo)</PlanLink> for unlimited AI
+                      edits, or to buy a video for +20 AI edits.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-medium text-red-600">
+                      You've used all your AI-Assisted edits.
+                    </p>
+                    <p className="mt-1 text-gray-600">
+                      Upgrade to{" "}
+                      <PlanLink plan="standard">Standard (${STANDARD_MONTHLY_PRICE}/mo)</PlanLink> or{" "}
+                      <PlanLink plan="pro">Pro (${PRO_MONTHLY_PRICE}/mo)</PlanLink> for unlimited AI
+                      edits, or buy a video to get +20 AI edits.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => navigate("/pricing")}
+                      className="mt-2 inline-flex items-center rounded-md bg-purple-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-purple-700"
+                    >
+                      View all plans
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* ── Manual mode fields ── */}
+          {editMode === "manual" && (() => {
+            // The "Layout content" block (dynamic per layout) is computed ONCE
+            // here so it can be routed to the right manual tab: data-viz / ticker
+            // scenes (those exposing a chart/ticker/table field) show it in the
+            // dedicated "Chart data" tab; every other scene keeps it in "Scene
+            // Props". `hasTables` is derived from the very fields this block
+            // renders, so the routing can never disagree with what's shown.
+            const layoutContent = renderLayoutContentBlock();
+            const layoutHasTables = layoutContent.hasTables;
+            const layoutContentNode = layoutContent.node;
+            return (
+            <div className="mt-4 space-y-3">
+              <ManualTabCard
+                title="Scene Settings"
+                open={openManualTab === "settings"}
+                onToggle={() => toggleManualTab("settings")}
+              >
+              <div>
+                <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                  {currentLayoutId === "magazine_cover" ? "Cover Line" : "Title"}
+                </h4>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              <div>
+                <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                  Display text
+                </h4>
+                <AutoGrowTextarea
+                  value={displayText}
+                  onChange={(e) => setDisplayText(e.target.value)}
+                  placeholder="Enter the text that will be displayed on screen..."
+                  className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden"
+                  minRows={2}
+                />
+              </div>
+
+              <div>
+                <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                  Extra hold (seconds)
+                </h4>
+                <input
+                  type="number"
+                  min={0}
+                  max={30}
+                  step={0.5}
+                  value={extraHoldSeconds}
+                  onChange={(e) => setExtraHoldSeconds(e.target.value)}
+                  placeholder="0"
+                  className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                <p className="mt-1 text-[11px] text-gray-500">
+                  Add seconds after the voiceover ends so animations can complete before transitioning.
+                </p>
+              </div>
+
+              <div>
+                <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2.5">
+                  Typography <span className="normal-case tracking-normal text-gray-300">(optional)</span>
+                </h4>
+                <div className="space-y-3">
+                  <div>
+                    <div className="flex justify-between items-baseline">
+                      <label className="text-xs text-gray-400">Title font size</label>
+                      {(() => {
+                        const parsed = parseInt(titleFontSize, 10);
+                        const isOverride = Number.isFinite(parsed);
+                        const display = isOverride ? parsed : defaultFontSizes.title;
+                        return (
+                          <span className="text-xs font-medium text-purple-600 tabular-nums">
+                            {display}
+                            {!isOverride && (
+                              <span className="ml-1 text-[10px] font-normal text-gray-300">(default)</span>
+                            )}
+                          </span>
+                        );
+                      })()}
+                    </div>
+                    <input
+                      type="range"
+                      min={20}
+                      max={200}
+                      step={1}
+                      value={Math.min(200, Math.max(20, parseInt(titleFontSize, 10) || defaultFontSizes.title))}
+                      onChange={(e) => setTitleFontSize(e.target.value)}
+                      className="w-full h-1 bg-gray-200 rounded-full appearance-none cursor-pointer accent-purple-600"
+                    />
+                  </div>
+                  <div>
+                    <div className="flex justify-between items-baseline ">
+                      <label className="text-xs text-gray-400">Description font size</label>
+                      {(() => {
+                        const parsed = parseInt(descriptionFontSize, 10);
+                        const isOverride = Number.isFinite(parsed);
+                        const display = isOverride ? parsed : defaultFontSizes.desc;
+                        return (
+                          <span className="text-xs font-medium text-purple-600 tabular-nums">
+                            {display}
+                            {!isOverride && (
+                              <span className="ml-1 text-[10px] font-normal text-gray-300">(default)</span>
+                            )}
+                          </span>
+                        );
+                      })()}
+                    </div>
+                    <input
+                      type="range"
+                      min={12}
+                      max={80}
+                      step={1}
+                      value={Math.min(80, Math.max(12, parseInt(descriptionFontSize, 10) || defaultFontSizes.desc))}
+                      onChange={(e) => setDescriptionFontSize(e.target.value)}
+                      className="w-full h-1 bg-gray-200 rounded-full appearance-none cursor-pointer accent-purple-600"
+                    />
+                  </div>
+                </div>
+              </div>
+              </ManualTabCard>
+
+              {/* ── Chart data (data-viz / ticker scenes only) — 2nd tab when present ── */}
+              {layoutHasTables && (
+                <ManualTabCard
+                  title="Chart data"
+                  open={openManualTab === "chartdata"}
+                  onToggle={() => toggleManualTab("chartdata")}
+                >
+                  {layoutContentNode}
+                </ManualTabCard>
+              )}
+
+              {/* ── Layout content fields (dynamic per layout type, with extras) ── */}
+              <ManualTabCard
+                title="Scene Props"
+                open={openManualTab === "props"}
+                onToggle={() => toggleManualTab("props")}
+              >
               {(() => {
+                const propsBlocks = [
+                // Layout content: routed to "Chart data" when this scene exposes
+                // table fields, otherwise shown here in "Scene Props".
+                layoutHasTables ? null : layoutContentNode,
+
+              /* ── Structured content fields for custom templates ── */
+              (() => {
                 if (!isCustomTemplate) return null;
                 const ct = (editableStructuredContent.contentType as string) || "plain";
                 const scFields = CUSTOM_CONTENT_FIELDS[ct];
@@ -5879,69 +6049,22 @@ export default function SceneEditModal({
                     </div>
                   </div>
                 );
+                })(),
+                ];
+                const hasProps = propsBlocks.some((b) => b != null);
+                return hasProps ? (
+                  <>
+                    {propsBlocks.map((b, i) => (
+                      <Fragment key={i}>{b}</Fragment>
+                    ))}
+                  </>
+                ) : (
+                  <p className="text-xs text-gray-400 italic">
+                    No props for this scene.
+                  </p>
+                );
               })()}
-
-              <div>
-                <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2.5">
-                  Typography <span className="normal-case tracking-normal text-gray-300">(optional)</span>
-                </h4>
-                <div className="space-y-3">
-                  <div>
-                    <div className="flex justify-between items-baseline">
-                      <label className="text-xs text-gray-400">Title font size</label>
-                      {(() => {
-                        const parsed = parseInt(titleFontSize, 10);
-                        const isOverride = Number.isFinite(parsed);
-                        const display = isOverride ? parsed : defaultFontSizes.title;
-                        return (
-                          <span className="text-xs font-medium text-purple-600 tabular-nums">
-                            {display}
-                            {!isOverride && (
-                              <span className="ml-1 text-[10px] font-normal text-gray-300">(default)</span>
-                            )}
-                          </span>
-                        );
-                      })()}
-                    </div>
-                    <input
-                      type="range"
-                      min={20}
-                      max={200}
-                      step={1}
-                      value={Math.min(200, Math.max(20, parseInt(titleFontSize, 10) || defaultFontSizes.title))}
-                      onChange={(e) => setTitleFontSize(e.target.value)}
-                      className="w-full h-1 bg-gray-200 rounded-full appearance-none cursor-pointer accent-purple-600"
-                    />
-                  </div>
-                  <div>
-                    <div className="flex justify-between items-baseline ">
-                      <label className="text-xs text-gray-400">Description font size</label>
-                      {(() => {
-                        const parsed = parseInt(descriptionFontSize, 10);
-                        const isOverride = Number.isFinite(parsed);
-                        const display = isOverride ? parsed : defaultFontSizes.desc;
-                        return (
-                          <span className="text-xs font-medium text-purple-600 tabular-nums">
-                            {display}
-                            {!isOverride && (
-                              <span className="ml-1 text-[10px] font-normal text-gray-300">(default)</span>
-                            )}
-                          </span>
-                        );
-                      })()}
-                    </div>
-                    <input
-                      type="range"
-                      min={12}
-                      max={80}
-                      step={1}
-                      value={Math.min(80, Math.max(12, parseInt(descriptionFontSize, 10) || defaultFontSizes.desc))}
-                      onChange={(e) => setDescriptionFontSize(e.target.value)}
-                      className="w-full h-1 bg-gray-200 rounded-full appearance-none cursor-pointer accent-purple-600"
-                    />
-                  </div>
-                </div>
-              </div>
+              </ManualTabCard>
 
               <div>
                 <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
@@ -5953,7 +6076,7 @@ export default function SceneEditModal({
                     {imageItems.map(({ url, asset }) => (
                       <div
                         key={asset.id}
-                        className="relative group rounded-lg overflow-hidden border border-gray-200/40 w-20 h-20 flex-shrink-0"
+                        className="relative group rounded-lg overflow-hidden border border-gray-200/40 w-20 h-24 flex-shrink-0"
                       >
                         <img
                           src={url}
@@ -5991,7 +6114,7 @@ export default function SceneEditModal({
                       </div>
                     ))}
                     {selectedImageFile && imagePreviewUrl && (
-                      <div className="relative group rounded-lg overflow-hidden border-2 border-purple-400 w-20 h-20 flex-shrink-0">
+                      <div className="relative group rounded-lg overflow-hidden border-2 border-purple-400 w-20 h-24 flex-shrink-0">
                         <img
                           src={imagePreviewUrl}
                           alt="New image"
@@ -6023,8 +6146,21 @@ export default function SceneEditModal({
                     )}
                     <button
                       type="button"
+                      onClick={handleGenerateImageClick}
+                      className="group relative flex items-center justify-center w-20 h-24 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50/50 hover:bg-purple-100/50 transition-colors text-purple-700"
+                      title="Generate image with AI"
+                    >
+                      <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                      </svg>
+                      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 text-[10px] font-medium text-white bg-gray-900 rounded opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap max-w-[180px] text-center">
+                        Generate image with AI
+                      </span>
+                    </button>
+                    <button
+                      type="button"
                       onClick={handleOpenImageSourceChooser}
-                      className="flex items-center justify-center w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50/50 hover:bg-gray-100/50 transition-colors"
+                      className="flex items-center justify-center w-20 h-24 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50/50 hover:bg-gray-100/50 transition-colors"
                       title="Add image"
                     >
                       <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -6038,19 +6174,6 @@ export default function SceneEditModal({
                       onChange={(e) => setSelectedImageFile(e.target.files?.[0] || null)}
                       className="hidden"
                     />
-                    <button
-                      type="button"
-                      onClick={handleGenerateImageClick}
-                      className="group relative flex items-center justify-center w-20 h-20 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50/50 hover:bg-purple-100/50 transition-colors text-purple-700"
-                      title="Generate image with AI"
-                    >
-                      <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                      </svg>
-                      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 text-[10px] font-medium text-white bg-gray-900 rounded opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap max-w-[180px] text-center">
-                        Generate image with AI
-                      </span>
-                    </button>
                   </div>
                   {(imageItems.length > 0 || selectedImageFile) && (
                     <div className="mt-3">
@@ -6067,7 +6190,8 @@ export default function SceneEditModal({
                 )}
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {/* ── AI-Assisted mode fields ── */}
           {editMode === "ai" && (
@@ -6191,9 +6315,8 @@ export default function SceneEditModal({
                   {regenerateVoiceover && (
                     <div className="mt-3 ml-0 flex items-center justify-between gap-3 rounded-lg bg-gray-50 px-3 py-2.5">
                       <div className="min-w-0">
-                        <p className="text-xs font-medium text-gray-700">Speak it word-for-word</p>
-                        <p className="mt-0.5 text-[11px] text-gray-500">
-                          On: say the narration exactly. Off: let AI smooth the phrasing.
+                        <p className="text-xs font-medium text-gray-700">
+                          Speak word-for-word (On) or let AI rephase it(Off).
                         </p>
                       </div>
                       <button
@@ -6239,7 +6362,7 @@ export default function SceneEditModal({
                     <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 1a3 3 0 00-3 3v7a3 3 0 006 0V4a3 3 0 00-3-3zM5 10v1a7 7 0 0014 0v-1M12 18v4" />
                     </svg>
-                    <span>Voice: <span className="font-medium text-gray-500 capitalize">{voiceLabel}</span> — change in project Settings</span>
+                    <span>You can change the voiceover type from project Settings</span>
                   </div>
                 </div>
 
@@ -6248,7 +6371,7 @@ export default function SceneEditModal({
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-gray-800">Scene layout</p>
-                      <p className="mt-0.5 text-xs text-gray-500">How this scene is arranged on screen. Keep it, or let AI re-pick.</p>
+                      <p className="mt-0.5 text-xs text-gray-500">Select a scene layout. Let the current layout, set one manually, or let AI decide.</p>
                     </div>
                 <div className="flex items-center gap-2">
                   <span className="inline-block px-2.5 py-1 bg-purple-50 text-purple-600 rounded-lg text-xs font-medium">

@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
 import { Link, useParams } from "react-router-dom";
+import DirectoryLinks from "../components/public/DirectoryLinks";
 import PublicFooter from "../components/public/PublicFooter";
 import PublicHeader from "../components/public/PublicHeader";
 import Seo from "../components/seo/Seo";
@@ -341,6 +342,8 @@ export default function BlogPostPage() {
             </div>
           </aside>
         </div>
+
+        <DirectoryLinks />
       </main>
 
       <PublicFooter />
