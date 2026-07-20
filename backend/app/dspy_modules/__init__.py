@@ -56,6 +56,9 @@ _theme_lm_lock = threading.Lock()
 _scene_lm: dspy.LM | None = None
 _scene_lm_lock = threading.Lock()
 
+_scene_type_lm: dspy.LM | None = None
+_scene_type_lm_lock = threading.Lock()
+
 
 _IS_PRODUCTION = settings.ENVIRONMENT.lower() == "production"
 
@@ -352,6 +355,44 @@ def get_custom_lm() -> dspy.LM:
         # kept as a redundant safety net.)
         _codegen_lm.cache = False
         return _codegen_lm
+
+
+def get_scene_type_lm() -> dspy.LM:
+    """Brand scene-type decision LM (DecideBrandSceneTypes, app.services.code_generator).
+
+    Split out from get_custom_lm() because that LM's max_tokens=12000 was getting
+    eaten by reasoning before the JSON array output: DecideBrandSceneTypes runs
+    under dspy.ChainOfThought (its own "reasoning" prose field) ON TOP OF GLM's own
+    internal thinking pass (reasoning_effort="medium" via get_custom_lm), so two
+    reasoning layers stacked into one budget and truncated the response. This is a
+    bounded classification task (pick 5-8 archetypes from a fixed taxonomy), not
+    open-ended generation, so it doesn't need get_custom_lm's codegen-tuned
+    "medium" effort — reasoning_effort="low" here leaves more of the budget for
+    the actual output and uses fewer tokens per call. Production still uses Claude
+    Sonnet 4.6 (no reasoning_effort knob), same as get_custom_lm's prod branch.
+    """
+    global _scene_type_lm
+    if _scene_type_lm is not None:
+        return _scene_type_lm
+    with _scene_type_lm_lock:
+        if _scene_type_lm is not None:
+            return _scene_type_lm
+        if _IS_PRODUCTION:
+            _scene_type_lm = _make_anthropic_lm(
+                "anthropic/claude-sonnet-4-6",
+                temperature=0.7,
+                max_tokens=12000,
+                api_key=_custom_anthropic_key(),
+            )
+        else:
+            _scene_type_lm = _make_zai_lm(
+                settings.CUSTOM_TEMPLATE_LM,
+                temperature=0.7,
+                max_tokens=12000,
+                thinking=_CODEGEN_THINKING,
+                reasoning_effort="low",
+            )
+        return _scene_type_lm
 
 
 def get_scene_lm() -> dspy.LM:
