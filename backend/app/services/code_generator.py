@@ -16,7 +16,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import dspy
 
-from app.dspy_modules import ensure_dspy_configured, get_custom_lm
+from app.dspy_modules import ensure_dspy_configured, get_custom_lm, get_scene_type_lm
 from app.models.custom_template import CustomTemplate
 from app.services.code_validator import clean_code, validate_component_code
 
@@ -255,6 +255,15 @@ class GenerateSceneCode(dspy.Signature):
     - interpolate(frame, inputRange, outputRange, options?) — BOTH ranges must be
       NUMBERS only. Never put strings/units inside (NOT ['0%','100%']); interpolate
       the number then add the unit in the style: width: `${interpolate(p,[0,1],[0,100])}%`
+    - interpolate's FIRST argument (the progress value, e.g. `frame`, `frame - item.delay`,
+      `frame - i*12`) MUST always evaluate to a finite number — "Cannot interpolate an input
+      which is not a number" is a hard runtime crash that takes down the whole scene. This
+      breaks whenever the value is derived from a field on a mapped item that might be
+      undefined (e.g. `item.delay`, `entry.offset`) rather than the loop index `i` itself.
+      When interpolating per-item inside a `.map((item, i) => ...)`, ALWAYS derive the
+      progress value from `i` (e.g. `frame - i * 12`), never from a property read off `item` —
+      props arrays (props.timelineItems, props.steps, etc.) are free-form data and are not
+      guaranteed to carry timing fields.
     - spring({ frame, fps, config: { damping, stiffness, mass }?, from?, to? })
     - Easing: Easing.bezier(x1,y1,x2,y2), Easing.inOut(Easing.ease)
     - AbsoluteFill, Sequence, Img, random(seed)
@@ -901,7 +910,7 @@ def _decide_brand_scene_types(brand_context: str, user_brief: str = "") -> list[
     """
     ensure_dspy_configured()
     module = dspy.ChainOfThought(DecideBrandSceneTypes)
-    codegen_lm = get_custom_lm()
+    codegen_lm = get_scene_type_lm()
 
     last_error = None
     for attempt in range(2):

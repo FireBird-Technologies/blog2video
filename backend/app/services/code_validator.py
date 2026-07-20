@@ -250,6 +250,39 @@ def validate_component_code(code: str, scene_type: str = "content") -> tuple[boo
         except ValueError:
             pass
 
+    # interpolate's first argument (the progress value) must always resolve to a
+    # finite number — "Cannot interpolate an input which is not a number" is a hard
+    # runtime crash. The common cause: inside a `.map((item, i) => ...)`, the progress
+    # value is derived from a field read off `item` (e.g. `item.delay`, `entry.offset`)
+    # instead of the guaranteed-numeric loop index `i`. Free-form props arrays
+    # (timelineItems, steps, etc.) aren't guaranteed to carry that field, so it's
+    # `undefined` at runtime and interpolate throws. Flag first-arg property reads —
+    # legitimate uses (frame, frame - i*12, Math.min(frame, 30), a plain variable)
+    # don't match this shape. Parens are depth-tracked so a nested call's own commas
+    # (e.g. Math.min(frame, 30)) aren't mistaken for the arg separator.
+    for call_m in re.finditer(r'\binterpolate\s*\(', code):
+        start = call_m.end()
+        depth = 1
+        i = start
+        while i < len(code) and depth > 0:
+            if code[i] == '(':
+                depth += 1
+            elif code[i] == ')':
+                depth -= 1
+            elif code[i] == ',' and depth == 1:
+                break
+            i += 1
+        first_arg = code[start:i].strip()
+        # `\w+\.\w+` alone would also match `Math.min(`/`Math.max(` (legitimate clamps) —
+        # the trailing (?!\s*\() excludes any dotted name immediately followed by a
+        # call, so only a bare property READ (item.delay, not item.method()) is flagged.
+        if re.search(r'\b\w+\.\w+\b(?!\s*\()', first_arg) and not re.search(r'\bi\s*\*', first_arg):
+            return False, (
+                f"interpolate's first argument reads a property off an object ({first_arg!r}) — "
+                "this crashes at runtime if that field is undefined on any item. Derive the "
+                "progress value from the .map() loop index instead, e.g. `frame - i * 12`."
+            )
+
     # Self-referential destructure of pre-injected kit globals crashes with a TDZ
     # "Cannot access 'X' before initialization": the model writes
     #   const { staggerEntrance, panelRise } = { staggerEntrance, panelRise };
