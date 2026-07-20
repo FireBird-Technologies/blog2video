@@ -19,6 +19,7 @@ import {
   reorderScenes,
   updateScene,
   updateSceneImage,
+  updateSceneVoiceover,
   assignExistingImageToScene,
   updateSceneImageFocus,
   deleteScene,
@@ -73,6 +74,7 @@ import SceneEditModal, {
   resolveDefaultFontSizesForScene,
 } from "../components/SceneEditModal";
 import GenerateSceneImageModal from "../components/GenerateSceneImageModal";
+import RecordVoiceoverModal from "../components/RecordVoiceoverModal";
 import ChatPanel from "../components/ChatPanel";
 import UpgradeModal from "../components/UpgradeModal";
 import UpgradePlanModal from "../components/UpgradePlanModal";
@@ -353,6 +355,11 @@ function AudioRow({
   bgmTrackUrl,
   projectBgmVolume,
   onBgmSaved,
+  pendingUrl,
+  onRecord,
+  onDiscard,
+  onSaveRecording,
+  savingRecording,
 }: {
   scene: Scene;
   projectId: number;
@@ -361,6 +368,15 @@ function AudioRow({
   bgmTrackUrl: string | null;
   projectBgmVolume: number;
   onBgmSaved?: () => void;
+  /** Applied-but-unsaved recording URL; overrides the saved voiceover for playback. */
+  pendingUrl?: string | null;
+  onRecord?: () => void;
+  /** Discard the applied-but-unsaved recording for this scene. */
+  onDiscard?: () => void;
+  /** Save just this scene's applied recording. */
+  onSaveRecording?: () => void;
+  /** True while this scene's recording is being saved (disables/spins the Save button). */
+  savingRecording?: boolean;
 }) {
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -416,11 +432,13 @@ function AudioRow({
     }
   };
 
-  // Extract audio filename; use latest asset by id (regenerated scene = new asset) and cache-bust URL
+  // Extract audio filename; use latest asset by id (regenerated scene = new asset) and cache-bust URL.
+  // A pending (applied, unsaved) recording takes precedence over the saved voiceover.
   const audioFilename = extractAudioFilename(scene.voiceover_path) || `scene_${scene.order}.mp3`;
-  const audioUrl = scene.voiceover_path
+  const savedAudioUrl = scene.voiceover_path
     ? resolveVoiceoverUrl(projectId, audioFilename, audioAssets)
     : null;
+  const audioUrl = pendingUrl ?? savedAudioUrl;
 
   useEffect(() => {
     return () => {
@@ -475,7 +493,7 @@ function AudioRow({
 
   return (
     <div className="glass-card p-4">
-      <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center gap-4">
       {/* Scene number */}
       <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center flex-shrink-0">
         <span className="text-xs font-semibold text-purple-600">
@@ -502,7 +520,7 @@ function AudioRow({
       </button>
 
       {/* Info + progress */}
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-[140px]">
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-xs font-medium text-gray-900 truncate">
             {scene.title}
@@ -529,9 +547,73 @@ function AudioRow({
 
       </div>
 
+      {/* Record your own voice — wraps below the play/progress on small screens */}
+      {onRecord && (
+        <button
+          type="button"
+          onClick={onRecord}
+          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 hover:border-purple-300 transition-colors flex-shrink-0 ml-auto sm:ml-0"
+          title="Record your own voice"
+        >
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
+            <rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor" />
+            <path d="M5 10v1a7 7 0 0 0 14 0v-1M12 18v3M8.5 21h7" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <span className="text-xs font-medium hidden sm:inline">Record</span>
+        </button>
+      )}
+
+      {/* Save / discard applied recording */}
+      {pendingUrl && (
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {onSaveRecording && (
+            <button
+              type="button"
+              onClick={onSaveRecording}
+              disabled={savingRecording}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold text-white bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300 transition-colors"
+              title="Save the recorded voice for this scene"
+            >
+              {savingRecording ? (
+                <>
+                  <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Saving…
+                </>
+              ) : (
+                <>
+                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  Save
+                </>
+              )}
+            </button>
+          )}
+          {onDiscard && (
+            <button
+              type="button"
+              onClick={onDiscard}
+              disabled={savingRecording}
+              className="inline-flex items-center gap-1 text-[11px] font-medium text-red-600 hover:text-red-700 hover:underline disabled:opacity-50 transition-colors"
+              title="Discard the recorded voice for this scene"
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Discard
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Status indicator */}
       <div className="flex-shrink-0">
-        {audioUrl ? (
+        {pendingUrl ? (
+          <span className="w-2 h-2 rounded-full bg-purple-500 block" title="Recorded voice applied (unsaved)" />
+        ) : audioUrl ? (
           <span className="w-2 h-2 rounded-full bg-green-400 block" />
         ) : (
           <span className="w-2 h-2 rounded-full bg-gray-200 block" />
@@ -602,9 +684,10 @@ function AudioRow({
         </div>
       )}
 
-      {/* Hidden audio element */}
+      {/* Hidden audio element — keyed by URL so swapping to a pending recording reloads it */}
       {audioUrl && (
         <audio
+          key={audioUrl}
           ref={audioRef}
           src={audioUrl}
           onTimeUpdate={handleTimeUpdate}
@@ -1127,6 +1210,30 @@ export default function ProjectView() {
   const [sceneToDelete, setSceneToDelete] = useState<Scene | null>(null);
   const [removingAssetId, setRemovingAssetId] = useState<number | null>(null);
   const [uploadingSceneId, setUploadingSceneId] = useState<number | null>(null);
+  // Custom user-recorded voiceovers: applied-but-unsaved recordings, keyed by scene id.
+  const [recordModalScene, setRecordModalScene] = useState<Scene | null>(null);
+  const [pendingRecordings, setPendingRecordings] = useState<
+    Map<number, { blob: Blob; url: string; duration: number }>
+  >(new Map());
+  const [savingRecordings, setSavingRecordings] = useState(false);
+  // Scene id currently being saved individually (per-scene Save button).
+  const [savingRecordingSceneId, setSavingRecordingSceneId] = useState<number | null>(null);
+  // sceneId → { url, duration }, so the preview player uses the applied (unsaved)
+  // recording's audio AND its measured length (not the stale scene duration).
+  const pendingVoiceovers = useMemo(() => {
+    const m = new Map<number, { url: string; duration: number }>();
+    pendingRecordings.forEach(({ url, duration }, sceneId) =>
+      m.set(sceneId, { url, duration })
+    );
+    return m;
+  }, [pendingRecordings]);
+  // Revoke any pending recording object URLs on unmount to avoid leaks.
+  useEffect(() => {
+    return () => {
+      pendingRecordings.forEach(({ url }) => URL.revokeObjectURL(url));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [imageSourceChooserSceneId, setImageSourceChooserSceneId] = useState<number | null>(null);
   const [scrapedImagesPickerSceneId, setScrapedImagesPickerSceneId] = useState<number | null>(null);
   const [selectedExistingAssetId, setSelectedExistingAssetId] = useState<number | null>(null);
@@ -2922,7 +3029,12 @@ export default function ProjectView() {
     },
     { id: "script", label: "Script" },
     { id: "images", label: "Images" },
-    ...(project.voice_gender !== "none" || project.bgm_track_id ? [{ id: "audio" as Tab, label: "Audio" }] : []),
+    ...(project.voice_gender !== "none" ||
+    project.bgm_track_id ||
+    project.scenes.some((s) => s.voiceover_path) ||
+    pendingRecordings.size > 0
+      ? [{ id: "audio" as Tab, label: "Audio" }]
+      : []),
     { id: "settings", label: "Settings" },
   ];
 
@@ -2931,15 +3043,11 @@ export default function ProjectView() {
   );
   const showInlineReviewPrompt = Boolean(
     isProjectOwner &&
+    !inlineReviewSubmitted &&
+    !reviewState?.has_review_for_project &&
     (
-      inlineReviewSubmitted ||
-        (
-          !reviewState?.has_review_for_project &&
-          (
-            reviewState?.should_show_inline ||
-            (isFirstProject && firstProjectPopupDismissed)
-          )
-        )
+      reviewState?.should_show_inline ||
+      (isFirstProject && firstProjectPopupDismissed)
     )
   );
 
@@ -3088,6 +3196,79 @@ export default function ProjectView() {
       await loadProject();
     } finally {
       setUploadingSceneId(null);
+    }
+  };
+
+  // Custom voiceover recording: apply (in-memory) and save (upload to R2).
+  const handleApplyRecording = (sceneId: number, blob: Blob, duration: number) => {
+    setPendingRecordings((prev) => {
+      const next = new Map(prev);
+      const existing = next.get(sceneId);
+      if (existing) URL.revokeObjectURL(existing.url);
+      next.set(sceneId, { blob, url: URL.createObjectURL(blob), duration });
+      return next;
+    });
+  };
+
+  // Scene length (seconds) for an applied recording — mirrors the backend/preview
+  // math: max(MIN_SCENE_DURATION_SECONDS=7, recordedDuration + DURATION_PAD=1) + extra_hold.
+  const pendingSceneDuration = (scene: Scene): number | undefined => {
+    const pending = pendingRecordings.get(scene.id);
+    if (!pending) return undefined;
+    return Math.max(7, pending.duration + 1.0) + (Number(scene.extra_hold_seconds) || 0);
+  };
+
+  const handleDiscardRecording = (sceneId: number) => {
+    setPendingRecordings((prev) => {
+      const existing = prev.get(sceneId);
+      if (!existing) return prev;
+      URL.revokeObjectURL(existing.url);
+      const next = new Map(prev);
+      next.delete(sceneId);
+      return next;
+    });
+  };
+
+  const handleDiscardAllRecordings = () => {
+    setPendingRecordings((prev) => {
+      prev.forEach(({ url }) => URL.revokeObjectURL(url));
+      return new Map();
+    });
+  };
+
+  const handleSaveRecordings = async () => {
+    if (pendingRecordings.size === 0) return;
+    setSavingRecordings(true);
+    try {
+      for (const [sceneId, { blob }] of pendingRecordings) {
+        await updateSceneVoiceover(project.id, sceneId, blob);
+      }
+      // Revoke all object URLs and clear pending state, then refetch.
+      pendingRecordings.forEach(({ url }) => URL.revokeObjectURL(url));
+      setPendingRecordings(new Map());
+      await loadProject();
+    } finally {
+      setSavingRecordings(false);
+    }
+  };
+
+  // Save a single scene's recording (per-scene Save button). Removes it from the
+  // pending map on success, which auto-updates the Save-all banner's count.
+  const handleSaveRecording = async (sceneId: number) => {
+    const pending = pendingRecordings.get(sceneId);
+    if (!pending || savingRecordingSceneId != null || savingRecordings) return;
+    setSavingRecordingSceneId(sceneId);
+    try {
+      await updateSceneVoiceover(project.id, sceneId, pending.blob);
+      URL.revokeObjectURL(pending.url);
+      setPendingRecordings((prev) => {
+        const next = new Map(prev);
+        next.delete(sceneId);
+        return next;
+      });
+      await loadProject();
+    } finally {
+      setSavingRecordingSceneId(null);
     }
   };
 
@@ -3378,6 +3559,14 @@ export default function ProjectView() {
 
   // Count audio scenes
   const audioScenes = project.scenes.filter((s) => s.voiceover_path);
+  // Whether to surface the audio UI (Audio tab, per-scene players). True for
+  // AI-voiced projects, and also when the user has recorded/saved custom audio
+  // on a project whose voice_gender is "none" (so text-only projects with
+  // recordings can still preview them).
+  const hasVoiceoverContent =
+    project.voice_gender !== "none" ||
+    audioScenes.length > 0 ||
+    pendingRecordings.size > 0;
   const totalAudioDuration = project.scenes.reduce(
     (sum, s) => sum + (s.duration_seconds ?? 0) + (s.extra_hold_seconds ?? 0),
     0
@@ -4149,9 +4338,59 @@ export default function ProjectView() {
                         ownerScopedProjectId={useOwnerScopedAssets ? projectId : undefined}
                         precompiledCraftedDetail={ownerScopedCraftedDetail}
                         precompiledTemplateData={currentCustomTemplateCode}
+                        pendingVoiceovers={pendingVoiceovers}
                       />
                     </div>
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between lg:gap-4">
+                    {/* Unsaved recorded voiceovers — save-all bar */}
+                    {pendingRecordings.size > 0 && (
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-t border-gray-100 pt-3">
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-gray-900">
+                            {pendingRecordings.size} recorded voiceover{pendingRecordings.size > 1 ? "s" : ""} not saved
+                          </p>
+                          <p className="text-[11px] text-gray-400">
+                            Save all to replace the voiceovers for {pendingRecordings.size} scene{pendingRecordings.size > 1 ? "s" : ""}, or save each scene individually from its row.
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <button
+                            type="button"
+                            onClick={handleDiscardAllRecordings}
+                            disabled={savingRecordings || savingRecordingSceneId != null}
+                            className="inline-flex items-center gap-1 px-2 py-1.5 text-xs font-medium text-red-600 hover:text-red-700 hover:underline disabled:opacity-50 transition-colors"
+                          >
+                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            Discard all
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSaveRecordings}
+                            disabled={savingRecordings || savingRecordingSceneId != null}
+                            className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold text-white bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300 transition-colors"
+                          >
+                            {savingRecordings ? (
+                              <>
+                                <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                </svg>
+                                Saving…
+                              </>
+                            ) : (
+                              <>
+                                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                                Save all
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    <div className={`flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between lg:gap-4${pendingRecordings.size > 0 ? " mt-2" : ""}`}>
                       <p className="text-[11px] text-gray-400 flex-shrink-0">
                         Preview · {project.scenes.length} scenes
                         {totalAudioDuration > 0 &&
@@ -5206,7 +5445,7 @@ export default function ProjectView() {
         projectName={project.name}
         isOwner={project.user_id === user?.id}
         onLeft={() => navigate("/dashboard", { replace: true })}
-        successNote={showPostReviewInvite ? "Thanks for your review! Invite collaborators to help edit this video." : undefined}
+        successNote={showPostReviewInvite ? "Thanks for your review! You can also invite collaborators to help edit this video." : undefined}
       />
 
       {/* Edit history + comments (opens from any tab). */}
@@ -5376,6 +5615,7 @@ export default function ProjectView() {
                         ownerScopedProjectId={useOwnerScopedAssets ? projectId : undefined}
                         precompiledCraftedDetail={ownerScopedCraftedDetail}
                         precompiledTemplateData={currentCustomTemplateCode}
+                        pendingVoiceovers={pendingVoiceovers}
                       />
                     </div>
                     <div className="mt-3">
@@ -5644,7 +5884,8 @@ export default function ProjectView() {
                         scene={scene}
                         index={idx}
                         expanded={isExpanded}
-                        showAudio={project.voice_gender !== "none"}
+                        showAudio={hasVoiceoverContent}
+                        durationOverride={pendingSceneDuration(scene)}
                         isDragging={isDragging}
                         isDropTarget={isDropTarget}
                         onToggleExpand={() => setExpandedScene(isExpanded ? null : scene.id)}
@@ -5899,21 +6140,97 @@ export default function ProjectView() {
                                   }
                                 })()}
 
-                                {/* Audio player (inline) — hidden when no voiceover */}
-                                {project.voice_gender !== "none" && audioUrl && (
-                                  <div>
-                                    <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                                      Audio
-                                    </h4>
-                                    <audio
-                                      controls
-                                      src={audioUrl}
-                                      preload="metadata"
-                                      className="w-full h-8"
-                                      style={{ maxWidth: 400 }}
-                                    />
-                                  </div>
-                                )}
+                                {/* Audio player (inline) + record-your-own-voice control.
+                                    A pending (applied, unsaved) recording takes precedence over
+                                    the existing AI/saved voiceover. */}
+                                {(() => {
+                                  const pending = pendingRecordings.get(scene.id);
+                                  const playUrl = pending?.url ?? audioUrl;
+                                  return (
+                                    <div>
+                                      <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                                        Audio
+                                      </h4>
+                                      <div className="flex items-center gap-2">
+                                        {playUrl ? (
+                                          <audio
+                                            controls
+                                            src={playUrl}
+                                            preload="metadata"
+                                            className="w-full h-8"
+                                            style={{ maxWidth: 400 }}
+                                          />
+                                        ) : (
+                                          <span className="text-xs text-gray-400 italic">
+                                            No voiceover yet
+                                          </span>
+                                        )}
+                                        <button
+                                          type="button"
+                                          onClick={() => setRecordModalScene(scene)}
+                                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 hover:border-purple-300 transition-colors flex-shrink-0"
+                                          title="Record your own voice"
+                                        >
+                                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
+                                            <rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor" />
+                                            <path d="M5 10v1a7 7 0 0 0 14 0v-1M12 18v3M8.5 21h7" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                                          </svg>
+                                          <span className="text-xs font-medium hidden sm:inline">Record</span>
+                                        </button>
+                                      </div>
+                                      {pending && (() => {
+                                        const isSavingThis = savingRecordingSceneId === scene.id;
+                                        const disabled = savingRecordings || (savingRecordingSceneId != null && !isSavingThis);
+                                        return (
+                                          <div className="mt-2 flex items-center justify-between gap-2 rounded-lg bg-purple-50 border border-purple-100 px-2.5 py-1.5">
+                                            <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-purple-700 min-w-0">
+                                              <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                              </svg>
+                                              <span className="truncate">Recorded voice applied to the preview.</span>
+                                            </span>
+                                            <div className="flex items-center gap-2 flex-shrink-0">
+                                              <button
+                                                type="button"
+                                                onClick={() => handleSaveRecording(scene.id)}
+                                                disabled={disabled}
+                                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold text-white bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300 transition-colors"
+                                              >
+                                                {isSavingThis ? (
+                                                  <>
+                                                    <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
+                                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                                    </svg>
+                                                    Saving…
+                                                  </>
+                                                ) : (
+                                                  <>
+                                                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                                                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                    Save
+                                                  </>
+                                                )}
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => handleDiscardRecording(scene.id)}
+                                                disabled={disabled}
+                                                className="inline-flex items-center gap-1 text-[11px] font-medium text-red-600 hover:text-red-700 hover:underline disabled:opacity-50 transition-colors"
+                                              >
+                                                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                                                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                                </svg>
+                                                Discard
+                                              </button>
+                                            </div>
+                                          </div>
+                                        );
+                                      })()}
+                                    </div>
+                                  );
+                                })()}
 
                                 {/* Scene images — same add/remove as manual edit in modal */}
                                 {(() => {
@@ -6472,6 +6789,15 @@ export default function ProjectView() {
               url: resolveAssetUrl(asset, project.id),
             }))}
             onSaved={loadProject}
+          />
+        )}
+
+        {recordModalScene && (
+          <RecordVoiceoverModal
+            open={!!recordModalScene}
+            onClose={() => setRecordModalScene(null)}
+            scene={recordModalScene}
+            onApply={handleApplyRecording}
           />
         )}
 
@@ -7346,15 +7672,15 @@ export default function ProjectView() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-baseline gap-4">
                     <h2 className="text-base font-medium text-gray-900">
-                      {project.voice_gender !== "none" ? "Voiceovers" : "Scenes"}
+                      {hasVoiceoverContent ? "Voiceovers" : "Scenes"}
                     </h2>
                     <span className="text-xs text-gray-400">
-                      {project.voice_gender !== "none"
+                      {hasVoiceoverContent
                         ? `${audioScenes.length} / ${project.scenes.length} scenes${totalAudioDuration > 0 ? ` -- ${Math.round(totalAudioDuration)}s total` : ""}`
                         : "No voiceover — text-only video"}
                     </span>
                   </div>
-                  <div className={`flex items-center gap-2 text-[11px] text-gray-400 ${project.voice_gender === "none" ? "hidden" : ""}`}>
+                  <div className={`flex items-center gap-2 text-[11px] text-gray-400 ${!hasVoiceoverContent ? "hidden" : ""}`}>
                     <span className="flex items-center gap-1">
                       <span className="w-2 h-2 rounded-full bg-green-400" />
                       Ready
@@ -7377,6 +7703,11 @@ export default function ProjectView() {
                       bgmTrackUrl={project.bgm_track_url ?? null}
                       projectBgmVolume={project.bgm_volume ?? 0.10}
                       onBgmSaved={loadProject}
+                      pendingUrl={pendingRecordings.get(scene.id)?.url ?? null}
+                      onRecord={() => setRecordModalScene(scene)}
+                      onDiscard={() => handleDiscardRecording(scene.id)}
+                      onSaveRecording={() => handleSaveRecording(scene.id)}
+                      savingRecording={savingRecordingSceneId === scene.id}
                     />
                   ))}
                 </div>

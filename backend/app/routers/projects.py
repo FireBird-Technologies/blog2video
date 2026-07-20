@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import json
 import logging
 import os
@@ -123,6 +124,51 @@ def _pick_reachable_brand_logo_url(logos: list) -> str | None:
         if url and _is_brand_logo_url_reachable(url):
             return url
     return None
+
+
+def _seed_project_logo_from_brand_kit(project: Project, db: Session) -> None:
+    """On creation of a custom-template project, copy the scraped brand-kit logo
+    into the project's own (editable/removable) logo fields, so the Logo section
+    in the editor starts pre-filled instead of empty.
+
+    Scraped logo URLs point at the source website (or are inline data: URIs), so
+    they're downloaded and re-hosted on R2 here rather than stored as-is — the
+    source site could change or remove the asset later. Silently no-ops if R2
+    isn't configured, no scraped logo is reachable, or the download fails; the
+    user can still upload a logo manually afterward.
+    """
+    if project.logo_r2_url or not is_custom_template(project.template):
+        return
+    if not r2_storage.is_r2_configured():
+        return
+    data = _load_custom_template_data(project.template, db=db, user_id=project.user_id)
+    bk = data.get("brand_kit") if data else None
+    logo_url = _pick_reachable_brand_logo_url(bk.get("logos") or []) if bk else None
+    if not logo_url:
+        return
+    try:
+        if logo_url.startswith("data:"):
+            header, b64_data = logo_url.split(",", 1)
+            content_type = header.split(";")[0].removeprefix("data:") or "image/svg+xml"
+            file_bytes = base64.b64decode(b64_data)
+        else:
+            resp = requests.get(logo_url, timeout=5)
+            resp.raise_for_status()
+            content_type = resp.headers.get("content-type", "image/png").split(";")[0].strip()
+            file_bytes = resp.content
+        ext = (content_type.split("/")[-1] or "png").split("+")[0]
+        if ext not in ("png", "jpeg", "jpg", "webp", "svg"):
+            ext = "png"
+        logo_filename = f"logo.{ext}"
+        r2_key = r2_storage.image_key(project.user_id, project.id, logo_filename)
+        r2_url = r2_storage.upload_bytes(r2_key, file_bytes, content_type=content_type)
+        project.logo_r2_key = r2_key
+        project.logo_r2_url = r2_url
+    except Exception as e:
+        logger.warning(
+            "[PROJECTS] Brand-kit logo seed failed for project %s: %s",
+            project.id, e, extra={"project_id": project.id, "user_id": project.user_id},
+        )
 
 
 def _inject_custom_theme(project: Project, db: Session | None = None) -> Project:
@@ -881,6 +927,12 @@ def create_project(
         status=ProjectStatus.CREATED,
     )
     db.add(project)
+    db.flush()  # assign project.id so the logo seed below can build an R2 key
+
+    # Custom templates: pre-fill the project's own (editable/removable) logo from
+    # the scraped brand-kit logo, so the editor's Logo section isn't empty by
+    # default. Best-effort — failures here must never block project creation.
+    _seed_project_logo_from_brand_kit(project, db)
 
     # Remember the voice tuning (values + enabled flag) so the toggle state and last-enabled slider
     # values both pre-fill next time. Disabling no longer wipes the saved values — the flag is part
@@ -2910,6 +2962,7 @@ def create_projects_bulk(
         )
         db.add(project)
         db.flush()
+        _seed_project_logo_from_brand_kit(project, db)
         created.append(project)
         user.videos_used_this_period += 1
     if not created:
@@ -3035,6 +3088,8 @@ def create_project_from_upload(
         status=ProjectStatus.CREATED,
     )
     db.add(project)
+    db.flush()
+    _seed_project_logo_from_brand_kit(project, db)
     if resolved_voice_tuning_pref is not None:
         user.preferred_voice_emotion = resolved_voice_tuning_pref
     user.videos_used_this_period += 1
@@ -4004,6 +4059,156 @@ async def update_scene_image(
 
     # Keep project.status and r2_video_* as-is: the exported MP4 stays available until the user
     # runs a new render (render pipeline replaces URLs/keys on success).
+
+    db.commit()
+    db.refresh(scene)
+
+    return scene
+
+
+@router.post("/{project_id}/scenes/{scene_id}/voiceover", response_model=SceneOut)
+async def update_scene_voiceover(
+    project_id: int,
+    scene_id: int,
+    audio: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Replace a scene's voiceover with a user-recorded audio clip.
+
+    The browser records WebM/Opus (Chrome) or MP4/AAC (Safari); we transcode to
+    MP3 with ffmpeg so it matches the existing ``scene_{order}.mp3`` convention,
+    R2 audio keys, and the mutagen duration probe. A new AUDIO asset row is
+    created (the frontend picks the latest by id), replacing the scene's existing
+    voiceover. The project's voice settings are left unchanged.
+    """
+    import subprocess
+    import tempfile
+    from app.models.scene import Scene
+    from app.models.asset import Asset, AssetType
+    from app.services.voiceover import _get_audio_duration, DURATION_PAD
+
+    project = _get_user_project(project_id, user.id, db)
+
+    scene = (
+        db.query(Scene)
+        .filter(Scene.id == scene_id, Scene.project_id == project_id)
+        .first()
+    )
+    if not scene:
+        raise HTTPException(status_code=404, detail="Scene not found")
+
+    allowed_types = {
+        "audio/webm",
+        "audio/ogg",
+        "audio/mp4",
+        "audio/mpeg",
+        "audio/wav",
+        "audio/x-wav",
+        "audio/wave",
+    }
+    # Some browsers append codecs (e.g. "audio/webm;codecs=opus"); match the base type.
+    base_type = (audio.content_type or "").split(";")[0].strip().lower()
+    if base_type and base_type not in allowed_types:
+        raise HTTPException(
+            status_code=400,
+            detail="Recording must be a WebM, OGG, MP4, WAV, or MP3 audio file.",
+        )
+
+    MAX_AUDIO_SIZE = 15 * 1024 * 1024
+    file_bytes = await audio.read()
+    if len(file_bytes) > MAX_AUDIO_SIZE:
+        raise HTTPException(
+            status_code=400, detail="Audio file too large. Maximum size is 15 MB."
+        )
+    if not file_bytes:
+        raise HTTPException(status_code=400, detail="Empty audio upload.")
+
+    audio_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project_id}/audio")
+    os.makedirs(audio_dir, exist_ok=True)
+
+    filename = f"scene_{scene.order}.mp3"
+    output_path = os.path.join(audio_dir, filename)
+
+    # Write the raw recording to a temp file, then transcode to MP3 via ffmpeg.
+    src_suffix = ".webm"
+    if "mp4" in base_type:
+        src_suffix = ".mp4"
+    elif "ogg" in base_type:
+        src_suffix = ".ogg"
+    elif "wav" in base_type or "wave" in base_type:
+        src_suffix = ".wav"
+    elif "mpeg" in base_type:
+        src_suffix = ".mp3"
+
+    ffmpeg = shutil.which("ffmpeg") or "ffmpeg"
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=src_suffix, delete=False) as tmp:
+            tmp.write(file_bytes)
+            tmp_path = tmp.name
+
+        result = subprocess.run(
+            [
+                ffmpeg,
+                "-y",
+                "-i",
+                tmp_path,
+                "-vn",
+                "-ar",
+                "44100",
+                "-ac",
+                "1",
+                "-b:a",
+                "128k",
+                output_path,
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            logging.getLogger(__name__).error(
+                "[VOICEOVER_RECORD] ffmpeg transcode failed for scene %s: %s",
+                scene_id,
+                result.stderr or result.stdout,
+            )
+            raise HTTPException(
+                status_code=500, detail="Failed to process the recorded audio."
+            )
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+
+    audio_duration = _get_audio_duration(output_path)
+    scene.duration_seconds = round(
+        max(settings.MIN_SCENE_DURATION_SECONDS, audio_duration + DURATION_PAD), 1
+    )
+    scene.voiceover_path = output_path
+
+    r2_key_val = None
+    r2_url_val = None
+    if r2_storage.is_r2_configured():
+        try:
+            r2_url_val = r2_storage.upload_project_audio(
+                user.id, project_id, output_path, filename
+            )
+            r2_key_val = r2_storage.audio_key(user.id, project_id, filename)
+        except Exception as e:
+            print(f"[VOICEOVER_RECORD] R2 upload failed for {filename}: {e}")
+
+    asset = Asset(
+        project_id=project_id,
+        asset_type=AssetType.AUDIO,
+        original_url=None,
+        local_path=output_path,
+        filename=filename,
+        r2_key=r2_key_val,
+        r2_url=r2_url_val,
+    )
+    db.add(asset)
 
     db.commit()
     db.refresh(scene)

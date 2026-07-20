@@ -1430,6 +1430,30 @@ export const updateSceneImage = (
   );
 };
 
+/**
+ * Upload a user-recorded voiceover for a scene. The backend transcodes the
+ * recording (WebM/MP4) to MP3, uploads to R2, and replaces the scene's existing
+ * voiceover (updating voiceover_path and duration). Voice settings are unchanged.
+ */
+export const updateSceneVoiceover = (
+  projectId: number,
+  sceneId: number,
+  audioBlob: Blob
+) => {
+  const formData = new FormData();
+  const ext = audioBlob.type.includes("mp4")
+    ? "mp4"
+    : audioBlob.type.includes("ogg")
+      ? "ogg"
+      : "webm";
+  formData.append("audio", audioBlob, `recording.${ext}`);
+  return api.post<Scene>(
+    `/projects/${projectId}/scenes/${sceneId}/voiceover`,
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } }
+  );
+};
+
 export const updateSceneImageFocus = (
   projectId: number,
   sceneId: number,
