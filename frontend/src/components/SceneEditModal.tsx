@@ -4407,7 +4407,7 @@ export default function SceneEditModal({
   const ownerBlocksAiImage = isCollaborator && !canUseAiImage;
   const notifyOwnerBlocked = () =>
     showError(
-      "The project owner is out of AI edits, so AI image generation isn't available here. Ask the owner to buy more credits or upgrade.",
+      "The project owner is out of AI edit credits, so AI image generation isn't available now. Ask the owner to buy more credits or upgrade.",
       { variant: "warning" },
     );
 
@@ -5748,7 +5748,7 @@ export default function SceneEditModal({
                 ) : (
                   <>
                     <p className="font-medium text-red-600">
-                      You've used all your AI-Assisted edits.
+                      You've used all your AI edit credits.
                     </p>
                     <p className="mt-1 text-gray-600">
                       Upgrade to{" "}
@@ -6415,14 +6415,25 @@ export default function SceneEditModal({
                       usable so the user can turn this toggle off and edit at cost 1. */}
                   {regenerateVoiceover && !canAffordThisEdit && !effectiveIsPro && (
                     <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5">
-                      <p className="text-xs font-medium text-amber-800">
-                        You have {aiCreditRemaining} AI edit
-                        {aiCreditRemaining === 1 ? "" : "s"} left — re-recording the
-                        voiceover costs 3.
-                      </p>
-                      <p className="mt-1 text-xs text-amber-700">
-                       Buy a video for +20 AI edits to re-record.
-                      </p>
+                      {isCollaborator ? (
+                        <p className="text-xs font-medium text-amber-800">
+                          The owner has {aiCreditRemaining} AI edit credits left — re-recording the voiceover
+                          costs 3 · Ask them to upgrade for unlimited.
+                        </p>
+                      ) : (
+                        <p className="text-xs font-medium text-amber-800">
+                          You have {aiCreditRemaining} AI edit credits left — re-recording the voiceover
+                          costs 3 ·{" "}
+                          <button
+                            type="button"
+                            onClick={() => navigate("/subscription")}
+                            className="text-purple-600 hover:text-purple-700 underline font-medium"
+                          >
+                            Upgrade now
+                          </button>{" "}
+                          for unlimited.
+                        </p>
+                      )}
                     </div>
                   )}
 

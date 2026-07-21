@@ -2982,5 +2982,9 @@
   "blog:stickman-v2-showcase@ef0b1c35abe2c497@20aaebd1": {
     "keep": true,
     "reason": "Describes Blog2Video's showcase system and features."
+  },
+  "blog:blog2video-official-site-vs-copycats@79abee6fb2e7cd71@20aaebd1": {
+    "keep": false,
+    "reason": "Lists unaffiliated copycat sites using the name."
   }
 }

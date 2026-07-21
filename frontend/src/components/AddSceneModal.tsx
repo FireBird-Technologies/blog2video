@@ -22,6 +22,8 @@ export interface AddSceneModalProps {
   anchorScene?: Scene | null;
   /** Called after the add-scene job is enqueued (parent starts polling). */
   onAdded: (position?: number) => void;
+  /** Navigate to the billing page from the inline "Upgrade now" link (free viewers). */
+  onUpgradeNow: () => void;
   /** Surface an API failure (e.g. the 403 credit / 409 busy error) in the global "Oops" modal. */
   onError: (err: unknown) => void;
 }
@@ -42,6 +44,7 @@ export default function AddSceneModal({
   anchorScene,
   onAdded,
   onError,
+  onUpgradeNow,
 }: AddSceneModalProps) {
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
@@ -145,33 +148,38 @@ export default function AddSceneModal({
           </p>
 
           {!isPro && (
-            <p className="text-xs text-gray-500">
-              Adding a scene costs{" "}
-              <span className="font-semibold text-gray-700">{ADD_SCENE_CREDIT_COST} AI edits</span>.
-              You have {creditsRemaining > 100 ? "100+" : creditsRemaining} remaining.
-            </p>
+            isCollaborator ? (
+              <p className="text-xs text-gray-500">
+                Adding a scene costs{" "}
+                <span className="font-semibold text-gray-700">{ADD_SCENE_CREDIT_COST} AI edit credits</span>{" "}
+                from the owner's balance · ask them to upgrade for unlimited.
+              </p>
+            ) : (
+              <p className="text-xs text-gray-500">
+                Adding a scene costs{" "}
+                <span className="font-semibold text-gray-700">{ADD_SCENE_CREDIT_COST} AI edit credits</span> ·{" "}
+                <button
+                  type="button"
+                  onClick={onUpgradeNow}
+                  className="text-purple-600 hover:text-purple-700 underline font-medium"
+                >
+                  Upgrade now
+                </button>{" "}
+                for unlimited.
+              </p>
+            )
           )}
 
           {!canAfford && (
             <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2.5">
               {isCollaborator ? (
-                <>
-                  <p className="text-xs font-semibold text-red-700">
-                    The project owner is out of AI credits — adding a scene costs {ADD_SCENE_CREDIT_COST}.
-                  </p>
-                  <p className="mt-1 text-xs text-red-600">
-                    Ask the owner to buy a video for +20 AI edits, or upgrade to Pro/Standard for unlimited.
-                  </p>
-                </>
+                <p className="text-xs font-semibold text-red-700">
+                  The owner is out of AI credits · ask them to upgrade for unlimited.
+                </p>
               ) : (
-                <>
-                  <p className="text-xs font-semibold text-red-700">
-                    You're out of AI edit credits — adding a scene costs {ADD_SCENE_CREDIT_COST} credits.
-                  </p>
-                  <p className="mt-1 text-xs text-red-600">
-                    Buy a video for +20 AI edits, or upgrade to Pro/Standard for unlimited.
-                  </p>
-                </>
+                <p className="text-xs font-semibold text-red-700">
+                  You're out of AI edit credits · upgrade for unlimited.
+                </p>
               )}
             </div>
           )}

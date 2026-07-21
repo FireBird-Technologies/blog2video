@@ -113,7 +113,7 @@ export default function SceneEditor({
   // (red) states the limit; the rest (grey) explains how to lift it.
   const aiLimitLead = isCollaborator
     ? "The project owner's AI-Assisted Editing limit has been reached."
-    : "You've used all your AI-Assisted edits.";
+    : "You've used all your AI edit credits.";
 
   // Send the OWNER straight to Stripe checkout for the chosen plan (monthly).
   const [upgradingPlan, setUpgradingPlan] = useState<null | "standard" | "pro">(null);
@@ -585,7 +585,7 @@ export default function SceneEditor({
                     <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5">
                       <p className="text-xs font-medium text-amber-800">
                         You have {aiCreditRemaining} AI edit
-                        {aiCreditRemaining === 1 ? "" : "s"} left — re-recording the voiceover costs 3.
+                        {aiCreditRemaining === 1 ? "" : "s"} left — re-recording the voiceover costs 3 credits.
                       </p>
                       <p className="mt-1 text-xs text-amber-700">
                         <button
