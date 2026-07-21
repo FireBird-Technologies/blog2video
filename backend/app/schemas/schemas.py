@@ -560,6 +560,21 @@ class AddSceneRequest(BaseModel):
     position: Optional[int] = None
 
 
+class AddSceneJobOut(BaseModel):
+    """Status of a background add-scene generation job (polled by the frontend)."""
+    id: int
+    status: str  # queued | running | completed | failed
+    current_step: str
+    error_message: Optional[str] = None
+    # Set on success so the client can locate the newly inserted scene row.
+    new_scene_id: Optional[int] = None
+    # 1-indexed insert position among active scenes (None = appended at end).
+    position: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+
 # ─── Chat ──────────────────────────────────────────────────
 
 class ChatRequest(BaseModel):

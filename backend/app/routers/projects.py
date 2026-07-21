@@ -25,6 +25,7 @@ from app.models.project_template_change_job import ProjectTemplateChangeJob
 from app.models.project_regenerate_script_job import ProjectRegenerateScriptJob
 from app.models.project_voice_change_job import ProjectVoiceChangeJob
 from app.models.project_language_change_job import ProjectLanguageChangeJob
+from app.models.project_add_scene_job import ProjectAddSceneJob
 from app.services import stall_recovery
 from app.services.stall_recovery import STALL_RETRY_MESSAGE
 from app.models.crafted_template import CraftedTemplate
@@ -34,7 +35,7 @@ from app.schemas.schemas import (
     ProjectCreate, ProjectOut, ProjectListOut, ProjectLogoUpdate,
     BulkProjectItem, BulkCreateResponse,
     ReviewOut, ReviewStateOut, ReviewSubmit, ReviewSubmitResponse, SceneOut,
-    SceneUpdate, ReorderScenesRequest, RegenerateSceneRequest, AddSceneRequest,
+    SceneUpdate, ReorderScenesRequest, RegenerateSceneRequest, AddSceneRequest, AddSceneJobOut,
     SceneTypographyBulkUpdate, ProjectUpdate, ProjectTemplateChangeRequest,
     ProjectTemplateChangeJobOut, ProjectVoiceChange, ProjectLanguageChange,
     ProjectRegenerateScriptJobOut,
@@ -5283,42 +5284,41 @@ async def regenerate_scene(
 ADD_SCENE_CREDIT_COST = 5
 
 
-@router.post("/{project_id}/scenes/add", response_model=SceneOut)
+@router.post("/{project_id}/scenes/add", response_model=AddSceneJobOut)
 async def add_scene(
     project_id: int,
     data: AddSceneRequest,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Generate and insert a new AI scene at a chosen position.
+    """Enqueue background generation of a new AI scene at a chosen position.
 
-    Given the user's prompt plus the project's source content, template and sibling
-    scenes, this writes a new scene (narration + visual description + display text +
-    layout descriptor) and, when the project has voiceover enabled, its audio. The
-    scene is inserted at ``position`` (1-indexed among active scenes) and the whole
-    scene set is renumbered to keep ``order`` uniquely 1..N — the same renumber
-    strategy ``reorder_scenes`` uses. Costs ``ADD_SCENE_CREDIT_COST`` AI edits,
-    charged to the project OWNER (PRO/STANDARD owners are unlimited).
+    The heavy generation (narration + visuals + descriptor + voiceover) runs off the
+    request in a threadpool runner with up to 3 retries, so the HTTP call returns
+    immediately with a job the frontend polls. Credits are reserved on enqueue and
+    refunded if all attempts fail. Only one add-scene job may run per project at a
+    time. Costs ``ADD_SCENE_CREDIT_COST`` AI edits, charged to the project OWNER
+    (PRO/STANDARD owners are unlimited).
     """
-    import json
-    from app.models.scene import Scene
-    from app.models.user import PlanTier
     from app.services.access import project_owner, can_use_ai_edit, consume_ai_edit
-    from app.services.edit_tracker import new_change_set_id, prune_project_history
-    from app.services.language_detection import get_content_language_for_project
-    from app.dspy_modules.script_gen import SceneExpander, PromptToSceneOutline
-    from app.dspy_modules.display_text_gen import DisplayTextGenerator
-    from app.dspy_modules.template_scene_gen import TemplateSceneGenerator
-    from app.services.voiceover import generate_voiceover
-    from app.services.template_service import get_hero_layout, get_fallback_layout
-    from app.dspy_modules import ensure_dspy_configured
-    import dspy
 
     prompt = (data.prompt or "").strip()
     if not prompt:
         raise HTTPException(status_code=400, detail="Please describe the scene you want to add.")
 
     project = _get_user_project(project_id, user.id, db)
+
+    # One add-scene job per project at a time (avoids position/order races).
+    existing = (
+        db.query(ProjectAddSceneJob)
+        .filter(
+            ProjectAddSceneJob.project_id == project_id,
+            ProjectAddSceneJob.status.in_(("queued", "running")),
+        )
+        .first()
+    )
+    if existing:
+        raise HTTPException(status_code=409, detail="A scene is already being added to this project.")
 
     # Owner pays (a FREE collaborator inherits the owner's plan on a shared project).
     payer = project_owner(project, db)
@@ -5331,6 +5331,59 @@ async def add_scene(
             ),
         )
 
+    # Reserve the credits upfront (refunded by the runner if all attempts fail).
+    if payer.plan not in (PlanTier.PRO, PlanTier.STANDARD):
+        consume_ai_edit(payer, project, cost=ADD_SCENE_CREDIT_COST)
+
+    job = ProjectAddSceneJob(
+        project_id=project_id,
+        user_id=payer.id,
+        initiated_by_user_id=user.id,
+        status="queued",
+        current_step="queued",
+        prompt=prompt,
+        position=data.position,
+        cost=ADD_SCENE_CREDIT_COST,
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+
+    # Dispatch the sync runner on the default threadpool (pattern shared with the
+    # regenerate-script / template-change / pipeline jobs).
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(None, _run_add_scene_job, job.id)
+
+    return job
+
+
+async def _generate_and_insert_scene(
+    db: Session,
+    project: Project,
+    prompt: str,
+    position: Optional[int],
+    initiated_by_user_id: int,
+) -> Scene:
+    """Generate a new scene from ``prompt`` and insert it at ``position``.
+
+    The full generation pipeline (outline → narration/visuals → display text →
+    layout descriptor → voiceover) plus insertion + renumber. Raises on hard failure
+    so the caller's retry loop can re-attempt. Does NOT charge credits or commit —
+    the runner owns the transaction and credit accounting.
+    """
+    import json
+    from app.services.edit_tracker import new_change_set_id, prune_project_history
+    from app.services.language_detection import get_content_language_for_project
+    from app.dspy_modules.script_gen import SceneExpander, PromptToSceneOutline
+    from app.dspy_modules.display_text_gen import DisplayTextGenerator
+    from app.dspy_modules.template_scene_gen import TemplateSceneGenerator
+    from app.services.voiceover import generate_voiceover
+    from app.services.template_service import get_hero_layout
+    from app.dspy_modules import ensure_dspy_configured
+    import dspy
+
+    project_id = project.id
+
     # Sibling scenes for continuity context + the insert position.
     all_scenes = (
         db.query(Scene).filter(Scene.project_id == project_id).order_by(Scene.order).all()
@@ -5338,11 +5391,12 @@ async def add_scene(
     active_scenes = [s for s in all_scenes if s.is_active]
 
     # Clamp the requested position into [1, active_count + 1]; default = append.
+    # Re-evaluated here (not at enqueue) so it's correct against the CURRENT scene set.
     active_count = len(active_scenes)
-    if data.position is None:
+    if position is None:
         position = active_count + 1
     else:
-        position = max(1, min(int(data.position), active_count + 1))
+        position = max(1, min(int(position), active_count + 1))
 
     content_language = get_content_language_for_project(project)
     video_style = (getattr(project, "video_style", None) or "explainer")
@@ -5505,65 +5559,137 @@ async def add_scene(
 
     # A manually added scene is always a CONTENT scene — it must never get the
     # hero/opening layout or a CTA/ending-socials layout, even when inserted at
-    # position 1 or last. Pick a safe content layout (fallback layout, else any valid
-    # layout that isn't hero/intro/outro/ending/cta) and force it, and hand the
-    # descriptor generator a non-zero scene_index so its scene-0 hero branch can't fire.
-    def _content_layout_for(template_id: str) -> str | None:
-        try:
-            valid = get_valid_layouts(template_id)
-        except Exception:
-            valid = set()
-        if not valid:
-            return None
+    # position 1 or last. But rather than always forcing the same fallback layout,
+    # let the AI CHOOSE a layout that fits the content AND differs from the sibling
+    # scenes (variety), then reject any excluded pick.
+    def _is_excluded_layout(template_id: str, name: str) -> bool:
+        n = (name or "").strip().lower()
+        if not n or n == "unknown":
+            return True
         hero = None
         try:
             hero = (get_hero_layout(template_id) or "").strip().lower()
         except Exception:
             hero = None
-        def _is_excluded(name: str) -> bool:
-            n = name.strip().lower()
-            if hero and n == hero:
-                return True
-            return any(tok in n for tok in ("hero", "intro", "outro", "ending", "cta", "social", "opening"))
-        fb = None
-        try:
-            fb = (get_fallback_layout(template_id) or "").strip().lower()
-        except Exception:
-            fb = None
-        if fb and fb in {v.strip().lower() for v in valid} and not _is_excluded(fb):
-            return fb
-        for v in sorted(valid):
-            if not _is_excluded(v):
-                return v
-        return None
+        if hero and n == hero:
+            return True
+        return any(tok in n for tok in ("hero", "intro", "outro", "ending", "cta", "social", "opening"))
 
-    content_layout = None if is_custom_template(project.template) else _content_layout_for(project.template)
+    def _content_layout_candidates(template_id: str) -> list[str]:
+        """Valid, non-excluded content layouts (normalized lowercase)."""
+        try:
+            valid = get_valid_layouts(template_id)
+        except Exception:
+            valid = set()
+        return sorted(
+            {v.strip().lower() for v in valid if not _is_excluded_layout(template_id, v)}
+        )
+
+    def _fallback_content_layout(template_id: str, avoid: set[str]) -> str | None:
+        """A safe content layout, preferring one not in ``avoid`` (the neighbours)."""
+        candidates = _content_layout_candidates(template_id)
+        if not candidates:
+            return None
+        for c in candidates:
+            if c not in avoid:
+                return c
+        return candidates[0]
+
     # Never let the descriptor generator treat this as scene 0 (hero). Use max(1, index).
     descriptor_scene_index = max(1, new_scene.order - 1)
 
+    # Layouts already used by the OTHER scenes — so the AI (and the fallback) can avoid
+    # repeating them. Also track the immediate neighbours to enforce local variety.
+    def _layout_of(s: Scene) -> str:
+        if not s.remotion_code:
+            return "unknown"
+        try:
+            d = json.loads(s.remotion_code)
+        except (json.JSONDecodeError, TypeError):
+            return "unknown"
+        if "layoutConfig" in d:
+            return (d["layoutConfig"].get("arrangement") or "unknown")
+        return (d.get("layout") or "unknown")
+
+    other_layout_parts = []
+    neighbour_layouts: set[str] = set()
+    for s in active_ordered:
+        if s.id == new_scene.id:
+            continue
+        ln = _layout_of(s)
+        other_layout_parts.append(f"scene {s.order}: {ln}")
+        # Immediate neighbours of the new scene (one before / one after).
+        if abs((s.order or 0) - new_scene.order) == 1:
+            neighbour_layouts.add((ln or "").strip().lower())
+    other_scenes_layouts = ", ".join(other_layout_parts)
+
     # 4. Build the layout descriptor (custom templates re-extract structured content;
-    #    built-in templates use the single-scene generator).
+    #    built-in templates let the AI pick a varied, content-appropriate layout).
     template_gen = TemplateSceneGenerator(project.template)
     try:
         if is_custom_template(project.template):
-            from app.services.content_classifier import extract_structured_content_batch
-            single_result = await extract_structured_content_batch(
-                [{"title": scene_title, "narration": narration}],
-                content_language=content_language,
-            )
-            descriptor = {"layoutConfig": {}}
-            if single_result:
-                descriptor["structuredContent"] = single_result[0]
-        else:
-            descriptor = await template_gen.generate_scene_descriptor(
+            # Custom templates: let the AI pick an ARRANGEMENT that fits the content and
+            # avoids repeating the siblings (variety), rather than leaving layoutConfig
+            # empty (which made every added scene default to the same renderer layout).
+            from app.dspy_modules.template_scene_gen import VALID_ARRANGEMENTS
+            descriptor = await template_gen.generate_regenerate_descriptor(
                 scene_title=scene_title,
                 narration=narration,
                 visual_description=visual_description,
                 scene_index=descriptor_scene_index,
                 total_scenes=len(active_ordered),
-                preferred_layout=content_layout,
+                other_scenes_layouts=other_scenes_layouts,
+                preferred_layout=None,
+                current_descriptor=None,
                 content_language=content_language,
             )
+            # Guardrail: if the AI repeated a neighbour's arrangement (or returned none),
+            # force an arrangement the neighbours aren't using.
+            lc = descriptor.get("layoutConfig") if isinstance(descriptor, dict) else None
+            chosen_arr = ((lc or {}).get("arrangement") or "").strip().lower()
+            if not chosen_arr or chosen_arr in neighbour_layouts:
+                alt = next(
+                    (a for a in sorted(VALID_ARRANGEMENTS) if a not in neighbour_layouts),
+                    None,
+                )
+                if alt:
+                    if not isinstance(descriptor, dict):
+                        descriptor = {}
+                    descriptor.setdefault("layoutConfig", {})
+                    descriptor["layoutConfig"]["arrangement"] = alt
+        else:
+            # preferred_layout empty → the regenerate signature chooses the best layout
+            # that fits the content and avoids repeating other_scenes_layouts.
+            descriptor = await template_gen.generate_regenerate_descriptor(
+                scene_title=scene_title,
+                narration=narration,
+                visual_description=visual_description,
+                scene_index=descriptor_scene_index,
+                total_scenes=len(active_ordered),
+                other_scenes_layouts=other_scenes_layouts,
+                preferred_layout=None,
+                current_descriptor=None,
+                content_language=content_language,
+            )
+            # Guardrail: the AI may still return an excluded (hero/intro/outro/cta) or a
+            # neighbour-duplicate layout. In that case force a varied content layout.
+            chosen = (descriptor.get("layout") or "").strip().lower() if isinstance(descriptor, dict) else ""
+            if (
+                not chosen
+                or _is_excluded_layout(project.template, chosen)
+                or chosen in neighbour_layouts
+            ):
+                forced = _fallback_content_layout(project.template, neighbour_layouts)
+                if forced:
+                    descriptor = await template_gen.generate_scene_descriptor(
+                        scene_title=scene_title,
+                        narration=narration,
+                        visual_description=visual_description,
+                        scene_index=descriptor_scene_index,
+                        total_scenes=len(active_ordered),
+                        preferred_layout=forced,
+                        content_language=content_language,
+                    )
         new_scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(descriptor))
     except Exception as e:
         print(f"[ADD_SCENE] descriptor generation failed: {e}")
@@ -5578,12 +5704,9 @@ async def add_scene(
         except Exception as e:
             print(f"[ADD_SCENE] voiceover generation failed (scene still added): {e}")
 
-    # 6. Charge the owner (PRO/STANDARD are unlimited).
-    if payer.plan not in (PlanTier.PRO, PlanTier.STANDARD):
-        consume_ai_edit(payer, project, cost=ADD_SCENE_CREDIT_COST)
-
-    # 7. History: a project-level "scene_added" entry (mirrors "scene_deleted") so it
-    #    shows in Global Edits and can be reverted (revert soft-deletes the added scene).
+    # History: a project-level "scene_added" entry (mirrors "scene_deleted") so it
+    # shows in Global Edits and can be reverted (revert soft-deletes the added scene).
+    # Credits, commit and broadcast are the runner's responsibility.
     _add_change_set = new_change_set_id()
     track_project_edit(
         db,
@@ -5591,22 +5714,153 @@ async def add_scene(
         field_name="scene_added",
         old_value=json.dumps({"scene_id": new_scene.id, "is_active": False, "title": scene_title}),
         new_value=json.dumps({"scene_id": new_scene.id, "is_active": True, "title": scene_title}),
-        user_id=user.id,
+        user_id=initiated_by_user_id,
         change_set_id=_add_change_set,
     )
     prune_project_history(db, project.id)
 
-    db.commit()
-    db.refresh(new_scene)
+    return new_scene
 
-    # Structural change — collaborators re-sync their scene list.
+
+# Number of times the background add-scene generation is retried before giving up.
+ADD_SCENE_MAX_ATTEMPTS = 3
+
+
+def _run_add_scene_job(job_id: int) -> None:
+    """Threadpool runner: generate + insert a scene for a queued add-scene job.
+
+    Retries the whole generation up to ``ADD_SCENE_MAX_ATTEMPTS`` times. On success
+    the scene is committed and the job marked completed. If every attempt fails, the
+    reserved credits are refunded and the job is marked failed (guarded so a repeated
+    call can't double-refund). Opens its own DB session — never shares the request's.
+    """
+    import time
+
+    db = SessionLocal()
+    try:
+        job = db.query(ProjectAddSceneJob).filter(ProjectAddSceneJob.id == job_id).first()
+        if not job or job.status not in ("queued", "running"):
+            return
+        project = db.query(Project).filter(Project.id == job.project_id).first()
+        if not project:
+            _finalize_add_scene_failure(db, job, "Project not found")
+            return
+
+        # Read scalars into locals — commit()/rollback() across asyncio.run() can
+        # expire the ORM objects in this executor-thread context.
+        job_project_id = job.project_id
+        job_prompt = job.prompt
+        job_position = job.position
+        job_initiated_by = job.initiated_by_user_id or job.user_id
+
+        job.status = "running"
+        job.current_step = "generating"
+        db.commit()
+
+        last_error: Optional[Exception] = None
+        for attempt in range(1, ADD_SCENE_MAX_ATTEMPTS + 1):
+            # Re-fetch fresh each attempt; a prior failed attempt was rolled back.
+            job = db.query(ProjectAddSceneJob).filter(ProjectAddSceneJob.id == job_id).first()
+            project = db.query(Project).filter(Project.id == job_project_id).first()
+            if not job or not project:
+                return
+            job.attempts = attempt
+            db.commit()
+            try:
+                new_scene = asyncio.run(
+                    _generate_and_insert_scene(
+                        db, project, job_prompt, job_position, job_initiated_by,
+                    )
+                )
+                db.commit()
+                new_scene_id = new_scene.id
+
+                job = db.query(ProjectAddSceneJob).filter(ProjectAddSceneJob.id == job_id).first()
+                job.status = "completed"
+                job.current_step = "completed"
+                job.new_scene_id = new_scene_id
+                job.completed_at = datetime.utcnow()
+                db.commit()
+
+                # Structural change — collaborators re-sync their scene list.
+                try:
+                    from app.routers.collab_ws import broadcast_project_reload
+                    broadcast_project_reload(job_project_id, exclude_user_id=job_initiated_by)
+                except Exception as e:
+                    print(f"[ADD_SCENE] broadcast failed for project {job_project_id}: {e}")
+                return
+            except Exception as e:  # noqa: BLE001 — retry on any generation failure
+                last_error = e
+                print(f"[ADD_SCENE] attempt {attempt}/{ADD_SCENE_MAX_ATTEMPTS} failed for job {job_id}: {e}")
+                db.rollback()
+                if attempt < ADD_SCENE_MAX_ATTEMPTS:
+                    time.sleep(2 * attempt)  # brief backoff
+
+        job = db.query(ProjectAddSceneJob).filter(ProjectAddSceneJob.id == job_id).first()
+        if job:
+            _finalize_add_scene_failure(db, job, str(last_error) if last_error else "Scene generation failed")
+    except Exception as e:  # noqa: BLE001 — never let the runner crash silently
+        print(f"[ADD_SCENE] runner crashed for job {job_id}: {e}")
+        try:
+            db.rollback()
+            job = db.query(ProjectAddSceneJob).filter(ProjectAddSceneJob.id == job_id).first()
+            if job:
+                _finalize_add_scene_failure(db, job, str(e))
+        except Exception:
+            pass
+    finally:
+        db.close()
+
+
+def _finalize_add_scene_failure(db: Session, job: ProjectAddSceneJob, message: str) -> None:
+    """Mark an add-scene job failed and refund its reserved credits (once).
+
+    Guarded on ``status != "failed"`` so a crash-recovery re-entry can't double-refund
+    (mirrors ``_mark_regenerate_script_failed``).
+    """
+    from app.services.access import refund_ai_edit
+
+    if job.status == "failed":
+        return
+    job.status = "failed"
+    job.current_step = "failed"
+    job.error_message = (message or "Scene generation failed")[:2000]
+    job.completed_at = datetime.utcnow()
+
+    # Refund the reserved AI-edit credits to the payer (no-op for PRO/STANDARD).
+    try:
+        payer = db.query(User).filter(User.id == job.user_id).first()
+        project = db.query(Project).filter(Project.id == job.project_id).first()
+        if payer is not None and project is not None and (job.cost or 0) > 0:
+            refund_ai_edit(payer, project, cost=job.cost)
+    except Exception as e:
+        print(f"[ADD_SCENE] refund failed for job {job.id}: {e}")
+
+    db.commit()
+
+    # Tell collaborators to re-sync (the placeholder disappears).
     try:
         from app.routers.collab_ws import broadcast_project_reload
-        broadcast_project_reload(project_id, exclude_user_id=user.id)
-    except Exception as e:
-        print(f"[PROJECTS] Warning: add-scene broadcast failed for project {project_id}: {e}")
+        broadcast_project_reload(job.project_id, exclude_user_id=job.initiated_by_user_id)
+    except Exception:
+        pass
 
-    return new_scene
+
+@router.get("/{project_id}/scenes/add-status", response_model=Optional[AddSceneJobOut])
+async def get_add_scene_status(
+    project_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Latest add-scene job for this project (for the frontend poller). None if never run."""
+    _get_user_project(project_id, user.id, db)
+    job = (
+        db.query(ProjectAddSceneJob)
+        .filter(ProjectAddSceneJob.project_id == project_id)
+        .order_by(ProjectAddSceneJob.id.desc())
+        .first()
+    )
+    return job
 
 
 def _get_user_project(project_id: int, user_id: int, db: Session, *, required_role: str = "editor") -> Project:

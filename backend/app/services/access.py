@@ -124,6 +124,21 @@ def consume_ai_edit(payer: User, project: Project, cost: int = 1) -> None:
     payer.ai_edit_credits = max(0, (payer.ai_edit_credits or 0) - cost)
 
 
+def refund_ai_edit(payer: User, project: Project, cost: int = 1) -> None:
+    """Return ``cost`` AI-edit credits to ``payer`` after a failed background edit.
+
+    The inverse of :func:`consume_ai_edit`: re-credits the per-user pool for a job
+    that reserved credits upfront but ultimately failed. A no-op for PRO/STANDARD
+    payers (they were never charged — their edits are unlimited). Mutates in place;
+    the caller owns the commit. ``project`` is unused (signature parity).
+    """
+    from app.models.user import PlanTier
+
+    if payer.plan in (PlanTier.PRO, PlanTier.STANDARD):
+        return
+    payer.ai_edit_credits = (payer.ai_edit_credits or 0) + cost
+
+
 def is_owner(project: Project, user: User) -> bool:
     return project.user_id == user.id
 

@@ -596,6 +596,7 @@ def init_db():
         ProjectTemplateChangeJob,
         ProjectRegenerateScriptJob,
         ProjectVoiceChangeJob,
+        ProjectAddSceneJob,
         Referral,
         ReferralSignup,
         SupportConversation,
