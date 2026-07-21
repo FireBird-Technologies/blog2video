@@ -4544,11 +4544,16 @@ def _sync_audio_filenames_to_order(db: Session, project: Project) -> None:
     each other's audio — and a freshly generated ``scene_{order}.mp3`` can overwrite a
     file another scene still owns. This resyncs disk + DB to the current order.
 
+    Playback resolves a scene's audio by FILENAME and then serves the matching Asset's
+    ``r2_url`` when R2 is configured, so a correct rename must move BOTH the local file
+    AND the R2 object (and update ``r2_url``/``r2_key``) — renaming the local file alone
+    leaves production serving stale remote audio under the old name.
+
     Call AFTER every scene's ``scene.order`` is set to its final value and flushed, and
     BEFORE generating any new voiceover for the current order (so the new file can't
     clobber an existing scene's audio). Renames go through a temp name first so a cyclic
-    remap (e.g. 2↔3) can't overwrite a file that hasn't been moved yet. Best-effort: a
-    per-file failure is logged and skipped rather than aborting the whole operation.
+    remap (e.g. 2↔3) can't overwrite a file/object that hasn't been moved yet. Best-effort:
+    a per-file failure is logged and skipped rather than aborting the whole operation.
     """
     import re
     from app.models.asset import Asset, AssetType
@@ -4604,6 +4609,25 @@ def _sync_audio_filenames_to_order(db: Session, project: Project) -> None:
         except OSError as e:
             print(f"[PROJECTS] audio resync: stage failed for {old_filename}: {e}")
 
+    # Two-phase R2 move: copy every source object to a UNIQUE temp key first, then copy
+    # temp → final. This mirrors the local temp-rename so a cyclic remap can't overwrite an
+    # object still owned by another scene. Only runs when R2 is configured.
+    r2_on = False
+    try:
+        r2_on = r2_storage.is_r2_configured()
+    except Exception:
+        r2_on = False
+    r2_tmp_keys: dict[str, str] = {}  # old_filename -> temp key it was staged to
+    if r2_on:
+        tmp_prefix = f"tmp_reorder_{int(time.time() * 1000)}_"
+        for s, old_filename, new_filename in plans:
+            old_key = r2_storage.audio_key(project.user_id, project.id, old_filename)
+            tmp_key = r2_storage.audio_key(
+                project.user_id, project.id, tmp_prefix + old_filename
+            )
+            if r2_storage.copy_object(old_key, tmp_key) is not None:
+                r2_tmp_keys[old_filename] = tmp_key
+
     for s, old_filename, new_filename, temp_path in staged:
         new_path = os.path.join(audio_dir, new_filename)
         if temp_path:
@@ -4616,19 +4640,38 @@ def _sync_audio_filenames_to_order(db: Session, project: Project) -> None:
         # Update the scene's stored path to the new filename.
         s.voiceover_path = new_path
 
-        # Update the matching Asset row(s): filename, local_path, and R2 key/url. The R2
-        # object itself is not moved — render's R2 fallback re-derives the key from the
-        # filename, and the next voiceover regeneration re-uploads under the new name.
+        # Move the R2 object (temp → final key) and capture the new public URL so playback,
+        # which serves the Asset's r2_url, points at the right audio.
+        new_r2_url: Optional[str] = None
+        new_r2_key = r2_storage.audio_key(project.user_id, project.id, new_filename) if r2_on else None
+        if r2_on and old_filename in r2_tmp_keys and new_r2_key:
+            new_r2_url = r2_storage.copy_object(r2_tmp_keys[old_filename], new_r2_key)
+
+        # Update the matching Asset row(s): filename, local_path, and R2 key/url.
         for a in assets_by_filename.get(old_filename, []):
             a.filename = new_filename
             a.local_path = new_path
-            if a.r2_key:
-                try:
-                    a.r2_key = r2_storage.audio_key(
-                        project.user_id, project.id, new_filename
-                    )
-                except Exception:
-                    pass
+            if r2_on and new_r2_key and new_r2_url:
+                a.r2_key = new_r2_key
+                a.r2_url = new_r2_url
+
+    # Clean up the temp R2 objects and the now-orphaned OLD-named objects. An old key is
+    # only safe to delete if no scene's FINAL filename still maps to it (i.e. it wasn't a
+    # no-op destination). Since misnamed sources are all being remapped, delete each old
+    # key unless it is also some scene's new_filename.
+    if r2_on:
+        final_filenames = {new_filename for (_s, _old, new_filename) in plans}
+        # Also include filenames of scenes that did NOT need moving (already correct) so we
+        # never delete an object a correctly-named scene still uses.
+        for s in scenes:
+            m = re.search(r"scene_(\d+)\.mp3", s.voiceover_path or "", re.IGNORECASE)
+            if m:
+                final_filenames.add(os.path.basename(s.voiceover_path))
+        for old_filename, tmp_key in r2_tmp_keys.items():
+            r2_storage.delete_object(tmp_key)
+            if old_filename not in final_filenames:
+                old_key = r2_storage.audio_key(project.user_id, project.id, old_filename)
+                r2_storage.delete_object(old_key)
 
     db.flush()
 

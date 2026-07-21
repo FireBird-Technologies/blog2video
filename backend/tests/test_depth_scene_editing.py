@@ -176,3 +176,74 @@ def test_sync_audio_filenames__cyclic_swap_no_clobber(db_session, paid_user):
     import shutil
     shutil.rmtree(os.path.join(settings.MEDIA_DIR, f"projects/{project.id}"),
                   ignore_errors=True)
+
+
+def test_sync_audio_filenames__moves_r2_object_and_updates_asset_url(
+    db_session, paid_user, monkeypatch
+):
+    """When R2 is configured, playback serves the Asset's r2_url — so the resync must
+    move the R2 object and update r2_url/r2_key, not just the local file."""
+    import os
+    from app.config import settings
+    from app.models.asset import Asset, AssetType
+    from app.routers import projects as projects_mod
+    from app.services import r2_storage
+
+    project, scenes = _project_with_scenes(db_session, paid_user, n=3)
+    s1, s2, s3 = scenes
+    for s in scenes:
+        _write_scene_audio(project.id, s, s.order)
+
+    # Fake R2: an in-memory object store keyed by R2 key, seeded with each scene's audio.
+    store: dict[str, bytes] = {}
+    for s in scenes:
+        key = f"users/{paid_user.id}/projects/{project.id}/audio/scene_{s.order}.mp3"
+        store[key] = f"R2-AUDIO-FOR-SCENE-{s.id}".encode()
+
+    def fake_audio_key(uid, pid, filename):
+        return f"users/{uid}/projects/{pid}/audio/{filename}"
+
+    def fake_copy(src, dest):
+        if src not in store:
+            return None
+        store[dest] = store[src]
+        return f"https://cdn.test/{dest}"
+
+    def fake_delete(key):
+        store.pop(key, None)
+        return True
+
+    monkeypatch.setattr(r2_storage, "is_r2_configured", lambda: True)
+    monkeypatch.setattr(r2_storage, "audio_key", fake_audio_key)
+    monkeypatch.setattr(r2_storage, "copy_object", fake_copy)
+    monkeypatch.setattr(r2_storage, "delete_object", fake_delete)
+
+    # Create Asset rows with r2_url, as production would have.
+    for s in scenes:
+        db_session.add(Asset(
+            project_id=project.id, asset_type=AssetType.AUDIO,
+            local_path=s.voiceover_path, filename=f"scene_{s.order}.mp3",
+            r2_key=fake_audio_key(paid_user.id, project.id, f"scene_{s.order}.mp3"),
+            r2_url=f"https://cdn.test/users/{paid_user.id}/projects/{project.id}/audio/scene_{s.order}.mp3",
+        ))
+    db_session.commit()
+
+    # Cyclic swap: s2 -> order 3, s3 -> order 2.
+    s2.order, s3.order = 3, 2
+    db_session.flush()
+
+    projects_mod._sync_audio_filenames_to_order(db_session, project)
+    db_session.commit()
+    db_session.expire_all()
+
+    assets = {a.filename: a for a in db_session.query(Asset).filter_by(project_id=project.id)}
+    # The asset now named scene_3.mp3 must point at s2's R2 content; scene_2.mp3 at s3's.
+    assert assets["scene_3.mp3"].r2_url == f"https://cdn.test/{assets['scene_3.mp3'].r2_key}"
+    assert store[assets["scene_3.mp3"].r2_key] == f"R2-AUDIO-FOR-SCENE-{s2.id}".encode()
+    assert store[assets["scene_2.mp3"].r2_key] == f"R2-AUDIO-FOR-SCENE-{s3.id}".encode()
+    # Temp keys are cleaned up (no lingering tmp_reorder_ objects).
+    assert not any("tmp_reorder_" in k for k in store)
+
+    import shutil
+    shutil.rmtree(os.path.join(settings.MEDIA_DIR, f"projects/{project.id}"),
+                  ignore_errors=True)
