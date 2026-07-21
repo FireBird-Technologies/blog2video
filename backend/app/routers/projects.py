@@ -3860,6 +3860,10 @@ _IMAGE_GEN_ERROR_MESSAGE = (
     "If the issue persists, contact support."
 )
 
+# AI image generation costs this many AI-edit credits for FREE owners; PRO/STANDARD
+# owners are unlimited (see can_use_ai_edit). Charged to the project OWNER.
+GENERATE_IMAGE_CREDIT_COST = 5
+
 
 @router.post("/{project_id}/scenes/{scene_id}/generate-image")
 def generate_scene_image(
@@ -3872,7 +3876,9 @@ def generate_scene_image(
     """Generate an AI image from the user's image description (+ optional scene context).
 
     Returns base64 image and refined prompt. No DB write; use POST .../image when the user keeps it.
-    Requires the project OWNER to be on Pro/Standard. Aspect ratio follows the scene layout."""
+    PRO/STANDARD owners generate for free (unlimited); FREE owners spend
+    ``GENERATE_IMAGE_CREDIT_COST`` AI-edit credits, charged only on a successful
+    generation. Aspect ratio follows the scene layout."""
     import json
     from app.models.scene import Scene
     from app.models.user import PlanTier
@@ -3889,17 +3895,25 @@ def generate_scene_image(
 
     project = _get_user_project(project_id, user.id, db)
 
-    # Owner pays: gate on the OWNER's plan, so a FREE collaborator inherits a PRO
-    # owner's entitlement on a shared project (and a PRO collaborator gains nothing
-    # on a FREE owner's project).
-    from app.services.access import project_owner, feature_owner_gate_message
+    # Owner pays: gate/charge the OWNER, so a FREE collaborator inherits a PRO owner's
+    # entitlement on a shared project (and a PRO collaborator draws on the FREE owner's
+    # credit pool). PRO/STANDARD owners are unlimited; FREE owners spend AI-edit credits.
+    from app.services.access import project_owner, can_use_ai_edit, consume_ai_edit
 
     payer = project_owner(project, db)
-    if payer.plan not in (PlanTier.PRO, PlanTier.STANDARD):
-        raise HTTPException(
-            status_code=403,
-            detail=feature_owner_gate_message(payer, user, "AI image generation"),
-        )
+    if not can_use_ai_edit(payer, project, cost=GENERATE_IMAGE_CREDIT_COST):
+        if payer.id == user.id:
+            detail = (
+                f"AI editing limit reached. Generating an image costs "
+                f"{GENERATE_IMAGE_CREDIT_COST} AI edits. Buy a video for +20 AI edits, "
+                "or upgrade to Pro or Standard for unlimited AI image generation."
+            )
+        else:
+            detail = (
+                "The project owner is out of AI edits, so AI image generation isn't "
+                "available here. Ask the owner to buy more credits or upgrade."
+            )
+        raise HTTPException(status_code=403, detail=detail)
 
     scene = (
         db.query(Scene)
@@ -3975,6 +3989,12 @@ def generate_scene_image(
     except Exception as e:
         logger.error("[GENERATE_IMAGE] Image generation error: %s", e, exc_info=True)
         raise HTTPException(status_code=502, detail=_IMAGE_GEN_ERROR_MESSAGE) from e
+
+    # Charge only on success. No-op for PRO/STANDARD owners (unlimited); FREE owners
+    # spend from their shared per-user AI-edit pool.
+    if payer.plan not in (PlanTier.PRO, PlanTier.STANDARD):
+        consume_ai_edit(payer, project, cost=GENERATE_IMAGE_CREDIT_COST)
+        db.commit()
 
     return {"image_base64": image_base64, "refined_prompt": refined_prompt}
 
@@ -4063,6 +4083,14 @@ async def update_scene_image(
 
     db.commit()
     db.refresh(scene)
+
+    # Push the new/replaced image live to collaborators. project_reloaded (not a field
+    # edit) because the change spans a new asset URL and the scene descriptor's
+    # assignedImage/focus — too much to sync field-by-field. Matches update_scene_voiceover.
+    from app.routers.collab_ws import collab_manager
+    await collab_manager.broadcast(
+        project_id, {"type": "project_reloaded"}, exclude_user_id=user.id
+    )
 
     return scene
 
@@ -4261,6 +4289,11 @@ def update_scene_image_focus(
     db.commit()
     db.refresh(scene)
 
+    # Image framing lives inside the scene descriptor's layoutProps, so push a reload
+    # rather than a field edit (thread-safe; sync endpoint).
+    from app.routers.collab_ws import broadcast_project_reload
+    broadcast_project_reload(project_id, exclude_user_id=user.id)
+
     return scene
 
 
@@ -4297,6 +4330,11 @@ def move_scene_image(
     from_scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(from_desc))
     to_scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(to_desc))
     db.commit()
+
+    # Two scene descriptors changed → reload broadcast (thread-safe; sync endpoint).
+    from app.routers.collab_ws import broadcast_project_reload
+    broadcast_project_reload(project_id, exclude_user_id=user.id)
+
     return {"detail": "Image moved"}
 
 
@@ -4352,6 +4390,11 @@ def swap_scene_images(
     first.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(first_desc))
     second.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(second_desc))
     db.commit()
+
+    # Two scene descriptors changed → reload broadcast (thread-safe; sync endpoint).
+    from app.routers.collab_ws import broadcast_project_reload
+    broadcast_project_reload(project_id, exclude_user_id=user.id)
+
     return {"detail": "Images swapped"}
 
 
@@ -4395,6 +4438,10 @@ def duplicate_scene_image(
     target_lp["imageFocusY"] = _clamp_image_focus(source_lp.get("imageFocusY", 50))
     target_scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(target_desc))
     db.commit()
+
+    # Target scene descriptor changed → reload broadcast (thread-safe; sync endpoint).
+    from app.routers.collab_ws import broadcast_project_reload
+    broadcast_project_reload(project_id, exclude_user_id=user.id)
 
     return {"detail": "Image duplicated to target scene"}
 
@@ -4441,6 +4488,12 @@ def assign_existing_image_to_scene(
     target_scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(target_desc))
 
     db.commit()
+
+    # Sync endpoint (no event loop) → thread-safe reload broadcast. project_reloaded
+    # because the scene descriptor's assignedImage/hideImage/focus all changed.
+    from app.routers.collab_ws import broadcast_project_reload
+    broadcast_project_reload(project_id, exclude_user_id=user.id)
+
     return {"detail": "Image assigned to scene"}
 
 

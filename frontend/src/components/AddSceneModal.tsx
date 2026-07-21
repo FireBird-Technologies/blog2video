@@ -12,6 +12,12 @@ export interface AddSceneModalProps {
   creditsRemaining: number;
   /** Whether the paying owner is on an unlimited (Pro/Standard) plan. */
   isPro: boolean;
+  /**
+   * True when the viewer is a collaborator on a shared project (spending the
+   * OWNER's credit pool). A collaborator can't fix an exhausted pool by upgrading
+   * their own plan, so they get a different message from the owner.
+   */
+  isCollaborator?: boolean;
   /** The scene the new one will be inserted AFTER; null = append at the end. */
   anchorScene?: Scene | null;
   /** Called after the add-scene job is enqueued (parent starts polling). */
@@ -32,6 +38,7 @@ export default function AddSceneModal({
   project,
   creditsRemaining,
   isPro,
+  isCollaborator = false,
   anchorScene,
   onAdded,
   onError,
@@ -146,13 +153,26 @@ export default function AddSceneModal({
           )}
 
           {!canAfford && (
-            <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5">
-              <p className="text-xs font-medium text-amber-800">
-                Not enough AI edits — adding a scene costs {ADD_SCENE_CREDIT_COST}.
-              </p>
-              <p className="mt-1 text-xs text-amber-700">
-                Buy a video for +20 AI edits, or upgrade to Pro/Standard for unlimited.
-              </p>
+            <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2.5">
+              {isCollaborator ? (
+                <>
+                  <p className="text-xs font-semibold text-red-700">
+                    The project owner is out of AI credits — adding a scene costs {ADD_SCENE_CREDIT_COST}.
+                  </p>
+                  <p className="mt-1 text-xs text-red-600">
+                    Ask the owner to buy a video for +20 AI edits, or upgrade to Pro/Standard for unlimited.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs font-semibold text-red-700">
+                    You're out of AI credits — adding a scene costs {ADD_SCENE_CREDIT_COST}.
+                  </p>
+                  <p className="mt-1 text-xs text-red-600">
+                    Buy a video for +20 AI edits, or upgrade to Pro/Standard for unlimited.
+                  </p>
+                </>
+              )}
             </div>
           )}
         </div>
