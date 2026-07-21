@@ -22,7 +22,7 @@ import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import { useNavigate } from "react-router-dom";
 import UpgradePlanModal from "./UpgradePlanModal";
 import { STANDARD_MONTHLY_PRICE, PRO_MONTHLY_PRICE } from "../content/pricingContent";
-import GenerateSceneImageModal from "./GenerateSceneImageModal";
+import GenerateSceneImageModal, { AI_IMAGE_CREDIT_COST } from "./GenerateSceneImageModal";
 import { getSceneLayoutLabel } from "../utils/layoutLabels";
 import { chartTableToLegacyRowProps } from "../utils/chartTableDataVizLegacy";
 import { compileDataModule } from "../utils/compileComponent";
@@ -4378,18 +4378,21 @@ export default function SceneEditModal({
 
   const scrapedImageItems = availableImageItems;
 
-  // A collaborator blocked by the owner's free plan can't act on an upgrade prompt,
-  // so show the soft "Oops" warning rather than a hard red error.
-  const ownerBlocksProFeature = isCollaborator && !effectiveIsPro;
+  // AI image generation: PRO/STANDARD owners are unlimited; FREE owners spend
+  // AI_IMAGE_CREDIT_COST credits per image (charged to the OWNER on shared projects).
+  const canUseAiImage = effectiveIsPro || aiCreditRemaining >= AI_IMAGE_CREDIT_COST;
+  // A collaborator blocked by the owner's exhausted access can't act on an upgrade
+  // prompt, so show the soft "Oops" warning rather than a hard red error.
+  const ownerBlocksAiImage = isCollaborator && !canUseAiImage;
   const notifyOwnerBlocked = () =>
     showError(
-      "The project owner is on the Free plan, so AI image generation isn't available here. Ask the owner to upgrade.",
+      "The project owner is out of AI edits, so AI image generation isn't available here. Ask the owner to buy more credits or upgrade.",
       { variant: "warning" },
     );
 
   const handleGenerateImageClick = () => {
-    if (!effectiveIsPro) {
-      if (ownerBlocksProFeature) notifyOwnerBlocked();
+    if (!canUseAiImage) {
+      if (ownerBlocksAiImage) notifyOwnerBlocked();
       else setShowAiImageUpgradeModal(true);
       return;
     }
@@ -6709,8 +6712,9 @@ export default function SceneEditModal({
       open={showImageGenModal}
       scene={scene}
       project={project}
-      isPro={effectiveIsPro}
-      ownerBlocked={ownerBlocksProFeature}
+      canGenerate={canUseAiImage}
+      creditCost={AI_IMAGE_CREDIT_COST}
+      ownerBlocked={ownerBlocksAiImage}
       onOwnerBlocked={() => {
         setShowImageGenModal(false);
         notifyOwnerBlocked();
@@ -6724,6 +6728,9 @@ export default function SceneEditModal({
         setGeneratedImageBase64(imageBase64);
         setGeneratedPrompt(refinedPrompt);
         setShowImageGenModal(false);
+        // A FREE owner was charged AI_IMAGE_CREDIT_COST server-side; refresh so the
+        // balance shown in the modal isn't stale (no-op cost for PRO/STANDARD).
+        if (!effectiveIsPro) void refreshUser();
       }}
     />
 

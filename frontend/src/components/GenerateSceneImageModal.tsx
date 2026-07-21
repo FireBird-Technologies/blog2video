@@ -2,14 +2,23 @@ import { useEffect, useMemo, useState } from "react";
 import type { Project, Scene } from "../api/client";
 import { generateSceneImage } from "../api/client";
 
+// AI image generation costs this many AI-edit credits for a FREE owner; PRO/STANDARD
+// owners are unlimited. Kept in sync with the backend GENERATE_IMAGE_CREDIT_COST.
+export const AI_IMAGE_CREDIT_COST = 5;
+
 export interface GenerateSceneImageModalProps {
   open: boolean;
   onClose: () => void;
   scene: Scene;
   project: Project;
-  /** Owner-scoped: true when the project OWNER is on a paid plan. */
-  isPro: boolean;
-  /** True when the blocker is the OWNER's free plan, not the viewer's own. */
+  /**
+   * Owner-scoped access to AI image generation: true when the project OWNER is on a
+   * paid plan (unlimited) OR has enough AI-edit credits to cover one generation.
+   */
+  canGenerate: boolean;
+  /** Credits one generation costs a FREE owner (for the "costs N AI edits" hint). */
+  creditCost: number;
+  /** True when the blocker is the OWNER's exhausted access, not the viewer's own. */
   ownerBlocked?: boolean;
   onUpgrade: () => void;
   /** Shown instead of the self-upgrade prompt when `ownerBlocked`. */
@@ -24,7 +33,8 @@ export default function GenerateSceneImageModal({
   onClose,
   scene,
   project,
-  isPro,
+  canGenerate,
+  creditCost,
   ownerBlocked,
   onUpgrade,
   onOwnerBlocked,
@@ -64,7 +74,7 @@ export default function GenerateSceneImageModal({
       setError("Image description must be at least 3 characters.");
       return;
     }
-    if (!isPro) {
+    if (!canGenerate) {
       promptForAccess();
       return;
     }
@@ -122,6 +132,9 @@ export default function GenerateSceneImageModal({
           </h3>
           <p className="text-xs text-gray-500 mt-1">
             Describe the image you want. Your description is the main input.
+          </p>
+          <p className="text-xs text-gray-400 mt-1">
+            Costs {creditCost} AI edits · free with Pro or Standard.
           </p>
         </div>
 

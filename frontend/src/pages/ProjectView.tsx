@@ -75,7 +75,7 @@ import SceneEditModal, {
   SceneImageItem,
   resolveDefaultFontSizesForScene,
 } from "../components/SceneEditModal";
-import GenerateSceneImageModal from "../components/GenerateSceneImageModal";
+import GenerateSceneImageModal, { AI_IMAGE_CREDIT_COST } from "../components/GenerateSceneImageModal";
 import RecordVoiceoverModal from "../components/RecordVoiceoverModal";
 import AddSceneModal from "../components/AddSceneModal";
 import AddScenePlaceholderRow from "../components/AddScenePlaceholderRow";
@@ -3525,17 +3525,24 @@ export default function ProjectView() {
     }
   };
 
-  // A collaborator blocked by a FREE owner can't fix it by upgrading their own plan,
-  // so show the soft "Oops" warning instead of the self-upgrade modal.
-  const ownerBlocksProFeature = useOwnerScopedAssets && !effectiveIsPro;
+  // AI image generation: PRO/STANDARD owners are unlimited; FREE owners spend
+  // AI_IMAGE_CREDIT_COST credits per image (charged to the OWNER on shared projects).
+  const aiImageCreditRemaining = useOwnerScopedAssets
+    ? (project?.owner_ai_edit_credits ?? 0)
+    : (user?.ai_edit_credits ?? 0);
+  const canUseAiImage =
+    effectiveIsPro || aiImageCreditRemaining >= AI_IMAGE_CREDIT_COST;
+  // A collaborator blocked by the owner's exhausted access can't fix it by upgrading
+  // their own plan, so show the soft "Oops" warning instead of the self-upgrade modal.
+  const ownerBlocksProFeature = useOwnerScopedAssets && !canUseAiImage;
   const notifyOwnerBlocked = () =>
     showError(
-      "The project owner is on the Free plan, so AI image generation isn't available here. Ask the owner to upgrade.",
+      "The project owner is out of AI edits, so AI image generation isn't available here. Ask the owner to buy more credits or upgrade.",
       { variant: "warning" },
     );
 
   const handleGenerateSceneImageClick = (sceneId: number) => {
-    if (!effectiveIsPro) {
+    if (!canUseAiImage) {
       if (ownerBlocksProFeature) notifyOwnerBlocked();
       else setShowAiImageUpgradeModal(true);
       return;
@@ -5865,6 +5872,25 @@ export default function ProjectView() {
           const total = useOwnerScopedAssets
             ? (project.owner_ai_edit_credits ?? 0)
             : (user?.ai_edit_credits ?? 0);
+          // A non-paid owner who has run out of credits sees a red upgrade prompt
+          // linking to pricing. Collaborators can't fix it by upgrading their own
+          // plan (they see the "Oops" flow instead), so keep the neutral display.
+          const ownerOutOfCredits =
+            !effectiveIsPro && !useOwnerScopedAssets && total <= 0;
+          if (ownerOutOfCredits) {
+            return (
+              <span className="text-[10px] sm:text-xs font-semibold text-red-600 shrink-0 self-end pb-1">
+                You're out of AI credits.{" "}
+                <button
+                  type="button"
+                  onClick={() => navigate("/pricing")}
+                  className="text-purple-600 underline hover:text-purple-700"
+                >
+                  Upgrade now
+                </button>
+              </span>
+            );
+          }
           return (
             <span
               className="text-[10px] sm:text-xs font-medium text-gray-400 shrink-0 self-end pb-1"
@@ -6780,7 +6806,8 @@ export default function ProjectView() {
                       open
                       scene={imageGenScene}
                       project={project}
-                      isPro={effectiveIsPro}
+                      canGenerate={canUseAiImage}
+                      creditCost={AI_IMAGE_CREDIT_COST}
                       ownerBlocked={ownerBlocksProFeature}
                       onOwnerBlocked={notifyOwnerBlocked}
                       onClose={() => setImageGenModalSceneId(null)}
@@ -6798,6 +6825,9 @@ export default function ProjectView() {
                         setGeneratingImageSceneId(null);
                         handleSceneImageReady(imageGenModalSceneId, imageBase64, refinedPrompt);
                         setImageGenModalSceneId(null);
+                        // A FREE owner was charged AI_IMAGE_CREDIT_COST server-side;
+                        // refresh so the shown balance isn't stale (no-op for paid).
+                        if (!effectiveIsPro) void refreshUser();
                       }}
                     />
                   );
@@ -6856,6 +6886,8 @@ export default function ProjectView() {
                   open={showAiImageUpgradeModal}
                   onClose={() => setShowAiImageUpgradeModal(false)}
                   projectId={project?.id}
+                  title="You're out of AI credits"
+                  subtitle="Upgrade to get more credits and unlock unlimited AI edits & image generation."
                 />
               </div>
             )}
@@ -6893,6 +6925,7 @@ export default function ProjectView() {
           onClose={() => { setAddSceneOpen(false); setAddSceneAnchor(null); }}
           project={project}
           isPro={effectiveIsPro}
+          isCollaborator={useOwnerScopedAssets}
           anchorScene={addSceneAnchor}
           creditsRemaining={
             useOwnerScopedAssets
