@@ -22,6 +22,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "The whole thing nearly collapsed, and it started with a house. We stripped the 2008 crash down to four steps you can follow with a row of stick figures and a few charts — a documentary-style Remotion short.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-2008-financial-crisis-stickman-explainer.png",
+    heroImageAlt:
+      "The whole thing nearly collapsed, and it started with a house. We stripped the 2008 crash down to four steps you can follow with a row of stick figures and a few charts — a documentary-style Remotion short.",
     publishedAt: "2026-07-14",
     readTime: "3 min read",
     heroEyebrow: "Behind the scenes",
@@ -98,6 +101,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Every adventure is a story worth telling. A stickman and his stickdog hike into moonlit hills, build a fire, and watch the stars spell out B2V. One continuous campsite world, no cuts — and the debut of our four-legged companion.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-camping-night-stickman-animation.png",
+    heroImageAlt:
+      "Every adventure is a story worth telling. A stickman and his stickdog hike into moonlit hills, build a fire, and watch the stars spell out B2V. One continuous campsite world, no cuts — and the debut of our four-legged companion.",
     publishedAt: "2026-07-14",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -170,6 +176,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "An homage to the opening titles of Drive (2011), rebuilt as a synthwave stickman short — a neon-rimmed muscle car, hot-pink brush-script titles, and one line of dialogue. The shortest film in our series, and all of it is code.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-drive-title-sequence-stickman.png",
+    heroImageAlt:
+      "An homage to the opening titles of Drive (2011), rebuilt as a synthwave stickman short — a neon-rimmed muscle car, hot-pink brush-script titles, and one line of dialogue. The shortest film in our series, and all of it is code.",
     publishedAt: "2026-07-14",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -244,6 +253,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Keep the middle course. We told the full myth of Icarus and Daedalus as a narrated stickman short — wings built feather by feather, the leap over a shining sea, and the fall everyone watches twice. Here's how we built it.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-icarus-stickman-animation.png",
+    heroImageAlt:
+      "Keep the middle course. We told the full myth of Icarus and Daedalus as a narrated stickman short — wings built feather by feather, the leap over a shining sea, and the fall everyone watches twice. Here's how we built it.",
     publishedAt: "2026-07-14",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -318,6 +330,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Why, Mister Anderson? Because my content is worth it. We built a full Matrix-style stickman fight — Neo against a red-eyed agent of AI slop, hand-to-hand, bullet-time and all — with voices designed from scratch in ElevenLabs.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-neo-stops-ai-slop-stickman.png",
+    heroImageAlt:
+      "Why, Mister Anderson? Because my content is worth it. We built a full Matrix-style stickman fight — Neo against a red-eyed agent of AI slop, hand-to-hand, bullet-time and all — with voices designed from scratch in ElevenLabs.",
     publishedAt: "2026-07-14",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -391,6 +406,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "One shot. Your videos. A calm stickman in a trench coat and fedora meets a knife-juggling burglar on a rain-slick street — and ends it with a single bullet. A neon-noir short about why you don't need ten takes.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-one-shot-stickman-animation.png",
+    heroImageAlt:
+      "One shot. Your videos. A calm stickman in a trench coat and fedora meets a knife-juggling burglar on a rain-slick street — and ends it with a single bullet. A neon-noir short about why you don't need ten takes.",
     publishedAt: "2026-07-14",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -463,6 +481,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "She only wanted a peek. We retold the myth of Pandora's box as a narrated stickman short under an enchanted night sky — every trouble of the world pouring out, and one warm light left inside. Here's how we built it in Remotion.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-pandoras-box-stickman-animation.png",
+    heroImageAlt:
+      "She only wanted a peek. We retold the myth of Pandora's box as a narrated stickman short under an enchanted night sky — every trouble of the world pouring out, and one warm light left inside. Here's how we built it in Remotion.",
     publishedAt: "2026-07-14",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -538,6 +559,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "No chain ever forged could take the fire back. We told the myth of Prometheus as a narrated stickman short — eight crossfaded shots, a valley lighting up fire by fire, and a Titan who smiles in his chains. Here's how we built it.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-prometheus-stickman-animation.png",
+    heroImageAlt:
+      "No chain ever forged could take the fire back. We told the myth of Prometheus as a narrated stickman short — eight crossfaded shots, a valley lighting up fire by fire, and a Titan who smiles in his chains. Here's how we built it.",
     publishedAt: "2026-07-14",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -613,6 +637,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "A parody of the legendary Reservoir Dogs diner opening, rebuilt as a stickman short — six suited crooks, six ElevenLabs voices, and one argument over a tip. Here's how we made stick figures carry an ensemble dialogue scene.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-reservoir-dogs-stickman-parody.png",
+    heroImageAlt:
+      "A parody of the legendary Reservoir Dogs diner opening, rebuilt as a stickman short — six suited crooks, six ElevenLabs voices, and one argument over a tip. Here's how we made stick figures carry an ensemble dialogue scene.",
     publishedAt: "2026-07-14",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -686,6 +713,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "They never caught him. We told the legend of Robin Hood as a narrated stickman short — a warning arrow, coins on doorsteps, and a golden arrow split clean in two. Here's how we built the greenwood in code.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-robin-hood-stickman-animation.png",
+    heroImageAlt:
+      "They never caught him. We told the legend of Robin Hood as a narrated stickman short — a warning arrow, coins on doorsteps, and a golden arrow split clean in two. Here's how we built the greenwood in code.",
     publishedAt: "2026-07-14",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -761,6 +791,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Your day, worth a story. A tired salaryman trudges home, rides to the rooftop, and lets out one long sigh under a huge moon. A completely silent stickman short — proof the format can do mood, not just jokes.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-salaryman-stickman-animation.png",
+    heroImageAlt:
+      "Your day, worth a story. A tired salaryman trudges home, rides to the rooftop, and lets out one long sigh under a huge moon. A completely silent stickman short — proof the format can do mood, not just jokes.",
     publishedAt: "2026-07-14",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -834,6 +867,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "One must imagine Sisyphus happy. We animated the myth as a narrated stickman short with a physically honest boulder — and chose to end not on the stone thundering down, but on the man setting his hands to it again.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-sisyphus-stickman-animation.png",
+    heroImageAlt:
+      "One must imagine Sisyphus happy. We animated the myth as a narrated stickman short with a physically honest boulder — and chose to end not on the stone thundering down, but on the man setting his hands to it again.",
     publishedAt: "2026-07-14",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -907,6 +943,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "AI slop… I am your content. We staged a stickman lightsaber duel above the stars — Luke, powered by Blog2Video, against a caped figure who is AI slop — with procedural sabers and an original orchestral score.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-star-wars-stickman-parody.png",
+    heroImageAlt:
+      "AI slop… I am your content. We staged a stickman lightsaber duel above the stars — Luke, powered by Blog2Video, against a caped figure who is AI slop — with procedural sabers and an original orchestral score.",
     publishedAt: "2026-07-14",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -979,6 +1018,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "A faceless stickman pours an entire day into the perfect blog post and earns exactly one like — his own. Here's the silent 50-second Remotion film we built, and why distribution, not writing, is the real problem.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-the-grind-stickman-animation.png",
+    heroImageAlt:
+      "A faceless stickman pours an entire day into the perfect blog post and earns exactly one like — his own. Here's the silent 50-second Remotion film we built, and why distribution, not writing, is the real problem.",
     publishedAt: "2026-07-14",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -1054,6 +1096,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "For ten years no army could break the walls of Troy — then a single story walked through the front gate. We retold the fall of Troy as a two-minute stickman short, plus what the oldest trick in war teaches about reaching a guarded audience.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-trojan-horse-stickman-animation.png",
+    heroImageAlt:
+      "For ten years no army could break the walls of Troy — then a single story walked through the front gate. We retold the fall of Troy as a two-minute stickman short, plus what the oldest trick in war teaches about reaching a guarded audience.",
     publishedAt: "2026-07-14",
     readTime: "3 min read",
     heroEyebrow: "Behind the scenes",
@@ -1140,6 +1185,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "He fell for the only face that never looked back. We told the myth of Narcissus as a narrated stickman short — a waterline mirror, a point-of-view into the pool, and a flower where a boy used to kneel. Here's how we built it.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-narcissus-stickman-animation.png",
+    heroImageAlt:
+      "He fell for the only face that never looked back. We told the myth of Narcissus as a narrated stickman short — a waterline mirror, a point-of-view into the pool, and a flower where a boy used to kneel. Here's how we built it.",
     publishedAt: "2026-07-16",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -1214,6 +1262,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "How (not) to lift a sword. We told the Excalibur legend as a comic stickman short — boastful knights flying backwards, a skinny squire pulling it free like a stick from mud, and one engineering trick that makes every heave read as real contact.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-sword-in-the-stone-stickman-animation.png",
+    heroImageAlt:
+      "How (not) to lift a sword. We told the Excalibur legend as a comic stickman short — boastful knights flying backwards, a skinny squire pulling it free like a stick from mud, and one engineering trick that makes every heave read as real contact.",
     publishedAt: "2026-07-16",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -1288,6 +1339,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Replace every plank, and is it still your ship? We told the Ship of Theseus paradox as a narrated stickman short — a galley rebuilt plank by plank on screen, and a twist about a second ship. Here's how we built it in Remotion.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-ship-of-theseus-stickman-animation.png",
+    heroImageAlt:
+      "Replace every plank, and is it still your ship? We told the Ship of Theseus paradox as a narrated stickman short — a galley rebuilt plank by plank on screen, and a twist about a second ship. Here's how we built it in Remotion.",
     publishedAt: "2026-07-16",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -1362,6 +1416,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Whatever's in the case, it's worth the whole movie. We reimagined the Pulp Fiction briefcase-check as a stickman parody — two hitmen, a terrified man named Brett, and a glow we never quite let you see. Here's how we built it.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-pulp-fiction-stickman-parody.png",
+    heroImageAlt:
+      "Whatever's in the case, it's worth the whole movie. We reimagined the Pulp Fiction briefcase-check as a stickman parody — two hitmen, a terrified man named Brett, and a glow we never quite let you see. Here's how we built it.",
     publishedAt: "2026-07-16",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -1436,6 +1493,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Look at that subtle off-white coloring. We turned the American Psycho business-card scene into a stickman ad — execs one-upping each other with AI video tools, until Bateman lays down the one card nobody can stop staring at.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-american-psycho-stickman-parody.png",
+    heroImageAlt:
+      "Look at that subtle off-white coloring. We turned the American Psycho business-card scene into a stickman ad — execs one-upping each other with AI video tools, until Bateman lays down the one card nobody can stop staring at.",
     publishedAt: "2026-07-16",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -1510,6 +1570,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "The only word the slop ever gets to say is 'Die.' We rebuilt the Matrix bullet-dodge as a stickman short — one lean, stretched and re-covered from every angle, where Neo wins by not being hit. Here's how we built it.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-neo-first-dodge-stickman.png",
+    heroImageAlt:
+      "The only word the slop ever gets to say is 'Die.' We rebuilt the Matrix bullet-dodge as a stickman short — one lean, stretched and re-covered from every angle, where Neo wins by not being hit. Here's how we built it.",
     publishedAt: "2026-07-16",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -1584,6 +1647,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Green versus red. Craft versus slop. We crossed our Matrix and Star Wars films into one stickman saber duel — Neo against a Sith embodiment of AI slop — and let the fight lead before the message lands.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-neo-vs-sith-stickman.png",
+    heroImageAlt:
+      "Green versus red. Craft versus slop. We crossed our Matrix and Star Wars films into one stickman saber duel — Neo against a Sith embodiment of AI slop — and let the fight lead before the message lands.",
     publishedAt: "2026-07-16",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -1658,6 +1724,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Were you listening, or looking at the woman in the red dress? We rebuilt the Matrix training-program scene as a stickman parody — a grey crowd, one red accent, and a freeze-reveal that turns the distraction into the danger.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-matrix-red-dress-stickman.png",
+    heroImageAlt:
+      "Were you listening, or looking at the woman in the red dress? We rebuilt the Matrix training-program scene as a stickman parody — a grey crowd, one red accent, and a freeze-reveal that turns the distraction into the danger.",
     publishedAt: "2026-07-16",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -1732,6 +1801,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Science, bitch. We turned the Breaking Bad RV scene into a stickman parody — panicked Jesse, unflappable Walt, one clean fix — and pointed the same calm, one-move solution at turning your blog into a video.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-breaking-bad-stickman-parody.png",
+    heroImageAlt:
+      "Science, bitch. We turned the Breaking Bad RV scene into a stickman parody — panicked Jesse, unflappable Walt, one clean fix — and pointed the same calm, one-move solution at turning your blog into a video.",
     publishedAt: "2026-07-16",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -1806,6 +1878,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Every story deserves to be told. Tell yours. The Overlook is a silent night-drive short — a climb up a cliff road, a cigarette over a sea of city lights, and a quiet reminder to go tell your own story.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-the-overlook-stickman-animation.png",
+    heroImageAlt:
+      "Every story deserves to be told. Tell yours. The Overlook is a silent night-drive short — a climb up a cliff road, a cigarette over a sea of city lights, and a quiet reminder to go tell your own story.",
     publishedAt: "2026-07-16",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -1880,6 +1955,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Growth, new templates, and Collaboration. The mascot's second outing doubles as a release note — a bike intro, a dance, a high-five, and a quarter of updates threaded through it. Here's how we turned a changelog into a film.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-stickman-v2-showcase.png",
+    heroImageAlt:
+      "Growth, new templates, and Collaboration. The mascot's second outing doubles as a release note — a bike intro, a dance, a high-five, and a quarter of updates threaded through it. Here's how we turned a changelog into a film.",
     publishedAt: "2026-07-16",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -1954,6 +2032,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Numbers alone don't move anyone — an underdog climbing does. Stickman v3 is a growth-story arc: a mascot climbing a trail of milestones toward a summit while the numbers climb with him. Here's how we built it.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-stickman-v3-journey-so-far.png",
+    heroImageAlt:
+      "Numbers alone don't move anyone — an underdog climbing does. Stickman v3 is a growth-story arc: a mascot climbing a trail of milestones toward a summit while the numbers climb with him. Here's how we built it.",
     publishedAt: "2026-07-16",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -2028,6 +2109,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Strap in — a whole tank of updates just landed. Stickman v4 flies you through everything new on Blog2Video, one feature per scene, with a jetpack that sputters, ignites, and touches back down. Here's how we built it.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-stickman-v4-jetpack-update.png",
+    heroImageAlt:
+      "Strap in — a whole tank of updates just landed. Stickman v4 flies you through everything new on Blog2Video, one feature per scene, with a jetpack that sputters, ignites, and touches back down. Here's how we built it.",
     publishedAt: "2026-07-16",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -5863,6 +5947,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "How we retold the 3,000-year-old Greek myth of Persephone and Demeter — abduction, famine, and the birth of the seasons — with stick figures in a single React/Remotion composition, in under 2 minutes.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-persephone-stick-figure-animation.png",
+    heroImageAlt:
+      "How we retold the 3,000-year-old Greek myth of Persephone and Demeter — abduction, famine, and the birth of the seasons — with stick figures in a single React/Remotion composition, in under 2 minutes.",
     publishedAt: "2026-07-14",
     readTime: "3 min read",
     heroEyebrow: "Behind the scenes",
