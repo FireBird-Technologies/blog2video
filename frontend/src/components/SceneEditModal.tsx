@@ -6608,7 +6608,7 @@ export default function SceneEditModal({
       open={showAiImageUpgradeModal}
       onClose={() => setShowAiImageUpgradeModal(false)}
       projectId={project?.id}
-      title="You're out of AI credits"
+      title="You're out of AI edit credits"
       subtitle="Upgrade to get more credits and unlock unlimited AI edits & image generation."
     />
 
