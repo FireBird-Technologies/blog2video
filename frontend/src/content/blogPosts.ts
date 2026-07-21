@@ -17,6 +17,113 @@ function faq(primary: string, variant: string) {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "blog2video-official-site-vs-copycats",
+    title: "Blog2Video: the Only Official Site, and the Copycats Using Our Name",
+    description:
+      "There is exactly one official Blog2Video, and it lives at blog2video.app. A growing list of look-alike sites and accounts have copied the name — here is the full list, and how to tell you are on the real one.",
+    category: "Announcement",
+    publishedAt: "2026-07-21",
+    readTime: "3 min read",
+    heroEyebrow: "Announcement",
+    heroTitle: "Blog2Video: the Only Official Site, and the Copycats Using Our Name",
+    heroDescription:
+      "There is exactly one official Blog2Video, and it lives at blog2video.app. A growing list of look-alike sites and accounts have copied the name — here is the full list, and how to tell you are on the real one.",
+    primaryKeyword: "blog2video official site",
+    keywordVariant: "blog2video copycats and clones",
+    relatedPaths: ["/blog-to-video", "/blogs", "/pricing"],
+    sections: [
+      {
+        heading: "The short version",
+        paragraphs: [
+          "There is exactly one official Blog2Video, and it is blog2video.app — built and operated by FireBird Technologies.",
+          "Every other website, app, social account, or listing that uses the \"Blog2Video\" name is unaffiliated with us. We do not run them, we did not license the name to them, and we cannot vouch for what they do with your content, your payments, or your data.",
+        ],
+      },
+      {
+        heading: "The only official Blog2Video",
+        paragraphs: [
+          "The genuine product is at blog2video.app. It is the same tool documented across this blog, the FireBird Technologies newsletter, and our open-source repository at github.com/FireBird-Technologies/blog2video.",
+          "If you are paying for a subscription, logging in, or connecting an account, make sure the address bar reads exactly blog2video.app. Anything else is not us.",
+        ],
+      },
+      {
+        heading: "Sites and accounts we are NOT affiliated with",
+        paragraphs: [
+          "These use the \"Blog2Video\" name but are not connected to blog2video.app in any way. This list is not exhaustive — clones come and go — so treat any \"Blog2Video\" that is not blog2video.app as unaffiliated:",
+        ],
+        bullets: [
+          "blog2video.ai — a separate website running the near-identical pitch \"Turn Blog Posts into Videos with AI,\" with no company, footer, or contact information identifying who operates it. Not us.",
+          "The \"Blog2VideoAI\" YouTube channel — an account reusing the name; not our official channel.",
+          "The @blog2video account on X (Twitter) — a copycat account using our name; not operated by us.",
+          "Any other domain variation — such as blog2video.com, .io, .net, .co, or similar — and any app-store listing, browser extension, or reseller page trading on the \"Blog2Video\" name. If it is not blog2video.app, it is not us.",
+        ],
+      },
+      {
+        heading: "How to tell you are on the real one",
+        paragraphs: [
+          "A few quick checks before you sign up or pay:",
+        ],
+        bullets: [
+          "The domain is exactly blog2video.app — not a .ai, .com, .io, or a subdomain that merely contains \"blog2video.\"",
+          "It links back to FireBird Technologies and the open-source repo at github.com/FireBird-Technologies/blog2video.",
+          "The content, templates, and product updates match what you see on this blog and in our newsletter at firebird-technologies.com.",
+        ],
+      },
+      {
+        heading: "Why this matters",
+        paragraphs: [
+          "Copycats that borrow a name can borrow trust that they have not earned. When you hand a tool your draft, your voice, your API keys, or your card details, you are trusting whoever is actually behind it — and on the look-alike sites, that is not us and often nobody you can identify.",
+          "We are flagging this so nobody pays the wrong site by mistake, and so the work we publish under the Blog2Video name is not confused with tools we have no control over.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "One name, one official home: blog2video.app. If you got here through anything else, come to the real thing.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Go to the official Blog2Video",
+      },
+    ],
+    faq: [
+      {
+        question: "Is blog2video.ai the same as blog2video.app?",
+        answer:
+          "No. blog2video.app is the only official Blog2Video, built by FireBird Technologies. blog2video.ai is a separate, unaffiliated site that reuses the name. We do not operate it and are not connected to it.",
+      },
+      {
+        question: "How do I know I am on the official Blog2Video?",
+        answer:
+          "Check that the domain is exactly blog2video.app. It is tied to FireBird Technologies and the open-source repository at github.com/FireBird-Technologies/blog2video. Any other domain, app, or account using the name is unaffiliated.",
+      },
+      {
+        question: "Are the other 'Blog2Video' tools endorsed or licensed by you?",
+        answer:
+          "No. We have not licensed the name to anyone. Any website, app, or social account other than blog2video.app is unaffiliated with us, and we cannot vouch for how they handle your content, payments, or data.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Blog2Video: the Only Official Site, and the Copycats Using Our Name",
+        angle:
+          "State plainly that blog2video.app is the only official Blog2Video and list the unaffiliated look-alikes so customers do not sign up or pay the wrong site.",
+      },
+      {
+        channel: "twitter",
+        title: "PSA: blog2video.app is the only official Blog2Video",
+        angle:
+          "Short thread clarifying that blog2video.app is the real one and that sites like blog2video.ai and copycat accounts are unaffiliated. Link the full post.",
+      },
+      {
+        channel: "video",
+        title: "The only official Blog2Video — 60-second explainer",
+        angle:
+          "Quick narrated short pointing viewers to blog2video.app and warning about look-alike domains and accounts. Link back to /blogs/blog2video-official-site-vs-copycats.",
+      },
+    ],
+  },
+  {
     slug: "2008-financial-crisis-stickman-explainer",
     title: "The 2008 Financial Crisis, Explained in Four Steps with Stick Figures",
     description:
