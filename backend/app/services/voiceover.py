@@ -13,7 +13,9 @@ from app.config import settings
 from app.models.scene import Scene
 from app.models.project import Project
 from app.models.asset import Asset, AssetType
+from app.models.prebuilt_voice import PrebuiltVoice
 from app.services import r2_storage
+from app.services import elevenlabs_keys
 from app.observability.logging import get_logger
 
 logger = get_logger(__name__)
@@ -178,6 +180,28 @@ def _get_voice_id(project: Project) -> str | None:
     )
 
 
+def _is_genuinely_custom_voice(db: Session, voice_id: str | None) -> bool:
+    """True only if `voice_id` is a genuinely cloned/designed voice -- NOT one of
+    ElevenLabs' premade voices.
+
+    project.custom_voice_id is populated for EVERY saved-voice selection (premade
+    or cloned alike -- see ProjectVoiceSettingsCard.tsx, which always sends
+    saved.voice_id regardless of whether the voice is prebuilt), so its mere
+    presence does not mean the voice was actually cloned/designed. Only a voice_id
+    that is NOT in the prebuilt_voices catalog (seeded from ElevenLabs at startup)
+    is one that exists solely on the main account and therefore must pin TTS to
+    the main key.
+    """
+    voice_str = voice_id.strip() if isinstance(voice_id, str) else None
+    if not voice_str:
+        return False
+    is_prebuilt = (
+        db.query(PrebuiltVoice.id).filter(PrebuiltVoice.voice_id == voice_str).first()
+        is not None
+    )
+    return not is_prebuilt
+
+
 PREVIEW_SAMPLE_TEXT = "Here's a quick preview of how your narration will sound with these settings."
 
 
@@ -213,7 +237,21 @@ def synthesize_voice_preview(
     else:
         model_id = TTS_MODEL_DEFAULT
         voice_settings = _voice_settings_for_video_style(video_style) or {}
-    client = ElevenLabs(api_key=settings.ELEVENLABS_API_KEY)
+    from app.database import SessionLocal
+
+    preview_db = SessionLocal()
+    try:
+        pin_to_main = _is_genuinely_custom_voice(preview_db, custom_voice_id)
+    finally:
+        preview_db.close()
+    api_key = elevenlabs_keys.get_tts_api_key(pin_to_main=pin_to_main)
+    main_remaining_pct = elevenlabs_keys.get_last_known_main_remaining_percent()
+    logger.info(
+        "[VOICEOVER] Preview TTS via %s key (main remaining=%s%%)",
+        "main" if elevenlabs_keys.is_main_key(api_key) else "backup",
+        f"{main_remaining_pct:.1f}" if main_remaining_pct is not None else "unknown",
+    )
+    client = ElevenLabs(api_key=api_key)
     audio = client.text_to_speech.convert(
         text=text,
         voice_id=voice_id,
@@ -239,13 +277,16 @@ def _get_audio_duration(filepath: str) -> float:
 
 
 def _fetch_voice_meta(voice_id: str) -> dict | None:
-    """Fetch ElevenLabs voice metadata for diagnostics."""
-    if not voice_id or not settings.ELEVENLABS_API_KEY:
+    """Fetch ElevenLabs voice metadata for diagnostics. Always uses the main key,
+    since custom-voice metadata only exists on the main account."""
+    api_key = elevenlabs_keys.get_voice_design_api_key()
+    if not voice_id or not api_key:
         return None
+    elevenlabs_keys.log_key_usage(api_key, "fetch voice meta")
     try:
         resp = requests.get(
             ELEVENLABS_VOICE_META_URL.format(voice_id=voice_id),
-            headers={"xi-api-key": settings.ELEVENLABS_API_KEY},
+            headers={"xi-api-key": api_key},
             timeout=15,
         )
         if resp.status_code != 200:
@@ -893,7 +934,7 @@ def generate_voiceover(scene: Scene, db: Session, use_expanded: bool = False) ->
             "[VOICEOVER] Scene %s voice resolution: resolved=%s source=%s project_custom=%s gender=%s accent=%s voice_name=%s voice_category=%s voice_labels=%s",
             scene.order,
             voice_id,
-            "custom" if configured_custom else "map",
+            "custom" if _is_genuinely_custom_voice(db, configured_custom) else "map",
             configured_custom,
             getattr(project, "voice_gender", None),
             getattr(project, "voice_accent", None),
@@ -957,7 +998,9 @@ def generate_voiceover(scene: Scene, db: Session, use_expanded: bool = False) ->
         )
         return ""
 
-    client = ElevenLabs(api_key=settings.ELEVENLABS_API_KEY)
+    used_custom = bool(project) and _is_genuinely_custom_voice(
+        db, getattr(project, "custom_voice_id", None)
+    )
 
     audio_dir = os.path.join(
         settings.MEDIA_DIR, f"projects/{scene.project_id}/audio"
@@ -968,7 +1011,22 @@ def generate_voiceover(scene: Scene, db: Session, use_expanded: bool = False) ->
     output_path = os.path.join(audio_dir, filename)
 
     def _try_tts(vid: str) -> None:
-        """Run TTS with given voice_id; writes to output_path and updates scene. Raises on failure."""
+        """Run TTS with given voice_id; writes to output_path and updates scene. Raises on failure.
+
+        Resolves the API key fresh on every call (not cached) so that a
+        mid-retry-loop failover/fallback switch takes effect on the next attempt.
+        """
+        api_key = elevenlabs_keys.get_tts_api_key(pin_to_main=used_custom)
+        key_is_main = elevenlabs_keys.is_main_key(api_key)
+        main_remaining_pct = elevenlabs_keys.get_last_known_main_remaining_percent()
+        logger.info(
+            "[VOICEOVER] Scene %s: TTS via %s key (main remaining=%s%%)",
+            scene.order,
+            "main" if key_is_main else "backup",
+            f"{main_remaining_pct:.1f}" if main_remaining_pct is not None else "unknown",
+            extra={"project_id": scene.project_id},
+        )
+        client = ElevenLabs(api_key=api_key)
         audio_generator = client.text_to_speech.convert(
             text=voiceover_text,
             voice_id=vid,
@@ -1024,13 +1082,18 @@ def generate_voiceover(scene: Scene, db: Session, use_expanded: bool = False) ->
         s = str(err).lower()
         return "voice_not_found" in s or ("404" in s and "voice" in s)
 
+    def _is_quota_exceeded(err: Exception) -> bool:
+        s = str(err).lower()
+        return "quota_exceeded" in s or "quota exceeded" in s or "429" in s
+
     last_error = None
-    used_custom = bool(
-        project
-        and isinstance(getattr(project, "custom_voice_id", None), str)
-        and getattr(project, "custom_voice_id").strip()
-    )
     for attempt in range(1, MAX_RETRIES + 1):
+        # Resolve which key this attempt will use (must match _try_tts's resolution)
+        # BEFORE calling it, so an exception can be classified against the key that
+        # actually made the request.
+        attempt_key_was_main = elevenlabs_keys.is_main_key(
+            elevenlabs_keys.get_tts_api_key(pin_to_main=used_custom)
+        )
         try:
             _try_tts(voice_id)
             return output_path
@@ -1044,6 +1107,14 @@ def generate_voiceover(scene: Scene, db: Session, use_expanded: bool = False) ->
                 e,
                 extra={"project_id": scene.project_id, "user_id": scene.project.user_id if scene.project else None},
             )
+            if attempt_key_was_main and _is_quota_exceeded(e):
+                # Don't wait for the next daily poll -- re-check now so the next
+                # retry attempt in this same loop already picks up the backup key.
+                elevenlabs_keys.check_and_update_failover_state()
+            elif not attempt_key_was_main:
+                # Backup key errored for any reason -- fall back to main immediately
+                # so the next retry attempt (and all subsequent requests) uses main.
+                elevenlabs_keys.report_backup_key_failure(e)
             if attempt < MAX_RETRIES:
                 time.sleep(RETRY_DELAY * attempt)
 

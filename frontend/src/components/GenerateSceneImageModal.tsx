@@ -2,14 +2,23 @@ import { useEffect, useMemo, useState } from "react";
 import type { Project, Scene } from "../api/client";
 import { generateSceneImage } from "../api/client";
 
+// AI image generation costs this many AI-edit credits for a FREE owner; PRO/STANDARD
+// owners are unlimited. Kept in sync with the backend GENERATE_IMAGE_CREDIT_COST.
+export const AI_IMAGE_CREDIT_COST = 5;
+
 export interface GenerateSceneImageModalProps {
   open: boolean;
   onClose: () => void;
   scene: Scene;
   project: Project;
-  /** Owner-scoped: true when the project OWNER is on a paid plan. */
-  isPro: boolean;
-  /** True when the blocker is the OWNER's free plan, not the viewer's own. */
+  /**
+   * Owner-scoped access to AI image generation: true when the project OWNER is on a
+   * paid plan (unlimited) OR has enough AI-edit credits to cover one generation.
+   */
+  canGenerate: boolean;
+  /** Credits one generation costs a FREE owner (for the "costs N AI edits" hint). */
+  creditCost: number;
+  /** True when the blocker is the OWNER's exhausted access, not the viewer's own. */
   ownerBlocked?: boolean;
   onUpgrade: () => void;
   /** Shown instead of the self-upgrade prompt when `ownerBlocked`. */
@@ -24,7 +33,8 @@ export default function GenerateSceneImageModal({
   onClose,
   scene,
   project,
-  isPro,
+  canGenerate,
+  creditCost,
   ownerBlocked,
   onUpgrade,
   onOwnerBlocked,
@@ -34,6 +44,7 @@ export default function GenerateSceneImageModal({
 }: GenerateSceneImageModalProps) {
   const [imageDescription, setImageDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
 
   const placeholderHint = useMemo(() => {
     const v = (scene.visual_description || "").trim();
@@ -46,6 +57,7 @@ export default function GenerateSceneImageModal({
     if (!open) return;
     setImageDescription("");
     setError(null);
+    setGenerating(false);
   }, [open, scene.id]);
 
   if (!open) return null;
@@ -62,20 +74,24 @@ export default function GenerateSceneImageModal({
       setError("Image description must be at least 3 characters.");
       return;
     }
-    if (!isPro) {
+    if (!canGenerate) {
       promptForAccess();
       return;
     }
 
-    // Close modal immediately so the user can see the project behind the toast
-    onClose();
+    // Keep the modal open and show a generating state so the user sees progress and
+    // any error, instead of the modal vanishing with no feedback.
+    setError(null);
+    setGenerating(true);
     onGenerateStart?.();
 
     try {
       const res = await generateSceneImage(project.id, scene.id, {
         image_description: desc,
       });
+      // Hand the result to the parent (which shows the keep/discard preview) and close.
       onImageReady(res.data.image_base64, res.data.refined_prompt);
+      onClose();
     } catch (err: unknown) {
       const status =
         err && typeof err === "object" && "response" in err
@@ -90,7 +106,10 @@ export default function GenerateSceneImageModal({
           ? (err as { response?: { data?: { detail?: string } } }).response?.data
               ?.detail
           : "Image generation failed";
+      setError(String(msg || "Image generation failed"));
       onGenerateError?.(String(msg || "Image generation failed"));
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -98,7 +117,7 @@ export default function GenerateSceneImageModal({
     <div className="fixed inset-0 z-[105] flex items-center justify-center p-4">
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
+        onClick={() => { if (!generating) onClose(); }}
         aria-hidden
       />
       <div
@@ -114,8 +133,25 @@ export default function GenerateSceneImageModal({
           <p className="text-xs text-gray-500 mt-1">
             Describe the image you want. Your description is the main input.
           </p>
+          <p className="text-xs text-gray-400 mt-1">
+            Costs {creditCost} AI edits · free with Pro or Standard.
+          </p>
+          <p className="text-xs text-gray-400 mt-1">
+            Generation takes up to a minute — you can keep working while it runs.
+          </p>
         </div>
 
+        {generating ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-4 p-10 text-center min-h-0">
+            <div className="w-12 h-12 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
+            <div>
+              <p className="text-sm font-medium text-gray-800">Generating image…</p>
+              <p className="mt-1 text-xs text-gray-500">
+                This can take up to a minute. Please keep this open.
+              </p>
+            </div>
+          </div>
+        ) : (
         <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
           <div>
             <label
@@ -145,24 +181,27 @@ export default function GenerateSceneImageModal({
             </p>
           ) : null}
         </div>
+        )}
 
-        <div className="p-4 border-t border-gray-200 flex gap-2 flex-shrink-0">
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleGenerate}
-            disabled={imageDescription.trim().length < 3}
-            className="flex-1 px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Generate
-          </button>
-        </div>
+        {!generating && (
+          <div className="p-4 border-t border-gray-200 flex gap-2 flex-shrink-0">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleGenerate}
+              disabled={imageDescription.trim().length < 3}
+              className="flex-1 px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Generate
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

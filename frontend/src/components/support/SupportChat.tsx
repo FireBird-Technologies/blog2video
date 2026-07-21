@@ -5,6 +5,7 @@ import remarkGfm from "remark-gfm";
 import {
   getConversation,
   getStoredConversationId,
+  HttpError,
   sendChatStream,
   setStoredConversationId,
   startNewConversation,
@@ -12,6 +13,8 @@ import {
   type SupportMessage,
   type UIGuidance,
 } from "../../api/support";
+import { useAuth } from "../../hooks/useAuth";
+import SupportAuthModal from "../SupportAuthModal";
 import { useSupportTour } from "./SupportTourContext";
 
 type LocalMessage = {
@@ -79,6 +82,9 @@ export function SupportChat({ onClose }: { onClose: () => void }) {
   const [messages, setMessages] = useState<LocalMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [showSignIn, setShowSignIn] = useState(false);
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
+  const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const { startTour } = useSupportTour();
@@ -106,8 +112,23 @@ export function SupportChat({ onClose }: { onClose: () => void }) {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
+  // If the user becomes signed-in through any path (not just this modal's own
+  // onSuccess — e.g. they already had a session, or signed in elsewhere while
+  // this panel was mounted), never leave a stale sign-in prompt showing.
+  useEffect(() => {
+    if (user && showSignIn) {
+      setShowSignIn(false);
+      setPendingMessage(null);
+    }
+  }, [user, showSignIn]);
+
   const submitMessage = async (text: string) => {
     if (!text || sending) return;
+    if (!user) {
+      setPendingMessage(text);
+      setShowSignIn(true);
+      return;
+    }
     setSending(true);
     // Index of the assistant placeholder we're about to append. Tracked explicitly
     // (not "last message") because input re-enables on answer_done, so the user may
@@ -150,6 +171,13 @@ export function SupportChat({ onClose }: { onClose: () => void }) {
       },
       onError: (err) => {
         console.error("support chat stream error", err);
+        if (err instanceof HttpError && err.status === 401) {
+          void logout();
+          updateAssistant({ role: "assistant", content: "Your session expired.", streaming: false });
+          setPendingMessage(text);
+          setShowSignIn(true);
+          return;
+        }
         updateAssistant({ role: "assistant", content: "Sorry — something went wrong. Please try again in a moment.", streaming: false });
       },
     });
@@ -195,6 +223,20 @@ export function SupportChat({ onClose }: { onClose: () => void }) {
   return (
     // Mobile: full screen. Desktop: fixed bottom-right panel.
     <div className="fixed bottom-20 right-4 z-[9999] w-[340px] max-w-[calc(100vw-2rem)] h-[520px] max-h-[calc(100vh-6rem)] bg-white rounded-xl shadow-2xl border border-gray-200 flex flex-col">
+      {showSignIn && (
+        <SupportAuthModal
+          onClose={() => {
+            setShowSignIn(false);
+            setPendingMessage(null);
+          }}
+          onSuccess={() => {
+            setShowSignIn(false);
+            const text = pendingMessage;
+            setPendingMessage(null);
+            if (text) void submitMessage(text);
+          }}
+        />
+      )}
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-purple-600 rounded-t-xl shrink-0">
         <div>

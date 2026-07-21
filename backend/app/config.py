@@ -18,7 +18,19 @@ class Settings(BaseSettings):
     # back to ANTHROPIC_API_KEY when empty. Lets custom templates bill / rate-limit
     # separately from the rest of the app.
     CUSTOM_ANTHROPIC_API_KEY: str = ""
+    # MAIN / pro-tier key. Used for ALL custom voice creation/cloning/design (never
+    # fails over — a voice created under this account doesn't exist on the backup
+    # account) and for TTS synthesis whenever main isn't exhausted or a custom voice
+    # is involved. See app/services/elevenlabs_keys.py.
     ELEVENLABS_API_KEY: str = ""
+    # BACKUP / creator-tier key. TTS synthesis only fails over here when the main
+    # key's remaining quota drops to/below ELEVENLABS_FAILOVER_THRESHOLD_PERCENT.
+    # Never used for custom voice creation/cloning/design.
+    ELEVENLABS_BACKUP_API_KEY: str = ""
+    # Switch TTS synthesis to the backup key once the main key's remaining character
+    # quota drops to/below this percent. Checked once daily (see
+    # _periodic_elevenlabs_quota_check in main.py) plus reactively on quota errors.
+    ELEVENLABS_FAILOVER_THRESHOLD_PERCENT: float = 2.0
     ELEVENLABS_VOICE_ID: str = "21m00Tcm4TlvDq8ikWAM"
     EXA_API_KEY: str = ""
     FIRECRAWL_API_KEY: str = ""
@@ -68,6 +80,7 @@ class Settings(BaseSettings):
     STRIPE_STANDARD_PRICE_ID: str = ""  # Price ID for $35/mo Standard plan (30 videos)
     STRIPE_STANDARD_ANNUAL_PRICE_ID: str = ""  # Price ID for $28/mo effective Standard annual
     STRIPE_PER_VIDEO_PRICE_ID: str = ""  # Price ID for $5 one-time per-video
+    STRIPE_PER_VIDEO_PRODUCT_ID: str = ""  # Fixed Product ID for per-video ad-hoc prices (lets coupons target it). Falls back to inline product_data when unset.
     CUSTOM_TEMPLATE_PRICE_ID: str = ""  # Price ID for $5 one-time custom-template slot
     STANDARD_PLAN_LIFETIME_DEAL: str = ""  # Price ID for $1000 one-time Standard lifetime
     PRO_PLAN_LIFETIME_DEAL: str = ""       # Price ID for $1600 one-time Pro lifetime
@@ -171,6 +184,7 @@ class Settings(BaseSettings):
     FROM_EMAIL: str = "sales@blog2video.app"    # contact/internal emails
     NOREPLY_EMAIL: str = "noreply@blog2video.app"  # user-facing notifications
     INTERNAL_ALERT_EMAIL: str = "arslan@firebird-technologies.com"  # internal team alerts/forwards
+    INTERNAL_ALERT_EMAIL_2: str = "humeraraheel276@gmail.com"  # second internal recipient, CC'd on select alerts (e.g. ElevenLabs failover)
     # Automated update email scheduler: UTC hour (0-23) to run the daily batch
     UPDATE_EMAIL_SEND_HOUR: int = 9
 
