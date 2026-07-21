@@ -12,7 +12,7 @@ from google.auth.transport import requests as google_requests
 
 from app.config import settings
 from app.database import get_db
-from app.models.user import User, PlanTier, FREE_TIER_INCLUDED_VIDEOS, FREE_TIER_CUSTOM_TEMPLATES
+from app.models.user import User, PlanTier, FREE_TIER_INCLUDED_VIDEOS, FREE_TIER_CUSTOM_TEMPLATES, FREE_AI_EDIT_CREDITS
 from app.models.project import Project
 from app.models.subscription import Subscription
 from app.auth import create_access_token, get_current_user
@@ -208,9 +208,10 @@ def google_login(
         user.plan = PlanTier.FREE
         user.video_limit_bonus = 0
         user.referral_video_bonus = 0
-        # Wipe any purchased AI-edit credits (defense-in-depth for accounts deleted
-        # before delete zeroed them), consistent with the other purchased bonuses.
-        user.ai_edit_credits = 0
+        # Reactivation = fresh FREE account: restore the free AI-edit grant. Purchased
+        # credits are already dropped on delete (capped to the free grant there); this
+        # also lifts any legacy account zeroed by an older delete path back to the grant.
+        user.ai_edit_credits = FREE_AI_EDIT_CREDITS
         user.period_start = None
         user.stripe_customer_id = None
         user.stripe_subscription_id = None
@@ -373,9 +374,11 @@ def delete_account(
         user.plan = PlanTier.FREE
         user.video_limit_bonus = 0
         user.referral_video_bonus = 0
-        # Purchased AI-edit credits are wiped on teardown, consistent with the other
-        # purchased bonuses — they don't carry into a reactivated (fresh FREE) account.
-        user.ai_edit_credits = 0
+        # Normalize the AI-edit pool to the free grant, mirroring videos/custom-templates:
+        # cap it at FREE_AI_EDIT_CREDITS so purchased credits don't survive teardown, but
+        # leave a user already below the free grant untouched.
+        if (user.ai_edit_credits or 0) > FREE_AI_EDIT_CREDITS:
+            user.ai_edit_credits = FREE_AI_EDIT_CREDITS
         user.period_start = None
         # Normalize the custom-template counter exactly like videos: cap it at the FREE
         # base so a reactivated user who had created ≥1 template stays at the limit

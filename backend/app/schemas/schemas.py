@@ -551,6 +551,15 @@ class RegenerateSceneRequest(BaseModel):
     layout: Optional[str] = None
 
 
+class AddSceneRequest(BaseModel):
+    # Free-text description of the scene the user wants generated.
+    prompt: str
+    # 1-indexed position among ACTIVE scenes to insert at. The new scene takes this
+    # slot and everything at/after it shifts one down. Clamped server-side to
+    # [1, active_count + 1] (append when omitted / out of range).
+    position: Optional[int] = None
+
+
 # ─── Chat ──────────────────────────────────────────────────
 
 class ChatRequest(BaseModel):

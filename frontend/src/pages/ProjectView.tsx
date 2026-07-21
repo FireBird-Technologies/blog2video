@@ -75,6 +75,7 @@ import SceneEditModal, {
 } from "../components/SceneEditModal";
 import GenerateSceneImageModal from "../components/GenerateSceneImageModal";
 import RecordVoiceoverModal from "../components/RecordVoiceoverModal";
+import AddSceneModal from "../components/AddSceneModal";
 import ChatPanel from "../components/ChatPanel";
 import UpgradeModal from "../components/UpgradeModal";
 import UpgradePlanModal from "../components/UpgradePlanModal";
@@ -1208,6 +1209,7 @@ export default function ProjectView() {
   const [dragOverSceneId, setDragOverSceneId] = useState<number | null>(null);
   const [reorderSaving, setReorderSaving] = useState(false);
   const [sceneToDelete, setSceneToDelete] = useState<Scene | null>(null);
+  const [addSceneOpen, setAddSceneOpen] = useState(false);
   const [removingAssetId, setRemovingAssetId] = useState<number | null>(null);
   const [uploadingSceneId, setUploadingSceneId] = useState<number | null>(null);
   // Custom user-recorded voiceovers: applied-but-unsaved recordings, keyed by scene id.
@@ -5780,15 +5782,26 @@ export default function ProjectView() {
           </svg>
           Edit history
         </button>
-        {/* AI-edit credits remaining for this project. Paid owners are unlimited;
-            FREE owners get 3 per project + their purchased credit pool (the owner's
-            pool on a shared project). Mirrors the SceneEdit modal's entitlement. */}
+        <button
+          type="button"
+          onClick={() => setAddSceneOpen(true)}
+          disabled={anyJobRunning || !pipelineFinished}
+          className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-medium text-gray-700 border border-gray-300 hover:border-gray-400 rounded-lg transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Generate and insert a new scene"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          Add scene
+        </button>
+        {/* AI-edit credits remaining. Paid owners are unlimited; FREE owners draw
+            from a single per-user pool shared across all their projects (starts at 6,
+            +20 per purchased video) — the owner's pool on a shared project. Mirrors
+            the SceneEdit modal's entitlement. */}
         {(() => {
-          const freeRemaining = Math.max(0, 3 - (project.ai_assisted_editing_count || 0));
-          const creditRemaining = useOwnerScopedAssets
+          const total = useOwnerScopedAssets
             ? (project.owner_ai_edit_credits ?? 0)
             : (user?.ai_edit_credits ?? 0);
-          const total = freeRemaining + creditRemaining;
           return (
             <span
               className="text-[10px] sm:text-xs font-medium text-gray-400 shrink-0 self-end pb-1"
@@ -5848,15 +5861,13 @@ export default function ProjectView() {
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-baseline gap-4">
-                    <h2 className="text-base font-medium text-gray-900">
-                      {project.name}
-                    </h2>
-                    <span className="text-xs text-gray-400">
-                      {project.scenes.length} scenes — {imageAssets.length} images. Click <span className="font-medium text-purple-600">Edit</span> on any scene to change its text, narration, or layout. Drag to reorder.
-                    </span>
-                  </div>
+                <div className="flex flex-col gap-1 mb-2 min-w-0">
+                  <h2 className="text-base font-medium text-gray-900">
+                    {project.name}
+                  </h2>
+                  <span className="text-xs text-gray-400">
+                    {project.scenes.length} scenes — {imageAssets.length} images. Click <span className="font-medium text-purple-600">Edit</span> on any scene to change its text, narration, or layout. Drag to reorder.
+                  </span>
                 </div>
 
                 <div className="relative">
@@ -6800,6 +6811,23 @@ export default function ProjectView() {
             onApply={handleApplyRecording}
           />
         )}
+
+        <AddSceneModal
+          open={addSceneOpen}
+          onClose={() => setAddSceneOpen(false)}
+          project={project}
+          isPro={effectiveIsPro}
+          creditsRemaining={
+            useOwnerScopedAssets
+              ? (project.owner_ai_edit_credits ?? 0)
+              : (user?.ai_edit_credits ?? 0)
+          }
+          onAdded={() => {
+            void loadProject();
+            void refreshUser();
+          }}
+          onError={(err) => showError(getErrorMessage(err, "Failed to add scene."))}
+        />
 
        {activeTab === "settings" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-visible">
