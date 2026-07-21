@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { addScene, type Project } from "../api/client";
-import { ScenePositionDropdown } from "./ScenePositionDropdown";
+import { addScene, type Project, type Scene } from "../api/client";
 
 /** Adding a scene costs this many AI-edit credits (mirrors the backend). */
 export const ADD_SCENE_CREDIT_COST = 5;
@@ -13,16 +12,19 @@ export interface AddSceneModalProps {
   creditsRemaining: number;
   /** Whether the paying owner is on an unlimited (Pro/Standard) plan. */
   isPro: boolean;
-  /** Called after a scene is successfully added (parent reloads the project). */
-  onAdded: () => void;
-  /** Surface an API failure (e.g. the 403 credit error) in the global "Oops" modal. */
+  /** The scene the new one will be inserted AFTER; null = append at the end. */
+  anchorScene?: Scene | null;
+  /** Called after the add-scene job is enqueued (parent starts polling). */
+  onAdded: (position?: number) => void;
+  /** Surface an API failure (e.g. the 403 credit / 409 busy error) in the global "Oops" modal. */
   onError: (err: unknown) => void;
 }
 
 /**
- * Modal to generate and insert a new AI scene. The user describes the scene and
- * picks where it goes; on submit the backend writes narration/visuals/layout (and
- * voiceover when the project has audio enabled) and inserts it at the chosen slot.
+ * Modal to generate and insert a new AI scene. The user describes the scene; it's
+ * inserted right after `anchorScene` (or appended when none). On submit the backend
+ * ENQUEUES a background generation job and this closes immediately — the parent shows
+ * a placeholder row and polls for completion.
  */
 export default function AddSceneModal({
   open,
@@ -30,25 +32,25 @@ export default function AddSceneModal({
   project,
   creditsRemaining,
   isPro,
+  anchorScene,
   onAdded,
   onError,
 }: AddSceneModalProps) {
-  const activeCount = project.scenes?.length ?? 0;
   const [prompt, setPrompt] = useState("");
-  // 1-indexed position among active scenes; default = append at the end.
-  const [position, setPosition] = useState(activeCount + 1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Insert position: right after the anchor row, else append (undefined).
+  const insertPosition = anchorScene ? anchorScene.order + 1 : undefined;
 
   // Reset the form whenever the modal (re)opens.
   useEffect(() => {
     if (open) {
       setPrompt("");
-      setPosition(activeCount + 1);
       setError(null);
       setLoading(false);
     }
-  }, [open, activeCount]);
+  }, [open]);
 
   if (!open) return null;
 
@@ -69,11 +71,13 @@ export default function AddSceneModal({
     setLoading(true);
     setError(null);
     try {
-      await addScene(project.id, trimmed, position);
-      onAdded();
+      await addScene(project.id, trimmed, insertPosition);
+      // Job enqueued — hand the target position to the parent (for the placeholder)
+      // and close. Generation continues in the background.
+      onAdded(insertPosition);
       onClose();
     } catch (err: unknown) {
-      // Surface API failures (e.g. the 403 credit error) in the global "Oops" modal.
+      // Surface API failures (403 credits / 409 busy) in the global "Oops" modal.
       // Close first so the error modal isn't hidden behind this dialog.
       onClose();
       onError(err);
@@ -104,19 +108,6 @@ export default function AddSceneModal({
           </p>
         </div>
 
-        {loading ? (
-          // Generating card — keep the modal open and tell the user it's working.
-          <div className="p-8 flex flex-col items-center justify-center gap-4 text-center">
-            <div className="w-12 h-12 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
-            <div>
-              <p className="text-sm font-medium text-gray-800">Generating your scene…</p>
-              <p className="mt-1 text-xs text-gray-500">
-                Writing the narration, {project.voice_gender !== "none" ? "visuals and voiceover" : "and visuals"} —
-                this can take up to a minute. Please keep this open.
-              </p>
-            </div>
-          </div>
-        ) : (
         <div className="p-6 flex flex-col gap-4">
           {error && (
             <p className="w-full text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
@@ -139,20 +130,12 @@ export default function AddSceneModal({
             />
           </div>
 
-          <div>
-            <label htmlFor="add-scene-position" className="block text-xs font-medium text-gray-700 mb-1.5">
-              Insert at position
-            </label>
-            <ScenePositionDropdown
-              id="add-scene-position"
-              activeCount={activeCount}
-              value={position}
-              onChange={setPosition}
-            />
-            <p className="mt-1 text-xs text-gray-400">
-              Everything at or after this position shifts down by one.
-            </p>
-          </div>
+          {/* Position is auto-determined from where the user clicked "Add scene". */}
+          <p className="text-xs text-gray-500">
+            {anchorScene
+              ? <>The new scene will be added below scene {anchorScene.order}.</>
+              : <>The new scene will be added at the end.</>}
+          </p>
 
           {!isPro && (
             <p className="text-xs text-gray-500">
@@ -173,27 +156,25 @@ export default function AddSceneModal({
             </div>
           )}
         </div>
-        )}
 
-        {!loading && (
-          <div className="p-4 border-t border-gray-200 flex items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={handleClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={() => void handleSubmit()}
-              disabled={!prompt.trim() || !canAfford}
-              className="px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Add scene
-            </button>
-          </div>
-        )}
+        <div className="p-4 border-t border-gray-200 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={handleClose}
+            disabled={loading}
+            className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleSubmit()}
+            disabled={loading || !prompt.trim() || !canAfford}
+            className="px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? "Adding…" : "Add scene"}
+          </button>
+        </div>
       </div>
     </div>
   );

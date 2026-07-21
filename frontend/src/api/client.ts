@@ -1584,17 +1584,34 @@ export const regenerateScene = (
   );
 };
 
-// Generate and insert a new AI scene. `position` is 1-indexed among active scenes
-// (the new scene takes that slot, everything after shifts down); omit to append.
+// A background add-scene generation job (polled via getAddSceneStatus).
+export interface AddSceneJob {
+  id: number;
+  status: "queued" | "running" | "completed" | "failed";
+  current_step: string;
+  error_message?: string | null;
+  // Set on success so the client can locate the newly inserted scene row.
+  new_scene_id?: number | null;
+  // 1-indexed insert position among active scenes (null = appended at end).
+  position?: number | null;
+}
+
+// Enqueue background generation of a new AI scene. `position` is 1-indexed among
+// active scenes (the new scene takes that slot, everything after shifts down); omit
+// to append. Returns a job immediately — poll getAddSceneStatus for completion.
 export const addScene = (
   projectId: number,
   prompt: string,
   position?: number
 ) =>
-  api.post<Scene>(`/projects/${projectId}/scenes/add`, {
+  api.post<AddSceneJob>(`/projects/${projectId}/scenes/add`, {
     prompt,
     position: position ?? null,
   });
+
+// Latest add-scene job for a project (null if one has never been run).
+export const getAddSceneStatus = (projectId: number) =>
+  api.get<AddSceneJob | null>(`/projects/${projectId}/scenes/add-status`);
 
 export const launchStudio = (id: number) =>
   api.post<StudioResponse>(`/projects/${id}/launch-studio`);

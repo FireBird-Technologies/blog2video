@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef, MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef, Fragment, MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react";
 import ReactDOM from "react-dom";
 import { LinkIcon } from "@heroicons/react/24/outline";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
@@ -55,6 +55,8 @@ import {
   type CustomTemplateItem,
   getBgmTracks,
   type BgmTrack,
+  getAddSceneStatus,
+  type AddSceneJob,
 } from "../api/client";
 import Joyride, { CallBackProps, STATUS, Step } from "react-joyride";
 import { useAuth } from "../hooks/useAuth";
@@ -76,6 +78,7 @@ import SceneEditModal, {
 import GenerateSceneImageModal from "../components/GenerateSceneImageModal";
 import RecordVoiceoverModal from "../components/RecordVoiceoverModal";
 import AddSceneModal from "../components/AddSceneModal";
+import AddScenePlaceholderRow from "../components/AddScenePlaceholderRow";
 import ChatPanel from "../components/ChatPanel";
 import UpgradeModal from "../components/UpgradeModal";
 import UpgradePlanModal from "../components/UpgradePlanModal";
@@ -802,6 +805,7 @@ export default function ProjectView() {
   const [regenScriptPreviousScenes, setRegenScriptPreviousScenes] =
     useState<RegenerateScriptPreviewScene[] | null>(null);
   const regenerateScriptPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const addScenePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // True once the user has clicked "Proceed". The DB write that flips the job from
   // "awaiting_review" to "running" may not be visible to the very next poll, so we ignore
   // any stale "awaiting_review" reads while this is set — otherwise the UI bounces back to
@@ -1210,6 +1214,13 @@ export default function ProjectView() {
   const [reorderSaving, setReorderSaving] = useState(false);
   const [sceneToDelete, setSceneToDelete] = useState<Scene | null>(null);
   const [addSceneOpen, setAddSceneOpen] = useState(false);
+  // The scene the new one will be inserted after (null = append at end).
+  const [addSceneAnchor, setAddSceneAnchor] = useState<Scene | null>(null);
+  // The in-flight background add-scene job (drives the placeholder row + polling).
+  const [addSceneJob, setAddSceneJob] = useState<AddSceneJob | null>(null);
+  // 1-indexed insert position of the pending add (for placing the placeholder row).
+  const [addScenePosition, setAddScenePosition] = useState<number | null>(null);
+  const addSceneRunning = addSceneJob?.status === "queued" || addSceneJob?.status === "running";
   const [removingAssetId, setRemovingAssetId] = useState<number | null>(null);
   const [uploadingSceneId, setUploadingSceneId] = useState<number | null>(null);
   // Custom user-recorded voiceovers: applied-but-unsaved recordings, keyed by scene id.
@@ -1828,6 +1839,70 @@ export default function ProjectView() {
       regenerateScriptPollRef.current = null;
     }
   }, []);
+
+  const stopAddScenePolling = useCallback(() => {
+    if (addScenePollRef.current) {
+      clearInterval(addScenePollRef.current);
+      addScenePollRef.current = null;
+    }
+  }, []);
+
+  // Poll the background add-scene job. On completion → reload project + credits and
+  // clear the placeholder. On failure → clear placeholder, refresh credits (the refund
+  // is reflected) and surface the global "Oops" modal.
+  const startAddScenePolling = useCallback(() => {
+    stopAddScenePolling();
+    addScenePollRef.current = setInterval(async () => {
+      try {
+        const res = await getAddSceneStatus(projectId);
+        const job = res.data;
+        if (!job) return;
+        setAddSceneJob(job);
+        if (job.status === "completed") {
+          stopAddScenePolling();
+          setAddSceneJob(null);
+          setAddScenePosition(null);
+          await loadProject();
+          void refreshUser();
+        } else if (job.status === "failed") {
+          stopAddScenePolling();
+          setAddSceneJob(null);
+          setAddScenePosition(null);
+          void refreshUser();
+          showError(
+            "We're sorry — we couldn't generate the new scene. No AI edits were deducted. Please try again.",
+            { variant: "pipeline" }
+          );
+        }
+      } catch {
+        // Transient poll error — keep trying on the next tick.
+      }
+    }, 2000);
+  }, [projectId, loadProject, refreshUser, showError, stopAddScenePolling]);
+
+  // On mount / project change: if an add-scene job is already in flight (e.g. after a
+  // refresh, or started by a collaborator), resume the placeholder + polling.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await getAddSceneStatus(projectId);
+        const job = res.data;
+        if (cancelled || !job) return;
+        if (job.status === "queued" || job.status === "running") {
+          setAddSceneJob(job);
+          setAddScenePosition(job.position ?? null);
+          startAddScenePolling();
+        }
+      } catch {
+        /* ignore — no add-scene job to resume */
+      }
+    })();
+    return () => {
+      cancelled = true;
+      stopAddScenePolling();
+    };
+  }, [projectId, startAddScenePolling, stopAddScenePolling]);
 
   // Load the previous scenes for the verify popup. On error, fall back to [] so the popup
   // isn't stuck on a loading spinner (it then treats every scene as new, no comparison).
@@ -5782,18 +5857,6 @@ export default function ProjectView() {
           </svg>
           Edit history
         </button>
-        <button
-          type="button"
-          onClick={() => setAddSceneOpen(true)}
-          disabled={anyJobRunning || !pipelineFinished}
-          className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-medium text-gray-700 border border-gray-300 hover:border-gray-400 rounded-lg transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-          title="Generate and insert a new scene"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Add scene
-        </button>
         {/* AI-edit credits remaining. Paid owners are unlimited; FREE owners draw
             from a single per-user pool shared across all their projects (starts at 6,
             +20 per purchased video) — the owner's pool on a shared project. Mirrors
@@ -5890,8 +5953,8 @@ export default function ProjectView() {
                     const isDropTarget = dragOverSceneId === scene.id && !isDragging;
 
                     return (
+                      <Fragment key={scene.id}>
                       <SceneListRow
-                        key={scene.id}
                         scene={scene}
                         index={idx}
                         expanded={isExpanded}
@@ -5902,6 +5965,9 @@ export default function ProjectView() {
                         onToggleExpand={() => setExpandedScene(isExpanded ? null : scene.id)}
                         onEdit={() => setSceneEditModal(scene)}
                         onDelete={() => setSceneToDelete(scene)}
+                        onAddAfter={() => { setAddSceneAnchor(scene); setAddSceneOpen(true); }}
+                        addDisabled={addSceneRunning}
+                        addDisabledReason="A scene is already being added."
                         onComment={project.is_shared ? () => setCommentScene(scene) : undefined}
                         commentCount={commentCounts[scene.id] ?? 0}
                         onDragHandleStart={(e) => {
@@ -6418,8 +6484,18 @@ export default function ProjectView() {
                               </div>
                             )}
                       </SceneListRow>
+                      {addSceneRunning && addScenePosition === scene.order + 1 && (
+                        <AddScenePlaceholderRow />
+                      )}
+                      </Fragment>
                     );
                   })}
+                  {/* Placeholder for an append (position past the last scene). */}
+                  {addSceneRunning &&
+                    addScenePosition != null &&
+                    addScenePosition > project.scenes.length && (
+                      <AddScenePlaceholderRow />
+                    )}
                 </div>
                 </div>
 
@@ -6814,17 +6890,20 @@ export default function ProjectView() {
 
         <AddSceneModal
           open={addSceneOpen}
-          onClose={() => setAddSceneOpen(false)}
+          onClose={() => { setAddSceneOpen(false); setAddSceneAnchor(null); }}
           project={project}
           isPro={effectiveIsPro}
+          anchorScene={addSceneAnchor}
           creditsRemaining={
             useOwnerScopedAssets
               ? (project.owner_ai_edit_credits ?? 0)
               : (user?.ai_edit_credits ?? 0)
           }
-          onAdded={() => {
-            void loadProject();
-            void refreshUser();
+          onAdded={(position) => {
+            // Job enqueued — show the placeholder at the target slot and start polling.
+            setAddScenePosition(position ?? project.scenes.length + 1);
+            setAddSceneJob({ id: 0, status: "queued", current_step: "queued" });
+            startAddScenePolling();
           }}
           onError={(err) => showError(getErrorMessage(err, "Failed to add scene."))}
         />
