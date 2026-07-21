@@ -19,9 +19,13 @@ FREE_TIER_INCLUDED_VIDEOS = 2
 FREE_TIER_CUSTOM_TEMPLATES = 1
 
 # AI-assisted edits granted per purchased video. Per-user, non-expirable pool,
-# spent only after a project's free per-project allowance is exhausted and only
-# while the owner is on the FREE plan (paid plans get unlimited edits).
+# added on top of the free grant; spent only while the owner is on the FREE plan
+# (paid plans get unlimited edits).
 AI_EDIT_CREDITS_PER_VIDEO = 20
+
+# Free AI-assisted edits every user starts with. A single per-user pool shared
+# across all their projects (replaces the old per-project allowance of 3).
+FREE_AI_EDIT_CREDITS = 6
 
 
 def _add_one_month(dt: datetime) -> datetime:
@@ -53,7 +57,7 @@ class User(Base):
     stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     videos_used_this_period: Mapped[int] = mapped_column(Integer, default=0)
     video_limit_bonus: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # per-video credits purchased
-    ai_edit_credits: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # +20 per purchased video, per-user, non-expirable
+    ai_edit_credits: Mapped[int] = mapped_column(Integer, default=FREE_AI_EDIT_CREDITS, server_default=str(FREE_AI_EDIT_CREDITS))  # per-user pool shared across all projects; starts at FREE_AI_EDIT_CREDITS, +20 per purchased video, non-expirable
     custom_template_bonus: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # +1 custom-template slot per $5 purchase
     custom_templates_created: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # lifetime counter, never decrements
     retention_offer_shown_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")

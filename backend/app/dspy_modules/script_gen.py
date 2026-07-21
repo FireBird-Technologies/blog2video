@@ -394,6 +394,37 @@ class BlogToScript(dspy.Signature):
     )
 
 
+class PromptToSceneOutline(dspy.Signature):
+    """
+    Turn a user's short free-text request for a new scene into a proper scene outline
+    (a concise title + a one-sentence key point), grounded in the video's content.
+
+    The user's prompt is an INSTRUCTION describing what the scene should cover — it is
+    NOT the title and NOT the narration. Write a fresh, human title (a few words, no
+    trailing punctuation) and a single key-point sentence that a scene-writer can expand.
+    Stay on-thread with the rest of the video.
+    """
+
+    user_prompt: str = dspy.InputField(
+        desc="The user's free-text description of the scene they want added."
+    )
+    blog_content: str = dspy.InputField(
+        desc="Source content of the video — ground the scene in it where relevant."
+    )
+    full_outline: str = dspy.InputField(
+        desc="JSON array of the existing scene outlines (title + key_point) for continuity."
+    )
+    video_style: str = dspy.InputField(desc="explainer | promotional | storytelling.")
+    content_language: str = dspy.InputField(desc="Output language for all text fields.")
+
+    scene_title: str = dspy.OutputField(
+        desc="A short, compelling scene title (a few words). Not the user's prompt verbatim; no trailing period."
+    )
+    key_point: str = dspy.OutputField(
+        desc="One sentence describing the core idea of this scene, for a writer to expand."
+    )
+
+
 class SceneExpander(dspy.Signature):
     """
     Expand a single scene outline into full scene content.

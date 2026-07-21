@@ -34,7 +34,7 @@ from app.schemas.schemas import (
     ProjectCreate, ProjectOut, ProjectListOut, ProjectLogoUpdate,
     BulkProjectItem, BulkCreateResponse,
     ReviewOut, ReviewStateOut, ReviewSubmit, ReviewSubmitResponse, SceneOut,
-    SceneUpdate, ReorderScenesRequest, RegenerateSceneRequest,
+    SceneUpdate, ReorderScenesRequest, RegenerateSceneRequest, AddSceneRequest,
     SceneTypographyBulkUpdate, ProjectUpdate, ProjectTemplateChangeRequest,
     ProjectTemplateChangeJobOut, ProjectVoiceChange, ProjectLanguageChange,
     ProjectRegenerateScriptJobOut,
@@ -4213,6 +4213,16 @@ async def update_scene_voiceover(
     db.commit()
     db.refresh(scene)
 
+    # Push the new voiceover live to collaborators, matching delete/regen/voice-change,
+    # which all broadcast project_reloaded on completion. This endpoint is synchronous
+    # (not a background job) so the broadcast has to be inline rather than job-completion.
+    # project_reloaded (not a field edit) because the change spans both a new asset URL
+    # and a recomputed duration_seconds.
+    from app.routers.collab_ws import collab_manager
+    await collab_manager.broadcast(
+        project_id, {"type": "project_reloaded"}, exclude_user_id=user.id
+    )
+
     return scene
 
 
@@ -4632,12 +4642,23 @@ async def regenerate_scene(
     # to the acting user, so the whole regen previews and reverts as a single unit.
     _regen_change_set = new_change_set_id()
 
-    # Check usage limits: free per-project allowance, then the owner's purchased
-    # AI-edit credit pool; PRO/STANDARD owners are unlimited (see can_use_ai_edit).
-    if not can_use_ai_edit(payer, project):
+    # Cost of this edit: regenerating the voiceover is the expensive path (3 credits),
+    # everything else (layout swap, text rewrite) costs 1. Computed up front from the
+    # request flag so the gate below can reject an unaffordable voiceover regen before
+    # any work is done. Reused for the actual deduction later in this function.
+    should_regenerate_voiceover = regenerate_voiceover.lower() == "true"
+    edit_cost = 3 if should_regenerate_voiceover else 1
+
+    # Check usage limits against the owner's per-user AI-edit credit pool (shared
+    # across all their projects); PRO/STANDARD owners are unlimited (see can_use_ai_edit).
+    if not can_use_ai_edit(payer, project, cost=edit_cost):
         raise HTTPException(
             status_code=403,
-            detail="AI editing limit reached. Buy a video for +20 AI edits, or upgrade to Pro or Standard for unlimited AI edits."
+            detail=(
+                "AI editing limit reached. Regenerating the voiceover costs 3 AI edits; "
+                "other edits cost 1. Buy a video for +20 AI edits, or upgrade to Pro or "
+                "Standard for unlimited AI edits."
+            )
         )
 
     scene = (
@@ -4753,6 +4774,54 @@ async def regenerate_scene(
 
     has_description = bool(description and description.strip())
     needs_layout_regen = not keep_layout or has_description
+
+    # When an AI instruction is given, the scene is fully regenerated according to it:
+    # rewrite the narration and the title so the whole scene (not just the visuals)
+    # reflects the instruction. Done BEFORE visual_description / descriptor regen so
+    # those downstream calls read the updated title + narration as source of truth.
+    if has_description:
+        new_narration = await rewrite_narration_if_requested(
+            current_narration=scene.narration_text or "",
+            user_instruction=description,
+            scene_title=scene.title,
+        )
+        if new_narration and new_narration.strip() and new_narration.strip() != (scene.narration_text or "").strip():
+            old_nt = scene.narration_text
+            scene.narration_text = new_narration.strip()
+            track_scene_edit(
+                db,
+                project_id=project_id,
+                scene_id=scene.id,
+                field_name="narration_text",
+                old_value=old_nt,
+                new_value=scene.narration_text,
+                is_ai_assisted=True,
+                user_instruction=description,
+                user_id=user.id,
+                change_set_id=_regen_change_set,
+            )
+
+        from app.dspy_modules.title_edit import rewrite_title_if_requested
+        new_title = await rewrite_title_if_requested(
+            current_title=scene.title or "",
+            narration=scene.narration_text or "",
+            user_instruction=description,
+        )
+        if new_title and new_title.strip() and new_title.strip() != (scene.title or "").strip():
+            old_title = scene.title
+            scene.title = new_title.strip()
+            track_scene_edit(
+                db,
+                project_id=project_id,
+                scene_id=scene.id,
+                field_name="title",
+                old_value=old_title,
+                new_value=scene.title,
+                is_ai_assisted=True,
+                user_instruction=description,
+                user_id=user.id,
+                change_set_id=_regen_change_set,
+            )
 
     # Detect variant switch for custom templates (intro/content_N/outro/data-viz)
     # Pure variant switches skip the AI call entirely — instant layout change.
@@ -4900,6 +4969,30 @@ async def regenerate_scene(
     else:
         new_visual_description = scene.visual_description or ""
 
+    # With an AI instruction, regenerate a concise on-screen display text from the
+    # freshly rewritten narration + visual description (reusing the same generator the
+    # main pipeline uses). hide_narration still wins (blank), and a hand-typed
+    # narration_text with no instruction keeps its current display_text behavior.
+    if has_description and not hide_narration:
+        from app.dspy_modules.display_text_gen import DisplayTextGenerator
+        from app.services.language_detection import get_content_language_for_project
+        try:
+            dt_gen = DisplayTextGenerator(
+                template_id=project.template,
+                content_language=get_content_language_for_project(project),
+            )
+            dt_results = await dt_gen.generate_for_scenes([
+                {
+                    "title": scene.title or "",
+                    "narration": scene.narration_text or "",
+                    "visual_description": new_visual_description or "",
+                }
+            ])
+            if dt_results and dt_results[0] and dt_results[0].strip():
+                new_display_text = dt_results[0].strip()
+        except Exception as e:
+            print(f"[REGENERATE] display_text generation failed, keeping fallback: {e}")
+
     if needs_layout_regen:
         # Regenerate scene layout using AI
         template_gen = TemplateSceneGenerator(project.template)
@@ -4983,6 +5076,18 @@ async def regenerate_scene(
             lp["hideImage"] = True
             lp.pop("imageUrl", None)
             _clear_image_assignment(lp)
+        elif image and image_filename:
+            # A new image was uploaded in this AI regen — bind it to the scene so the
+            # descriptor actually points at it (previously the Asset was created but
+            # assignedImage was never set, silently dropping the upload).
+            if "layoutProps" not in descriptor:
+                descriptor["layoutProps"] = {}
+            lp = descriptor["layoutProps"]
+            lp["assignedImage"] = image_filename
+            lp["hideImage"] = False
+            lp.pop("imageUrl", None)
+            lp["imageFocusX"] = _clamp_image_focus((current_descriptor or {}).get("layoutProps", {}).get("imageFocusX", 50))
+            lp["imageFocusY"] = _clamp_image_focus((current_descriptor or {}).get("layoutProps", {}).get("imageFocusY", 50))
         elif not image and current_descriptor:
             old_lp = current_descriptor.get("layoutProps") or {}
             if "layoutProps" not in descriptor:
@@ -5099,8 +5204,8 @@ async def regenerate_scene(
                     )
         db.commit()
 
-    # Regenerate voiceover only if requested
-    should_regenerate_voiceover = regenerate_voiceover.lower() == "true"
+    # Regenerate voiceover only if requested (should_regenerate_voiceover was
+    # computed up front, alongside edit_cost, so the credit gate could pre-check it).
     # When verbatim, the narration_text is sent to TTS word-for-word, skipping
     # the DSPy expansion step (so the spoken voiceover matches the edited script).
     verbatim = voiceover_verbatim.lower() == "true"
@@ -5163,13 +5268,345 @@ async def regenerate_scene(
     # collaborator's, or a Free collaborator would burn the counter on a Pro project.
     used_ai = needs_layout_regen or should_regenerate_voiceover
     if used_ai and payer.plan not in (PlanTier.PRO, PlanTier.STANDARD):
-        consume_ai_edit(payer, project)
+        # Voiceover regen costs 3 credits, other AI edits cost 1 (see edit_cost above).
+        consume_ai_edit(payer, project, cost=edit_cost)
 
     db.commit()
 
     db.refresh(scene)
     _broadcast_scene_regen(project_id, user.id)
     return scene
+
+
+# Adding a scene is a heavier AI operation than an edit (it writes a whole new scene:
+# narration, visuals, layout and voiceover), so it costs more AI-edit credits.
+ADD_SCENE_CREDIT_COST = 5
+
+
+@router.post("/{project_id}/scenes/add", response_model=SceneOut)
+async def add_scene(
+    project_id: int,
+    data: AddSceneRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Generate and insert a new AI scene at a chosen position.
+
+    Given the user's prompt plus the project's source content, template and sibling
+    scenes, this writes a new scene (narration + visual description + display text +
+    layout descriptor) and, when the project has voiceover enabled, its audio. The
+    scene is inserted at ``position`` (1-indexed among active scenes) and the whole
+    scene set is renumbered to keep ``order`` uniquely 1..N — the same renumber
+    strategy ``reorder_scenes`` uses. Costs ``ADD_SCENE_CREDIT_COST`` AI edits,
+    charged to the project OWNER (PRO/STANDARD owners are unlimited).
+    """
+    import json
+    from app.models.scene import Scene
+    from app.models.user import PlanTier
+    from app.services.access import project_owner, can_use_ai_edit, consume_ai_edit
+    from app.services.edit_tracker import new_change_set_id, prune_project_history
+    from app.services.language_detection import get_content_language_for_project
+    from app.dspy_modules.script_gen import SceneExpander, PromptToSceneOutline
+    from app.dspy_modules.display_text_gen import DisplayTextGenerator
+    from app.dspy_modules.template_scene_gen import TemplateSceneGenerator
+    from app.services.voiceover import generate_voiceover
+    from app.services.template_service import get_hero_layout, get_fallback_layout
+    from app.dspy_modules import ensure_dspy_configured
+    import dspy
+
+    prompt = (data.prompt or "").strip()
+    if not prompt:
+        raise HTTPException(status_code=400, detail="Please describe the scene you want to add.")
+
+    project = _get_user_project(project_id, user.id, db)
+
+    # Owner pays (a FREE collaborator inherits the owner's plan on a shared project).
+    payer = project_owner(project, db)
+    if not can_use_ai_edit(payer, project, cost=ADD_SCENE_CREDIT_COST):
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"AI editing limit reached. Adding a scene costs {ADD_SCENE_CREDIT_COST} AI edits. "
+                "Buy a video for +20 AI edits, or upgrade to Pro or Standard for unlimited AI edits."
+            ),
+        )
+
+    # Sibling scenes for continuity context + the insert position.
+    all_scenes = (
+        db.query(Scene).filter(Scene.project_id == project_id).order_by(Scene.order).all()
+    )
+    active_scenes = [s for s in all_scenes if s.is_active]
+
+    # Clamp the requested position into [1, active_count + 1]; default = append.
+    active_count = len(active_scenes)
+    if data.position is None:
+        position = active_count + 1
+    else:
+        position = max(1, min(int(data.position), active_count + 1))
+
+    content_language = get_content_language_for_project(project)
+    video_style = (getattr(project, "video_style", None) or "explainer")
+    aspect_ratio = (getattr(project, "aspect_ratio", None) or "landscape")
+
+    # Build an outline of the existing scenes so the new scene stays on-thread. Keep
+    # the full narration (trimmed) so the generator can match the siblings' voice.
+    outline = [
+        {"title": s.title or "", "key_point": (s.narration_text or "")[:280]}
+        for s in active_scenes
+    ]
+    # 0-based index the new scene will occupy among active scenes.
+    scene_index = position - 1
+
+    # Target narration length + duration from the siblings so the new scene matches.
+    sibling_word_counts = [
+        len((s.narration_text or "").split())
+        for s in active_scenes
+        if (s.narration_text or "").strip()
+    ]
+    if sibling_word_counts:
+        _sorted = sorted(sibling_word_counts)
+        target_words = _sorted[len(_sorted) // 2]  # median
+    else:
+        target_words = 20
+    target_words = max(6, min(target_words, 60))  # keep within a sane band
+    sibling_durations = [
+        float(s.duration_seconds) for s in active_scenes
+        if getattr(s, "duration_seconds", None)
+    ]
+    target_duration = (
+        sorted(sibling_durations)[len(sibling_durations) // 2] if sibling_durations else 10
+    )
+
+    # A one-line narrative summary from the sibling titles keeps the new scene coherent
+    # with the overall arc (better than just the project title).
+    sibling_titles = [s.title for s in active_scenes if (s.title or "").strip()]
+    narrative_summary = (
+        f"{project.name or 'This video'} — covers: " + "; ".join(sibling_titles[:12])
+    ).strip()
+
+    # The user's prompt is a HARD instruction. Combine it with an explicit length target
+    # (matching the siblings) so SceneExpander honours both — it treats
+    # ``user_instruction_summary`` as a hard constraint.
+    instruction = (
+        f"{prompt}\n\n"
+        f"Write the narration to roughly {target_words} words (±30%), matching the length, "
+        f"tone and vocabulary of the surrounding scenes. Follow the user's request above precisely."
+    )
+
+    ensure_dspy_configured()
+    blog_content = (project.blog_content or "")[:3000]
+
+    # 1a. Turn the user's prompt (an INSTRUCTION) into a real scene title + key point.
+    #     The prompt must NOT become the title or narration verbatim.
+    outline_gen = dspy.asyncify(dspy.Predict(PromptToSceneOutline))
+    scene_title = ""
+    key_point = prompt
+    try:
+        o = await outline_gen(
+            user_prompt=prompt,
+            blog_content=blog_content,
+            full_outline=json.dumps(outline),
+            video_style=video_style,
+            content_language=content_language,
+        )
+        scene_title = (getattr(o, "scene_title", "") or "").strip().rstrip(".")
+        key_point = (getattr(o, "key_point", "") or "").strip() or prompt
+    except Exception as e:
+        print(f"[ADD_SCENE] PromptToSceneOutline failed: {e}")
+    if not scene_title:
+        # Last-resort title: first few words of the key point, not the raw prompt.
+        scene_title = " ".join(key_point.split()[:8]).rstrip(".,") or "New scene"
+
+    # Now include the resolved outline entry for continuity when expanding.
+    outline.insert(scene_index, {"title": scene_title, "key_point": key_point})
+
+    # 1b. Generate narration + visual description from the resolved title/key point.
+    expander = dspy.asyncify(dspy.Predict(SceneExpander))
+    narration = key_point
+    visual_description = key_point
+    try:
+        res = await expander(
+            blog_content=blog_content,
+            full_outline=json.dumps(outline),
+            narrative_summary=narrative_summary,
+            scene_index=scene_index,
+            total_scenes=active_count + 1,
+            hero_image="",
+            video_style=video_style,
+            aspect_ratio=aspect_ratio,
+            content_language=content_language,
+            scene_title=scene_title,
+            scene_key_point=key_point,
+            assigned_layout="",
+            is_hero=False,
+            is_ending=False,
+            social_platforms_detected="",
+            user_instruction_summary=instruction,
+            must_include="",
+            must_avoid="",
+        )
+        narration = (getattr(res, "narration", "") or "").strip() or key_point
+        visual_description = (getattr(res, "visual_description", "") or "").strip() or key_point
+    except Exception as e:
+        print(f"[ADD_SCENE] SceneExpander failed, falling back to key point: {e}")
+
+    # 2. display_text (falls back to narration internally on failure).
+    display_text = narration
+    try:
+        dt = await DisplayTextGenerator(
+            project.template, video_style=video_style, content_language=content_language
+        ).generate_for_scenes(
+            [{"title": scene_title, "narration": narration, "visual_description": visual_description}]
+        )
+        if dt and dt[0]:
+            display_text = dt[0]
+    except Exception as e:
+        print(f"[ADD_SCENE] DisplayTextGenerator failed, using narration: {e}")
+
+    # 3. Insert the new row and renumber the whole set (active + inactive) uniquely,
+    #    mirroring reorder_scenes so ``order`` stays 1..N with no collisions. The new
+    #    scene is spliced into the ACTIVE sequence at ``position``; inactive scenes keep
+    #    their relative position by anchoring to the active scene they currently follow.
+    new_scene = Scene(
+        project_id=project.id,
+        order=0,  # set below during renumber
+        title=scene_title,
+        narration_text=narration,
+        visual_description=visual_description,
+        display_text=display_text,
+        # Seed with the siblings' typical duration; generate_voiceover overwrites this
+        # with the real audio length when the project has voiceover enabled.
+        duration_seconds=target_duration,
+        preferred_layout=None,
+        scene_type="content",
+        is_active=True,
+    )
+    db.add(new_scene)
+    db.flush()  # assign an id so it can be referenced/anchored
+
+    anchor_after: dict[int, list[Scene]] = {}
+    last_active_id = 0
+    for s in all_scenes:
+        if s.is_active:
+            last_active_id = s.id
+        else:
+            anchor_after.setdefault(last_active_id, []).append(s)
+
+    active_ordered = list(active_scenes)
+    active_ordered.insert(scene_index, new_scene)
+
+    sequenced: list[Scene] = list(anchor_after.get(0, []))
+    for a in active_ordered:
+        sequenced.append(a)
+        sequenced.extend(anchor_after.get(a.id, []))
+    for i, s in enumerate(sequenced, 1):
+        s.order = i
+    db.flush()
+
+    # A manually added scene is always a CONTENT scene — it must never get the
+    # hero/opening layout or a CTA/ending-socials layout, even when inserted at
+    # position 1 or last. Pick a safe content layout (fallback layout, else any valid
+    # layout that isn't hero/intro/outro/ending/cta) and force it, and hand the
+    # descriptor generator a non-zero scene_index so its scene-0 hero branch can't fire.
+    def _content_layout_for(template_id: str) -> str | None:
+        try:
+            valid = get_valid_layouts(template_id)
+        except Exception:
+            valid = set()
+        if not valid:
+            return None
+        hero = None
+        try:
+            hero = (get_hero_layout(template_id) or "").strip().lower()
+        except Exception:
+            hero = None
+        def _is_excluded(name: str) -> bool:
+            n = name.strip().lower()
+            if hero and n == hero:
+                return True
+            return any(tok in n for tok in ("hero", "intro", "outro", "ending", "cta", "social", "opening"))
+        fb = None
+        try:
+            fb = (get_fallback_layout(template_id) or "").strip().lower()
+        except Exception:
+            fb = None
+        if fb and fb in {v.strip().lower() for v in valid} and not _is_excluded(fb):
+            return fb
+        for v in sorted(valid):
+            if not _is_excluded(v):
+                return v
+        return None
+
+    content_layout = None if is_custom_template(project.template) else _content_layout_for(project.template)
+    # Never let the descriptor generator treat this as scene 0 (hero). Use max(1, index).
+    descriptor_scene_index = max(1, new_scene.order - 1)
+
+    # 4. Build the layout descriptor (custom templates re-extract structured content;
+    #    built-in templates use the single-scene generator).
+    template_gen = TemplateSceneGenerator(project.template)
+    try:
+        if is_custom_template(project.template):
+            from app.services.content_classifier import extract_structured_content_batch
+            single_result = await extract_structured_content_batch(
+                [{"title": scene_title, "narration": narration}],
+                content_language=content_language,
+            )
+            descriptor = {"layoutConfig": {}}
+            if single_result:
+                descriptor["structuredContent"] = single_result[0]
+        else:
+            descriptor = await template_gen.generate_scene_descriptor(
+                scene_title=scene_title,
+                narration=narration,
+                visual_description=visual_description,
+                scene_index=descriptor_scene_index,
+                total_scenes=len(active_ordered),
+                preferred_layout=content_layout,
+                content_language=content_language,
+            )
+        new_scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(descriptor))
+    except Exception as e:
+        print(f"[ADD_SCENE] descriptor generation failed: {e}")
+        # Leave remotion_code null; the renderer falls back to a default layout.
+
+    # 5. Voiceover — only when the project has audio enabled. generate_voiceover names
+    #    the file scene_{order}.mp3; the new scene's order is unique, and existing
+    #    scenes read their own stored voiceover_path, so no audio is disturbed.
+    if getattr(project, "voice_gender", None) != "none":
+        try:
+            generate_voiceover(new_scene, db)
+        except Exception as e:
+            print(f"[ADD_SCENE] voiceover generation failed (scene still added): {e}")
+
+    # 6. Charge the owner (PRO/STANDARD are unlimited).
+    if payer.plan not in (PlanTier.PRO, PlanTier.STANDARD):
+        consume_ai_edit(payer, project, cost=ADD_SCENE_CREDIT_COST)
+
+    # 7. History: a project-level "scene_added" entry (mirrors "scene_deleted") so it
+    #    shows in Global Edits and can be reverted (revert soft-deletes the added scene).
+    _add_change_set = new_change_set_id()
+    track_project_edit(
+        db,
+        project_id=project_id,
+        field_name="scene_added",
+        old_value=json.dumps({"scene_id": new_scene.id, "is_active": False, "title": scene_title}),
+        new_value=json.dumps({"scene_id": new_scene.id, "is_active": True, "title": scene_title}),
+        user_id=user.id,
+        change_set_id=_add_change_set,
+    )
+    prune_project_history(db, project.id)
+
+    db.commit()
+    db.refresh(new_scene)
+
+    # Structural change — collaborators re-sync their scene list.
+    try:
+        from app.routers.collab_ws import broadcast_project_reload
+        broadcast_project_reload(project_id, exclude_user_id=user.id)
+    except Exception as e:
+        print(f"[PROJECTS] Warning: add-scene broadcast failed for project {project_id}: {e}")
+
+    return new_scene
 
 
 def _get_user_project(project_id: int, user_id: int, db: Session, *, required_role: str = "editor") -> Project:
