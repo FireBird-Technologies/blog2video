@@ -166,7 +166,7 @@ export default function AddSceneModal({
               ) : (
                 <>
                   <p className="text-xs font-semibold text-red-700">
-                    You're out of AI credits — adding a scene costs {ADD_SCENE_CREDIT_COST}.
+                    You're out of AI edit credits — adding a scene costs {ADD_SCENE_CREDIT_COST} credits.
                   </p>
                   <p className="mt-1 text-xs text-red-600">
                     Buy a video for +20 AI edits, or upgrade to Pro/Standard for unlimited.

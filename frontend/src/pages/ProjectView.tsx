@@ -5893,7 +5893,7 @@ export default function ProjectView() {
           if (ownerOutOfCredits) {
             return (
               <span className="text-[10px] sm:text-xs font-semibold text-red-600 shrink-0 self-end pb-1">
-                You're out of AI credits.{" "}
+                You're out of AI edit credits.{" "}
                 <button
                   type="button"
                   onClick={() => navigate("/pricing")}
@@ -6820,7 +6820,7 @@ export default function ProjectView() {
                   open={showAiImageUpgradeModal}
                   onClose={() => setShowAiImageUpgradeModal(false)}
                   projectId={project?.id}
-                  title="You're out of AI credits"
+                  title="You're out of AI edit credits"
                   subtitle="Upgrade to get more credits and unlock unlimited AI edits & image generation."
                 />
               </div>
