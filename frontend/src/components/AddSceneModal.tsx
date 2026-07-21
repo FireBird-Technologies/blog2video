@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { addScene, type Project } from "../api/client";
+import { ScenePositionDropdown } from "./ScenePositionDropdown";
 
 /** Adding a scene costs this many AI-edit credits (mirrors the backend). */
 export const ADD_SCENE_CREDIT_COST = 5;
@@ -81,9 +82,6 @@ export default function AddSceneModal({
     }
   };
 
-  // Position options: 1..activeCount+1 ("End" for the last slot).
-  const positionOptions = Array.from({ length: activeCount + 1 }, (_, i) => i + 1);
-
   return (
     <div className="fixed inset-0 z-[105] flex items-center justify-center p-4">
       <div
@@ -145,18 +143,12 @@ export default function AddSceneModal({
             <label htmlFor="add-scene-position" className="block text-xs font-medium text-gray-700 mb-1.5">
               Insert at position
             </label>
-            <select
+            <ScenePositionDropdown
               id="add-scene-position"
+              activeCount={activeCount}
               value={position}
-              onChange={(e) => setPosition(Number(e.target.value))}
-              className="w-full px-3 py-2 text-sm border border-purple-200 bg-purple-50 text-purple-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-            >
-              {positionOptions.map((p) => (
-                <option key={p} value={p}>
-                  {p === activeCount + 1 ? `End (after scene ${activeCount})` : `Position ${p}`}
-                </option>
-              ))}
-            </select>
+              onChange={setPosition}
+            />
             <p className="mt-1 text-xs text-gray-400">
               Everything at or after this position shifts down by one.
             </p>
