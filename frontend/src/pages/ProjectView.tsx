@@ -5963,12 +5963,12 @@ export default function ProjectView() {
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="flex flex-col gap-1 mb-2 min-w-0">
-                  <h2 className="text-base font-medium text-gray-900">
+                <div className="flex items-baseline gap-4 mb-2 min-w-0">
+                  <h2 className="text-base font-medium text-gray-900 truncate max-w-[40%] shrink-0" title={project.name}>
                     {project.name}
                   </h2>
                   <span className="text-xs text-gray-400">
-                    {project.scenes.length} scenes — {imageAssets.length} images. Click <span className="font-medium text-purple-600">Edit</span> on any scene to change its text, narration, or layout. Drag to reorder.
+                    {project.scenes.length} scenes — {imageAssets.length} images. Click <span className="font-medium text-purple-600">Edit</span> on any scene to change its settings. Drag from left to reorder.
                   </span>
                 </div>
 
