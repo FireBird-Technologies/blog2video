@@ -382,6 +382,31 @@ def delete_object(key: str) -> bool:
         return False
 
 
+def copy_object(src_key: str, dest_key: str) -> Optional[str]:
+    """Server-side copy an R2 object from ``src_key`` to ``dest_key``.
+
+    Returns the public URL of the destination on success, or None on error /
+    when R2 is not configured / when the source object doesn't exist. Does not
+    delete the source — callers that want a move delete it afterwards.
+    """
+    if not is_r2_configured():
+        return None
+    if src_key == dest_key:
+        return public_url(dest_key)
+    try:
+        client = _get_client()
+        client.copy_object(
+            Bucket=settings.R2_BUCKET_NAME,
+            CopySource={"Bucket": settings.R2_BUCKET_NAME, "Key": src_key},
+            Key=dest_key,
+        )
+        print(f"[R2] Copied {src_key} -> {dest_key}")
+        return public_url(dest_key)
+    except ClientError as e:
+        print(f"[R2] Failed to copy {src_key} -> {dest_key}: {e}")
+        return None
+
+
 def delete_project_files(user_id: int, project_id: int) -> int:
     """
     Delete ALL R2 objects for a project (images, audio, video).

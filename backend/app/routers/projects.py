@@ -4534,6 +4534,148 @@ def get_project_layouts(
     }
 
 
+def _sync_audio_filenames_to_order(db: Session, project: Project) -> None:
+    """Rename each scene's ``scene_{order}.mp3`` audio to match its CURRENT ``order``.
+
+    Audio files are named by ``scene.order`` (``scene_{order}.mp3``), and both the
+    frontend preview and the renderer resolve a scene's voiceover from the filename
+    embedded in ``voiceover_path``. When ``order`` is renumbered (add-scene, reorder)
+    the files and paths are left pointing at the OLD order, so scenes end up playing
+    each other's audio — and a freshly generated ``scene_{order}.mp3`` can overwrite a
+    file another scene still owns. This resyncs disk + DB to the current order.
+
+    Playback resolves a scene's audio by FILENAME and then serves the matching Asset's
+    ``r2_url`` when R2 is configured, so a correct rename must move BOTH the local file
+    AND the R2 object (and update ``r2_url``/``r2_key``) — renaming the local file alone
+    leaves production serving stale remote audio under the old name.
+
+    Call AFTER every scene's ``scene.order`` is set to its final value and flushed, and
+    BEFORE generating any new voiceover for the current order (so the new file can't
+    clobber an existing scene's audio). Renames go through a temp name first so a cyclic
+    remap (e.g. 2↔3) can't overwrite a file/object that hasn't been moved yet. Best-effort:
+    a per-file failure is logged and skipped rather than aborting the whole operation.
+    """
+    import re
+    from app.models.asset import Asset, AssetType
+
+    audio_dir = os.path.join(
+        settings.MEDIA_DIR, f"projects/{project.id}/audio"
+    )
+
+    scenes = (
+        db.query(Scene)
+        .filter(Scene.project_id == project.id, Scene.voiceover_path.isnot(None))
+        .all()
+    )
+
+    # Current on-disk filename (from the path — the source of truth) → desired filename
+    # for this scene's current order. Only scenes whose audio is misnamed need moving.
+    plans: list[tuple[Scene, str, str]] = []  # (scene, old_filename, new_filename)
+    for s in scenes:
+        m = re.search(r"scene_(\d+)\.mp3", s.voiceover_path or "", re.IGNORECASE)
+        if not m:
+            continue
+        old_filename = f"scene_{m.group(1)}.mp3"
+        new_filename = f"scene_{s.order}.mp3"
+        if old_filename != new_filename:
+            plans.append((s, old_filename, new_filename))
+
+    if not plans:
+        return
+
+    # Index audio assets by their current filename so we can update the matching row.
+    audio_assets = (
+        db.query(Asset)
+        .filter(Asset.project_id == project.id, Asset.asset_type == AssetType.AUDIO)
+        .all()
+    )
+    assets_by_filename: dict[str, list[Asset]] = {}
+    for a in audio_assets:
+        assets_by_filename.setdefault(a.filename, []).append(a)
+
+    # Two-phase rename on disk (old → unique temp → new) so cyclic swaps don't collide.
+    tmp_suffix = f".reorder_{int(time.time() * 1000)}.tmp"
+    staged: list[tuple[Scene, str, str, str]] = []  # (scene, old, new, temp_path)
+    for s, old_filename, new_filename in plans:
+        old_path = os.path.join(audio_dir, old_filename)
+        temp_path = os.path.join(audio_dir, old_filename + tmp_suffix)
+        try:
+            if os.path.exists(old_path):
+                os.rename(old_path, temp_path)
+                staged.append((s, old_filename, new_filename, temp_path))
+            else:
+                # No local file (e.g. R2-only) — still resync DB paths below.
+                staged.append((s, old_filename, new_filename, ""))
+        except OSError as e:
+            print(f"[PROJECTS] audio resync: stage failed for {old_filename}: {e}")
+
+    # Two-phase R2 move: copy every source object to a UNIQUE temp key first, then copy
+    # temp → final. This mirrors the local temp-rename so a cyclic remap can't overwrite an
+    # object still owned by another scene. Only runs when R2 is configured.
+    r2_on = False
+    try:
+        r2_on = r2_storage.is_r2_configured()
+    except Exception:
+        r2_on = False
+    r2_tmp_keys: dict[str, str] = {}  # old_filename -> temp key it was staged to
+    if r2_on:
+        tmp_prefix = f"tmp_reorder_{int(time.time() * 1000)}_"
+        for s, old_filename, new_filename in plans:
+            old_key = r2_storage.audio_key(project.user_id, project.id, old_filename)
+            tmp_key = r2_storage.audio_key(
+                project.user_id, project.id, tmp_prefix + old_filename
+            )
+            if r2_storage.copy_object(old_key, tmp_key) is not None:
+                r2_tmp_keys[old_filename] = tmp_key
+
+    for s, old_filename, new_filename, temp_path in staged:
+        new_path = os.path.join(audio_dir, new_filename)
+        if temp_path:
+            try:
+                os.replace(temp_path, new_path)
+            except OSError as e:
+                print(f"[PROJECTS] audio resync: rename to {new_filename} failed: {e}")
+                continue
+
+        # Update the scene's stored path to the new filename.
+        s.voiceover_path = new_path
+
+        # Move the R2 object (temp → final key) and capture the new public URL so playback,
+        # which serves the Asset's r2_url, points at the right audio.
+        new_r2_url: Optional[str] = None
+        new_r2_key = r2_storage.audio_key(project.user_id, project.id, new_filename) if r2_on else None
+        if r2_on and old_filename in r2_tmp_keys and new_r2_key:
+            new_r2_url = r2_storage.copy_object(r2_tmp_keys[old_filename], new_r2_key)
+
+        # Update the matching Asset row(s): filename, local_path, and R2 key/url.
+        for a in assets_by_filename.get(old_filename, []):
+            a.filename = new_filename
+            a.local_path = new_path
+            if r2_on and new_r2_key and new_r2_url:
+                a.r2_key = new_r2_key
+                a.r2_url = new_r2_url
+
+    # Clean up the temp R2 objects and the now-orphaned OLD-named objects. An old key is
+    # only safe to delete if no scene's FINAL filename still maps to it (i.e. it wasn't a
+    # no-op destination). Since misnamed sources are all being remapped, delete each old
+    # key unless it is also some scene's new_filename.
+    if r2_on:
+        final_filenames = {new_filename for (_s, _old, new_filename) in plans}
+        # Also include filenames of scenes that did NOT need moving (already correct) so we
+        # never delete an object a correctly-named scene still uses.
+        for s in scenes:
+            m = re.search(r"scene_(\d+)\.mp3", s.voiceover_path or "", re.IGNORECASE)
+            if m:
+                final_filenames.add(os.path.basename(s.voiceover_path))
+        for old_filename, tmp_key in r2_tmp_keys.items():
+            r2_storage.delete_object(tmp_key)
+            if old_filename not in final_filenames:
+                old_key = r2_storage.audio_key(project.user_id, project.id, old_filename)
+                r2_storage.delete_object(old_key)
+
+    db.flush()
+
+
 @router.post("/{project_id}/scenes/reorder", response_model=list[SceneOut])
 def reorder_scenes(
     project_id: int,
@@ -4609,6 +4751,12 @@ def reorder_scenes(
         sequenced.extend(anchor_after.get(a.id, []))
     for i, scene in enumerate(sequenced, 1):
         scene.order = i
+    db.flush()
+
+    # Audio files are named by ``scene.order``; renumbering above left each scene's file
+    # and ``voiceover_path`` pointing at its OLD order, so without this resync scenes play
+    # each other's voiceover after a reorder.
+    _sync_audio_filenames_to_order(db, project)
 
     # Track the reorder as a single revertable project-level history entry. old/new hold
     # {"orders": {scene_id: order}, "titles": {scene_id: title}} over ALL scenes; revert
@@ -5609,6 +5757,12 @@ async def _generate_and_insert_scene(
     for i, s in enumerate(sequenced, 1):
         s.order = i
     db.flush()
+
+    # Renumbering shifted existing scenes' ``order`` but their audio files/paths still
+    # carry the OLD order. Resync them BEFORE generating the new scene's voiceover so its
+    # ``scene_{order}.mp3`` can't overwrite an existing scene's audio (the new scene has
+    # no voiceover_path yet, so it is untouched here).
+    _sync_audio_filenames_to_order(db, project)
 
     # A manually added scene is always a CONTENT scene — it must never get the
     # hero/opening layout or a CTA/ending-socials layout, even when inserted at
