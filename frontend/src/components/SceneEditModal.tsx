@@ -37,6 +37,7 @@ const IMAGE_ADJUST_ZOOM_MAX = 8;
 import { OHLCVTableEditor } from "./OHLCVTableEditor";
 import { SpreadsheetTable } from "./SpreadsheetTable";
 import { ImportPreviewSheet } from "./ImportPreviewSheet";
+import { CustomSelect } from "./CustomSelect";
 import {
   isBuiltinDataVizChartLayout,
   isBuiltinTickerLayout,
@@ -5071,10 +5072,11 @@ export default function SceneEditModal({
                         return (
                           <div key={field.key}>
                             <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
-                            <select
+                            <CustomSelect
+                              ariaLabel={field.label}
                               value={sel}
-                              onChange={(e) => {
-                                const nextChartType = e.target.value;
+                              options={opts}
+                              onChange={(nextChartType) => {
                                 if (isBuiltinChartTypeField) {
                                   const concrete =
                                     nextChartType === "line" || nextChartType === "bar" || nextChartType === "histogram"
@@ -5136,14 +5138,7 @@ export default function SceneEditModal({
                                 }
                                 setEditableLayoutProps((prev) => ({ ...prev, [field.key]: nextChartType }));
                               }}
-                              className={inputClass}
-                            >
-                              {opts.map((o) => (
-                                <option key={o.value} value={o.value}>
-                                  {o.label}
-                                </option>
-                              ))}
-                            </select>
+                            />
                           </div>
                         );
                       }
