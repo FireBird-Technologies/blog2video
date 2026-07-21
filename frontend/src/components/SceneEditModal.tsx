@@ -6354,11 +6354,15 @@ export default function SceneEditModal({
                         setDescription(next);
                         // An AI instruction means the narration will change, so the
                         // current voiceover is now stale — auto-enable re-record.
+                        // Clearing the prompt removes that reason: turn it back off,
+                        // unless the narration itself was hand-edited (independent reason).
                         if (next.trim()) {
                           setRegenerateVoiceover(true);
+                        } else if (aiNarration.trim() === (scene.narration_text || "").trim()) {
+                          setRegenerateVoiceover(false);
                         }
                       }}
-                      placeholder="Describe the change in plain English. For example: “Make it shorter and punchier, lead with the café count, and keep a warm, inviting tone.”"
+                      placeholder="Describe how this scene should change — AI rewrites the text and visuals to match. E.g. “Refocus on the café count, make it shorter and punchier.”"
                       className="w-full px-3.5 py-3 text-[15px] text-gray-800 leading-relaxed border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden"
                       minRows={4}
                     />

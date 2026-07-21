@@ -4775,6 +4775,54 @@ async def regenerate_scene(
     has_description = bool(description and description.strip())
     needs_layout_regen = not keep_layout or has_description
 
+    # When an AI instruction is given, the scene is fully regenerated according to it:
+    # rewrite the narration and the title so the whole scene (not just the visuals)
+    # reflects the instruction. Done BEFORE visual_description / descriptor regen so
+    # those downstream calls read the updated title + narration as source of truth.
+    if has_description:
+        new_narration = await rewrite_narration_if_requested(
+            current_narration=scene.narration_text or "",
+            user_instruction=description,
+            scene_title=scene.title,
+        )
+        if new_narration and new_narration.strip() and new_narration.strip() != (scene.narration_text or "").strip():
+            old_nt = scene.narration_text
+            scene.narration_text = new_narration.strip()
+            track_scene_edit(
+                db,
+                project_id=project_id,
+                scene_id=scene.id,
+                field_name="narration_text",
+                old_value=old_nt,
+                new_value=scene.narration_text,
+                is_ai_assisted=True,
+                user_instruction=description,
+                user_id=user.id,
+                change_set_id=_regen_change_set,
+            )
+
+        from app.dspy_modules.title_edit import rewrite_title_if_requested
+        new_title = await rewrite_title_if_requested(
+            current_title=scene.title or "",
+            narration=scene.narration_text or "",
+            user_instruction=description,
+        )
+        if new_title and new_title.strip() and new_title.strip() != (scene.title or "").strip():
+            old_title = scene.title
+            scene.title = new_title.strip()
+            track_scene_edit(
+                db,
+                project_id=project_id,
+                scene_id=scene.id,
+                field_name="title",
+                old_value=old_title,
+                new_value=scene.title,
+                is_ai_assisted=True,
+                user_instruction=description,
+                user_id=user.id,
+                change_set_id=_regen_change_set,
+            )
+
     # Detect variant switch for custom templates (intro/content_N/outro/data-viz)
     # Pure variant switches skip the AI call entirely — instant layout change.
     is_variant_switch = False
@@ -4920,6 +4968,30 @@ async def regenerate_scene(
         )
     else:
         new_visual_description = scene.visual_description or ""
+
+    # With an AI instruction, regenerate a concise on-screen display text from the
+    # freshly rewritten narration + visual description (reusing the same generator the
+    # main pipeline uses). hide_narration still wins (blank), and a hand-typed
+    # narration_text with no instruction keeps its current display_text behavior.
+    if has_description and not hide_narration:
+        from app.dspy_modules.display_text_gen import DisplayTextGenerator
+        from app.services.language_detection import get_content_language_for_project
+        try:
+            dt_gen = DisplayTextGenerator(
+                template_id=project.template,
+                content_language=get_content_language_for_project(project),
+            )
+            dt_results = await dt_gen.generate_for_scenes([
+                {
+                    "title": scene.title or "",
+                    "narration": scene.narration_text or "",
+                    "visual_description": new_visual_description or "",
+                }
+            ])
+            if dt_results and dt_results[0] and dt_results[0].strip():
+                new_display_text = dt_results[0].strip()
+        except Exception as e:
+            print(f"[REGENERATE] display_text generation failed, keeping fallback: {e}")
 
     if needs_layout_regen:
         # Regenerate scene layout using AI
