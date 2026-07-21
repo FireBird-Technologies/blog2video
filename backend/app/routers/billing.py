@@ -405,16 +405,22 @@ def create_per_video_checkout(
         else f"blog2video — {qty} video pack"
     )
 
+    # Pin every ad-hoc price to a single fixed Product when configured, so coupons
+    # can be scoped to per-video purchases (and the Stripe catalog isn't flooded with
+    # a throwaway product per checkout). Falls back to an inline product_data name
+    # when the env var is unset, preserving the old behavior.
+    price_data: dict = {"currency": "usd", "unit_amount": unit_amount}
+    if settings.STRIPE_PER_VIDEO_PRODUCT_ID:
+        price_data["product"] = settings.STRIPE_PER_VIDEO_PRODUCT_ID
+    else:
+        price_data["product_data"] = {"name": product_name}
+
     session = stripe.checkout.Session.create(
         customer=user.stripe_customer_id,
         mode="payment",
         line_items=[
             {
-                "price_data": {
-                    "currency": "usd",
-                    "product_data": {"name": product_name},
-                    "unit_amount": unit_amount,
-                },
+                "price_data": price_data,
                 "quantity": qty,
             }
         ],
