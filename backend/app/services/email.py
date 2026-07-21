@@ -742,6 +742,30 @@ class EmailService:
 
 
 
+    def send_elevenlabs_failover_alert_email(
+        self,
+        reason: str,
+        to: str = settings.INTERNAL_ALERT_EMAIL,
+        cc: list[str] | None = None,
+    ) -> None:
+        """
+        Alert the internal team when TTS synthesis switches between the main
+        (pro) and backup (creator) ElevenLabs keys. Triggered from
+        app/services/elevenlabs_keys.py on any active-key transition: main key
+        low on quota, main key recovered, or the backup key erroring out.
+        Internal-only. CC's settings.INTERNAL_ALERT_EMAIL_2 by default alongside
+        settings.INTERNAL_ALERT_EMAIL.
+        """
+        text = f"ElevenLabs TTS key failover event.\n\n{reason}\n"
+
+        self.provider.send_email(
+            to=to,
+            subject="[ElevenLabs Failover] TTS key switched",
+            text_content=text,
+            from_email="support@blog2video.app",
+            cc=cc if cc is not None else [settings.INTERNAL_ALERT_EMAIL_2],
+        )
+
     def send_custom_template_request_email(
         self,
         user_name: str,
