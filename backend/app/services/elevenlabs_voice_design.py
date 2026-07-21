@@ -5,7 +5,7 @@ import json
 import logging
 import requests
 
-from app.config import settings
+from app.services import elevenlabs_keys
 
 logger = logging.getLogger(__name__)
 
@@ -30,8 +30,10 @@ def create_voice_from_preview(
         (voice_id, preview_url): permanent voice_id for TTS and optional preview URL from the API.
     """
     url = "https://api.elevenlabs.io/v1/text-to-voice/create-voice-from-preview"
+    api_key = elevenlabs_keys.get_voice_design_api_key()
+    elevenlabs_keys.log_key_usage(api_key, "create-voice-from-preview")
     headers = {
-        "xi-api-key": settings.ELEVENLABS_API_KEY,
+        "xi-api-key": api_key,
         "Content-Type": "application/json",
     }
     body = {
@@ -71,7 +73,9 @@ def create_voice_ivc(
         (voice_id, requires_verification) from the API response.
     """
     url = "https://api.elevenlabs.io/v1/voices/add"
-    headers = {"xi-api-key": settings.ELEVENLABS_API_KEY}
+    api_key = elevenlabs_keys.get_voice_design_api_key()
+    elevenlabs_keys.log_key_usage(api_key, "IVC clone")
+    headers = {"xi-api-key": api_key}
     # API expects files as array; send one file under the same field name
     files = [("files", (filename, file_bytes))]
     data = {
@@ -102,8 +106,10 @@ def generate_voice_preview_audio(voice_id: str) -> bytes | None:
     if not (voice_id or "").strip():
         return None
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id.strip()}"
+    api_key = elevenlabs_keys.get_voice_design_api_key()
+    elevenlabs_keys.log_key_usage(api_key, "voice preview TTS")
     headers = {
-        "xi-api-key": settings.ELEVENLABS_API_KEY,
+        "xi-api-key": api_key,
         "Content-Type": "application/json",
     }
     # Keep preview synthesis aligned with final project voiceover generation:
@@ -131,7 +137,9 @@ def get_voice_preview_url(voice_id: str) -> str | None:
     if not (voice_id or "").strip():
         return None
     url = f"https://api.elevenlabs.io/v1/voices/{voice_id.strip()}"
-    headers = {"xi-api-key": settings.ELEVENLABS_API_KEY}
+    api_key = elevenlabs_keys.get_voice_design_api_key()
+    elevenlabs_keys.log_key_usage(api_key, "get voice preview URL")
+    headers = {"xi-api-key": api_key}
     resp = requests.get(url, headers=headers, timeout=15)
     resp.raise_for_status()
     data = resp.json()
@@ -150,7 +158,9 @@ def get_voice_metadata(voice_id: str) -> dict | None:
     if not (voice_id or "").strip():
         return None
     url = f"https://api.elevenlabs.io/v1/voices/{voice_id.strip()}"
-    headers = {"xi-api-key": settings.ELEVENLABS_API_KEY}
+    api_key = elevenlabs_keys.get_voice_design_api_key()
+    elevenlabs_keys.log_key_usage(api_key, "get voice metadata")
+    headers = {"xi-api-key": api_key}
     resp = requests.get(url, headers=headers, timeout=15)
     resp.raise_for_status()
     data = resp.json()

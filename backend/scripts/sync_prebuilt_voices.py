@@ -10,8 +10,8 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from elevenlabs import ElevenLabs
-from app.config import settings
 from app.database import SessionLocal
+from app.services import elevenlabs_keys
 from app.constants import FREE_PREMADE_VOICE_IDS as KNOWN_PREMADE_VOICE_IDS
 from app.constants import FREE_PREMADE_FALLBACK
 from app.models.prebuilt_voice import PrebuiltVoice
@@ -23,7 +23,9 @@ TARGET_PREBUILT_CATALOG_SIZE = 30
 
 
 def _fetch_live_premade_catalog() -> list[dict]:
-    client = ElevenLabs(api_key=settings.ELEVENLABS_API_KEY)
+    api_key = elevenlabs_keys.get_voice_design_api_key()
+    elevenlabs_keys.log_key_usage(api_key, "sync_prebuilt_voices catalog fetch")
+    client = ElevenLabs(api_key=api_key)
     try:
         voices_response = client.voices.get_all(show_legacy=True)
     except TypeError:
