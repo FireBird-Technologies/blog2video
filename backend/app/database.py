@@ -139,7 +139,7 @@ def _migrate_sqlite(eng) -> None:
             "stripe_subscription_id": "VARCHAR(255)",
             "videos_used_this_period": "INTEGER DEFAULT 0",
             "video_limit_bonus": "INTEGER DEFAULT 0",
-            "ai_edit_credits": "INTEGER DEFAULT 0",
+            "ai_edit_credits": "INTEGER DEFAULT 6",
             "custom_template_bonus": "INTEGER DEFAULT 0",
             "custom_templates_created": "INTEGER DEFAULT 0",
             "period_start": "DATETIME",
@@ -506,6 +506,66 @@ def _backfill_owner_members(eng) -> None:
             )
 
 
+def _ai_edit_credits_backfilled(eng) -> bool:
+    """Whether the (non-idempotent, additive) AI-edit backfill has already run.
+
+    Uses a one-row ``app_migration_flags`` marker table so re-running init_db on an
+    already-migrated dev DB never adds the free grant twice.
+    """
+    with eng.begin() as conn:
+        conn.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS app_migration_flags "
+                "(flag VARCHAR(100) PRIMARY KEY, applied_at DATETIME)"
+            )
+        )
+        row = conn.execute(
+            text("SELECT 1 FROM app_migration_flags WHERE flag = :f"),
+            {"f": "ai_edit_credits_free_grant"},
+        ).first()
+    return row is not None
+
+
+def _mark_ai_edit_credits_backfilled(conn) -> None:
+    """Record that the AI-edit backfill ran (within the caller's transaction)."""
+    conn.execute(
+        text(
+            "INSERT INTO app_migration_flags (flag, applied_at) "
+            "VALUES (:f, CURRENT_TIMESTAMP)"
+        ),
+        {"f": "ai_edit_credits_free_grant"},
+    )
+
+
+def _backfill_ai_edit_credits(eng) -> None:
+    """Grant every user the free AI-edit pool by adding ``FREE_AI_EDIT_CREDITS``.
+
+    Users at 0 (or NULL) become exactly the grant; users who already have credits
+    get the grant added on top (e.g. 20 → 26). Runs once — NOT idempotent, so it is
+    guarded by ``_ai_edit_credits_backfilled`` so re-running init_db never re-adds.
+    Postgres does the equivalent in an Alembic migration.
+    """
+    from app.models.user import FREE_AI_EDIT_CREDITS
+
+    insp = inspect(eng)
+    if "users" not in insp.get_table_names():
+        return
+    if "ai_edit_credits" not in {c["name"] for c in insp.get_columns("users")}:
+        return
+    if _ai_edit_credits_backfilled(eng):
+        return
+
+    with eng.begin() as conn:
+        conn.execute(
+            text(
+                "UPDATE users SET ai_edit_credits = "
+                "COALESCE(ai_edit_credits, 0) + :grant"
+            ),
+            {"grant": FREE_AI_EDIT_CREDITS},
+        )
+        _mark_ai_edit_credits_backfilled(conn)
+
+
 def init_db():
     """
     Initialize database schema and seed reference data.
@@ -536,6 +596,7 @@ def init_db():
         ProjectTemplateChangeJob,
         ProjectRegenerateScriptJob,
         ProjectVoiceChangeJob,
+        ProjectAddSceneJob,
         Referral,
         ReferralSignup,
         SupportConversation,
@@ -552,6 +613,8 @@ def init_db():
         _migrate_sqlite(engine)
         # Ensure every existing project has an OWNER collaboration member row.
         _backfill_owner_members(engine)
+        # Grant every existing user the free per-user AI-edit pool.
+        _backfill_ai_edit_credits(engine)
 
     # Seed subscription plans (idempotent) for all databases.
     db = SessionLocal()

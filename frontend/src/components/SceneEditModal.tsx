@@ -1,5 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback, Fragment } from "react";
-import type { MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent, ReactNode } from "react";
+import type { MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent, ReactNode, CSSProperties } from "react";
 import ReactDOM from "react-dom";
 import {
   Scene,
@@ -22,7 +22,7 @@ import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import { useNavigate } from "react-router-dom";
 import UpgradePlanModal from "./UpgradePlanModal";
 import { STANDARD_MONTHLY_PRICE, PRO_MONTHLY_PRICE } from "../content/pricingContent";
-import GenerateSceneImageModal from "./GenerateSceneImageModal";
+import { AI_IMAGE_CREDIT_COST } from "./GenerateSceneImageModal";
 import { getSceneLayoutLabel } from "../utils/layoutLabels";
 import { chartTableToLegacyRowProps } from "../utils/chartTableDataVizLegacy";
 import { compileDataModule } from "../utils/compileComponent";
@@ -37,6 +37,7 @@ const IMAGE_ADJUST_ZOOM_MAX = 8;
 import { OHLCVTableEditor } from "./OHLCVTableEditor";
 import { SpreadsheetTable } from "./SpreadsheetTable";
 import { ImportPreviewSheet } from "./ImportPreviewSheet";
+import { CustomSelect } from "./CustomSelect";
 import {
   isBuiltinDataVizChartLayout,
   isBuiltinTickerLayout,
@@ -2471,6 +2472,18 @@ interface Props {
   imageItems: SceneImageItem[];
   availableImageItems: SceneImageItem[];
   onSaved: () => void;
+  /**
+   * True while an AI image generation for THIS scene is in flight (owned by the parent
+   * ProjectView, so it survives this modal being closed). Shows a loader on the AI card.
+   */
+  imageGenerating?: boolean;
+  /** Ask the parent to open the (single) AI image generation modal for this scene. */
+  onRequestGenerateImage?: () => void;
+  /**
+   * Register a stager the parent calls to drop a kept AI image into this modal's form
+   * (unsaved until Save). Called with the fn on mount and null on unmount.
+   */
+  registerStageImage?: (fn: ((file: File) => void) | null) => void;
   openImageAdjustOnOpen?: boolean;
   /** When set, the modal renders read-only inside a help video (no API calls, inline render). */
   demoMode?: SceneEditModalDemoMode;
@@ -2691,6 +2704,9 @@ export default function SceneEditModal({
   imageItems,
   availableImageItems,
   onSaved,
+  imageGenerating = false,
+  onRequestGenerateImage,
+  registerStageImage,
   openImageAdjustOnOpen = false,
   demoMode,
 }: Props) {
@@ -2761,7 +2777,9 @@ export default function SceneEditModal({
   const [imageSourceChooserOpen, setImageSourceChooserOpen] = useState(false);
   const [scrapedImagesModalOpen, setScrapedImagesModalOpen] = useState(false);
   const [selectedExistingAssetId, setSelectedExistingAssetId] = useState<number | null>(null);
-  const [assigningExistingImage, setAssigningExistingImage] = useState(false);
+  // An existing image STAGED for replacement (chosen in the gallery but not yet saved).
+  // Like an upload, it previews in the modal and is only persisted on the modal's Save.
+  const [pendingExistingImage, setPendingExistingImage] = useState<{ assetId: number; url: string } | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [imageFocusX, setImageFocusX] = useState(50);
   const [imageFocusY, setImageFocusY] = useState(50);
@@ -2779,9 +2797,6 @@ export default function SceneEditModal({
   const [layoutOpen, setLayoutOpen] = useState(false);
   // AI-mode disclosure: reveal the "tell AI what to change" box on demand.
   const [showImproveBox, setShowImproveBox] = useState(false);
-  const [showImageGenModal, setShowImageGenModal] = useState(false);
-  const [generatedImageBase64, setGeneratedImageBase64] = useState<string | null>(null);
-  const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
   const [showAiImageUpgradeModal, setShowAiImageUpgradeModal] = useState(false);
   const [tickerTableModalOpen, setTickerTableModalOpen] = useState(false);
   const [tickerTableModalKey, setTickerTableModalKey] = useState<string | null>(null);
@@ -2822,9 +2837,26 @@ export default function SceneEditModal({
     startFy: number;
   } | null>(null);
   const shouldAutoOpenAdjustRef = useRef(false);
+  // Whether the current title/description font-size values came from an explicit value
+  // in the scene descriptor (true) vs. a resolved default (false). The layout schema
+  // that drives correct defaults loads async; when it arrives we must refresh a value
+  // that is only a default — but never clobber an explicit descriptor value or a user edit.
+  const titleFontIsExplicitRef = useRef(false);
+  const descFontIsExplicitRef = useRef(false);
   const { user, refreshUser } = useAuth();
   const { showError } = useErrorModal();
   const navigate = useNavigate();
+
+  // Register a stager so the parent can drop a kept AI image into this form (unsaved
+  // until Save). A generated/uploaded file supersedes any staged reused image.
+  useEffect(() => {
+    if (!registerStageImage) return;
+    registerStageImage((file: File) => {
+      setPendingExistingImage(null);
+      setSelectedImageFile(file);
+    });
+    return () => registerStageImage(null);
+  }, [registerStageImage]);
 
   // Cleanup image preview URL
   useEffect(() => {
@@ -2842,15 +2874,23 @@ export default function SceneEditModal({
   // so a Free collaborator inherits a paid owner's entitlement (and vice versa).
   const isCollaborator = user != null && project.user_id !== user.id;
   const effectiveIsPro = isCollaborator ? (project.owner_is_pro ?? false) : isPro;
-  const aiUsageCount = project.ai_assisted_editing_count || 0;
-  const freeAiRemaining = Math.max(0, 3 - aiUsageCount);
-  // Per-user purchased AI-edit credits. On a shared project the OWNER pays, so a
-  // collaborator draws from the owner's pool (surfaced as owner_ai_edit_credits).
+  // Single per-user AI-edit credit pool, shared across all projects (starts at 6,
+  // +20 per purchased video). On a shared project the OWNER pays, so a collaborator
+  // draws from the owner's pool (surfaced as owner_ai_edit_credits).
   const aiCreditRemaining = isCollaborator
     ? (project.owner_ai_edit_credits ?? 0)
     : (user?.ai_edit_credits ?? 0);
-  // Consumption hierarchy: paid plan (unlimited) → free per-project allowance → credits.
-  const canUseAI = effectiveIsPro || freeAiRemaining > 0 || aiCreditRemaining > 0;
+  // Regenerating the voiceover costs 3 credits; other AI edits cost 1.
+  const voiceoverEditCost = 3;
+  const aiEditCost = regenerateVoiceover ? voiceoverEditCost : 1;
+  // Two distinct gates:
+  //  • canUseAI — the user has ANY AI budget (≥1 credit or a paid plan). Drives the
+  //    hard paywall / panel lock. A user with credits left is NOT locked out.
+  //  • canAffordThisEdit — the pool covers THIS edit at its current cost. Drives the
+  //    Regenerate button + a soft inline warning, without locking the panel, so the
+  //    user can simply turn the voiceover toggle off to bring the cost back to 1.
+  const canUseAI = effectiveIsPro || aiCreditRemaining >= 1;
+  const canAffordThisEdit = effectiveIsPro || aiCreditRemaining >= aiEditCost;
 
   // Send the OWNER straight to Stripe checkout for the chosen plan (monthly). A
   // collaborator can't lift the limit by paying — only the owner can, so the plan
@@ -3036,10 +3076,9 @@ export default function SceneEditModal({
     setSelectedLayout("__keep__");
     setSelectedImageFile(null);
     setImagePreviewUrl(null);
+    setPendingExistingImage(null);
     setImageFocusX(50);
     setImageFocusY(50);
-    setGeneratedImageBase64(null);
-    setGeneratedPrompt(null);
     setShowAiImageUpgradeModal(false);
     shouldAutoOpenAdjustRef.current = openImageAdjustOnOpen;
     let layoutId: string | null = null;
@@ -3393,6 +3432,11 @@ export default function SceneEditModal({
       layoutPropSchema: layouts?.layout_prop_schema,
       craftedFrontendFiles,
     });
+    // Track whether each value is an explicit descriptor value or a default, so the
+    // async-schema merge effect below can refresh a stale default without clobbering
+    // an explicit value.
+    titleFontIsExplicitRef.current = ts !== "";
+    descFontIsExplicitRef.current = ds !== "";
     if (!ts) ts = String(defaults.title);
     if (!ds) ds = String(defaults.desc);
     setTitleFontSize(ts);
@@ -3434,8 +3478,15 @@ export default function SceneEditModal({
       layoutPropSchema: layouts?.layout_prop_schema,
       craftedFrontendFiles,
     });
-    setTitleFontSize((prev) => (prev !== "" ? prev : String(defaults.title)));
-    setDescriptionFontSize((prev) => (prev !== "" ? prev : String(defaults.desc)));
+    // The initial value may have been a default computed BEFORE the layout schema
+    // loaded (hence wrong). Now that the schema is here, refresh values that are only
+    // defaults (not explicit descriptor values), and fill any still-empty value.
+    setTitleFontSize((prev) =>
+      prev === "" || !titleFontIsExplicitRef.current ? String(defaults.title) : prev,
+    );
+    setDescriptionFontSize((prev) =>
+      prev === "" || !descFontIsExplicitRef.current ? String(defaults.desc) : prev,
+    );
   }, [
     open,
     scene.id,
@@ -4009,8 +4060,12 @@ export default function SceneEditModal({
         });
         if (selectedImageFile) {
           await updateSceneImage(project.id, scene.id, selectedImageFile);
+        } else if (pendingExistingImage) {
+          // Commit a reused existing image. Runs after updateScene so it binds into the
+          // just-saved descriptor (the backend re-reads remotion_code from the DB).
+          await assignExistingImageToScene(project.id, scene.id, pendingExistingImage.assetId);
         }
-        const hasExistingSceneImage = imageItems.length > 0;
+        const hasExistingSceneImage = imageItems.length > 0 || !!pendingExistingImage;
         const focusXToSave = override?.imageFocusX ?? imageFocusX;
         const focusYToSave = override?.imageFocusY ?? imageFocusY;
         const zoomToPatch =
@@ -4059,6 +4114,11 @@ export default function SceneEditModal({
           selectedImageFile || undefined,
           matchNarrationExactly
         );
+        // Commit a staged reused image after the regen rewrote the descriptor, so it
+        // binds into the fresh descriptor (only when no file was uploaded this pass).
+        if (!selectedImageFile && pendingExistingImage) {
+          await assignExistingImageToScene(project.id, scene.id, pendingExistingImage.assetId);
+        }
         // Refresh the user so the AI-edit credit balance (consumed server-side)
         // is reflected in the UI rather than showing a stale count.
         void refreshUser();
@@ -4324,66 +4384,60 @@ export default function SceneEditModal({
     setScrapedImagesModalOpen(true);
   };
 
-  const handleAssignExistingImage = async () => {
+  // Pick an existing image → STAGE it (preview in the modal). Nothing is persisted here;
+  // the modal's main Save commits it. Mirrors how a local upload is staged.
+  const handleReplaceWithExistingImage = () => {
     if (!selectedExistingAssetId) return;
-    setAssigningExistingImage(true);
-    try {
-      await assignExistingImageToScene(project.id, scene.id, selectedExistingAssetId);
-      setSelectedImageFile(null);
-      setImagePreviewUrl(null);
-      setScrapedImagesModalOpen(false);
-      onSaved();
-    } catch (err: unknown) {
-      const msg =
-        err && typeof err === "object" && "response" in err
-          ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
-          : "Failed to assign image";
-      showError(String(msg));
-    } finally {
-      setAssigningExistingImage(false);
-    }
+    const chosen = scrapedImageItems.find((it) => it.asset.id === selectedExistingAssetId);
+    if (!chosen) return;
+    // Staging an existing image supersedes any pending uploaded file, and vice versa.
+    setSelectedImageFile(null);
+    setImagePreviewUrl(null);
+    setPendingExistingImage({ assetId: chosen.asset.id, url: chosen.url });
+    setScrapedImagesModalOpen(false);
   };
 
   const scrapedImageItems = availableImageItems;
 
-  // A collaborator blocked by the owner's free plan can't act on an upgrade prompt,
-  // so show the soft "Oops" warning rather than a hard red error.
-  const ownerBlocksProFeature = isCollaborator && !effectiveIsPro;
+  // AI image generation: PRO/STANDARD owners are unlimited; FREE owners spend
+  // AI_IMAGE_CREDIT_COST credits per image (charged to the OWNER on shared projects).
+  const canUseAiImage = effectiveIsPro || aiCreditRemaining >= AI_IMAGE_CREDIT_COST;
+  // A collaborator blocked by the owner's exhausted access can't act on an upgrade
+  // prompt, so show the soft "Oops" warning rather than a hard red error.
+  const ownerBlocksAiImage = isCollaborator && !canUseAiImage;
   const notifyOwnerBlocked = () =>
     showError(
-      "The project owner is on the Free plan, so AI image generation isn't available here. Ask the owner to upgrade.",
+      "The project owner is out of AI edits, so AI image generation isn't available here. Ask the owner to buy more credits or upgrade.",
       { variant: "warning" },
     );
 
   const handleGenerateImageClick = () => {
-    if (!effectiveIsPro) {
-      if (ownerBlocksProFeature) notifyOwnerBlocked();
+    if (!canUseAiImage) {
+      if (ownerBlocksAiImage) notifyOwnerBlocked();
       else setShowAiImageUpgradeModal(true);
       return;
     }
-    setShowImageGenModal(true);
-  };
-
-  const handleKeepGeneratedImage = () => {
-    if (!generatedImageBase64) return;
-    const dataUrl = `data:image/png;base64,${generatedImageBase64}`;
-    fetch(dataUrl)
-      .then((r) => r.blob())
-      .then((blob) => new File([blob], "generated.png", { type: "image/png" }))
-      .then((file) => {
-        setSelectedImageFile(file);
-        setGeneratedImageBase64(null);
-        setGeneratedPrompt(null);
-      })
-      .catch(() => showError("Failed to use generated image"));
-  };
-
-  const handleDiscardGeneratedImage = () => {
-    setGeneratedImageBase64(null);
-    setGeneratedPrompt(null);
+    // Generation is owned by the parent (ProjectView): it shows a single loader/preview
+    // that survives this modal closing, and stages the kept image back into this form.
+    onRequestGenerateImage?.();
   };
 
   const clampFocus = (value: number) => Math.max(0, Math.min(100, value));
+
+  // Framing (focus + zoom) applied to the modal's image thumbnails so they reflect the
+  // staged adjustment live — the same math the Image Adjust preview uses. Reads the
+  // staged local state (imageFocusX/Y + editableLayoutProps.imageZoom), so any framing
+  // saved from the adjust modal shows immediately, before the main Save persists it.
+  const framingZoom = Math.max(
+    IMAGE_ADJUST_ZOOM_MIN,
+    Number((editableLayoutProps.imageZoom as number) || 1),
+  );
+  const imageFramingStyle: CSSProperties = {
+    objectFit: framingZoom < 1 ? "contain" : "cover",
+    objectPosition: framingZoom < 1 ? "center" : `${imageFocusX}% ${imageFocusY}%`,
+    transform: `scale(${framingZoom})`,
+    transformOrigin: framingZoom < 1 ? "center center" : `${imageFocusX}% ${imageFocusY}%`,
+  };
 
   const renderLayoutContentBlock = (): { node: ReactNode; hasTables: boolean } => {
     let __layoutHasTables = false;
@@ -5023,10 +5077,11 @@ export default function SceneEditModal({
                         return (
                           <div key={field.key}>
                             <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
-                            <select
+                            <CustomSelect
+                              ariaLabel={field.label}
                               value={sel}
-                              onChange={(e) => {
-                                const nextChartType = e.target.value;
+                              options={opts}
+                              onChange={(nextChartType) => {
                                 if (isBuiltinChartTypeField) {
                                   const concrete =
                                     nextChartType === "line" || nextChartType === "bar" || nextChartType === "histogram"
@@ -5088,14 +5143,7 @@ export default function SceneEditModal({
                                 }
                                 setEditableLayoutProps((prev) => ({ ...prev, [field.key]: nextChartType }));
                               }}
-                              className={inputClass}
-                            >
-                              {opts.map((o) => (
-                                <option key={o.value} value={o.value}>
-                                  {o.label}
-                                </option>
-                              ))}
-                            </select>
+                            />
                           </div>
                         );
                       }
@@ -5495,7 +5543,10 @@ export default function SceneEditModal({
     imageAdjustPanRef.current = null;
   };
 
-  const saveImageAdjustModal = async () => {
+  const saveImageAdjustModal = () => {
+    // Stage the framing only — update local state so the modal preview reflects it, but
+    // do NOT persist. The Scene Edit Modal's main Save commits focus/zoom (via
+    // updateSceneImageFocus, which reads imageFocusX/Y + editableLayoutProps.imageZoom).
     const nextFocusX = clampFocus(imageAdjustFocusX);
     const nextFocusY = clampFocus(imageAdjustFocusY);
     const nextZoom = Math.max(IMAGE_ADJUST_ZOOM_MIN, Math.min(IMAGE_ADJUST_ZOOM_MAX, imageAdjustZoom));
@@ -5503,7 +5554,6 @@ export default function SceneEditModal({
     setImageFocusY(nextFocusY);
     setEditableLayoutProps((prev) => ({ ...prev, imageZoom: nextZoom }));
     closeImageAdjustModal();
-    await handleSave({ imageFocusX: nextFocusX, imageFocusY: nextFocusY, imageZoom: nextZoom });
   };
 
   const handleAdjustMouseDown = (e: ReactMouseEvent<HTMLDivElement>) => {
@@ -5670,9 +5720,14 @@ export default function SceneEditModal({
                 {effectiveIsPro ? (
                   <span className="text-xl leading-none align-middle relative -top-0.5">∞</span>
                 ) : (
-                  freeAiRemaining + aiCreditRemaining > 100
-                    ? "100+"
-                    : freeAiRemaining + aiCreditRemaining
+                  aiCreditRemaining > 100 ? "100+" : aiCreditRemaining
+                )}
+                {!effectiveIsPro && (
+                  <span className="ml-1 text-gray-400 font-normal">
+                    ({regenerateVoiceover
+                      ? "this edit costs 3 (voiceover)"
+                      : "voiceover regen costs 3"})
+                  </span>
                 )}
               </p>
             )}
@@ -5804,7 +5859,7 @@ export default function SceneEditModal({
                       max={200}
                       step={1}
                       value={Math.min(200, Math.max(20, parseInt(titleFontSize, 10) || defaultFontSizes.title))}
-                      onChange={(e) => setTitleFontSize(e.target.value)}
+                      onChange={(e) => { titleFontIsExplicitRef.current = true; setTitleFontSize(e.target.value); }}
                       className="w-full h-1 bg-gray-200 rounded-full appearance-none cursor-pointer accent-purple-600"
                     />
                   </div>
@@ -5831,7 +5886,7 @@ export default function SceneEditModal({
                       max={80}
                       step={1}
                       value={Math.min(80, Math.max(12, parseInt(descriptionFontSize, 10) || defaultFontSizes.desc))}
-                      onChange={(e) => setDescriptionFontSize(e.target.value)}
+                      onChange={(e) => { descFontIsExplicitRef.current = true; setDescriptionFontSize(e.target.value); }}
                       className="w-full h-1 bg-gray-200 rounded-full appearance-none cursor-pointer accent-purple-600"
                     />
                   </div>
@@ -6073,7 +6128,11 @@ export default function SceneEditModal({
                 {supportsImage ? (
                   <>
                   <div className="flex flex-wrap gap-2">
-                    {imageItems.map(({ url, asset }) => (
+                    {/* While a NEW image is pending (uploaded/AI-generated/reused but
+                        unsaved), hide the currently-assigned thumbnails so the pending
+                        image visually REPLACES them. Cancelling restores the originals;
+                        the modal's Save commits the replacement. */}
+                    {!selectedImageFile && !pendingExistingImage && imageItems.map(({ url, asset }) => (
                       <div
                         key={asset.id}
                         className="relative group rounded-lg overflow-hidden border border-gray-200/40 w-20 h-24 flex-shrink-0"
@@ -6081,7 +6140,8 @@ export default function SceneEditModal({
                         <img
                           src={url}
                           alt=""
-                          className="w-full h-full object-cover"
+                          className="w-full h-full"
+                          style={imageFramingStyle}
                           loading="lazy"
                           onError={(e) => {
                             (e.target as HTMLImageElement).style.display = "none";
@@ -6118,7 +6178,8 @@ export default function SceneEditModal({
                         <img
                           src={imagePreviewUrl}
                           alt="New image"
-                          className="w-full h-full object-cover"
+                          className="w-full h-full"
+                          style={imageFramingStyle}
                         />
                         <button
                           type="button"
@@ -6144,6 +6205,36 @@ export default function SceneEditModal({
                         </button>
                       </div>
                     )}
+                    {/* Staged existing image (reused, not yet saved). Preview + a ✕ to
+                        cancel back to the current image. Committed on the modal's Save. */}
+                    {pendingExistingImage && (
+                      <div className="relative group rounded-lg overflow-hidden border-2 border-purple-400 w-20 h-24 flex-shrink-0">
+                        <img
+                          src={pendingExistingImage.url}
+                          alt="Replacement image"
+                          className="w-full h-full"
+                          style={imageFramingStyle}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setPendingExistingImage(null)}
+                          className="absolute top-1 right-1 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/95 text-purple-700 shadow-sm hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+                          title="Cancel replacement"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
+                    {imageGenerating ? (
+                      <div
+                        className="flex items-center justify-center w-20 h-24 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50/50 text-purple-700"
+                        title="Generating image… this can take up to a minute"
+                      >
+                        <div className="w-6 h-6 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
+                      </div>
+                    ) : (
                     <button
                       type="button"
                       onClick={handleGenerateImageClick}
@@ -6157,6 +6248,7 @@ export default function SceneEditModal({
                         Generate image with AI
                       </span>
                     </button>
+                    )}
                     <button
                       type="button"
                       onClick={handleOpenImageSourceChooser}
@@ -6171,7 +6263,11 @@ export default function SceneEditModal({
                       ref={localImageInputRef}
                       type="file"
                       accept="image/png,image/jpeg,image/webp,image/jpg"
-                      onChange={(e) => setSelectedImageFile(e.target.files?.[0] || null)}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        if (file) setPendingExistingImage(null); // supersede a staged reuse
+                        setSelectedImageFile(file);
+                      }}
                       className="hidden"
                     />
                   </div>
@@ -6267,11 +6363,15 @@ export default function SceneEditModal({
                         setDescription(next);
                         // An AI instruction means the narration will change, so the
                         // current voiceover is now stale — auto-enable re-record.
+                        // Clearing the prompt removes that reason: turn it back off,
+                        // unless the narration itself was hand-edited (independent reason).
                         if (next.trim()) {
                           setRegenerateVoiceover(true);
+                        } else if (aiNarration.trim() === (scene.narration_text || "").trim()) {
+                          setRegenerateVoiceover(false);
                         }
                       }}
-                      placeholder="Describe the change in plain English. For example: “Make it shorter and punchier, lead with the café count, and keep a warm, inviting tone.”"
+                      placeholder="Describe how this scene should change — AI rewrites the text and visuals to match. E.g. “Refocus on the café count, make it shorter and punchier.”"
                       className="w-full px-3.5 py-3 text-[15px] text-gray-800 leading-relaxed border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden"
                       minRows={4}
                     />
@@ -6310,6 +6410,21 @@ export default function SceneEditModal({
                       />
                     </button>
                   </div>
+
+                  {/* Not enough credits for the voiceover (3) — but the panel stays
+                      usable so the user can turn this toggle off and edit at cost 1. */}
+                  {regenerateVoiceover && !canAffordThisEdit && !effectiveIsPro && (
+                    <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5">
+                      <p className="text-xs font-medium text-amber-800">
+                        You have {aiCreditRemaining} AI edit
+                        {aiCreditRemaining === 1 ? "" : "s"} left — re-recording the
+                        voiceover costs 3.
+                      </p>
+                      <p className="mt-1 text-xs text-amber-700">
+                       Buy a video for +20 AI edits to re-record.
+                      </p>
+                    </div>
+                  )}
 
                   {/* Sub-option only matters when re-recording. */}
                   {regenerateVoiceover && (
@@ -6474,7 +6589,7 @@ export default function SceneEditModal({
             onClick={() => {
               void handleSave();
             }}
-            disabled={loading || (editMode === "ai" && (!aiHasChanges || !canUseAI))}
+            disabled={loading || (editMode === "ai" && (!aiHasChanges || !canAffordThisEdit))}
             className="px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading
@@ -6493,6 +6608,8 @@ export default function SceneEditModal({
       open={showAiImageUpgradeModal}
       onClose={() => setShowAiImageUpgradeModal(false)}
       projectId={project?.id}
+      title="You're out of AI credits"
+      subtitle="Upgrade to get more credits and unlock unlimited AI edits & image generation."
     />
 
     {imageSourceChooserOpen && (
@@ -6534,7 +6651,7 @@ export default function SceneEditModal({
       <div className="fixed inset-0 z-[126] flex items-center justify-center p-4">
         <div
           className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-          onClick={() => !assigningExistingImage && setScrapedImagesModalOpen(false)}
+          onClick={() => setScrapedImagesModalOpen(false)}
         />
         <div className="relative w-full max-w-4xl rounded-2xl bg-white shadow-2xl overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
@@ -6545,7 +6662,6 @@ export default function SceneEditModal({
             <button
               type="button"
               onClick={() => setScrapedImagesModalOpen(false)}
-              disabled={assigningExistingImage}
               className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors disabled:opacity-50"
               title="Close"
             >
@@ -6588,92 +6704,25 @@ export default function SceneEditModal({
             <button
               type="button"
               onClick={() => setScrapedImagesModalOpen(false)}
-              disabled={assigningExistingImage}
               className="px-3 py-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors text-sm disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="button"
-              onClick={handleAssignExistingImage}
-              disabled={!selectedExistingAssetId || assigningExistingImage}
+              onClick={handleReplaceWithExistingImage}
+              disabled={!selectedExistingAssetId}
               className="px-3 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors text-sm disabled:opacity-60"
             >
-              {assigningExistingImage ? "Saving..." : "Save"}
+              Replace
             </button>
           </div>
         </div>
       </div>
     )}
 
-    <GenerateSceneImageModal
-      open={showImageGenModal}
-      scene={scene}
-      project={project}
-      isPro={effectiveIsPro}
-      ownerBlocked={ownerBlocksProFeature}
-      onOwnerBlocked={() => {
-        setShowImageGenModal(false);
-        notifyOwnerBlocked();
-      }}
-      onClose={() => setShowImageGenModal(false)}
-      onUpgrade={() => {
-        setShowImageGenModal(false);
-        setShowAiImageUpgradeModal(true);
-      }}
-      onImageReady={(imageBase64, refinedPrompt) => {
-        setGeneratedImageBase64(imageBase64);
-        setGeneratedPrompt(refinedPrompt);
-        setShowImageGenModal(false);
-      }}
-    />
-
-    {/* AI generated image preview popup */}
-    {generatedImageBase64 && (
-      <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-        <div
-          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-          onClick={handleDiscardGeneratedImage}
-        />
-        <div
-          className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="p-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
-            <h3 className="text-lg font-semibold text-gray-900">AI generated image</h3>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleKeepGeneratedImage}
-                className="w-7 h-7 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
-                title="Use this image"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              </button>
-              <button
-                type="button"
-                onClick={handleDiscardGeneratedImage}
-                className="w-7 h-7 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
-                title="Discard"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          </div>
-          <div className="flex-1 overflow-auto p-4 flex flex-col items-center bg-gray-50 min-h-0">
-            <img
-              src={`data:image/png;base64,${generatedImageBase64}`}
-              alt="AI generated"
-              className="max-w-full max-h-[70vh] w-auto h-auto object-contain rounded-lg shadow-inner"
-            />
-          </div>
-        </div>
-      </div>
-    )}
+    {/* AI image generation & its keep/discard preview live in the parent ProjectView
+        so a single flow owns the loader and survives this modal being closed. */}
 
     {imageAdjustOpen && imageAdjustSrc && (
       <div className="fixed inset-0 z-[130] flex items-center justify-center p-2 sm:p-4 min-h-0">

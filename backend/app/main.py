@@ -40,6 +40,7 @@ from app.models.update_email import UpdateEmail
 from app.models.update_email_send import UpdateEmailSend
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
 from app.services import r2_storage
+from app.services import elevenlabs_keys
 from app.routers import projects, pipeline, chat, auth, billing, contact, custom_templates, crafted_templates, saved_voices, template_studio, embed, unsubscribe, affiliate, support, mcp_oauth, mcp_transport, free_templates, voice, background_music, stock_data, collaboration, collab_ws, collab_history, project_shared_assets
 from app.observability.tracing import init_tracing
 from app.observability.logging import configure_logging
@@ -255,6 +256,20 @@ async def _periodic_monthly_allotment_reset():
         await asyncio.sleep(3600)  # hourly
 
 
+async def _periodic_elevenlabs_quota_check():
+    """Check the main ElevenLabs key's remaining character quota once on startup,
+    then every 24h. Flips TTS synthesis over to the backup key when quota is low,
+    and back once it recovers. See app/services/elevenlabs_keys.py.
+    """
+    while True:
+        try:
+            elevenlabs_keys.check_and_update_failover_state()
+        except Exception as e:
+            print(f"[ELEVENLABS QUOTA] periodic check error: {e}")
+        finally:
+            await asyncio.sleep(86400)  # 24h
+
+
 from app.constants import FREE_PREMADE_VOICE_IDS as KNOWN_PREMADE_VOICE_IDS
 from app.services.email import email_service
 
@@ -270,7 +285,9 @@ def _ensure_prebuilt_voices_seeded() -> None:
             print("[STARTUP] ELEVENLABS_API_KEY not set; skipping prebuilt voices seed")
             return
         from elevenlabs import ElevenLabs
-        client = ElevenLabs(api_key=settings.ELEVENLABS_API_KEY)
+        api_key = elevenlabs_keys.get_voice_design_api_key()
+        elevenlabs_keys.log_key_usage(api_key, "startup prebuilt voices seed")
+        client = ElevenLabs(api_key=api_key)
         try:
             voices_response = client.voices.get_all(show_legacy=True)
         except TypeError:
@@ -508,11 +525,13 @@ async def lifespan(app: FastAPI):
         raise
 
     update_email_sender = None
+    elevenlabs_quota_check = None
     try:
         free_cleanup = asyncio.create_task(_periodic_free_tier_cleanup())
         paid_cleanup = asyncio.create_task(_periodic_paid_tier_cleanup())
         monthly_reset = asyncio.create_task(_periodic_monthly_allotment_reset())
         update_email_sender = asyncio.create_task(_periodic_update_email_sender())
+        elevenlabs_quota_check = asyncio.create_task(_periodic_elevenlabs_quota_check())
         from app.support.cleanup import periodic_support_cleanup
         support_cleanup = asyncio.create_task(periodic_support_cleanup())
         # Pre-load corpus + UI catalog so first request is fast and config errors fail loudly at boot.
@@ -544,6 +563,8 @@ async def lifespan(app: FastAPI):
             monthly_reset.cancel()
         if update_email_sender:
             update_email_sender.cancel()
+        if elevenlabs_quota_check:
+            elevenlabs_quota_check.cancel()
         if support_cleanup:
             support_cleanup.cancel()
     except Exception:
@@ -697,7 +718,9 @@ def _get_voice_preview_url_by_key(key: str) -> str | None:
     if not voice_id:
         return None
     try:
-        client = ElevenLabs(api_key=settings.ELEVENLABS_API_KEY)
+        api_key = elevenlabs_keys.get_voice_design_api_key()
+        elevenlabs_keys.log_key_usage(api_key, "voice preview URL by key")
+        client = ElevenLabs(api_key=api_key)
         # Prefer get(voice_id) so we get full details (e.g. preview_url) for each voice
         voice = None
         if hasattr(client.voices, "get"):
@@ -735,7 +758,9 @@ async def get_voice_previews():
         return {}
 
     try:
-        client = ElevenLabs(api_key=settings.ELEVENLABS_API_KEY)
+        api_key = elevenlabs_keys.get_voice_design_api_key()
+        elevenlabs_keys.log_key_usage(api_key, "voices previews list")
+        client = ElevenLabs(api_key=api_key)
         voices_response = client.voices.get_all()
         voice_lookup = {v.voice_id: v for v in voices_response.voices}
 
@@ -799,7 +824,9 @@ def list_voices(show_legacy: bool = True, premade_only: bool = False):
         raise HTTPException(status_code=503, detail="ElevenLabs API key not configured")
     try:
         from elevenlabs import ElevenLabs
-        client = ElevenLabs(api_key=settings.ELEVENLABS_API_KEY)
+        api_key = elevenlabs_keys.get_voice_design_api_key()
+        elevenlabs_keys.log_key_usage(api_key, "voices list")
+        client = ElevenLabs(api_key=api_key)
         try:
             voices_response = client.voices.get_all(show_legacy=show_legacy)
         except TypeError:
@@ -826,7 +853,9 @@ def _call_elevenlabs_voice_design(voice_description: str) -> dict:
     """Call ElevenLabs text-to-voice design API. Returns JSON with previews (audio_base_64, etc.)."""
     import requests as _req
     url = "https://api.elevenlabs.io/v1/text-to-voice/design"
-    headers = {"xi-api-key": settings.ELEVENLABS_API_KEY, "Content-Type": "application/json"}
+    api_key = elevenlabs_keys.get_voice_design_api_key()
+    elevenlabs_keys.log_key_usage(api_key, "voice design (preset/prompt)")
+    headers = {"xi-api-key": api_key, "Content-Type": "application/json"}
     body = {
         "voice_description": voice_description,
         "auto_generate_text": True,

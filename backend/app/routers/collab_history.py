@@ -156,12 +156,13 @@ def _row_field_keys(row) -> list[tuple]:
     """
     scope = getattr(row, "scene_id", None)
     scope = scope if scope is not None else "__project__"
-    # A scene_deleted row is project-scoped but targets one scene (id in its JSON value).
-    # Key it per target scene so deleting scene A then scene B doesn't make A's restore
-    # look stale — each deleted scene is independently revertable.
-    if row.field_name == "scene_deleted":
+    # scene_deleted / scene_added are project-scoped but target one scene (id in the JSON
+    # value). Key them per target scene so acting on scene A then scene B doesn't make A's
+    # entry look stale — each is independently revertable. Both toggle the scene's
+    # is_active, so they share the same supersede key namespace per scene.
+    if row.field_name in ("scene_deleted", "scene_added"):
         payload = _try_json(row.new_value) or {}
-        return [("__project__", "scene_deleted", payload.get("scene_id"))]
+        return [("__project__", row.field_name, payload.get("scene_id"))]
     leaves = _changed_leaves(row)
     if leaves:
         return [(scope, row.field_name, path) for path in leaves]
@@ -473,7 +474,10 @@ def revert_fields(
         # A scene deletion is stored as a project-level row (so its restore control is in
         # Global Edits) whose JSON value carries the target scene_id + is_active. Apply
         # is_active to that scene: revert un-deletes (old.is_active=True), redo re-deletes.
-        if r.field_name == "scene_deleted":
+        # scene_added mirrors scene_deleted: both encode the target scene's is_active in
+        # old/new (added = False→True, deleted = True→False). Applying old/new toggles the
+        # scene's presence — revert of an add soft-deletes it, redo re-adds it.
+        if r.field_name in ("scene_deleted", "scene_added"):
             payload = _try_json(r.old_value if not use_new else r.new_value) or {}
             s = scenes_by_id.get(int(payload.get("scene_id", -1)))
             if s is not None:

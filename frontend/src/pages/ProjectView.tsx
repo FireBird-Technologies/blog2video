@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef, MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef, Fragment, MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react";
 import ReactDOM from "react-dom";
 import { LinkIcon } from "@heroicons/react/24/outline";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
@@ -55,6 +55,8 @@ import {
   type CustomTemplateItem,
   getBgmTracks,
   type BgmTrack,
+  getAddSceneStatus,
+  type AddSceneJob,
 } from "../api/client";
 import Joyride, { CallBackProps, STATUS, Step } from "react-joyride";
 import { useAuth } from "../hooks/useAuth";
@@ -73,8 +75,10 @@ import SceneEditModal, {
   SceneImageItem,
   resolveDefaultFontSizesForScene,
 } from "../components/SceneEditModal";
-import GenerateSceneImageModal from "../components/GenerateSceneImageModal";
+import GenerateSceneImageModal, { AI_IMAGE_CREDIT_COST } from "../components/GenerateSceneImageModal";
 import RecordVoiceoverModal from "../components/RecordVoiceoverModal";
+import AddSceneModal from "../components/AddSceneModal";
+import AddScenePlaceholderRow from "../components/AddScenePlaceholderRow";
 import ChatPanel from "../components/ChatPanel";
 import UpgradeModal from "../components/UpgradeModal";
 import UpgradePlanModal from "../components/UpgradePlanModal";
@@ -801,6 +805,7 @@ export default function ProjectView() {
   const [regenScriptPreviousScenes, setRegenScriptPreviousScenes] =
     useState<RegenerateScriptPreviewScene[] | null>(null);
   const regenerateScriptPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const addScenePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // True once the user has clicked "Proceed". The DB write that flips the job from
   // "awaiting_review" to "running" may not be visible to the very next poll, so we ignore
   // any stale "awaiting_review" reads while this is set — otherwise the UI bounces back to
@@ -1208,6 +1213,14 @@ export default function ProjectView() {
   const [dragOverSceneId, setDragOverSceneId] = useState<number | null>(null);
   const [reorderSaving, setReorderSaving] = useState(false);
   const [sceneToDelete, setSceneToDelete] = useState<Scene | null>(null);
+  const [addSceneOpen, setAddSceneOpen] = useState(false);
+  // The scene the new one will be inserted after (null = append at end).
+  const [addSceneAnchor, setAddSceneAnchor] = useState<Scene | null>(null);
+  // The in-flight background add-scene job (drives the placeholder row + polling).
+  const [addSceneJob, setAddSceneJob] = useState<AddSceneJob | null>(null);
+  // 1-indexed insert position of the pending add (for placing the placeholder row).
+  const [addScenePosition, setAddScenePosition] = useState<number | null>(null);
+  const addSceneRunning = addSceneJob?.status === "queued" || addSceneJob?.status === "running";
   const [removingAssetId, setRemovingAssetId] = useState<number | null>(null);
   const [uploadingSceneId, setUploadingSceneId] = useState<number | null>(null);
   // Custom user-recorded voiceovers: applied-but-unsaved recordings, keyed by scene id.
@@ -1241,6 +1254,10 @@ export default function ProjectView() {
   const [assigningExistingImage, setAssigningExistingImage] = useState(false);
   const [imageGenModalSceneId, setImageGenModalSceneId] = useState<number | null>(null);
   const [generatingImageSceneId, setGeneratingImageSceneId] = useState<number | null>(null);
+  // Lets the Scene Edit modal stage a kept AI image into its own (unsaved) form. The
+  // modal registers a stager on mount; ProjectView calls it when the user keeps an
+  // image while the edit modal for that scene is still open. Null when no modal is open.
+  const stageEditModalImageRef = useRef<((file: File) => void) | null>(null);
   const [generatedImageSceneId, setGeneratedImageSceneId] = useState<number | null>(null);
   const [generatedImageBase64, setGeneratedImageBase64] = useState<string | null>(null);
   const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
@@ -1826,6 +1843,70 @@ export default function ProjectView() {
       regenerateScriptPollRef.current = null;
     }
   }, []);
+
+  const stopAddScenePolling = useCallback(() => {
+    if (addScenePollRef.current) {
+      clearInterval(addScenePollRef.current);
+      addScenePollRef.current = null;
+    }
+  }, []);
+
+  // Poll the background add-scene job. On completion → reload project + credits and
+  // clear the placeholder. On failure → clear placeholder, refresh credits (the refund
+  // is reflected) and surface the global "Oops" modal.
+  const startAddScenePolling = useCallback(() => {
+    stopAddScenePolling();
+    addScenePollRef.current = setInterval(async () => {
+      try {
+        const res = await getAddSceneStatus(projectId);
+        const job = res.data;
+        if (!job) return;
+        setAddSceneJob(job);
+        if (job.status === "completed") {
+          stopAddScenePolling();
+          setAddSceneJob(null);
+          setAddScenePosition(null);
+          await loadProject();
+          void refreshUser();
+        } else if (job.status === "failed") {
+          stopAddScenePolling();
+          setAddSceneJob(null);
+          setAddScenePosition(null);
+          void refreshUser();
+          showError(
+            "We're sorry — we couldn't generate the new scene. No AI edits were deducted. Please try again.",
+            { variant: "pipeline" }
+          );
+        }
+      } catch {
+        // Transient poll error — keep trying on the next tick.
+      }
+    }, 2000);
+  }, [projectId, loadProject, refreshUser, showError, stopAddScenePolling]);
+
+  // On mount / project change: if an add-scene job is already in flight (e.g. after a
+  // refresh, or started by a collaborator), resume the placeholder + polling.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await getAddSceneStatus(projectId);
+        const job = res.data;
+        if (cancelled || !job) return;
+        if (job.status === "queued" || job.status === "running") {
+          setAddSceneJob(job);
+          setAddScenePosition(job.position ?? null);
+          startAddScenePolling();
+        }
+      } catch {
+        /* ignore — no add-scene job to resume */
+      }
+    })();
+    return () => {
+      cancelled = true;
+      stopAddScenePolling();
+    };
+  }, [projectId, startAddScenePolling, stopAddScenePolling]);
 
   // Load the previous scenes for the verify popup. On error, fall back to [] so the popup
   // isn't stuck on a loading spinner (it then treats every scene as new, no comparison).
@@ -3448,17 +3529,24 @@ export default function ProjectView() {
     }
   };
 
-  // A collaborator blocked by a FREE owner can't fix it by upgrading their own plan,
-  // so show the soft "Oops" warning instead of the self-upgrade modal.
-  const ownerBlocksProFeature = useOwnerScopedAssets && !effectiveIsPro;
+  // AI image generation: PRO/STANDARD owners are unlimited; FREE owners spend
+  // AI_IMAGE_CREDIT_COST credits per image (charged to the OWNER on shared projects).
+  const aiImageCreditRemaining = useOwnerScopedAssets
+    ? (project?.owner_ai_edit_credits ?? 0)
+    : (user?.ai_edit_credits ?? 0);
+  const canUseAiImage =
+    effectiveIsPro || aiImageCreditRemaining >= AI_IMAGE_CREDIT_COST;
+  // A collaborator blocked by the owner's exhausted access can't fix it by upgrading
+  // their own plan, so show the soft "Oops" warning instead of the self-upgrade modal.
+  const ownerBlocksProFeature = useOwnerScopedAssets && !canUseAiImage;
   const notifyOwnerBlocked = () =>
     showError(
-      "The project owner is on the Free plan, so AI image generation isn't available here. Ask the owner to upgrade.",
+      "The project owner is out of AI edits, so AI image generation isn't available here. Ask the owner to buy more credits or upgrade.",
       { variant: "warning" },
     );
 
   const handleGenerateSceneImageClick = (sceneId: number) => {
-    if (!effectiveIsPro) {
+    if (!canUseAiImage) {
       if (ownerBlocksProFeature) notifyOwnerBlocked();
       else setShowAiImageUpgradeModal(true);
       return;
@@ -3479,6 +3567,11 @@ export default function ProjectView() {
   const handleKeepGeneratedSceneImage = (sceneId: number) => {
     if (!generatedImageBase64) return;
     const dataUrl = `data:image/png;base64,${generatedImageBase64}`;
+    // When the Scene Edit modal for this scene is still open, keeping only STAGES the
+    // image into its form (persisted when the user hits Save). When the modal has been
+    // closed, keep saves the image to the scene directly.
+    const stageIntoOpenModal =
+      sceneEditModal?.id === sceneId ? stageEditModalImageRef.current : null;
     // Close preview modal immediately so the spinner shows in the scene row
     setGeneratedImageSceneId(null);
     setGeneratedImageBase64(null);
@@ -3488,10 +3581,14 @@ export default function ProjectView() {
     fetch(dataUrl)
       .then((r) => r.blob())
       .then((blob) => new File([blob], "generated.png", { type: "image/png" }))
-      .then((file) =>
-        handleAddSceneImage(sceneId, file)
-          .catch(() => setGenerateImageError("Failed to use generated image"))
-      )
+      .then((file) => {
+        if (stageIntoOpenModal) {
+          stageIntoOpenModal(file);
+          return;
+        }
+        return handleAddSceneImage(sceneId, file)
+          .catch(() => setGenerateImageError("Failed to use generated image"));
+      })
       .catch(() => setGenerateImageError("Failed to use generated image"));
   };
 
@@ -5780,15 +5877,33 @@ export default function ProjectView() {
           </svg>
           Edit history
         </button>
-        {/* AI-edit credits remaining for this project. Paid owners are unlimited;
-            FREE owners get 3 per project + their purchased credit pool (the owner's
-            pool on a shared project). Mirrors the SceneEdit modal's entitlement. */}
+        {/* AI-edit credits remaining. Paid owners are unlimited; FREE owners draw
+            from a single per-user pool shared across all their projects (starts at 6,
+            +20 per purchased video) — the owner's pool on a shared project. Mirrors
+            the SceneEdit modal's entitlement. */}
         {(() => {
-          const freeRemaining = Math.max(0, 3 - (project.ai_assisted_editing_count || 0));
-          const creditRemaining = useOwnerScopedAssets
+          const total = useOwnerScopedAssets
             ? (project.owner_ai_edit_credits ?? 0)
             : (user?.ai_edit_credits ?? 0);
-          const total = freeRemaining + creditRemaining;
+          // A non-paid owner who has run out of credits sees a red upgrade prompt
+          // linking to pricing. Collaborators can't fix it by upgrading their own
+          // plan (they see the "Oops" flow instead), so keep the neutral display.
+          const ownerOutOfCredits =
+            !effectiveIsPro && !useOwnerScopedAssets && total <= 0;
+          if (ownerOutOfCredits) {
+            return (
+              <span className="text-[10px] sm:text-xs font-semibold text-red-600 shrink-0 self-end pb-1">
+                You're out of AI credits.{" "}
+                <button
+                  type="button"
+                  onClick={() => navigate("/pricing")}
+                  className="text-purple-600 underline hover:text-purple-700"
+                >
+                  Upgrade now
+                </button>
+              </span>
+            );
+          }
           return (
             <span
               className="text-[10px] sm:text-xs font-medium text-gray-400 shrink-0 self-end pb-1"
@@ -5848,15 +5963,13 @@ export default function ProjectView() {
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-baseline gap-4">
-                    <h2 className="text-base font-medium text-gray-900">
-                      {project.name}
-                    </h2>
-                    <span className="text-xs text-gray-400">
-                      {project.scenes.length} scenes — {imageAssets.length} images. Click <span className="font-medium text-purple-600">Edit</span> on any scene to change its text, narration, or layout. Drag to reorder.
-                    </span>
-                  </div>
+                <div className="flex items-baseline gap-4 mb-2 min-w-0">
+                  <h2 className="text-base font-medium text-gray-900 truncate max-w-[40%] shrink-0" title={project.name}>
+                    {project.name}
+                  </h2>
+                  <span className="text-xs text-gray-400">
+                    {project.scenes.length} scenes — {imageAssets.length} images. Click <span className="font-medium text-purple-600">Edit</span> on any scene to change its settings. Drag from left to reorder.
+                  </span>
                 </div>
 
                 <div className="relative">
@@ -5879,8 +5992,8 @@ export default function ProjectView() {
                     const isDropTarget = dragOverSceneId === scene.id && !isDragging;
 
                     return (
+                      <Fragment key={scene.id}>
                       <SceneListRow
-                        key={scene.id}
                         scene={scene}
                         index={idx}
                         expanded={isExpanded}
@@ -5891,6 +6004,9 @@ export default function ProjectView() {
                         onToggleExpand={() => setExpandedScene(isExpanded ? null : scene.id)}
                         onEdit={() => setSceneEditModal(scene)}
                         onDelete={() => setSceneToDelete(scene)}
+                        onAddAfter={() => { setAddSceneAnchor(scene); setAddSceneOpen(true); }}
+                        addDisabled={addSceneRunning}
+                        addDisabledReason="A scene is already being added."
                         onComment={project.is_shared ? () => setCommentScene(scene) : undefined}
                         commentCount={commentCounts[scene.id] ?? 0}
                         onDragHandleStart={(e) => {
@@ -6407,8 +6523,18 @@ export default function ProjectView() {
                               </div>
                             )}
                       </SceneListRow>
+                      {addSceneRunning && addScenePosition === scene.order + 1 && (
+                        <AddScenePlaceholderRow />
+                      )}
+                      </Fragment>
                     );
                   })}
+                  {/* Placeholder for an append (position past the last scene). */}
+                  {addSceneRunning &&
+                    addScenePosition != null &&
+                    addScenePosition > project.scenes.length && (
+                      <AddScenePlaceholderRow />
+                    )}
                 </div>
                 </div>
 
@@ -6685,90 +6811,17 @@ export default function ProjectView() {
                 />
 
 
-                {project && imageGenModalSceneId !== null && (() => {
-                  const imageGenScene = project.scenes?.find((s) => s.id === imageGenModalSceneId);
-                  if (!imageGenScene) return null;
-                  return (
-                    <GenerateSceneImageModal
-                      open
-                      scene={imageGenScene}
-                      project={project}
-                      isPro={effectiveIsPro}
-                      ownerBlocked={ownerBlocksProFeature}
-                      onOwnerBlocked={notifyOwnerBlocked}
-                      onClose={() => setImageGenModalSceneId(null)}
-                      onUpgrade={() => setShowAiImageUpgradeModal(true)}
-                      onGenerateStart={() => {
-                        setGeneratingImageSceneId(imageGenModalSceneId);
-                        setImageGenModalSceneId(null);
-                      }}
-                      onGenerateError={(message) => {
-                        setGeneratingImageSceneId(null);
-                        setGenerateImageError(message);
-                        setGenerateErrorSceneId(imageGenModalSceneId);
-                      }}
-                      onImageReady={(imageBase64, refinedPrompt) => {
-                        setGeneratingImageSceneId(null);
-                        handleSceneImageReady(imageGenModalSceneId, imageBase64, refinedPrompt);
-                        setImageGenModalSceneId(null);
-                      }}
-                    />
-                  );
-                })()}
-
-                {/* AI generated image preview modal */}
-                {generatedImageSceneId !== null && generatedImageBase64 && ReactDOM.createPortal(
-                  <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-                    <div
-                      className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-                      onClick={handleDiscardGeneratedSceneImage}
-                    />
-                    <div
-                      className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div className="p-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
-                        <h3 className="text-lg font-semibold text-gray-900">AI generated image</h3>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => generatedImageSceneId !== null && handleKeepGeneratedSceneImage(generatedImageSceneId)}
-                            className="w-7 h-7 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
-                            title="Use this image"
-                          >
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleDiscardGeneratedSceneImage}
-                            className="w-7 h-7 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
-                            title="Discard"
-                          >
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                      <div className="flex-1 overflow-auto p-4 flex flex-col items-center bg-gray-50 min-h-0 relative">
-                        <img
-                          src={`data:image/png;base64,${generatedImageBase64}`}
-                          alt="AI generated"
-                          className="max-w-full max-h-[70vh] w-auto h-auto object-contain rounded-lg shadow-inner"
-                        />
-                      </div>
-                    </div>
-                  </div>,
-                  document.body
-                )}
+                {/* AI image generation modal + preview are rendered at page top-level
+                    (below, near the Scene Edit modal) so they work from every tab and
+                    survive the Scene Edit modal closing mid-generation. */}
 
                 {/* AI image upgrade modal (scenes tab) */}
                 <UpgradePlanModal
                   open={showAiImageUpgradeModal}
                   onClose={() => setShowAiImageUpgradeModal(false)}
                   projectId={project?.id}
+                  title="You're out of AI credits"
+                  subtitle="Upgrade to get more credits and unlock unlimited AI edits & image generation."
                 />
               </div>
             )}
@@ -6789,7 +6842,99 @@ export default function ProjectView() {
               url: resolveAssetUrl(asset, project.id),
             }))}
             onSaved={loadProject}
+            // Delegate AI image generation to ProjectView so a single generation flow
+            // owns the loader/preview and survives this modal being closed mid-generation.
+            imageGenerating={generatingImageSceneId === sceneEditModal.id}
+            onRequestGenerateImage={() => setImageGenModalSceneId(sceneEditModal.id)}
+            registerStageImage={(fn) => { stageEditModalImageRef.current = fn; }}
           />
+        )}
+
+        {/* AI image generation modal — top-level so it opens from any tab and from the
+            Scene Edit modal. On generate start it closes and hands off to the row
+            spinner; the result surfaces in the preview below. */}
+        {project && imageGenModalSceneId !== null && (() => {
+          const imageGenScene = project.scenes?.find((s) => s.id === imageGenModalSceneId);
+          if (!imageGenScene) return null;
+          return (
+            <GenerateSceneImageModal
+              open
+              scene={imageGenScene}
+              project={project}
+              canGenerate={canUseAiImage}
+              creditCost={AI_IMAGE_CREDIT_COST}
+              ownerBlocked={ownerBlocksProFeature}
+              onOwnerBlocked={notifyOwnerBlocked}
+              onClose={() => setImageGenModalSceneId(null)}
+              onUpgrade={() => setShowAiImageUpgradeModal(true)}
+              onGenerateStart={() => {
+                setGeneratingImageSceneId(imageGenModalSceneId);
+                setImageGenModalSceneId(null);
+              }}
+              onGenerateError={(message) => {
+                setGeneratingImageSceneId(null);
+                setGenerateImageError(message);
+                setGenerateErrorSceneId(imageGenModalSceneId);
+              }}
+              onImageReady={(imageBase64, refinedPrompt) => {
+                setGeneratingImageSceneId(null);
+                handleSceneImageReady(imageGenModalSceneId, imageBase64, refinedPrompt);
+                setImageGenModalSceneId(null);
+                // A FREE owner was charged AI_IMAGE_CREDIT_COST server-side;
+                // refresh so the shown balance isn't stale (no-op for paid).
+                if (!effectiveIsPro) void refreshUser();
+              }}
+            />
+          );
+        })()}
+
+        {/* AI generated image preview modal — keep/discard. When the Scene Edit modal
+            for this scene is still open, Keep stages into its form; otherwise it saves
+            to the scene directly. */}
+        {generatedImageSceneId !== null && generatedImageBase64 && ReactDOM.createPortal(
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            {/* Backdrop is non-dismissing: keep the preview open on outside clicks so
+                the user must explicitly keep or discard (no accidental loss). */}
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+            <div
+              className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
+                <h3 className="text-lg font-semibold text-gray-900">AI generated image</h3>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => generatedImageSceneId !== null && handleKeepGeneratedSceneImage(generatedImageSceneId)}
+                    className="w-7 h-7 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+                    title="Use this image"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDiscardGeneratedSceneImage}
+                    className="w-7 h-7 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+                    title="Discard"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 overflow-auto p-4 flex flex-col items-center bg-gray-50 min-h-0 relative">
+                <img
+                  src={`data:image/png;base64,${generatedImageBase64}`}
+                  alt="AI generated"
+                  className="max-w-full max-h-[70vh] w-auto h-auto object-contain rounded-lg shadow-inner"
+                />
+              </div>
+            </div>
+          </div>,
+          document.body
         )}
 
         {recordModalScene && (
@@ -6800,6 +6945,27 @@ export default function ProjectView() {
             onApply={handleApplyRecording}
           />
         )}
+
+        <AddSceneModal
+          open={addSceneOpen}
+          onClose={() => { setAddSceneOpen(false); setAddSceneAnchor(null); }}
+          project={project}
+          isPro={effectiveIsPro}
+          isCollaborator={useOwnerScopedAssets}
+          anchorScene={addSceneAnchor}
+          creditsRemaining={
+            useOwnerScopedAssets
+              ? (project.owner_ai_edit_credits ?? 0)
+              : (user?.ai_edit_credits ?? 0)
+          }
+          onAdded={(position) => {
+            // Job enqueued — show the placeholder at the target slot and start polling.
+            setAddScenePosition(position ?? project.scenes.length + 1);
+            setAddSceneJob({ id: 0, status: "queued", current_step: "queued" });
+            startAddScenePolling();
+          }}
+          onError={(err) => showError(getErrorMessage(err, "Failed to add scene."))}
+        />
 
        {activeTab === "settings" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-visible">
