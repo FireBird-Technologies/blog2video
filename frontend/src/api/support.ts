@@ -46,6 +46,14 @@ export type ConversationDetail = {
   messages: SupportMessage[];
 };
 
+export class HttpError extends Error {
+  status: number;
+  constructor(status: number, message?: string) {
+    super(message ?? `HTTP ${status}`);
+    this.status = status;
+  }
+}
+
 function getOrCreateSessionId(): string {
   let sid = localStorage.getItem(SESSION_KEY);
   if (!sid) {
@@ -133,7 +141,7 @@ export async function sendChatStream(
     return;
   }
   if (!res.ok || !res.body) {
-    callbacks.onError(new Error(`HTTP ${res.status}`));
+    callbacks.onError(new HttpError(res.status));
     return;
   }
   const reader = res.body.getReader();

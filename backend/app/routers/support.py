@@ -34,7 +34,11 @@ from app.schemas.support import (
     NavigationHint,
     UIGuidance,
 )
-from app.support.identity import SupportIdentity, get_support_identity
+from app.support.identity import (
+    SupportIdentity,
+    get_authed_support_identity,
+    get_support_identity,
+)
 from app.support.llm_client import LLMError, SupportResponse, complete_json, stream_answer
 from app.support.memory_manager import (
     SUMMARIZE_EVERY_N_MESSAGES,
@@ -271,7 +275,7 @@ def _hydrate_ui_guidance(
 @router.post("/chat", response_model=ChatResponse)
 async def chat(
     body: ChatRequest,
-    identity: SupportIdentity = Depends(get_support_identity),
+    identity: SupportIdentity = Depends(get_authed_support_identity),
     db: Session = Depends(get_db),
 ) -> ChatResponse:
     logger.info("=" * 80)
@@ -437,7 +441,7 @@ async def chat(
 @router.post("/chat/stream")
 async def chat_stream(
     body: ChatRequest,
-    identity: SupportIdentity = Depends(get_support_identity),
+    identity: SupportIdentity = Depends(get_authed_support_identity),
     db: Session = Depends(get_db),
 ) -> StreamingResponse:
     """SSE endpoint that streams the answer token-by-token, then sends a done event."""
