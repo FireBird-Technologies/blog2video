@@ -136,6 +136,9 @@ export default function GenerateSceneImageModal({
           <p className="text-xs text-gray-400 mt-1">
             Costs {creditCost} AI edits · free with Pro or Standard.
           </p>
+          <p className="text-xs text-gray-400 mt-1">
+            Generation takes up to a minute — you can keep working while it runs.
+          </p>
         </div>
 
         {generating ? (

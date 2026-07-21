@@ -22,7 +22,7 @@ import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import { useNavigate } from "react-router-dom";
 import UpgradePlanModal from "./UpgradePlanModal";
 import { STANDARD_MONTHLY_PRICE, PRO_MONTHLY_PRICE } from "../content/pricingContent";
-import GenerateSceneImageModal, { AI_IMAGE_CREDIT_COST } from "./GenerateSceneImageModal";
+import { AI_IMAGE_CREDIT_COST } from "./GenerateSceneImageModal";
 import { getSceneLayoutLabel } from "../utils/layoutLabels";
 import { chartTableToLegacyRowProps } from "../utils/chartTableDataVizLegacy";
 import { compileDataModule } from "../utils/compileComponent";
@@ -2472,6 +2472,18 @@ interface Props {
   imageItems: SceneImageItem[];
   availableImageItems: SceneImageItem[];
   onSaved: () => void;
+  /**
+   * True while an AI image generation for THIS scene is in flight (owned by the parent
+   * ProjectView, so it survives this modal being closed). Shows a loader on the AI card.
+   */
+  imageGenerating?: boolean;
+  /** Ask the parent to open the (single) AI image generation modal for this scene. */
+  onRequestGenerateImage?: () => void;
+  /**
+   * Register a stager the parent calls to drop a kept AI image into this modal's form
+   * (unsaved until Save). Called with the fn on mount and null on unmount.
+   */
+  registerStageImage?: (fn: ((file: File) => void) | null) => void;
   openImageAdjustOnOpen?: boolean;
   /** When set, the modal renders read-only inside a help video (no API calls, inline render). */
   demoMode?: SceneEditModalDemoMode;
@@ -2692,6 +2704,9 @@ export default function SceneEditModal({
   imageItems,
   availableImageItems,
   onSaved,
+  imageGenerating = false,
+  onRequestGenerateImage,
+  registerStageImage,
   openImageAdjustOnOpen = false,
   demoMode,
 }: Props) {
@@ -2782,9 +2797,6 @@ export default function SceneEditModal({
   const [layoutOpen, setLayoutOpen] = useState(false);
   // AI-mode disclosure: reveal the "tell AI what to change" box on demand.
   const [showImproveBox, setShowImproveBox] = useState(false);
-  const [showImageGenModal, setShowImageGenModal] = useState(false);
-  const [generatedImageBase64, setGeneratedImageBase64] = useState<string | null>(null);
-  const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
   const [showAiImageUpgradeModal, setShowAiImageUpgradeModal] = useState(false);
   const [tickerTableModalOpen, setTickerTableModalOpen] = useState(false);
   const [tickerTableModalKey, setTickerTableModalKey] = useState<string | null>(null);
@@ -2834,6 +2846,17 @@ export default function SceneEditModal({
   const { user, refreshUser } = useAuth();
   const { showError } = useErrorModal();
   const navigate = useNavigate();
+
+  // Register a stager so the parent can drop a kept AI image into this form (unsaved
+  // until Save). A generated/uploaded file supersedes any staged reused image.
+  useEffect(() => {
+    if (!registerStageImage) return;
+    registerStageImage((file: File) => {
+      setPendingExistingImage(null);
+      setSelectedImageFile(file);
+    });
+    return () => registerStageImage(null);
+  }, [registerStageImage]);
 
   // Cleanup image preview URL
   useEffect(() => {
@@ -3056,8 +3079,6 @@ export default function SceneEditModal({
     setPendingExistingImage(null);
     setImageFocusX(50);
     setImageFocusY(50);
-    setGeneratedImageBase64(null);
-    setGeneratedPrompt(null);
     setShowAiImageUpgradeModal(false);
     shouldAutoOpenAdjustRef.current = openImageAdjustOnOpen;
     let layoutId: string | null = null;
@@ -4396,28 +4417,9 @@ export default function SceneEditModal({
       else setShowAiImageUpgradeModal(true);
       return;
     }
-    setShowImageGenModal(true);
-  };
-
-  const handleKeepGeneratedImage = () => {
-    if (!generatedImageBase64) return;
-    const dataUrl = `data:image/png;base64,${generatedImageBase64}`;
-    fetch(dataUrl)
-      .then((r) => r.blob())
-      .then((blob) => new File([blob], "generated.png", { type: "image/png" }))
-      .then((file) => {
-        // An uploaded/generated file supersedes any staged reused image.
-        setPendingExistingImage(null);
-        setSelectedImageFile(file);
-        setGeneratedImageBase64(null);
-        setGeneratedPrompt(null);
-      })
-      .catch(() => showError("Failed to use generated image"));
-  };
-
-  const handleDiscardGeneratedImage = () => {
-    setGeneratedImageBase64(null);
-    setGeneratedPrompt(null);
+    // Generation is owned by the parent (ProjectView): it shows a single loader/preview
+    // that survives this modal closing, and stages the kept image back into this form.
+    onRequestGenerateImage?.();
   };
 
   const clampFocus = (value: number) => Math.max(0, Math.min(100, value));
@@ -6225,6 +6227,14 @@ export default function SceneEditModal({
                         </button>
                       </div>
                     )}
+                    {imageGenerating ? (
+                      <div
+                        className="flex items-center justify-center w-20 h-24 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50/50 text-purple-700"
+                        title="Generating image… this can take up to a minute"
+                      >
+                        <div className="w-6 h-6 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
+                      </div>
+                    ) : (
                     <button
                       type="button"
                       onClick={handleGenerateImageClick}
@@ -6238,6 +6248,7 @@ export default function SceneEditModal({
                         Generate image with AI
                       </span>
                     </button>
+                    )}
                     <button
                       type="button"
                       onClick={handleOpenImageSourceChooser}
@@ -6597,6 +6608,8 @@ export default function SceneEditModal({
       open={showAiImageUpgradeModal}
       onClose={() => setShowAiImageUpgradeModal(false)}
       projectId={project?.id}
+      title="You're out of AI credits"
+      subtitle="Upgrade to get more credits and unlock unlimited AI edits & image generation."
     />
 
     {imageSourceChooserOpen && (
@@ -6708,78 +6721,8 @@ export default function SceneEditModal({
       </div>
     )}
 
-    <GenerateSceneImageModal
-      open={showImageGenModal}
-      scene={scene}
-      project={project}
-      canGenerate={canUseAiImage}
-      creditCost={AI_IMAGE_CREDIT_COST}
-      ownerBlocked={ownerBlocksAiImage}
-      onOwnerBlocked={() => {
-        setShowImageGenModal(false);
-        notifyOwnerBlocked();
-      }}
-      onClose={() => setShowImageGenModal(false)}
-      onUpgrade={() => {
-        setShowImageGenModal(false);
-        setShowAiImageUpgradeModal(true);
-      }}
-      onImageReady={(imageBase64, refinedPrompt) => {
-        setGeneratedImageBase64(imageBase64);
-        setGeneratedPrompt(refinedPrompt);
-        setShowImageGenModal(false);
-        // A FREE owner was charged AI_IMAGE_CREDIT_COST server-side; refresh so the
-        // balance shown in the modal isn't stale (no-op cost for PRO/STANDARD).
-        if (!effectiveIsPro) void refreshUser();
-      }}
-    />
-
-    {/* AI generated image preview popup */}
-    {generatedImageBase64 && (
-      <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-        <div
-          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-          onClick={handleDiscardGeneratedImage}
-        />
-        <div
-          className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="p-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
-            <h3 className="text-lg font-semibold text-gray-900">AI generated image</h3>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleKeepGeneratedImage}
-                className="w-7 h-7 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
-                title="Use this image"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              </button>
-              <button
-                type="button"
-                onClick={handleDiscardGeneratedImage}
-                className="w-7 h-7 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
-                title="Discard"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          </div>
-          <div className="flex-1 overflow-auto p-4 flex flex-col items-center bg-gray-50 min-h-0">
-            <img
-              src={`data:image/png;base64,${generatedImageBase64}`}
-              alt="AI generated"
-              className="max-w-full max-h-[70vh] w-auto h-auto object-contain rounded-lg shadow-inner"
-            />
-          </div>
-        </div>
-      </div>
-    )}
+    {/* AI image generation & its keep/discard preview live in the parent ProjectView
+        so a single flow owns the loader and survives this modal being closed. */}
 
     {imageAdjustOpen && imageAdjustSrc && (
       <div className="fixed inset-0 z-[130] flex items-center justify-center p-2 sm:p-4 min-h-0">
