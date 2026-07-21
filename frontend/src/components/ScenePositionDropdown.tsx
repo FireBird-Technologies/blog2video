@@ -111,10 +111,10 @@ export function ScenePositionDropdown({
         aria-label="Insert at position"
         aria-expanded={open}
         aria-haspopup="listbox"
-        className="w-full px-3 py-2 text-sm border border-purple-200 rounded-lg bg-purple-50 text-purple-700 hover:border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500 flex items-center justify-between gap-2 min-w-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-purple-200"
+        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 flex items-center justify-between gap-2 min-w-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-300"
       >
         <span className="truncate text-left">{positionLabel(value, activeCount)}</span>
-        <svg className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
@@ -136,7 +136,7 @@ export function ScenePositionDropdown({
                   aria-selected={value === p}
                   onClick={() => pick(p)}
                   className={`text-left px-2.5 py-2 text-sm rounded-lg transition-colors ${
-                    value === p ? "bg-purple-50 text-purple-700" : "hover:bg-gray-50 text-gray-700"
+                    value === p ? "bg-gray-100 text-gray-900 font-medium" : "hover:bg-gray-50 text-gray-700"
                   }`}
                 >
                   {positionLabel(p, activeCount)}
