@@ -18,9 +18,21 @@ export interface GenerateSceneImageModalProps {
   canGenerate: boolean;
   /** Credits one generation costs a FREE owner (for the "costs N AI edits" hint). */
   creditCost: number;
+  /** True when the viewer is on a paid plan (PRO/STANDARD) — hides the cost hint. */
+  isPaid: boolean;
+  /**
+   * True when the viewer is a collaborator on a shared project (spending the OWNER's
+   * credit pool). They can't fix an exhausted pool by upgrading their own plan, so
+   * the cost hint asks the owner to upgrade instead of offering a self-serve link.
+   */
+  isCollaborator?: boolean;
+  /** AI-edit credits available to spend (the owner's pool on a shared project). */
+  creditsRemaining: number;
   /** True when the blocker is the OWNER's exhausted access, not the viewer's own. */
   ownerBlocked?: boolean;
   onUpgrade: () => void;
+  /** Navigate to the billing page from the inline "Upgrade now" link. */
+  onUpgradeNow: () => void;
   /** Shown instead of the self-upgrade prompt when `ownerBlocked`. */
   onOwnerBlocked?: () => void;
   onImageReady: (imageBase64: string, refinedPrompt: string) => void;
@@ -35,8 +47,12 @@ export default function GenerateSceneImageModal({
   project,
   canGenerate,
   creditCost,
+  isPaid,
+  isCollaborator = false,
+  creditsRemaining,
   ownerBlocked,
   onUpgrade,
+  onUpgradeNow,
   onOwnerBlocked,
   onImageReady,
   onGenerateStart,
@@ -133,12 +149,28 @@ export default function GenerateSceneImageModal({
           <p className="text-xs text-gray-500 mt-1">
             Describe the image you want. Your description is the main input.
           </p>
-          <p className="text-xs text-gray-400 mt-1">
-            Costs {creditCost} AI edits · free with Pro or Standard.
-          </p>
-          <p className="text-xs text-gray-400 mt-1">
-            Generation takes up to a minute — you can keep working while it runs.
-          </p>
+          {!isPaid && (
+            isCollaborator ? (
+              <p className="text-xs text-gray-400 mt-1">
+                Costs {creditCost} AI edit credits from the project owner's balance. They have
+                only {creditsRemaining > 100 ? "100+" : creditsRemaining} remaining · ask the
+                owner to upgrade to Pro or Standard for unlimited credits.
+              </p>
+            ) : (
+              <p className="text-xs text-gray-400 mt-1">
+                Costs {creditCost} AI edit credits. You have only{" "}
+                {creditsRemaining > 100 ? "100+" : creditsRemaining} remaining ·{" "}
+                <button
+                  type="button"
+                  onClick={onUpgradeNow}
+                  className="text-purple-600 hover:text-purple-700 underline font-medium"
+                >
+                  Upgrade now
+                </button>{" "}
+                to get unlimited credits.
+              </p>
+            )
+          )}
         </div>
 
         {generating ? (

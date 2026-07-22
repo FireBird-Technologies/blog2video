@@ -3910,8 +3910,8 @@ def generate_scene_image(
             )
         else:
             detail = (
-                "The project owner is out of AI edits, so AI image generation isn't "
-                "available here. Ask the owner to buy more credits or upgrade."
+                "The project owner is out of AI edit credits, so AI image generation isn't "
+                "available now. Ask the owner to buy more credits or upgrade."
             )
         raise HTTPException(status_code=403, detail=detail)
 

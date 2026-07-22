@@ -3541,7 +3541,7 @@ export default function ProjectView() {
   const ownerBlocksProFeature = useOwnerScopedAssets && !canUseAiImage;
   const notifyOwnerBlocked = () =>
     showError(
-      "The project owner is out of AI edits, so AI image generation isn't available here. Ask the owner to buy more credits or upgrade.",
+      "The project owner is out of AI edit credits, so AI image generation isn't available now. Ask the owner to buy more credits or upgrade.",
       { variant: "warning" },
     );
 
@@ -5893,10 +5893,10 @@ export default function ProjectView() {
           if (ownerOutOfCredits) {
             return (
               <span className="text-[10px] sm:text-xs font-semibold text-red-600 shrink-0 self-end pb-1">
-                You're out of AI credits.{" "}
+                You're out of AI edit credits.{" "}
                 <button
                   type="button"
-                  onClick={() => navigate("/pricing")}
+                  onClick={() => navigate("/subscription")}
                   className="text-purple-600 underline hover:text-purple-700"
                 >
                   Upgrade now
@@ -6820,7 +6820,7 @@ export default function ProjectView() {
                   open={showAiImageUpgradeModal}
                   onClose={() => setShowAiImageUpgradeModal(false)}
                   projectId={project?.id}
-                  title="You're out of AI credits"
+                  title="You're out of AI edit credits"
                   subtitle="Upgrade to get more credits and unlock unlimited AI edits & image generation."
                 />
               </div>
@@ -6863,10 +6863,14 @@ export default function ProjectView() {
               project={project}
               canGenerate={canUseAiImage}
               creditCost={AI_IMAGE_CREDIT_COST}
+              isPaid={effectiveIsPro}
+              isCollaborator={useOwnerScopedAssets}
+              creditsRemaining={aiImageCreditRemaining}
               ownerBlocked={ownerBlocksProFeature}
               onOwnerBlocked={notifyOwnerBlocked}
               onClose={() => setImageGenModalSceneId(null)}
               onUpgrade={() => setShowAiImageUpgradeModal(true)}
+              onUpgradeNow={() => navigate("/subscription")}
               onGenerateStart={() => {
                 setGeneratingImageSceneId(imageGenModalSceneId);
                 setImageGenModalSceneId(null);
@@ -6965,6 +6969,7 @@ export default function ProjectView() {
             startAddScenePolling();
           }}
           onError={(err) => showError(getErrorMessage(err, "Failed to add scene."))}
+          onUpgradeNow={() => navigate("/subscription")}
         />
 
        {activeTab === "settings" && (
