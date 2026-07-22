@@ -86,6 +86,7 @@ def refine_image_prompt(image_description: str, scene_context: str = "") -> str:
         )
         out = (result.refined_prompt or "").strip()
         if out:
+            logger.info("[IMAGE_PROMPT] Refined %r -> %r", primary, out[:500])
             return out
         return primary
     except Exception as e:
