@@ -106,6 +106,13 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_HOURS: int = 72
 
+    # Shared secret guarding the internal template-capture endpoints (capture-data
+    # + preview-image upload). The puppeteer snapshot script and the in-process
+    # capture background task pass this via the X-Capture-Secret header so the
+    # capture route can read/write any user's custom template without per-user
+    # auth. Empty disables the endpoints.
+    CAPTURE_SECRET: str = ""
+
     # Local testing override — set DEFAULT_PLAN=PRO in .env to auto-assign plan on login
     DEFAULT_PLAN: str = ""
 

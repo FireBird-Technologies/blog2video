@@ -31,6 +31,18 @@ RUN cd remotion-video && npm ci --omit=dev
 # Download Chrome Headless Shell into /app/.cache/remotion (accessible by uid 1000)
 RUN cd remotion-video && npx remotion browser ensure
 
+# Symlink the versioned Chrome-Headless-Shell binary to a stable path so
+# PUPPETEER_EXECUTABLE_PATH can be a fixed value (the cache dir is version-named).
+RUN CHROME_BIN="$(find /app/.cache/remotion -type f -name 'chrome-headless-shell' | head -n1)" && \
+  if [ -z "$CHROME_BIN" ]; then echo "chrome-headless-shell not found" && exit 1; fi && \
+  ln -sf "$CHROME_BIN" /usr/local/bin/chrome-headless-shell
+
+# ── Custom-template snapshot worker (puppeteer-core; reuses the Chrome above) ──
+# Standalone Node worker the backend invokes (CAPTURE_WORKER_CMD) to snapshot a
+# custom template's real preview after create/regenerate. Only needs puppeteer-core.
+COPY backend/capture/ ./capture/
+RUN cd capture && npm install --omit=dev
+
 # ── Backend: app, templates (default, nightfall, gridcraft, spotlight) ──
 COPY backend/app/ ./backend/app/
 COPY backend/templates/ ./backend/templates/
@@ -39,6 +51,14 @@ COPY backend/mcp_server/ ./backend/mcp_server/
 # ── Runtime config ───────────────────────────────────────────
 ENV REMOTION_PROJECT_PATH=/app/remotion-video
 ENV MEDIA_DIR=/tmp/media
+
+# Custom-template snapshot worker wiring. The command + Chrome path are safe to
+# bake; the SECRETS (CAPTURE_SECRET) and the deployed frontend origin
+# (CAPTURE_FRONTEND_URL) must be provided as runtime env/secrets — without them
+# request_snapshot() no-ops and falls back to the Remotion still.
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/local/bin/chrome-headless-shell
+ENV CAPTURE_WORKER_CMD="node /app/capture/snapshot-worker.mjs --ids"
+ENV BACKEND_BASE=http://localhost:7860
 
 # HuggingFace Spaces REQUIRES port 7860
 ENV PORT=7860

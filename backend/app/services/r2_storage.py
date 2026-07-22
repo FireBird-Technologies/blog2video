@@ -119,6 +119,11 @@ def voice_preview_key(user_id: int, voice_id: str) -> str:
     return f"{_prefix()}users/{user_id}/voices/{voice_id}/preview.mp3"
 
 
+def custom_template_preview_key(user_id: int, template_id: int, ext: str = "webp") -> str:
+    """R2 object key for a custom template's static preview snapshot."""
+    return f"{_prefix()}users/{user_id}/custom-templates/{template_id}/preview.{ext}"
+
+
 # ─── Public URL ───────────────────────────────────────────────
 
 
