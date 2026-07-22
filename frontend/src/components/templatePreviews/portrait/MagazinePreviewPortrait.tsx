@@ -128,7 +128,10 @@ export default function MagazinePreviewPortrait({
   }, [accentColor, fps]);
 
   // Freeze on the settled cover for the static thumbnail.
-  const thumbnailFrame = Math.min(Math.max(0, durationInFrames - 1), 80);
+  // Freeze near the start of the opening cover for the static thumbnail/poster.
+  // Frame 0 is still inside the black intro bridge, so land a beat later once the
+  // cover has faded in.
+  const thumbnailFrame = 30;
 
   const inputProps = useMemo(
     () => ({

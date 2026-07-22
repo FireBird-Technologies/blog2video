@@ -10,6 +10,7 @@
     "seo:build": "npx tsx scripts/build-seo.ts",
     "build:seo-corpus": "npx tsx scripts/export-seo-corpus.ts",
     "posters:build": "npx tsx scripts/capture-posters.ts",
+    "thumbs:custom": "npx tsx scripts/capture-custom-thumbnails.ts",
     "typecheck": "tsc -b",
     "lint": "eslint ."
   },

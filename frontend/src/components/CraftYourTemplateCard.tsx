@@ -1,6 +1,7 @@
 import type { KeyboardEvent } from "react";
 import { Player } from "@remotion/player";
 import { SceneSequence } from "./CustomBackground";
+import useIsMobileViewport from "../hooks/useIsMobileViewport";
 
 const BG_FPS = 30;
 const BG_DURATION_FRAMES = 270;
@@ -24,6 +25,10 @@ export default function CraftYourTemplateCard({
   isPro,
   variant = "default",
 }: Props) {
+  // On small screens render a static gradient instead of the live Remotion
+  // <Player> background — one more live Player in the step-2 grid pushes iOS
+  // Safari past its per-tab memory ceiling and reloads the tab.
+  const isMobile = useIsMobileViewport();
   return (
     <div
       role="button"
@@ -34,24 +39,34 @@ export default function CraftYourTemplateCard({
     >
       {/* BACKGROUND */}
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden rounded-[inherit]">
-        <div
-          className="absolute left-1/2 top-1/2 h-[145%] w-[145%] -translate-x-1/2 -translate-y-1/2 opacity-[0.8]"
-          style={{ filter: "blur(1px)" }}
-        >
-          <Player
-            component={SceneSequence}
-            durationInFrames={BG_DURATION_FRAMES}
-            compositionWidth={1920}
-            compositionHeight={1080}
-            fps={BG_FPS}
-            inputProps={BG_INPUT_PROPS}
-            controls={false}
-            autoPlay
-            loop
-            acknowledgeRemotionLicense
-            style={{ width: "100%", height: "100%", display: "block" }}
+        {isMobile ? (
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                "linear-gradient(135deg, #7c3aed 0%, #4c1d95 55%, #1e1b4b 100%)",
+            }}
           />
-        </div>
+        ) : (
+          <div
+            className="absolute left-1/2 top-1/2 h-[145%] w-[145%] -translate-x-1/2 -translate-y-1/2 opacity-[0.8]"
+            style={{ filter: "blur(1px)" }}
+          >
+            <Player
+              component={SceneSequence}
+              durationInFrames={BG_DURATION_FRAMES}
+              compositionWidth={1920}
+              compositionHeight={1080}
+              fps={BG_FPS}
+              inputProps={BG_INPUT_PROPS}
+              controls={false}
+              autoPlay
+              loop
+              acknowledgeRemotionLicense
+              style={{ width: "100%", height: "100%", display: "block" }}
+            />
+          </div>
+        )}
 
         {/* DARK OVERLAY */}
         <div

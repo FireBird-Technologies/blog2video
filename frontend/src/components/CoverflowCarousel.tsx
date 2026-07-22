@@ -333,9 +333,11 @@ export default function CoverflowCarousel({ templates, initialIndex = 0, orienta
           const isVisible = Math.abs(wrapped) <= VISIBLE_RANGE;
           const style = getStyle(wrapped, primed, portrait, orientation, isCenter);
           // A card with its own `onSelect` fires that action on click instead of
-          // opening the fullscreen preview (used for CTA cards).
+          // opening the fullscreen preview (used for CTA cards). On mobile the
+          // center card does NOT open the fullscreen live preview — that mounts a
+          // Remotion Player, which OOMs/reloads the tab on iOS; only CTA cards act.
           const handleClick = isCenter
-            ? tpl.onSelect ?? (() => setFullscreen(true))
+            ? tpl.onSelect ?? (portrait ? undefined : () => setFullscreen(true))
             : undefined;
           // In portrait orientation render the 9:16 variant (fall back to the
           // landscape preview only if a card lacks a portrait one).
@@ -356,7 +358,7 @@ export default function CoverflowCarousel({ templates, initialIndex = 0, orienta
                   : "none",
                 transformStyle: "preserve-3d",
                 transformOrigin: "center center",
-                cursor: isCenter ? (tpl.onSelect ? "pointer" : "zoom-in") : "default",
+                cursor: isCenter ? (tpl.onSelect ? "pointer" : portrait ? "default" : "zoom-in") : "default",
                 ...style,
               }}
             >
@@ -384,8 +386,13 @@ export default function CoverflowCarousel({ templates, initialIndex = 0, orienta
                   {isVisible && (
                     <PreviewErrorBoundary>
                       <CardPreview
-                        key={isCenter ? `live-${orientation}-${activeIndex}` : `poster-${orientation}-${tpl.id}`}
-                        thumbnailMode={!isCenter}
+                        key={isCenter && !portrait ? `live-${orientation}-${activeIndex}` : `poster-${orientation}-${tpl.id}`}
+                        // On mobile every card (center included) renders its static
+                        // poster — a single live Remotion Player plus the
+                        // orientation-remount spike still exhausts iOS Safari's
+                        // per-tab memory and reloads the tab. Live preview stays
+                        // available via the fullscreen modal on tap.
+                        thumbnailMode={!isCenter || portrait}
                       />
                     </PreviewErrorBoundary>
                   )}
