@@ -6508,9 +6508,6 @@ export default function ProjectView() {
                                             Generating image…
                                           </p>
                                         )}
-                                        {(generateImageError && (generateErrorSceneId === scene.id || generatedImageSceneId === scene.id)) && (
-                                          <p className="text-xs text-red-600 mt-1.5">{generateImageError}</p>
-                                        )}
                                         </>
                                       ) : (
                                         <p className="text-xs text-gray-400 italic">
@@ -7904,17 +7901,47 @@ export default function ProjectView() {
     )}
 
     {generateImageError && generateErrorSceneId !== null && ReactDOM.createPortal(
-      <div className="fixed top-5 right-5 z-[99999] flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl bg-white text-gray-900 min-w-[260px] border border-red-100 ring-1 ring-red-200">
-        <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0 text-white text-xs font-bold">!</div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-red-600 leading-tight">Image generation failed</p>
-          <p className="text-xs text-gray-400 mt-0.5 truncate">{generateImageError}</p>
-        </div>
-        <button
-          type="button"
+      <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
+        <div
+          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
           onClick={() => { setGenerateImageError(null); setGenerateErrorSceneId(null); }}
-          className="text-gray-300 hover:text-gray-600 text-xl leading-none flex-shrink-0 ml-1"
-        >×</button>
+          aria-hidden
+        />
+        <div
+          className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-center"
+          role="alertdialog"
+          aria-labelledby="image-gen-error-title"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="mx-auto mb-4 w-14 h-14 rounded-full bg-red-50 flex items-center justify-center">
+            <span className="text-3xl" aria-hidden>😕</span>
+          </div>
+          <h3 id="image-gen-error-title" className="text-lg font-semibold text-gray-900">
+            Oops — we couldn't generate your image
+          </h3>
+          <p className="text-sm text-gray-600 mt-2 leading-relaxed">
+            {generateImageError}
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              const sceneId = generateErrorSceneId;
+              setGenerateImageError(null);
+              setGenerateErrorSceneId(null);
+              if (sceneId !== null) setImageGenModalSceneId(sceneId);
+            }}
+            className="mt-5 w-full px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700"
+          >
+            Try again with a better description
+          </button>
+          <button
+            type="button"
+            onClick={() => { setGenerateImageError(null); setGenerateErrorSceneId(null); }}
+            className="mt-2 w-full px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800"
+          >
+            Dismiss
+          </button>
+        </div>
       </div>,
       document.body,
     )}

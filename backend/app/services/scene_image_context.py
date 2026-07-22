@@ -7,11 +7,34 @@ from typing import Any
 # Typography keys are edited in Studio, not useful for image prompts.
 _LAYOUT_PROP_SKIP = frozenset({"titleFontSize", "descriptionFontSize"})
 
+# Image/media references and other non-visual identifiers must never reach the
+# image-prompt refiner: with a vague description the model latches onto them and
+# reproduces the scene's *existing* (or placeholder) image instead of generating
+# a fresh one. We strip them by exact key and by suffix.
+_IMAGE_CONTEXT_DENY_KEYS = frozenset({
+    "assignedImage", "imageUrl", "imageSrc", "image", "src", "backgroundImage",
+    "logoUrl", "iconUrl", "icon", "avatar", "poster",
+    "websiteLink", "secondaryWebsiteLink", "websiteUrl", "websiteDomain",
+    "link", "url", "href",
+    "socials", "handles", "handle", "username",
+})
+_IMAGE_CONTEXT_DENY_SUFFIXES = (
+    "url", "link", "href", "color", "colour", "image", "src",
+    "id", "key", "token",
+)
+
+
+def _is_denied_image_key(key: str) -> bool:
+    if key in _LAYOUT_PROP_SKIP or key in _IMAGE_CONTEXT_DENY_KEYS:
+        return True
+    lowered = key.lower()
+    return lowered.endswith(_IMAGE_CONTEXT_DENY_SUFFIXES)
+
 
 def _compact_layout_props(props: dict[str, Any], max_chars: int = 2000) -> dict[str, Any]:
     out: dict[str, Any] = {}
     for key, val in props.items():
-        if key in _LAYOUT_PROP_SKIP:
+        if _is_denied_image_key(key):
             continue
         if val is None:
             continue

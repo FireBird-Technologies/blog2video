@@ -3856,8 +3856,9 @@ def delete_scene(
 # errors whose string form is a full HTML error page — that must never reach
 # the client, so every failure surfaces this single message instead.
 _IMAGE_GEN_ERROR_MESSAGE = (
-    "Image generation faced some issues, please try again. "
-    "If the issue persists, contact support."
+    "We couldn't generate your image. Try again with a clearer, more descriptive "
+    "prompt."
+    "You were not charged for this attempt."
 )
 
 # AI image generation costs this many AI-edit credits for FREE owners; PRO/STANDARD
@@ -3989,6 +3990,12 @@ def generate_scene_image(
     except Exception as e:
         logger.error("[GENERATE_IMAGE] Image generation error: %s", e, exc_info=True)
         raise HTTPException(status_code=502, detail=_IMAGE_GEN_ERROR_MESSAGE) from e
+
+    # Provider returned without raising but produced no image — treat as a failure
+    # so we never charge for an empty result.
+    if not image_base64:
+        logger.error("[GENERATE_IMAGE] Provider returned no image data.")
+        raise HTTPException(status_code=502, detail=_IMAGE_GEN_ERROR_MESSAGE)
 
     # Charge only on success. No-op for PRO/STANDARD owners (unlimited); FREE owners
     # spend from their shared per-user AI-edit pool.
