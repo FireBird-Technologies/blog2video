@@ -15938,4 +15938,485 @@ export const blogPosts: BlogPost[] = [
       },
     ],
   },
+  {
+    slug: "how-to-write-a-video-script-from-a-blog-post",
+    title: "How to Write a Video Script from a Blog Post (Free Generator)",
+    description:
+      "A blog post is not a video script. Here's how to turn an article into a scene-by-scene script with a hook, ordered beats, and a call to action — plus a free generator that does the first draft for you.",
+    category: "How-to",
+    publishedAt: "2026-07-22",
+    readTime: "5 min read",
+    heroEyebrow: "How-to",
+    heroTitle: "How to write a video script from a blog post",
+    heroDescription:
+      "A blog post is not a video script. Here's how to turn an article into a scene-by-scene script with a hook, ordered beats, and a call to action — plus a free generator that does the first draft for you.",
+    primaryKeyword: "video script generator",
+    keywordVariant: "how to write a video script from a blog post",
+    relatedPaths: [
+      "/tools/video-script-generator",
+      "/blog-to-video",
+      "/tools/video-length-calculator",
+      "/blog-to-youtube-video",
+    ],
+    sections: [
+      {
+        heading: "Why you can't just read your blog post aloud",
+        paragraphs: [
+          "Writing is built for the eye; video is built for the ear. A blog post can open with a slow, contextual paragraph because a reader can skim ahead. A video can't — you have about three seconds before someone scrolls past, so the first line has to earn attention immediately.",
+          "The other difference is structure. An article flows as continuous prose. A video is a sequence of scenes, each with something on screen and something spoken. To go from one to the other, you're not editing sentences — you're re-cutting the whole thing into beats.",
+        ],
+      },
+      {
+        heading: "The anatomy of a short video script",
+        paragraphs: [
+          "Almost every effective short follows the same shape, regardless of topic:",
+        ],
+        bullets: [
+          "Hook (scene 1): a punchy opening line that creates curiosity or states a bold promise. No throat-clearing, no \"in this video.\"",
+          "Beats (middle scenes): the key ideas from your post, in a logical order, one idea per scene.",
+          "Payoff and CTA (final scene): the takeaway, then a clear next step appropriate to the platform.",
+        ],
+      },
+      {
+        heading: "Turn your article into beats",
+        paragraphs: [
+          "Read your post and pull out the three to nine ideas that actually carry it. Each becomes one scene. Drop the transitional prose, the caveats, and the SEO padding — video has no room for them.",
+          "For each beat, write two things: a short on-screen label (what the viewer sees) and one or two spoken sentences (what you'll read aloud). Keep the spoken lines short and conversational — write for the ear, not the page.",
+        ],
+      },
+      {
+        heading: "Let the free generator do the first draft",
+        paragraphs: [
+          "You don't have to start from a blank page. Our free Video Script Generator takes a topic, a blog URL, or a few notes and returns a full scene-by-scene script — a hook, ordered beats with on-screen text and voiceover, and a closing call to action. Pick a tone (explainer, promotional, storytelling, or casual) and a length, and edit from there.",
+          "Treat the output as a strong first draft: tighten the hook, personalize any specifics, and adjust the CTA to match where the video will live.",
+        ],
+        ctaPath: "/tools/video-script-generator",
+        ctaLabel: "Try the free Video Script Generator",
+      },
+      {
+        heading: "From script to finished video",
+        paragraphs: [
+          "Once the script reads well out loud, the fastest path to a finished video is to skip manual editing entirely. Paste the same article into Blog2Video and it generates a narrated video from it — script, scenes, voiceover, and visuals — so the script you just shaped becomes a real video in minutes.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Turn your post into a video",
+      },
+    ],
+    faq: [
+      {
+        question: "Is the video script generator free?",
+        answer:
+          "Yes. The Video Script Generator is free to use with a Blog2Video account. Paste a topic, blog URL, or notes and it returns a scene-by-scene script you can edit and record.",
+      },
+      {
+        question: "How long should a video script be?",
+        answer:
+          "Match the platform. A 60-second Short is roughly 130-160 spoken words (4-5 scenes); a long-form YouTube explainer can run 12-15 scenes. The generator lets you pick short, medium, or long.",
+      },
+      {
+        question: "Can I write a script from an existing blog post?",
+        answer:
+          "Yes — that's the ideal input. Paste the topic or the article URL and the generator drafts a spoken, scene-by-scene version of that content, which is the natural first step before turning the post into a narrated video.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Write a Video Script from a Blog Post (Free Generator)",
+        angle:
+          "How-to guide teaching the hook/beats/CTA structure, funneling to the free Video Script Generator and then Blog2Video.",
+      },
+      {
+        channel: "video",
+        title: "Turn any blog post into a video script in 60 seconds",
+        angle:
+          "Screen-record the generator turning a real article URL into a scene-by-scene script, then generate the video from it. Link back to /blogs/how-to-write-a-video-script-from-a-blog-post.",
+      },
+      {
+        channel: "twitter",
+        title: "A blog post is not a video script. Here's how to convert one.",
+        angle:
+          "Short thread on the eye-vs-ear difference and the hook/beats/CTA structure, ending with the free generator link.",
+      },
+    ],
+  },
+  {
+    slug: "how-to-write-thumbnail-text-that-gets-clicks",
+    title: "How to Write Thumbnail Text That Gets Clicks (Free Generator)",
+    description:
+      "Thumbnail text is not your video title — it's the 2-5 word punch that earns the click. Here's how to write high-CTR thumbnail overlays, plus a free generator that gives you a batch of options.",
+    category: "How-to",
+    publishedAt: "2026-07-22",
+    readTime: "4 min read",
+    heroEyebrow: "How-to",
+    heroTitle: "How to write thumbnail text that gets clicks",
+    heroDescription:
+      "Thumbnail text is not your video title — it's the 2-5 word punch that earns the click. Here's how to write high-CTR thumbnail overlays, plus a free generator that gives you a batch of options.",
+    primaryKeyword: "thumbnail text generator",
+    keywordVariant: "youtube thumbnail text ideas",
+    relatedPaths: [
+      "/tools/thumbnail-text-generator",
+      "/tools/headline-analyzer",
+      "/blog-to-youtube-video",
+      "/tools/youtube-description-generator",
+    ],
+    sections: [
+      {
+        heading: "Thumbnail text is a different job than the title",
+        paragraphs: [
+          "The title is the full descriptive line next to your video. Thumbnail text is the short overlay printed on the image itself — usually two to five words, designed to do exactly one thing: stop the scroll and create enough curiosity to earn the click.",
+          "Because it competes for a fraction of a second of attention on a small mobile image, it has to read instantly. Clever loses to clear. A viewer should decode it without effort.",
+        ],
+      },
+      {
+        heading: "The angles that work",
+        paragraphs: [
+          "Strong thumbnail text usually falls into one of a few reliable patterns. Rotate through them rather than defaulting to the same one every time:",
+        ],
+        bullets: [
+          "Curiosity gap: hint at an answer without giving it (\"It backfired\").",
+          "Bold claim: a confident, slightly contrarian statement (\"Stop doing this\").",
+          "Number: a specific, scannable figure (\"$0 to $10k\").",
+          "Contrast or warning: tension the viewer wants resolved (\"Before you post\").",
+        ],
+      },
+      {
+        heading: "Rules for text that reads at a glance",
+        paragraphs: [
+          "Keep the winner to five words or fewer — shorter is almost always better. Use high-contrast type, keep the words out of the bottom-right corner where the duration badge sits, and pair the overlay with a clear, uncluttered image.",
+          "Don't repeat the title verbatim. The thumbnail and title should work together: one creates the curiosity, the other confirms the topic.",
+        ],
+      },
+      {
+        heading: "Generate a batch, then test",
+        paragraphs: [
+          "The fastest way to find a winner is to look at several options side by side. Our free Thumbnail Text Generator takes your video topic or title and returns up to eight short, high-CTR overlays across curiosity, bold-claim, number, and benefit angles.",
+          "Shortlist two or three, put them on your thumbnail, and let click-through rate decide — the best creators treat thumbnail text as something they iterate on, not something they get right on the first try.",
+        ],
+        ctaPath: "/tools/thumbnail-text-generator",
+        ctaLabel: "Try the free Thumbnail Text Generator",
+      },
+    ],
+    faq: [
+      {
+        question: "What is thumbnail text?",
+        answer:
+          "It's the short text overlay printed on a video thumbnail image — usually 2-5 words — meant to create curiosity and earn the click. It's separate from the video title.",
+      },
+      {
+        question: "How many words should thumbnail text be?",
+        answer:
+          "Five words or fewer. Shorter text reads instantly on a small mobile thumbnail, which is where most impressions happen.",
+      },
+      {
+        question: "Is the thumbnail text generator free?",
+        answer:
+          "Yes. Sign in with a free Blog2Video account and the generator returns up to eight distinct thumbnail overlay options across several proven angles.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Write Thumbnail Text That Gets Clicks (Free Generator)",
+        angle:
+          "How-to guide separating thumbnail text from the title, listing the proven angles, and funneling to the free generator.",
+      },
+      {
+        channel: "twitter",
+        title: "Your thumbnail text is not your title. Here's the difference.",
+        angle:
+          "Thread showing before/after thumbnail overlays and the curiosity/number/claim angles, ending with the free generator link.",
+      },
+      {
+        channel: "video",
+        title: "8 thumbnail text ideas for any video in 30 seconds",
+        angle:
+          "Screen-record the generator producing a batch of overlays for a real topic. Link back to /blogs/how-to-write-thumbnail-text-that-gets-clicks.",
+      },
+    ],
+  },
+  {
+    slug: "how-to-write-an-seo-youtube-description",
+    title: "How to Write an SEO YouTube Description (Free Generator)",
+    description:
+      "YouTube reads your first two lines the hardest. Here's how to write a description that front-loads your keyword, earns the click, and helps the video get recommended — plus a free generator for the description and tags.",
+    category: "How-to",
+    publishedAt: "2026-07-22",
+    readTime: "5 min read",
+    heroEyebrow: "How-to",
+    heroTitle: "How to write an SEO YouTube description",
+    heroDescription:
+      "YouTube reads your first two lines the hardest. Here's how to write a description that front-loads your keyword, earns the click, and helps the video get recommended — plus a free generator for the description and tags.",
+    primaryKeyword: "youtube description generator",
+    keywordVariant: "how to write an seo youtube description",
+    relatedPaths: [
+      "/tools/youtube-description-generator",
+      "/tools/thumbnail-text-generator",
+      "/blog-to-youtube-video",
+      "/tools/headline-analyzer",
+    ],
+    sections: [
+      {
+        heading: "The first two lines do most of the work",
+        paragraphs: [
+          "YouTube weights the opening of your description heavily, and those same one or two lines are what viewers see above the \"show more\" fold. So the first sentence has to do two jobs at once: front-load your primary keyword and clearly state what the viewer will get.",
+          "Everything after that adds context YouTube uses to understand and recommend the video — but if the first lines are weak, the rest rarely gets read.",
+        ],
+      },
+      {
+        heading: "A description structure that ranks and converts",
+        paragraphs: [
+          "Use a simple, repeatable shape:",
+        ],
+        bullets: [
+          "Line 1-2: primary keyword plus the core promise, in natural language.",
+          "Middle: two to four short paragraphs expanding on the value, using related terms naturally (no keyword stuffing).",
+          "Chapters: timestamps once the video is edited — great for retention and for surfacing in search.",
+          "Close: a clear call to action (subscribe, or a link) and any disclosures.",
+        ],
+      },
+      {
+        heading: "Tags still help — use them well",
+        paragraphs: [
+          "Tags are a secondary signal, but they're free to add and worth getting right. Use a mix of broad and specific long-tail terms that genuinely describe the video, lowercase, without the \"#\" prefix (those are hashtags, a separate thing you can add in the description if you want them).",
+          "Don't pad the tag field with loosely related keywords — relevance matters more than volume.",
+        ],
+      },
+      {
+        heading: "Generate the description and tags in one step",
+        paragraphs: [
+          "Our free YouTube Description Generator takes your video topic, title, or full transcript and returns a search-optimized description with the keyword front-loaded, a clear value section, and a call to action — plus a ready-to-paste set of relevant tags.",
+          "Paste it in as a starting point, then add your real links, timestamps, and disclosures, and prune any tags that don't fit.",
+        ],
+        ctaPath: "/tools/youtube-description-generator",
+        ctaLabel: "Try the free YouTube Description Generator",
+      },
+    ],
+    faq: [
+      {
+        question: "How long should a YouTube description be?",
+        answer:
+          "Long enough to give real context — usually a few short paragraphs — but the first one or two lines matter most, since that's what shows above the fold and what YouTube weights most heavily.",
+      },
+      {
+        question: "Do YouTube tags still matter?",
+        answer:
+          "They're a secondary ranking signal, but they're free and worth adding. Use 12-15 relevant tags mixing broad and long-tail terms. The generator produces these automatically alongside the description.",
+      },
+      {
+        question: "Can I generate a description from a transcript?",
+        answer:
+          "Yes. Paste a topic, a title, or a full transcript — the more detail you provide, the more specific and accurate the description and tags will be.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Write an SEO YouTube Description (Free Generator)",
+        angle:
+          "How-to guide on front-loading the keyword and structuring the description, funneling to the free generator.",
+      },
+      {
+        channel: "video",
+        title: "Write a ranking YouTube description in 60 seconds",
+        angle:
+          "Screen-record pasting a transcript into the generator and getting a description plus tags. Link back to /blogs/how-to-write-an-seo-youtube-description.",
+      },
+      {
+        channel: "twitter",
+        title: "YouTube reads your first two description lines the hardest. Use them.",
+        angle:
+          "Thread on the above-the-fold rule and the description structure, ending with the free generator link.",
+      },
+    ],
+  },
+  {
+    slug: "how-long-will-my-video-be-estimate-runtime-from-a-script",
+    title: "How Long Will My Video Be? Estimate Runtime from a Script",
+    description:
+      "Spoken-word pacing is remarkably consistent, so you can estimate a video's runtime from its word count before you record. Here's the math — and a free calculator that does it across slow, normal, and fast narration.",
+    category: "How-to",
+    publishedAt: "2026-07-22",
+    readTime: "4 min read",
+    heroEyebrow: "How-to",
+    heroTitle: "How long will my video be? Estimate runtime from a script",
+    heroDescription:
+      "Spoken-word pacing is remarkably consistent, so you can estimate a video's runtime from its word count before you record. Here's the math — and a free calculator that does it across slow, normal, and fast narration.",
+    primaryKeyword: "video length calculator",
+    keywordVariant: "estimate video length from word count",
+    relatedPaths: [
+      "/tools/video-length-calculator",
+      "/tools/video-script-generator",
+      "/blog-to-shorts",
+      "/tools/content-repurposing-calculator",
+    ],
+    sections: [
+      {
+        heading: "Speaking speed is more predictable than you'd think",
+        paragraphs: [
+          "Most narration lands between roughly 120 and 160 words per minute. Slow, deliberate delivery sits near the bottom of that range; energetic, high-tempo editing sits near the top. Around 140 words per minute is a safe default for most explainer and talking-head videos.",
+          "Because the range is so consistent, you can turn a word count into a runtime estimate before recording a single second — which is exactly when the estimate is most useful.",
+        ],
+      },
+      {
+        heading: "The quick math",
+        paragraphs: [
+          "Runtime in minutes is roughly your word count divided by your words-per-minute. So a 700-word script at 140 wpm is about five minutes of narration. At 120 wpm it stretches to nearly six; at 160 wpm it compresses to under four and a half.",
+          "Working backward is even more useful. Targeting a 60-second Short? Plan for roughly 130-160 spoken words. Targeting a 10-minute explainer? You need somewhere around 1,400 words of script.",
+        ],
+      },
+      {
+        heading: "Why your real video runs longer",
+        paragraphs: [
+          "The estimate counts spoken words only. Real videos add time on top: pauses, music intros, on-screen text beats, transitions, and B-roll all stretch the runtime. Leave a buffer when you're planning to a hard length.",
+        ],
+        bullets: [
+          "Add a few seconds per scene for on-screen text and transitions.",
+          "Account for a music intro or outro if you use one.",
+          "Trim to length in the script, not in the edit — it's far faster.",
+        ],
+      },
+      {
+        heading: "Use the free calculator",
+        paragraphs: [
+          "Rather than doing the arithmetic by hand, paste your script into our free Video Length Calculator. It counts the words and shows the estimated runtime at slow, normal, and fast narration speeds, so you can trim or expand to your target before you record.",
+          "Need a script to measure in the first place? Generate one with the free Video Script Generator, then paste it straight into the calculator.",
+        ],
+        ctaPath: "/tools/video-length-calculator",
+        ctaLabel: "Try the free Video Length Calculator",
+      },
+    ],
+    faq: [
+      {
+        question: "How many words is a one-minute video?",
+        answer:
+          "Roughly 130-160 spoken words at a normal-to-fast narration pace. For a calmer delivery, plan closer to 120 words per minute.",
+      },
+      {
+        question: "What narration speed should I assume?",
+        answer:
+          "Around 140 words per minute is a good default for most explainer and talking-head videos. Use the slow estimate for deliberate narration and the fast estimate for energetic, high-tempo edits.",
+      },
+      {
+        question: "Why is my finished video longer than the estimate?",
+        answer:
+          "The estimate counts spoken words only. Pauses, music, on-screen text, transitions, and B-roll all add time — build in a buffer when planning to a hard runtime.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How Long Will My Video Be? Estimate Runtime from a Script",
+        angle:
+          "How-to explaining words-per-minute pacing and the working-backward math, funneling to the free calculator.",
+      },
+      {
+        channel: "twitter",
+        title: "How many words is a 60-second video? (It's fewer than you think.)",
+        angle:
+          "Short thread with the wpm math and the 130-160 words rule, ending with the free calculator link.",
+      },
+      {
+        channel: "video",
+        title: "Estimate your video length before you record",
+        angle:
+          "Screen-record pasting a script into the calculator and reading off the slow/normal/fast runtimes. Link back to /blogs/how-long-will-my-video-be-estimate-runtime-from-a-script.",
+      },
+    ],
+  },
+  {
+    slug: "how-to-make-an-ai-book-cover-from-a-description",
+    title: "How to Make an AI Book Cover from a Description (Free Tool)",
+    description:
+      "Describe your book in a paragraph or two and get a designed front cover in classic 2:3 proportions — exportable as PNG, JPEG, or a print-ready PDF. Here's how to write the description and use the free generator.",
+    category: "How-to",
+    publishedAt: "2026-07-22",
+    readTime: "5 min read",
+    heroEyebrow: "How-to",
+    heroTitle: "How to make an AI book cover from a description",
+    heroDescription:
+      "Describe your book in a paragraph or two and get a designed front cover in classic 2:3 proportions — exportable as PNG, JPEG, or a print-ready PDF. Here's how to write the description and use the free generator.",
+    primaryKeyword: "book cover generator",
+    keywordVariant: "ai book cover maker",
+    relatedPaths: [
+      "/tools/book-cover-generator",
+      "/tools/thumbnail-text-generator",
+      "/tools/quote-card-generator",
+      "/blog-to-video",
+    ],
+    sections: [
+      {
+        heading: "A good cover starts with a good description",
+        paragraphs: [
+          "An AI book cover is only as strong as the description you feed it. The generator can't read your manuscript — it works from what you tell it — so the more specific and evocative your description, the more the cover will feel like your book rather than generic stock art.",
+          "Aim for roughly 200 words. That's enough to be specific without turning into a full synopsis the model has to compress.",
+        ],
+      },
+      {
+        heading: "What to include in the description",
+        paragraphs: [
+          "Cover the elements that actually shape a cover's look and mood:",
+        ],
+        bullets: [
+          "Genre, stated outright: \"a tense literary thriller,\" \"a cozy small-town romance,\" \"a hard sci-fi epic.\"",
+          "Tone and mood: cold and atmospheric, warm and hopeful, dark and urgent.",
+          "One or two concrete images or symbols you want featured — a lighthouse, a cracked crown, a lone figure on a ridge.",
+          "Any palette or era cues: muted winter tones, neon-noir, 1920s art deco.",
+        ],
+      },
+      {
+        heading: "Why book covers are portrait 2:3",
+        paragraphs: [
+          "Almost every printed and e-book cover uses a portrait 2:3 proportion — it's what reads correctly as a physical book and what stays legible as a small thumbnail on a store page. The generator is fixed to that ratio, so you don't have to think about dimensions.",
+          "It also leaves natural space near the top or center for a title and author name, which you'll usually want to finalize with your own typography.",
+        ],
+      },
+      {
+        heading: "Generate and export in the format you need",
+        paragraphs: [
+          "Paste your description into the free Book Cover Generator and it designs a front cover for you. Once it's generated, export it in the format that fits your workflow: PNG for the highest quality, JPEG for a smaller file, or a print-ready PDF sized to the cover for Kindle Direct Publishing and other print-on-demand services.",
+          "Free accounts include five cover generations, which is plenty to try a few directions and pick a favorite. Treat any AI-rendered title text as a placeholder and replace it with your final typography before you publish.",
+        ],
+        ctaPath: "/tools/book-cover-generator",
+        ctaLabel: "Try the free Book Cover Generator",
+      },
+    ],
+    faq: [
+      {
+        question: "How many book covers can I generate for free?",
+        answer:
+          "Free accounts include five AI book cover generations. Exported covers are yours to keep, and Pro and Standard plans have unlimited generations.",
+      },
+      {
+        question: "What formats can I export the cover in?",
+        answer:
+          "PNG (highest quality), JPEG (smaller file), or a print-ready PDF sized to the cover — useful for Kindle Direct Publishing and other print-on-demand services.",
+      },
+      {
+        question: "Can I use the generated cover commercially?",
+        answer:
+          "It's a strong design starting point. Review the imagery for anything resembling a real person or trademarked work before commercial use, and replace AI-rendered title text with your own final typography.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Make an AI Book Cover from a Description (Free Tool)",
+        angle:
+          "How-to on writing a strong book description and using the free generator, with the PNG/JPEG/PDF export angle.",
+      },
+      {
+        channel: "video",
+        title: "Turn a book description into a cover in under a minute",
+        angle:
+          "Screen-record pasting a 200-word description into the generator and exporting a PDF. Link back to /blogs/how-to-make-an-ai-book-cover-from-a-description.",
+      },
+      {
+        channel: "twitter",
+        title: "Describe your book in 200 words, get a book cover. Free.",
+        angle:
+          "Thread showing a description and the resulting cover, with the 2:3 and export-formats points, ending with the free tool link.",
+      },
+    ],
+  },
 ];
