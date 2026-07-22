@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import type { CustomTemplateTheme } from "../../api/client";
 import CustomPreview from "./CustomPreview";
-import ThemedPlaceholder from "./ThemedPlaceholder";
+import StaticPreviewImage from "./StaticPreviewImage";
 
 const W = 640;
 const H = 360;
@@ -408,9 +408,10 @@ export default function CustomPreviewLandscape({
   thumbnailMode = false,
   staticThumb = false,
 }: Props) {
-  // Static mode: render a themed name placeholder and never mount a Player.
+  // Static mode: show the template's static preview image if it has one and it
+  // loads, else a themed name placeholder — never mount a Player.
   if (staticThumb) {
-    return <ThemedPlaceholder name={name} theme={theme} />;
+    return <StaticPreviewImage src={previewImageUrl || ogImage} name={name} theme={theme} />;
   }
   // Prefer runtime preview when either generated scene snippets or frontend module graph exists.
   const hasRuntimePreview =

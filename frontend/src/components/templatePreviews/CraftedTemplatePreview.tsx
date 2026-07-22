@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { compilePreviewComponent } from "../../utils/compileComponent";
 import type { CustomTemplateTheme } from "../../api/client";
-import ThemedPlaceholder from "./ThemedPlaceholder";
+import StaticPreviewImage from "./StaticPreviewImage";
 
 interface CraftedTemplatePreviewProps {
   /** Stable identifier for module caching across re-mounts. */
@@ -157,8 +157,10 @@ export default function CraftedTemplatePreview({
     };
   }, [cacheKey, templateId, previewSource, staticThumb]);
 
+  // Static mode: show the bundled static preview image if one exists and loads,
+  // else a themed name placeholder — never compile/mount a Player.
   if (staticThumb) {
-    return <ThemedPlaceholder name={name} theme={theme} />;
+    return <StaticPreviewImage src={previewImageUrl} name={name} theme={theme} />;
   }
 
   if (Component) {

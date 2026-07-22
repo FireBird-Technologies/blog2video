@@ -2393,12 +2393,14 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             {demoMode?.templatePreviewOverride && !selectedCustom && !selectedCrafted ? (
               demoMode.templatePreviewOverride({ templateId: template, selected: true, thumbnail: false })
             ) : selectedCustom ? (
-              <CustomPreview theme={selectedCustom.theme} name={selectedCustom.name} previewImageUrl={selectedCustom.preview_image_url} introCode={selectedCustom.intro_code || undefined} outroCode={selectedCustom.outro_code || undefined} contentCodes={selectedCustom.content_codes || undefined} contentArchetypeIds={selectedCustom.content_archetype_ids || undefined} logoUrls={selectedCustom.logo_urls} ogImage={selectedCustom.og_image} key={`selected-custom-${selectedCustom.id}-${step}`} />
+              <CustomPreview theme={selectedCustom.theme} name={selectedCustom.name} previewImageUrl={selectedCustom.preview_image_url} introCode={selectedCustom.intro_code || undefined} outroCode={selectedCustom.outro_code || undefined} contentCodes={selectedCustom.content_codes || undefined} contentArchetypeIds={selectedCustom.content_archetype_ids || undefined} logoUrls={selectedCustom.logo_urls} ogImage={selectedCustom.og_image} thumbnailMode={isMobile} staticThumb={isMobile} key={`selected-custom-${selectedCustom.id}-${step}`} />
             ) : selectedCrafted && ((selectedCrafted as any).frontend_files || selectedCrafted.preview_file || selectedCrafted.preview_image_url || selectedCrafted.theme) ? (
               <CraftedTemplatePreviewSmart
                 item={selectedCrafted}
                 compileCacheScope={user?.id != null ? String(user.id) : undefined}
                 showLoaderOnEmptyOrError
+                thumbnailMode={isMobile}
+                staticThumb={isMobile}
                 key={`selected-crafted-${selectedCrafted.id}-${step}`}
               />
             ) : template.startsWith("crafted_") && craftedTemplatesLoading ? (
@@ -2406,7 +2408,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                 <span className="w-7 h-7 border-2 border-purple-200/50 border-t-purple-500 rounded-full animate-spin" />
               </div>
             ) : SelectedPreviewComp ? (
-              <SelectedPreviewComp key={`selected-${template}-${step}`} />
+              <SelectedPreviewComp thumbnailMode={isMobile} key={`selected-${template}-${step}`} />
             ) : (
               <div className="w-full aspect-video bg-gray-100 flex items-center justify-center text-gray-300 text-sm">
                 {selectedDesc?.title ?? template}
@@ -3150,12 +3152,14 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           <div className="rounded-xl overflow-hidden border-2 border-purple-500 shadow-[0_0_0_4px_rgba(124,58,237,0.1)]">
             <div className="relative aspect-video overflow-hidden">
               {selectedCustomBulk ? (
-                <CustomPreview theme={selectedCustomBulk.theme} name={selectedCustomBulk.name} previewImageUrl={selectedCustomBulk.preview_image_url} introCode={selectedCustomBulk.intro_code || undefined} outroCode={selectedCustomBulk.outro_code || undefined} contentCodes={selectedCustomBulk.content_codes || undefined} contentArchetypeIds={selectedCustomBulk.content_archetype_ids || undefined} logoUrls={selectedCustomBulk.logo_urls} ogImage={selectedCustomBulk.og_image} key={`selected-bulk-custom-${tpl}-${activeIndex}-${step}`} />
+                <CustomPreview theme={selectedCustomBulk.theme} name={selectedCustomBulk.name} previewImageUrl={selectedCustomBulk.preview_image_url} introCode={selectedCustomBulk.intro_code || undefined} outroCode={selectedCustomBulk.outro_code || undefined} contentCodes={selectedCustomBulk.content_codes || undefined} contentArchetypeIds={selectedCustomBulk.content_archetype_ids || undefined} logoUrls={selectedCustomBulk.logo_urls} ogImage={selectedCustomBulk.og_image} thumbnailMode={isMobile} staticThumb={isMobile} key={`selected-bulk-custom-${tpl}-${activeIndex}-${step}`} />
               ) : selectedCraftedBulk && ((selectedCraftedBulk as any).frontend_files || selectedCraftedBulk.preview_file || selectedCraftedBulk.preview_image_url || selectedCraftedBulk.theme) ? (
                 <CraftedTemplatePreviewSmart
                   item={selectedCraftedBulk}
                   compileCacheScope={user?.id != null ? String(user.id) : undefined}
                   showLoaderOnEmptyOrError
+                  thumbnailMode={isMobile}
+                  staticThumb={isMobile}
                   key={`selected-bulk-crafted-${tpl}-${activeIndex}-${step}`}
                 />
               ) : tpl.startsWith("crafted_") && craftedTemplatesLoading ? (
@@ -3163,7 +3167,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                   <span className="w-7 h-7 border-2 border-purple-200/50 border-t-purple-500 rounded-full animate-spin" />
                 </div>
               ) : SelectedPreviewComp ? (
-                <SelectedPreviewComp key={`selected-bulk-${tpl}-${activeIndex}-${step}`} />
+                <SelectedPreviewComp thumbnailMode={isMobile} key={`selected-bulk-${tpl}-${activeIndex}-${step}`} />
               ) : (
                 <div className="w-full aspect-video bg-gray-100 flex items-center justify-center text-gray-300 text-sm">
                   {selectedDesc?.title ?? tpl}
