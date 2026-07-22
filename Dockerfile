@@ -28,14 +28,21 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY remotion-video/ ./remotion-video/
 RUN cd remotion-video && npm ci --omit=dev
 
-# Download Chrome Headless Shell into /app/.cache/remotion (accessible by uid 1000)
-RUN cd remotion-video && npx remotion browser ensure
-
-# Symlink the versioned Chrome-Headless-Shell binary to a stable path so
-# PUPPETEER_EXECUTABLE_PATH can be a fixed value (the cache dir is version-named).
-RUN CHROME_BIN="$(find /app/.cache/remotion -type f -name 'chrome-headless-shell' | head -n1)" && \
-  if [ -z "$CHROME_BIN" ]; then echo "chrome-headless-shell not found" && exit 1; fi && \
-  ln -sf "$CHROME_BIN" /usr/local/bin/chrome-headless-shell
+# Download Chrome Headless Shell (used by Remotion renders AND the snapshot
+# worker) and symlink its versioned binary to a stable path so
+# PUPPETEER_EXECUTABLE_PATH can be a fixed value. Kept in ONE layer with `browser
+# ensure` so the binary and the symlink never split across a build-cache
+# boundary. Remotion's cache location varies by version/HOME, so search the
+# plausible roots. Non-fatal: if not found, the snapshot worker falls back to the
+# Remotion-still renderer rather than blocking the build.
+RUN cd remotion-video && npx remotion browser ensure && \
+  CHROME_BIN="$(find /app/remotion-video/node_modules/.remotion /app -type f -name 'chrome-headless-shell' 2>/dev/null | head -n1)" && \
+  if [ -n "$CHROME_BIN" ]; then \
+    ln -sf "$CHROME_BIN" /usr/local/bin/chrome-headless-shell && \
+    echo "Linked chrome-headless-shell -> $CHROME_BIN"; \
+  else \
+    echo "WARNING: chrome-headless-shell not found; snapshot worker will fall back to Remotion still"; \
+  fi
 
 # ── Custom-template snapshot worker (puppeteer-core; reuses the Chrome above) ──
 # Standalone Node worker the backend invokes (CAPTURE_WORKER_CMD) to snapshot a
