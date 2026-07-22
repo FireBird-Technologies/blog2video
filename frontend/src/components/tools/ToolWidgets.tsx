@@ -1804,6 +1804,7 @@ function BookCoverGeneratorInner() {
   const [exporting, setExporting] = useState<null | "png" | "jpeg" | "pdf">(null);
   const [error, setError] = useState<string | null>(null);
   const [pngDataUrl, setPngDataUrl] = useState<string | null>(null);
+  const [quota, setQuota] = useState<{ used: number; limit: number | null } | null>(null);
 
   const wordCount = useMemo(() => {
     const trimmed = description.trim();
@@ -1811,7 +1812,9 @@ function BookCoverGeneratorInner() {
     return trimmed.split(/\s+/).filter(Boolean).length;
   }, [description]);
 
-  const canSubmit = description.trim().length >= 20 && !loading;
+  const exhausted =
+    quota != null && quota.limit != null && quota.used >= quota.limit;
+  const canSubmit = description.trim().length >= 20 && !loading && !exhausted;
 
   const handleGenerate = async () => {
     if (!canSubmit) return;
@@ -1820,6 +1823,7 @@ function BookCoverGeneratorInner() {
     try {
       const res = await generateBookCover(description.trim());
       setPngDataUrl(`data:image/png;base64,${res.data.image_base64}`);
+      setQuota({ used: res.data.covers_used, limit: res.data.covers_limit });
     } catch (err) {
       setError(errorDetail(err, "Generation failed. Please try again in a moment."));
     } finally {
@@ -1881,12 +1885,31 @@ function BookCoverGeneratorInner() {
           disabled={!canSubmit}
           className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-purple-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {loading ? "Generating cover…" : pngDataUrl ? "Regenerate cover" : "Generate book cover"}
+          {loading
+            ? "Generating cover…"
+            : exhausted
+              ? "Free covers used up"
+              : pngDataUrl
+                ? "Regenerate cover"
+                : "Generate book cover"}
         </button>
+        {quota != null && quota.limit != null ? (
+          <p className="mt-3 text-xs font-medium text-gray-500">
+            {Math.max(quota.limit - quota.used, 0)} of {quota.limit} free covers left
+            {exhausted ? (
+              <>
+                {" · "}
+                <Link to="/pricing" className="text-purple-600 hover:text-purple-700">
+                  Upgrade for unlimited
+                </Link>
+              </>
+            ) : null}
+          </p>
+        ) : null}
         {error ? <p className="mt-3 text-sm text-red-500">{error}</p> : null}
         <p className="mt-4 text-xs leading-relaxed text-gray-400">
           Generation can take up to a minute. The cover is a design starting point — replace any AI
-          title text with your own typography before publishing.
+          title text with your own typography before publishing. Free accounts include 5 covers.
         </p>
       </div>
 

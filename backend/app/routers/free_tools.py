@@ -10,21 +10,27 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
 from app.config import settings
+from app.database import get_db
 from app.dspy_modules.free_tool_gen import (
     ThumbnailTextGenerator,
     VideoScriptGenerator,
     YouTubeDescriptionGenerator,
 )
-from app.models.user import User
+from app.models.user import PlanTier, User
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/free-tools", tags=["free-tools"])
 
 _GENERIC_FAIL = "Generation failed. Please try again in a moment."
+
+# Free AI book covers a FREE-plan user may generate (lifetime). PRO/STANDARD
+# users are unlimited, matching the rest of the app's free-tier convention.
+FREE_BOOK_COVER_LIMIT = 5
 
 # Appended to the user's book description so the image model renders a front
 # book cover rather than a generic illustration.
@@ -78,6 +84,8 @@ class BookCoverRequest(BaseModel):
 
 class BookCoverResponse(BaseModel):
     image_base64: str
+    covers_used: int
+    covers_limit: int | None  # None = unlimited (PRO/STANDARD)
 
 
 # ─── Endpoints ───────────────────────────────────────────────────────────────
@@ -134,6 +142,7 @@ async def generate_youtube_description(
 async def generate_book_cover(
     payload: BookCoverRequest,
     user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     # Reuses the same image provider + aspect-size helpers as the core
     # scene-image generator (app/routers/projects.py), fixed to portrait
@@ -144,6 +153,17 @@ async def generate_book_cover(
         get_glm_size,
         get_openai_size,
     )
+
+    unlimited = user.plan in (PlanTier.PRO, PlanTier.STANDARD)
+    used = user.free_book_covers_used or 0
+    if not unlimited and used >= FREE_BOOK_COVER_LIMIT:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"You've used all {FREE_BOOK_COVER_LIMIT} free book covers. "
+                "Upgrade to Pro or Standard for unlimited AI book covers."
+            ),
+        )
 
     try:
         provider = get_image_provider()
@@ -175,4 +195,15 @@ async def generate_book_cover(
         raise HTTPException(status_code=502, detail=_GENERIC_FAIL)
     if not image_base64:
         raise HTTPException(status_code=502, detail=_GENERIC_FAIL)
-    return {"image_base64": image_base64}
+
+    # Charge only on success (no increment for PRO/STANDARD — they're unlimited).
+    if not unlimited:
+        user.free_book_covers_used = used + 1
+        db.commit()
+        used = user.free_book_covers_used
+
+    return {
+        "image_base64": image_base64,
+        "covers_used": used,
+        "covers_limit": None if unlimited else FREE_BOOK_COVER_LIMIT,
+    }

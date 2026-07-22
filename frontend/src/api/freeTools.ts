@@ -42,6 +42,8 @@ export function generateYouTubeDescription(topic: string) {
 
 export interface BookCoverResult {
   image_base64: string;
+  covers_used: number;
+  covers_limit: number | null; // null = unlimited
 }
 
 export function generateBookCover(description: string) {

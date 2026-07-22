@@ -810,7 +810,7 @@ export const tools: ToolDefinition[] = [
     icon: "BC",
     primaryKeyword: "book cover generator",
     keywordVariant: "ai book cover maker",
-    badges: ["Portrait 2:3 cover", "PNG / JPEG / PDF export", "Sign in to generate"],
+    badges: ["Portrait 2:3 cover", "PNG / JPEG / PDF export", "5 free covers"],
     proofPoints: [
       "Turns a plain-language book description into a designed front cover.",
       "Renders in classic 2:3 portrait proportions built for print and e-book thumbnails.",
@@ -847,6 +847,11 @@ export const tools: ToolDefinition[] = [
         question: "Do I need an account to generate a book cover?",
         answer:
           "Yes. Book cover generation runs an AI image request, so it requires a free Blog2Video account. Sign in with Google and you can generate and export covers right away.",
+      },
+      {
+        question: "How many book covers can I generate for free?",
+        answer:
+          "Free accounts include 5 AI book cover generations. Pro and Standard plans have unlimited generations. Exported covers are yours to keep regardless of plan.",
       },
       {
         question: "What formats can I export the cover in?",
