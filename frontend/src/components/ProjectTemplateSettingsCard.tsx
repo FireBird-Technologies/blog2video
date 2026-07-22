@@ -8,6 +8,7 @@ import {
 import CustomPreview from "./templatePreviews/CustomPreview";
 import CustomPreviewLandscape from "./templatePreviews/CustomPreviewLandscape";
 import CraftedTemplatePreview from "./templatePreviews/CraftedTemplatePreview";
+import useIsMobileViewport from "../hooks/useIsMobileViewport";
 
 /** Built-in or custom template preview for settings / picker (matches BlogUrlForm step 2 styling). */
 export function TemplateAssignPreview({
@@ -28,6 +29,10 @@ export function TemplateAssignPreview({
   /** Pass current user id string so crafted preview compile cache cannot cross accounts. */
   previewCompileScope?: string;
 }) {
+  // On mobile every preview here (settings card + the change-template popup)
+  // renders as a static image/placeholder — compiling/mounting a Remotion Player
+  // exhausts iOS Safari's memory and reloads the tab.
+  const isMobile = useIsMobileViewport();
   if (templateId.startsWith("crafted_")) {
     const ct = craftedTemplates.find((c) => c.id === templateId);
     // Render the lightweight bundled marquee preview rather than the full
@@ -42,7 +47,9 @@ export function TemplateAssignPreview({
           previewSource={ct.preview_file ?? null}
           previewImageUrl={ct.preview_image_url ?? null}
           name={ct.name}
-          thumbnailMode={variant === "thumb"}
+          theme={ct.theme}
+          thumbnailMode={variant === "thumb" || isMobile}
+          staticThumb={isMobile}
           showLoaderOnEmptyOrError
         />
       );
@@ -72,6 +79,8 @@ export function TemplateAssignPreview({
           contentArchetypeIds={ct.content_archetype_ids || undefined}
           logoUrls={ct.logo_urls}
           ogImage={ct.og_image}
+          thumbnailMode={isMobile}
+          staticThumb={isMobile}
         />
       ) : (
         <CustomPreviewLandscape
@@ -85,6 +94,7 @@ export function TemplateAssignPreview({
           logoUrls={ct.logo_urls}
           ogImage={ct.og_image}
           thumbnailMode
+          staticThumb={isMobile}
         />
       );
     }
@@ -100,6 +110,8 @@ export function TemplateAssignPreview({
           contentArchetypeIds={undefined}
           logoUrls={undefined}
           ogImage={undefined}
+          thumbnailMode={isMobile}
+          staticThumb={isMobile}
         />
       );
       if (variant === "thumb") {
@@ -131,7 +143,8 @@ export function TemplateAssignPreview({
         </div>
       );
     }
-    return <Comp key={templateId} />;
+    // On mobile render the baked poster (thumbnailMode) instead of a live Player.
+    return <Comp key={templateId} thumbnailMode={isMobile} />;
   }
   return (
     <div
