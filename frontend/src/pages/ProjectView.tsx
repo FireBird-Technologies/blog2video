@@ -104,6 +104,7 @@ import SceneCommentModal from "../components/SceneCommentModal";
 import { listComments } from "../api/collaboration";
 import CustomPreviewLandscape from "../components/templatePreviews/CustomPreviewLandscape";
 import CraftedTemplatePreview from "../components/templatePreviews/CraftedTemplatePreview";
+import useIsMobileViewport from "../hooks/useIsMobileViewport";
 import CraftYourTemplateCard from "../components/CraftYourTemplateCard";
 import GetMoreTemplatesModal from "../components/GetMoreTemplatesModal";
 import DesignerTemplateRequestModal from "../components/DesignerTemplateRequestModal";
@@ -716,6 +717,9 @@ export default function ProjectView() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, refreshUser } = useAuth();
   const isPro = user?.plan === "pro" || user?.plan === "standard";
+  // On mobile, template-picker previews render static (image/placeholder) instead
+  // of compiling/mounting a Remotion Player, which OOMs/reloads the tab on iOS.
+  const isMobile = useIsMobileViewport();
   const offer = useOutOfVideosOffer();
 
   const [project, setProject] = useState<Project | null>(null);
@@ -5300,6 +5304,7 @@ export default function ProjectView() {
                                     logoUrls={ct.logo_urls}
                                     ogImage={ct.og_image}
                                     thumbnailMode
+                                    staticThumb={isMobile}
                                   />
                                 </div>
                               </div>
@@ -5349,7 +5354,9 @@ export default function ProjectView() {
                                     previewSource={ct.preview_file ?? null}
                                     previewImageUrl={ct.preview_image_url ?? null}
                                     name={ct.name}
+                                    theme={ct.theme}
                                     thumbnailMode
+                                    staticThumb={isMobile}
                                     showLoaderOnEmptyOrError
                                   />
                                 </div>
