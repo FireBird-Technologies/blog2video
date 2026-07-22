@@ -2,6 +2,7 @@
 AI image generation providers (OpenAI, Gemini, GLM). Returns base64 image data.
 """
 import base64
+import time
 from abc import ABC, abstractmethod
 from typing import Optional
 
@@ -11,6 +12,10 @@ from app.config import settings
 
 # z.ai OpenAI-compatible base URL for GLM-Image generation.
 GLM_BASE_URL = "https://api.z.ai/api/paas/v4/"
+
+
+class _TransientDownloadError(Exception):
+    """A retryable image-download failure (object not yet available, 5xx, empty body)."""
 
 
 def _looks_like_image(data: bytes) -> bool:
@@ -167,19 +172,50 @@ class GLMProvider(ImageProvider):
         print(f"[zai-image] OK   model={self._model} route={route} bytes={len(image_bytes)}")
         return base64.b64encode(image_bytes).decode("ascii")
 
+    # GLM returns the image URL before the object is finalized on mfile.z.ai, so a
+    # fetch immediately after generation often 404s (or returns an empty body). The
+    # object appears a moment later, so we re-fetch the SAME url a few times with
+    # backoff before giving up. Total added latency in the worst case: ~sum(delays).
+    _DOWNLOAD_MAX_ATTEMPTS = 4
+    _DOWNLOAD_BACKOFF_SECONDS = (0.75, 1.5, 3.0)
+
     def _download_image(self, url: str) -> bytes:
         """Download the generated image from GLM's returned URL, validating that the
-        response is actually an image. If it isn't (non-2xx, empty body, or non-image
-        content), we fail loudly instead of base64-encoding garbage into a broken
-        image — the caller turns this into a 502 (no credit charged). The logged
-        status/content-type/head is what tells us *why* a given download failed."""
+        response is actually an image. GLM commonly hands back the URL before the
+        object is available (404 / empty body), so transient failures are retried
+        with backoff. If it still isn't an image after retries (non-2xx, empty body,
+        or non-image content), we fail loudly instead of base64-encoding garbage into
+        a broken image — the caller turns this into a 502 (no credit charged)."""
+        last_error = "unknown error"
+        for attempt in range(self._DOWNLOAD_MAX_ATTEMPTS):
+            try:
+                return self._attempt_download(url)
+            except _TransientDownloadError as e:
+                last_error = str(e)
+                if attempt < len(self._DOWNLOAD_BACKOFF_SECONDS):
+                    delay = self._DOWNLOAD_BACKOFF_SECONDS[attempt]
+                    print(
+                        f"[zai-image] RETRY model={self._model} download "
+                        f"attempt={attempt + 1}/{self._DOWNLOAD_MAX_ATTEMPTS} "
+                        f"in={delay}s: {last_error}"
+                    )
+                    time.sleep(delay)
+        print(f"[zai-image] FAIL model={self._model} download after "
+              f"{self._DOWNLOAD_MAX_ATTEMPTS} attempts: {last_error}")
+        raise RuntimeError(f"GLM image download failed: {last_error}")
+
+    def _attempt_download(self, url: str) -> bytes:
+        """One download attempt. Raises _TransientDownloadError for retryable
+        conditions (object-not-ready 404, 5xx, empty body) and RuntimeError for
+        responses that won't improve on retry (a real non-image payload)."""
         resp = requests.get(url, timeout=60)
+        # 404 (object not yet written) and 5xx (server hiccup) are worth retrying.
+        if resp.status_code == 404 or resp.status_code >= 500:
+            raise _TransientDownloadError(f"status {resp.status_code}")
         try:
             resp.raise_for_status()
         except requests.HTTPError as e:
-            print(
-                f"[zai-image] FAIL model={self._model} download status={resp.status_code}: {str(e)[:200]}"
-            )
+            # Other 4xx (403 expired-signature, etc.) won't improve on retry.
             raise RuntimeError(
                 f"GLM image download failed with status {resp.status_code}"
             ) from e
@@ -187,18 +223,14 @@ class GLMProvider(ImageProvider):
         content_type = (resp.headers.get("Content-Type") or "").lower()
         image_bytes = resp.content
         if not image_bytes:
-            print(f"[zai-image] FAIL model={self._model} download: empty body")
-            raise RuntimeError("GLM image download returned an empty body")
+            raise _TransientDownloadError("empty body")
         # Accept when the server declares an image type, or when the bytes carry a
         # known image magic number (PNG/JPEG/GIF/WEBP) — some CDNs omit/mislabel it.
         if "image/" not in content_type and not _looks_like_image(image_bytes):
             snippet = image_bytes[:120].decode("latin-1", "replace")
-            print(
-                f"[zai-image] FAIL model={self._model} download: non-image "
-                f"content_type={content_type!r} head={snippet!r}"
-            )
             raise RuntimeError(
-                f"GLM image download returned non-image content (content_type={content_type!r})"
+                f"GLM image download returned non-image content "
+                f"(content_type={content_type!r} head={snippet!r})"
             )
         return image_bytes
 
