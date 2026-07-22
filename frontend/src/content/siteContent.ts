@@ -127,6 +127,11 @@ export const footerGroups = [
       "/tools/markdown-to-medium-substack-formatter",
       "/tools/headline-analyzer",
       "/tools/quote-card-generator",
+      "/tools/video-script-generator",
+      "/tools/thumbnail-text-generator",
+      "/tools/youtube-description-generator",
+      "/tools/video-length-calculator",
+      "/tools/book-cover-generator",
     ],
   },
   {
