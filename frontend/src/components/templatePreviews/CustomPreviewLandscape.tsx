@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import type { CustomTemplateTheme } from "../../api/client";
 import CustomPreview from "./CustomPreview";
+import ThemedPlaceholder from "./ThemedPlaceholder";
 
 const W = 640;
 const H = 360;
@@ -380,6 +381,12 @@ interface Props {
   showLoaderOnEmptyOrError?: boolean;
   thumbnailFrame?: number;
   thumbnailMode?: boolean;
+  /**
+   * Force a static, zero-Player render (themed name placeholder). Set on mobile
+   * for non-selected grid tiles so the step-2 grid never mounts many live
+   * Remotion Players at once (iOS Safari OOMs and reloads the tab otherwise).
+   */
+  staticThumb?: boolean;
 }
 
 export default function CustomPreviewLandscape({
@@ -399,7 +406,12 @@ export default function CustomPreviewLandscape({
   showLoaderOnEmptyOrError = false,
   thumbnailFrame = 135,
   thumbnailMode = false,
+  staticThumb = false,
 }: Props) {
+  // Static mode: render a themed name placeholder and never mount a Player.
+  if (staticThumb) {
+    return <ThemedPlaceholder name={name} theme={theme} />;
+  }
   // Prefer runtime preview when either generated scene snippets or frontend module graph exists.
   const hasRuntimePreview =
     !!(introCode || (contentCodes && contentCodes.length > 0)) ||

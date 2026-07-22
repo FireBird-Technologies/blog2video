@@ -19,6 +19,7 @@ import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge, PopularTemp
 import CustomPreview from "./templatePreviews/CustomPreview";
 import CustomPreviewLandscape from "./templatePreviews/CustomPreviewLandscape";
 import CraftedTemplatePreviewSmart from "./templatePreviews/CraftedTemplatePreviewSmart";
+import useIsMobileViewport from "../hooks/useIsMobileViewport";
 import CraftYourTemplateCard from "./CraftYourTemplateCard";
 import GetMoreTemplatesModal from "./GetMoreTemplatesModal";
 import DesignerTemplateRequestModal from "./DesignerTemplateRequestModal";
@@ -740,6 +741,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const navigate = useNavigate();
   const isPro = demoMode ? true : user?.plan === "pro" || user?.plan === "standard";
   const isDemo = !!demoMode;
+  // On mobile, crafted/custom grid tiles render a static themed placeholder
+  // instead of a live Remotion Player; only the selected tile plays live. A grid
+  // of live Players exhausts iOS Safari's per-tab memory and reloads the tab.
+  const isMobile = useIsMobileViewport();
 
   // Wizard step
   const [step, setStep] = useState<1 | 2 | 3>(demoMode?.step ?? 1);
@@ -2586,6 +2591,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                   const ct = item.data;
                   const customId = item.id;
                   const isSelected = template === customId;
+                  // Mobile: every grid tile renders a static themed placeholder
+                  // and never mounts a Player — the selected template plays only
+                  // in the full-width "Selected Template" preview above. A grid of
+                  // live Players exhausts iOS Safari's memory and reloads the tab.
+                  const staticThumb = isMobile;
                   return (
                     <div
                       key={customId}
@@ -2604,10 +2614,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                               compileCacheScope={user?.id != null ? String(user.id) : undefined}
                               thumbnailMode
                               showLoaderOnEmptyOrError
+                              staticThumb={staticThumb}
                               key={`${customId}-${step}`}
                             />
                           ) : (
-                            <CustomPreviewLandscape {...({ theme: ct.theme, name: ct.name, introCode: ct.intro_code || undefined, outroCode: ct.outro_code || undefined, contentCodes: ct.content_codes || undefined, contentArchetypeIds: ct.content_archetype_ids || undefined, validLayouts: (ct as any).valid_layouts, frontendFiles: (ct as any).frontend_files, frontendEntryRel: (ct as any).frontend_entry_rel, publicAssetUrls: (ct as any).public_asset_urls, previewImageUrl: ct.preview_image_url, logoUrls: (ct as any).logo_urls, ogImage: (ct as any).og_image, showLoaderOnEmptyOrError: false, thumbnailFrame: 135, thumbnailMode: true } as any)} key={`${customId}-${step}`} />
+                            <CustomPreviewLandscape {...({ theme: ct.theme, name: ct.name, introCode: ct.intro_code || undefined, outroCode: ct.outro_code || undefined, contentCodes: ct.content_codes || undefined, contentArchetypeIds: ct.content_archetype_ids || undefined, validLayouts: (ct as any).valid_layouts, frontendFiles: (ct as any).frontend_files, frontendEntryRel: (ct as any).frontend_entry_rel, publicAssetUrls: (ct as any).public_asset_urls, previewImageUrl: ct.preview_image_url, logoUrls: (ct as any).logo_urls, ogImage: (ct as any).og_image, showLoaderOnEmptyOrError: false, thumbnailFrame: 135, thumbnailMode: true, staticThumb } as any)} key={`${customId}-${step}`} />
                           )}
                         </div>
                         <div className="absolute top-0 left-0.5 z-[5]">
@@ -3336,6 +3347,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                   const ct = item.data;
                   const customId = item.id;
                   const isSelected = tpl === customId;
+                  // Mobile: every grid tile renders a static themed placeholder
+                  // and never mounts a Player — the selected template plays only
+                  // in the full-width "Selected Template" preview above. A grid of
+                  // live Players exhausts iOS Safari's memory and reloads the tab.
+                  const staticThumb = isMobile;
                   return (
                     <div
                       key={customId}
@@ -3354,10 +3370,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                               compileCacheScope={user?.id != null ? String(user.id) : undefined}
                               thumbnailMode
                               showLoaderOnEmptyOrError
+                              staticThumb={staticThumb}
                               key={`${customId}-bulk-${activeIndex}`}
                             />
                           ) : (
-                            <CustomPreviewLandscape {...({ theme: ct.theme, name: ct.name, introCode: ct.intro_code || undefined, outroCode: ct.outro_code || undefined, contentCodes: ct.content_codes || undefined, contentArchetypeIds: ct.content_archetype_ids || undefined, validLayouts: (ct as any).valid_layouts, frontendFiles: (ct as any).frontend_files, frontendEntryRel: (ct as any).frontend_entry_rel, publicAssetUrls: (ct as any).public_asset_urls, previewImageUrl: ct.preview_image_url, logoUrls: (ct as any).logo_urls, ogImage: (ct as any).og_image, showLoaderOnEmptyOrError: false, thumbnailFrame: 135, thumbnailMode: true } as any)} key={`${customId}-bulk-${activeIndex}`} />
+                            <CustomPreviewLandscape {...({ theme: ct.theme, name: ct.name, introCode: ct.intro_code || undefined, outroCode: ct.outro_code || undefined, contentCodes: ct.content_codes || undefined, contentArchetypeIds: ct.content_archetype_ids || undefined, validLayouts: (ct as any).valid_layouts, frontendFiles: (ct as any).frontend_files, frontendEntryRel: (ct as any).frontend_entry_rel, publicAssetUrls: (ct as any).public_asset_urls, previewImageUrl: ct.preview_image_url, logoUrls: (ct as any).logo_urls, ogImage: (ct as any).og_image, showLoaderOnEmptyOrError: false, thumbnailFrame: 135, thumbnailMode: true, staticThumb } as any)} key={`${customId}-bulk-${activeIndex}`} />
                           )}
                         </div>
                         <div className="absolute top-0.5 left-0.5 z-[5]">

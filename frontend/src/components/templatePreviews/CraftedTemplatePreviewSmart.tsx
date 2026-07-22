@@ -40,6 +40,12 @@ interface CraftedTemplatePreviewSmartProps {
   thumbnailMode?: boolean;
   /** Spinner while compiling (use for the large featured card). */
   showLoaderOnEmptyOrError?: boolean;
+  /**
+   * Force a static, zero-Player render (themed name placeholder). Set on mobile
+   * for non-selected grid tiles so the step-2 grid never mounts many live
+   * Remotion Players at once (iOS Safari OOMs and reloads the tab otherwise).
+   */
+  staticThumb?: boolean;
 }
 
 function hasFrontendGraph(item: CraftedTemplateItem): boolean {
@@ -56,6 +62,7 @@ export default function CraftedTemplatePreviewSmart({
   compileCacheScope,
   thumbnailMode = false,
   showLoaderOnEmptyOrError = false,
+  staticThumb = false,
 }: CraftedTemplatePreviewSmartProps) {
   if (hasFrontendGraph(item)) {
     const shared = {
@@ -71,7 +78,7 @@ export default function CraftedTemplatePreviewSmart({
     };
     return thumbnailMode ? (
       <CustomPreviewLandscape
-        {...({ ...shared, showLoaderOnEmptyOrError: false, thumbnailFrame: 135, thumbnailMode: true } as any)}
+        {...({ ...shared, showLoaderOnEmptyOrError: false, thumbnailFrame: 135, thumbnailMode: true, staticThumb } as any)}
       />
     ) : (
       <CustomPreview {...({ ...shared, showLoaderOnEmptyOrError } as any)} />
@@ -87,6 +94,8 @@ export default function CraftedTemplatePreviewSmart({
       name={item.name}
       thumbnailMode={thumbnailMode}
       showLoaderOnEmptyOrError={showLoaderOnEmptyOrError}
+      staticThumb={staticThumb}
+      theme={resolveTheme(item)}
     />
   );
 }

@@ -384,8 +384,13 @@ export default function CoverflowCarousel({ templates, initialIndex = 0, orienta
                   {isVisible && (
                     <PreviewErrorBoundary>
                       <CardPreview
-                        key={isCenter ? `live-${orientation}-${activeIndex}` : `poster-${orientation}-${tpl.id}`}
-                        thumbnailMode={!isCenter}
+                        key={isCenter && !portrait ? `live-${orientation}-${activeIndex}` : `poster-${orientation}-${tpl.id}`}
+                        // On mobile every card (center included) renders its static
+                        // poster — a single live Remotion Player plus the
+                        // orientation-remount spike still exhausts iOS Safari's
+                        // per-tab memory and reloads the tab. Live preview stays
+                        // available via the fullscreen modal on tap.
+                        thumbnailMode={!isCenter || portrait}
                       />
                     </PreviewErrorBoundary>
                   )}
