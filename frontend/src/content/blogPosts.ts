@@ -22,6 +22,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "There is exactly one official Blog2Video, and it lives at blog2video.app. A growing list of look-alike sites and accounts have copied the name — here is the full list, and how to tell you are on the real one.",
     category: "Announcement",
+    heroImage: "/blog/blog-cover-blog2video-official-site-vs-copycats.png",
+    heroImageAlt:
+      "blog2video.app official site with shield checkmark versus crossed-out copycat clone websites.",
     publishedAt: "2026-07-21",
     readTime: "3 min read",
     heroEyebrow: "Announcement",
@@ -15944,6 +15947,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "A blog post is not a video script. Here's how to turn an article into a scene-by-scene script with a hook, ordered beats, and a call to action — plus a free generator that does the first draft for you.",
     category: "How-to",
+    heroImage: "/blog/blog-cover-how-to-write-a-video-script-from-a-blog-post.png",
+    heroImageAlt:
+      "blog2video.app blog post converting into a scene-by-scene video script with hook, beats, and call to action.",
     publishedAt: "2026-07-22",
     readTime: "5 min read",
     heroEyebrow: "How-to",
@@ -16046,6 +16052,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Thumbnail text is not your video title — it's the 2-5 word punch that earns the click. Here's how to write high-CTR thumbnail overlays, plus a free generator that gives you a batch of options.",
     category: "How-to",
+    heroImage: "/blog/blog-cover-how-to-write-thumbnail-text-that-gets-clicks.png",
+    heroImageAlt:
+      "blog2video.app YouTube thumbnail with bold overlay text designed for high click-through rate.",
     publishedAt: "2026-07-22",
     readTime: "4 min read",
     heroEyebrow: "How-to",
@@ -16141,6 +16150,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "YouTube reads your first two lines the hardest. Here's how to write a description that front-loads your keyword, earns the click, and helps the video get recommended — plus a free generator for the description and tags.",
     category: "How-to",
+    heroImage: "/blog/blog-cover-how-to-write-an-seo-youtube-description.png",
+    heroImageAlt:
+      "blog2video.app SEO YouTube description with keyword-rich first lines and tags highlighted.",
     publishedAt: "2026-07-22",
     readTime: "5 min read",
     heroEyebrow: "How-to",
@@ -16236,6 +16248,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Spoken-word pacing is remarkably consistent, so you can estimate a video's runtime from its word count before you record. Here's the math — and a free calculator that does it across slow, normal, and fast narration.",
     category: "How-to",
+    heroImage: "/blog/blog-cover-how-long-will-my-video-be-estimate-runtime-from-a-script.png",
+    heroImageAlt:
+      "blog2video.app script word count converting to estimated video runtime at slow, normal, and fast pacing.",
     publishedAt: "2026-07-22",
     readTime: "4 min read",
     heroEyebrow: "How-to",
@@ -16330,6 +16345,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Describe your book in a paragraph or two and get a designed front cover in classic 2:3 proportions — exportable as PNG, JPEG, or a print-ready PDF. Here's how to write the description and use the free generator.",
     category: "How-to",
+    heroImage: "/blog/blog-cover-how-to-make-an-ai-book-cover-from-a-description.png",
+    heroImageAlt:
+      "blog2video.app book description transforming into a designed 2:3 book cover exportable as PNG or PDF.",
     publishedAt: "2026-07-22",
     readTime: "5 min read",
     heroEyebrow: "How-to",
