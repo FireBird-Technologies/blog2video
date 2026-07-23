@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { TEMPLATE_PREVIEWS, TEMPLATE_PREVIEWS_PORTRAIT } from "../components/templatePreviewRegistry";
 import { CaptureContext } from "../components/templatePreviews/PosterOrPlayer";
 import CustomPreviewLandscape from "../components/templatePreviews/CustomPreviewLandscape";
+import CraftedTemplatePreview from "../components/templatePreviews/CraftedTemplatePreview";
 import { BACKEND_URL } from "../api/client";
 
 /**
@@ -141,9 +142,56 @@ function BuiltinCapture({ templateId, orientation }: { templateId: string; orien
   );
 }
 
+/** Crafted-template capture from a LOCAL bundle: fetch the raw preview_file TSX
+ *  source from `srcUrl` (served by the capture script) and render it via the
+ *  same compile path the app uses, so `scripts/capture-crafted-thumbnails.ts`
+ *  can screenshot a bundle's real preview before it's uploaded to R2. */
+function CraftedCapture({ srcUrl, name }: { srcUrl: string; name: string }) {
+  const [source, setSource] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(srcUrl)
+      .then((r) => {
+        if (!r.ok) throw new Error(`preview source ${r.status}`);
+        return r.text();
+      })
+      .then((t) => {
+        if (!cancelled) setSource(t);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(String(e));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [srcUrl]);
+
+  useCaptureReady(source ? srcUrl : null);
+
+  if (error) return <div style={{ padding: 24, color: "#fff" }}>Capture error: {error}</div>;
+  if (!source) return <div style={{ padding: 24, color: "#888" }}>Loading…</div>;
+
+  return (
+    <div id="capture-root" style={{ width: 1920, height: 1080, overflow: "hidden", position: "relative", background: "#000" }}>
+      <CaptureContext.Provider value={true}>
+        <CraftedTemplatePreview
+          templateId={`local-${name}`}
+          previewSource={source}
+          name={name}
+          thumbnailMode
+        />
+      </CaptureContext.Provider>
+    </div>
+  );
+}
+
 export default function CapturePage() {
   const [params] = useSearchParams();
   const customId = params.get("custom");
+  const craftedSrc = params.get("craftedSrc");
+  const craftedName = params.get("name") ?? "Template";
   const secret = params.get("secret") ?? "";
   const templateId = params.get("template") ?? "";
   const orientation = params.get("orientation") === "portrait" ? "portrait" : "landscape";
@@ -156,6 +204,8 @@ export default function CapturePage() {
       <style>{HIDE_CHROME_CSS}</style>
       {customId ? (
         <CustomCapture customId={customId} secret={secret} />
+      ) : craftedSrc ? (
+        <CraftedCapture srcUrl={craftedSrc} name={craftedName} />
       ) : (
         <BuiltinCapture templateId={templateId} orientation={orientation} />
       )}
