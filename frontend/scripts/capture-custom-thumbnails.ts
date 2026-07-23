@@ -69,6 +69,17 @@ function resolveChromePath(): string | undefined {
   return process.env.PUPPETEER_EXECUTABLE_PATH || undefined;
 }
 
+/** Launch Chrome for capture. Called again mid-run if the browser dies, so one
+ *  crash can't take down the rest of the batch. */
+async function launchBrowser() {
+  const executablePath = resolveChromePath();
+  return puppeteer.launch({
+    ...(executablePath ? { executablePath } : { channel: "chrome" }),
+    headless: true,
+    args: ["--no-sandbox", "--force-color-profile=srgb", "--hide-scrollbars", "--lang=en-US"],
+  });
+}
+
 async function main() {
   const backend = requireEnv("BACKEND_BASE");
   const secret = requireEnv("CAPTURE_SECRET");
@@ -95,24 +106,31 @@ async function main() {
     console.log(`Templates to snapshot: ${targets.length}`);
     if (targets.length === 0) return;
 
-    const executablePath = resolveChromePath();
-    browser = await puppeteer.launch({
-      ...(executablePath ? { executablePath } : { channel: "chrome" }),
-      headless: true,
-      args: ["--no-sandbox", "--force-color-profile=srgb", "--hide-scrollbars", "--lang=en-US"],
-    });
-
-    const page = await browser.newPage();
-    await page.setViewport({ width: WIDTH, height: HEIGHT, deviceScaleFactor: 1 });
+    let activeBrowser = await launchBrowser();
+    browser = activeBrowser;
 
     let ok = 0;
     let failed = 0;
     for (const t of targets) {
+      // A fresh page per template: a crashed/detached page would otherwise poison
+      // every remaining template in the batch. Recreate the browser if it died.
+      let page: Awaited<ReturnType<typeof activeBrowser.newPage>> | undefined;
       try {
+        if (!activeBrowser.connected) {
+          activeBrowser = await launchBrowser();
+          browser = activeBrowser;
+        }
+        page = await activeBrowser.newPage();
+        await page.setViewport({ width: WIDTH, height: HEIGHT, deviceScaleFactor: 1 });
+
         const url = `${frontendBase}/_capture?custom=${t.id}&secret=${encodeURIComponent(secret)}`;
-        await page.goto(url, { waitUntil: "networkidle0", timeout: 60_000 });
+        // DOM only — NOT networkidle0: analytics/support widgets on a deployed
+        // frontend may never go idle. `__captureReady` is the real signal.
+        await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60_000 });
         await page.evaluate(() => (document as Document).fonts?.ready);
-        await page.waitForFunction("window.__captureReady === true", { timeout: 25_000 });
+        // Generous: the page compiles the template's scenes and seeks to the
+        // thumbnail frame before signalling ready.
+        await page.waitForFunction("window.__captureReady === true", { timeout: 120_000 });
 
         const el = await page.$("#capture-root");
         if (!el) throw new Error("#capture-root not found");
@@ -131,6 +149,8 @@ async function main() {
       } catch (err) {
         failed++;
         console.warn(`  ✗ ${t.id}: ${(err as Error).message}`);
+      } finally {
+        await page?.close().catch(() => undefined);
       }
     }
     console.log(`\nDone. ${ok} ok, ${failed} failed.`);
