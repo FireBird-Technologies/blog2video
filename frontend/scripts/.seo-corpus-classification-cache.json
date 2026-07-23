@@ -2986,5 +2986,25 @@
   "blog:blog2video-official-site-vs-copycats@79abee6fb2e7cd71@20aaebd1": {
     "keep": false,
     "reason": "Lists unaffiliated copycat sites using the name."
+  },
+  "blog:how-to-write-thumbnail-text-that-gets-clicks@ab2e0b72ed49f3c3@20aaebd1": {
+    "keep": true,
+    "reason": "Article about thumbnail text strategy for Blog2Video videos"
+  },
+  "blog:how-long-will-my-video-be-estimate-runtime-from-a-script@23fcbf8b72a96f4f@20aaebd1": {
+    "keep": true,
+    "reason": "Describes Blog2Video's video creation workflow and pacing."
+  },
+  "blog:how-to-make-an-ai-book-cover-from-a-description@72761b1f17a4c0da@20aaebd1": {
+    "keep": false,
+    "reason": "Describes AI book cover generator, not Blog2Video features"
+  },
+  "blog:how-to-write-an-seo-youtube-description@ee80f53d5fe99b43@20aaebd1": {
+    "keep": false,
+    "reason": "Describes YouTube SEO, not Blog2Video features."
+  },
+  "blog:how-to-write-a-video-script-from-a-blog-post@b6c2c7d12061d03e@20aaebd1": {
+    "keep": true,
+    "reason": "Describes Blog2Video's script generation workflow from blog posts"
   }
 }
