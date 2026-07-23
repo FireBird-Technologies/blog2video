@@ -2,12 +2,14 @@ import argparse
 import hashlib
 import json
 import shutil
+import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent
+FRONTEND_DIR = REPO_ROOT / "frontend"
 BACKEND_DIR = REPO_ROOT / "backend"
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
@@ -186,6 +188,31 @@ def gather_files_map(bundle_dir: Path) -> dict[str, dict[str, str | int]]:
     return out
 
 
+def capture_preview_image(bundle_dir: Path) -> bool:
+    """Render the bundle's preview_file to `assets/preview.jpg` (+ manifest entry).
+
+    Shells out to the frontend's puppeteer capture
+    (`npm run thumbs:crafted -- <bundle-dir>`), which renders the bundle's real
+    marquee preview in headless Chrome and writes the image into the bundle folder
+    before it is uploaded. Non-fatal: a failure logs a warning and returns False
+    so bundling still proceeds (the tile falls back to the themed placeholder).
+    """
+    if not FRONTEND_DIR.is_dir():
+        print(f"[preview] frontend dir not found ({FRONTEND_DIR}); skipping image capture")
+        return False
+    cmd = ["npm", "run", "thumbs:crafted", "--", str(bundle_dir)]
+    print(f"[preview] capturing preview image: {' '.join(cmd)}")
+    try:
+        subprocess.run(cmd, cwd=str(FRONTEND_DIR), check=True, timeout=240)
+        return (bundle_dir / "assets" / "preview.jpg").is_file()
+    except subprocess.CalledProcessError as e:
+        print(f"[preview] capture failed (rc={e.returncode}); continuing without image")
+        return False
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
+        print(f"[preview] capture unavailable ({e}); continuing without image")
+        return False
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Bundle a built-in template into crafted package and upload to R2.")
     parser.add_argument("--template-id", required=True, help="Built-in template id (for example: nightfall, default).")
@@ -232,6 +259,14 @@ def parse_args() -> argparse.Namespace:
             "Copy only template-scoped public assets from "
             "frontend/public/<root>/<template-id> and remotion-video/public/<root>/<template-id> "
             "(default root: templates)."
+        ),
+    )
+    parser.add_argument(
+        "--no-capture-preview",
+        action="store_true",
+        help=(
+            "Skip auto-generating assets/preview.jpg from the bundle's preview file "
+            "(default: capture it via the frontend puppeteer script before upload)."
         ),
     )
     return parser.parse_args()
@@ -529,6 +564,15 @@ def main() -> None:
     print(f"local_bundle={out_root}")
     print(f"public_template_id={public_template_id}")
     print(f"template_key={template_key}")
+
+    # Auto-generate the static preview image from the bundle's preview file and
+    # write it into the bundle (+ manifest) BEFORE upload, so a single bundle run
+    # ships assets/preview.jpg. Non-fatal if it can't run.
+    if not args.no_capture_preview:
+        if capture_preview_image(out_root):
+            print("preview_image_captured=true")
+        else:
+            print("preview_image_captured=false")
 
     if not args.upload:
         if args.prune_source_after_bundle:
