@@ -389,6 +389,10 @@ def delete_account(
         elif (user.custom_templates_created or 0) > FREE_TIER_CUSTOM_TEMPLATES:
             user.custom_templates_created = FREE_TIER_CUSTOM_TEMPLATES
         user.custom_template_bonus = 0
+        # Normalize the /tools counters by the same rule: a paid user (or a free user
+        # already at/over the cap) comes back at the FREE limit so reactivation cannot
+        # refill quota, while a free user below it keeps their partial usage.
+        user.cap_tool_usage_to_free(was_paid)
 
         db.commit()
         return {"detail": "Account deleted successfully"}

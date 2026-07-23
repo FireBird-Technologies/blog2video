@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import StockVisualizer from "./StockVisualizer";
 import { Link } from "react-router-dom";
 import type { CredentialResponse } from "@react-oauth/google";
@@ -15,10 +15,12 @@ import { useAuth } from "../../hooks/useAuth";
 import GoogleAuthButton from "../public/GoogleAuthButton";
 import { googleLogin } from "../../api/client";
 import {
+  fetchToolQuotas,
   generateBookCover,
   generateThumbnailText,
   generateVideoScript,
   generateYouTubeDescription,
+  type ToolKey,
 } from "../../api/freeTools";
 
 type ToolWidgetProps = {
@@ -1357,6 +1359,62 @@ function ToolGate({
   );
 }
 
+// ─── Shared generation-quota state + UI ──────────────────────────────────────
+
+/** Tracks a tool's remaining generations. Seeded from the server on mount so the
+ *  count and the disabled state are correct before the first generation, then
+ *  updated from each generation response. */
+function useToolQuota(tool: ToolKey) {
+  const [quota, setQuota] = useState<{ used: number; limit: number } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetchToolQuotas()
+      .then((res) => {
+        const q = res.data?.quotas?.[tool];
+        if (!cancelled && q) setQuota({ used: q.used, limit: q.limit });
+      })
+      // Non-fatal: the generation call still enforces the limit server-side.
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [tool]);
+  return [quota, setQuota] as const;
+}
+
+// ─── Shared generation-quota UI ──────────────────────────────────────────────
+
+/** Remaining-generations line shown under a tool's generate button.
+ *  Every plan has a finite allowance: FREE allowances are lifetime, paid ones
+ *  refresh each billing period — so the upgrade prompt only shows for FREE. */
+function ToolQuotaLine({
+  quota,
+  noun,
+}: {
+  quota: { used: number; limit: number } | null;
+  noun: string;
+}) {
+  const { user } = useAuth();
+  if (!quota) return null;
+  const left = Math.max(quota.limit - quota.used, 0);
+  const exhausted = left <= 0;
+  const isFree = user?.plan !== "pro" && user?.plan !== "standard";
+  return (
+    <p className="mt-3 text-xs font-medium text-gray-500">
+      {left} of {quota.limit} {noun} left
+      {exhausted && isFree ? (
+        <>
+          {" · "}
+          <Link to="/pricing" className="text-purple-600 hover:text-purple-700">
+            Upgrade for more
+          </Link>
+        </>
+      ) : null}
+      {exhausted && !isFree ? " · resets at your next renewal" : null}
+    </p>
+  );
+}
+
 // ─── Video Script Generator ──────────────────────────────────────────────────
 
 const SCRIPT_TONES = ["explainer", "promotional", "storytelling", "casual"] as const;
@@ -1369,8 +1427,10 @@ function VideoScriptGeneratorInner() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ title: string; script: string } | null>(null);
+  const [quota, setQuota] = useToolQuota("video_script");
 
-  const canSubmit = topic.trim().length >= 3 && !loading;
+  const exhausted = quota != null && quota.used >= quota.limit;
+  const canSubmit = topic.trim().length >= 3 && !loading && !exhausted;
 
   const handleGenerate = async () => {
     if (!canSubmit) return;
@@ -1379,6 +1439,7 @@ function VideoScriptGeneratorInner() {
     try {
       const res = await generateVideoScript(topic.trim(), tone, length);
       setResult({ title: res.data.video_title, script: res.data.script_markdown });
+      setQuota({ used: res.data.used, limit: res.data.limit });
     } catch (err) {
       setError(errorDetail(err, "Generation failed. Please try again in a moment."));
     } finally {
@@ -1443,8 +1504,9 @@ function VideoScriptGeneratorInner() {
           disabled={!canSubmit}
           className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-purple-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {loading ? "Generating…" : "Generate script"}
+          {loading ? "Generating…" : exhausted ? "Generations used up" : "Generate script"}
         </button>
+        <ToolQuotaLine quota={quota} noun="scripts" />
         {error ? <p className="mt-3 text-sm text-red-500">{error}</p> : null}
       </div>
 
@@ -1505,8 +1567,10 @@ function ThumbnailTextGeneratorInner() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [options, setOptions] = useState<string[]>([]);
+  const [quota, setQuota] = useToolQuota("thumbnail_text");
 
-  const canSubmit = topic.trim().length >= 3 && !loading;
+  const exhausted = quota != null && quota.used >= quota.limit;
+  const canSubmit = topic.trim().length >= 3 && !loading && !exhausted;
 
   const handleGenerate = async () => {
     if (!canSubmit) return;
@@ -1515,6 +1579,7 @@ function ThumbnailTextGeneratorInner() {
     try {
       const res = await generateThumbnailText(topic.trim());
       setOptions(res.data.options);
+      setQuota({ used: res.data.used, limit: res.data.limit });
     } catch (err) {
       setError(errorDetail(err, "Generation failed. Please try again in a moment."));
     } finally {
@@ -1539,8 +1604,9 @@ function ThumbnailTextGeneratorInner() {
           disabled={!canSubmit}
           className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-purple-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {loading ? "Generating…" : "Generate thumbnail text"}
+          {loading ? "Generating…" : exhausted ? "Generations used up" : "Generate thumbnail text"}
         </button>
+        <ToolQuotaLine quota={quota} noun="generations" />
         {error ? <p className="mt-3 text-sm text-red-500">{error}</p> : null}
         <p className="mt-4 text-xs leading-relaxed text-gray-400">
           Thumbnail text is the short overlay on the image — not the video title. Keep the winner
@@ -1592,8 +1658,10 @@ function YouTubeDescriptionGeneratorInner() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ description: string; tags: string[] } | null>(null);
+  const [quota, setQuota] = useToolQuota("youtube_description");
 
-  const canSubmit = topic.trim().length >= 3 && !loading;
+  const exhausted = quota != null && quota.used >= quota.limit;
+  const canSubmit = topic.trim().length >= 3 && !loading && !exhausted;
 
   const handleGenerate = async () => {
     if (!canSubmit) return;
@@ -1602,6 +1670,7 @@ function YouTubeDescriptionGeneratorInner() {
     try {
       const res = await generateYouTubeDescription(topic.trim());
       setResult({ description: res.data.description, tags: res.data.tags });
+      setQuota({ used: res.data.used, limit: res.data.limit });
     } catch (err) {
       setError(errorDetail(err, "Generation failed. Please try again in a moment."));
     } finally {
@@ -1626,8 +1695,9 @@ function YouTubeDescriptionGeneratorInner() {
           disabled={!canSubmit}
           className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-purple-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {loading ? "Generating…" : "Generate description"}
+          {loading ? "Generating…" : exhausted ? "Generations used up" : "Generate description"}
         </button>
+        <ToolQuotaLine quota={quota} noun="descriptions" />
         {error ? <p className="mt-3 text-sm text-red-500">{error}</p> : null}
       </div>
 
@@ -1804,7 +1874,7 @@ function BookCoverGeneratorInner() {
   const [exporting, setExporting] = useState<null | "png" | "jpeg" | "pdf">(null);
   const [error, setError] = useState<string | null>(null);
   const [pngDataUrl, setPngDataUrl] = useState<string | null>(null);
-  const [quota, setQuota] = useState<{ used: number; limit: number | null } | null>(null);
+  const [quota, setQuota] = useToolQuota("book_cover");
 
   const wordCount = useMemo(() => {
     const trimmed = description.trim();
@@ -1813,7 +1883,7 @@ function BookCoverGeneratorInner() {
   }, [description]);
 
   const exhausted =
-    quota != null && quota.limit != null && quota.used >= quota.limit;
+    quota != null && quota.used >= quota.limit;
   const canSubmit = description.trim().length >= 20 && !loading && !exhausted;
 
   const handleGenerate = async () => {
@@ -1823,7 +1893,10 @@ function BookCoverGeneratorInner() {
     try {
       const res = await generateBookCover(description.trim());
       setPngDataUrl(`data:image/png;base64,${res.data.image_base64}`);
-      setQuota({ used: res.data.covers_used, limit: res.data.covers_limit });
+      setQuota({
+        used: res.data.covers_used,
+        limit: res.data.covers_limit ?? quota?.limit ?? 0,
+      });
     } catch (err) {
       setError(errorDetail(err, "Generation failed. Please try again in a moment."));
     } finally {
@@ -1888,24 +1961,15 @@ function BookCoverGeneratorInner() {
           {loading
             ? "Generating cover…"
             : exhausted
-              ? "Free covers used up"
+              ? "Covers used up"
               : pngDataUrl
                 ? "Regenerate cover"
                 : "Generate book cover"}
         </button>
-        {quota != null && quota.limit != null ? (
-          <p className="mt-3 text-xs font-medium text-gray-500">
-            {Math.max(quota.limit - quota.used, 0)} of {quota.limit} free covers left
-            {exhausted ? (
-              <>
-                {" · "}
-                <Link to="/pricing" className="text-purple-600 hover:text-purple-700">
-                  Upgrade for unlimited
-                </Link>
-              </>
-            ) : null}
-          </p>
-        ) : null}
+        <ToolQuotaLine
+          quota={quota}
+          noun="covers"
+        />
         {error ? <p className="mt-3 text-sm text-red-500">{error}</p> : null}
         <p className="mt-4 text-xs leading-relaxed text-gray-400">
           Generation can take up to a minute. The cover is a design starting point — replace any AI
