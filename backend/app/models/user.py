@@ -79,6 +79,10 @@ class User(Base):
 
     free_templates_downloaded: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
+    # Lifetime count of free AI book covers generated via /tools/book-cover-generator.
+    # Capped by FREE_BOOK_COVER_LIMIT; never decrements.
+    free_book_covers_used: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+
     # Remembered narration emotion/tone default, auto-selected in the create form next time.
     preferred_voice_emotion: Mapped[str | None] = mapped_column(String(64), nullable=True)
 

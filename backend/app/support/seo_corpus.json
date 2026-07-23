@@ -3244,6 +3244,91 @@
     "body": "Why finance newsletters are switching to Blog2Video.\nGeneric AI video tools weren't built for finance content. Blog2Video was — branded templates, built-in data visualization, and one piece of content that works everywhere your audience is.\nGeneric AI video tools make finance content look like a TikTok. Blog2Video uses branded templates and built-in data visualization to turn newsletters into video the way finance audiences expect.\nGeneric AI video tools weren't built for finance content\nMost AI video generators are tuned for one outcome: maximum watch time on social feeds. That means fast cuts, flashy transitions, and an entertainment-first pace borrowed from TikTok.\nThat's the wrong fit for finance content. A newsletter audience reading about earnings, rate cycles, or a research thesis isn't looking for a hook every two seconds — they're expecting serious, data-driven analysis presented clearly.\nBranded templates that match the tone of your publication\nBlog2Video is different. Templates are built to match the tone and identity of your publication, not to imitate short-form entertainment.\nNo gimmicks. No fluff. Just your analysis, clearly presented — the same editorial register your readers already trust from your written newsletter.\nData visualization, built in\nFinance content lives or dies on its numbers. Data visualization is built into Blog2Video, so the charts and figures in your spreadsheets actually show up on screen the way finance content deserves — not as a screenshot, but as a designed visual.\nOne branded video, every format you need\nBecause the output is fully branded, the same video works across multiple formats: client presentations, live trading session recaps, and social media.\nOne piece of content, everywhere you need it — instead of producing separate assets for each channel.\nWhy don't generic AI video tools work well for finance content?\nGeneric tools are tuned for short-form entertainment — fast cuts, flashy transitions, and a pace built for social scrolling. Finance audiences expect serious, data-driven analysis, not an entertainment-first format.\nHow does Blog2Video handle the charts and numbers in my newsletter?\nData visualization is built into Blog2Video, so the charts and figures from your spreadsheets are rendered on screen as designed visuals rather than static screenshots.\nCan the same video work for client presentations and social media?\nYes. Because the output is fully branded, the same video works across client presentations, live trading session recaps, and social media — one piece of content distributed everywhere you need it.\nDo I need to redesign my newsletter content for video?\nNo. Branded templates match the tone and identity of your existing publication, so your analysis is presented clearly without gimmicks or fluff added on top."
   },
   {
+    "id": "blog:how-to-write-a-video-script-from-a-blog-post",
+    "source": "blog",
+    "slug": "how-to-write-a-video-script-from-a-blog-post",
+    "title": "How to Write a Video Script from a Blog Post (Free Generator)",
+    "description": "A blog post is not a video script. Here's how to turn an article into a scene-by-scene script with a hook, ordered beats, and a call to action — plus a free generator that does the first draft for you.",
+    "primary_keyword": "video script generator",
+    "keyword_variant": "how to write a video script from a blog post",
+    "related_paths": [
+      "/tools/video-script-generator",
+      "/blog-to-video",
+      "/tools/video-length-calculator",
+      "/blog-to-youtube-video"
+    ],
+    "route": "/blog/how-to-write-a-video-script-from-a-blog-post",
+    "headings": [
+      "Why you can't just read your blog post aloud",
+      "The anatomy of a short video script",
+      "Turn your article into beats",
+      "Let the free generator do the first draft",
+      "From script to finished video"
+    ],
+    "faq_questions": [
+      "Is the video script generator free?",
+      "How long should a video script be?",
+      "Can I write a script from an existing blog post?"
+    ],
+    "body": "How to write a video script from a blog post\nA blog post is not a video script. Here's how to turn an article into a scene-by-scene script with a hook, ordered beats, and a call to action — plus a free generator that does the first draft for you.\nA blog post is not a video script. Here's how to turn an article into a scene-by-scene script with a hook, ordered beats, and a call to action — plus a free generator that does the first draft for you.\nWhy you can't just read your blog post aloud\nWriting is built for the eye; video is built for the ear. A blog post can open with a slow, contextual paragraph because a reader can skim ahead. A video can't — you have about three seconds before someone scrolls past, so the first line has to earn attention immediately.\nThe other difference is structure. An article flows as continuous prose. A video is a sequence of scenes, each with something on screen and something spoken. To go from one to the other, you're not editing sentences — you're re-cutting the whole thing into beats.\nThe anatomy of a short video script\nAlmost every effective short follows the same shape, regardless of topic:\nHook (scene 1): a punchy opening line that creates curiosity or states a bold promise. No throat-clearing, no \"in this video.\"\nBeats (middle scenes): the key ideas from your post, in a logical order, one idea per scene.\nPayoff and CTA (final scene): the takeaway, then a clear next step appropriate to the platform.\nTurn your article into beats\nRead your post and pull out the three to nine ideas that actually carry it. Each becomes one scene. Drop the transitional prose, the caveats, and the SEO padding — video has no room for them.\nFor each beat, write two things: a short on-screen label (what the viewer sees) and one or two spoken sentences (what you'll read aloud). Keep the spoken lines short and conversational — write for the ear, not the page.\nLet the free generator do the first draft\nYou don't have to start from a blank page. Our free Video Script Generator takes a topic, a blog URL, or a few notes and returns a full scene-by-scene script — a hook, ordered beats with on-screen text and voiceover, and a closing call to action. Pick a tone (explainer, promotional, storytelling, or casual) and a length, and edit from there.\nTreat the output as a strong first draft: tighten the hook, personalize any specifics, and adjust the CTA to match where the video will live.\nFrom script to finished video\nOnce the script reads well out loud, the fastest path to a finished video is to skip manual editing entirely. Paste the same article into Blog2Video and it generates a narrated video from it — script, scenes, voiceover, and visuals — so the script you just shaped becomes a real video in minutes.\nIs the video script generator free?\nYes. The Video Script Generator is free to use with a Blog2Video account. Paste a topic, blog URL, or notes and it returns a scene-by-scene script you can edit and record.\nHow long should a video script be?\nMatch the platform. A 60-second Short is roughly 130-160 spoken words (4-5 scenes); a long-form YouTube explainer can run 12-15 scenes. The generator lets you pick short, medium, or long.\nCan I write a script from an existing blog post?\nYes — that's the ideal input. Paste the topic or the article URL and the generator drafts a spoken, scene-by-scene version of that content, which is the natural first step before turning the post into a narrated video."
+  },
+  {
+    "id": "blog:how-to-write-thumbnail-text-that-gets-clicks",
+    "source": "blog",
+    "slug": "how-to-write-thumbnail-text-that-gets-clicks",
+    "title": "How to Write Thumbnail Text That Gets Clicks (Free Generator)",
+    "description": "Thumbnail text is not your video title — it's the 2-5 word punch that earns the click. Here's how to write high-CTR thumbnail overlays, plus a free generator that gives you a batch of options.",
+    "primary_keyword": "thumbnail text generator",
+    "keyword_variant": "youtube thumbnail text ideas",
+    "related_paths": [
+      "/tools/thumbnail-text-generator",
+      "/tools/headline-analyzer",
+      "/blog-to-youtube-video",
+      "/tools/youtube-description-generator"
+    ],
+    "route": "/blog/how-to-write-thumbnail-text-that-gets-clicks",
+    "headings": [
+      "Thumbnail text is a different job than the title",
+      "The angles that work",
+      "Rules for text that reads at a glance",
+      "Generate a batch, then test"
+    ],
+    "faq_questions": [
+      "What is thumbnail text?",
+      "How many words should thumbnail text be?",
+      "Is the thumbnail text generator free?"
+    ],
+    "body": "How to write thumbnail text that gets clicks\nThumbnail text is not your video title — it's the 2-5 word punch that earns the click. Here's how to write high-CTR thumbnail overlays, plus a free generator that gives you a batch of options.\nThumbnail text is not your video title — it's the 2-5 word punch that earns the click. Here's how to write high-CTR thumbnail overlays, plus a free generator that gives you a batch of options.\nThumbnail text is a different job than the title\nThe title is the full descriptive line next to your video. Thumbnail text is the short overlay printed on the image itself — usually two to five words, designed to do exactly one thing: stop the scroll and create enough curiosity to earn the click.\nBecause it competes for a fraction of a second of attention on a small mobile image, it has to read instantly. Clever loses to clear. A viewer should decode it without effort.\nThe angles that work\nStrong thumbnail text usually falls into one of a few reliable patterns. Rotate through them rather than defaulting to the same one every time:\nCuriosity gap: hint at an answer without giving it (\"It backfired\").\nBold claim: a confident, slightly contrarian statement (\"Stop doing this\").\nNumber: a specific, scannable figure (\"$0 to $10k\").\nContrast or warning: tension the viewer wants resolved (\"Before you post\").\nRules for text that reads at a glance\nKeep the winner to five words or fewer — shorter is almost always better. Use high-contrast type, keep the words out of the bottom-right corner where the duration badge sits, and pair the overlay with a clear, uncluttered image.\nDon't repeat the title verbatim. The thumbnail and title should work together: one creates the curiosity, the other confirms the topic.\nGenerate a batch, then test\nThe fastest way to find a winner is to look at several options side by side. Our free Thumbnail Text Generator takes your video topic or title and returns up to eight short, high-CTR overlays across curiosity, bold-claim, number, and benefit angles.\nShortlist two or three, put them on your thumbnail, and let click-through rate decide — the best creators treat thumbnail text as something they iterate on, not something they get right on the first try.\nWhat is thumbnail text?\nIt's the short text overlay printed on a video thumbnail image — usually 2-5 words — meant to create curiosity and earn the click. It's separate from the video title.\nHow many words should thumbnail text be?\nFive words or fewer. Shorter text reads instantly on a small mobile thumbnail, which is where most impressions happen.\nIs the thumbnail text generator free?\nYes. Sign in with a free Blog2Video account and the generator returns up to eight distinct thumbnail overlay options across several proven angles."
+  },
+  {
+    "id": "blog:how-long-will-my-video-be-estimate-runtime-from-a-script",
+    "source": "blog",
+    "slug": "how-long-will-my-video-be-estimate-runtime-from-a-script",
+    "title": "How Long Will My Video Be? Estimate Runtime from a Script",
+    "description": "Spoken-word pacing is remarkably consistent, so you can estimate a video's runtime from its word count before you record. Here's the math — and a free calculator that does it across slow, normal, and fast narration.",
+    "primary_keyword": "video length calculator",
+    "keyword_variant": "estimate video length from word count",
+    "related_paths": [
+      "/tools/video-length-calculator",
+      "/tools/video-script-generator",
+      "/blog-to-shorts",
+      "/tools/content-repurposing-calculator"
+    ],
+    "route": "/blog/how-long-will-my-video-be-estimate-runtime-from-a-script",
+    "headings": [
+      "Speaking speed is more predictable than you'd think",
+      "The quick math",
+      "Why your real video runs longer",
+      "Use the free calculator"
+    ],
+    "faq_questions": [
+      "How many words is a one-minute video?",
+      "What narration speed should I assume?",
+      "Why is my finished video longer than the estimate?"
+    ],
+    "body": "How long will my video be? Estimate runtime from a script\nSpoken-word pacing is remarkably consistent, so you can estimate a video's runtime from its word count before you record. Here's the math — and a free calculator that does it across slow, normal, and fast narration.\nSpoken-word pacing is remarkably consistent, so you can estimate a video's runtime from its word count before you record. Here's the math — and a free calculator that does it across slow, normal, and fast narration.\nSpeaking speed is more predictable than you'd think\nMost narration lands between roughly 120 and 160 words per minute. Slow, deliberate delivery sits near the bottom of that range; energetic, high-tempo editing sits near the top. Around 140 words per minute is a safe default for most explainer and talking-head videos.\nBecause the range is so consistent, you can turn a word count into a runtime estimate before recording a single second — which is exactly when the estimate is most useful.\nThe quick math\nRuntime in minutes is roughly your word count divided by your words-per-minute. So a 700-word script at 140 wpm is about five minutes of narration. At 120 wpm it stretches to nearly six; at 160 wpm it compresses to under four and a half.\nWorking backward is even more useful. Targeting a 60-second Short? Plan for roughly 130-160 spoken words. Targeting a 10-minute explainer? You need somewhere around 1,400 words of script.\nWhy your real video runs longer\nThe estimate counts spoken words only. Real videos add time on top: pauses, music intros, on-screen text beats, transitions, and B-roll all stretch the runtime. Leave a buffer when you're planning to a hard length.\nAdd a few seconds per scene for on-screen text and transitions.\nAccount for a music intro or outro if you use one.\nTrim to length in the script, not in the edit — it's far faster.\nUse the free calculator\nRather than doing the arithmetic by hand, paste your script into our free Video Length Calculator. It counts the words and shows the estimated runtime at slow, normal, and fast narration speeds, so you can trim or expand to your target before you record.\nNeed a script to measure in the first place? Generate one with the free Video Script Generator, then paste it straight into the calculator.\nHow many words is a one-minute video?\nRoughly 130-160 spoken words at a normal-to-fast narration pace. For a calmer delivery, plan closer to 120 words per minute.\nWhat narration speed should I assume?\nAround 140 words per minute is a good default for most explainer and talking-head videos. Use the slow estimate for deliberate narration and the fast estimate for energetic, high-tempo edits.\nWhy is my finished video longer than the estimate?\nThe estimate counts spoken words only. Pauses, music, on-screen text, transitions, and B-roll all add time — build in a buffer when planning to a hard runtime."
+  },
+  {
     "id": "marketing:/blog-to-video-ai",
     "source": "marketing",
     "slug": "blog-to-video-ai",
@@ -5790,6 +5875,138 @@
       "Why don't ETFs show income statement data?"
     ],
     "body": "Free stock visualizer styled like a financial newsroom.\nPull live price history and financial statements for any ticker. Choose from Newscast, Bloomberg Terminal, or Newspaper visual themes. Sign in free to unlock custom tickers and annual financials.\nVisualize any stock's 7, 30, or 60-day price history alongside annual income statements and balance sheets — styled in Newscast, Bloomberg Terminal, or Newspaper themes. Free with signup.\nLive price history for 7, 30, or 60-day windows pulled directly from Yahoo Finance via yfinance.\nAnnual income statement and balance sheet data presented in clean, scannable tables.\nThree visual themes — Newscast, Bloomberg Terminal, and Newspaper — designed to match how financial media presents data.\nWhat this tool shows you\nThe stock visualizer pulls price history and financial statement data for any publicly traded ticker directly from Yahoo Finance. The default view shows SPCX with 30 days of closing price data in the Newscast theme — no sign-in required.\nOnce you sign in with your free Blog2Video account, you can search any ticker, switch between 7, 30, and 60-day windows, and view annual income statements and balance sheets from the last four reporting periods.\nThree visual themes: Newscast, Bloomberg, and Newspaper\nThe tool was built to match the visual language of financial media rather than default charting libraries. Each theme applies a distinct color palette, typography weight, and layout density.\nNewscast uses a dark navy background with red broadcast accents and a blue area chart — the look of a live market segment. Bloomberg uses the terminal's signature black-and-orange palette. Newspaper renders the chart in editorial black and white with a cream-tinted background.\nNewscast — dark TV broadcast aesthetic, red header bar, blue chart line.\nBloomberg — black terminal background, orange accent line and price labels.\nNewspaper — cream white background, dark navy chart, editorial typography.\nWhy finance publishers use Blog2Video for stock content\nAlmost 70% of Blog2Video's paid users are finance publishers — analysts, investment researchers, and Substack writers who cover markets. They use Blog2Video to turn written research into narrated explainer videos and carousels for X, LinkedIn, and YouTube.\nThis free stock tool is built for the same audience: finance writers who need a fast, polished way to visualize the data behind a story before turning that story into video.\nIs this stock visualizer really free?\nYes. The default SPCX chart loads without any sign-in. Sign in with a free Blog2Video account to search any ticker, change the time range, and access financial statements.\nWhere does the data come from?\nPrice history and financial statements are fetched from Yahoo Finance via the yfinance Python library. Data accuracy depends on Yahoo Finance's coverage and update frequency.\nWhich tickers are supported?\nAny ticker listed on Yahoo Finance — US equities, ETFs, index funds, and many international stocks. If a ticker has no data, the tool shows a clear error message.\nCan I use this to make a video from stock data?\nYes. If you write a research note or market commentary about the stock you're visualizing, paste that article into Blog2Video to generate a narrated video using the Finance Publication template — the same visual style as the Bloomberg and Newscast themes here.\nWhy don't ETFs show income statement data?\nETFs like SPY or SPCX typically do not file traditional income statements or balance sheets — they're pass-through vehicles. Financial statement data is only available for operating companies (stocks like AAPL, MSFT, TSLA)."
+  },
+  {
+    "id": "tool:video-script-generator",
+    "source": "tool",
+    "slug": "video-script-generator",
+    "title": "Video Script Generator",
+    "description": "Turn a topic, blog URL, or rough notes into a scene-by-scene video script with a hook, ordered beats, and a call to action.",
+    "primary_keyword": "video script generator",
+    "keyword_variant": "ai video script generator",
+    "related_paths": [
+      "/blog-to-video",
+      "/tools/content-repurposing-calculator",
+      "/blog-to-youtube-video",
+      "/tools/video-length-calculator"
+    ],
+    "route": "/tools/video-script-generator",
+    "headings": [
+      "What this generator produces",
+      "How to get the best script"
+    ],
+    "faq_questions": [
+      "Do I need to sign in to use the Video Script Generator?",
+      "Can it write a script from a blog post URL?",
+      "Is the script ready to record?"
+    ],
+    "body": "Generate a scene-by-scene video script from a topic or blog post.\nPaste a topic, article URL, or a few notes and get a structured script — a scroll-stopping hook, ordered scene beats with on-screen text and voiceover, and a closing call to action you can record right away.\nTurn a topic, blog URL, or rough notes into a scene-by-scene video script with a hook, ordered beats, and a call to action.\nWrites for the ear — short spoken-word lines you can read straight into a mic.\nStructures every script as hook, ordered beats, and a platform-appropriate CTA.\nAdjustable tone and length so the same topic works for a short or a long-form video.\nWhat this generator produces\nA finished video script is more than a paragraph of text — it is a sequence of scenes, each with something on screen and something spoken. This generator returns exactly that: a suggested title, a hook scene designed to earn the first three seconds, middle scenes that move the idea forward, and a closing call to action.\nIt is built for creators repurposing written content. Feed it the topic or URL of a post you already published and it drafts the spoken version so you are editing, not staring at a blank page.\nHow to get the best script\nGive it something specific. A concrete topic or a real article URL produces a sharper script than a one-word prompt. Then pick the tone and length that match where the video will live.\nUse explainer tone for tutorials and documentary-style breakdowns.\nUse promotional tone for product, launch, and landing-page videos.\nUse short length for Shorts and Reels, long for YouTube explainers.\nDo I need to sign in to use the Video Script Generator?\nYes. Generating a script requires a free Blog2Video account so we can run the AI request for you. Sign in with Google and you can generate scripts immediately — no credit card required.\nCan it write a script from a blog post URL?\nYes. Paste the topic or the article URL and the generator drafts a spoken, scene-by-scene version of that content — the natural first step before turning the post into a finished narrated video.\nIs the script ready to record?\nThe voiceover lines are written to be read aloud as-is, but treat the output as a strong first draft. Tighten the hook, adjust the CTA, and personalize any specifics before you record or generate the video."
+  },
+  {
+    "id": "tool:thumbnail-text-generator",
+    "source": "tool",
+    "slug": "thumbnail-text-generator",
+    "title": "Thumbnail Text Generator",
+    "description": "Generate short, high-CTR thumbnail text overlays for your video — punchy 2-5 word options built for curiosity and clicks.",
+    "primary_keyword": "thumbnail text generator",
+    "keyword_variant": "youtube thumbnail text ideas",
+    "related_paths": [
+      "/tools/headline-analyzer",
+      "/blog-to-youtube-video",
+      "/blog-to-video",
+      "/tools/youtube-description-generator"
+    ],
+    "route": "/tools/thumbnail-text-generator",
+    "headings": [
+      "Why thumbnail text is its own skill",
+      "How to use the options"
+    ],
+    "faq_questions": [
+      "Do I need an account to generate thumbnail text?",
+      "What is the difference between thumbnail text and the video title?",
+      "How many options do I get?"
+    ],
+    "body": "Generate high-CTR thumbnail text for your video.\nPaste your video topic or title and get a batch of short thumbnail overlays — the 2-5 word punch that goes on the image, not the title — across curiosity, bold-claim, number, and benefit angles.\nGenerate short, high-CTR thumbnail text overlays for your video — punchy 2-5 word options built for curiosity and clicks.\nReturns thumbnail text, not titles — the short overlay that actually drives the click.\nEvery option stays five words or fewer so it reads at a glance on mobile.\nMixes curiosity, contrast, numbers, and benefit angles so you can A/B test.\nWhy thumbnail text is its own skill\nThe text on a thumbnail is not the video title. It is a two-to-five word hook that overlays the image and creates enough curiosity or tension to earn the click. Great creators treat it as a separate craft — and iterate on it constantly.\nThis generator gives you a batch of options in different directions at once, so you can pick the angle that fits the video and test variations instead of guessing.\nHow to use the options\nShortlist two or three that create the strongest curiosity gap, then pair them with a clear, high-contrast image. Uppercase them if that fits your channel style.\nPick contrast over cleverness — the overlay should read in under a second.\nTest a curiosity angle against a bold-claim angle on the same video.\nKeep the text out of the corners where the duration badge sits.\nDo I need an account to generate thumbnail text?\nYes. Thumbnail text generation runs an AI request, so it requires a free Blog2Video account. Sign in with Google and you can start generating right away.\nWhat is the difference between thumbnail text and the video title?\nThe title is the full descriptive line next to the video. Thumbnail text is the short overlay printed on the image itself — usually 2-5 words designed purely to stop the scroll and create curiosity.\nHow many options do I get?\nEach run returns up to eight distinct options across different angles — questions, bold claims, numbers, warnings, and benefits — so you have real variety to choose and test from."
+  },
+  {
+    "id": "tool:youtube-description-generator",
+    "source": "tool",
+    "slug": "youtube-description-generator",
+    "title": "YouTube Description Generator",
+    "description": "Generate an SEO-optimized YouTube video description and a set of relevant tags from your topic, title, or transcript.",
+    "primary_keyword": "youtube description generator",
+    "keyword_variant": "ai youtube description generator",
+    "related_paths": [
+      "/tools/thumbnail-text-generator",
+      "/blog-to-youtube-video",
+      "/blog-to-video",
+      "/tools/headline-analyzer"
+    ],
+    "route": "/tools/youtube-description-generator",
+    "headings": [
+      "What makes a description rank",
+      "How to use the output"
+    ],
+    "faq_questions": [
+      "Do I need to log in to generate a description?",
+      "Can I generate a description from a transcript?",
+      "Are the tags YouTube tags or hashtags?"
+    ],
+    "body": "Generate an SEO YouTube description and tags in seconds.\nPaste your video topic, title, or transcript and get a search-optimized description — keyword front-loaded above the fold, a clear value section, a call to action — plus a set of relevant tags ready to paste in.\nGenerate an SEO-optimized YouTube video description and a set of relevant tags from your topic, title, or transcript.\nFront-loads the primary keyword in the first line that shows above the fold.\nReturns a complete description plus a ready-to-paste set of relevant tags.\nNatural, human phrasing — optimized for search without keyword stuffing.\nWhat makes a description rank\nYouTube reads the first one or two lines of your description most heavily, and those same lines are what viewers see before clicking 'show more'. This generator front-loads your primary keyword and the core promise there, then expands with the context YouTube uses to understand and recommend the video.\nIt finishes with a call to action and returns a set of tags that mix broad and long-tail terms — the practical metadata you need to publish, not just a blob of prose.\nHow to use the output\nPaste the description in as a starting point, then add your real links, timestamps, and affiliate or sponsor disclosures. Drop the tags into the tags field and prune any that do not fit the video.\nKeep the strongest keyword phrasing in the first sentence.\nAdd real chapter timestamps once your video is edited.\nTrim tags down to the ones that genuinely describe the video.\nDo I need to log in to generate a description?\nYes. The YouTube Description Generator runs an AI request, so it requires a free Blog2Video account. Sign in with Google and you can generate descriptions and tags immediately.\nCan I generate a description from a transcript?\nYes. Paste a topic, a title, or a full transcript. The more detail you provide, the more specific and accurate the description and tags will be.\nAre the tags YouTube tags or hashtags?\nThey are YouTube tags — lowercase keyword phrases without the '#' prefix, meant for the tags field. You can add hashtags separately in the description if you want them."
+  },
+  {
+    "id": "tool:video-length-calculator",
+    "source": "tool",
+    "slug": "video-length-calculator",
+    "title": "Video Length Calculator",
+    "description": "Estimate how long your video will run from a word count or script — at slow, normal, and fast narration speeds.",
+    "primary_keyword": "video length calculator",
+    "keyword_variant": "script to video runtime calculator",
+    "related_paths": [
+      "/tools/video-script-generator",
+      "/tools/content-repurposing-calculator",
+      "/blog-to-video",
+      "/blog-to-shorts"
+    ],
+    "route": "/tools/video-length-calculator",
+    "headings": [
+      "How the estimate works",
+      "How to hit a target length"
+    ],
+    "faq_questions": [
+      "Do I need to sign in to use the Video Length Calculator?",
+      "What narration speed should I use?",
+      "Why is my real video longer than the estimate?"
+    ],
+    "body": "Estimate your video runtime from a script or word count.\nPaste your script or enter a word count and see the estimated runtime at slow, normal, and fast narration speeds — so you can trim to a target length before you ever hit record.\nEstimate how long your video will run from a word count or script — at slow, normal, and fast narration speeds.\nConverts a word count or pasted script into an estimated runtime instantly.\nShows a range across slow, normal, and fast narration speeds.\nHelps you hit a target length before recording instead of re-editing after.\nHow the estimate works\nSpoken-word pacing is remarkably consistent: most narration lands between roughly 120 and 160 words per minute. This calculator takes your word count — typed in directly or counted from a pasted script — and translates it into a runtime range across slow, normal, and fast delivery.\nUse it as a planning number. Real runtime shifts with pauses, on-screen beats, music, and B-roll, so treat the estimate as a target to write toward rather than a stopwatch guarantee.\nHow to hit a target length\nIf you are aiming for a 60-second Short or a 10-minute explainer, work backward: the calculator tells you roughly how many words fit, so you can trim or expand the script before recording.\nFor a 60s Short, plan for roughly 130-160 spoken words.\nLeave headroom for pauses, transitions, and on-screen text beats.\nTrim to length in the script, not in the edit — it is far faster.\nDo I need to sign in to use the Video Length Calculator?\nYes. Access to the calculator requires a free Blog2Video account. Sign in with Google and you can use it right away — no credit card required.\nWhat narration speed should I use?\nNormal (around 140 words per minute) is a safe default for most explainer and talking-head videos. Use the slow estimate for calm, deliberate narration and the fast estimate for energetic, high-tempo edits.\nWhy is my real video longer than the estimate?\nThe estimate counts spoken words only. Pauses, music intros, on-screen text beats, transitions, and B-roll all add time. Add a buffer on top of the estimate when planning to a hard runtime."
+  },
+  {
+    "id": "tool:book-cover-generator",
+    "source": "tool",
+    "slug": "book-cover-generator",
+    "title": "AI Book Cover Generator",
+    "description": "Describe your book and generate a professional AI book cover — portrait 2:3 proportions, exportable as PNG, JPEG, or print-ready PDF.",
+    "primary_keyword": "book cover generator",
+    "keyword_variant": "ai book cover maker",
+    "related_paths": [
+      "/tools/thumbnail-text-generator",
+      "/tools/quote-card-generator",
+      "/blog-to-video",
+      "/tools/video-script-generator"
+    ],
+    "route": "/tools/book-cover-generator",
+    "headings": [
+      "How the book cover generator works",
+      "How to write a good description",
+      "Exporting your cover"
+    ],
+    "faq_questions": [
+      "Do I need an account to generate a book cover?",
+      "How many book covers can I generate for free?",
+      "What formats can I export the cover in?",
+      "Can I use the generated cover commercially?"
+    ],
+    "body": "Generate a professional book cover from a description.\nDescribe your book in a paragraph or two and get an AI-designed front cover in classic 2:3 book proportions — then export it as a PNG, JPEG, or print-ready PDF.\nDescribe your book and generate a professional AI book cover — portrait 2:3 proportions, exportable as PNG, JPEG, or print-ready PDF.\nTurns a plain-language book description into a designed front cover.\nRenders in classic 2:3 portrait proportions built for print and e-book thumbnails.\nExports as PNG, JPEG, or a print-ready PDF in one click.\nHow the book cover generator works\nDescribe your book the way you would to a friend — the genre, the mood, the central idea or character, and any imagery you have in mind. The generator turns that description into a professional front-cover composition with clear space for a title and author name.\nThe output is a design starting point. Use it as a finished cover for drafts and pitches, or as a base to hand a designer with a clear visual direction already established.\nHow to write a good description\nThe more specific and evocative your description, the stronger the cover. Name the genre outright, describe the tone, and mention one or two concrete images or symbols that capture the book.\nState the genre and mood explicitly (e.g. 'a tense literary thriller, cold and atmospheric').\nMention a central image, symbol, or setting you want featured.\nKeep it to roughly 200 words — enough detail to be specific, not a full synopsis.\nExporting your cover\nOnce your cover is generated, export it in the format you need: PNG for the highest quality, JPEG for smaller files, or a print-ready PDF sized to the cover for KDP and other print workflows.\nDo I need an account to generate a book cover?\nYes. Book cover generation runs an AI image request, so it requires a free Blog2Video account. Sign in with Google and you can generate and export covers right away.\nHow many book covers can I generate for free?\nFree accounts include 5 AI book cover generations. Pro and Standard plans have unlimited generations. Exported covers are yours to keep regardless of plan.\nWhat formats can I export the cover in?\nYou can download your cover as a PNG (highest quality), a JPEG (smaller file size), or a print-ready PDF sized to the cover — useful for Kindle Direct Publishing and other print-on-demand services.\nCan I use the generated cover commercially?\nThe cover is a design starting point you can build on. Review the imagery for anything that resembles a real person or trademarked work before commercial use, and treat AI titles or text as placeholders to replace with your final typography."
   },
   {
     "id": "marketing:/pricing",
