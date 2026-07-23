@@ -227,7 +227,9 @@ function App() {
           <NoticeModalProvider>
           <SupportTourProvider>
               <AppRoutes />
-            <SupportWidget />
+            {/* The hidden /_capture route is screenshotted for template posters —
+                the support widget would otherwise be baked into every image. */}
+            {!window.location.pathname.startsWith("/_capture") && <SupportWidget />}
             <UIHighlightOverlay />
           </SupportTourProvider>
           </NoticeModalProvider>
