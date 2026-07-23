@@ -88,7 +88,8 @@ export default function ChroniclePreviewPortrait({ thumbnailMode = false }: { th
     () => computeChronicleVideoTotalFrames(CHRONICLE_PREVIEW_SCENES, 1),
     [],
   );
-  const thumbnailFrame = Math.min(Math.max(0, durationInFrames - 1), 100);
+  // Freeze on the opening frame for the static thumbnail/poster.
+  const thumbnailFrame = 0;
 
   const inputProps = useMemo(
     () => ({

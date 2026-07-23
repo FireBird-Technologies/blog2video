@@ -1,0 +1,9 @@
+{
+  "name": "blog2video-capture-worker",
+  "private": true,
+  "type": "module",
+  "description": "Standalone puppeteer worker that snapshots a custom template's real preview (via the deployed frontend /_capture route) and uploads it to the backend. Invoked by the backend as CAPTURE_WORKER_CMD after a template is created/regenerated.",
+  "dependencies": {
+    "puppeteer-core": "^23.11.1"
+  }
+}

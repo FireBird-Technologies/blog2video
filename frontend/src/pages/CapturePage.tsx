@@ -1,35 +1,39 @@
-import { useEffect } from "react";
+import { useEffect, useState, type FC } from "react";
 import { useSearchParams } from "react-router-dom";
 import { TEMPLATE_PREVIEWS, TEMPLATE_PREVIEWS_PORTRAIT } from "../components/templatePreviewRegistry";
 import { CaptureContext } from "../components/templatePreviews/PosterOrPlayer";
+import CustomPreviewLandscape from "../components/templatePreviews/CustomPreviewLandscape";
+import CraftedTemplatePreview from "../components/templatePreviews/CraftedTemplatePreview";
+import { BACKEND_URL } from "../api/client";
 
 /**
- * Hidden route used by `scripts/capture-posters.ts` (puppeteer) to render a
- * single built-in template preview full-bleed at composition size and screenshot
- * it into a static poster. Not linked anywhere in the app.
+ * Hidden route used by the poster/snapshot puppeteer scripts to render a single
+ * template preview full-bleed at composition size and screenshot it. Not linked
+ * anywhere in the app.
  *
- * `/_capture?template=<id>&orientation=landscape|portrait`
+ * Built-in poster: `/_capture?template=<id>&orientation=landscape|portrait`
+ * Custom snapshot: `/_capture?custom=<id>&secret=<CAPTURE_SECRET>` (landscape only)
  *
- * The preview is rendered in `thumbnailMode` (so its own pause/seek effects park
- * it on a representative still frame) but wrapped in `CaptureContext=true` so the
- * poster short-circuit is bypassed and the real preview renders. `#capture-root`
- * is the exact composition-sized box puppeteer screenshots.
+ * The preview renders in `thumbnailMode` (so its own pause/seek effects park it on
+ * a representative still frame) wrapped in `CaptureContext=true` so the poster
+ * short-circuit is bypassed and the real preview renders. `#capture-root` is the
+ * exact composition-sized box puppeteer screenshots. `window.__captureReady`
+ * flips true once fonts + a settle window have elapsed.
  */
-export default function CapturePage() {
-  const [params] = useSearchParams();
-  const templateId = params.get("template") ?? "";
-  const orientation = params.get("orientation") === "portrait" ? "portrait" : "landscape";
 
-  const Preview =
-    orientation === "portrait"
-      ? TEMPLATE_PREVIEWS_PORTRAIT[templateId]
-      : TEMPLATE_PREVIEWS[templateId];
+type CaptureData = {
+  theme: unknown;
+  name?: string;
+  intro_code?: string | null;
+  outro_code?: string | null;
+  content_codes?: string[] | null;
+  content_archetype_ids?: unknown;
+  preview_image_url?: string | null;
+  logo_urls?: string[];
+  og_image?: string;
+};
 
-  const width = orientation === "portrait" ? 1080 : 1920;
-  const height = orientation === "portrait" ? 1920 : 1080;
-
-  // Signal readiness once fonts have loaded and a couple of frames + a short
-  // settle window have elapsed, so puppeteer screenshots a fully painted scene.
+function useCaptureReady(dep: unknown) {
   useEffect(() => {
     let cancelled = false;
     (window as unknown as { __captureReady?: boolean }).__captureReady = false;
@@ -51,30 +55,160 @@ export default function CapturePage() {
     return () => {
       cancelled = true;
     };
-  }, [templateId, orientation]);
+  }, [dep]);
+}
+
+const HIDE_CHROME_CSS = `
+  .fixed.bottom-4.right-4 { display: none !important; }
+  #capture-root :has(> [aria-label^="Preview "]) { display: none !important; }
+`;
+
+/** Custom-template snapshot: fetch the template's render data via the internal
+ *  capture route (shared secret) and render its real landscape preview. */
+function CustomCapture({ customId, secret }: { customId: string; secret: string }) {
+  const [data, setData] = useState<CaptureData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${BACKEND_URL}/api/custom-templates/internal/capture-data/${customId}`, {
+      headers: { "X-Capture-Secret": secret },
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error(`capture-data ${r.status}`);
+        return r.json();
+      })
+      .then((d: CaptureData) => {
+        if (!cancelled) setData(d);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(String(e));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [customId, secret]);
+
+  // Only start the readiness clock once the data has loaded and rendered.
+  useCaptureReady(data ? customId : null);
+
+  if (error) return <div style={{ padding: 24, color: "#fff" }}>Capture error: {error}</div>;
+  if (!data) return <div style={{ padding: 24, color: "#888" }}>Loading…</div>;
+
+  return (
+    <div id="capture-root" style={{ width: 1920, height: 1080, overflow: "hidden", position: "relative", background: "#000" }}>
+      <CaptureContext.Provider value={true}>
+        {(() => {
+          const previewProps: Record<string, unknown> = {
+            theme: data.theme,
+            name: data.name,
+            introCode: data.intro_code || undefined,
+            outroCode: data.outro_code || undefined,
+            contentCodes: data.content_codes || undefined,
+            contentArchetypeIds: data.content_archetype_ids,
+            previewImageUrl: null,
+            logoUrls: data.logo_urls,
+            ogImage: data.og_image,
+            thumbnailFrame: 135,
+            thumbnailMode: true,
+          };
+          const AnyPreview = CustomPreviewLandscape as unknown as FC<Record<string, unknown>>;
+          return <AnyPreview {...previewProps} />;
+        })()}
+      </CaptureContext.Provider>
+    </div>
+  );
+}
+
+/** Built-in template poster capture (unchanged behaviour). */
+function BuiltinCapture({ templateId, orientation }: { templateId: string; orientation: "landscape" | "portrait" }) {
+  const Preview =
+    orientation === "portrait" ? TEMPLATE_PREVIEWS_PORTRAIT[templateId] : TEMPLATE_PREVIEWS[templateId];
+  const width = orientation === "portrait" ? 1080 : 1920;
+  const height = orientation === "portrait" ? 1920 : 1080;
+
+  useCaptureReady(`${templateId}:${orientation}`);
 
   if (!Preview) {
     return <div style={{ padding: 24 }}>Unknown template: {templateId}</div>;
   }
 
   return (
+    <div id="capture-root" style={{ width, height, overflow: "hidden", position: "relative", background: "#000" }}>
+      <CaptureContext.Provider value={true}>
+        <Preview thumbnailMode />
+      </CaptureContext.Provider>
+    </div>
+  );
+}
+
+/** Crafted-template capture from a LOCAL bundle: fetch the raw preview_file TSX
+ *  source from `srcUrl` (served by the capture script) and render it via the
+ *  same compile path the app uses, so `scripts/capture-crafted-thumbnails.ts`
+ *  can screenshot a bundle's real preview before it's uploaded to R2. */
+function CraftedCapture({ srcUrl, name }: { srcUrl: string; name: string }) {
+  const [source, setSource] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(srcUrl)
+      .then((r) => {
+        if (!r.ok) throw new Error(`preview source ${r.status}`);
+        return r.text();
+      })
+      .then((t) => {
+        if (!cancelled) setSource(t);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(String(e));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [srcUrl]);
+
+  useCaptureReady(source ? srcUrl : null);
+
+  if (error) return <div style={{ padding: 24, color: "#fff" }}>Capture error: {error}</div>;
+  if (!source) return <div style={{ padding: 24, color: "#888" }}>Loading…</div>;
+
+  return (
+    <div id="capture-root" style={{ width: 1920, height: 1080, overflow: "hidden", position: "relative", background: "#000" }}>
+      <CaptureContext.Provider value={true}>
+        <CraftedTemplatePreview
+          templateId={`local-${name}`}
+          previewSource={source}
+          name={name}
+          thumbnailMode
+        />
+      </CaptureContext.Provider>
+    </div>
+  );
+}
+
+export default function CapturePage() {
+  const [params] = useSearchParams();
+  const customId = params.get("custom");
+  const craftedSrc = params.get("craftedSrc");
+  const craftedName = params.get("name") ?? "Template";
+  const secret = params.get("secret") ?? "";
+  const templateId = params.get("template") ?? "";
+  const orientation = params.get("orientation") === "portrait" ? "portrait" : "landscape";
+
+  return (
     <div style={{ margin: 0, padding: 0, background: "#000" }}>
-      {/* Keep the poster clean: hide global app chrome (the fixed support-widget
-          launcher) and each preview's scene-nav dot pill, which would otherwise
-          be baked into the screenshot. The nav-dot buttons all carry an
-          aria-label starting with "Preview "; hide the pill that contains them. */}
-      <style>{`
-        .fixed.bottom-4.right-4 { display: none !important; }
-        #capture-root :has(> [aria-label^="Preview "]) { display: none !important; }
-      `}</style>
-      <div
-        id="capture-root"
-        style={{ width, height, overflow: "hidden", position: "relative", background: "#000" }}
-      >
-        <CaptureContext.Provider value={true}>
-          <Preview thumbnailMode />
-        </CaptureContext.Provider>
-      </div>
+      {/* Keep the capture clean: hide global app chrome (support-widget launcher)
+          and each preview's scene-nav dot pill, which would otherwise be baked
+          into the screenshot. */}
+      <style>{HIDE_CHROME_CSS}</style>
+      {customId ? (
+        <CustomCapture customId={customId} secret={secret} />
+      ) : craftedSrc ? (
+        <CraftedCapture srcUrl={craftedSrc} name={craftedName} />
+      ) : (
+        <BuiltinCapture templateId={templateId} orientation={orientation} />
+      )}
     </div>
   );
 }

@@ -11,7 +11,7 @@ import threading
 from datetime import date
 from pydantic import BaseModel, Field
 import logging
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, UploadFile, File, Form
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session, joinedload
 
@@ -71,17 +71,32 @@ def _check_custom_template_quota(user: User) -> None:
 
 
 def _render_and_store_thumbnail(template_id: int, user_id: int) -> None:
-    """Background task: render a preview thumbnail and store URL in DB."""
+    """Background task: snapshot the real template preview and store its URL.
+
+    Drives the puppeteer capture worker
+    ({@link app.services.custom_template_snapshot.request_snapshot}), which
+    screenshots the deployed frontend's `/_capture` route for this template,
+    uploads the image to R2 and sets ``preview_image_url``. Falling back to the
+    legacy Remotion-still renderer when the capture worker is unavailable keeps
+    template creation from ever depending on a browser being reachable.
+    """
+    try:
+        from app.services.custom_template_snapshot import request_snapshot
+
+        if request_snapshot(template_id):
+            return
+    except Exception as e:
+        logger.warning("Puppeteer snapshot failed for template %d: %s", template_id, e)
+
+    # Fallback: legacy server-side Remotion still (mock intro scene).
     try:
         from app.services.thumbnail_renderer import render_template_thumbnail
-        from app.database import SessionLocal
-        from app.models.custom_template import CustomTemplate as CT
 
         url = render_template_thumbnail(template_id, user_id)
         if url:
             db = SessionLocal()
             try:
-                tpl = db.query(CT).filter(CT.id == template_id).first()
+                tpl = db.query(CustomTemplate).filter(CustomTemplate.id == template_id).first()
                 if tpl:
                     tpl.preview_image_url = url
                     db.commit()
@@ -90,6 +105,15 @@ def _render_and_store_thumbnail(template_id: int, user_id: int) -> None:
                 db.close()
     except Exception as e:
         logger.warning("Background thumbnail render failed for template %d: %s", template_id, e)
+
+
+def _verify_capture_secret(x_capture_secret: str | None) -> None:
+    """Guard the internal capture endpoints with the shared CAPTURE_SECRET."""
+    secret = settings.CAPTURE_SECRET
+    if not secret:
+        raise HTTPException(status_code=404, detail="Capture endpoints are disabled")
+    if not x_capture_secret or x_capture_secret != secret:
+        raise HTTPException(status_code=401, detail="Invalid capture secret")
 
 
 # ─── Pydantic schemas ────────────────────────────────────────
@@ -556,6 +580,86 @@ def list_custom_templates(
         )
         for t in templates
     ]
+
+
+# ─── Internal capture endpoints (shared-secret; no per-user auth) ──────────
+# Used by the puppeteer snapshot pipeline to (1) list templates to snapshot,
+# (2) read a template's data to render its real preview, and (3) store the
+# resulting image. Guarded by the CAPTURE_SECRET shared secret, not user auth,
+# so a backfill can run across every user's templates.
+
+
+@router.get("/internal/ids")
+def list_template_ids_for_capture(
+    only_missing: bool = Query(False, description="Only templates without a preview image"),
+    x_capture_secret: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    """List custom-template ids (+ owner) for the snapshot backfill."""
+    _verify_capture_secret(x_capture_secret)
+    q = db.query(CustomTemplate.id, CustomTemplate.user_id)
+    if only_missing:
+        q = q.filter(
+            (CustomTemplate.preview_image_url.is_(None))
+            | (CustomTemplate.preview_image_url == "")
+        )
+    return [{"id": tid, "user_id": uid} for tid, uid in q.all()]
+
+
+@router.get("/internal/capture-data/{template_id}")
+def get_template_capture_data(
+    template_id: int,
+    x_capture_secret: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    """Return a template's render data (theme/codes/etc.) for capture.
+
+    Same shape as the authenticated detail endpoint (reuses ``_serialize_template``),
+    but keyed by the shared capture secret so the snapshot worker can render any
+    user's template. Read-only.
+    """
+    _verify_capture_secret(x_capture_secret)
+    tpl = (
+        db.query(CustomTemplate)
+        .options(joinedload(CustomTemplate.brand_kit))
+        .filter(CustomTemplate.id == template_id)
+        .first()
+    )
+    if not tpl:
+        raise HTTPException(status_code=404, detail="Custom template not found")
+    return _serialize_template(tpl)
+
+
+@router.post("/internal/preview-image/{template_id}")
+async def store_template_preview_image(
+    template_id: int,
+    file: UploadFile = File(...),
+    x_capture_secret: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    """Upload a captured preview snapshot to R2 and set ``preview_image_url``."""
+    from app.services import r2_storage
+
+    _verify_capture_secret(x_capture_secret)
+    tpl = db.query(CustomTemplate).filter(CustomTemplate.id == template_id).first()
+    if not tpl:
+        raise HTTPException(status_code=404, detail="Custom template not found")
+
+    body = await file.read()
+    if not body:
+        raise HTTPException(status_code=400, detail="Empty image upload")
+
+    ext = "webp" if (file.content_type or "").endswith("webp") else "png"
+    content_type = file.content_type or ("image/webp" if ext == "webp" else "image/png")
+    key = r2_storage.custom_template_preview_key(tpl.user_id, tpl.id, ext)
+    url = r2_storage.upload_bytes(key, body, content_type=content_type)
+    if not url:
+        raise HTTPException(status_code=503, detail="R2 not configured")
+
+    tpl.preview_image_url = url
+    db.commit()
+    logger.info("Stored captured preview for template %d: %s", template_id, url)
+    return {"preview_image_url": url}
 
 
 @router.get("/{template_id}")

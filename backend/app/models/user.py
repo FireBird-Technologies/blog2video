@@ -27,6 +27,26 @@ AI_EDIT_CREDITS_PER_VIDEO = 20
 # across all their projects (replaces the old per-project allowance of 3).
 FREE_AI_EDIT_CREDITS = 6
 
+# ─── Free-tools (/tools) generation limits ───────────────────────────────────
+# FREE allowances are LIFETIME (never reset — reactivating a deleted account
+# cannot refill them, see delete_account capping in routers/auth.py). Paid
+# allowances are PER BILLING PERIOD and refresh via reset_tool_usage_period().
+FREE_BOOK_COVER_LIMIT = 5
+PAID_BOOK_COVER_LIMIT = 30
+# The text generators (video script, YouTube description, thumbnail text) share
+# the same numbers but keep independent per-tool counters.
+FREE_TOOL_LIMIT = 10
+PAID_TOOL_LIMIT = 100
+
+# Tool key -> (User counter attribute, FREE limit, paid limit). Single source of
+# truth for the quota gate in routers/free_tools.py and the delete-account cap.
+TOOL_QUOTAS: dict[str, tuple[str, int, int]] = {
+    "book_cover": ("free_book_covers_used", FREE_BOOK_COVER_LIMIT, PAID_BOOK_COVER_LIMIT),
+    "video_script": ("video_scripts_used", FREE_TOOL_LIMIT, PAID_TOOL_LIMIT),
+    "youtube_description": ("youtube_descriptions_used", FREE_TOOL_LIMIT, PAID_TOOL_LIMIT),
+    "thumbnail_text": ("thumbnail_texts_used", FREE_TOOL_LIMIT, PAID_TOOL_LIMIT),
+}
+
 
 def _add_one_month(dt: datetime) -> datetime:
     """Return ``dt`` advanced by exactly one calendar month.
@@ -78,6 +98,15 @@ class User(Base):
     referral_video_bonus: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
     free_templates_downloaded: Mapped[str | None] = mapped_column(String(512), nullable=True)
+
+    # /tools generation counters. On FREE these are LIFETIME totals (never reset);
+    # on paid plans they are per-billing-period and cleared by
+    # ``reset_tool_usage_period``. Limits live in TOOL_QUOTAS above.
+    # (Name kept for backwards compatibility — it predates the other three.)
+    free_book_covers_used: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    video_scripts_used: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    youtube_descriptions_used: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    thumbnail_texts_used: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
     # Remembered narration emotion/tone default, auto-selected in the create form next time.
     preferred_voice_emotion: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -210,6 +239,9 @@ class User(Base):
         # Custom-template allowance is per-period for paid plans: refresh the base
         # (via created→0) and consume only the purchased slots actually used.
         self.reset_custom_template_period()
+        # /tools generation allowances are per-period for paid plans (no-op on FREE,
+        # whose allowances are lifetime).
+        self.reset_tool_usage_period()
 
     def _custom_template_base(self) -> int:
         """Plan base custom-template allowance (before purchased bonus)."""
@@ -238,6 +270,50 @@ class User(Base):
         if overage > 0:
             self.custom_template_bonus = max(0, (self.custom_template_bonus or 0) - overage)
         self.custom_templates_created = 0
+
+    def tool_limit(self, tool: str) -> int:
+        """Generation allowance for a /tools generator on this user's plan.
+
+        FREE returns the lifetime allowance; STANDARD/PRO return the (larger)
+        per-billing-period allowance. Both tiers share the same paid numbers.
+        """
+        _, free_limit, paid_limit = TOOL_QUOTAS[tool]
+        return free_limit if self.plan == PlanTier.FREE else paid_limit
+
+    def tool_used(self, tool: str) -> int:
+        """Current usage count for a /tools generator."""
+        return getattr(self, TOOL_QUOTAS[tool][0], 0) or 0
+
+    def cap_tool_usage_to_free(self, was_paid: bool) -> None:
+        """Normalize /tools counters when an account drops to FREE.
+
+        Called from the delete-account teardown and the paid→FREE downgrade/cancel
+        paths so a user can never regain free-tier quota they already consumed:
+
+        * ``was_paid`` — set every counter to the FREE limit. A paid user already
+          had (or could have had) the free grant, so a low paid-era count (e.g.
+          3/30) must not become fresh free quota (3/5) on the way down.
+        * otherwise — only cap counters that exceed the FREE limit; a user below it
+          keeps their partial usage (e.g. 2/5 stays 2/5 across delete→reactivate).
+        """
+        for attr, free_limit, _paid_limit in TOOL_QUOTAS.values():
+            if was_paid or (getattr(self, attr, 0) or 0) > free_limit:
+                setattr(self, attr, free_limit)
+
+    def reset_tool_usage_period(self) -> None:
+        """Refresh the /tools generation allowances for a new billing period.
+
+        Paid plans get a fresh allowance every cycle, so all counters go to 0.
+        FREE allowances are LIFETIME and must never be cleared here — otherwise a
+        free user would silently regain quota whenever a period-reset path ran.
+        Guarding inside this method (not at each call site) keeps that rule in one
+        place, since it is invoked from ``reset_billing_period`` plus every
+        plan-change/checkout reset in routers/billing.py.
+        """
+        if self.plan == PlanTier.FREE:
+            return
+        for attr, *_ in TOOL_QUOTAS.values():
+            setattr(self, attr, 0)
 
     def roll_video_period_if_due(self, db: Session) -> bool:
         """Lazily reset the monthly video counter when Stripe won't.

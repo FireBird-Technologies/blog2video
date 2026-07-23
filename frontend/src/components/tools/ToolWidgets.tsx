@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import StockVisualizer from "./StockVisualizer";
 import { Link } from "react-router-dom";
+import type { CredentialResponse } from "@react-oauth/google";
 import type { DirectoryPricingModel } from "../../content/seoTypes";
 import {
   getSubstackDirectoryNichePath,
@@ -10,6 +11,17 @@ import {
   substackNiches,
   substackPublications,
 } from "../../content/substackDirectory";
+import { useAuth } from "../../hooks/useAuth";
+import GoogleAuthButton from "../public/GoogleAuthButton";
+import { googleLogin } from "../../api/client";
+import {
+  fetchToolQuotas,
+  generateBookCover,
+  generateThumbnailText,
+  generateVideoScript,
+  generateYouTubeDescription,
+  type ToolKey,
+} from "../../api/freeTools";
 
 type ToolWidgetProps = {
   slug: string;
@@ -1256,6 +1268,778 @@ function SubstackDirectoryExplorer() {
   );
 }
 
+// ─── Login gate (hard) ───────────────────────────────────────────────────────
+// The tool's SEO content (hero, sections, FAQ) always renders via ToolPage, so
+// pages stay crawlable. The interactive widget itself is gated: anonymous
+// visitors see a sign-in panel and cannot run the tool until they log in.
+
+function errorDetail(err: unknown, fallback: string): string {
+  const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data
+    ?.detail;
+  return typeof detail === "string" && detail ? detail : fallback;
+}
+
+function ToolGate({
+  toolName,
+  blurb,
+  children,
+}: {
+  toolName: string;
+  blurb: string;
+  children: React.ReactNode;
+}) {
+  const { user, login } = useAuth();
+  const [signingIn, setSigningIn] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (user) return <>{children}</>;
+
+  const handleGoogleSuccess = async (response: CredentialResponse) => {
+    if (!response.credential) return;
+    setSigningIn(true);
+    setError(null);
+    try {
+      const res = await googleLogin(
+        response.credential,
+        false,
+        localStorage.getItem("b2v_ref_code")
+      );
+      localStorage.removeItem("b2v_ref_code");
+      login(res.data.access_token, res.data.user);
+      // login() flips `user`, re-rendering this component to show `children`.
+    } catch {
+      setError("Sign-in failed. Please try again.");
+      setSigningIn(false);
+    }
+  };
+
+  return (
+    <div className="rounded-3xl border border-purple-100 bg-gradient-to-b from-purple-50/70 via-white to-white p-8 text-center sm:p-12">
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-purple-100 bg-white">
+        <svg
+          className="h-6 w-6 text-purple-600"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+          />
+        </svg>
+      </div>
+      <h2 className="mt-5 text-2xl font-semibold text-gray-900">
+        Sign in to use the {toolName}
+      </h2>
+      <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-gray-500">
+        {blurb} Create a free Blog2Video account to run it — no credit card required.
+      </p>
+      <div className="mt-7 flex justify-center">
+        {signingIn ? (
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <svg className="h-4 w-4 animate-spin text-purple-600" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+            </svg>
+            Signing you in…
+          </div>
+        ) : (
+          <GoogleAuthButton
+            onSuccess={handleGoogleSuccess}
+            onError={() => setError("Sign-in failed. Please try again.")}
+            text="continue_with"
+            width="320"
+          />
+        )}
+      </div>
+      {error ? <p className="mt-3 text-xs text-red-500">{error}</p> : null}
+    </div>
+  );
+}
+
+// ─── Shared generation-quota state + UI ──────────────────────────────────────
+
+/** Tracks a tool's remaining generations. Seeded from the server on mount so the
+ *  count and the disabled state are correct before the first generation, then
+ *  updated from each generation response. */
+function useToolQuota(tool: ToolKey) {
+  const [quota, setQuota] = useState<{ used: number; limit: number } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetchToolQuotas()
+      .then((res) => {
+        const q = res.data?.quotas?.[tool];
+        if (!cancelled && q) setQuota({ used: q.used, limit: q.limit });
+      })
+      // Non-fatal: the generation call still enforces the limit server-side.
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [tool]);
+  return [quota, setQuota] as const;
+}
+
+// ─── Shared generation-quota UI ──────────────────────────────────────────────
+
+/** Remaining-generations line shown under a tool's generate button.
+ *  Every plan has a finite allowance: FREE allowances are lifetime, paid ones
+ *  refresh each billing period — so the upgrade prompt only shows for FREE. */
+function ToolQuotaLine({
+  quota,
+  noun,
+}: {
+  quota: { used: number; limit: number } | null;
+  noun: string;
+}) {
+  const { user } = useAuth();
+  if (!quota) return null;
+  const left = Math.max(quota.limit - quota.used, 0);
+  const exhausted = left <= 0;
+  const isFree = user?.plan !== "pro" && user?.plan !== "standard";
+  return (
+    <p className="mt-3 text-xs font-medium text-gray-500">
+      {left} of {quota.limit} {noun} left
+      {exhausted && isFree ? (
+        <>
+          {" · "}
+          <Link to="/pricing" className="text-purple-600 hover:text-purple-700">
+            Upgrade for more
+          </Link>
+        </>
+      ) : null}
+      {exhausted && !isFree ? " · resets at your next renewal" : null}
+    </p>
+  );
+}
+
+// ─── Video Script Generator ──────────────────────────────────────────────────
+
+const SCRIPT_TONES = ["explainer", "promotional", "storytelling", "casual"] as const;
+const SCRIPT_LENGTHS = ["short", "medium", "long"] as const;
+
+function VideoScriptGeneratorInner() {
+  const [topic, setTopic] = useState("");
+  const [tone, setTone] = useState<(typeof SCRIPT_TONES)[number]>("explainer");
+  const [length, setLength] = useState<(typeof SCRIPT_LENGTHS)[number]>("medium");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<{ title: string; script: string } | null>(null);
+  const [quota, setQuota] = useToolQuota("video_script");
+
+  const exhausted = quota != null && quota.used >= quota.limit;
+  const canSubmit = topic.trim().length >= 3 && !loading && !exhausted;
+
+  const handleGenerate = async () => {
+    if (!canSubmit) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await generateVideoScript(topic.trim(), tone, length);
+      setResult({ title: res.data.video_title, script: res.data.script_markdown });
+      setQuota({ used: res.data.used, limit: res.data.limit });
+    } catch (err) {
+      setError(errorDetail(err, "Generation failed. Please try again in a moment."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
+      <div className="rounded-3xl border border-gray-200 bg-gray-50/70 p-6">
+        <Field label="Topic, blog URL, or notes">
+          <textarea
+            value={topic}
+            onChange={(event) => setTopic(event.target.value)}
+            placeholder="e.g. How to turn a blog post into a narrated video — or paste an article URL"
+            className="min-h-[140px] w-full rounded-2xl border border-gray-200 bg-white p-4 text-sm leading-6 text-gray-700 shadow-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+          />
+        </Field>
+        <div className="mt-5">
+          <Field label="Tone">
+            <div className="grid grid-cols-2 gap-3">
+              {SCRIPT_TONES.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setTone(option)}
+                  className={`rounded-2xl border px-4 py-3 text-sm font-medium capitalize transition ${
+                    tone === option
+                      ? "border-purple-200 bg-purple-50 text-purple-700"
+                      : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:text-gray-900"
+                  }`}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          </Field>
+        </div>
+        <div className="mt-5">
+          <Field label="Length">
+            <div className="grid grid-cols-3 gap-3">
+              {SCRIPT_LENGTHS.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setLength(option)}
+                  className={`rounded-2xl border px-4 py-3 text-sm font-medium capitalize transition ${
+                    length === option
+                      ? "border-purple-200 bg-purple-50 text-purple-700"
+                      : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:text-gray-900"
+                  }`}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          </Field>
+        </div>
+        <button
+          type="button"
+          onClick={handleGenerate}
+          disabled={!canSubmit}
+          className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-purple-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {loading ? "Generating…" : exhausted ? "Generations used up" : "Generate script"}
+        </button>
+        <ToolQuotaLine quota={quota} noun="scripts" />
+        {error ? <p className="mt-3 text-sm text-red-500">{error}</p> : null}
+      </div>
+
+      <div className="space-y-4">
+        {result ? (
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-purple-600">
+                  Suggested title
+                </p>
+                <h3 className="mt-1 text-lg font-semibold text-gray-900">{result.title}</h3>
+              </div>
+              <div className="flex flex-shrink-0 gap-2">
+                <CopyButton value={`${result.title}\n\n${result.script}`} label="Copy" />
+              </div>
+            </div>
+            <pre className="mt-5 max-h-[520px] overflow-auto whitespace-pre-wrap rounded-xl border border-gray-100 bg-gray-50 p-4 font-sans text-sm leading-6 text-gray-700">
+              {result.script}
+            </pre>
+            <div className="mt-4">
+              <Link
+                to="/blog-to-video"
+                className="inline-flex items-center rounded-full border border-purple-200 bg-purple-50 px-5 py-2.5 text-sm font-semibold text-purple-700 transition hover:bg-purple-100"
+              >
+                Turn this script into a video →
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="flex h-full min-h-[240px] items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center">
+            <p className="max-w-sm text-sm leading-relaxed text-gray-400">
+              Your scene-by-scene script — hook, ordered beats, and a closing call to action —
+              will appear here once you generate it.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function VideoScriptGeneratorWidget() {
+  return (
+    <ToolGate
+      toolName="Video Script Generator"
+      blurb="Turn any topic, blog URL, or notes into a scene-by-scene script with a hook, beats, and a call to action."
+    >
+      <VideoScriptGeneratorInner />
+    </ToolGate>
+  );
+}
+
+// ─── Thumbnail Text Generator ────────────────────────────────────────────────
+
+function ThumbnailTextGeneratorInner() {
+  const [topic, setTopic] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [options, setOptions] = useState<string[]>([]);
+  const [quota, setQuota] = useToolQuota("thumbnail_text");
+
+  const exhausted = quota != null && quota.used >= quota.limit;
+  const canSubmit = topic.trim().length >= 3 && !loading && !exhausted;
+
+  const handleGenerate = async () => {
+    if (!canSubmit) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await generateThumbnailText(topic.trim());
+      setOptions(res.data.options);
+      setQuota({ used: res.data.used, limit: res.data.limit });
+    } catch (err) {
+      setError(errorDetail(err, "Generation failed. Please try again in a moment."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
+      <div className="rounded-3xl border border-gray-200 bg-gray-50/70 p-6">
+        <Field label="Video topic or title">
+          <textarea
+            value={topic}
+            onChange={(event) => setTopic(event.target.value)}
+            placeholder="e.g. I turned one blog post into 30 days of video content"
+            className="min-h-[120px] w-full rounded-2xl border border-gray-200 bg-white p-4 text-sm leading-6 text-gray-700 shadow-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+          />
+        </Field>
+        <button
+          type="button"
+          onClick={handleGenerate}
+          disabled={!canSubmit}
+          className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-purple-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {loading ? "Generating…" : exhausted ? "Generations used up" : "Generate thumbnail text"}
+        </button>
+        <ToolQuotaLine quota={quota} noun="generations" />
+        {error ? <p className="mt-3 text-sm text-red-500">{error}</p> : null}
+        <p className="mt-4 text-xs leading-relaxed text-gray-400">
+          Thumbnail text is the short overlay on the image — not the video title. Keep the winner
+          to five words or fewer.
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        {options.length ? (
+          options.map((option) => (
+            <div
+              key={option}
+              className="flex items-center justify-between gap-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
+            >
+              <span className="text-base font-semibold uppercase tracking-tight text-gray-900">
+                {option}
+              </span>
+              <CopyButton value={option} />
+            </div>
+          ))
+        ) : (
+          <div className="flex h-full min-h-[240px] items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center">
+            <p className="max-w-sm text-sm leading-relaxed text-gray-400">
+              Up to eight short, high-CTR thumbnail overlays — across curiosity, bold-claim, number,
+              and benefit angles — will appear here.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ThumbnailTextGeneratorWidget() {
+  return (
+    <ToolGate
+      toolName="Thumbnail Text Generator"
+      blurb="Generate short, high-CTR thumbnail overlays for your video across several proven angles."
+    >
+      <ThumbnailTextGeneratorInner />
+    </ToolGate>
+  );
+}
+
+// ─── YouTube Description Generator ───────────────────────────────────────────
+
+function YouTubeDescriptionGeneratorInner() {
+  const [topic, setTopic] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<{ description: string; tags: string[] } | null>(null);
+  const [quota, setQuota] = useToolQuota("youtube_description");
+
+  const exhausted = quota != null && quota.used >= quota.limit;
+  const canSubmit = topic.trim().length >= 3 && !loading && !exhausted;
+
+  const handleGenerate = async () => {
+    if (!canSubmit) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await generateYouTubeDescription(topic.trim());
+      setResult({ description: res.data.description, tags: res.data.tags });
+      setQuota({ used: res.data.used, limit: res.data.limit });
+    } catch (err) {
+      setError(errorDetail(err, "Generation failed. Please try again in a moment."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
+      <div className="rounded-3xl border border-gray-200 bg-gray-50/70 p-6">
+        <Field label="Video topic, title, or transcript">
+          <textarea
+            value={topic}
+            onChange={(event) => setTopic(event.target.value)}
+            placeholder="Paste your video topic, title, or full transcript for the most accurate description"
+            className="min-h-[180px] w-full rounded-2xl border border-gray-200 bg-white p-4 text-sm leading-6 text-gray-700 shadow-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+          />
+        </Field>
+        <button
+          type="button"
+          onClick={handleGenerate}
+          disabled={!canSubmit}
+          className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-purple-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {loading ? "Generating…" : exhausted ? "Generations used up" : "Generate description"}
+        </button>
+        <ToolQuotaLine quota={quota} noun="descriptions" />
+        {error ? <p className="mt-3 text-sm text-red-500">{error}</p> : null}
+      </div>
+
+      <div className="space-y-4">
+        {result ? (
+          <>
+            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div className="flex items-center justify-between gap-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-purple-600">
+                  Description
+                </p>
+                <CopyButton value={result.description} />
+              </div>
+              <pre className="mt-4 max-h-[360px] overflow-auto whitespace-pre-wrap rounded-xl border border-gray-100 bg-gray-50 p-4 font-sans text-sm leading-6 text-gray-700">
+                {result.description}
+              </pre>
+            </div>
+            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div className="flex items-center justify-between gap-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-purple-600">
+                  Tags
+                </p>
+                <CopyButton value={result.tags.join(", ")} label="Copy all" />
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {result.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-600"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="flex h-full min-h-[240px] items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center">
+            <p className="max-w-sm text-sm leading-relaxed text-gray-400">
+              A keyword-front-loaded description and a ready-to-paste set of tags will appear here.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function YouTubeDescriptionGeneratorWidget() {
+  return (
+    <ToolGate
+      toolName="YouTube Description Generator"
+      blurb="Generate an SEO-optimized YouTube description and a set of relevant tags from your topic or transcript."
+    >
+      <YouTubeDescriptionGeneratorInner />
+    </ToolGate>
+  );
+}
+
+// ─── Video Length Calculator ─────────────────────────────────────────────────
+// Pure client-side arithmetic, but still hard-gated behind login for
+// consistency with the other free tools.
+
+const NARRATION_SPEEDS = [
+  { key: "slow", label: "Slow", wpm: 120, helper: "Calm, deliberate narration" },
+  { key: "normal", label: "Normal", wpm: 140, helper: "Typical explainer pacing" },
+  { key: "fast", label: "Fast", wpm: 160, helper: "Energetic, high-tempo edit" },
+] as const;
+
+function formatRuntime(totalSeconds: number) {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = Math.round(totalSeconds % 60);
+  if (minutes === 0) return `${seconds}s`;
+  return `${minutes}m ${seconds.toString().padStart(2, "0")}s`;
+}
+
+function VideoLengthCalculatorInner() {
+  const [text, setText] = useState("");
+
+  const wordCount = useMemo(() => {
+    const trimmed = text.trim();
+    if (!trimmed) return 0;
+    return trimmed.split(/\s+/).filter(Boolean).length;
+  }, [text]);
+
+  return (
+    <div className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
+      <div className="rounded-3xl border border-gray-200 bg-gray-50/70 p-6">
+        <Field label="Paste your script" hint={`${formatNumber(wordCount)} words`}>
+          <textarea
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            placeholder="Paste your script here to estimate its spoken runtime…"
+            className="min-h-[220px] w-full rounded-2xl border border-gray-200 bg-white p-4 text-sm leading-6 text-gray-700 shadow-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+          />
+        </Field>
+        <p className="mt-4 text-xs leading-relaxed text-gray-400">
+          The estimate counts spoken words only. Pauses, music, transitions, and on-screen beats
+          add time on top — leave a buffer when planning to a hard runtime.
+        </p>
+      </div>
+
+      <div className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-3">
+          {NARRATION_SPEEDS.map((speed) => (
+            <MetricCard
+              key={speed.key}
+              label={speed.label}
+              value={wordCount ? formatRuntime((wordCount / speed.wpm) * 60) : "—"}
+              helper={`${speed.helper} · ${speed.wpm} wpm`}
+            />
+          ))}
+        </div>
+        <div className="rounded-2xl border border-purple-100 bg-purple-50/60 p-5">
+          <p className="text-sm font-semibold text-gray-900">Planning targets</p>
+          <ul className="mt-3 space-y-2 text-sm leading-relaxed text-gray-600">
+            <li className="flex gap-2">
+              <span className="mt-1 h-2 w-2 rounded-full bg-purple-500" />
+              <span>A 60-second Short fits roughly 130-160 spoken words.</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="mt-1 h-2 w-2 rounded-full bg-purple-500" />
+              <span>Trim to length in the script, not in the edit — it is far faster.</span>
+            </li>
+          </ul>
+          <div className="mt-4">
+            <Link
+              to="/tools/video-script-generator"
+              className="inline-flex items-center rounded-full border border-purple-200 bg-white px-5 py-2.5 text-sm font-semibold text-purple-700 transition hover:bg-purple-100"
+            >
+              Need a script first? Generate one →
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VideoLengthCalculatorWidget() {
+  return (
+    <ToolGate
+      toolName="Video Length Calculator"
+      blurb="Estimate your video runtime from a script or word count across slow, normal, and fast narration speeds."
+    >
+      <VideoLengthCalculatorInner />
+    </ToolGate>
+  );
+}
+
+// ─── Book Cover Generator ────────────────────────────────────────────────────
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Failed to load image"));
+    img.src = src;
+  });
+}
+
+function triggerDownload(href: string, filename: string) {
+  const a = document.createElement("a");
+  a.href = href;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+function BookCoverGeneratorInner() {
+  const [description, setDescription] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState<null | "png" | "jpeg" | "pdf">(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pngDataUrl, setPngDataUrl] = useState<string | null>(null);
+  const [quota, setQuota] = useToolQuota("book_cover");
+
+  const wordCount = useMemo(() => {
+    const trimmed = description.trim();
+    if (!trimmed) return 0;
+    return trimmed.split(/\s+/).filter(Boolean).length;
+  }, [description]);
+
+  const exhausted =
+    quota != null && quota.used >= quota.limit;
+  const canSubmit = description.trim().length >= 20 && !loading && !exhausted;
+
+  const handleGenerate = async () => {
+    if (!canSubmit) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await generateBookCover(description.trim());
+      setPngDataUrl(`data:image/png;base64,${res.data.image_base64}`);
+      setQuota({
+        used: res.data.covers_used,
+        limit: res.data.covers_limit ?? quota?.limit ?? 0,
+      });
+    } catch (err) {
+      setError(errorDetail(err, "Generation failed. Please try again in a moment."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleExport = async (format: "png" | "jpeg" | "pdf") => {
+    if (!pngDataUrl) return;
+    setExporting(format);
+    try {
+      if (format === "png") {
+        triggerDownload(pngDataUrl, "book-cover.png");
+      } else if (format === "jpeg") {
+        const img = await loadImage(pngDataUrl);
+        const canvas = document.createElement("canvas");
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("Canvas unavailable");
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+        triggerDownload(canvas.toDataURL("image/jpeg", 0.92), "book-cover.jpg");
+      } else {
+        const img = await loadImage(pngDataUrl);
+        const w = img.naturalWidth;
+        const h = img.naturalHeight;
+        const { jsPDF } = await import("jspdf");
+        const pdf = new jsPDF({
+          orientation: w > h ? "landscape" : "portrait",
+          unit: "px",
+          format: [w, h],
+        });
+        pdf.addImage(pngDataUrl, "PNG", 0, 0, w, h);
+        pdf.save("book-cover.pdf");
+      }
+    } catch {
+      setError("Export failed. Please try again.");
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  return (
+    <div className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
+      <div className="rounded-3xl border border-gray-200 bg-gray-50/70 p-6">
+        <Field label="Describe your book" hint={`${formatNumber(wordCount)} words`}>
+          <textarea
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+            placeholder="Describe your book in ~200 words — genre, mood, central idea or character, and any imagery you'd like on the cover…"
+            className="min-h-[240px] w-full rounded-2xl border border-gray-200 bg-white p-4 text-sm leading-6 text-gray-700 shadow-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+          />
+        </Field>
+        <button
+          type="button"
+          onClick={handleGenerate}
+          disabled={!canSubmit}
+          className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-purple-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {loading
+            ? "Generating cover…"
+            : exhausted
+              ? "Covers used up"
+              : pngDataUrl
+                ? "Regenerate cover"
+                : "Generate book cover"}
+        </button>
+        <ToolQuotaLine
+          quota={quota}
+          noun="covers"
+        />
+        {error ? <p className="mt-3 text-sm text-red-500">{error}</p> : null}
+        <p className="mt-4 text-xs leading-relaxed text-gray-400">
+          Generation can take up to a minute. The cover is a design starting point — replace any AI
+          title text with your own typography before publishing. Free accounts include 5 covers.
+        </p>
+      </div>
+
+      <div className="space-y-4">
+        {loading ? (
+          <div className="flex h-full min-h-[420px] items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center">
+            <div className="flex items-center gap-3 text-sm text-gray-500">
+              <svg className="h-5 w-5 animate-spin text-purple-600" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+              </svg>
+              Designing your cover…
+            </div>
+          </div>
+        ) : pngDataUrl ? (
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="flex justify-center">
+              <img
+                src={pngDataUrl}
+                alt="Generated book cover"
+                className="max-h-[520px] w-auto rounded-xl border border-gray-100 shadow-md"
+              />
+            </div>
+            <div className="mt-5">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-purple-600">
+                Export
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {(["png", "jpeg", "pdf"] as const).map((format) => (
+                  <button
+                    key={format}
+                    type="button"
+                    onClick={() => handleExport(format)}
+                    disabled={exporting !== null}
+                    className="rounded-full border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-gray-300 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {exporting === format ? "Preparing…" : `Download ${format.toUpperCase()}`}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex h-full min-h-[420px] items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center">
+            <p className="max-w-sm text-sm leading-relaxed text-gray-400">
+              Your AI-designed book cover will appear here in classic 2:3 portrait proportions, ready
+              to export as PNG, JPEG, or a print-ready PDF.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function BookCoverGeneratorWidget() {
+  return (
+    <ToolGate
+      toolName="Book Cover Generator"
+      blurb="Describe your book and generate a professional AI cover you can export as PNG, JPEG, or PDF."
+    >
+      <BookCoverGeneratorInner />
+    </ToolGate>
+  );
+}
+
 export function ToolWidget({ slug }: ToolWidgetProps) {
   switch (slug) {
     case "content-repurposing-calculator":
@@ -1274,6 +2058,16 @@ export function ToolWidget({ slug }: ToolWidgetProps) {
       return <SubstackDirectoryExplorer />;
     case "stock-visualizer":
       return <StockVisualizer />;
+    case "video-script-generator":
+      return <VideoScriptGeneratorWidget />;
+    case "thumbnail-text-generator":
+      return <ThumbnailTextGeneratorWidget />;
+    case "youtube-description-generator":
+      return <YouTubeDescriptionGeneratorWidget />;
+    case "video-length-calculator":
+      return <VideoLengthCalculatorWidget />;
+    case "book-cover-generator":
+      return <BookCoverGeneratorWidget />;
     default:
       return null;
   }

@@ -21,6 +21,7 @@ import CustomPreview from "../components/templatePreviews/CustomPreview";
 import CustomPreviewLandscape from "../components/templatePreviews/CustomPreviewLandscape";
 import CraftedTemplatePreview from "../components/templatePreviews/CraftedTemplatePreview";
 import DesignerTemplateRequestModal from "../components/DesignerTemplateRequestModal";
+import useIsMobileViewport from "../hooks/useIsMobileViewport";
 
 // A template stuck "generating" longer than this (no code, not flagged failed) is
 // treated as errored — generation crashed / connection was lost and the backend
@@ -55,6 +56,10 @@ export default function CustomTemplates() {
   // the "no templates" state before the real list arrives.
   const craftedTemplatesLoading = craftedTemplatesFetching || !craftedTemplatesInitialized;
   const previewCompileScope = user?.id != null ? String(user.id) : undefined;
+  // On mobile, template previews render as static images/placeholders (no live
+  // Remotion Players) — a grid of Players exhausts iOS Safari's memory and
+  // reloads the tab.
+  const isMobile = useIsMobileViewport();
   const [templates, setTemplates] = useState<CustomTemplateItem[]>([]);
   const [activeTemplatesTab, setActiveTemplatesTab] = useState<"custom" | "crafted">("custom");
   const [loaded, setLoaded] = useState(false);
@@ -460,6 +465,8 @@ export default function CustomTemplates() {
                       previewImageUrl={tpl.preview_image_url}
                       logoUrls={tpl.logo_urls}
                       ogImage={tpl.og_image}
+                      thumbnailMode={isMobile}
+                      staticThumb={isMobile}
                     />
                   ) : (
                     <div
@@ -635,6 +642,9 @@ export default function CustomTemplates() {
                       previewSource={tpl.preview_file ?? null}
                       previewImageUrl={tpl.preview_image_url ?? null}
                       name={tpl.name}
+                      theme={tpl.theme}
+                      thumbnailMode={isMobile}
+                      staticThumb={isMobile}
                       showLoaderOnEmptyOrError
                     />
                   </div>
