@@ -79,3 +79,6 @@ backend/.venv-test/
 
 # Local docs
 docs/
+
+# Avatar/talking-head experimentation working log (local notes, not shipped)
+AVATAR_PROGRESS.md
