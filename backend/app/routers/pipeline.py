@@ -17,6 +17,7 @@ from app.observability.logging import get_logger
 logger = get_logger(__name__)
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse, RedirectResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import OperationalError
 
@@ -31,6 +32,7 @@ from app.schemas.schemas import (
     RenderResponse,
 )
 from app.config import settings
+from app.services.stock_footage import STOCK_FOOTAGE_TEMPLATES
 from app.services.scraper import scrape_blog
 from app.services.table_extraction import build_table_context_hint, build_chartable_tables_payload, extract_tables_from_content, classify_chart_tables_for_template, append_tables_to_content
 from app.services.chart_planner import (
@@ -378,6 +380,177 @@ async def generate_video(
     return {"detail": "Pipeline started", "step": 0}
 
 
+@router.get("/stock-footage/pending")
+def get_pending_stock_footage(
+    project_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Scenes awaiting stock-footage review, with their auto-picked clip.
+
+    Only meaningful while the project sits at AWAITING_FOOTAGE; returns the same
+    shape regardless so the client can render a stable list.
+    """
+    from app.models.asset import Asset
+    from app.services.template_service import get_layouts_without_image
+
+    project = _get_project(project_id, user.id, db)
+    template = (getattr(project, "template", "") or "").strip().lower()
+    no_image = get_layouts_without_image(template)
+
+    videos = {
+        a.filename: a
+        for a in db.query(Asset)
+        .filter(Asset.project_id == project_id, Asset.asset_type == "VIDEO")
+        .all()
+    }
+
+    scenes = (
+        db.query(Scene)
+        .filter(Scene.project_id == project_id, Scene.is_active.is_(True))
+        .order_by(Scene.order)
+        .all()
+    )
+
+    items = []
+    for s in scenes:
+        layout = (s.preferred_layout or "").strip()
+        if layout and layout in no_image:
+            continue
+        try:
+            lp = (json.loads(s.remotion_code) or {}).get("layoutProps", {}) if s.remotion_code else {}
+        except (json.JSONDecodeError, TypeError):
+            lp = {}
+        fn = lp.get("assignedVideo")
+        asset = videos.get(fn) if fn else None
+        items.append(
+            {
+                "scene_id": s.id,
+                "order": s.order,
+                "title": s.title,
+                "scene_type": getattr(s, "scene_type", None),
+                "layout": layout or None,
+                "clip": (
+                    {
+                        "filename": asset.filename,
+                        "url": asset.r2_url
+                        or f"/media/projects/{project_id}/videos/{asset.filename}",
+                        "duration_seconds": asset.duration_seconds,
+                        "author": asset.source_author,
+                        "provider": asset.source_provider,
+                    }
+                    if asset
+                    else None
+                ),
+            }
+        )
+
+    return {
+        "status": project.status.value,
+        "awaiting": project.status == ProjectStatus.AWAITING_FOOTAGE,
+        "scenes": items,
+    }
+
+
+class LinkStockFootageRequest(BaseModel):
+    scene_id: int
+    filename: str
+
+
+@router.post("/stock-footage/link")
+def link_stock_footage(
+    project_id: int,
+    body: LinkStockFootageRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Point a scene at an already-uploaded clip.
+
+    The upload endpoint deliberately does not touch the scene descriptor (the
+    scene editor stages the choice and commits it on Save). The review gate has
+    no Save step, so it calls this straight after uploading a replacement —
+    without it the new clip is created but orphaned and the scene keeps showing
+    the old one.
+    """
+    from app.models.asset import Asset
+
+    project = _get_project(project_id, user.id, db)
+
+    scene = (
+        db.query(Scene)
+        .filter(Scene.id == body.scene_id, Scene.project_id == project_id)
+        .first()
+    )
+    if not scene:
+        raise HTTPException(status_code=404, detail="Scene not found")
+
+    asset = (
+        db.query(Asset)
+        .filter(
+            Asset.project_id == project_id,
+            Asset.filename == body.filename,
+            Asset.asset_type == "VIDEO",
+        )
+        .first()
+    )
+    if not asset:
+        raise HTTPException(status_code=404, detail="Clip not found in this project.")
+
+    try:
+        descriptor = json.loads(scene.remotion_code) if scene.remotion_code else {}
+    except (json.JSONDecodeError, TypeError):
+        descriptor = {}
+    lp = dict(descriptor.get("layoutProps") or {})
+    # A clip fills the visual slot: clear any still and un-hide it.
+    lp.pop("assignedImage", None)
+    lp["assignedVideo"] = asset.filename
+    lp["hideImage"] = False
+    lp.setdefault("videoMuted", True)
+    lp.setdefault("videoVolume", 0.35)
+    lp.setdefault("imageFocusX", 50)
+    lp.setdefault("imageFocusY", 50)
+    descriptor["layoutProps"] = lp
+    scene.remotion_code = json.dumps(descriptor)
+    db.commit()
+
+    from app.routers.collab_ws import broadcast_project_reload
+    broadcast_project_reload(project_id, exclude_user_id=user.id)
+
+    return {"detail": "Clip linked", "scene_id": scene.id, "filename": asset.filename}
+
+
+@router.post("/stock-footage/approve")
+async def approve_stock_footage(
+    project_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Accept the reviewed clips and resume generation from the gate."""
+    project = _get_project(project_id, user.id, db)
+
+    if project.status != ProjectStatus.AWAITING_FOOTAGE:
+        raise HTTPException(
+            status_code=400,
+            detail="This project is not waiting for stock footage review.",
+        )
+    if project_id in _pipeline_progress and _pipeline_progress[project_id].get("running"):
+        return {"detail": "Pipeline already running", "step": _pipeline_progress[project_id].get("step", 0)}
+
+    # Hand back to the normal script->scenes path. Stamping the approval is what
+    # keeps the gate from re-parking the project on re-entry (the flag stays on).
+    from datetime import datetime as _dt
+
+    project.stock_footage_approved_at = _dt.utcnow()
+    project.status = ProjectStatus.SCRIPTED
+    db.commit()
+
+    _pipeline_progress[project_id] = {"step": 3, "running": True, "error": None, "notice": None}
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(None, _run_pipeline_sync, project_id, user.id)
+
+    return {"detail": "Generation resumed", "step": 3}
+
+
 @router.get("/status")
 def get_pipeline_status(
     project_id: int,
@@ -548,8 +721,54 @@ async def _run_pipeline(project_id: int, user_id: int):
                         )
                         return
 
+            # Step 2.5: Stock-footage verification gate.
+            # Scenes + titles exist now, so we can auto-pick a clip per
+            # image-capable scene and hand them to the user for approval. Parking
+            # at AWAITING_FOOTAGE (rather than staying SCRIPTED) is what stops
+            # step 3 below from running straight through — the approve endpoint
+            # flips the status back and re-enters this pipeline.
+            # `stock_footage_approved_at` is what stops this from looping: approve
+            # puts the project back to SCRIPTED with the flag still enabled, so
+            # without that marker the gate would re-park it forever.
+            if (
+                project.status == ProjectStatus.SCRIPTED
+                and getattr(project, "stock_footage_enabled", False)
+                and getattr(project, "stock_footage_approved_at", None) is None
+                and (getattr(project, "template", "") or "").strip().lower()
+                in STOCK_FOOTAGE_TEMPLATES
+            ):
+                _pipeline_progress[project_id]["step"] = 3
+                with _tracer.start_as_current_span(
+                    "pipeline.stock_footage_gate",
+                    attributes={**attributes, "pipeline.stage": "stock_footage"},
+                ):
+                    try:
+                        await _prepare_stock_footage_candidates(project, db)
+                    except Exception:
+                        # Never fail generation over the auto-pick — the user can
+                        # still choose every clip by hand at the gate.
+                        logger.warning(
+                            "[PIPELINE] project=%s: stock footage preparation failed",
+                            project_id, exc_info=True,
+                        )
+                    project.status = ProjectStatus.AWAITING_FOOTAGE
+                    db.commit()
+                    _pipeline_progress[project_id]["running"] = False
+                    logger.info(
+                        "[PIPELINE] Project %s paused for stock footage review", project_id
+                    )
+                    return
+
             # Step 3: Generate scene descriptors + voiceovers
-            if project.status in (ProjectStatus.CREATED, ProjectStatus.SCRAPED, ProjectStatus.SCRIPTED):
+            if project.status in (
+                ProjectStatus.CREATED,
+                ProjectStatus.SCRAPED,
+                ProjectStatus.SCRIPTED,
+                # Resumed from the footage gate: the approve endpoint flips the
+                # status back to SCRIPTED, but accept this too so a retry that
+                # races the flip still proceeds instead of silently no-op'ing.
+                ProjectStatus.AWAITING_FOOTAGE,
+            ):
                 _pipeline_progress[project_id]["step"] = 3
                 with _tracer.start_as_current_span(
                     "pipeline.generate_scenes",
@@ -743,6 +962,168 @@ def _set_error(project_id: int, project, db: Session, msg: str):
                 project_id,
                 e,
             )
+
+
+def _image_capable_scenes(project: Project, db: Session) -> list[Scene]:
+    """Scenes that can carry a background clip, in order.
+
+    Called at the SCRIPTED stage, where scenes exist with a ``preferred_layout``
+    but no ``remotion_code`` yet (final layouts are resolved in step 3). So the
+    image-capability test keys off preferred_layout, not the descriptor.
+    """
+    from app.services.template_service import get_layouts_without_image
+
+    template = (getattr(project, "template", "") or "").strip().lower()
+    no_image = get_layouts_without_image(template)
+    scenes = (
+        db.query(Scene)
+        .filter(Scene.project_id == project.id, Scene.is_active.is_(True))
+        .order_by(Scene.order)
+        .all()
+    )
+    out = []
+    for s in scenes:
+        layout = (s.preferred_layout or "").strip()
+        if layout and layout in no_image:
+            continue
+        out.append(s)
+    return out
+
+
+async def _prepare_stock_footage_candidates(project: Project, db: Session) -> int:
+    """Auto-pick and ingest one stock clip per image-capable scene.
+
+    Runs between the script and scene-generation stages. Each clip is searched by
+    the scene's title, ingested through the shared
+    :func:`stock_footage.ingest_clip` (so the CFR-30 contract matches the editor's
+    path exactly), and linked into the scene descriptor as ``assignedVideo``.
+
+    A scene whose search returns nothing, or whose download fails, is simply left
+    without a clip — the user fills it in during review rather than the whole
+    generation failing.
+
+    Returns the number of scenes that got a clip.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+    from app.models.asset import Asset, AssetType
+    from app.services import stock_footage, r2_storage
+
+    scenes = _image_capable_scenes(project, db)
+    if not scenes:
+        return 0
+
+    orientation = (
+        "portrait"
+        if (getattr(project, "aspect_ratio", "landscape") or "").lower() == "portrait"
+        else "landscape"
+    )
+    video_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project.id}/videos")
+    loop = asyncio.get_running_loop()
+    assigned = 0
+
+    for scene in scenes:
+        query = (scene.title or scene.visual_description or "").strip()
+        if not query:
+            continue
+        try:
+            clip = await loop.run_in_executor(
+                None, lambda q=query: stock_footage.pick_top_for_query(q, orientation=orientation)
+            )
+            if clip is None:
+                logger.info(
+                    "[PIPELINE] project=%s scene=%s: no stock result for %r",
+                    project.id, scene.id, query,
+                )
+                continue
+
+            ts = int(time.time())
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                ingested = await loop.run_in_executor(
+                    pool,
+                    stock_footage.ingest_clip,
+                    clip.download_url,
+                    video_dir,
+                    f"scene_{scene.id}_{ts}",
+                )
+        except Exception:
+            logger.warning(
+                "[PIPELINE] project=%s scene=%s: stock footage auto-pick failed",
+                project.id, scene.id, exc_info=True,
+            )
+            continue
+
+        r2_key_val = None
+        r2_url_val = None
+        audio_uploaded = False
+        if r2_storage.is_r2_configured():
+            try:
+                r2_key_val = r2_storage.stock_video_key(
+                    project.user_id, project.id, ingested.filename
+                )
+                r2_url_val = r2_storage.upload_file(
+                    ingested.local_path, r2_key_val, content_type="video/mp4"
+                )
+                if ingested.audio_filename and ingested.audio_local_path:
+                    r2_storage.upload_file(
+                        ingested.audio_local_path,
+                        r2_storage.stock_video_key(
+                            project.user_id, project.id, ingested.audio_filename
+                        ),
+                        content_type="video/mp4",
+                    )
+                    audio_uploaded = True
+            except Exception as e:
+                logger.warning("[PIPELINE] R2 upload failed for %s: %s", ingested.filename, e)
+
+        has_audio = bool(
+            ingested.audio_filename
+            and (audio_uploaded or not r2_storage.is_r2_configured())
+        )
+
+        db.add(
+            Asset(
+                project_id=project.id,
+                asset_type=AssetType.VIDEO,
+                original_url=clip.page_url or clip.download_url,
+                local_path=ingested.local_path,
+                filename=ingested.filename,
+                r2_key=r2_key_val,
+                r2_url=r2_url_val,
+                excluded=False,
+                duration_seconds=ingested.duration_seconds,
+                width=ingested.width,
+                height=ingested.height,
+                source_provider=clip.provider,
+                source_id=clip.id,
+                source_author=clip.author,
+                source_page_url=clip.page_url,
+                audio_variant_filename=ingested.audio_filename if has_audio else None,
+            )
+        )
+
+        # Link it exactly as the editor does: a clip fills the visual slot.
+        try:
+            descriptor = json.loads(scene.remotion_code) if scene.remotion_code else {}
+        except (json.JSONDecodeError, TypeError):
+            descriptor = {}
+        lp = dict(descriptor.get("layoutProps") or {})
+        lp.pop("assignedImage", None)
+        lp["assignedVideo"] = ingested.filename
+        lp["hideImage"] = False
+        lp.setdefault("videoMuted", True)
+        lp.setdefault("videoVolume", 0.35)
+        lp.setdefault("imageFocusX", 50)
+        lp.setdefault("imageFocusY", 50)
+        descriptor["layoutProps"] = lp
+        scene.remotion_code = json.dumps(descriptor)
+        assigned += 1
+
+    db.commit()
+    logger.info(
+        "[PIPELINE] project=%s: auto-picked %s/%s stock clips",
+        project.id, assigned, len(scenes),
+    )
+    return assigned
 
 
 async def _generate_script(
@@ -1721,12 +2102,27 @@ async def _generate_scenes(
                 old_lp = old_desc.get("layoutProps") or {}
                 old_assigned = old_lp.get("assignedImage")
                 old_hide = old_lp.get("hideImage")
-                if old_assigned or old_hide:
+                # A stock clip occupies the same visual slot as a still and is
+                # chosen BEFORE this stage (the generation-time review gate), so
+                # it must survive the descriptor rebuild too. Without this the
+                # clip is dropped here and write_remotion_data's auto-assign
+                # cascade then fills the empty slot with a generic image.
+                old_video = old_lp.get("assignedVideo")
+                if old_assigned or old_hide or old_video:
                     if "layoutProps" not in descriptor:
                         descriptor["layoutProps"] = {}
-                    if old_assigned:
+                    if old_video:
+                        descriptor["layoutProps"]["assignedVideo"] = old_video
+                        # Carry the clip's playback settings and framing with it.
+                        for key in ("videoMuted", "videoVolume", "imageFocusX", "imageFocusY", "imageZoom"):
+                            if key in old_lp:
+                                descriptor["layoutProps"][key] = old_lp[key]
+                        # A clip and a still are mutually exclusive.
+                        descriptor["layoutProps"].pop("assignedImage", None)
+                        descriptor["layoutProps"]["hideImage"] = False
+                    elif old_assigned:
                         descriptor["layoutProps"]["assignedImage"] = old_assigned
-                    if old_hide:
+                    if old_hide and not old_video:
                         descriptor["layoutProps"]["hideImage"] = True
             except (json.JSONDecodeError, TypeError):
                 pass

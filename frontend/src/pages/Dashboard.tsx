@@ -29,7 +29,16 @@ import type { VideoStyleId } from "../constants/videoStyles";
 import { primeBlogUrlFormStep2Prefetch } from "../api/blogUrlFormStep2Prefetch";
 
 const BULK_PENDING_IDS_KEY = "b2v_bulk_pending_ids";
-const BULK_TERMINAL_STATUSES = new Set(["generated", "done", "error", "failed"]);
+// `awaiting_footage` is terminal *for polling*: generation is parked at the
+// stock-footage review gate and will not advance until the user opens the
+// project and approves, so we stop polling and surface it instead of spinning.
+const BULK_TERMINAL_STATUSES = new Set([
+  "generated",
+  "done",
+  "error",
+  "failed",
+  "awaiting_footage",
+]);
 
 export default function Dashboard() {
   const { user, loading, refreshUser } = useAuth();
@@ -42,6 +51,10 @@ export default function Dashboard() {
   const [blogFormInitialGenre, setBlogFormInitialGenre] = useState<string | undefined>(undefined);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
   const [creating, setCreating] = useState(false);
+  // Options the form can't pass through onSubmit's positional list (22 args).
+  const [extraCreateOptions, setExtraCreateOptions] = useState<{ stockFootageEnabled: boolean }>({
+    stockFootageEnabled: false,
+  });
   const [loaded, setLoaded] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -317,6 +330,7 @@ export default function Dashboard() {
           content_language: contentLanguage,
           bgm_track_id: bgmTrackId,
           bgm_volume: bgmVolume,
+          stock_footage_enabled: extraCreateOptions.stockFootageEnabled,
         });
       } else {
         // URL flow
@@ -339,7 +353,10 @@ export default function Dashboard() {
           contentLanguage,
           voiceEmotion,
           bgmTrackId,
-          bgmVolume
+          bgmVolume,
+          undefined,
+          undefined,
+          { stock_footage_enabled: extraCreateOptions.stockFootageEnabled },
         );
       }
 
@@ -440,7 +457,7 @@ export default function Dashboard() {
 
           {/* Inline form (same fields, not a modal) */}
           <div className="glass-card p-7">
-            <BlogUrlForm onSubmit={handleCreate} onSubmitBulk={handleCreateBulk} loading={creating} />
+            <BlogUrlForm onSubmit={handleCreate} onSubmitBulk={handleCreateBulk} onExtraOptionsChange={setExtraCreateOptions} loading={creating} />
           </div>
 
           {/* Upgrade nudge */}
@@ -537,6 +554,7 @@ export default function Dashboard() {
           key={blogFormMountKey}
           onSubmit={handleCreate}
           onSubmitBulk={handleCreateBulk}
+          onExtraOptionsChange={setExtraCreateOptions}
           loading={creating}
           asModal
           onClose={() => { setShowModal(false); setBlogFormInitialGenre(undefined); }}

@@ -74,6 +74,7 @@ import { trackGoogleAdsPurchaseConversion } from "../gtag";
 import StatusBadge from "../components/StatusBadge";
 import ScriptPanel from "../components/ScriptPanel";
 import { StockFootageModal, STOCK_FOOTAGE_CREDIT_COST } from "../components/StockFootageModal";
+import { StockFootageVerifyModal } from "../components/StockFootageVerifyModal";
 import { ImageAdjustStage } from "../components/ImageAdjustStage";
 import SceneEditModal, {
   SceneImageItem,
@@ -1093,6 +1094,8 @@ export default function ProjectView() {
 
   // Pipeline state
   const [pipelineRunning, setPipelineRunning] = useState(false);
+  // Generation is parked at the stock-footage gate, waiting on user approval.
+  const [awaitingFootage, setAwaitingFootage] = useState(false);
   const [pipelineStep, setPipelineStep] = useState(0);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const generationStarted = useRef(false);
@@ -2158,6 +2161,15 @@ export default function ProjectView() {
         return;
       }
 
+      // Returning to a project parked at the footage gate (e.g. the user closed
+      // the tab mid-review): show the review modal instead of restarting
+      // generation — deliberately NOT part of needsGeneration below.
+      if (proj.status === "awaiting_footage") {
+        generationStarted.current = true;
+        setAwaitingFootage(true);
+        return;
+      }
+
       const needsGeneration = ["created", "scraped", "scripted"].includes(
         proj.status
       );
@@ -2236,6 +2248,16 @@ export default function ProjectView() {
         // container handles the poll.  If the project is still mid-generation,
         // keep the loader visible and keep polling.
         if (!running) {
+          // Parked at the stock-footage gate: stop polling and hand over to the
+          // review modal. Approving there resumes the pipeline and restarts
+          // polling, so this is a pause rather than a terminal state.
+          if (status === "awaiting_footage") {
+            setPipelineRunning(false);
+            stopPolling();
+            setAwaitingFootage(true);
+            await loadProject({ silent404: true });
+            return;
+          }
           const stillGenerating = ["created", "scraped", "scripted"].includes(
             status
           );
@@ -3431,10 +3453,10 @@ export default function ProjectView() {
     setSelectedExistingAssetId(null);
   };
 
-  // Stock footage is a Newscast-only pilot — keep this gate in lockstep with the
-  // frontend gate in SceneEditModal and STOCK_FOOTAGE_TEMPLATES on the backend.
-  const stockFootageSupported =
-    (project?.template || "").toLowerCase() === "newscast";
+  // Offered for every template. The restriction lives solely on the backend now
+  // (STOCK_FOOTAGE_TEMPLATES in app/routers/projects.py), which rejects the
+  // upload for templates whose layouts cannot render a clip.
+  const stockFootageSupported = true;
 
   const handleChooseStockFootage = () => {
     if (!imageSourceChooserSceneId) return;
@@ -5294,6 +5316,22 @@ export default function ProjectView() {
         onConfirm={handleConfirmDeleteBlogImage}
       />
 
+      {/* Generation gate: review the auto-picked clips before the video is built. */}
+      {awaitingFootage && project && (
+        <StockFootageVerifyModal
+          projectId={project.id}
+          templateId={project.template}
+          onApproved={() => {
+            setAwaitingFootage(false);
+            // The pipeline is running again from step 3 — resume the loader.
+            setPipelineRunning(true);
+            setPipelineStep(3);
+            pipelineTerminalFailureHandledRef.current = false;
+            startPolling();
+          }}
+        />
+      )}
+
       {/* Unassign (not delete) a scene's image/clip from the expanded section. */}
       <ConfirmDeleteModal
         open={sceneMediaRemovePending != null}
@@ -5420,7 +5458,7 @@ export default function ProjectView() {
                   <div className="border border-gray-200/60 rounded-xl p-4 max-h-[240px] overflow-y-auto bg-gray-50/40">
                     {templateChangePickerTab === "builtin" ? (
                       templateMetas.length > 0 ? (
-                        <div className="grid grid-cols-3 gap-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                           {[...templateMetas].sort((a, b) => {
                             const rank = (t: typeof a) => (t.new_template ? 0 : t.popular_template ? 1 : 2);
                             return rank(a) - rank(b);
@@ -5475,7 +5513,7 @@ export default function ProjectView() {
                         <p className="text-xs text-gray-500 py-6 text-center">No built-in templates loaded.</p>
                       )
                     ) : templateChangePickerTab === "custom" ? (
-                      <div className="grid grid-cols-3 gap-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                         <CraftYourTemplateCard
                           variant="default"
                           isPro={isPro}
@@ -5540,13 +5578,13 @@ export default function ProjectView() {
                           </div>
                         )}
                         {!customTemplatesLoading && readyCustomForPicker.length === 0 && (
-                          <p className="col-span-2 text-xs text-gray-500 py-4 text-center flex items-center justify-center">
+                          <p className="col-span-2 sm:col-span-3 text-xs text-gray-500 py-4 text-center flex items-center justify-center">
                             No custom templates ready yet.
                           </p>
                         )}
                       </div>
                     ) : (
-                      <div className="grid grid-cols-3 gap-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                         {readyCraftedForPicker.map((ct) => {
                           const craftedId = ct.id;
                           const isSel = templateChangeDraft === craftedId;
@@ -5596,7 +5634,7 @@ export default function ProjectView() {
                           </div>
                         )}
                         {!craftedTemplatesLoading && readyCraftedForPicker.length === 0 && (
-                          <p className="col-span-2 text-xs text-gray-500 py-4 text-center flex items-center justify-center">
+                          <p className="col-span-2 sm:col-span-3 text-xs text-gray-500 py-4 text-center flex items-center justify-center">
                             No designer templates available.
                           </p>
                         )}

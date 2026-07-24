@@ -653,3 +653,244 @@ def test_stale_assigned_video_is_pruned(db_session, paid_user, tmp_path, monkeyp
 
     db_session.refresh(scenes[0])
     assert "assignedVideo" not in json.loads(scenes[0].remotion_code)["layoutProps"]
+
+
+# ─── Generation-time verification gate ──────────────────────────────────────
+
+
+def _scripted_newscast_project(db, user, *, enabled=True, layouts=("opening", "anchor_narrative")):
+    """A project parked at SCRIPTED with scenes that have preferred_layout set."""
+    project = Project(
+        user_id=user.id, name="Gate", blog_url="https://g.test",
+        status=ProjectStatus.SCRIPTED, template="newscast",
+        stock_footage_enabled=enabled,
+    )
+    db.add(project); db.commit(); db.refresh(project)
+    for i, layout in enumerate(layouts, start=1):
+        db.add(Scene(
+            project_id=project.id, order=i, title=f"Scene {i}",
+            narration_text="n", visual_description="v", preferred_layout=layout,
+        ))
+    db.commit()
+    return project
+
+
+def test_image_capable_scenes__excludes_no_image_layouts(db_session, paid_user):
+    """Capability is read from preferred_layout — remotion_code does not exist yet."""
+    from app.routers.pipeline import _image_capable_scenes
+
+    project = _scripted_newscast_project(
+        db_session, paid_user, layouts=("opening", "anchor_narrative", "ending_socials"),
+    )
+    got = _image_capable_scenes(project, db_session)
+    titles = [s.title for s in got]
+    assert "Scene 1" in titles and "Scene 2" in titles
+    assert "Scene 3" not in titles, "ending_socials should be excluded"
+
+
+def test_resolve_stock_footage_flag__paid_and_newscast_only(db_session, paid_user, free_user):
+    from app.routers.projects import _resolve_stock_footage_flag
+
+    assert _resolve_stock_footage_flag(True, paid_user, "newscast") is True
+    assert _resolve_stock_footage_flag(False, paid_user, "newscast") is False
+    # Free plan → off even when asked (no 4xx, the feature is simply disabled).
+    assert _resolve_stock_footage_flag(True, free_user, "newscast") is False
+    # Wrong template → off (nothing would render the clip).
+    assert _resolve_stock_footage_flag(True, paid_user, "economist") is False
+
+
+def test_gate_condition_is_false_once_approved(db_session, paid_user):
+    """Regression: approve returns the project to SCRIPTED with the flag STILL
+    enabled. Without the approval stamp the gate condition stays true and the
+    pipeline re-parks it forever (approve -> SCRIPTED -> re-park -> ...).
+
+    Asserts the guard itself rather than driving _run_pipeline, which opens its
+    own SessionLocal and so cannot see this test transaction.
+    """
+    from datetime import datetime
+    from app.services.stock_footage import STOCK_FOOTAGE_TEMPLATES
+
+    project = _scripted_newscast_project(db_session, paid_user)
+
+    def gate_fires(p) -> bool:
+        return (
+            p.status == ProjectStatus.SCRIPTED
+            and bool(getattr(p, "stock_footage_enabled", False))
+            and getattr(p, "stock_footage_approved_at", None) is None
+            and (getattr(p, "template", "") or "").strip().lower() in STOCK_FOOTAGE_TEMPLATES
+        )
+
+    assert gate_fires(project) is True
+
+    # Parked: the status alone blocks re-entry.
+    project.status = ProjectStatus.AWAITING_FOOTAGE
+    assert gate_fires(project) is False
+
+    # Approved: back to SCRIPTED with the flag still on — the stamp is the ONLY
+    # thing preventing an infinite re-park.
+    project.stock_footage_approved_at = datetime.utcnow()
+    project.status = ProjectStatus.SCRIPTED
+    db_session.commit()
+    assert project.stock_footage_enabled is True
+    assert gate_fires(project) is False, "approved project must not re-park"
+
+
+def test_approve_endpoint_stamps_and_resumes(client, db_session, paid_user, auth, monkeypatch):
+    from types import SimpleNamespace
+    from app.routers import pipeline as pipeline_mod
+
+    project = _scripted_newscast_project(db_session, paid_user)
+
+    # Not at the gate yet → 400.
+    resp = client.post(
+        f"/api/projects/{project.id}/stock-footage/approve", headers=auth(paid_user)
+    )
+    assert resp.status_code == 400
+
+    project.status = ProjectStatus.AWAITING_FOOTAGE
+    db_session.commit()
+
+    launched: list[tuple] = []
+    monkeypatch.setattr(
+        pipeline_mod.asyncio, "get_event_loop",
+        lambda: SimpleNamespace(
+            run_in_executor=lambda _pool, fn, *a: launched.append((fn.__name__, a))
+        ),
+    )
+
+    resp = client.post(
+        f"/api/projects/{project.id}/stock-footage/approve", headers=auth(paid_user)
+    )
+    assert resp.status_code == 200, resp.text
+    db_session.refresh(project)
+    assert project.status == ProjectStatus.SCRIPTED
+    # The stamp is what stops the gate re-firing on re-entry.
+    assert project.stock_footage_approved_at is not None
+    assert launched and launched[0][0] == "_run_pipeline_sync"
+
+
+def test_pending_endpoint_lists_image_scenes_with_clip(db_session, paid_user, client, auth):
+    from app.models.asset import Asset, AssetType
+
+    project = _scripted_newscast_project(
+        db_session, paid_user, layouts=("opening", "ending_socials"),
+    )
+    project.status = ProjectStatus.AWAITING_FOOTAGE
+    db_session.add(Asset(
+        project_id=project.id, asset_type=AssetType.VIDEO,
+        local_path="/x.mp4", filename="clip.mp4", excluded=False,
+        duration_seconds=6.0, source_author="A", source_provider="pexels",
+    ))
+    db_session.commit()
+
+    scene1 = db_session.query(Scene).filter(
+        Scene.project_id == project.id, Scene.order == 1
+    ).first()
+    scene1.remotion_code = json.dumps({"layoutProps": {"assignedVideo": "clip.mp4"}})
+    db_session.commit()
+
+    resp = client.get(
+        f"/api/projects/{project.id}/stock-footage/pending", headers=auth(paid_user)
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["awaiting"] is True
+    assert len(body["scenes"]) == 1, "ending_socials must be excluded"
+    entry = body["scenes"][0]
+    assert entry["title"] == "Scene 1"
+    assert entry["clip"]["filename"] == "clip.mp4"
+
+
+def test_scene_generation_preserves_assigned_video(db_session, paid_user):
+    """Regression: _generate_scenes rebuilds the descriptor from the LLM output and
+    only carried `assignedImage`/`hideImage` forward. A clip chosen at the review
+    gate was therefore dropped here, and write_remotion_data's auto-assign cascade
+    then filled the empty visual slot with a generic scraped image.
+
+    Mirrors the preserve block's logic (the function itself needs a full LLM run).
+    """
+    old_lp = {
+        "title": "T",
+        "assignedVideo": "scene_1_123.mp4",
+        "videoMuted": True,
+        "videoVolume": 0.35,
+        "imageFocusX": 40,
+        "imageFocusY": 60,
+    }
+    # A freshly generated descriptor knows nothing about the clip.
+    descriptor = {"layout": "opening", "layoutProps": {"title": "T"}}
+
+    old_assigned = old_lp.get("assignedImage")
+    old_hide = old_lp.get("hideImage")
+    old_video = old_lp.get("assignedVideo")
+    if old_assigned or old_hide or old_video:
+        descriptor.setdefault("layoutProps", {})
+        if old_video:
+            descriptor["layoutProps"]["assignedVideo"] = old_video
+            for key in ("videoMuted", "videoVolume", "imageFocusX", "imageFocusY", "imageZoom"):
+                if key in old_lp:
+                    descriptor["layoutProps"][key] = old_lp[key]
+            descriptor["layoutProps"].pop("assignedImage", None)
+            descriptor["layoutProps"]["hideImage"] = False
+        elif old_assigned:
+            descriptor["layoutProps"]["assignedImage"] = old_assigned
+        if old_hide and not old_video:
+            descriptor["layoutProps"]["hideImage"] = True
+
+    lp = descriptor["layoutProps"]
+    assert lp["assignedVideo"] == "scene_1_123.mp4", "clip must survive the rebuild"
+    # Settings + framing ride along with it.
+    assert lp["videoMuted"] is True and lp["videoVolume"] == 0.35
+    assert lp["imageFocusX"] == 40 and lp["imageFocusY"] == 60
+    # A clip and a still are mutually exclusive, and hideImage must not suppress it.
+    assert "assignedImage" not in lp
+    assert lp["hideImage"] is False
+
+
+def test_link_endpoint_points_a_scene_at_an_uploaded_clip(
+    client, db_session, paid_user, auth
+):
+    """Regression: the upload endpoint creates the asset but deliberately does NOT
+    touch the scene (the editor stages that and commits on Save). The review gate
+    has no Save step, so swapping a clip there uploaded it and then orphaned it —
+    the scene kept the old clip, even after a refresh.
+    """
+    from app.models.asset import Asset, AssetType
+
+    project, scenes = _scripted_newscast_project(db_session, paid_user), None
+    scene = db_session.query(Scene).filter(
+        Scene.project_id == project.id, Scene.order == 1
+    ).first()
+
+    for fn in ("old.mp4", "new.mp4"):
+        db_session.add(Asset(
+            project_id=project.id, asset_type=AssetType.VIDEO,
+            local_path=f"/{fn}", filename=fn, excluded=False, duration_seconds=5.0,
+        ))
+    scene.remotion_code = json.dumps({
+        "layout": "opening",
+        "layoutProps": {"assignedVideo": "old.mp4", "assignedImage": "stale.png"},
+    })
+    db_session.commit()
+
+    resp = client.post(
+        f"/api/projects/{project.id}/stock-footage/link",
+        headers=auth(paid_user),
+        json={"scene_id": scene.id, "filename": "new.mp4"},
+    )
+    assert resp.status_code == 200, resp.text
+
+    db_session.refresh(scene)
+    lp = json.loads(scene.remotion_code)["layoutProps"]
+    assert lp["assignedVideo"] == "new.mp4", "scene must point at the swapped clip"
+    # A clip fills the visual slot exclusively.
+    assert "assignedImage" not in lp
+    assert lp["hideImage"] is False
+
+    # A clip that isn't in this project is rejected rather than silently linked.
+    bad = client.post(
+        f"/api/projects/{project.id}/stock-footage/link",
+        headers=auth(paid_user),
+        json={"scene_id": scene.id, "filename": "not_mine.mp4"},
+    )
+    assert bad.status_code == 404

@@ -113,6 +113,8 @@ def _migrate_sqlite(eng) -> None:
             "embed_token": "VARCHAR(64)",
             "video_length": "VARCHAR(10) DEFAULT 'auto'",
             "playback_speed": "REAL DEFAULT 1.0",
+            "stock_footage_enabled": "BOOLEAN DEFAULT 0",
+            "stock_footage_approved_at": "DATETIME",
             "captions_enabled": "BOOLEAN DEFAULT 0",
             "caption_position": "VARCHAR(20) DEFAULT 'bottom_center'",
             "caption_font_family": "VARCHAR(50) DEFAULT 'inter'",

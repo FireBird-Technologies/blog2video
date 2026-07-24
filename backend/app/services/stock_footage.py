@@ -39,6 +39,12 @@ TARGET_FPS = 30
 # 4K source (50-150 MB) buys nothing but download time and disk.
 MAX_HEIGHT = 1080
 
+# Pilot scope: templates whose layouts render a clip (ZoomCropVideo is wired
+# through Newscast only). Lives here rather than in a router so both the editor
+# endpoints and the generation pipeline can gate on it without importing each
+# other. Widen this — and the frontend gates — to roll the feature out.
+STOCK_FOOTAGE_TEMPLATES = {"newscast"}
+
 # Hard ceiling on what we will pull from a provider. Generous enough for a 30 s
 # 1080p clip, tight enough that a pathological URL cannot fill the disk.
 MAX_DOWNLOAD_BYTES = 60 * 1024 * 1024
@@ -498,3 +504,94 @@ def _quiet_unlink(path: str | None) -> None:
         os.unlink(path)
     except OSError:
         pass
+
+
+# ───────────────────── Ingest (download → asset) ──────────────────
+
+
+@dataclass
+class IngestedClip:
+    """Result of turning a provider URL into normalised local files."""
+
+    filename: str
+    local_path: str
+    audio_filename: str | None
+    audio_local_path: str | None
+    duration_seconds: float
+    width: int
+    height: int
+
+
+def ingest_clip(
+    download_url: str,
+    dest_dir: str,
+    basename: str,
+) -> IngestedClip:
+    """Download a provider clip and normalise it to CFR 30 fps on disk.
+
+    THE single ingest path — both the per-scene editor endpoint and the
+    generation-time auto-pick call this, so the frame-rate contract (and the
+    silent/audio variant split) cannot drift between them.
+
+    Produces ``<basename>.mp4`` (silent, always) and, when the source carries
+    audio, ``<basename>_audio.mp4`` (AAC). Blocking: run it off the event loop.
+
+    Raises :class:`StockFootageError` for anything the caller should surface.
+    """
+    filename = f"{basename}.mp4"
+    audio_filename = f"{basename}_audio.mp4"
+    local_path = os.path.join(dest_dir, filename)
+    audio_local_path = os.path.join(dest_dir, audio_filename)
+
+    wrote_audio = False
+    tmp_path = download_to_temp(download_url)
+    try:
+        # Probe the SILENT variant: it is what the renderer loops, and AAC
+        # padding would stretch the audio variant's duration (see probe()).
+        normalise(tmp_path, local_path, with_audio=False)
+        info = probe(local_path)
+
+        if has_audio_stream(tmp_path):
+            try:
+                normalise(tmp_path, audio_local_path, with_audio=True)
+                wrote_audio = True
+            except StockFootageError:
+                # An unusable audio variant must not fail the whole ingest — the
+                # scene simply cannot be unmuted.
+                logger.warning("[STOCK] audio variant failed for %s", basename, exc_info=True)
+    finally:
+        _quiet_unlink(tmp_path)
+
+    return IngestedClip(
+        filename=filename,
+        local_path=local_path,
+        audio_filename=audio_filename if wrote_audio else None,
+        audio_local_path=audio_local_path if wrote_audio else None,
+        duration_seconds=float(info.get("duration_seconds") or 0.0),
+        width=int(info.get("width") or 0),
+        height=int(info.get("height") or 0),
+    )
+
+
+def pick_top_for_query(
+    query: str,
+    *,
+    orientation: str | None = None,
+    box_w: float | None = None,
+    box_h: float | None = None,
+) -> StockClip | None:
+    """Best clip for a query, or None when nothing matches.
+
+    "Best" is whatever :func:`search` ranks first — already fps-ordered, so a
+    native 30 fps source wins when one exists.
+    """
+    clips = search(
+        query,
+        provider="all",
+        per_page=24,
+        page=1,
+        orientation=orientation,
+        box_w=box_w,
+        box_h=box_h,
+    )
+    return clips[0] if clips else None

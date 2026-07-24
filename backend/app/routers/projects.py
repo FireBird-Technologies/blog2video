@@ -876,6 +876,25 @@ def _run_project_template_change_job(job_id: int) -> None:
         db.close()
 
 
+def _resolve_stock_footage_flag(requested: bool, user: User, template_id: str) -> bool:
+    """Whether generation should pause for stock-footage review.
+
+    Silently false rather than a 4xx when the client asks for it without the
+    entitlement: the flag is an enhancement, and failing project creation over
+    it would be a worse experience than just generating without clips. The UI
+    hides the toggle in these cases anyway.
+
+      * paid plans only (PRO/STANDARD) — clips are free for them because
+        consume_ai_edit already no-ops on those plans
+      * templates whose layouts actually render a clip (Newscast pilot)
+    """
+    if not bool(requested):
+        return False
+    if user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
+        return False
+    return (template_id or "").strip().lower() in STOCK_FOOTAGE_TEMPLATES
+
+
 @router.post("", response_model=ProjectOut)
 def create_project(
     data: ProjectCreate,
@@ -937,6 +956,9 @@ def create_project(
         caption_font_family=getattr(data, "caption_font_family", None) or "inter",
         caption_font_size=getattr(data, "caption_font_size", None) or "36",
         caption_offset=int(getattr(data, "caption_offset", 0) or 0),
+        stock_footage_enabled=_resolve_stock_footage_flag(
+            getattr(data, "stock_footage_enabled", False), user, template_id
+        ),
         status=ProjectStatus.CREATED,
     )
     db.add(project)
@@ -3022,6 +3044,7 @@ def create_project_from_upload(
     content_language: Optional[str] = Form(None),
     bgm_track_id: Optional[str] = Form(None),
     bgm_volume: Optional[float] = Form(0.10),
+    stock_footage_enabled: Optional[bool] = Form(False),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -3098,6 +3121,9 @@ def create_project_from_upload(
         content_language=normalize_preferred_language_code(content_language),
         bgm_track_id=bgm_track_id or None,
         bgm_volume=bgm_volume if bgm_volume is not None else 0.10,
+        stock_footage_enabled=_resolve_stock_footage_flag(
+            stock_footage_enabled, user, template_id
+        ),
         status=ProjectStatus.CREATED,
     )
     db.add(project)
@@ -4147,9 +4173,9 @@ async def update_scene_image(
 
 
 # ─── Stock footage (Pexels / Pixabay) ────────────────────────────────
-# Pilot scope: Newscast only. Delete STOCK_FOOTAGE_TEMPLATES (and this note)
-# when rolling the feature out to other templates.
-STOCK_FOOTAGE_TEMPLATES = {"newscast"}
+# Pilot scope lives in the service so the pipeline can share it without a
+# router-to-router import. Re-exported here for existing call sites.
+from app.services.stock_footage import STOCK_FOOTAGE_TEMPLATES  # noqa: E402
 
 # AI-edit credits charged per clip added. Like image generation, this is charged
 # to the project OWNER and only on success.
@@ -4304,42 +4330,17 @@ async def upload_stock_footage(
 
     ts = int(time.time())
     video_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project_id}/videos")
-    filename = f"scene_{scene_id}_{ts}.mp4"
-    audio_filename = f"scene_{scene_id}_{ts}_audio.mp4"
-    local_path = os.path.join(video_dir, filename)
-    audio_local_path = os.path.join(video_dir, audio_filename)
-
-    def _fetch_and_normalise() -> dict:
-        """Blocking download + two ffmpeg passes; runs off the event loop."""
-        tmp_path = stock_footage.download_to_temp(body.download_url)
-        try:
-            # The silent variant is the one that gets rendered in the common
-            # case, and the one we probe — AAC padding makes the audio variant's
-            # container duration slightly longer, which would skew the loop point.
-            stock_footage.normalise(tmp_path, local_path, with_audio=False)
-            info = stock_footage.probe(local_path)
-
-            wrote_audio = False
-            if stock_footage.has_audio_stream(tmp_path):
-                try:
-                    stock_footage.normalise(tmp_path, audio_local_path, with_audio=True)
-                    wrote_audio = True
-                except stock_footage.StockFootageError:
-                    # Losing the optional audio variant must not fail the whole
-                    # upload; the scene simply cannot be unmuted.
-                    logger.warning(
-                        "[STOCK] audio variant failed for project %s scene %s",
-                        project_id, scene_id, exc_info=True,
-                    )
-            info["wrote_audio"] = wrote_audio
-            return info
-        finally:
-            stock_footage._quiet_unlink(tmp_path)
 
     loop = asyncio.get_running_loop()
     try:
         with ThreadPoolExecutor(max_workers=1) as pool:
-            info = await loop.run_in_executor(pool, _fetch_and_normalise)
+            ingested = await loop.run_in_executor(
+                pool,
+                stock_footage.ingest_clip,
+                body.download_url,
+                video_dir,
+                f"scene_{scene_id}_{ts}",
+            )
     except stock_footage.StockFootageError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception:
@@ -4349,6 +4350,16 @@ async def upload_stock_footage(
         )
         raise HTTPException(status_code=500, detail="Could not process that clip.")
 
+    filename = ingested.filename
+    audio_filename = ingested.audio_filename
+    local_path = ingested.local_path
+    audio_local_path = ingested.audio_local_path
+    info = {
+        "duration_seconds": ingested.duration_seconds,
+        "width": ingested.width,
+        "height": ingested.height,
+    }
+
     r2_key_val = None
     r2_url_val = None
     audio_r2_url = None
@@ -4357,7 +4368,7 @@ async def upload_stock_footage(
         try:
             r2_key_val = r2_storage.stock_video_key(user.id, project_id, filename)
             r2_url_val = r2_storage.upload_file(local_path, r2_key_val, content_type="video/mp4")
-            if info.get("wrote_audio"):
+            if audio_filename and audio_local_path:
                 audio_r2_url = r2_storage.upload_file(
                     audio_local_path,
                     r2_storage.stock_video_key(user.id, project_id, audio_filename),
@@ -4368,7 +4379,7 @@ async def upload_stock_footage(
             logger.warning("[STOCK] R2 upload failed for %s: %s", filename, e)
 
     has_audio = bool(
-        info.get("wrote_audio")
+        audio_filename
         and (audio_r2_uploaded or not r2_storage.is_r2_configured())
     )
 

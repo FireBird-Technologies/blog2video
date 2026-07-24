@@ -26,6 +26,11 @@ class ProjectStatus(str, enum.Enum):
     # every voiceover). Distinct from VOICE_REGENERATING so the status endpoints and
     # the stall reapers can tell the two jobs apart.
     LANGUAGE_REGENERATING = "language_regenerating"
+    # Generation is paused after the script stage, waiting for the user to review
+    # and approve the auto-picked stock clips. Distinct from SCRIPTED so the
+    # pipeline's step-3 guard does NOT auto-continue past the gate, and so a
+    # reload mid-review doesn't silently restart scene generation.
+    AWAITING_FOOTAGE = "awaiting_footage"
 
 
 class Project(Base):
@@ -65,6 +70,20 @@ class Project(Base):
     # Captions (subtitles) — text is the scene's narration_text. Always bottom-anchored;
     # caption_offset shifts it vertically within the bottom region (-100..+100, 0 = default,
     # positive = up, negative = down).
+    # Opt-in at creation (paid + Newscast only): after the script stage the
+    # pipeline auto-picks a stock clip per image-capable scene and pauses at
+    # AWAITING_FOOTAGE until the user approves them.
+    stock_footage_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="0", nullable=False
+    )
+    # When the user approved the reviewed clips. Set once by the approve
+    # endpoint; the pipeline's gate checks it so that resuming (which puts the
+    # project back to SCRIPTED with the flag still on) does NOT re-park it —
+    # otherwise approve → SCRIPTED → re-park is an infinite loop.
+    stock_footage_approved_at: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True
+    )
+
     captions_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     caption_position: Mapped[str] = mapped_column(String(20), default="bottom_center")
     caption_font_family: Mapped[str] = mapped_column(String(50), default="inter")

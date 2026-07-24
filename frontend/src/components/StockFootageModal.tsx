@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import ReactDOM from "react-dom";
 import { searchStockFootage, type StockClip } from "../api/client";
 
 /**
@@ -124,6 +125,7 @@ export function StockFootageModal({
   onClose,
   onSelect,
   boxAspect,
+  zIndexClass = "z-[126]",
 }: {
   projectId: number;
   /** Seeded from the scene's visual description so the first search is useful. */
@@ -137,6 +139,11 @@ export function StockFootageModal({
    * rendition we download — a box that isn't full-bleed doesn't need 1080p.
    */
   boxAspect?: string;
+  /**
+   * Stacking layer. Defaults to the scene-editor context; a caller that is
+   * itself a modal must pass a higher layer or this renders behind it.
+   */
+  zIndexClass?: string;
 }) {
   const [query, setQuery] = useState(initialQuery?.slice(0, 80) ?? "");
   const [clips, setClips] = useState<StockClip[]>([]);
@@ -208,8 +215,11 @@ export function StockFootageModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return (
-    <div className="fixed inset-0 z-[126] flex items-center justify-center p-4">
+  // Portalled to <body>: when this picker is opened from inside another modal,
+  // rendering in place would trap it in that modal's stacking context and no
+  // z-index could bring it to the front.
+  return ReactDOM.createPortal(
+    <div className={`fixed inset-0 ${zIndexClass} flex items-center justify-center p-4`}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-4xl rounded-2xl bg-white shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
         <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between gap-3">
@@ -368,6 +378,7 @@ export function StockFootageModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

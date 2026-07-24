@@ -42,6 +42,10 @@ class ProjectCreate(BaseModel):
     content_language: Optional[str] = None     # preferred target language (ISO code or name)
     bgm_track_id: Optional[str] = None
     bgm_volume: Optional[float] = 0.10
+    # Paid + Newscast only. Pauses generation after the script stage so the user
+    # can approve an auto-picked stock clip per image-capable scene. Enforced
+    # server-side in create_project — never trust the client for this.
+    stock_footage_enabled: Optional[bool] = False
     captions_enabled: Optional[bool] = False
     caption_position: Optional[str] = "bottom_center"  # bottom_center | top_center
     caption_font_family: Optional[str] = "inter"
@@ -389,6 +393,7 @@ class ProjectOut(BaseModel):
     bgm_track_id: Optional[str] = None
     bgm_volume: float = 0.10
     bgm_track_url: Optional[str] = None
+    stock_footage_enabled: bool = False
     captions_enabled: bool = False
     caption_position: str = "bottom_center"
     caption_font_family: str = "inter"

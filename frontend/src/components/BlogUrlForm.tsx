@@ -199,6 +199,12 @@ interface Props {
   ) => Promise<void>;
   /** Bulk create: one call with array of configs; per-project logo via logoIndices + logoFiles. */
   onSubmitBulk?: (items: BulkProjectItem[], logoOptions: { logoIndices: number[]; logoFiles: File[] } | null) => Promise<void>;
+  /**
+   * Extra creation options that don't fit `onSubmit`'s positional list (already
+   * 22 args). Read by the caller when building the create payload; the form
+   * pushes the current values here whenever they change.
+   */
+  onExtraOptionsChange?: (opts: { stockFootageEnabled: boolean }) => void;
   loading?: boolean;
   asModal?: boolean;
   onClose?: () => void;
@@ -735,7 +741,7 @@ function getFileExtension(s: string): string | null {
   }
 }
 
-export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, onClose, onDismissFlow, demoMode, initialGenre }: Props) {
+export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChange, loading, asModal, onClose, onDismissFlow, demoMode, initialGenre }: Props) {
   const { user } = useAuth();
   const { showError } = useErrorModal();
   const navigate = useNavigate();
@@ -894,6 +900,19 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [genre, setGenre] = useState<string>(initialGenre ?? "");
   const [genreDropdownOpen, setGenreDropdownOpen] = useState(false);
   const [template, setTemplate] = useState("default");
+  // Stock footage at generation time: paid plans only. The template restriction
+  // is deliberately NOT enforced here — the backend's STOCK_FOOTAGE_TEMPLATES is
+  // still the authority and will decline the flag for templates that cannot
+  // render a clip, so the option is offered everywhere for now.
+  const [stockFootageEnabled, setStockFootageEnabled] = useState(false);
+  const stockFootageAvailable = isPro;
+  // Losing Pro must clear the choice, or a stale `true` would be submitted.
+  useEffect(() => {
+    if (!stockFootageAvailable && stockFootageEnabled) setStockFootageEnabled(false);
+  }, [stockFootageAvailable, stockFootageEnabled]);
+  useEffect(() => {
+    onExtraOptionsChange?.({ stockFootageEnabled: stockFootageAvailable && stockFootageEnabled });
+  }, [onExtraOptionsChange, stockFootageAvailable, stockFootageEnabled]);
   const [templates, setTemplates] = useState<TemplateMeta[]>([]);
   const { craftedTemplates, loading: craftedTemplatesCacheLoading, initialized: craftedTemplatesInitialized, ensureCraftedTemplateDetail } = useCraftedTemplates();
   // When a crafted template is selected, fetch its full bundle (frontend_files,
@@ -1667,6 +1686,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           (bulkContentLanguage[i] ?? "auto") === "auto"
             ? null
             : (bulkContentLanguage[i] ?? "auto"),
+        // Sent for every row; the backend decides per project whether its
+        // template can actually render a clip and clears the flag otherwise.
+        stock_footage_enabled: isPro && stockFootageEnabled,
       };
       });
       const logoIndices: number[] = [];
@@ -2310,7 +2332,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                     step={5}
                     value={Math.round(logoOpacity * 100)}
                     onChange={(e) => setLogoOpacity(parseInt(e.target.value, 10) / 100)}
-                    className="w-full h-1.5 bg-gray-300 rounded-full appearance-none cursor-pointer accent-purple-600"
+                    className="w-full h-1 bg-gray-300 rounded-full appearance-none cursor-pointer accent-purple-600"
                   />
                 </div>
               </div>
@@ -3329,10 +3351,13 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         <p className="text-[10px] text-gray-500 mb-1.5 font-medium">
           {genreTemplateListCaption(genre)}
         </p>
-        {/* Template thumbnails — filtered by genre; video style below is orthogonal */}
-        <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[220px] overflow-y-auto bg-gray-50/40">
+        {/* Template thumbnails — filtered by genre; video style below is orthogonal.
+            Height matches the single-link grid: 2 columns make the cards taller,
+            so mobile needs the extra room. */}
+        <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[260px] sm:max-h-[220px] overflow-y-auto bg-gray-50/40">
           <>
-            <div className="grid grid-cols-3 gap-2">
+            {/* Same responsive columns as the single-link template grid. */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               <CraftYourTemplateCard
                 variant="compact"
                 isPro={isPro}
@@ -3498,7 +3523,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
               Video Style
             </label>
-            <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
+            {/* Same wrapping/alignment as the single-link Video Style row. */}
+            <div className="flex flex-wrap items-center gap-1 p-1 bg-gray-100/60 rounded-xl justify-center">
               {VIDEO_STYLES.map((s) => {
                 const isSelected = activeVideoStyle === s.id;
                 return (
@@ -3548,10 +3574,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         {/* Video colors (same UI as single) + Logo (bulk-only extra, placed to the right) */}
         <div className="flex flex-col gap-5">
           <div className="min-w-0">
-            <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider text-center sm:text-left">
+            {/* Same label + swatch alignment as the single-link Video Colors row. */}
+            <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
               Video Colors
             </label>
-            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-5 gap-y-3">
+            <div className="flex items-center gap-3 sm:gap-5">
               {[
                 { label: "Accent", value: accent, setter: (v: string) => setBulkColor("accent", v) },
                 { label: "Background", value: bg, setter: (v: string) => setBulkColor("bg", v) },
@@ -3687,7 +3714,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                       }
                       setBulkLogoOpacity((prev) => { const n = [...prev]; n[activeIndex] = val; return n; });
                     }}
-                    className="w-full h-1.5 bg-gray-300 rounded-full appearance-none cursor-pointer accent-purple-600"
+                    className="w-full h-1 bg-gray-300 rounded-full appearance-none cursor-pointer accent-purple-600"
                   />
                 </div>
               </div>
@@ -3762,29 +3789,51 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         {renderLanguageDropdown(contentLanguage, setContentLanguage)}
         <p className="text-[11px] text-gray-500">Language of the video content</p>
       </div>
-      <label className="flex items-center gap-2.5 cursor-pointer select-none p-3 rounded-xl bg-gray-50/60 border border-gray-200/60 hover:border-gray-300/60 transition-all">
-        <input
-          type="checkbox"
-          checked={voiceGender === "none"}
-          onChange={(e) => {
-            const noVoice = e.target.checked;
-            if (noVoice) {
-              setVoiceGender("none");
-              return;
-            }
-            const id = customVoiceId.trim();
-            const saved = id ? myVoicesList.find((v) => v.voice_id === id) : undefined;
-            setVoiceGender(normalizeVoiceGender(saved?.gender) ?? "female");
-            const a = normalizeVoiceAccent(saved?.accent);
-            if (a) setVoiceAccent(a);
-          }}
-          className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
-        />
-        <div>
-          <span className="text-sm font-medium text-gray-700">No voiceover</span>
-          <p className="text-[11px] text-gray-400 mt-0.5">Text-only video, no narration audio</p>
-        </div>
-      </label>
+      {/* Two generation toggles side by side. Stock footage (paid plans; the
+          backend still gates by template) only takes a column when it's
+          offered; otherwise "No voiceover" spans the row as before. */}
+      <div className={`grid gap-2 ${stockFootageAvailable ? "grid-cols-2" : "grid-cols-1"}`}>
+        <label className="flex items-start gap-2.5 cursor-pointer select-none p-3 rounded-xl bg-gray-50/60 border border-gray-200/60 hover:border-gray-300/60 transition-all">
+          <input
+            type="checkbox"
+            checked={voiceGender === "none"}
+            onChange={(e) => {
+              const noVoice = e.target.checked;
+              if (noVoice) {
+                setVoiceGender("none");
+                return;
+              }
+              const id = customVoiceId.trim();
+              const saved = id ? myVoicesList.find((v) => v.voice_id === id) : undefined;
+              setVoiceGender(normalizeVoiceGender(saved?.gender) ?? "female");
+              const a = normalizeVoiceAccent(saved?.accent);
+              if (a) setVoiceAccent(a);
+            }}
+            className="mt-0.5 w-4 h-4 shrink-0 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
+          />
+          <div className="min-w-0">
+            <span className="text-sm font-medium text-gray-700">No voiceover</span>
+            <p className="text-[11px] text-gray-400 mt-0.5">Text-only video</p>
+          </div>
+        </label>
+
+        {stockFootageAvailable && (
+          <label className="flex items-start gap-2.5 cursor-pointer select-none p-3 rounded-xl bg-gray-50/60 border border-gray-200/60 hover:border-purple-300/60 transition-all">
+            <input
+              type="checkbox"
+              checked={stockFootageEnabled}
+              onChange={(e) => setStockFootageEnabled(e.target.checked)}
+              className="mt-0.5 w-4 h-4 shrink-0 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
+            />
+            <div className="min-w-0">
+              <span className="text-sm font-medium text-gray-700">Use stock footage</span>
+              <p className="text-[11px] text-gray-400 mt-0.5">
+                Video clips in scene
+              </p>
+            </div>
+          </label>
+        )}
+      </div>
 
       {/* Voices from user's saved list + premium teasers for free users */}
       <div>
@@ -4296,7 +4345,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           <p className="text-[11px] text-gray-500">Language of the video content</p>
         </div>
 
-        <label className="flex items-center gap-2.5 cursor-pointer select-none p-3 rounded-xl bg-gray-50/60 border border-gray-200/60 hover:border-gray-300/60 transition-all">
+        {/* Two generation toggles side by side, mirroring single-link step 3.
+            NOTE the scopes differ: "No voiceover" edits this row (or all rows
+            when the apply-to-all sync is on), while stock footage is one choice
+            for the whole batch — hence the "all projects" wording on it. */}
+        <div className={`grid gap-2 ${stockFootageAvailable ? "grid-cols-2" : "grid-cols-1"}`}>
+        <label className="flex items-start gap-2.5 cursor-pointer select-none p-3 rounded-xl bg-gray-50/60 border border-gray-200/60 hover:border-gray-300/60 transition-all">
           <input
             type="checkbox"
             checked={rowVoiceGender === "none"}
@@ -4352,13 +4406,31 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               // No global sync: only update this row.
               applyNoVoiceoverToggle([activeIndex]);
             }}
-            className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
+            className="mt-0.5 w-4 h-4 shrink-0 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
           />
-          <div>
+          <div className="min-w-0">
             <span className="text-sm font-medium text-gray-700">No voiceover</span>
             <p className="text-[11px] text-gray-400 mt-0.5">Text-only video, no narration audio</p>
           </div>
         </label>
+
+        {stockFootageAvailable && (
+          <label className="flex items-start gap-2.5 cursor-pointer select-none p-3 rounded-xl bg-gray-50/60 border border-gray-200/60 hover:border-purple-300/60 transition-all">
+            <input
+              type="checkbox"
+              checked={stockFootageEnabled}
+              onChange={(e) => setStockFootageEnabled(e.target.checked)}
+              className="mt-0.5 w-4 h-4 shrink-0 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
+            />
+            <div className="min-w-0">
+              <span className="text-sm font-medium text-gray-700">Use stock footage</span>
+              <p className="text-[11px] text-gray-400 mt-0.5">
+                Review clips while generating
+              </p>
+            </div>
+          </label>
+        )}
+        </div>
 
         <div className={rowVoiceGender === "none" ? "opacity-60 pointer-events-none" : ""}>
           <div className="flex items-center justify-between mb-3">

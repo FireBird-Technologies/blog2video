@@ -369,30 +369,35 @@ export default function CustomTemplates() {
 
         {/* Header */}
         <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">
+          <div className="flex items-center justify-between gap-2 sm:gap-4">
+            <h2 className="text-base sm:text-lg font-semibold text-gray-900 min-w-0">
               {activeTemplatesTab === "custom" ? "Custom Templates" : "Designer Templates"}
-              <span className="text-sm font-normal text-gray-400 ml-2">
+              <span className="text-xs sm:text-sm font-normal text-gray-400 ml-1.5 sm:ml-2">
                 ({activeTemplatesTab === "custom" ? templates.length : readyCraftedTemplates.length})
               </span>
             </h2>
-            <div className="flex items-center gap-4">
+            {/* Buttons shrink with the viewport instead of wrapping their labels
+                onto multiple lines (which made them grow tall on narrow screens). */}
+            <div className="flex items-center gap-2 sm:gap-4 shrink-0">
               {activeTemplatesTab === "custom" && templateQuotaMeter && (
                 <div className="hidden sm:block">{templateQuotaMeter}</div>
               )}
               {activeTemplatesTab === "custom" && (
                 <button
                   onClick={openCreator}
-                  className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white text-sm font-semibold rounded-xl shadow-sm transition-all duration-200"
+                  className="whitespace-nowrap px-2.5 sm:px-5 py-1.5 sm:py-2.5 bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white text-xs sm:text-sm font-semibold rounded-lg sm:rounded-xl shadow-sm transition-all duration-200"
                 >
                   Create New +
                 </button>
               )}
               <button
                 onClick={openRequestForm}
-                className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white text-sm font-semibold rounded-xl shadow-sm transition-all duration-200"
+                className="whitespace-nowrap px-2.5 sm:px-5 py-1.5 sm:py-2.5 bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white text-xs sm:text-sm font-semibold rounded-lg sm:rounded-xl shadow-sm transition-all duration-200"
               >
-                Get Designer Template
+                {/* Shorter label on small screens — "Get Designer Template" is the
+                    widest element in this row and forces the layout to break. */}
+                <span className="sm:hidden">Get Designer</span>
+                <span className="hidden sm:inline">Get Designer Template</span>
               </button>
             </div>
           </div>

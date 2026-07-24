@@ -188,6 +188,8 @@ export interface Project {
   bgm_track_id?: string | null;
   bgm_volume?: number;
   bgm_track_url?: string | null;
+  /** Paid + Newscast: generation pauses for stock-footage review after scripting. */
+  stock_footage_enabled?: boolean;
   captions_enabled?: boolean;
   caption_position?: "bottom_center" | "top_center";
   caption_font_family?: string;
@@ -1070,7 +1072,9 @@ export const createProject = (
   bgm_track_id?: string | null,
   bgm_volume?: number,
   captions_enabled?: boolean,
-  caption_position?: "bottom_center" | "top_center"
+  caption_position?: "bottom_center" | "top_center",
+  /** Options that don't warrant another positional arg (already 22). */
+  extra?: { stock_footage_enabled?: boolean }
 ) =>
   api.post<Project>("/projects", {
     blog_url,
@@ -1094,6 +1098,7 @@ export const createProject = (
     bgm_volume,
     captions_enabled,
     caption_position,
+    stock_footage_enabled: extra?.stock_footage_enabled ?? false,
   });
 
 /** One project config for bulk create (same shape as single create). */
@@ -1115,6 +1120,7 @@ export interface BulkProjectItem {
   custom_voice_id?: string;
   aspect_ratio?: string;
   content_language?: string | null;
+  stock_footage_enabled?: boolean;
   captions_enabled?: boolean;
   caption_position?: "bottom_center" | "top_center";
 }
@@ -1165,6 +1171,7 @@ export const createProjectFromDocs = (
     content_language?: string | null;
     bgm_track_id?: string | null;
     bgm_volume?: number;
+    stock_footage_enabled?: boolean;
   } = {}
 ) => {
   const formData = new FormData();
@@ -1194,6 +1201,8 @@ export const createProjectFromDocs = (
   if (config.bgm_track_id) formData.append("bgm_track_id", config.bgm_track_id);
   if (config.bgm_volume !== undefined && config.bgm_volume !== null) {
     formData.append("bgm_volume", String(config.bgm_volume));
+  if (config.stock_footage_enabled)
+    formData.append("stock_footage_enabled", "true");
   }
   return api.post<Project>("/projects/upload", formData, {
     headers: { "Content-Type": "multipart/form-data" },
@@ -1311,6 +1320,7 @@ export const updateProject = (
     playback_speed?: number;
     bgm_track_id?: string | null;
     bgm_volume?: number;
+    stock_footage_enabled?: boolean;
     captions_enabled?: boolean;
     caption_position?: "bottom_center" | "top_center";
     caption_font_family?: string;
@@ -1566,6 +1576,49 @@ export const searchStockFootage = (
   api.get<{ clips: StockClip[] }>(`/projects/${projectId}/stock-footage/search`, {
     params,
   });
+
+/** One scene awaiting stock-footage review at the generation gate. */
+export interface PendingFootageScene {
+  scene_id: number;
+  order: number;
+  title: string;
+  scene_type: string | null;
+  layout: string | null;
+  clip: {
+    filename: string;
+    url: string;
+    duration_seconds: number | null;
+    author: string | null;
+    provider: string | null;
+  } | null;
+}
+
+/** Scenes to review while a project sits at `awaiting_footage`. */
+export const getPendingStockFootage = (projectId: number) =>
+  api.get<{ status: string; awaiting: boolean; scenes: PendingFootageScene[] }>(
+    `/projects/${projectId}/stock-footage/pending`
+  );
+
+/**
+ * Point a scene at an already-uploaded clip. The upload endpoint creates the
+ * asset but does not touch the scene, so the review gate calls this right after
+ * swapping — otherwise the new clip is orphaned and the scene keeps the old one.
+ */
+export const linkStockFootage = (
+  projectId: number,
+  sceneId: number,
+  filename: string
+) =>
+  api.post<{ detail: string; scene_id: number; filename: string }>(
+    `/projects/${projectId}/stock-footage/link`,
+    { scene_id: sceneId, filename }
+  );
+
+/** Accept the reviewed clips and resume generation from the gate. */
+export const approveStockFootage = (projectId: number) =>
+  api.post<{ detail: string; step: number }>(
+    `/projects/${projectId}/stock-footage/approve`
+  );
 
 /** The processed VIDEO asset returned after uploading a chosen clip. */
 export interface UploadedStockClip {

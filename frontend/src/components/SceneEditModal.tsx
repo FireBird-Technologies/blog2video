@@ -3030,17 +3030,22 @@ export default function SceneEditModal({
   const supportsImage = !currentLayoutId || !layoutsWithoutImage.has(currentLayoutId);
   // Per the scene's SAVED layout — for the "Keep current" dropdown row's note.
   const savedSupportsImage = !savedLayoutId || !layoutsWithoutImage.has(savedLayoutId);
-  // Stock footage pilot: Newscast only. Widen this (and STOCK_FOOTAGE_TEMPLATES
-  // in backend/app/routers/projects.py) to roll out to other templates.
-  const stockFootageSupported = supportsImage && normalizedTemplateId === "newscast";
+  // Offered on any image-capable layout. The template restriction lives solely
+  // on the backend now (STOCK_FOOTAGE_TEMPLATES in app/routers/projects.py),
+  // which rejects the upload for templates that cannot render a clip.
+  const stockFootageSupported = supportsImage;
 
   /**
    * This scene's image box as a CSS aspect string, passed to the stock picker so
    * it asks Pexels for the right orientation and downloads a rendition sized to
-   * the box. Newscast is a built-in, so the standard helper applies.
+   * the box. Only computed for BUILT-IN templates: getImageBoxAspectRatio reads
+   * LAYOUT_IMAGE_BOX_DIMS, which has no entries for custom/crafted layouts and
+   * would return a misleading full-canvas box. Undefined simply means "no hint",
+   * and the search falls back to the project's aspect ratio.
    */
   const sceneBoxAspect = (() => {
     if (!stockFootageSupported) return undefined;
+    if (isCustomTemplate || isCraftedTemplate) return undefined;
     const cfg = getTemplateConfig(project.template || "default");
     return getImageBoxAspectRatio(
       currentLayoutId ? normalizeLayoutId(currentLayoutId) : null,
