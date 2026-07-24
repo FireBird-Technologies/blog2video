@@ -12,10 +12,14 @@ import {
   regenerateScene,
   getValidLayouts,
   createCheckoutSession,
+  type StockClip,
+  BACKEND_URL,
   LayoutInfo,
   type LayoutPropSchema,
   type LayoutPropFieldType,
 } from "../api/client";
+import { StockFootageModal, STOCK_FOOTAGE_CREDIT_COST } from "./StockFootageModal";
+import { ImageAdjustStage } from "./ImageAdjustStage";
 import { useAuth } from "../hooks/useAuth";
 import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
@@ -2265,6 +2269,11 @@ const HIDDEN_LAYOUT_PROP_KEYS = new Set([
   "imageFocusX",
   "imageFocusY",
   "imageZoom",
+  // Stock footage — managed by the Scene image panel's clip controls, not as
+  // free-text layout content.
+  "assignedVideo",
+  "videoMuted",
+  "videoVolume",
 ]);
 
 const HIDDEN_LAYOUT_PROP_KEYS_LOWER = new Set(
@@ -2479,6 +2488,16 @@ interface Props {
   imageGenerating?: boolean;
   /** Ask the parent to open the (single) AI image generation modal for this scene. */
   onRequestGenerateImage?: () => void;
+  /**
+   * True while a stock clip is being downloaded/transcoded for this scene in the
+   * background (owned by ProjectView, like imageGenerating). Locks editing.
+   */
+  clipAssigning?: boolean;
+  /**
+   * Commit a chosen clip. The parent runs it as a background task and closes
+   * this modal — the assignment is permanent, so there is nothing left to Save.
+   */
+  onAssignStockClip?: (clip: StockClip, audio: { muted: boolean; volume: number }) => void;
   /**
    * Register a stager the parent calls to drop a kept AI image into this modal's form
    * (unsaved until Save). Called with the fn on mount and null on unmount.
@@ -2706,6 +2725,8 @@ export default function SceneEditModal({
   onSaved,
   imageGenerating = false,
   onRequestGenerateImage,
+  clipAssigning = false,
+  onAssignStockClip,
   registerStageImage,
   openImageAdjustOnOpen = false,
   demoMode,
@@ -2776,6 +2797,8 @@ export default function SceneEditModal({
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [imageSourceChooserOpen, setImageSourceChooserOpen] = useState(false);
   const [scrapedImagesModalOpen, setScrapedImagesModalOpen] = useState(false);
+  const [stockFootageModalOpen, setStockFootageModalOpen] = useState(false);
+  const stockPreviewVideoRef = useRef<HTMLVideoElement | null>(null);
   const [selectedExistingAssetId, setSelectedExistingAssetId] = useState<number | null>(null);
   // An existing image STAGED for replacement (chosen in the gallery but not yet saved).
   // Like an upload, it previews in the modal and is only persisted on the modal's Save.
@@ -2853,6 +2876,8 @@ export default function SceneEditModal({
     if (!registerStageImage) return;
     registerStageImage((file: File) => {
       setPendingExistingImage(null);
+      // A new image supersedes a staged removal.
+      setEditableLayoutProps((prev) => ({ ...prev, hideImage: false }));
       setSelectedImageFile(file);
     });
     return () => registerStageImage(null);
@@ -3005,6 +3030,114 @@ export default function SceneEditModal({
   const supportsImage = !currentLayoutId || !layoutsWithoutImage.has(currentLayoutId);
   // Per the scene's SAVED layout — for the "Keep current" dropdown row's note.
   const savedSupportsImage = !savedLayoutId || !layoutsWithoutImage.has(savedLayoutId);
+  // Stock footage pilot: Newscast only. Widen this (and STOCK_FOOTAGE_TEMPLATES
+  // in backend/app/routers/projects.py) to roll out to other templates.
+  const stockFootageSupported = supportsImage && normalizedTemplateId === "newscast";
+
+  /**
+   * This scene's image box as a CSS aspect string, passed to the stock picker so
+   * it asks Pexels for the right orientation and downloads a rendition sized to
+   * the box. Newscast is a built-in, so the standard helper applies.
+   */
+  const sceneBoxAspect = (() => {
+    if (!stockFootageSupported) return undefined;
+    const cfg = getTemplateConfig(project.template || "default");
+    return getImageBoxAspectRatio(
+      currentLayoutId ? normalizeLayoutId(currentLayoutId) : null,
+      project.aspect_ratio || "landscape",
+      cfg.baseWidth,
+      cfg.baseHeight,
+    );
+  })();
+
+  const mediaBase = (() => {
+    return (
+      (BACKEND_URL && BACKEND_URL.trim()) ||
+      (typeof window !== "undefined" && window.location.hostname === "localhost"
+        ? "http://localhost:8000"
+        : "")
+    );
+  })();
+
+  // The clip SAVED on this scene, if any (read from descriptor + project assets).
+  const assignedVideoAsset = useMemo(() => {
+    // hideImage empties the whole visual slot — the renderer honours it, so the
+    // editor must too, or a removed clip lingers here. Descriptors written before
+    // the removal fix can still carry both keys.
+    if (editableLayoutProps.hideImage) return null;
+    const filename = editableLayoutProps.assignedVideo;
+    if (!filename || typeof filename !== "string") return null;
+    return (
+      project.assets.find(
+        (a) => a.asset_type === "video" && a.filename === filename && !a.excluded,
+      ) || null
+    );
+  }, [editableLayoutProps.assignedVideo, editableLayoutProps.hideImage, project.assets]);
+
+  // The clip shown in this modal. Clips are committed immediately by the parent
+  // (background task), so there is no staged variant to reconcile here.
+  const activeVideo = useMemo(() => {
+    if (assignedVideoAsset) {
+      const url = assignedVideoAsset.r2_url
+        ? assignedVideoAsset.r2_url
+        : `${mediaBase}/media/projects/${project.id}/videos/${assignedVideoAsset.filename}`;
+      const audioFn = (assignedVideoAsset as { audio_variant_filename?: string | null })
+        .audio_variant_filename;
+      const audioUrl = audioFn
+        ? `${mediaBase}/media/projects/${project.id}/videos/${audioFn}`
+        : null;
+      return {
+        url,
+        audioUrl,
+        hasAudio: Boolean(audioFn),
+        author: assignedVideoAsset.source_author ?? "",
+        provider: assignedVideoAsset.source_provider ?? "",
+      };
+    }
+    return null;
+  }, [assignedVideoAsset, mediaBase, project.id]);
+
+  const assignedVideoUrl = activeVideo?.url ?? null;
+
+  // Audio settings are staged in editableLayoutProps and persisted by the
+  // modal's Save (the clip itself is already committed).
+  const videoMuted =
+    editableLayoutProps.videoMuted === undefined
+      ? true
+      : Boolean(editableLayoutProps.videoMuted);
+  const videoVolume = (() => {
+    const v = Number(editableLayoutProps.videoVolume);
+    return Number.isFinite(v) ? v : 0.35;
+  })();
+  const videoHasAudio = Boolean(activeVideo?.hasAudio);
+
+  const setVideoMuted = (next: boolean) =>
+    setEditableLayoutProps((prev) => ({ ...prev, videoMuted: next }));
+  const setVideoVolume = (next: number) =>
+    setEditableLayoutProps((prev) => ({ ...prev, videoVolume: next }));
+
+  // Apply the chosen volume to the thumbnail preview element (the `volume`
+  // attribute is not reactive in JSX). Runs whenever volume/mute/source change.
+  useEffect(() => {
+    const el = stockPreviewVideoRef.current;
+    if (!el) return;
+    el.volume = Math.max(0, Math.min(1, videoVolume));
+    // A source swap (silent <-> audio variant) restarts the element; play again.
+    void el.play().catch(() => { /* autoplay may be refused; harmless */ });
+  }, [videoVolume, videoMuted, assignedVideoUrl]);
+
+  const handleRemoveStockFootage = async () => {
+    // Unlink the clip from the descriptor; committed by the modal's Save.
+    if (!assignedVideoAsset) return;
+    setEditableLayoutProps((prev) => {
+      const next = { ...prev };
+      delete next.assignedVideo;
+      delete next.videoMuted;
+      delete next.videoVolume;
+      next.hideImage = true;
+      return next;
+    });
+  };
   // Custom templates: detect outro by sceneTypeOverride, ctaProps presence, or position (last scene)
   const isCustomOutro = isCustomTemplate && (() => {
     if (currentLayoutId === "outro") return true;
@@ -3766,6 +3899,9 @@ export default function SceneEditModal({
             remotionCode = JSON.stringify(desc);
           } else {
             const lp = { ...(desc.layoutProps as Record<string, unknown> || {}), ...editableLayoutProps };
+            // A stock clip is committed by the parent as a background task, so
+            // nothing to write here — only its audio settings, which ride along
+            // in editableLayoutProps above.
             const zoomToSave = typeof override?.imageZoom === "number" ? Math.max(IMAGE_ADJUST_ZOOM_MIN, override.imageZoom) : undefined;
             // Apply layout switch: update desc.layout when user picked a concrete layout
             if (selectedLayout && selectedLayout !== "__keep__" && selectedLayout !== "__auto__") {
@@ -4074,7 +4210,15 @@ export default function SceneEditModal({
             : typeof editableLayoutProps.imageZoom === "number"
               ? Math.max(IMAGE_ADJUST_ZOOM_MIN, Number(editableLayoutProps.imageZoom))
               : undefined;
-        if (supportsImage && (selectedImageFile || hasExistingSceneImage)) {
+        // Skip when the user staged a removal (hideImage): the descriptor saved
+        // above has no assignedImage/assignedVideo, so the focus endpoint would
+        // reject it — and there is nothing left to frame anyway.
+        const stagedRemoval = Boolean(editableLayoutProps.hideImage);
+        if (
+          supportsImage &&
+          !stagedRemoval &&
+          (selectedImageFile || hasExistingSceneImage)
+        ) {
           await updateSceneImageFocus(project.id, scene.id, focusXToSave, focusYToSave, zoomToPatch);
         }
         onSaved();
@@ -4330,43 +4474,27 @@ export default function SceneEditModal({
     });
   };
 
-  const handleRemoveImage = async (assetId: number) => {
-    setRemovingAssetId(assetId);
-    try {
-      let descriptor: Record<string, unknown> = {};
-      if (scene.remotion_code) {
-        try {
-          descriptor = JSON.parse(scene.remotion_code);
-        } catch {
-          /* ignore */
-        }
-      }
-
-      const layoutProps: Record<string, unknown> = {
-        ...((descriptor.layoutProps as Record<string, unknown>) || {}),
-        hideImage: true,
-      };
-      delete layoutProps.assignedImage;
-      delete layoutProps.imageFocusX;
-      delete layoutProps.imageFocusY;
-      descriptor.layoutProps = layoutProps;
-
-      await updateScene(project.id, scene.id, {
-        remotion_code: JSON.stringify(descriptor),
-      });
-      setSelectedImageFile(null);
-      onSaved();
-      onClose();
-    } catch (err: unknown) {
-      const msg =
-        err && typeof err === "object" && "response" in err
-          ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
-          : "Failed to remove image";
-      showError(String(msg));
-    } finally {
-      setRemovingAssetId(null);
-    }
+  /**
+   * Stage removal of the scene's image. Nothing is persisted here — the modal's
+   * Save commits it, so the ✕ is undoable by cancelling, matching how every
+   * other edit in this modal behaves (and how the clip ✕ already worked).
+   */
+  const handleRemoveImage = (assetId: number) => {
+    void assetId;
+    setSelectedImageFile(null);
+    setImagePreviewUrl(null);
+    setPendingExistingImage(null);
+    setEditableLayoutProps((prev) => {
+      const next = { ...prev };
+      delete next.assignedImage;
+      delete next.imageFocusX;
+      delete next.imageFocusY;
+      delete next.imageZoom;
+      next.hideImage = true;
+      return next;
+    });
   };
+
 
   const handleOpenImageSourceChooser = () => {
     setImageSourceChooserOpen(true);
@@ -4384,16 +4512,78 @@ export default function SceneEditModal({
     setScrapedImagesModalOpen(true);
   };
 
-  // Pick an existing image → STAGE it (preview in the modal). Nothing is persisted here;
+  const handleChooseStockFootage = () => {
+    setImageSourceChooserOpen(false);
+    // Same credit gate as AI image generation — adding a clip costs AI edits.
+    if (!canUseStockFootage) {
+      if (isCollaborator) {
+        showError(
+          "The project owner is out of AI edit credits, so adding stock footage isn't available now. Ask the owner to buy more credits or upgrade.",
+          { variant: "warning" },
+        );
+      } else {
+        setShowAiImageUpgradeModal(true);
+      }
+      return;
+    }
+    setStockFootageModalOpen(true);
+  };
+
+  /**
+   * Hand a chosen clip to the parent, which commits it PERMANENTLY as a
+   * background task (download + 30 fps transcode + scene link) and closes this
+   * modal. Nothing is staged here — there is no Save step for a clip.
+   */
+  const handleSelectStockClip = (
+    clip: StockClip,
+    audio?: { muted: boolean; volume: number },
+  ) => {
+    setStockFootageModalOpen(false);
+    onAssignStockClip?.(clip, {
+      muted: audio?.muted ?? true,
+      volume: audio?.volume ?? 0.35,
+    });
+  };
+
+  // Pick existing media → STAGE it (preview in the modal). Nothing is persisted here;
   // the modal's main Save commits it. Mirrors how a local upload is staged.
   const handleReplaceWithExistingImage = () => {
     if (!selectedExistingAssetId) return;
     const chosen = scrapedImageItems.find((it) => it.asset.id === selectedExistingAssetId);
     if (!chosen) return;
-    // Staging an existing image supersedes any pending uploaded file, and vice versa.
+    // Staging existing media supersedes any pending uploaded file, and vice versa.
     setSelectedImageFile(null);
     setImagePreviewUrl(null);
-    setPendingExistingImage({ assetId: chosen.asset.id, url: chosen.url });
+
+    if (chosen.asset.asset_type === "video") {
+      // Reusing an already-processed clip: stage it in the descriptor (Save
+      // persists it) rather than via assignExistingImageToScene, which is
+      // image-only. A clip and a still are mutually exclusive.
+      setPendingExistingImage(null);
+      setEditableLayoutProps((prev) => {
+        const next = { ...prev };
+        delete next.assignedImage;
+        next.assignedVideo = chosen.asset.filename;
+        next.hideImage = false;
+        if (next.videoMuted === undefined) next.videoMuted = true;
+        if (next.videoVolume === undefined) next.videoVolume = 0.35;
+        if (next.imageFocusX == null) next.imageFocusX = 50;
+        if (next.imageFocusY == null) next.imageFocusY = 50;
+        return next;
+      });
+    } else {
+      // Choosing a still clears any clip on this scene, and supersedes a
+      // staged removal.
+      setEditableLayoutProps((prev) => {
+        const next = { ...prev };
+        delete next.assignedVideo;
+        delete next.videoMuted;
+        delete next.videoVolume;
+        next.hideImage = false;
+        return next;
+      });
+      setPendingExistingImage({ assetId: chosen.asset.id, url: chosen.url });
+    }
     setScrapedImagesModalOpen(false);
   };
 
@@ -4402,6 +4592,9 @@ export default function SceneEditModal({
   // AI image generation: PRO/STANDARD owners are unlimited; FREE owners spend
   // AI_IMAGE_CREDIT_COST credits per image (charged to the OWNER on shared projects).
   const canUseAiImage = effectiveIsPro || aiCreditRemaining >= AI_IMAGE_CREDIT_COST;
+  // Adding a stock clip is charged like AI image generation, at its own rate.
+  const canUseStockFootage =
+    effectiveIsPro || aiCreditRemaining >= STOCK_FOOTAGE_CREDIT_COST;
   // A collaborator blocked by the owner's exhausted access can't act on an upgrade
   // prompt, so show the soft "Oops" warning rather than a hard red error.
   const ownerBlocksAiImage = isCollaborator && !canUseAiImage;
@@ -6128,11 +6321,73 @@ export default function SceneEditModal({
                 {supportsImage ? (
                   <>
                   <div className="flex flex-wrap gap-2">
+                    {/* Clip is being fetched + transcoded in the background. */}
+                    {clipAssigning && (
+                      <div className="flex flex-col items-center justify-center gap-1 w-20 h-24 rounded-lg border-2 border-purple-300 bg-purple-50/60 flex-shrink-0">
+                        <span className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                        <span className="text-[9px] font-medium text-purple-600 uppercase tracking-wide">Clip</span>
+                      </div>
+                    )}
+                    {/* A stock clip occupies the scene's visual slot exclusively —
+                        when one is set, the still thumbnails are not rendered. */}
+                    {!clipAssigning && assignedVideoUrl && !selectedImageFile && !pendingExistingImage && (
+                      <div className="relative group rounded-lg overflow-hidden border-2 border-purple-400 w-20 h-24 flex-shrink-0 bg-black">
+                        {/* Plays the audio variant when unmuted so the clip is
+                            actually audible here; falls back to the silent file.
+                            volume is applied via ref since the attribute isn't
+                            reactive. */}
+                        <video
+                          ref={stockPreviewVideoRef}
+                          src={
+                            !videoMuted && activeVideo?.audioUrl
+                              ? activeVideo.audioUrl
+                              : assignedVideoUrl
+                          }
+                          muted={videoMuted}
+                          loop
+                          playsInline
+                          autoPlay
+                          // Without a hint the browser fetches the whole MP4 before
+                          // painting anything; "auto" lets it start from the first
+                          // buffered range instead of blocking on the full file.
+                          preload="auto"
+                          className="w-full h-full"
+                          style={imageFramingStyle}
+                        />
+                        <span className="absolute bottom-1 left-1 px-1 py-0.5 rounded bg-black/70 text-white text-[9px] font-medium uppercase tracking-wide">
+                          Clip
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => openImageAdjustModal(assignedVideoUrl)}
+                          className="absolute top-1 right-8 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/95 text-purple-700 shadow-sm hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+                          title="Adjust framing"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M16.5 3.964a2.5 2.5 0 113.536 3.536L7 20.5H3v-4L16.5 3.964z" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleRemoveStockFootage}
+                          className="absolute top-1 right-1 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/95 text-purple-700 shadow-sm hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+                          title="Remove clip"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
                     {/* While a NEW image is pending (uploaded/AI-generated/reused but
                         unsaved), hide the currently-assigned thumbnails so the pending
                         image visually REPLACES them. Cancelling restores the originals;
-                        the modal's Save commits the replacement. */}
-                    {!selectedImageFile && !pendingExistingImage && imageItems.map(({ url, asset }) => (
+                        the modal's Save commits the replacement.
+                        `hideImage` means the user staged a removal — hide them too,
+                        so the ✕ takes visible effect before Save. */}
+                    {!assignedVideoUrl && !selectedImageFile && !pendingExistingImage &&
+                      !editableLayoutProps.hideImage &&
+                      imageItems.map(({ url, asset }) => (
                       <div
                         key={asset.id}
                         className="relative group rounded-lg overflow-hidden border border-gray-200/40 w-20 h-24 flex-shrink-0"
@@ -6238,7 +6493,8 @@ export default function SceneEditModal({
                     <button
                       type="button"
                       onClick={handleGenerateImageClick}
-                      className="group relative flex items-center justify-center w-20 h-24 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50/50 hover:bg-purple-100/50 transition-colors text-purple-700"
+                      disabled={clipAssigning}
+                      className="group relative flex items-center justify-center w-20 h-24 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50/50 hover:bg-purple-100/50 transition-colors text-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
                       title="Generate image with AI"
                     >
                       <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -6252,7 +6508,8 @@ export default function SceneEditModal({
                     <button
                       type="button"
                       onClick={handleOpenImageSourceChooser}
-                      className="flex items-center justify-center w-20 h-24 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50/50 hover:bg-gray-100/50 transition-colors"
+                      disabled={clipAssigning}
+                      className="flex items-center justify-center w-20 h-24 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50/50 hover:bg-gray-100/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       title="Add image"
                     >
                       <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -6265,13 +6522,69 @@ export default function SceneEditModal({
                       accept="image/png,image/jpeg,image/webp,image/jpg"
                       onChange={(e) => {
                         const file = e.target.files?.[0] || null;
-                        if (file) setPendingExistingImage(null); // supersede a staged reuse
+                        if (file) {
+                          setPendingExistingImage(null); // supersede a staged reuse
+                          // …and a staged removal.
+                          setEditableLayoutProps((prev) => ({ ...prev, hideImage: false }));
+                        }
                         setSelectedImageFile(file);
                       }}
                       className="hidden"
                     />
                   </div>
-                  {(imageItems.length > 0 || selectedImageFile) && (
+                  {assignedVideoUrl && (
+                    <div className="mt-3 space-y-2">
+                      {videoHasAudio && (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => setVideoMuted(!videoMuted)}
+                          disabled={!videoHasAudio}
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs transition-colors disabled:opacity-50 ${
+                            videoMuted
+                              ? "border-gray-300 text-gray-600 hover:border-purple-300"
+                              : "border-purple-300 bg-purple-50 text-purple-700"
+                          }`}
+                          title={videoMuted ? "Unmute clip audio" : "Mute clip audio"}
+                        >
+                          {videoMuted ? (
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M17 14l-4-4m0 4l4-4" />
+                            </svg>
+                          ) : (
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                            </svg>
+                          )}
+                          {videoMuted ? "Muted" : "Audio on"}
+                        </button>
+                        {!videoMuted && (
+                          <label className="flex items-center gap-2 text-xs text-gray-500">
+                            Volume
+                            <input
+                              type="range"
+                              min={0}
+                              max={1}
+                              step={0.05}
+                              value={videoVolume}
+                              onChange={(e) => setVideoVolume(Number(e.target.value))}
+                              className="w-28 accent-purple-600"
+                            />
+                            <span className="tabular-nums w-8">
+                              {Math.round(videoVolume * 100)}%
+                            </span>
+                          </label>
+                        )}
+                      </div>
+                      )}
+                      <p className="text-xs text-gray-500">
+                        Use the edit icon to adjust framing.
+                        {videoHasAudio ? " Audio changes save with the scene." : ""}
+                      </p>
+                    </div>
+                  )}
+                  {!assignedVideoUrl && (imageItems.length > 0 || selectedImageFile) && (
                     <div className="mt-3">
                       <p className="text-xs text-gray-500">
                         Click the edit icon on the image thumbnail to adjust framing with a draggable crop box.
@@ -6600,7 +6913,7 @@ export default function SceneEditModal({
             onClick={() => {
               void handleSave();
             }}
-            disabled={loading || (editMode === "ai" && (!aiHasChanges || !canAffordThisEdit))}
+            disabled={loading || clipAssigning || (editMode === "ai" && (!aiHasChanges || !canAffordThisEdit))}
             className="px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading
@@ -6630,9 +6943,9 @@ export default function SceneEditModal({
           onClick={() => setImageSourceChooserOpen(false)}
         />
         <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl p-5">
-          <h3 className="text-lg font-semibold text-gray-900">Add scene image</h3>
-          <p className="text-xs text-gray-500 mt-1">Choose where to pick the image from.</p>
-          <div className="mt-4 grid grid-cols-2 gap-3">
+          <h3 className="text-lg font-semibold text-gray-900">Add scene visual</h3>
+          <p className="text-xs text-gray-500 mt-1">Choose where to pick the image or clip from.</p>
+          <div className={`mt-4 grid gap-3 ${stockFootageSupported ? "grid-cols-3" : "grid-cols-2"}`}>
             <button
               type="button"
               onClick={handleChooseScrapedImages}
@@ -6641,18 +6954,31 @@ export default function SceneEditModal({
               <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M4 12h16M4 17h16" />
               </svg>
-              From existing scraped images
+              Use existing assets
             </button>
             <button
               type="button"
               onClick={handleChooseLocalUpload}
               className="w-full h-24 p-2 rounded-xl border p-3 rounded-xl border border-gray-300 text-gray-700 hover:border-purple-300 hover:text-purple-700 hover:bg-purple-50/40 transition-colors text-sm flex flex-col items-center justify-center text-center gap-2"
             >
+              {/* Upload arrow rising out of a tray. */}
               <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 4v12m0 0l-4-4m4 4l4-4" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 16V4m0 0L8 8m4-4l4 4" />
               </svg>
-              File upload
+              Upload image file
             </button>
+            {stockFootageSupported && (
+              <button
+                type="button"
+                onClick={handleChooseStockFootage}
+                className="w-full h-24 p-2 rounded-xl border p-3 rounded-xl border border-gray-300 text-gray-700 hover:border-purple-300 hover:text-purple-700 hover:bg-purple-50/40 transition-colors text-sm flex flex-col items-center justify-center text-center gap-2"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                Add new stock footage
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -6667,8 +6993,8 @@ export default function SceneEditModal({
         <div className="relative w-full max-w-4xl rounded-2xl bg-white shadow-2xl overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Select scraped image</h3>
-              <p className="text-xs text-gray-500 mt-0.5">Pick one image to assign to this scene.</p>
+              <h3 className="text-lg font-semibold text-gray-900">Select existing asset</h3>
+              <p className="text-xs text-gray-500 mt-0.5">Pick an image or clip to assign to this scene.</p>
             </div>
             <button
               type="button"
@@ -6688,16 +7014,37 @@ export default function SceneEditModal({
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                 {scrapedImageItems.map(({ asset, url }) => {
                   const selected = selectedExistingAssetId === asset.id;
+                  const isClip = asset.asset_type === "video";
                   return (
                     <button
-                      key={asset.id}
+                      key={`${asset.asset_type}-${asset.id}`}
                       type="button"
                       onClick={() => setSelectedExistingAssetId(asset.id)}
                       className={`relative rounded-xl overflow-hidden border-2 transition-colors ${
                         selected ? "border-purple-500" : "border-gray-200 hover:border-purple-300"
                       }`}
                     >
-                      <img src={url} alt="" className="w-full h-24 object-cover" loading="lazy" />
+                      {isClip ? (
+                        <>
+                          <video
+                            src={url}
+                            muted
+                            loop
+                            playsInline
+                            preload="metadata"
+                            className="w-full h-24 object-cover bg-black"
+                            onMouseEnter={(e) => {
+                              void (e.currentTarget as HTMLVideoElement).play().catch(() => {});
+                            }}
+                            onMouseLeave={(e) => (e.currentTarget as HTMLVideoElement).pause()}
+                          />
+                          <span className="absolute bottom-1 left-1 px-1 py-0.5 rounded bg-black/70 text-white text-[9px] font-medium uppercase tracking-wide">
+                            Clip
+                          </span>
+                        </>
+                      ) : (
+                        <img src={url} alt="" className="w-full h-24 object-cover" loading="lazy" />
+                      )}
                       {selected && (
                         <span className="absolute top-1 right-1 w-5 h-5 rounded-full bg-purple-600 text-white flex items-center justify-center">
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
@@ -6732,6 +7079,19 @@ export default function SceneEditModal({
       </div>
     )}
 
+    {stockFootageModalOpen && (
+      <StockFootageModal
+        projectId={project.id}
+        initialQuery={scene.title || scene.visual_description || ""}
+        boxAspect={sceneBoxAspect}
+        onClose={() => setStockFootageModalOpen(false)}
+        onSelect={handleSelectStockClip}
+      />
+    )}
+
+    {/* Clip assignment runs as a background task owned by ProjectView, which
+        also renders the top-right progress toast — no overlay here. */}
+
     {/* AI image generation & its keep/discard preview live in the parent ProjectView
         so a single flow owns the loader and survives this modal being closed. */}
 
@@ -6762,34 +7122,19 @@ export default function SceneEditModal({
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-gray-50">
             <div className="p-4 sm:p-5">
-            <div
-              ref={imageAdjustPreviewRef}
+            <ImageAdjustStage
+              src={imageAdjustSrc}
+              isVideo={/\.mp4(\?|$)/i.test(imageAdjustSrc || "")}
+              focusX={imageAdjustFocusX}
+              focusY={imageAdjustFocusY}
+              zoom={imageAdjustZoom}
+              aspectRatio={imageAdjustAspectRatio}
+              circular={imageAdjustCircular}
+              dragging={isAdjustDragging}
               onMouseDown={handleAdjustMouseDown}
               onTouchStart={handleAdjustTouchStart}
-              style={{
-                aspectRatio: imageAdjustAspectRatio,
-                maxHeight: "70vh",
-                maxWidth: `min(100%, 42rem, calc(70vh * ${imageAdjustAspectRatio.split(" / ")[0]} / ${imageAdjustAspectRatio.split(" / ")[1]}))`,
-                ...(imageAdjustCircular ? { borderRadius: "50%" } : {}),
-              }}
-              className={`relative mx-auto ${imageAdjustCircular ? "" : "rounded-xl"} overflow-hidden border-2 border-gray-200 select-none touch-none ${
-                isAdjustDragging ? "cursor-grabbing" : "cursor-grab"
-              }`}
-            >
-
-              <img
-                src={imageAdjustSrc}
-                alt="Adjust preview"
-                className="absolute inset-0 w-full h-full"
-                style={{
-                  objectFit: imageAdjustZoom < 1 ? "contain" : "cover",
-                  objectPosition: imageAdjustZoom < 1 ? "center" : `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
-                  transform: `scale(${imageAdjustZoom})`,
-                  transformOrigin: imageAdjustZoom < 1 ? "center center" : `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
-                }}
-                draggable={false}
-              />
-            </div>
+              windowRef={imageAdjustPreviewRef}
+            />
             <div className="mt-4 flex flex-col gap-2 max-w-2xl mx-auto w-full">
               <label className="flex items-center gap-3 text-sm text-gray-700">
                 <span className="w-14 shrink-0 tabular-nums">Zoom</span>

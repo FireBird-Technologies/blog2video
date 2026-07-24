@@ -723,6 +723,37 @@ def write_remotion_data(
                 if _download_url_to_file(asset.r2_url, dest):
                     all_image_files.append(asset.filename)
 
+    # Stock-footage clips, copied alongside images so staticFile() resolves them.
+    # Keyed by filename -> duration, because the renderer needs the clip length in
+    # frames for Remotion's <Loop durationInFrames={...}>; without it a clip
+    # shorter than its scene cannot repeat cleanly.
+    all_video_files: dict[str, float | None] = {}
+    for asset in project.assets:
+        if asset.asset_type.value == "video" and not asset.excluded:
+            dest = os.path.join(public_dir, asset.filename)
+            ok = False
+            if os.path.exists(asset.local_path):
+                _copy_file(asset.local_path, dest)
+                ok = True
+            elif asset.r2_url:
+                ok = _download_url_to_file(asset.r2_url, dest)
+            if not ok:
+                continue
+            all_video_files[asset.filename] = getattr(asset, "duration_seconds", None)
+
+            # The audio-bearing sibling is only fetched when a scene actually
+            # unmutes it — see the per-scene payload build below.
+            audio_variant = getattr(asset, "audio_variant_filename", None)
+            if audio_variant:
+                a_dest = os.path.join(public_dir, audio_variant)
+                a_local = os.path.join(os.path.dirname(asset.local_path), audio_variant)
+                if os.path.exists(a_local):
+                    _copy_file(a_local, a_dest)
+                elif asset.r2_url:
+                    _download_url_to_file(
+                        asset.r2_url.rsplit("/", 1)[0] + "/" + audio_variant, a_dest
+                    )
+
     # Hero image (OG/first image) for templates that use it
     hero_image_file = all_image_files[0] if all_image_files else None
 
@@ -779,6 +810,28 @@ def write_remotion_data(
             if changed:
                 dirty.add(i)
 
+    # Scenes already showing a stock clip. Their visual slot is FULL, so every
+    # image-assignment step below must skip them — otherwise a generic scraped
+    # image gets assigned underneath and both the still and the clip render.
+    # A stale assignedVideo (asset deleted) is dropped here so the scene falls
+    # back to normal image assignment rather than rendering nothing.
+    #
+    # Computed OUTSIDE the `all_image_files` block below: a project can hold
+    # clips and no images at all, and pruning must still happen there.
+    video_scene_indices: set[int] = set()
+    for i in range(len(scenes)):
+        lp = scene_layout_props[i]
+        assigned_video = lp.get("assignedVideo")
+        if not assigned_video:
+            continue
+        if scene_layouts[i] in no_image_layouts or assigned_video not in all_video_files:
+            lp.pop("assignedVideo", None)
+            lp.pop("videoMuted", None)
+            lp.pop("videoVolume", None)
+            dirty.add(i)
+            continue
+        video_scene_indices.add(i)
+
     if all_image_files and scenes:
         # Build scene_id -> index lookup before classifying scene-specific files.
         # In redistribution mode, files named for deleted old scene ids should
@@ -812,6 +865,9 @@ def write_remotion_data(
         for i, scene in enumerate(scenes):
             layout = scene_layouts[i]
             lp = scene_layout_props[i]
+
+            if i in video_scene_indices:
+                continue
 
             if layout in no_image_layouts:
                 hide_image_flags[i] = True
@@ -859,7 +915,7 @@ def write_remotion_data(
             idx = id_to_idx.get(scene_id, -1)
             if idx < 0 or scene_layouts[idx] in no_image_layouts:
                 continue
-            if hide_image_flags[idx]:
+            if hide_image_flags[idx] or idx in video_scene_indices:
                 continue
             lp = scene_layout_props[idx]
             if lp.get("assignedImage") or lp.get("hideImage"):
@@ -882,7 +938,7 @@ def write_remotion_data(
         # removing that image does not set hideImage and another generic fills the slot).
         # Outro must write hideImage so the UI/remotion do not auto-assign a generic later.
         for i, scene in enumerate(scenes):
-            if scene_image_map[i]:
+            if scene_image_map[i] or i in video_scene_indices:
                 continue
             scene_type = getattr(scene, "scene_type", None)
             if scene_type is None:
@@ -939,6 +995,8 @@ def write_remotion_data(
         for i in range(len(scenes)):
             if scene_image_map[i] or hide_image_flags[i] or scene_layouts[i] in no_image_layouts:
                 continue
+            if i in video_scene_indices:
+                continue
             while generic_idx < len(generic_files):
                 candidate = generic_files[generic_idx]
                 generic_idx += 1
@@ -956,8 +1014,12 @@ def write_remotion_data(
 
         # Step 5: For image-capable scenes with no assigned image, persist hideImage=true.
         # This prevents future auto-assignment from generic pool after a user de-assigns.
+        # Video scenes are skipped: they have no assignedImage by design, and
+        # hideImage would blank the clip too (it gates the whole visual slot).
         for i in range(len(scenes)):
             if scene_layouts[i] in no_image_layouts or scene_image_map[i]:
+                continue
+            if i in video_scene_indices:
                 continue
             lp = scene_layout_props[i]
             changed = False
@@ -1097,6 +1159,14 @@ def write_remotion_data(
         raw_images = [] if hide_image else scene_image_map.get(i, [])
         scene_images = raw_images[:1]
 
+        # Stock footage: a clip occupies the same visual slot as the still, so a
+        # scene never carries both. Stale references were already pruned above.
+        scene_video = None if hide_image else layout_props.get("assignedVideo")
+        if scene_video and scene_video in all_video_files:
+            scene_images = []
+        else:
+            scene_video = None
+
         # Short on-screen text (display_text) vs full voiceover narration (narration_text)
         # For the ending scene we must preserve an explicitly empty display_text (optional subtext).
         display_text_val = getattr(scene, "display_text", None)
@@ -1135,6 +1205,35 @@ def write_remotion_data(
             # Per-scene background-music volume override (None = use project bgm_volume).
             "bgmVolume": getattr(scene, "bgm_volume", None),
         }
+
+        if scene_video:
+            muted = bool(layout_props.get("videoMuted", True))
+            # When unmuted, point at the AAC sibling — the default file is silent
+            # so the common path never decodes an audio stream it won't play.
+            playback_file = scene_video
+            if not muted:
+                audio_variant = next(
+                    (
+                        getattr(a, "audio_variant_filename", None)
+                        for a in project.assets
+                        if a.filename == scene_video
+                    ),
+                    None,
+                )
+                if audio_variant and os.path.exists(os.path.join(public_dir, audio_variant)):
+                    playback_file = audio_variant
+                else:
+                    muted = True  # no audio track available; stay silent
+
+            scene_entry["video"] = playback_file
+            scene_entry["videoMuted"] = muted
+            scene_entry["videoVolume"] = float(layout_props.get("videoVolume", 0.35) or 0.0)
+            # Clip length in seconds -> the renderer converts to frames for
+            # Remotion's <Loop>. Omitted when unknown, in which case the clip
+            # plays once rather than looping at a guessed point.
+            duration = all_video_files.get(scene_video)
+            if duration:
+                scene_entry["videoDurationSeconds"] = float(duration)
 
         if layout_config is not None:
             # Custom templates: universal layout config

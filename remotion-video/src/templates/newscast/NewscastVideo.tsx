@@ -301,6 +301,12 @@ interface SceneData {
   voiceoverFile: string | null;
   images: string[];
   imageUrl?: string;
+  /** Stock-footage filename in public/. Mutually exclusive with `images`. */
+  video?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  /** Normalised clip length; converted to frames for <Loop>. */
+  videoDurationSeconds?: number;
 }
 
 interface VideoData {
@@ -434,6 +440,13 @@ export const NewscastVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           NEWSCAST_LAYOUT_REGISTRY.anchor_narrative;
 
         const imageUrlFromAssets = scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
+        const videoUrlFromAssets = scene.video ? staticFile(scene.video) : undefined;
+        // Clip length in frames for <Loop>. Left undefined when the backend
+        // could not probe a duration, in which case the clip plays once rather
+        // than looping at a guessed point.
+        const videoDurationInFrames = scene.videoDurationSeconds
+          ? Math.max(1, Math.round(scene.videoDurationSeconds * FPS))
+          : undefined;
         const lp = (scene.layoutProps ?? {}) as Record<string, unknown>;
         const base = lp as Partial<NewscastLayoutProps>;
         const normalizedBase =
@@ -461,6 +474,10 @@ export const NewscastVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           // placeholder (e.g. https://example.com/...). Only assignedImage / the
           // resolved asset pipeline can produce a real, fetchable URL.
           imageUrl: imageUrlFromAssets ?? scene.imageUrl,
+          videoUrl: videoUrlFromAssets,
+          videoMuted: scene.videoMuted ?? true,
+          videoVolume: scene.videoVolume ?? 0.35,
+          videoDurationInFrames,
           imageObjectPosition,
   imageZoom,
           fontFamily: resolvedFontFamily || undefined,

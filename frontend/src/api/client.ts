@@ -140,6 +140,16 @@ export interface Asset {
   r2_url: string | null;
   excluded: boolean;
   created_at: string;
+  /** VIDEO assets (stock footage) only — null on image/audio rows. */
+  duration_seconds?: number | null;
+  width?: number | null;
+  height?: number | null;
+  source_provider?: string | null;
+  source_id?: string | null;
+  source_author?: string | null;
+  source_page_url?: string | null;
+  /** Sibling AAC file when the source had audio; null/absent = clip is silent. */
+  audio_variant_filename?: string | null;
 }
 
 export interface Project {
@@ -1524,6 +1534,77 @@ export const generateSceneImage = (
   api.post<GenerateSceneImageResponse>(
     `/projects/${projectId}/scenes/${sceneId}/generate-image`,
     body
+  );
+
+/** A stock-footage search result, normalised across Pexels and Pixabay. */
+export interface StockClip {
+  provider: string;
+  id: string;
+  preview_url: string;
+  thumbnail_url: string;
+  download_url: string;
+  width: number;
+  height: number;
+  duration: number;
+  fps: number | null;
+  author: string;
+  page_url: string;
+}
+
+export const searchStockFootage = (
+  projectId: number,
+  params: {
+    q: string;
+    provider?: string;
+    page?: number;
+    per_page?: number;
+    /** Scene image box in px on the 1080p canvas — steers orientation + rendition. */
+    box_w?: number;
+    box_h?: number;
+  }
+) =>
+  api.get<{ clips: StockClip[] }>(`/projects/${projectId}/stock-footage/search`, {
+    params,
+  });
+
+/** The processed VIDEO asset returned after uploading a chosen clip. */
+export interface UploadedStockClip {
+  asset_id: number;
+  filename: string;
+  video_url: string;
+  audio_variant_url: string | null;
+  has_audio: boolean;
+  duration_seconds: number | null;
+  width: number | null;
+  height: number | null;
+  source_author: string;
+  source_provider: string;
+}
+
+/**
+ * Download + normalise a chosen clip into a VIDEO asset, WITHOUT linking it to
+ * the scene. The backend transcodes it to CFR 30 fps (so it stays in sync with
+ * the 30 fps composition) — expect a few seconds. The returned URLs let the
+ * editor stage and preview the clip (audio included); the scene link is written
+ * later by the normal scene Save (via `assignedVideo` in the descriptor).
+ */
+export const uploadStockFootage = (
+  projectId: number,
+  sceneId: number,
+  clip: StockClip
+) =>
+  api.post<UploadedStockClip>(
+    `/projects/${projectId}/scenes/${sceneId}/stock-footage`,
+    {
+      provider: clip.provider,
+      clip_id: clip.id,
+      download_url: clip.download_url,
+      width: clip.width,
+      height: clip.height,
+      duration: clip.duration,
+      author: clip.author,
+      page_url: clip.page_url,
+    }
   );
 
 export interface LayoutPropSchemaEntry {

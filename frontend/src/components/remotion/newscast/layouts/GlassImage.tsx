@@ -18,12 +18,17 @@ import {
   panelTumbleUp,
 } from "../newscastLayoutMotion";
 import { ZoomCropImg } from "../components/ZoomCropImg";
+import { ZoomCropVideo } from "../components/ZoomCropVideo";
 
 const GOLD = "#D4AA50";
 
 export const GlassImage: React.FC<NewscastLayoutProps> = ({imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
   title,
   narration,
   category,
@@ -52,7 +57,7 @@ export const GlassImage: React.FC<NewscastLayoutProps> = ({imageUrl,
 
   return (
     <AbsoluteFill style={{ zIndex: 60, overflow: "hidden" }}>
-      {imageUrl ? (
+      {(imageUrl || videoUrl) ? (
         <div
           aria-hidden
           style={{
@@ -62,12 +67,23 @@ export const GlassImage: React.FC<NewscastLayoutProps> = ({imageUrl,
             transformOrigin: "center center",
           }}
         >
-          <ZoomCropImg
-            src={imageUrl}
-            imageObjectPosition={imageObjectPosition}
-            imageZoom={imageZoom}
-            alt=""
-          />
+          {videoUrl ? (
+            <ZoomCropVideo
+              src={videoUrl}
+              imageObjectPosition={imageObjectPosition}
+              imageZoom={imageZoom}
+              muted={videoMuted ?? true}
+              volume={videoVolume ?? 0.35}
+              durationInFrames={videoDurationInFrames}
+            />
+          ) : (
+            <ZoomCropImg
+              src={imageUrl!}
+              imageObjectPosition={imageObjectPosition}
+              imageZoom={imageZoom}
+              alt=""
+            />
+          )}
           <div
             aria-hidden
             style={{

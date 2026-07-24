@@ -550,6 +550,18 @@ def _clear_image_assignment(lp: dict) -> None:
     lp.pop("imageZoom", None)
 
 
+def _clear_video_assignment(lp: dict) -> None:
+    """Drop a stock-footage assignment, leaving image framing keys alone.
+
+    Framing (imageFocusX/Y, imageZoom) is deliberately SHARED between stills and
+    clips so the existing Adjust-framing UI works on both; it is therefore not
+    cleared here — only by _clear_image_assignment.
+    """
+    lp.pop("assignedVideo", None)
+    lp.pop("videoMuted", None)
+    lp.pop("videoVolume", None)
+
+
 def _build_ending_socials_props(project: Project, scene: Scene) -> dict:
     social_flags = detect_social_platforms_in_text(getattr(project, "blog_content", None) or "")
     socials = {
@@ -3533,11 +3545,23 @@ def delete_asset(
     local_path = asset.local_path
     r2_key = asset.r2_key
 
+    # A stock clip is stored as TWO files: the silent one that normally renders,
+    # plus an AAC sibling used when the scene unmutes it. Delete both, or the
+    # audio variant is orphaned on disk and in R2 forever.
+    audio_variant_local: str | None = None
+    audio_variant_r2_key: str | None = None
+    audio_variant_name = getattr(asset, "audio_variant_filename", None)
+    if audio_variant_name:
+        audio_variant_local = os.path.join(os.path.dirname(local_path), audio_variant_name)
+        if r2_key:
+            audio_variant_r2_key = r2_key.rsplit("/", 1)[0] + "/" + audio_variant_name
+
     # If this is an image, clear assignedImage from scenes that reference it
     # and mark those scenes as hideImage=true so they won't get a new generic
     # image auto-assigned later.
-    if asset.asset_type.value == "image":
+    if asset.asset_type.value in ("image", "video"):
         deleted_filename = asset.filename
+        is_video_asset = asset.asset_type.value == "video"
         scenes = db.query(Scene).filter(Scene.project_id == project_id).all()
         for scene in scenes:
             if not scene.remotion_code:
@@ -3545,38 +3569,55 @@ def delete_asset(
             try:
                 desc = json.loads(scene.remotion_code)
                 layout_props = desc.get("layoutProps", {}) or {}
-                assigned_image = layout_props.get("assignedImage")
-                if assigned_image == deleted_filename:
+                key = "assignedVideo" if is_video_asset else "assignedImage"
+                if layout_props.get(key) != deleted_filename:
+                    continue
+                if is_video_asset:
+                    _clear_video_assignment(layout_props)
+                else:
                     _clear_image_assignment(layout_props)
-                    layout_props["hideImage"] = True
-                    desc["layoutProps"] = layout_props
-                    scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(desc))
+                # hideImage stops the auto-assign cascade in services/remotion.py
+                # from dropping a generic scraped image into the slot we just
+                # emptied. It gates clips as well as stills.
+                layout_props["hideImage"] = True
+                desc["layoutProps"] = layout_props
+                scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(desc))
             except (json.JSONDecodeError, TypeError):
                 continue
 
     db.delete(asset)
     db.commit()
 
-    if local_path and os.path.isfile(local_path):
-        try:
-            os.remove(local_path)
-        except OSError as e:
-            logger.warning(
-                "[PROJECTS] Failed to remove local file %s: %s",
-                local_path,
-                e,
-                extra={"project_id": project_id, "user_id": user.id},
-            )
-    if r2_key:
-        try:
-            r2_storage.delete_file(r2_key)
-        except Exception as e:
-            logger.warning(
-                "[PROJECTS] R2 delete failed for %s: %s",
-                r2_key,
-                e,
-                extra={"project_id": project_id, "user_id": user.id},
-            )
+    for path in (local_path, audio_variant_local):
+        if path and os.path.isfile(path):
+            try:
+                os.remove(path)
+            except OSError as e:
+                logger.warning(
+                    "[PROJECTS] Failed to remove local file %s: %s",
+                    path,
+                    e,
+                    extra={"project_id": project_id, "user_id": user.id},
+                )
+    for key in (r2_key, audio_variant_r2_key):
+        if key:
+            try:
+                # NB: the helper is delete_object. This previously called a
+                # non-existent delete_file, so every R2 delete silently failed
+                # into the except below and objects were never removed.
+                r2_storage.delete_object(key)
+            except Exception as e:
+                logger.warning(
+                    "[PROJECTS] R2 delete failed for %s: %s",
+                    key,
+                    e,
+                    extra={"project_id": project_id, "user_id": user.id},
+                )
+
+    # The asset row is gone and referencing scenes were rewritten — collaborators
+    # must refetch or they keep rendering a clip/image that no longer exists.
+    from app.routers.collab_ws import broadcast_project_reload
+    broadcast_project_reload(project_id, exclude_user_id=user.id)
 
     return {"detail": "Asset deleted"}
 
@@ -4080,6 +4121,9 @@ async def update_scene_image(
             descriptor = {}
 
     layout_props = _ensure_layout_props_dict(descriptor)
+    # A scene holds either a still or a clip, never both — assigning an image
+    # clears any stock clip that occupied the same visual slot.
+    _clear_video_assignment(layout_props)
     layout_props["assignedImage"] = image_filename
     layout_props.pop("hideImage", None)
     _apply_default_focus(layout_props)
@@ -4100,6 +4144,294 @@ async def update_scene_image(
     )
 
     return scene
+
+
+# ─── Stock footage (Pexels / Pixabay) ────────────────────────────────
+# Pilot scope: Newscast only. Delete STOCK_FOOTAGE_TEMPLATES (and this note)
+# when rolling the feature out to other templates.
+STOCK_FOOTAGE_TEMPLATES = {"newscast"}
+
+# AI-edit credits charged per clip added. Like image generation, this is charged
+# to the project OWNER and only on success.
+STOCK_FOOTAGE_CREDIT_COST = 3
+
+
+class StockFootageAssignRequest(BaseModel):
+    provider: str
+    clip_id: str
+    download_url: str
+    width: int = 0
+    height: int = 0
+    duration: float = 0.0
+    author: str = ""
+    page_url: str = ""
+
+
+@router.get("/{project_id}/stock-footage/search")
+def search_stock_footage(
+    project_id: int,
+    q: str,
+    provider: str = "all",
+    page: int = 1,
+    per_page: int = 24,
+    box_w: float | None = None,
+    box_h: float | None = None,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Search Pexels/Pixabay for clips. Read-only; no credit charge.
+
+    ``box_w`` / ``box_h`` describe the target scene's image box in pixels on the
+    1080p render canvas (the frontend computes them from LAYOUT_IMAGE_BOX_DIMS).
+    They steer two things: which Pexels rendition to download, and — since a
+    scene's box can be landscape inside a portrait project or vice-versa — which
+    orientation to ask for.
+    """
+    from app.services import stock_footage
+
+    project = _get_user_project(project_id, user.id, db)
+
+    if provider not in ("all", "pexels", "pixabay"):
+        raise HTTPException(status_code=400, detail="Unknown provider.")
+
+    if not (settings.PEXELS_API_KEY or settings.PIXABAY_API_KEY):
+        raise HTTPException(
+            status_code=503,
+            detail="Stock footage search is not configured on this server.",
+        )
+
+    # Prefer the SCENE BOX's shape — a portrait project can still have a
+    # landscape image box (and vice-versa), and the box is what the clip is
+    # actually cropped into. Fall back to the project's aspect ratio.
+    if box_w and box_h and box_w > 0 and box_h > 0:
+        ratio = box_w / box_h
+        if ratio > 1.15:
+            orientation = "landscape"
+        elif ratio < 0.87:
+            orientation = "portrait"
+        else:
+            orientation = "square"
+    else:
+        orientation = (
+            "portrait"
+            if (getattr(project, "aspect_ratio", "landscape") or "").lower() == "portrait"
+            else "landscape"
+        )
+
+    clips = stock_footage.search(
+        q,
+        provider=provider,
+        per_page=per_page,
+        page=page,
+        orientation=orientation,
+        box_w=box_w,
+        box_h=box_h,
+    )
+    return {"clips": [c.to_dict() for c in clips]}
+
+
+@router.post("/{project_id}/scenes/{scene_id}/stock-footage")
+async def upload_stock_footage(
+    project_id: int,
+    scene_id: int,
+    body: StockFootageAssignRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Download a chosen clip and normalise it to CFR 30 fps, creating a VIDEO asset.
+
+    This does NOT link the clip to the scene — that happens later, through the
+    normal scene descriptor Save, so the whole choice can be staged and cancelled
+    in the editor. The clip must still be downloaded and transcoded here because
+    the editor needs a real file to preview (audio included) before the user
+    commits, and both Newscast compositions run at a fixed 30 fps — a clip at any
+    other rate lands between source frames when Remotion samples it and judders.
+    See services/stock_footage.py.
+
+    Returns the created asset's filename + playable URLs so the editor can stage
+    it. The scene descriptor is untouched until Save writes ``assignedVideo``.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+    from app.models.asset import Asset, AssetType
+    from app.services import stock_footage
+
+    project = _get_user_project(project_id, user.id, db)
+
+    template = (getattr(project, "template", "") or "").strip().lower()
+    if template not in STOCK_FOOTAGE_TEMPLATES:
+        raise HTTPException(
+            status_code=400,
+            detail="Stock footage is currently only supported on the Newscast template.",
+        )
+
+    scene = (
+        db.query(Scene)
+        .filter(Scene.id == scene_id, Scene.project_id == project_id)
+        .first()
+    )
+    if not scene:
+        raise HTTPException(status_code=404, detail="Scene not found")
+
+    layout = _extract_scene_layout_from_descriptor(scene, template)
+    if layout and layout in get_layouts_without_image(template):
+        raise HTTPException(
+            status_code=400, detail="This layout does not support a background clip."
+        )
+
+    if not body.download_url.lower().startswith("https://"):
+        raise HTTPException(status_code=400, detail="Invalid clip URL.")
+
+    # Owner pays: gate/charge the OWNER, so a FREE collaborator inherits a PRO
+    # owner's entitlement on a shared project (and vice versa). PRO/STANDARD
+    # owners are unlimited; FREE owners spend AI-edit credits. Gate BEFORE the
+    # download so we never do the work we cannot charge for.
+    from app.services.access import project_owner, can_use_ai_edit, consume_ai_edit
+
+    payer = project_owner(project, db)
+    if not can_use_ai_edit(payer, project, cost=STOCK_FOOTAGE_CREDIT_COST):
+        if payer.id == user.id:
+            detail = (
+                f"AI editing limit reached. Adding stock footage costs "
+                f"{STOCK_FOOTAGE_CREDIT_COST} AI edits. Buy a video for +20 AI edits, "
+                "or upgrade to Pro or Standard for unlimited use."
+            )
+        else:
+            detail = (
+                "The project owner is out of AI edit credits, so adding stock footage isn't "
+                "available now. Ask the owner to buy more credits or upgrade."
+            )
+        raise HTTPException(status_code=403, detail=detail)
+
+    ts = int(time.time())
+    video_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project_id}/videos")
+    filename = f"scene_{scene_id}_{ts}.mp4"
+    audio_filename = f"scene_{scene_id}_{ts}_audio.mp4"
+    local_path = os.path.join(video_dir, filename)
+    audio_local_path = os.path.join(video_dir, audio_filename)
+
+    def _fetch_and_normalise() -> dict:
+        """Blocking download + two ffmpeg passes; runs off the event loop."""
+        tmp_path = stock_footage.download_to_temp(body.download_url)
+        try:
+            # The silent variant is the one that gets rendered in the common
+            # case, and the one we probe — AAC padding makes the audio variant's
+            # container duration slightly longer, which would skew the loop point.
+            stock_footage.normalise(tmp_path, local_path, with_audio=False)
+            info = stock_footage.probe(local_path)
+
+            wrote_audio = False
+            if stock_footage.has_audio_stream(tmp_path):
+                try:
+                    stock_footage.normalise(tmp_path, audio_local_path, with_audio=True)
+                    wrote_audio = True
+                except stock_footage.StockFootageError:
+                    # Losing the optional audio variant must not fail the whole
+                    # upload; the scene simply cannot be unmuted.
+                    logger.warning(
+                        "[STOCK] audio variant failed for project %s scene %s",
+                        project_id, scene_id, exc_info=True,
+                    )
+            info["wrote_audio"] = wrote_audio
+            return info
+        finally:
+            stock_footage._quiet_unlink(tmp_path)
+
+    loop = asyncio.get_running_loop()
+    try:
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            info = await loop.run_in_executor(pool, _fetch_and_normalise)
+    except stock_footage.StockFootageError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        logger.error(
+            "[STOCK] upload failed for project %s scene %s",
+            project_id, scene_id, exc_info=True,
+        )
+        raise HTTPException(status_code=500, detail="Could not process that clip.")
+
+    r2_key_val = None
+    r2_url_val = None
+    audio_r2_url = None
+    audio_r2_uploaded = False
+    if r2_storage.is_r2_configured():
+        try:
+            r2_key_val = r2_storage.stock_video_key(user.id, project_id, filename)
+            r2_url_val = r2_storage.upload_file(local_path, r2_key_val, content_type="video/mp4")
+            if info.get("wrote_audio"):
+                audio_r2_url = r2_storage.upload_file(
+                    audio_local_path,
+                    r2_storage.stock_video_key(user.id, project_id, audio_filename),
+                    content_type="video/mp4",
+                )
+                audio_r2_uploaded = True
+        except Exception as e:
+            logger.warning("[STOCK] R2 upload failed for %s: %s", filename, e)
+
+    has_audio = bool(
+        info.get("wrote_audio")
+        and (audio_r2_uploaded or not r2_storage.is_r2_configured())
+    )
+
+    asset = Asset(
+        project_id=project_id,
+        asset_type=AssetType.VIDEO,
+        original_url=body.page_url or body.download_url,
+        local_path=local_path,
+        filename=filename,
+        r2_key=r2_key_val,
+        r2_url=r2_url_val,
+        excluded=False,
+        duration_seconds=info.get("duration_seconds"),
+        width=info.get("width"),
+        height=info.get("height"),
+        source_provider=body.provider,
+        source_id=body.clip_id,
+        source_author=body.author,
+        source_page_url=body.page_url,
+        audio_variant_filename=audio_filename if has_audio else None,
+    )
+    db.add(asset)
+    db.commit()
+    db.refresh(asset)
+
+    # Build playable URLs for the editor to stage the clip (video + optional audio
+    # variant). Prefer R2; fall back to the local media path the frontend proxies.
+    def _media_url(fn: str) -> str:
+        return f"/media/projects/{project_id}/videos/{fn}"
+
+    video_url = r2_url_val or _media_url(filename)
+    audio_url = None
+    if has_audio:
+        audio_url = audio_r2_url or _media_url(audio_filename)
+
+    # Charge only on success (the asset exists and is playable). No-op for
+    # PRO/STANDARD owners (unlimited); FREE owners spend from the shared
+    # per-user AI-edit pool.
+    if payer.plan not in (PlanTier.PRO, PlanTier.STANDARD):
+        consume_ai_edit(payer, project, cost=STOCK_FOOTAGE_CREDIT_COST)
+        db.commit()
+
+    # A new VIDEO asset is now in the project. Collaborators must refetch so the
+    # clip appears in their media lists (and so the scene link that follows
+    # resolves against an asset they know about). project_reloaded rather than a
+    # field edit: this adds an asset row, not a single scene field.
+    from app.routers.collab_ws import collab_manager
+    await collab_manager.broadcast(
+        project_id, {"type": "project_reloaded"}, exclude_user_id=user.id
+    )
+
+    return {
+        "asset_id": asset.id,
+        "filename": filename,
+        "video_url": video_url,
+        "audio_variant_url": audio_url,
+        "has_audio": has_audio,
+        "duration_seconds": info.get("duration_seconds"),
+        "width": info.get("width"),
+        "height": info.get("height"),
+        "source_author": body.author,
+        "source_provider": body.provider,
+    }
 
 
 @router.post("/{project_id}/scenes/{scene_id}/voiceover", response_model=SceneOut)
@@ -4285,8 +4617,11 @@ def update_scene_image_focus(
     lp = _ensure_layout_props_dict(descriptor)
     if lp.get("hideImage"):
         raise HTTPException(status_code=400, detail="Cannot set image focus while image is hidden")
-    if not lp.get("assignedImage"):
-        raise HTTPException(status_code=400, detail="No assigned image found for this scene")
+    # Framing (imageFocusX/Y, imageZoom) is shared between a still and a stock
+    # clip — either occupies the same visual slot — so accept a scene that has
+    # one of them assigned.
+    if not lp.get("assignedImage") and not lp.get("assignedVideo"):
+        raise HTTPException(status_code=400, detail="No image or clip assigned to this scene")
 
     lp["imageFocusX"] = _clamp_image_focus(data.image_focus_x)
     lp["imageFocusY"] = _clamp_image_focus(data.image_focus_y)
@@ -4488,6 +4823,8 @@ def assign_existing_image_to_scene(
     target_desc = _parse_scene_descriptor(target_scene)
     target_lp = _ensure_layout_props_dict(target_desc)
 
+    # A still and a clip are mutually exclusive in the visual slot.
+    _clear_video_assignment(target_lp)
     target_lp["assignedImage"] = source_asset.filename
     target_lp["hideImage"] = False
     target_lp["imageFocusX"] = 50

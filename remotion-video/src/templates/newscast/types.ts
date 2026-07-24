@@ -97,6 +97,17 @@ export interface NewscastLayoutProps {
   imageObjectPosition?: string;
   imageZoom?: number;
 
+  /**
+   * Stock footage. When `videoUrl` is set it REPLACES `imageUrl` in the same
+   * visual slot — a scene never shows both. Framing reuses imageObjectPosition +
+   * imageZoom, so the existing Adjust-framing UI works on clips unchanged.
+   */
+  videoUrl?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  /** Clip length in frames, for <Loop>. Absent = play once (see ZoomCropVideo). */
+  videoDurationInFrames?: number;
+
   fontFamily?: string;
 
   /** ending_socials */

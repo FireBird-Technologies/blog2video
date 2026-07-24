@@ -294,6 +294,12 @@ export interface NewscastSceneInput {
   speechDurationSeconds?: number;
   imageUrl?: string;
   voiceoverUrl?: string;
+  /** Stock-footage clip URL. Mutually exclusive with `imageUrl`. */
+  videoUrl?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  /** Normalised clip length; converted to frames for <Loop>. */
+  videoDurationSeconds?: number;
 }
 
 export interface NewscastVideoCompositionProps {
@@ -386,6 +392,13 @@ export const NewscastVideoComposition: React.FC<NewscastVideoCompositionProps> =
           imageUrl:
             scene.imageUrl ??
             (typeof lp?.imageUrl === "string" ? lp.imageUrl : undefined),
+          videoUrl: scene.videoUrl,
+          videoMuted: scene.videoMuted ?? true,
+          videoVolume: scene.videoVolume ?? 0.35,
+          // Clip length in frames for <Loop>; undefined = play once.
+          videoDurationInFrames: scene.videoDurationSeconds
+            ? Math.max(1, Math.round(scene.videoDurationSeconds * FPS))
+            : undefined,
           imageObjectPosition,
           imageZoom,
           accentColor: accentColor || "#FF3B30",

@@ -243,6 +243,17 @@ class AssetOut(BaseModel):
     r2_url: Optional[str] = None
     excluded: bool = False
     created_at: datetime
+    # VIDEO assets (stock footage) only — null on image/audio rows. Without these
+    # the editor cannot tell whether a clip has an audio track (audio toggle) or
+    # how long it is, so they must be serialized.
+    duration_seconds: Optional[float] = None
+    width: Optional[int] = None
+    height: Optional[int] = None
+    source_provider: Optional[str] = None
+    source_id: Optional[str] = None
+    source_author: Optional[str] = None
+    source_page_url: Optional[str] = None
+    audio_variant_filename: Optional[str] = None
 
     class Config:
         from_attributes = True

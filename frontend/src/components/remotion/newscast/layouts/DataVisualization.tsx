@@ -708,6 +708,10 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = (props) => {
         imageObjectPosition={props.imageObjectPosition}
         imageZoom={props.imageZoom}
         accentColor={red}
+        videoUrl={props.videoUrl}
+        videoMuted={props.videoMuted}
+        videoVolume={props.videoVolume}
+        videoDurationInFrames={props.videoDurationInFrames}
       />
       <div
         style={{

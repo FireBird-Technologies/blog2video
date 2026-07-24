@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     ELEVENLABS_VOICE_ID: str = "21m00Tcm4TlvDq8ikWAM"
     EXA_API_KEY: str = ""
     FIRECRAWL_API_KEY: str = ""
+    # Stock-footage providers. Each is optional and independently skipped when
+    # blank, so local dev works with only one key configured.
+    PEXELS_API_KEY: str = ""
+    PIXABAY_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
     OPEN_ROUTER_KEY: str = ""
     GEMINI_API_KEY: str = ""
