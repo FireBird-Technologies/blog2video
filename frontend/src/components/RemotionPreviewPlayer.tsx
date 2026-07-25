@@ -113,25 +113,50 @@ export default function RemotionPreviewPlayer({
     return () => player.removeEventListener("frameupdate", onFrame);
   }, [thumbnailMode, onFrameUpdate, compileResult, compiledComposition]);
 
-  // In thumbnail mode, play briefly then freeze at a deterministic frame.
+  const playerDurationInFrames =
+    durationInFrames ?? Math.max(fps, Math.round(durationSeconds * fps));
+
+  // Remotion requires 0 <= frame <= durationInFrames - 1, so a thumbnailFrame at
+  // or past the composition length (e.g. 150 on a 150-frame preview) must be
+  // clamped to the last real frame rather than throwing a render error.
+  const clampedThumbnailFrame = Math.max(
+    0,
+    Math.min(thumbnailFrame, playerDurationInFrames - 1),
+  );
+
+  // In thumbnail mode, jump straight to the target frame and freeze there.
+  //
+  // We seek rather than letting playback run to `thumbnailFrame`: waiting for
+  // real-time playback would take thumbnailFrame/fps seconds (5s at frame 150),
+  // and the poster capture screenshots well before that — which made the frame
+  // value effectively ignored. Seeking makes the frozen frame deterministic and
+  // immediate. `window.__previewFrameSettled` lets the capture route wait for
+  // this before signalling readiness.
   useEffect(() => {
     if (!thumbnailMode) return;
     const player = playerRef.current;
     if (!player) return;
-    let settled = false;
-    const stopAt = Math.max(0, thumbnailFrame);
-    const onFrame = () => {
-      if (settled) return;
-      const current = player.getCurrentFrame();
-      if (current >= stopAt) {
-        settled = true;
+    const w = window as unknown as { __previewFrameSettled?: boolean };
+    w.__previewFrameSettled = false;
+    let cancelled = false;
+    // Seek on the next frames so the player has mounted its composition.
+    const settle = () => {
+      if (cancelled) return;
+      try {
         player.pause();
-        player.seekTo(stopAt);
+        player.seekTo(clampedThumbnailFrame);
+        w.__previewFrameSettled = true;
+      } catch {
+        // Player not ready yet — retry on the next animation frame.
+        requestAnimationFrame(settle);
       }
     };
-    player.addEventListener("frameupdate", onFrame);
-    return () => player.removeEventListener("frameupdate", onFrame);
-  }, [thumbnailMode, thumbnailFrame, compileResult]);
+    const raf = requestAnimationFrame(() => requestAnimationFrame(settle));
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+    };
+  }, [thumbnailMode, clampedThumbnailFrame, compileResult]);
 
   const brandColors = useMemo(
     () => ({
@@ -288,8 +313,6 @@ export default function RemotionPreviewPlayer({
     return <CompiledComponent {...resolvedProps} brandColors={brandColors} />;
   };
 
-  const playerDurationInFrames =
-    durationInFrames ?? Math.max(fps, Math.round(durationSeconds * fps));
 
   return (
     <PlayerErrorBoundary onRetry={onRetry} width={width}>
@@ -305,8 +328,10 @@ export default function RemotionPreviewPlayer({
           borderRadius: 8,
           overflow: "hidden",
         }}
-        initialFrame={0}
-        autoPlay
+        // Thumbnail mode starts parked on the target frame instead of playing to
+        // it, so the frozen still is deterministic (see the seek effect above).
+        initialFrame={thumbnailMode ? clampedThumbnailFrame : 0}
+        autoPlay={!thumbnailMode}
         loop={thumbnailMode ? false : loop}
         controls={false}
       />

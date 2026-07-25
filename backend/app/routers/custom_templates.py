@@ -656,10 +656,15 @@ async def store_template_preview_image(
     if not url:
         raise HTTPException(status_code=503, detail="R2 not configured")
 
-    tpl.preview_image_url = url
+    # Cache-bust: the R2 object key is stable, so replacing the image leaves the
+    # URL unchanged and browsers/CDN keep serving the old bytes for the full
+    # 7-day max-age. A version param makes each re-capture a distinct URL.
+    versioned_url = f"{url}?v={int(time.time())}"
+
+    tpl.preview_image_url = versioned_url
     db.commit()
-    logger.info("Stored captured preview for template %d: %s", template_id, url)
-    return {"preview_image_url": url}
+    logger.info("Stored captured preview for template %d: %s", template_id, versioned_url)
+    return {"preview_image_url": versioned_url}
 
 
 @router.get("/{template_id}")

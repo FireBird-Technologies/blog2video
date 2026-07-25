@@ -841,6 +841,7 @@ def change_plan(
         user.videos_used_this_period = 0
         user.period_start = now
         user.reset_custom_template_period()
+        user.reset_tool_usage_period()
         _recalculate_video_limit_bonus(user, db)
 
         db.commit()
@@ -1903,6 +1904,7 @@ def _handle_checkout_completed(session: dict, db: Session):
             user.videos_used_this_period = 0
             user.period_start = now
             user.reset_custom_template_period()
+            user.reset_tool_usage_period()
 
             # Drop any free grants, keep paid per-video credits — same as the
             # recurring-subscription path.
@@ -1957,6 +1959,7 @@ def _handle_checkout_completed(session: dict, db: Session):
             user.videos_used_this_period = 0
             user.period_start = datetime.utcnow()
             user.reset_custom_template_period()
+            user.reset_tool_usage_period()
 
             # Strip free grants from video_limit_bonus — only keep paid per-video
             # credits that haven't expired. Adjust videos_used_this_period to
@@ -2021,6 +2024,8 @@ def _handle_subscription_updated(subscription_data: dict, db: Session):
             # free tier shows 0 remaining (mirrors the delete-account flow in auth.py).
             if was_paid and (user.videos_used_this_period or 0) < FREE_TIER_INCLUDED_VIDEOS:
                 user.videos_used_this_period = FREE_TIER_INCLUDED_VIDEOS
+            # Same rule for the /tools allowances.
+            user.cap_tool_usage_to_free(was_paid)
         # For active/trialing, set plan from existing Subscription record so we don't overwrite Standard with Pro
 
         # Update the Subscription record
@@ -2053,6 +2058,7 @@ def _handle_subscription_updated(subscription_data: dict, db: Session):
                         user.videos_used_this_period = 0
                         user.period_start = datetime.utcnow()
                         user.reset_custom_template_period()
+                        user.reset_tool_usage_period()
 
             if status in ("active", "trialing") and sub.plan and sub.plan.slug.startswith("standard"):
                 user.plan = PlanTier.STANDARD
@@ -2102,6 +2108,8 @@ def _handle_subscription_deleted(subscription_data: dict, db: Session):
         # at the included free count (mirrors the delete-account flow in auth.py).
         if was_paid and (user.videos_used_this_period or 0) < FREE_TIER_INCLUDED_VIDEOS:
             user.videos_used_this_period = FREE_TIER_INCLUDED_VIDEOS
+        # Same rule for the /tools allowances.
+        user.cap_tool_usage_to_free(was_paid)
 
         # Mark the Subscription record as canceled
         sub = db.query(Subscription).filter_by(

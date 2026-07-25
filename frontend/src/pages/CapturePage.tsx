@@ -33,24 +33,49 @@ type CaptureData = {
   og_image?: string;
 };
 
+/** Signals `window.__captureReady` once the scene is painted and parked on its
+ *  target frame, so puppeteer screenshots a settled composition.
+ *
+ *  When the preview drives a Remotion player it sets `__previewFrameSettled`
+ *  after seeking to `thumbnailFrame`; we wait for that (bounded) before the
+ *  usual fonts + settle window, otherwise the screenshot can land on frame ~0
+ *  while the composition is still mounting. */
 function useCaptureReady(dep: unknown) {
   useEffect(() => {
     let cancelled = false;
-    (window as unknown as { __captureReady?: boolean }).__captureReady = false;
+    const w = window as unknown as {
+      __captureReady?: boolean;
+      __previewFrameSettled?: boolean;
+    };
+    w.__captureReady = false;
+    const started = Date.now();
+
     const markReady = () => {
       if (cancelled) return;
       requestAnimationFrame(() =>
         requestAnimationFrame(() => {
           setTimeout(() => {
-            if (!cancelled) (window as unknown as { __captureReady?: boolean }).__captureReady = true;
+            if (!cancelled) w.__captureReady = true;
           }, 600);
         }),
       );
     };
+
+    // Wait for the player to park on its frame; give up after 15s so previews
+    // that never mount a player (static/CSS ones) still capture.
+    const waitForFrame = () => {
+      if (cancelled) return;
+      if (w.__previewFrameSettled || Date.now() - started > 15_000) {
+        markReady();
+        return;
+      }
+      setTimeout(waitForFrame, 100);
+    };
+
     if (document.fonts?.ready) {
-      document.fonts.ready.then(markReady).catch(markReady);
+      document.fonts.ready.then(waitForFrame).catch(waitForFrame);
     } else {
-      markReady();
+      waitForFrame();
     }
     return () => {
       cancelled = true;
@@ -109,7 +134,10 @@ function CustomCapture({ customId, secret }: { customId: string; secret: string 
             previewImageUrl: null,
             logoUrls: data.logo_urls,
             ogImage: data.og_image,
-            thumbnailFrame: 135,
+            // Scenes are PREVIEW_SCENE_FRAMES = 150 long and fade out at the end,
+            // so stay clear of both the intro animation and the outgoing fade:
+            // ~110 is fully settled mid-scene.
+            thumbnailFrame: 110,
             thumbnailMode: true,
           };
           const AnyPreview = CustomPreviewLandscape as unknown as FC<Record<string, unknown>>;

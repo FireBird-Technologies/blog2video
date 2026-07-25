@@ -4,7 +4,27 @@ import api from "./http";
 // axios instance so the Bearer token is auto-attached and 401s are handled
 // centrally (see api/http.ts).
 
-export interface VideoScriptResult {
+/** Generation allowance returned by every tool endpoint. FREE allowances are
+ *  lifetime; paid allowances refresh each billing period. */
+export interface ToolQuota {
+  used: number;
+  limit: number;
+}
+
+/** Tool keys match TOOL_QUOTAS on the backend User model. */
+export type ToolKey =
+  | "book_cover"
+  | "video_script"
+  | "youtube_description"
+  | "thumbnail_text";
+
+/** Current allowance for every tool, so a widget can show the remaining count
+ *  (and disable itself when exhausted) on load rather than after generating. */
+export function fetchToolQuotas() {
+  return api.get<{ quotas: Record<ToolKey, ToolQuota> }>("/free-tools/quota");
+}
+
+export interface VideoScriptResult extends ToolQuota {
   video_title: string;
   script_markdown: string;
 }
@@ -21,7 +41,7 @@ export function generateVideoScript(
   });
 }
 
-export interface ThumbnailTextResult {
+export interface ThumbnailTextResult extends ToolQuota {
   options: string[];
 }
 
@@ -29,7 +49,7 @@ export function generateThumbnailText(topic: string) {
   return api.post<ThumbnailTextResult>("/free-tools/thumbnail-text", { topic });
 }
 
-export interface YouTubeDescriptionResult {
+export interface YouTubeDescriptionResult extends ToolQuota {
   description: string;
   tags: string[];
 }
@@ -43,7 +63,8 @@ export function generateYouTubeDescription(topic: string) {
 export interface BookCoverResult {
   image_base64: string;
   covers_used: number;
-  covers_limit: number | null; // null = unlimited
+  // Every plan now has a finite allowance; nullable only for older payloads.
+  covers_limit: number | null;
 }
 
 export function generateBookCover(description: string) {

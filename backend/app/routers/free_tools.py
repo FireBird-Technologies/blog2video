@@ -20,7 +20,7 @@ from app.dspy_modules.free_tool_gen import (
     VideoScriptGenerator,
     YouTubeDescriptionGenerator,
 )
-from app.models.user import PlanTier, User
+from app.models.user import TOOL_QUOTAS, PlanTier, User
 
 logger = logging.getLogger(__name__)
 
@@ -28,9 +28,42 @@ router = APIRouter(prefix="/api/free-tools", tags=["free-tools"])
 
 _GENERIC_FAIL = "Generation failed. Please try again in a moment."
 
-# Free AI book covers a FREE-plan user may generate (lifetime). PRO/STANDARD
-# users are unlimited, matching the rest of the app's free-tier convention.
-FREE_BOOK_COVER_LIMIT = 5
+
+def _check_quota(user: User, tool: str, db: Session) -> tuple[int, int]:
+    """Gate a /tools generation, returning ``(used, limit)`` when allowed.
+
+    Limits come from ``TOOL_QUOTAS`` on the User model: FREE allowances are
+    lifetime, paid allowances refresh each billing period. Raises 403 with an
+    upgrade-oriented message once the allowance is spent.
+    """
+    # Annual/lifetime allowances roll in-app rather than via a Stripe invoice, so
+    # refresh before reading — otherwise a user whose window just rolled would be
+    # blocked against last period's spent counter.
+    user.roll_video_period_if_due(db)
+    used = user.tool_used(tool)
+    limit = user.tool_limit(tool)
+    if used >= limit:
+        if user.plan == PlanTier.FREE:
+            detail = (
+                f"You've used all {limit} free generations for this tool. "
+                "Upgrade to Standard or Pro for a much higher monthly allowance."
+            )
+        else:
+            detail = (
+                f"You've used all {limit} generations for this tool this billing "
+                "period. Your allowance refreshes at your next renewal."
+            )
+        raise HTTPException(status_code=403, detail=detail)
+    return used, limit
+
+
+def _charge(user: User, tool: str, db: Session) -> int:
+    """Consume one generation after a SUCCESSFUL result; returns the new count."""
+    attr = TOOL_QUOTAS[tool][0]
+    setattr(user, attr, user.tool_used(tool) + 1)
+    db.commit()
+    return user.tool_used(tool)
+
 
 # Appended to the user's book description so the image model renders a front
 # book cover rather than a generic illustration.
@@ -59,6 +92,8 @@ class VideoScriptRequest(BaseModel):
 class VideoScriptResponse(BaseModel):
     video_title: str
     script_markdown: str
+    used: int
+    limit: int
 
 
 class ThumbnailTextRequest(BaseModel):
@@ -67,6 +102,8 @@ class ThumbnailTextRequest(BaseModel):
 
 class ThumbnailTextResponse(BaseModel):
     options: list[str]
+    used: int
+    limit: int
 
 
 class YouTubeDescriptionRequest(BaseModel):
@@ -76,6 +113,8 @@ class YouTubeDescriptionRequest(BaseModel):
 class YouTubeDescriptionResponse(BaseModel):
     description: str
     tags: list[str]
+    used: int
+    limit: int
 
 
 class BookCoverRequest(BaseModel):
@@ -85,17 +124,51 @@ class BookCoverRequest(BaseModel):
 class BookCoverResponse(BaseModel):
     image_base64: str
     covers_used: int
-    covers_limit: int | None  # None = unlimited (PRO/STANDARD)
+    # Kept nullable for older clients that treated None as "unlimited"; every plan
+    # now has a finite allowance so this is always a number.
+    covers_limit: int | None
+
+
+class ToolQuota(BaseModel):
+    used: int
+    limit: int
+
+
+class ToolQuotasResponse(BaseModel):
+    """Current allowance for every /tools generator, keyed by TOOL_QUOTAS key."""
+
+    quotas: dict[str, ToolQuota]
 
 
 # ─── Endpoints ───────────────────────────────────────────────────────────────
+
+
+@router.get("/quota", response_model=ToolQuotasResponse)
+def get_tool_quotas(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Current usage/allowance for every tool, so widgets can show the remaining
+    count (and disable themselves when exhausted) on load rather than only after
+    a generation."""
+    # Annual/lifetime allowances roll in-app, not via a Stripe invoice — refresh
+    # first so a user whose window just rolled isn't shown a stale (spent) count.
+    user.roll_video_period_if_due(db)
+    return {
+        "quotas": {
+            tool: {"used": user.tool_used(tool), "limit": user.tool_limit(tool)}
+            for tool in TOOL_QUOTAS
+        }
+    }
 
 
 @router.post("/video-script", response_model=VideoScriptResponse)
 async def generate_video_script(
     payload: VideoScriptRequest,
     user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
+    _used, limit = _check_quota(user, "video_script", db)
     try:
         result = await VideoScriptGenerator().generate(
             topic=payload.topic, tone=payload.tone, length=payload.length
@@ -105,14 +178,17 @@ async def generate_video_script(
         raise HTTPException(status_code=502, detail=_GENERIC_FAIL)
     if not result.get("script_markdown"):
         raise HTTPException(status_code=502, detail=_GENERIC_FAIL)
-    return result
+    # Charge only on success — a failed generation must not consume quota.
+    return {**result, "used": _charge(user, "video_script", db), "limit": limit}
 
 
 @router.post("/thumbnail-text", response_model=ThumbnailTextResponse)
 async def generate_thumbnail_text(
     payload: ThumbnailTextRequest,
     user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
+    _used, limit = _check_quota(user, "thumbnail_text", db)
     try:
         result = await ThumbnailTextGenerator().generate(topic=payload.topic)
     except Exception:
@@ -120,14 +196,17 @@ async def generate_thumbnail_text(
         raise HTTPException(status_code=502, detail=_GENERIC_FAIL)
     if not result.get("options"):
         raise HTTPException(status_code=502, detail=_GENERIC_FAIL)
-    return result
+    # Charge only on success — a failed generation must not consume quota.
+    return {**result, "used": _charge(user, "thumbnail_text", db), "limit": limit}
 
 
 @router.post("/youtube-description", response_model=YouTubeDescriptionResponse)
 async def generate_youtube_description(
     payload: YouTubeDescriptionRequest,
     user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
+    _used, limit = _check_quota(user, "youtube_description", db)
     try:
         result = await YouTubeDescriptionGenerator().generate(topic=payload.topic)
     except Exception:
@@ -135,7 +214,8 @@ async def generate_youtube_description(
         raise HTTPException(status_code=502, detail=_GENERIC_FAIL)
     if not result.get("description"):
         raise HTTPException(status_code=502, detail=_GENERIC_FAIL)
-    return result
+    # Charge only on success — a failed generation must not consume quota.
+    return {**result, "used": _charge(user, "youtube_description", db), "limit": limit}
 
 
 @router.post("/book-cover", response_model=BookCoverResponse)
@@ -154,16 +234,7 @@ async def generate_book_cover(
         get_openai_size,
     )
 
-    unlimited = user.plan in (PlanTier.PRO, PlanTier.STANDARD)
-    used = user.free_book_covers_used or 0
-    if not unlimited and used >= FREE_BOOK_COVER_LIMIT:
-        raise HTTPException(
-            status_code=403,
-            detail=(
-                f"You've used all {FREE_BOOK_COVER_LIMIT} free book covers. "
-                "Upgrade to Pro or Standard for unlimited AI book covers."
-            ),
-        )
+    used, limit = _check_quota(user, "book_cover", db)
 
     try:
         provider = get_image_provider()
@@ -196,14 +267,11 @@ async def generate_book_cover(
     if not image_base64:
         raise HTTPException(status_code=502, detail=_GENERIC_FAIL)
 
-    # Charge only on success (no increment for PRO/STANDARD — they're unlimited).
-    if not unlimited:
-        user.free_book_covers_used = used + 1
-        db.commit()
-        used = user.free_book_covers_used
+    # Charge only on success — a failed generation must not consume quota.
+    used = _charge(user, "book_cover", db)
 
     return {
         "image_base64": image_base64,
         "covers_used": used,
-        "covers_limit": None if unlimited else FREE_BOOK_COVER_LIMIT,
+        "covers_limit": limit,
     }
