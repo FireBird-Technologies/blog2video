@@ -289,4 +289,5 @@ export function getTemplateProfile(slug: string) {
   return templateProfiles.find((template) => template.slug === slug);
 }
 
+export { getRelatedBlogPosts } from "./relatedPosts";
 export { blogPosts, defaultCta, helpPosts, getTool, getToolByPath, templateProfiles, tools, toolsHub };
