@@ -81,8 +81,13 @@ export function NightfallClip({
     return maxWindow;
   })();
 
+  // layout="none": <Loop> renders a <Sequence>, which defaults to an AbsoluteFill
+  // wrapper. That wrapper contributes no intrinsic height, so in a flex/auto-height
+  // caller (e.g. GlowMetric's image section) a height:100% clip collapses to 0 and
+  // renders invisibly. "none" drops the wrapper so the video flows exactly like the
+  // <Img> it replaces and sizes to its container the same way.
   return loopFrames ? (
-    <Loop durationInFrames={loopFrames}>{video}</Loop>
+    <Loop durationInFrames={loopFrames} layout="none">{video}</Loop>
   ) : (
     video
   );
