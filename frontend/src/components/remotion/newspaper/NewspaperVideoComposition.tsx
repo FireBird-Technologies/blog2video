@@ -7,6 +7,7 @@ import { LogoOverlay } from "../LogoOverlay";
 import { BackgroundMusic } from "../BackgroundMusic";
 import { CaptionTrack } from "../CaptionTrack";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
+import { SceneDurationInFramesContext } from "../SceneDurationContext";
 
 export interface NewspaperSceneInput {
   id: number;
@@ -27,6 +28,8 @@ export interface NewspaperSceneInput {
   videoVolume?: number;
   /** Normalised clip length; converted to frames for <Loop>. */
   videoDurationSeconds?: number;
+  /** Start offset into the clip, in seconds (the adjust-modal trim). */
+  videoStartSeconds?: number;
   voiceoverUrl?: string;
 }
 
@@ -110,6 +113,9 @@ export const NewspaperVideoComposition: React.FC<
           videoDurationInFrames: scene.videoDurationSeconds
             ? Math.max(1, Math.round(scene.videoDurationSeconds * FPS))
             : undefined,
+          videoStartInFrames: scene.videoStartSeconds
+            ? Math.max(0, Math.round(scene.videoStartSeconds * FPS))
+            : undefined,
           imageObjectPosition: String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))) + "% " + String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))) + "%",
           imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
           accentColor: accentColor || "#FFE34D",
@@ -131,7 +137,9 @@ export const NewspaperVideoComposition: React.FC<
                receives a fresh coordinate system from the Sequence 
             */}
             <AbsoluteFill>
-               <LayoutComponent {...layoutProps} />
+               <SceneDurationInFramesContext.Provider value={durationFrames}>
+                 <LayoutComponent {...layoutProps} />
+               </SceneDurationInFramesContext.Provider>
                {scene.voiceoverUrl && (
                  <Audio src={scene.voiceoverUrl} playbackRate={resolvedPlaybackSpeed} />
                )}

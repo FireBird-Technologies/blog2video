@@ -20,6 +20,7 @@ import { NewsCastChrome } from "./NewsCastChrome";
 import { NewscastSceneZTransition } from "./NewscastSceneZTransition";
 import { NEWSCAST_BACKGROUND_VARIANT } from "./backgroundVariant";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
+import { SceneDurationInFramesContext } from "../SceneDurationContext";
 
 const LEGACY_TO_NEWCAST_LAYOUT_ID: Record<string, NewscastLayoutType> = {
   opening: "opening",
@@ -265,7 +266,9 @@ const NewscastSequenceInner: React.FC<{
                 fontFamily={layoutProps.fontFamily}
               />
             ) : null}
-            <LayoutComponent {...layoutProps} />
+            <SceneDurationInFramesContext.Provider value={durationInFrames}>
+              <LayoutComponent {...layoutProps} />
+            </SceneDurationInFramesContext.Provider>
           </div>
         </div>
       </NewscastSceneZTransition>
@@ -307,6 +310,8 @@ interface SceneData {
   videoVolume?: number;
   /** Normalised clip length; converted to frames for <Loop>. */
   videoDurationSeconds?: number;
+  /** Start offset into the clip, in seconds (the adjust-modal trim). */
+  videoStartSeconds?: number;
 }
 
 interface VideoData {
@@ -447,6 +452,9 @@ export const NewscastVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         const videoDurationInFrames = scene.videoDurationSeconds
           ? Math.max(1, Math.round(scene.videoDurationSeconds * FPS))
           : undefined;
+        const videoStartInFrames = scene.videoStartSeconds
+          ? Math.max(0, Math.round(scene.videoStartSeconds * FPS))
+          : undefined;
         const lp = (scene.layoutProps ?? {}) as Record<string, unknown>;
         const base = lp as Partial<NewscastLayoutProps>;
         const normalizedBase =
@@ -478,6 +486,7 @@ export const NewscastVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           videoMuted: scene.videoMuted ?? true,
           videoVolume: scene.videoVolume ?? 0.35,
           videoDurationInFrames,
+          videoStartInFrames,
           imageObjectPosition,
   imageZoom,
           fontFamily: resolvedFontFamily || undefined,

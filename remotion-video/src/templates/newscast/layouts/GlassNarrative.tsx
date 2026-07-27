@@ -33,6 +33,7 @@ export const GlassNarrative: React.FC<NewscastLayoutProps> = ({
   videoMuted,
   videoVolume,
   videoDurationInFrames,
+  videoStartInFrames,
   tickerItems,
   lowerThirdTag,
   lowerThirdHeadline,
@@ -262,6 +263,7 @@ export const GlassNarrative: React.FC<NewscastLayoutProps> = ({
                     muted={videoMuted ?? true}
                     volume={videoVolume ?? 0.35}
                     durationInFrames={videoDurationInFrames}
+                    startInFrames={videoStartInFrames}
                   />
                 ) : (
                   <ZoomCropImg

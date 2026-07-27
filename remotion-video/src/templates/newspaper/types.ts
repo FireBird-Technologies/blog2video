@@ -56,6 +56,8 @@ export interface BlogLayoutProps {
   videoVolume?: number;
   /** Clip length in frames, for <Loop>. Absent = play once. */
   videoDurationInFrames?: number;
+  /** Start offset into the clip, in frames (the adjust-modal trim). */
+  videoStartInFrames?: number;
 
   /** Project-level font override; when set, used for all text in the layout. */
   fontFamily?: string;

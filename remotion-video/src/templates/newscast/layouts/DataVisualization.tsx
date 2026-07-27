@@ -712,6 +712,7 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = (props) => {
         videoMuted={props.videoMuted}
         videoVolume={props.videoVolume}
         videoDurationInFrames={props.videoDurationInFrames}
+        videoStartInFrames={props.videoStartInFrames}
       />
       <div
         style={{

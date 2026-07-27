@@ -29,6 +29,7 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
   videoMuted,
   videoVolume,
   videoDurationInFrames,
+  videoStartInFrames,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
@@ -162,6 +163,7 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
                       muted={videoMuted ?? true}
                       volume={videoVolume ?? 0.35}
                       durationInFrames={videoDurationInFrames}
+                startInFrames={videoStartInFrames}
                       style={{
                     filter: "contrast(1.1) grayscale(30%) sepia(15%)",
                       }}

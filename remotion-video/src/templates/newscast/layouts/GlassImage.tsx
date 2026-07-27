@@ -30,6 +30,7 @@ export const GlassImage: React.FC<NewscastLayoutProps> = ({
   videoMuted,
   videoVolume,
   videoDurationInFrames,
+  videoStartInFrames,
   title,
   narration,
   category,
@@ -76,6 +77,7 @@ export const GlassImage: React.FC<NewscastLayoutProps> = ({
               muted={videoMuted ?? true}
               volume={videoVolume ?? 0.35}
               durationInFrames={videoDurationInFrames}
+              startInFrames={videoStartInFrames}
             />
           ) : (
             <ZoomCropImg

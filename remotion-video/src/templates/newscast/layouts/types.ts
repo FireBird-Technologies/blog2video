@@ -37,6 +37,8 @@ export interface NewscastLayoutProps extends BlogLayoutProps {
   videoVolume?: number;
   /** Clip length in frames, for <Loop>. Absent = play once (see ZoomCropVideo). */
   videoDurationInFrames?: number;
+  /** Start offset into the clip, in frames (the adjust-modal trim). */
+  videoStartInFrames?: number;
 
   /**
    * Persistent chrome (ticker + lower third).

@@ -147,6 +147,7 @@ export const NewsHeadline: React.FC<
   videoMuted,
   videoVolume,
   videoDurationInFrames,
+  videoStartInFrames,
   leftThought,
   fontFamily,
 }) => {
@@ -249,6 +250,7 @@ export const NewsHeadline: React.FC<
                 muted={videoMuted ?? true}
                 volume={videoVolume ?? 0.35}
                 durationInFrames={videoDurationInFrames}
+                startInFrames={videoStartInFrames}
                 style={{ filter: NEWSPRINT_FILTER(frame) }}
               />
             ) : imageUrl ? (

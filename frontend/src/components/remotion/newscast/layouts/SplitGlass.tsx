@@ -38,6 +38,7 @@ export const SplitGlass: React.FC<NewscastLayoutProps> = ({
   videoMuted,
   videoVolume,
   videoDurationInFrames,
+  videoStartInFrames,
   accentColor,
   textColor,
   titleFontSize,
@@ -105,7 +106,7 @@ export const SplitGlass: React.FC<NewscastLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ zIndex: 60, overflow: "hidden", opacity }}>
-      <NewsCastLayoutImageBackground imageUrl={imageUrl} imageObjectPosition={imageObjectPosition} imageZoom={imageZoom} accentColor={RED} videoUrl={videoUrl} videoMuted={videoMuted} videoVolume={videoVolume} videoDurationInFrames={videoDurationInFrames} />
+      <NewsCastLayoutImageBackground imageUrl={imageUrl} imageObjectPosition={imageObjectPosition} imageZoom={imageZoom} accentColor={RED} videoUrl={videoUrl} videoMuted={videoMuted} videoVolume={videoVolume} videoDurationInFrames={videoDurationInFrames} videoStartInFrames={videoStartInFrames} />
       <div
         style={{
           position: "absolute",

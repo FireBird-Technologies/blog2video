@@ -24,6 +24,7 @@ export const ExpertProfile: React.FC<BlogLayoutProps> = ({
   videoMuted,
   videoVolume,
   videoDurationInFrames,
+  videoStartInFrames,
   leftThought,
   rightThought,
   category,
@@ -205,6 +206,7 @@ export const ExpertProfile: React.FC<BlogLayoutProps> = ({
                       muted={videoMuted ?? true}
                       volume={videoVolume ?? 0.35}
                       durationInFrames={videoDurationInFrames}
+                startInFrames={videoStartInFrames}
                       style={{
                     filter: "grayscale(0.5) contrast(1.1)",
                       }}
@@ -367,6 +369,7 @@ export const ExpertProfile: React.FC<BlogLayoutProps> = ({
                       muted={videoMuted ?? true}
                       volume={videoVolume ?? 0.35}
                       durationInFrames={videoDurationInFrames}
+                startInFrames={videoStartInFrames}
                       style={{
                     filter: "grayscale(0.5) contrast(1.1)",
                       }}

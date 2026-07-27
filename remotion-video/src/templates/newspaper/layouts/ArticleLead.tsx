@@ -23,6 +23,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
   videoMuted,
   videoVolume,
   videoDurationInFrames,
+  videoStartInFrames,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
@@ -179,6 +180,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
                   muted={videoMuted ?? true}
                   volume={videoVolume ?? 0.35}
                   durationInFrames={videoDurationInFrames}
+                startInFrames={videoStartInFrames}
                   style={{
                 filter: "grayscale(0.7) contrast(1.1)",
                   }}

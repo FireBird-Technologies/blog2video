@@ -14,6 +14,7 @@ import { LogoOverlay } from "../../components/LogoOverlay";
 import { BackgroundMusic } from "../../components/BackgroundMusic";
 import { CaptionTrack } from "../../components/CaptionTrack";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
+import { SceneDurationInFramesContext } from "../SceneDurationContext";
 
 interface SceneData {
   id: number;
@@ -35,6 +36,8 @@ interface SceneData {
   videoVolume?: number;
   /** Normalised clip length; converted to frames for <Loop>. */
   videoDurationSeconds?: number;
+  /** Start offset into the clip, in seconds (the adjust-modal trim). */
+  videoStartSeconds?: number;
 }
 
 interface VideoData {
@@ -160,6 +163,9 @@ export const NewspaperVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         const videoDurationInFrames = scene.videoDurationSeconds
           ? Math.max(1, Math.round(scene.videoDurationSeconds * FPS))
           : undefined;
+        const videoStartInFrames = scene.videoStartSeconds
+          ? Math.max(0, Math.round(scene.videoStartSeconds * FPS))
+          : undefined;
 
         const layoutProps: BlogLayoutProps = {
           ...(scene.layoutProps as Partial<BlogLayoutProps>),
@@ -174,6 +180,7 @@ export const NewspaperVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           videoMuted: scene.videoMuted ?? true,
           videoVolume: scene.videoVolume ?? 0.35,
           videoDurationInFrames,
+          videoStartInFrames,
           imageObjectPosition: String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))) + "% " + String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))) + "%",
           imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
           fontFamily: resolvedFontFamily || undefined,
@@ -181,7 +188,9 @@ export const NewspaperVideo: React.FC<VideoProps> = ({ dataUrl }) => {
 
         return (
           <Sequence key={scene.id} from={startFrame} durationInFrames={durationFrames} name={scene.title}>
-            <LayoutComponent {...layoutProps} />
+            <SceneDurationInFramesContext.Provider value={durationFrames}>
+              <LayoutComponent {...layoutProps} />
+            </SceneDurationInFramesContext.Provider>
             {scene.voiceoverFile && (
               <Audio src={staticFile(scene.voiceoverFile)} playbackRate={playbackSpeed} />
             )}

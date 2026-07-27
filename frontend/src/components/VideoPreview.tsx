@@ -1451,10 +1451,27 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
         const asset = assignedVideo ? videoByFilename.get(assignedVideo) : undefined;
         if (!asset) return;
         const rawVolume = Number(layoutProps.videoVolume);
+        const muted =
+          layoutProps.videoMuted === undefined ? true : Boolean(layoutProps.videoMuted);
+        // The main clip file is silent (audio stripped on ingest); the audible
+        // track lives in the AAC sibling `audio_variant_filename`. When a scene
+        // unmutes, point playback at that sibling — otherwise unmuting is a no-op
+        // because the silent file has no audio stream. Mirrors remotion.py.
+        let url = resolveUrl(asset);
+        if (!muted && asset.audio_variant_filename) {
+          const audioAsset = { ...asset, filename: asset.audio_variant_filename };
+          if (asset.r2_url) {
+            // Same R2 directory, only the last path segment differs.
+            audioAsset.r2_url =
+              asset.r2_url.slice(0, asset.r2_url.lastIndexOf("/") + 1) +
+              asset.audio_variant_filename;
+          }
+          url = resolveUrl(audioAsset);
+        }
         sceneVideoMap[idx] = {
-          url: resolveUrl(asset),
+          url,
           durationSeconds: asset.duration_seconds ?? undefined,
-          muted: layoutProps.videoMuted === undefined ? true : Boolean(layoutProps.videoMuted),
+          muted,
           volume: Number.isFinite(rawVolume) ? rawVolume : 0.35,
         };
       });
@@ -1694,6 +1711,10 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
         videoMuted: sceneVideoMap[idx]?.muted ?? true,
         videoVolume: sceneVideoMap[idx]?.volume ?? 0.35,
         videoDurationSeconds: sceneVideoMap[idx]?.durationSeconds,
+        videoStartSeconds: (() => {
+          const raw = Number(layoutProps.videoStartSeconds);
+          return Number.isFinite(raw) && raw > 0 ? raw : undefined;
+        })(),
         voiceoverUrl,
       };
     });

@@ -392,11 +392,8 @@ def get_pending_stock_footage(
     shape regardless so the client can render a stable list.
     """
     from app.models.asset import Asset
-    from app.services.template_service import get_layouts_without_image
 
     project = _get_project(project_id, user.id, db)
-    template = (getattr(project, "template", "") or "").strip().lower()
-    no_image = get_layouts_without_image(template)
 
     videos = {
         a.filename: a
@@ -405,18 +402,16 @@ def get_pending_stock_footage(
         .all()
     }
 
-    scenes = (
-        db.query(Scene)
-        .filter(Scene.project_id == project_id, Scene.is_active.is_(True))
-        .order_by(Scene.order)
-        .all()
-    )
+    # Same enumeration + per-plan cap the auto-pick uses, so the review list can't
+    # drift from what actually got a clip: a free user sees only their one scene.
+    scenes = _image_capable_scenes(project, db)
+    cap = _stock_footage_scene_cap(project, db)
+    if cap is not None:
+        scenes = scenes[:cap]
 
     items = []
     for s in scenes:
         layout = (s.preferred_layout or "").strip()
-        if layout and layout in no_image:
-            continue
         try:
             lp = (json.loads(s.remotion_code) or {}).get("layoutProps", {}) if s.remotion_code else {}
         except (json.JSONDecodeError, TypeError):
@@ -990,6 +985,23 @@ def _image_capable_scenes(project: Project, db: Session) -> list[Scene]:
     return out
 
 
+def _stock_footage_scene_cap(project: Project, db: Session) -> int | None:
+    """How many image-capable scenes may receive an auto-picked clip.
+
+    Keyed off the project OWNER's plan (consistent with how clip credits are
+    charged): PRO/STANDARD get every image-capable scene (``None`` = no cap),
+    everyone else is limited to a single scene. This is the one place the free /
+    paid split for the generation-time feature lives.
+    """
+    from app.models.user import PlanTier
+    from app.services.access import project_owner
+
+    owner = project_owner(project, db)
+    if owner.plan in (PlanTier.PRO, PlanTier.STANDARD):
+        return None
+    return 1
+
+
 async def _prepare_stock_footage_candidates(project: Project, db: Session) -> int:
     """Auto-pick and ingest one stock clip per image-capable scene.
 
@@ -1009,6 +1021,11 @@ async def _prepare_stock_footage_candidates(project: Project, db: Session) -> in
     from app.services import stock_footage, r2_storage
 
     scenes = _image_capable_scenes(project, db)
+    # Free plans get a clip on a single scene (the first image-capable one); paid
+    # plans get every image-capable scene. Un-clipped scenes keep their image.
+    cap = _stock_footage_scene_cap(project, db)
+    if cap is not None:
+        scenes = scenes[:cap]
     if not scenes:
         return 0
 
@@ -2114,7 +2131,7 @@ async def _generate_scenes(
                     if old_video:
                         descriptor["layoutProps"]["assignedVideo"] = old_video
                         # Carry the clip's playback settings and framing with it.
-                        for key in ("videoMuted", "videoVolume", "imageFocusX", "imageFocusY", "imageZoom"):
+                        for key in ("videoMuted", "videoVolume", "videoStartSeconds", "imageFocusX", "imageFocusY", "imageZoom"):
                             if key in old_lp:
                                 descriptor["layoutProps"][key] = old_lp[key]
                         # A clip and a still are mutually exclusive.

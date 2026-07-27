@@ -1,5 +1,6 @@
 import React from "react";
 import { Loop, OffthreadVideo, interpolate } from "remotion";
+import { useSceneDurationInFrames } from "../../SceneDurationContext";
 
 /**
  * Drop-in video replacement for Newspaper's `<Img>` blocks.
@@ -34,6 +35,7 @@ export function NewspaperClip({
   muted = true,
   volume = 0.35,
   durationInFrames,
+  startInFrames = 0,
   style,
 }: {
   src: string;
@@ -43,18 +45,25 @@ export function NewspaperClip({
   volume?: number;
   /** Clip length in frames. Omit to play once instead of looping. */
   durationInFrames?: number;
+  /** Start offset into the source clip, in frames (the adjust-modal trim). */
+  startInFrames?: number;
   /** The layout's own styling (newsprint filter, display, etc.) — wins. */
   style?: React.CSSProperties;
 }) {
+  const sceneDurationInFrames = useSceneDurationInFrames();
   const pos = imageObjectPosition ?? "50% 50%";
   const z = Math.max(0.1, imageZoom ?? 1);
   const isZoomedOut = z < 1;
+  const start = Math.max(0, Math.round(startInFrames || 0));
 
   const video = (
     <OffthreadVideo
       src={src}
       muted={muted}
       volume={muted ? 0 : Math.max(0, Math.min(1, volume))}
+      // Skip the first `start` source frames so the scene shows the chosen
+      // portion of a longer clip rather than always the opening seconds.
+      trimBefore={start || undefined}
       style={{
         width: "100%",
         height: "100%",
@@ -70,8 +79,19 @@ export function NewspaperClip({
     />
   );
 
-  return durationInFrames && durationInFrames > 0 ? (
-    <Loop durationInFrames={Math.round(durationInFrames)}>{video}</Loop>
+  // Loop the scene's trimmed window: [start, start + sceneDur), capped by clip end.
+  const loopFrames = (() => {
+    const clipLen = durationInFrames && durationInFrames > 0 ? Math.round(durationInFrames) : 0;
+    if (clipLen <= 0) return undefined;
+    const maxWindow = Math.max(1, clipLen - start);
+    if (sceneDurationInFrames && sceneDurationInFrames > 0) {
+      return Math.max(1, Math.min(Math.round(sceneDurationInFrames), maxWindow));
+    }
+    return maxWindow;
+  })();
+
+  return loopFrames ? (
+    <Loop durationInFrames={loopFrames}>{video}</Loop>
   ) : (
     video
   );

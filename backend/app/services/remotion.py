@@ -828,6 +828,7 @@ def write_remotion_data(
             lp.pop("assignedVideo", None)
             lp.pop("videoMuted", None)
             lp.pop("videoVolume", None)
+            lp.pop("videoStartSeconds", None)
             dirty.add(i)
             continue
         video_scene_indices.add(i)
@@ -1234,6 +1235,11 @@ def write_remotion_data(
             duration = all_video_files.get(scene_video)
             if duration:
                 scene_entry["videoDurationSeconds"] = float(duration)
+            # Trim offset chosen in the adjust modal — which part of a longer clip
+            # this scene shows. Converted to frames (trimBefore) by the renderer.
+            start = float(layout_props.get("videoStartSeconds", 0) or 0)
+            if start > 0:
+                scene_entry["videoStartSeconds"] = start
 
         if layout_config is not None:
             # Custom templates: universal layout config

@@ -560,6 +560,7 @@ def _clear_video_assignment(lp: dict) -> None:
     lp.pop("assignedVideo", None)
     lp.pop("videoMuted", None)
     lp.pop("videoVolume", None)
+    lp.pop("videoStartSeconds", None)
 
 
 def _build_ending_socials_props(project: Project, scene: Scene) -> dict:
@@ -884,13 +885,11 @@ def _resolve_stock_footage_flag(requested: bool, user: User, template_id: str) -
     it would be a worse experience than just generating without clips. The UI
     hides the toggle in these cases anyway.
 
-      * paid plans only (PRO/STANDARD) — clips are free for them because
-        consume_ai_edit already no-ops on those plans
-      * templates whose layouts actually render a clip (Newscast pilot)
+    Available on every plan — free users get a clip on a single scene (capped by
+    ``_stock_footage_scene_cap`` in the pipeline), paid users on all image-capable
+    scenes. Gated only by the template actually being able to render a clip.
     """
     if not bool(requested):
-        return False
-    if user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
         return False
     return (template_id or "").strip().lower() in STOCK_FOOTAGE_TEMPLATES
 

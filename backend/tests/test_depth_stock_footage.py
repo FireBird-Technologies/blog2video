@@ -158,6 +158,39 @@ def test_search__sorts_30fps_first_and_keeps_provider_interleave(monkeypatch):
     ]
 
 
+def test_search__caps_results_and_drops_long_clips(monkeypatch):
+    """search() returns at most MAX_SEARCH_RESULTS and no clip over the duration
+    ceiling; clips with unknown (0) duration are kept."""
+    def clip(provider, cid, duration):
+        return stock_footage.StockClip(
+            provider=provider, id=cid, preview_url="p", thumbnail_url="t",
+            download_url="d", width=1920, height=1080, duration=duration, fps=30.0,
+            author="a", page_url="u",
+        )
+
+    # 20 short + a couple long + one unknown from each provider.
+    monkeypatch.setattr(
+        stock_footage, "_pexels_search",
+        lambda *a, **k: (
+            [clip("pexels", f"p{i}", 5.0) for i in range(20)]
+            + [clip("pexels", "p-long", 30.0), clip("pexels", "p-unknown", 0.0)]
+        ),
+    )
+    monkeypatch.setattr(
+        stock_footage, "_pixabay_search",
+        lambda *a, **k: [clip("pixabay", "x-long", 13.0), clip("pixabay", "x-ok", 12.0)],
+    )
+
+    out = stock_footage.search("q")
+    assert len(out) == stock_footage.MAX_SEARCH_RESULTS
+    ids = {c.id for c in out}
+    assert "p-long" not in ids      # 30s dropped
+    assert "x-long" not in ids      # 13s dropped (ceiling is 12)
+    # 12.0s exactly is allowed, and unknown duration is kept.
+    for c in out:
+        assert not c.duration or c.duration <= stock_footage.MAX_CLIP_DURATION_SECONDS
+
+
 def test_pick_rendition__smallest_that_covers_the_box():
     files = [
         {"width": 426, "height": 240}, {"width": 640, "height": 360},
@@ -688,15 +721,46 @@ def test_image_capable_scenes__excludes_no_image_layouts(db_session, paid_user):
     assert "Scene 3" not in titles, "ending_socials should be excluded"
 
 
-def test_resolve_stock_footage_flag__paid_and_newscast_only(db_session, paid_user, free_user):
+def test_stock_footage_scene_cap__paid_uncapped_free_one(db_session, paid_user, free_user):
+    """The per-plan cap keyed off the project OWNER: paid = every image-capable
+    scene (None), free = a single scene (1)."""
+    from app.routers.pipeline import _stock_footage_scene_cap
+
+    paid_project = _scripted_newscast_project(db_session, paid_user)
+    free_project = _scripted_newscast_project(db_session, free_user)
+
+    assert _stock_footage_scene_cap(paid_project, db_session) is None
+    assert _stock_footage_scene_cap(free_project, db_session) == 1
+
+
+def test_stock_footage_cap__free_owner_clips_only_first_scene(db_session, free_user):
+    """A FREE owner's auto-pick is capped to the first image-capable scene; every
+    other image-capable scene is left for its image."""
+    from app.routers.pipeline import _image_capable_scenes, _stock_footage_scene_cap
+
+    project = _scripted_newscast_project(
+        db_session, free_user, layouts=("opening", "anchor_narrative"),
+    )
+    capable = _image_capable_scenes(project, db_session)
+    assert len(capable) == 2  # both are image-capable
+
+    cap = _stock_footage_scene_cap(project, db_session)
+    picked = capable[:cap] if cap is not None else capable
+    assert [s.title for s in picked] == ["Scene 1"], "only the first scene gets a clip"
+
+
+def test_resolve_stock_footage_flag__all_plans_newscast_only(db_session, paid_user, free_user):
     from app.routers.projects import _resolve_stock_footage_flag
 
+    # Available on every plan now — the per-scene cap (paid: all, free: one) is
+    # applied later in the pipeline, not by this flag.
     assert _resolve_stock_footage_flag(True, paid_user, "newscast") is True
+    assert _resolve_stock_footage_flag(True, free_user, "newscast") is True
     assert _resolve_stock_footage_flag(False, paid_user, "newscast") is False
-    # Free plan → off even when asked (no 4xx, the feature is simply disabled).
-    assert _resolve_stock_footage_flag(True, free_user, "newscast") is False
-    # Wrong template → off (nothing would render the clip).
+    assert _resolve_stock_footage_flag(False, free_user, "newscast") is False
+    # Wrong template → off (nothing would render the clip), regardless of plan.
     assert _resolve_stock_footage_flag(True, paid_user, "economist") is False
+    assert _resolve_stock_footage_flag(True, free_user, "economist") is False
 
 
 def test_gate_condition_is_false_once_approved(db_session, paid_user):

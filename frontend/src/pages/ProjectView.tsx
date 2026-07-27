@@ -76,6 +76,7 @@ import ScriptPanel from "../components/ScriptPanel";
 import { StockFootageModal, STOCK_FOOTAGE_CREDIT_COST } from "../components/StockFootageModal";
 import { StockFootageVerifyModal } from "../components/StockFootageVerifyModal";
 import { ImageAdjustStage } from "../components/ImageAdjustStage";
+import { TrimmedClipVideo } from "../utils/trimmedClipPlayback";
 import SceneEditModal, {
   SceneImageItem,
   resolveDefaultFontSizesForScene,
@@ -1216,6 +1217,8 @@ export default function ProjectView() {
   const [imageAdjustFocusX, setImageAdjustFocusX] = useState(50);
   const [imageAdjustFocusY, setImageAdjustFocusY] = useState(50);
   const [imageAdjustZoom, setImageAdjustZoom] = useState(1);
+  // Clip trim (video only): start offset (seconds) into a longer clip.
+  const [imageAdjustStartSeconds, setImageAdjustStartSeconds] = useState(0);
   const [savingImageAdjust, setSavingImageAdjust] = useState(false);
   const imageAdjustPreviewRef = useRef<HTMLDivElement>(null);
   const imageAdjustFocusRef = useRef({ x: 50, y: 50 });
@@ -1271,11 +1274,71 @@ export default function ProjectView() {
   // background. Drives the top-right toast, the per-scene loader, and the
   // editing lock — mirroring generatingImageSceneId for AI images.
   const [stockFootageBusySceneId, setStockFootageBusySceneId] = useState<number | null>(null);
-  const [stockAudioAdjustSceneId, setStockAudioAdjustSceneId] = useState<number | null>(null);
-  // Draft audio settings while the expanded-section panel is open — edits stay
-  // local until the user clicks Save, then they persist to the scene descriptor.
+  // Draft audio settings for the expanded-section clip preview — always visible
+  // when the expanded scene has an audio-capable clip.
   const [stockAudioDraft, setStockAudioDraft] = useState<{ muted: boolean; volume: number } | null>(null);
   const [stockAudioSaving, setStockAudioSaving] = useState(false);
+  // Expanded-section clip preview: play/stop control + the <video> element, so
+  // the user can pause the clip even while its audio is on. Only one scene is
+  // expanded at a time, so a single ref/flag suffices.
+  const expandedClipVideoRef = useRef<HTMLVideoElement | null>(null);
+  const [expandedClipPlaying, setExpandedClipPlaying] = useState(true);
+  useEffect(() => {
+    // Reset to playing whenever a different scene is expanded.
+    setExpandedClipPlaying(true);
+    if (expandedScene == null) {
+      setStockAudioDraft(null);
+      return;
+    }
+    const scene = project?.scenes.find((s) => s.id === expandedScene);
+    if (!scene) {
+      setStockAudioDraft(null);
+      return;
+    }
+    let lp: Record<string, unknown> = {};
+    try {
+      lp = scene.remotion_code ? JSON.parse(scene.remotion_code).layoutProps || {} : {};
+    } catch {
+      lp = {};
+    }
+    if (lp.hideImage || !lp.assignedVideo) {
+      setStockAudioDraft(null);
+      return;
+    }
+    const asset = project?.assets.find(
+      (a) => a.asset_type === "video" && a.filename === lp.assignedVideo && !a.excluded,
+    );
+    const hasAudio = Boolean(
+      (asset as { audio_variant_filename?: string | null } | undefined)?.audio_variant_filename,
+    );
+    if (!hasAudio) {
+      setStockAudioDraft(null);
+      return;
+    }
+    setStockAudioDraft({
+      muted: lp.videoMuted === undefined ? true : Boolean(lp.videoMuted),
+      volume: Number.isFinite(Number(lp.videoVolume)) ? Number(lp.videoVolume) : 0.35,
+    });
+  }, [expandedScene]);
+  // Apply the live audio draft to the currently-playing clip preview so dragging
+  // the volume slider is heard immediately (the `volume` attribute is not
+  // reactive on the element).
+  useEffect(() => {
+    const el = expandedClipVideoRef.current;
+    if (!el || !stockAudioDraft) return;
+    el.volume = Math.max(0, Math.min(1, stockAudioDraft.volume));
+  }, [stockAudioDraft]);
+  const toggleExpandedClipPlaying = () => {
+    const el = expandedClipVideoRef.current;
+    setExpandedClipPlaying((prev) => {
+      const next = !prev;
+      if (el) {
+        if (next) void el.play().catch(() => { /* refused; harmless */ });
+        else el.pause();
+      }
+      return next;
+    });
+  };
   const [selectedExistingAssetId, setSelectedExistingAssetId] = useState<number | null>(null);
   const [localUploadTargetSceneId, setLocalUploadTargetSceneId] = useState<number | null>(null);
   const [assigningExistingImage, setAssigningExistingImage] = useState(false);
@@ -3341,6 +3404,7 @@ export default function ProjectView() {
       delete layoutProps.assignedVideo;
       delete layoutProps.videoMuted;
       delete layoutProps.videoVolume;
+      delete layoutProps.videoStartSeconds;
       descriptor.layoutProps = layoutProps;
       await updateScene(project.id, scene.id, {
         remotion_code: JSON.stringify(descriptor),
@@ -3671,6 +3735,15 @@ export default function ProjectView() {
     setImageAdjustFocusX(focus.x);
     setImageAdjustFocusY(focus.y);
     setImageAdjustZoom(Math.min(IMAGE_ADJUST_ZOOM_MAX, Math.max(IMAGE_ADJUST_ZOOM_MIN, zoom)));
+    // Seed the clip trim from the descriptor (0 for stills / untrimmed clips).
+    let startSec = 0;
+    try {
+      if (scene.remotion_code) {
+        const lp = (JSON.parse(scene.remotion_code) as { layoutProps?: { videoStartSeconds?: unknown } }).layoutProps;
+        startSec = Math.max(0, Number(lp?.videoStartSeconds) || 0);
+      }
+    } catch { /* ignore */ }
+    setImageAdjustStartSeconds(startSec);
     imageAdjustPanRef.current = null;
   };
 
@@ -3719,6 +3792,11 @@ export default function ProjectView() {
         layoutProps.imageFocusY = clampFocus(imageAdjustFocusY);
         layoutProps.imageZoom = zoomToSave;
         layoutProps.hideImage = false;
+        // Clip trim — only meaningful for a scene that carries a clip.
+        if (layoutProps.assignedVideo) {
+          if (imageAdjustStartSeconds > 0) layoutProps.videoStartSeconds = Number(imageAdjustStartSeconds.toFixed(2));
+          else delete layoutProps.videoStartSeconds;
+        }
         descriptor.layoutProps = layoutProps;
         await updateScene(project.id, imageAdjustSceneId, {
           remotion_code: JSON.stringify(descriptor),
@@ -6641,9 +6719,17 @@ export default function ProjectView() {
                                     if (!asset) return null;
                                     const audioFn = (asset as { audio_variant_filename?: string | null })
                                       .audio_variant_filename;
+                                    const url = resolveAssetUrl(asset, project.id);
+                                    // Audio lives in the AAC sibling; derive its URL by
+                                    // swapping the last path segment (same dir), so the
+                                    // preview can actually play sound when unmuted.
+                                    const audioUrl = audioFn
+                                      ? url.slice(0, url.lastIndexOf("/") + 1) + audioFn
+                                      : null;
                                     return {
                                       asset,
-                                      url: resolveAssetUrl(asset, project.id),
+                                      url,
+                                      audioUrl,
                                       hasAudio: Boolean(audioFn),
                                       muted: lp.videoMuted === undefined ? true : Boolean(lp.videoMuted),
                                       volume: Number.isFinite(Number(lp.videoVolume))
@@ -6651,6 +6737,21 @@ export default function ProjectView() {
                                         : 0.35,
                                     };
                                   })();
+                                  // Live audio state: the draft while this scene is expanded,
+                                  // else the persisted values.
+                                  const clipAudioActive =
+                                    expandedScene === scene.id && stockAudioDraft
+                                      ? stockAudioDraft
+                                      : sceneClip
+                                        ? { muted: sceneClip.muted, volume: sceneClip.volume }
+                                        : null;
+                                  const clipUnmuted = Boolean(clipAudioActive && !clipAudioActive.muted);
+                                  const stockAudioDirty =
+                                    expandedScene === scene.id &&
+                                    stockAudioDraft &&
+                                    sceneClip &&
+                                    (stockAudioDraft.muted !== sceneClip.muted ||
+                                      Math.abs(stockAudioDraft.volume - sceneClip.volume) > 0.001);
                                   return (
                                     <div>
                                       <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
@@ -6669,30 +6770,56 @@ export default function ProjectView() {
                                             <div className="relative group rounded-lg overflow-hidden border-2 border-purple-400 w-20 h-24 flex-shrink-0 bg-black">
                                               {(() => {
                                                 let focusX = 50; let focusY = 50; let zoom = 1;
+                                                let clipStartSec = 0;
                                                 try {
                                                   if (scene.remotion_code) {
-                                                    const p = JSON.parse(scene.remotion_code) as { layoutProps?: { imageFocusX?: unknown; imageFocusY?: unknown; imageZoom?: unknown } };
+                                                    const p = JSON.parse(scene.remotion_code) as {
+                                                      layoutProps?: {
+                                                        imageFocusX?: unknown;
+                                                        imageFocusY?: unknown;
+                                                        imageZoom?: unknown;
+                                                        videoStartSeconds?: unknown;
+                                                      };
+                                                    };
                                                     if (typeof p.layoutProps?.imageFocusX === "number") focusX = clampFocus(p.layoutProps.imageFocusX);
                                                     if (typeof p.layoutProps?.imageFocusY === "number") focusY = clampFocus(p.layoutProps.imageFocusY);
                                                     if (typeof p.layoutProps?.imageZoom === "number") zoom = Math.max(IMAGE_ADJUST_ZOOM_MIN, p.layoutProps.imageZoom);
+                                                    clipStartSec = Math.max(0, Number(p.layoutProps?.videoStartSeconds) || 0);
                                                   }
                                                 } catch { /* ignore */ }
+                                                const zoomedOut = zoom < 1;
                                                 return (
-                                                  <video
-                                                    src={sceneClip.url}
-                                                    muted loop autoPlay playsInline
-                                                    // Start painting from the first buffered range
-                                                    // rather than waiting on the whole MP4.
+                                                  <TrimmedClipVideo
+                                                    ref={expandedClipVideoRef}
+                                                    src={clipUnmuted && sceneClip.audioUrl ? sceneClip.audioUrl : sceneClip.url}
+                                                    muted={!clipUnmuted}
+                                                    autoPlay={expandedClipPlaying}
+                                                    playsInline
+                                                    onLoadedMetadata={(e) => {
+                                                      e.currentTarget.volume = Math.max(0, Math.min(1, clipAudioActive?.volume ?? 0.35));
+                                                    }}
+                                                    onPlay={(e) => {
+                                                      e.currentTarget.volume = Math.max(0, Math.min(1, clipAudioActive?.volume ?? 0.35));
+                                                      setExpandedClipPlaying(true);
+                                                    }}
+                                                    onPause={() => setExpandedClipPlaying(false)}
                                                     preload="auto"
-                                                    className="w-full h-full object-cover"
-                                                    style={{ objectPosition: `${focusX}% ${focusY}%`, transform: `scale(${zoom})`, transformOrigin: "center center" }}
+                                                    className="w-full h-full"
+                                                    style={{
+                                                      objectFit: zoomedOut ? "contain" : "cover",
+                                                      objectPosition: zoomedOut ? "center" : `${focusX}% ${focusY}%`,
+                                                      transform: `scale(${zoom})`,
+                                                      transformOrigin: zoomedOut ? "center center" : `${focusX}% ${focusY}%`,
+                                                    }}
+                                                    clipDurationSeconds={sceneClip.asset.duration_seconds ?? undefined}
+                                                    sceneDurationSeconds={Number(scene.duration_seconds) || undefined}
+                                                    startSeconds={clipStartSec}
                                                   />
                                                 );
                                               })()}
                                               <span className="absolute bottom-1 left-1 px-1 py-0.5 rounded bg-black/70 text-white text-[9px] font-medium uppercase tracking-wide">
                                                 Clip
                                               </span>
-                                              {/* Top row: edit framing + remove. Second row: audio. */}
                                               <button
                                                 type="button"
                                                 onClick={() => openSceneImageAdjustModal(scene, sceneClip.url)}
@@ -6719,33 +6846,6 @@ export default function ProjectView() {
                                                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                                                 </svg>
                                               </button>
-                                              {/* Audio control only exists when the clip actually
-                                                  has an audio track. A silent clip shows just the
-                                                  edit + remove icons. */}
-                                              {sceneClip.hasAudio && (
-                                                <button
-                                                  type="button"
-                                                  onClick={() => {
-                                                    if (stockAudioAdjustSceneId === scene.id) {
-                                                      setStockAudioAdjustSceneId(null);
-                                                      setStockAudioDraft(null);
-                                                    } else {
-                                                      setStockAudioAdjustSceneId(scene.id);
-                                                      setStockAudioDraft({ muted: sceneClip.muted, volume: sceneClip.volume });
-                                                    }
-                                                  }}
-                                                  className={`absolute top-9 right-1 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 shadow-sm transition-colors ${
-                                                    stockAudioAdjustSceneId === scene.id
-                                                      ? "bg-purple-600 text-white border-purple-600"
-                                                      : "bg-white/95 text-purple-700 hover:bg-purple-600 hover:text-white hover:border-purple-600"
-                                                  }`}
-                                                  title="Adjust audio"
-                                                >
-                                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                                                  </svg>
-                                                </button>
-                                              )}
                                             </div>
                                           )}
                                           {isCustomTpl && !(sceneImageAssetsMap[idx] || []).length && ctOgImage && (
@@ -6898,17 +6998,52 @@ export default function ProjectView() {
                                         </div>
                                         {sceneClip && (
                                           <div className="mt-2 space-y-2">
-                                            {stockAudioAdjustSceneId === scene.id && stockAudioDraft && (
-                                              <div className="flex items-center gap-2 flex-wrap p-2 rounded-lg bg-gray-50 border border-gray-200">
-                                                <button
-                                                  type="button"
-                                                  onClick={() => setStockAudioDraft((d) => (d ? { ...d, muted: !d.muted } : d))}
-                                                  disabled={!sceneClip.hasAudio || stockAudioSaving}
-                                                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs transition-colors disabled:opacity-50 ${stockAudioDraft.muted ? "border-gray-300 text-gray-600" : "border-purple-300 bg-purple-50 text-purple-700"}`}
-                                                >
-                                                  {stockAudioDraft.muted ? "Muted" : "Audio on"}
-                                                </button>
-                                                {!stockAudioDraft.muted && (
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                              <button
+                                                type="button"
+                                                onClick={toggleExpandedClipPlaying}
+                                                className="flex items-center justify-center w-8 h-8 rounded-lg border border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors flex-shrink-0"
+                                                title={expandedClipPlaying ? "Pause clip" : "Play clip"}
+                                              >
+                                                {expandedClipPlaying ? (
+                                                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M6 5h4v14H6zM14 5h4v14h-4z" />
+                                                  </svg>
+                                                ) : (
+                                                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M8 5v14l11-7z" />
+                                                  </svg>
+                                                )}
+                                              </button>
+                                              {sceneClip.hasAudio && stockAudioDraft && expandedScene === scene.id && (
+                                                <>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                      setStockAudioDraft((d) =>
+                                                        d ? { ...d, muted: !d.muted } : d,
+                                                      )
+                                                    }
+                                                    disabled={stockAudioSaving}
+                                                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs transition-colors disabled:opacity-50 ${
+                                                      stockAudioDraft.muted
+                                                        ? "border-gray-300 text-gray-600 hover:border-purple-300"
+                                                        : "border-purple-300 bg-purple-50 text-purple-700"
+                                                    }`}
+                                                    title={stockAudioDraft.muted ? "Unmute clip audio" : "Mute clip audio"}
+                                                  >
+                                                    {stockAudioDraft.muted ? (
+                                                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M17 14l-4-4m0 4l4-4" />
+                                                      </svg>
+                                                    ) : (
+                                                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                                                      </svg>
+                                                    )}
+                                                    {stockAudioDraft.muted ? "Muted" : "Audio on"}
+                                                  </button>
                                                   <label className="flex items-center gap-2 text-xs text-gray-500">
                                                     Volume
                                                     <input
@@ -6919,49 +7054,55 @@ export default function ProjectView() {
                                                       value={stockAudioDraft.volume}
                                                       onChange={(e) => {
                                                         const v = Number(e.target.value);
-                                                        setStockAudioDraft((d) => (d ? { ...d, volume: v } : d));
+                                                        setStockAudioDraft((d) =>
+                                                          d ? { ...d, volume: v } : d,
+                                                        );
                                                       }}
                                                       disabled={stockAudioSaving}
-                                                      className="w-28 accent-purple-600"
+                                                      className="w-28 h-1 cursor-pointer appearance-none accent-purple-600 [&::-webkit-slider-runnable-track]:h-0.5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-gray-200 [&::-webkit-slider-thumb]:-mt-1 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-purple-600 [&::-moz-range-track]:h-0.5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-gray-200 [&::-moz-range-thumb]:h-2.5 [&::-moz-range-thumb]:w-2.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-purple-600"
                                                     />
-                                                    <span className="tabular-nums w-8">{Math.round(stockAudioDraft.volume * 100)}%</span>
+                                                    <span className="tabular-nums w-8">
+                                                      {Math.round(stockAudioDraft.volume * 100)}%
+                                                    </span>
                                                   </label>
-                                                )}
-                                                {!sceneClip.hasAudio && (
-                                                  <span className="text-[11px] text-gray-400">This clip has no audio track.</span>
-                                                )}
-                                                <div className="flex items-center gap-2 ml-auto">
-                                                  <button
-                                                    type="button"
-                                                    onClick={() => { setStockAudioAdjustSceneId(null); setStockAudioDraft(null); }}
-                                                    disabled={stockAudioSaving}
-                                                    className="text-xs text-gray-500 hover:text-gray-700 disabled:opacity-50"
-                                                  >
-                                                    Cancel
-                                                  </button>
-                                                  <button
-                                                    type="button"
-                                                    disabled={stockAudioSaving}
-                                                    onClick={async () => {
-                                                      setStockAudioSaving(true);
-                                                      try {
-                                                        await handleUpdateSceneClipAudio(scene.id, {
-                                                          muted: stockAudioDraft.muted,
-                                                          volume: stockAudioDraft.volume,
-                                                        });
-                                                        setStockAudioAdjustSceneId(null);
-                                                        setStockAudioDraft(null);
-                                                      } finally {
-                                                        setStockAudioSaving(false);
-                                                      }
-                                                    }}
-                                                    className="px-2.5 py-1.5 rounded-lg bg-purple-600 text-white text-xs hover:bg-purple-700 transition-colors disabled:opacity-60"
-                                                  >
-                                                    {stockAudioSaving ? "Saving…" : "Save"}
-                                                  </button>
-                                                </div>
-                                              </div>
-                                            )}
+                                                  {stockAudioDirty && (
+                                                    <div className="flex items-center gap-2">
+                                                      <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                          setStockAudioDraft({
+                                                            muted: sceneClip.muted,
+                                                            volume: sceneClip.volume,
+                                                          })
+                                                        }
+                                                        disabled={stockAudioSaving}
+                                                        className="text-xs text-gray-500 hover:text-gray-700 disabled:opacity-50"
+                                                      >
+                                                        Cancel
+                                                      </button>
+                                                      <button
+                                                        type="button"
+                                                        disabled={stockAudioSaving}
+                                                        onClick={async () => {
+                                                          setStockAudioSaving(true);
+                                                          try {
+                                                            await handleUpdateSceneClipAudio(scene.id, {
+                                                              muted: stockAudioDraft.muted,
+                                                              volume: stockAudioDraft.volume,
+                                                            });
+                                                          } finally {
+                                                            setStockAudioSaving(false);
+                                                          }
+                                                        }}
+                                                        className="px-2.5 py-1.5 rounded-lg bg-purple-600 text-white text-xs hover:bg-purple-700 transition-colors disabled:opacity-60"
+                                                      >
+                                                        {stockAudioSaving ? "Saving…" : "Save"}
+                                                      </button>
+                                                    </div>
+                                                  )}
+                                                </>
+                                              )}
+                                            </div>
                                           </div>
                                         )}
                                         {generatingImageSceneId === scene.id && (
@@ -7235,6 +7376,27 @@ export default function ProjectView() {
                           onMouseDown={handleAdjustMouseDown}
                           onTouchStart={handleAdjustTouchStart}
                           windowRef={imageAdjustPreviewRef}
+                          {...(() => {
+                            // Clip trim needs the clip length + scene length for
+                            // the current adjust scene. Only relevant for clips.
+                            const s = project.scenes.find((sc) => sc.id === imageAdjustSceneId);
+                            let clipDur: number | undefined;
+                            try {
+                              const fn = s?.remotion_code
+                                ? (JSON.parse(s.remotion_code) as { layoutProps?: { assignedVideo?: string } }).layoutProps?.assignedVideo
+                                : undefined;
+                              const asset = fn
+                                ? project.assets.find((a) => a.asset_type === "video" && a.filename === fn && !a.excluded)
+                                : undefined;
+                              clipDur = asset?.duration_seconds ?? undefined;
+                            } catch { /* ignore */ }
+                            return {
+                              clipDurationSeconds: clipDur,
+                              sceneDurationSeconds: Number(s?.duration_seconds) || undefined,
+                              startSeconds: imageAdjustStartSeconds,
+                              onStartChange: setImageAdjustStartSeconds,
+                            };
+                          })()}
                         />
                         <div className="mt-4 flex flex-col gap-2 max-w-2xl mx-auto w-full">
                           <label className="flex items-center gap-3 text-sm text-gray-700">

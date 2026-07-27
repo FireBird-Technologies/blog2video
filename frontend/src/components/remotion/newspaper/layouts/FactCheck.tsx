@@ -25,6 +25,7 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
   videoMuted,
   videoVolume,
   videoDurationInFrames,
+  videoStartInFrames,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
@@ -180,6 +181,7 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
                         muted={videoMuted ?? true}
                         volume={videoVolume ?? 0.35}
                         durationInFrames={videoDurationInFrames}
+                startInFrames={videoStartInFrames}
                         style={{
                       position: "absolute",
                       left: 0,
@@ -255,6 +257,7 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
                         muted={videoMuted ?? true}
                         volume={videoVolume ?? 0.35}
                         durationInFrames={videoDurationInFrames}
+                startInFrames={videoStartInFrames}
                         style={{
                       position: "absolute",
                       left: 0,

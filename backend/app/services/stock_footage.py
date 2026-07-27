@@ -49,6 +49,12 @@ STOCK_FOOTAGE_TEMPLATES = {"newscast", "newspaper"}
 # 1080p clip, tight enough that a pathological URL cannot fill the disk.
 MAX_DOWNLOAD_BYTES = 60 * 1024 * 1024
 
+# Search result caps, applied centrally in search() so every caller/provider
+# obeys them. Clips loop to the scene duration, so a long source buys nothing but
+# a bigger download; longer than this is dropped from the grid entirely.
+MAX_SEARCH_RESULTS = 12
+MAX_CLIP_DURATION_SECONDS = 12.0
+
 _SEARCH_TIMEOUT = 12
 _DOWNLOAD_TIMEOUT = 120
 _FFMPEG_TIMEOUT = 300
@@ -320,6 +326,16 @@ def search(
                 logger.warning("[STOCK] %s search failed for %r", name, query, exc_info=True)
                 results[name] = []
 
+    # Drop clips longer than the ceiling. A clip loops to fill the scene, so a
+    # long source only bloats the download. duration == 0 means the provider did
+    # not report one — keep it rather than guess it is too long.
+    for name in wanted:
+        results[name] = [
+            c
+            for c in results.get(name, [])
+            if not c.duration or c.duration <= MAX_CLIP_DURATION_SECONDS
+        ]
+
     # Interleave so neither provider dominates the top of the grid.
     interleaved: list[StockClip] = []
     lists = [results.get(n, []) for n in wanted]
@@ -331,7 +347,9 @@ def search(
     # Then pull the cleanest frame rates to the front. Stable sort, so the
     # provider interleave survives as the tiebreak within each rank.
     interleaved.sort(key=lambda c: fps_rank(c.fps))
-    return interleaved
+
+    # Cap the grid regardless of how many each provider returned.
+    return interleaved[:MAX_SEARCH_RESULTS]
 
 
 # ─────────────────────── Download + normalise ─────────────────────

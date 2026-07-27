@@ -23,6 +23,7 @@ export const NewsCastLayoutImageBackground: React.FC<{
   videoMuted?: boolean;
   videoVolume?: number;
   videoDurationInFrames?: number;
+  videoStartInFrames?: number;
 }> = ({
   imageUrl,
   imageObjectPosition,
@@ -32,6 +33,7 @@ export const NewsCastLayoutImageBackground: React.FC<{
   videoMuted,
   videoVolume,
   videoDurationInFrames,
+  videoStartInFrames,
 }) => {
   if (!imageUrl && !videoUrl) return null;
 
@@ -49,6 +51,7 @@ export const NewsCastLayoutImageBackground: React.FC<{
             muted={videoMuted ?? true}
             volume={videoVolume ?? 0.35}
             durationInFrames={videoDurationInFrames}
+            startInFrames={videoStartInFrames}
           />
         ) : (
           <ZoomCropImg

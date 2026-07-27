@@ -34,6 +34,7 @@ import { normalizeLayoutId, getImageBoxAspectRatio, isImageBoxCircular } from ".
 import { getTemplateConfig } from "./remotion/templateConfig";
 import { resolveCustomImageBoxAr } from "../utils/customImageBoxAr";
 import { mergeLayoutSchemaDefaults } from "../utils/mergeLayoutSchemaDefaults";
+import { TrimmedClipVideo } from "../utils/trimmedClipPlayback";
 
 /** Image framing sub-modal: uniform zoom only (no rectangular crop resize). */
 const IMAGE_ADJUST_ZOOM_MIN = 0.1;
@@ -2799,6 +2800,9 @@ export default function SceneEditModal({
   const [scrapedImagesModalOpen, setScrapedImagesModalOpen] = useState(false);
   const [stockFootageModalOpen, setStockFootageModalOpen] = useState(false);
   const stockPreviewVideoRef = useRef<HTMLVideoElement | null>(null);
+  // Whether the clip preview is currently playing, so the play/stop button can
+  // reflect state and the user can pause even while the clip is unmuted.
+  const [stockPreviewPlaying, setStockPreviewPlaying] = useState(true);
   const [selectedExistingAssetId, setSelectedExistingAssetId] = useState<number | null>(null);
   // An existing image STAGED for replacement (chosen in the gallery but not yet saved).
   // Like an upload, it previews in the modal and is only persisted on the modal's Save.
@@ -2814,6 +2818,10 @@ export default function SceneEditModal({
   const [imageAdjustZoom, setImageAdjustZoom] = useState(1);
   const [imageAdjustAspectRatio, setImageAdjustAspectRatio] = useState("16 / 9");
   const [imageAdjustCircular, setImageAdjustCircular] = useState(false);
+  // Clip trim (video only): which start offset (seconds) of a longer clip the
+  // scene shows. Ignored for stills.
+  const [imageAdjustStartSeconds, setImageAdjustStartSeconds] = useState(0);
+  const [savingImageFraming, setSavingImageFraming] = useState(false);
   const [layouts, setLayouts] = useState<LayoutInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [removingAssetId, setRemovingAssetId] = useState<number | null>(null);
@@ -3122,14 +3130,38 @@ export default function SceneEditModal({
     setEditableLayoutProps((prev) => ({ ...prev, videoVolume: next }));
 
   // Apply the chosen volume to the thumbnail preview element (the `volume`
-  // attribute is not reactive in JSX). Runs whenever volume/mute/source change.
+  // attribute is not reactive in JSX) and honour the play/stop state. Runs
+  // whenever volume/mute/source/play-state change.
   useEffect(() => {
     const el = stockPreviewVideoRef.current;
     if (!el) return;
     el.volume = Math.max(0, Math.min(1, videoVolume));
-    // A source swap (silent <-> audio variant) restarts the element; play again.
-    void el.play().catch(() => { /* autoplay may be refused; harmless */ });
-  }, [videoVolume, videoMuted, assignedVideoUrl]);
+    if (stockPreviewPlaying) {
+      // A source swap (silent <-> audio variant) restarts the element; play again.
+      void el.play().catch(() => { /* autoplay may be refused; harmless */ });
+    } else {
+      el.pause();
+    }
+  }, [videoVolume, videoMuted, assignedVideoUrl, stockPreviewPlaying]);
+
+  const videoStartSeconds = Math.max(0, Number(editableLayoutProps.videoStartSeconds) || 0);
+
+  // Reset to playing whenever a different clip is assigned.
+  useEffect(() => {
+    setStockPreviewPlaying(true);
+  }, [assignedVideoUrl]);
+
+  const toggleStockPreviewPlaying = () => {
+    const el = stockPreviewVideoRef.current;
+    setStockPreviewPlaying((prev) => {
+      const next = !prev;
+      if (el) {
+        if (next) void el.play().catch(() => { /* refused; harmless */ });
+        else el.pause();
+      }
+      return next;
+    });
+  };
 
   const handleRemoveStockFootage = async () => {
     // Unlink the clip from the descriptor; committed by the modal's Save.
@@ -4123,6 +4155,21 @@ export default function SceneEditModal({
                 websiteLink: (c.websiteLink || "").trim(),
                 showWebsiteButton: c.showWebsiteButton,
               }));
+            } else if (!isEndingScene && !lp.hideImage && (lp.assignedVideo || lp.assignedImage)) {
+              // Framing is edited via the adjust modal into imageFocusX/Y state (and
+              // staged into editableLayoutProps on "Save framing"). Merge explicitly
+              // so clips — which occupy the visual slot without assignedImage — persist.
+              const fx = override?.imageFocusX ?? imageFocusX;
+              const fy = override?.imageFocusY ?? imageFocusY;
+              lp.imageFocusX = Math.max(0, Math.min(100, fx));
+              lp.imageFocusY = Math.max(0, Math.min(100, fy));
+              const z =
+                typeof override?.imageZoom === "number"
+                  ? Math.max(IMAGE_ADJUST_ZOOM_MIN, override.imageZoom)
+                  : typeof editableLayoutProps.imageZoom === "number"
+                    ? Math.max(IMAGE_ADJUST_ZOOM_MIN, Number(editableLayoutProps.imageZoom))
+                    : undefined;
+              if (z !== undefined) lp.imageZoom = z;
             } else if (zoomToSave !== undefined) {
               lp.imageZoom = zoomToSave;
             }
@@ -4207,6 +4254,8 @@ export default function SceneEditModal({
           await assignExistingImageToScene(project.id, scene.id, pendingExistingImage.assetId);
         }
         const hasExistingSceneImage = imageItems.length > 0 || !!pendingExistingImage;
+        const hasAssignedVisual =
+          !!assignedVideoAsset || !!selectedImageFile || hasExistingSceneImage;
         const focusXToSave = override?.imageFocusX ?? imageFocusX;
         const focusYToSave = override?.imageFocusY ?? imageFocusY;
         const zoomToPatch =
@@ -4219,11 +4268,7 @@ export default function SceneEditModal({
         // above has no assignedImage/assignedVideo, so the focus endpoint would
         // reject it — and there is nothing left to frame anyway.
         const stagedRemoval = Boolean(editableLayoutProps.hideImage);
-        if (
-          supportsImage &&
-          !stagedRemoval &&
-          (selectedImageFile || hasExistingSceneImage)
-        ) {
+        if (supportsImage && !stagedRemoval && hasAssignedVisual) {
           await updateSceneImageFocus(project.id, scene.id, focusXToSave, focusYToSave, zoomToPatch);
         }
         onSaved();
@@ -4584,6 +4629,7 @@ export default function SceneEditModal({
         delete next.assignedVideo;
         delete next.videoMuted;
         delete next.videoVolume;
+        delete next.videoStartSeconds;
         next.hideImage = false;
         return next;
       });
@@ -5704,6 +5750,9 @@ export default function SceneEditModal({
     setImageAdjustFocusX(imageFocusX);
     setImageAdjustFocusY(imageFocusY);
     setImageAdjustZoom(Math.min(IMAGE_ADJUST_ZOOM_MAX, Math.max(IMAGE_ADJUST_ZOOM_MIN, currentZoom)));
+    setImageAdjustStartSeconds(
+      Math.max(0, Number(editableLayoutProps.videoStartSeconds) || 0),
+    );
 
     // Compute the preview box aspect ratio + circular flag from the image box
     // config so the framing preview matches the layout's real image slot —
@@ -5741,17 +5790,71 @@ export default function SceneEditModal({
     imageAdjustPanRef.current = null;
   };
 
-  const saveImageAdjustModal = () => {
-    // Stage the framing only — update local state so the modal preview reflects it, but
-    // do NOT persist. The Scene Edit Modal's main Save commits focus/zoom (via
-    // updateSceneImageFocus, which reads imageFocusX/Y + editableLayoutProps.imageZoom).
+  const saveImageAdjustModal = async () => {
     const nextFocusX = clampFocus(imageAdjustFocusX);
     const nextFocusY = clampFocus(imageAdjustFocusY);
     const nextZoom = Math.max(IMAGE_ADJUST_ZOOM_MIN, Math.min(IMAGE_ADJUST_ZOOM_MAX, imageAdjustZoom));
     setImageFocusX(nextFocusX);
     setImageFocusY(nextFocusY);
-    setEditableLayoutProps((prev) => ({ ...prev, imageZoom: nextZoom }));
-    closeImageAdjustModal();
+    setEditableLayoutProps((prev) => {
+      const next: Record<string, unknown> = {
+        ...prev,
+        imageFocusX: nextFocusX,
+        imageFocusY: nextFocusY,
+        imageZoom: nextZoom,
+      };
+      if (assignedVideoAsset) {
+        if (imageAdjustStartSeconds > 0) next.videoStartSeconds = Number(imageAdjustStartSeconds.toFixed(2));
+        else delete next.videoStartSeconds;
+      }
+      return next;
+    });
+
+    if (isDemo) {
+      closeImageAdjustModal();
+      return;
+    }
+
+    const hasVisual =
+      !!assignedVideoAsset || imageItems.length > 0 || !!pendingExistingImage || !!selectedImageFile;
+    if (!hasVisual) {
+      closeImageAdjustModal();
+      return;
+    }
+
+    setSavingImageFraming(true);
+    try {
+      if (scene.remotion_code) {
+        const descriptor = JSON.parse(scene.remotion_code) as { layoutProps?: Record<string, unknown> };
+        const layoutProps = { ...(descriptor.layoutProps || {}) };
+        layoutProps.imageFocusX = nextFocusX;
+        layoutProps.imageFocusY = nextFocusY;
+        layoutProps.imageZoom = nextZoom;
+        if (assignedVideoAsset) {
+          if (imageAdjustStartSeconds > 0) {
+            layoutProps.videoStartSeconds = Number(imageAdjustStartSeconds.toFixed(2));
+          } else {
+            delete layoutProps.videoStartSeconds;
+          }
+        }
+        descriptor.layoutProps = layoutProps;
+        await updateScene(project.id, scene.id, {
+          remotion_code: JSON.stringify(descriptor),
+        });
+      } else {
+        await updateSceneImageFocus(project.id, scene.id, nextFocusX, nextFocusY, nextZoom);
+      }
+      onSaved();
+      closeImageAdjustModal();
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+          : "Failed to save framing";
+      showError(String(msg));
+    } finally {
+      setSavingImageFraming(false);
+    }
   };
 
   const handleAdjustMouseDown = (e: ReactMouseEvent<HTMLDivElement>) => {
@@ -6341,7 +6444,7 @@ export default function SceneEditModal({
                             actually audible here; falls back to the silent file.
                             volume is applied via ref since the attribute isn't
                             reactive. */}
-                        <video
+                        <TrimmedClipVideo
                           ref={stockPreviewVideoRef}
                           src={
                             !videoMuted && activeVideo?.audioUrl
@@ -6349,15 +6452,16 @@ export default function SceneEditModal({
                               : assignedVideoUrl
                           }
                           muted={videoMuted}
-                          loop
                           playsInline
-                          autoPlay
-                          // Without a hint the browser fetches the whole MP4 before
-                          // painting anything; "auto" lets it start from the first
-                          // buffered range instead of blocking on the full file.
+                          autoPlay={stockPreviewPlaying}
+                          onPlay={() => setStockPreviewPlaying(true)}
+                          onPause={() => setStockPreviewPlaying(false)}
                           preload="auto"
                           className="w-full h-full"
                           style={imageFramingStyle}
+                          clipDurationSeconds={assignedVideoAsset?.duration_seconds ?? undefined}
+                          sceneDurationSeconds={Number(scene.duration_seconds) || undefined}
+                          startSeconds={videoStartSeconds}
                         />
                         <span className="absolute bottom-1 left-1 px-1 py-0.5 rounded bg-black/70 text-white text-[9px] font-medium uppercase tracking-wide">
                           Clip
@@ -6539,50 +6643,65 @@ export default function SceneEditModal({
                   </div>
                   {assignedVideoUrl && (
                     <div className="mt-3 space-y-2">
-                      {videoHasAudio && (
                       <div className="flex items-center gap-2 flex-wrap">
                         <button
                           type="button"
-                          onClick={() => setVideoMuted(!videoMuted)}
-                          disabled={!videoHasAudio}
-                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs transition-colors disabled:opacity-50 ${
-                            videoMuted
-                              ? "border-gray-300 text-gray-600 hover:border-purple-300"
-                              : "border-purple-300 bg-purple-50 text-purple-700"
-                          }`}
-                          title={videoMuted ? "Unmute clip audio" : "Mute clip audio"}
+                          onClick={toggleStockPreviewPlaying}
+                          className="flex items-center justify-center w-8 h-8 rounded-lg border border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors flex-shrink-0"
+                          title={stockPreviewPlaying ? "Pause clip" : "Play clip"}
                         >
-                          {videoMuted ? (
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M17 14l-4-4m0 4l4-4" />
+                          {stockPreviewPlaying ? (
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M6 5h4v14H6zM14 5h4v14h-4z" />
                             </svg>
                           ) : (
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M8 5v14l11-7z" />
                             </svg>
                           )}
-                          {videoMuted ? "Muted" : "Audio on"}
                         </button>
-                        {!videoMuted && (
-                          <label className="flex items-center gap-2 text-xs text-gray-500">
-                            Volume
-                            <input
-                              type="range"
-                              min={0}
-                              max={1}
-                              step={0.05}
-                              value={videoVolume}
-                              onChange={(e) => setVideoVolume(Number(e.target.value))}
-                              className="w-28 accent-purple-600"
-                            />
-                            <span className="tabular-nums w-8">
-                              {Math.round(videoVolume * 100)}%
-                            </span>
-                          </label>
+                        {videoHasAudio && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setVideoMuted(!videoMuted)}
+                              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs transition-colors ${
+                                videoMuted
+                                  ? "border-gray-300 text-gray-600 hover:border-purple-300"
+                                  : "border-purple-300 bg-purple-50 text-purple-700"
+                              }`}
+                              title={videoMuted ? "Unmute clip audio" : "Mute clip audio"}
+                            >
+                              {videoMuted ? (
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 14l-4-4m0 4l4-4" />
+                                </svg>
+                              ) : (
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                                </svg>
+                              )}
+                              {videoMuted ? "Muted" : "Audio on"}
+                            </button>
+                            <label className="flex items-center gap-2 text-xs text-gray-500">
+                              Volume
+                              <input
+                                type="range"
+                                min={0}
+                                max={1}
+                                step={0.05}
+                                value={videoVolume}
+                                onChange={(e) => setVideoVolume(Number(e.target.value))}
+                                className="w-28 h-1 cursor-pointer appearance-none accent-purple-600 [&::-webkit-slider-runnable-track]:h-0.5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-gray-200 [&::-webkit-slider-thumb]:-mt-1 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-purple-600 [&::-moz-range-track]:h-0.5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-gray-200 [&::-moz-range-thumb]:h-2.5 [&::-moz-range-thumb]:w-2.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-purple-600"
+                              />
+                              <span className="tabular-nums w-8">
+                                {Math.round(videoVolume * 100)}%
+                              </span>
+                            </label>
+                          </>
                         )}
                       </div>
-                      )}
                       <p className="text-xs text-gray-500">
                         Use the edit icon to adjust framing.
                         {videoHasAudio ? " Audio changes save with the scene." : ""}
@@ -7139,6 +7258,10 @@ export default function SceneEditModal({
               onMouseDown={handleAdjustMouseDown}
               onTouchStart={handleAdjustTouchStart}
               windowRef={imageAdjustPreviewRef}
+              clipDurationSeconds={assignedVideoAsset?.duration_seconds ?? undefined}
+              sceneDurationSeconds={Number(scene.duration_seconds) || undefined}
+              startSeconds={imageAdjustStartSeconds}
+              onStartChange={setImageAdjustStartSeconds}
             />
             <div className="mt-4 flex flex-col gap-2 max-w-2xl mx-auto w-full">
               <label className="flex items-center gap-3 text-sm text-gray-700">
@@ -7180,10 +7303,11 @@ export default function SceneEditModal({
             </button>
             <button
               type="button"
-              onClick={saveImageAdjustModal}
-              className="px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+              onClick={() => void saveImageAdjustModal()}
+              disabled={savingImageFraming}
+              className="px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-60"
             >
-              Save framing
+              {savingImageFraming ? "Saving…" : "Save framing"}
             </button>
           </div>
         </div>
