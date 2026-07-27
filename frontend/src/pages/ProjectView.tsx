@@ -5399,6 +5399,7 @@ export default function ProjectView() {
         <StockFootageVerifyModal
           projectId={project.id}
           templateId={project.template}
+          isPro={isPro}
           onApproved={() => {
             setAwaitingFootage(false);
             // The pipeline is running again from step 3 — resume the loader.

@@ -474,6 +474,7 @@ class BulkProjectItem(BaseModel):
     caption_position: Optional[str] = "bottom_center"
     caption_font_family: Optional[str] = "inter"
     caption_font_size: Optional[str] = "medium"
+    stock_footage_enabled: Optional[bool] = False
 
     @field_validator("caption_position")
     @classmethod

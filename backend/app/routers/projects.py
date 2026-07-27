@@ -2992,6 +2992,10 @@ def create_projects_bulk(
             caption_font_family=getattr(data, "caption_font_family", None) or "inter",
             caption_font_size=getattr(data, "caption_font_size", None) or "36",
             caption_offset=int(getattr(data, "caption_offset", 0) or 0),
+            stock_footage_enabled=_resolve_stock_footage_flag(
+                getattr(data, "stock_footage_enabled", False), user, template_id
+            ),
+            is_bulk=True,
             status=ProjectStatus.CREATED,
         )
         db.add(project)

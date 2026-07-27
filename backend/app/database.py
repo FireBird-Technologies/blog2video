@@ -115,6 +115,7 @@ def _migrate_sqlite(eng) -> None:
             "playback_speed": "REAL DEFAULT 1.0",
             "stock_footage_enabled": "BOOLEAN DEFAULT 0",
             "stock_footage_approved_at": "DATETIME",
+            "is_bulk": "BOOLEAN DEFAULT 0",
             "captions_enabled": "BOOLEAN DEFAULT 0",
             "caption_position": "VARCHAR(20) DEFAULT 'bottom_center'",
             "caption_font_family": "VARCHAR(50) DEFAULT 'inter'",

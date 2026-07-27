@@ -746,13 +746,26 @@ async def _run_pipeline(project_id: int, user_id: int):
                             "[PIPELINE] project=%s: stock footage preparation failed",
                             project_id, exc_info=True,
                         )
-                    project.status = ProjectStatus.AWAITING_FOOTAGE
-                    db.commit()
-                    _pipeline_progress[project_id]["running"] = False
-                    logger.info(
-                        "[PIPELINE] Project %s paused for stock footage review", project_id
-                    )
-                    return
+                    # Bulk projects run unattended: clips are auto-picked above and
+                    # auto-approved here (stamping approved_at so the gate won't
+                    # re-fire), then generation continues straight to step 3. Only
+                    # single-project creation pauses for the interactive review.
+                    if getattr(project, "is_bulk", False):
+                        from datetime import datetime as _dt
+                        project.stock_footage_approved_at = _dt.utcnow()
+                        db.commit()
+                        logger.info(
+                            "[PIPELINE] Project %s: bulk — stock footage auto-approved",
+                            project_id,
+                        )
+                    else:
+                        project.status = ProjectStatus.AWAITING_FOOTAGE
+                        db.commit()
+                        _pipeline_progress[project_id]["running"] = False
+                        logger.info(
+                            "[PIPELINE] Project %s paused for stock footage review", project_id
+                        )
+                        return
 
             # Step 3: Generate scene descriptors + voiceovers
             if project.status in (

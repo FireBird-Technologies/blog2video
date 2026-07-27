@@ -43,7 +43,7 @@ MAX_HEIGHT = 1080
 # through Newscast only). Lives here rather than in a router so both the editor
 # endpoints and the generation pipeline can gate on it without importing each
 # other. Widen this — and the frontend gates — to roll the feature out.
-STOCK_FOOTAGE_TEMPLATES = {"newscast", "newspaper"}
+STOCK_FOOTAGE_TEMPLATES = {"newscast", "newspaper", "nightfall", "blackswan", "sakura"}
 
 # Hard ceiling on what we will pull from a provider. Generous enough for a 30 s
 # 1080p clip, tight enough that a pathological URL cannot fill the disk.

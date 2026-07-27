@@ -1,4 +1,5 @@
 import { AbsoluteFill, interpolate, useCurrentFrame, spring, Img, useVideoConfig } from "remotion";
+import { NightfallClip } from "../components/NightfallClip";
 import { DarkBackground } from "../DarkBackground";
 import { glassCardStyle } from "../GlassCard";
 import type { NightfallLayoutProps } from "../types";
@@ -21,6 +22,11 @@ export const GlassStack: React.FC<NightfallLayoutProps> = ({
   narration,imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   accentColor,
   bgColor,
   textColor,
@@ -65,7 +71,7 @@ export const GlassStack: React.FC<NightfallLayoutProps> = ({
     config: { damping: 20, stiffness: 80 },
   });
 
-  const hasImage = !!imageUrl;
+  const hasImage = !!(imageUrl || videoUrl);
 
   // Outro Animation for Portrait Mode
   // Starts 3 seconds before the end of the scene
@@ -315,9 +321,8 @@ export const GlassStack: React.FC<NightfallLayoutProps> = ({
         {/* Image Section */}
         {hasImage && (
           <div style={{ ...imageSectionBaseStyle, ...imageSectionDynamicStyle }}>
-            <Img
-              src={imageUrl}
-              style={{
+            {(() => {
+              const visualStyle: React.CSSProperties = {
                 width: "100%",
                 height: "100%",
                 objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
@@ -326,8 +331,22 @@ export const GlassStack: React.FC<NightfallLayoutProps> = ({
                 transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
                 borderRadius: 12,
                 border: `1px solid ${accentColor}30`,
-              }}
-            />
+              };
+              return videoUrl ? (
+                <NightfallClip
+                  src={videoUrl}
+                  imageObjectPosition={imageObjectPosition}
+                  imageZoom={imageZoom}
+                  muted={videoMuted ?? true}
+                  volume={videoVolume ?? 0.35}
+                  durationInFrames={videoDurationInFrames}
+                  startInFrames={videoStartInFrames}
+                  style={visualStyle}
+                />
+              ) : (
+                <Img src={imageUrl!} style={visualStyle} />
+              );
+            })()}
             {/* Image glow overlay */}
             <div
               style={{

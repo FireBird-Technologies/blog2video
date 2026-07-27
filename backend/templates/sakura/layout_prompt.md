@@ -1,5 +1,7 @@
 # sakura — Layout Catalog
 
+**Never output `assignedVideo`, `videoUrl`, `videoMuted`, or `videoVolume`** — stock-footage clips are chosen by the user in the editor after generation, and inventing one breaks rendering.
+
 Use this list when picking the `preferred_layout` for each scene.
 
 - `sakura_intro`  

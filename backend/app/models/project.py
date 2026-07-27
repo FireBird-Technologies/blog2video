@@ -83,6 +83,11 @@ class Project(Base):
     stock_footage_approved_at: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True
     )
+    # Created through the bulk flow. Bulk projects skip the interactive footage
+    # review — clips are auto-picked and auto-approved so they run unattended.
+    is_bulk: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="0", nullable=False
+    )
 
     captions_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     caption_position: Mapped[str] = mapped_column(String(20), default="bottom_center")

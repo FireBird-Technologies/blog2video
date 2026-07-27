@@ -1,4 +1,6 @@
+import React from "react";
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring, useVideoConfig } from "remotion";
+import { NightfallClip } from "../components/NightfallClip";
 import { DarkBackground } from "../DarkBackground";
 import { glassCardStyle } from "../GlassCard";
 import type { NightfallLayoutProps } from "../types";
@@ -19,6 +21,11 @@ export const GlowMetric: React.FC<NightfallLayoutProps> = ({
   title,imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   accentColor,
   bgColor,
   textColor,
@@ -96,7 +103,7 @@ export const GlowMetric: React.FC<NightfallLayoutProps> = ({
     return rounded.toLocaleString();
   };
 
-  const hasImage = !!imageUrl;
+  const hasImage = !!(imageUrl || videoUrl);
 
   // Calculate effective font sizes based on descriptionFontSize for proportional scaling
   const effectiveDescriptionFontSize = descriptionFontSize ?? (p ? 42 : 30);
@@ -208,19 +215,32 @@ export const GlowMetric: React.FC<NightfallLayoutProps> = ({
                 transform: combinedImageTransform, // Combined entrance and outro transform
               }}
             >
-              <Img
-                src={imageUrl}
-                style={{
+              {(() => {
+                const visualStyle: React.CSSProperties = {
                   width: "100%",
                   height: "100%",
                   objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
                   objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
-                transform: `scale(${imageZoom ?? 1})`,
-                transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
+                  transform: `scale(${imageZoom ?? 1})`,
+                  transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
                   borderRadius: p ? 0 : 12, // No radius for portrait, keep for landscape
                   border: p ? "none" : `1px solid ${accentColor}30`, // No border for portrait, keep for landscape
-                }}
-              />
+                };
+                return videoUrl ? (
+                  <NightfallClip
+                    src={videoUrl}
+                    imageObjectPosition={imageObjectPosition}
+                    imageZoom={imageZoom}
+                    muted={videoMuted ?? true}
+                    volume={videoVolume ?? 0.35}
+                    durationInFrames={videoDurationInFrames}
+                    startInFrames={videoStartInFrames}
+                    style={visualStyle}
+                  />
+                ) : (
+                  <Img src={imageUrl!} style={visualStyle} />
+                );
+              })()}
               {/* Image glow overlay */}
               <div
                 style={{

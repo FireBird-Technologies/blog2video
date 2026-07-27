@@ -1,7 +1,8 @@
-import { useMemo } from "react";
+import React, { useMemo } from "react";
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { DarkBackground } from "../DarkBackground";
 import { glassCardStyle } from "../GlassCard";
+import { NightfallClip } from "../components/NightfallClip";
 import type { NightfallLayoutProps } from "../types";
 import { random } from "remotion";
 
@@ -22,6 +23,11 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
   narration,imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   accentColor,
   bgColor,
   textColor,
@@ -101,9 +107,9 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
     <AbsoluteFill style={{ overflow: "hidden" }}>
       <DarkBackground drift={false} bgColor={bgColor} />
 
-      {imageUrl ? (
+      {imageUrl || videoUrl ? (
         <>
-          {/* Main Image with Ken Burns */}
+          {/* Main Image/Clip with Ken Burns */}
           <div
             style={{
               position: "absolute",
@@ -112,9 +118,9 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
               zIndex: 1,
             }}
           >
-            <Img
-              src={imageUrl}
-              style={{
+            {(() => {
+              // Shared framing/Ken-Burns style so a clip looks identical to a still.
+              const visualStyle: React.CSSProperties = {
                 position: "absolute",
                 width: "100%",
                 height: "100%",
@@ -127,8 +133,22 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
                 `,
                 transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
                 zIndex: 1,
-              }}
-            />
+              };
+              return videoUrl ? (
+                <NightfallClip
+                  src={videoUrl}
+                  imageObjectPosition={imageObjectPosition}
+                  imageZoom={imageZoom}
+                  muted={videoMuted ?? true}
+                  volume={videoVolume ?? 0.35}
+                  durationInFrames={videoDurationInFrames}
+                  startInFrames={videoStartInFrames}
+                  style={visualStyle}
+                />
+              ) : (
+                <Img src={imageUrl!} style={visualStyle} />
+              );
+            })()}
           </div>
 
           {/* Multi-Layer Gradient Overlays for Depth */}

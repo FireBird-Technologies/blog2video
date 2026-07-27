@@ -23,11 +23,15 @@ import { getSceneLayoutLabel } from "../utils/layoutLabels";
 export function StockFootageVerifyModal({
   projectId,
   templateId,
+  isPro = false,
   onApproved,
   onClose,
 }: {
   projectId: number;
   templateId?: string | null;
+  /** Paid owners swap clips for free; free owners spend AI edits — drives the
+   *  cost notice shown next to the "Change clip" action. */
+  isPro?: boolean;
   /** Called after the pipeline resumes, so the caller can go back to polling. */
   onApproved: () => void;
   /** Leave the gate without approving; the project stays paused. */
@@ -135,6 +139,18 @@ export function StockFootageVerifyModal({
               </button>
             )}
           </div>
+
+          {!isPro && (
+            <div className="px-5 py-2.5 bg-amber-50 border-b border-amber-200 flex items-start gap-2">
+              <svg className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-xs text-amber-800">
+                Changing a clip costs <span className="font-semibold">3 AI edits</span>. Your
+                auto-picked clip is free — upgrade to Pro or Standard to swap clips for free.
+              </p>
+            </div>
+          )}
 
           <div className="flex-1 min-h-0 overflow-y-auto p-5 bg-gray-50">
             {loadError && (

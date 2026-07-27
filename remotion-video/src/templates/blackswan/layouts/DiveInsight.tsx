@@ -6,16 +6,30 @@ import { NeonWater } from "./neonWater";
 import { neonTitleTubeStyle, StarField } from "./scenePrimitives";
 import { blackswanNeonPalette } from "./blackswanAccent";
 import { ZoomCropImg } from "../components/ZoomCropImg";
+import { ZoomCropVideo } from "../components/ZoomCropVideo";
 
 // Righteous — same family as DropletIntro
 const mono = "'Righteous', cursive";
 const display = "'Righteous', cursive";
 
 /** Image panel centered with accent border + corner glow */
-const ImageWithAccentBorder: React.FC<{ src: string; imageObjectPosition?: string;
-  imageZoom?: number; accentColor: string; opacity?: number }> = ({ src, imageObjectPosition, imageZoom, accentColor, opacity = 1 }) => (
+const ImageWithAccentBorder: React.FC<{ src?: string; videoUrl?: string; videoMuted?: boolean;
+  videoVolume?: number; videoDurationInFrames?: number; videoStartInFrames?: number; imageObjectPosition?: string;
+  imageZoom?: number; accentColor: string; opacity?: number }> = ({ src, videoUrl, videoMuted, videoVolume, videoDurationInFrames, videoStartInFrames, imageObjectPosition, imageZoom, accentColor, opacity = 1 }) => (
   <div style={{ position: "relative", width: "100%", height: "100%", opacity, overflow: "hidden" }}>
-    <ZoomCropImg src={src} imageObjectPosition={imageObjectPosition} imageZoom={imageZoom} alt="" />
+    {videoUrl ? (
+      <ZoomCropVideo
+        src={videoUrl}
+        imageObjectPosition={imageObjectPosition}
+        imageZoom={imageZoom}
+        muted={videoMuted ?? true}
+        volume={videoVolume ?? 0.35}
+        durationInFrames={videoDurationInFrames}
+        startInFrames={videoStartInFrames}
+      />
+    ) : (
+      <ZoomCropImg src={src!} imageObjectPosition={imageObjectPosition} imageZoom={imageZoom} alt="" />
+    )}
     {/* Glowing border */}
     <div style={{
       position: "absolute",
@@ -59,11 +73,16 @@ export const DiveInsight: React.FC<BlackswanLayoutProps> = (props) => {
     imageUrl,
     imageObjectPosition,
   imageZoom,
+    videoUrl,
+    videoMuted,
+    videoVolume,
+    videoDurationInFrames,
+    videoStartInFrames,
   } = props;
 
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
-  const hasImage = !!imageUrl;
+  const hasImage = !!(imageUrl || videoUrl);
 
   const quoteOp = interpolate(frame, [8, 30],  [0, 1], { extrapolateRight: "clamp" });
   const quoteY  = interpolate(frame, [8, 30],  [14, 0], { extrapolateRight: "clamp" });
@@ -110,7 +129,7 @@ export const DiveInsight: React.FC<BlackswanLayoutProps> = (props) => {
             zIndex: 1,
           }}
         >
-          <ImageWithAccentBorder src={imageUrl!} imageObjectPosition={imageObjectPosition} imageZoom={imageZoom} accentColor={accentColor} />
+          <ImageWithAccentBorder src={imageUrl} videoUrl={videoUrl} videoMuted={videoMuted} videoVolume={videoVolume} videoDurationInFrames={videoDurationInFrames} videoStartInFrames={videoStartInFrames} imageObjectPosition={imageObjectPosition} imageZoom={imageZoom} accentColor={accentColor} />
         </div>
 
         {/* Quote + text — below image */}

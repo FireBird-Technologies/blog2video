@@ -691,12 +691,12 @@ def test_stale_assigned_video_is_pruned(db_session, paid_user, tmp_path, monkeyp
 # ─── Generation-time verification gate ──────────────────────────────────────
 
 
-def _scripted_newscast_project(db, user, *, enabled=True, layouts=("opening", "anchor_narrative")):
+def _scripted_newscast_project(db, user, *, enabled=True, is_bulk=False, layouts=("opening", "anchor_narrative")):
     """A project parked at SCRIPTED with scenes that have preferred_layout set."""
     project = Project(
         user_id=user.id, name="Gate", blog_url="https://g.test",
         status=ProjectStatus.SCRIPTED, template="newscast",
-        stock_footage_enabled=enabled,
+        stock_footage_enabled=enabled, is_bulk=is_bulk,
     )
     db.add(project); db.commit(); db.refresh(project)
     for i, layout in enumerate(layouts, start=1):
@@ -761,6 +761,46 @@ def test_resolve_stock_footage_flag__all_plans_newscast_only(db_session, paid_us
     # Wrong template → off (nothing would render the clip), regardless of plan.
     assert _resolve_stock_footage_flag(True, paid_user, "economist") is False
     assert _resolve_stock_footage_flag(True, free_user, "economist") is False
+
+
+def test_bulk_project_auto_approves_instead_of_parking(db_session, paid_user):
+    """Bulk projects skip the interactive review: the gate stamps approved_at and
+    falls through to generation, so it never parks at AWAITING_FOOTAGE. A single
+    (non-bulk) project with the same flags still parks."""
+    from datetime import datetime
+    from app.services.stock_footage import STOCK_FOOTAGE_TEMPLATES
+
+    def gate_fires(p) -> bool:
+        return (
+            p.status == ProjectStatus.SCRIPTED
+            and bool(getattr(p, "stock_footage_enabled", False))
+            and getattr(p, "stock_footage_approved_at", None) is None
+            and (getattr(p, "template", "") or "").strip().lower() in STOCK_FOOTAGE_TEMPLATES
+        )
+
+    bulk = _scripted_newscast_project(db_session, paid_user, is_bulk=True)
+    single = _scripted_newscast_project(db_session, paid_user, is_bulk=False)
+
+    # Both initially satisfy the gate (auto-pick runs for both).
+    assert gate_fires(bulk) is True
+    assert gate_fires(single) is True
+
+    # Simulate the gate's per-flow decision: bulk auto-approves, single parks.
+    if bulk.is_bulk:
+        bulk.stock_footage_approved_at = datetime.utcnow()
+    else:
+        bulk.status = ProjectStatus.AWAITING_FOOTAGE
+    if single.is_bulk:
+        single.stock_footage_approved_at = datetime.utcnow()
+    else:
+        single.status = ProjectStatus.AWAITING_FOOTAGE
+
+    # Bulk stayed SCRIPTED (continues to generation) with the approval stamp; the
+    # gate no longer fires for it. Single parked at AWAITING_FOOTAGE.
+    assert bulk.status == ProjectStatus.SCRIPTED
+    assert bulk.stock_footage_approved_at is not None
+    assert gate_fires(bulk) is False
+    assert single.status == ProjectStatus.AWAITING_FOOTAGE
 
 
 def test_gate_condition_is_false_once_approved(db_session, paid_user):
