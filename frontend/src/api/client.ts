@@ -190,6 +190,8 @@ export interface Project {
   bgm_track_url?: string | null;
   /** Paid + Newscast: generation pauses for stock-footage review after scripting. */
   stock_footage_enabled?: boolean;
+  /** Bulk-created: stock footage auto-approves (no review step). */
+  is_bulk?: boolean;
   captions_enabled?: boolean;
   caption_position?: "bottom_center" | "top_center";
   caption_font_family?: string;

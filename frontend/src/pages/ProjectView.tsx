@@ -1077,7 +1077,25 @@ export default function ProjectView() {
 
   // Upload-based project detection
   const isUploadProject = project?.blog_url?.startsWith("upload://") ?? false;
-  const PIPELINE_STEPS = isUploadProject ? PIPELINE_STEPS_UPLOAD : PIPELINE_STEPS_URL;
+  // Stock-footage review flow adds a "Review" step between Script and Scenes.
+  // Only for projects that actually pause for review: stock footage enabled,
+  // resolved server-side (so template is supported), and NOT bulk (bulk
+  // auto-approves and never pauses). Backend `stock_footage_enabled` is already
+  // gated by `_resolve_stock_footage_flag`, so it's true only when applicable.
+  const hasFootageReview =
+    Boolean(project?.stock_footage_enabled) && !project?.is_bulk;
+  const PIPELINE_STEPS = useMemo(() => {
+    const base = isUploadProject ? PIPELINE_STEPS_UPLOAD : PIPELINE_STEPS_URL;
+    if (!hasFootageReview) return base;
+    // Insert "Review" as step 3 (before "Scenes"), renumbering the tail.
+    const withReview = [
+      base[0],
+      base[1],
+      { id: 3, label: "Review" },
+      { id: 4, label: base[2].label },
+    ];
+    return withReview;
+  }, [isUploadProject, hasFootageReview]);
 
   // Page-level voiceover add/change/delete progress modal (survives tab switches
   // and page refresh — see VoiceOperationModal). Set to kick it off instantly.
@@ -5402,9 +5420,10 @@ export default function ProjectView() {
           isPro={isPro}
           onApproved={() => {
             setAwaitingFootage(false);
-            // The pipeline is running again from step 3 — resume the loader.
+            // Pipeline resumes at scene generation. With the "Review" step
+            // inserted, that's UI step 4 ("Scenes"); the backend reports the same.
             setPipelineRunning(true);
-            setPipelineStep(3);
+            setPipelineStep(4);
             pipelineTerminalFailureHandledRef.current = false;
             startPolling();
           }}

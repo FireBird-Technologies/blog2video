@@ -777,7 +777,19 @@ async def _run_pipeline(project_id: int, user_id: int):
                 # races the flip still proceeds instead of silently no-op'ing.
                 ProjectStatus.AWAITING_FOOTAGE,
             ):
-                _pipeline_progress[project_id]["step"] = 3
+                # Scene generation is step 3 normally, but step 4 when this project
+                # went through the interactive footage review (which the frontend
+                # renders as an extra "Review" step between Script and Scenes). The
+                # gate above uses step 3; bumping to 4 here keeps the UI's step
+                # highlight correct. Bulk projects auto-approve (no review step), so
+                # they stay at 3.
+                reviewed = (
+                    bool(getattr(project, "stock_footage_enabled", False))
+                    and not bool(getattr(project, "is_bulk", False))
+                    and (getattr(project, "template", "") or "").strip().lower()
+                    in STOCK_FOOTAGE_TEMPLATES
+                )
+                _pipeline_progress[project_id]["step"] = 4 if reviewed else 3
                 with _tracer.start_as_current_span(
                     "pipeline.generate_scenes",
                     attributes={**attributes, "pipeline.stage": "generate_scenes"},
@@ -797,8 +809,16 @@ async def _run_pipeline(project_id: int, user_id: int):
                         )
                         return
 
-            # Step 4: Done (no more studio launch — frontend handles preview)
-            _pipeline_progress[project_id]["step"] = 4
+            # Done (no more studio launch — frontend handles preview). One past the
+            # last visible step so the UI marks every step complete: step 4 normally,
+            # 5 when the review flow added a "Review" step.
+            _reviewed_done = (
+                bool(getattr(project, "stock_footage_enabled", False))
+                and not bool(getattr(project, "is_bulk", False))
+                and (getattr(project, "template", "") or "").strip().lower()
+                in STOCK_FOOTAGE_TEMPLATES
+            )
+            _pipeline_progress[project_id]["step"] = 5 if _reviewed_done else 4
             _pipeline_progress[project_id]["running"] = False
             _pipelines_succeeded.add(1, attributes=attributes)
             span.set_status(Status(StatusCode.OK))

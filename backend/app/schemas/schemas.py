@@ -394,6 +394,7 @@ class ProjectOut(BaseModel):
     bgm_volume: float = 0.10
     bgm_track_url: Optional[str] = None
     stock_footage_enabled: bool = False
+    is_bulk: bool = False
     captions_enabled: bool = False
     caption_position: str = "bottom_center"
     caption_font_family: str = "inter"
