@@ -1,4 +1,5 @@
 import React from "react";
+import { NewspaperClip } from "../components/NewspaperClip";
 import { AbsoluteFill, interpolate, useCurrentFrame, Img, useVideoConfig, staticFile } from "remotion";
 import { NewsBackground } from "../NewsBackground";
 import type { BlogLayoutProps } from "../types";
@@ -18,6 +19,10 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
   stats,imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
@@ -60,7 +65,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
   const dropChar = narration[0] ?? "";
 
   // --- Custom Logic for User Instructions ---
-  const isLandscapeWithImage = !p && imageUrl;
+  const isLandscapeWithImage = !p && (imageUrl || videoUrl);
 
   const narrationSize = descriptionFontSize ?? (p ? 35 : 30);
   const baseForStats = descriptionFontSize ?? (p ? 35 : 30);
@@ -70,7 +75,11 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
   let actualTitleMarginBottom: string | number;
   let bodyContentAreaMarginTop: string | number = 0;
 
-  if (p && !imageUrl) {
+  // A clip fills the same visual slot as a still, so it must not trigger
+  // the no-image layout variant.
+  const hasVisual = Boolean(imageUrl || videoUrl);
+
+  if (p && !hasVisual) {
     // Portrait mode, NO image: Narration at top, stats in middle
     actualTitleMarginBottom = 40; // More space below title for narration
     bodyContentAreaMarginTop = 0; // Narration starts high in the body area
@@ -82,8 +91,8 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
     bodyContentAreaMarginTop = 0;
   }
 
-  const bodyContentAreaFlexDirection = (p && !imageUrl) ? "column" : (p ? "column-reverse" : "row");
-  const bodyContentAreaJustifyContent = (p && !imageUrl) ? "flex-start" : (p ? "flex-start" : "space-between");
+  const bodyContentAreaFlexDirection = (p && !hasVisual) ? "column" : (p ? "column-reverse" : "row");
+  const bodyContentAreaJustifyContent = (p && !hasVisual) ? "flex-start" : (p ? "flex-start" : "space-between");
 
   const narrationWidth = p ? "100%" : "52%";
 
@@ -99,7 +108,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
     alignSelf: p ? "center" : "center", // Horizontal centering for portrait; default for landscape
   };
 
-  if (p && !imageUrl) {
+  if (p && !hasVisual) {
     // Portrait, NO image: Stats in middle, no left border, top border instead, centered
     statsContainerStyles.borderLeft = "none";
     statsContainerStyles.borderTop = `8px solid ${accentColor}`;
@@ -140,7 +149,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
         <img src={staticFile("vintage-news.avif")} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.4, filter: "grayscale(75%) contrast(1.08)", zIndex: 1 }} />
 
         {/* --- DYNAMIC IMAGE PLACEMENT --- */}
-        {imageUrl && (
+        {hasVisual && (
           <div
             style={{
               position: "absolute",
@@ -162,6 +171,19 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
             }}
           >
             <div style={{ width: "100%", height: "100%", overflow: "hidden" }}>
+              {videoUrl ? (
+                <NewspaperClip
+                  src={videoUrl}
+                  imageObjectPosition={imageObjectPosition}
+                  imageZoom={imageZoom}
+                  muted={videoMuted ?? true}
+                  volume={videoVolume ?? 0.35}
+                  durationInFrames={videoDurationInFrames}
+                  style={{
+                filter: "grayscale(0.7) contrast(1.1)",
+                  }}
+                />
+              ) : imageUrl ? (
               <Img
                 src={imageUrl}
                 style={{
@@ -174,6 +196,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
                   filter: "grayscale(0.7) contrast(1.1)",
                 }}
               />
+              ) : null}
             </div>
           </div>
         )}
@@ -222,7 +245,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
             }}
           >
             {/* Conditional ordering based on `p` and `imageUrl` */}
-            {p && !imageUrl ? ( // Portrait, NO image: Narration then Stats
+            {p && !hasVisual ? ( // Portrait, NO image: Narration then Stats
               <>
                 {/* NARRATION TEXT (First in column) */}
                 <div style={{ width: narrationWidth, marginBottom: 50 /* give some space */ }}>

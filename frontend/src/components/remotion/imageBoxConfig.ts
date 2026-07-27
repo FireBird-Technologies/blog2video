@@ -513,10 +513,12 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
   },
 
   // Polaroid expert photo: left 45% column landscape / top 38% band portrait
-  // (see ExpertProfile.tsx — image card with 6% side margins in portrait).
+  // (see ExpertProfile.tsx). Landscape: 45%-wide column, side padding 6%/4%
+  // (% is width-relative) → card ~448px wide; flex:1 fills the column minus the
+  // credit line → ~76% canvas height. Portrait: top 38% band with 6% margins.
   expert_profile: {
-    landscape: { w: 0.38, h: 0.58 }, // ~45% col polaroid card
-    portrait:  { w: 0.88, h: 0.38 }, // top 38% with 6% side margin
+    landscape: { w: 0.42, h: 0.76 }, // widened preview box for the left-column polaroid card
+    portrait:  { w: 0.88, h: 0.38 }, // top 38% with 6% side margin → 634 × 486
   },
 
   // ─────────────────────────────────────────────────────────────────────────

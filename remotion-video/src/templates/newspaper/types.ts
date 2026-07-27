@@ -43,6 +43,20 @@ export interface BlogLayoutProps {
   imageObjectPosition?: string;
   imageZoom?: number;
 
+  /**
+   * Stock footage. When `videoUrl` is set it REPLACES `imageUrl` in the same
+   * visual slot — a scene never shows both. Framing reuses imageObjectPosition
+   * + imageZoom, so the Adjust-framing UI works on clips unchanged.
+   *
+   * Declared on the shared BlogLayoutProps: Newscast's own layout types extend
+   * this interface, so both templates read the same contract.
+   */
+  videoUrl?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  /** Clip length in frames, for <Loop>. Absent = play once. */
+  videoDurationInFrames?: number;
+
   /** Project-level font override; when set, used for all text in the layout. */
   fontFamily?: string;
 
