@@ -7,8 +7,8 @@ import Seo from "../components/seo/Seo";
 
 const BlogDemoPlayer = lazy(() => import("../help/BlogDemoPlayer"));
 import {
-  blogPosts,
   getBlogPost,
+  getRelatedBlogPosts,
   getStructuredInternalLinks,
   siteUrl,
 } from "../content/siteContent";
@@ -45,9 +45,7 @@ export default function BlogPostPage() {
   if (!post) return <NotFoundPage />;
 
   const relatedLinks = getStructuredInternalLinks(post.relatedPaths);
-  const morePosts = blogPosts
-    .filter((entry) => entry.slug !== post.slug)
-    .slice(0, 3);
+  const morePosts = getRelatedBlogPosts(post, 4);
 
   return (
     <div className="min-h-screen bg-white text-gray-900">
@@ -329,7 +327,7 @@ export default function BlogPostPage() {
 
             <div className="rounded-2xl border border-gray-200 bg-white p-6">
               <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-purple-600">
-                More Articles
+                Related Articles
               </p>
               <div className="space-y-4">
                 {morePosts.map((entry) => (
