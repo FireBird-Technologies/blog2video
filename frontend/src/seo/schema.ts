@@ -1,4 +1,5 @@
 import {
+  brandSameAs,
   defaultOgImage,
   organizationName,
   siteName,
@@ -56,38 +57,48 @@ function faqSchema(
 }
 
 export function homepageSchema() {
+  const organizationId = `${siteUrl}/#organization`;
+  const websiteId = `${siteUrl}/#website`;
   return [
     {
       "@context": "https://schema.org",
       "@type": "Organization",
-      name: organizationName,
+      "@id": organizationId,
+      name: siteName,
+      alternateName: "Blog 2 Video",
+      legalName: organizationName,
       url: siteUrl,
       logo: `${siteUrl}/Logo-Firebird.webp`,
+      sameAs: brandSameAs,
+      parentOrganization: {
+        "@type": "Organization",
+        name: organizationName,
+      },
     },
     {
       "@context": "https://schema.org",
       "@type": "WebSite",
+      "@id": websiteId,
       name: siteName,
+      alternateName: "Blog 2 Video",
       url: siteUrl,
+      publisher: { "@id": organizationId },
+      sameAs: brandSameAs,
     },
     {
       "@context": "https://schema.org",
       "@type": "SoftwareApplication",
+      "@id": `${siteUrl}/#software`,
       name: siteName,
       applicationCategory: "BusinessApplication",
       operatingSystem: "Web",
       url: siteUrl,
       image: defaultOgImage,
+      sameAs: brandSameAs,
       description:
         "Turn blog posts, articles, PDFs, and documents into structured narrated videos.",
-      brand: {
-        "@type": "Organization",
-        name: organizationName,
-      },
-      publisher: {
-        "@type": "Organization",
-        name: organizationName,
-      },
+      brand: { "@id": organizationId },
+      publisher: { "@id": organizationId },
     },
   ];
 }
