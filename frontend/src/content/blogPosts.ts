@@ -17,6 +17,285 @@ function faq(primary: string, variant: string) {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "how-much-is-my-substack-newsletter-worth",
+    title: "How Much Is My Substack Worth? The Valuation Formula, Explained",
+    description:
+      "Paid newsletters sell for roughly 2x to 5x annual revenue. Here is what moves you inside that range — churn, audience geography, niche, scale, and growth — and how to estimate your own number.",
+    category: "Guide",
+    heroImage: "/blog/blog-cover-how-much-is-my-substack-newsletter-worth.png",
+    heroImageAlt:
+      "Paid newsletters sell for roughly 2x to 5x annual revenue. Here is what moves you inside that range — churn, audience geography, niche, scale, and growth — and how to estimate your own number.",
+    publishedAt: "2026-07-28",
+    readTime: "9 min read",
+    heroEyebrow: "Guide",
+    heroTitle: "How Much Is My Substack Worth? The Valuation Formula, Explained",
+    heroDescription:
+      "Paid newsletters sell for roughly 2x to 5x annual revenue. Here is what moves you inside that range — churn, audience geography, niche, scale, and growth — and how to estimate your own number.",
+    primaryKeyword: "how much is my substack worth",
+    keywordVariant: "substack newsletter valuation",
+    relatedPaths: [
+      "/tools/substack-valuation-calculator",
+      "/tools/substack-revenue-calculator",
+      "/blogs/newsletter-valuation-multiples-explained",
+      "/for-substack-writers/blog-to-video",
+    ],
+    sections: [
+      {
+        heading: "The short answer",
+        paragraphs: [
+          "A paid Substack newsletter is typically worth 2x to 5x its annual revenue. A publication earning $100,000 a year usually sells somewhere between $200,000 and $500,000. Where you land inside that range is decided mostly by churn, then by growth rate, audience quality, and how much the publication depends on you personally.",
+          "That is the whole formula in one sentence. The rest of this piece is about the second half of it — because the gap between 2x and 5x is the difference between $200,000 and $500,000 on the same revenue, and that gap is where all the real money is.",
+        ],
+      },
+      {
+        heading: "Why revenue multiples, and not subscriber counts",
+        paragraphs: [
+          "Writers tend to think in subscribers. Buyers think in revenue. A 100,000-subscriber free list with no paid tier is worth far less than a 900-subscriber paid list at $15 a month, because only one of them has proven that people will pay.",
+          "This is why per-subscriber rules of thumb are misleading. The number that matters is annual recurring revenue, and the multiple applied to it is a judgment about how durable that revenue is. Everything below is really a statement about durability.",
+        ],
+      },
+      {
+        heading: "Churn is the single biggest lever",
+        paragraphs: [
+          "Churn decides how long the revenue a buyer is purchasing actually lasts, which makes it the most heavily weighted input in almost any newsletter valuation.",
+          "The math is unforgiving. At 7% monthly churn, the average subscriber sticks around about 14 months. At 1.5%, they stay about 67 months — nearly five times longer. A buyer purchasing the second business is buying five years of a relationship; a buyer purchasing the first is buying just over one. They will not pay the same multiple, and they should not.",
+          "If you are planning to sell in the next couple of years, cutting churn is worth more than adding subscribers. It compounds into the multiple itself rather than just into this year's revenue line.",
+        ],
+        bullets: [
+          "Below 2% monthly churn: exceptional, and priced as such.",
+          "Around 3% to 4%: normal for a healthy paid newsletter.",
+          "Above 6%: a buyer will discount hard, or walk.",
+        ],
+      },
+      {
+        heading: "Where your readers live changes what they are worth",
+        paragraphs: [
+          "Two newsletters with identical revenue are not identically valuable if one list is concentrated in high-income markets and the other is not.",
+          "This is not about the revenue you have today — a subscriber pays the same USD price wherever they live. It is about what happens next. A high-income list absorbs price increases better, commands higher sponsorship rates, and is less exposed to currency moves and discretionary-spending shocks. Buyers price that forward risk.",
+          "The honest version of this adjustment is a dampened one. Weighting your paid list by GDP per capita against a US benchmark gets you a directional signal, but applying it at full strength would be wrong, since it would discount revenue you are already reliably collecting. Our calculator dampens it heavily for exactly this reason, and lets you turn it down further if you disagree.",
+        ],
+      },
+      {
+        heading: "Niche, priced the way the market already prices it",
+        paragraphs: [
+          "An AI newsletter and a recipe newsletter with the same revenue do not fetch the same multiple. Rather than inventing a ranking of which topics are fashionable, the cleanest approach is to read it off the public markets, which price categories all day long.",
+          "Compare the price-to-sales ratio of the listed sector closest to your topic against the market as a whole. Information technology trades at a large premium to the index; consumer staples and energy trade at a discount. Finance sits modestly above. That relative spread is a reasonable proxy for how much appetite there is for exposure to your category.",
+          "As with geography, the raw spread is far too wide to apply directly — sectors can differ by 8x, and no one thinks a cooking newsletter is worth an eighth of an AI one. Dampen it, and let it tilt the number rather than decide it.",
+        ],
+      },
+      {
+        heading: "Scale and growth: the two things that move the multiple up",
+        paragraphs: [
+          "Larger businesses sell for higher multiples. There is less key-person risk, more institutional buyers able to write the cheque, and more of an actual operation to acquire rather than one person's habit. The effect is roughly logarithmic — each 10x of revenue adds a step, rather than scaling linearly.",
+          "Growth works the same way but faster. A buyer is purchasing next year's revenue, not last year's. A list still compounding at 3% a month is on a very different trajectory from a flat one at the same size, and gets paid for it.",
+          "These are the two factors most within your control on a 12-month horizon, and the two most worth optimising before a conversation with a buyer.",
+        ],
+      },
+      {
+        heading: "What the model cannot see",
+        paragraphs: [
+          "Every valuation model, including ours, is blind to the thing that most often decides a newsletter sale: whether the audience follows the writer or the publication.",
+          "If readers subscribed for your voice, the business does not fully transfer, and sophisticated buyers know it. Publications with a distinct editorial identity, a repeatable format, or multiple contributors survive the handover far better than a one-person column does. This is why some newsletters sell at 5x and structurally identical ones struggle to clear 2x.",
+          "Sponsorship concentration is the other blind spot. Revenue that depends on three advertiser relationships you personally maintain is worth less than the same revenue spread across a thousand subscribers, even though both show up identically in ARR.",
+        ],
+      },
+      {
+        heading: "Estimate your own number",
+        paragraphs: [
+          "We built a calculator that runs this whole model: base revenue multiple, adjusted for audience GDP per capita, sector price-to-sales, churn, scale, and growth — with weight sliders on every factor so you can dial out any adjustment you disagree with.",
+          "It also shows the distribution rather than a single figure, because a valuation is a range and anyone who gives you one number is selling you something.",
+        ],
+        ctaPath: "/tools/substack-valuation-calculator",
+        ctaLabel: "Value your newsletter",
+      },
+    ],
+    faq: [
+      {
+        question: "How much is a Substack newsletter worth?",
+        answer:
+          "Most paid newsletters sell for 2x to 5x annual revenue. A newsletter earning $100,000 a year is typically valued between $200,000 and $500,000, with churn, growth rate, and how transferable the publication is from its founding writer deciding where inside that range it lands.",
+      },
+      {
+        question: "What is the most important factor in a newsletter valuation?",
+        answer:
+          "Churn, because it determines how long the revenue a buyer is purchasing actually lasts. A newsletter at 1.5% monthly churn has an implied subscriber lifetime nearly five times longer than one at 7%, and buyers price that difference aggressively.",
+      },
+      {
+        question: "Can you value a free newsletter with no paid subscribers?",
+        answer:
+          "Only loosely, and at much lower multiples. Without paid conversion there is no proven willingness to pay, so buyers value a free list on sponsorship potential or on a per-subscriber basis that is usually a small fraction of what a paid list commands.",
+      },
+      {
+        question: "Does audience location really affect newsletter value?",
+        answer:
+          "Yes, but less than people assume. A subscriber pays the same USD price wherever they live, so it does not discount current revenue. It affects forward risk: high-income lists absorb price increases better and command higher sponsorship rates, so the adjustment should be applied in a heavily dampened form.",
+      },
+      {
+        question: "How do I increase what my newsletter is worth before selling?",
+        answer:
+          "Cut churn first, since it lifts the multiple rather than just this year's revenue. Then work on growth rate, reduce dependence on any single sponsor, and build editorial identity that is not purely your personal voice so the audience transfers to a buyer.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How Much Is My Substack Worth? The Valuation Formula, Explained",
+        angle:
+          "Answer the head question directly in the first paragraph, then break down the five factors that decide where inside the 2x-5x range a newsletter lands. Drive to the valuation calculator.",
+      },
+      {
+        channel: "twitter",
+        title: "Your newsletter is worth 2-5x annual revenue. Here is what decides which.",
+        angle:
+          "Thread on the churn math: 7% monthly churn is a 14-month subscriber lifetime, 1.5% is 67 months. Same revenue, wildly different price. Link the calculator.",
+      },
+      {
+        channel: "video",
+        title: "What is your Substack actually worth?",
+        angle:
+          "Narrated explainer walking through the valuation bridge — base multiple, then each adjustment moving the number up or down. Link back to /tools/substack-valuation-calculator.",
+      },
+    ],
+  },
+  {
+    slug: "newsletter-valuation-multiples-explained",
+    title: "Newsletter Valuation Multiples: Why Two Publications With the Same Revenue Sell for Different Prices",
+    description:
+      "Same ARR, very different price. A breakdown of the adjustments buyers actually apply to a newsletter revenue multiple — and how to work out which ones are costing you.",
+    category: "Guide",
+    heroImage: "/blog/blog-cover-newsletter-valuation-multiples-explained.png",
+    heroImageAlt:
+      "Same ARR, very different price. A breakdown of the adjustments buyers actually apply to a newsletter revenue multiple — and how to work out which ones are costing you.",
+    publishedAt: "2026-07-28",
+    readTime: "8 min read",
+    heroEyebrow: "Guide",
+    heroTitle: "Why Two Newsletters With the Same Revenue Sell for Different Prices",
+    heroDescription:
+      "Same ARR, very different price. A breakdown of the adjustments buyers actually apply to a newsletter revenue multiple — and how to work out which ones are costing you.",
+    primaryKeyword: "newsletter valuation multiple",
+    keywordVariant: "what multiple do newsletters sell for",
+    relatedPaths: [
+      "/tools/substack-valuation-calculator",
+      "/blogs/how-much-is-my-substack-newsletter-worth",
+      "/tools/substack-revenue-calculator",
+      "/for-newsletters/url-to-video",
+    ],
+    sections: [
+      {
+        heading: "The short answer",
+        paragraphs: [
+          "Newsletters sell on a multiple of annual revenue, usually between 2x and 5x. Two publications with identical revenue get different multiples because a multiple is not a price for revenue — it is a price for how long that revenue will keep arriving after the founder leaves.",
+          "Everything a buyer adjusts for is a proxy for that one question.",
+        ],
+      },
+      {
+        heading: "Start with the anchor, then adjust",
+        paragraphs: [
+          "The workable way to think about this is a base multiple with adjustments stacked on top. Anchor around 3.2x annual revenue — roughly the midpoint of observed small subscription-media deals — and then move it.",
+          "Each adjustment is a multiplier centred on 1.0. Something that makes the business more durable pushes above 1.0; something that makes it riskier pulls below. Multiply them together and you have your multiple. The value of framing it this way is that you can see which single factor is costing you the most, instead of staring at one opaque number.",
+        ],
+      },
+      {
+        heading: "Adjustment 1: retention",
+        paragraphs: [
+          "The largest adjustment, and the one most worth fixing. Monthly churn converts directly into implied subscriber lifetime: divide 100 by your monthly churn percentage to get the number of months an average subscriber stays.",
+          "Benchmark against roughly 3.5% monthly churn for a healthy paid newsletter. Beating it moves you up; missing it moves you down. Note that this adjustment should be dampened rather than applied at full strength — a newsletter with half the benchmark churn is not worth double, because other risks do not disappear just because retention is strong.",
+        ],
+      },
+      {
+        heading: "Adjustment 2: growth",
+        paragraphs: [
+          "A buyer is purchasing forward revenue. At 3% monthly growth a list compounds roughly 43% a year; at 0.5% it manages about 6%. Over a three-year ownership period those two businesses diverge enormously, and the multiple reflects it.",
+          "Growth is also the fastest adjustment to move deliberately. Retention improvements take a year to show up in the data. A visible growth trend can be established in a quarter.",
+        ],
+      },
+      {
+        heading: "Adjustment 3: scale",
+        paragraphs: [
+          "Bigger businesses get better multiples. A $40,000-a-year newsletter and a $2,000,000-a-year one do not sell at the same ratio even with identical metrics, because the larger one has less key-person risk, more buyers able to transact, and something resembling an operation rather than a habit.",
+          "Treat this logarithmically. Each 10x of revenue adds a comparable step to the multiple rather than a proportional one. Around $250,000 ARR the adjustment is roughly neutral; well below that you are taking a discount, and well above it you are earning a premium.",
+        ],
+      },
+      {
+        heading: "Adjustment 4: category",
+        paragraphs: [
+          "Not all topics carry the same appetite. Rather than guessing, take the reading the public markets already publish: compare the price-to-sales ratio of the sector closest to your topic against the index.",
+          "Technology and AI-adjacent categories trade at a substantial premium to the market. Finance sits modestly above it. Media, consumer, food, and energy sit below. That relative position is a fair proxy for how much a buyer wants exposure to your category — but the raw spread between sectors is far too wide to apply literally, so dampen it into a tilt rather than a verdict.",
+        ],
+      },
+      {
+        heading: "Adjustment 5: audience quality",
+        paragraphs: [
+          "The last adjustment is who your readers are. Weighting your paid list by the GDP per capita of the countries they live in, benchmarked against the United States, gives a rough measure of forward pricing power.",
+          "Apply this one gently. It does not discount the revenue you already collect — everyone pays the same list price. It captures the difference in how much room you have to raise prices, what sponsors will pay to reach the list, and how exposed the revenue is to a downturn in any one market.",
+        ],
+      },
+      {
+        heading: "Revenue mix: the quiet discount",
+        paragraphs: [
+          "Two newsletters at $200,000 ARR are not equivalent if one is entirely subscriptions and the other is half sponsorship.",
+          "Sponsorship revenue is lumpier, less contractual, and often tied to relationships the founder personally holds. It does not vanish in a sale, but it widens the range of outcomes considerably — which in practice means a more cautious buyer and a lower offer. If a large share of your revenue is sponsorship, expect the negotiation to focus there.",
+        ],
+      },
+      {
+        heading: "Run it on your own numbers",
+        paragraphs: [
+          "Our valuation calculator applies exactly this stack — base multiple, then retention, growth, scale, category, and audience adjustments — and shows a bridge chart of how each one moves the number, plus the full distribution of outcomes rather than a single figure.",
+          "Every adjustment has a weight slider, so if you think one of them is wrong for your publication, turn it down and see what happens.",
+        ],
+        ctaPath: "/tools/substack-valuation-calculator",
+        ctaLabel: "Run your valuation",
+      },
+    ],
+    faq: [
+      {
+        question: "What multiple do newsletters sell for?",
+        answer:
+          "Typically 2x to 5x annual revenue, anchored around 3x for a healthy paid newsletter. Multiples above 4x usually require strong retention, visible growth, and meaningful scale. Below 2x generally signals high churn, heavy founder dependence, or concentrated sponsorship revenue.",
+      },
+      {
+        question: "Why do two newsletters with the same revenue sell for different prices?",
+        answer:
+          "Because a multiple prices durability, not revenue. Churn, growth rate, size, category, audience geography, and revenue mix all change how likely that revenue is to keep arriving after the founder leaves, and each one adjusts the multiple up or down.",
+      },
+      {
+        question: "Is sponsorship revenue valued the same as subscription revenue?",
+        answer:
+          "No. Sponsorship revenue is lumpier, rarely contractual beyond a few months, and often tied to relationships the founder holds personally. It counts toward ARR but widens the uncertainty in a valuation, which in practice produces a more cautious offer.",
+      },
+      {
+        question: "How is the category adjustment calculated?",
+        answer:
+          "By comparing the price-to-sales ratio of the listed sector closest to your topic against the wider market. Technology trades at a premium, consumer staples and energy at a discount. The raw spread is too wide to apply literally, so it is dampened into a tilt on the multiple.",
+      },
+      {
+        question: "What is the fastest way to improve my newsletter's multiple?",
+        answer:
+          "Establish a visible growth trend, which can be done in a quarter, then attack churn, which takes longer but moves the multiple more. Reducing dependence on any single sponsor and building editorial identity beyond your personal voice both help on a longer horizon.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Why Two Newsletters With the Same Revenue Sell for Different Prices",
+        angle:
+          "Break the newsletter valuation multiple into a base anchor plus five named adjustments, so readers can identify which one is costing them. Drive to the valuation calculator.",
+      },
+      {
+        channel: "twitter",
+        title: "Same ARR, half the price. Here is why.",
+        angle:
+          "Thread walking through the five adjustments buyers apply to a newsletter multiple, with the retention math as the hook. Link the calculator.",
+      },
+      {
+        channel: "video",
+        title: "The five adjustments that decide your newsletter's multiple",
+        angle:
+          "Narrated breakdown using the bridge chart to show each adjustment moving the valuation. Link back to /blogs/newsletter-valuation-multiples-explained.",
+      },
+    ],
+  },
+  {
     slug: "blog2video-official-site-vs-copycats",
     title: "Blog2Video: the Only Official Site, and the Copycats Using Our Name",
     description:

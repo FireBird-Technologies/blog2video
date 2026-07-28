@@ -126,6 +126,102 @@ export const tools: ToolDefinition[] = [
     ],
   },
   {
+    slug: "substack-valuation-calculator",
+    path: "/tools/substack-valuation-calculator",
+    title: "Substack Valuation Calculator",
+    description:
+      "Estimate what a paid newsletter is worth using a revenue multiple adjusted for audience GDP per capita, sector price-to-sales, churn, scale, and growth.",
+    eyebrow: "Calculator",
+    heroTitle: "Find out what your Substack is actually worth.",
+    heroDescription:
+      "A paid newsletter is typically valued at 2x to 5x annual revenue. This calculator starts there, then adjusts the multiple for where your readers live, how your niche is priced in public markets, your churn, your size, and your growth rate — and shows the full range of outcomes, not one flattering number.",
+    category: "calculator",
+    icon: "SV",
+    primaryKeyword: "substack valuation calculator",
+    keywordVariant: "how much is my newsletter worth",
+    badges: ["Revenue multiple", "GDP-adjusted subscribers", "Churn and growth weighted"],
+    proofPoints: [
+      "Adjusts subscriber value by audience GDP per capita instead of treating every reader as a US reader.",
+      "Prices your niche off the listed sector's price-to-sales ratio against the wider market.",
+      "Shows a P10 to P90 distribution and a factor-by-factor bridge, so the number is auditable.",
+    ],
+    sections: [
+      {
+        title: "How this calculator values a newsletter",
+        body: [
+          "Subscription media is bought and sold on a multiple of revenue. Small paid newsletters generally trade somewhere between 2x and 5x annual revenue, so this model anchors on 3.2x and then moves that multiple up or down based on five things a buyer actually cares about.",
+          "Each adjustment is a multiplier centred on 1.0, and each one is shown separately in the results. Nothing is hidden inside a single black-box figure — if the model says your valuation is 18% lower because of churn, you can see exactly that line and decide whether you agree.",
+        ],
+        bullets: [
+          "Geography: your paid list weighted by GDP per capita, against the US benchmark.",
+          "Niche: the listed sector closest to your topic, priced on sales versus the market.",
+          "Retention: your monthly churn expressed as an implied subscriber lifetime.",
+          "Scale: the size premium that larger revenue bases attract from buyers.",
+          "Growth: what a still-compounding list is worth over a flat one.",
+        ],
+      },
+      {
+        title: "Why audience geography changes the number",
+        body: [
+          "Two newsletters with identical revenue are not identically valuable. A list concentrated in high-income markets converts better on price increases, sells sponsorships at higher rates, and carries lower risk of revenue falling away when a currency moves.",
+          "The model weights each country in your paid list by its GDP per capita and compares the blend against the United States. That raw ratio is then heavily dampened, because a subscriber in a lower-GDP country still pays the same USD list price once they subscribe. GDP shifts the odds they subscribe and the price you can charge over time — it does not linearly discount the revenue you already have.",
+        ],
+      },
+      {
+        title: "Why the niche multiplier comes from the stock market",
+        body: [
+          "Public markets already do the work of pricing categories. An AI newsletter and a cooking newsletter are not worth the same multiple, and rather than inventing a ranking, the model reads it off how the equivalent listed sector trades on price-to-sales against the S&P 500.",
+          "A finance newsletter is priced against financials, an AI newsletter against information technology, a food newsletter against consumer staples. The raw spread between sectors is wide, so it is dampened before it reaches your multiple — the aim is to tilt the valuation toward market reality, not to let sector rotation swamp everything else about your business.",
+        ],
+      },
+      {
+        title: "Reading the range instead of the point estimate",
+        body: [
+          "The headline number is the middle of a distribution, not a price. The bell curve shows the full spread of plausible outcomes, with the shaded band covering the middle 80%.",
+          "That band widens when your business is small, when churn is high, or when a large share of revenue comes from sponsorships rather than subscriptions — all things that make real buyers less certain and therefore more conservative. If your band is wide, the fastest way to narrow it is usually to fix churn.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "How much is a Substack newsletter worth?",
+        answer:
+          "Most small paid newsletters sell for roughly 2x to 5x annual revenue. A newsletter earning $100,000 a year would typically be valued between $200,000 and $500,000, with the exact multiple driven by churn, growth rate, audience quality, and how transferable the publication is from its founding writer.",
+      },
+      {
+        question: "What is the most important factor in a newsletter valuation?",
+        answer:
+          "Churn. It determines how long the revenue a buyer is purchasing actually lasts. A newsletter with 1.5% monthly churn has an implied subscriber lifetime more than four times longer than one at 7%, and buyers price that difference aggressively.",
+      },
+      {
+        question: "Why does the calculator ask where my subscribers live?",
+        answer:
+          "Because ability to pay varies enormously by market and it affects what your list is worth to a buyer. The calculator weights your paid subscribers by their country's GDP per capita against the US benchmark, then dampens that ratio, since a subscriber anywhere still pays your USD list price once they convert.",
+      },
+      {
+        question: "Does this calculator account for sponsorship revenue?",
+        answer:
+          "Yes, and it treats it differently from subscription revenue. Sponsorship income is included in ARR but widens the uncertainty band, because it is less predictable and less transferable than recurring subscriptions. A newsletter that is mostly sponsorship-funded gets a wider valuation range than one of the same size funded by subscriptions.",
+      },
+      {
+        question: "Can I change how much each factor counts?",
+        answer:
+          "Yes. Every factor has a weight slider from off to double. If you think the niche adjustment is overstated for your publication, turn it down or set it to zero and the model recalculates without it.",
+      },
+      {
+        question: "Is this an official valuation?",
+        answer:
+          "No. It is a planning estimate. Real sales turn on factors no model can see, including whether the audience follows the writer or the publication, sponsor relationships, and how many buyers are genuinely at the table. Use it to set a starting range and to see which inputs move the number most.",
+      },
+    ],
+    relatedPaths: [
+      "/tools/substack-revenue-calculator",
+      "/tools/content-repurposing-calculator",
+      "/for-substack-writers/blog-to-video",
+      "/blogs/how-to-grow-your-substack-newsletter",
+    ],
+  },
+  {
     slug: "substack-revenue-calculator",
     path: "/tools/substack-revenue-calculator",
     title: "Substack Revenue Calculator",
