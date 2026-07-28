@@ -1291,6 +1291,11 @@ export interface PipelineStatus {
     effective_video_length?: string;
     video_style?: string;
   } | null;
+  stock_footage?: {
+    current: number;
+    total: number;
+    scene_id: number;
+  } | null;
   studio_port: number | null;
 }
 
@@ -1592,6 +1597,11 @@ export interface PendingFootageScene {
     duration_seconds: number | null;
     author: string | null;
     provider: string | null;
+  } | null;
+  /** Scraped still used when auto stock search found no clip for this scene. */
+  fallback_image?: {
+    filename: string;
+    url: string;
   } | null;
 }
 

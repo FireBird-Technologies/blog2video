@@ -77,6 +77,7 @@ import { StockFootageModal, STOCK_FOOTAGE_CREDIT_COST } from "../components/Stoc
 import { StockFootageVerifyModal } from "../components/StockFootageVerifyModal";
 import { ImageAdjustStage } from "../components/ImageAdjustStage";
 import { TrimmedClipVideo } from "../utils/trimmedClipPlayback";
+import { isStockClipAdjustSource } from "../utils/stockClipMedia";
 import SceneEditModal, {
   SceneImageItem,
   resolveDefaultFontSizesForScene,
@@ -1795,6 +1796,20 @@ export default function ProjectView() {
     [projectId, showError],
   );
 
+  /** Render failed — warn the user, then reload once they dismiss the modal so
+   *  project.status and the stuck "Rendering" badge sync with the server. */
+  const showRenderFailureError = useCallback(
+    (message: string) => {
+      showError(message, {
+        variant: "warning",
+        onClose: () => {
+          window.location.reload();
+        },
+      });
+    },
+    [showError],
+  );
+
   // ─── Collaboration: apply a peer's live edit into local state ──
   const handleRemoteCollabEdit = useCallback((edit: CollabEdit) => {
     setProject((prev) => {
@@ -2256,6 +2271,27 @@ export default function ProjectView() {
       );
       if (needsGeneration) {
         generationStarted.current = true;
+        // Do not call /generate again if a pipeline is already running on the
+        // server (e.g. user refreshed mid stock-footage prep). Restarting would
+        // re-pick clips for every scene from scratch.
+        try {
+          const st = await getPipelineStatus(projectId);
+          const d = st.data;
+          if (d.status === "awaiting_footage") {
+            generationStarted.current = true;
+            setAwaitingFootage(true);
+            return;
+          }
+          if (d.running) {
+            setPipelineRunning(true);
+            setPipelineStep(d.step ?? 0);
+            setHasError(false);
+            startPolling();
+            return;
+          }
+        } catch {
+          // fall through to kickOffGeneration
+        }
         kickOffGeneration();
       }
     };
@@ -2296,6 +2332,15 @@ export default function ProjectView() {
             : null;
 
         setPipelineStep(step);
+
+        // Footage gate: trust DB status even when in-memory running is stale.
+        if (status === "awaiting_footage") {
+          setPipelineRunning(false);
+          stopPolling();
+          setAwaitingFootage(true);
+          await loadProject({ silent404: true });
+          return;
+        }
 
         // Terminal generation failure (scrape/script/scene rollback, or tombstone after delete).
         // Treat `status === "failed"` like an error even if `error` is missing briefly — avoids
@@ -2531,7 +2576,13 @@ export default function ProjectView() {
         }
         // If this is a retry, keep going; otherwise show error
         if (renderRetryCountRef.current >= MAX_RENDER_RETRIES) {
-          showError(getErrorMessage(err, "Render failed after multiple attempts. Please try again, or contact support, if the issue persist.")); setHasError(true);
+          showRenderFailureError(
+            getErrorMessage(
+              err,
+              "Render failed after multiple attempts. Please try again, or contact support, if the issue persist.",
+            ),
+          );
+          setHasError(true);
           setRendering(false);
           return;
         }
@@ -2745,7 +2796,7 @@ export default function ProjectView() {
               setHasError(false);
               return;
             }
-            showError(msg);
+            showRenderFailureError(msg);
             setHasError(true);
             setRendering(false);
             stopRenderPolling();
@@ -2805,7 +2856,7 @@ export default function ProjectView() {
       poll(); // immediate first poll
       schedule();
     },
-    [projectId]
+    [projectId, showRenderFailureError]
   );
 
   // Resume render progress after refresh/navigation when the project is still rendering
@@ -7386,7 +7437,26 @@ export default function ProjectView() {
                         <div className="p-4 sm:p-5">
                         <ImageAdjustStage
                           src={imageAdjustSrc}
-                          isVideo={/\.mp4(\?|$)/i.test(imageAdjustSrc)}
+                          isVideo={(() => {
+                            const s = project.scenes.find((sc) => sc.id === imageAdjustSceneId);
+                            let assignedVideo: string | undefined;
+                            try {
+                              assignedVideo = s?.remotion_code
+                                ? (JSON.parse(s.remotion_code) as { layoutProps?: { assignedVideo?: string } })
+                                    .layoutProps?.assignedVideo
+                                : undefined;
+                            } catch { /* ignore */ }
+                            const asset = assignedVideo
+                              ? project.assets.find(
+                                  (a) => a.asset_type === "video" && a.filename === assignedVideo && !a.excluded,
+                                )
+                              : undefined;
+                            return isStockClipAdjustSource({
+                              assignedVideoFilename: assignedVideo,
+                              assetType: asset?.asset_type,
+                              src: imageAdjustSrc,
+                            });
+                          })()}
                           focusX={imageAdjustFocusX}
                           focusY={imageAdjustFocusY}
                           zoom={imageAdjustZoom}

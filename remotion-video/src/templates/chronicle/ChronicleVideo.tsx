@@ -16,6 +16,7 @@ import { LogoOverlay } from "../../components/LogoOverlay";
 import { BackgroundMusic } from "../../components/BackgroundMusic";
 import { CaptionTrack } from "../../components/CaptionTrack";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
+import { SceneDurationInFramesContext } from "../SceneDurationContext";
 import { ChronicleChrome } from "./components/ChronicleChrome";
 import { pickChronicleTransition } from "./transitions";
 
@@ -33,6 +34,11 @@ interface SceneData {
   speechDurationSeconds?: number;
   voiceoverFile: string | null;
   images: string[];
+  video?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  videoDurationSeconds?: number;
+  videoStartSeconds?: number;
 }
 
 interface VideoData {
@@ -253,10 +259,17 @@ export const ChronicleVideo: React.FC<VideoProps> = ({ dataUrl }) => {
     >
       <TransitionSeries>
         {resolvedScenes.map((s, index) => {
-          const { scene, layoutKey, sequenceFrames } = s;
+          const { scene, layoutKey, sequenceFrames, durationFrames } = s;
           const LayoutComponent = CHRONICLE_LAYOUT_REGISTRY[layoutKey];
           const imageUrl =
             scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
+          const videoUrl = scene.video ? staticFile(scene.video) : undefined;
+          const videoDurationInFrames = scene.videoDurationSeconds
+            ? Math.max(1, Math.round(scene.videoDurationSeconds * FPS))
+            : undefined;
+          const videoStartInFrames = scene.videoStartSeconds
+            ? Math.max(0, Math.round(scene.videoStartSeconds * FPS))
+            : undefined;
 
           const rawProps = (scene.layoutProps ?? {}) as Record<string, unknown>;
           const focusX = Math.max(0, Math.min(100, Number(rawProps.imageFocusX ?? 50)));
@@ -271,6 +284,11 @@ export const ChronicleVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             textColor: data.textColor || "#2A1810",
             aspectRatio: (data.aspectRatio as "landscape" | "portrait") || "landscape",
             imageUrl,
+            videoUrl,
+            videoMuted: scene.videoMuted ?? true,
+            videoVolume: scene.videoVolume ?? 0.35,
+            videoDurationInFrames,
+            videoStartInFrames,
             imageObjectPosition: `${focusX}% ${focusY}%`,
             imageZoom: Math.max(0.1, Number(rawProps.imageZoom ?? 1)),
             fontFamily: resolvedFontFamily || undefined,
@@ -291,7 +309,9 @@ export const ChronicleVideo: React.FC<VideoProps> = ({ dataUrl }) => {
                 disablePageTurn={skipFade}
                 showScripture={showScripture}
               >
-                <LayoutComponent {...layoutProps} />
+                <SceneDurationInFramesContext.Provider value={durationFrames}>
+                  <LayoutComponent {...layoutProps} />
+                </SceneDurationInFramesContext.Provider>
               </ChronicleChrome>
             </TransitionSeries.Sequence>
           );

@@ -43,7 +43,11 @@ MAX_HEIGHT = 1080
 # through Newscast only). Lives here rather than in a router so both the editor
 # endpoints and the generation pipeline can gate on it without importing each
 # other. Widen this — and the frontend gates — to roll the feature out.
-STOCK_FOOTAGE_TEMPLATES = {"newscast", "newspaper", "nightfall", "blackswan", "sakura"}
+STOCK_FOOTAGE_TEMPLATES = {
+    "newscast", "newspaper", "nightfall", "blackswan", "sakura",
+    "stickman_2", "stickman_football", "whiteboard", "economist",
+    "gridcraft", "chronicle", "magazine",
+}
 
 # Hard ceiling on what we will pull from a provider. Generous enough for a 30 s
 # 1080p clip, tight enough that a pathological URL cannot fill the disk.
@@ -51,9 +55,14 @@ MAX_DOWNLOAD_BYTES = 60 * 1024 * 1024
 
 # Search result caps, applied centrally in search() so every caller/provider
 # obeys them. Clips loop to the scene duration, so a long source buys nothing but
-# a bigger download; longer than this is dropped from the grid entirely.
-MAX_SEARCH_RESULTS = 12
+# a bigger download; longer than this is excluded via provider API params.
+MAX_SEARCH_RESULTS = 6
 MAX_CLIP_DURATION_SECONDS = 12.0
+DEFAULT_SEARCH_PER_PAGE = 6
+AUTO_SEARCH_PER_PAGE = 1
+# Pexels ``size=medium`` = Full HD catalog floor; prefer these heights when
+# picking a ``video_files`` rendition for download/preview.
+PREFERRED_RENDITION_HEIGHTS = (720, 1080, 540, 360)
 
 _SEARCH_TIMEOUT = 12
 _DOWNLOAD_TIMEOUT = 120
@@ -120,6 +129,10 @@ def _pick_rendition(
         return min(files, key=lambda f: f.get("height") or 0)
 
     if not box_w or not box_h or box_w <= 0 or box_h <= 0:
+        for height in PREFERRED_RENDITION_HEIGHTS:
+            matches = [f for f in under if (f.get("height") or 0) == height]
+            if matches:
+                return matches[0]
         return max(under, key=lambda f: f.get("height") or 0)
 
     covering = [
@@ -144,7 +157,13 @@ def _pexels_search(
     if not settings.PEXELS_API_KEY:
         return []
 
-    params: dict[str, Any] = {"query": query, "per_page": per_page, "page": page}
+    params: dict[str, Any] = {
+        "query": query,
+        "per_page": per_page,
+        "page": page,
+        "max_duration": int(MAX_CLIP_DURATION_SECONDS),
+        "size": "medium",
+    }
     if orientation in ("landscape", "portrait", "square"):
         params["orientation"] = orientation
 
@@ -198,6 +217,7 @@ def _pixabay_search(query: str, per_page: int, page: int, orientation: str | Non
             "per_page": per_page,
             "page": page,
             "video_type": "all",
+            "max_duration": int(MAX_CLIP_DURATION_SECONDS),
         },
         timeout=_SEARCH_TIMEOUT,
     )
@@ -208,7 +228,7 @@ def _pixabay_search(query: str, per_page: int, page: int, orientation: str | Non
     for hit in payload.get("hits") or []:
         variants = hit.get("videos") or {}
         chosen = None
-        for name in ("large", "medium", "small", "tiny"):
+        for name in ("medium", "small", "large", "tiny"):
             v = variants.get(name) or {}
             if v.get("url"):
                 chosen = v
@@ -282,11 +302,12 @@ def search(
     query: str,
     *,
     provider: str = "all",
-    per_page: int = 24,
+    per_page: int = DEFAULT_SEARCH_PER_PAGE,
     page: int = 1,
     orientation: str | None = None,
     box_w: float | None = None,
     box_h: float | None = None,
+    max_results: int | None = None,
 ) -> list[StockClip]:
     """Search one or both providers, interleave, then rank 30 fps sources first.
 
@@ -302,7 +323,7 @@ def search(
     if not query:
         return []
 
-    per_page = max(1, min(int(per_page or 24), 80))  # Pexels caps per_page at 80
+    per_page = max(1, min(int(per_page or DEFAULT_SEARCH_PER_PAGE), 80))  # Pexels caps per_page at 80
     page = max(1, int(page or 1))
 
     wanted: list[str] = []
@@ -326,16 +347,6 @@ def search(
                 logger.warning("[STOCK] %s search failed for %r", name, query, exc_info=True)
                 results[name] = []
 
-    # Drop clips longer than the ceiling. A clip loops to fill the scene, so a
-    # long source only bloats the download. duration == 0 means the provider did
-    # not report one — keep it rather than guess it is too long.
-    for name in wanted:
-        results[name] = [
-            c
-            for c in results.get(name, [])
-            if not c.duration or c.duration <= MAX_CLIP_DURATION_SECONDS
-        ]
-
     # Interleave so neither provider dominates the top of the grid.
     interleaved: list[StockClip] = []
     lists = [results.get(n, []) for n in wanted]
@@ -349,7 +360,8 @@ def search(
     interleaved.sort(key=lambda c: fps_rank(c.fps))
 
     # Cap the grid regardless of how many each provider returned.
-    return interleaved[:MAX_SEARCH_RESULTS]
+    limit = MAX_SEARCH_RESULTS if max_results is None else max(1, int(max_results))
+    return interleaved[:limit]
 
 
 # ─────────────────────── Download + normalise ─────────────────────
@@ -606,10 +618,11 @@ def pick_top_for_query(
     clips = search(
         query,
         provider="all",
-        per_page=24,
+        per_page=AUTO_SEARCH_PER_PAGE,
         page=1,
         orientation=orientation,
         box_w=box_w,
         box_h=box_h,
+        max_results=1,
     )
     return clips[0] if clips else None

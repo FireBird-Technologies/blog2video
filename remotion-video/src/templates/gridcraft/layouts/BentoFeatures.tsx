@@ -18,6 +18,11 @@ export const BentoFeatures: React.FC<GridcraftLayoutProps> = ({
   highlightIndex = 0,imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   textColor,
   aspectRatio,
   titleFontSize,
@@ -48,7 +53,7 @@ export const BentoFeatures: React.FC<GridcraftLayoutProps> = ({
   // In portrait, each item gets its own row with auto height
   const gridRows = p ? `repeat(${items.length}, auto)` : (items.length === 4 ? "1fr 1fr" : "1fr 1fr");
 
-  const hasImage = !!imageUrl;
+  const hasImage = !!(imageUrl || videoUrl);
   const resolvedFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY;
 
   const imageOpacity = interpolate(frame, [5, 25], [0, 1], { extrapolateRight: "clamp" });
@@ -83,6 +88,11 @@ export const BentoFeatures: React.FC<GridcraftLayoutProps> = ({
         >
           <ZoomCropImg
             src={imageUrl}
+            videoUrl={videoUrl}
+            videoMuted={videoMuted}
+            videoVolume={videoVolume}
+            videoDurationInFrames={videoDurationInFrames}
+            videoStartInFrames={videoStartInFrames}
             imageObjectPosition={imageObjectPosition}
             imageZoom={imageZoom}
           />

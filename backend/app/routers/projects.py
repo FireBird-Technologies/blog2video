@@ -4202,7 +4202,7 @@ def search_stock_footage(
     q: str,
     provider: str = "all",
     page: int = 1,
-    per_page: int = 24,
+    per_page: int = 6,
     box_w: float | None = None,
     box_h: float | None = None,
     user: User = Depends(get_current_user),
@@ -4290,7 +4290,7 @@ async def upload_stock_footage(
     if template not in STOCK_FOOTAGE_TEMPLATES:
         raise HTTPException(
             status_code=400,
-            detail="Stock footage is currently only supported on the Newscast template.",
+            detail="Stock footage is not supported on this template.",
         )
 
     scene = (

@@ -10,6 +10,7 @@ import { LogoOverlay } from "../LogoOverlay";
 import { BackgroundMusic } from "../BackgroundMusic";
 import { CaptionTrack } from "../CaptionTrack";
 import { resolveFontFamily } from "../../../fonts/registry";
+import { SceneDurationInFramesContext } from "../SceneDurationContext";
 
 export interface MagazineSceneInput {
   id: number;
@@ -27,6 +28,11 @@ export interface MagazineSceneInput {
   /** Per-scene background-music volume override (0..1). */
   bgmVolume?: number | null;
   imageUrl?: string;
+  videoUrl?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  videoDurationSeconds?: number;
+  videoStartSeconds?: number;
   voiceoverUrl?: string;
 }
 
@@ -249,6 +255,15 @@ export const MagazineVideoComposition: React.FC<MagazineVideoCompositionProps> =
       title: preferProps && lpTitle ? lpTitle : scene.title,
       narration: preferProps && lpNarr ? lpNarr : scene.narration,
       imageUrl: scene.imageUrl,
+      videoUrl: scene.videoUrl,
+      videoMuted: scene.videoMuted ?? true,
+      videoVolume: scene.videoVolume ?? 0.35,
+      videoDurationInFrames: scene.videoDurationSeconds
+        ? Math.max(1, Math.round(scene.videoDurationSeconds * 30))
+        : undefined,
+      videoStartInFrames: scene.videoStartSeconds
+        ? Math.max(0, Math.round(scene.videoStartSeconds * 30))
+        : undefined,
       imageObjectPosition: `${focusX}% ${focusY}%`,
       imageZoom: Math.max(0.1, Number(rawProps?.imageZoom ?? 1)),
       accentColor: accentColor || "#D71921",
@@ -316,7 +331,9 @@ export const MagazineVideoComposition: React.FC<MagazineVideoCompositionProps> =
           const layoutProps = buildLayoutProps(only.scene, only.layoutKey, only.durationFrames, 0);
           return (
             <Sequence from={0} durationInFrames={only.durationFrames} name={only.scene.title}>
-              <LayoutComponent {...layoutProps} />
+              <SceneDurationInFramesContext.Provider value={only.durationFrames}>
+                <LayoutComponent {...layoutProps} />
+              </SceneDurationInFramesContext.Provider>
               {only.scene.voiceoverUrl && <Audio src={only.scene.voiceoverUrl} />}
             </Sequence>
           );
@@ -355,7 +372,9 @@ export const MagazineVideoComposition: React.FC<MagazineVideoCompositionProps> =
                 key={`seq-${scene.id}-${index}`}
                 durationInFrames={s.durationFrames}
               >
-                <LayoutComponent {...layoutProps} />
+                <SceneDurationInFramesContext.Provider value={s.durationFrames}>
+                  <LayoutComponent {...layoutProps} />
+                </SceneDurationInFramesContext.Provider>
               </TransitionSeries.Sequence>,
             ];
             if (b) {

@@ -97,6 +97,10 @@ router = APIRouter(prefix="/api/projects/{project_id}", tags=["pipeline"])
 # In-memory pipeline progress tracker: project_id -> { step, error }
 _pipeline_progress: dict[int, dict] = {}
 
+# Hard cap per scene: search (12s) + download (120s) + ffmpeg (300s) + R2 upload.
+# Without this, a stuck R2 upload blocks the stock gate indefinitely.
+STOCK_CLIP_ASSIGN_TIMEOUT_SECONDS = 300
+
 _tracer = trace.get_tracer("app.pipeline")
 _meter = get_meter_provider().get_meter("app.pipeline")
 
@@ -369,6 +373,14 @@ async def generate_video(
     if project.status in (ProjectStatus.GENERATED, ProjectStatus.DONE):
         return {"detail": "Already generated", "status": project.status.value}
 
+    # Parked for clip review — client should poll /status or open the review modal.
+    if project.status == ProjectStatus.AWAITING_FOOTAGE:
+        return {
+            "detail": "Awaiting stock footage review",
+            "step": 3,
+            "running": False,
+        }
+
     # Initialize progress
     _pipeline_progress[project_id] = {"step": 0, "running": True, "error": None, "notice": None}
 
@@ -401,6 +413,12 @@ def get_pending_stock_footage(
         .filter(Asset.project_id == project_id, Asset.asset_type == "VIDEO")
         .all()
     }
+    images = {
+        a.filename: a
+        for a in db.query(Asset)
+        .filter(Asset.project_id == project_id, Asset.asset_type == "IMAGE")
+        .all()
+    }
 
     # Same enumeration + per-plan cap the auto-pick uses, so the review list can't
     # drift from what actually got a clip: a free user sees only their one scene.
@@ -418,6 +436,12 @@ def get_pending_stock_footage(
             lp = {}
         fn = lp.get("assignedVideo")
         asset = videos.get(fn) if fn else None
+        fallback_fn = (
+            lp.get("assignedImage")
+            if lp.get("stockFootageImageFallback") and lp.get("assignedImage")
+            else None
+        )
+        fallback_asset = images.get(fallback_fn) if fallback_fn else None
         items.append(
             {
                 "scene_id": s.id,
@@ -435,6 +459,15 @@ def get_pending_stock_footage(
                         "provider": asset.source_provider,
                     }
                     if asset
+                    else None
+                ),
+                "fallback_image": (
+                    {
+                        "filename": fallback_asset.filename,
+                        "url": fallback_asset.r2_url
+                        or f"/media/projects/{project_id}/images/{fallback_asset.filename}",
+                    }
+                    if fallback_asset
                     else None
                 ),
             }
@@ -498,6 +531,7 @@ def link_stock_footage(
     lp = dict(descriptor.get("layoutProps") or {})
     # A clip fills the visual slot: clear any still and un-hide it.
     lp.pop("assignedImage", None)
+    lp.pop("stockFootageImageFallback", None)
     lp["assignedVideo"] = asset.filename
     lp["hideImage"] = False
     lp.setdefault("videoMuted", True)
@@ -580,6 +614,12 @@ def get_pipeline_status(
     running = progress.get("running", False)
     step = progress.get("step", 0)
 
+    # Parked at the footage gate: DB status is authoritative even if in-memory
+    # ``running`` is stale (e.g. lost progress dict on another worker).
+    if project.status == ProjectStatus.AWAITING_FOOTAGE:
+        running = False
+        step = max(step, 3)
+
     # If in-memory progress is lost (e.g. Cloud Run cold start / new container)
     # but the project is still mid-generation, infer the step from project status
     # so the frontend keeps showing the loading screen.
@@ -602,6 +642,7 @@ def get_pipeline_status(
         "error": progress.get("error"),
         "error_code": progress.get("error_code"),
         "notice": progress.get("notice"),
+        "stock_footage": progress.get("stock_footage"),
         "studio_port": project.studio_port,
         "project_removed": progress.get("project_removed", False),
     }
@@ -746,6 +787,18 @@ async def _run_pipeline(project_id: int, user_id: int):
                             "[PIPELINE] project=%s: stock footage preparation failed",
                             project_id, exc_info=True,
                         )
+                        try:
+                            db.rollback()
+                        except Exception:
+                            pass
+                        _release_db_connection(db, project_id=project_id)
+                        project = _reload_project(db, project_id)
+                        if project is None:
+                            return
+                    else:
+                        project = _reload_project(db, project_id)
+                        if project is None:
+                            return
                     # Bulk projects run unattended: clips are auto-picked above and
                     # auto-approved here (stamping approved_at so the gate won't
                     # re-fire), then generation continues straight to step 3. Only
@@ -1018,6 +1071,175 @@ def _image_capable_scenes(project: Project, db: Session) -> list[Scene]:
     return out
 
 
+def _scene_has_assigned_stock_clip(scene: Scene) -> bool:
+    """True when remotion_code already carries an auto- or user-picked stock clip."""
+    if not scene.remotion_code:
+        return False
+    try:
+        lp = (json.loads(scene.remotion_code) or {}).get("layoutProps") or {}
+    except (json.JSONDecodeError, TypeError):
+        return False
+    return bool(lp.get("assignedVideo"))
+
+
+def _scene_stock_footage_prep_done(scene: Scene) -> bool:
+    """True when the stock gate already resolved this scene (clip or image fallback)."""
+    if not scene.remotion_code:
+        return False
+    try:
+        lp = (json.loads(scene.remotion_code) or {}).get("layoutProps") or {}
+    except (json.JSONDecodeError, TypeError):
+        return False
+    if lp.get("assignedVideo"):
+        return True
+    return bool(lp.get("stockFootageImageFallback") and lp.get("assignedImage"))
+
+
+def _pick_fallback_image_for_scene(
+    project: Project,
+    scene: Scene,
+    db: Session,
+    used_generics: set[str],
+) -> str | None:
+    """Pick a scraped/uploaded still when stock search finds no clip."""
+    from app.models.asset import Asset, AssetType
+
+    images = (
+        db.query(Asset)
+        .filter(
+            Asset.project_id == project.id,
+            Asset.asset_type == AssetType.IMAGE,
+            Asset.excluded.is_(False),
+        )
+        .order_by(Asset.id)
+        .all()
+    )
+    if not images:
+        return None
+
+    scene_prefix = re.compile(rf"^scene_{scene.id}_")
+    scene_specific: str | None = None
+    generics: list[str] = []
+    for asset in images:
+        fn = asset.filename
+        if scene_prefix.match(fn):
+            scene_specific = fn
+            break
+
+    if scene_specific:
+        return scene_specific
+
+    other_scene_pattern = re.compile(r"^scene_\d+_")
+    for asset in images:
+        fn = asset.filename
+        if other_scene_pattern.match(fn):
+            continue
+        generics.append(fn)
+
+    if not generics:
+        return images[0].filename
+
+    is_intro = getattr(scene, "scene_type", None) == "intro" or scene.order == 1
+    if is_intro:
+        hero = generics[0]
+        if hero not in used_generics:
+            used_generics.add(hero)
+            return hero
+
+    for fn in generics:
+        if fn not in used_generics:
+            used_generics.add(fn)
+            return fn
+
+    return generics[0]
+
+
+def _persist_scene_image_fallback(
+    scene: Scene,
+    db: Session,
+    image_filename: str,
+    *,
+    project_id: int,
+    query: str,
+) -> bool:
+    try:
+        descriptor = json.loads(scene.remotion_code) if scene.remotion_code else {}
+    except (json.JSONDecodeError, TypeError):
+        descriptor = {}
+    lp = dict(descriptor.get("layoutProps") or {})
+    lp.pop("assignedVideo", None)
+    lp.pop("videoMuted", None)
+    lp.pop("videoVolume", None)
+    lp.pop("videoStartSeconds", None)
+    lp["assignedImage"] = image_filename
+    lp["hideImage"] = False
+    lp["stockFootageImageFallback"] = True
+    lp.setdefault("imageFocusX", 50)
+    lp.setdefault("imageFocusY", 50)
+    descriptor["layoutProps"] = lp
+    scene.remotion_code = json.dumps(descriptor)
+
+    try:
+        db.commit()
+    except Exception:
+        logger.warning(
+            "[PIPELINE] project=%s scene=%s: failed to persist image fallback",
+            project_id,
+            scene.id,
+            exc_info=True,
+        )
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        return False
+
+    logger.info(
+        "[PIPELINE] project=%s scene=%s: no stock clip for %r — using image %s",
+        project_id,
+        scene.id,
+        query,
+        image_filename,
+    )
+    return True
+
+
+async def _fallback_scene_to_image(
+    project: Project,
+    scene: Scene,
+    db: Session,
+    *,
+    query: str,
+    used_generics: set[str],
+) -> bool:
+    """Assign a scraped still when auto stock search fails for this scene."""
+    scene_id = scene.id
+    project_id = project.id
+    _release_db_connection(db, project_id=project_id)
+
+    filename = _pick_fallback_image_for_scene(project, scene, db, used_generics)
+    if not filename:
+        logger.info(
+            "[PIPELINE] project=%s scene=%s: no stock clip for %r and no images available",
+            project_id,
+            scene_id,
+            query,
+        )
+        return False
+
+    scene = (
+        db.query(Scene)
+        .filter(Scene.id == scene_id, Scene.project_id == project_id)
+        .first()
+    )
+    if scene is None:
+        return False
+
+    return _persist_scene_image_fallback(
+        scene, db, filename, project_id=project_id, query=query
+    )
+
+
 def _stock_footage_scene_cap(project: Project, db: Session) -> int | None:
     """How many image-capable scenes may receive an auto-picked clip.
 
@@ -1035,6 +1257,323 @@ def _stock_footage_scene_cap(project: Project, db: Session) -> int | None:
     return 1
 
 
+def _release_db_connection(db: Session, *, project_id: int | None = None) -> None:
+    """Return the session's connection to the pool after long non-DB work.
+
+    Neon/serverless Postgres closes idle SSL connections; pool_pre_ping only
+    verifies liveness on checkout — a session already holding a connection
+    through a multi-minute stock-footage ingest cannot be re-pinged, so the
+    next flush/commit fails with "SSL connection has been closed unexpectedly".
+    """
+    try:
+        db.close()
+    except OperationalError as err:
+        if project_id is not None:
+            logger.warning(
+                "[PIPELINE] project=%s: transient DB disconnect on db.close(); invalidating session: %s",
+                project_id,
+                err,
+            )
+        try:
+            db.invalidate()
+        except Exception:
+            pass
+
+
+def _reload_project(db: Session, project_id: int) -> Project | None:
+    """Re-query project after long I/O that called :func:`_release_db_connection`.
+
+    ``db.close()`` expunges ORM instances; mutating a detached ``Project`` (e.g.
+    setting ``status``) silently fails to persist and breaks lazy loads like
+    ``project.assets``.
+    """
+    return db.query(Project).filter(Project.id == project_id).first()
+
+
+async def _try_assign_stock_clip_to_scene(
+    project: Project,
+    scene: Scene,
+    db: Session,
+    *,
+    orientation: str,
+    loop: asyncio.AbstractEventLoop,
+    used_generics: set[str] | None = None,
+) -> bool:
+    """Search, ingest, upload, and link one stock clip to a scene."""
+    query = (scene.title or scene.visual_description or "").strip()
+    if not query:
+        logger.info(
+            "[PIPELINE] project=%s scene=%s: no title/visual for stock search — skipping",
+            project.id,
+            scene.id,
+        )
+        if used_generics is not None:
+            await _fallback_scene_to_image(
+                project, scene, db, query=query or scene.title or "", used_generics=used_generics
+            )
+        return False
+
+    try:
+        return await asyncio.wait_for(
+            _try_assign_stock_clip_to_scene_impl(
+                project,
+                scene,
+                db,
+                orientation=orientation,
+                loop=loop,
+                query=query,
+                used_generics=used_generics,
+            ),
+            timeout=STOCK_CLIP_ASSIGN_TIMEOUT_SECONDS,
+        )
+    except asyncio.TimeoutError:
+        logger.warning(
+            "[PIPELINE] project=%s scene=%s: stock clip assign timed out after %ss (query=%r)",
+            project.id,
+            scene.id,
+            STOCK_CLIP_ASSIGN_TIMEOUT_SECONDS,
+            query,
+        )
+        if used_generics is not None:
+            await _fallback_scene_to_image(
+                project, scene, db, query=query, used_generics=used_generics
+            )
+        return False
+
+
+async def _try_assign_stock_clip_to_scene_impl(
+    project: Project,
+    scene: Scene,
+    db: Session,
+    *,
+    orientation: str,
+    loop: asyncio.AbstractEventLoop,
+    query: str,
+    used_generics: set[str] | None = None,
+) -> bool:
+    """Inner implementation for :func:`_try_assign_stock_clip_to_scene`."""
+    from concurrent.futures import ThreadPoolExecutor
+    from app.models.asset import Asset, AssetType
+    from app.services import stock_footage, r2_storage
+
+    scene_id = scene.id
+    project_id = project.id
+    user_id = project.user_id
+
+    # Drop the connection before search/ingest/R2 — each can take tens of seconds
+    # and Neon will kill an idle held connection mid-flight.
+    _release_db_connection(db, project_id=project_id)
+
+    try:
+        clip = await loop.run_in_executor(
+            None, lambda q=query: stock_footage.pick_top_for_query(q, orientation=orientation)
+        )
+        if clip is None:
+            logger.info(
+                "[PIPELINE] project=%s scene=%s: no stock result for %r",
+                project.id, scene.id, query,
+            )
+            if used_generics is not None:
+                await _fallback_scene_to_image(
+                    project, scene, db, query=query, used_generics=used_generics
+                )
+            return False
+
+        ts = int(time.time())
+        video_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project.id}/videos")
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            ingested = await loop.run_in_executor(
+                pool,
+                stock_footage.ingest_clip,
+                clip.download_url,
+                video_dir,
+                f"scene_{scene.id}_{ts}",
+            )
+    except Exception:
+        logger.warning(
+            "[PIPELINE] project=%s scene=%s: stock footage auto-pick failed",
+            project.id, scene.id, exc_info=True,
+        )
+        if used_generics is not None:
+            await _fallback_scene_to_image(
+                project, scene, db, query=query, used_generics=used_generics
+            )
+        return False
+
+    r2_key_val = None
+    r2_url_val = None
+    audio_uploaded = False
+    if r2_storage.is_r2_configured():
+        try:
+
+            def _upload_stock_to_r2() -> tuple[str | None, str | None, bool]:
+                key = r2_storage.stock_video_key(
+                    user_id, project_id, ingested.filename
+                )
+                url = r2_storage.upload_file(
+                    ingested.local_path, key, content_type="video/mp4"
+                )
+                audio_ok = False
+                if ingested.audio_filename and ingested.audio_local_path:
+                    r2_storage.upload_file(
+                        ingested.audio_local_path,
+                        r2_storage.stock_video_key(
+                            user_id, project_id, ingested.audio_filename
+                        ),
+                        content_type="video/mp4",
+                    )
+                    audio_ok = True
+                return key, url, audio_ok
+
+            r2_key_val, r2_url_val, audio_uploaded = await loop.run_in_executor(
+                None, _upload_stock_to_r2
+            )
+        except Exception as e:
+            logger.warning("[PIPELINE] R2 upload failed for %s: %s", ingested.filename, e)
+
+    has_audio = bool(
+        ingested.audio_filename
+        and (audio_uploaded or not r2_storage.is_r2_configured())
+    )
+
+    scene = (
+        db.query(Scene)
+        .filter(Scene.id == scene_id, Scene.project_id == project_id)
+        .first()
+    )
+    if scene is None:
+        return False
+
+    db.add(
+        Asset(
+            project_id=project_id,
+            asset_type=AssetType.VIDEO,
+            original_url=clip.page_url or clip.download_url,
+            local_path=ingested.local_path,
+            filename=ingested.filename,
+            r2_key=r2_key_val,
+            r2_url=r2_url_val,
+            excluded=False,
+            duration_seconds=ingested.duration_seconds,
+            width=ingested.width,
+            height=ingested.height,
+            source_provider=clip.provider,
+            source_id=clip.id,
+            source_author=clip.author,
+            source_page_url=clip.page_url,
+            audio_variant_filename=ingested.audio_filename if has_audio else None,
+        )
+    )
+
+    try:
+        descriptor = json.loads(scene.remotion_code) if scene.remotion_code else {}
+    except (json.JSONDecodeError, TypeError):
+        descriptor = {}
+    lp = dict(descriptor.get("layoutProps") or {})
+    lp.pop("assignedImage", None)
+    lp.pop("stockFootageImageFallback", None)
+    lp["assignedVideo"] = ingested.filename
+    lp["hideImage"] = False
+    lp.setdefault("videoMuted", True)
+    lp.setdefault("videoVolume", 0.35)
+    lp.setdefault("imageFocusX", 50)
+    lp.setdefault("imageFocusY", 50)
+    descriptor["layoutProps"] = lp
+    scene.remotion_code = json.dumps(descriptor)
+
+    try:
+        db.commit()
+    except Exception:
+        logger.warning(
+            "[PIPELINE] project=%s scene=%s: failed to persist stock clip assignment",
+            project_id,
+            scene_id,
+            exc_info=True,
+        )
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        return False
+    return True
+
+
+async def _fill_missing_stock_clips_after_scene_gen(
+    project: Project,
+    scenes: list,
+    db: Session,
+    template_id: str,
+) -> int:
+    """Assign clips to image-capable final layouts that missed the script-stage gate.
+
+    Economist (and similar) may script a data layout (skipped by the gate) and then
+    resolve to ``leader_article`` during scene generation — those scenes need a clip here.
+    """
+    from app.services.template_service import get_layouts_without_image
+
+    if template_id not in STOCK_FOOTAGE_TEMPLATES:
+        return 0
+    if not getattr(project, "stock_footage_enabled", False):
+        return 0
+
+    no_image = get_layouts_without_image(template_id)
+    needing: list[Scene] = []
+    existing_clips = 0
+    for scene in scenes:
+        if not scene.remotion_code:
+            continue
+        try:
+            descriptor = json.loads(scene.remotion_code)
+        except (json.JSONDecodeError, TypeError):
+            continue
+        lp = descriptor.get("layoutProps") or {}
+        if lp.get("hideImage"):
+            continue
+        if lp.get("assignedVideo"):
+            existing_clips += 1
+            continue
+        if lp.get("stockFootageImageFallback") and lp.get("assignedImage"):
+            continue
+        layout = _descriptor_layout_name(template_id, descriptor) or ""
+        if not layout or layout in no_image:
+            continue
+        needing.append(scene)
+
+    cap = _stock_footage_scene_cap(project, db)
+    if cap is not None:
+        remaining = max(0, cap - existing_clips)
+        needing = needing[:remaining]
+
+    if not needing:
+        return 0
+
+    orientation = (
+        "portrait"
+        if (getattr(project, "aspect_ratio", "landscape") or "").lower() == "portrait"
+        else "landscape"
+    )
+    loop = asyncio.get_running_loop()
+    assigned = 0
+    used_generics: set[str] = set()
+    for scene in needing:
+        if await _try_assign_stock_clip_to_scene(
+            project,
+            scene,
+            db,
+            orientation=orientation,
+            loop=loop,
+            used_generics=used_generics,
+        ):
+            assigned += 1
+
+    if assigned:
+        logger.info(
+            "[PIPELINE] project=%s: filled %s/%s missing stock clips after scene generation",
+            project.id, assigned, len(needing),
+        )
+    return assigned
+
+
 async def _prepare_stock_footage_candidates(project: Project, db: Session) -> int:
     """Auto-pick and ingest one stock clip per image-capable scene.
 
@@ -1049,10 +1588,6 @@ async def _prepare_stock_footage_candidates(project: Project, db: Session) -> in
 
     Returns the number of scenes that got a clip.
     """
-    from concurrent.futures import ThreadPoolExecutor
-    from app.models.asset import Asset, AssetType
-    from app.services import stock_footage, r2_storage
-
     scenes = _image_capable_scenes(project, db)
     # Free plans get a clip on a single scene (the first image-capable one); paid
     # plans get every image-capable scene. Un-clipped scenes keep their image.
@@ -1062,116 +1597,57 @@ async def _prepare_stock_footage_candidates(project: Project, db: Session) -> in
     if not scenes:
         return 0
 
+    already_assigned = sum(1 for s in scenes if _scene_stock_footage_prep_done(s))
+    pending = [s for s in scenes if not _scene_stock_footage_prep_done(s)]
+    if already_assigned:
+        logger.info(
+            "[PIPELINE] project=%s: skipping %s/%s scenes that already have stock clips",
+            project.id,
+            already_assigned,
+            len(scenes),
+        )
+    if not pending:
+        return already_assigned
+
     orientation = (
         "portrait"
         if (getattr(project, "aspect_ratio", "landscape") or "").lower() == "portrait"
         else "landscape"
     )
-    video_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project.id}/videos")
     loop = asyncio.get_running_loop()
-    assigned = 0
+    assigned = already_assigned
+    total = len(scenes)
+    used_generics: set[str] = set()
 
-    for scene in scenes:
-        query = (scene.title or scene.visual_description or "").strip()
-        if not query:
-            continue
-        try:
-            clip = await loop.run_in_executor(
-                None, lambda q=query: stock_footage.pick_top_for_query(q, orientation=orientation)
+    for idx, scene in enumerate(pending, start=already_assigned + 1):
+        _pipeline_progress.setdefault(project.id, {})["stock_footage"] = {
+            "current": idx,
+            "total": total,
+            "scene_id": scene.id,
+        }
+        if await _try_assign_stock_clip_to_scene(
+            project,
+            scene,
+            db,
+            orientation=orientation,
+            loop=loop,
+            used_generics=used_generics,
+        ):
+            assigned += 1
+        else:
+            fresh = (
+                db.query(Scene)
+                .filter(Scene.id == scene.id, Scene.project_id == project.id)
+                .first()
             )
-            if clip is None:
-                logger.info(
-                    "[PIPELINE] project=%s scene=%s: no stock result for %r",
-                    project.id, scene.id, query,
-                )
-                continue
+            if fresh and _scene_stock_footage_prep_done(fresh):
+                assigned += 1
 
-            ts = int(time.time())
-            with ThreadPoolExecutor(max_workers=1) as pool:
-                ingested = await loop.run_in_executor(
-                    pool,
-                    stock_footage.ingest_clip,
-                    clip.download_url,
-                    video_dir,
-                    f"scene_{scene.id}_{ts}",
-                )
-        except Exception:
-            logger.warning(
-                "[PIPELINE] project=%s scene=%s: stock footage auto-pick failed",
-                project.id, scene.id, exc_info=True,
-            )
-            continue
+    _pipeline_progress.setdefault(project.id, {}).pop("stock_footage", None)
 
-        r2_key_val = None
-        r2_url_val = None
-        audio_uploaded = False
-        if r2_storage.is_r2_configured():
-            try:
-                r2_key_val = r2_storage.stock_video_key(
-                    project.user_id, project.id, ingested.filename
-                )
-                r2_url_val = r2_storage.upload_file(
-                    ingested.local_path, r2_key_val, content_type="video/mp4"
-                )
-                if ingested.audio_filename and ingested.audio_local_path:
-                    r2_storage.upload_file(
-                        ingested.audio_local_path,
-                        r2_storage.stock_video_key(
-                            project.user_id, project.id, ingested.audio_filename
-                        ),
-                        content_type="video/mp4",
-                    )
-                    audio_uploaded = True
-            except Exception as e:
-                logger.warning("[PIPELINE] R2 upload failed for %s: %s", ingested.filename, e)
-
-        has_audio = bool(
-            ingested.audio_filename
-            and (audio_uploaded or not r2_storage.is_r2_configured())
-        )
-
-        db.add(
-            Asset(
-                project_id=project.id,
-                asset_type=AssetType.VIDEO,
-                original_url=clip.page_url or clip.download_url,
-                local_path=ingested.local_path,
-                filename=ingested.filename,
-                r2_key=r2_key_val,
-                r2_url=r2_url_val,
-                excluded=False,
-                duration_seconds=ingested.duration_seconds,
-                width=ingested.width,
-                height=ingested.height,
-                source_provider=clip.provider,
-                source_id=clip.id,
-                source_author=clip.author,
-                source_page_url=clip.page_url,
-                audio_variant_filename=ingested.audio_filename if has_audio else None,
-            )
-        )
-
-        # Link it exactly as the editor does: a clip fills the visual slot.
-        try:
-            descriptor = json.loads(scene.remotion_code) if scene.remotion_code else {}
-        except (json.JSONDecodeError, TypeError):
-            descriptor = {}
-        lp = dict(descriptor.get("layoutProps") or {})
-        lp.pop("assignedImage", None)
-        lp["assignedVideo"] = ingested.filename
-        lp["hideImage"] = False
-        lp.setdefault("videoMuted", True)
-        lp.setdefault("videoVolume", 0.35)
-        lp.setdefault("imageFocusX", 50)
-        lp.setdefault("imageFocusY", 50)
-        descriptor["layoutProps"] = lp
-        scene.remotion_code = json.dumps(descriptor)
-        assigned += 1
-
-    db.commit()
     logger.info(
         "[PIPELINE] project=%s: auto-picked %s/%s stock clips",
-        project.id, assigned, len(scenes),
+        project.id, assigned, total,
     )
     return assigned
 
@@ -2172,6 +2648,16 @@ async def _generate_scenes(
                         descriptor["layoutProps"]["hideImage"] = False
                     elif old_assigned:
                         descriptor["layoutProps"]["assignedImage"] = old_assigned
+                        for key in (
+                            "imageFocusX",
+                            "imageFocusY",
+                            "imageZoom",
+                            "stockFootageImageFallback",
+                        ):
+                            if key in old_lp:
+                                descriptor["layoutProps"][key] = old_lp[key]
+                        if old_lp.get("stockFootageImageFallback"):
+                            descriptor["layoutProps"]["hideImage"] = False
                     if old_hide and not old_video:
                         descriptor["layoutProps"]["hideImage"] = True
             except (json.JSONDecodeError, TypeError):
@@ -2199,6 +2685,28 @@ async def _generate_scenes(
                 )
     db.commit()
     logger.info("[PIPELINE] All %s scene descriptors committed to DB", len(scenes))
+
+    # Scenes that resolved to an image-capable layout after the script-stage gate
+    # (e.g. economist chart_line → leader_article fallback) still need a clip.
+    if getattr(project, "stock_footage_enabled", False) and template_id in STOCK_FOOTAGE_TEMPLATES:
+        try:
+            await _fill_missing_stock_clips_after_scene_gen(project, scenes, db, template_id)
+            db.commit()
+        except Exception:
+            logger.warning(
+                "[PIPELINE] project=%s: post-scene-gen stock clip fill failed",
+                project.id, exc_info=True,
+            )
+
+    project = _reload_project(db, project.id)
+    if project is None:
+        raise RuntimeError("Project missing after scene generation")
+    scenes = (
+        db.query(Scene)
+        .filter(Scene.project_id == project.id, Scene.is_active.is_(True))
+        .order_by(Scene.order)
+        .all()
+    )
 
     # Write data.json + assets to per-project Remotion workspace
     write_remotion_data(project, scenes, db, redistribute_images=redistribute_images)

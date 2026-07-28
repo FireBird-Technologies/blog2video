@@ -22,6 +22,7 @@ Cinematic night-sky sibling of the daytime Stick Man template — moon-cyan chal
 - The chalk underline animates in after the title (frames 25–45); very short scenes may clip this animation before it completes.
 - Long titles wrap with `pre-wrap` / `break-word` but may overlap the narration zone at large font sizes — keep titles concise.
 - The background image is always rendered at a fixed 0.35 opacity; it serves as atmosphere only and cannot be made more prominent.
+- **Never output `assignedVideo`, `videoUrl`, `videoMuted`, or `videoVolume`.** A scene's background clip is stock footage chosen by the user in the editor after generation; any value you invent breaks rendering.
 
 ---
 

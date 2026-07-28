@@ -9,6 +9,7 @@ import { CaptionTrack } from "../CaptionTrack";
 import { Blobs } from "./components/Blobs";
 import { COLORS } from "./utils/styles";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
+import { SceneDurationInFramesContext } from "../SceneDurationContext";
 
 // Modern slide-up wipe transition for gridcraft
 const GridcraftTransition: React.FC<{ bgColor?: string }> = ({ bgColor }) => {
@@ -49,6 +50,11 @@ export interface GridcraftSceneInput {
   /** Spoken-audio length in seconds — for caption timing. */
   speechDurationSeconds?: number;
   imageUrl?: string;
+  videoUrl?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  videoDurationSeconds?: number;
+  videoStartSeconds?: number;
   voiceoverUrl?: string;
 }
 
@@ -130,6 +136,15 @@ export const GridcraftVideoComposition: React.FC<
           textColor: textColor || COLORS.DARK,
           aspectRatio: aspectRatio || "landscape",
           imageUrl: scene.imageUrl,
+          videoUrl: scene.videoUrl,
+          videoMuted: scene.videoMuted ?? true,
+          videoVolume: scene.videoVolume ?? 0.35,
+          videoDurationInFrames: scene.videoDurationSeconds
+            ? Math.max(1, Math.round(scene.videoDurationSeconds * FPS))
+            : undefined,
+          videoStartInFrames: scene.videoStartSeconds
+            ? Math.max(0, Math.round(scene.videoStartSeconds * FPS))
+            : undefined,
           imageObjectPosition: String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))) + "% " + String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))) + "%",
           imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
           fontFamily,
@@ -144,7 +159,9 @@ export const GridcraftVideoComposition: React.FC<
           >
             {/* Layout Container with Z-Index to sit above Blobs */}
             <AbsoluteFill style={{ zIndex: 1 }}>
-              <LayoutComponent {...layoutProps} />
+              <SceneDurationInFramesContext.Provider value={durationFrames}>
+                <LayoutComponent {...layoutProps} />
+              </SceneDurationInFramesContext.Provider>
             </AbsoluteFill>
             {scene.voiceoverUrl && (
               <Audio src={scene.voiceoverUrl} playbackRate={resolvedPlaybackSpeed} />

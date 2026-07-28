@@ -101,6 +101,8 @@ _SHARED_SRC_FILES = [
     "src/index.ts",
     # Shared playback speed helpers imported by all template compositions.
     "src/templates/playbackSpeed.ts",
+    # Stock-footage clip looping — shared by Economist/Newscast/Gridcraft/etc.
+    "src/templates/SceneDurationContext.tsx",
     # Shared font registry so templates can resolve font IDs to CSS families
     "src/fonts/registry.ts",
     # Caption font constant + render preload helpers (used by CaptionTrack)
@@ -708,12 +710,21 @@ def write_remotion_data(
     public_dir = os.path.join(workspace, "public")
     os.makedirs(public_dir, exist_ok=True)
 
+    # Query assets explicitly — ``project`` may be detached after long stock-footage I/O.
+    from app.models.asset import Asset
+
+    project_assets = (
+        db.query(Asset)
+        .filter(Asset.project_id == project.id, Asset.excluded.is_(False))
+        .all()
+    )
+
     # provision_workspace() already copies built-in template public assets here.
 
     # Collect and copy non-excluded images to public dir
     # If local file is missing (e.g. different Cloud Run container), download from R2
     all_image_files: list[str] = []
-    for asset in project.assets:
+    for asset in project_assets:
         if asset.asset_type.value == "image" and not asset.excluded:
             dest = os.path.join(public_dir, asset.filename)
             if os.path.exists(asset.local_path):
@@ -728,7 +739,7 @@ def write_remotion_data(
     # frames for Remotion's <Loop durationInFrames={...}>; without it a clip
     # shorter than its scene cannot repeat cleanly.
     all_video_files: dict[str, float | None] = {}
-    for asset in project.assets:
+    for asset in project_assets:
         if asset.asset_type.value == "video" and not asset.excluded:
             dest = os.path.join(public_dir, asset.filename)
             ok = False
@@ -839,7 +850,7 @@ def write_remotion_data(
         # behave like generic project images and be assigned to the new sequence.
         id_to_idx = {s.id: i for i, s in enumerate(scenes)}
         image_assets = [
-            a for a in project.assets
+            a for a in project_assets
             if a.asset_type.value == "image" and not a.excluded
         ]
         try:
@@ -1061,7 +1072,7 @@ def write_remotion_data(
     # Build audio asset lookup: scene order -> audio asset (for R2 fallback)
     audio_assets = {
         a.filename: a
-        for a in project.assets
+        for a in project_assets
         if a.asset_type.value == "audio"
     }
 
@@ -1216,7 +1227,7 @@ def write_remotion_data(
                 audio_variant = next(
                     (
                         getattr(a, "audio_variant_filename", None)
-                        for a in project.assets
+                        for a in project_assets
                         if a.filename == scene_video
                     ),
                     None,

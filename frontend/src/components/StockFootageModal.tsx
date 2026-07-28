@@ -188,7 +188,7 @@ export function StockFootageModal({
         const res = await searchStockFootage(projectId, {
           q: term,
           provider: "all",
-          per_page: 24,
+          per_page: 6,
           ...(boxDims ? { box_w: boxDims.w, box_h: boxDims.h } : {}),
         });
         if (seq !== requestSeq.current) return;

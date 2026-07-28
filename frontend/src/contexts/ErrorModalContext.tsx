@@ -50,6 +50,8 @@ interface ErrorOptions {
   showUpgrade?: boolean;
   /** Generation pipeline failures (scrape/script/scene) use a softer “Oops” heading. */
   variant?: ErrorModalHeadingVariant;
+  /** Runs after the user dismisses the modal (OK, backdrop click, or upgrade redirect). */
+  onClose?: () => void;
 }
 
 interface ErrorModalContextType {
@@ -62,6 +64,7 @@ export function ErrorModalProvider({ children }: { children: ReactNode }) {
   const [message, setMessage] = useState<string | null>(null);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [variant, setVariant] = useState<ErrorModalHeadingVariant>("default");
+  const [onCloseAction, setOnCloseAction] = useState<(() => void) | null>(null);
 
   const showError = useCallback((msg: string, options?: ErrorOptions) => {
     const finalMsg = msg && msg.trim() ? msg : DEFAULT_ERROR_MESSAGE;
@@ -75,13 +78,21 @@ export function ErrorModalProvider({ children }: { children: ReactNode }) {
       nextVariant = "maintenance";
     }
     setVariant(nextVariant);
+    setOnCloseAction(() => options?.onClose ?? null);
   }, []);
 
   const close = useCallback(() => {
     setMessage(null);
     setShowUpgrade(false);
     setVariant("default");
-  }, []);
+    const fn = onCloseAction;
+    setOnCloseAction(null);
+    try {
+      fn?.();
+    } catch {
+      // Modal close should never crash the UI.
+    }
+  }, [onCloseAction]);
 
   return (
     <ErrorModalContext.Provider value={{ showError }}>

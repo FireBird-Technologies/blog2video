@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { EconomistLayoutProps } from "../types";
+import { EconomistClip } from "../components/EconomistClip";
 import { ECONOMIST_COLORS, CHROME_INSET } from "../constants";
 import { EditorialDivider, EngravingTexture } from "../components/EconomistOrnaments";
 import { ECONOMIST_SERIF_FONT, ECONOMIST_SANS_FONT } from "../../../fonts/economist-defaults";
@@ -36,6 +37,11 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
   imageUrl,
   imageObjectPosition = "50% 50%",
   imageZoom = 1,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   accentColor = ECONOMIST_COLORS.accent,
   titleFontSize,
   descriptionFontSize,
@@ -45,7 +51,7 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
   const frame = useCurrentFrame();
   const { width } = useVideoConfig();
   const isPortrait = aspectRatio === "portrait";
-  const hasImage = Boolean(imageUrl);
+  const hasImage = Boolean(imageUrl || videoUrl);
 
   const topInset = (isPortrait ? CHROME_INSET.topPortrait : CHROME_INSET.top) + 18;
   const botInset = (isPortrait ? CHROME_INSET.bottomPortrait : CHROME_INSET.bottom) + 16;
@@ -132,9 +138,8 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
     >
       {hasImage ? (
         <>
-          <Img
-            src={imageUrl as string}
-            style={{
+          {(() => {
+            const visualStyle: React.CSSProperties = {
               position: "absolute",
               inset: 0,
               width: "100%",
@@ -143,8 +148,22 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
               objectPosition: imageObjectPosition,
               transform: `scale(${kbScale.toFixed(4)})`,
               filter: `grayscale(${(1 - developT).toFixed(3)}) contrast(1.04)`,
-            }}
-          />
+            };
+            return videoUrl ? (
+              <EconomistClip
+                src={videoUrl}
+                imageObjectPosition={imageObjectPosition}
+                imageZoom={imageZoom}
+                muted={videoMuted ?? true}
+                volume={videoVolume ?? 0.35}
+                durationInFrames={videoDurationInFrames}
+                startInFrames={videoStartInFrames}
+                style={visualStyle}
+              />
+            ) : (
+              <Img src={imageUrl as string} style={visualStyle} />
+            );
+          })()}
           <div
             style={{
               position: "absolute",

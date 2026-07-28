@@ -34,7 +34,7 @@ const EASE_OUT = Easing.out(Easing.cubic);
  * initial) so the hero always reads as a magazine cover.
  */
 export const MagazineCover: React.FC<SceneLayoutProps> = (props) => {
-  const { title, narration, imageUrl, imageObjectPosition, imageZoom, titleFontSize, descriptionFontSize, fontFamily } = props;
+  const { title, narration, imageUrl, videoUrl, videoMuted, videoVolume, videoDurationInFrames, videoStartInFrames, imageObjectPosition, imageZoom, titleFontSize, descriptionFontSize, fontFamily } = props;
   // Strip a leading "By " the value may already carry (AI/user/default) so the
   // rendered "By {brand}" below never doubles up into "By By …".
   const brand = ((props.byline as string) ?? "").trim().replace(/^by\s+/i, "");
@@ -57,7 +57,7 @@ export const MagazineCover: React.FC<SceneLayoutProps> = (props) => {
 
   const [imgFailed, setImgFailed] = React.useState(false);
   React.useEffect(() => { setImgFailed(false); }, [imageUrl]);
-  const showPhoto = !!imageUrl && !imgFailed;
+  const showPhoto = !!(imageUrl || props.videoUrl) && !imgFailed;
   const onImg = "#FFFFFF";
   // Masthead title always uses the default bg colour (white in this hero).
   const mastheadCol = text;
@@ -200,6 +200,13 @@ export const MagazineCover: React.FC<SceneLayoutProps> = (props) => {
           <>
             <OptionalImg
               src={imageUrl as string}
+              videoUrl={videoUrl}
+              videoMuted={videoMuted}
+              videoVolume={videoVolume}
+              videoDurationInFrames={videoDurationInFrames}
+              videoStartInFrames={videoStartInFrames}
+              imageObjectPosition={imageObjectPosition}
+              imageZoom={imageZoom}
               onError={() => setImgFailed(true)}
               style={{
                 position: "absolute",

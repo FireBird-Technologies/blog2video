@@ -19,6 +19,7 @@ import { LogoOverlay } from "../../components/LogoOverlay";
 import { BackgroundMusic } from "../../components/BackgroundMusic";
 import { CaptionTrack } from "../../components/CaptionTrack";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
+import { SceneDurationInFramesContext } from "../SceneDurationContext";
 
 interface SceneData {
   id: number;
@@ -34,6 +35,11 @@ interface SceneData {
   speechDurationSeconds?: number;
   voiceoverFile: string | null;
   images: string[];
+  video?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  videoDurationSeconds?: number;
+  videoStartSeconds?: number;
 }
 
 interface VideoData {
@@ -295,6 +301,13 @@ export const MagazineVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   ): SceneLayoutProps => {
     const pageNum = index + 1;
     const imageUrl = scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
+    const videoUrl = scene.video ? staticFile(scene.video) : undefined;
+    const videoDurationInFrames = scene.videoDurationSeconds
+      ? Math.max(1, Math.round(scene.videoDurationSeconds * 30))
+      : undefined;
+    const videoStartInFrames = scene.videoStartSeconds
+      ? Math.max(0, Math.round(scene.videoStartSeconds * 30))
+      : undefined;
     const rawProps = (scene.layoutProps ?? {}) as Record<string, unknown>;
     const focusX = Math.max(0, Math.min(100, Number(rawProps?.imageFocusX ?? 50)));
     const focusY = Math.max(0, Math.min(100, Number(rawProps?.imageFocusY ?? 50)));
@@ -319,6 +332,11 @@ export const MagazineVideo: React.FC<VideoProps> = ({ dataUrl }) => {
       title: preferProps && lpTitle ? lpTitle : scene.title,
       narration: preferProps && lpNarr ? lpNarr : scene.narration,
       imageUrl,
+      videoUrl,
+      videoMuted: scene.videoMuted ?? true,
+      videoVolume: scene.videoVolume ?? 0.35,
+      videoDurationInFrames,
+      videoStartInFrames,
       imageObjectPosition: `${focusX}% ${focusY}%`,
       imageZoom: Math.max(0.1, Number(rawProps?.imageZoom ?? 1)),
       accentColor: data.accentColor || "#D71921",
@@ -391,7 +409,9 @@ export const MagazineVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           const layoutProps = buildLayoutProps(only.scene, only.layoutKey, only.durationFrames, 0);
           return (
             <Sequence from={0} durationInFrames={only.durationFrames} name={only.scene.title}>
-              <LayoutComponent {...layoutProps} />
+              <SceneDurationInFramesContext.Provider value={only.durationFrames}>
+                <LayoutComponent {...layoutProps} />
+              </SceneDurationInFramesContext.Provider>
               {only.scene.voiceoverFile && (
                 <Audio src={staticFile(only.scene.voiceoverFile)} playbackRate={playbackSpeed} />
               )}
@@ -437,7 +457,9 @@ export const MagazineVideo: React.FC<VideoProps> = ({ dataUrl }) => {
                 key={`seq-${scene.id}-${index}`}
                 durationInFrames={s.durationFrames}
               >
-                <LayoutComponent {...layoutProps} />
+                <SceneDurationInFramesContext.Provider value={s.durationFrames}>
+                  <LayoutComponent {...layoutProps} />
+                </SceneDurationInFramesContext.Provider>
               </TransitionSeries.Sequence>,
             ];
             if (b) {

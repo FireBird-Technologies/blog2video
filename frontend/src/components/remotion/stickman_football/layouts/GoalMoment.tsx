@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate, spring, Img } from "remotion";
+import { StickmanFootballClip } from "../components/StickmanFootballClip";
 import { SceneLayoutProps } from "../types";
 import { Football, GrassGround, PlayerStickman } from "../shared";
 
@@ -15,6 +16,11 @@ export const GoalMoment: React.FC<SceneLayoutProps> = (props) => {
     imageUrl,
     imageObjectPosition,
     imageZoom,
+    videoUrl,
+    videoMuted,
+    videoVolume,
+    videoDurationInFrames,
+    videoStartInFrames,
     accentColor,
     bgColor,
     textColor,
@@ -49,6 +55,7 @@ export const GoalMoment: React.FC<SceneLayoutProps> = (props) => {
     easing: easeOut,
   });
   const moodImageUrl = imageUrl ?? String((props as unknown as Record<string, unknown>).imageUrl ?? "");
+  const moodVideoUrl = videoUrl ?? String((props as unknown as Record<string, unknown>).videoUrl ?? "");
 
   const titleStart = msToFrames(350);
   const titleWipe = interpolate(frame, [titleStart, titleStart + msToFrames(420)], [0, 1], {
@@ -441,7 +448,7 @@ export const GoalMoment: React.FC<SceneLayoutProps> = (props) => {
         }}
       />
 
-      {moodImageUrl && (
+      {(moodImageUrl || moodVideoUrl) && (
         <AbsoluteFill
           style={{
             display: "flex",
@@ -460,24 +467,35 @@ export const GoalMoment: React.FC<SceneLayoutProps> = (props) => {
               position: "relative",
             }}
           >
-            <Img
-              src={moodImageUrl}
-              style={(() => {
-                // Match the adjust-modal preview / shared ZoomCropImg: anchor the zoom
-                // at the focus point, fall back to contain+centre when zoomed out.
-                const pos = imageObjectPosition ?? "50% 50%";
-                const z = imageZoom ?? 1;
-                const out = z < 1;
-                return {
-                  width: "100%",
-                  height: "100%",
-                  objectFit: out ? "contain" : "cover",
-                  objectPosition: out ? "center" : pos,
-                  transform: `scale(${z})`,
-                  transformOrigin: out ? "center center" : pos,
-                };
-              })()}
-            />
+            {(() => {
+              // Match the adjust-modal preview / shared ZoomCropImg: anchor the zoom
+              // at the focus point, fall back to contain+centre when zoomed out.
+              const pos = imageObjectPosition ?? "50% 50%";
+              const z = imageZoom ?? 1;
+              const out = z < 1;
+              const visualStyle: React.CSSProperties = {
+                width: "100%",
+                height: "100%",
+                objectFit: out ? "contain" : "cover",
+                objectPosition: out ? "center" : pos,
+                transform: `scale(${z})`,
+                transformOrigin: out ? "center center" : pos,
+              };
+              return moodVideoUrl ? (
+                <StickmanFootballClip
+                  src={moodVideoUrl}
+                  imageObjectPosition={imageObjectPosition}
+                  imageZoom={imageZoom}
+                  muted={videoMuted ?? true}
+                  volume={videoVolume ?? 0.35}
+                  durationInFrames={videoDurationInFrames}
+                  startInFrames={videoStartInFrames}
+                  style={visualStyle}
+                />
+              ) : (
+                <Img src={moodImageUrl} style={visualStyle} />
+              );
+            })()}
             <div
               style={{
                 position: "absolute",

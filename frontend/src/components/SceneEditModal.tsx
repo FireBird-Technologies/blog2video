@@ -35,6 +35,7 @@ import { getTemplateConfig } from "./remotion/templateConfig";
 import { resolveCustomImageBoxAr } from "../utils/customImageBoxAr";
 import { mergeLayoutSchemaDefaults } from "../utils/mergeLayoutSchemaDefaults";
 import { TrimmedClipVideo } from "../utils/trimmedClipPlayback";
+import { isStockClipAdjustSource } from "../utils/stockClipMedia";
 
 /** Image framing sub-modal: uniform zoom only (no rectangular crop resize). */
 const IMAGE_ADJUST_ZOOM_MIN = 0.1;
@@ -7248,7 +7249,11 @@ export default function SceneEditModal({
             <div className="p-4 sm:p-5">
             <ImageAdjustStage
               src={imageAdjustSrc}
-              isVideo={/\.mp4(\?|$)/i.test(imageAdjustSrc || "")}
+              isVideo={isStockClipAdjustSource({
+                assignedVideoFilename: assignedVideoAsset?.filename,
+                assetType: assignedVideoAsset?.asset_type,
+                src: imageAdjustSrc,
+              })}
               focusX={imageAdjustFocusX}
               focusY={imageAdjustFocusY}
               zoom={imageAdjustZoom}

@@ -17,6 +17,11 @@ export const PullQuote: React.FC<GridcraftLayoutProps> = ({
   narration,imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   accentColor,
   aspectRatio,
   titleFontSize,
@@ -29,7 +34,7 @@ export const PullQuote: React.FC<GridcraftLayoutProps> = ({
   const text = quote || title || "Quote goes here";
   const source = attribution || subtitle || narration || "Author";
   const words = text.split(" ");
-  const hasImage = !!imageUrl;
+  const hasImage = !!(imageUrl || videoUrl);
   const p = aspectRatio === "portrait";
   const sansFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY;
   const serifFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SERIF_FONT_FAMILY;
@@ -118,6 +123,11 @@ export const PullQuote: React.FC<GridcraftLayoutProps> = ({
         >
           <ZoomCropImg
             src={imageUrl}
+            videoUrl={videoUrl}
+            videoMuted={videoMuted}
+            videoVolume={videoVolume}
+            videoDurationInFrames={videoDurationInFrames}
+            videoStartInFrames={videoStartInFrames}
             imageObjectPosition={imageObjectPosition}
             imageZoom={imageZoom}
           />

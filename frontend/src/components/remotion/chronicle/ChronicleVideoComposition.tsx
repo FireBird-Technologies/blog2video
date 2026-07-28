@@ -10,6 +10,7 @@ import { LogoOverlay } from "../LogoOverlay";
 import { BackgroundMusic } from "../BackgroundMusic";
 import { CaptionTrack } from "../CaptionTrack";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
+import { SceneDurationInFramesContext } from "../SceneDurationContext";
 import { ChronicleChrome } from "./components/ChronicleChrome";
 import { pickChronicleTransition } from "./transitions";
 
@@ -26,6 +27,11 @@ export interface ChronicleSceneInput {
   /** Spoken-audio length in seconds — for caption timing. */
   speechDurationSeconds?: number;
   imageUrl?: string;
+  videoUrl?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  videoDurationSeconds?: number;
+  videoStartSeconds?: number;
   voiceoverUrl?: string;
 }
 
@@ -207,7 +213,7 @@ export const ChronicleVideoComposition: React.FC<ChronicleVideoCompositionProps>
     >
       <TransitionSeries>
         {resolvedScenes.map((s, index) => {
-          const { scene, layoutKey, sequenceFrames } = s;
+          const { scene, layoutKey, sequenceFrames, durationFrames } = s;
           const LayoutComponent = CHRONICLE_LAYOUT_REGISTRY[layoutKey];
 
           const rawProps = (scene.layoutProps ?? {}) as Record<string, unknown>;
@@ -219,6 +225,15 @@ export const ChronicleVideoComposition: React.FC<ChronicleVideoCompositionProps>
             title: scene.title,
             narration: scene.narration,
             imageUrl: scene.imageUrl,
+            videoUrl: scene.videoUrl,
+            videoMuted: scene.videoMuted ?? true,
+            videoVolume: scene.videoVolume ?? 0.35,
+            videoDurationInFrames: scene.videoDurationSeconds
+              ? Math.max(1, Math.round(scene.videoDurationSeconds * FPS))
+              : undefined,
+            videoStartInFrames: scene.videoStartSeconds
+              ? Math.max(0, Math.round(scene.videoStartSeconds * FPS))
+              : undefined,
             imageObjectPosition: `${focusX}% ${focusY}%`,
             imageZoom: Math.max(0.1, Number(rawProps.imageZoom ?? 1)),
             accentColor: accentColor || "#B8860B",
@@ -243,7 +258,9 @@ export const ChronicleVideoComposition: React.FC<ChronicleVideoCompositionProps>
                 disablePageTurn={skipFade}
                 showScripture={showScripture}
               >
-                <LayoutComponent {...layoutProps} />
+                <SceneDurationInFramesContext.Provider value={durationFrames}>
+                  <LayoutComponent {...layoutProps} />
+                </SceneDurationInFramesContext.Provider>
               </ChronicleChrome>
             </TransitionSeries.Sequence>
           );

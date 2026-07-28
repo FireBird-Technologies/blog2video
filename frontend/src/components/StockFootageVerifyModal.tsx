@@ -61,8 +61,10 @@ export function StockFootageVerifyModal({
 
   const current = scenes?.[index] ?? null;
   const total = scenes?.length ?? 0;
+  const sceneHasVisual = (s: PendingFootageScene) =>
+    s.clip != null || s.fallback_image != null;
   const allHaveClips = useMemo(
-    () => (scenes ?? []).every((s) => s.clip != null),
+    () => (scenes ?? []).every(sceneHasVisual),
     [scenes],
   );
 
@@ -76,6 +78,12 @@ export function StockFootageVerifyModal({
     ? current.clip.url.startsWith("http")
       ? current.clip.url
       : `${mediaBase}${current.clip.url}`
+    : null;
+
+  const fallbackImageUrl = current?.fallback_image
+    ? current.fallback_image.url.startsWith("http")
+      ? current.fallback_image.url
+      : `${mediaBase}${current.fallback_image.url}`
     : null;
 
   /** Replace this scene's clip with one chosen from the picker. */
@@ -202,6 +210,18 @@ export function StockFootageVerifyModal({
                       preload="auto"
                       className="w-full h-full object-cover"
                     />
+                  ) : fallbackImageUrl ? (
+                    <>
+                      <img
+                        src={fallbackImageUrl}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute bottom-2 left-2 right-2 z-10 rounded-lg bg-black/60 px-2.5 py-1.5 text-[11px] text-white/90">
+                        No matching stock clip — using article image instead. You can
+                        pick a clip with “Change clip”.
+                      </div>
+                    </>
                   ) : (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white/70">
                       <span className="text-sm">No clip for this scene yet</span>
@@ -239,11 +259,17 @@ export function StockFootageVerifyModal({
                       className={`w-7 h-7 rounded-md text-[11px] font-medium border transition-colors ${
                         i === index
                           ? "bg-purple-600 text-white border-purple-600"
-                          : s.clip
+                          : s.clip || s.fallback_image
                             ? "bg-white text-gray-600 border-gray-300 hover:border-purple-300"
                             : "bg-amber-50 text-amber-700 border-amber-300"
                       }`}
-                      title={s.clip ? s.title : `${s.title} — no clip yet`}
+                      title={
+                        s.clip
+                          ? s.title
+                          : s.fallback_image
+                            ? `${s.title} — using article image`
+                            : `${s.title} — no clip yet`
+                      }
                     >
                       {s.order}
                     </button>
@@ -275,7 +301,7 @@ export function StockFootageVerifyModal({
             <div className="flex items-center gap-3">
               {!allHaveClips && total > 0 && (
                 <span className="text-[11px] text-amber-600">
-                  Some scenes have no clip
+                  Some scenes have no clip or image
                 </span>
               )}
               <button

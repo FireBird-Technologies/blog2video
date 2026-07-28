@@ -5,6 +5,7 @@ Ink-black stickman players animate across a chalk-drawn pitch with grass-green a
 Core rules:
 - Favor one clear beat per scene: action choreography, a short headline, or structured layout data — not everything at once.
 - Every layout must use only the prop names defined in this catalog; unknown keys are ignored downstream.
+- **Never output `assignedVideo`, `videoUrl`, `videoMuted`, or `videoVolume`.** A scene's background clip is stock footage chosen by the user in the editor after generation; any value you invent breaks rendering.
 - **Do not** put `title`, `narration`, `accentColor`, `bgColor`, `textColor`, `titleFontSize`, `descriptionFontSize`, `sceneDurationInFrames`, or `aspectRatio` in `layout_props_json`. Those are global scene fields or UI defaults from `meta.json`.
 - **Only** output layout-specific keys listed under each layout's **Props** section.
 - **Output EVERY prop listed under the chosen layout's Props section — all of them are COMPULSORY.** Never omit a defined prop. For **text/caption props** (e.g. `subline`, `shotLabel`, `kickerName`, `kickerNumber`, `goalLabel`, `eyebrow`, `skillCaption`, `leftLabel`/`rightLabel`/`leftDescription`/`rightDescription`, `ctaButtonText`, and each `steps[].label` in `corner_kick`) always provide a sensible value paraphrased from the source (or the catalog default if the source is silent) — never leave them blank.

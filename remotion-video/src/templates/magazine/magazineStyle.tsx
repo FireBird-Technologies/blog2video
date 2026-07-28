@@ -7,6 +7,7 @@ import {
   MAGAZINE_SANS_FONT,
 } from "../../fonts/magazine-defaults";
 import type { MagazineLayoutType, MagazineCameraMove, SceneExitVariant } from "./types";
+import { MagazineClip } from "./components/MagazineClip";
 
 // ── Single-scene page-mechanics EXIT motion ──────────────────────────────────
 // SINGLE SCENE, ALWAYS: only ONE real page (children) is ever mounted/painted, so the
@@ -28,10 +29,29 @@ const SHEET_BACK = "linear-gradient(to left, #FDFDFD 0%, #F1F1EF 55%, #E4E3E0 10
 const SHEET_EDGE_SHADE =
   "linear-gradient(to right, rgba(0,0,0,0.05) 0%, transparent 16%, transparent 78%, rgba(0,0,0,0.42) 100%)";
 
-export const OptionalImg: React.FC<React.ImgHTMLAttributes<HTMLImageElement> & { src?: string }> = ({
+export const OptionalImg: React.FC<
+  React.ImgHTMLAttributes<HTMLImageElement> & {
+    src?: string;
+    videoUrl?: string;
+    videoMuted?: boolean;
+    videoVolume?: number;
+    videoDurationInFrames?: number;
+    videoStartInFrames?: number;
+    imageObjectPosition?: string;
+    imageZoom?: number;
+  }
+> = ({
   src,
+  videoUrl,
+  videoMuted = true,
+  videoVolume = 0.35,
+  videoDurationInFrames,
+  videoStartInFrames,
+  imageObjectPosition,
+  imageZoom,
   alt = "",
   onError,
+  style,
   ...props
 }) => {
   const [failed, setFailed] = React.useState(false);
@@ -40,6 +60,21 @@ export const OptionalImg: React.FC<React.ImgHTMLAttributes<HTMLImageElement> & {
     setFailed(false);
   }, [src]);
 
+  if (videoUrl) {
+    return (
+      <MagazineClip
+        src={videoUrl}
+        imageObjectPosition={imageObjectPosition}
+        imageZoom={imageZoom}
+        muted={videoMuted}
+        volume={videoVolume}
+        durationInFrames={videoDurationInFrames}
+        startInFrames={videoStartInFrames}
+        style={style as React.CSSProperties}
+      />
+    );
+  }
+
   if (!src || failed) return null;
 
   return (
@@ -47,6 +82,7 @@ export const OptionalImg: React.FC<React.ImgHTMLAttributes<HTMLImageElement> & {
       {...props}
       src={src}
       alt={alt}
+      style={style}
       onError={(event) => {
         setFailed(true);
         onError?.(event);
@@ -2105,6 +2141,11 @@ interface MagazinePageProps {
   backgroundImageObjectPosition?: string;
   backgroundImageZoom?: number;
   backgroundImageOpacity?: number;
+  backgroundVideoUrl?: string;
+  backgroundVideoMuted?: boolean;
+  backgroundVideoVolume?: number;
+  backgroundVideoDurationInFrames?: number;
+  backgroundVideoStartInFrames?: number;
   /** Static blur (px) baked onto the embedded background photo. Safe only on
    *  pinned/static pages (rasterises once) — e.g. Colorblock's blurred collage. */
   backgroundImageBlur?: number;
@@ -2143,6 +2184,11 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
   backgroundImageZoom = 1,
   backgroundImageOpacity = 0.3,
   backgroundImageBlur = 0,
+  backgroundVideoUrl,
+  backgroundVideoMuted = true,
+  backgroundVideoVolume = 0.35,
+  backgroundVideoDurationInFrames,
+  backgroundVideoStartInFrames,
   contentStyle,
   children,
 }) => {
@@ -2311,10 +2357,17 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
         {/* Embedded full-bleed background photo — on the sheet, above the printed
             texture but below the live content, with a paper scrim so the line,
             dots and copy keep full contrast on top (e.g. TimelineJourney). */}
-        {backgroundImageSrc && (
+        {(backgroundImageSrc || backgroundVideoUrl) && (
           <div style={{ position: "absolute", inset: 0, zIndex: 1, overflow: "hidden", pointerEvents: "none" }}>
             <OptionalImg
               src={backgroundImageSrc}
+              videoUrl={backgroundVideoUrl}
+              videoMuted={backgroundVideoMuted}
+              videoVolume={backgroundVideoVolume}
+              videoDurationInFrames={backgroundVideoDurationInFrames}
+              videoStartInFrames={backgroundVideoStartInFrames}
+              imageObjectPosition={backgroundImageObjectPosition}
+              imageZoom={backgroundImageZoom}
               onError={() => {}}
               style={{
                 width: "100%",
@@ -2324,10 +2377,6 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
                 transform: `scale(${backgroundImageZoom})`,
                 transformOrigin: backgroundImageZoom < 1 ? "center center" : backgroundImageObjectPosition,
                 opacity: backgroundImageOpacity,
-                // A CSS blur forces an offscreen pass each composite (costly without
-                // a GPU), so it's opt-in via backgroundImageBlur and only safe on a
-                // PINNED/static page — there it rasterises once and holds, no per-
-                // frame cost. Zero by default (no filter) for animated pages.
                 filter: backgroundImageBlur > 0 ? `blur(${backgroundImageBlur}px)` : undefined,
                 display: "block",
               }}
@@ -2364,10 +2413,15 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
                 collage) onto the raised leaf so it continues across it — the RIGHT
                 half of the full-bleed image maps onto this right leaf, with the same
                 blur + paper scrim as the sheet. */}
-            {backgroundImageSrc && (
+            {(backgroundImageSrc || backgroundVideoUrl) && (
               <>
                 <OptionalImg
                   src={backgroundImageSrc}
+                  videoUrl={backgroundVideoUrl}
+                  videoMuted={backgroundVideoMuted}
+                  videoVolume={backgroundVideoVolume}
+                  videoDurationInFrames={backgroundVideoDurationInFrames}
+                  videoStartInFrames={backgroundVideoStartInFrames}
                   onError={() => {}}
                   style={{
                     // The RIGHT half of the full-bleed image maps onto this leaf:
@@ -2611,6 +2665,11 @@ export const QuoteGlyph: React.FC<{
  */
 export const MagPlate: React.FC<{
   src?: string;
+  videoUrl?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  videoDurationInFrames?: number;
+  videoStartInFrames?: number;
   colors: MagColors;
   objectPosition?: string;
   zoom?: number;
@@ -2618,8 +2677,22 @@ export const MagPlate: React.FC<{
   rotate?: number;
   caption?: string;
   style?: React.CSSProperties;
-}> = ({ src, colors, objectPosition = "50% 50%", zoom = 1, opacity = 1, rotate = 0, caption, style }) => {
-  if (!src) return null;
+}> = ({
+  src,
+  videoUrl,
+  videoMuted = true,
+  videoVolume = 0.35,
+  videoDurationInFrames,
+  videoStartInFrames,
+  colors,
+  objectPosition = "50% 50%",
+  zoom = 1,
+  opacity = 1,
+  rotate = 0,
+  caption,
+  style,
+}) => {
+  if (!src && !videoUrl) return null;
   const { bg, text } = colors;
   const z = zoom ?? 1;
   return (
@@ -2647,6 +2720,13 @@ export const MagPlate: React.FC<{
         <div style={{ width: "100%", height: "100%", overflow: "hidden", position: "relative" }}>
           <OptionalImg
             src={src}
+            videoUrl={videoUrl}
+            videoMuted={videoMuted}
+            videoVolume={videoVolume}
+            videoDurationInFrames={videoDurationInFrames}
+            videoStartInFrames={videoStartInFrames}
+            imageObjectPosition={objectPosition}
+            imageZoom={zoom}
             onError={() => {}}
             style={{
               width: "100%",

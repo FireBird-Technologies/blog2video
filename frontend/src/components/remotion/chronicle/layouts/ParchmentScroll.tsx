@@ -29,6 +29,11 @@ export const ParchmentScroll: React.FC<ChronicleLayoutProps> = ({
   imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   illuminatedLetter,
   category,
   stats,
@@ -109,7 +114,7 @@ export const ParchmentScroll: React.FC<ChronicleLayoutProps> = ({
       <div
         style={{
           display: "flex",
-          flexDirection: p ? "column" : imageUrl ? "row" : "column",
+          flexDirection: p ? "column" : (imageUrl || videoUrl) ? "row" : "column",
           gap: p ? 30 : 50,
           alignItems: "stretch",
           height: "100%",
@@ -119,7 +124,7 @@ export const ParchmentScroll: React.FC<ChronicleLayoutProps> = ({
         {/* Text column */}
         <div
           style={{
-            flex: imageUrl ? 1.1 : 1,
+            flex: (imageUrl || videoUrl) ? 1.1 : 1,
             display: "flex",
             flexDirection: "column",
             justifyContent: "center",
@@ -205,7 +210,7 @@ export const ParchmentScroll: React.FC<ChronicleLayoutProps> = ({
         </div>
 
         {/* Image column */}
-        {imageUrl && (
+        {(imageUrl || videoUrl) && (
           <div
             style={{
               flex: p ? "0 0 auto" : 0.9,
@@ -217,6 +222,11 @@ export const ParchmentScroll: React.FC<ChronicleLayoutProps> = ({
           >
             <EmbossedImage
               src={imageUrl}
+              videoUrl={videoUrl}
+              videoMuted={videoMuted}
+              videoVolume={videoVolume}
+              videoDurationInFrames={videoDurationInFrames}
+              videoStartInFrames={videoStartInFrames}
               objectPosition={imageObjectPosition}
               zoom={imageZoom}
               rotate={-2.5}

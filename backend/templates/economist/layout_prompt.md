@@ -1,6 +1,8 @@
 Layout catalog for THE ECONOMIST template
 ==========================================
 
+**Never output `assignedVideo`, `videoUrl`, `videoMuted`, or `videoVolume`** — stock-footage clips are chosen by the user in the editor after generation, and inventing one breaks rendering.
+
 Use these layout IDs exactly for `preferred_layout`:
 
 - `cover_reveal`    — magazine cover intro (scene 0 only)

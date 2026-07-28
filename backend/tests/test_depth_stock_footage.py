@@ -24,6 +24,46 @@ pytestmark = pytest.mark.depth
 # ─── Provider parsing ───────────────────────────────────────────────────────
 
 
+def test_pexels_search__sends_max_duration_to_api(monkeypatch):
+    captured: dict = {}
+
+    def fake_get(url, **kwargs):
+        captured.update(kwargs.get("params") or {})
+        return SimpleNamespace(json=lambda: {"videos": []}, raise_for_status=lambda: None)
+
+    monkeypatch.setattr(stock_footage.settings, "PEXELS_API_KEY", "k", raising=False)
+    monkeypatch.setattr(stock_footage.requests, "get", fake_get)
+
+    stock_footage._pexels_search("news", 6, 1, "landscape")
+
+    assert captured["max_duration"] == int(stock_footage.MAX_CLIP_DURATION_SECONDS)
+    assert captured["size"] == "medium"
+    assert captured["per_page"] == 6
+
+
+def test_pexels_search__prefers_720p_rendition_when_available(monkeypatch):
+    """Without a scene box, prefer a 720p file over 1080p when both exist."""
+    payload = {
+        "videos": [{
+            "id": 123, "width": 1920, "height": 1080, "url": "u", "image": "i",
+            "duration": 8, "user": {"name": "Jane"},
+            "video_files": [
+                {"width": 1280, "height": 720, "fps": 30, "link": "https://cdn/720.mp4"},
+                {"width": 1920, "height": 1080, "fps": 30, "link": "https://cdn/1080.mp4"},
+            ],
+        }]
+    }
+    monkeypatch.setattr(stock_footage.settings, "PEXELS_API_KEY", "k", raising=False)
+    monkeypatch.setattr(
+        stock_footage.requests, "get",
+        lambda *a, **k: SimpleNamespace(json=lambda: payload, raise_for_status=lambda: None),
+    )
+
+    clips = stock_footage._pexels_search("news", 6, 1, "landscape")
+    assert clips[0].download_url == "https://cdn/720.mp4"
+    assert clips[0].height == 720
+
+
 def test_pexels_search__picks_largest_variant_at_or_under_1080p(monkeypatch):
     """4K variants are skipped: renders top out at 1080p."""
     payload = {
@@ -158,9 +198,8 @@ def test_search__sorts_30fps_first_and_keeps_provider_interleave(monkeypatch):
     ]
 
 
-def test_search__caps_results_and_drops_long_clips(monkeypatch):
-    """search() returns at most MAX_SEARCH_RESULTS and no clip over the duration
-    ceiling; clips with unknown (0) duration are kept."""
+def test_search__caps_results(monkeypatch):
+    """search() returns at most MAX_SEARCH_RESULTS."""
     def clip(provider, cid, duration):
         return stock_footage.StockClip(
             provider=provider, id=cid, preview_url="p", thumbnail_url="t",
@@ -168,27 +207,39 @@ def test_search__caps_results_and_drops_long_clips(monkeypatch):
             author="a", page_url="u",
         )
 
-    # 20 short + a couple long + one unknown from each provider.
     monkeypatch.setattr(
         stock_footage, "_pexels_search",
-        lambda *a, **k: (
-            [clip("pexels", f"p{i}", 5.0) for i in range(20)]
-            + [clip("pexels", "p-long", 30.0), clip("pexels", "p-unknown", 0.0)]
-        ),
+        lambda *a, **k: [clip("pexels", f"p{i}", 5.0) for i in range(20)],
     )
     monkeypatch.setattr(
         stock_footage, "_pixabay_search",
-        lambda *a, **k: [clip("pixabay", "x-long", 13.0), clip("pixabay", "x-ok", 12.0)],
+        lambda *a, **k: [clip("pixabay", "x-ok", 12.0)],
     )
 
     out = stock_footage.search("q")
     assert len(out) == stock_footage.MAX_SEARCH_RESULTS
-    ids = {c.id for c in out}
-    assert "p-long" not in ids      # 30s dropped
-    assert "x-long" not in ids      # 13s dropped (ceiling is 12)
-    # 12.0s exactly is allowed, and unknown duration is kept.
-    for c in out:
-        assert not c.duration or c.duration <= stock_footage.MAX_CLIP_DURATION_SECONDS
+
+
+def test_pick_top_for_query__requests_one_clip(monkeypatch):
+    captured: dict = {}
+
+    def fake_search(*args, **kwargs):
+        captured.update(kwargs)
+        return [
+            stock_footage.StockClip(
+                provider="pexels", id="1", preview_url="p", thumbnail_url="t",
+                download_url="d", width=1280, height=720, duration=5.0, fps=30.0,
+                author="a", page_url="u",
+            )
+        ]
+
+    monkeypatch.setattr(stock_footage, "search", fake_search)
+
+    clip = stock_footage.pick_top_for_query("startup", orientation="landscape")
+    assert clip is not None
+    assert clip.id == "1"
+    assert captured["per_page"] == stock_footage.AUTO_SEARCH_PER_PAGE
+    assert captured["max_results"] == 1
 
 
 def test_pick_rendition__smallest_that_covers_the_box():
@@ -202,8 +253,8 @@ def test_pick_rendition__smallest_that_covers_the_box():
     # A smaller box only needs a rendition that covers it.
     assert stock_footage._pick_rendition(files, 640, 360)["height"] == 360
     assert stock_footage._pick_rendition(files, 700, 400)["height"] == 540
-    # Unknown box → previous behaviour (largest at or under 1080p).
-    assert stock_footage._pick_rendition(files, None, None)["height"] == 1080
+    # Unknown box → prefer 720p when available, else fall back to 1080p.
+    assert stock_footage._pick_rendition(files, None, None)["height"] == 720
     # 4K-only upload → smallest, and let ffmpeg downscale.
     assert stock_footage._pick_rendition(
         [{"width": 3840, "height": 2160}, {"width": 2560, "height": 1440}], 1920, 1080
@@ -528,11 +579,13 @@ def test_deleting_a_clip_removes_both_files_and_unlinks_scenes(
     assert lp["hideImage"] is True
 
 
-def test_upload_endpoint_rejected_on_non_newscast_template(
+def test_upload_endpoint_rejected_on_unsupported_template(
     client, db_session, paid_user, auth
 ):
+    # `default` is not in STOCK_FOOTAGE_TEMPLATES — the upload endpoint rejects it
+    # before touching the network.
     project = Project(user_id=paid_user.id, name="X", blog_url="https://x.test",
-                      status=ProjectStatus.GENERATED, template="economist")
+                      status=ProjectStatus.GENERATED, template="default")
     db_session.add(project); db_session.commit(); db_session.refresh(project)
     s = Scene(project_id=project.id, order=1, title="S", narration_text="n",
               visual_description="v",
@@ -546,7 +599,7 @@ def test_upload_endpoint_rejected_on_non_newscast_template(
               "download_url": "https://cdn.example/clip.mp4"},
     )
     assert resp.status_code == 400
-    assert "Newscast" in resp.json()["detail"]
+    assert "not supported" in resp.json()["detail"]
 
 
 def test_assigning_image_clears_an_existing_clip(client, db_session, paid_user, auth, tmp_path):
@@ -759,8 +812,9 @@ def test_resolve_stock_footage_flag__all_plans_newscast_only(db_session, paid_us
     assert _resolve_stock_footage_flag(False, paid_user, "newscast") is False
     assert _resolve_stock_footage_flag(False, free_user, "newscast") is False
     # Wrong template → off (nothing would render the clip), regardless of plan.
-    assert _resolve_stock_footage_flag(True, paid_user, "economist") is False
-    assert _resolve_stock_footage_flag(True, free_user, "economist") is False
+    # `default` has no clip-capable layouts and is not in STOCK_FOOTAGE_TEMPLATES.
+    assert _resolve_stock_footage_flag(True, paid_user, "default") is False
+    assert _resolve_stock_footage_flag(True, free_user, "default") is False
 
 
 def test_bulk_project_auto_approves_instead_of_parking(db_session, paid_user):
@@ -998,3 +1052,166 @@ def test_link_endpoint_points_a_scene_at_an_uploaded_clip(
         json={"scene_id": scene.id, "filename": "not_mine.mp4"},
     )
     assert bad.status_code == 404
+
+
+def test_fill_missing_stock_clips_targets_final_image_layout(
+    db_session, paid_user, monkeypatch,
+):
+    """Regression: economist scenes scripted as chart_line (no-image at the gate)
+    can resolve to leader_article during scene generation and need a clip afterward."""
+    import asyncio
+    from app.models.project import Project
+    from app.models.scene import Scene
+    from app.routers.pipeline import _fill_missing_stock_clips_after_scene_gen
+
+    project = Project(
+        user_id=paid_user.id,
+        name="Economist fill",
+        blog_url="https://e.test",
+        status=ProjectStatus.GENERATED,
+        template="economist",
+        stock_footage_enabled=True,
+    )
+    db_session.add(project)
+    db_session.commit()
+    db_session.refresh(project)
+
+    scene = Scene(
+        project_id=project.id,
+        order=1,
+        title="The central bank's hardest year",
+        narration_text="n",
+        visual_description="v",
+        preferred_layout="leader_article",
+        remotion_code=json.dumps(
+            {"layout": "leader_article", "layoutProps": {"title": "The central bank's hardest year"}}
+        ),
+    )
+    db_session.add(scene)
+    db_session.commit()
+
+    called: list[int] = []
+
+    async def _fake_assign(project, scene, db, *, orientation, loop, used_generics=None):
+        called.append(scene.id)
+        return True
+
+    monkeypatch.setattr(
+        "app.routers.pipeline._try_assign_stock_clip_to_scene", _fake_assign
+    )
+
+    n = asyncio.run(
+        _fill_missing_stock_clips_after_scene_gen(
+            project, [scene], db_session, "economist"
+        )
+    )
+    assert n == 1
+    assert called == [scene.id]
+
+    called.clear()
+    scene.remotion_code = json.dumps({"layout": "chart_line", "layoutProps": {}})
+    n = asyncio.run(
+        _fill_missing_stock_clips_after_scene_gen(
+            project, [scene], db_session, "economist"
+        )
+    )
+    assert n == 0
+    assert called == []
+
+
+def test_prepare_stock_footage_falls_back_to_image_when_no_clip(
+    db_session, paid_user, monkeypatch, tmp_path,
+):
+    """When stock search finds nothing, assign a scraped still instead."""
+    import asyncio
+    from app.models.asset import Asset, AssetType
+    from app.models.scene import Scene
+    from app.routers.pipeline import _prepare_stock_footage_candidates
+
+    project = _scripted_newscast_project(
+        db_session,
+        paid_user,
+        layouts=("opening", "anchor_narrative"),
+    )
+    img_path = tmp_path / "hero.jpg"
+    img_path.write_bytes(b"fake-jpg")
+    db_session.add(
+        Asset(
+            project_id=project.id,
+            asset_type=AssetType.IMAGE,
+            local_path=str(img_path),
+            filename="hero.jpg",
+            excluded=False,
+        )
+    )
+    db_session.commit()
+
+    monkeypatch.setattr(
+        "app.services.stock_footage.pick_top_for_query",
+        lambda *a, **k: None,
+    )
+
+    n = asyncio.run(_prepare_stock_footage_candidates(project, db_session))
+    assert n == 2
+
+    scenes = (
+        db_session.query(Scene)
+        .filter(Scene.project_id == project.id)
+        .order_by(Scene.order)
+        .all()
+    )
+    for scene in scenes:
+        lp = json.loads(scene.remotion_code)["layoutProps"]
+        assert "assignedVideo" not in lp
+        assert lp["assignedImage"] == "hero.jpg"
+        assert lp["stockFootageImageFallback"] is True
+        assert lp["hideImage"] is False
+
+
+def test_prepare_stock_footage_candidates_skips_already_assigned(
+    db_session, paid_user, monkeypatch,
+):
+    """Re-entering the stock gate (e.g. page refresh) must not re-pick clips."""
+    import asyncio
+    from app.models.scene import Scene
+    from app.routers.pipeline import _prepare_stock_footage_candidates
+
+    project = _scripted_newscast_project(
+        db_session,
+        paid_user,
+        layouts=("opening", "anchor_narrative", "anchor_narrative"),
+    )
+    scenes = (
+        db_session.query(Scene)
+        .filter(Scene.project_id == project.id)
+        .order_by(Scene.order)
+        .all()
+    )
+    scenes[0].remotion_code = json.dumps(
+        {"layoutProps": {"assignedVideo": "scene_1_existing.mp4"}}
+    )
+    scenes[1].remotion_code = json.dumps(
+        {"layoutProps": {"assignedVideo": "scene_2_existing.mp4"}}
+    )
+    db_session.commit()
+
+    called: list[int] = []
+
+    async def _fake_assign(project, scene, db, *, orientation, loop, used_generics=None):
+        called.append(scene.id)
+        return True
+
+    monkeypatch.setattr(
+        "app.routers.pipeline._try_assign_stock_clip_to_scene", _fake_assign
+    )
+
+    n = asyncio.run(_prepare_stock_footage_candidates(project, db_session))
+    assert n == 3
+    assert called == [scenes[2].id]
+
+
+def test_stock_footage_templates_include_gridcraft_chronicle_magazine():
+    from app.services.stock_footage import STOCK_FOOTAGE_TEMPLATES
+
+    for template in ("gridcraft", "chronicle", "magazine"):
+        assert template in STOCK_FOOTAGE_TEMPLATES

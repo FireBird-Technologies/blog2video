@@ -10,6 +10,11 @@ export const LanternDialogue: React.FC<SceneLayoutProps> = (props) => {
     imageUrl,
     imageObjectPosition,
     imageZoom,
+    videoUrl,
+    videoMuted,
+    videoVolume,
+    videoDurationInFrames,
+    videoStartInFrames,
     accentColor,
     bgColor,
     textColor,
@@ -485,6 +490,11 @@ export const LanternDialogue: React.FC<SceneLayoutProps> = (props) => {
         imageUrl={imageUrl}
         imageObjectPosition={imageObjectPosition}
         imageZoom={imageZoom}
+        videoUrl={videoUrl}
+        videoMuted={videoMuted}
+        videoVolume={videoVolume}
+        videoDurationInFrames={videoDurationInFrames}
+        videoStartInFrames={videoStartInFrames}
       />
       <svg
         width={W}

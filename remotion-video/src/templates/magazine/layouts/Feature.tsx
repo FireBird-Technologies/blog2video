@@ -48,7 +48,7 @@ export const Feature: React.FC<SceneLayoutProps> = (props) => {
     .filter(Boolean)
     .slice(0, 3);
   const p = isPortrait(props.aspectRatio);
-  const hasImage = Boolean(props.imageUrl);
+  const hasImage = Boolean(props.imageUrl || props.videoUrl);
   const colors = resolveMagColors(props);
   const { text, accent } = colors;
   const uid = React.useId().replace(/[:]/g, "");
@@ -215,6 +215,11 @@ export const Feature: React.FC<SceneLayoutProps> = (props) => {
             {hasImage && (
               <MagPlate
                 src={props.imageUrl}
+                videoUrl={props.videoUrl}
+                videoMuted={props.videoMuted}
+                videoVolume={props.videoVolume}
+                videoDurationInFrames={props.videoDurationInFrames}
+                videoStartInFrames={props.videoStartInFrames}
                 colors={colors}
                 objectPosition={props.imageObjectPosition}
                 zoom={props.imageZoom}
@@ -236,6 +241,11 @@ export const Feature: React.FC<SceneLayoutProps> = (props) => {
             </div>
             <MagPlate
               src={props.imageUrl}
+              videoUrl={props.videoUrl}
+              videoMuted={props.videoMuted}
+              videoVolume={props.videoVolume}
+              videoDurationInFrames={props.videoDurationInFrames}
+              videoStartInFrames={props.videoStartInFrames}
               colors={colors}
               objectPosition={props.imageObjectPosition}
               zoom={props.imageZoom}
