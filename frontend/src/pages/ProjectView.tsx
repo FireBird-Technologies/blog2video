@@ -1235,6 +1235,7 @@ export default function ProjectView() {
   const [imageAdjustStartSeconds, setImageAdjustStartSeconds] = useState(0);
   const [savingImageAdjust, setSavingImageAdjust] = useState(false);
   const imageAdjustPreviewRef = useRef<HTMLDivElement>(null);
+  const imageAdjustScrollRef = useRef<HTMLDivElement>(null);
   const imageAdjustFocusRef = useRef({ x: 50, y: 50 });
   const imageAdjustPanRef = useRef<{
     startX: number;
@@ -3276,6 +3277,37 @@ export default function ProjectView() {
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
+  }, [imageAdjustSceneId, imageAdjustSrc]);
+
+  // The preview + trim bar can push the zoom slider and crop controls below
+  // the fold, and users kept missing them starting scrolled to the top. Open
+  // scrolled to the bottom (controls visible first) — users can still scroll
+  // up to see the full framing preview. The image/video hasn't finished
+  // loading (and the crop overlay hasn't measured its natural size) on first
+  // paint, so content height keeps changing for a moment — a ResizeObserver
+  // re-pins to bottom through those changes instead of a single one-shot
+  // scroll that lands before layout has settled. Only auto-pins while the
+  // user hasn't scrolled away from the bottom themselves.
+  useEffect(() => {
+    if (imageAdjustSceneId === null || !imageAdjustSrc) return;
+    const el = imageAdjustScrollRef.current;
+    if (!el) return;
+    let pinned = true;
+    const SCROLL_BOTTOM_SLOP = 4;
+    const onScroll = () => {
+      pinned = el.scrollHeight - el.scrollTop - el.clientHeight <= SCROLL_BOTTOM_SLOP;
+    };
+    const pinToBottom = () => {
+      if (pinned) el.scrollTop = el.scrollHeight;
+    };
+    pinToBottom();
+    el.addEventListener("scroll", onScroll, { passive: true });
+    const ro = new ResizeObserver(pinToBottom);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+      ro.disconnect();
+    };
   }, [imageAdjustSceneId, imageAdjustSrc]);
 
   if (loading) {
@@ -7476,7 +7508,7 @@ export default function ProjectView() {
                           </svg>
                         </button>
                       </div>
-                      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-gray-50">
+                      <div ref={imageAdjustScrollRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-gray-50">
                         <div className="p-4 sm:p-5">
                         <ImageAdjustStage
                           src={imageAdjustSrc}
