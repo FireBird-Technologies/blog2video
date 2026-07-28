@@ -22,6 +22,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Paid newsletters sell for roughly 2x to 5x annual revenue. Here is what moves you inside that range — churn, audience geography, niche, scale, and growth — and how to estimate your own number.",
     category: "Guide",
+    heroImage: "/blog/blog-cover-how-much-is-my-substack-newsletter-worth.png",
+    heroImageAlt:
+      "Paid newsletters sell for roughly 2x to 5x annual revenue. Here is what moves you inside that range — churn, audience geography, niche, scale, and growth — and how to estimate your own number.",
     publishedAt: "2026-07-28",
     readTime: "9 min read",
     heroEyebrow: "Guide",
@@ -160,6 +163,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Same ARR, very different price. A breakdown of the adjustments buyers actually apply to a newsletter revenue multiple — and how to work out which ones are costing you.",
     category: "Guide",
+    heroImage: "/blog/blog-cover-newsletter-valuation-multiples-explained.png",
+    heroImageAlt:
+      "Same ARR, very different price. A breakdown of the adjustments buyers actually apply to a newsletter revenue multiple — and how to work out which ones are costing you.",
     publishedAt: "2026-07-28",
     readTime: "8 min read",
     heroEyebrow: "Guide",
