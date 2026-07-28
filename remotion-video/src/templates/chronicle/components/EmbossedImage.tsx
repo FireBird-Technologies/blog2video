@@ -3,7 +3,8 @@ import { Img, interpolate, useCurrentFrame } from "remotion";
 import { ChronicleClip } from "./ChronicleClip";
 
 interface EmbossedImageProps {
-  src: string;
+  /** Still image src. Unused when `videoUrl` is set (the clip renders instead). */
+  src?: string;
   videoUrl?: string;
   videoMuted?: boolean;
   videoVolume?: number;
@@ -109,9 +110,9 @@ export const EmbossedImage: React.FC<EmbossedImageProps> = ({
             startInFrames={videoStartInFrames}
             style={mediaStyle}
           />
-        ) : (
+        ) : src ? (
           <Img src={src} style={mediaStyle} />
-        )}
+        ) : null}
 
         <div
           style={{
