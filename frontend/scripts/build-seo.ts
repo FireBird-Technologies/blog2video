@@ -7,6 +7,7 @@ import {
   getHelpPost,
   getMarketingPage,
   getPublicPaths,
+  getRelatedBlogPosts,
   getToolByPath,
   helpPosts,
   marketingPages,
@@ -83,7 +84,19 @@ function renderBlogPostHtml(post: BlogPost): string {
         .map((f) => `<div><h3>${escapeHtml(f.question)}</h3><p>${escapeHtml(f.answer)}</p></div>`)
         .join("")}</section>`
     : "";
-  return `<main><article>${heroImg}<p>${escapeHtml(post.heroEyebrow)}</p><h1>${escapeHtml(post.heroTitle)}</h1><p>${escapeHtml(post.heroDescription)}</p><time datetime="${post.publishedAt}">${post.publishedAt}</time>${sectionsHtml}${faqHtml}</article></main>`;
+  return `<main><article>${heroImg}<p>${escapeHtml(post.heroEyebrow)}</p><h1>${escapeHtml(post.heroTitle)}</h1><p>${escapeHtml(post.heroDescription)}</p><time datetime="${post.publishedAt}">${post.publishedAt}</time>${sectionsHtml}${faqHtml}</article>${renderRelatedPostsHtml(post)}</main>`;
+}
+
+function renderRelatedPostsHtml(post: BlogPost): string {
+  const related = getRelatedBlogPosts(post, 4);
+  if (!related.length) return "";
+  const items = related
+    .map(
+      (entry) =>
+        `<li><a href="/blogs/${entry.slug}"><h3>${escapeHtml(entry.title)}</h3></a><p>${escapeHtml(entry.description)}</p></li>`
+    )
+    .join("");
+  return `<nav aria-label="Related articles"><h2>Related articles</h2><ul>${items}</ul></nav>`;
 }
 
 function renderBlogIndexHtml(posts: BlogPost[]): string {
