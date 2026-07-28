@@ -1,37 +1,32 @@
 import React from "react";
 import { Img, interpolate, useCurrentFrame } from "remotion";
+import { ChronicleClip } from "./ChronicleClip";
 
 interface EmbossedImageProps {
-  src: string;
+  /** Still image src. Unused when `videoUrl` is set (the clip renders instead). */
+  src?: string;
+  videoUrl?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  videoDurationInFrames?: number;
+  videoStartInFrames?: number;
   objectPosition?: string;
   zoom?: number;
-  /** Rotation in degrees applied to the card (daguerreotype pasted feel). */
   rotate?: number;
-  /** Scene-frame at which the reveal animation should start. */
   revealStart?: number;
-  /** Disable the sepia / reveal animations (full opacity from frame 0). */
   instant?: boolean;
-  /** Optional style overrides for the outer card. */
   style?: React.CSSProperties;
-  /** Controls how thick the cream paper mat is, in px (default 14). */
   matSize?: number;
-  /** Add a faint ink-bordered frame inside the mat. */
   inkFrame?: boolean;
 }
 
-/**
- * EmbossedImage — reusable aged-photo card used across Chronicle layouts.
- *
- * Treatment (all always applied):
- *   - Cream paper mat with inner shadow (emboss / pressed-into-page feel)
- *   - Sepia + light grain overlay on the image itself
- *   - Soft worn edges via clip-path
- *   - Subtle ink border inside the mat
- *   - Drop shadow to lift it off the parchment
- *   - Optional radial ink-bleed reveal (0 → 1 over first 20 frames)
- */
 export const EmbossedImage: React.FC<EmbossedImageProps> = ({
   src,
+  videoUrl,
+  videoMuted = true,
+  videoVolume = 0.35,
+  videoDurationInFrames,
+  videoStartInFrames,
   objectPosition,
   zoom,
   rotate = 0,
@@ -53,8 +48,21 @@ export const EmbossedImage: React.FC<EmbossedImageProps> = ({
   const sepiaAmount = instant ? 0.55 : interpolate(revealProgress, [0, 1], [0.85, 0.55]);
   const blurAmount = instant ? 0 : interpolate(revealProgress, [0, 1], [8, 0]);
 
-  // Radial clip-path for "ink spread" reveal: circle grows from center
   const clipRadius = instant ? 120 : interpolate(revealProgress, [0, 1], [0, 120]);
+  const z = zoom ?? 1;
+  const isZoomedOut = z < 1;
+  const pos = objectPosition ?? "50% 50%";
+
+  const mediaStyle: React.CSSProperties = {
+    width: "100%",
+    height: "100%",
+    objectFit: isZoomedOut ? "contain" : "cover",
+    objectPosition: isZoomedOut ? "center" : pos,
+    transform: `scale(${z})`,
+    transformOrigin: isZoomedOut ? "center center" : pos,
+    filter: `sepia(${sepiaAmount}) saturate(0.85) contrast(1.05) brightness(0.94) blur(${blurAmount}px)`,
+    display: "block",
+  };
 
   return (
     <div
@@ -68,7 +76,6 @@ export const EmbossedImage: React.FC<EmbossedImageProps> = ({
         ...style,
       }}
     >
-      {/* Inner ink frame (thin double-lined) */}
       {inkFrame && (
         <div
           style={{
@@ -83,7 +90,6 @@ export const EmbossedImage: React.FC<EmbossedImageProps> = ({
         />
       )}
 
-      {/* Image with sepia + ink-spread reveal */}
       <div
         style={{
           position: "relative",
@@ -93,21 +99,21 @@ export const EmbossedImage: React.FC<EmbossedImageProps> = ({
           clipPath: `circle(${clipRadius}% at 50% 50%)`,
         }}
       >
-        <Img
-          src={src}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: (zoom ?? 1) < 1 ? "contain" : "cover",
-            objectPosition: (zoom ?? 1) < 1 ? "center" : (objectPosition ?? "50% 50%"),
-            transform: `scale(${zoom ?? 1})`,
-            transformOrigin: (zoom ?? 1) < 1 ? "center center" : (objectPosition ?? "50% 50%"),
-            filter: `sepia(${sepiaAmount}) saturate(0.85) contrast(1.05) brightness(0.94) blur(${blurAmount}px)`,
-            display: "block",
-          }}
-        />
+        {videoUrl ? (
+          <ChronicleClip
+            src={videoUrl}
+            imageObjectPosition={objectPosition}
+            imageZoom={zoom}
+            muted={videoMuted}
+            volume={videoVolume}
+            durationInFrames={videoDurationInFrames}
+            startInFrames={videoStartInFrames}
+            style={mediaStyle}
+          />
+        ) : src ? (
+          <Img src={src} style={mediaStyle} />
+        ) : null}
 
-        {/* Grain overlay */}
         <div
           style={{
             position: "absolute",
@@ -121,7 +127,6 @@ export const EmbossedImage: React.FC<EmbossedImageProps> = ({
           }}
         />
 
-        {/* Warm vignette inside photo */}
         <div
           style={{
             position: "absolute",

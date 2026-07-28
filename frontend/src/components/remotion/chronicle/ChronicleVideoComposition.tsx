@@ -10,6 +10,7 @@ import { LogoOverlay } from "../LogoOverlay";
 import { BackgroundMusic } from "../BackgroundMusic";
 import { CaptionTrack } from "../CaptionTrack";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
+import { SceneDurationInFramesContext } from "../SceneDurationContext";
 import { ChronicleChrome } from "./components/ChronicleChrome";
 import { pickChronicleTransition } from "./transitions";
 
@@ -26,6 +27,11 @@ export interface ChronicleSceneInput {
   /** Spoken-audio length in seconds — for caption timing. */
   speechDurationSeconds?: number;
   imageUrl?: string;
+  videoUrl?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  videoDurationSeconds?: number;
+  videoStartSeconds?: number;
   voiceoverUrl?: string;
 }
 
@@ -207,7 +213,7 @@ export const ChronicleVideoComposition: React.FC<ChronicleVideoCompositionProps>
     >
       <TransitionSeries>
         {resolvedScenes.map((s, index) => {
-          const { scene, layoutKey, sequenceFrames } = s;
+          const { scene, layoutKey, sequenceFrames, durationFrames } = s;
           const LayoutComponent = CHRONICLE_LAYOUT_REGISTRY[layoutKey];
 
           const rawProps = (scene.layoutProps ?? {}) as Record<string, unknown>;
@@ -219,6 +225,15 @@ export const ChronicleVideoComposition: React.FC<ChronicleVideoCompositionProps>
             title: scene.title,
             narration: scene.narration,
             imageUrl: scene.imageUrl,
+            videoUrl: scene.videoUrl,
+            videoMuted: scene.videoMuted ?? true,
+            videoVolume: scene.videoVolume ?? 0.35,
+            videoDurationInFrames: scene.videoDurationSeconds
+              ? Math.max(1, Math.round(scene.videoDurationSeconds * FPS))
+              : undefined,
+            videoStartInFrames: scene.videoStartSeconds
+              ? Math.max(0, Math.round(scene.videoStartSeconds * FPS))
+              : undefined,
             imageObjectPosition: `${focusX}% ${focusY}%`,
             imageZoom: Math.max(0.1, Number(rawProps.imageZoom ?? 1)),
             accentColor: accentColor || "#B8860B",
@@ -243,7 +258,9 @@ export const ChronicleVideoComposition: React.FC<ChronicleVideoCompositionProps>
                 disablePageTurn={skipFade}
                 showScripture={showScripture}
               >
-                <LayoutComponent {...layoutProps} />
+                <SceneDurationInFramesContext.Provider value={durationFrames}>
+                  <LayoutComponent {...layoutProps} />
+                </SceneDurationInFramesContext.Provider>
               </ChronicleChrome>
             </TransitionSeries.Sequence>
           );
@@ -267,14 +284,25 @@ export const ChronicleVideoComposition: React.FC<ChronicleVideoCompositionProps>
         })}
       </TransitionSeries>
 
-      {/* Voiceover audio — positioned absolutely so it stays in sync regardless of transition overlap. */}
+      {/* Voiceover audio — positioned absolutely so it stays in sync regardless of transition overlap.
+          EXTRA_HOLD_FRAMES (10) is smaller than every transition length (30-44,
+          see chronicle/transitions), so sceneStartFrames[index + 1] can land
+          BEFORE this scene's natural durationFrames would end. Clamp the audio
+          window to that next start (when there is one) so scene N+1's
+          voiceover never starts while scene N's is still playing. Must stay
+          in sync with the same clamp in remotion-video's ChronicleVideo.tsx. */}
       {resolvedScenes.map((s, index) => {
         if (!s.scene.voiceoverUrl) return null;
+        const nextStart = sceneStartFrames[index + 1];
+        const audioDurationFrames =
+          nextStart !== undefined
+            ? Math.max(1, Math.min(s.durationFrames, nextStart - sceneStartFrames[index]))
+            : s.durationFrames;
         return (
           <Sequence
             key={`audio-${s.scene.id}-${index}`}
             from={sceneStartFrames[index]}
-            durationInFrames={s.durationFrames}
+            durationInFrames={audioDurationFrames}
           >
             <Audio src={s.scene.voiceoverUrl} playbackRate={resolvedPlaybackSpeed} />
             {captionsEnabled && (s.scene.narrationText || s.scene.narration) && (

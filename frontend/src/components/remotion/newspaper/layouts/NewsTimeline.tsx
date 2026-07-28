@@ -1,4 +1,5 @@
 import React from "react";
+import { NewspaperClip } from "../components/NewspaperClip";
 import { AbsoluteFill, interpolate, useCurrentFrame, Img, useVideoConfig, spring, staticFile } from "remotion";
 import { NewsBackground } from "../NewsBackground";
 import type { BlogLayoutProps } from "../types";
@@ -24,6 +25,11 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
   ],imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
@@ -130,7 +136,7 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
           }}>
             
             {/* NEWSPAPER IMAGE CUTOUT */}
-            {imageUrl && (
+            {(imageUrl || videoUrl) && (
               <div
                 style={{
                   position: "relative",
@@ -144,11 +150,25 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
                     ? `rotate(${interpolate(imageSpring, [0, 1], [-1, 1.5])}deg) scale(${imageSpring})`
                     : `rotate(${interpolate(imageSpring, [0, 1], [-4, -1])}deg) scale(${imageSpring})`,
                   opacity: imageSpring,
-                  clipPath: "polygon(0% 2%, 98% 0%, 100% 95%, 96% 100%, 50% 97%, 4% 100%, 0% 50%)",
+                  clipPath: "polygon(0% 1%, 98% 0%, 100% 99%, 2% 100%)",
                   zIndex: 10
                 }}
               >
                 <div style={{ width: "100%", height: "100%", overflow: "hidden", border: "1px solid #ddd" }}>
+                  {videoUrl ? (
+                    <NewspaperClip
+                      src={videoUrl}
+                      imageObjectPosition={imageObjectPosition}
+                      imageZoom={imageZoom}
+                      muted={videoMuted ?? true}
+                      volume={videoVolume ?? 0.35}
+                      durationInFrames={videoDurationInFrames}
+                startInFrames={videoStartInFrames}
+                      style={{
+                    filter: "contrast(1.1) grayscale(30%) sepia(15%)",
+                      }}
+                    />
+                  ) : imageUrl ? (
                   <Img
                     src={imageUrl}
                     style={{
@@ -161,6 +181,7 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
                       filter: "contrast(1.1) grayscale(30%) sepia(15%)",
                     }}
                   />
+                  ) : null}
                 </div>
               </div>
             )}

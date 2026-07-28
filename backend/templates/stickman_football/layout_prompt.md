@@ -1,6 +1,8 @@
 Layout catalog for STICKMAN_FOOTBALL template
 =============================================
 
+**Never output `assignedVideo`, `videoUrl`, `videoMuted`, or `videoVolume`** — stock-footage clips are chosen by the user in the editor after generation, and inventing one breaks rendering.
+
 Use these layout IDs exactly for `preferred_layout`:
 
 - `kickoff_title`    — opening hero kick-off sequence (scene 0 only)

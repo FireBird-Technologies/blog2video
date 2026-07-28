@@ -113,6 +113,9 @@ def _migrate_sqlite(eng) -> None:
             "embed_token": "VARCHAR(64)",
             "video_length": "VARCHAR(10) DEFAULT 'auto'",
             "playback_speed": "REAL DEFAULT 1.0",
+            "stock_footage_enabled": "BOOLEAN DEFAULT 0",
+            "stock_footage_approved_at": "DATETIME",
+            "is_bulk": "BOOLEAN DEFAULT 0",
             "captions_enabled": "BOOLEAN DEFAULT 0",
             "caption_position": "VARCHAR(20) DEFAULT 'bottom_center'",
             "caption_font_family": "VARCHAR(50) DEFAULT 'inter'",
@@ -167,6 +170,15 @@ def _migrate_sqlite(eng) -> None:
             "r2_key": "VARCHAR(512)",
             "r2_url": "VARCHAR(2048)",
             "excluded": "BOOLEAN DEFAULT 0",
+            # Stock-footage (VIDEO) asset columns — NULL for image/audio rows.
+            "duration_seconds": "FLOAT",
+            "width": "INTEGER",
+            "height": "INTEGER",
+            "source_provider": "VARCHAR(32)",
+            "source_id": "VARCHAR(64)",
+            "source_author": "VARCHAR(255)",
+            "source_page_url": "VARCHAR(2048)",
+            "audio_variant_filename": "VARCHAR(255)",
         }
         with eng.begin() as conn:
             for col_name, col_def in asset_migrations.items():

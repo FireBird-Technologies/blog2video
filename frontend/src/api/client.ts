@@ -140,6 +140,16 @@ export interface Asset {
   r2_url: string | null;
   excluded: boolean;
   created_at: string;
+  /** VIDEO assets (stock footage) only — null on image/audio rows. */
+  duration_seconds?: number | null;
+  width?: number | null;
+  height?: number | null;
+  source_provider?: string | null;
+  source_id?: string | null;
+  source_author?: string | null;
+  source_page_url?: string | null;
+  /** Sibling AAC file when the source had audio; null/absent = clip is silent. */
+  audio_variant_filename?: string | null;
 }
 
 export interface Project {
@@ -178,6 +188,10 @@ export interface Project {
   bgm_track_id?: string | null;
   bgm_volume?: number;
   bgm_track_url?: string | null;
+  /** Paid + Newscast: generation pauses for stock-footage review after scripting. */
+  stock_footage_enabled?: boolean;
+  /** Bulk-created: stock footage auto-approves (no review step). */
+  is_bulk?: boolean;
   captions_enabled?: boolean;
   caption_position?: "bottom_center" | "top_center";
   caption_font_family?: string;
@@ -1060,7 +1074,9 @@ export const createProject = (
   bgm_track_id?: string | null,
   bgm_volume?: number,
   captions_enabled?: boolean,
-  caption_position?: "bottom_center" | "top_center"
+  caption_position?: "bottom_center" | "top_center",
+  /** Options that don't warrant another positional arg (already 22). */
+  extra?: { stock_footage_enabled?: boolean }
 ) =>
   api.post<Project>("/projects", {
     blog_url,
@@ -1084,6 +1100,7 @@ export const createProject = (
     bgm_volume,
     captions_enabled,
     caption_position,
+    stock_footage_enabled: extra?.stock_footage_enabled ?? false,
   });
 
 /** One project config for bulk create (same shape as single create). */
@@ -1105,6 +1122,7 @@ export interface BulkProjectItem {
   custom_voice_id?: string;
   aspect_ratio?: string;
   content_language?: string | null;
+  stock_footage_enabled?: boolean;
   captions_enabled?: boolean;
   caption_position?: "bottom_center" | "top_center";
 }
@@ -1155,6 +1173,7 @@ export const createProjectFromDocs = (
     content_language?: string | null;
     bgm_track_id?: string | null;
     bgm_volume?: number;
+    stock_footage_enabled?: boolean;
   } = {}
 ) => {
   const formData = new FormData();
@@ -1184,6 +1203,8 @@ export const createProjectFromDocs = (
   if (config.bgm_track_id) formData.append("bgm_track_id", config.bgm_track_id);
   if (config.bgm_volume !== undefined && config.bgm_volume !== null) {
     formData.append("bgm_volume", String(config.bgm_volume));
+  if (config.stock_footage_enabled)
+    formData.append("stock_footage_enabled", "true");
   }
   return api.post<Project>("/projects/upload", formData, {
     headers: { "Content-Type": "multipart/form-data" },
@@ -1270,6 +1291,11 @@ export interface PipelineStatus {
     effective_video_length?: string;
     video_style?: string;
   } | null;
+  stock_footage?: {
+    current: number;
+    total: number;
+    scene_id: number;
+  } | null;
   studio_port: number | null;
 }
 
@@ -1301,6 +1327,7 @@ export const updateProject = (
     playback_speed?: number;
     bgm_track_id?: string | null;
     bgm_volume?: number;
+    stock_footage_enabled?: boolean;
     captions_enabled?: boolean;
     caption_position?: "bottom_center" | "top_center";
     caption_font_family?: string;
@@ -1524,6 +1551,132 @@ export const generateSceneImage = (
   api.post<GenerateSceneImageResponse>(
     `/projects/${projectId}/scenes/${sceneId}/generate-image`,
     body
+  );
+
+/** A stock-footage search result, normalised across Pexels and Pixabay. */
+export interface StockClip {
+  provider: string;
+  id: string;
+  preview_url: string;
+  thumbnail_url: string;
+  download_url: string;
+  width: number;
+  height: number;
+  duration: number;
+  fps: number | null;
+  author: string;
+  page_url: string;
+}
+
+export const searchStockFootage = (
+  projectId: number,
+  params: {
+    q: string;
+    provider?: string;
+    page?: number;
+    per_page?: number;
+    /** Scene image box in px on the 1080p canvas — steers orientation + rendition. */
+    box_w?: number;
+    box_h?: number;
+  }
+) =>
+  api.get<{ clips: StockClip[] }>(`/projects/${projectId}/stock-footage/search`, {
+    params,
+  });
+
+/** One scene awaiting stock-footage review at the generation gate. */
+export interface PendingFootageScene {
+  scene_id: number;
+  order: number;
+  title: string;
+  scene_type: string | null;
+  layout: string | null;
+  clip: {
+    filename: string;
+    url: string;
+    duration_seconds: number | null;
+    author: string | null;
+    provider: string | null;
+  } | null;
+  /** Scraped still used when auto stock search found no clip for this scene. */
+  fallback_image?: {
+    filename: string;
+    url: string;
+  } | null;
+}
+
+/** Scenes to review while a project sits at `awaiting_stock_footage_review`
+ *  (or, for a legacy project, the old `awaiting_footage` gate). */
+export const getPendingStockFootage = (projectId: number) =>
+  api.get<{ status: string; awaiting: boolean; scenes: PendingFootageScene[] }>(
+    `/projects/${projectId}/stock-footage/pending`
+  );
+
+/**
+ * Point a scene at an already-uploaded clip. The upload endpoint creates the
+ * asset but does not touch the scene, so the review gate calls this right after
+ * swapping — otherwise the new clip is orphaned and the scene keeps the old one.
+ */
+export const linkStockFootage = (
+  projectId: number,
+  sceneId: number,
+  filename: string
+) =>
+  api.post<{ detail: string; scene_id: number; filename: string }>(
+    `/projects/${projectId}/stock-footage/link`,
+    { scene_id: sceneId, filename }
+  );
+
+/** Accept the auto-picked clips as-is and finalize the video. */
+export const approveStockFootage = (projectId: number) =>
+  api.post<{ detail: string; status: string }>(
+    `/projects/${projectId}/stock-footage/approve`
+  );
+
+/** Discard every auto-picked clip: fall back to images (or hide), then finalize. */
+export const rejectStockFootage = (projectId: number) =>
+  api.post<{ detail: string; status: string }>(
+    `/projects/${projectId}/stock-footage/reject`
+  );
+
+/** The processed VIDEO asset returned after uploading a chosen clip. */
+export interface UploadedStockClip {
+  asset_id: number;
+  filename: string;
+  video_url: string;
+  audio_variant_url: string | null;
+  has_audio: boolean;
+  duration_seconds: number | null;
+  width: number | null;
+  height: number | null;
+  source_author: string;
+  source_provider: string;
+}
+
+/**
+ * Download + normalise a chosen clip into a VIDEO asset, WITHOUT linking it to
+ * the scene. The backend transcodes it to CFR 30 fps (so it stays in sync with
+ * the 30 fps composition) — expect a few seconds. The returned URLs let the
+ * editor stage and preview the clip (audio included); the scene link is written
+ * later by the normal scene Save (via `assignedVideo` in the descriptor).
+ */
+export const uploadStockFootage = (
+  projectId: number,
+  sceneId: number,
+  clip: StockClip
+) =>
+  api.post<UploadedStockClip>(
+    `/projects/${projectId}/scenes/${sceneId}/stock-footage`,
+    {
+      provider: clip.provider,
+      clip_id: clip.id,
+      download_url: clip.download_url,
+      width: clip.width,
+      height: clip.height,
+      duration: clip.duration,
+      author: clip.author,
+      page_url: clip.page_url,
+    }
   );
 
 export interface LayoutPropSchemaEntry {

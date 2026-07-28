@@ -1,6 +1,8 @@
 Layout catalog for Chronicle template
 =====================================
 
+**Never output `assignedVideo`, `videoUrl`, `videoMuted`, or `videoVolume`** — stock-footage clips are chosen by the user in the editor after generation, and inventing one breaks rendering.
+
 Use these layout IDs **exactly** when suggesting `preferred_layout` for scenes using the `chronicle` template. Think like a scribe: each scene is a page turned in an ancient manuscript. Distribute layouts as a rhythmic alternation of body pages and ornamental beats — never stack identical layouts.
 
 - `book_open`

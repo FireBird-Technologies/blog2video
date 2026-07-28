@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, Img, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import type { EconomistLayoutProps } from "../types";
+import { EconomistClip } from "../components/EconomistClip";
 import { ECONOMIST_COLORS, CHROME_INSET } from "../constants";
 import { ECONOMIST_SERIF_FONT } from "../../../fonts/economist-defaults";
 import { EditorialDivider, EngravingTexture, ConcentricRings } from "../components/EconomistOrnaments";
@@ -22,6 +23,11 @@ export const SectionDivider: React.FC<EconomistLayoutProps> = ({
   imageUrl,
   imageObjectPosition = "50% 50%",
   imageZoom = 1,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   accentColor = ECONOMIST_COLORS.accent,
   textColor = ECONOMIST_COLORS.ink,
   titleFontSize,
@@ -61,11 +67,10 @@ export const SectionDivider: React.FC<EconomistLayoutProps> = ({
       {/* Optional photo as a ghosted engraved plate: grayscale, slow drift, and
           a warm paper wash over it so the chapter type still reads as ink on
           paper rather than text on a photo. */}
-      {imageUrl ? (
+      {(imageUrl || videoUrl) ? (
         <AbsoluteFill style={{ overflow: "hidden" }}>
-          <Img
-            src={imageUrl}
-            style={{
+          {(() => {
+            const visualStyle: React.CSSProperties = {
               width: "100%",
               height: "100%",
               objectFit: "cover",
@@ -73,8 +78,22 @@ export const SectionDivider: React.FC<EconomistLayoutProps> = ({
               transform: `scale(${(interpolate(frame, [0, 280], [1.04, 1.12], { extrapolateRight: "clamp" }) * imageZoom).toFixed(4)})`,
               filter: "grayscale(1) contrast(0.92) brightness(1.05)",
               opacity: 0.26 * clamp01(frame / 18),
-            }}
-          />
+            };
+            return videoUrl ? (
+              <EconomistClip
+                src={videoUrl}
+                imageObjectPosition={imageObjectPosition}
+                imageZoom={imageZoom}
+                muted={videoMuted ?? true}
+                volume={videoVolume ?? 0.35}
+                durationInFrames={videoDurationInFrames}
+                startInFrames={videoStartInFrames}
+                style={visualStyle}
+              />
+            ) : (
+              <Img src={imageUrl!} style={visualStyle} />
+            );
+          })()}
           <AbsoluteFill
             style={{
               background:
@@ -144,7 +163,7 @@ export const SectionDivider: React.FC<EconomistLayoutProps> = ({
             fontSize: isPortrait ? 44 : 34,
             lineHeight: 1.45,
             // Over the ghosted photo the muted grey loses contrast — use ink.
-            color: imageUrl ? ECONOMIST_COLORS.ink : ECONOMIST_COLORS.muted,
+            color: (imageUrl || videoUrl) ? ECONOMIST_COLORS.ink : ECONOMIST_COLORS.muted,
             textAlign: "center",
             maxWidth: isPortrait ? "100%" : "78%",
             marginTop: isPortrait ? height * 0.16 : 28,

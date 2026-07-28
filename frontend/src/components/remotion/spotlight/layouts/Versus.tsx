@@ -6,6 +6,7 @@ import {
 } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
+import { ZoomCropVideo } from "../components/ZoomCropVideo";
 
 /**
  * Versus — Contrast Split
@@ -22,6 +23,11 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
   rightDescription,imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   accentColor,
   aspectRatio,
   titleFontSize,
@@ -57,7 +63,7 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
   const displayRightLabel = rightLabel || "After";
   const displayLeftDesc = leftDescription || narration || "";
   const displayRightDesc = rightDescription || "";
-  const hasImage = !!imageUrl;
+  const hasImage = !!imageUrl || !!videoUrl;
 
   const imageOpacity = interpolate(frame, [5, 25], [0, 1], { extrapolateRight: "clamp" });
   const imageScale = spring({ frame: frame - 5, fps, config: { damping: 20, stiffness: 80 } });
@@ -85,11 +91,23 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
           }}
         >
           <div style={{ width: "100%", height: "100%", borderRadius: 4, overflow: "hidden" }}>
-            <ZoomCropImg
-              src={imageUrl}
-              imageObjectPosition={imageObjectPosition}
-              imageZoom={imageZoom}
-            />
+            {videoUrl ? (
+              <ZoomCropVideo
+                src={videoUrl}
+                imageObjectPosition={imageObjectPosition}
+                imageZoom={imageZoom}
+                muted={videoMuted ?? true}
+                volume={videoVolume ?? 0.35}
+                durationInFrames={videoDurationInFrames}
+                startInFrames={videoStartInFrames}
+              />
+            ) : (
+              <ZoomCropImg
+                src={imageUrl!}
+                imageObjectPosition={imageObjectPosition}
+                imageZoom={imageZoom}
+              />
+            )}
           </div>
         </div>
       )}

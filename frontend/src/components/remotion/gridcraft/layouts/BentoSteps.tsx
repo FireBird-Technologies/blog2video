@@ -10,6 +10,11 @@ export const BentoSteps: React.FC<GridcraftLayoutProps> = ({
   dataPoints,imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   accentColor,
   aspectRatio,
   titleFontSize,
@@ -26,7 +31,7 @@ export const BentoSteps: React.FC<GridcraftLayoutProps> = ({
       { label: "Step 4", description: "Deploy" }
   ];
 
-  const hasImage = !!imageUrl;
+  const hasImage = !!(imageUrl || videoUrl);
   const p = aspectRatio === "portrait";
   const resolvedFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY;
 
@@ -62,6 +67,11 @@ export const BentoSteps: React.FC<GridcraftLayoutProps> = ({
         >
           <ZoomCropImg
             src={imageUrl}
+            videoUrl={videoUrl}
+            videoMuted={videoMuted}
+            videoVolume={videoVolume}
+            videoDurationInFrames={videoDurationInFrames}
+            videoStartInFrames={videoStartInFrames}
             imageObjectPosition={imageObjectPosition}
             imageZoom={imageZoom}
           />

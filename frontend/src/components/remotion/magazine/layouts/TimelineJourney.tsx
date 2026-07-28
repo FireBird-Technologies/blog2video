@@ -221,6 +221,11 @@ export const TimelineJourney: React.FC<SceneLayoutProps> = (props) => {
         cameraMove={props.cameraMove ?? "book_open"}
         hidePrintTexture
         backgroundImageSrc={props.imageUrl}
+      backgroundVideoUrl={props.videoUrl}
+      backgroundVideoMuted={props.videoMuted}
+      backgroundVideoVolume={props.videoVolume}
+      backgroundVideoDurationInFrames={props.videoDurationInFrames}
+      backgroundVideoStartInFrames={props.videoStartInFrames}
         backgroundImageObjectPosition={props.imageObjectPosition}
         backgroundImageZoom={props.imageZoom}
         backgroundImageOpacity={0.3}
@@ -333,6 +338,11 @@ export const TimelineJourney: React.FC<SceneLayoutProps> = (props) => {
       cameraMove={props.cameraMove ?? "book_open"}
       hidePrintTexture
       backgroundImageSrc={props.imageUrl}
+      backgroundVideoUrl={props.videoUrl}
+      backgroundVideoMuted={props.videoMuted}
+      backgroundVideoVolume={props.videoVolume}
+      backgroundVideoDurationInFrames={props.videoDurationInFrames}
+      backgroundVideoStartInFrames={props.videoStartInFrames}
       backgroundImageObjectPosition={props.imageObjectPosition}
       backgroundImageZoom={props.imageZoom}
       backgroundImageOpacity={0.3}

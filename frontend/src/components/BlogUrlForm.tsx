@@ -199,6 +199,12 @@ interface Props {
   ) => Promise<void>;
   /** Bulk create: one call with array of configs; per-project logo via logoIndices + logoFiles. */
   onSubmitBulk?: (items: BulkProjectItem[], logoOptions: { logoIndices: number[]; logoFiles: File[] } | null) => Promise<void>;
+  /**
+   * Extra creation options that don't fit `onSubmit`'s positional list (already
+   * 22 args). Read by the caller when building the create payload; the form
+   * pushes the current values here whenever they change.
+   */
+  onExtraOptionsChange?: (opts: { stockFootageEnabled: boolean }) => void;
   loading?: boolean;
   asModal?: boolean;
   onClose?: () => void;
@@ -628,8 +634,7 @@ export function BlogUrlFormDemoModal({
       <label className="flex items-center gap-2.5 cursor-pointer select-none p-3 rounded-xl bg-gray-50/60 border border-gray-200/60 hover:border-gray-300/60 transition-all">
         <input type="checkbox" readOnly checked={false} className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600" />
         <div>
-          <span className="text-sm font-medium text-gray-700">No voiceover</span>
-          <p className="text-[11px] text-gray-400 mt-0.5">Text-only video, no narration audio</p>
+          <p className="text-[11px] text-gray-400 mt-0.5">No voiceover</p>
         </div>
       </label>
       <div>
@@ -735,7 +740,7 @@ function getFileExtension(s: string): string | null {
   }
 }
 
-export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, onClose, onDismissFlow, demoMode, initialGenre }: Props) {
+export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChange, loading, asModal, onClose, onDismissFlow, demoMode, initialGenre }: Props) {
   const { user } = useAuth();
   const { showError } = useErrorModal();
   const navigate = useNavigate();
@@ -791,6 +796,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const bulkLogoInputRef = useRef<HTMLInputElement>(null);
   const [bulkApplyLengthAll, setBulkApplyLengthAll] = useState(true);
   const [bulkLengthMasterIndex, setBulkLengthMasterIndex] = useState(0);
+  const [bulkStockFootage, setBulkStockFootage] = useState<boolean[]>([false]);
+  const [bulkApplyStockAll, setBulkApplyStockAll] = useState(true);
+  const [bulkStockMasterIndex, setBulkStockMasterIndex] = useState(0);
   const [bulkApplyTemplateAll, setBulkApplyTemplateAll] = useState(true);
   const [bulkTemplateMasterIndex, setBulkTemplateMasterIndex] = useState(0);
   const [bulkApplyVoiceAll, setBulkApplyVoiceAll] = useState(true);
@@ -894,6 +902,16 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [genre, setGenre] = useState<string>(initialGenre ?? "");
   const [genreDropdownOpen, setGenreDropdownOpen] = useState(false);
   const [template, setTemplate] = useState("default");
+  // Stock footage at generation time: available on every plan. Free users get a
+  // clip on a single scene (the backend caps it), paid users on all image-capable
+  // scenes. The template restriction is deliberately NOT enforced here — the
+  // backend's STOCK_FOOTAGE_TEMPLATES is still the authority and will decline the
+  // flag for templates that cannot render a clip.
+  const [stockFootageEnabled, setStockFootageEnabled] = useState(false);
+  const stockFootageAvailable = true;
+  useEffect(() => {
+    onExtraOptionsChange?.({ stockFootageEnabled: stockFootageAvailable && stockFootageEnabled });
+  }, [onExtraOptionsChange, stockFootageAvailable, stockFootageEnabled]);
   const [templates, setTemplates] = useState<TemplateMeta[]>([]);
   const { craftedTemplates, loading: craftedTemplatesCacheLoading, initialized: craftedTemplatesInitialized, ensureCraftedTemplateDetail } = useCraftedTemplates();
   // When a crafted template is selected, fetch its full bundle (frontend_files,
@@ -1477,6 +1495,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         setBulkCustomVoiceId((prev) => resizeTo(prev, n, ""));
         setBulkContentLanguage((prev) => resizeTo(prev, n, "auto"));
         setBulkVideoLength((prev) => resizeTo(prev, n, "short"));
+        setBulkStockFootage((prev) => resizeTo(prev, n, false));
         setBulkAspectRatio((prev) => resizeTo(prev, n, "landscape"));
         setBulkVideoStyles((prev) =>
           resizeTo(
@@ -1520,6 +1539,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     setBulkCustomVoiceId((prev) => [...prev, ""]);
     setBulkContentLanguage((prev) => [...prev, "auto"]);
     setBulkVideoLength((prev) => [...prev, "short"]);
+    setBulkStockFootage((prev) => {
+      const next = [...prev, bulkApplyStockAll ? (prev[bulkStockMasterIndex] ?? false) : false];
+      return next;
+    });
     setBulkAspectRatio((prev) => [...prev, "landscape"]);
     setBulkVideoStyles((prev) => [
       ...prev,
@@ -1549,6 +1572,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     setBulkCustomVoiceId((prev) => prev.filter((_, i) => i !== index));
     setBulkContentLanguage((prev) => prev.filter((_, i) => i !== index));
     setBulkVideoLength((prev) => prev.filter((_, i) => i !== index));
+    setBulkStockFootage((prev) => prev.filter((_, i) => i !== index));
     setBulkAspectRatio((prev) => prev.filter((_, i) => i !== index));
     setBulkVideoStyles((prev) => prev.filter((_, i) => i !== index));
     setBulkAccentColors((prev) => prev.filter((_, i) => i !== index));
@@ -1667,6 +1691,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           (bulkContentLanguage[i] ?? "auto") === "auto"
             ? null
             : (bulkContentLanguage[i] ?? "auto"),
+        // Per-row now (with "apply to all" in step 1); the backend still decides
+        // per project whether its template can render a clip and clears otherwise.
+        stock_footage_enabled: bulkStockFootage[i] ?? false,
       };
       });
       const logoIndices: number[] = [];
@@ -1691,6 +1718,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       setBulkCustomVoiceId([]);
       setBulkContentLanguage(["auto"]);
       setBulkVideoLength(["short"]);
+      setBulkStockFootage([false]);
       setBulkAspectRatio(["landscape"]);
       setBulkVideoStyles([DEFAULT_VIDEO_STYLE]);
       setBulkAccentColors([""]);
@@ -1846,6 +1874,36 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       return next.map(() => value);
     });
   };
+  const bulkStep1RowStockFootage = bulkStockFootage[bulkStep1ActiveIndex] ?? false;
+  const applyStep1StockToAll = () => {
+    setBulkStockFootage((prev) => {
+      const next = resizeTo(prev, bulkRows.length, false);
+      const value = next[bulkStep1ActiveIndex] ?? false;
+      return next.map(() => value);
+    });
+  };
+  const setBulkStockFootageAt = (value: boolean) => {
+    // Mirrors the length dropdown: editing a non-master row while "apply to all"
+    // is on breaks the sync; editing the master (or with sync off) sets one/all.
+    if (bulkApplyStockAll && bulkStep1ActiveIndex !== bulkStockMasterIndex) {
+      setBulkApplyStockAll(false);
+      setBulkStockFootage((prev) => {
+        const next = resizeTo(prev, bulkRows.length, false);
+        next[bulkStep1ActiveIndex] = value;
+        return next;
+      });
+      return;
+    }
+    if (bulkApplyStockAll && bulkStep1ActiveIndex === bulkStockMasterIndex) {
+      setBulkStockFootage((prev) => resizeTo(prev, bulkRows.length, false).map(() => value));
+      return;
+    }
+    setBulkStockFootage((prev) => {
+      const next = resizeTo(prev, bulkRows.length, false);
+      next[bulkStep1ActiveIndex] = value;
+      return next;
+    });
+  };
 
   const step1 = (
     <div className="flex flex-col flex-1 min-h-0">
@@ -1935,53 +1993,80 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           </div>
         </div>
         
+        {/* One "apply to all" toggle drives both duration and footage sync. */}
         <div className="flex items-center justify-start">
           <label className="flex items-center gap-2 text-[11px] text-gray-500 cursor-pointer select-none">
             <input
-                type="checkbox"
-                checked={bulkApplyLengthAll}
-                onChange={(e) => {
-                  const checked = e.target.checked;
-                  setBulkApplyLengthAll(checked);
-                  if (checked) {
-                    setBulkLengthMasterIndex(bulkStep1ActiveIndex);
-                    applyStep1LengthToAll();
-                  }
-                }}
-                className="h-3.5 w-3.5 rounded border-gray-300 accent-purple-600 focus:ring-purple-500"
-              />
-            Apply duration to all
+              type="checkbox"
+              checked={bulkApplyLengthAll && (!stockFootageAvailable || bulkApplyStockAll)}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setBulkApplyLengthAll(checked);
+                setBulkApplyStockAll(checked);
+                if (checked) {
+                  setBulkLengthMasterIndex(bulkStep1ActiveIndex);
+                  setBulkStockMasterIndex(bulkStep1ActiveIndex);
+                  applyStep1LengthToAll();
+                  applyStep1StockToAll();
+                }
+              }}
+              className="h-3.5 w-3.5 rounded border-gray-300 accent-purple-600 focus:ring-purple-500"
+            />
+            Apply to all
           </label>
         </div>
-        <div className="mt-1 space-y-1.5">
-          <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
-            Estimated duration
-          </label>
-          {renderVideoLengthDropdown(bulkStep1RowVideoLength, (value) => {
-            if (bulkApplyLengthAll && bulkStep1ActiveIndex !== bulkStep1MasterIndex) {
-              setBulkApplyLengthAll(false);
+
+        {/* Estimated duration + stock footage side by side. */}
+        <div className={`mt-1 grid gap-3 items-start ${stockFootageAvailable ? "grid-cols-2" : "grid-cols-1"}`}>
+          <div className="space-y-1.5">
+            <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+              Estimated duration
+            </label>
+            {renderVideoLengthDropdown(bulkStep1RowVideoLength, (value) => {
+              if (bulkApplyLengthAll && bulkStep1ActiveIndex !== bulkStep1MasterIndex) {
+                setBulkApplyLengthAll(false);
+                setBulkVideoLength((prev) => {
+                  const next = resizeTo(prev, bulkRows.length, "short");
+                  next[bulkStep1ActiveIndex] = value;
+                  return next;
+                });
+                return;
+              }
+              if (bulkApplyLengthAll && bulkStep1ActiveIndex === bulkStep1MasterIndex) {
+                setBulkVideoLength((prev) => resizeTo(prev, bulkRows.length, "short").map(() => value));
+                return;
+              }
               setBulkVideoLength((prev) => {
                 const next = resizeTo(prev, bulkRows.length, "short");
                 next[bulkStep1ActiveIndex] = value;
                 return next;
               });
-              return;
-            }
-            if (bulkApplyLengthAll && bulkStep1ActiveIndex === bulkStep1MasterIndex) {
-              setBulkVideoLength((prev) => resizeTo(prev, bulkRows.length, "short").map(() => value));
-              return;
-            }
-            setBulkVideoLength((prev) => {
-              const next = resizeTo(prev, bulkRows.length, "short");
-              next[bulkStep1ActiveIndex] = value;
-              return next;
-            });
-          })}
-          <p className="text-[10px] text-gray-400 pb-10 leading-relaxed">
-            Actual length may vary depending on content size and video style. If the scraped or uploaded content is
-            very short, video might get shorten automatically.
-          </p>
+            })}
+          </div>
+
+          {stockFootageAvailable && (
+            <div className="space-y-1.5">
+              <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+                Use stock footage
+              </label>
+              <label className="flex items-center gap-2.5 cursor-pointer select-none p-3 rounded-xl bg-gray-50/60 border border-gray-200/60 hover:border-purple-300/60 transition-all">
+                <input
+                  type="checkbox"
+                  checked={bulkStep1RowStockFootage}
+                  onChange={(e) => setBulkStockFootageAt(e.target.checked)}
+                  className="w-4 h-4 shrink-0 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
+                />
+                <span className="text-sm font-medium text-gray-700 min-w-0">
+                  {isPro ? "Video clips in scene" : "Video clip on one scene"}
+                </span>
+              </label>
+            </div>
+          )}
         </div>
+        <p className="mt-1 text-[10px] text-gray-400 pb-10 leading-relaxed">
+          Actual length may vary depending on content size and video style. If the scraped or uploaded content is
+          very short, video might get shorten automatically.
+        </p>
       </>)}
 
       {/* URL input */}
@@ -2219,10 +2304,34 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           </div>
 
           <div>
-            <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
-              Estimated duration
-            </label>
-            {renderVideoLengthDropdown(videoLength, setVideoLength)}
+            {/* Estimated duration + stock footage side by side in one row. */}
+            <div className={`grid gap-2 items-start ${stockFootageAvailable ? "grid-cols-2" : "grid-cols-1"}`}>
+              <div>
+                <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
+                  Estimated duration
+                </label>
+                {renderVideoLengthDropdown(videoLength, setVideoLength)}
+              </div>
+
+              {stockFootageAvailable && (
+                <div>
+                  <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
+                    Use stock footage
+                  </label>
+                  <label className="flex items-center gap-2.5 cursor-pointer select-none p-3 rounded-xl bg-gray-50/60 border border-gray-200/60 hover:border-purple-300/60 transition-all">
+                    <input
+                      type="checkbox"
+                      checked={stockFootageEnabled}
+                      onChange={(e) => setStockFootageEnabled(e.target.checked)}
+                      className="w-4 h-4 shrink-0 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
+                    />
+                    <span className="text-sm font-medium text-gray-700 min-w-0">
+                      {isPro ? "Video clips in scene" : "Video clip on one scene"}
+                    </span>
+                  </label>
+                </div>
+              )}
+            </div>
             <p className="mt-1 text-[10px] text-gray-400 leading-relaxed">
               Actual length may vary depending on content size and video style. If the scraped or uploaded content is
               very short, we may shorten the video.
@@ -2310,7 +2419,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                     step={5}
                     value={Math.round(logoOpacity * 100)}
                     onChange={(e) => setLogoOpacity(parseInt(e.target.value, 10) / 100)}
-                    className="w-full h-1.5 bg-gray-300 rounded-full appearance-none cursor-pointer accent-purple-600"
+                    className="w-full h-1 bg-gray-300 rounded-full appearance-none cursor-pointer accent-purple-600"
                   />
                 </div>
               </div>
@@ -3329,10 +3438,13 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         <p className="text-[10px] text-gray-500 mb-1.5 font-medium">
           {genreTemplateListCaption(genre)}
         </p>
-        {/* Template thumbnails — filtered by genre; video style below is orthogonal */}
-        <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[220px] overflow-y-auto bg-gray-50/40">
+        {/* Template thumbnails — filtered by genre; video style below is orthogonal.
+            Height matches the single-link grid: 2 columns make the cards taller,
+            so mobile needs the extra room. */}
+        <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[260px] sm:max-h-[220px] overflow-y-auto bg-gray-50/40">
           <>
-            <div className="grid grid-cols-3 gap-2">
+            {/* Same responsive columns as the single-link template grid. */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               <CraftYourTemplateCard
                 variant="compact"
                 isPro={isPro}
@@ -3498,7 +3610,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
               Video Style
             </label>
-            <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
+            {/* Same wrapping/alignment as the single-link Video Style row. */}
+            <div className="flex flex-wrap items-center gap-1 p-1 bg-gray-100/60 rounded-xl justify-center">
               {VIDEO_STYLES.map((s) => {
                 const isSelected = activeVideoStyle === s.id;
                 return (
@@ -3548,10 +3661,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         {/* Video colors (same UI as single) + Logo (bulk-only extra, placed to the right) */}
         <div className="flex flex-col gap-5">
           <div className="min-w-0">
-            <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider text-center sm:text-left">
+            {/* Same label + swatch alignment as the single-link Video Colors row. */}
+            <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
               Video Colors
             </label>
-            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-5 gap-y-3">
+            <div className="flex items-center gap-3 sm:gap-5">
               {[
                 { label: "Accent", value: accent, setter: (v: string) => setBulkColor("accent", v) },
                 { label: "Background", value: bg, setter: (v: string) => setBulkColor("bg", v) },
@@ -3687,7 +3801,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                       }
                       setBulkLogoOpacity((prev) => { const n = [...prev]; n[activeIndex] = val; return n; });
                     }}
-                    className="w-full h-1.5 bg-gray-300 rounded-full appearance-none cursor-pointer accent-purple-600"
+                    className="w-full h-1 bg-gray-300 rounded-full appearance-none cursor-pointer accent-purple-600"
                   />
                 </div>
               </div>
@@ -3762,29 +3876,31 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         {renderLanguageDropdown(contentLanguage, setContentLanguage)}
         <p className="text-[11px] text-gray-500">Language of the video content</p>
       </div>
-      <label className="flex items-center gap-2.5 cursor-pointer select-none p-3 rounded-xl bg-gray-50/60 border border-gray-200/60 hover:border-gray-300/60 transition-all">
-        <input
-          type="checkbox"
-          checked={voiceGender === "none"}
-          onChange={(e) => {
-            const noVoice = e.target.checked;
-            if (noVoice) {
-              setVoiceGender("none");
-              return;
-            }
-            const id = customVoiceId.trim();
-            const saved = id ? myVoicesList.find((v) => v.voice_id === id) : undefined;
-            setVoiceGender(normalizeVoiceGender(saved?.gender) ?? "female");
-            const a = normalizeVoiceAccent(saved?.accent);
-            if (a) setVoiceAccent(a);
-          }}
-          className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
-        />
-        <div>
-          <span className="text-sm font-medium text-gray-700">No voiceover</span>
-          <p className="text-[11px] text-gray-400 mt-0.5">Text-only video, no narration audio</p>
-        </div>
-      </label>
+      {/* No voiceover: label above the pill, description + checkbox inside it
+          (mirrors the stock-footage pill in step 1). Stock footage moved to
+          step 1 so the visual choice sits with format/length. */}
+      <div>
+        <label className="flex items-center gap-2.5 cursor-pointer select-none p-3 rounded-xl bg-gray-50/60 border border-gray-200/60 hover:border-gray-300/60 transition-all">
+          <input
+            type="checkbox"
+            checked={voiceGender === "none"}
+            onChange={(e) => {
+              const noVoice = e.target.checked;
+              if (noVoice) {
+                setVoiceGender("none");
+                return;
+              }
+              const id = customVoiceId.trim();
+              const saved = id ? myVoicesList.find((v) => v.voice_id === id) : undefined;
+              setVoiceGender(normalizeVoiceGender(saved?.gender) ?? "female");
+              const a = normalizeVoiceAccent(saved?.accent);
+              if (a) setVoiceAccent(a);
+            }}
+            className="w-4 h-4 shrink-0 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
+          />
+          <span className="text-sm font-medium text-gray-700 min-w-0">No voiceover</span>
+        </label>
+      </div>
 
       {/* Voices from user's saved list + premium teasers for free users */}
       <div>
@@ -4296,6 +4412,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           <p className="text-[11px] text-gray-500">Language of the video content</p>
         </div>
 
+        {/* No voiceover: label above the pill, description + checkbox inside it
+            (mirrors step 1). Edits this row, or all rows when the apply-to-all
+            voice sync is on. */}
+        <div>
         <label className="flex items-center gap-2.5 cursor-pointer select-none p-3 rounded-xl bg-gray-50/60 border border-gray-200/60 hover:border-gray-300/60 transition-all">
           <input
             type="checkbox"
@@ -4352,13 +4472,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               // No global sync: only update this row.
               applyNoVoiceoverToggle([activeIndex]);
             }}
-            className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
+            className="w-4 h-4 shrink-0 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
           />
-          <div>
-            <span className="text-sm font-medium text-gray-700">No voiceover</span>
-            <p className="text-[11px] text-gray-400 mt-0.5">Text-only video, no narration audio</p>
-          </div>
+          <span className="text-sm font-medium text-gray-700 min-w-0">No voiceover</span>
         </label>
+        </div>
 
         <div className={rowVoiceGender === "none" ? "opacity-60 pointer-events-none" : ""}>
           <div className="flex items-center justify-between mb-3">

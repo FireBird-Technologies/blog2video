@@ -83,6 +83,14 @@ def audio_key(user_id: int, project_id: int, filename: str) -> str:
     return f"{_prefix()}users/{user_id}/projects/{project_id}/audio/{filename}"
 
 
+def stock_video_key(user_id: int, project_id: int, filename: str) -> str:
+    """R2 object key for a stock-footage clip attached to a scene.
+
+    Distinct from ``video_key`` below, which is the project's *rendered output*.
+    """
+    return f"{_prefix()}users/{user_id}/projects/{project_id}/videos/{filename}"
+
+
 def video_key(user_id: int, project_id: int) -> str:
     """R2 object key for a project's rendered video (legacy — same key every time)."""
     return f"{_prefix()}users/{user_id}/projects/{project_id}/output/video.mp4"

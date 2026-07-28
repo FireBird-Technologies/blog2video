@@ -4,6 +4,7 @@ Whiteboard Story is storytelling-first. Scenes should feel hand-crafted, like a 
 
 Core rules:
 - Favor narrative progression over dense data.
+- **Never output `assignedVideo`, `videoUrl`, `videoMuted`, or `videoVolume`.** A scene's background clip is stock footage chosen by the user in the editor after generation; any value you invent breaks rendering.
 - Keep text readable and conversational.
 - Make each scene feel like a storyboard beat.
 - Use hand-drawn motion cues (line reveals, underlines, arrows).

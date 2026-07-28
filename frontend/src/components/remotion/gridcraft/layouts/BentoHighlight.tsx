@@ -15,6 +15,11 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
   dataPoints,imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   subtitle,
   textColor,
   accentColor,
@@ -56,7 +61,7 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
     ? supportingFacts
     : (dataPoints || []).map(d => d.value || d.description || d.label || "");
 
-  const hasImage = !!imageUrl;
+  const hasImage = !!(imageUrl || videoUrl);
   const resolvedFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY;
 
   // Facts text size follows display/description text size

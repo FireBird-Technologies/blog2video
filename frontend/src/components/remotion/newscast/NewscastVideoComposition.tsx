@@ -10,6 +10,7 @@ import { NewsCastBackground } from "./NewsCastBackground";
 import { NewsCastChrome } from "./NewsCastChrome";
 import { NewscastSceneZTransition } from "./NewscastSceneZTransition";
 import { NEWSCAST_BACKGROUND_VARIANT } from "./backgroundVariant";
+import { SceneDurationInFramesContext } from "../SceneDurationContext";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 const LEGACY_TO_NEWCAST_LAYOUT_ID: Record<string, NewscastLayoutType> = {
@@ -258,7 +259,9 @@ const NewscastSequenceInner: React.FC<{
                 fontFamily={layoutProps.fontFamily}
               />
             ) : null}
-            <LayoutComponent {...layoutProps} />
+            <SceneDurationInFramesContext.Provider value={durationInFrames}>
+              <LayoutComponent {...layoutProps} />
+            </SceneDurationInFramesContext.Provider>
           </div>
         </div>
       </NewscastSceneZTransition>
@@ -294,6 +297,14 @@ export interface NewscastSceneInput {
   speechDurationSeconds?: number;
   imageUrl?: string;
   voiceoverUrl?: string;
+  /** Stock-footage clip URL. Mutually exclusive with `imageUrl`. */
+  videoUrl?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  /** Normalised clip length; converted to frames for <Loop>. */
+  videoDurationSeconds?: number;
+  /** Start offset into the clip, in seconds (the adjust-modal trim). */
+  videoStartSeconds?: number;
 }
 
 export interface NewscastVideoCompositionProps {
@@ -386,6 +397,16 @@ export const NewscastVideoComposition: React.FC<NewscastVideoCompositionProps> =
           imageUrl:
             scene.imageUrl ??
             (typeof lp?.imageUrl === "string" ? lp.imageUrl : undefined),
+          videoUrl: scene.videoUrl,
+          videoMuted: scene.videoMuted ?? true,
+          videoVolume: scene.videoVolume ?? 0.35,
+          // Clip length in frames for <Loop>; undefined = play once.
+          videoDurationInFrames: scene.videoDurationSeconds
+            ? Math.max(1, Math.round(scene.videoDurationSeconds * FPS))
+            : undefined,
+          videoStartInFrames: scene.videoStartSeconds
+            ? Math.max(0, Math.round(scene.videoStartSeconds * FPS))
+            : undefined,
           imageObjectPosition,
           imageZoom,
           accentColor: accentColor || "#FF3B30",

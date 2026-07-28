@@ -95,6 +95,11 @@ export const TextNarration: React.FC<SceneLayoutProps> = (props) => {
       printTextureSrc={MAG_TEXTURES.blur}
       printTextureZoom={1.6}
       backgroundImageSrc={props.imageUrl}
+      backgroundVideoUrl={props.videoUrl}
+      backgroundVideoMuted={props.videoMuted}
+      backgroundVideoVolume={props.videoVolume}
+      backgroundVideoDurationInFrames={props.videoDurationInFrames}
+      backgroundVideoStartInFrames={props.videoStartInFrames}
       backgroundImageObjectPosition={props.imageObjectPosition}
       backgroundImageZoom={props.imageZoom}
       backgroundImageOpacity={0.22}

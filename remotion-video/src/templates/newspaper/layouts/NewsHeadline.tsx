@@ -1,4 +1,5 @@
 import React from "react";
+import { NewspaperClip, NEWSPRINT_FILTER } from "../components/NewspaperClip";
 import {
   AbsoluteFill,
   interpolate,
@@ -142,6 +143,11 @@ export const NewsHeadline: React.FC<
   imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   leftThought,
   fontFamily,
 }) => {
@@ -179,7 +185,10 @@ export const NewsHeadline: React.FC<
   const actualDescriptionFontSize = descriptionFontSize ?? (p ? 39 : 29);
   const categoryBaseFontSize = p ? 28 : 24; // Base for category without descriptionFontSize
   const authorBaseFontSize = p ? 20 : 16; // Base for author without descriptionFontSize
-  const portraitNoImage = p && !imageUrl;
+  // A clip fills the same visual slot as a still, so it must not
+  // trigger the no-image layout.
+  const hasVisual = Boolean(imageUrl || videoUrl);
+  const portraitNoImage = p && !hasVisual;
 
   return (
     <AbsoluteFill style={{ overflow: "hidden", fontFamily: fontFamily ?? B_FONT }}>
@@ -203,54 +212,62 @@ export const NewsHeadline: React.FC<
       />
 
       {/* Tilted Newspaper Cutout Image Card */}
-      {imageUrl && (
+      {hasVisual && (
         <div
           style={{
             position: "absolute",
             // Portrait: Center Top | Landscape: Right Side
-            top: p ? "15%" : "25%",
-            right: p ? "auto" : "10%",
+            top: p ? "15%" : "18%",
+            right: p ? "auto" : "4%",
             left: p ? "50%" : "auto",
             width: p ? "80%" : "40%",
             height: p ? "35%" : "50%",
             // ✅ physical styling: white paper background and padding
             background: "#fff",
             padding: "10px 10px 30px 10px", // extra bottom padding for 'pasted' look
-            
-            transform: p 
-              ? "translateX(-50%) rotate(-4deg)" 
-              : "rotate(-16deg)",
+
+            transform: p
+              ? "translateX(-50%) rotate(-4deg)"
+              : "rotate(-8deg)",
             opacity: contentOpacity,
             zIndex: 5,
             
             // ✅ Shadow: softer, more spread out, like paper lifted off the page
             boxShadow: "5px 10px 30px rgba(0,0,0,0.15)",
 
-            // ✅ Cutout Effect: jagged edges mimicking a hand-torn cutout
-            clipPath: "polygon(2% 0%, 98% 1%, 100% 98%, 95% 100%, 50% 98%, 2% 100%, 0% 50%)",
+            // Straight vertical sides; slight top/bottom skew kept for a subtle pasted look
+            clipPath: "polygon(0% 1%, 98% 0%, 100% 99%, 2% 100%)",
           }}
         >
           <div style={{ width: "100%", height: "100%", overflow: "hidden", border: "1px solid #ddd" }}>
-            <Img
-              src={imageUrl}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
-                objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
-                transform: `scale(${imageZoom ?? 1})`,
-                transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
-                display: "block",
-                // ✅ Dissolve animation combined with newsprint filter
-                filter: `
-                  blur(${interpolate(frame, [0, 20], [10, 0], { extrapolateRight: "clamp" })}px)
-                  grayscale(20%) 
-                  sepia(25%) 
-                  contrast(120%) 
-                  brightness(95%)
-                `,
-              }}
-            />
+            {/* Newsprint treatment is shared by the still and the clip so a
+                video doesn't look pasted onto the vintage paper. */}
+            {videoUrl ? (
+              <NewspaperClip
+                src={videoUrl}
+                imageObjectPosition={imageObjectPosition}
+                imageZoom={imageZoom}
+                muted={videoMuted ?? true}
+                volume={videoVolume ?? 0.35}
+                durationInFrames={videoDurationInFrames}
+                startInFrames={videoStartInFrames}
+                style={{ filter: NEWSPRINT_FILTER(frame) }}
+              />
+            ) : imageUrl ? (
+              <Img
+                src={imageUrl}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
+                  objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
+                  transform: `scale(${imageZoom ?? 1})`,
+                  transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
+                  display: "block",
+                  filter: NEWSPRINT_FILTER(frame),
+                }}
+              />
+            ) : null}
           </div>
           {/* Subtle Halftone Overlay for maximum realism */}
           <div style={{

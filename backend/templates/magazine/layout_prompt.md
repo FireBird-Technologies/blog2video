@@ -2,6 +2,8 @@
 
 Use this list when picking the `preferred_layout` for each scene.
 
+**Never output `assignedVideo`, `videoUrl`, `videoMuted`, or `videoVolume`** — stock-footage clips are chosen by the user in the editor after generation, and inventing one breaks rendering.
+
 Note: `feature`, `colorblock`, `text_narration` and `timeline_journey` automatically display an editorial photo when the project supplies imagery (a framed plate, a hero panel, or an embedded page background). You never set an image field — just write the full copy; these pages reflow gracefully with or without a photo.
 
 - `magazine_cover`  

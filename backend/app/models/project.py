@@ -26,6 +26,19 @@ class ProjectStatus(str, enum.Enum):
     # every voiceover). Distinct from VOICE_REGENERATING so the status endpoints and
     # the stall reapers can tell the two jobs apart.
     LANGUAGE_REGENERATING = "language_regenerating"
+    # DEPRECATED: no longer entered by new pipeline runs — the review gate
+    # moved to AFTER scene generation (see AWAITING_STOCK_FOOTAGE_REVIEW).
+    # Kept only so a project already parked here at deploy time (or a still
+    # open browser tab pointing at it) keeps working via the legacy branches
+    # in the /stock-footage endpoints below.
+    # TODO(cleanup): remove once no rows remain at this status.
+    AWAITING_FOOTAGE = "awaiting_footage"
+    # Generation ran all the way through (scenes + auto-picked clips exist),
+    # but for non-bulk stock-footage projects we land here instead of
+    # GENERATED so the user can confirm/change/reject the auto-picked clips.
+    # Reappears on every reload for as long as the DB says this status — no
+    # client-side state drives it, purely the project's DB status.
+    AWAITING_STOCK_FOOTAGE_REVIEW = "awaiting_stock_footage_review"
 
 
 class Project(Base):
@@ -65,6 +78,27 @@ class Project(Base):
     # Captions (subtitles) — text is the scene's narration_text. Always bottom-anchored;
     # caption_offset shifts it vertically within the bottom region (-100..+100, 0 = default,
     # positive = up, negative = down).
+    # Opt-in at creation (paid + Newscast only): after the script stage the
+    # pipeline auto-picks a stock clip per image-capable scene and pauses at
+    # AWAITING_FOOTAGE until the user approves them.
+    stock_footage_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="0", nullable=False
+    )
+    # When the user resolved the stock-footage review (approve, change-confirm,
+    # or reject). Set once by the corresponding endpoint; also stamped for
+    # bulk/unsupported-template projects at the point they'd otherwise have
+    # entered AWAITING_STOCK_FOOTAGE_REVIEW, so a re-entrant scene generation
+    # (e.g. via a later edit job) doesn't re-fetch clips that were already
+    # resolved.
+    stock_footage_approved_at: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True
+    )
+    # Created through the bulk flow. Bulk projects skip the interactive footage
+    # review — clips are auto-picked and auto-approved so they run unattended.
+    is_bulk: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="0", nullable=False
+    )
+
     captions_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     caption_position: Mapped[str] = mapped_column(String(20), default="bottom_center")
     caption_font_family: Mapped[str] = mapped_column(String(50), default="inter")

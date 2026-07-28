@@ -1421,9 +1421,61 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
         return (a.id ?? 0) - (b.id ?? 0);
       });
     const audioAssets = project.assets.filter((a) => a.asset_type === "audio");
+    const videoAssets = project.assets.filter(
+      (a) => a.asset_type === "video" && !a.excluded,
+    );
     const sceneImageMap: Record<number, string> = {};
     const hideImageFlags: boolean[] = new Array(project.scenes.length).fill(false);
     const usedGenericFiles = new Set<string>();
+
+    // Stock footage occupies the same visual slot as the still, so a scene with
+    // a clip is resolved first and then excluded from image assignment below —
+    // otherwise a generic scraped image would be layered under the clip.
+    const sceneVideoMap: Record<
+      number,
+      { url: string; durationSeconds?: number; muted: boolean; volume: number }
+    > = {};
+    if (videoAssets.length > 0 && project.scenes.length > 0) {
+      const videoByFilename = new Map(videoAssets.map((a) => [a.filename, a]));
+      project.scenes.forEach((sceneRow, idx) => {
+        if (!sceneRow.remotion_code) return;
+        let layoutProps: Record<string, unknown> = {};
+        try {
+          layoutProps =
+            (JSON.parse(sceneRow.remotion_code).layoutProps as Record<string, unknown>) || {};
+        } catch {
+          return;
+        }
+        if (layoutProps.hideImage) return;
+        const assignedVideo = layoutProps.assignedVideo as string | undefined;
+        const asset = assignedVideo ? videoByFilename.get(assignedVideo) : undefined;
+        if (!asset) return;
+        const rawVolume = Number(layoutProps.videoVolume);
+        const muted =
+          layoutProps.videoMuted === undefined ? true : Boolean(layoutProps.videoMuted);
+        // The main clip file is silent (audio stripped on ingest); the audible
+        // track lives in the AAC sibling `audio_variant_filename`. When a scene
+        // unmutes, point playback at that sibling — otherwise unmuting is a no-op
+        // because the silent file has no audio stream. Mirrors remotion.py.
+        let url = resolveUrl(asset);
+        if (!muted && asset.audio_variant_filename) {
+          const audioAsset = { ...asset, filename: asset.audio_variant_filename };
+          if (asset.r2_url) {
+            // Same R2 directory, only the last path segment differs.
+            audioAsset.r2_url =
+              asset.r2_url.slice(0, asset.r2_url.lastIndexOf("/") + 1) +
+              asset.audio_variant_filename;
+          }
+          url = resolveUrl(audioAsset);
+        }
+        sceneVideoMap[idx] = {
+          url,
+          durationSeconds: asset.duration_seconds ?? undefined,
+          muted,
+          volume: Number.isFinite(rawVolume) ? rawVolume : 0.35,
+        };
+      });
+    }
 
     if (imageAssets.length > 0 && project.scenes.length > 0) {
       // Build filename -> asset lookup
@@ -1445,6 +1497,12 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
         const hideImage = Boolean((layoutProps as any).hideImage);
         hideImageFlags[idx] = hideImage;
         if (hideImage) {
+          return;
+        }
+
+        // A clip fills this scene's visual slot; skip so no still is assigned too.
+        if (sceneVideoMap[idx]) {
+          hideImageFlags[idx] = true;
           return;
         }
 
@@ -1649,6 +1707,14 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
               : 0,
         bgmVolume: scene.bgm_volume ?? null,
         imageUrl: sceneImageMap[idx],
+        videoUrl: sceneVideoMap[idx]?.url,
+        videoMuted: sceneVideoMap[idx]?.muted ?? true,
+        videoVolume: sceneVideoMap[idx]?.volume ?? 0.35,
+        videoDurationSeconds: sceneVideoMap[idx]?.durationSeconds,
+        videoStartSeconds: (() => {
+          const raw = Number(layoutProps.videoStartSeconds);
+          return Number.isFinite(raw) && raw > 0 ? raw : undefined;
+        })(),
         voiceoverUrl,
       };
     });

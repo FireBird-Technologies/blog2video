@@ -20,6 +20,7 @@ import { CaptionTrack } from "../../components/CaptionTrack";
 import { Blobs } from "./components/Blobs";
 import { COLORS } from "./utils/styles";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
+import { SceneDurationInFramesContext } from "../SceneDurationContext";
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -37,6 +38,11 @@ interface SceneData {
   speechDurationSeconds?: number;
   voiceoverFile: string | null;
   images: string[];
+  video?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  videoDurationSeconds?: number;
+  videoStartSeconds?: number;
 }
 
 interface VideoData {
@@ -344,6 +350,13 @@ export const GridcraftVideo: React.FC<VideoProps> = ({ dataUrl }) => {
 
         const imageUrl =
           scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
+        const videoUrl = scene.video ? staticFile(scene.video) : undefined;
+        const videoDurationInFrames = scene.videoDurationSeconds
+          ? Math.max(1, Math.round(scene.videoDurationSeconds * FPS))
+          : undefined;
+        const videoStartInFrames = scene.videoStartSeconds
+          ? Math.max(0, Math.round(scene.videoStartSeconds * FPS))
+          : undefined;
 
         // IMPORTANT: Ensure computed imageUrl wins over any stale scene.layoutProps.imageUrl
         const layoutProps: GridcraftLayoutProps = {
@@ -355,6 +368,11 @@ export const GridcraftVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           textColor: data.textColor || COLORS.DARK,
           aspectRatio: data.aspectRatio || "landscape",
           imageUrl,
+          videoUrl,
+          videoMuted: scene.videoMuted ?? true,
+          videoVolume: scene.videoVolume ?? 0.35,
+          videoDurationInFrames,
+          videoStartInFrames,
           imageObjectPosition: String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))) + "% " + String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))) + "%",
           imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
           fontFamily: resolvedFontFamily || undefined,
@@ -369,7 +387,9 @@ export const GridcraftVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           >
             {/* Layout Container with Z-Index to sit above Blobs */}
             <AbsoluteFill style={{ zIndex: 1 }}>
+              <SceneDurationInFramesContext.Provider value={durationFrames}>
                 <LayoutComponent {...layoutProps} />
+              </SceneDurationInFramesContext.Provider>
             </AbsoluteFill>
 
             {scene.voiceoverFile && (

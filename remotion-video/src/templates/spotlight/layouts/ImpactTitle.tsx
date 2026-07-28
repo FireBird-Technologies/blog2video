@@ -14,6 +14,7 @@ import {
   SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY,
 } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
+import { ZoomCropVideo } from "../components/ZoomCropVideo";
 
 function normalizeTitleToken(word: string): string {
   return word.toLowerCase().replace(/[.,!?:;]/g, "");
@@ -59,6 +60,11 @@ export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
   narration,imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   highlightWord,
   accentColor,
   textColor,
@@ -96,7 +102,7 @@ export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
   });
 
   const scale = 0.6 + titleScale * 0.4 + Math.sin(titleScale * Math.PI) * 0.05;
-  const hasImage = !!imageUrl;
+  const hasImage = !!imageUrl || !!videoUrl;
 
   const imageOpacity = interpolate(frame, [10, 35], [0, 1], { extrapolateRight: "clamp" });
   const imageScale = spring({ frame: frame - 10, fps, config: { damping: 20, stiffness: 80 } });
@@ -147,9 +153,21 @@ export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
               transform: `scale(${imageScale})`,
             }}
           >
-            <Img src={imageUrl} style={{ width: "100%", height: "100%", objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover", objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
-                transform: `scale(${imageZoom ?? 1})`,
-                transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%") }} />
+            {videoUrl ? (
+              <ZoomCropVideo
+                src={videoUrl}
+                imageObjectPosition={imageObjectPosition}
+                imageZoom={imageZoom}
+                muted={videoMuted ?? true}
+                volume={videoVolume ?? 0.35}
+                durationInFrames={videoDurationInFrames}
+                startInFrames={videoStartInFrames}
+              />
+            ) : (
+              <Img src={imageUrl!} style={{ width: "100%", height: "100%", objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover", objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
+                  transform: `scale(${imageZoom ?? 1})`,
+                  transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%") }} />
+            )}
           </div>
         )}
         <div style={{ flex: hasImage && !p ? 1 : "none", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>

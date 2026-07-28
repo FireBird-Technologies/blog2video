@@ -15,6 +15,11 @@ export const BentoCompare: React.FC<GridcraftLayoutProps> = ({
   title,imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   accentColor,
   aspectRatio,
   titleFontSize,
@@ -36,7 +41,7 @@ export const BentoCompare: React.FC<GridcraftLayoutProps> = ({
   ]);
 
   const finalVerdict = verdict || title;
-  const hasImage = !!imageUrl;
+  const hasImage = !!(imageUrl || videoUrl);
   const p = aspectRatio === "portrait";
   const resolvedFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY;
 
@@ -72,6 +77,11 @@ export const BentoCompare: React.FC<GridcraftLayoutProps> = ({
         >
           <ZoomCropImg
             src={imageUrl}
+            videoUrl={videoUrl}
+            videoMuted={videoMuted}
+            videoVolume={videoVolume}
+            videoDurationInFrames={videoDurationInFrames}
+            videoStartInFrames={videoStartInFrames}
             imageObjectPosition={imageObjectPosition}
             imageZoom={imageZoom}
           />

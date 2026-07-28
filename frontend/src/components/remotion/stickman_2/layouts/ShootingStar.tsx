@@ -10,6 +10,11 @@ export const ShootingStar: React.FC<SceneLayoutProps> = (props) => {
     imageUrl,
     imageObjectPosition,
     imageZoom,
+    videoUrl,
+    videoMuted,
+    videoVolume,
+    videoDurationInFrames,
+    videoStartInFrames,
     accentColor,
     bgColor,
     textColor,
@@ -282,6 +287,11 @@ export const ShootingStar: React.FC<SceneLayoutProps> = (props) => {
         imageUrl={imageUrl}
         imageObjectPosition={imageObjectPosition}
         imageZoom={imageZoom}
+        videoUrl={videoUrl}
+        videoMuted={videoMuted}
+        videoVolume={videoVolume}
+        videoDurationInFrames={videoDurationInFrames}
+        videoStartInFrames={videoStartInFrames}
       />
       <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ position: "absolute", top: 0, left: 0, zIndex: 1 }}>
         <defs>

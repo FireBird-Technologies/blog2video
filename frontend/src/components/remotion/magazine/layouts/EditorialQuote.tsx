@@ -42,7 +42,7 @@ export const EditorialQuote: React.FC<SceneLayoutProps> = (props) => {
   // it sits as a framed block up the right margin (landscape) / beneath the quote
   // (portrait), and the statement column narrows to make room for it.
   const imageUrl = props.imageUrl;
-  const hasImage = Boolean(imageUrl);
+  const hasImage = Boolean(imageUrl || props.videoUrl);
 
   const frame = useMagFrame();
   const { fps } = useVideoConfig();
@@ -126,10 +126,9 @@ export const EditorialQuote: React.FC<SceneLayoutProps> = (props) => {
           }}
         />
 
-        {/* Optional editorial photo block. Landscape: a tall framed plate up the
-            right margin; portrait: a wide plate anchored to the lower band. Only
-            rendered when the scene actually carries an image. */}
-        {imageUrl && (
+        {/* Optional editorial photo / stock clip. Landscape: a tall framed plate up the
+            right margin; portrait: a wide plate anchored to the lower band. */}
+        {hasImage && (
           <div
             style={{
               position: "absolute",
@@ -149,6 +148,13 @@ export const EditorialQuote: React.FC<SceneLayoutProps> = (props) => {
             <div style={{ width: "100%", height: "100%", overflow: "hidden", position: "relative" }}>
               <OptionalImg
                 src={imageUrl}
+                videoUrl={props.videoUrl}
+                videoMuted={props.videoMuted}
+                videoVolume={props.videoVolume}
+                videoDurationInFrames={props.videoDurationInFrames}
+                videoStartInFrames={props.videoStartInFrames}
+                imageObjectPosition={props.imageObjectPosition}
+                imageZoom={props.imageZoom}
                 onError={() => {}}
                 style={{
                   width: "100%",

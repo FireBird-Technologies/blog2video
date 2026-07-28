@@ -13,6 +13,11 @@ export const MosaicText: React.FC<MosaicLayoutProps> = ({
   imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   highlightPhrase,
   accentColor,
   bgColor,
@@ -122,14 +127,19 @@ export const MosaicText: React.FC<MosaicLayoutProps> = ({
         />
       </div>
 
-      {/* ── Image panel — left 46%, revealed tile-by-tile left-to-right ── */}
-      {imageUrl && (
+      {/* ── Image panel — left 46%, revealed tile-by-tile left-to-right (or a stock clip playing directly) ── */}
+      {(imageUrl || videoUrl) && (
         <div style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: "46%", height: "100%", zIndex: 1 }}>
           <div style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
             <MosaicImageReveal
-              imageUrl={imageUrl}
+              imageUrl={imageUrl!}
               imageObjectPosition={imageObjectPosition}
               imageZoom={imageZoom}
+              videoUrl={videoUrl}
+              videoMuted={videoMuted}
+              videoVolume={videoVolume}
+              videoDurationInFrames={videoDurationInFrames}
+              videoStartInFrames={videoStartInFrames}
               revealProgress={tileEntry}
               clarityProgress={panelIntro}
               pattern={mosaicPattern ?? "diagonal"}
@@ -151,7 +161,7 @@ export const MosaicText: React.FC<MosaicLayoutProps> = ({
         </div>
       )}
 
-      <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", padding: imageUrl ? "0 5% 0 48%" : "0 10%" }}>
+      <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", padding: (imageUrl || videoUrl) ? "0 5% 0 48%" : "0 10%" }}>
         <div
           style={{
             width: "100%",

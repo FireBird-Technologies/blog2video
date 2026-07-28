@@ -1,4 +1,5 @@
 import React from "react";
+import { NewspaperClip } from "../components/NewspaperClip";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, Img, staticFile } from "remotion";
 import { NewsBackground } from "../NewsBackground";
 import type { BlogLayoutProps } from "../types";
@@ -20,6 +21,11 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
   stats,imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
@@ -148,7 +154,7 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
           </div>
 
           {/* MIDDLE IMAGE (PORTRAIT ONLY) */}
-          {imageUrl && p && (
+          {(imageUrl || videoUrl) && p && (
             <div style={{ opacity: imageOpacity, width: "100%", display: "flex", justifyContent: "center", margin: "10px 0" }}>
                <div style={{ 
                   width: "100%", 
@@ -167,6 +173,23 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
                       position: "relative",
                     }}
                   >
+                    {videoUrl ? (
+                      <NewspaperClip
+                        src={videoUrl}
+                        imageObjectPosition={imageObjectPosition}
+                        imageZoom={imageZoom}
+                        muted={videoMuted ?? true}
+                        volume={videoVolume ?? 0.35}
+                        durationInFrames={videoDurationInFrames}
+                startInFrames={videoStartInFrames}
+                        style={{
+                      position: "absolute",
+                      left: 0,
+                      top: 0,
+                      filter: "sepia(0.2) grayscale(0.3)",
+                        }}
+                      />
+                    ) : imageUrl ? (
                     <Img
                       src={imageUrl}
                       style={{
@@ -182,6 +205,7 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
                         filter: "sepia(0.2) grayscale(0.3)",
                       }}
                     />
+                    ) : null}
                   </div>
                </div>
             </div>
@@ -206,7 +230,7 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
           </div>
 
           {/* LANDSCAPE IMAGE (THIRD COLUMN) */}
-          {!p && imageUrl && (
+          {!p && (imageUrl || videoUrl) && (
             <>
               <div style={{ width: 1, background: textColor, opacity: 0.1 }} />
               <div style={{ flex: 0.8, minWidth: 0, opacity: imageOpacity }}>
@@ -225,6 +249,24 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
                       position: "relative",
                     }}
                   >
+                    {videoUrl ? (
+                      <NewspaperClip
+                        src={videoUrl}
+                        imageObjectPosition={imageObjectPosition}
+                        imageZoom={imageZoom}
+                        muted={videoMuted ?? true}
+                        volume={videoVolume ?? 0.35}
+                        durationInFrames={videoDurationInFrames}
+                startInFrames={videoStartInFrames}
+                        style={{
+                      position: "absolute",
+                      left: 0,
+                      top: 0,
+                      display: "block",
+                      filter: "sepia(0.2) contrast(1.1)",
+                        }}
+                      />
+                    ) : imageUrl ? (
                     <Img
                       src={imageUrl}
                       style={{
@@ -241,6 +283,7 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
                         filter: "sepia(0.2) contrast(1.1)",
                       }}
                     />
+                    ) : null}
                   </div>
                   <div style={{ marginTop: 8, fontFamily: fontFamily ?? H_FONT, fontSize: 11, color: "#666", fontStyle: "italic", borderTop: "1px solid #eee", paddingTop: 4 }}>
                     Newspaper Archive / Photo

@@ -28,6 +28,19 @@ export interface NewscastLayoutProps extends BlogLayoutProps {
   globeRotationFrameOffset?: number;
 
   /**
+   * Stock footage. When `videoUrl` is set it REPLACES `imageUrl` in the same
+   * visual slot — a scene never shows both. Framing reuses imageFocusX/Y +
+   * imageZoom, so the existing Adjust-framing UI works on clips unchanged.
+   */
+  videoUrl?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  /** Clip length in frames, for <Loop>. Absent = play once (see ZoomCropVideo). */
+  videoDurationInFrames?: number;
+  /** Start offset into the clip, in frames (the adjust-modal trim). */
+  videoStartInFrames?: number;
+
+  /**
    * Persistent chrome (ticker + lower third).
    * These are optional because older saved projects/layouts may not include them.
    */

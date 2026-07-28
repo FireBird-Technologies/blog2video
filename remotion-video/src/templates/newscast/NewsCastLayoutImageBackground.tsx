@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill } from "remotion";
 import { ZoomCropImg } from "./components/ZoomCropImg";
+import { ZoomCropVideo } from "./components/ZoomCropVideo";
 import { DEFAULT_NEWSCAST_ACCENT, toRgba } from "./themeUtils";
 
 /**
@@ -8,26 +9,57 @@ import { DEFAULT_NEWSCAST_ACCENT, toRgba } from "./themeUtils";
  * It fills the scene and adds a navy/red editorial overlay for readability.
  * Empty areas when imageZoom < 1 are transparent — the composition's base
  * background and the editorial overlay above handle visual consistency.
+ *
+ * The plate holds EITHER a still or a stock clip; `videoUrl` wins when both are
+ * somehow present, and the overlays are identical either way so readability of
+ * the chrome above does not depend on which one is showing.
  */
 export const NewsCastLayoutImageBackground: React.FC<{
   imageUrl?: string;
   accentColor?: string;
   imageObjectPosition?: string;
   imageZoom?: number;
-}> = ({ imageUrl, accentColor, imageObjectPosition, imageZoom }) => {
-  if (!imageUrl) return null;
+  videoUrl?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  videoDurationInFrames?: number;
+  videoStartInFrames?: number;
+}> = ({
+  imageUrl,
+  accentColor,
+  imageObjectPosition,
+  imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
+}) => {
+  if (!imageUrl && !videoUrl) return null;
 
   const plateZoom = 1.04 * Math.max(0.1, imageZoom ?? 1);
 
   return (
     <AbsoluteFill aria-hidden style={{ zIndex: 0, overflow: "hidden" }}>
       <div style={{ position: "absolute", inset: 0 }}>
-        <ZoomCropImg
-          src={imageUrl}
-          imageObjectPosition={imageObjectPosition}
-          imageZoom={plateZoom}
-          alt=""
-        />
+        {videoUrl ? (
+          <ZoomCropVideo
+            src={videoUrl}
+            imageObjectPosition={imageObjectPosition}
+            imageZoom={plateZoom}
+            muted={videoMuted ?? true}
+            volume={videoVolume ?? 0.35}
+            durationInFrames={videoDurationInFrames}
+            startInFrames={videoStartInFrames}
+          />
+        ) : (
+          <ZoomCropImg
+            src={imageUrl!}
+            imageObjectPosition={imageObjectPosition}
+            imageZoom={plateZoom}
+            alt=""
+          />
+        )}
       </div>
       {/* Editorial overlays (navy to reduce bright photos) */}
       <div

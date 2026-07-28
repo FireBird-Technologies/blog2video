@@ -8,6 +8,7 @@ Nightfall is a premium product keynote at midnight. Apple WWDC meets Bloomberg t
 - Staggered reveals for better pacing
 - Professional visual polish (gradients, particles, decorative elements)
 - Improved readability and hierarchy
+- **Never output `assignedVideo`, `videoUrl`, `videoMuted`, or `videoVolume`.** A scene's background clip is stock footage chosen by the user in the editor after generation; any value you invent breaks rendering.
 - **Universal image support:** All layouts (except cinematic_title and kinetic_insight) display images alongside content when available
 - **Data visualization:** Full chart support (bar, line, pie) with neon glow effects for data/stats blogs
 
