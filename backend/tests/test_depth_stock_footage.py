@@ -582,10 +582,12 @@ def test_deleting_a_clip_removes_both_files_and_unlinks_scenes(
 def test_upload_endpoint_rejected_on_unsupported_template(
     client, db_session, paid_user, auth
 ):
-    # `default` is not in STOCK_FOOTAGE_TEMPLATES — the upload endpoint rejects it
-    # before touching the network.
+    # All 17 built-in templates now support stock footage (see
+    # STOCK_FOOTAGE_TEMPLATES in stock_footage.py), so this uses a template ID
+    # that doesn't exist at all — the upload endpoint rejects it before
+    # touching the network.
     project = Project(user_id=paid_user.id, name="X", blog_url="https://x.test",
-                      status=ProjectStatus.GENERATED, template="default")
+                      status=ProjectStatus.GENERATED, template="nonexistent_template")
     db_session.add(project); db_session.commit(); db_session.refresh(project)
     s = Scene(project_id=project.id, order=1, title="S", narration_text="n",
               visual_description="v",
@@ -812,9 +814,11 @@ def test_resolve_stock_footage_flag__all_plans_newscast_only(db_session, paid_us
     assert _resolve_stock_footage_flag(False, paid_user, "newscast") is False
     assert _resolve_stock_footage_flag(False, free_user, "newscast") is False
     # Wrong template → off (nothing would render the clip), regardless of plan.
-    # `default` has no clip-capable layouts and is not in STOCK_FOOTAGE_TEMPLATES.
-    assert _resolve_stock_footage_flag(True, paid_user, "default") is False
-    assert _resolve_stock_footage_flag(True, free_user, "default") is False
+    # All 17 built-in templates now support stock footage (see
+    # STOCK_FOOTAGE_TEMPLATES in stock_footage.py), so this uses a template ID
+    # that doesn't exist at all to exercise the "unsupported" branch.
+    assert _resolve_stock_footage_flag(True, paid_user, "nonexistent_template") is False
+    assert _resolve_stock_footage_flag(True, free_user, "nonexistent_template") is False
 
 
 def test_bulk_project_auto_approves_instead_of_parking(db_session, paid_user):

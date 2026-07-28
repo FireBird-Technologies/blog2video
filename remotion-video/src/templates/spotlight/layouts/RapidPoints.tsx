@@ -4,6 +4,7 @@ import { KineticTicker, StreakField, FlashPop } from "../components/SpotlightArt
 import { SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
+import { ZoomCropVideo } from "../components/ZoomCropVideo";
 
 /**
  * RapidPoints — Fast-Cut Phrases
@@ -17,6 +18,11 @@ export const RapidPoints: React.FC<SpotlightLayoutProps> = ({
   narration,imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   accentColor,
   bgColor,
   textColor,
@@ -46,7 +52,7 @@ export const RapidPoints: React.FC<SpotlightLayoutProps> = ({
     { extrapolateRight: "clamp" }
   );
 
-  const hasImage = !!imageUrl;
+  const hasImage = !!imageUrl || !!videoUrl;
   const imageOpacity = interpolate(frame, [5, 25], [0, 1], { extrapolateRight: "clamp" });
   const imageScale = spring({ frame: Math.max(0, frame - 5), fps: 30, config: { damping: 20, stiffness: 80 } });
 
@@ -90,11 +96,23 @@ export const RapidPoints: React.FC<SpotlightLayoutProps> = ({
                 }}
               >
                 <div style={{ width: "100%", height: "100%", borderRadius: 4, overflow: "hidden" }}>
-                  <ZoomCropImg
-                    src={imageUrl}
-                    imageObjectPosition={imageObjectPosition}
-                    imageZoom={imageZoom}
-                  />
+                  {videoUrl ? (
+                    <ZoomCropVideo
+                      src={videoUrl}
+                      imageObjectPosition={imageObjectPosition}
+                      imageZoom={imageZoom}
+                      muted={videoMuted ?? true}
+                      volume={videoVolume ?? 0.35}
+                      durationInFrames={videoDurationInFrames}
+                      startInFrames={videoStartInFrames}
+                    />
+                  ) : (
+                    <ZoomCropImg
+                      src={imageUrl!}
+                      imageObjectPosition={imageObjectPosition}
+                      imageZoom={imageZoom}
+                    />
+                  )}
                 </div>
               </div>
             )}

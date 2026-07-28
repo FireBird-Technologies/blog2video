@@ -4,6 +4,7 @@ import { AccentBars, FilmGrain, LightDust, PulseRing, SpotlightBeam } from "../c
 import { SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
+import { ZoomCropVideo } from "../components/ZoomCropVideo";
 
 /**
  * Closer — Final Takeaway
@@ -18,6 +19,11 @@ export const Closer: React.FC<SpotlightLayoutProps> = ({
   cta,imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   accentColor,
   bgColor,
   textColor,
@@ -60,7 +66,7 @@ export const Closer: React.FC<SpotlightLayoutProps> = ({
 
   const displayText = narration || title;
   const displayCta = cta || "Read the full article →";
-  const hasImage = !!imageUrl;
+  const hasImage = !!imageUrl || !!videoUrl;
 
   const imageOpacity = interpolate(frame, [10, 35], [0, 1], { extrapolateRight: "clamp" });
   const imageScale = spring({ frame: frame - 10, fps, config: { damping: 20, stiffness: 80 } });
@@ -152,11 +158,23 @@ export const Closer: React.FC<SpotlightLayoutProps> = ({
               transform: `scale(${imageScale})`,
             }}
           >
-            <ZoomCropImg
-              src={imageUrl}
-              imageObjectPosition={imageObjectPosition}
-              imageZoom={imageZoom}
-            />
+            {videoUrl ? (
+              <ZoomCropVideo
+                src={videoUrl}
+                imageObjectPosition={imageObjectPosition}
+                imageZoom={imageZoom}
+                muted={videoMuted ?? true}
+                volume={videoVolume ?? 0.35}
+                durationInFrames={videoDurationInFrames}
+                startInFrames={videoStartInFrames}
+              />
+            ) : (
+              <ZoomCropImg
+                src={imageUrl!}
+                imageObjectPosition={imageObjectPosition}
+                imageZoom={imageZoom}
+              />
+            )}
           </div>
         )}
         <div style={{ flex: hasImage && !p ? 1 : "none", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>

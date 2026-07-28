@@ -3,6 +3,7 @@ import { SpotlightBackground } from "../SpotlightBackground";
 import { StreakField, BigGlyphBackdrop, FilmGrain, FlashPop, HalftoneField, TitleEcho } from "../components/SpotlightArtifacts";
 import { SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
+import { ZoomCropVideo } from "../components/ZoomCropVideo";
 
 /**
  * WordPunch — Single Word Impact
@@ -17,6 +18,11 @@ export const WordPunch: React.FC<SpotlightLayoutProps> = ({
   imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   accentColor,
   bgColor,
   aspectRatio,
@@ -42,7 +48,7 @@ export const WordPunch: React.FC<SpotlightLayoutProps> = ({
   });
 
   const displayWord = word || title;
-  const hasImage = Boolean(imageUrl);
+  const hasImage = Boolean(imageUrl) || Boolean(videoUrl);
   const imageOpacity = interpolate(frame, [10, 35], [0, 1], {
     extrapolateRight: "clamp",
   });
@@ -118,12 +124,24 @@ export const WordPunch: React.FC<SpotlightLayoutProps> = ({
               transform: `scale(${imageScale})`,
             }}
           >
-            <Img
-              src={imageUrl!}
-              style={{ width: "100%", height: "100%", objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover", objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
-                transform: `scale(${imageZoom ?? 1})`,
-                transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%") }}
-            />
+            {videoUrl ? (
+              <ZoomCropVideo
+                src={videoUrl}
+                imageObjectPosition={imageObjectPosition}
+                imageZoom={imageZoom}
+                muted={videoMuted ?? true}
+                volume={videoVolume ?? 0.35}
+                durationInFrames={videoDurationInFrames}
+                startInFrames={videoStartInFrames}
+              />
+            ) : (
+              <Img
+                src={imageUrl!}
+                style={{ width: "100%", height: "100%", objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover", objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
+                  transform: `scale(${imageZoom ?? 1})`,
+                  transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%") }}
+              />
+            )}
           </div>
         )}
       </div>

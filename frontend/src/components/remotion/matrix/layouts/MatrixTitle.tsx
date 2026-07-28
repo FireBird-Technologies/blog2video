@@ -4,6 +4,7 @@ import { buildHudStatus, GlitchSlice, RainBurst, ScanlinesOverlay, TerminalHUD }
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
+import { ZoomCropVideo } from "../components/ZoomCropVideo";
 
 const GLITCH_CHARS = "アイウエオカキクケコ0123456789!@#$%^&*<>{}[]";
 
@@ -23,6 +24,11 @@ export const MatrixTitle: React.FC<MatrixLayoutProps> = ({
   narration,imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   accentColor,
   bgColor,
   aspectRatio,
@@ -54,7 +60,7 @@ export const MatrixTitle: React.FC<MatrixLayoutProps> = ({
     config: { damping: 20, stiffness: 160 },
   });
 
-  const hasImage = !!imageUrl;
+  const hasImage = !!imageUrl || !!videoUrl;
 
   // --- Image entrance animation ---
   const imageDelay = 20; // Start image animation at this frame
@@ -121,11 +127,23 @@ export const MatrixTitle: React.FC<MatrixLayoutProps> = ({
               transformOrigin: 'center center', // Ensures rotation and scaling are from the center
             }}
           >
-            <ZoomCropImg
-              src={imageUrl}
-              imageObjectPosition={imageObjectPosition}
-              imageZoom={imageZoom}
-            />
+            {videoUrl ? (
+              <ZoomCropVideo
+                src={videoUrl}
+                imageObjectPosition={imageObjectPosition}
+                imageZoom={imageZoom}
+                muted={videoMuted ?? true}
+                volume={videoVolume ?? 0.35}
+                durationInFrames={videoDurationInFrames}
+                startInFrames={videoStartInFrames}
+              />
+            ) : (
+              <ZoomCropImg
+                src={imageUrl!}
+                imageObjectPosition={imageObjectPosition}
+                imageZoom={imageZoom}
+              />
+            )}
           </div>
         )}
 

@@ -2,6 +2,7 @@ import { AbsoluteFill, interpolate, useCurrentFrame, spring, Img } from "remotio
 import { SceneLayoutProps } from "../types";
 import { GeometricBackground } from "../components/GeometricBackground";
 import { FlybyPlane } from "../components/FlybyPlane";
+import { AnimatedVideo } from "./AnimatedVideo";
 
 export const BulletList: React.FC<SceneLayoutProps & { imageUrl?: string }> = (props) => {
   const {
@@ -15,6 +16,11 @@ export const BulletList: React.FC<SceneLayoutProps & { imageUrl?: string }> = (p
     imageUrl, // New Prop
     imageObjectPosition,
     imageZoom,
+    videoUrl,
+    videoMuted,
+    videoVolume,
+    videoDurationInFrames,
+    videoStartInFrames,
     fontFamily,
     sceneIndex,
     ...extra
@@ -52,7 +58,7 @@ export const BulletList: React.FC<SceneLayoutProps & { imageUrl?: string }> = (p
         }}
       >
         {/* --- LEFT/TOP SIDE: IMAGE SECTION --- */}
-        {imageUrl && (
+        {(imageUrl || videoUrl) && (
           <div
             style={{
               flex: 1,
@@ -64,17 +70,35 @@ export const BulletList: React.FC<SceneLayoutProps & { imageUrl?: string }> = (p
               zIndex: 1,
             }}
           >
-            <Img
-              src={imageUrl}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
-                objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
-                transform: `scale(${imageZoom ?? 1})`,
-                transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
-              }}
-            />
+            {videoUrl ? (
+              <AnimatedVideo
+                src={videoUrl}
+                muted={videoMuted ?? true}
+                volume={videoVolume ?? 0.35}
+                durationInFrames={videoDurationInFrames}
+                startInFrames={videoStartInFrames}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
+                  objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
+                  transform: `scale(${imageZoom ?? 1})`,
+                  transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
+                }}
+              />
+            ) : (
+              <Img
+                src={imageUrl!}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
+                  objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
+                  transform: `scale(${imageZoom ?? 1})`,
+                  transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
+                }}
+              />
+            )}
             {/* Subtle Gradient Overlay to blend with text side */}
             <div style={{
               position: 'absolute',

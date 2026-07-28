@@ -3,6 +3,7 @@ import { CodeFragments, DecodeSweep, GlitchSlice, ScanlinesOverlay } from "../co
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
+import { ZoomCropVideo } from "../components/ZoomCropVideo";
 
 /**
  * ForkChoice — Red Pill / Blue Pill Split
@@ -20,6 +21,11 @@ export const ForkChoice: React.FC<MatrixLayoutProps> = ({
   rightDescription,imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   accentColor,
   aspectRatio,
   titleFontSize,
@@ -54,7 +60,7 @@ export const ForkChoice: React.FC<MatrixLayoutProps> = ({
   const displayRightLabel = rightLabel || "Blue Pill";
   const displayLeftDesc = leftDescription || narration || "";
   const displayRightDesc = rightDescription || "";
-  const hasImage = !!imageUrl;
+  const hasImage = !!imageUrl || !!videoUrl;
 
   const imageOpacity = interpolate(frame, [5, 25], [0, 1], {
     extrapolateRight: "clamp",
@@ -96,11 +102,23 @@ export const ForkChoice: React.FC<MatrixLayoutProps> = ({
               border: `1px solid ${accent}33`,
             }}
           >
-            <ZoomCropImg
-              src={imageUrl}
-              imageObjectPosition={imageObjectPosition}
-              imageZoom={imageZoom}
-            />
+            {videoUrl ? (
+              <ZoomCropVideo
+                src={videoUrl}
+                imageObjectPosition={imageObjectPosition}
+                imageZoom={imageZoom}
+                muted={videoMuted ?? true}
+                volume={videoVolume ?? 0.35}
+                durationInFrames={videoDurationInFrames}
+                startInFrames={videoStartInFrames}
+              />
+            ) : (
+              <ZoomCropImg
+                src={imageUrl!}
+                imageObjectPosition={imageObjectPosition}
+                imageZoom={imageZoom}
+              />
+            )}
           </div>
         </div>
       )}

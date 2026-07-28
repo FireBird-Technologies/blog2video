@@ -47,6 +47,7 @@ STOCK_FOOTAGE_TEMPLATES = {
     "newscast", "newspaper", "nightfall", "blackswan", "sakura",
     "stickman_2", "stickman_football", "whiteboard", "economist",
     "gridcraft", "chronicle", "magazine",
+    "bloomberg", "spotlight", "matrix", "mosaic", "default",
 }
 
 # Hard ceiling on what we will pull from a provider. Generous enough for a 30 s
