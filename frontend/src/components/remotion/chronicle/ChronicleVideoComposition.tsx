@@ -284,14 +284,25 @@ export const ChronicleVideoComposition: React.FC<ChronicleVideoCompositionProps>
         })}
       </TransitionSeries>
 
-      {/* Voiceover audio — positioned absolutely so it stays in sync regardless of transition overlap. */}
+      {/* Voiceover audio — positioned absolutely so it stays in sync regardless of transition overlap.
+          EXTRA_HOLD_FRAMES (10) is smaller than every transition length (30-44,
+          see chronicle/transitions), so sceneStartFrames[index + 1] can land
+          BEFORE this scene's natural durationFrames would end. Clamp the audio
+          window to that next start (when there is one) so scene N+1's
+          voiceover never starts while scene N's is still playing. Must stay
+          in sync with the same clamp in remotion-video's ChronicleVideo.tsx. */}
       {resolvedScenes.map((s, index) => {
         if (!s.scene.voiceoverUrl) return null;
+        const nextStart = sceneStartFrames[index + 1];
+        const audioDurationFrames =
+          nextStart !== undefined
+            ? Math.max(1, Math.min(s.durationFrames, nextStart - sceneStartFrames[index]))
+            : s.durationFrames;
         return (
           <Sequence
             key={`audio-${s.scene.id}-${index}`}
             from={sceneStartFrames[index]}
-            durationInFrames={s.durationFrames}
+            durationInFrames={audioDurationFrames}
           >
             <Audio src={s.scene.voiceoverUrl} playbackRate={resolvedPlaybackSpeed} />
             {captionsEnabled && (s.scene.narrationText || s.scene.narration) && (

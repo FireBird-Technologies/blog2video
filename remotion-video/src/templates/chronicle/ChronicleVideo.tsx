@@ -335,13 +335,24 @@ export const ChronicleVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         })}
       </TransitionSeries>
 
+      {/* EXTRA_HOLD_FRAMES (10) is smaller than every transition length (30-44,
+          see chronicle/transitions), so sceneStartFrames[index + 1] can land
+          BEFORE this scene's natural durationFrames would end. Clamp the audio
+          window to that next start (when there is one) so scene N+1's
+          voiceover never starts while scene N's is still playing. Must stay
+          in sync with the same clamp in frontend/.../ChronicleVideoComposition.tsx. */}
       {resolvedScenes.map((s, index) => {
         if (!s.scene.voiceoverFile) return null;
+        const nextStart = sceneStartFrames[index + 1];
+        const audioDurationFrames =
+          nextStart !== undefined
+            ? Math.max(1, Math.min(s.durationFrames, nextStart - sceneStartFrames[index]))
+            : s.durationFrames;
         return (
           <Sequence
             key={`audio-${s.scene.id}-${index}`}
             from={sceneStartFrames[index]}
-            durationInFrames={s.durationFrames}
+            durationInFrames={audioDurationFrames}
           >
             <Audio src={staticFile(s.scene.voiceoverFile)} playbackRate={playbackSpeed} />
             {data.captionsEnabled && (s.scene.narrationText || s.scene.narration) && (
