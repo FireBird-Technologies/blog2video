@@ -1605,9 +1605,6 @@ async def _fill_missing_stock_clips_after_scene_gen(
     return assigned
 
 
-STOCK_FOOTAGE_SCENE_CONCURRENCY = 2
-
-
 async def _prepare_stock_footage_candidates(project: Project, db: Session) -> int:
     """Auto-pick and ingest one stock clip per image-capable scene.
 
@@ -1615,11 +1612,6 @@ async def _prepare_stock_footage_candidates(project: Project, db: Session) -> in
     the scene's title, ingested through the shared
     :func:`stock_footage.ingest_clip` (so the CFR-30 contract matches the editor's
     path exactly), and linked into the scene descriptor as ``assignedVideo``.
-
-    Up to :data:`STOCK_FOOTAGE_SCENE_CONCURRENCY` scenes are processed at once —
-    each worker opens its OWN ``SessionLocal()`` (never the ``db`` passed in,
-    which isn't safe to touch from more than one concurrent coroutine) and
-    commits its own scene's assignment independently.
 
     A scene whose search returns nothing, or whose download fails, is simply left
     without a clip — the user fills it in during review rather than the whole
@@ -1637,7 +1629,7 @@ async def _prepare_stock_footage_candidates(project: Project, db: Session) -> in
         return 0
 
     already_assigned = sum(1 for s in scenes if _scene_stock_footage_prep_done(s))
-    pending_ids = [s.id for s in scenes if not _scene_stock_footage_prep_done(s)]
+    pending = [s for s in scenes if not _scene_stock_footage_prep_done(s)]
     if already_assigned:
         logger.info(
             "[PIPELINE] project=%s: skipping %s/%s scenes that already have stock clips",
@@ -1645,7 +1637,7 @@ async def _prepare_stock_footage_candidates(project: Project, db: Session) -> in
             already_assigned,
             len(scenes),
         )
-    if not pending_ids:
+    if not pending:
         return already_assigned
 
     orientation = (
@@ -1653,73 +1645,40 @@ async def _prepare_stock_footage_candidates(project: Project, db: Session) -> in
         if (getattr(project, "aspect_ratio", "landscape") or "").lower() == "portrait"
         else "landscape"
     )
+    loop = asyncio.get_running_loop()
+    assigned = already_assigned
     total = len(scenes)
-    project_id = project.id
-    # Shared across concurrent workers to avoid every scene falling back to the
-    # same generic image. A plain set is fine here: everything on this event
-    # loop runs cooperatively (only I/O is offloaded to executors), so add()/
-    # membership checks can't interleave mid-operation — worst case under
-    # concurrency is two scenes occasionally picking the same generic image,
-    # not a crash.
     used_generics: set[str] = set()
-    completed = 0
-    completed_lock = asyncio.Lock()
-    semaphore = asyncio.Semaphore(STOCK_FOOTAGE_SCENE_CONCURRENCY)
 
-    async def _run_one(scene_id: int) -> bool:
-        nonlocal completed
-        async with semaphore:
-            sf_db = SessionLocal()
-            try:
-                sf_project = sf_db.query(Project).filter(Project.id == project_id).first()
-                sf_scene = sf_db.query(Scene).filter(Scene.id == scene_id).first()
-                if sf_project is None or sf_scene is None:
-                    return False
-                loop = asyncio.get_running_loop()
-                got_clip = await _try_assign_stock_clip_to_scene(
-                    sf_project,
-                    sf_scene,
-                    sf_db,
-                    orientation=orientation,
-                    loop=loop,
-                    used_generics=used_generics,
-                )
-                if not got_clip:
-                    fresh = (
-                        sf_db.query(Scene)
-                        .filter(Scene.id == scene_id, Scene.project_id == project_id)
-                        .first()
-                    )
-                    got_clip = bool(fresh and _scene_stock_footage_prep_done(fresh))
-                return got_clip
-            except Exception:
-                logger.warning(
-                    "[PIPELINE] project=%s scene=%s: stock footage worker failed",
-                    project_id, scene_id, exc_info=True,
-                )
-                try:
-                    sf_db.rollback()
-                except Exception:
-                    pass
-                return False
-            finally:
-                sf_db.close()
-                async with completed_lock:
-                    completed += 1
-                    _pipeline_progress.setdefault(project_id, {})["stock_footage"] = {
-                        "current": already_assigned + completed,
-                        "total": total,
-                        "scene_id": scene_id,
-                    }
+    for idx, scene in enumerate(pending, start=already_assigned + 1):
+        _pipeline_progress.setdefault(project.id, {})["stock_footage"] = {
+            "current": idx,
+            "total": total,
+            "scene_id": scene.id,
+        }
+        if await _try_assign_stock_clip_to_scene(
+            project,
+            scene,
+            db,
+            orientation=orientation,
+            loop=loop,
+            used_generics=used_generics,
+        ):
+            assigned += 1
+        else:
+            fresh = (
+                db.query(Scene)
+                .filter(Scene.id == scene.id, Scene.project_id == project.id)
+                .first()
+            )
+            if fresh and _scene_stock_footage_prep_done(fresh):
+                assigned += 1
 
-    results = await asyncio.gather(*(_run_one(sid) for sid in pending_ids))
-    assigned = already_assigned + sum(1 for ok in results if ok)
-
-    _pipeline_progress.setdefault(project_id, {}).pop("stock_footage", None)
+    _pipeline_progress.setdefault(project.id, {}).pop("stock_footage", None)
 
     logger.info(
         "[PIPELINE] project=%s: auto-picked %s/%s stock clips",
-        project_id, assigned, total,
+        project.id, assigned, total,
     )
     return assigned
 
