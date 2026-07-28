@@ -606,8 +606,6 @@ def test_upload_endpoint_rejected_on_unsupported_template(
 
 def test_assigning_image_clears_an_existing_clip(client, db_session, paid_user, auth, tmp_path):
     """Mutual exclusivity: uploading an image onto a clip scene drops the clip."""
-    from app.models.asset import Asset, AssetType
-
     project, scenes = _newscast_project(db_session, paid_user, n_scenes=1)
     scene = scenes[0]
     desc = json.loads(scene.remotion_code)
@@ -1019,7 +1017,7 @@ def test_link_endpoint_points_a_scene_at_an_uploaded_clip(
     """
     from app.models.asset import Asset, AssetType
 
-    project, scenes = _scripted_newscast_project(db_session, paid_user), None
+    project = _scripted_newscast_project(db_session, paid_user)
     scene = db_session.query(Scene).filter(
         Scene.project_id == project.id, Scene.order == 1
     ).first()
