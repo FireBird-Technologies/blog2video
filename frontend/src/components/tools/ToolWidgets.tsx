@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import StockVisualizer from "./StockVisualizer";
+import SubstackValuationTool from "./SubstackValuationTool";
 import { Link } from "react-router-dom";
 import type { CredentialResponse } from "@react-oauth/google";
 import type { DirectoryPricingModel } from "../../content/seoTypes";
@@ -2048,6 +2049,8 @@ export function ToolWidget({ slug }: ToolWidgetProps) {
       return <MediumCalculator />;
     case "substack-revenue-calculator":
       return <SubstackRevenueCalculator />;
+    case "substack-valuation-calculator":
+      return <SubstackValuationTool />;
     case "markdown-to-medium-substack-formatter":
       return <MarkdownFormatter />;
     case "headline-analyzer":
