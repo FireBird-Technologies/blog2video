@@ -634,8 +634,7 @@ export function BlogUrlFormDemoModal({
       <label className="flex items-center gap-2.5 cursor-pointer select-none p-3 rounded-xl bg-gray-50/60 border border-gray-200/60 hover:border-gray-300/60 transition-all">
         <input type="checkbox" readOnly checked={false} className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600" />
         <div>
-          <span className="text-sm font-medium text-gray-700">No voiceover</span>
-          <p className="text-[11px] text-gray-400 mt-0.5">Text-only video, no narration audio</p>
+          <p className="text-[11px] text-gray-400 mt-0.5">No voiceover</p>
         </div>
       </label>
       <div>
@@ -3881,9 +3880,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
           (mirrors the stock-footage pill in step 1). Stock footage moved to
           step 1 so the visual choice sits with format/length. */}
       <div>
-        <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
-          No voiceover
-        </label>
         <label className="flex items-center gap-2.5 cursor-pointer select-none p-3 rounded-xl bg-gray-50/60 border border-gray-200/60 hover:border-gray-300/60 transition-all">
           <input
             type="checkbox"
@@ -3902,7 +3898,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
             }}
             className="w-4 h-4 shrink-0 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
           />
-          <span className="text-sm font-medium text-gray-700 min-w-0">Text-only video with no voiceover</span>
+          <span className="text-sm font-medium text-gray-700 min-w-0">No voiceover</span>
         </label>
       </div>
 
@@ -4420,9 +4416,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
             (mirrors step 1). Edits this row, or all rows when the apply-to-all
             voice sync is on. */}
         <div>
-        <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
-          No voiceover
-        </label>
         <label className="flex items-center gap-2.5 cursor-pointer select-none p-3 rounded-xl bg-gray-50/60 border border-gray-200/60 hover:border-gray-300/60 transition-all">
           <input
             type="checkbox"
@@ -4481,7 +4474,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
             }}
             className="w-4 h-4 shrink-0 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
           />
-          <span className="text-sm font-medium text-gray-700 min-w-0">Text-only video with no voiceover</span>
+          <span className="text-sm font-medium text-gray-700 min-w-0">No voiceover</span>
         </label>
         </div>
 

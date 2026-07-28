@@ -11,6 +11,9 @@ interface Props {
   confirmLoadingLabel?: string;
   iconVariant?: "danger" | "warning";
   onConfirm: () => Promise<void>;
+  /** Override the default z-[100] — needed when opened from within another
+   *  portal-rendered modal that sits at a higher z-index (e.g. z-[140]). */
+  zIndexClass?: string;
 }
 
 export default function ConfirmDeleteModal({
@@ -23,6 +26,7 @@ export default function ConfirmDeleteModal({
   confirmLoadingLabel = "Deleting…",
   iconVariant = "danger",
   onConfirm,
+  zIndexClass = "z-[100]",
 }: Props) {
   const [loading, setLoading] = useState(false);
 
@@ -41,7 +45,7 @@ export default function ConfirmDeleteModal({
   if (!open) return null;
 
   return ReactDOM.createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div className={`fixed inset-0 ${zIndexClass} flex items-center justify-center p-4`}>
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
         onClick={loading ? undefined : onClose}

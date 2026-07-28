@@ -1612,7 +1612,11 @@ def recover_stalled_template_change_job(db: Session, job: ProjectTemplateChangeJ
     # Completion-race guard: the substantive work already landed (scenes written,
     # template switched) and only the heartbeat-free rebuild tail was outstanding.
     # Finalize as completed — do NOT revert or refund.
-    if project and project.status == ProjectStatus.GENERATED and project.template == job.target_template:
+    if (
+        project
+        and project.status in (ProjectStatus.GENERATED, ProjectStatus.AWAITING_STOCK_FOOTAGE_REVIEW)
+        and project.template == job.target_template
+    ):
         db.execute(
             update(ProjectTemplateChangeJob)
             .where(ProjectTemplateChangeJob.id == job.id, ProjectTemplateChangeJob.status.in_(_JOB_ACTIVE_STATUSES))
@@ -1897,7 +1901,11 @@ def recover_stalled_voice_change_job(db: Session, job: ProjectVoiceChangeJob) ->
     # Completion-race guard (voice-change only): voiceovers already regenerated and
     # project finalized. Delete leaves the status untouched, so it relies on the
     # claim rowcount below instead.
-    if not is_delete and project and project.status == ProjectStatus.GENERATED:
+    if (
+        not is_delete
+        and project
+        and project.status in (ProjectStatus.GENERATED, ProjectStatus.AWAITING_STOCK_FOOTAGE_REVIEW)
+    ):
         db.execute(
             update(ProjectVoiceChangeJob)
             .where(ProjectVoiceChangeJob.id == job.id, ProjectVoiceChangeJob.status.in_(_JOB_ACTIVE_STATUSES))
@@ -2041,7 +2049,7 @@ def recover_stalled_language_change_job(db: Session, job: ProjectLanguageChangeJ
     project = db.query(Project).filter(Project.id == job.project_id).first()
 
     # Completion-race guard: the worker already finalized (status back to GENERATED).
-    if project and project.status == ProjectStatus.GENERATED:
+    if project and project.status in (ProjectStatus.GENERATED, ProjectStatus.AWAITING_STOCK_FOOTAGE_REVIEW):
         db.execute(
             update(ProjectLanguageChangeJob)
             .where(ProjectLanguageChangeJob.id == job.id, ProjectLanguageChangeJob.status.in_(_JOB_ACTIVE_STATUSES))

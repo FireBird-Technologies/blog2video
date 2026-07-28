@@ -26,11 +26,19 @@ class ProjectStatus(str, enum.Enum):
     # every voiceover). Distinct from VOICE_REGENERATING so the status endpoints and
     # the stall reapers can tell the two jobs apart.
     LANGUAGE_REGENERATING = "language_regenerating"
-    # Generation is paused after the script stage, waiting for the user to review
-    # and approve the auto-picked stock clips. Distinct from SCRIPTED so the
-    # pipeline's step-3 guard does NOT auto-continue past the gate, and so a
-    # reload mid-review doesn't silently restart scene generation.
+    # DEPRECATED: no longer entered by new pipeline runs — the review gate
+    # moved to AFTER scene generation (see AWAITING_STOCK_FOOTAGE_REVIEW).
+    # Kept only so a project already parked here at deploy time (or a still
+    # open browser tab pointing at it) keeps working via the legacy branches
+    # in the /stock-footage endpoints below.
+    # TODO(cleanup): remove once no rows remain at this status.
     AWAITING_FOOTAGE = "awaiting_footage"
+    # Generation ran all the way through (scenes + auto-picked clips exist),
+    # but for non-bulk stock-footage projects we land here instead of
+    # GENERATED so the user can confirm/change/reject the auto-picked clips.
+    # Reappears on every reload for as long as the DB says this status — no
+    # client-side state drives it, purely the project's DB status.
+    AWAITING_STOCK_FOOTAGE_REVIEW = "awaiting_stock_footage_review"
 
 
 class Project(Base):
@@ -76,10 +84,12 @@ class Project(Base):
     stock_footage_enabled: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default="0", nullable=False
     )
-    # When the user approved the reviewed clips. Set once by the approve
-    # endpoint; the pipeline's gate checks it so that resuming (which puts the
-    # project back to SCRIPTED with the flag still on) does NOT re-park it —
-    # otherwise approve → SCRIPTED → re-park is an infinite loop.
+    # When the user resolved the stock-footage review (approve, change-confirm,
+    # or reject). Set once by the corresponding endpoint; also stamped for
+    # bulk/unsupported-template projects at the point they'd otherwise have
+    # entered AWAITING_STOCK_FOOTAGE_REVIEW, so a re-entrant scene generation
+    # (e.g. via a later edit job) doesn't re-fetch clips that were already
+    # resolved.
     stock_footage_approved_at: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True
     )

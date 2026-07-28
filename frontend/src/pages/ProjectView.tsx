@@ -75,6 +75,7 @@ import StatusBadge from "../components/StatusBadge";
 import ScriptPanel from "../components/ScriptPanel";
 import { StockFootageModal, STOCK_FOOTAGE_CREDIT_COST } from "../components/StockFootageModal";
 import { StockFootageVerifyModal } from "../components/StockFootageVerifyModal";
+import { StockFootageVerifyModalLegacy } from "../components/StockFootageVerifyModalLegacy";
 import { ImageAdjustStage } from "../components/ImageAdjustStage";
 import { TrimmedClipVideo } from "../utils/trimmedClipPlayback";
 import { isStockClipAdjustSource } from "../utils/stockClipMedia";
@@ -1078,25 +1079,14 @@ export default function ProjectView() {
 
   // Upload-based project detection
   const isUploadProject = project?.blog_url?.startsWith("upload://") ?? false;
-  // Stock-footage review flow adds a "Review" step between Script and Scenes.
-  // Only for projects that actually pause for review: stock footage enabled,
-  // resolved server-side (so template is supported), and NOT bulk (bulk
-  // auto-approves and never pauses). Backend `stock_footage_enabled` is already
-  // gated by `_resolve_stock_footage_flag`, so it's true only when applicable.
-  const hasFootageReview =
-    Boolean(project?.stock_footage_enabled) && !project?.is_bulk;
-  const PIPELINE_STEPS = useMemo(() => {
-    const base = isUploadProject ? PIPELINE_STEPS_UPLOAD : PIPELINE_STEPS_URL;
-    if (!hasFootageReview) return base;
-    // Insert "Review" as step 3 (before "Scenes"), renumbering the tail.
-    const withReview = [
-      base[0],
-      base[1],
-      { id: 3, label: "Review" },
-      { id: 4, label: base[2].label },
-    ];
-    return withReview;
-  }, [isUploadProject, hasFootageReview]);
+  // Stock-footage clip fetching (when enabled) now runs in parallel with scene
+  // generation instead of pausing the pipeline, so there's no inline "Review"
+  // step anymore — the review gate (if any) appears as a modal AFTER
+  // generation finishes (see awaitingStockFootageReview below).
+  const PIPELINE_STEPS = useMemo(
+    () => (isUploadProject ? PIPELINE_STEPS_UPLOAD : PIPELINE_STEPS_URL),
+    [isUploadProject],
+  );
 
   // Page-level voiceover add/change/delete progress modal (survives tab switches
   // and page refresh — see VoiceOperationModal). Set to kick it off instantly.
@@ -1114,8 +1104,13 @@ export default function ProjectView() {
 
   // Pipeline state
   const [pipelineRunning, setPipelineRunning] = useState(false);
-  // Generation is parked at the stock-footage gate, waiting on user approval.
-  const [awaitingFootage, setAwaitingFootage] = useState(false);
+  // Generation finished; parked at the post-generation stock-footage review
+  // gate, waiting on user approve/change/reject. Purely DB-status-driven (see
+  // the polling logic below), so it reappears on every reload.
+  const [awaitingStockFootageReview, setAwaitingStockFootageReview] = useState(false);
+  // Legacy: a project still parked at the OLD pre-scene-gen gate when this
+  // shipped. TODO(cleanup): remove once no rows remain at that status.
+  const [awaitingFootageLegacy, setAwaitingFootageLegacy] = useState(false);
   const [pipelineStep, setPipelineStep] = useState(0);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const generationStarted = useRef(false);
@@ -2257,12 +2252,18 @@ export default function ProjectView() {
         return;
       }
 
-      // Returning to a project parked at the footage gate (e.g. the user closed
-      // the tab mid-review): show the review modal instead of restarting
-      // generation — deliberately NOT part of needsGeneration below.
+      // Returning to a project parked at the post-generation review gate (e.g.
+      // the user closed the tab mid-review): show the review modal instead of
+      // restarting generation — deliberately NOT part of needsGeneration below.
+      if (proj.status === "awaiting_stock_footage_review") {
+        generationStarted.current = true;
+        setAwaitingStockFootageReview(true);
+        return;
+      }
+      // Legacy: a project still parked at the OLD pre-scene-gen gate.
       if (proj.status === "awaiting_footage") {
         generationStarted.current = true;
-        setAwaitingFootage(true);
+        setAwaitingFootageLegacy(true);
         return;
       }
 
@@ -2277,9 +2278,14 @@ export default function ProjectView() {
         try {
           const st = await getPipelineStatus(projectId);
           const d = st.data;
+          if (d.status === "awaiting_stock_footage_review") {
+            generationStarted.current = true;
+            setAwaitingStockFootageReview(true);
+            return;
+          }
           if (d.status === "awaiting_footage") {
             generationStarted.current = true;
-            setAwaitingFootage(true);
+            setAwaitingFootageLegacy(true);
             return;
           }
           if (d.running) {
@@ -2333,11 +2339,19 @@ export default function ProjectView() {
 
         setPipelineStep(step);
 
-        // Footage gate: trust DB status even when in-memory running is stale.
+        // Review gate: trust DB status even when in-memory running is stale.
+        if (status === "awaiting_stock_footage_review") {
+          setPipelineRunning(false);
+          stopPolling();
+          setAwaitingStockFootageReview(true);
+          await loadProject({ silent404: true });
+          return;
+        }
+        // Legacy pre-scene-gen gate.
         if (status === "awaiting_footage") {
           setPipelineRunning(false);
           stopPolling();
-          setAwaitingFootage(true);
+          setAwaitingFootageLegacy(true);
           await loadProject({ silent404: true });
           return;
         }
@@ -2374,13 +2388,21 @@ export default function ProjectView() {
         // container handles the poll.  If the project is still mid-generation,
         // keep the loader visible and keep polling.
         if (!running) {
-          // Parked at the stock-footage gate: stop polling and hand over to the
-          // review modal. Approving there resumes the pipeline and restarts
-          // polling, so this is a pause rather than a terminal state.
+          // Parked at the post-generation review gate: stop polling and hand
+          // over to the review modal. Generation already finished — approve/
+          // change/reject just finalizes the project, no pipeline to resume.
+          if (status === "awaiting_stock_footage_review") {
+            setPipelineRunning(false);
+            stopPolling();
+            setAwaitingStockFootageReview(true);
+            await loadProject({ silent404: true });
+            return;
+          }
+          // Legacy pre-scene-gen gate: approving there resumes the pipeline.
           if (status === "awaiting_footage") {
             setPipelineRunning(false);
             stopPolling();
-            setAwaitingFootage(true);
+            setAwaitingFootageLegacy(true);
             await loadProject({ silent404: true });
             return;
           }
@@ -3305,9 +3327,16 @@ export default function ProjectView() {
     { id: "settings", label: "Settings" },
   ];
 
-  const pipelineComplete = ["generated", "rendering", "done"].includes(
-    project.status
-  );
+  // Includes the post-generation review status so the preview/scenes area
+  // renders underneath the review modal instead of a loading spinner — the
+  // scenes + remotion data are fully written by the time the project reaches
+  // that status, same as GENERATED.
+  const pipelineComplete = [
+    "generated",
+    "rendering",
+    "done",
+    "awaiting_stock_footage_review",
+  ].includes(project.status);
   const showInlineReviewPrompt = Boolean(
     isProjectOwner &&
     !inlineReviewSubmitted &&
@@ -5463,18 +5492,32 @@ export default function ProjectView() {
         onConfirm={handleConfirmDeleteBlogImage}
       />
 
-      {/* Generation gate: review the auto-picked clips before the video is built. */}
-      {awaitingFootage && project && (
+      {/* Post-generation gate: review the auto-picked clips before finalizing.
+          The video already exists (scenes + remotion data are fully written) —
+          approve/change/reject just resolves the review, no pipeline to resume. */}
+      {awaitingStockFootageReview && project && (
         <StockFootageVerifyModal
           projectId={project.id}
           templateId={project.template}
           isPro={isPro}
+          onResolved={async () => {
+            setAwaitingStockFootageReview(false);
+            await loadProject({ silent404: true });
+          }}
+        />
+      )}
+
+      {/* Legacy: a project still parked at the OLD pre-scene-gen gate when this
+          shipped. TODO(cleanup): remove once no rows remain at that status. */}
+      {awaitingFootageLegacy && project && (
+        <StockFootageVerifyModalLegacy
+          projectId={project.id}
+          templateId={project.template}
+          isPro={isPro}
           onApproved={() => {
-            setAwaitingFootage(false);
-            // Pipeline resumes at scene generation. With the "Review" step
-            // inserted, that's UI step 4 ("Scenes"); the backend reports the same.
+            setAwaitingFootageLegacy(false);
             setPipelineRunning(true);
-            setPipelineStep(4);
+            setPipelineStep(3);
             pipelineTerminalFailureHandledRef.current = false;
             startPolling();
           }}
@@ -8645,7 +8688,7 @@ export default function ProjectView() {
                     <span className="text-xs text-gray-400">
                       {hasVoiceoverContent
                         ? `${audioScenes.length} / ${project.scenes.length} scenes${totalAudioDuration > 0 ? ` -- ${Math.round(totalAudioDuration)}s total` : ""}`
-                        : "No voiceover — text-only video"}
+                        : "No voiceover"}
                     </span>
                   </div>
                   <div className={`flex items-center gap-2 text-[11px] text-gray-400 ${!hasVoiceoverContent ? "hidden" : ""}`}>

@@ -29,15 +29,20 @@ import type { VideoStyleId } from "../constants/videoStyles";
 import { primeBlogUrlFormStep2Prefetch } from "../api/blogUrlFormStep2Prefetch";
 
 const BULK_PENDING_IDS_KEY = "b2v_bulk_pending_ids";
-// `awaiting_footage` is terminal *for polling*: generation is parked at the
-// stock-footage review gate and will not advance until the user opens the
-// project and approves, so we stop polling and surface it instead of spinning.
+// `awaiting_stock_footage_review` (and the legacy `awaiting_footage`) are
+// terminal *for polling*: the project won't advance without the user opening
+// it and resolving the review, so we stop polling and surface it instead of
+// spinning. In practice bulk projects never actually reach either — clips
+// are auto-picked and auto-approved server-side (see pipeline.py) — these
+// entries exist defensively in case that ever changes or a non-bulk card is
+// somehow polled through this same code path.
 const BULK_TERMINAL_STATUSES = new Set([
   "generated",
   "done",
   "error",
   "failed",
-  "awaiting_footage",
+  "awaiting_stock_footage_review",
+  "awaiting_footage", // legacy, kept for any in-flight project
 ]);
 
 export default function Dashboard() {

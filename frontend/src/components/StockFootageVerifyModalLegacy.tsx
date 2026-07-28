@@ -3,7 +3,6 @@ import ReactDOM from "react-dom";
 import {
   BACKEND_URL,
   approveStockFootage,
-  rejectStockFootage,
   getPendingStockFootage,
   linkStockFootage,
   uploadStockFootage,
@@ -11,44 +10,44 @@ import {
   type StockClip,
 } from "../api/client";
 import { StockFootageModal } from "./StockFootageModal";
-import ConfirmDeleteModal from "./ConfirmDeleteModal";
 import { getSceneLayoutLabel } from "../utils/layoutLabels";
 
 /**
- * Post-generation review gate: the video is fully generated (scenes +
- * remotion data already written) and the project sits at
- * `awaiting_stock_footage_review` with one auto-picked clip per
- * image-capable scene. The user steps through the scenes, swaps anything
- * they dislike, then either approves (keep the auto-picked clips) or rejects
- * everything (fall back to images / hide).
+ * DEPRECATED — frozen copy of the old mid-pipeline (pre-scene-gen) review
+ * gate, kept only for any project still parked at the legacy
+ * `awaiting_footage` status when the post-generation review gate shipped
+ * (see StockFootageVerifyModal.tsx for the current flow). New projects never
+ * enter this state. TODO(cleanup): delete this file once no rows remain at
+ * `awaiting_footage`.
  *
- * Always visible while the DB status says so — no local/session state drives
- * it, so it reappears on every reload for as long as the project is
- * unresolved (even reopening the project after a long time away). Not
- * dismissible except by resolving (approve or reject); there is no "leave it
- * parked" affordance since the video already exists underneath.
+ * Generation gate: the project is parked at `awaiting_footage` with one
+ * auto-picked clip per image-capable scene. The user steps through the scenes,
+ * swaps anything they dislike, and approves — which resumes the pipeline.
+ *
+ * Blocking by design: generation cannot continue until the user acts, and the
+ * project stays parked indefinitely if they leave (resumable from the Dashboard).
  */
-export function StockFootageVerifyModal({
+export function StockFootageVerifyModalLegacy({
   projectId,
   templateId,
   isPro = false,
-  onResolved,
+  onApproved,
+  onClose,
 }: {
   projectId: number;
   templateId?: string | null;
   /** Paid owners swap clips for free; free owners spend AI edits — drives the
    *  cost notice shown next to the "Change clip" action. */
   isPro?: boolean;
-  /** Called after approve OR reject finalizes the project (both land on
-   *  GENERATED), so the caller can reload and hide the modal. */
-  onResolved: () => void;
+  /** Called after the pipeline resumes, so the caller can go back to polling. */
+  onApproved: () => void;
+  /** Leave the gate without approving; the project stays paused. */
+  onClose?: () => void;
 }) {
   const [scenes, setScenes] = useState<PendingFootageScene[] | null>(null);
   const [index, setIndex] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [approving, setApproving] = useState(false);
-  const [rejecting, setRejecting] = useState(false);
-  const [confirmRejectOpen, setConfirmRejectOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [swapping, setSwapping] = useState(false);
 
@@ -120,24 +119,11 @@ export function StockFootageVerifyModal({
     setApproving(true);
     try {
       await approveStockFootage(projectId);
-      onResolved();
+      onApproved();
     } catch (e) {
       const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      setLoadError(detail || "Could not approve the clips.");
+      setLoadError(detail || "Could not resume generation.");
       setApproving(false);
-    }
-  };
-
-  const handleReject = async () => {
-    setConfirmRejectOpen(false);
-    setRejecting(true);
-    try {
-      await rejectStockFootage(projectId);
-      onResolved();
-    } catch (e) {
-      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      setLoadError(detail || "Could not finish rejecting the clips.");
-      setRejecting(false);
     }
   };
 
@@ -146,12 +132,27 @@ export function StockFootageVerifyModal({
       <div className="fixed inset-0 z-[140] flex items-center justify-center p-4">
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
         <div className="relative w-full max-w-3xl rounded-2xl bg-white shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-          <div className="px-5 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">Review stock footage</h3>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Your video is ready — review the auto-picked clips below, then approve,
-              swap any you don't like, or reject them all to fall back to images.
-            </p>
+          <div className="px-5 py-4 border-b border-gray-200 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="text-lg font-semibold text-gray-900">Review stock footage</h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                We picked a clip for each scene. Swap any you don't like, then continue —
+                your video is built once you approve.
+              </p>
+            </div>
+            {onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={approving}
+                className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors disabled:opacity-50"
+                title="Close (your project stays paused)"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
           </div>
 
           {!isPro && (
@@ -225,13 +226,13 @@ export function StockFootageVerifyModal({
                       />
                       <div className="absolute bottom-2 left-2 right-2 z-10 rounded-lg bg-black/60 px-2.5 py-1.5 text-[11px] text-white/90">
                         No matching stock clip — using article image instead. You can
-                        pick a clip with “Change clip”.
+                        pick a clip with "Change clip".
                       </div>
                     </>
                   ) : (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white/70">
                       <span className="text-sm">No clip for this scene yet</span>
-                      <span className="text-xs">Use “Change clip” to pick one</span>
+                      <span className="text-xs">Use "Change clip" to pick one</span>
                     </div>
                   )}
                   <button
@@ -290,7 +291,7 @@ export function StockFootageVerifyModal({
               <button
                 type="button"
                 onClick={() => setIndex((i) => Math.max(0, i - 1))}
-                disabled={index === 0 || approving || rejecting}
+                disabled={index === 0 || approving}
                 className="px-3 py-2 rounded-lg border border-gray-300 text-gray-600 text-sm hover:bg-gray-50 transition-colors disabled:opacity-40"
               >
                 Previous
@@ -298,7 +299,7 @@ export function StockFootageVerifyModal({
               <button
                 type="button"
                 onClick={() => setIndex((i) => Math.min(total - 1, i + 1))}
-                disabled={index >= total - 1 || approving || rejecting}
+                disabled={index >= total - 1 || approving}
                 className="px-3 py-2 rounded-lg border border-gray-300 text-gray-600 text-sm hover:bg-gray-50 transition-colors disabled:opacity-40"
               >
                 Next
@@ -312,37 +313,16 @@ export function StockFootageVerifyModal({
               )}
               <button
                 type="button"
-                onClick={() => setConfirmRejectOpen(true)}
-                disabled={approving || swapping || rejecting}
-                className="px-4 py-2 rounded-lg border border-red-300 text-red-600 text-sm font-medium hover:bg-red-50 transition-colors disabled:opacity-60"
-              >
-                {rejecting ? "Reverting…" : "Reject all — use images instead"}
-              </button>
-              <button
-                type="button"
                 onClick={handleApprove}
-                disabled={approving || swapping || rejecting}
+                disabled={approving || swapping}
                 className="px-4 py-2 rounded-lg bg-purple-600 text-white text-sm font-medium hover:bg-purple-700 transition-colors disabled:opacity-60"
               >
-                {approving ? "Approving…" : "Approve"}
+                {approving ? "Starting…" : "Approve & create video"}
               </button>
             </div>
           </div>
         </div>
       </div>
-
-      <ConfirmDeleteModal
-        open={confirmRejectOpen}
-        onClose={() => setConfirmRejectOpen(false)}
-        title="Reject all stock footage clips?"
-        subtitle="Every auto-picked clip will be discarded"
-        warningMessage="Scenes will fall back to an existing image where one is available; scenes with no image will simply hide the visual. This cannot be undone."
-        confirmLabel="Yes, reject all"
-        confirmLoadingLabel="Reverting…"
-        onConfirm={handleReject}
-        // Must sit above this modal's z-[140], or the confirm dialog opens behind it.
-        zIndexClass="z-[150]"
-      />
 
       {pickerOpen && current && (
         <StockFootageModal

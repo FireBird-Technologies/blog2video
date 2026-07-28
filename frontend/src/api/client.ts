@@ -1605,7 +1605,8 @@ export interface PendingFootageScene {
   } | null;
 }
 
-/** Scenes to review while a project sits at `awaiting_footage`. */
+/** Scenes to review while a project sits at `awaiting_stock_footage_review`
+ *  (or, for a legacy project, the old `awaiting_footage` gate). */
 export const getPendingStockFootage = (projectId: number) =>
   api.get<{ status: string; awaiting: boolean; scenes: PendingFootageScene[] }>(
     `/projects/${projectId}/stock-footage/pending`
@@ -1626,10 +1627,16 @@ export const linkStockFootage = (
     { scene_id: sceneId, filename }
   );
 
-/** Accept the reviewed clips and resume generation from the gate. */
+/** Accept the auto-picked clips as-is and finalize the video. */
 export const approveStockFootage = (projectId: number) =>
-  api.post<{ detail: string; step: number }>(
+  api.post<{ detail: string; status: string }>(
     `/projects/${projectId}/stock-footage/approve`
+  );
+
+/** Discard every auto-picked clip: fall back to images (or hide), then finalize. */
+export const rejectStockFootage = (projectId: number) =>
+  api.post<{ detail: string; status: string }>(
+    `/projects/${projectId}/stock-footage/reject`
   );
 
 /** The processed VIDEO asset returned after uploading a chosen clip. */

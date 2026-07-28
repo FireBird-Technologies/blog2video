@@ -373,7 +373,18 @@ async def generate_video(
     if project.status in (ProjectStatus.GENERATED, ProjectStatus.DONE):
         return {"detail": "Already generated", "status": project.status.value}
 
-    # Parked for clip review — client should poll /status or open the review modal.
+    # Generation finished; parked for post-generation clip review — client
+    # should poll /status or open the review modal.
+    if project.status == ProjectStatus.AWAITING_STOCK_FOOTAGE_REVIEW:
+        return {
+            "detail": "Awaiting stock footage review",
+            "step": 4,
+            "running": False,
+        }
+
+    # Legacy: a project still parked at the OLD (pre-scene-gen) gate when this
+    # shipped. Resume it the old way rather than leaving it stuck forever.
+    # TODO(cleanup): remove once no rows remain at AWAITING_FOOTAGE.
     if project.status == ProjectStatus.AWAITING_FOOTAGE:
         return {
             "detail": "Awaiting stock footage review",
@@ -400,8 +411,10 @@ def get_pending_stock_footage(
 ):
     """Scenes awaiting stock-footage review, with their auto-picked clip.
 
-    Only meaningful while the project sits at AWAITING_FOOTAGE; returns the same
-    shape regardless so the client can render a stable list.
+    Only meaningful while the project sits at AWAITING_STOCK_FOOTAGE_REVIEW
+    (or, for a project still parked at the legacy pre-scene-gen
+    AWAITING_FOOTAGE gate, that status too); returns the same shape
+    regardless so the client can render a stable list.
     """
     from app.models.asset import Asset
 
@@ -475,7 +488,8 @@ def get_pending_stock_footage(
 
     return {
         "status": project.status.value,
-        "awaiting": project.status == ProjectStatus.AWAITING_FOOTAGE,
+        "awaiting": project.status
+        in (ProjectStatus.AWAITING_STOCK_FOOTAGE_REVIEW, ProjectStatus.AWAITING_FOOTAGE),
         "scenes": items,
     }
 
@@ -492,7 +506,7 @@ def link_stock_footage(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Point a scene at an already-uploaded clip.
+    """Point a scene at an already-uploaded clip ("change clip" during review).
 
     The upload endpoint deliberately does not touch the scene descriptor (the
     scene editor stages the choice and commits it on Save). The review gate has
@@ -554,30 +568,126 @@ async def approve_stock_footage(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Accept the reviewed clips and resume generation from the gate."""
+    """Accept the auto-picked clips as-is and finalize the video."""
     project = _get_project(project_id, user.id, db)
 
-    if project.status != ProjectStatus.AWAITING_FOOTAGE:
+    if project.status == ProjectStatus.AWAITING_FOOTAGE:
+        # Legacy: a project parked here before this shipped (old pre-scene-gen
+        # gate). Resume the pipeline exactly as before — it now runs straight
+        # through to scene generation (no gate left to re-park it) and lands
+        # on the new review status if still applicable.
+        # TODO(cleanup): remove once no rows remain at AWAITING_FOOTAGE.
+        if project_id in _pipeline_progress and _pipeline_progress[project_id].get("running"):
+            return {"detail": "Pipeline already running", "step": _pipeline_progress[project_id].get("step", 0)}
+
+        from datetime import datetime as _dt
+
+        project.stock_footage_approved_at = _dt.utcnow()
+        project.status = ProjectStatus.SCRIPTED
+        db.commit()
+
+        _pipeline_progress[project_id] = {"step": 3, "running": True, "error": None, "notice": None}
+        loop = asyncio.get_event_loop()
+        loop.run_in_executor(None, _run_pipeline_sync, project_id, user.id)
+
+        return {"detail": "Generation resumed", "step": 3}
+
+    if project.status != ProjectStatus.AWAITING_STOCK_FOOTAGE_REVIEW:
         raise HTTPException(
             status_code=400,
             detail="This project is not waiting for stock footage review.",
         )
-    if project_id in _pipeline_progress and _pipeline_progress[project_id].get("running"):
-        return {"detail": "Pipeline already running", "step": _pipeline_progress[project_id].get("step", 0)}
 
-    # Hand back to the normal script->scenes path. Stamping the approval is what
-    # keeps the gate from re-parking the project on re-entry (the flag stays on).
+    # Generation already finished — just stamp approval and finalize.
     from datetime import datetime as _dt
 
     project.stock_footage_approved_at = _dt.utcnow()
-    project.status = ProjectStatus.SCRIPTED
+    project.status = ProjectStatus.GENERATED
     db.commit()
 
-    _pipeline_progress[project_id] = {"step": 3, "running": True, "error": None, "notice": None}
-    loop = asyncio.get_event_loop()
-    loop.run_in_executor(None, _run_pipeline_sync, project_id, user.id)
+    from app.routers.collab_ws import broadcast_project_reload
+    broadcast_project_reload(project_id, exclude_user_id=user.id)
 
-    return {"detail": "Generation resumed", "step": 3}
+    return {"detail": "Approved", "status": project.status.value}
+
+
+@router.post("/stock-footage/reject")
+async def reject_stock_footage(
+    project_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Discard every auto-picked clip: fall back to an existing image per
+    scene, else hide the image slot entirely. Then finalize the video."""
+    project = _get_project(project_id, user.id, db)
+
+    if project.status != ProjectStatus.AWAITING_STOCK_FOOTAGE_REVIEW:
+        raise HTTPException(
+            status_code=400,
+            detail="This project is not waiting for stock footage review.",
+        )
+
+    scenes = _image_capable_scenes(project, db)
+    cap = _stock_footage_scene_cap(project, db)
+    if cap is not None:
+        scenes = scenes[:cap]
+
+    used_generics: set[str] = set()
+    for scene in scenes:
+        try:
+            descriptor = json.loads(scene.remotion_code) if scene.remotion_code else {}
+        except (json.JSONDecodeError, TypeError):
+            descriptor = {}
+        lp = descriptor.get("layoutProps") or {}
+        if not (lp.get("assignedVideo") or lp.get("stockFootageImageFallback")):
+            # Nothing auto-picked for this scene — leave whatever it already has.
+            continue
+
+        query = (scene.title or scene.visual_description or "").strip()
+        used_fallback = await _fallback_scene_to_image(
+            project, scene, db, query=query, used_generics=used_generics
+        )
+        if not used_fallback:
+            # No image exists either — hide the visual slot outright, clearing
+            # any stale video/image assignment. Re-query since
+            # _fallback_scene_to_image may have released/reconnected `db`.
+            fresh = (
+                db.query(Scene)
+                .filter(Scene.id == scene.id, Scene.project_id == project_id)
+                .first()
+            )
+            if fresh is None:
+                continue
+            try:
+                fd = json.loads(fresh.remotion_code) if fresh.remotion_code else {}
+            except (json.JSONDecodeError, TypeError):
+                fd = {}
+            flp = dict(fd.get("layoutProps") or {})
+            flp.pop("assignedVideo", None)
+            flp.pop("assignedImage", None)
+            flp.pop("stockFootageImageFallback", None)
+            flp.pop("videoMuted", None)
+            flp.pop("videoVolume", None)
+            flp.pop("videoStartSeconds", None)
+            flp["hideImage"] = True
+            fd["layoutProps"] = flp
+            fresh.remotion_code = json.dumps(fd)
+            db.commit()
+
+    project = _reload_project(db, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    from datetime import datetime as _dt
+
+    project.stock_footage_approved_at = _dt.utcnow()
+    project.status = ProjectStatus.GENERATED
+    db.commit()
+
+    from app.routers.collab_ws import broadcast_project_reload
+    broadcast_project_reload(project_id, exclude_user_id=user.id)
+
+    return {"detail": "Rejected — reverted to images", "status": project.status.value}
 
 
 @router.get("/status")
@@ -616,6 +726,10 @@ def get_pipeline_status(
 
     # Parked at the footage gate: DB status is authoritative even if in-memory
     # ``running`` is stale (e.g. lost progress dict on another worker).
+    if project.status == ProjectStatus.AWAITING_STOCK_FOOTAGE_REVIEW:
+        running = False
+        step = max(step, 4)
+    # Legacy pre-scene-gen gate. TODO(cleanup): remove once no rows remain.
     if project.status == ProjectStatus.AWAITING_FOOTAGE:
         running = False
         step = max(step, 3)
@@ -757,92 +871,17 @@ async def _run_pipeline(project_id: int, user_id: int):
                         )
                         return
 
-            # Step 2.5: Stock-footage verification gate.
-            # Scenes + titles exist now, so we can auto-pick a clip per
-            # image-capable scene and hand them to the user for approval. Parking
-            # at AWAITING_FOOTAGE (rather than staying SCRIPTED) is what stops
-            # step 3 below from running straight through — the approve endpoint
-            # flips the status back and re-enters this pipeline.
-            # `stock_footage_approved_at` is what stops this from looping: approve
-            # puts the project back to SCRIPTED with the flag still enabled, so
-            # without that marker the gate would re-park it forever.
-            if (
-                project.status == ProjectStatus.SCRIPTED
-                and getattr(project, "stock_footage_enabled", False)
-                and getattr(project, "stock_footage_approved_at", None) is None
-                and (getattr(project, "template", "") or "").strip().lower()
-                in STOCK_FOOTAGE_TEMPLATES
-            ):
-                _pipeline_progress[project_id]["step"] = 3
-                with _tracer.start_as_current_span(
-                    "pipeline.stock_footage_gate",
-                    attributes={**attributes, "pipeline.stage": "stock_footage"},
-                ):
-                    try:
-                        await _prepare_stock_footage_candidates(project, db)
-                    except Exception:
-                        # Never fail generation over the auto-pick — the user can
-                        # still choose every clip by hand at the gate.
-                        logger.warning(
-                            "[PIPELINE] project=%s: stock footage preparation failed",
-                            project_id, exc_info=True,
-                        )
-                        try:
-                            db.rollback()
-                        except Exception:
-                            pass
-                        _release_db_connection(db, project_id=project_id)
-                        project = _reload_project(db, project_id)
-                        if project is None:
-                            return
-                    else:
-                        project = _reload_project(db, project_id)
-                        if project is None:
-                            return
-                    # Bulk projects run unattended: clips are auto-picked above and
-                    # auto-approved here (stamping approved_at so the gate won't
-                    # re-fire), then generation continues straight to step 3. Only
-                    # single-project creation pauses for the interactive review.
-                    if getattr(project, "is_bulk", False):
-                        from datetime import datetime as _dt
-                        project.stock_footage_approved_at = _dt.utcnow()
-                        db.commit()
-                        logger.info(
-                            "[PIPELINE] Project %s: bulk — stock footage auto-approved",
-                            project_id,
-                        )
-                    else:
-                        project.status = ProjectStatus.AWAITING_FOOTAGE
-                        db.commit()
-                        _pipeline_progress[project_id]["running"] = False
-                        logger.info(
-                            "[PIPELINE] Project %s paused for stock footage review", project_id
-                        )
-                        return
-
-            # Step 3: Generate scene descriptors + voiceovers
+            # Step 3: Generate scene descriptors + voiceovers. Stock-footage
+            # clip fetching (when enabled) now runs in parallel with this step
+            # (see _generate_scenes's _stock_footage_task) rather than pausing
+            # the pipeline beforehand — the review gate, if any, is entered
+            # AFTER this step finishes (see _generate_scenes's status branch).
             if project.status in (
                 ProjectStatus.CREATED,
                 ProjectStatus.SCRAPED,
                 ProjectStatus.SCRIPTED,
-                # Resumed from the footage gate: the approve endpoint flips the
-                # status back to SCRIPTED, but accept this too so a retry that
-                # races the flip still proceeds instead of silently no-op'ing.
-                ProjectStatus.AWAITING_FOOTAGE,
             ):
-                # Scene generation is step 3 normally, but step 4 when this project
-                # went through the interactive footage review (which the frontend
-                # renders as an extra "Review" step between Script and Scenes). The
-                # gate above uses step 3; bumping to 4 here keeps the UI's step
-                # highlight correct. Bulk projects auto-approve (no review step), so
-                # they stay at 3.
-                reviewed = (
-                    bool(getattr(project, "stock_footage_enabled", False))
-                    and not bool(getattr(project, "is_bulk", False))
-                    and (getattr(project, "template", "") or "").strip().lower()
-                    in STOCK_FOOTAGE_TEMPLATES
-                )
-                _pipeline_progress[project_id]["step"] = 4 if reviewed else 3
+                _pipeline_progress[project_id]["step"] = 3
                 with _tracer.start_as_current_span(
                     "pipeline.generate_scenes",
                     attributes={**attributes, "pipeline.stage": "generate_scenes"},
@@ -862,16 +901,8 @@ async def _run_pipeline(project_id: int, user_id: int):
                         )
                         return
 
-            # Done (no more studio launch — frontend handles preview). One past the
-            # last visible step so the UI marks every step complete: step 4 normally,
-            # 5 when the review flow added a "Review" step.
-            _reviewed_done = (
-                bool(getattr(project, "stock_footage_enabled", False))
-                and not bool(getattr(project, "is_bulk", False))
-                and (getattr(project, "template", "") or "").strip().lower()
-                in STOCK_FOOTAGE_TEMPLATES
-            )
-            _pipeline_progress[project_id]["step"] = 5 if _reviewed_done else 4
+            # Done (no more studio launch — frontend handles preview).
+            _pipeline_progress[project_id]["step"] = 4
             _pipeline_progress[project_id]["running"] = False
             _pipelines_succeeded.add(1, attributes=attributes)
             span.set_status(Status(StatusCode.OK))
@@ -1574,6 +1605,9 @@ async def _fill_missing_stock_clips_after_scene_gen(
     return assigned
 
 
+STOCK_FOOTAGE_SCENE_CONCURRENCY = 2
+
+
 async def _prepare_stock_footage_candidates(project: Project, db: Session) -> int:
     """Auto-pick and ingest one stock clip per image-capable scene.
 
@@ -1581,6 +1615,11 @@ async def _prepare_stock_footage_candidates(project: Project, db: Session) -> in
     the scene's title, ingested through the shared
     :func:`stock_footage.ingest_clip` (so the CFR-30 contract matches the editor's
     path exactly), and linked into the scene descriptor as ``assignedVideo``.
+
+    Up to :data:`STOCK_FOOTAGE_SCENE_CONCURRENCY` scenes are processed at once —
+    each worker opens its OWN ``SessionLocal()`` (never the ``db`` passed in,
+    which isn't safe to touch from more than one concurrent coroutine) and
+    commits its own scene's assignment independently.
 
     A scene whose search returns nothing, or whose download fails, is simply left
     without a clip — the user fills it in during review rather than the whole
@@ -1598,7 +1637,7 @@ async def _prepare_stock_footage_candidates(project: Project, db: Session) -> in
         return 0
 
     already_assigned = sum(1 for s in scenes if _scene_stock_footage_prep_done(s))
-    pending = [s for s in scenes if not _scene_stock_footage_prep_done(s)]
+    pending_ids = [s.id for s in scenes if not _scene_stock_footage_prep_done(s)]
     if already_assigned:
         logger.info(
             "[PIPELINE] project=%s: skipping %s/%s scenes that already have stock clips",
@@ -1606,7 +1645,7 @@ async def _prepare_stock_footage_candidates(project: Project, db: Session) -> in
             already_assigned,
             len(scenes),
         )
-    if not pending:
+    if not pending_ids:
         return already_assigned
 
     orientation = (
@@ -1614,40 +1653,73 @@ async def _prepare_stock_footage_candidates(project: Project, db: Session) -> in
         if (getattr(project, "aspect_ratio", "landscape") or "").lower() == "portrait"
         else "landscape"
     )
-    loop = asyncio.get_running_loop()
-    assigned = already_assigned
     total = len(scenes)
+    project_id = project.id
+    # Shared across concurrent workers to avoid every scene falling back to the
+    # same generic image. A plain set is fine here: everything on this event
+    # loop runs cooperatively (only I/O is offloaded to executors), so add()/
+    # membership checks can't interleave mid-operation — worst case under
+    # concurrency is two scenes occasionally picking the same generic image,
+    # not a crash.
     used_generics: set[str] = set()
+    completed = 0
+    completed_lock = asyncio.Lock()
+    semaphore = asyncio.Semaphore(STOCK_FOOTAGE_SCENE_CONCURRENCY)
 
-    for idx, scene in enumerate(pending, start=already_assigned + 1):
-        _pipeline_progress.setdefault(project.id, {})["stock_footage"] = {
-            "current": idx,
-            "total": total,
-            "scene_id": scene.id,
-        }
-        if await _try_assign_stock_clip_to_scene(
-            project,
-            scene,
-            db,
-            orientation=orientation,
-            loop=loop,
-            used_generics=used_generics,
-        ):
-            assigned += 1
-        else:
-            fresh = (
-                db.query(Scene)
-                .filter(Scene.id == scene.id, Scene.project_id == project.id)
-                .first()
-            )
-            if fresh and _scene_stock_footage_prep_done(fresh):
-                assigned += 1
+    async def _run_one(scene_id: int) -> bool:
+        nonlocal completed
+        async with semaphore:
+            sf_db = SessionLocal()
+            try:
+                sf_project = sf_db.query(Project).filter(Project.id == project_id).first()
+                sf_scene = sf_db.query(Scene).filter(Scene.id == scene_id).first()
+                if sf_project is None or sf_scene is None:
+                    return False
+                loop = asyncio.get_running_loop()
+                got_clip = await _try_assign_stock_clip_to_scene(
+                    sf_project,
+                    sf_scene,
+                    sf_db,
+                    orientation=orientation,
+                    loop=loop,
+                    used_generics=used_generics,
+                )
+                if not got_clip:
+                    fresh = (
+                        sf_db.query(Scene)
+                        .filter(Scene.id == scene_id, Scene.project_id == project_id)
+                        .first()
+                    )
+                    got_clip = bool(fresh and _scene_stock_footage_prep_done(fresh))
+                return got_clip
+            except Exception:
+                logger.warning(
+                    "[PIPELINE] project=%s scene=%s: stock footage worker failed",
+                    project_id, scene_id, exc_info=True,
+                )
+                try:
+                    sf_db.rollback()
+                except Exception:
+                    pass
+                return False
+            finally:
+                sf_db.close()
+                async with completed_lock:
+                    completed += 1
+                    _pipeline_progress.setdefault(project_id, {})["stock_footage"] = {
+                        "current": already_assigned + completed,
+                        "total": total,
+                        "scene_id": scene_id,
+                    }
 
-    _pipeline_progress.setdefault(project.id, {}).pop("stock_footage", None)
+    results = await asyncio.gather(*(_run_one(sid) for sid in pending_ids))
+    assigned = already_assigned + sum(1 for ok in results if ok)
+
+    _pipeline_progress.setdefault(project_id, {}).pop("stock_footage", None)
 
     logger.info(
         "[PIPELINE] project=%s: auto-picked %s/%s stock clips",
-        project.id, assigned, total,
+        project_id, assigned, total,
     )
     return assigned
 
@@ -2481,8 +2553,47 @@ async def _generate_scenes(
             )
             return result
 
-    # Run both concurrently
-    _, descriptors = await asyncio.gather(_voiceover_task(), _descriptor_task())
+    # ── Task 3: Stock-footage clip fetch (own DB session) ───────
+    # Runs alongside voiceover/descriptor generation instead of pausing the
+    # pipeline beforehand. Needs Scene rows with preferred_layout set (already
+    # true — script stage set it before _generate_scenes runs), but must NOT
+    # share `db`: that session is used concurrently by the other two tasks and
+    # SQLAlchemy Session objects aren't safe across concurrent coroutines.
+    stock_footage_wanted = (
+        bool(getattr(project, "stock_footage_enabled", False))
+        and (getattr(project, "template", "") or "").strip().lower()
+        in STOCK_FOOTAGE_TEMPLATES
+    )
+
+    async def _stock_footage_task():
+        """Auto-pick + ingest clips for image-capable scenes. Never raises —
+        a failure here must not block scene generation; worst case some/all
+        scenes are missing a clip and the user fills them in (or rejects
+        everything) at the post-generation review gate."""
+        if not stock_footage_wanted:
+            return
+        sf_db = SessionLocal()
+        try:
+            sf_project = sf_db.query(Project).filter(Project.id == project.id).first()
+            if sf_project is None:
+                return
+            await _prepare_stock_footage_candidates(sf_project, sf_db)
+        except Exception:
+            logger.warning(
+                "[PIPELINE] project=%s: parallel stock footage fetch failed",
+                project.id, exc_info=True,
+            )
+            try:
+                sf_db.rollback()
+            except Exception:
+                pass
+        finally:
+            sf_db.close()
+
+    # Run all three concurrently
+    _, descriptors, _ = await asyncio.gather(
+        _voiceover_task(), _descriptor_task(), _stock_footage_task()
+    )
 
     # Force a fresh DB checkout. The descriptor task is a long LLM call that
     # runs concurrently with the voiceover task — if voiceovers finish first,
@@ -2711,7 +2822,24 @@ async def _generate_scenes(
     # Write data.json + assets to per-project Remotion workspace
     write_remotion_data(project, scenes, db, redistribute_images=redistribute_images)
 
-    project.status = ProjectStatus.GENERATED
+    # Non-bulk stock-footage projects land in the post-generation review gate
+    # instead of GENERATED, so the user can confirm/change/reject the
+    # auto-picked clips before the video is considered final. Bulk projects
+    # (and non-supported-template projects) run unattended: stamp the
+    # approval marker so a later re-entrant call to _generate_scenes (e.g. an
+    # edit job) doesn't try to re-fetch clips that were already resolved.
+    _reviewed = (
+        bool(getattr(project, "stock_footage_enabled", False))
+        and not bool(getattr(project, "is_bulk", False))
+        and (getattr(project, "template", "") or "").strip().lower() in STOCK_FOOTAGE_TEMPLATES
+    )
+    if _reviewed:
+        project.status = ProjectStatus.AWAITING_STOCK_FOOTAGE_REVIEW
+    else:
+        if getattr(project, "stock_footage_enabled", False):
+            from datetime import datetime as _dt
+            project.stock_footage_approved_at = _dt.utcnow()
+        project.status = ProjectStatus.GENERATED
     user = db.query(User).filter(User.id == project.user_id).first()
     db.commit()
     db.refresh(project)
