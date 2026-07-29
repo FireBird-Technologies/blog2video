@@ -2078,8 +2078,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
                   onChange={(e) => setBulkStockFootageAt(e.target.checked)}
                   className="w-4 h-4 shrink-0 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
                 />
-                <span className="text-sm font-medium text-gray-700 min-w-0">
-                  {isPro ? "Video clips in scene" : "Video clip on one scene"}
+                <span className="text-xs font-small text-gray-700 min-w-0">
+                  {isPro ? "Insert stock footage automatically" : "Insert stock footage automatically"}
                 </span>
               </label>
             </div>
@@ -2347,8 +2347,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
                       onChange={(e) => setStockFootageEnabled(e.target.checked)}
                       className="w-4 h-4 shrink-0 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
                     />
-                    <span className="text-sm font-medium text-gray-700 min-w-0">
-                      {isPro ? "Video clips in scene" : "Video clip on one scene"}
+                    <span className="text-xs font-small text-gray-700 min-w-0">
+                      {isPro ? "Insert stock footage automatically" : "Insert stock footage automatically"}
                     </span>
                   </label>
                 </div>
