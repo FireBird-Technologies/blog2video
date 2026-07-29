@@ -34,6 +34,13 @@ class CustomTemplate(Base):
     # still shows the correct in-progress state instead of the stale old code.
     is_regenerating: Mapped[bool] = mapped_column(default=False)
 
+    # True once the custom-template slot charged for this template has been
+    # refunded after a failed generation. Guards against handing out a free slot
+    # on every retry: a retry reuses the original charge, so only the first
+    # failure refunds. Not reused for regenerations — those charge and refund
+    # within a single run, so they reset this back to False when they start.
+    slot_refunded: Mapped[bool] = mapped_column(default=False)
+
     # Link to BrandKit (optional — existing templates have no brand kit)
     brand_kit_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("brand_kits.id"), nullable=True, index=True)
 

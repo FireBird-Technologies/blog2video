@@ -25,9 +25,16 @@ import useIsMobileViewport from "../hooks/useIsMobileViewport";
 
 // A template stuck "generating" longer than this (no code, not flagged failed) is
 // treated as errored — generation crashed / connection was lost and the backend
-// never marked it failed, so it would otherwise spin forever. Real generation
-// finishes in ~2 min; 8 min is a safe ceiling that won't false-flag a live run.
-const STUCK_GENERATION_MS = 8 * 60 * 1000;
+// never marked it failed, so it would otherwise spin forever.
+//
+// The ceiling must sit ABOVE the real worst case, or a live run gets false-flagged
+// as stalled and the user is shown a "try again or delete" card while the backend
+// is still working (observed: a 14-minute run flagged at 8). Generation is 1 intro +
+// N content archetypes + 1 outro, each with its own dspy.Refine retries, plus up to
+// MAX_SCENE_RETRIES per scene in the final validation pass — so a slow-but-healthy
+// run legitimately reaches double digits. The in-card copy quotes 5–10 minutes;
+// 15 leaves headroom past that without spinning forever on a truly dead run.
+const STUCK_GENERATION_MS = 15 * 60 * 1000;
 
 // Backend emits naive UTC timestamps (datetime.utcnow().isoformat(), no tz suffix).
 // Date.parse() would read those as LOCAL time, so for any user in a positive UTC
@@ -150,6 +157,9 @@ export default function CustomTemplates() {
             // A template just finished (re)generating — refresh the
             // project-creation picker's cache so it reflects the new code.
             invalidateBlogUrlFormAvailabilityCache();
+            // A FAILED regeneration refunds its slot server-side, so re-pull
+            // the user to pick that back up in the "X / Y Created" counter.
+            void refreshUser();
           }
         } catch { /* ignore */ }
       }, 4000);
@@ -208,10 +218,21 @@ export default function CustomTemplates() {
     setRegeneratingId(tpl.id);
     try {
       if (!tpl.intro_code) {
-        // First-time generation (failed previously) — fire and poll
+        // First-time generation (failed previously) — fire and poll. Bump
+        // updated_at locally too: isStuckGenerating() flags a codeless
+        // template whose updated_at is older than STUCK_GENERATION_MS, so a
+        // retry on a STALLED (never flagged failed) template would otherwise
+        // fall straight back to the "Generation stalled" card instead of
+        // showing a spinner. The server bumps it too; this just avoids the
+        // gap until the next poll.
         await generateTemplateCode(tpl.id);
-        setTemplates((prev) => prev.map((t) => (t.id === tpl.id ? { ...t, generation_failed: false } : t)));
-        startPollingIfNeeded([{ ...tpl, generation_failed: false }]);
+        const retried = {
+          ...tpl,
+          generation_failed: false,
+          updated_at: new Date().toISOString(),
+        };
+        setTemplates((prev) => prev.map((t) => (t.id === tpl.id ? retried : t)));
+        startPollingIfNeeded([retried]);
       } else {
         // Regenerate: fire-and-poll (202, no synchronous result). Flip
         // is_regenerating optimistically so the UI shows "Regenerating..."
@@ -221,6 +242,9 @@ export default function CustomTemplates() {
         const optimistic = { ...tpl, is_regenerating: true };
         setTemplates((prev) => prev.map((t) => (t.id === tpl.id ? optimistic : t)));
         startPollingIfNeeded([optimistic]);
+        // A regeneration consumes one custom-template slot, so re-pull the user
+        // to update the "X / Y Created" counter and at-limit gating.
+        void refreshUser();
       }
     } catch (err: any) {
       const status = err?.response?.status;
@@ -798,7 +822,8 @@ export default function CustomTemplates() {
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Regenerate Template</h3>
             <p className="text-sm text-gray-500 mb-5">
               This will replace <strong>{regenerateConfirmTarget.name}</strong>'s current design with a completely
-              new AI-generated one. This action cannot be undone.
+              new AI-generated one. This action cannot be undone, and uses one custom-template slot
+              (refunded if the regeneration fails).
             </p>
             <div className="flex gap-3">
               <button

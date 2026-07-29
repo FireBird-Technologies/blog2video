@@ -8,7 +8,7 @@ import asyncio
 import json
 import time
 import threading
-from datetime import date
+from datetime import date, datetime
 from pydantic import BaseModel, Field
 import logging
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, UploadFile, File, Form
@@ -68,6 +68,21 @@ def _check_custom_template_quota(user: User) -> None:
                 "plan": user.plan.value,
             },
         )
+
+
+def _refund_template_slot(db: Session, user_id: int) -> None:
+    """Give back a consumed custom-template slot when generation fails.
+
+    Charged up front by create (first-time generation) and by regenerate-code;
+    both refund here so a template that never produced code costs nothing.
+    Floors at 0 so a double-refund can't hand out free slots. Caller commits,
+    so the refund lands in the same transaction as the failure-state write.
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return
+    user.custom_templates_created = max(0, (user.custom_templates_created or 0) - 1)
+    db.add(user)
 
 
 def _render_and_store_thumbnail(template_id: int, user_id: int) -> None:
@@ -888,13 +903,24 @@ def _run_codegen_background(template_id: int, user_id: int) -> None:
             "running": False,
             "error": str(e),
         }
-        # Persist failure state so frontend knows without time-based guessing
+        # Persist failure state so frontend knows without time-based guessing,
+        # and refund the slot charged at create time — a template that never
+        # produced any code shouldn't consume one.
+        #
+        # Only refund ONCE per template: a retry (generate-code) reuses the
+        # original charge rather than charging again, so refunding on every
+        # failed attempt would hand out a free slot per retry. generation_failed
+        # can't serve as the guard — the retry endpoint clears it before
+        # relaunching — so track the refund separately.
         try:
             _db = SessionLocal()
             _tpl = _db.query(CustomTemplate).filter(CustomTemplate.id == template_id).first()
             if _tpl:
                 _tpl.generation_failed = True
-                _db.commit()
+                if not _tpl.slot_refunded:
+                    _tpl.slot_refunded = True
+                    _refund_template_slot(_db, user_id)
+            _db.commit()
             _db.close()
         except Exception:
             pass
@@ -925,10 +951,14 @@ async def generate_code(
             content={"detail": "Code generation already in progress", "template_id": template_id},
         )
 
-    # Clear any previous failure state before retrying
-    if tpl.generation_failed:
-        tpl.generation_failed = False
-        db.commit()
+    # Clear any previous failure state before retrying. Always touch the row so
+    # updated_at moves forward: the frontend treats a codeless template whose
+    # updated_at is older than STUCK_GENERATION_MS as stalled, so without this a
+    # retry would keep rendering the "Generation stalled" card instead of a
+    # spinner (the original updated_at never changes on its own).
+    tpl.generation_failed = False
+    tpl.updated_at = datetime.utcnow()
+    db.commit()
 
     # Launch in background thread
     thread = threading.Thread(
@@ -1082,6 +1112,8 @@ def _run_regen_background(template_id: int, user_id: int) -> None:
                     "running": False,
                     "error": "Template not found",
                 }
+                _refund_template_slot(_db_pre, user_id)
+                _db_pre.commit()
                 return
             # Snapshot current state before overwriting.
             _save_version(tpl, "Before regeneration", _db_pre)
@@ -1165,7 +1197,12 @@ def _run_regen_background(template_id: int, user_id: int) -> None:
             _tpl = _db.query(CustomTemplate).filter(CustomTemplate.id == template_id).first()
             if _tpl:
                 _tpl.is_regenerating = False
-                _db.commit()
+                # regenerate-code resets slot_refunded to False when it charges,
+                # so this refunds exactly the charge for THIS run.
+                if not _tpl.slot_refunded:
+                    _tpl.slot_refunded = True
+                    _refund_template_slot(_db, user_id)
+            _db.commit()
             _db.close()
         except Exception:
             pass
@@ -1181,9 +1218,10 @@ def regenerate_code(
 ):
     """Launch full code regeneration in the background. Returns 202 immediately.
 
-    Always allowed — no daily AI rate limit and no custom-template quota
-    deduction (regenerating an existing template's design isn't creating a
-    new one). Old versions are kept for rollback via /versions.
+    Costs one custom-template slot (a regeneration is a fresh AI design, same
+    cost as creating one), charged up front and refunded by the background
+    worker if generation fails. No daily AI rate limit. Old versions are kept
+    for rollback via /versions.
     """
     if not ((settings.CUSTOM_ANTHROPIC_API_KEY or settings.ANTHROPIC_API_KEY or "").strip()):
         raise HTTPException(
@@ -1201,7 +1239,16 @@ def regenerate_code(
             content={"detail": "Regeneration already in progress", "template_id": template_id},
         )
 
+    # Charge before starting — raises 403 (custom_template_limit) when the user
+    # is out of slots, so the frontend can show the upgrade modal. Refunded in
+    # _run_regen_background if generation fails.
+    _check_custom_template_quota(user)
+    user.custom_templates_created = (user.custom_templates_created or 0) + 1
+    db.add(user)
+
     tpl.is_regenerating = True
+    # Fresh charge → fresh refund budget for this run.
+    tpl.slot_refunded = False
     db.commit()
 
     thread = threading.Thread(
