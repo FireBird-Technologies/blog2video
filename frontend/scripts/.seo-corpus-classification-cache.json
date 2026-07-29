@@ -3006,5 +3006,13 @@
   "blog:how-to-write-a-video-script-from-a-blog-post@b6c2c7d12061d03e@20aaebd1": {
     "keep": true,
     "reason": "Describes Blog2Video's script generation workflow from blog posts"
+  },
+  "blog:newsletter-valuation-multiples-explained@2d7fb970493a0ba4@20aaebd1": {
+    "keep": false,
+    "reason": "Document is about newsletter valuation, not Blog2Video features."
+  },
+  "blog:how-much-is-my-substack-newsletter-worth@bd3ef5b35cf8c4c0@20aaebd1": {
+    "keep": false,
+    "reason": "Document is about Substack valuation, not Blog2Video features."
   }
 }

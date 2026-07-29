@@ -6,6 +6,13 @@ export interface GeneratedSceneProps {
   imageUrl?: string;
   imageObjectPosition?: string;
   imageZoom?: number;
+  /** True when a stock-footage clip is filling this scene's visual slot.
+   *  GeneratedVideo renders the clip itself (not the component) — the
+   *  component must leave that slot's area empty/transparent rather than
+   *  treating the scene as if it has no visual at all (never collapse to a
+   *  full-width text layout when hasVideo is true). imageUrl is undefined
+   *  in this case — NEVER a video URL. */
+  hasVideo?: boolean;
   sceneIndex: number;
   totalScenes: number;
   logoUrl?: string;
@@ -110,6 +117,12 @@ export interface GeneratedSceneData {
   images: string[];
   /** External image URL (og_image from brand kit) — used when no local image is assigned */
   ogImageUrl?: string;
+  /** Stock-footage clip filename (public/ relative), mirroring builtin templates. */
+  video?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  videoDurationSeconds?: number;
+  videoStartSeconds?: number;
   sceneType?: "intro" | "content" | "outro" | "dataviz_chart" | "dataviz_table";
   /** Index into content variant array (0-based, cycles) */
   contentVariantIndex?: number;

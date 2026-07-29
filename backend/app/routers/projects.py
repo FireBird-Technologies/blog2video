@@ -880,18 +880,11 @@ def _run_project_template_change_job(job_id: int) -> None:
 def _resolve_stock_footage_flag(requested: bool, user: User, template_id: str) -> bool:
     """Whether generation should pause for stock-footage review.
 
-    Silently false rather than a 4xx when the client asks for it without the
-    entitlement: the flag is an enhancement, and failing project creation over
-    it would be a worse experience than just generating without clips. The UI
-    hides the toggle in these cases anyway.
-
-    Available on every plan — free users get a clip on a single scene (capped by
-    ``_stock_footage_scene_cap`` in the pipeline), paid users on all image-capable
-    scenes. Gated only by the template actually being able to render a clip.
+    Available on every plan and every template — free users get a clip on a
+    single scene (capped by ``_stock_footage_scene_cap`` in the pipeline), paid
+    users on all image-capable scenes.
     """
-    if not bool(requested):
-        return False
-    return (template_id or "").strip().lower() in STOCK_FOOTAGE_TEMPLATES
+    return bool(requested)
 
 
 @router.post("", response_model=ProjectOut)
@@ -4184,9 +4177,7 @@ async def update_scene_image(
 
 
 # ─── Stock footage (Pexels / Pixabay) ────────────────────────────────
-# Pilot scope lives in the service so the pipeline can share it without a
-# router-to-router import. Re-exported here for existing call sites.
-from app.services.stock_footage import STOCK_FOOTAGE_TEMPLATES  # noqa: E402
+# Supported on every template (builtin, custom, and crafted).
 
 # AI-edit credits charged per clip added. Like image generation, this is charged
 # to the project OWNER and only on success.
@@ -4295,11 +4286,6 @@ async def upload_stock_footage(
     project = _get_user_project(project_id, user.id, db)
 
     template = (getattr(project, "template", "") or "").strip().lower()
-    if template not in STOCK_FOOTAGE_TEMPLATES:
-        raise HTTPException(
-            status_code=400,
-            detail="Stock footage is not supported on this template.",
-        )
 
     scene = (
         db.query(Scene)
@@ -4314,6 +4300,23 @@ async def upload_stock_footage(
         raise HTTPException(
             status_code=400, detail="This layout does not support a background clip."
         )
+
+    if is_custom_template(template) or is_crafted_template(template):
+        # Dataviz scenes render a bound chart/table (GeneratedVideo's dedicated
+        # kit components), not an image/clip slot — same priority order as the
+        # sceneType assignment in remotion.py's write_remotion_data. Custom and
+        # crafted templates both render through GeneratedVideo.
+        override_type = None
+        if scene.remotion_code:
+            try:
+                override_type = json.loads(scene.remotion_code).get("sceneTypeOverride")
+            except (json.JSONDecodeError, TypeError):
+                pass
+        scene_type = override_type or scene.scene_type
+        if scene_type in ("dataviz_chart", "dataviz_table"):
+            raise HTTPException(
+                status_code=400, detail="This layout does not support a background clip."
+            )
 
     if not body.download_url.lower().startswith("https://"):
         raise HTTPException(status_code=400, detail="Invalid clip URL.")

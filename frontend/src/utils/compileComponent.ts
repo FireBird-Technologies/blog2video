@@ -48,6 +48,11 @@ export interface SceneProps {
   imageUrl?: string;
   imageObjectPosition?: string;
   imageZoom?: number;
+  /** True when a stock-footage clip is filling this scene's visual slot.
+   *  GeneratedVideo/the preview renders the clip itself — the component must
+   *  leave that slot's area empty/transparent rather than treating the scene
+   *  as if it has no visual at all. imageUrl is undefined in this case. */
+  hasVideo?: boolean;
   sceneIndex: number;
   totalScenes: number;
   logoUrl?: string;
