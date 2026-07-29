@@ -1,6 +1,7 @@
 import { AbsoluteFill, interpolate, useCurrentFrame, spring, useVideoConfig } from "remotion";
 import { SceneLayoutProps } from "../types";
 import { AnimatedImage } from "./AnimatedImage";
+import { AnimatedVideo } from "./AnimatedVideo";
 import { FlybyPlane } from "../components/FlybyPlane";
 
 export const ImageCaption: React.FC<SceneLayoutProps> = ({
@@ -9,6 +10,11 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
   imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   accentColor,
   bgColor,
   textColor,
@@ -21,7 +27,7 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
   const { durationInFrames, fps, width: videoWidth, height: videoHeight } = useVideoConfig();
   const p = aspectRatio === "portrait";
 
-  const hasImage = !!imageUrl; // New variable to track image presence
+  const hasImage = !!imageUrl || !!videoUrl; // New variable to track image/video presence
 
   // --- Initial animations (spring in) ---
 
@@ -165,17 +171,35 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
             zIndex: imageZIndex, // Ensure image is on top during end animation
           }}
         >
-          <AnimatedImage
-            src={imageUrl!} // imageUrl is guaranteed to exist here due to `hasImage` condition
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
-              objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
+          {videoUrl ? (
+            <AnimatedVideo
+              src={videoUrl}
+              muted={videoMuted ?? true}
+              volume={videoVolume ?? 0.35}
+              durationInFrames={videoDurationInFrames}
+              startInFrames={videoStartInFrames}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
+                objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
                 transform: `scale(${imageZoom ?? 1})`,
                 transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
-            }}
-          />
+              }}
+            />
+          ) : (
+            <AnimatedImage
+              src={imageUrl!} // imageUrl is guaranteed to exist here due to `hasImage` condition
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
+                objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
+                  transform: `scale(${imageZoom ?? 1})`,
+                  transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
+              }}
+            />
+          )}
         </div>
       )}
 

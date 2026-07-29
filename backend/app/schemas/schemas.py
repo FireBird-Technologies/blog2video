@@ -42,6 +42,10 @@ class ProjectCreate(BaseModel):
     content_language: Optional[str] = None     # preferred target language (ISO code or name)
     bgm_track_id: Optional[str] = None
     bgm_volume: Optional[float] = 0.10
+    # Paid + Newscast only. Pauses generation after the script stage so the user
+    # can approve an auto-picked stock clip per image-capable scene. Enforced
+    # server-side in create_project — never trust the client for this.
+    stock_footage_enabled: Optional[bool] = False
     captions_enabled: Optional[bool] = False
     caption_position: Optional[str] = "bottom_center"  # bottom_center | top_center
     caption_font_family: Optional[str] = "inter"
@@ -243,6 +247,17 @@ class AssetOut(BaseModel):
     r2_url: Optional[str] = None
     excluded: bool = False
     created_at: datetime
+    # VIDEO assets (stock footage) only — null on image/audio rows. Without these
+    # the editor cannot tell whether a clip has an audio track (audio toggle) or
+    # how long it is, so they must be serialized.
+    duration_seconds: Optional[float] = None
+    width: Optional[int] = None
+    height: Optional[int] = None
+    source_provider: Optional[str] = None
+    source_id: Optional[str] = None
+    source_author: Optional[str] = None
+    source_page_url: Optional[str] = None
+    audio_variant_filename: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -378,6 +393,8 @@ class ProjectOut(BaseModel):
     bgm_track_id: Optional[str] = None
     bgm_volume: float = 0.10
     bgm_track_url: Optional[str] = None
+    stock_footage_enabled: bool = False
+    is_bulk: bool = False
     captions_enabled: bool = False
     caption_position: str = "bottom_center"
     caption_font_family: str = "inter"
@@ -458,6 +475,7 @@ class BulkProjectItem(BaseModel):
     caption_position: Optional[str] = "bottom_center"
     caption_font_family: Optional[str] = "inter"
     caption_font_size: Optional[str] = "medium"
+    stock_footage_enabled: Optional[bool] = False
 
     @field_validator("caption_position")
     @classmethod

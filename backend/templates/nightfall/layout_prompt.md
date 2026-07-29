@@ -1,6 +1,8 @@
 Layout catalog for Nightfall template
 =====================================
 
+**Never output `assignedVideo`, `videoUrl`, `videoMuted`, or `videoVolume`** — stock-footage clips are chosen by the user in the editor after generation, and inventing one breaks rendering.
+
 Use these layout IDs **exactly** when suggesting `preferred_layout` for scenes using the `nightfall` template. Nightfall is a dark cinematic glass style optimized for data-heavy tech content.
 
 - `cinematic_title`  

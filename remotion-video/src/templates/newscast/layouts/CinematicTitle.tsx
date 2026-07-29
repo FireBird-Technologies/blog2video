@@ -34,6 +34,11 @@ export const CinematicTitle: React.FC<NewscastLayoutProps> = ({
   imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   tickerItems,
   lowerThirdTag,
   lowerThirdHeadline,
@@ -66,7 +71,7 @@ export const CinematicTitle: React.FC<NewscastLayoutProps> = ({
   return (
     <AbsoluteFill style={{ backgroundColor: "transparent", overflow: "hidden" }}>
       {/* Optional full-bleed plate under map/grid (same as other NEWSCAST layouts). */}
-      <NewsCastLayoutImageBackground imageUrl={imageUrl} imageObjectPosition={imageObjectPosition} imageZoom={imageZoom} accentColor={RED} />
+      <NewsCastLayoutImageBackground imageUrl={imageUrl} imageObjectPosition={imageObjectPosition} imageZoom={imageZoom} accentColor={RED} videoUrl={videoUrl} videoMuted={videoMuted} videoVolume={videoVolume} videoDurationInFrames={videoDurationInFrames} videoStartInFrames={videoStartInFrames} />
 
       {/* Animated scan line (subtle) */}
       <div

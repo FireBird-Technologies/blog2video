@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate, Img } from "remotion";
+import { StickmanFootballClip } from "../components/StickmanFootballClip";
 import { SceneLayoutProps } from "../types";
 
 export const KickoffTitle: React.FC<SceneLayoutProps> = (props) => {
@@ -9,6 +10,11 @@ export const KickoffTitle: React.FC<SceneLayoutProps> = (props) => {
     imageUrl,
     imageObjectPosition,
     imageZoom,
+    videoUrl,
+    videoMuted,
+    videoVolume,
+    videoDurationInFrames,
+    videoStartInFrames,
     accentColor,
     bgColor,
     textColor,
@@ -483,28 +489,39 @@ export const KickoffTitle: React.FC<SceneLayoutProps> = (props) => {
         }}
       />
 
-      {/* Optional mood image as circular vignette */}
-      {imageUrl && (
+      {/* Optional mood image/clip as circular vignette */}
+      {(imageUrl || videoUrl) && (
         <AbsoluteFill style={{ display: "flex", alignItems: "center", justifyContent: "center", opacity: imageOpacity * 0.22, pointerEvents: "none" }}>
           <div style={{ width: p ? 420 : 560, height: p ? 420 : 560, borderRadius: "50%", overflow: "hidden", position: "relative" }}>
-            <Img
-              src={imageUrl}
-              style={(() => {
-                // Match the adjust-modal preview (and the shared ZoomCropImg): anchor
-                // the zoom at the chosen focus point, and fall back to contain+centre
-                // when zoomed out (<1) so the framing the user sets is what renders.
-                const pos = imageObjectPosition ?? "50% 50%";
-                const z = imageZoom ?? 1;
-                const out = z < 1;
-                return {
-                  width: "100%", height: "100%",
-                  objectFit: out ? "contain" : "cover",
-                  objectPosition: out ? "center" : pos,
-                  transform: `scale(${z})`,
-                  transformOrigin: out ? "center center" : pos,
-                };
-              })()}
-            />
+            {(() => {
+              // Match the adjust-modal preview (and the shared ZoomCropImg): anchor
+              // the zoom at the chosen focus point, and fall back to contain+centre
+              // when zoomed out (<1) so the framing the user sets is what renders.
+              const pos = imageObjectPosition ?? "50% 50%";
+              const z = imageZoom ?? 1;
+              const out = z < 1;
+              const visualStyle: React.CSSProperties = {
+                width: "100%", height: "100%",
+                objectFit: out ? "contain" : "cover",
+                objectPosition: out ? "center" : pos,
+                transform: `scale(${z})`,
+                transformOrigin: out ? "center center" : pos,
+              };
+              return videoUrl ? (
+                <StickmanFootballClip
+                  src={videoUrl}
+                  imageObjectPosition={imageObjectPosition}
+                  imageZoom={imageZoom}
+                  muted={videoMuted ?? true}
+                  volume={videoVolume ?? 0.35}
+                  durationInFrames={videoDurationInFrames}
+                  startInFrames={videoStartInFrames}
+                  style={visualStyle}
+                />
+              ) : (
+                <Img src={imageUrl!} style={visualStyle} />
+              );
+            })()}
             <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "radial-gradient(ellipse at center, transparent 40%, rgba(255,255,255,0.85) 100%)" }} />
           </div>
         </AbsoluteFill>

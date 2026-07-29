@@ -1,5 +1,6 @@
 import React from "react";
 import { useVideoConfig, interpolate, spring, Img } from "remotion";
+import { SakuraClip } from "../components/SakuraClip";
 import { SceneLayoutProps } from "../types";
 import {
   SAKURA,
@@ -20,6 +21,11 @@ export const SakuraListScene: React.FC<SceneLayoutProps> = (props) => {
     imageUrl,
     imageObjectPosition,
     imageZoom,
+    videoUrl,
+    videoMuted,
+    videoVolume,
+    videoDurationInFrames,
+    videoStartInFrames,
     accentColor,
     bgColor,
     textColor,
@@ -29,6 +35,7 @@ export const SakuraListScene: React.FC<SceneLayoutProps> = (props) => {
     descriptionFontSize,
     fontFamily,
   } = props;
+  const hasVisual = !!(imageUrl || videoUrl);
   const p = aspectRatio === "portrait";
   const frame = useSakuraFrame();
   const { width, height, fps } = useVideoConfig();
@@ -138,7 +145,7 @@ export const SakuraListScene: React.FC<SceneLayoutProps> = (props) => {
   });
   const featherMask =
     "radial-gradient(120% 120% at 50% 45%, #000 55%, rgba(0,0,0,0.55) 78%, transparent 100%)";
-  const imagePanel = imageUrl ? (
+  const imagePanel = hasVisual ? (
     <div
       style={{
         position: "absolute",
@@ -161,17 +168,30 @@ export const SakuraListScene: React.FC<SceneLayoutProps> = (props) => {
           WebkitMaskImage: featherMask,
         }}
       >
-        <Img
-          src={imageUrl}
-          style={{
+        {(() => {
+          const visualStyle: React.CSSProperties = {
             width: "100%",
             height: "100%",
             objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
             objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
             transform: `scale(${imageZoom ?? 1})`,
             transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
-          }}
-        />
+          };
+          return videoUrl ? (
+            <SakuraClip
+              src={videoUrl}
+              imageObjectPosition={imageObjectPosition}
+              imageZoom={imageZoom}
+              muted={videoMuted ?? true}
+              volume={videoVolume ?? 0.35}
+              durationInFrames={videoDurationInFrames}
+              startInFrames={videoStartInFrames}
+              style={visualStyle}
+            />
+          ) : (
+            <Img src={imageUrl!} style={visualStyle} />
+          );
+        })()}
       </div>
       {/* Washi wash so the photo settles into the light backdrop / palette. */}
       <div
@@ -206,7 +226,7 @@ export const SakuraListScene: React.FC<SceneLayoutProps> = (props) => {
           {/* Dense blossom canopy standing as a wall down the right edge — the
               same effect as the stat scene, oriented vertically. Suppressed when
               a supporting image occupies the right side so they don't clash. */}
-          {!imageUrl && (
+          {!hasVisual && (
             <SakuraBlossomCanopy
               width={width}
               height={height}
@@ -249,11 +269,11 @@ export const SakuraListScene: React.FC<SceneLayoutProps> = (props) => {
           justifyContent: "center",
           alignItems: "flex-start",
           padding: p
-            ? imageUrl
+            ? hasVisual
               ? "110px 80px 340px 80px"
               : "120px 80px"
             : "90px 130px",
-          maxWidth: p ? "100%" : imageUrl ? "60%" : "72%",
+          maxWidth: p ? "100%" : hasVisual ? "60%" : "72%",
           boxSizing: "border-box",
         }}
       >

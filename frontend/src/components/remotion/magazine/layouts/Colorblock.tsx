@@ -26,9 +26,9 @@ import {
  *
  * The scene carries its own motion: the panels and their inner elements reveal
  * sequentially (staggered useReveal), so no cross-page transition runs on either
- * side of it (see the colorblock skip in transitions/index.ts). Image-free, in
- * keeping with the print redesign; flat fills + transform/opacity only to stay
- * cheap to paint.
+ * side of it (see the colorblock skip in transitions/index.ts). When a photo or
+ * stock clip is present, the right panel shows it under a scrim; otherwise flat
+ * fills + transform/opacity only to stay cheap to paint.
  */
 export const Colorblock: React.FC<SceneLayoutProps> = (props) => {
   const { title, narration, titleFontSize, descriptionFontSize } = props;
@@ -39,7 +39,7 @@ export const Colorblock: React.FC<SceneLayoutProps> = (props) => {
   const tag = (props.panelTag as string) ?? "";
   const p = isPortrait(props.aspectRatio);
   const imageUrl = props.imageUrl;
-  const hasImage = Boolean(imageUrl);
+  const hasImage = Boolean(imageUrl || props.videoUrl);
   const colors = resolveMagColors(props);
   const { bg, text, accent } = colors;
 
@@ -108,9 +108,9 @@ export const Colorblock: React.FC<SceneLayoutProps> = (props) => {
           </h1>
         </div>
 
-        {/* RIGHT BLOCK — a solid accent panel, OR (when the scene has a photo) a
-            hero image under an accent-tinted scrim so the centred white label
-            stack stays legible. The image honours the scene focus point + zoom. */}
+        {/* RIGHT BLOCK — a solid accent panel, OR (when the scene has a photo or
+            stock clip) a hero visual under an accent-tinted scrim so the centred
+            white label stack stays legible. Focus + zoom match the image path. */}
         <div
           style={{
             flex: p ? 1.3 : 1,
@@ -122,10 +122,17 @@ export const Colorblock: React.FC<SceneLayoutProps> = (props) => {
             transform: `translateY(${((1 - rightPanelO) * 18).toFixed(1)}px)`,
           }}
         >
-          {imageUrl && (
+          {hasImage && (
             <>
               <OptionalImg
                 src={imageUrl}
+                videoUrl={props.videoUrl}
+                videoMuted={props.videoMuted}
+                videoVolume={props.videoVolume}
+                videoDurationInFrames={props.videoDurationInFrames}
+                videoStartInFrames={props.videoStartInFrames}
+                imageObjectPosition={props.imageObjectPosition}
+                imageZoom={props.imageZoom}
                 onError={() => {}}
                 style={{
                   position: "absolute",

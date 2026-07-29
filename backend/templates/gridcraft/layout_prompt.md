@@ -1,6 +1,8 @@
 Layout catalog for Gridcraft template
 =====================================
 
+**Never output `assignedVideo`, `videoUrl`, `videoMuted`, or `videoVolume`** — stock-footage clips are chosen by the user in the editor after generation, and inventing one breaks rendering.
+
 Use these layout IDs **exactly** when suggesting `preferred_layout` for scenes using the `gridcraft` template. Gridcraft is a bento-style, editorial grid for SaaS/product stories.
 
 - `bento_hero`  

@@ -30,6 +30,11 @@ export const IlluminatedQuote: React.FC<ChronicleLayoutProps> = ({
   imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, height, width } = useVideoConfig();
@@ -130,10 +135,15 @@ export const IlluminatedQuote: React.FC<ChronicleLayoutProps> = ({
       />
 
       {/* Optional image (small tilted card) */}
-      {imageUrl && (
+      {(imageUrl || videoUrl) && (
         <div style={{ flex: p ? "0 0 auto" : "0 0 30%", display: "flex", justifyContent: "center" }}>
           <EmbossedImage
             src={imageUrl}
+            videoUrl={videoUrl}
+            videoMuted={videoMuted}
+            videoVolume={videoVolume}
+            videoDurationInFrames={videoDurationInFrames}
+            videoStartInFrames={videoStartInFrames}
             objectPosition={imageObjectPosition}
             zoom={imageZoom}
             rotate={-3}
@@ -155,7 +165,7 @@ export const IlluminatedQuote: React.FC<ChronicleLayoutProps> = ({
           alignItems: "center",
           justifyContent: "center",
           textAlign: "center",
-          maxWidth: p ? "100%" : imageUrl ? "60%" : "75%",
+          maxWidth: p ? "100%" : (imageUrl || videoUrl) ? "60%" : "75%",
         }}
       >
         {/* Giant opening quotation glyph */}

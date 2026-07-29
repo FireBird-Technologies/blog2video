@@ -197,6 +197,43 @@ class GenerateSceneCode(dspy.Signature):
       Design the no-image branch to look just as intentional as the with-image one.
     - Missing image handling is a BUG — the reward function penalizes scenes that ignore these props
 
+    Stock-footage clip (props.hasVideo) — a THIRD state, distinct from both hasImage cases:
+    - const hasVideo = !!props.hasVideo;
+      When true, a background video clip is ALREADY being rendered behind this component by the
+      player — you do NOT render the clip, and props.imageUrl will be undefined even though this is
+      NOT the "no visual" case. Treat hasVideo exactly like hasImage for LAYOUT PURPOSES: use the
+      same split/stacked geometry (landscape 50/50 row, portrait 45/55 stacked) and still render the
+      slot container marked data-content-img="1" (see the CRITICAL rule below for exactly where that
+      marker goes) — but leave that container fully transparent (background: 'transparent', no fill,
+      no <Img>) so the clip underneath shows through. NEVER render the hasImage-false (full-width
+      text) branch when hasVideo is true — that layout has no slot for the clip and the clip would
+      end up hidden behind opaque text/background.
+    - Priority when branching: check hasVideo BEFORE falling back to the hasImage-false branch:
+        const showVisualSlot = hasImage || hasVideo;  // reserve the image/video geometry
+        const showImageContent = hasImage && !hasVideo;  // only render <Img> when there really is one
+      Use `showVisualSlot` wherever you'd normally check `hasImage` for LAYOUT (split vs full-width),
+      and `showImageContent` only to decide whether an actual <Img> is painted inside the slot.
+    - CRITICAL — WHERE data-content-img="1" GOES: put it on the slot's CONTAINER <div> (the element
+      that carries the slot's width/height/position), and render that container whenever
+      `showVisualSlot` is true — NOT on the <Img>, and NEVER inside a `{showImageContent && ...}`
+      guard. If the marker only exists on the <Img>, it disappears in the hasVideo case (no <Img>
+      is painted) and the player cannot find the slot to align the clip to — the clip then falls
+      back to covering the whole frame. Correct shape:
+        {showVisualSlot && (
+          <div data-content-img="1" style={{ width: ..., height: ..., position: 'relative',
+                                             overflow: 'hidden', background: 'transparent' }}>
+            {showImageContent && <Img src={props.imageUrl} style={{width:'100%',height:'100%',
+                                     objectFit:'cover', ...}} />}
+          </div>
+        )}
+    - When hasVideo is true the slot must be visually EMPTY: no <Img>, no background fill, no opaque
+      overlay/scrim inside it — the clip is painted behind it and shows through.
+    - The component's OUTERMOST <AbsoluteFill> background must ALSO be transparent when hasVideo is
+      true (`background: hasVideo ? 'transparent' : <your normal bg>`). An unconditional
+      backgroundColor/gradient there sits on top of the clip and hides it completely.
+    - NEVER pass a video URL as props.imageUrl — the player never does this; a real image is always
+      a real image.
+
     Typography (MANDATORY for readability at 1920×1080):
     - NEVER hardcode fontFamily strings like "Inter" or "Roboto" — fonts are passed as props.
       For headings/titles use: fontFamily: props.headingFont || "inherit"

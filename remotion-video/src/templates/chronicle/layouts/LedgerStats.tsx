@@ -29,6 +29,11 @@ export const LedgerStats: React.FC<ChronicleLayoutProps> = ({
   imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, height, width } = useVideoConfig();
@@ -122,7 +127,7 @@ export const LedgerStats: React.FC<ChronicleLayoutProps> = ({
       )}
 
       {/* Optional image strip above stats */}
-      {imageUrl && (
+      {(imageUrl || videoUrl) && (
         <div
           style={{
             display: "flex",
@@ -132,6 +137,11 @@ export const LedgerStats: React.FC<ChronicleLayoutProps> = ({
         >
           <EmbossedImage
             src={imageUrl}
+            videoUrl={videoUrl}
+            videoMuted={videoMuted}
+            videoVolume={videoVolume}
+            videoDurationInFrames={videoDurationInFrames}
+            videoStartInFrames={videoStartInFrames}
             objectPosition={imageObjectPosition}
             zoom={imageZoom}
             rotate={-1.5}

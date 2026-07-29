@@ -8,6 +8,7 @@ import {
   Img,
 } from "remotion";
 import { SceneLayoutProps } from "../types";
+import { AnimatedVideo } from "./AnimatedVideo";
 
 export const Timeline: React.FC<SceneLayoutProps & { imageUrl?: string }> = (props) => {
   const {
@@ -22,6 +23,11 @@ export const Timeline: React.FC<SceneLayoutProps & { imageUrl?: string }> = (pro
     imageUrl,
     imageObjectPosition,
   imageZoom,
+    videoUrl,
+    videoMuted,
+    videoVolume,
+    videoDurationInFrames,
+    videoStartInFrames,
     fontFamily,
   } = props;
 
@@ -75,7 +81,7 @@ export const Timeline: React.FC<SceneLayoutProps & { imageUrl?: string }> = (pro
         }}
       >
         {/* --- LEFT SIDE: STICKY IMAGE --- */}
-        {imageUrl && (
+        {(imageUrl || videoUrl) && (
           <div
             style={{
               flex: p ? "0.6" : "1",
@@ -89,18 +95,37 @@ export const Timeline: React.FC<SceneLayoutProps & { imageUrl?: string }> = (pro
               zIndex: 2, // Ensure image/gradient sits above any content-side bleed
             }}
           >
-            <Img
-              src={imageUrl}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
-                objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
-                display: "block", // BUG FIX: Removes baseline whitespace
-                transform: `scale(${(imageZoom ?? 1) * interpolate(entranceSpring, [0, 1], [1.1, 1])})`,
-                transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
-              }}
-            />
+            {videoUrl ? (
+              <AnimatedVideo
+                src={videoUrl}
+                muted={videoMuted ?? true}
+                volume={videoVolume ?? 0.35}
+                durationInFrames={videoDurationInFrames}
+                startInFrames={videoStartInFrames}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
+                  objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
+                  display: "block",
+                  transform: `scale(${(imageZoom ?? 1) * interpolate(entranceSpring, [0, 1], [1.1, 1])})`,
+                  transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
+                }}
+              />
+            ) : (
+              <Img
+                src={imageUrl!}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
+                  objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
+                  display: "block", // BUG FIX: Removes baseline whitespace
+                  transform: `scale(${(imageZoom ?? 1) * interpolate(entranceSpring, [0, 1], [1.1, 1])})`,
+                  transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
+                }}
+              />
+            )}
             {/* Gradient Overlay */}
             <div
               style={{

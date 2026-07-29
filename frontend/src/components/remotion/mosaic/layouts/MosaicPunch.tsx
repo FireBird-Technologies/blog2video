@@ -52,6 +52,11 @@ export const MosaicPunch: React.FC<MosaicLayoutProps> = ({
   imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   accentColor,
   bgColor,
   textColor,
@@ -115,12 +120,17 @@ export const MosaicPunch: React.FC<MosaicLayoutProps> = ({
         tileGridGap={mosaicTileGap}
       />
 
-      {/* ── Full-bleed image revealed tile-by-tile with center ripple ── */}
-      {imageUrl && (
+      {/* ── Full-bleed image revealed tile-by-tile with center ripple (or a stock clip playing directly) ── */}
+      {(imageUrl || videoUrl) && (
         <MosaicImageReveal
-          imageUrl={imageUrl}
+          imageUrl={imageUrl!}
           imageObjectPosition={imageObjectPosition}
           imageZoom={imageZoom}
+          videoUrl={videoUrl}
+          videoMuted={videoMuted}
+          videoVolume={videoVolume}
+          videoDurationInFrames={videoDurationInFrames}
+          videoStartInFrames={videoStartInFrames}
           revealProgress={tileEntry}
           clarityProgress={imageReveal}
           pattern={mosaicPattern ?? "scatter"}

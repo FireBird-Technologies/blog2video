@@ -18,6 +18,11 @@ export interface MosaicLayoutProps {
   imageUrl?: string;
   imageObjectPosition?: string;
   imageZoom?: number;
+  videoUrl?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  videoDurationInFrames?: number;
+  videoStartInFrames?: number;
   accentColor: string;
   bgColor: string;
   textColor: string;

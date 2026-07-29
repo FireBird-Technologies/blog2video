@@ -15,6 +15,7 @@ import { NightfallSceneTransition } from "./NightfallSceneTransition";
 import { BackgroundMusic } from "../../components/BackgroundMusic";
 import { CaptionTrack } from "../../components/CaptionTrack";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
+import { SceneDurationInFramesContext } from "../SceneDurationContext";
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -32,6 +33,14 @@ interface SceneData {
   speechDurationSeconds?: number;
   voiceoverFile: string | null;
   images: string[];
+  /** Stock-footage filename in public/. Mutually exclusive with `images`. */
+  video?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  /** Normalised clip length; converted to frames for <Loop>. */
+  videoDurationSeconds?: number;
+  /** Start offset into the clip, in seconds (the adjust-modal trim). */
+  videoStartSeconds?: number;
 }
 
 interface VideoData {
@@ -171,6 +180,13 @@ export const NightfallVideo: React.FC<VideoProps> = ({ dataUrl }) => {
 
         const imageUrl =
           scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
+        const videoUrl = scene.video ? staticFile(scene.video) : undefined;
+        const videoDurationInFrames = scene.videoDurationSeconds
+          ? Math.max(1, Math.round(scene.videoDurationSeconds * FPS))
+          : undefined;
+        const videoStartInFrames = scene.videoStartSeconds
+          ? Math.max(0, Math.round(scene.videoStartSeconds * FPS))
+          : undefined;
 
         const rawLayoutProps = scene.layoutProps;
 
@@ -184,6 +200,11 @@ export const NightfallVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           textColor: data.textColor || "#E2E8F0",
           aspectRatio: data.aspectRatio || "landscape",
           imageUrl,
+          videoUrl,
+          videoMuted: scene.videoMuted ?? true,
+          videoVolume: scene.videoVolume ?? 0.35,
+          videoDurationInFrames,
+          videoStartInFrames,
           imageObjectPosition: String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))) + "% " + String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))) + "%",
           imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
           fontFamily: resolvedFontFamily || undefined,
@@ -202,7 +223,9 @@ export const NightfallVideo: React.FC<VideoProps> = ({ dataUrl }) => {
               sceneCount={data.scenes.length}
               layoutType={scene.layout}
             >
-              <LayoutComponent {...layoutProps} />
+              <SceneDurationInFramesContext.Provider value={durationFrames}>
+                <LayoutComponent {...layoutProps} />
+              </SceneDurationInFramesContext.Provider>
             </NightfallSceneTransition>
 
             {scene.voiceoverFile && (

@@ -1,5 +1,6 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame } from "remotion";
 import { WhiteboardBackground } from "../WhiteboardBackground";
+import { WhiteboardClip } from "../components/WhiteboardClip";
 import type { WhiteboardLayoutProps } from "../types";
 
 export const MarkerStory: React.FC<WhiteboardLayoutProps> = ({
@@ -7,6 +8,11 @@ export const MarkerStory: React.FC<WhiteboardLayoutProps> = ({
   narration,imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   accentColor,
   bgColor,
   textColor,
@@ -17,7 +23,7 @@ export const MarkerStory: React.FC<WhiteboardLayoutProps> = ({
 }) => {
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
-  const hasImage = !!imageUrl;
+  const hasImage = !!(imageUrl || videoUrl);
 
   const titleProgress = interpolate(frame, [0, 28], [0, 1], {
     extrapolateLeft: "clamp",
@@ -201,9 +207,29 @@ export const MarkerStory: React.FC<WhiteboardLayoutProps> = ({
               zIndex: 2,
             }}
           >
-            <Img src={imageUrl} style={{ width: "100%", height: "100%", objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover", objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
+            {(() => {
+              const visualStyle: React.CSSProperties = {
+                width: "100%", height: "100%",
+                objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
+                objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
                 transform: `scale(${imageZoom ?? 1})`,
-                transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%") }} />
+                transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
+              };
+              return videoUrl ? (
+                <WhiteboardClip
+                  src={videoUrl}
+                  imageObjectPosition={imageObjectPosition}
+                  imageZoom={imageZoom}
+                  muted={videoMuted ?? true}
+                  volume={videoVolume ?? 0.35}
+                  durationInFrames={videoDurationInFrames}
+                  startInFrames={videoStartInFrames}
+                  style={visualStyle}
+                />
+              ) : (
+                <Img src={imageUrl!} style={visualStyle} />
+              );
+            })()}
           </div>
         )}
       </div>

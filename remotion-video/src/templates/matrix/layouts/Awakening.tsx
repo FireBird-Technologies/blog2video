@@ -4,6 +4,7 @@ import { CodeFragments, GridTunnel, RainBurst, ScanlinesOverlay } from "../compo
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
+import { ZoomCropVideo } from "../components/ZoomCropVideo";
 
 /**
  * Awakening — Blur-to-Sharp Closer
@@ -19,6 +20,11 @@ export const Awakening: React.FC<MatrixLayoutProps> = ({
   cta,imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   accentColor,
   bgColor,
   textColor,
@@ -63,7 +69,7 @@ export const Awakening: React.FC<MatrixLayoutProps> = ({
 
   const displayText = narration || title;
   const displayCta = cta || "> Read the full article";
-  const hasImage = !!imageUrl;
+  const hasImage = !!imageUrl || !!videoUrl;
 
   // Headline animation: each word fades in one at a time from slight blur to sharp focus.
   const wordDelay = 5; // Frames between each word animation start
@@ -225,11 +231,23 @@ export const Awakening: React.FC<MatrixLayoutProps> = ({
               border: `1px solid ${accent}33`,
             }}
           >
-            <ZoomCropImg
-              src={imageUrl}
-              imageObjectPosition={imageObjectPosition}
-              imageZoom={imageZoom}
-            />
+            {videoUrl ? (
+              <ZoomCropVideo
+                src={videoUrl}
+                imageObjectPosition={imageObjectPosition}
+                imageZoom={imageZoom}
+                muted={videoMuted ?? true}
+                volume={videoVolume ?? 0.35}
+                durationInFrames={videoDurationInFrames}
+                startInFrames={videoStartInFrames}
+              />
+            ) : (
+              <ZoomCropImg
+                src={imageUrl!}
+                imageObjectPosition={imageObjectPosition}
+                imageZoom={imageZoom}
+              />
+            )}
           </div>
         )}
 

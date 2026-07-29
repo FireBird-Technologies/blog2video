@@ -4,6 +4,7 @@ import { buildHudStatus, DecodeSweep, GlitchSlice, ScanlinesOverlay, SignalWavef
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
+import { ZoomCropVideo } from "../components/ZoomCropVideo";
 
 // Define default spring config for various effects
 const springConfigSoftBounce = {
@@ -34,6 +35,11 @@ export const Transmission: React.FC<MatrixLayoutProps> = ({
   narration,imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   accentColor,
   bgColor,
   textColor,
@@ -115,7 +121,7 @@ export const Transmission: React.FC<MatrixLayoutProps> = ({
     extrapolateRight: "clamp",
   });
 
-  const hasImage = !!imageUrl;
+  const hasImage = !!imageUrl || !!videoUrl;
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
@@ -176,11 +182,23 @@ export const Transmission: React.FC<MatrixLayoutProps> = ({
                     border: `1px solid ${accent}33`,
                   }}
                 >
-                  <ZoomCropImg
-                    src={imageUrl}
-                    imageObjectPosition={imageObjectPosition}
-                    imageZoom={imageZoom}
-                  />
+                  {videoUrl ? (
+                    <ZoomCropVideo
+                      src={videoUrl}
+                      imageObjectPosition={imageObjectPosition}
+                      imageZoom={imageZoom}
+                      muted={videoMuted ?? true}
+                      volume={videoVolume ?? 0.35}
+                      durationInFrames={videoDurationInFrames}
+                      startInFrames={videoStartInFrames}
+                    />
+                  ) : (
+                    <ZoomCropImg
+                      src={imageUrl!}
+                      imageObjectPosition={imageObjectPosition}
+                      imageZoom={imageZoom}
+                    />
+                  )}
                 </div>
               </div>
             )}

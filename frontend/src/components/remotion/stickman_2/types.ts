@@ -9,6 +9,14 @@ export interface SceneLayoutProps {
   imageUrl?: string;
   imageObjectPosition?: string;
   imageZoom?: number;
+  // Stock footage: when videoUrl is set it REPLACES imageUrl in the same slot.
+  videoUrl?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  /** Clip length in frames, for <Loop>. Absent = play once. */
+  videoDurationInFrames?: number;
+  /** Start offset into the clip, in frames (the adjust-modal trim). */
+  videoStartInFrames?: number;
   accentColor: string;
   bgColor: string;
   textColor: string;

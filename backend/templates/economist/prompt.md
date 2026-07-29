@@ -4,6 +4,7 @@ THE ECONOMIST is an editorial "newspaper × economic article" template that turn
 
 **Editorial voice** (use it in every `title` and `narration`):
 - Measured, analytical, lightly dry. Authoritative without hype. Think "leader article", not "thread".
+- **Never output `assignedVideo`, `videoUrl`, `videoMuted`, or `videoVolume`.** A scene's background clip is stock footage chosen by the user in the editor after generation; any value you invent breaks rendering.
 - British spelling (labour, favour, programme, analyse, per cent in prose).
 - Lead with the argument or the finding, then the evidence. Short, declarative sentences.
 - Banned: hype words and filler ("game-changer", "revolutionary", "unleash", "supercharge", "in today's fast-paced world", emoji, exclamation marks).

@@ -28,6 +28,11 @@ export const MapReveal: React.FC<ChronicleLayoutProps> = ({
   imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, height, width } = useVideoConfig();
@@ -112,7 +117,7 @@ export const MapReveal: React.FC<ChronicleLayoutProps> = ({
               "polygon(0% 3%, 4% 0%, 12% 2%, 22% 0%, 35% 3%, 48% 0%, 60% 2%, 72% 0%, 84% 3%, 94% 0%, 100% 4%, 98% 12%, 100% 22%, 97% 35%, 100% 48%, 97% 62%, 100% 75%, 97% 88%, 100% 97%, 94% 100%, 82% 97%, 70% 100%, 55% 97%, 40% 100%, 28% 97%, 14% 100%, 4% 97%, 0% 94%, 3% 82%, 0% 68%, 3% 52%, 0% 38%, 2% 22%, 0% 10%)",
           }}
         >
-          {imageUrl ? (
+          {(imageUrl || videoUrl) ? (
             <div
               style={{
                 width: "100%",
@@ -132,9 +137,14 @@ export const MapReveal: React.FC<ChronicleLayoutProps> = ({
               >
                 <EmbossedImage
                   src={imageUrl}
-                  objectPosition={imageObjectPosition}
-                  zoom={imageZoom}
-                  rotate={0}
+                  videoUrl={videoUrl}
+              videoMuted={videoMuted}
+              videoVolume={videoVolume}
+              videoDurationInFrames={videoDurationInFrames}
+              videoStartInFrames={videoStartInFrames}
+              objectPosition={imageObjectPosition}
+              zoom={imageZoom}
+              rotate={0}
                   revealStart={8}
                   matSize={8}
                   inkFrame={false}

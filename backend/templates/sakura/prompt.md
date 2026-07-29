@@ -4,6 +4,8 @@ A deeply characterful Japanese-aesthetic template featuring washi paper textures
 
 Each layout has its OWN background geometry (deep-plum radial, warm washi radial, a vertical crimson band, an asymmetric ink-corner wash, an off-center spotlight, or a celebration ring field), its OWN composition (centered, left-column+panel, two-column, asymmetric big-number, left-rail list, off-center block, full-bleed image), and its OWN entrance motion — so no two scenes read alike. Scene boundaries use a VARIED transition vocabulary chosen automatically per boundary (petal vortex/swarm/scatter, bloom-unfurl, shoji sliding panels, iris circle wipe, sumi ink-bleed, brush swipe, diagonal panel, vertical shutter, rack-focus bloom), with no two adjacent boundaries repeating. These are all automatic and not author-configurable.
 
+**Never output `assignedVideo`, `videoUrl`, `videoMuted`, or `videoVolume`.** A scene's background clip is stock footage chosen by the user in the editor after generation; any value you invent breaks rendering.
+
 ---
 
 # Japanese-Script Fields — ALWAYS Japanese

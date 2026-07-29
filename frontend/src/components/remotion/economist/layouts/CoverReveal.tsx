@@ -8,6 +8,7 @@ import {
   Img,
 } from "remotion";
 import type { EconomistLayoutProps } from "../types";
+import { EconomistClip } from "../components/EconomistClip";
 import { ECONOMIST_COLORS } from "../constants";
 import { ECONOMIST_SERIF_FONT, ECONOMIST_SANS_FONT } from "../../../../fonts/economist-defaults";
 import { EconomistMasthead } from "../components/EconomistMasthead";
@@ -40,6 +41,11 @@ export const CoverReveal: React.FC<EconomistLayoutProps> = ({
   imageUrl,
   imageObjectPosition = "50% 50%",
   imageZoom = 1,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   accentColor = ECONOMIST_COLORS.accent,
   textColor = ECONOMIST_COLORS.ink,
   titleFontSize,
@@ -49,7 +55,7 @@ export const CoverReveal: React.FC<EconomistLayoutProps> = ({
   const frame = useCurrentFrame();
   const { fps, width, height } = useVideoConfig();
   const isPortrait = aspectRatio === "portrait";
-  const hasImage = Boolean(imageUrl);
+  const hasImage = Boolean(imageUrl || videoUrl);
 
   const margin = isPortrait ? width * 0.06 : width * 0.045;
 
@@ -139,16 +145,29 @@ export const CoverReveal: React.FC<EconomistLayoutProps> = ({
       >
         {hasImage ? (
           <AbsoluteFill style={{ opacity: photoOpacity, overflow: "hidden" }}>
-            <Img
-              src={imageUrl as string}
-              style={{
+            {(() => {
+              const visualStyle: React.CSSProperties = {
                 width: "100%",
                 height: "100%",
                 objectFit: "cover",
                 objectPosition: imageObjectPosition,
                 transform: `scale(${kbScale}) translate(${photoDriftX}px, ${photoDriftY}px)`,
-              }}
-            />
+              };
+              return videoUrl ? (
+                <EconomistClip
+                  src={videoUrl}
+                  imageObjectPosition={imageObjectPosition}
+                  imageZoom={imageZoom}
+                  muted={videoMuted ?? true}
+                  volume={videoVolume ?? 0.35}
+                  durationInFrames={videoDurationInFrames}
+                  startInFrames={videoStartInFrames}
+                  style={visualStyle}
+                />
+              ) : (
+                <Img src={imageUrl as string} style={visualStyle} />
+              );
+            })()}
             {/* Legibility: soft top band (masthead/teasers) + a centred
                 spotlight behind the centred headline. */}
             <AbsoluteFill

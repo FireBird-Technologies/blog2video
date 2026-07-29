@@ -5,6 +5,7 @@ BLACKSWAN is a neon-on-black cinematic explainer: pure black stage (`#000000`), 
 Core rules:
 - Favor one clear idea per scene: a title line, a supporting line, or structured data (lists, metrics, split, code, chart)—never all at once.
 - Every layout must use only the prop names defined in this catalog; unknown keys are ignored downstream.
+- **Never output `assignedVideo`, `videoUrl`, `videoMuted`, or `videoVolume`.** A scene's background clip is stock footage chosen by the user in the editor after generation; any value you invent breaks rendering.
 - **Do not** put `titleFontSize` or `descriptionFontSize` in `layout_props_json`. Those are UI defaults from `meta.json` and are not set by the scene generator.
 - Do not invent statistics, code, or chart values that are not grounded in the source narration or scene brief; prefer paraphrase and omission over fabrication.
 

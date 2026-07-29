@@ -1,6 +1,8 @@
+import React from "react";
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { DarkBackground } from "../DarkBackground";
 import { glassCardStyle } from "../GlassCard";
+import { NightfallClip } from "../components/NightfallClip";
 import type { NightfallLayoutProps } from "../types";
 
 /**
@@ -22,6 +24,11 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
   narration,imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   accentColor,
   bgColor,
   textColor,
@@ -97,7 +104,7 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
 
   // Split narration into paragraphs if it contains line breaks
   const paragraphs = narration.split('\n').filter(p => p.trim());
-  const hasImage = !!imageUrl;
+  const hasImage = !!(imageUrl || videoUrl);
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
@@ -210,19 +217,32 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
                   marginBottom: p && hasImage ? 30 : (p ? 20 : 0), 
                 }}
               >
-                <Img
-                  src={imageUrl}
-                  style={{
+                {(() => {
+                  const visualStyle: React.CSSProperties = {
                     width: "100%",
                     height: "100%",
                     objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
-                objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
-                transform: `scale(${imageZoom ?? 1})`,
-                transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
+                    objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
+                    transform: `scale(${imageZoom ?? 1})`,
+                    transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
                     borderRadius: 12,
                     border: `1px solid ${accentColor}30`,
-                  }}
-                />
+                  };
+                  return videoUrl ? (
+                    <NightfallClip
+                      src={videoUrl}
+                      imageObjectPosition={imageObjectPosition}
+                      imageZoom={imageZoom}
+                      muted={videoMuted ?? true}
+                      volume={videoVolume ?? 0.35}
+                      durationInFrames={videoDurationInFrames}
+                      startInFrames={videoStartInFrames}
+                      style={visualStyle}
+                    />
+                  ) : (
+                    <Img src={imageUrl!} style={visualStyle} />
+                  );
+                })()}
                 {/* Image glow overlay */}
                 <div
                   style={{

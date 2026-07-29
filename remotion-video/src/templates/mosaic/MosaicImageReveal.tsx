@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { AbsoluteFill, continueRender, delayRender, interpolate } from "remotion";
 import { getTileEntryProgress, type MosaicTileEntryPattern } from "./transitions";
 import { ZoomCropImg } from "./components/ZoomCropImg";
+import { ZoomCropVideo } from "./components/ZoomCropVideo";
 import { drawZoomCroppedImage } from "./drawZoomCroppedImage";
 
 interface MosaicImageRevealProps {
@@ -14,6 +15,14 @@ interface MosaicImageRevealProps {
   intensity?: number;
   overlay?: React.ReactNode;
   style?: React.CSSProperties;
+  /** Stock-footage clip. When present, replaces the entire mosaic-tile pixel-
+   *  sampling effect with the clip playing directly — there's no cheap way to
+   *  pixel-sample a playing video the way a still gets sampled into tiles. */
+  videoUrl?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  videoDurationInFrames?: number;
+  videoStartInFrames?: number;
 }
 
 interface TileColor {
@@ -40,6 +49,11 @@ export const MosaicImageReveal: React.FC<MosaicImageRevealProps> = ({imageUrl,
   intensity = 24,
   overlay,
   style,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
 }) => {
   const [tileColors, setTileColors] = useState<TileColor[]>([]);
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -50,8 +64,15 @@ export const MosaicImageReveal: React.FC<MosaicImageRevealProps> = ({imageUrl,
   const tileW = 100 / cols;
   const tileH = 100 / rows;
 
-  // Sample colors from the image
+  // Sample colors from the image. Skipped when a video clip is present — the
+  // mosaic-tile pixel-sampling effect has no video equivalent, so a clip just
+  // plays directly (see the videoUrl branch below) and there's nothing to
+  // sample or delay-render for.
   useEffect(() => {
+    if (videoUrl) {
+      continueRender(handle);
+      return;
+    }
     const img = new Image();
     img.crossOrigin = "anonymous";
     // Append ?cors=1 so this request is a separate cache entry from any prior
@@ -125,7 +146,27 @@ export const MosaicImageReveal: React.FC<MosaicImageRevealProps> = ({imageUrl,
       setImageLoaded(true);
       continueRender(handle);
     };
-  }, [imageUrl, cols, rows, tileW, tileH, handle, imageObjectPosition, imageZoom]);
+  }, [imageUrl, cols, rows, tileW, tileH, handle, imageObjectPosition, imageZoom, videoUrl]);
+
+  // Video wins: play the clip directly, skipping the mosaic-tile reveal
+  // entirely (there's no cheap way to pixel-sample a playing video the way a
+  // still gets sampled into tiles above).
+  if (videoUrl) {
+    return (
+      <AbsoluteFill style={style}>
+        <ZoomCropVideo
+          src={videoUrl}
+          imageObjectPosition={imageObjectPosition}
+          imageZoom={imageZoom}
+          muted={videoMuted ?? true}
+          volume={videoVolume ?? 0.35}
+          durationInFrames={videoDurationInFrames}
+          startInFrames={videoStartInFrames}
+        />
+        {overlay}
+      </AbsoluteFill>
+    );
+  }
 
   if (!imageLoaded) {
     return null;

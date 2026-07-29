@@ -5,6 +5,7 @@ import {
   SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY,
 } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
+import { ZoomCropVideo } from "../components/ZoomCropVideo";
 
 /**
  * CascadeList — Stacking Items
@@ -18,6 +19,11 @@ export const CascadeList: React.FC<SpotlightLayoutProps> = ({
   items,imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   accentColor,
   textColor,
   aspectRatio,
@@ -51,7 +57,19 @@ export const CascadeList: React.FC<SpotlightLayoutProps> = ({
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
       <AbsoluteFill>
-        {imageUrl ? (
+        {videoUrl ? (
+          <div style={{ position: "absolute", inset: 0, opacity: bgOpacity, transform: `scale(${bgScale})` }}>
+            <ZoomCropVideo
+              src={videoUrl}
+              imageObjectPosition={imageObjectPosition}
+              imageZoom={imageZoom}
+              muted={videoMuted ?? true}
+              volume={videoVolume ?? 0.35}
+              durationInFrames={videoDurationInFrames}
+              startInFrames={videoStartInFrames}
+            />
+          </div>
+        ) : imageUrl ? (
           <Img
             src={imageUrl}
             style={{
@@ -72,8 +90,8 @@ export const CascadeList: React.FC<SpotlightLayoutProps> = ({
 
       {/* Decorative artifacts — red shards, drifting streaks, marquee strip below the list. */}
       <DiagonalShards accentColor={accentColor} corner="top-right" startFrame={3} />
-      {!imageUrl && <StreakField accentColor={accentColor} count={10} seed={13} startFrame={4} />}
-      {!imageUrl && <HalftoneField accentColor={accentColor} corner="bottom-left" />}
+      {!imageUrl && !videoUrl && <StreakField accentColor={accentColor} count={10} seed={13} startFrame={4} />}
+      {!imageUrl && !videoUrl && <HalftoneField accentColor={accentColor} corner="bottom-left" />}
       <FilmGrain />
       {/* Marquee echoes the scene's own headline. */}
       <KineticTicker

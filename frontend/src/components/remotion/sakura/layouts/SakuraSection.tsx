@@ -1,6 +1,7 @@
 import React from "react";
 import { useVideoConfig, interpolate, spring, Img } from "remotion";
 import { SceneLayoutProps } from "../types";
+import { SakuraClip } from "../components/SakuraClip";
 import {
   SAKURA,
   SAKURA_DISPLAY_FONT,
@@ -21,6 +22,11 @@ export const SakuraSection: React.FC<SceneLayoutProps> = (props) => {
     imageUrl,
     imageObjectPosition,
     imageZoom,
+    videoUrl,
+    videoMuted,
+    videoVolume,
+    videoDurationInFrames,
+    videoStartInFrames,
     accentColor,
     bgColor,
     textColor,
@@ -201,7 +207,7 @@ export const SakuraSection: React.FC<SceneLayoutProps> = (props) => {
           lineHeight: 1.8,
           letterSpacing: "0.01em",
           margin: 0,
-          maxWidth: p ? undefined : imageUrl ? 620 : 900,
+          maxWidth: p ? undefined : (imageUrl || videoUrl) ? 620 : 900,
           opacity: bodyReveal,
           transform: `translateY(${(1 - bodyReveal) * 16}px)`,
         }}
@@ -226,7 +232,7 @@ export const SakuraSection: React.FC<SceneLayoutProps> = (props) => {
   // Only render an image panel when a source is actually provided. With no
   // image the text block spans the frame and the growing cherry trees carry the
   // composition — no placeholder box, tree panel or brackets appear.
-  const imagePanel = imageUrl ? (
+  const imagePanel = (imageUrl || videoUrl) ? (
     <div
       style={{
         width: panelW,
@@ -247,9 +253,8 @@ export const SakuraSection: React.FC<SceneLayoutProps> = (props) => {
           WebkitMaskImage: imageFills ? featherMask : undefined,
         }}
       >
-        <Img
-          src={imageUrl}
-          style={{
+        {(() => {
+          const visualStyle: React.CSSProperties = {
             width: "100%",
             height: "100%",
             // Zoom-out (imageZoom < 1) keeps the whole image visible instead of
@@ -258,8 +263,22 @@ export const SakuraSection: React.FC<SceneLayoutProps> = (props) => {
             objectPosition: imageFills ? (imageObjectPosition ?? "50% 50%") : "center",
             transform: `scale(${imageZoom ?? 1})`,
             transformOrigin: imageFills ? (imageObjectPosition ?? "50% 50%") : "center center",
-          }}
-        />
+          };
+          return videoUrl ? (
+            <SakuraClip
+              src={videoUrl}
+              imageObjectPosition={imageObjectPosition}
+              imageZoom={imageZoom}
+              muted={videoMuted ?? true}
+              volume={videoVolume ?? 0.35}
+              durationInFrames={videoDurationInFrames}
+              startInFrames={videoStartInFrames}
+              style={visualStyle}
+            />
+          ) : (
+            <Img src={imageUrl!} style={visualStyle} />
+          );
+        })()}
       </div>
       {/* Plum→washi wash over the photo so it settles into the palette. Only
           drawn when the image fills the panel — a contained (smaller) image

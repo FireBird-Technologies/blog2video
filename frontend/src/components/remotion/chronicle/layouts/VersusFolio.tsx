@@ -29,6 +29,11 @@ export const VersusFolio: React.FC<ChronicleLayoutProps> = ({
   imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, height, width } = useVideoConfig();
@@ -178,6 +183,11 @@ export const VersusFolio: React.FC<ChronicleLayoutProps> = ({
         >
           <EmbossedImage
             src={imageUrl!}
+            videoUrl={videoUrl}
+            videoMuted={videoMuted}
+            videoVolume={videoVolume}
+            videoDurationInFrames={videoDurationInFrames}
+            videoStartInFrames={videoStartInFrames}
             objectPosition={imageObjectPosition}
             zoom={imageZoom}
             rotate={align === "left" ? -2.5 : 2.5}
@@ -254,7 +264,7 @@ export const VersusFolio: React.FC<ChronicleLayoutProps> = ({
           tint="rgba(248,239,214,0.55)"
           slideOffset={leftIn}
           opacity={leftOp}
-          showImage={Boolean(imageUrl)}
+          showImage={Boolean(imageUrl || videoUrl)}
         />
         <Page
           align="right"

@@ -1,7 +1,7 @@
 Layout catalog for Newscast template
 ====================================================
 
-**Background image (all layouts):** Every layout may show a full-bleed editorial photo plate behind NEWSCAST chrome (globe, glass panels, typography)—it does not replace titles or UI. This image is assigned automatically from the project's own images after generation. **Never output `layoutProps.imageUrl` yourself** — you have no real image URL to give, and inventing one (e.g. `example.com`) breaks rendering.
+**Background image (all layouts):** Every layout may show a full-bleed editorial photo plate behind NEWSCAST chrome (globe, glass panels, typography)—it does not replace titles or UI. This image is assigned automatically from the project's own images after generation. **Never output `layoutProps.imageUrl` yourself** — you have no real image URL to give, and inventing one (e.g. `example.com`) breaks rendering. The same applies to stock footage: never output `assignedVideo`, `videoUrl`, `videoMuted`, or `videoVolume` — clips are chosen by the user in the editor after generation.
 
 Use these layout IDs **exactly** when suggesting `preferred_layout` for scenes using the `newscast` template.
 

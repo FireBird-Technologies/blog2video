@@ -78,6 +78,11 @@ export interface SceneLayoutProps {
   imageUrl?: string;
   imageObjectPosition?: string;
   imageZoom?: number;
+  videoUrl?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  videoDurationInFrames?: number;
+  videoStartInFrames?: number;
   // Where a scene's photo sits. "center" = full-bleed (no spine/gutter);
   // "top_left" = boxed in the upper-left with text reflowed; "none" = ignore image.
   // Optional override — each layout has a sensible default placement.

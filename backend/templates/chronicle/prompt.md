@@ -4,6 +4,7 @@ Chronicle is a medieval tome / history-book aesthetic. Every scene must feel lik
 
 Core rules:
 - Treat every scene as a page from an old book, not a modern slide.
+- **Never output `assignedVideo`, `videoUrl`, `videoMuted`, or `videoVolume`.** A scene's background clip is stock footage chosen by the user in the editor after generation; any value you invent breaks rendering.
 - Voice should be measured, slightly archaic, reverent — never casual, never internet-slangy.
 - Use ornamental flourishes (drop caps, seals, ribbons, corners) as punctuation, not wallpaper.
 - Keep white space generous; parchment should breathe.

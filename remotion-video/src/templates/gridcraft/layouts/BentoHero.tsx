@@ -35,6 +35,11 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
   narration,imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   accentColor,
   textColor,
   category,
@@ -144,14 +149,19 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
           justifyContent: "center",
           transform: `scale(${scale2})`,
           opacity: opacity2,
-          padding: imageUrl ? 0 : (p ? 20 : 32),
+          padding: (imageUrl || videoUrl) ? 0 : (p ? 20 : 32),
           overflow: "hidden",
           gap: 20,
         }}
       >
-        {imageUrl ? (
+        {(imageUrl || videoUrl) ? (
           <ZoomCropImg
             src={imageUrl}
+            videoUrl={videoUrl}
+            videoMuted={videoMuted}
+            videoVolume={videoVolume}
+            videoDurationInFrames={videoDurationInFrames}
+            videoStartInFrames={videoStartInFrames}
             imageObjectPosition={imageObjectPosition}
             imageZoom={imageZoom}
           />

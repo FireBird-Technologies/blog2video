@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { Swan } from "../components/Swan";
 import { ZoomCropImg } from "../components/ZoomCropImg";
+import { ZoomCropVideo } from "../components/ZoomCropVideo";
 import type { BlackswanLayoutProps } from "../types";
 import { neonTitleTubeStyle, StarField } from "./scenePrimitives";
 import { NeonWater } from "./neonWater";
@@ -135,6 +136,11 @@ export const DropletIntro: React.FC<BlackswanLayoutProps> = (props) => {
     imageUrl,
     imageObjectPosition,
     imageZoom,
+    videoUrl,
+    videoMuted,
+    videoVolume,
+    videoDurationInFrames,
+    videoStartInFrames,
   } = props;
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
@@ -145,7 +151,7 @@ export const DropletIntro: React.FC<BlackswanLayoutProps> = (props) => {
   // Image appears in last 3 seconds, fades in over 0.7s
   const totalSec = durationInFrames / fps;
   const imgStartSec = Math.max(totalSec - 3, HIT + 0.5);
-  const hasImage = !!imageUrl;
+  const hasImage = !!(imageUrl || videoUrl);
   const imgOpacity = hasImage
     ? interpolate(t, [imgStartSec, imgStartSec + 0.7], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })
     : 0;
@@ -167,12 +173,24 @@ export const DropletIntro: React.FC<BlackswanLayoutProps> = (props) => {
       {/* Full-screen image — behind neon water only */}
       {hasImage && (
         <div style={{ position: "absolute", inset: 0, opacity: imgOpacity, zIndex: 1, overflow: "hidden" }}>
-          <ZoomCropImg
-            src={imageUrl}
-            imageObjectPosition={imageObjectPosition}
-            imageZoom={imageZoom}
-            alt=""
-          />
+          {videoUrl ? (
+            <ZoomCropVideo
+              src={videoUrl}
+              imageObjectPosition={imageObjectPosition}
+              imageZoom={imageZoom}
+              muted={videoMuted ?? true}
+              volume={videoVolume ?? 0.35}
+              durationInFrames={videoDurationInFrames}
+              startInFrames={videoStartInFrames}
+            />
+          ) : (
+            <ZoomCropImg
+              src={imageUrl!}
+              imageObjectPosition={imageObjectPosition}
+              imageZoom={imageZoom}
+              alt=""
+            />
+          )}
           <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.55)" }} />
           <div style={{ position: "absolute", inset: 0 }}>
             <StarField accentColor={accentColor} />
