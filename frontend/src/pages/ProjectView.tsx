@@ -3647,9 +3647,9 @@ export default function ProjectView() {
     setSelectedExistingAssetId(null);
   };
 
-  // Offered for every template. The restriction lives solely on the backend now
-  // (STOCK_FOOTAGE_TEMPLATES in app/routers/projects.py), which rejects the
-  // upload for templates whose layouts cannot render a clip.
+  // Offered for every template (builtin, custom, and crafted). The backend
+  // still rejects layouts/scene types that can't render a clip (e.g. dataviz
+  // scenes), see upload_stock_footage in app/routers/projects.py.
   const stockFootageSupported = true;
 
   const handleChooseStockFootage = () => {

@@ -902,11 +902,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
   const [genre, setGenre] = useState<string>(initialGenre ?? "");
   const [genreDropdownOpen, setGenreDropdownOpen] = useState(false);
   const [template, setTemplate] = useState("default");
-  // Stock footage at generation time: available on every plan. Free users get a
-  // clip on a single scene (the backend caps it), paid users on all image-capable
-  // scenes. The template restriction is deliberately NOT enforced here — the
-  // backend's STOCK_FOOTAGE_TEMPLATES is still the authority and will decline the
-  // flag for templates that cannot render a clip.
+  // Stock footage at generation time: available on every plan and every
+  // template (builtin, custom, crafted). Free users get a clip on a single
+  // scene (the backend caps it), paid users on all image-capable scenes.
   const [stockFootageEnabled, setStockFootageEnabled] = useState(false);
   const stockFootageAvailable = true;
   useEffect(() => {

@@ -579,29 +579,35 @@ def test_deleting_a_clip_removes_both_files_and_unlinks_scenes(
     assert lp["hideImage"] is True
 
 
-def test_upload_endpoint_rejected_on_unsupported_template(
+def test_resolve_stock_footage_flag_allows_every_template(paid_user, free_user):
+    """No template gate: the flag only reflects what was requested."""
+    from app.routers.projects import _resolve_stock_footage_flag
+
+    for template_id in ("newscast", "custom_1", "crafted_abc", "nonexistent_template"):
+        assert _resolve_stock_footage_flag(True, paid_user, template_id) is True
+        assert _resolve_stock_footage_flag(True, free_user, template_id) is True
+        assert _resolve_stock_footage_flag(False, paid_user, template_id) is False
+
+
+def test_upload_endpoint_rejected_on_dataviz_scene_for_custom_template(
     client, db_session, paid_user, auth
 ):
-    # All 17 built-in templates now support stock footage (see
-    # STOCK_FOOTAGE_TEMPLATES in stock_footage.py), so this uses a template ID
-    # that doesn't exist at all — the upload endpoint rejects it before
-    # touching the network.
-    project = Project(user_id=paid_user.id, name="X", blog_url="https://x.test",
-                      status=ProjectStatus.GENERATED, template="nonexistent_template")
+    project = Project(user_id=paid_user.id, name="Custom", blog_url="https://c.test",
+                      status=ProjectStatus.GENERATED, template="custom_1")
     db_session.add(project); db_session.commit(); db_session.refresh(project)
-    s = Scene(project_id=project.id, order=1, title="S", narration_text="n",
-              visual_description="v",
-              remotion_code=json.dumps({"layout": "x", "layoutProps": {}}))
-    db_session.add(s); db_session.commit(); db_session.refresh(s)
+    scene = Scene(project_id=project.id, order=1, title="S", narration_text="n",
+                  visual_description="v", scene_type="dataviz_chart",
+                  remotion_code=json.dumps({"layoutConfig": {}, "layoutProps": {}}))
+    db_session.add(scene); db_session.commit(); db_session.refresh(scene)
 
     resp = client.post(
-        f"/api/projects/{project.id}/scenes/{s.id}/stock-footage",
+        f"/api/projects/{project.id}/scenes/{scene.id}/stock-footage",
         headers=auth(paid_user),
         json={"provider": "pexels", "clip_id": "1",
               "download_url": "https://cdn.example/clip.mp4"},
     )
     assert resp.status_code == 400
-    assert "not supported" in resp.json()["detail"]
+    assert "does not support a background clip" in resp.json()["detail"]
 
 
 def test_assigning_image_clears_an_existing_clip(client, db_session, paid_user, auth, tmp_path):
@@ -811,12 +817,6 @@ def test_resolve_stock_footage_flag__all_plans_newscast_only(db_session, paid_us
     assert _resolve_stock_footage_flag(True, free_user, "newscast") is True
     assert _resolve_stock_footage_flag(False, paid_user, "newscast") is False
     assert _resolve_stock_footage_flag(False, free_user, "newscast") is False
-    # Wrong template → off (nothing would render the clip), regardless of plan.
-    # All 17 built-in templates now support stock footage (see
-    # STOCK_FOOTAGE_TEMPLATES in stock_footage.py), so this uses a template ID
-    # that doesn't exist at all to exercise the "unsupported" branch.
-    assert _resolve_stock_footage_flag(True, paid_user, "nonexistent_template") is False
-    assert _resolve_stock_footage_flag(True, free_user, "nonexistent_template") is False
 
 
 def test_bulk_project_auto_approves_instead_of_parking(db_session, paid_user):
@@ -824,14 +824,12 @@ def test_bulk_project_auto_approves_instead_of_parking(db_session, paid_user):
     falls through to generation, so it never parks at AWAITING_FOOTAGE. A single
     (non-bulk) project with the same flags still parks."""
     from datetime import datetime
-    from app.services.stock_footage import STOCK_FOOTAGE_TEMPLATES
 
     def gate_fires(p) -> bool:
         return (
             p.status == ProjectStatus.SCRIPTED
             and bool(getattr(p, "stock_footage_enabled", False))
             and getattr(p, "stock_footage_approved_at", None) is None
-            and (getattr(p, "template", "") or "").strip().lower() in STOCK_FOOTAGE_TEMPLATES
         )
 
     bulk = _scripted_newscast_project(db_session, paid_user, is_bulk=True)
@@ -868,7 +866,6 @@ def test_gate_condition_is_false_once_approved(db_session, paid_user):
     own SessionLocal and so cannot see this test transaction.
     """
     from datetime import datetime
-    from app.services.stock_footage import STOCK_FOOTAGE_TEMPLATES
 
     project = _scripted_newscast_project(db_session, paid_user)
 
@@ -877,7 +874,6 @@ def test_gate_condition_is_false_once_approved(db_session, paid_user):
             p.status == ProjectStatus.SCRIPTED
             and bool(getattr(p, "stock_footage_enabled", False))
             and getattr(p, "stock_footage_approved_at", None) is None
-            and (getattr(p, "template", "") or "").strip().lower() in STOCK_FOOTAGE_TEMPLATES
         )
 
     assert gate_fires(project) is True
@@ -1210,10 +1206,3 @@ def test_prepare_stock_footage_candidates_skips_already_assigned(
     n = asyncio.run(_prepare_stock_footage_candidates(project, db_session))
     assert n == 3
     assert called == [scenes[2].id]
-
-
-def test_stock_footage_templates_include_gridcraft_chronicle_magazine():
-    from app.services.stock_footage import STOCK_FOOTAGE_TEMPLATES
-
-    for template in ("gridcraft", "chronicle", "magazine"):
-        assert template in STOCK_FOOTAGE_TEMPLATES

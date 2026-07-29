@@ -32,7 +32,6 @@ from app.schemas.schemas import (
     RenderResponse,
 )
 from app.config import settings
-from app.services.stock_footage import STOCK_FOOTAGE_TEMPLATES
 from app.services.scraper import scrape_blog
 from app.services.table_extraction import build_table_context_hint, build_chartable_tables_payload, extract_tables_from_content, classify_chart_tables_for_template, append_tables_to_content
 from app.services.chart_planner import (
@@ -1542,8 +1541,6 @@ async def _fill_missing_stock_clips_after_scene_gen(
     """
     from app.services.template_service import get_layouts_without_image
 
-    if template_id not in STOCK_FOOTAGE_TEMPLATES:
-        return 0
     if not getattr(project, "stock_footage_enabled", False):
         return 0
 
@@ -2518,11 +2515,7 @@ async def _generate_scenes(
     # true — script stage set it before _generate_scenes runs), but must NOT
     # share `db`: that session is used concurrently by the other two tasks and
     # SQLAlchemy Session objects aren't safe across concurrent coroutines.
-    stock_footage_wanted = (
-        bool(getattr(project, "stock_footage_enabled", False))
-        and (getattr(project, "template", "") or "").strip().lower()
-        in STOCK_FOOTAGE_TEMPLATES
-    )
+    stock_footage_wanted = bool(getattr(project, "stock_footage_enabled", False))
 
     async def _stock_footage_task():
         """Auto-pick + ingest clips for image-capable scenes. Never raises —
@@ -2758,7 +2751,7 @@ async def _generate_scenes(
 
     # Scenes that resolved to an image-capable layout after the script-stage gate
     # (e.g. economist chart_line → leader_article fallback) still need a clip.
-    if getattr(project, "stock_footage_enabled", False) and template_id in STOCK_FOOTAGE_TEMPLATES:
+    if getattr(project, "stock_footage_enabled", False):
         try:
             await _fill_missing_stock_clips_after_scene_gen(project, scenes, db, template_id)
             db.commit()
@@ -2784,13 +2777,12 @@ async def _generate_scenes(
     # Non-bulk stock-footage projects land in the post-generation review gate
     # instead of GENERATED, so the user can confirm/change/reject the
     # auto-picked clips before the video is considered final. Bulk projects
-    # (and non-supported-template projects) run unattended: stamp the
-    # approval marker so a later re-entrant call to _generate_scenes (e.g. an
-    # edit job) doesn't try to re-fetch clips that were already resolved.
+    # run unattended: stamp the approval marker so a later re-entrant call to
+    # _generate_scenes (e.g. an edit job) doesn't try to re-fetch clips that
+    # were already resolved.
     _reviewed = (
         bool(getattr(project, "stock_footage_enabled", False))
         and not bool(getattr(project, "is_bulk", False))
-        and (getattr(project, "template", "") or "").strip().lower() in STOCK_FOOTAGE_TEMPLATES
     )
     if _reviewed:
         project.status = ProjectStatus.AWAITING_STOCK_FOOTAGE_REVIEW

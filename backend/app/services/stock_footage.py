@@ -39,17 +39,6 @@ TARGET_FPS = 30
 # 4K source (50-150 MB) buys nothing but download time and disk.
 MAX_HEIGHT = 1080
 
-# Pilot scope: templates whose layouts render a clip (ZoomCropVideo is wired
-# through Newscast only). Lives here rather than in a router so both the editor
-# endpoints and the generation pipeline can gate on it without importing each
-# other. Widen this — and the frontend gates — to roll the feature out.
-STOCK_FOOTAGE_TEMPLATES = {
-    "newscast", "newspaper", "nightfall", "blackswan", "sakura",
-    "stickman_2", "stickman_football", "whiteboard", "economist",
-    "gridcraft", "chronicle", "magazine",
-    "bloomberg", "spotlight", "matrix", "mosaic", "default",
-}
-
 # Hard ceiling on what we will pull from a provider. Generous enough for a 30 s
 # 1080p clip, tight enough that a pathological URL cannot fill the disk.
 MAX_DOWNLOAD_BYTES = 60 * 1024 * 1024

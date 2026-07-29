@@ -1935,6 +1935,7 @@ export interface CustomTemplateItem {
   logo_urls?: string[];
   og_image?: string;
   generation_failed: boolean;
+  is_regenerating: boolean;
   my_rating?: number | null;
   my_rating_comment?: string | null;
   created_at: string;
@@ -2081,8 +2082,10 @@ export const uploadTemplateLogo = (templateId: number, file: File) => {
 
 // ─── Template versioning & regeneration ─────────────────────
 
+// Fire-and-poll, like generateTemplateCode: returns 202 immediately and the
+// caller polls getCodeGenerationStatus / re-fetches the template list.
 export const regenerateTemplateCode = (templateId: number) =>
-  api.post<CustomTemplateItem>(`/custom-templates/${templateId}/regenerate-code`);
+  api.post<{ detail: string; template_id: number }>(`/custom-templates/${templateId}/regenerate-code`);
 
 export const getTemplateVersions = (templateId: number) =>
   api.get<TemplateVersionsResponse>(`/custom-templates/${templateId}/versions`);

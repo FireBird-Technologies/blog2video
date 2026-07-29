@@ -6,6 +6,9 @@ import {
   AbsoluteFill,
   Sequence,
   Audio,
+  Loop,
+  OffthreadVideo,
+  useCurrentFrame,
 } from "remotion";
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import {
@@ -42,6 +45,223 @@ import { pickGeneratedTransition } from "./remotion/generated/generatedTransitio
 // Dedicated data-viz scenes (custom templates) — same kit components the render
 // uses, so preview matches the final video.
 import { DataChartScene, DataTableScene } from "./remotion/generated/kit";
+
+/**
+ * Stock-footage clip player for the live preview — mirrors
+ * remotion-video/src/templates/newscast/components/ZoomCropVideo.tsx (and its
+ * generated/components/ZoomCropVideo.tsx twin used by the real render).
+ */
+function PreviewZoomCropVideo({
+  src,
+  imageObjectPosition,
+  imageZoom,
+  muted = true,
+  volume = 0.35,
+}: {
+  src: string;
+  imageObjectPosition?: string;
+  imageZoom?: number;
+  muted?: boolean;
+  volume?: number;
+}) {
+  const pos = imageObjectPosition ?? "50% 50%";
+  const z = Math.max(0.1, imageZoom ?? 1);
+  const isZoomedOut = z < 1;
+
+  return (
+    <div style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden" }}>
+      <OffthreadVideo
+        src={src}
+        muted={muted}
+        volume={muted ? 0 : Math.max(0, Math.min(1, volume))}
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: isZoomedOut ? "contain" : "cover",
+          objectPosition: isZoomedOut ? "center" : pos,
+          transform: `scale(${z})`,
+          transformOrigin: isZoomedOut ? "center center" : pos,
+        }}
+      />
+    </div>
+  );
+}
+
+/**
+ * Positions a stock-footage clip for a generated scene component — mirrors
+ * GeneratedVideo.tsx's ClipSlotOverlay in the real render.
+ *
+ * imageUrl is genuinely omitted for a clip scene (never fed a video URL as a
+ * fake image src — Remotion's <Img> calls cancelRender() on a failed load
+ * with no onError handler, which hard-fails real CLI renders even though it
+ * looks harmless here in the interactive Player).
+ *
+ * Components generated under the hasVideo-aware prompt leave a real, empty
+ * [data-content-img] placeholder (no <Img>) when props.hasVideo is true —
+ * same geometry as their normal with-image layout. We measure that box and
+ * position the clip to fill it, expressed as a PERCENTAGE of the container
+ * (not raw pixels): the Player scales the whole composition to fit its
+ * visible box, and this overlay renders inside that same scaled ancestor, so
+ * copying already-scaled pixel values would double-apply the scale.
+ *
+ * Older, already-generated components predate that contract and have no such
+ * marker. For those we fall back to a full-bleed layer, always rendered
+ * BEHIND SceneComp (z-index in PreviewSceneVisual) — not a precise fit, but
+ * the only option without regenerating that brand's code.
+ */
+function PreviewClipSlotOverlay({
+  containerRef,
+  videoUrl,
+  imageObjectPosition,
+  imageZoom,
+  muted,
+  volume,
+}: {
+  containerRef: React.RefObject<HTMLDivElement | null>;
+  videoUrl: string;
+  imageObjectPosition?: string;
+  imageZoom?: number;
+  muted?: boolean;
+  volume?: number;
+}) {
+  // Re-measure every frame — most generated components spring/translate the
+  // image container in on entrance, so a one-time on-mount measurement
+  // freezes the clip at whatever position the slot happened to be in on
+  // that first paint (visibly offset/ghosted for the rest of the scene).
+  const frame = useCurrentFrame();
+  const [box, setBox] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
+  const [legacyFallback, setLegacyFallback] = useState(false);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const slot = container.querySelector<HTMLElement>("[data-content-img]");
+    if (!slot) {
+      setLegacyFallback(true);
+      return;
+    }
+    const containerRect = container.getBoundingClientRect();
+    const slotRect = slot.getBoundingClientRect();
+    const next = {
+      left: ((slotRect.left - containerRect.left) / containerRect.width) * 100,
+      top: ((slotRect.top - containerRect.top) / containerRect.height) * 100,
+      width: (slotRect.width / containerRect.width) * 100,
+      height: (slotRect.height / containerRect.height) * 100,
+    };
+    setBox((prev) =>
+      prev && prev.left === next.left && prev.top === next.top && prev.width === next.width && prev.height === next.height
+        ? prev
+        : next,
+    );
+  }, [containerRef, frame]);
+
+  const video = (
+    <PreviewZoomCropVideo
+      src={videoUrl}
+      imageObjectPosition={imageObjectPosition}
+      imageZoom={imageZoom}
+      muted={muted}
+      volume={volume}
+    />
+  );
+
+  if (legacyFallback) {
+    return (
+      <div style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
+        {video}
+      </div>
+    );
+  }
+
+  if (!box || box.width <= 0 || box.height <= 0) return null;
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: `${box.left}%`,
+        top: `${box.top}%`,
+        width: `${box.width}%`,
+        height: `${box.height}%`,
+        overflow: "hidden",
+      }}
+    >
+      {video}
+    </div>
+  );
+}
+
+/** Renders a custom-template scene's image/clip layer + generated component — mirrors GeneratedVideo.tsx's SceneVisual. */
+function PreviewSceneVisual({
+  SceneComp,
+  sceneProps,
+  isDataViz,
+  s,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  imageObjectPosition,
+  imageZoom,
+}: {
+  SceneComp: React.ComponentType<Record<string, unknown>>;
+  sceneProps: SceneProps;
+  isDataViz: boolean;
+  s: any;
+  videoUrl?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  imageObjectPosition?: string;
+  imageZoom: number;
+}) {
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+
+  return (
+    <AbsoluteFill
+      style={{
+        ["--img-pos" as string]: imageObjectPosition,
+        ["--img-zoom" as string]: String(imageZoom),
+      }}
+    >
+      <style>{`[data-scene-wrapper] img:not([data-logo]){object-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}[data-scene-wrapper] [data-content-img]{object-position:var(--img-pos,50% 50%) !important;background-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}${videoUrl ? "[data-scene-wrapper] [data-scenecomp-layer]{background:transparent !important;}[data-scene-wrapper] [data-scenecomp-layer]>div{background:transparent !important;}" : ""}`}</style>
+      <div data-scene-wrapper ref={wrapperRef} style={{ width: "100%", height: "100%", position: "relative" }}>
+        {videoUrl && (
+          <div style={{ position: "absolute", inset: 0, zIndex: 0 }}>
+            <PreviewClipSlotOverlay
+              containerRef={wrapperRef}
+              videoUrl={videoUrl}
+              imageObjectPosition={imageObjectPosition}
+              imageZoom={imageZoom}
+              muted={videoMuted}
+              volume={videoVolume}
+            />
+          </div>
+        )}
+        {/* data-scenecomp-layer: when a clip is active, force this layer's own
+            background AND its direct child's background-color to transparent
+            — some generated components correctly gate their inner decorative
+            backdrop on hasVideo but leave their OUTERMOST AbsoluteFill's own
+            backgroundColor unconditional. */}
+        <div data-scenecomp-layer style={{ position: "absolute", inset: 0, zIndex: 1 }}>
+          {isDataViz ? (
+            <SceneComp
+              {...(sceneProps as unknown as Record<string, unknown>)}
+              displayText={s.title || sceneProps.displayText}
+              chartTable={(s.layoutProps as Record<string, unknown>)?.chartTable}
+              chartType={(s.layoutProps as Record<string, unknown>)?.chartType}
+              chartSummary={(s.layoutProps as Record<string, unknown>)?.chartSummary}
+              logoUrl={undefined}
+            />
+          ) : (
+            <SceneComp {...sceneProps} logoUrl={undefined} />
+          )}
+        </div>
+      </div>
+    </AbsoluteFill>
+  );
+}
 
 const StableCustomComposition: React.FC<any> = ({
   isCustom,
@@ -174,10 +394,16 @@ const StableCustomComposition: React.FC<any> = ({
           1,
           Number((s.layoutProps as Record<string, unknown> | undefined)?.imageZoom ?? 1),
         );
+        // Never pass a video URL as imageUrl: Remotion's <Img> calls
+        // cancelRender() on a failed load with no onError handler, which
+        // hard-fails real CLI renders. Omit imageUrl for a clip scene —
+        // PreviewClipSlotOverlay renders the clip itself (see below).
+        const videoUrl: string | undefined = s.videoUrl;
         const sceneProps: SceneProps = {
           displayText: s.narration || s.title,
           narrationText: s.narration || "",
-          imageUrl: s.imageUrl,
+          imageUrl: videoUrl ? undefined : s.imageUrl,
+          hasVideo: !!videoUrl,
           imageObjectPosition: `${Math.max(0, Math.min(100, focusX))}% ${Math.max(0, Math.min(100, focusY))}%`,
           imageZoom,
           sceneIndex: i,
@@ -216,28 +442,17 @@ const StableCustomComposition: React.FC<any> = ({
             logoUrl={sceneProps.logoUrl}
           />
         ) : (
-          <AbsoluteFill
-            style={{
-              ["--img-pos" as string]: sceneProps.imageObjectPosition,
-              ["--img-zoom" as string]: String(imageZoom),
-            }}
-          >
-            <style>{`[data-scene-wrapper] img:not([data-logo]){object-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}[data-scene-wrapper] [data-content-img]{object-position:var(--img-pos,50% 50%) !important;background-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}`}</style>
-            <div data-scene-wrapper style={{ width: "100%", height: "100%" }}>
-              {isDataViz ? (
-                <SceneComp
-                  {...(sceneProps as unknown as Record<string, unknown>)}
-                  displayText={s.title || sceneProps.displayText}
-                  chartTable={(s.layoutProps as Record<string, unknown>)?.chartTable}
-                  chartType={(s.layoutProps as Record<string, unknown>)?.chartType}
-                  chartSummary={(s.layoutProps as Record<string, unknown>)?.chartSummary}
-                  logoUrl={undefined}
-                />
-              ) : (
-                <SceneComp {...sceneProps} logoUrl={undefined} />
-              )}
-            </div>
-          </AbsoluteFill>
+          <PreviewSceneVisual
+            SceneComp={SceneComp}
+            sceneProps={sceneProps}
+            isDataViz={isDataViz}
+            s={s}
+            videoUrl={videoUrl}
+            videoMuted={s.videoMuted ?? true}
+            videoVolume={s.videoVolume ?? 0.35}
+            imageObjectPosition={sceneProps.imageObjectPosition}
+            imageZoom={imageZoom}
+          />
         );
 
         const sequence = (

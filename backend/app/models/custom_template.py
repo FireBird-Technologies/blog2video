@@ -29,6 +29,11 @@ class CustomTemplate(Base):
     # Set to True when background code generation permanently fails
     generation_failed: Mapped[bool] = mapped_column(default=False)
 
+    # True while a regenerate-code background job is running for this template.
+    # DB-persisted (not in-memory) so a page refresh/tab-switch mid-regeneration
+    # still shows the correct in-progress state instead of the stale old code.
+    is_regenerating: Mapped[bool] = mapped_column(default=False)
+
     # Link to BrandKit (optional — existing templates have no brand kit)
     brand_kit_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("brand_kits.id"), nullable=True, index=True)
 
