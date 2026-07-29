@@ -822,8 +822,7 @@ export default function CustomTemplates() {
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Regenerate Template</h3>
             <p className="text-sm text-gray-500 mb-5">
               This will replace <strong>{regenerateConfirmTarget.name}</strong>'s current design with a completely
-              new AI-generated one. This action cannot be undone, and uses one custom-template slot
-              (refunded if the regeneration fails).
+              new AI-generated one. This will cost one template count.
             </p>
             <div className="flex gap-3">
               <button
