@@ -291,6 +291,8 @@ _ALLOWED_MIME_TYPES = {
 _ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".md", ".markdown", ".txt", ".vtt"}
 _VALID_VIDEO_STYLES = {"auto", "explainer", "promotional", "storytelling"}
 _VALID_VIDEO_LENGTHS = {"auto", "short", "medium", "detailed", "mdetailed"}
+# Long-form options reserved for paid plans; FREE users top out at "medium".
+_PAID_ONLY_VIDEO_LENGTHS = {"detailed", "mdetailed"}
 _MIN_PLAYBACK_SPEED = 0.5
 _MAX_PLAYBACK_SPEED = 2.5
 _ACTIVE_TEMPLATE_CHANGE_STATUSES = {"queued", "running"}
@@ -362,8 +364,14 @@ def _normalize_video_style(video_style: str | None) -> str:
     return style
 
 
-def _normalize_video_length(video_length: str | None) -> str:
-    """Normalize and validate video_length stored on Project."""
+def _normalize_video_length(video_length: str | None, user: User | None = None) -> str:
+    """Normalize and validate video_length stored on Project.
+
+    ``user`` gates the long options: "detailed" and "more detailed" require a
+    Pro or Standard subscription, so FREE users top out at "medium". Passed at
+    every project-creation/update entry point; omitted only where the value is
+    already-normalized data being re-read rather than user input.
+    """
     raw = (video_length or "").strip().lower()
     if not raw:
         return "auto"
@@ -379,6 +387,18 @@ def _normalize_video_length(video_length: str | None) -> str:
         raise HTTPException(
             status_code=422,
             detail="video_length must be one of: auto, short, medium, detailed, more detailed",
+        )
+    if (
+        raw in _PAID_ONLY_VIDEO_LENGTHS
+        and user is not None
+        and user.plan not in (PlanTier.PRO, PlanTier.STANDARD)
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "video_length_requires_paid",
+                "message": "Detailed and More detailed videos require a Pro or Standard subscription.",
+            },
         )
     return raw
 
@@ -938,7 +958,7 @@ def create_project(
         custom_voice_id=data.custom_voice_id or None,
         aspect_ratio=data.aspect_ratio or "landscape",
         video_style=normalized_video_style,
-        video_length=_normalize_video_length(getattr(data, "video_length", None)),
+        video_length=_normalize_video_length(getattr(data, "video_length", None), user),
         playback_speed=_normalize_playback_speed(getattr(data, "playback_speed", None)),
         content_language=normalize_preferred_language_code(data.content_language),
         bgm_track_id=getattr(data, "bgm_track_id", None) or None,
@@ -995,7 +1015,11 @@ def update_project(
         elif field == "content_language":
             update_data[field] = normalize_preferred_language_code(value) if value is not None else None
         elif field == "video_length":
-            update_data[field] = _normalize_video_length(value)
+            # Entitlement follows the OWNER, not the acting collaborator — same
+            # rule as the AI-edit/stock-footage gates, so a FREE collaborator on
+            # a PRO owner's project can still pick a long length (and vice versa).
+            from app.services.access import project_owner as _project_owner
+            update_data[field] = _normalize_video_length(value, _project_owner(project, db))
         elif field == "playback_speed":
             update_data[field] = _normalize_playback_speed(value)
         else:
@@ -2983,7 +3007,7 @@ def create_projects_bulk(
             custom_voice_id=data.custom_voice_id or None,
             aspect_ratio=data.aspect_ratio or "landscape",
             video_style=normalized_video_style,
-            video_length=_normalize_video_length(getattr(data, "video_length", None)),
+            video_length=_normalize_video_length(getattr(data, "video_length", None), user),
             playback_speed=_normalize_playback_speed(getattr(data, "playback_speed", None)),
             content_language=normalize_preferred_language_code(data.content_language),
             bgm_track_id=getattr(data, "bgm_track_id", None) or None,
@@ -3120,7 +3144,7 @@ def create_project_from_upload(
         custom_voice_id=custom_voice_id or None,
         aspect_ratio=aspect_ratio or "landscape",
         video_style=normalized_video_style,
-        video_length=_normalize_video_length(video_length),
+        video_length=_normalize_video_length(video_length, user),
         playback_speed=_normalize_playback_speed(None),
         content_language=normalize_preferred_language_code(content_language),
         bgm_track_id=bgm_track_id or None,

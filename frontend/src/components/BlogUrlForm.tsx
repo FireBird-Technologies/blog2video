@@ -251,6 +251,14 @@ const VIDEO_LENGTH_MIN_WORDS: Partial<Record<"short" | "medium" | "detailed" | "
   more_detailed: 2000,
 };
 
+/**
+ * Long-form lengths reserved for Pro/Standard; FREE users top out at "medium".
+ * Mirrors _PAID_ONLY_VIDEO_LENGTHS in backend/app/routers/projects.py, which
+ * rejects these with 403 `video_length_requires_paid` — this is the UI half of
+ * the same rule, not the enforcement.
+ */
+const PAID_ONLY_VIDEO_LENGTHS = new Set<string>(["detailed", "more_detailed"]);
+
 const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".pptx", ".md", ".markdown", ".txt", ".vtt"];
 const ALLOWED_TYPES = [
   "application/pdf",
@@ -796,7 +804,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
   const bulkLogoInputRef = useRef<HTMLInputElement>(null);
   const [bulkApplyLengthAll, setBulkApplyLengthAll] = useState(true);
   const [bulkLengthMasterIndex, setBulkLengthMasterIndex] = useState(0);
-  const [bulkStockFootage, setBulkStockFootage] = useState<boolean[]>([false]);
+  const [bulkStockFootage, setBulkStockFootage] = useState<boolean[]>([true]);
   const [bulkApplyStockAll, setBulkApplyStockAll] = useState(true);
   const [bulkStockMasterIndex, setBulkStockMasterIndex] = useState(0);
   const [bulkApplyTemplateAll, setBulkApplyTemplateAll] = useState(true);
@@ -905,7 +913,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
   // Stock footage at generation time: available on every plan and every
   // template (builtin, custom, crafted). Free users get a clip on a single
   // scene (the backend caps it), paid users on all image-capable scenes.
-  const [stockFootageEnabled, setStockFootageEnabled] = useState(false);
+  const [stockFootageEnabled, setStockFootageEnabled] = useState(true);
   const stockFootageAvailable = true;
   useEffect(() => {
     onExtraOptionsChange?.({ stockFootageEnabled: stockFootageAvailable && stockFootageEnabled });
@@ -1048,22 +1056,38 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
       </summary>
       <div className="absolute z-20 mt-1 w-full rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
         <div className="max-h-[18.5rem] overflow-y-auto py-1">
-          {(["short", "medium", "detailed", "more_detailed"] as const).map((opt) => (
+          {(["short", "medium", "detailed", "more_detailed"] as const).map((opt) => {
+            // Long-form lengths are Pro/Standard only — the backend rejects them
+            // with 403 video_length_requires_paid, so gate them here too rather
+            // than letting a free user pick an option that will fail on submit.
+            const locked = !isPro && PAID_ONLY_VIDEO_LENGTHS.has(opt);
+            return (
             <button
               key={opt}
               type="button"
+              disabled={locked}
+              title={locked ? "Requires a Pro or Standard subscription" : undefined}
               onClick={(e) => {
+                if (locked) return;
                 onSelect(opt);
                 const details = (e.currentTarget.closest("details") as HTMLDetailsElement | null);
                 details?.removeAttribute("open");
               }}
-              className={`w-full text-left px-3 py-2 text-sm hover:bg-purple-50 ${
-                value === opt ? "bg-purple-50 text-purple-700" : "text-gray-700"
+              className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between gap-2 ${
+                locked
+                  ? "text-gray-400 cursor-not-allowed"
+                  : `hover:bg-purple-50 ${value === opt ? "bg-purple-50 text-purple-700" : "text-gray-700"}`
               }`}
             >
-              {VIDEO_LENGTH_DURATION_LABELS[opt]}
+              <span>{VIDEO_LENGTH_DURATION_LABELS[opt]}</span>
+              {locked && (
+                <span className="shrink-0 px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 text-[10px] font-medium">
+                  Pro
+                </span>
+              )}
             </button>
-          ))}
+            );
+          })}
         </div>
       </div>
     </details>
@@ -1493,7 +1517,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
         setBulkCustomVoiceId((prev) => resizeTo(prev, n, ""));
         setBulkContentLanguage((prev) => resizeTo(prev, n, "auto"));
         setBulkVideoLength((prev) => resizeTo(prev, n, "short"));
-        setBulkStockFootage((prev) => resizeTo(prev, n, false));
+        setBulkStockFootage((prev) => resizeTo(prev, n, true));
         setBulkAspectRatio((prev) => resizeTo(prev, n, "landscape"));
         setBulkVideoStyles((prev) =>
           resizeTo(
@@ -1538,7 +1562,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
     setBulkContentLanguage((prev) => [...prev, "auto"]);
     setBulkVideoLength((prev) => [...prev, "short"]);
     setBulkStockFootage((prev) => {
-      const next = [...prev, bulkApplyStockAll ? (prev[bulkStockMasterIndex] ?? false) : false];
+      const next = [...prev, bulkApplyStockAll ? (prev[bulkStockMasterIndex] ?? true) : true];
       return next;
     });
     setBulkAspectRatio((prev) => [...prev, "landscape"]);
@@ -1716,7 +1740,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
       setBulkCustomVoiceId([]);
       setBulkContentLanguage(["auto"]);
       setBulkVideoLength(["short"]);
-      setBulkStockFootage([false]);
+      setBulkStockFootage([true]);
       setBulkAspectRatio(["landscape"]);
       setBulkVideoStyles([DEFAULT_VIDEO_STYLE]);
       setBulkAccentColors([""]);
