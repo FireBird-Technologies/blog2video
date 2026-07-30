@@ -3702,7 +3702,7 @@ export default function ProjectView() {
     const sceneId = stockSourceChooserSceneId;
     setStockSourceChooserSceneId(null);
     if (!canUseStockFootage) {
-      if (ownerBlocksProFeature) notifyOwnerBlocked();
+      if (ownerBlocksStockFootage) notifyOwnerBlocked("adding new stock footage");
       else setShowAiImageUpgradeModal(true);
       return;
     }
@@ -4064,9 +4064,14 @@ export default function ProjectView() {
   // A collaborator blocked by the owner's exhausted access can't fix it by upgrading
   // their own plan, so show the soft "Oops" warning instead of the self-upgrade modal.
   const ownerBlocksProFeature = useOwnerScopedAssets && !canUseAiImage;
-  const notifyOwnerBlocked = () =>
+  // Stock footage costs less than an AI image, so it has its own affordability
+  // check — an owner with 3-4 credits can afford a clip but not an image.
+  const ownerBlocksStockFootage = useOwnerScopedAssets && !canUseStockFootage;
+  // `feature` names what the collaborator was actually trying to do; passing the
+  // wrong one tells them AI image generation failed when they clicked stock footage.
+  const notifyOwnerBlocked = (feature = "AI image generation") =>
     showError(
-      "The project owner is out of AI edit credits, so AI image generation isn't available now. Ask the owner to buy more credits or upgrade.",
+      `The project owner is out of AI edit credits, so ${feature} isn't available now. Ask the owner to buy more credits or upgrade.`,
       { variant: "warning" },
     );
 
@@ -7894,7 +7899,7 @@ export default function ProjectView() {
               isCollaborator={useOwnerScopedAssets}
               creditsRemaining={aiImageCreditRemaining}
               ownerBlocked={ownerBlocksProFeature}
-              onOwnerBlocked={notifyOwnerBlocked}
+              onOwnerBlocked={() => notifyOwnerBlocked()}
               onClose={() => setImageGenModalSceneId(null)}
               onUpgrade={() => setShowAiImageUpgradeModal(true)}
               onUpgradeNow={() => navigate("/subscription")}
