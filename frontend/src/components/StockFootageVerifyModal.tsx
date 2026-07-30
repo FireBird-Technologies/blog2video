@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
+  type TouchEvent as ReactTouchEvent,
+} from "react";
 import ReactDOM from "react-dom";
 import {
   BACKEND_URL,
@@ -6,13 +15,26 @@ import {
   rejectStockFootage,
   getPendingStockFootage,
   linkStockFootage,
+  updateSceneImageFocus,
   uploadStockFootage,
   type PendingFootageScene,
   type StockClip,
 } from "../api/client";
 import { StockFootageModal } from "./StockFootageModal";
 import ConfirmDeleteModal from "./ConfirmDeleteModal";
+import { ImageAdjustStage } from "./ImageAdjustStage";
+import {
+  getImageBoxAspectRatio,
+  isImageBoxCircular,
+  normalizeLayoutId,
+} from "./remotion/imageBoxConfig";
+import { getTemplateConfig } from "./remotion/templateConfig";
 import { getSceneLayoutLabel } from "../utils/layoutLabels";
+import { TrimmedClipVideo } from "../utils/trimmedClipPlayback";
+
+const ZOOM_MIN = 0.1;
+const ZOOM_MAX = 8;
+const clampFocus = (v: number) => Math.max(0, Math.min(100, v));
 
 /**
  * Post-generation review gate: the video is fully generated (scenes +
@@ -31,11 +53,14 @@ import { getSceneLayoutLabel } from "../utils/layoutLabels";
 export function StockFootageVerifyModal({
   projectId,
   templateId,
+  projectAspectRatio,
   isPro = false,
   onResolved,
 }: {
   projectId: number;
   templateId?: string | null;
+  /** Drives the crop-window shape in the clip editor ("landscape" | "portrait"). */
+  projectAspectRatio?: string | null;
   /** Paid owners swap clips for free; free owners spend AI edits — drives the
    *  cost notice shown next to the "Change clip" action. */
   isPro?: boolean;
@@ -51,6 +76,64 @@ export function StockFootageVerifyModal({
   const [confirmRejectOpen, setConfirmRejectOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [swapping, setSwapping] = useState(false);
+
+  // ── Clip framing editor ────────────────────────────────────────────────────
+  // Same affordances as the editor's "Adjust clip" modal (pan, zoom, trim), but
+  // scoped to the scene under review and saved straight through the image-focus
+  // endpoint — there is no staged Save in this gate.
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [savingFraming, setSavingFraming] = useState(false);
+  const [focusX, setFocusX] = useState(50);
+  const [focusY, setFocusY] = useState(50);
+  const [zoom, setZoom] = useState(1);
+  const [startSeconds, setStartSeconds] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const cropWindowRef = useRef<HTMLDivElement | null>(null);
+  const focusRef = useRef({ x: 50, y: 50 });
+  const panRef = useRef<{
+    startX: number;
+    startY: number;
+    startFx: number;
+    startFy: number;
+  } | null>(null);
+
+  useEffect(() => {
+    focusRef.current = { x: focusX, y: focusY };
+  }, [focusX, focusY]);
+
+  // Open the editor scrolled to the BOTTOM so the zoom slider and trim bar are
+  // visible without hunting for them. Re-pins as the stage/filmstrip lay out
+  // (the scroll port is `flex-1`, so only its CONTENT changes size), and stops
+  // once the user scrolls away from the bottom themselves.
+  const editorScrollRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!editorOpen) return;
+    const el = editorScrollRef.current;
+    if (!el) return;
+    let pinned = true;
+    const SCROLL_BOTTOM_SLOP = 4;
+    const onScroll = () => {
+      pinned = el.scrollHeight - el.scrollTop - el.clientHeight <= SCROLL_BOTTOM_SLOP;
+    };
+    const pinToBottom = () => {
+      if (pinned) el.scrollTop = el.scrollHeight;
+    };
+    pinToBottom();
+    el.addEventListener("scroll", onScroll, { passive: true });
+    const ro = new ResizeObserver(pinToBottom);
+    ro.observe(el);
+    for (const child of Array.from(el.children)) ro.observe(child);
+    const raf1 = requestAnimationFrame(pinToBottom);
+    const raf2 = requestAnimationFrame(() => requestAnimationFrame(pinToBottom));
+    const timer = window.setTimeout(pinToBottom, 250);
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+      ro.disconnect();
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+      window.clearTimeout(timer);
+    };
+  }, [editorOpen]);
 
   const load = useCallback(async () => {
     try {
@@ -113,6 +196,157 @@ export function StockFootageVerifyModal({
       setLoadError(detail || "Could not replace that clip.");
     } finally {
       setSwapping(false);
+    }
+  };
+
+  /** Saved framing for the scene under review, applied to the preview so it
+   *  matches the render (and updates after an "Edit clip" save). Same math as
+   *  the scene editor's thumbnail. */
+  const previewFramingStyle = useMemo((): CSSProperties => {
+    const fx = clampFocus(Number(current?.image_focus_x ?? 50));
+    const fy = clampFocus(Number(current?.image_focus_y ?? 50));
+    const z = Math.max(ZOOM_MIN, Number(current?.image_zoom) || 1);
+    return {
+      objectFit: z < 1 ? "contain" : "cover",
+      objectPosition: z < 1 ? "center" : `${fx}% ${fy}%`,
+      transform: `scale(${z})`,
+      transformOrigin: z < 1 ? "center center" : `${fx}% ${fy}%`,
+    };
+  }, [current?.image_focus_x, current?.image_focus_y, current?.image_zoom]);
+
+  /** Crop-window shape for the scene being reviewed, matching the editor.
+   *  Custom templates carry their resolved ratio on the descriptor; everything
+   *  else is derived from the layout id. */
+  const cropAspectRatio = useMemo(() => {
+    const fromDescriptor = current?.image_box_aspect_ratio?.trim();
+    if (fromDescriptor) return fromDescriptor;
+    const cfg = getTemplateConfig(templateId || "default");
+    return getImageBoxAspectRatio(
+      current?.layout ? normalizeLayoutId(current.layout) : null,
+      projectAspectRatio || "landscape",
+      cfg.baseWidth,
+      cfg.baseHeight,
+    );
+  }, [
+    current?.image_box_aspect_ratio,
+    current?.layout,
+    projectAspectRatio,
+    templateId,
+  ]);
+
+  const cropCircular = useMemo(
+    () => isImageBoxCircular(current?.layout ?? null),
+    [current?.layout],
+  );
+
+  /** Seed the editor from whatever framing the scene already carries. */
+  const openEditor = () => {
+    if (!current) return;
+    setFocusX(clampFocus(Number(current.image_focus_x ?? 50)));
+    setFocusY(clampFocus(Number(current.image_focus_y ?? 50)));
+    setZoom(
+      Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Number(current.image_zoom) || 1)),
+    );
+    setStartSeconds(Math.max(0, Number(current.video_start_seconds) || 0));
+    setDragging(false);
+    panRef.current = null;
+    setEditorOpen(true);
+  };
+
+  const closeEditor = () => {
+    if (savingFraming) return;
+    setEditorOpen(false);
+    setDragging(false);
+    panRef.current = null;
+  };
+
+  const handlePanMouseDown = (e: ReactMouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    panRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startFx: focusRef.current.x,
+      startFy: focusRef.current.y,
+    };
+    setDragging(true);
+  };
+
+  const handlePanTouchStart = (e: ReactTouchEvent<HTMLDivElement>) => {
+    const touch = e.touches[0];
+    if (!touch) return;
+    panRef.current = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      startFx: focusRef.current.x,
+      startFy: focusRef.current.y,
+    };
+    setDragging(true);
+  };
+
+  // Drag-to-pan: focus moves opposite the cursor, as a percentage of the crop
+  // window, so the grabbed point tracks the pointer.
+  useEffect(() => {
+    if (!dragging || !editorOpen) return;
+    if (!panRef.current) return;
+
+    const applyPan = (clientX: number, clientY: number) => {
+      const el = cropWindowRef.current;
+      if (!el || !panRef.current) return;
+      const rect = el.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+      const { startX, startY, startFx, startFy } = panRef.current;
+      const dxPct = ((clientX - startX) / rect.width) * 100;
+      const dyPct = ((clientY - startY) / rect.height) * 100;
+      setFocusX(clampFocus(startFx - dxPct));
+      setFocusY(clampFocus(startFy - dyPct));
+    };
+
+    const onMouseMove = (e: MouseEvent) => applyPan(e.clientX, e.clientY);
+    const onTouchMove = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      if (!touch) return;
+      e.preventDefault();
+      applyPan(touch.clientX, touch.clientY);
+    };
+    const endPan = () => {
+      setDragging(false);
+      panRef.current = null;
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("mouseup", endPan);
+    window.addEventListener("touchend", endPan);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("mouseup", endPan);
+      window.removeEventListener("touchend", endPan);
+    };
+  }, [dragging, editorOpen]);
+
+  /** Persist framing + trim immediately — this gate has no staged Save. */
+  const handleSaveFraming = async () => {
+    if (!current) return;
+    setSavingFraming(true);
+    try {
+      await updateSceneImageFocus(
+        projectId,
+        current.scene_id,
+        clampFocus(focusX),
+        clampFocus(focusY),
+        Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom)),
+        startSeconds,
+      );
+      await load();
+      setEditorOpen(false);
+      setDragging(false);
+      panRef.current = null;
+    } catch (e) {
+      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setLoadError(detail || "Could not save the clip framing.");
+    } finally {
+      setSavingFraming(false);
     }
   };
 
@@ -206,15 +440,20 @@ export function StockFootageVerifyModal({
                     </div>
                   ) : null}
                   {clipUrl ? (
-                    <video
+                    <TrimmedClipVideo
                       key={clipUrl}
                       src={clipUrl}
                       muted
-                      loop
                       autoPlay
                       playsInline
                       preload="auto"
-                      className="w-full h-full object-cover"
+                      className="w-full h-full"
+                      // Mirror the saved framing + trim, so what's reviewed here
+                      // matches what renders (and reflects an "Edit clip" save).
+                      style={previewFramingStyle}
+                      clipDurationSeconds={current.clip?.duration_seconds ?? undefined}
+                      sceneDurationSeconds={Number(current.duration_seconds) || undefined}
+                      startSeconds={Math.max(0, Number(current.video_start_seconds) || 0)}
                     />
                   ) : fallbackImageUrl ? (
                     <>
@@ -234,21 +473,57 @@ export function StockFootageVerifyModal({
                       <span className="text-xs">Use “Change clip” to pick one</span>
                     </div>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => setPickerOpen(true)}
-                    disabled={swapping}
-                    className="absolute top-2 right-2 z-20 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/95 border border-white text-purple-700 text-xs font-medium shadow hover:bg-purple-600 hover:text-white transition-colors disabled:opacity-60"
-                    title="Change clip"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M16.5 3.964a2.5 2.5 0 113.536 3.536L7 20.5H3v-4L16.5 3.964z" />
-                    </svg>
-                    Change clip
-                  </button>
+                  <div className="absolute top-2 right-2 z-20 flex items-center gap-1.5">
+                    {clipUrl && (
+                      <button
+                        type="button"
+                        onClick={openEditor}
+                        disabled={swapping}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/95 border border-white text-purple-700 text-xs font-medium shadow hover:bg-purple-600 hover:text-white transition-colors disabled:opacity-60"
+                        title="Adjust framing and trim"
+                      >
+                        {/* Crop marks — matches the editor's adjust affordance. */}
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 2v14a2 2 0 002 2h14M2 6h14a2 2 0 012 2v14" />
+                        </svg>
+                        Edit clip
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setPickerOpen(true)}
+                      disabled={swapping}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/95 border border-white text-purple-700 text-xs font-medium shadow hover:bg-purple-600 hover:text-white transition-colors disabled:opacity-60"
+                      title="Change clip"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M16.5 3.964a2.5 2.5 0 113.536 3.536L7 20.5H3v-4L16.5 3.964z" />
+                      </svg>
+                      Change clip
+                    </button>
+                  </div>
                 </div>
 
-                {current.clip?.author && (
+                {/* Framing readout — mirrors the adjust modal, so the saved
+                    zoom/position/trim is visible without opening the editor. */}
+                {clipUrl && (
+                  <div className="mt-2 flex items-center justify-between gap-3 flex-wrap">
+                    <p className="text-[11px] text-gray-400">
+                      {current.clip?.author}
+                      {current.clip?.provider ? ` · ${current.clip.provider}` : ""}
+                    </p>
+                    <p className="text-[11px] text-gray-500 tabular-nums">
+                      Zoom {(Math.max(ZOOM_MIN, Number(current.image_zoom) || 1)).toFixed(2)}× · X{" "}
+                      {Math.round(clampFocus(Number(current.image_focus_x ?? 50)))}% · Y{" "}
+                      {Math.round(clampFocus(Number(current.image_focus_y ?? 50)))}%
+                      {Number(current.video_start_seconds) > 0
+                        ? ` · Starts at ${Number(current.video_start_seconds).toFixed(2)}s`
+                        : ""}
+                    </p>
+                  </div>
+                )}
+
+                {!clipUrl && current.clip?.author && (
                   <p className="mt-2 text-[11px] text-gray-400">
                     {current.clip.author}
                     {current.clip.provider ? ` · ${current.clip.provider}` : ""}
@@ -316,7 +591,7 @@ export function StockFootageVerifyModal({
                 disabled={approving || swapping || rejecting}
                 className="px-4 py-2 rounded-lg border border-red-300 text-red-600 text-sm font-medium hover:bg-red-50 transition-colors disabled:opacity-60"
               >
-                {rejecting ? "Reverting…" : "Reject all — use images instead"}
+                {rejecting ? "Reverting…" : "Reject all"}
               </button>
               <button
                 type="button"
@@ -353,6 +628,126 @@ export function StockFootageVerifyModal({
           onClose={() => setPickerOpen(false)}
           onSelect={handleSwap}
         />
+      )}
+
+      {/* Clip framing + trim editor. Above z-[140] so it isn't hidden by the
+          review modal underneath. */}
+      {editorOpen && current && clipUrl && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-3 sm:p-4">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={closeEditor}
+          />
+          <div className="relative w-full max-w-3xl max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-2rem)] flex flex-col rounded-2xl bg-white shadow-2xl overflow-hidden min-h-0">
+            <div className="shrink-0 px-4 py-3 sm:px-5 sm:py-4 border-b border-gray-200 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900">
+                  Edit clip
+                </h3>
+                <p className="text-xs text-gray-500 mt-0.5 leading-snug">
+                  Drag to pan when zoomed in. Use the slider to zoom, and the bar
+                  below to pick which part of the clip plays.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeEditor}
+                disabled={savingFraming}
+                className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors disabled:opacity-50"
+                title="Close"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div ref={editorScrollRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-gray-50">
+              <div className="p-4 sm:p-5">
+                <ImageAdjustStage
+                  src={clipUrl}
+                  isVideo
+                  focusX={focusX}
+                  focusY={focusY}
+                  zoom={zoom}
+                  aspectRatio={cropAspectRatio}
+                  circular={cropCircular}
+                  dragging={dragging}
+                  onMouseDown={handlePanMouseDown}
+                  onTouchStart={handlePanTouchStart}
+                  windowRef={cropWindowRef}
+                  clipDurationSeconds={current.clip?.duration_seconds ?? undefined}
+                  sceneDurationSeconds={Number(current.duration_seconds) || undefined}
+                  startSeconds={startSeconds}
+                  onStartChange={setStartSeconds}
+                />
+
+                <div className="mt-4 flex flex-col gap-2 max-w-2xl mx-auto w-full">
+                  <label className="flex items-center gap-3 text-sm text-gray-700">
+                    <span className="w-14 shrink-0 tabular-nums">Zoom</span>
+                    <input
+                      type="range"
+                      min={ZOOM_MIN}
+                      max={ZOOM_MAX}
+                      step={0.05}
+                      value={zoom}
+                      onChange={(e) =>
+                        setZoom(
+                          Math.min(
+                            ZOOM_MAX,
+                            Math.max(ZOOM_MIN, Number(e.target.value)),
+                          ),
+                        )
+                      }
+                      className="flex-1 min-w-0 h-1 w-full cursor-pointer appearance-none accent-purple-600 [&::-webkit-slider-runnable-track]:h-0.5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-gray-200 [&::-webkit-slider-thumb]:-mt-1 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-purple-600 [&::-moz-range-track]:h-0.5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-gray-200 [&::-moz-range-thumb]:h-2.5 [&::-moz-range-thumb]:w-2.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-purple-600"
+                    />
+                    <span className="w-12 text-right text-xs text-gray-500 tabular-nums">
+                      {zoom.toFixed(2)}×
+                    </span>
+                  </label>
+                </div>
+
+                <div className="mt-3 text-xs text-gray-500 text-center tabular-nums">
+                  Position: X {Math.round(focusX)}% · Y {Math.round(focusY)}% · Zoom{" "}
+                  {zoom.toFixed(2)}×
+                  {startSeconds > 0 ? ` · Starts at ${startSeconds.toFixed(2)}s` : ""}
+                </div>
+              </div>
+            </div>
+
+            <div className="shrink-0 px-4 py-3 sm:px-5 sm:py-4 border-t border-gray-200 flex items-center justify-end gap-2 bg-white">
+              <button
+                type="button"
+                onClick={() => {
+                  setFocusX(50);
+                  setFocusY(50);
+                  setZoom(1);
+                  setStartSeconds(0);
+                }}
+                disabled={savingFraming}
+                className="mr-auto px-3 py-2 rounded-lg border border-gray-300 text-gray-600 text-sm hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Reset
+              </button>
+              <button
+                type="button"
+                onClick={closeEditor}
+                disabled={savingFraming}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-600 text-sm hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveFraming}
+                disabled={savingFraming}
+                className="px-4 py-2 rounded-lg bg-purple-600 text-white text-sm font-medium hover:bg-purple-700 transition-colors disabled:opacity-60"
+              >
+                {savingFraming ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>,
     document.body,

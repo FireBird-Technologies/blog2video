@@ -1,4 +1,5 @@
 import {
+  forwardRef as reactForwardRef,
   useCallback,
   useEffect,
   useMemo,
@@ -142,24 +143,28 @@ export function useTrimmedClipVideoRef(
   return attach;
 }
 
-/** `<video>` that loops only the scene's trimmed `[start, start + sceneDur)` window. */
-export function TrimmedClipVideo({
-  clipDurationSeconds,
-  sceneDurationSeconds,
-  startSeconds,
-  ref: forwardRef,
-  loop: _loop,
-  ...rest
-}: VideoHTMLAttributes<HTMLVideoElement> & {
-  clipDurationSeconds?: number;
-  sceneDurationSeconds?: number;
-  startSeconds?: number;
-  ref?: Ref<HTMLVideoElement | null>;
-}) {
-  const attachRef = useTrimmedClipVideoRef(forwardRef, {
-    clipDurationSeconds,
-    sceneDurationSeconds,
-    startSeconds,
-  });
+/** `<video>` that loops only the scene's trimmed `[start, start + sceneDur)` window.
+ *
+ * Uses `React.forwardRef` rather than reading `ref` out of props: on React 18
+ * `ref` is a reserved prop that never reaches the component, so destructuring it
+ * yields `undefined` (React logs "`ref` is not a prop") and every caller's ref
+ * stays null. That silently breaks callers which drive playback imperatively —
+ * ImageAdjustStage, SceneEditModal and ProjectView all pass one.
+ */
+export const TrimmedClipVideo = reactForwardRef<
+  HTMLVideoElement,
+  VideoHTMLAttributes<HTMLVideoElement> & {
+    clipDurationSeconds?: number;
+    sceneDurationSeconds?: number;
+    startSeconds?: number;
+  }
+>(function TrimmedClipVideo(
+  { clipDurationSeconds, sceneDurationSeconds, startSeconds, loop: _loop, ...rest },
+  forwardedRef,
+) {
+  const attachRef = useTrimmedClipVideoRef(
+    forwardedRef as Ref<HTMLVideoElement | null>,
+    { clipDurationSeconds, sceneDurationSeconds, startSeconds },
+  );
   return <video ref={attachRef} playsInline {...rest} />;
-}
+});

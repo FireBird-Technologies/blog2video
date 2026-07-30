@@ -1486,12 +1486,17 @@ export const updateSceneImageFocus = (
   sceneId: number,
   imageFocusX: number,
   imageFocusY: number,
-  imageZoom?: number
+  imageZoom?: number,
+  /** Clip trim offset; only applied when the scene carries a stock clip. */
+  videoStartSeconds?: number
 ) =>
   api.patch<Scene>(`/projects/${projectId}/scenes/${sceneId}/image-focus`, {
     image_focus_x: imageFocusX,
     image_focus_y: imageFocusY,
     ...(imageZoom !== undefined ? { image_zoom: imageZoom } : {}),
+    ...(videoStartSeconds !== undefined
+      ? { video_start_seconds: videoStartSeconds }
+      : {}),
   });
 
 export const moveSceneImage = (
@@ -1591,6 +1596,14 @@ export interface PendingFootageScene {
   title: string;
   scene_type: string | null;
   layout: string | null;
+  /** Scene length + saved framing, used to seed the review gate's clip editor. */
+  duration_seconds?: number | null;
+  image_focus_x?: number | null;
+  image_focus_y?: number | null;
+  image_zoom?: number | null;
+  video_start_seconds?: number | null;
+  /** Set for custom templates, where the box ratio can't be derived from layout. */
+  image_box_aspect_ratio?: string | null;
   clip: {
     filename: string;
     url: string;

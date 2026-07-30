@@ -844,6 +844,44 @@ def write_remotion_data(
             continue
         video_scene_indices.add(i)
 
+    # Clips outrank images for the visual slot. A full descriptor rebuild (script
+    # regeneration / template change) produces a brand-new scene sequence, so a
+    # clip the project already owns can end up referenced by nothing while other
+    # scenes sit empty. Those clips are already paid for and CFR-30 transcoded, so
+    # hand them out here — BEFORE any image step — rather than filling the slot
+    # with a still and leaving the clip stranded.
+    if scenes and all_video_files:
+        placed_videos = {
+            scene_layout_props[i].get("assignedVideo") for i in video_scene_indices
+        }
+        spare_videos = [fn for fn in all_video_files if fn not in placed_videos]
+        if spare_videos:
+            # Deterministic order so repeated runs land the same way. Assets are
+            # named scene_<id>_<ts>, so this keeps original capture order.
+            spare_videos.sort()
+            open_slots = [
+                i
+                for i in range(len(scenes))
+                if i not in video_scene_indices
+                and scene_layouts[i] not in no_image_layouts
+                and not scene_layout_props[i].get("hideImage")
+            ]
+            for idx, filename in zip(open_slots, spare_videos):
+                lp = scene_layout_props[idx]
+                lp["assignedVideo"] = filename
+                # A clip and a still are mutually exclusive in one slot.
+                lp.pop("assignedImage", None)
+                lp.pop("hideImage", None)
+                lp.setdefault("videoMuted", True)
+                lp.setdefault("videoVolume", 0.35)
+                video_scene_indices.add(idx)
+                dirty.add(idx)
+            if open_slots and spare_videos:
+                logger.info(
+                    "[REMOTION] project=%s: placed %s unreferenced clip(s) ahead of images",
+                    project.id, min(len(open_slots), len(spare_videos)),
+                )
+
     if all_image_files and scenes:
         # Build scene_id -> index lookup before classifying scene-specific files.
         # In redistribution mode, files named for deleted old scene ids should

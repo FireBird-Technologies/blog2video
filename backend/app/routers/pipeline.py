@@ -461,6 +461,18 @@ def get_pending_stock_footage(
                 "title": s.title,
                 "scene_type": getattr(s, "scene_type", None),
                 "layout": layout or None,
+                # Scene length + saved framing, so the review gate's "Edit" can
+                # seed the adjust stage (and size the clip trim window) without a
+                # second round-trip for the full scene.
+                "duration_seconds": s.duration_seconds,
+                "image_focus_x": lp.get("imageFocusX"),
+                "image_focus_y": lp.get("imageFocusY"),
+                "image_zoom": lp.get("imageZoom"),
+                "video_start_seconds": lp.get("videoStartSeconds"),
+                # Custom templates carry their resolved image-box ratio on the
+                # descriptor (written during render); builtin/crafted layouts are
+                # looked up client-side from the layout id.
+                "image_box_aspect_ratio": lp.get("imageBoxAspectRatio"),
                 "clip": (
                     {
                         "filename": asset.filename,
@@ -2749,6 +2761,9 @@ async def _generate_scenes(
     db.commit()
     logger.info("[PIPELINE] All %s scene descriptors committed to DB", len(scenes))
 
+    # Re-apply clips the project already owns, BEFORE the fill step below — that
+    # step skips scenes which already carry `assignedVideo`, so restoring first is
+    # what stops a re-fetch. Runs regardless of `preserve_image_assignments`.
     # Scenes that resolved to an image-capable layout after the script-stage gate
     # (e.g. economist chart_line → leader_article fallback) still need a clip.
     if getattr(project, "stock_footage_enabled", False):
@@ -2780,17 +2795,14 @@ async def _generate_scenes(
     # run unattended: stamp the approval marker so a later re-entrant call to
     # _generate_scenes (e.g. an edit job) doesn't try to re-fetch clips that
     # were already resolved.
-    _reviewed = (
-        bool(getattr(project, "stock_footage_enabled", False))
-        and not bool(getattr(project, "is_bulk", False))
-    )
-    if _reviewed:
-        project.status = ProjectStatus.AWAITING_STOCK_FOOTAGE_REVIEW
-    else:
-        if getattr(project, "stock_footage_enabled", False):
-            from datetime import datetime as _dt
-            project.stock_footage_approved_at = _dt.utcnow()
-        project.status = ProjectStatus.GENERATED
+    # Auto-picked clips are accepted as-is: generation runs straight through to
+    # GENERATED with no interactive review. The approval marker is still stamped
+    # so a later re-entrant _generate_scenes (e.g. an edit job) treats the clips
+    # as already resolved. Users change or remove a clip per scene in the editor.
+    if getattr(project, "stock_footage_enabled", False):
+        from datetime import datetime as _dt
+        project.stock_footage_approved_at = _dt.utcnow()
+    project.status = ProjectStatus.GENERATED
     user = db.query(User).filter(User.id == project.user_id).first()
     db.commit()
     db.refresh(project)
