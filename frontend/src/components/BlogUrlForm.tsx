@@ -2327,20 +2327,25 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
 
           <div>
             {/* Estimated duration + stock footage side by side in one row. */}
-            <div className={`grid gap-2 items-start ${stockFootageAvailable ? "grid-cols-2" : "grid-cols-1"}`}>
-              <div>
+            {/* items-stretch + h-full on each column: the duration label can wrap
+                to two lines while the checkbox stays one, so sizing each column
+                to its own content leaves the two pills visibly different heights. */}
+            <div className={`grid gap-2 items-stretch ${stockFootageAvailable ? "grid-cols-2" : "grid-cols-1"}`}>
+              <div className="flex flex-col h-full">
                 <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
                   Estimated duration
                 </label>
-                {renderVideoLengthDropdown(videoLength, setVideoLength)}
+                <div className="flex flex-1 flex-col [&>details]:flex-1 [&>details>summary]:h-full">
+                  {renderVideoLengthDropdown(videoLength, setVideoLength)}
+                </div>
               </div>
 
               {stockFootageAvailable && (
-                <div>
+                <div className="flex flex-col h-full">
                   <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
                     Use stock footage
                   </label>
-                  <label className="flex items-center gap-2.5 cursor-pointer select-none p-3 rounded-xl bg-gray-50/60 border border-gray-200/60 hover:border-purple-300/60 transition-all">
+                  <label className="flex flex-1 items-center gap-2.5 cursor-pointer select-none p-3 rounded-xl bg-white border border-gray-200 hover:border-purple-300/60 transition-all">
                     <input
                       type="checkbox"
                       checked={stockFootageEnabled}

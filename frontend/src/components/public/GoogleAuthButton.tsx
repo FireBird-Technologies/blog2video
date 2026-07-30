@@ -11,6 +11,12 @@ interface GoogleAuthButtonProps {
   onError: () => void;
   text?: "signin_with" | "signup_with" | "continue_with";
   width?: string;
+  /**
+   * Fired when the in-app-browser escape instructions are shown or hidden.
+   * Lets a parent avoid stacking its own advisory next to this (more urgent,
+   * sign-in-blocking) warning. Optional — most call sites don't care.
+   */
+  onInstructionsVisibleChange?: (visible: boolean) => void;
 }
 
 export default function GoogleAuthButton({
@@ -18,6 +24,7 @@ export default function GoogleAuthButton({
   onError,
   text = "continue_with",
   width = "300",
+  onInstructionsVisibleChange,
 }: GoogleAuthButtonProps) {
   const [mounted, setMounted] = useState(false);
   const [inApp, setInApp] = useState(false);
@@ -28,6 +35,13 @@ export default function GoogleAuthButton({
     setMounted(true);
     setInApp(detectInAppBrowser().isInApp);
   }, []);
+
+  // Keep the parent in sync, and report "hidden" on unmount so a suppressed
+  // sibling warning comes back if this button goes away.
+  useEffect(() => {
+    onInstructionsVisibleChange?.(showInstructions);
+    return () => onInstructionsVisibleChange?.(false);
+  }, [showInstructions, onInstructionsVisibleChange]);
 
   if (!mounted) {
     return (
