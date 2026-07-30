@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import ReactDOM from "react-dom";
 import { useAuth } from "../hooks/useAuth";
+import useJustLoggedIn from "../hooks/useJustLoggedIn";
 import DesignerTemplateRequestModal from "./DesignerTemplateRequestModal";
 
 /**
@@ -10,12 +11,10 @@ import DesignerTemplateRequestModal from "./DesignerTemplateRequestModal";
  * DesignerTemplateRequestModal form.
  *
  * Shown on every real login (fresh sign-in / logout→login) but NOT on page reloads.
- * `login()` in useAuth sets the `b2v_just_logged_in` flag; a reload restores the
- * session via setUser without calling login(), so the flag is absent and the popup
- * stays closed. We consume the flag on show so it fires exactly once per login.
+ * The `useJustLoggedIn` hook owns that distinction (and the reading/consuming of
+ * the underlying session flag), so several login-only surfaces can coexist
+ * without racing each other over who deletes it first.
  */
-const JUST_LOGGED_IN_KEY = "b2v_just_logged_in";
-
 const PERKS = [
   "Our in-house design team crafts a bespoke template around your fonts, logo, colors & brand",
   "Save $500+ in editing costs on every video — one template, endless polished results",
@@ -25,6 +24,7 @@ const PERKS = [
 
 export default function MarketingDesignerPopup() {
   const { user } = useAuth();
+  const justLoggedIn = useJustLoggedIn();
 
   const [show, setShow] = useState(false);
   const [requestOpen, setRequestOpen] = useState(false);
@@ -32,16 +32,11 @@ export default function MarketingDesignerPopup() {
   useEffect(() => {
     if (!user) return;
     // Only fire on a real login event, not on session-restore/reload.
-    if (sessionStorage.getItem(JUST_LOGGED_IN_KEY) !== "1") return;
-
-    const isPaid = user.plan === "pro" || user.plan === "standard";
-    // Consume the flag regardless of plan so a free→paid change within the same
-    // tab session doesn't surface it on a later reload.
-    sessionStorage.removeItem(JUST_LOGGED_IN_KEY);
-    if (!isPaid) return;
+    if (!justLoggedIn) return;
+    if (user.plan !== "pro" && user.plan !== "standard") return;
 
     setShow(true);
-  }, [user]);
+  }, [user, justLoggedIn]);
 
   useEffect(() => {
     if (!show) return;
