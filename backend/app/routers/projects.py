@@ -850,6 +850,30 @@ def _run_project_template_change_job(job_id: int) -> None:
         project.r2_video_url = None
         db.commit()
 
+        # Re-run visual assignment against the NEW template. The descriptors were
+        # rebuilt above with empty layoutProps, so this is what actually fills each
+        # scene's visual slot — clips the project already owns first, then images
+        # (see the clip-first pass in write_remotion_data). Must run AFTER
+        # project.template flips so it uses the target template's layout rules.
+        try:
+            from app.services.remotion import write_remotion_data
+
+            fresh_scenes = (
+                db.query(Scene)
+                .filter(Scene.project_id == project.id, Scene.is_active.is_(True))
+                .order_by(Scene.order)
+                .all()
+            )
+            write_remotion_data(project, fresh_scenes, db, redistribute_images=True)
+            db.commit()
+        except Exception:
+            # Non-fatal: the template change itself succeeded. The workspace is
+            # rewritten on the next render anyway.
+            logger.warning(
+                "[PROJECT_TEMPLATE_CHANGE] job=%s: visual reassignment failed", job_id,
+                exc_info=True,
+            )
+
         # Only finalize if a reaper hasn't already claimed (failed) this job.
         finalized = db.execute(
             update(ProjectTemplateChangeJob)
@@ -3693,6 +3717,9 @@ class SceneImageFocusUpdate(BaseModel):
     image_focus_x: float = Field(default=50, ge=0, le=100)
     image_focus_y: float = Field(default=50, ge=0, le=100)
     image_zoom: float | None = Field(default=None, ge=0.1, le=12)
+    # Clip trim offset. Only meaningful when the scene carries a stock clip;
+    # 0 (or None) clears it so the clip plays from its start.
+    video_start_seconds: float | None = Field(default=None, ge=0)
 
 
 class SceneImageMoveRequest(BaseModel):
@@ -4676,6 +4703,13 @@ def update_scene_image_focus(
     lp["imageFocusY"] = _clamp_image_focus(data.image_focus_y)
     if data.image_zoom is not None:
         lp["imageZoom"] = _clamp_image_zoom(data.image_zoom)
+    # Clip trim travels with the framing, but only for a scene that has a clip —
+    # writing it onto a still would leave a field the renderer ignores.
+    if data.video_start_seconds is not None and lp.get("assignedVideo"):
+        if data.video_start_seconds > 0:
+            lp["videoStartSeconds"] = round(data.video_start_seconds, 2)
+        else:
+            lp.pop("videoStartSeconds", None)
     scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(descriptor))
     db.commit()
     db.refresh(scene)

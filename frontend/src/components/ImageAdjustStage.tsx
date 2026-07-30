@@ -365,7 +365,7 @@ export function ImageAdjustStage({
     {showTrim && (
       <div className="mx-auto mt-3" style={{ maxWidth: "min(100%, 44rem)" }}>
         <div className="flex items-center justify-between mb-1.5">
-          <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+          <span className="text-[11px] font-bold text-black-400 uppercase tracking-wider mb-1 mt-2">
             Clip trim
           </span>
           <span className="text-[11px] text-gray-400 tabular-nums">
