@@ -5,10 +5,16 @@ import {
   createCustomTemplateCheckout,
 } from "../api/client";
 import {
+  LITE_MONTHLY_PRICE,
+  LITE_ANNUAL_MONTHLY_PRICE,
+  LITE_CUSTOM_TEMPLATE_COUNT,
+  LITE_AI_EDIT_ALLOWANCE,
   STANDARD_MONTHLY_PRICE,
   STANDARD_ANNUAL_MONTHLY_PRICE,
+  STANDARD_AI_EDIT_ALLOWANCE,
   PRO_MONTHLY_PRICE,
   PRO_ANNUAL_MONTHLY_PRICE,
+  PRO_AI_EDIT_ALLOWANCE,
   STANDARD_CUSTOM_TEMPLATE_COUNT,
   PRO_CUSTOM_TEMPLATE_COUNT,
 } from "../content/pricingContent";
@@ -28,8 +34,9 @@ interface Props {
  *
  * Unlike the general UpgradePlanModal, this is purpose-built for the templates
  * tab: it shows only the plans that are an actual step up for the current user
- * (free → Standard + Pro, standard → Pro, pro → none) plus a one-off $5 slot
- * that's always available. No per-video card, and it fits without scrolling.
+ * (free → Lite + Standard + Pro, lite → Standard + Pro, standard → Pro, pro → none)
+ * plus a one-off $5 slot that's always available. No per-video card, and it fits
+ * without scrolling.
  */
 export default function CustomTemplateLimitModal({
   open,
@@ -49,10 +56,11 @@ export default function CustomTemplateLimitModal({
   if (!open) return null;
 
   const plan = user?.plan ?? "free";
-  const showStandard = plan === "free";
-  const showPro = plan === "free" || plan === "standard";
+  const showLite = plan === "free";
+  const showStandard = plan === "free" || plan === "lite";
+  const showPro = plan !== "pro";
 
-  const handleSubscribe = async (target: "standard" | "pro") => {
+  const handleSubscribe = async (target: "lite" | "standard" | "pro") => {
     if (!user) {
       window.location.href = "/pricing";
       return;
@@ -85,15 +93,19 @@ export default function CustomTemplateLimitModal({
 
   const clampQty = (n: number) => Math.max(SLOT_MIN, Math.min(n, SLOT_MAX));
 
-  const planCards = (showStandard ? 1 : 0) + (showPro ? 1 : 0);
-  // 2 cards → 2 cols, 1 card → 1 col (keeps it from stretching edge-to-edge).
-  const gridCols = planCards >= 2 ? "sm:grid-cols-2" : "sm:grid-cols-1 sm:max-w-sm sm:mx-auto";
+  const planCards = (showLite ? 1 : 0) + (showStandard ? 1 : 0) + (showPro ? 1 : 0);
+  const gridCols =
+    planCards >= 3
+      ? "sm:grid-cols-3"
+      : planCards >= 2
+        ? "sm:grid-cols-2"
+        : "sm:grid-cols-1 sm:max-w-sm sm:mx-auto";
 
   return ReactDOM.createPortal(
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div
-        className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+        className="relative bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-6">
@@ -141,6 +153,22 @@ export default function CustomTemplateLimitModal({
               </div>
 
               <div className={`grid grid-cols-1 ${gridCols} gap-4 mt-5`}>
+                {showLite && (
+                  <PlanCard
+                    name="Lite"
+                    blurb={`${LITE_CUSTOM_TEMPLATE_COUNT} custom templates`}
+                    monthly={LITE_MONTHLY_PRICE}
+                    annualMonthly={LITE_ANNUAL_MONTHLY_PRICE}
+                    billingCycle={billingCycle}
+                    templateCount={LITE_CUSTOM_TEMPLATE_COUNT}
+                    videoCount={10}
+                    aiEditLine={`${LITE_AI_EDIT_ALLOWANCE} AI edit credits/month`}
+                    cta="Upgrade to Lite"
+                    loading={loadingPlan === "lite"}
+                    disabled={!!loadingPlan}
+                    onClick={() => handleSubscribe("lite")}
+                  />
+                )}
                 {showStandard && (
                   <PlanCard
                     name="Standard"
@@ -150,6 +178,7 @@ export default function CustomTemplateLimitModal({
                     billingCycle={billingCycle}
                     templateCount={STANDARD_CUSTOM_TEMPLATE_COUNT}
                     videoCount={30}
+                    aiEditLine={`${STANDARD_AI_EDIT_ALLOWANCE} AI edit credits/month`}
                     cta="Upgrade to Standard"
                     loading={loadingPlan === "standard"}
                     disabled={!!loadingPlan}
@@ -165,6 +194,7 @@ export default function CustomTemplateLimitModal({
                     billingCycle={billingCycle}
                     templateCount={PRO_CUSTOM_TEMPLATE_COUNT}
                     videoCount={100}
+                    aiEditLine={`${PRO_AI_EDIT_ALLOWANCE} AI edit credits/month`}
                     cta="Upgrade to Pro"
                     highlight
                     loading={loadingPlan === "pro"}
@@ -259,6 +289,7 @@ function PlanCard({
   billingCycle,
   templateCount,
   videoCount,
+  aiEditLine,
   cta,
   highlight,
   loading,
@@ -272,6 +303,7 @@ function PlanCard({
   billingCycle: "monthly" | "annual";
   templateCount: number;
   videoCount: number;
+  aiEditLine?: string;
   cta: string;
   highlight?: boolean;
   loading: boolean;
@@ -304,7 +336,7 @@ function PlanCard({
       <ul className="space-y-2 mb-5 flex-1 text-xs text-gray-500">
         <li className="flex items-start gap-2"><CheckMark /><span className="font-medium text-gray-700">{templateCount} custom video templates</span></li>
         <li className="flex items-start gap-2"><CheckMark />{videoCount} videos / month</li>
-        <li className="flex items-start gap-2"><CheckMark />Unlimited AI edit & image generation</li>
+        <li className="flex items-start gap-2"><CheckMark />{aiEditLine}</li>
         <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
         <li className="flex items-start gap-2"><CheckMark />Priority support</li>
       </ul>

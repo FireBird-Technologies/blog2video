@@ -138,7 +138,7 @@ Project settings:
 
 == VOICE SETTINGS ==
 
-Choose voice gender (Female/Male/None) and pick from prebuilt ElevenLabs voices during project creation. To use a voice clone: go to Dashboard → Voices → "Create custom voice", upload an audio or video sample (about 2 minutes). Your clone appears in the voice picker. Voice cloning is available on Pro and Standard plans.
+Choose voice gender (Female/Male/None) and pick from prebuilt ElevenLabs voices during project creation. To use a voice clone: go to Dashboard → Voices → "Create custom voice", upload an audio or video sample (about 2 minutes). Your clone appears in the voice picker. Voice cloning is available on Lite, Standard, and Pro plans.
 
 Playback speed: In the video preview, use the speed control to choose 0.5×, 1×, 1.5×, 2×, or 2.5×.
 
@@ -227,7 +227,7 @@ Free plan: 6 AI-assisted scene edits, shared across all your projects. An edit c
 
 Regenerating a scene's voiceover costs 5 edits; every other AI edit (layout change, text rewrite) costs 1.
 
-Pro and Standard plans: Unlimited AI-assisted edits.
+Paid plans get a monthly AI-edit allowance on top of the purchased pool: Lite 300, Standard 2000, Pro 5000 credits/month.
 
 Note: Manual edits (typing directly into fields) do not count toward the AI edit limit. Only clicks on the "Regenerate" button in AI mode use a credit.
 
@@ -407,7 +407,7 @@ Note: Converting aspect ratio does not change the content — it adjusts how the
 
 == AI CHAT PANEL ==
 
-The AI Chat panel is a Pro and Standard feature that lets you make edits using natural language instructions instead of editing scenes one by one.
+The AI Chat panel is a Lite, Standard, and Pro feature that lets you make edits using natural language instructions instead of editing scenes one by one.
 
 How to use:
 - Open the AI Chat panel (the chat icon or "AI Chat" tab in the sidebar).
@@ -419,7 +419,7 @@ How to use:
 - Click Send. The AI processes your instruction and applies edits across the relevant scenes.
 - The chat history shows your previous instructions and their outcomes.
 
-Gating: If you are on the free plan, the chat input is replaced by an upgrade prompt. Upgrade to Pro or Standard to unlock the AI Chat panel.
+Gating: If you are on the free plan, the chat input is replaced by an upgrade prompt. Upgrade to Lite, Standard, or Pro to unlock the AI Chat panel.
 
 == SCRIPT TAB ==
 

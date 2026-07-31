@@ -15,7 +15,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app.auth import get_current_user
-from app.models.user import PlanTier, User
+from app.models.user import PAID_TIERS, User
 from app.services.voiceover import synthesize_voice_preview
 
 logger = logging.getLogger(__name__)
@@ -58,8 +58,8 @@ class VoicePreviewIn(BaseModel):
 @router.post("/preview")
 def preview_voice(data: VoicePreviewIn, user: User = Depends(get_current_user)) -> StreamingResponse:
     """Return a short mp3 sample synthesized with the given voice + tuning. Paid + rate-limited."""
-    if user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
-        raise HTTPException(status_code=403, detail="Voice preview requires a Pro or Standard subscription.")
+    if user.plan not in PAID_TIERS:
+        raise HTTPException(status_code=403, detail="Voice preview requires a paid subscription.")
     if (data.voice_gender or "female") == "none":
         raise HTTPException(status_code=400, detail="Select a voice to preview.")
 

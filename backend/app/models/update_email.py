@@ -10,7 +10,7 @@ class UpdateEmail(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     subject: Mapped[str] = mapped_column(String(500), nullable=False)
     body: Mapped[str] = mapped_column(Text, nullable=False)
-    # "all" | "free" | "paid" | "standard" | "pro"
+    # "all" | "free" | "paid" | "lite" | "standard" | "pro"
     user_filter: Mapped[str] = mapped_column(String(20), default="all")
     batch_size: Mapped[int] = mapped_column(Integer, default=50)
     # UTC hour (0-23) to run the daily batch; -1 means use settings default

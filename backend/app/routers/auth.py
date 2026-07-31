@@ -12,7 +12,7 @@ from google.auth.transport import requests as google_requests
 
 from app.config import settings
 from app.database import get_db
-from app.models.user import User, PlanTier, FREE_TIER_INCLUDED_VIDEOS, FREE_TIER_CUSTOM_TEMPLATES, FREE_AI_EDIT_CREDITS
+from app.models.user import User, PlanTier, PAID_TIERS, FREE_TIER_INCLUDED_VIDEOS, FREE_TIER_CUSTOM_TEMPLATES, FREE_AI_EDIT_CREDITS
 from app.models.project import Project
 from app.models.subscription import Subscription
 from app.auth import create_access_token, get_current_user
@@ -46,6 +46,7 @@ class UserOut(BaseModel):
     video_limit: int
     can_create_video: bool
     ai_edit_credits: int = 0
+    ai_edit_allowance_remaining: int = 0
     custom_templates_created: int = 0
     custom_template_limit: int = 0
     can_create_custom_template: bool = True
@@ -255,6 +256,7 @@ def google_login(
             video_limit=user.video_limit,
             can_create_video=user.can_create_video,
             ai_edit_credits=user.ai_edit_credits or 0,
+            ai_edit_allowance_remaining=user.ai_edit_allowance_remaining,
             custom_templates_created=user.custom_templates_created,
             custom_template_limit=user.custom_template_limit,
             can_create_custom_template=user.can_create_custom_template,
@@ -277,6 +279,7 @@ def get_me(user: User = Depends(get_current_user)):
         video_limit=user.video_limit,
         can_create_video=user.can_create_video,
         ai_edit_credits=user.ai_edit_credits or 0,
+        ai_edit_allowance_remaining=user.ai_edit_allowance_remaining,
         custom_templates_created=user.custom_templates_created,
         custom_template_limit=user.custom_template_limit,
         can_create_custom_template=user.can_create_custom_template,
@@ -359,7 +362,7 @@ def delete_account(
         db.query(CustomTemplate).filter(CustomTemplate.user_id == user.id).delete()
 
         # 6. Soft-delete user — normalize usage before plan becomes FREE (read plan first)
-        was_paid = user.plan in (PlanTier.STANDARD, PlanTier.PRO)
+        was_paid = user.plan in PAID_TIERS
         if was_paid:
             # Paid users already had (or could have had) the free grant; do not let a low
             # post-upgrade counter (e.g. 1) become fresh free quota on reactivate.

@@ -410,14 +410,17 @@ class ProjectOut(BaseModel):
     # True when the project has ≥1 member (invited/pending or accepted). Gates the
     # per-scene comment affordance in the UI.
     is_shared: bool = False
-    # True when the project OWNER is on a paid plan (standard/pro). On a shared
-    # project the owner pays, so the frontend gates Pro-only features (custom/crafted
+    # True when the project OWNER is on a paid plan (lite/standard/pro). On a shared
+    # project the owner pays, so the frontend gates premium features (custom/crafted
     # templates, paid voices) on the OWNER's plan for collaborators — not their own.
     owner_is_pro: bool = False
     # The project OWNER's remaining per-user purchased AI-edit credit pool. On a
-    # shared project the owner pays, so a FREE collaborator's AI-edit gating draws
+    # shared project the owner pays, so a collaborator's AI-edit gating draws
     # from the OWNER's credits — this surfaces the owner's balance for the UI.
     owner_ai_edit_credits: int = 0
+    # The project OWNER's remaining monthly plan allowance (0 on FREE). Combined
+    # with owner_ai_edit_credits this is the owner's full spendable AI-edit budget.
+    owner_ai_edit_allowance_remaining: int = 0
     # The project OWNER's display name. Populated for every project (owner + shared)
     # so a collaborator's settings pop-ups can attribute the templates/voices they see
     # as belonging to the owner (e.g. "Alice's custom templates").

@@ -95,9 +95,9 @@ What to do: Close the edit modal and try opening it again. If it still fails, re
 
 == AI EDITING ERRORS ==
 
-Error: "AI editing limit reached. Upgrade to Pro for unlimited edits."
-Why it happens: Free users get 6 AI-assisted scene edits shared across all projects (voiceover regen costs 5, other edits cost 1). Your pool is exhausted — or you have fewer than 5 left and asked to regenerate the voiceover.
-What to do: Buy a video for +20 AI edits, or upgrade to Pro/Standard for unlimited edits. You can still make manual edits to any scene without using AI edit credits.
+Error: "AI editing limit reached. Upgrade for a larger monthly allowance."
+Why it happens: Free users get 6 AI-assisted scene edits shared across all projects (voiceover regen costs 5, other edits cost 1). Paid plans get a monthly AI-edit allowance on top of that pool (Lite 300, Standard 2000, Pro 5000). Your combined balance is exhausted — or you have fewer than 5 left and asked to regenerate the voiceover.
+What to do: Buy a video for +20 AI edits, or upgrade to Lite, Standard, or Pro for a larger monthly allowance. You can still make manual edits to any scene without using AI edit credits.
 
 Error: "Please provide a description."
 Why it happens: You tried to trigger an AI scene regeneration without entering any description of what you want changed.

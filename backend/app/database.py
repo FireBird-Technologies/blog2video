@@ -143,6 +143,7 @@ def _migrate_sqlite(eng) -> None:
             "videos_used_this_period": "INTEGER DEFAULT 0",
             "video_limit_bonus": "INTEGER DEFAULT 0",
             "ai_edit_credits": "INTEGER DEFAULT 6",
+            "ai_edits_used_this_period": "INTEGER DEFAULT 0",
             "custom_template_bonus": "INTEGER DEFAULT 0",
             "custom_templates_created": "INTEGER DEFAULT 0",
             "period_start": "DATETIME",
@@ -578,6 +579,69 @@ def _backfill_ai_edit_credits(eng) -> None:
         _mark_ai_edit_credits_backfilled(conn)
 
 
+def _ai_edit_allowance_backfilled(eng) -> bool:
+    """Whether the one-time paid-plan AI-edit-allowance backfill has already run.
+
+    Uses the same ``app_migration_flags`` marker table as
+    ``_ai_edit_credits_backfilled`` so re-running init_db never re-anchors an
+    already-migrated user's period_start.
+    """
+    with eng.begin() as conn:
+        conn.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS app_migration_flags "
+                "(flag VARCHAR(100) PRIMARY KEY, applied_at DATETIME)"
+            )
+        )
+        row = conn.execute(
+            text("SELECT 1 FROM app_migration_flags WHERE flag = :f"),
+            {"f": "ai_edit_allowance_v1"},
+        ).first()
+    return row is not None
+
+
+def _mark_ai_edit_allowance_backfilled(conn) -> None:
+    """Record that the AI-edit-allowance backfill ran (within the caller's transaction)."""
+    conn.execute(
+        text(
+            "INSERT INTO app_migration_flags (flag, applied_at) "
+            "VALUES (:f, CURRENT_TIMESTAMP)"
+        ),
+        {"f": "ai_edit_allowance_v1"},
+    )
+
+
+def _backfill_ai_edit_allowance(eng) -> None:
+    """One-time: give every existing paid user their full monthly AI-edit
+    allowance instead of the metering starting them at 0/allowance.
+
+    Standard/Pro were previously unlimited, so their real
+    ``ai_edits_used_this_period`` is meaningless pre-migration — resetting it to
+    0 (a fresh allowance) rather than leaving it at whatever stale value it held
+    is the correct "nobody wakes up blocked" behavior. Also anchors
+    ``period_start`` for any paid user missing it, so the monthly rollover has a
+    well-defined cycle to work from. Guarded by a marker row so this only ever
+    runs once — Postgres does the equivalent in the add_lite_plan_tier migration.
+    """
+    insp = inspect(eng)
+    if "users" not in insp.get_table_names():
+        return
+    if "ai_edits_used_this_period" not in {c["name"] for c in insp.get_columns("users")}:
+        return
+    if _ai_edit_allowance_backfilled(eng):
+        return
+
+    with eng.begin() as conn:
+        conn.execute(
+            text(
+                "UPDATE users SET ai_edits_used_this_period = 0, "
+                "period_start = COALESCE(period_start, CURRENT_TIMESTAMP) "
+                "WHERE plan IN ('lite', 'standard', 'pro')"
+            )
+        )
+        _mark_ai_edit_allowance_backfilled(conn)
+
+
 def init_db():
     """
     Initialize database schema and seed reference data.
@@ -627,6 +691,8 @@ def init_db():
         _backfill_owner_members(engine)
         # Grant every existing user the free per-user AI-edit pool.
         _backfill_ai_edit_credits(engine)
+        # Give every existing paid user their full monthly AI-edit allowance.
+        _backfill_ai_edit_allowance(engine)
 
     # Seed subscription plans (idempotent) for all databases.
     db = SessionLocal()

@@ -1286,15 +1286,15 @@ def _stock_footage_scene_cap(project: Project, db: Session) -> int | None:
     """How many image-capable scenes may receive an auto-picked clip.
 
     Keyed off the project OWNER's plan (consistent with how clip credits are
-    charged): PRO/STANDARD get every image-capable scene (``None`` = no cap),
+    charged): paid plans get every image-capable scene (``None`` = no cap),
     everyone else is limited to a single scene. This is the one place the free /
     paid split for the generation-time feature lives.
     """
-    from app.models.user import PlanTier
+    from app.models.user import PAID_TIERS
     from app.services.access import project_owner
 
     owner = project_owner(project, db)
-    if owner.plan in (PlanTier.PRO, PlanTier.STANDARD):
+    if owner.plan in PAID_TIERS:
         return None
     return 1
 
@@ -2929,10 +2929,11 @@ def download_studio_endpoint(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Download the project's Remotion workspace as a zip (Pro or per-video paid)."""
+    """Download the project's Remotion workspace as a zip (paid plan or per-video paid)."""
     project = _get_project(project_id, user.id, db)
-    if user.plan not in (PlanTier.PRO, PlanTier.STANDARD) and not project.studio_unlocked:
-        raise HTTPException(status_code=403, detail="Studio requires Pro plan or per-video purchase")
+    from app.models.user import PAID_TIERS
+    if user.plan not in PAID_TIERS and not project.studio_unlocked:
+        raise HTTPException(status_code=403, detail="Studio requires a paid plan or per-video purchase")
 
     try:
         # Build workspace from latest DB state on demand (edits no longer sync eagerly).
