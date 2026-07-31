@@ -497,7 +497,7 @@ export default function Dashboard() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div>
           <p className="text-xs text-gray-400">
-            {user?.videos_used_this_period ?? 0} of {user?.video_limit ?? 3}{" "}
+            {user?.videos_used_this_period ?? 0} of {user?.video_limit ?? 1}{" "}
             videos used
             {!isPro && " -- upgrade for 100/month"}
           </p>

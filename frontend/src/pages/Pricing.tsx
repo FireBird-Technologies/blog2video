@@ -366,7 +366,7 @@ export default function Pricing() {
             </div>
             <ul className="space-y-3 mb-8 flex-1">
               {[
-                "2 videos free",
+                "1 video free",
                 "AI script generation",
                 "ElevenLabs voiceover",
                 "Remotion video preview",
@@ -779,7 +779,7 @@ export default function Pricing() {
             <tbody>
               {[
                 { feature: "Price", free: "$0", perVideo: "$2.80–$3.99/video", lite: isLifetime ? "N/A" : isAnnual ? `$${LITE_ANNUAL_MONTHLY_PRICE}/mo` : `$${LITE_MONTHLY_PRICE}/mo`, standard: isLifetime ? "$999.99 one-time" : isAnnual ? `$${STANDARD_ANNUAL_MONTHLY_PRICE}/mo` : `$${STANDARD_MONTHLY_PRICE}/mo`, pro: isLifetime ? "$1,599.99 one-time" : isAnnual ? `$${PRO_ANNUAL_MONTHLY_PRICE}/mo` : `$${PRO_MONTHLY_PRICE}/mo`, customized: "Custom" },
-                { feature: "Videos", free: "2 free", perVideo: "Unlimited", lite: "10/month", standard: "30/month", pro: "100/month", customized: "Custom" },
+                { feature: "Videos", free: "1 free", perVideo: "Unlimited", lite: "10/month", standard: "30/month", pro: "100/month", customized: "Custom" },
                 { feature: "AI script generation", free: true, perVideo: true, lite: true, standard: true, pro: true, customized: true },
                 { feature: "ElevenLabs voiceover", free: true, perVideo: true, lite: true, standard: true, pro: true, customized: true },
                 { feature: "Voice selection (4 options)", free: true, perVideo: true, lite: true, standard: true, pro: true, customized: true },
