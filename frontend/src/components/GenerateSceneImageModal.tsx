@@ -4,7 +4,7 @@ import { generateSceneImage } from "../api/client";
 
 // AI image generation costs this many AI-edit credits for a FREE owner; PRO/STANDARD
 // owners are unlimited. Kept in sync with the backend GENERATE_IMAGE_CREDIT_COST.
-export const AI_IMAGE_CREDIT_COST = 5;
+export const AI_IMAGE_CREDIT_COST = 3;
 
 export interface GenerateSceneImageModalProps {
   open: boolean;

@@ -99,8 +99,10 @@ export default function SceneEditor({
   const aiCreditRemaining = isCollaborator
     ? (project.owner_ai_edit_credits ?? 0)
     : (user?.ai_edit_credits ?? 0);
-  // Regenerating the voiceover costs 3 credits; other AI edits cost 1.
-  const aiEditCost = regenerateVoiceover ? 3 : 1;
+  // Regenerating the voiceover costs 5 credits; other AI edits cost 1.
+  // Mirrors VOICEOVER_EDIT_CREDIT_COST in backend/app/routers/projects.py.
+  const voiceoverEditCost = 5;
+  const aiEditCost = regenerateVoiceover ? voiceoverEditCost : 1;
   // canUseAI — has ANY AI budget (drives the panel lock / paywall). canAffordThisEdit
   // — pool covers THIS edit's cost (drives the Regenerate button + soft warning), so a
   // user with credits left can turn the voiceover toggle off instead of being locked out.
@@ -585,7 +587,7 @@ export default function SceneEditor({
                     <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5">
                       <p className="text-xs font-medium text-amber-800">
                         You have {aiCreditRemaining} AI edit
-                        {aiCreditRemaining === 1 ? "" : "s"} left — re-recording the voiceover costs 3 credits.
+                        {aiCreditRemaining === 1 ? "" : "s"} left — re-recording the voiceover costs {voiceoverEditCost} AI edit credits.
                       </p>
                       <p className="mt-1 text-xs text-amber-700">
                         <button

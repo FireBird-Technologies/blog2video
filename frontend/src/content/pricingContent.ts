@@ -203,7 +203,7 @@ export const pricingFaq: FaqItem[] = [
   {
     question: "Can I edit the video after generation?",
     answer:
-      `Free users get 6 AI-assisted edits, shared across all your projects. Regenerating a scene's voiceover costs 3 edits; other edits cost 1. Each video you buy adds ${AI_EDITS_PER_VIDEO} AI edits to the same pool (buy 4 → +80). Pro and Standard subscribers get unlimited AI edit & image generation.`,
+      `Free users get 6 AI-assisted edits, shared across all your projects. Regenerating a scene's voiceover costs 5 edits; other edits cost 1. Each video you buy adds ${AI_EDITS_PER_VIDEO} AI edits to the same pool (buy 4 → +80). Pro and Standard subscribers get unlimited AI edit & image generation.`,
   },
   {
     question: "What voices are available?",

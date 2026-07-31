@@ -3985,7 +3985,11 @@ _IMAGE_GEN_ERROR_MESSAGE = (
 
 # AI image generation costs this many AI-edit credits for FREE owners; PRO/STANDARD
 # owners are unlimited (see can_use_ai_edit). Charged to the project OWNER.
-GENERATE_IMAGE_CREDIT_COST = 5
+GENERATE_IMAGE_CREDIT_COST = 3
+
+# Regenerating a scene's voiceover is the most expensive AI edit (TTS + re-timing);
+# every other AI edit costs 1. Mirrored by voiceoverEditCost in SceneEditModal.tsx.
+VOICEOVER_EDIT_CREDIT_COST = 5
 
 
 @router.post("/{project_id}/scenes/{scene_id}/generate-image")
@@ -5255,7 +5259,7 @@ async def regenerate_scene(
     import json
     from app.models.scene import Scene
     from app.models.asset import Asset, AssetType
-    from app.models.user import PlanTier
+    from app.models.user import PlanTier, AI_EDIT_CREDITS_PER_VIDEO
     from app.dspy_modules.template_scene_gen import TemplateSceneGenerator
     from app.dspy_modules.narration_edit import rewrite_narration_if_requested
     from app.services.voiceover import generate_voiceover
@@ -5271,12 +5275,12 @@ async def regenerate_scene(
     # to the acting user, so the whole regen previews and reverts as a single unit.
     _regen_change_set = new_change_set_id()
 
-    # Cost of this edit: regenerating the voiceover is the expensive path (3 credits),
+    # Cost of this edit: regenerating the voiceover is the expensive path,
     # everything else (layout swap, text rewrite) costs 1. Computed up front from the
     # request flag so the gate below can reject an unaffordable voiceover regen before
     # any work is done. Reused for the actual deduction later in this function.
     should_regenerate_voiceover = regenerate_voiceover.lower() == "true"
-    edit_cost = 3 if should_regenerate_voiceover else 1
+    edit_cost = VOICEOVER_EDIT_CREDIT_COST if should_regenerate_voiceover else 1
 
     # Check usage limits against the owner's per-user AI-edit credit pool (shared
     # across all their projects); PRO/STANDARD owners are unlimited (see can_use_ai_edit).
@@ -5284,9 +5288,10 @@ async def regenerate_scene(
         raise HTTPException(
             status_code=403,
             detail=(
-                "AI editing limit reached. Regenerating the voiceover costs 3 AI edits; "
-                "other edits cost 1. Buy a video for +20 AI edits, or upgrade to Pro or "
-                "Standard for unlimited AI edits."
+                f"AI editing limit reached. Regenerating the voiceover costs "
+                f"{VOICEOVER_EDIT_CREDIT_COST} AI edits; other edits cost 1. Buy a video "
+                f"for +{AI_EDIT_CREDITS_PER_VIDEO} AI edits, or upgrade for a larger "
+                f"monthly allowance."
             )
         )
 
@@ -5897,7 +5902,7 @@ async def regenerate_scene(
     # collaborator's, or a Free collaborator would burn the counter on a Pro project.
     used_ai = needs_layout_regen or should_regenerate_voiceover
     if used_ai and payer.plan not in (PlanTier.PRO, PlanTier.STANDARD):
-        # Voiceover regen costs 3 credits, other AI edits cost 1 (see edit_cost above).
+        # Voiceover regen is the expensive path, other AI edits cost 1 (see edit_cost above).
         consume_ai_edit(payer, project, cost=edit_cost)
 
     db.commit()

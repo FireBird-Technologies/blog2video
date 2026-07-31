@@ -87,7 +87,7 @@ What to do: Try saving again. If the error persists, copy your changes, refresh 
 
 Error: "Failed to regenerate scene."
 Why it happens: The AI could not regenerate the selected scene. This may be due to an empty description, a server issue, or exhausted AI edit quota on the free plan.
-What to do: Make sure your description field is filled in. If you are on the free plan, check your AI edit usage counter — free users get 6 AI edits shared across all projects (voiceover regen costs 3, other edits cost 1). Buy a video for +20, or upgrade to Pro for unlimited edits.
+What to do: Make sure your description field is filled in. If you are on the free plan, check your AI edit usage counter — free users get 6 AI edits shared across all projects (voiceover regen costs 5, other edits cost 1). Buy a video for +20, or upgrade for a larger monthly allowance.
 
 Error: "Failed to load layouts."
 Why it happens: The available scene layouts could not be fetched from the server. This is a temporary connectivity issue.
@@ -96,7 +96,7 @@ What to do: Close the edit modal and try opening it again. If it still fails, re
 == AI EDITING ERRORS ==
 
 Error: "AI editing limit reached. Upgrade to Pro for unlimited edits."
-Why it happens: Free users get 6 AI-assisted scene edits shared across all projects (voiceover regen costs 3, other edits cost 1). Your pool is exhausted — or you have fewer than 3 left and asked to regenerate the voiceover.
+Why it happens: Free users get 6 AI-assisted scene edits shared across all projects (voiceover regen costs 5, other edits cost 1). Your pool is exhausted — or you have fewer than 5 left and asked to regenerate the voiceover.
 What to do: Buy a video for +20 AI edits, or upgrade to Pro/Standard for unlimited edits. You can still make manual edits to any scene without using AI edit credits.
 
 Error: "Please provide a description."

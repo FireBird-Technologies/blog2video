@@ -2920,8 +2920,9 @@ export default function SceneEditModal({
   const aiCreditRemaining = isCollaborator
     ? (project.owner_ai_edit_credits ?? 0)
     : (user?.ai_edit_credits ?? 0);
-  // Regenerating the voiceover costs 3 credits; other AI edits cost 1.
-  const voiceoverEditCost = 3;
+  // Regenerating the voiceover costs 5 credits; other AI edits cost 1.
+  // Mirrors VOICEOVER_EDIT_CREDIT_COST in backend/app/routers/projects.py.
+  const voiceoverEditCost = 5;
   const aiEditCost = regenerateVoiceover ? voiceoverEditCost : 1;
   // Two distinct gates:
   //  • canUseAI — the user has ANY AI budget (≥1 credit or a paid plan). Drives the
@@ -6119,8 +6120,8 @@ export default function SceneEditModal({
                 {!effectiveIsPro && (
                   <span className="ml-1 text-gray-400 font-normal">
                     ({regenerateVoiceover
-                      ? "this edit costs 3 (voiceover)"
-                      : "voiceover regen costs 3"})
+                      ? `this edit costs ${voiceoverEditCost} AI edit credits.`
+                      : `voiceover regen costs ${voiceoverEditCost} AI edit credits.`})
                   </span>
                 )}
               </p>
@@ -6962,19 +6963,19 @@ export default function SceneEditModal({
                     </button>
                   </div>
 
-                  {/* Not enough credits for the voiceover (3) — but the panel stays
+                  {/* Not enough credits for the voiceover — but the panel stays
                       usable so the user can turn this toggle off and edit at cost 1. */}
                   {regenerateVoiceover && !canAffordThisEdit && !effectiveIsPro && (
                     <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5">
                       {isCollaborator ? (
                         <p className="text-xs font-medium text-amber-800">
                           The owner has {aiCreditRemaining} AI edit credits left — re-recording the voiceover
-                          costs 3 · Ask them to upgrade for unlimited.
+                          costs {voiceoverEditCost} AI edit credits. · Ask them to upgrade for more credits.
                         </p>
                       ) : (
                         <p className="text-xs font-medium text-amber-800">
                           You have {aiCreditRemaining} AI edit credits left — re-recording the voiceover
-                          costs 3 ·{" "}
+                          costs {voiceoverEditCost} AI edit credits.·{" "}
                           <button
                             type="button"
                             onClick={() => navigate("/subscription")}
