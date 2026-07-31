@@ -3014,5 +3014,9 @@
   "blog:how-much-is-my-substack-newsletter-worth@bd3ef5b35cf8c4c0@20aaebd1": {
     "keep": false,
     "reason": "Document is about Substack valuation, not Blog2Video features."
+  },
+  "blog:blogging-is-not-dead-authentic-writing-2026@639bdc58f6082645@20aaebd1": {
+    "keep": true,
+    "reason": "Discusses Blog2Video's mission without mentioning competitors or missing features."
   }
 }

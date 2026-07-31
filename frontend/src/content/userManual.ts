@@ -215,7 +215,7 @@ Click the Edit button on a scene card and select the AI tab.
 AI edit fields:
 - Description (required): Describe what you want changed. For example: "Make this scene focus on the cost savings metric" or "Replace with a quote from a customer".
 - Display text (optional): Type new on-screen text. Required if you enable the voiceover regeneration toggle.
-- Regenerate voiceover: Toggle this on to re-record what is read aloud for this scene. On the free plan this costs 3 AI edits (other edits cost 1).
+- Regenerate voiceover: Toggle this on to re-record what is read aloud for this scene. This costs 5 AI edits (other edits cost 1).
 - Layout: Choose "Auto" to let the AI pick the best layout, or manually select a specific layout from the dropdown.
 - Image: Optionally upload an image (PNG, JPEG, WebP, JPG) to use as the scene's background/image. If left blank, the existing image is kept.
 
@@ -225,7 +225,7 @@ Click "Regenerate" to send your request to the AI. The scene will update with ne
 
 Free plan: 6 AI-assisted scene edits, shared across all your projects. An edit counter in the AI edit panel shows how many you have remaining. Buying a video adds 20 more to the same pool.
 
-Regenerating a scene's voiceover costs 3 edits; every other AI edit (layout change, text rewrite) costs 1.
+Regenerating a scene's voiceover costs 5 edits; every other AI edit (layout change, text rewrite) costs 1.
 
 Pro and Standard plans: Unlimited AI-assisted edits.
 
