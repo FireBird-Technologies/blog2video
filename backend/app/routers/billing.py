@@ -159,7 +159,7 @@ def _recalculate_video_limit_bonus(user: User, db: Session) -> None:
     """
     Called when a user subscribes to a Pro/Standard plan, or when a plan renews.
 
-    Absorption order: base(2) → free_grants → referral_video_bonus → paid_credits.
+    Absorption order: base(FREE_TIER_INCLUDED_VIDEOS) → free_grants → referral_video_bonus → paid_credits.
     Base and free-grant usage disappears on upgrade. Referral and paid usage carries
     into the new period's videos_used_this_period so the user doesn't get phantom headroom.
     referral_video_bonus persists (reduced by what was consumed) — it is NOT wiped on upgrade.
@@ -169,7 +169,7 @@ def _recalculate_video_limit_bonus(user: User, db: Session) -> None:
     videos_used    = user.videos_used_this_period or 0
     paid_credits   = _count_active_per_video_credits(user.id, db)
 
-    # Usage absorption order: base(2) → free_grants → referral → paid
+    # Usage absorption order: base(FREE_TIER_INCLUDED_VIDEOS) → free_grants → referral → paid
     #
     # free_grants: portion of old video_limit_bonus that came from free promo grants
     #   (total old_bonus minus the paid per-video credits within it)

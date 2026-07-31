@@ -77,7 +77,7 @@ export const PER_VIDEO_FEATURES_COMPACT = [
 ] as const;
 
 export const FREE_FEATURES_INCLUDED = [
-  "2 videos free",
+  "1 video free",
   "AI script generation",
   "ElevenLabs voiceover",
   "Remotion video preview",
@@ -119,8 +119,8 @@ export const pricingPlans: PricingPlan[] = [
     monthlyPrice: 0,
     annualMonthlyPrice: null,
     annualTotalPrice: null,
-    videoLimit: 2,
-    videoLimitLabel: "2 videos free (lifetime)",
+    videoLimit: 1,
+    videoLimitLabel: "1 video free (lifetime)",
     featuresIncluded: [...FREE_FEATURES_INCLUDED],
     featuresExcluded: [...FREE_FEATURES_EXCLUDED],
     notes: ["No credit card required"],
@@ -257,11 +257,11 @@ export const pricingFaq: FaqItem[] = [
   },
   {
     question: "How much does Blog2Video cost?",
-    answer: `Free plan: $0 (2 videos). Pay per video: $${PER_VIDEO_CASUAL_PRICE.toFixed(2)}–$${PER_VIDEO_BULK_PRICE.toFixed(2)}/video. Lite: $${LITE_MONTHLY_PRICE}/mo (or $${LITE_ANNUAL_MONTHLY_PRICE}/mo annually). Standard: $${STANDARD_MONTHLY_PRICE}/mo (or $${STANDARD_ANNUAL_MONTHLY_PRICE}/mo annually). Pro: $${PRO_MONTHLY_PRICE}/mo (or $${PRO_ANNUAL_MONTHLY_PRICE}/mo annually). Enterprise: custom pricing.`,
+    answer: `Free plan: $0 (1 video). Pay per video: $${PER_VIDEO_CASUAL_PRICE.toFixed(2)}–$${PER_VIDEO_BULK_PRICE.toFixed(2)}/video. Lite: $${LITE_MONTHLY_PRICE}/mo (or $${LITE_ANNUAL_MONTHLY_PRICE}/mo annually). Standard: $${STANDARD_MONTHLY_PRICE}/mo (or $${STANDARD_ANNUAL_MONTHLY_PRICE}/mo annually). Pro: $${PRO_MONTHLY_PRICE}/mo (or $${PRO_ANNUAL_MONTHLY_PRICE}/mo annually). Enterprise: custom pricing.`,
   },
   {
     question: "What is included in the free plan?",
-    answer: `The free plan includes 2 videos, AI script generation, ElevenLabs voiceover, Remotion video preview, render & download MP4, and custom video templates. A monthly AI-edit allowance and premium voiceover + cloning require a paid plan.`,
+    answer: `The free plan includes 1 video, AI script generation, ElevenLabs voiceover, Remotion video preview, render & download MP4, and custom video templates. A monthly AI-edit allowance and premium voiceover + cloning require a paid plan.`,
   },
   {
     question: "How do I upgrade my plan?",

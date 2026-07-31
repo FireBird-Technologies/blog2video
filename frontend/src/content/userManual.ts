@@ -352,7 +352,7 @@ To render and download:
 
 Re-rendering:
 - If you have already rendered and want to incorporate new edits, click Download again — it will offer to re-render. This counts as a new video against your plan's video limit.
-- Free users get 2 total renders. Pro users get 100/month. Standard users get 30/month. Pay-as-you-go per-video purchases are also available.
+- Free users get 1 total render. Pro users get 100/month. Standard users get 30/month. Pay-as-you-go per-video purchases are also available.
 
 To cancel an in-progress render:
 - Click "Cancel render". If the render has already finished or been cancelled, a brief error appears — refresh the page to see the current status.

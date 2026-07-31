@@ -18,7 +18,7 @@ PAID_TIERS: tuple[PlanTier, ...] = (PlanTier.LITE, PlanTier.STANDARD, PlanTier.P
 
 
 # Included videos for plan FREE (before video_limit_bonus). Used for limits and delete-account capping.
-FREE_TIER_INCLUDED_VIDEOS = 2
+FREE_TIER_INCLUDED_VIDEOS = 1
 
 # Included custom templates for plan FREE (before custom_template_bonus). Used for
 # the limit and for delete-account capping (mirrors FREE_TIER_INCLUDED_VIDEOS).
