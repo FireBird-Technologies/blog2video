@@ -5,6 +5,8 @@
 // The backend's classification logic in billing.py mirrors this exactly.
 
 export type PaidPlanSlug =
+  | "lite_monthly"
+  | "lite_annual"
   | "standard_monthly"
   | "standard_annual"
   | "pro_monthly"
@@ -12,7 +14,7 @@ export type PaidPlanSlug =
 
 export type CurrentSlug = PaidPlanSlug | "free";
 
-export type CardTier = "standard" | "pro";
+export type CardTier = "lite" | "standard" | "pro";
 export type Toggle = "monthly" | "annual";
 
 export type SwitchAction =
@@ -26,12 +28,15 @@ export type SwitchAction =
       direction: "upgrade" | "downgrade";
     };
 
-// Lexicographic rank: tier dominates cycle.
+// Lexicographic rank: tier dominates cycle. Must stay in lockstep with the
+// backend's _PLAN_RANK in routers/billing.py.
 const PLAN_RANK: Record<PaidPlanSlug, [number, number]> = {
-  standard_monthly: [1, 1],
-  standard_annual: [1, 2],
-  pro_monthly: [2, 1],
-  pro_annual: [2, 2],
+  lite_monthly: [1, 1],
+  lite_annual: [1, 2],
+  standard_monthly: [2, 1],
+  standard_annual: [2, 2],
+  pro_monthly: [3, 1],
+  pro_annual: [3, 2],
 };
 
 function compareRank(a: PaidPlanSlug, b: PaidPlanSlug): number {
@@ -41,8 +46,8 @@ function compareRank(a: PaidPlanSlug, b: PaidPlanSlug): number {
   return aCycle - bCycle;
 }
 
-function tierOf(slug: PaidPlanSlug): "standard" | "pro" {
-  return slug.startsWith("pro") ? "pro" : "standard";
+function tierOf(slug: PaidPlanSlug): CardTier {
+  return slug.split("_")[0] as CardTier;
 }
 
 export function targetSlug(tier: CardTier, toggle: Toggle): PaidPlanSlug {
@@ -82,10 +87,10 @@ export function getSwitchAction(
 }
 
 export function planParts(slug: PaidPlanSlug): {
-  plan: "standard" | "pro";
+  plan: CardTier;
   cycle: Toggle;
 } {
-  const [plan, cycle] = slug.split("_") as ["standard" | "pro", Toggle];
+  const [plan, cycle] = slug.split("_") as [CardTier, Toggle];
   return { plan, cycle };
 }
 
@@ -98,9 +103,9 @@ export function getSwitchButtonLabel(action: SwitchAction): string {
     case "current":
       return "Current plan";
     case "subscribe":
-      return action.targetSlug.startsWith("pro")
-        ? "Upgrade to Pro"
-        : "Upgrade to Standard";
+      if (action.targetSlug.startsWith("pro")) return "Upgrade to Pro";
+      if (action.targetSlug.startsWith("standard")) return "Upgrade to Standard";
+      return "Upgrade to Lite";
     case "upgrade":
       return "Upgrade";
     case "downgrade":

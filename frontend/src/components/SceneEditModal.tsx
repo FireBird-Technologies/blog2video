@@ -25,7 +25,8 @@ import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import { useNavigate } from "react-router-dom";
 import UpgradePlanModal from "./UpgradePlanModal";
-import { STANDARD_MONTHLY_PRICE, PRO_MONTHLY_PRICE } from "../content/pricingContent";
+import { LITE_MONTHLY_PRICE, STANDARD_MONTHLY_PRICE, PRO_MONTHLY_PRICE } from "../content/pricingContent";
+import { formatAiEditCreditsDisplay } from "../lib/formatAiEditCredits";
 import { AI_IMAGE_CREDIT_COST } from "./GenerateSceneImageModal";
 import { getSceneLayoutLabel } from "../utils/layoutLabels";
 import { chartTableToLegacyRowProps } from "../utils/chartTableDataVizLegacy";
@@ -2909,35 +2910,34 @@ export default function SceneEditModal({
     }
   }, [selectedImageFile]);
 
-  const isPro = user?.plan === "pro" || user?.plan === "standard";
   // Owner pays: AI editing and AI image generation are gated on the OWNER's plan,
-  // so a Free collaborator inherits a paid owner's entitlement (and vice versa).
+  // so a Free collaborator draws from a paid owner's credit pools (and vice versa).
   const isCollaborator = user != null && project.user_id !== user.id;
-  const effectiveIsPro = isCollaborator ? (project.owner_is_pro ?? false) : isPro;
-  // Single per-user AI-edit credit pool, shared across all projects (starts at 6,
-  // +20 per purchased video). On a shared project the OWNER pays, so a collaborator
-  // draws from the owner's pool (surfaced as owner_ai_edit_credits).
+  // Every plan is metered now (monthly allowance + non-expirable purchased pool) —
+  // no plan is unlimited. On a shared project the OWNER pays, so a collaborator
+  // draws from the owner's pools (surfaced as owner_ai_edit_credits /
+  // owner_ai_edit_allowance_remaining).
   const aiCreditRemaining = isCollaborator
-    ? (project.owner_ai_edit_credits ?? 0)
-    : (user?.ai_edit_credits ?? 0);
+    ? (project.owner_ai_edit_credits ?? 0) + (project.owner_ai_edit_allowance_remaining ?? 0)
+    : (user?.ai_edit_credits ?? 0) + (user?.ai_edit_allowance_remaining ?? 0);
   // Regenerating the voiceover costs 5 credits; other AI edits cost 1.
   // Mirrors VOICEOVER_EDIT_CREDIT_COST in backend/app/routers/projects.py.
   const voiceoverEditCost = 5;
   const aiEditCost = regenerateVoiceover ? voiceoverEditCost : 1;
   // Two distinct gates:
-  //  • canUseAI — the user has ANY AI budget (≥1 credit or a paid plan). Drives the
+  //  • canUseAI — the user has ANY AI budget left (≥1 credit). Drives the
   //    hard paywall / panel lock. A user with credits left is NOT locked out.
   //  • canAffordThisEdit — the pool covers THIS edit at its current cost. Drives the
   //    Regenerate button + a soft inline warning, without locking the panel, so the
   //    user can simply turn the voiceover toggle off to bring the cost back to 1.
-  const canUseAI = effectiveIsPro || aiCreditRemaining >= 1;
-  const canAffordThisEdit = effectiveIsPro || aiCreditRemaining >= aiEditCost;
+  const canUseAI = aiCreditRemaining >= 1;
+  const canAffordThisEdit = aiCreditRemaining >= aiEditCost;
 
   // Send the OWNER straight to Stripe checkout for the chosen plan (monthly). A
   // collaborator can't lift the limit by paying — only the owner can, so the plan
   // names are non-clickable for them.
-  const [upgradingPlan, setUpgradingPlan] = useState<null | "standard" | "pro">(null);
-  const goToPlanCheckout = async (plan: "standard" | "pro") => {
+  const [upgradingPlan, setUpgradingPlan] = useState<null | "lite" | "standard" | "pro">(null);
+  const goToPlanCheckout = async (plan: "lite" | "standard" | "pro") => {
     if (upgradingPlan) return;
     setUpgradingPlan(plan);
     try {
@@ -2949,7 +2949,7 @@ export default function SceneEditModal({
     }
   };
   // Reusable purple plan label — clickable for the owner, plain for collaborators.
-  const PlanLink = ({ plan, children }: { plan: "standard" | "pro"; children: React.ReactNode }) =>
+  const PlanLink = ({ plan, children }: { plan: "lite" | "standard" | "pro"; children: React.ReactNode }) =>
     isCollaborator ? (
       <span className="font-medium text-purple-600">{children}</span>
     ) : (
@@ -4672,12 +4672,11 @@ export default function SceneEditModal({
     (it) => it.asset.asset_type === "video",
   );
 
-  // AI image generation: PRO/STANDARD owners are unlimited; FREE owners spend
-  // AI_IMAGE_CREDIT_COST credits per image (charged to the OWNER on shared projects).
-  const canUseAiImage = effectiveIsPro || aiCreditRemaining >= AI_IMAGE_CREDIT_COST;
+  // AI image generation costs AI_IMAGE_CREDIT_COST credits per image (charged to
+  // the OWNER on shared projects, drawn from their allowance then purchased pool).
+  const canUseAiImage = aiCreditRemaining >= AI_IMAGE_CREDIT_COST;
   // Adding a stock clip is charged like AI image generation, at its own rate.
-  const canUseStockFootage =
-    effectiveIsPro || aiCreditRemaining >= STOCK_FOOTAGE_CREDIT_COST;
+  const canUseStockFootage = aiCreditRemaining >= STOCK_FOOTAGE_CREDIT_COST;
   // A collaborator blocked by the owner's exhausted access can't act on an upgrade
   // prompt, so show the soft "Oops" warning rather than a hard red error.
   const ownerBlocksAiImage = isCollaborator && !canUseAiImage;
@@ -6112,18 +6111,12 @@ export default function SceneEditModal({
             {editMode === "ai" && canUseAI && (
               <p className="mt-2 text-xs text-gray-600 font-medium">
                 AI edits remaining:{" "}
-                {effectiveIsPro ? (
-                  <span className="text-xl leading-none align-middle relative -top-0.5">∞</span>
-                ) : (
-                  aiCreditRemaining > 100 ? "100+" : aiCreditRemaining
-                )}
-                {!effectiveIsPro && (
-                  <span className="ml-1 text-gray-400 font-normal">
-                    ({regenerateVoiceover
-                      ? `this edit costs ${voiceoverEditCost} AI edit credits.`
-                      : `voiceover regen costs ${voiceoverEditCost} AI edit credits.`})
-                  </span>
-                )}
+                {formatAiEditCreditsDisplay(aiCreditRemaining)}
+                <span className="ml-1 text-gray-400 font-normal">
+                  ({regenerateVoiceover
+                    ? `this edit costs ${voiceoverEditCost} AI edit credits.`
+                    : `voiceover regen costs ${voiceoverEditCost} AI edit credits.`})
+                </span>
               </p>
             )}
             {editMode === "ai" && !canUseAI && (
@@ -6135,9 +6128,10 @@ export default function SceneEditModal({
                     </p>
                     <p className="mt-1 text-gray-600">
                       Ask the owner to upgrade to{" "}
-                      <PlanLink plan="standard">Standard (${STANDARD_MONTHLY_PRICE}/mo)</PlanLink> or{" "}
-                      <PlanLink plan="pro">Pro (${PRO_MONTHLY_PRICE}/mo)</PlanLink> for unlimited AI
-                      edits, or to buy a video for +20 AI edits.
+                      <PlanLink plan="lite">Lite (${LITE_MONTHLY_PRICE}/mo)</PlanLink>,{" "}
+                      <PlanLink plan="standard">Standard (${STANDARD_MONTHLY_PRICE}/mo)</PlanLink>, or{" "}
+                      <PlanLink plan="pro">Pro (${PRO_MONTHLY_PRICE}/mo)</PlanLink> for a larger
+                      monthly AI-edit allowance, or to buy a video for +20 AI edits.
                     </p>
                   </>
                 ) : (
@@ -6147,9 +6141,10 @@ export default function SceneEditModal({
                     </p>
                     <p className="mt-1 text-gray-600">
                       Upgrade to{" "}
-                      <PlanLink plan="standard">Standard (${STANDARD_MONTHLY_PRICE}/mo)</PlanLink> or{" "}
-                      <PlanLink plan="pro">Pro (${PRO_MONTHLY_PRICE}/mo)</PlanLink> for unlimited AI
-                      edits, or buy a video to get +20 AI edits.
+                      <PlanLink plan="lite">Lite (${LITE_MONTHLY_PRICE}/mo)</PlanLink>,{" "}
+                      <PlanLink plan="standard">Standard (${STANDARD_MONTHLY_PRICE}/mo)</PlanLink>, or{" "}
+                      <PlanLink plan="pro">Pro (${PRO_MONTHLY_PRICE}/mo)</PlanLink> for a larger
+                      monthly AI-edit allowance, or buy a video for +20 AI edits.
                     </p>
                     <button
                       type="button"
@@ -6965,25 +6960,26 @@ export default function SceneEditModal({
 
                   {/* Not enough credits for the voiceover — but the panel stays
                       usable so the user can turn this toggle off and edit at cost 1. */}
-                  {regenerateVoiceover && !canAffordThisEdit && !effectiveIsPro && (
+                  {regenerateVoiceover && !canAffordThisEdit && (
                     <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5">
                       {isCollaborator ? (
                         <p className="text-xs font-medium text-amber-800">
-                          The owner has {aiCreditRemaining} AI edit credits left — re-recording the voiceover
-                          costs {voiceoverEditCost} AI edit credits. · Ask them to upgrade for more credits.
+                          The owner has {formatAiEditCreditsDisplay(aiCreditRemaining)} AI edit credits
+                          left — re-recording the voiceover costs {voiceoverEditCost} AI edit credits.
+                          Ask them to upgrade or buy more.
                         </p>
                       ) : (
                         <p className="text-xs font-medium text-amber-800">
-                          You have {aiCreditRemaining} AI edit credits left — re-recording the voiceover
-                          costs {voiceoverEditCost} AI edit credits.·{" "}
+                          You have {formatAiEditCreditsDisplay(aiCreditRemaining)} AI edit credits left
+                          — re-recording the voiceover costs {voiceoverEditCost} AI edit credits.{" "}
                           <button
                             type="button"
                             onClick={() => navigate("/subscription")}
                             className="text-purple-600 hover:text-purple-700 underline font-medium"
                           >
-                            Upgrade now
-                          </button>{" "}
-                          for unlimited.
+                            Upgrade for more
+                          </button>
+                          .
                         </p>
                       )}
                     </div>
@@ -7172,7 +7168,7 @@ export default function SceneEditModal({
       onClose={() => setShowAiImageUpgradeModal(false)}
       projectId={project?.id}
       title="You're out of AI edit credits"
-      subtitle="Upgrade to get more credits and unlock unlimited AI edits & image generation."
+      subtitle="Upgrade for a larger monthly AI-edit allowance, or buy a video for +20 AI edits."
     />
 
     {imageSourceChooserOpen && (
@@ -7249,11 +7245,9 @@ export default function SceneEditModal({
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
               </svg>
               Add a new one
-              {!effectiveIsPro && (
-                <span className="text-[10px] font-medium text-gray-400">
-                  {STOCK_FOOTAGE_CREDIT_COST} AI edits
-                </span>
-              )}
+              <span className="text-[10px] font-medium text-gray-400">
+                {STOCK_FOOTAGE_CREDIT_COST} AI edits
+              </span>
             </button>
           </div>
         </div>

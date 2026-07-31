@@ -190,6 +190,32 @@ SEED_PLANS = [
         "sort_order": 6,
     },
     {
+        "slug": "lite_monthly",
+        "name": "Lite Monthly",
+        "description": "10 videos/month with all features",
+        "price_cents": 1999,
+        "billing_interval": BillingInterval.MONTHLY,
+        "video_limit": 10,
+        "includes_studio": True,
+        "includes_chat_editor": True,
+        "includes_priority_support": True,
+        "stripe_price_id": None,  # Set from STRIPE_LITE_PRICE_ID
+        "sort_order": 2,
+    },
+    {
+        "slug": "lite_annual",
+        "name": "Lite Annual",
+        "description": "10 videos/month — save with annual billing",
+        "price_cents": 1599,  # $15.99/mo effective ($191.88/yr)
+        "billing_interval": BillingInterval.ANNUAL,
+        "video_limit": 10,
+        "includes_studio": True,
+        "includes_chat_editor": True,
+        "includes_priority_support": True,
+        "stripe_price_id": None,  # Set from STRIPE_LITE_ANNUAL_PRICE_ID
+        "sort_order": 3,
+    },
+    {
         "slug": "standard_monthly",
         "name": "Standard Monthly",
         "description": "30 videos/month with all features",
@@ -200,7 +226,7 @@ SEED_PLANS = [
         "includes_chat_editor": True,
         "includes_priority_support": True,
         "stripe_price_id": None,  # Set from STRIPE_STANDARD_PRICE_ID
-        "sort_order": 2,
+        "sort_order": 4,
     },
     {
         "slug": "standard_annual",
@@ -213,7 +239,7 @@ SEED_PLANS = [
         "includes_chat_editor": True,
         "includes_priority_support": True,
         "stripe_price_id": None,  # Set from STRIPE_STANDARD_ANNUAL_PRICE_ID
-        "sort_order": 3,
+        "sort_order": 5,
     },
     {
         "slug": "pro_monthly",
@@ -226,7 +252,7 @@ SEED_PLANS = [
         "includes_chat_editor": True,
         "includes_priority_support": True,
         "stripe_price_id": None,  # Set from STRIPE_PRO_PRICE_ID
-        "sort_order": 4,
+        "sort_order": 6,
     },
     {
         "slug": "pro_annual",
@@ -239,7 +265,7 @@ SEED_PLANS = [
         "includes_chat_editor": True,
         "includes_priority_support": True,
         "stripe_price_id": None,  # Set from STRIPE_PRO_ANNUAL_PRICE_ID if added
-        "sort_order": 5,
+        "sort_order": 7,
     },
     {
         "slug": "standard_lifetime",
@@ -252,7 +278,7 @@ SEED_PLANS = [
         "includes_chat_editor": True,
         "includes_priority_support": True,
         "stripe_price_id": None,  # Set from STANDARD_PLAN_LIFETIME_DEAL
-        "sort_order": 7,
+        "sort_order": 8,
     },
     {
         "slug": "pro_lifetime",
@@ -265,7 +291,7 @@ SEED_PLANS = [
         "includes_chat_editor": True,
         "includes_priority_support": True,
         "stripe_price_id": None,  # Set from PRO_PLAN_LIFETIME_DEAL
-        "sort_order": 8,
+        "sort_order": 9,
     },
 ]
 
@@ -290,6 +316,8 @@ def seed_plans(db_session) -> None:
     _stripe_ids = {
         "per_video": settings.STRIPE_PER_VIDEO_PRICE_ID if _is_real_stripe_id(settings.STRIPE_PER_VIDEO_PRICE_ID) else None,
         "custom_template": settings.CUSTOM_TEMPLATE_PRICE_ID if _is_real_stripe_id(getattr(settings, "CUSTOM_TEMPLATE_PRICE_ID", "")) else None,
+        "lite_monthly": settings.STRIPE_LITE_PRICE_ID if _is_real_stripe_id(getattr(settings, "STRIPE_LITE_PRICE_ID", "")) else None,
+        "lite_annual": settings.STRIPE_LITE_ANNUAL_PRICE_ID if _is_real_stripe_id(getattr(settings, "STRIPE_LITE_ANNUAL_PRICE_ID", "")) else None,
         "standard_monthly": settings.STRIPE_STANDARD_PRICE_ID if _is_real_stripe_id(getattr(settings, "STRIPE_STANDARD_PRICE_ID", "")) else None,
         "standard_annual": settings.STRIPE_STANDARD_ANNUAL_PRICE_ID if _is_real_stripe_id(getattr(settings, "STRIPE_STANDARD_ANNUAL_PRICE_ID", "")) else None,
         "pro_monthly": settings.STRIPE_PRO_PRICE_ID if _is_real_stripe_id(settings.STRIPE_PRO_PRICE_ID) else None,

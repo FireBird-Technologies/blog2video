@@ -89,16 +89,15 @@ export default function SceneEditor({
     }
   }, [selectedImage]);
 
-  const isPro = user?.plan === "pro" || user?.plan === "standard";
   // Owner pays: AI editing is gated on the OWNER's plan and metered per-project,
-  // so a Free collaborator inherits a paid owner's unlimited edits (and vice versa).
+  // so a Free collaborator draws from a paid owner's credit pools (and vice versa).
   const isCollaborator = user != null && project.user_id !== user.id;
-  const effectiveIsPro = isCollaborator ? (project.owner_is_pro ?? false) : isPro;
-  // Single per-user AI-edit credit pool, shared across all projects (starts at 6,
-  // +20 per purchased video); the owner's pool on a shared project.
+  // Every plan is metered now (monthly allowance + non-expirable purchased pool) —
+  // no plan is unlimited. On a shared project the OWNER pays, so a collaborator
+  // draws from the owner's pools.
   const aiCreditRemaining = isCollaborator
-    ? (project.owner_ai_edit_credits ?? 0)
-    : (user?.ai_edit_credits ?? 0);
+    ? (project.owner_ai_edit_credits ?? 0) + (project.owner_ai_edit_allowance_remaining ?? 0)
+    : (user?.ai_edit_credits ?? 0) + (user?.ai_edit_allowance_remaining ?? 0);
   // Regenerating the voiceover costs 5 credits; other AI edits cost 1.
   // Mirrors VOICEOVER_EDIT_CREDIT_COST in backend/app/routers/projects.py.
   const voiceoverEditCost = 5;
@@ -106,11 +105,9 @@ export default function SceneEditor({
   // canUseAI — has ANY AI budget (drives the panel lock / paywall). canAffordThisEdit
   // — pool covers THIS edit's cost (drives the Regenerate button + soft warning), so a
   // user with credits left can turn the voiceover toggle off instead of being locked out.
-  const canUseAI = effectiveIsPro || aiCreditRemaining >= 1;
-  const canAffordThisEdit = effectiveIsPro || aiCreditRemaining >= aiEditCost;
-  const remainingAI = effectiveIsPro
-    ? "∞"
-    : `${aiCreditRemaining > 100 ? "100+" : aiCreditRemaining} remaining`;
+  const canUseAI = aiCreditRemaining >= 1;
+  const canAffordThisEdit = aiCreditRemaining >= aiEditCost;
+  const remainingAI = `${aiCreditRemaining > 9999 ? "9999+" : aiCreditRemaining} remaining`;
   // A collaborator can't lift the limit by upgrading — the owner must. The lead
   // (red) states the limit; the rest (grey) explains how to lift it.
   const aiLimitLead = isCollaborator
@@ -149,7 +146,7 @@ export default function SceneEditor({
     <>
       {isCollaborator ? "Ask the owner to upgrade to " : "Upgrade to "}
       <PlanLink plan="standard">Standard (${STANDARD_MONTHLY_PRICE}/mo)</PlanLink> or{" "}
-      <PlanLink plan="pro">Pro (${PRO_MONTHLY_PRICE}/mo)</PlanLink> for unlimited AI edits,{" "}
+      <PlanLink plan="pro">Pro (${PRO_MONTHLY_PRICE}/mo)</PlanLink> for a larger monthly AI-edit allowance,{" "}
       {isCollaborator ? "or to buy a video for +20 AI edits." : "or buy a video for +20 AI edits."}
     </>
   );
@@ -224,7 +221,7 @@ export default function SceneEditor({
       showError(
         isCollaborator
           ? "The project owner's AI editing limit has been reached. Ask the owner to upgrade."
-          : "AI editing limit reached. Upgrade to Pro for unlimited edits.",
+          : "AI editing limit reached. Upgrade for a larger monthly allowance.",
       );
       return;
     }
@@ -581,9 +578,9 @@ export default function SceneEditor({
                     </button>
                   </div>
 
-                  {/* Not enough credits for the voiceover (3), but the panel stays
+                  {/* Not enough credits for the voiceover, but the panel stays
                       usable so the user can turn this toggle off and edit at cost 1. */}
-                  {regenerateVoiceover && !canAffordThisEdit && !effectiveIsPro && (
+                  {regenerateVoiceover && !canAffordThisEdit && (
                     <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5">
                       <p className="text-xs font-medium text-amber-800">
                         You have {aiCreditRemaining} AI edit

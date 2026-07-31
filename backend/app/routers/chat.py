@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.auth import get_current_user
-from app.models.user import User, PlanTier
+from app.models.user import User, PAID_TIERS
 from app.models.project import Project, ProjectStatus
 from app.models.scene import Scene
 from app.models.chat_message import ChatMessage, MessageRole
@@ -33,10 +33,10 @@ async def chat_edit(
 
     project = get_accessible_project(project_id, user, db)
     payer = project_owner(project, db)
-    if payer.plan not in (PlanTier.PRO, PlanTier.STANDARD):
+    if payer.plan not in PAID_TIERS:
         raise HTTPException(
             status_code=403,
-            detail="AI chat editing is available on the Pro or Standard plan. Upgrade to edit your videos.",
+            detail="AI chat editing is available on a paid plan. Upgrade to edit your videos.",
         )
 
     scenes = project.scenes

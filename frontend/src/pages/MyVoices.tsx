@@ -23,6 +23,7 @@ import VoiceItem, { getMyVoiceDisplayName, subtitleForSavedVoice, subtitleFromEl
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import UpgradePlanModal from "../components/UpgradePlanModal";
 import { useAuth } from "../hooks/useAuth";
+import { isPaidPlan } from "../lib/plan";
 import { useErrorModal } from "../contexts/ErrorModalContext";
 import { COUNTRIES } from "../data/countries";
 import { CustomSelect } from "../components/CustomSelect";
@@ -95,7 +96,7 @@ export default function MyVoices({ demoMode }: { demoMode?: MyVoicesDemoMode } =
   const { user } = useAuth();
   const { showError } = useErrorModal();
   const isDemo = !!demoMode;
-  const isPro = isDemo ? true : user?.plan === "pro" || user?.plan === "standard";
+  const isPro = isDemo ? true : isPaidPlan(user?.plan);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [showUpgrade, setShowUpgrade] = useState(false);

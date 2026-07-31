@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo, type ReactNode } fro
 import ReactDOM from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { isPaidPlan } from "../lib/plan";
 import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useErrorModal } from "../contexts/ErrorModalContext";
 import { BulkLinksSection } from "./BulkLinksSection";
@@ -252,7 +253,7 @@ const VIDEO_LENGTH_MIN_WORDS: Partial<Record<"short" | "medium" | "detailed" | "
 };
 
 /**
- * Long-form lengths reserved for Pro/Standard; FREE users top out at "medium".
+ * Long-form lengths reserved for paid plans; FREE users top out at "medium".
  * Mirrors _PAID_ONLY_VIDEO_LENGTHS in backend/app/routers/projects.py, which
  * rejects these with 403 `video_length_requires_paid` — this is the UI half of
  * the same rule, not the enforcement.
@@ -752,7 +753,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
   const { user } = useAuth();
   const { showError } = useErrorModal();
   const navigate = useNavigate();
-  const isPro = demoMode ? true : user?.plan === "pro" || user?.plan === "standard";
+  const isPro = demoMode ? true : isPaidPlan(user?.plan);
   const isDemo = !!demoMode;
   // On mobile, crafted/custom grid tiles render a static themed placeholder
   // instead of a live Remotion Player; only the selected tile plays live. A grid
@@ -1057,7 +1058,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
       <div className="absolute z-20 mt-1 w-full rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
         <div className="max-h-[18.5rem] overflow-y-auto py-1">
           {(["short", "medium", "detailed", "more_detailed"] as const).map((opt) => {
-            // Long-form lengths are Pro/Standard only — the backend rejects them
+            // Long-form lengths require a paid plan — the backend rejects them
             // with 403 video_length_requires_paid, so gate them here too rather
             // than letting a free user pick an option that will fail on submit.
             const locked = !isPro && PAID_ONLY_VIDEO_LENGTHS.has(opt);
@@ -1066,7 +1067,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
               key={opt}
               type="button"
               disabled={locked}
-              title={locked ? "Requires a Pro or Standard subscription" : undefined}
+              title={locked ? "Requires a paid plan (Lite, Standard, or Pro)" : undefined}
               onClick={(e) => {
                 if (locked) return;
                 onSelect(opt);
@@ -1082,7 +1083,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
               <span>{VIDEO_LENGTH_DURATION_LABELS[opt]}</span>
               {locked && (
                 <span className="shrink-0 px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 text-[10px] font-medium">
-                  Pro
+                  Paid only
                 </span>
               )}
             </button>

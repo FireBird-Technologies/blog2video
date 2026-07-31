@@ -14,6 +14,7 @@ import {
   ProjectListItem,
 } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
+import { isPaidPlan } from "../lib/plan";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import { trackGoogleAdsPurchaseConversion } from "../gtag";
 import BlogUrlForm, { GENRE_CRAFTED } from "../components/BlogUrlForm";
@@ -101,7 +102,7 @@ export default function Dashboard() {
       }
     }
   }, [searchParams]);
-  const isPro = user?.plan === "pro" || user?.plan === "standard";
+  const isPro = isPaidPlan(user?.plan);
   const templatesRequested = searchParams.get("tab") === "templates";
   const voicesRequested = searchParams.get("tab") === "voices";
   const [activeTab, setActiveTab] = useState<"projects" | "templates" | "voices">(

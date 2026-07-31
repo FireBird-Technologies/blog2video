@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { addScene, type Project, type Scene } from "../api/client";
+import { formatAiEditCreditsDisplay } from "../lib/formatAiEditCredits";
 
 /** Adding a scene costs this many AI-edit credits (mirrors the backend). */
 export const ADD_SCENE_CREDIT_COST = 5;
@@ -8,14 +9,16 @@ export interface AddSceneModalProps {
   open: boolean;
   onClose: () => void;
   project: Project;
-  /** AI-edit credits available to spend (the owner's pool on a shared project). */
+  /** Total AI-edit budget available (allowance + purchased pool). */
   creditsRemaining: number;
-  /** Whether the paying owner is on an unlimited (Pro/Standard) plan. */
-  isPro: boolean;
+  /**
+   * Whether the owner has enough AI-edit budget for one add-scene action.
+   */
+  canAfford: boolean;
   /**
    * True when the viewer is a collaborator on a shared project (spending the
    * OWNER's credit pool). A collaborator can't fix an exhausted pool by upgrading
-   * their own plan, so they get a different message from the owner.
+   * their own plan.
    */
   isCollaborator?: boolean;
   /** The scene the new one will be inserted AFTER; null = append at the end. */
@@ -39,7 +42,7 @@ export default function AddSceneModal({
   onClose,
   project,
   creditsRemaining,
-  isPro,
+  canAfford,
   isCollaborator = false,
   anchorScene,
   onAdded,
@@ -63,8 +66,6 @@ export default function AddSceneModal({
   }, [open]);
 
   if (!open) return null;
-
-  const canAfford = isPro || creditsRemaining >= ADD_SCENE_CREDIT_COST;
 
   const handleClose = () => {
     if (loading) return;
@@ -116,6 +117,37 @@ export default function AddSceneModal({
           <p className="text-xs text-gray-500 mt-1">
             Describe the scene — it's generated from your prompt and the rest of the video.
           </p>
+          <p className="text-xs text-gray-400 mt-1">
+            Costs{" "}
+            <span className="font-medium text-gray-600">
+              {ADD_SCENE_CREDIT_COST} AI edit credits
+            </span>
+            {isCollaborator ? (
+              <>
+                {" "}
+                from the project owner&apos;s balance (
+                {formatAiEditCreditsDisplay(creditsRemaining)} remaining).
+              </>
+            ) : (
+              <>
+                {" "}
+                · {formatAiEditCreditsDisplay(creditsRemaining)} remaining
+                {!canAfford && (
+                  <>
+                    {" "}
+                    ·{" "}
+                    <button
+                      type="button"
+                      onClick={onUpgradeNow}
+                      className="text-purple-600 hover:text-purple-700 underline font-medium"
+                    >
+                      Upgrade for more
+                    </button>
+                  </>
+                )}
+              </>
+            )}
+          </p>
         </div>
 
         <div className="p-6 flex flex-col gap-4">
@@ -147,38 +179,15 @@ export default function AddSceneModal({
               : <>The new scene will be added at the end.</>}
           </p>
 
-          {!isPro && (
-            isCollaborator ? (
-              <p className="text-xs text-gray-500">
-                Adding a scene costs{" "}
-                <span className="font-semibold text-gray-700">{ADD_SCENE_CREDIT_COST} AI edit credits</span>{" "}
-                from the owner's balance · ask them to upgrade for unlimited.
-              </p>
-            ) : (
-              <p className="text-xs text-gray-500">
-                Adding a scene costs{" "}
-                <span className="font-semibold text-gray-700">{ADD_SCENE_CREDIT_COST} AI edit credits</span> ·{" "}
-                <button
-                  type="button"
-                  onClick={onUpgradeNow}
-                  className="text-purple-600 hover:text-purple-700 underline font-medium"
-                >
-                  Upgrade now
-                </button>{" "}
-                for unlimited.
-              </p>
-            )
-          )}
-
           {!canAfford && (
             <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2.5">
               {isCollaborator ? (
                 <p className="text-xs font-semibold text-red-700">
-                  The owner is out of AI credits · ask them to upgrade for unlimited.
+                  The project owner is out of AI edit credits — ask them to upgrade or buy more.
                 </p>
               ) : (
                 <p className="text-xs font-semibold text-red-700">
-                  You're out of AI edit credits · upgrade for unlimited.
+                  You&apos;re out of AI edit credits — upgrade or buy a video for +20 credits.
                 </p>
               )}
             </div>
