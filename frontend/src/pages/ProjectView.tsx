@@ -7979,6 +7979,11 @@ export default function ProjectView() {
             onClose={() => setRecordModalScene(null)}
             scene={recordModalScene}
             onApply={handleApplyRecording}
+            project={project ?? undefined}
+            layoutPropSchema={layoutPropSchema !== null ? layoutPropSchema : undefined}
+            ownerScopedProjectId={useOwnerScopedAssets ? projectId : undefined}
+            precompiledCraftedDetail={ownerScopedCraftedDetail}
+            precompiledTemplateData={currentCustomTemplateCode}
           />
         )}
 

@@ -1,5 +1,8 @@
-import { useEffect, useRef, useState } from "react";
-import type { Scene } from "../api/client";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { PlayerRef } from "@remotion/player";
+import type { CraftedTemplateDetail, Project, Scene } from "../api/client";
+import SceneOnlyPlayer from "./SceneOnlyPlayer";
+import useIsMobileViewport from "../hooks/useIsMobileViewport";
 
 export interface RecordVoiceoverModalProps {
   open: boolean;
@@ -7,6 +10,19 @@ export interface RecordVoiceoverModalProps {
   scene: Scene;
   /** Called with the recorded audio blob and its measured duration (seconds) on "Apply". */
   onApply: (sceneId: number, blob: Blob, durationSeconds: number) => void;
+  /**
+   * Full project. When supplied (and not on mobile) the scene plays alongside the
+   * recording so the user can feel its pacing. Omit to get the recorder alone.
+   */
+  project?: Project;
+  layoutPropSchema?: Record<string, { defaults?: Record<string, unknown> }>;
+  precompiledTemplateData?: {
+    intro_code: string | null;
+    content_codes: string[] | null;
+    outro_code: string | null;
+  };
+  precompiledCraftedDetail?: CraftedTemplateDetail | null;
+  ownerScopedProjectId?: number;
 }
 
 type RecState = "idle" | "recording" | "recorded";
@@ -62,6 +78,9 @@ function WaveformRecorder({
     const SAMPLE_MS = 60; // how often a new bar is captured
     let lastSample = 0;
     let raf = 0;
+    // Throttle state updates to the parent (see `draw`).
+    let lastLevelReport = 0;
+    let lastReportedLevel = 0;
 
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
@@ -87,7 +106,15 @@ function WaveformRecorder({
     const draw = (now: number) => {
       raf = requestAnimationFrame(draw);
       const level = readLevel();
-      onLevelRef.current(level);
+      // Report upward at most ~12x/sec, and only on a visible change. Calling
+      // this every frame re-renders the whole modal 60x/sec — which starves the
+      // scene preview's own rAF loop and makes it crawl. The canvas below still
+      // redraws every frame, so the waveform stays smooth.
+      if (now - lastLevelReport >= 80 && Math.abs(level - lastReportedLevel) > 0.04) {
+        lastLevelReport = now;
+        lastReportedLevel = level;
+        onLevelRef.current(level);
+      }
 
       if (!canvas || !ctx) return;
       const w = canvas.clientWidth;
@@ -147,11 +174,22 @@ export default function RecordVoiceoverModal({
   onClose,
   scene,
   onApply,
+  project,
+  layoutPropSchema,
+  precompiledTemplateData,
+  precompiledCraftedDetail,
+  ownerScopedProjectId,
 }: RecordVoiceoverModalProps) {
   const [recState, setRecState] = useState<RecState>("idle");
   const [error, setError] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  /**
+   * Measured length of the finished take. Mirrors `durationRef` as state so the
+   * preview can re-render at the new scene length once recording stops —
+   * matching how the scene will actually be timed after Apply.
+   */
+  const [recordedDuration, setRecordedDuration] = useState<number | null>(null);
   const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
   const [micLevel, setMicLevel] = useState(0); // 0..1 live loudness, drives the mic pulse
 
@@ -167,6 +205,84 @@ export default function RecordVoiceoverModal({
   const audioCtxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+
+  // ─── Scene preview ──────────────────────────────────────────────────────
+  // Plays the scene alongside the take so the user can feel its pacing. Never
+  // on mobile: a Remotion Player there OOMs/reloads iOS Safari tabs.
+  const isMobile = useIsMobileViewport();
+  const showPreview = !isMobile && !!project;
+  const playerRef = useRef<PlayerRef | null>(null);
+  const audioElRef = useRef<HTMLAudioElement | null>(null);
+  const isPortrait = project?.aspect_ratio === "portrait";
+
+  // Mirrors recState for the ref callback below, which fires outside React's
+  // render flow and would otherwise close over a stale value.
+  const recStateRef = useRef<RecState>("idle");
+
+  /**
+   * While recording: the full recording cap, so the scene runs for as long as
+   * the take can and simply holds once its animation is done — it never ends,
+   * so it can't fade out, rewind or need an artificial stop. Safe because
+   * layouts schedule their acts on FIXED frame constants (chronicle's BookOpen
+   * finishes at frame 134 regardless of length); duration only moves the closing
+   * fade, which a 60s window pushes far past anything the user will see.
+   *
+   * Once recorded: re-timed to what the scene will actually become, mirroring
+   * the backend — max(7, take + 1s pad) + extra hold.
+   *
+   * Memoised because SceneOnlyPlayer is memoised: a new value each render would
+   * re-render the Player subtree on every mic-level tick.
+   */
+  const previewDurationSeconds = useMemo(() => {
+    if (recordedDuration == null) return MAX_SECONDS;
+    return (
+      Math.max(7, recordedDuration + 1.0) + (Number(scene.extra_hold_seconds) || 0)
+    );
+  }, [recordedDuration, scene.extra_hold_seconds]);
+
+  const pausePreview = () => {
+    try {
+      playerRef.current?.pause();
+    } catch {
+      /* preview is best-effort — never let it break recording */
+    }
+  };
+
+  /**
+   * Start the scene from frame 0, muted. Idempotent: whichever of the effect or
+   * the ref callback runs second finds the player already playing and leaves the
+   * playhead alone, so the scene never restarts mid-take.
+   */
+  const startPreviewFromZero = (p: PlayerRef | null) => {
+    if (!p) return;
+    try {
+      p.mute();
+      if (p.isPlaying()) return;
+      p.seekTo(0);
+      p.play();
+    } catch {
+      /* best-effort */
+    }
+  };
+
+  /**
+   * VideoPreview renders a loading spinner *instead of* the Player until media
+   * and templates finish loading, so the Player can mount well after recording
+   * starts. Catching it via a ref callback (rather than polling on a deadline)
+   * means a slow preload can't cause us to miss the start.
+   *
+   * Stable identity: SceneOnlyPlayer is memoised, and a fresh callback each
+   * render would defeat that.
+   *
+   * Note there is deliberately no loop here — when the scene's animation ends it
+   * holds on its last frame for the rest of the take, which is what the finished
+   * video does when a voiceover outruns its scene.
+   */
+  const attachPlayerRef = useCallback((node: PlayerRef | null) => {
+    playerRef.current = node;
+    if (!node) return;
+    if (recStateRef.current === "recording") startPreviewFromZero(node);
+  }, []);
 
   const teardownAudioGraph = () => {
     try {
@@ -201,6 +317,7 @@ export default function RecordVoiceoverModal({
       return null;
     });
     blobRef.current = null;
+    setRecordedDuration(null);
   };
 
   // Reset everything whenever the modal opens for a (possibly new) scene.
@@ -219,10 +336,83 @@ export default function RecordVoiceoverModal({
     return () => {
       stopTimer();
       cleanupStream();
+      pausePreview();
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ─── Recording: run the scene in lockstep with the take ─────────────────
+  // Two ways in, because the Player may mount before OR after recording starts:
+  //  - already mounted when Start is pressed → this effect fires it;
+  //  - still behind VideoPreview's loading gate → `attachPlayerRef` fires it on mount.
+  // (Player.play() is synchronous and returns void — Remotion advances frames with
+  // requestAnimationFrame, so no autoplay policy applies.)
+  useEffect(() => {
+    recStateRef.current = recState;
+    if (!showPreview || recState !== "recording") return;
+    startPreviewFromZero(playerRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showPreview, recState]);
+
+
+  // ─── Playback: drive the scene from the recorded audio's position ────────
+  useEffect(() => {
+    if (!showPreview || recState !== "recorded") return;
+    const audio = audioElRef.current;
+    if (!audio) return;
+
+    const FPS = 30;
+    const frameFor = () => Math.max(0, Math.round(audio.currentTime * FPS));
+
+    const onPlay = () => {
+      const p = playerRef.current;
+      if (!p) return;
+      try {
+        p.mute();
+        p.seekTo(frameFor());
+        p.play();
+      } catch {
+        /* best-effort */
+      }
+    };
+    const onPause = () => pausePreview();
+    const onSeek = () => {
+      try {
+        playerRef.current?.seekTo(frameFor());
+      } catch {
+        /* best-effort */
+      }
+    };
+    // timeupdate fires ~4x/sec; only correct real drift so we don't fight the player.
+    const onTimeUpdate = () => {
+      const p = playerRef.current;
+      if (!p || audio.paused) return;
+      try {
+        const target = frameFor();
+        if (Math.abs(p.getCurrentFrame() - target) > 3) p.seekTo(target);
+      } catch {
+        /* best-effort */
+      }
+    };
+
+    audio.addEventListener("play", onPlay);
+    audio.addEventListener("pause", onPause);
+    audio.addEventListener("ended", onPause);
+    audio.addEventListener("seeking", onSeek);
+    audio.addEventListener("seeked", onSeek);
+    audio.addEventListener("timeupdate", onTimeUpdate);
+    return () => {
+      audio.removeEventListener("play", onPlay);
+      audio.removeEventListener("pause", onPause);
+      audio.removeEventListener("ended", onPause);
+      audio.removeEventListener("seeking", onSeek);
+      audio.removeEventListener("seeked", onSeek);
+      audio.removeEventListener("timeupdate", onTimeUpdate);
+      pausePreview();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showPreview, recState, previewUrl]);
 
   if (!open) return null;
 
@@ -276,8 +466,11 @@ export default function RecordVoiceoverModal({
         const blob = new Blob(chunksRef.current, { type });
         blobRef.current = blob;
         setPreviewUrl(URL.createObjectURL(blob));
+        setRecordedDuration(durationRef.current);
         setRecState("recorded");
         setAnalyser(null);
+        // Also covers the MAX_SECONDS auto-stop, which reaches here via stopRecording().
+        pausePreview();
         cleanupStream();
       };
 
@@ -313,6 +506,8 @@ export default function RecordVoiceoverModal({
 
   const stopRecording = () => {
     stopTimer();
+    // Freeze the scene where the take ended — the preview window is the take.
+    pausePreview();
     const recorder = mediaRecorderRef.current;
     if (recorder && recorder.state !== "inactive") {
       recorder.stop();
@@ -324,6 +519,13 @@ export default function RecordVoiceoverModal({
     setElapsed(0);
     setAnalyser(null);
     setRecState("idle");
+    // Rewind so the next take starts from the top of the scene.
+    try {
+      playerRef.current?.pause();
+      playerRef.current?.seekTo(0);
+    } catch {
+      /* best-effort */
+    }
   };
 
   const handleApply = () => {
@@ -334,6 +536,7 @@ export default function RecordVoiceoverModal({
 
   const handleClose = () => {
     stopTimer();
+    pausePreview();
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       try {
         mediaRecorderRef.current.stop();
@@ -353,7 +556,9 @@ export default function RecordVoiceoverModal({
         aria-hidden
       />
       <div
-        className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full flex flex-col overflow-hidden"
+        className={`relative bg-white rounded-2xl shadow-2xl w-full flex flex-col overflow-hidden ${
+          showPreview ? (isPortrait ? "max-w-lg" : "max-w-3xl") : "max-w-md"
+        }`}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-labelledby="record-voiceover-title"
@@ -367,7 +572,43 @@ export default function RecordVoiceoverModal({
           </p>
         </div>
 
-        <div className="p-6 flex flex-col items-center gap-3">
+        <div
+          className={
+            showPreview
+              ? "p-6 flex flex-col sm:flex-row items-center sm:items-stretch gap-5"
+              : "p-6 flex flex-col items-center gap-3"
+          }
+        >
+          {showPreview && project && (
+            <div className="w-full sm:flex-1 sm:min-w-0 flex flex-col justify-center">
+              <SceneOnlyPlayer
+                ref={attachPlayerRef}
+                project={project}
+                sceneId={scene.id}
+                durationSeconds={previewDurationSeconds}
+                muted
+                layoutPropSchema={layoutPropSchema}
+                precompiledTemplateData={precompiledTemplateData}
+                precompiledCraftedDetail={precompiledCraftedDetail}
+                ownerScopedProjectId={ownerScopedProjectId}
+              />
+              <p className="mt-2 text-[11px] text-gray-400 text-center">
+                {recState === "recording"
+                  ? "Playing along with your recording"
+                  : recState === "recorded"
+                    ? "Plays in sync with your recording below"
+                    : "Preview — plays when you start recording"}
+              </p>
+            </div>
+          )}
+
+          <div
+            className={
+              showPreview
+                ? "w-full sm:w-64 sm:flex-shrink-0 flex flex-col items-center gap-3"
+                : "contents"
+            }
+          >
           {error && (
             <p className="w-full text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
               {error}
@@ -461,6 +702,7 @@ export default function RecordVoiceoverModal({
 
           {recState === "recorded" && previewUrl && (
             <audio
+              ref={audioElRef}
               controls
               src={previewUrl}
               className="w-full h-9"
@@ -510,6 +752,7 @@ export default function RecordVoiceoverModal({
                 </button>
               </>
             )}
+          </div>
           </div>
         </div>
 
