@@ -885,7 +885,7 @@ export default function Landing() {
               <p>
                 <span className="font-medium">Optimal experience on a computer.</span>{" "}
                 <span className="text-amber-800">
-                  Video rendering preview are memory-heavy and may not play reliably
+                  Video rendering and previews are memory-heavy and may not play reliably
                   on a phone.
                 </span>
               </p>
