@@ -27,6 +27,7 @@ import PublicFooter from "../components/public/PublicFooter";
 import DiscountBanner from "../components/DiscountBanner";
 import Seo from "../components/seo/Seo";
 import { homepageSchema } from "../seo/schema";
+import { LITE_MONTHLY_PRICE } from "../content/pricingContent";
 
 // ─── Demo videos ─────────────────────────────────────────
 // Add more entries here to show them as tabs in "See it in action"
@@ -862,7 +863,7 @@ export default function Landing() {
               Get Started →
             </button>
           </form>
-          <p className="text-xs text-gray-400 mt-3">2 videos free — no credit card required</p>
+          <p className="text-xs text-gray-400 mt-3">1 video free — no credit card required</p>
           {/* Editing/preview hold a Remotion runtime that exceeds most phone
               browsers' memory ceiling, so set expectations before sign-up. */}
           {isMobile && !inAppInstructionsVisible && (
@@ -1259,24 +1260,29 @@ export default function Landing() {
         <div className="max-w-6xl mx-auto px-6 text-center reveal">
           <p className="text-xs font-medium text-purple-600 mb-4 tracking-widest uppercase">Pricing</p>
           <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-4">
-            Start free. Pay per video. Standard or Pro.
+            Start free. Pay per video. Lite, Standard, or Pro.
           </h2>
           <p className="text-sm text-gray-500 mb-10 max-w-lg mx-auto leading-relaxed">
-            Your first 2 videos are free. Then from $2.80/video pay-as-you-go, $34.99/month,
-            $59.99/month with unlimited AI edit & image generation,
+            Your first video is free. Then from $2.80/video pay-as-you-go, ${LITE_MONTHLY_PRICE}/month,
+            $34.99/month, $59.99/month with a monthly AI-edit allowance,
             or custom plans for enterprise teams.
           </p>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <div className="glass-card px-4 sm:px-7 py-6 text-center">
               <p className="text-sm font-medium text-gray-900 mb-1">Free</p>
               <p className="text-3xl font-bold text-gray-900">$0</p>
-              <p className="text-xs text-gray-400 mt-1">2 videos free</p>
+              <p className="text-xs text-gray-400 mt-1">1 video free</p>
             </div>
             <div className="glass-card px-4 sm:px-7 py-6 text-center">
               <p className="text-sm font-medium text-gray-900 mb-1">Per Video</p>
               <p className="text-3xl font-bold text-gray-900">$3.99</p>
               <p className="text-xs text-gray-400 mt-1">from $2.80 bulk</p>
+            </div>
+            <div className="glass-card px-4 sm:px-7 py-6 text-center">
+              <p className="text-sm font-medium text-gray-900 mb-1">Lite</p>
+              <p className="text-3xl font-bold text-gray-900">${LITE_MONTHLY_PRICE}<span className="text-sm font-normal text-gray-400">/mo</span></p>
+              <p className="text-xs text-gray-400 mt-1">10 videos</p>
             </div>
             <div className="glass-card px-4 sm:px-7 py-6 text-center col-span-2 sm:col-span-1">
               <p className="text-sm font-medium text-gray-900 mb-1">Standard</p>
@@ -1327,7 +1333,7 @@ export default function Landing() {
                 text="continue_with"
                 width="300"
               />
-              <p className="text-xs text-gray-400">2 videos free — no credit card required</p>
+              <p className="text-xs text-gray-400">1 video free — no credit card required</p>
             </div>
           </div>
         </div>

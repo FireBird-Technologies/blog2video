@@ -13,6 +13,7 @@ import {
   substackPublications,
 } from "../../content/substackDirectory";
 import { useAuth } from "../../hooks/useAuth";
+import { isPaidPlan } from "../../lib/plan";
 import GoogleAuthButton from "../public/GoogleAuthButton";
 import { googleLogin } from "../../api/client";
 import {
@@ -1399,7 +1400,7 @@ function ToolQuotaLine({
   if (!quota) return null;
   const left = Math.max(quota.limit - quota.used, 0);
   const exhausted = left <= 0;
-  const isFree = user?.plan !== "pro" && user?.plan !== "standard";
+  const isFree = !isPaidPlan(user?.plan);
   return (
     <p className="mt-3 text-xs font-medium text-gray-500">
       {left} of {quota.limit} {noun} left

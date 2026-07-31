@@ -29,11 +29,20 @@ import LimitedSeatsBar from "../components/LimitedSeatsBar";
 import PlanSwitchConfirmModal from "../components/PlanSwitchConfirmModal";
 import PlanCardCTA from "../components/PlanCardCTA";
 import BillingCycleTabs from "../components/BillingCycleTabs";
+import CustomPlanSalesFooter from "../components/CustomPlanSalesFooter";
 import { isPaidSlug, type CurrentSlug } from "../lib/planSwitch";
+import { isPaidPlan } from "../lib/plan";
 import {
+  LITE_MONTHLY_PRICE,
+  LITE_ANNUAL_MONTHLY_PRICE,
+  LITE_ANNUAL_TOTAL_PRICE,
   FREE_CUSTOM_TEMPLATE_COUNT,
+  LITE_CUSTOM_TEMPLATE_COUNT,
   STANDARD_CUSTOM_TEMPLATE_COUNT,
   PRO_CUSTOM_TEMPLATE_COUNT,
+  LITE_AI_EDIT_ALLOWANCE,
+  STANDARD_AI_EDIT_ALLOWANCE,
+  PRO_AI_EDIT_ALLOWANCE,
 } from "../content/pricingContent";
 
 export default function Subscription() {
@@ -112,6 +121,17 @@ export default function Subscription() {
       window.location.href = res.data.checkout_url;
     } catch (err) {
       console.error("Failed to start Standard checkout:", err);
+      setActionLoading(null);
+    }
+  };
+
+  const handleLiteUpgrade = async () => {
+    setActionLoading("lite");
+    try {
+      const res = await createCheckoutSession({ plan: "lite", billing_cycle: billingCycle === "lifetime" ? "monthly" : billingCycle });
+      window.location.href = res.data.checkout_url;
+    } catch (err) {
+      console.error("Failed to start Lite checkout:", err);
       setActionLoading(null);
     }
   };
@@ -263,9 +283,9 @@ export default function Subscription() {
       currency: currency.toUpperCase(),
     }).format(cents / 100);
 
-  const isPro = user?.plan === "pro" || user?.plan === "standard";
+  const isPaid = isPaidPlan(user?.plan);
   const isStandard = user?.plan === "standard";
-  const isPaid = isPro;
+  const isLite = user?.plan === "lite";
 
   // Slug of the user's currently active paid plan. Falls back to user.plan tier
   // (assuming monthly) if there is no Subscription record yet — covers the
@@ -276,6 +296,7 @@ export default function Subscription() {
     }
     if (user?.plan === "pro") return "pro_monthly";
     if (user?.plan === "standard") return "standard_monthly";
+    if (user?.plan === "lite") return "lite_monthly";
     return "free";
   })();
 
@@ -322,7 +343,7 @@ export default function Subscription() {
               <span className="text-2xl font-bold text-gray-900 capitalize">
                 {billing?.plan || "Free"}
               </span>
-              {isPro && (
+              {isPaid && (
                 <span className="px-2.5 py-0.5 bg-purple-100 text-purple-600 text-xs font-medium rounded-full">
                   Active
                 </span>
@@ -347,7 +368,7 @@ export default function Subscription() {
             )}
           </div>
           <div className="flex gap-2">
-            {isPro ? (
+            {isPaid ? (
               <>
                 <button
                   onClick={handleManageBilling}
@@ -537,7 +558,7 @@ export default function Subscription() {
               {billing?.videos_used ?? 0}
             </span>
             <span className="text-sm text-gray-400 pb-1">
-              / {billing?.video_limit ?? 3} videos
+              / {billing?.video_limit ?? 1} videos
             </span>
           </div>
           {/* Progress bar */}
@@ -545,9 +566,9 @@ export default function Subscription() {
             <div
               className="h-full rounded-full transition-all duration-500"
               style={{
-                width: `${Math.min(100, ((billing?.videos_used ?? 0) / (billing?.video_limit ?? 3)) * 100)}%`,
+                width: `${Math.min(100, ((billing?.videos_used ?? 0) / (billing?.video_limit ?? 1)) * 100)}%`,
               backgroundColor:
-                  (billing?.videos_used ?? 0) >= (billing?.video_limit ?? 3)
+                  (billing?.videos_used ?? 0) >= (billing?.video_limit ?? 1)
                     ? "#ef4444"
                     : "#7c3aed",
               }}
@@ -555,7 +576,7 @@ export default function Subscription() {
           </div>
           <p className="text-xs text-gray-400 mt-2">
             {billing?.can_create_video
-              ? `${(billing?.video_limit ?? 3) - (billing?.videos_used ?? 0)} videos remaining`
+              ? `${(billing?.video_limit ?? 1) - (billing?.videos_used ?? 0)} videos remaining`
               : "Video limit reached"}
           </p>
         </section>
@@ -640,7 +661,11 @@ export default function Subscription() {
         </div>
 
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div
+          className={`grid w-full sm:grid-cols-2 gap-4 ${
+            billingCycle === "lifetime" ? "lg:grid-cols-4" : "lg:grid-cols-5"
+          }`}
+        >
           {/* Free */}
           <div className={`glass-card p-5 flex flex-col ${!isPaid && billing?.plan === "free" ? "ring-2 ring-purple-200" : ""}`}>
             <div className="mb-4">
@@ -651,12 +676,12 @@ export default function Subscription() {
               <span className="text-2xl font-bold text-gray-900">$0</span>
             </div>
             <ul className="space-y-2 mb-5 flex-1 text-xs text-gray-500">
-              <li className="flex items-start gap-2"><CheckMark />2 videos free</li>
+              <li className="flex items-start gap-2"><CheckMark />1 video free</li>
               <li className="flex items-start gap-2"><CheckMark />AI script generation</li>
               <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
               <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
               <li className="flex items-start gap-2"><CheckMark />{FREE_CUSTOM_TEMPLATE_COUNT} custom video template</li>
-              <li className="flex items-start gap-2 text-gray-300"><CrossMark />Unlimited AI edit & image generation</li>
+              <li className="flex items-start gap-2 text-gray-300"><CrossMark />Monthly AI edit allowance</li>
               <li className="flex items-start gap-2 text-gray-300"><CrossMark />Premium voiceover + cloning</li>
             </ul>
             {!isPaid && billing?.plan === "free" ? (
@@ -696,6 +721,60 @@ export default function Subscription() {
               }
             }}
           />
+
+          {/* Lite — monthly/annual only, no lifetime option */}
+          {billingCycle !== "lifetime" && (
+            <div className={`glass-card p-5 flex flex-col ${isLite ? "ring-2 ring-purple-200" : ""}`}>
+              <div className="mb-4">
+                <h3 className="text-sm font-semibold text-gray-900">Lite</h3>
+                <p className="text-xs text-gray-400 mt-0.5">10 videos/month</p>
+              </div>
+              <div className="mb-4">
+                {billingCycle === "annual" ? (
+                  <>
+                    <span className="text-2xl font-bold text-gray-900">${LITE_ANNUAL_MONTHLY_PRICE}</span>
+                    <span className="text-xs text-gray-400 ml-1">/month</span>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span className="text-xs text-gray-400 line-through">${LITE_MONTHLY_PRICE}/mo</span>
+                      <span className="px-1.5 py-0.5 bg-green-50 text-green-600 text-[10px] font-semibold rounded">
+                        Save 20%
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-0.5">${LITE_ANNUAL_TOTAL_PRICE} billed annually</p>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-2xl font-bold text-gray-900">${LITE_MONTHLY_PRICE}</span>
+                    <span className="text-xs text-gray-400 ml-1">/month</span>
+                    <p className="text-[10px] text-gray-400 mt-1">
+                      or <span className="font-medium text-gray-500">${LITE_ANNUAL_MONTHLY_PRICE}/mo</span> billed annually
+                    </p>
+                  </>
+                )}
+              </div>
+              <ul className="space-y-2 mb-5 flex-1 text-xs text-gray-500">
+                <li className="flex items-start gap-2"><CheckMark />10 videos / month</li>
+                <li className="flex items-start gap-2"><CheckMark />AI script generation</li>
+                <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
+                <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
+                <li className="flex items-start gap-2"><CheckMark />{LITE_AI_EDIT_ALLOWANCE} AI edit credits/month</li>
+                <li className="flex items-start gap-2"><CheckMark />{LITE_CUSTOM_TEMPLATE_COUNT} custom video templates</li>
+                <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
+                <li className="flex items-start gap-2"><CheckMark />Priority support</li>
+              </ul>
+              <PlanCardCTA
+                tier="lite"
+                currentSlug={currentSlug}
+                billingCycle={billingCycle}
+                scheduledTargetSlug={subscription?.scheduled_plan_slug}
+                scheduledPending={scheduledPending}
+                paymentBlocked={paymentBlocked}
+                onSubscribe={handleLiteUpgrade}
+                onSwitch={openSwitchModal}
+                subscribeLoading={actionLoading === "lite"}
+              />
+            </div>
+          )}
 
           {/* Standard */}
           <div className={`glass-card p-5 flex flex-col ${isStandard ? "ring-2 ring-purple-200" : ""}`}>
@@ -740,7 +819,7 @@ export default function Subscription() {
               <li className="flex items-start gap-2"><CheckMark />AI script generation</li>
               <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
               <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
-              <li className="flex items-start gap-2"><CheckMark />Unlimited AI edit & image generation</li>
+              <li className="flex items-start gap-2"><CheckMark />{STANDARD_AI_EDIT_ALLOWANCE} AI edit credits/month</li>
               <li className="flex items-start gap-2"><CheckMark />{STANDARD_CUSTOM_TEMPLATE_COUNT} custom video templates</li>
               <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
               <li className="flex items-start gap-2"><CheckMark />Priority support</li>
@@ -818,7 +897,7 @@ export default function Subscription() {
               <li className="flex items-start gap-2"><CheckMark />AI script generation</li>
               <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
               <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
-              <li className="flex items-start gap-2"><CheckMark />Unlimited AI edit & image generation</li>
+              <li className="flex items-start gap-2"><CheckMark />{PRO_AI_EDIT_ALLOWANCE} AI edit credits/month</li>
               <li className="flex items-start gap-2"><CheckMark />{PRO_CUSTOM_TEMPLATE_COUNT} custom video templates</li>
               <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
               <li className="flex items-start gap-2"><CheckMark />Priority support</li>
@@ -845,37 +924,9 @@ export default function Subscription() {
               />
             )}
           </div>
-
-          {/* Customized Subscription */}
-          <div className="glass-card p-5 flex flex-col border-2 border-purple-300">
-            <div className="mb-4">
-              <h3 className="text-sm font-semibold text-gray-900">Customized</h3>
-              <p className="text-xs text-gray-400 mt-0.5">Enterprise & teams</p>
-            </div>
-            <div className="mb-4">
-              <span className="text-2xl font-bold text-gray-900">Custom</span>
-            </div>
-            <ul className="space-y-2 mb-5 flex-1 text-xs text-gray-500">
-              <li className="flex items-start gap-2"><CheckMark />Custom video limits</li>
-              <li className="flex items-start gap-2"><CheckMark />AI script generation</li>
-              <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
-              <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
-              <li className="flex items-start gap-2"><CheckMark />Unlimited AI edit & image generation</li>
-              <li className="flex items-start gap-2"><CheckMark />Custom video templates</li>
-              <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
-              <li className="flex items-start gap-2"><CheckMark />Custom integrations</li>
-              <li className="flex items-start gap-2"><CheckMark />Dedicated support</li>
-              <li className="flex items-start gap-2"><CheckMark />On-prem deployment available</li>
-              <li className="flex items-start gap-2"><CheckMark />Custom pricing</li>
-            </ul>
-            <button
-              onClick={() => navigate("/contact")}
-              className="w-full py-2 text-xs font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
-            >
-              Contact Sales
-            </button>
-          </div>
         </div>
+
+        <CustomPlanSalesFooter className="mt-6" />
 
         {/* Cost comparison */}
         {billingCycle === "lifetime" ? (
@@ -973,10 +1024,10 @@ export default function Subscription() {
           <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500">
-                Data retention: {isPro ? "30 days" : "24 hours"} after last activity
+                Data retention: {isPaid ? "30 days" : "24 hours"} after last activity
               </p>
               <p className="text-xs text-gray-400 mt-0.5">
-                {isPro
+                {isPaid
                   ? "Your files are kept for 30 days. Upgrade extends retention automatically."
                   : "Free tier data is cleaned up after 24 hours. Upgrade to Pro for 30-day retention."}
               </p>

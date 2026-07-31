@@ -97,46 +97,48 @@ def project_owner(project: Project, db: Session) -> User:
 def can_use_ai_edit(payer: User, project: Project, cost: int = 1) -> bool:
     """Whether an AI-assisted edit costing ``cost`` credits is permitted.
 
-    Charged to the paying ``payer`` (the project owner on shared projects):
-      1. Paid plan (PRO/STANDARD) → unlimited, consumes nothing.
-      2. Otherwise, draw from the payer's single per-user AI-edit credit pool
-         (``ai_edit_credits``) — shared across all their projects. The pool starts
-         at ``FREE_AI_EDIT_CREDITS`` and grows by ``AI_EDIT_CREDITS_PER_VIDEO`` per
-         purchased video. The edit is allowed only if the balance covers ``cost``.
+    Charged to the paying ``payer`` (the project owner on shared projects), drawn
+    from two pools: the plan's monthly allowance (``ai_edit_allowance_remaining``,
+    0 on FREE) plus the non-expirable purchased pool (``ai_edit_credits`` — starts
+    at ``FREE_AI_EDIT_CREDITS``, +``AI_EDIT_CREDITS_PER_VIDEO`` per purchased
+    video). The edit is allowed only if the combined balance covers ``cost``.
 
     ``project`` is retained for signature stability but no longer gates.
     """
-    from app.models.user import PlanTier
-
-    if payer.plan in (PlanTier.PRO, PlanTier.STANDARD):
-        return True
-    return (payer.ai_edit_credits or 0) >= cost
+    return payer.ai_edit_credits_available >= cost
 
 
 def consume_ai_edit(payer: User, project: Project, cost: int = 1) -> None:
-    """Spend ``cost`` AI-assisted-edit credits for a non-paid ``payer``.
+    """Spend ``cost`` AI-assisted-edit credits for ``payer``.
 
-    Decrements the per-user pool (floored at zero). Never called for PRO/STANDARD
-    payers (their edits are unlimited and cost nothing). Mutates the ORM object in
-    place; the caller owns the commit. ``project`` is unused (kept for signature
-    stability with ``can_use_ai_edit``).
+    Draws from the monthly plan allowance first, then the non-expirable
+    purchased pool for any remainder (floored at zero). Mutates the ORM object
+    in place; the caller owns the commit. ``project`` is unused (kept for
+    signature stability with ``can_use_ai_edit``).
     """
-    payer.ai_edit_credits = max(0, (payer.ai_edit_credits or 0) - cost)
+    from_allowance = min(cost, payer.ai_edit_allowance_remaining)
+    payer.ai_edits_used_this_period = (payer.ai_edits_used_this_period or 0) + from_allowance
+    remainder = cost - from_allowance
+    if remainder:
+        payer.ai_edit_credits = max(0, (payer.ai_edit_credits or 0) - remainder)
 
 
 def refund_ai_edit(payer: User, project: Project, cost: int = 1) -> None:
     """Return ``cost`` AI-edit credits to ``payer`` after a failed background edit.
 
-    The inverse of :func:`consume_ai_edit`: re-credits the per-user pool for a job
-    that reserved credits upfront but ultimately failed. A no-op for PRO/STANDARD
-    payers (they were never charged — their edits are unlimited). Mutates in place;
-    the caller owns the commit. ``project`` is unused (signature parity).
+    The inverse of :func:`consume_ai_edit`: reverses the same split, crediting
+    the monthly allowance first (bounded by what's actually used this period)
+    and any excess to the purchased pool. If the billing period rolled over
+    between reserve and refund, ``ai_edits_used_this_period`` is already 0 and
+    the whole amount lands in the purchased pool — the payer is never
+    short-changed. Mutates in place; the caller owns the commit. ``project`` is
+    unused (signature parity).
     """
-    from app.models.user import PlanTier
-
-    if payer.plan in (PlanTier.PRO, PlanTier.STANDARD):
-        return
-    payer.ai_edit_credits = (payer.ai_edit_credits or 0) + cost
+    to_allowance = min(cost, payer.ai_edits_used_this_period or 0)
+    payer.ai_edits_used_this_period = (payer.ai_edits_used_this_period or 0) - to_allowance
+    remainder = cost - to_allowance
+    if remainder:
+        payer.ai_edit_credits = (payer.ai_edit_credits or 0) + remainder
 
 
 def is_owner(project: Project, user: User) -> bool:
@@ -152,7 +154,7 @@ def feature_owner_gate_message(payer: User, acting_user: User, feature: str) -> 
     """
     if payer.id == acting_user.id:
         return (
-            f"{feature[0].upper()}{feature[1:]} is available on the Pro or Standard plan. "
+            f"{feature[0].upper()}{feature[1:]} is available on the Lite, Standard, or Pro plan. "
             "Upgrade to unlock."
         )
     return (

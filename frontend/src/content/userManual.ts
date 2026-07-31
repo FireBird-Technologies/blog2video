@@ -138,7 +138,7 @@ Project settings:
 
 == VOICE SETTINGS ==
 
-Choose voice gender (Female/Male/None) and pick from prebuilt ElevenLabs voices during project creation. To use a voice clone: go to Dashboard → Voices → "Create custom voice", upload an audio or video sample (about 2 minutes). Your clone appears in the voice picker. Voice cloning is available on Pro and Standard plans.
+Choose voice gender (Female/Male/None) and pick from prebuilt ElevenLabs voices during project creation. To use a voice clone: go to Dashboard → Voices → "Create custom voice", upload an audio or video sample (about 2 minutes). Your clone appears in the voice picker. Voice cloning is available on Lite, Standard, and Pro plans.
 
 Playback speed: In the video preview, use the speed control to choose 0.5×, 1×, 1.5×, 2×, or 2.5×.
 
@@ -215,7 +215,7 @@ Click the Edit button on a scene card and select the AI tab.
 AI edit fields:
 - Description (required): Describe what you want changed. For example: "Make this scene focus on the cost savings metric" or "Replace with a quote from a customer".
 - Display text (optional): Type new on-screen text. Required if you enable the voiceover regeneration toggle.
-- Regenerate voiceover: Toggle this on to re-record what is read aloud for this scene. On the free plan this costs 3 AI edits (other edits cost 1).
+- Regenerate voiceover: Toggle this on to re-record what is read aloud for this scene. This costs 5 AI edits (other edits cost 1).
 - Layout: Choose "Auto" to let the AI pick the best layout, or manually select a specific layout from the dropdown.
 - Image: Optionally upload an image (PNG, JPEG, WebP, JPG) to use as the scene's background/image. If left blank, the existing image is kept.
 
@@ -225,9 +225,9 @@ Click "Regenerate" to send your request to the AI. The scene will update with ne
 
 Free plan: 6 AI-assisted scene edits, shared across all your projects. An edit counter in the AI edit panel shows how many you have remaining. Buying a video adds 20 more to the same pool.
 
-Regenerating a scene's voiceover costs 3 edits; every other AI edit (layout change, text rewrite) costs 1.
+Regenerating a scene's voiceover costs 5 edits; every other AI edit (layout change, text rewrite) costs 1.
 
-Pro and Standard plans: Unlimited AI-assisted edits.
+Paid plans get a monthly AI-edit allowance on top of the purchased pool: Lite 300, Standard 2000, Pro 5000 credits/month.
 
 Note: Manual edits (typing directly into fields) do not count toward the AI edit limit. Only clicks on the "Regenerate" button in AI mode use a credit.
 
@@ -352,7 +352,7 @@ To render and download:
 
 Re-rendering:
 - If you have already rendered and want to incorporate new edits, click Download again — it will offer to re-render. This counts as a new video against your plan's video limit.
-- Free users get 2 total renders. Pro users get 100/month. Standard users get 30/month. Pay-as-you-go per-video purchases are also available.
+- Free users get 1 total render. Pro users get 100/month. Standard users get 30/month. Pay-as-you-go per-video purchases are also available.
 
 To cancel an in-progress render:
 - Click "Cancel render". If the render has already finished or been cancelled, a brief error appears — refresh the page to see the current status.
@@ -407,7 +407,7 @@ Note: Converting aspect ratio does not change the content — it adjusts how the
 
 == AI CHAT PANEL ==
 
-The AI Chat panel is a Pro and Standard feature that lets you make edits using natural language instructions instead of editing scenes one by one.
+The AI Chat panel is a Lite, Standard, and Pro feature that lets you make edits using natural language instructions instead of editing scenes one by one.
 
 How to use:
 - Open the AI Chat panel (the chat icon or "AI Chat" tab in the sidebar).
@@ -419,7 +419,7 @@ How to use:
 - Click Send. The AI processes your instruction and applies edits across the relevant scenes.
 - The chat history shows your previous instructions and their outcomes.
 
-Gating: If you are on the free plan, the chat input is replaced by an upgrade prompt. Upgrade to Pro or Standard to unlock the AI Chat panel.
+Gating: If you are on the free plan, the chat input is replaced by an upgrade prompt. Upgrade to Lite, Standard, or Pro to unlock the AI Chat panel.
 
 == SCRIPT TAB ==
 

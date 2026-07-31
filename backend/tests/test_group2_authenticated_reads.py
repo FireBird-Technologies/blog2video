@@ -16,6 +16,8 @@ All handlers were read to confirm they are pure DB reads (no external I/O):
 """
 import pytest
 
+from app.models.user import FREE_TIER_INCLUDED_VIDEOS
+
 pytestmark = pytest.mark.smoke
 
 
@@ -57,7 +59,7 @@ def test_get_auth_me__valid_token__returns_current_user(client, free_user, auth)
     assert body["email"] == "free@test.local"
     assert body["plan"] == "free"
     # Computed fields surfaced by UserOut.
-    assert body["video_limit"] == 2
+    assert body["video_limit"] == FREE_TIER_INCLUDED_VIDEOS
     assert body["can_create_video"] is True
 
 
@@ -69,7 +71,7 @@ def test_get_billing_status__free_user__returns_usage(client, free_user, auth):
     body = resp.json()
     assert body["plan"] == "free"
     assert body["videos_used"] == 0
-    assert body["video_limit"] == 2
+    assert body["video_limit"] == FREE_TIER_INCLUDED_VIDEOS
     assert body["can_create_video"] is True
 
 

@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Project, Scene } from "../api/client";
 import { generateSceneImage } from "../api/client";
+import { formatAiEditCreditsDisplay } from "../lib/formatAiEditCredits";
 
-// AI image generation costs this many AI-edit credits for a FREE owner; PRO/STANDARD
-// owners are unlimited. Kept in sync with the backend GENERATE_IMAGE_CREDIT_COST.
-export const AI_IMAGE_CREDIT_COST = 5;
+// AI image generation costs this many AI-edit credits per image (all plans).
+// Kept in sync with the backend GENERATE_IMAGE_CREDIT_COST.
+export const AI_IMAGE_CREDIT_COST = 3;
 
 export interface GenerateSceneImageModalProps {
   open: boolean;
@@ -12,21 +13,18 @@ export interface GenerateSceneImageModalProps {
   scene: Scene;
   project: Project;
   /**
-   * Owner-scoped access to AI image generation: true when the project OWNER is on a
-   * paid plan (unlimited) OR has enough AI-edit credits to cover one generation.
+   * Whether the owner has enough AI-edit budget for one generation (monthly
+   * allowance + purchased pool).
    */
   canGenerate: boolean;
-  /** Credits one generation costs a FREE owner (for the "costs N AI edits" hint). */
+  /** Credits one generation costs (shown in the modal for every plan). */
   creditCost: number;
-  /** True when the viewer is on a paid plan (PRO/STANDARD) — hides the cost hint. */
-  isPaid: boolean;
   /**
    * True when the viewer is a collaborator on a shared project (spending the OWNER's
-   * credit pool). They can't fix an exhausted pool by upgrading their own plan, so
-   * the cost hint asks the owner to upgrade instead of offering a self-serve link.
+   * credit pool). They can't fix an exhausted pool by upgrading their own plan.
    */
   isCollaborator?: boolean;
-  /** AI-edit credits available to spend (the owner's pool on a shared project). */
+  /** Total AI-edit budget available (allowance + purchased pool). */
   creditsRemaining: number;
   /** True when the blocker is the OWNER's exhausted access, not the viewer's own. */
   ownerBlocked?: boolean;
@@ -47,7 +45,6 @@ export default function GenerateSceneImageModal({
   project,
   canGenerate,
   creditCost,
-  isPaid,
   isCollaborator = false,
   creditsRemaining,
   ownerBlocked,
@@ -149,28 +146,37 @@ export default function GenerateSceneImageModal({
           <p className="text-xs text-gray-500 mt-1">
             Describe the image you want. Your description is the main input.
           </p>
-          {!isPaid && (
-            isCollaborator ? (
-              <p className="text-xs text-gray-400 mt-1">
-                Costs {creditCost} AI edit credits from the project owner's balance. They have
-                only {creditsRemaining > 100 ? "100+" : creditsRemaining} remaining · ask the
-                owner to upgrade to Pro or Standard for unlimited credits.
-              </p>
+          <p className="text-xs text-gray-400 mt-1">
+            Costs{" "}
+            <span className="font-medium text-gray-600">
+              {creditCost} AI edit credits
+            </span>
+            {isCollaborator ? (
+              <>
+                {" "}
+                from the project owner&apos;s balance (
+                {formatAiEditCreditsDisplay(creditsRemaining)} remaining).
+              </>
             ) : (
-              <p className="text-xs text-gray-400 mt-1">
-                Costs {creditCost} AI edit credits. You have only{" "}
-                {creditsRemaining > 100 ? "100+" : creditsRemaining} remaining ·{" "}
-                <button
-                  type="button"
-                  onClick={onUpgradeNow}
-                  className="text-purple-600 hover:text-purple-700 underline font-medium"
-                >
-                  Upgrade now
-                </button>{" "}
-                to get unlimited credits.
-              </p>
-            )
-          )}
+              <>
+                {" "}
+                · {formatAiEditCreditsDisplay(creditsRemaining)} remaining
+                {!canGenerate && (
+                  <>
+                    {" "}
+                    ·{" "}
+                    <button
+                      type="button"
+                      onClick={onUpgradeNow}
+                      className="text-purple-600 hover:text-purple-700 underline font-medium"
+                    >
+                      Upgrade for more
+                    </button>
+                  </>
+                )}
+              </>
+            )}
+          </p>
         </div>
 
         {generating ? (

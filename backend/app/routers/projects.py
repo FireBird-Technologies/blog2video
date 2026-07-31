@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db, SessionLocal
 from app.auth import get_current_user
 from app.config import settings
-from app.models.user import User, PlanTier
+from app.models.user import User, PlanTier, PAID_TIERS
 from app.models.project import Project, ProjectStatus
 from app.models.review import Review
 from app.models.scene import Scene
@@ -240,19 +240,20 @@ def _build_review_state(project: Project, user: User, db: Session) -> ReviewStat
 
 
 def _prepare_project_response(project: Project, user: User, db: Session) -> Project:
-    from app.models.user import PlanTier
+    from app.models.user import PAID_TIERS
     _inject_custom_theme(project)
     project.review_state = _build_review_state(project, user, db)
     project.is_shared = _project_is_shared(project, db)
-    # Expose the OWNER's paid-plan status so a collaborator gates Pro-only features
+    # Expose the OWNER's paid-plan status so a collaborator gates premium features
     # (custom/crafted templates, paid voices) on the owner's plan — the owner pays.
     # Also expose the owner's display name so a collaborator's settings pop-ups can
     # attribute the owner's templates/voices to them.
     owner = db.query(User).filter(User.id == project.user_id).first()
-    project.owner_is_pro = bool(owner and owner.plan in (PlanTier.STANDARD, PlanTier.PRO))
-    # Owner's per-user AI-edit credit pool — a FREE collaborator draws from it once
-    # the free per-project allowance is spent, so the UI needs the owner's balance.
+    project.owner_is_pro = bool(owner and owner.plan in PAID_TIERS)
+    # Owner's AI-edit budget — a collaborator's gating draws from the owner's
+    # balance once their own is spent, so the UI needs both pools.
     project.owner_ai_edit_credits = (owner.ai_edit_credits or 0) if owner else 0
+    project.owner_ai_edit_allowance_remaining = (owner.ai_edit_allowance_remaining or 0) if owner else 0
     project.owner_name = owner.name if owner else None
     return project
 
@@ -391,13 +392,13 @@ def _normalize_video_length(video_length: str | None, user: User | None = None) 
     if (
         raw in _PAID_ONLY_VIDEO_LENGTHS
         and user is not None
-        and user.plan not in (PlanTier.PRO, PlanTier.STANDARD)
+        and user.plan not in PAID_TIERS
     ):
         raise HTTPException(
             status_code=403,
             detail={
                 "code": "video_length_requires_paid",
-                "message": "Detailed and More detailed videos require a Pro or Standard subscription.",
+                "message": "Detailed and More detailed videos require a paid subscription.",
             },
         )
     return raw
@@ -453,10 +454,10 @@ def _resolve_voice_tuning(voice_emotion: str | None, user: User) -> tuple[str | 
     """
     if voice_emotion is None:
         return None, None
-    if user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
+    if user.plan not in PAID_TIERS:
         raise HTTPException(
             status_code=403,
-            detail="Voice tuning requires a Pro or Standard subscription.",
+            detail="Voice tuning requires a paid subscription.",
         )
     from app.services.voiceover import SUPPORTED_EMOTIONS, DEFAULT_EMOTION, DEFAULT_STYLE, VOICE_STYLE_RANGE
 
@@ -3985,7 +3986,11 @@ _IMAGE_GEN_ERROR_MESSAGE = (
 
 # AI image generation costs this many AI-edit credits for FREE owners; PRO/STANDARD
 # owners are unlimited (see can_use_ai_edit). Charged to the project OWNER.
-GENERATE_IMAGE_CREDIT_COST = 5
+GENERATE_IMAGE_CREDIT_COST = 3
+
+# Regenerating a scene's voiceover is the most expensive AI edit (TTS + re-timing);
+# every other AI edit costs 1. Mirrored by voiceoverEditCost in SceneEditModal.tsx.
+VOICEOVER_EDIT_CREDIT_COST = 5
 
 
 @router.post("/{project_id}/scenes/{scene_id}/generate-image")
@@ -4020,7 +4025,7 @@ def generate_scene_image(
 
     # Owner pays: gate/charge the OWNER, so a FREE collaborator inherits a PRO owner's
     # entitlement on a shared project (and a PRO collaborator draws on the FREE owner's
-    # credit pool). PRO/STANDARD owners are unlimited; FREE owners spend AI-edit credits.
+    # credit pool): the monthly plan allowance first, then the purchased pool.
     from app.services.access import project_owner, can_use_ai_edit, consume_ai_edit
 
     payer = project_owner(project, db)
@@ -4029,7 +4034,7 @@ def generate_scene_image(
             detail = (
                 f"AI editing limit reached. Generating an image costs "
                 f"{GENERATE_IMAGE_CREDIT_COST} AI edits. Buy a video for +20 AI edits, "
-                "or upgrade to Pro or Standard for unlimited AI image generation."
+                "or upgrade for a larger monthly allowance."
             )
         else:
             detail = (
@@ -4119,11 +4124,9 @@ def generate_scene_image(
         logger.error("[GENERATE_IMAGE] Provider returned no image data.")
         raise HTTPException(status_code=502, detail=_IMAGE_GEN_ERROR_MESSAGE)
 
-    # Charge only on success. No-op for PRO/STANDARD owners (unlimited); FREE owners
-    # spend from their shared per-user AI-edit pool.
-    if payer.plan not in (PlanTier.PRO, PlanTier.STANDARD):
-        consume_ai_edit(payer, project, cost=GENERATE_IMAGE_CREDIT_COST)
-        db.commit()
+    # Charge only on success, from the owner's plan allowance then purchased pool.
+    consume_ai_edit(payer, project, cost=GENERATE_IMAGE_CREDIT_COST)
+    db.commit()
 
     return {"image_base64": image_base64, "refined_prompt": refined_prompt}
 
@@ -4384,7 +4387,7 @@ async def upload_stock_footage(
             detail = (
                 f"AI editing limit reached. Adding stock footage costs "
                 f"{STOCK_FOOTAGE_CREDIT_COST} AI edits. Buy a video for +20 AI edits, "
-                "or upgrade to Pro or Standard for unlimited use."
+                "or upgrade for a larger monthly allowance."
             )
         else:
             detail = (
@@ -4480,12 +4483,10 @@ async def upload_stock_footage(
     if has_audio:
         audio_url = audio_r2_url or _media_url(audio_filename)
 
-    # Charge only on success (the asset exists and is playable). No-op for
-    # PRO/STANDARD owners (unlimited); FREE owners spend from the shared
-    # per-user AI-edit pool.
-    if payer.plan not in (PlanTier.PRO, PlanTier.STANDARD):
-        consume_ai_edit(payer, project, cost=STOCK_FOOTAGE_CREDIT_COST)
-        db.commit()
+    # Charge only on success (the asset exists and is playable), from the
+    # owner's plan allowance then purchased pool.
+    consume_ai_edit(payer, project, cost=STOCK_FOOTAGE_CREDIT_COST)
+    db.commit()
 
     # A new VIDEO asset is now in the project. Collaborators must refetch so the
     # clip appears in their media lists (and so the scene link that follows
@@ -5255,7 +5256,7 @@ async def regenerate_scene(
     import json
     from app.models.scene import Scene
     from app.models.asset import Asset, AssetType
-    from app.models.user import PlanTier
+    from app.models.user import PlanTier, AI_EDIT_CREDITS_PER_VIDEO
     from app.dspy_modules.template_scene_gen import TemplateSceneGenerator
     from app.dspy_modules.narration_edit import rewrite_narration_if_requested
     from app.services.voiceover import generate_voiceover
@@ -5271,12 +5272,12 @@ async def regenerate_scene(
     # to the acting user, so the whole regen previews and reverts as a single unit.
     _regen_change_set = new_change_set_id()
 
-    # Cost of this edit: regenerating the voiceover is the expensive path (3 credits),
+    # Cost of this edit: regenerating the voiceover is the expensive path,
     # everything else (layout swap, text rewrite) costs 1. Computed up front from the
     # request flag so the gate below can reject an unaffordable voiceover regen before
     # any work is done. Reused for the actual deduction later in this function.
     should_regenerate_voiceover = regenerate_voiceover.lower() == "true"
-    edit_cost = 3 if should_regenerate_voiceover else 1
+    edit_cost = VOICEOVER_EDIT_CREDIT_COST if should_regenerate_voiceover else 1
 
     # Check usage limits against the owner's per-user AI-edit credit pool (shared
     # across all their projects); PRO/STANDARD owners are unlimited (see can_use_ai_edit).
@@ -5284,9 +5285,10 @@ async def regenerate_scene(
         raise HTTPException(
             status_code=403,
             detail=(
-                "AI editing limit reached. Regenerating the voiceover costs 3 AI edits; "
-                "other edits cost 1. Buy a video for +20 AI edits, or upgrade to Pro or "
-                "Standard for unlimited AI edits."
+                f"AI editing limit reached. Regenerating the voiceover costs "
+                f"{VOICEOVER_EDIT_CREDIT_COST} AI edits; other edits cost 1. Buy a video "
+                f"for +{AI_EDIT_CREDITS_PER_VIDEO} AI edits, or upgrade for a larger "
+                f"monthly allowance."
             )
         )
 
@@ -5518,8 +5520,7 @@ async def regenerate_scene(
                     )
         # A layout change counts as an AI-assisted edit even though no LLM call is made.
         # Metered against the OWNER, who pays (see the gate at the top of this function).
-        if payer.plan not in (PlanTier.PRO, PlanTier.STANDARD):
-            consume_ai_edit(payer, project)
+        consume_ai_edit(payer, project)
         db.commit()
         print(f"[REGENERATE] Variant switch → {normalized_layout} (counts as AI edit)")
 
@@ -5577,8 +5578,7 @@ async def regenerate_scene(
                     )
         # A layout change counts as an AI-assisted edit even though no LLM call is made.
         # Metered against the OWNER, who pays (see the gate at the top of this function).
-        if payer.plan not in (PlanTier.PRO, PlanTier.STANDARD):
-            consume_ai_edit(payer, project)
+        consume_ai_edit(payer, project)
         db.commit()
         print(f"[REGENERATE] Layout switch → {normalized_layout} (counts as AI edit)")
 
@@ -5896,8 +5896,8 @@ async def regenerate_scene(
     # the OWNER (see the gate above), so meter on the payer's plan — not the acting
     # collaborator's, or a Free collaborator would burn the counter on a Pro project.
     used_ai = needs_layout_regen or should_regenerate_voiceover
-    if used_ai and payer.plan not in (PlanTier.PRO, PlanTier.STANDARD):
-        # Voiceover regen costs 3 credits, other AI edits cost 1 (see edit_cost above).
+    if used_ai:
+        # Voiceover regen is the expensive path, other AI edits cost 1 (see edit_cost above).
         consume_ai_edit(payer, project, cost=edit_cost)
 
     db.commit()
@@ -5955,13 +5955,12 @@ async def add_scene(
             status_code=403,
             detail=(
                 f"AI editing limit reached. Adding a scene costs {ADD_SCENE_CREDIT_COST} AI edits. "
-                "Buy a video for +20 AI edits, or upgrade to Pro or Standard for unlimited AI edits."
+                "Buy a video for +20 AI edits, or upgrade for a larger monthly allowance."
             ),
         )
 
     # Reserve the credits upfront (refunded by the runner if all attempts fail).
-    if payer.plan not in (PlanTier.PRO, PlanTier.STANDARD):
-        consume_ai_edit(payer, project, cost=ADD_SCENE_CREDIT_COST)
+    consume_ai_edit(payer, project, cost=ADD_SCENE_CREDIT_COST)
 
     job = ProjectAddSceneJob(
         project_id=project_id,

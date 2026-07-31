@@ -62,6 +62,8 @@ import {
 } from "../api/client";
 import Joyride, { CallBackProps, STATUS, Step } from "react-joyride";
 import { useAuth } from "../hooks/useAuth";
+import { isPaidPlan } from "../lib/plan";
+import { formatAiEditCreditsDisplay } from "../lib/formatAiEditCredits";
 import { CollabProvider } from "../components/CollabContext";
 import CollabToolbar from "../components/CollabToolbar";
 import EditHistoryPanel from "../components/EditHistoryPanel";
@@ -85,7 +87,7 @@ import SceneEditModal, {
 } from "../components/SceneEditModal";
 import GenerateSceneImageModal, { AI_IMAGE_CREDIT_COST } from "../components/GenerateSceneImageModal";
 import RecordVoiceoverModal from "../components/RecordVoiceoverModal";
-import AddSceneModal from "../components/AddSceneModal";
+import AddSceneModal, { ADD_SCENE_CREDIT_COST } from "../components/AddSceneModal";
 import AddScenePlaceholderRow from "../components/AddScenePlaceholderRow";
 import ChatPanel from "../components/ChatPanel";
 import UpgradeModal from "../components/UpgradeModal";
@@ -741,7 +743,7 @@ export default function ProjectView() {
   const projectId = Number(id);
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, refreshUser } = useAuth();
-  const isPro = user?.plan === "pro" || user?.plan === "standard";
+  const isPro = isPaidPlan(user?.plan);
   // On mobile, template-picker previews render static (image/placeholder) instead
   // of compiling/mounting a Remotion Player, which OOMs/reloads the tab on iOS.
   const isMobile = useIsMobileViewport();
@@ -4051,13 +4053,12 @@ export default function ProjectView() {
     }
   };
 
-  // AI image generation: PRO/STANDARD owners are unlimited; FREE owners spend
-  // AI_IMAGE_CREDIT_COST credits per image (charged to the OWNER on shared projects).
+  // AI image generation costs AI_IMAGE_CREDIT_COST credits per image (all plans;
+  // charged to the OWNER on shared projects).
   const aiImageCreditRemaining = useOwnerScopedAssets
-    ? (project?.owner_ai_edit_credits ?? 0)
-    : (user?.ai_edit_credits ?? 0);
-  const canUseAiImage =
-    effectiveIsPro || aiImageCreditRemaining >= AI_IMAGE_CREDIT_COST;
+    ? (project?.owner_ai_edit_credits ?? 0) + (project?.owner_ai_edit_allowance_remaining ?? 0)
+    : (user?.ai_edit_credits ?? 0) + (user?.ai_edit_allowance_remaining ?? 0);
+  const canUseAiImage = aiImageCreditRemaining >= AI_IMAGE_CREDIT_COST;
   // Adding a stock clip is charged like AI image generation, at its own rate.
   const canUseStockFootage =
     effectiveIsPro || aiImageCreditRemaining >= STOCK_FOOTAGE_CREDIT_COST;
@@ -6464,14 +6465,11 @@ export default function ProjectView() {
           </svg>
           Edit history
         </button>
-        {/* AI-edit credits remaining. Paid owners are unlimited; FREE owners draw
-            from a single per-user pool shared across all their projects (starts at 6,
-            +20 per purchased video) — the owner's pool on a shared project. Mirrors
-            the SceneEdit modal's entitlement. */}
+        {/* AI-edit credits remaining — monthly allowance + purchased pool (owner on shared projects). */}
         {(() => {
           const total = useOwnerScopedAssets
-            ? (project.owner_ai_edit_credits ?? 0)
-            : (user?.ai_edit_credits ?? 0);
+            ? (project.owner_ai_edit_credits ?? 0) + (project.owner_ai_edit_allowance_remaining ?? 0)
+            : (user?.ai_edit_credits ?? 0) + (user?.ai_edit_allowance_remaining ?? 0);
           // A non-paid owner who has run out of credits sees a red upgrade prompt
           // linking to pricing. Collaborators can't fix it by upgrading their own
           // plan (they see the "Oops" flow instead), so keep the neutral display.
@@ -6494,14 +6492,16 @@ export default function ProjectView() {
           return (
             <span
               className="text-[10px] sm:text-xs font-medium text-gray-400 shrink-0 self-end pb-1"
-              title="AI-assisted edits remaining for this project. Buy a video for +20 edits, or upgrade to Pro/Standard for unlimited."
+              title={
+                useOwnerScopedAssets
+                  ? "The project owner's AI-edit budget."
+                  : "AI-assisted edits remaining. Buy a video for +20 edits, or upgrade for a larger monthly allowance."
+              }
             >
-              AI edit credits:{" "}
-              {effectiveIsPro ? (
-                <span className="text-2xl leading-none align-middle relative -top-0.5">∞</span>
-              ) : (
-                <span className="text-md leading-none align-middle relative -top-0.5">{total > 100 ? "100+" : total}</span>
-              )}
+              {useOwnerScopedAssets ? "Project owner's AI edit credits:" : "AI edit credits:"}{" "}
+              <span className="text-md leading-none align-middle relative -top-0.5">
+                {formatAiEditCreditsDisplay(total)}
+              </span>
             </span>
           );
         })()}
@@ -7844,7 +7844,7 @@ export default function ProjectView() {
                   onClose={() => setShowAiImageUpgradeModal(false)}
                   projectId={project?.id}
                   title="You're out of AI edit credits"
-                  subtitle="Upgrade to get more credits and unlock unlimited AI edits & image generation."
+                  subtitle="Upgrade for a larger monthly AI-edit allowance, or buy a video for +20 AI edits."
                 />
               </div>
             )}
@@ -7895,7 +7895,6 @@ export default function ProjectView() {
               project={project}
               canGenerate={canUseAiImage}
               creditCost={AI_IMAGE_CREDIT_COST}
-              isPaid={effectiveIsPro}
               isCollaborator={useOwnerScopedAssets}
               creditsRemaining={aiImageCreditRemaining}
               ownerBlocked={ownerBlocksProFeature}
@@ -7916,9 +7915,8 @@ export default function ProjectView() {
                 setGeneratingImageSceneId(null);
                 handleSceneImageReady(imageGenModalSceneId, imageBase64, refinedPrompt);
                 setImageGenModalSceneId(null);
-                // A FREE owner was charged AI_IMAGE_CREDIT_COST server-side;
-                // refresh so the shown balance isn't stale (no-op for paid).
-                if (!effectiveIsPro) void refreshUser();
+                // Server charged AI_IMAGE_CREDIT_COST — refresh so the balance isn't stale.
+                void refreshUser();
               }}
             />
           );
@@ -7979,6 +7977,11 @@ export default function ProjectView() {
             onClose={() => setRecordModalScene(null)}
             scene={recordModalScene}
             onApply={handleApplyRecording}
+            project={project ?? undefined}
+            layoutPropSchema={layoutPropSchema !== null ? layoutPropSchema : undefined}
+            ownerScopedProjectId={useOwnerScopedAssets ? projectId : undefined}
+            precompiledCraftedDetail={ownerScopedCraftedDetail}
+            precompiledTemplateData={currentCustomTemplateCode}
           />
         )}
 
@@ -7986,14 +7989,10 @@ export default function ProjectView() {
           open={addSceneOpen}
           onClose={() => { setAddSceneOpen(false); setAddSceneAnchor(null); }}
           project={project}
-          isPro={effectiveIsPro}
           isCollaborator={useOwnerScopedAssets}
           anchorScene={addSceneAnchor}
-          creditsRemaining={
-            useOwnerScopedAssets
-              ? (project.owner_ai_edit_credits ?? 0)
-              : (user?.ai_edit_credits ?? 0)
-          }
+          creditsRemaining={aiImageCreditRemaining}
+          canAfford={aiImageCreditRemaining >= ADD_SCENE_CREDIT_COST}
           onAdded={(position) => {
             // Job enqueued — show the placeholder at the target slot and start polling.
             setAddScenePosition(position ?? project.scenes.length + 1);

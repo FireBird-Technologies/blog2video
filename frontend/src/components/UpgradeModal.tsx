@@ -1,7 +1,16 @@
 import { useState } from "react";
 import ReactDOM from "react-dom";
 import { createCheckoutSession, createPerVideoCheckout } from "../api/client";
-import { PRO_MONTHLY_PRICE, PRO_ANNUAL_MONTHLY_PRICE, AI_EDITS_PER_VIDEO } from "../content/pricingContent";
+import {
+  LITE_MONTHLY_PRICE,
+  LITE_ANNUAL_MONTHLY_PRICE,
+  LITE_AI_EDIT_ALLOWANCE,
+  LITE_CUSTOM_TEMPLATE_COUNT,
+  PRO_MONTHLY_PRICE,
+  PRO_ANNUAL_MONTHLY_PRICE,
+  PRO_AI_EDIT_ALLOWANCE,
+  AI_EDITS_PER_VIDEO,
+} from "../content/pricingContent";
 import { useAuth } from "../hooks/useAuth";
 
 interface Props {
@@ -20,22 +29,21 @@ export default function UpgradeModal({
   onPurchased,
 }: Props) {
   const { user } = useAuth();
-  const [loadingPro, setLoadingPro] = useState(false);
-  const [loadingVideo, setLoadingVideo] = useState(false);
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
 
   if (!open) return null;
 
-  const handleUpgradePro = async () => {
+  const handleUpgrade = async (plan: "lite" | "pro") => {
     if (!user) {
       window.location.href = "/pricing";
       return;
     }
-    setLoadingPro(true);
+    setLoadingPlan(plan);
     try {
-      const res = await createCheckoutSession();
+      const res = await createCheckoutSession({ plan });
       window.location.href = res.data.checkout_url;
     } catch {
-      setLoadingPro(false);
+      setLoadingPlan(null);
     }
   };
 
@@ -48,16 +56,16 @@ export default function UpgradeModal({
       window.location.href = "/pricing";
       return;
     }
-    setLoadingVideo(true);
+    setLoadingPlan("per_video");
     try {
       const res = await createPerVideoCheckout(projectId);
       window.location.href = res.data.checkout_url;
     } catch {
-      setLoadingVideo(false);
+      setLoadingPlan(null);
     }
   };
 
-  const anyLoading = loadingPro || loadingVideo;
+  const anyLoading = !!loadingPlan;
 
   return ReactDOM.createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center">
@@ -68,7 +76,7 @@ export default function UpgradeModal({
       />
 
       {/* modal */}
-      <div className="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 p-8 animate-in fade-in zoom-in">
+      <div className="relative bg-white rounded-2xl shadow-2xl max-w-4xl w-full mx-4 p-8 animate-in fade-in zoom-in">
         {/* close */}
         <button
           onClick={onClose}
@@ -116,8 +124,8 @@ export default function UpgradeModal({
             <span className="font-medium text-gray-700">{feature}</span>.
           </p>
 
-          {/* Two-option layout */}
-          <div className="grid gap-3 mb-6 grid-cols-2">
+          {/* Plan options */}
+          <div className="grid gap-3 mb-6 grid-cols-1 sm:grid-cols-3">
             {/* Per-video option */}
             <div className="glass-card p-4 text-left border border-gray-200 hover:border-purple-200 transition-colors rounded-xl">
                 <div className="flex items-baseline justify-between mb-2">
@@ -164,9 +172,61 @@ export default function UpgradeModal({
                   disabled={anyLoading}
                   className="w-full py-2 px-3 rounded-lg text-xs font-medium bg-gray-900 hover:bg-gray-800 text-white transition-colors disabled:opacity-60"
                 >
-                  {loadingVideo ? "Redirecting..." : "Get premium access — $5"}
+                  {loadingPlan === "per_video" ? "Redirecting..." : "Get premium access — $5"}
                 </button>
               </div>
+
+            {/* Lite subscription option */}
+            <div className="glass-card p-4 text-left border border-gray-200 hover:border-purple-200 transition-colors rounded-xl">
+              <div className="flex items-baseline justify-between mb-2">
+                <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Lite plan
+                </span>
+                <div className="text-right">
+                  <span className="text-lg font-bold text-gray-900">${LITE_MONTHLY_PRICE}</span>
+                  <span className="text-[10px] text-gray-400">/mo</span>
+                </div>
+              </div>
+              <p className="text-[11px] text-gray-400 mb-3 leading-relaxed">
+                10 videos/month. ${LITE_ANNUAL_MONTHLY_PRICE}/mo if billed annually.
+              </p>
+              <ul className="space-y-1.5 mb-4">
+                {[
+                  "10 videos per month",
+                  `${LITE_AI_EDIT_ALLOWANCE} AI edit credits/month`,
+                  `${LITE_CUSTOM_TEMPLATE_COUNT} custom video templates`,
+                  "Premium voiceover + cloning",
+                  "Priority support",
+                ].map((f) => (
+                  <li
+                    key={f}
+                    className="flex items-center gap-1.5 text-[11px] text-gray-600"
+                  >
+                    <svg
+                      className="w-3 h-3 text-purple-500 flex-shrink-0"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <button
+                onClick={() => handleUpgrade("lite")}
+                disabled={anyLoading}
+                className="w-full py-2 px-3 rounded-lg text-xs font-medium bg-gray-900 hover:bg-gray-800 text-white transition-colors disabled:opacity-60"
+              >
+                {loadingPlan === "lite" ? "Redirecting..." : "Upgrade to Lite"}
+              </button>
+            </div>
 
             {/* Pro subscription option */}
             <div className="glass-card p-4 text-left border-2 border-purple-200 rounded-xl relative">
@@ -190,7 +250,7 @@ export default function UpgradeModal({
               <ul className="space-y-1.5 mb-4">
                 {[
                   "100 videos per month",
-                  "Unlimited AI edit & image generation",
+                  `${PRO_AI_EDIT_ALLOWANCE} AI edit credits/month`,
                   "Custom video templates",
                   "Premium voiceover + cloning",
                   "Priority support",
@@ -217,11 +277,11 @@ export default function UpgradeModal({
                 ))}
               </ul>
               <button
-                onClick={handleUpgradePro}
+                onClick={() => handleUpgrade("pro")}
                 disabled={anyLoading}
                 className="w-full py-2 px-3 rounded-lg text-xs font-medium bg-purple-600 hover:bg-purple-700 text-white transition-colors disabled:opacity-60"
               >
-                {loadingPro ? "Redirecting..." : "Upgrade to Pro"}
+                {loadingPlan === "pro" ? "Redirecting..." : "Upgrade to Pro"}
               </button>
             </div>
           </div>

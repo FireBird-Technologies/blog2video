@@ -97,6 +97,8 @@ export interface UserInfo {
   can_create_video: boolean;
   /** Per-user, non-expirable pool of AI-assisted edits (+20 per purchased video). */
   ai_edit_credits: number;
+  /** Remaining monthly AI-edit allowance for this plan (0 on FREE). Spent before ai_edit_credits. */
+  ai_edit_allowance_remaining: number;
   custom_templates_created: number;
   custom_template_limit: number;
   can_create_custom_template: boolean;
@@ -221,6 +223,8 @@ export interface Project {
    * per-project allowance is spent — the UI shows this balance for collaborators.
    */
   owner_ai_edit_credits?: number;
+  /** The project OWNER's remaining monthly plan allowance (0 on FREE). */
+  owner_ai_edit_allowance_remaining?: number;
   /** The project OWNER's display name — used to attribute owner-scoped templates/voices in a collaborator's UI. */
   owner_name?: string | null;
   created_at: string;
@@ -419,7 +423,7 @@ export const getPublicConfig = () =>
 
 // ─── Billing API ──────────────────────────────────────────
 
-export type CheckoutPlan = "pro" | "standard";
+export type CheckoutPlan = "pro" | "standard" | "lite";
 
 // Post-checkout win-back coupon gate. We want at most one follow-up scheduled
 // per browser per day, BUT only count checkouts that actually succeed — a failed

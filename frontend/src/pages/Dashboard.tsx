@@ -14,6 +14,7 @@ import {
   ProjectListItem,
 } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
+import { isPaidPlan } from "../lib/plan";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import { trackGoogleAdsPurchaseConversion } from "../gtag";
 import BlogUrlForm, { GENRE_CRAFTED } from "../components/BlogUrlForm";
@@ -101,7 +102,7 @@ export default function Dashboard() {
       }
     }
   }, [searchParams]);
-  const isPro = user?.plan === "pro" || user?.plan === "standard";
+  const isPro = isPaidPlan(user?.plan);
   const templatesRequested = searchParams.get("tab") === "templates";
   const voicesRequested = searchParams.get("tab") === "voices";
   const [activeTab, setActiveTab] = useState<"projects" | "templates" | "voices">(
@@ -496,7 +497,7 @@ export default function Dashboard() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div>
           <p className="text-xs text-gray-400">
-            {user?.videos_used_this_period ?? 0} of {user?.video_limit ?? 3}{" "}
+            {user?.videos_used_this_period ?? 0} of {user?.video_limit ?? 1}{" "}
             videos used
             {!isPro && " -- upgrade for 100/month"}
           </p>

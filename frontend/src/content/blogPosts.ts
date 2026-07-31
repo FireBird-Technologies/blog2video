@@ -17,6 +17,130 @@ function faq(primary: string, variant: string) {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "blogging-is-not-dead-authentic-writing-2026",
+    title: "Blogging Is Dead? I'm Betting My Entire Company That Authentic Writing Is Back",
+    description:
+      "Everyone can prompt ChatGPT to pump out paragraphs, so blogging is over. That is the 2026 consensus. Here is why authentic writing has never been more valuable, and the two products we are building on that conviction.",
+    category: "Opinion",
+    publishedAt: "2026-07-31",
+    readTime: "6 min read",
+    heroEyebrow: "Opinion",
+    heroTitle: "Blogging Is Dead? I'm Betting My Entire Company That Authentic Writing Is Back",
+    heroDescription:
+      "The \"blogging is dead\" argument only proves that undifferentiated writing is dead. Authentic writing has two distribution problems instead — and those are the ones we are building for.",
+    primaryKeyword: "is blogging dead in 2026",
+    keywordVariant: "blogging dead ai content",
+    relatedPaths: [
+      "/blog-to-video",
+      "/for-substack-writers/blog-to-video",
+      "/distribution-flywheel",
+      "/blogs/content-with-no-second-life",
+    ],
+    sections: [
+      {
+        heading: "The claim you will keep hearing in 2026",
+        paragraphs: [
+          "Blogging is dead. That is what you will keep hearing this year. \"Everyone can prompt ChatGPT to pump out paragraphs. There is no reliable way to tell AI-generated text from human writing. It is so over for bloggers.\"",
+          "What if I told you that authentic writing has never been so back? If you write authentic content, you will find an audience. I have enough conviction in that idea that I am betting my entire company on it.",
+        ],
+      },
+      {
+        heading: "What the argument actually proves",
+        paragraphs: [
+          "Strip the doom out of it and the argument is narrower than it sounds. It says: text is now cheap to generate, so text no longer signals effort, so text no longer carries value. The first two parts are true. The third does not follow.",
+          "What became worthless is undifferentiated writing — the SEO-shaped, keyword-first, could-have-been-written-by-anyone kind. That was already a commodity before the models arrived; they just made it obvious. What did not become worthless is a specific person with a specific point of view, real experience, and something at stake in the argument.",
+          "If anything, when the volume of generic text goes up, the value of a voice you recognise goes up with it. Scarcity moved. It did not disappear.",
+        ],
+      },
+      {
+        heading: "Problem one: short-form video is where the attention is, and bloggers are not there",
+        paragraphs: [
+          "Most people now discover ideas through short-form video. That is where the attention is, and it is not going back.",
+          "Bloggers have almost no presence on those platforms — not because their ideas do not work in video, but because video production is a completely different skill set with a completely different cost structure. Writing a good 1,500-word post and producing a good 60-second video have almost nothing in common operationally. So writers keep publishing into the channel they know, while the audience keeps moving to the one they do not.",
+          "That is a distribution gap, not a talent gap.",
+        ],
+      },
+      {
+        heading: "Problem two: social feeds got worse at surfacing human writing",
+        paragraphs: [
+          "The second problem is discovery. Social platforms are now saturated with AI-generated content, which makes it materially harder to find authentic human writing in the flood.",
+          "The algorithms are not helping, because they are not optimising for what you would want them to. They optimise for engagement, which in practice means clickbait — not insight, not craft, not the piece that changes how someone thinks.",
+          "So the writer with the genuinely good essay is competing against an infinite supply of content engineered specifically to beat the ranking system. Being good is not the constraint. Being found is.",
+        ],
+      },
+      {
+        heading: "Our answer to the video gap: Blog2Video",
+        paragraphs: [
+          "My team and I are investing everything into tools for bloggers, aimed squarely at those two problems.",
+          "Blog2Video generates a video from your post in minutes, using templates crafted by humans and assembled with AI. The distinction that matters to us is that your authentic voice stays intact — it is your argument, your structure, your words, packaged for the channel where the audience actually is. Video without the slop.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Turn a post into a video",
+      },
+      {
+        heading: "Our answer to the discovery gap: BlogHub",
+        paragraphs: [
+          "bloghub.app is a launch platform for publications, still in beta. Think Product Hunt, but for writing.",
+          "The premise is that new writers need somewhere their work can be surfaced on its merits rather than on how well it games a feed. A launch moment, a place to be discovered, an audience actively looking for new publications instead of scrolling past them.",
+        ],
+      },
+      {
+        heading: "We have not solved this yet",
+        paragraphs: [
+          "I want to be honest about where this is: we are iterating and improving both platforms, validating them with actual user feedback.",
+          "We are not claiming to have found the perfect solution. We are claiming the problems are real, the bet is worth making, and we are getting closer. If you write, and you have felt both of these problems, I would rather hear from you than pitch you.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Is blogging actually dead in 2026?",
+        answer:
+          "No. Generic, undifferentiated writing lost its value because it became free to produce. Writing with a recognisable voice, real experience, and an actual point of view did not — it got scarcer relative to everything else, which makes it more valuable rather than less.",
+      },
+      {
+        question: "If AI text is indistinguishable from human text, does authenticity even matter?",
+        answer:
+          "It matters at the level of the body of work, not the individual paragraph. Readers may not be able to classify a single sentence, but over time they can tell whether a writer has been anywhere, believes anything, or is worth returning to.",
+      },
+      {
+        question: "Why do bloggers need video at all?",
+        answer:
+          "Because short-form video is where most people now discover ideas. The point is not to abandon writing for video — it is to stop letting the format gap decide who gets found.",
+      },
+      {
+        question: "Does turning a blog post into a video make it AI slop?",
+        answer:
+          "It depends on what is being generated. If the model writes the ideas, you get slop. If the model handles the production work while your writing supplies the substance, you get your own piece in a second format.",
+      },
+      {
+        question: "What is bloghub.app?",
+        answer:
+          "A launch platform for publications — Product Hunt for writing. It is in beta, built to give new writers a discovery surface that is not a social algorithm optimising for clickbait.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Blogging Is Dead? I'm Betting My Entire Company That Authentic Writing Is Back",
+        angle:
+          "Lead with the 2026 consensus, dismantle it in one move (undifferentiated writing died, not authentic writing), then name the two real problems and what we are building for each.",
+      },
+      {
+        channel: "twitter",
+        title: "Blogging is DEAD. That is what you will keep hearing in 2026.",
+        angle:
+          "Thread: the doom take only proves commodity text is dead. The two actual problems are video presence and broken social discovery. End on the bet — we are putting the whole company behind it.",
+      },
+      {
+        channel: "video",
+        title: "Why I'm betting my company on blogging in 2026",
+        angle:
+          "Founder-voice explainer over a stickman or Chronicle template. Two problems, two products, one honest admission that it is not solved yet. Link back to /blogs/blogging-is-not-dead-authentic-writing-2026.",
+      },
+    ],
+  },
+  {
     slug: "how-much-is-my-substack-newsletter-worth",
     title: "How Much Is My Substack Worth? The Valuation Formula, Explained",
     description:

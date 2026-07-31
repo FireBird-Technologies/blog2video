@@ -6,14 +6,21 @@ import {
   createCustomTemplateCheckout,
 } from "../api/client";
 import {
+  LITE_MONTHLY_PRICE,
+  LITE_ANNUAL_MONTHLY_PRICE,
+  LITE_ANNUAL_TOTAL_PRICE,
   STANDARD_MONTHLY_PRICE,
   STANDARD_ANNUAL_MONTHLY_PRICE,
   STANDARD_ANNUAL_TOTAL_PRICE,
   PRO_MONTHLY_PRICE,
   PRO_ANNUAL_MONTHLY_PRICE,
   PRO_ANNUAL_TOTAL_PRICE,
+  LITE_CUSTOM_TEMPLATE_COUNT,
   STANDARD_CUSTOM_TEMPLATE_COUNT,
   PRO_CUSTOM_TEMPLATE_COUNT,
+  LITE_AI_EDIT_ALLOWANCE,
+  STANDARD_AI_EDIT_ALLOWANCE,
+  PRO_AI_EDIT_ALLOWANCE,
   AI_EDITS_PER_VIDEO,
 } from "../content/pricingContent";
 import { useAuth } from "../hooks/useAuth";
@@ -64,7 +71,7 @@ export default function UpgradePlanModal({
 
   const isCustomTemplate = mode === "custom_template";
 
-  const handleCheckout = async (plan: "per_video" | "standard" | "pro") => {
+  const handleCheckout = async (plan: "per_video" | "lite" | "standard" | "pro") => {
     if (!user) {
       window.location.href = "/pricing";
       return;
@@ -76,7 +83,7 @@ export default function UpgradePlanModal({
         if (res.data.checkout_url) window.location.href = res.data.checkout_url;
       } else {
         const res = await createCheckoutSession({
-          plan: plan as "standard" | "pro",
+          plan,
           billing_cycle: billingCycle,
         });
         window.location.href = res.data.checkout_url;
@@ -107,7 +114,7 @@ export default function UpgradePlanModal({
         onClick={onClose}
       />
       <div
-        className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+        className="relative bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-6 border-b border-gray-100 flex-shrink-0">
@@ -152,7 +159,13 @@ export default function UpgradePlanModal({
         </div>
 
         <div className="p-6 overflow-y-auto flex-1">
-          <div className={`grid grid-cols-1 gap-4 ${subscriptionsOnly ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
+          <div
+            className={`grid grid-cols-1 gap-4 ${
+              subscriptionsOnly
+                ? "sm:grid-cols-2 lg:grid-cols-3"
+                : "sm:grid-cols-2 lg:grid-cols-4"
+            }`}
+          >
             {/* Per Video — same bullets as Subscription */}
             {!subscriptionsOnly && (
             <div className="glass-card p-5 flex flex-col">
@@ -180,6 +193,54 @@ export default function UpgradePlanModal({
               </button>
             </div>
             )}
+
+            {/* Lite — same bullets as Subscription */}
+            <div className="glass-card p-5 flex flex-col">
+              <div className="mb-4">
+                <h3 className="text-sm font-semibold text-gray-900">Lite</h3>
+                <p className="text-xs text-gray-400 mt-0.5">10 videos/month</p>
+              </div>
+              <div className="mb-4">
+                {billingCycle === "annual" ? (
+                  <>
+                    <span className="text-2xl font-bold text-gray-900">${LITE_ANNUAL_MONTHLY_PRICE}</span>
+                    <span className="text-xs text-gray-400 ml-1">/month</span>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span className="text-xs text-gray-400 line-through">${LITE_MONTHLY_PRICE}/mo</span>
+                      <span className="px-1.5 py-0.5 bg-green-50 text-green-600 text-[10px] font-semibold rounded">
+                        Save 20%
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-0.5">${LITE_ANNUAL_TOTAL_PRICE} billed annually</p>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-2xl font-bold text-gray-900">${LITE_MONTHLY_PRICE}</span>
+                    <span className="text-xs text-gray-400 ml-1">/month</span>
+                    <p className="text-[10px] text-gray-400 mt-1">
+                      or <span className="font-medium text-gray-500">${LITE_ANNUAL_MONTHLY_PRICE}/mo</span> billed annually
+                    </p>
+                  </>
+                )}
+              </div>
+              <ul className="space-y-2 mb-5 flex-1 text-xs text-gray-500">
+                <li className="flex items-start gap-2"><CheckMark />10 videos / month</li>
+                <li className="flex items-start gap-2"><CheckMark />{LITE_CUSTOM_TEMPLATE_COUNT} custom video templates</li>
+                <li className="flex items-start gap-2"><CheckMark />AI script generation</li>
+                <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
+                <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
+                <li className="flex items-start gap-2"><CheckMark />{LITE_AI_EDIT_ALLOWANCE} AI edit credits/month</li>
+                <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
+                <li className="flex items-start gap-2"><CheckMark />Priority support</li>
+              </ul>
+              <button
+                onClick={() => handleCheckout("lite")}
+                disabled={!!loadingPlan}
+                className="w-full py-2 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-60"
+              >
+                {loadingPlan === "lite" ? "Redirecting…" : "Upgrade to Lite"}
+              </button>
+            </div>
 
             {/* Standard — same bullets as Subscription */}
             <div className="glass-card p-5 flex flex-col">
@@ -216,7 +277,7 @@ export default function UpgradePlanModal({
                 <li className="flex items-start gap-2"><CheckMark />AI script generation</li>
                 <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
                 <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
-                <li className="flex items-start gap-2"><CheckMark />Unlimited AI edit & image generation</li>
+                <li className="flex items-start gap-2"><CheckMark />{STANDARD_AI_EDIT_ALLOWANCE} AI edit credits/month</li>
                 <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
                 <li className="flex items-start gap-2"><CheckMark />Priority support</li>
               </ul>
@@ -269,7 +330,7 @@ export default function UpgradePlanModal({
                 <li className="flex items-start gap-2"><CheckMark />AI script generation</li>
                 <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
                 <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
-                <li className="flex items-start gap-2"><CheckMark />Unlimited AI edit & image generation</li>
+                <li className="flex items-start gap-2"><CheckMark />{PRO_AI_EDIT_ALLOWANCE} AI edit credits/month</li>
                 <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
                 <li className="flex items-start gap-2"><CheckMark />Priority support</li>
               </ul>
