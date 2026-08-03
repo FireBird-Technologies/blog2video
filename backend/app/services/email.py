@@ -1003,7 +1003,7 @@ class EmailService:
             subject=subject,
             html_content=html_content,
             text_content=text_content,
-            from_email="Arslan Shahid <arslan@blog2video.app>",
+            from_email="Arslan Shahid <arslan@send.blog2video.app>",
         )
 
         # Unosend (blast only — transactional mail uses Resend via self.provider):
@@ -1028,64 +1028,6 @@ class EmailService:
         api_base = getattr(settings, "BACKEND_URL", "http://localhost:8000").rstrip("/")
         import urllib.parse
         return f"{api_base}/unsubscribe?email={urllib.parse.quote(email.strip().lower())}&token={token}"
-
-
-    def send_weekly_updates(
-        self,
-        user_email: str,
-        user_name: str,
-        dashboard_url: Optional[str] = None,
-    ) -> None:
-        """Product update email: plain text body with unsubscribe link in footer."""
-        base = "https://blog2video.app"
-        cta_url = dashboard_url or base
-        display = (user_name or "").strip() or "there"
-        subject = "WE JUST SHIPPED 🚀🚀🚀"
-        unsubscribe_url = self._make_unsubscribe_url(user_email)
-
-        text = (
-            f"Hi {display},\n\n"
-            "We've been busy shipping improvements to Blog2Video. Here's what's new:\n\n"
-            "• Two new templates: Mosaic & Black Swan — add more visual variety to your videos.\n"
-            "• Adjustable playback speed — fine-tune pacing during preview and render.\n"
-            "• Smarter voiceovers — numbers, dates, and stats now sound natural every time.\n"
-            "• Expert-crafted templates — professionally designed, ready to use out of the box.\n"
-            "• Enhanced data visualization in Newscaster — richer charts for stats and trends.\n\n"
-            f"Log in to try the new features: {cta_url}\n\n"
-            "We'd love to hear what you think.\n\n"
-            "Team Blog2Video\n\n"
-            "---\n"
-            f"To unsubscribe from these emails, click here: {unsubscribe_url}\n"
-        )
-
-        # Minimal HTML — plain text visually, clickable unsubscribe link in footer
-        html_body = (
-            f"<pre style='font-family:inherit;font-size:15px;white-space:pre-wrap;margin:0;'>"
-            f"Hi {html.escape(display)},\n\n"
-            "We've been busy shipping improvements to Blog2Video. Here's what's new:\n\n"
-            "• Two new templates: Mosaic &amp; Black Swan — add more visual variety to your videos.\n"
-            "• Adjustable playback speed — fine-tune pacing during preview and render.\n"
-            "• Smarter voiceovers — numbers, dates, and stats now sound natural every time.\n"
-            "• Expert-crafted templates — professionally designed, ready to use out of the box.\n"
-            "• Enhanced data visualization in Newscaster — richer charts for stats and trends.\n\n"
-            f"Log in to try the new features: {cta_url}\n\n"
-            "We'd love to hear what you think.\n\n"
-            "Arslan"
-            f"</pre>"
-            f"<hr style='border:none;border-top:1px solid #e5e7eb;margin:24px 0;'/>"
-            f"<p style='font-size:12px;color:#9ca3af;margin:0;'>"
-            f"To unsubscribe from these emails, "
-            f"<a href='{unsubscribe_url}' style='color:#9ca3af;'>Unsubscribe</a>."
-            f"</p>"
-        )
-
-        self.provider.send_email(
-            to=user_email,
-            subject=subject,
-            html_content=html_body,
-            text_content=text,
-            from_email="Arslan Shahid <arslan@blog2video.app>",
-        )
 
 
 # ─── Singleton ────────────────────────────────────────────────

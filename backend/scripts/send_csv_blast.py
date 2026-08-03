@@ -99,7 +99,7 @@ from argparse import ArgumentParser
 
 # ─── Config (override via flags or environment) ──────────────────────────────
 DEFAULT_ENV_FILE = os.path.join(os.path.dirname(__file__), os.pardir, ".env")
-FROM_EMAIL = "Arslan Shahid <arslan@blog2video.app>"
+FROM_EMAIL = "Arslan Shahid <arslan@send.blog2video.app>"
 DEFAULT_BACKEND_URL = "https://blog2video.app"
 
 _EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$")
