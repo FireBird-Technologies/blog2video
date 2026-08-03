@@ -17,6 +17,165 @@ function faq(primary: string, variant: string) {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "best-ai-tools-for-substack-writers",
+    title: "Top 5 AI Tools for Substack Writers in 2026",
+    description:
+      "Most \"best AI tools\" lists are just writing assistants with different logos. Substack's real bottlenecks in 2026 are video and discovery. Here are the five tools worth paying for, and what each one is actually for.",
+    category: "Comparison",
+    publishedAt: "2026-07-31",
+    readTime: "9 min read",
+    heroEyebrow: "Tool stack",
+    heroTitle: "Top 5 AI Tools for Substack Writers in 2026",
+    heroDescription:
+      "Only one of these five is a writing tool, and that is deliberate. Writing volume was never what limited a publication — video presence and discovery are.",
+    primaryKeyword: "ai tools for substack",
+    keywordVariant: "best ai tools for substack writers",
+    relatedPaths: [
+      "/for-substack-writers",
+      "/for-substack-writers/blog-to-video",
+      "/blogs/how-to-grow-your-substack-newsletter",
+      "/blogs/bloghub-product-hunt-for-blogs",
+      "/blogs/substack-newsletter-to-video-workflow",
+    ],
+    sections: [
+      {
+        heading: "Every list of Substack AI tools answers the wrong question",
+        paragraphs: [
+          "Every \"best AI tools for Substack\" list is the same list. ChatGPT, Jasper, Grammarly, some SEO wrapper, a Canva mention at the bottom. All of them answer the same question: how do I produce more words?",
+          "That is the wrong question. Nobody's Substack is failing because they could not generate enough paragraphs. In 2026 there is an infinite supply of competent paragraphs, and the marginal value of one more is approximately zero.",
+          "The two things that actually decide whether a publication grows are unglamorous: whether your ideas exist in video, and whether anyone can find you. Substack itself has been telling you this — Notes and the app now drive the majority of new subscriptions rather than search, and the platform has been pushing hard into video posts and live video. So this list is organised by job to be done, not by leaderboard. In the interest of disclosure, we build two of the five.",
+        ],
+      },
+      {
+        heading: "1. Blog2Video — turn a post into a video without becoming a video editor",
+        paragraphs: [
+          "The job: getting your writing onto the channel where the audience is. Substack has spent two years building video infrastructure, and most writers still publish text only — not because their ideas do not work in video, but because producing a 60-second video and writing a 1,500-word essay have almost nothing in common operationally.",
+          "Blog2Video closes that gap by starting from the post you already wrote. Paste the URL of a Substack issue, pick a template, and you get a video that follows your actual structure — your headings, your argument, your examples — rather than a generic AI summary that could have come from anyone.",
+          "What it is not: a talking-head avatar generator. If you want a synthetic version of your face reading a script, this is the wrong tool. Use it for the two or three posts a month that deserve a second life — not every issue needs a video, but the ones with a strong central argument do.",
+        ],
+        bullets: [
+          "Works from a real URL, PDF, or doc instead of a prompt, so the specifics survive",
+          "Human-made templates assembled with AI, which is why the output does not read as slop",
+          "Scene-level editing after generation, so you can fix pacing without starting over",
+          "Output sized for Notes, Shorts, Reels, and TikTok from one source post",
+        ],
+        ctaPath: "/for-substack-writers/blog-to-video",
+        ctaLabel: "Turn a Substack issue into a video",
+      },
+      {
+        heading: "2. Claude — the drafting partner that argues back",
+        paragraphs: [
+          "The job: thinking, structuring, and editing. Not ghostwriting. The distinction matters more than it used to. If a model writes your ideas, you get exactly the undifferentiated text that has become worthless. If a model pressure-tests ideas you already have, you get a better essay with your voice intact.",
+          "Claude is the strongest of the general assistants for long-form work specifically because it holds a whole draft in context and can tell you which paragraph is doing no work. Ask it to steelman the opposite position before you publish. Ask it where a reader would stop reading. Those are useful. \"Write me a newsletter about X\" is not.",
+          "Skip the $49–125/month brand-voice wrappers. For a solo publication they are a premium skin on a model you can access for $20.",
+        ],
+      },
+      {
+        heading: "3. Perplexity — research with receipts",
+        paragraphs: [
+          "The job: finding sources fast without hallucinating them. The failure mode of using a chatbot for research is confident, fabricated citations. Perplexity's whole design is search-first with linked sources, which makes it the right tool for the part of the job where being wrong is expensive.",
+          "For any publication that touches finance, policy, health, or tech news, this is the highest-leverage subscription on the list — it collapses the \"spend two hours finding the primary source\" step without asking you to trust an unsourced claim. Always click through before you cite: the tool finds links, it does not vouch for them.",
+        ],
+      },
+      {
+        heading: "4. Ideogram — cover images that can actually hold text",
+        paragraphs: [
+          "The job: the thumbnail, which is doing more work than you think. In the Substack app and in Notes, your cover image is a large part of the click decision. Most image models still mangle text, which is a problem when the thing you want on the image is your headline.",
+          "Ideogram's differentiator is legible typography in generated images, which makes it materially more useful than a general image generator for newsletter covers, quote cards, and Notes graphics. If you want templates and brand kits more than you want generation, Canva is the alternative.",
+        ],
+      },
+      {
+        heading: "5. BlogHub — a discovery surface that is not an algorithm",
+        paragraphs: [
+          "The job: being found at all, especially in year one. This is the problem nobody's tool stack addresses. Notes is a real discovery engine, but it is still an engagement-optimised feed, which means it rewards what performs rather than what is good. A publication with zero readers has almost no mechanism to break in.",
+          "BlogHub is built like Product Hunt, but for publications. You list your Substack, get a profile page structured for both search engines and AI answer engines, get backlinks to the publication and to individual posts, and rise through community upvotes rather than paid placement.",
+          "The AEO angle is the underrated part. When someone asks ChatGPT or Perplexity \"what are the best newsletters about climate policy,\" the answer gets assembled from structured, authoritative pages, and being on one is a cheap way to be in that answer set. Honest caveat: BlogHub is in beta. It is a real discovery surface, not a traffic firehose.",
+        ],
+        ctaPath: "https://bloghub.app",
+        ctaLabel: "List your publication on BlogHub",
+      },
+      {
+        heading: "What this stack actually costs",
+        paragraphs: [
+          "Roughly $40–60 a month for the paid pieces, depending on which subscriptions you keep. That is the entire operational budget for a serious one-person publication in 2026, which is a genuinely strange thing to be able to say.",
+          "More importantly: notice that only one of the five is a writing tool. That ratio is the point. If your stack is four writing assistants and nothing else, you have optimised the one part of the job that was never scarce.",
+        ],
+      },
+      {
+        heading: "The honest version of the advice",
+        paragraphs: [
+          "Do not adopt five tools this week. Pick the bottleneck you actually have.",
+          "The tools are cheap and they are all reversible. The thing that is not reversible is spending another year producing excellent writing into a channel where nobody is looking for it.",
+        ],
+        bullets: [
+          "Publishing consistently but nobody sees it? That is discovery — start with BlogHub and Notes.",
+          "Getting read but not shared? That is format — start with video.",
+          "Struggling to finish drafts? That is process — use Claude to structure, not to write.",
+          "Spending your good hours on research? Perplexity.",
+          "Good posts, dead click-through? Your covers — Ideogram.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "What are the best AI tools for Substack writers in 2026?",
+        answer:
+          "The stack that maps to real bottlenecks: Claude for drafting and structural editing, Perplexity for sourced research, Ideogram for cover images, Blog2Video for turning posts into video, and BlogHub for discovery. Only one of those is a writing tool, which is deliberate — writing volume is not what limits most publications.",
+      },
+      {
+        question: "Does Substack have its own AI tools?",
+        answer:
+          "Substack provides audio narration and publishing infrastructure including video posts and live video, but it does not generate your content, your visuals, or your video for you. The tools on this list fill those gaps around the platform rather than replacing it.",
+      },
+      {
+        question: "Will using AI hurt my Substack?",
+        answer:
+          "It depends entirely on which part of the job you hand over. If a model supplies the ideas, you produce the same undifferentiated text as everyone else and readers eventually notice. If it handles research, production, and formatting while your thinking supplies the substance, it is leverage.",
+      },
+      {
+        question: "Do I need video for a Substack newsletter?",
+        answer:
+          "You do not need it, but video is where discovery is heading on the platform, and Substack has invested heavily in it while most writers have not. That gap is currently an advantage for whoever moves first in a given niche.",
+      },
+      {
+        question: "How do I turn a Substack post into a video?",
+        answer:
+          "Paste the issue URL into Blog2Video, choose a template, and edit the generated scenes before exporting. It works from the published post, so the structure and examples from your writing carry through instead of being flattened into a generic script.",
+      },
+      {
+        question: "What is bloghub.app?",
+        answer:
+          "A Product Hunt-style discovery platform for blogs and publications. Listing is free and gives you a profile page optimised for search and AI answer engines, backlinks to your publication and posts, and a community-ranked feed where new publications can surface on merit.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Top 5 AI Tools for Substack Writers in 2026",
+        angle:
+          "Capture 'ai tools for substack' search demand with a listicle that reframes the category — the bottleneck is distribution, not writing volume — and lands Blog2Video and BlogHub as the two tools nobody else on the list covers.",
+      },
+      {
+        channel: "substack",
+        title: "Four of the five tools on my stack are not writing tools",
+        angle:
+          "Founder note to newsletter readers. Lead with the ratio observation, then walk the five bottlenecks. Disclosure of the two we build stated up front, not buried.",
+      },
+      {
+        channel: "twitter",
+        title: "Every 'best AI tools for Substack' list answers the wrong question",
+        angle:
+          "Thread: one tweet per bottleneck. Hook on the fact that nobody's Substack failed from a shortage of paragraphs. End on the video/discovery gap and the two products built for it.",
+      },
+      {
+        channel: "video",
+        title: "The 5-tool Substack stack (only one writes)",
+        angle:
+          "Fast-cut explainer, one scene per tool, showing the actual job each does. Close on turning the issue you just published into the video you are watching.",
+      },
+    ],
+  },
+  {
     slug: "blogging-is-not-dead-authentic-writing-2026",
     title: "Blogging Is Dead? I'm Betting My Entire Company That Authentic Writing Is Back",
     description:
