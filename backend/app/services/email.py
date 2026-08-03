@@ -83,6 +83,7 @@ class BaseEmailProvider(ABC):
         from_email: Optional[str] = None,
         scheduled_at: Optional[datetime] = None,
         cc: Optional[list[str]] = None,
+        reply_to: Optional[str] = None,
     ) -> None:
         """
         Send a transactional email (immediately or at a scheduled time).
@@ -95,6 +96,7 @@ class BaseEmailProvider(ABC):
             from_email:   Override the default sender address.
             scheduled_at: If set, schedule send at this time (UTC); provider must support it.
             cc:           Optional list of addresses to copy on the email.
+            reply_to:     Optional Reply-To address for recipient replies.
 
         Raises:
             EmailServiceError: If the send fails for any reason.
@@ -119,6 +121,7 @@ class ResendEmailProvider(BaseEmailProvider):
         from_email: Optional[str] = None,
         scheduled_at: Optional[datetime] = None,
         cc: Optional[list[str]] = None,
+        reply_to: Optional[str] = None,
     ) -> None:
         if not self.api_key:
             raise EmailServiceError("Cannot send email: RESEND_API_KEY is not configured")
@@ -136,6 +139,8 @@ class ResendEmailProvider(BaseEmailProvider):
         }
         if cc:
             params["cc"] = cc
+        if reply_to:
+            params["reply_to"] = reply_to
         if html_content:
             params["html"] = html_content
         if text_content:
@@ -1004,6 +1009,7 @@ class EmailService:
             html_content=html_content,
             text_content=text_content,
             from_email="Arslan Shahid <arslan@send.blog2video.app>",
+            reply_to="arslan@blog2video.app",
         )
 
         # Unosend (blast only — transactional mail uses Resend via self.provider):
