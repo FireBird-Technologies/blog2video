@@ -302,7 +302,13 @@ def dispatch(
 
         return _err(f"Unknown tool: {name}")
     except APIError as e:
-        return _err(e.detail)
+        detail = e.detail
+        if isinstance(detail, dict) and detail.get("code") == "video_length_requires_paid":
+            return _err(
+                "Detailed and More Detailed video lengths require a paid plan. "
+                "Upgrade at blog2video.app/pricing, or use `short`/`medium`/`auto`."
+            )
+        return _err(detail.get("message", str(detail)) if isinstance(detail, dict) else detail)
     except PollTimeout as e:
         return _err(str(e))
     except Exception as e:
@@ -429,19 +435,36 @@ def _create_project(args: dict, client: Blog2VideoClient) -> list[TextContent]:
 def _create_video(args: dict, client: Blog2VideoClient) -> list[TextContent]:
     """One-shot: create a project from a blog URL and generate the video.
 
-    Unlike create_project this calls the backend directly and bypasses the
-    gallery-shown gate — the caller passes template/voice as explicit args, so
-    the widget UX is irrelevant. Blocks until scenes are ready; when
-    render=True it also renders a downloadable MP4 before returning.
+    Unlike create_project this doesn't track a time-windowed gallery-shown
+    flag — it requires template/voice to be explicitly present in `args`
+    (checked below) since the caller is expected to pass the user's already-
+    made choices directly. Blocks until scenes are ready; when render=True
+    it also renders a downloadable MP4 before returning.
     """
     blog_url = (args.get("blog_url") or "").strip()
     if not blog_url or not (blog_url.startswith("http://") or blog_url.startswith("https://")):
         return _err("blog_url is required and must be a valid http(s) URL.")
 
+    # Only skip the galleries when the caller has actually chosen a template
+    # and a voice — otherwise this silently falls back to hardcoded defaults
+    # ("default" template, female/american voice) without the user ever
+    # seeing their options. Rather than just telling Claude to call
+    # setup_video next turn (which depends on it actually following a text
+    # instruction — observed to sometimes silently drop it), open the setup
+    # widget directly here so the user always sees a picker in one round-trip.
+    has_template = bool((args.get("template") or "").strip())
+    has_voice = bool(
+        (args.get("custom_voice_id") or "").strip()
+        or args.get("voice_gender")
+        or args.get("voice_accent")
+    )
+    if not (has_template and has_voice):
+        return _setup_video(args, client)
+
     do_render = bool(args.get("render", False))
     fields = {k: v for k, v in args.items() if k != "render" and v is not None}
 
-    # Create the project directly (no gallery gate).
+    # Create the project directly — template/voice were explicitly provided above.
     project = client.create_project(**fields)
     pid = project["id"]
 

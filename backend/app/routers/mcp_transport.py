@@ -208,16 +208,34 @@ async def _fetch_templates() -> list[dict]:
 
 
 async def _fetch_voices() -> list[dict]:
-    """Cold-path voice fallback. Returns [] by design.
+    """Cold-path voice fallback: fetch the user's saved voices directly.
 
     Normal flow: _setup_video / _list_voices warm _VOICE_CACHE with the
-    user's saved voices via the JWT-authenticated client. This function
-    is only reached when the cache is empty (e.g. resource read before
-    any tool call). We do NOT fall back to the public prebuilt catalog
-    because that would leak voices the user has not saved — matches the
-    saved-only semantics in handlers._fetch_user_voices().
+    user's saved voices via the JWT-authenticated client. But claude.ai's
+    MCP Apps client can call resources/read (to render the setup widget)
+    BEFORE calling the setup_video tool that would warm the cache — in
+    that race, _VOICE_CACHE is still empty. Rather than render an empty
+    voice picker, use the per-request token (same ContextVar _call_tool
+    uses) to fetch the user's real saved voices here. We intentionally do
+    NOT fall back to the public prebuilt catalog on failure — that would
+    leak voices the user has not saved, matching the saved-only semantics
+    of handlers._fetch_user_voices().
     """
-    return []
+    token = _REQUEST_TOKEN.get()
+    if not token:
+        return []
+    import anyio
+    from mcp_server.handlers import _fetch_user_voices
+
+    def _run() -> list[dict]:
+        client = Blog2VideoClient(jwt_token=token, base_url=settings.BACKEND_URL)
+        return _fetch_user_voices(client)
+
+    try:
+        return await anyio.to_thread.run_sync(_run)
+    except Exception as exc:
+        logger.warning("setup_gallery: cold-path voice fetch failed: %s", exc)
+        return []
 
 
 @mcp_server.list_resources()
@@ -260,8 +278,11 @@ async def _read_resource(uri):
         return [ReadResourceContents(content=html, mime_type=_GALLERY_MIME)]
 
     if uri_str == _VOICES_URI:
-        from mcp_server.handlers import _VOICE_CACHE
-        voices_json = json.dumps(_VOICE_CACHE, ensure_ascii=False)
+        import mcp_server.handlers as h
+        voices = h._VOICE_CACHE or await _fetch_voices()
+        if not h._VOICE_CACHE and voices:
+            h._VOICE_CACHE = voices
+        voices_json = json.dumps(voices, ensure_ascii=False)
         html = load_html("voice_gallery")
         injection = f"<script>window.__B2V_VOICES__={voices_json};</script>"
         html = html.replace("</head>", f"{injection}</head>", 1)

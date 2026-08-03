@@ -154,7 +154,12 @@ def get_tool_definitions() -> list[Tool]:
                 "Do NOT auto-call render_video.\n\n"
                 "To narrate with ONE specific named voice, pass its id as `custom_voice_id` "
                 "(get ids from `list_voices` / the user's saved voices); it overrides "
-                "voice_gender/voice_accent."
+                "voice_gender/voice_accent.\n\n"
+                "Colors: leave accent_color/bg_color/text_color unset to use the chosen "
+                "template's own palette. If the user asks for custom colors, set all three "
+                "together as one matching set — never set only accent_color alone, since "
+                "that mixes a custom accent with the template's unrelated default "
+                "background/text colors and looks broken."
             ),
             inputSchema={
                 "type": "object",
@@ -169,7 +174,10 @@ def get_tool_definitions() -> list[Tool]:
                     "video_length": {"type": "string", "enum": ["auto", "short", "medium", "detailed", "more_detailed"], "default": "auto"},
                     "aspect_ratio": {"type": "string", "enum": ["landscape", "portrait"], "default": "landscape"},
                     "playback_speed": {"type": "number", "minimum": 0.5, "maximum": 2.5},
-                    "accent_color": {"type": "string", "description": "Hex color, e.g. #7C3AED"},
+                    "accent_color": {"type": "string", "description": "Hex color, e.g. #7C3AED. Only set this together with bg_color and text_color as one matching set — leave all three unset to use the template's own palette."},
+                    "bg_color": {"type": "string", "description": "Background hex color, e.g. #0F172A. Set only together with accent_color and text_color as one matching set."},
+                    "text_color": {"type": "string", "description": "Text hex color, e.g. #FFFFFF. Set only together with accent_color and bg_color as one matching set."},
+                    "stock_footage_enabled": {"type": "boolean", "default": False, "description": "Whether to include real stock footage video clips in the scenes (in addition to AI-generated images). Set true if the user asks for stock footage/real video clips."},
                 },
                 "required": ["blog_url"],
             },
@@ -182,12 +190,23 @@ def get_tool_definitions() -> list[Tool]:
             description=(
                 "One call to make a video: creates a project from a blog URL and runs the "
                 "generation pipeline (scrape → script → scenes), waiting until the scenes are "
-                "ready (~1–5 min). Bypasses the template/voice gallery widgets — pass the "
-                "choices directly as arguments.\n\n"
+                "ready (~1–5 min).\n\n"
+                "Template/voice: if the user has already told you (in this conversation) which "
+                "template and voice they want, pass them directly as `template` and "
+                "`custom_voice_id`/`voice_gender`+`voice_accent` — this skips the gallery "
+                "widgets since the choice is already made. If the user has NOT specified a "
+                "template or voice yet, do NOT guess or use the defaults — call `list_templates` "
+                "and `list_voices` first so they can pick visually, then call create_video with "
+                "their picks.\n\n"
                 "Voice: to narrate with one specific voice pass `custom_voice_id` (an id from "
                 "`list_voices` / the user's saved voices); `voice_gender`/`voice_accent` are "
                 "OPTIONAL (default female/american) and only used when no custom_voice_id is "
                 "given (or as a fallback if that voice id is invalid).\n\n"
+                "Colors: leave accent_color/bg_color/text_color unset to use the chosen "
+                "template's own palette. If the user asks for custom colors, set all three "
+                "together as one matching set — never set only accent_color alone, since "
+                "that mixes a custom accent with the template's unrelated default "
+                "background/text colors and looks broken.\n\n"
                 "Set `render: true` to also produce a downloadable MP4 (slower, ~+3–8 min). "
                 "After this returns, call `get_preview_url` with the project id to get a "
                 "shareable watch link."
@@ -197,7 +216,7 @@ def get_tool_definitions() -> list[Tool]:
                 "properties": {
                     "blog_url": {"type": "string", "format": "uri", "minLength": 8, "description": "REQUIRED. The http(s) URL of the blog/article to convert."},
                     "name": {"type": "string"},
-                    "template": {"type": "string", "default": "default", "description": "Template id (from list_templates), e.g. 'nightfall'. Defaults to 'default'."},
+                    "template": {"type": "string", "default": "default", "description": "Template id (from list_templates), e.g. 'nightfall'. Only omit/default this if the user hasn't expressed a preference; otherwise call list_templates first so they can pick."},
                     "custom_voice_id": {"type": "string", "description": "Preferred voice input: a specific voice id (ElevenLabs / saved voice_id from list_voices). Overrides voice_gender/voice_accent."},
                     "voice_gender": {"type": "string", "enum": ["male", "female"], "default": "female", "description": "Optional. Used only when custom_voice_id is not given (and as a fallback)."},
                     "voice_accent": {"type": "string", "enum": ["american", "british"], "default": "american", "description": "Optional. Ignored when custom_voice_id is set."},
@@ -205,14 +224,14 @@ def get_tool_definitions() -> list[Tool]:
                     "video_length": {"type": "string", "enum": ["auto", "short", "medium", "detailed", "more_detailed"], "default": "auto"},
                     "aspect_ratio": {"type": "string", "enum": ["landscape", "portrait"], "default": "landscape"},
                     "playback_speed": {"type": "number", "minimum": 0.5, "maximum": 2.5},
-                    "accent_color": {"type": "string", "description": "Hex color, e.g. #7C3AED"},
+                    "accent_color": {"type": "string", "description": "Hex color, e.g. #7C3AED. Only set this together with bg_color and text_color as one matching set — leave all three unset to use the template's own palette."},
+                    "bg_color": {"type": "string", "description": "Background hex color, e.g. #0F172A. Set only together with accent_color and text_color as one matching set."},
+                    "text_color": {"type": "string", "description": "Text hex color, e.g. #FFFFFF. Set only together with accent_color and bg_color as one matching set."},
+                    "stock_footage_enabled": {"type": "boolean", "default": False, "description": "Whether to include real stock footage video clips in the scenes (in addition to AI-generated images). Set true if the user asks for stock footage/real video clips."},
                     "render": {"type": "boolean", "default": False, "description": "If true, also render a downloadable MP4 before returning (slower)."},
                 },
                 "required": ["blog_url"],
             },
-            **{"_meta": {
-                "openai/widgetAccessible": True,
-            }},
         ),
         Tool(
             name="get_preview_url",

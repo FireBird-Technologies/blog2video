@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 
 
 class APIError(Exception):
-    def __init__(self, status_code: int, detail: str):
+    def __init__(self, status_code: int, detail: str | dict):
         self.status_code = status_code
         self.detail = detail
         super().__init__(f"HTTP {status_code}: {detail}")
@@ -43,7 +43,9 @@ class Blog2VideoClient:
                 detail = resp.json().get("detail", resp.text)
             except Exception:
                 detail = resp.text
-            raise APIError(resp.status_code, str(detail))
+            # Keep dict details (e.g. {"code": ..., "message": ...}) structured
+            # so callers can branch on `code` instead of string-matching.
+            raise APIError(resp.status_code, detail if isinstance(detail, dict) else str(detail))
 
     def _log(self, method: str, path: str, status: int, ms: float) -> None:
         logger.info("MCP_HTTP %s %s -> %d (%.0fms)", method, path, status, ms)
