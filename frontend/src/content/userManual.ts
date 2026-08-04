@@ -38,6 +38,7 @@ export const userManual: SupportDoc = {
     "AI Chat panel",
     "Script tab",
     "Reordering scenes",
+    "Signing out / logging out",
   ],
   faq_questions: [
     "How do I create a project from a URL?",
@@ -76,6 +77,13 @@ export const userManual: SupportDoc = {
     "How do I create a voice clone?",
     "What video lengths are available?",
     "What languages are supported?",
+    "How do I change my password?",
+    "How do I reset my password?",
+    "How do I sign in to Blog2Video?",
+    "How do I log out?",
+    "How do I sign out of my account?",
+    "Where is the logout button?",
+    "How do I log out on mobile or Android?",
   ],
   body: `
 Blog2Video User Manual — Complete Editing Guide
@@ -446,5 +454,30 @@ To change the order of scenes:
 - The new order is saved automatically — no separate save action needed.
 
 Alternatively, in the Manual edit modal, there is a scene order field (a number input from 1 to total scenes). Type the desired position number and save.
+
+== SIGNING IN AND PASSWORDS ==
+
+Blog2Video uses Google sign-in only. There is no separate Blog2Video password, so there is no password to change or reset inside Blog2Video.
+
+To change the password on the account you use for Blog2Video, change it in your Google Account settings (myaccount.google.com → Security → Password). That password is managed entirely by Google, not by Blog2Video.
+
+If you cannot sign in, make sure you are choosing the same Google account you originally signed up with. Signing in with a different Google address creates a separate Blog2Video account with its own projects and credits.
+
+== HOW TO LOGOUT / LOG OUT / SIGN OUT OF YOUR ACCOUNT ==
+
+Keywords: logout, log out, logging out, sign out, signout, signing out, exit account, leave account, switch account.
+
+The button is labelled "Sign out", not "Log out" or "Logout".
+
+To log out of Blog2Video:
+1. Look at the top-right corner of the navigation bar, at the very top of the page.
+2. Find your profile picture (or the circle showing the first letter of your name).
+3. Click "Sign out" directly to the right of your profile picture.
+
+This signs you out immediately and returns you to the logged-out home page. There is no confirmation dialog.
+
+On mobile and Android: the "Sign out" button is in exactly the same place — the top-right corner next to your profile picture. It is always visible and is NOT inside the hamburger (☰) menu. The hamburger menu contains Survey, Connect with AI, Templates, and Billing only, so if you are looking for logout in there you will not find it.
+
+If you cannot see the Sign out button, you are most likely already signed out, or the page is scrolled inside a project editor — scroll to the very top of the page to reveal the navigation bar.
 `.trim(),
 };

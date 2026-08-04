@@ -9,6 +9,7 @@ from sqlalchemy import (
     Enum,
     ForeignKey,
     Index,
+    Integer,
     String,
     Text,
 )
@@ -34,6 +35,11 @@ class SupportConversation(Base):
     title: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
     summary: Mapped[str] = mapped_column(Text, nullable=False, default="")
     session_state: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    # Number of "talk to a human" forms sent from this conversation; rate-limited
+    # in the /escalate endpoint so the form can't flood the internal inbox.
+    escalation_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
