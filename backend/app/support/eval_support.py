@@ -221,6 +221,15 @@ NO_APOLOGY_CASES: list[tuple[str, str | None]] = [
 
 _APOLOGY_RE = re.compile(r"apolog|do not have enough|don't have enough", re.I)
 
+# The hand-off line only passes a message to the team — it must never sound like the
+# bot has agreed to the request. "Of course, you can submit your refund request right
+# in the form below" reads as though the refund itself were approved.
+_AGREES_RE = re.compile(
+    r"(?i)^\s*(of course|sure thing|sure[,!.]|absolutely|no problem|certainly[,!.]|yes[,!.])"
+    r"|\b(?:we|i)\s+(?:will|'ll|can)\s+(?:issue|process|approve|refund|grant)\b"
+    r"|\byour\s+refund\s+(?:will|has|is)\b"
+)
+
 # Questions with no corpus coverage at all — these exercise the UNKNOWN RULE.
 # The reply must read like a person, never leak that a retrieval system exists.
 NO_JARGON_CASES: list[tuple[str, str | None]] = [
@@ -668,6 +677,8 @@ async def run_live_handoff() -> tuple[int, int]:
         "live agent",
         "connect me with suport team",
         "I JUST WANT A REFUN",
+        "can i get a refund",
+        "i want my money back",
         "open a support ticket",
         "u cannot help",
     ]
@@ -678,12 +689,21 @@ async def run_live_handoff() -> tuple[int, int]:
         jargon = _JARGON_RE.search(line)
         # A stock opener on every escalation is what made this feel robotic.
         stock = re.match(r"(?i)\s*(i understand\b|i'm sorry to hear\b)", line)
-        ok = not unsafe and not jargon and not stock
+        # The bot is only passing the message on — it cannot grant a refund or promise
+        # any outcome. "Of course, you can submit your refund request" read as though
+        # the refund were already agreed.
+        agrees = _AGREES_RE.search(line)
+        ok = not unsafe and not jargon and not stock and not agrees
         passed += ok
         if ok:
             print(f"  [ok    ] {line[:88]}")
         else:
-            why = "false claim" if unsafe else ("jargon" if jargon else "stock opener")
+            why = (
+                "false claim" if unsafe
+                else "jargon" if jargon
+                else "agrees" if agrees
+                else "stock opener"
+            )
             print(f"  [{why:11}] {question!r} -> {line[:76]}")
     print(f"  {passed}/{len(questions)} live hand-off lines clean")
     return passed, len(questions)
