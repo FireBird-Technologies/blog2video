@@ -294,7 +294,13 @@ def handoff_line_is_safe(text: str) -> bool:
 _HANDOFF_CONTEXT = {
     EscalationReason.HUMAN: "They want to talk to a person from the team.",
     EscalationReason.REFUND: (
-        "They're asking about a refund or billing. Our team handles this, not you."
+        "They're asking about a refund. Keep it to ONE short sentence that does three "
+        "things: apologise briefly, say you can't issue refunds yourself, and say the "
+        "team will review it via the form below. Be concise — no padding, no extra "
+        "clauses. Model: \"Sorry about that — I can't issue refunds, but our team will "
+        "review it if you fill in the form below.\" You have NO ability to issue, "
+        "approve or promise a refund, so never agree to it or imply it will be "
+        "granted, and never open with 'No worries', 'Of course' or 'Sure thing'."
     ),
     EscalationReason.FEATURE: (
         "They're asking for something Blog2Video doesn't do. Our product team wants to hear it."
@@ -323,6 +329,10 @@ def handoff_prompt(reason: EscalationReason | None) -> str:
         "plain request just get straight to the point.\n"
         "- The form is right below your message. Refer to it naturally ('below', "
         "'here') — never describe its fields or say what happens after they submit.\n"
+        "- You are only passing the message along. Never agree to, approve, promise or "
+        "guarantee an outcome (a refund, a fix, a deadline, a feature) — that is the "
+        "team's decision, not yours. Say what you can't do plainly, then point at the "
+        "form. Never open with 'Of course', 'Sure thing', 'No problem' or 'Absolutely'.\n"
         "- Never claim anything has already happened. Nothing is sent, forwarded, "
         "escalated, connected, or ticketed until THEY fill in and submit the form. "
         "Write it as something they are about to do ('you can…', 'send…'), never as "

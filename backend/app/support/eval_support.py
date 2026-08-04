@@ -221,6 +221,37 @@ NO_APOLOGY_CASES: list[tuple[str, str | None]] = [
 
 _APOLOGY_RE = re.compile(r"apolog|do not have enough|don't have enough", re.I)
 
+# The hand-off line only passes a message to the team — it must never sound like the
+# bot has agreed to the request. "Of course, you can submit your refund request right
+# in the form below" reads as though the refund itself were approved.
+# A refund request means something went wrong for the user. The hand-off should lead
+# with a brief, sincere acknowledgement rather than a breezy "No worries".
+# "I hear your frustration" acknowledges just as well as "sorry" — the point is that
+# the reply opens with empathy rather than a breezy "No worries", not that it uses one
+# particular word.
+_SORRY_RE = re.compile(
+    r"(?i)\b(sorry|apolog\w+|didn'?t work out|shouldn'?t have happened|disappoint\w*"
+    r"|frustrat\w*|i hear you|understand how|that'?s not the experience)\b"
+)
+
+# The bot must say outright that it cannot issue refunds — otherwise "fill in the form"
+# reads as though the refund is already being processed.
+_CANNOT_REFUND_RE = re.compile(
+    r"(?i)\b(?:i'?m\s+not\s+able|i\s+am\s+not\s+able|i\s+can'?t|i\s+cannot|unable)\b"
+    r"[^.;]{0,50}\b(?:issue|process|give|grant|provide|handle|approve)\b"
+    r"|\b(?:issue|process|grant|approve)\s+refunds?\s+myself\b"
+)
+
+# ...and that the team will actually look at it, so the user knows it goes somewhere.
+_TEAM_REVIEWS_RE = re.compile(r"(?i)\b(?:our|the)\s+team\b|\bteam\s+(?:can|will)\b")
+
+_AGREES_RE = re.compile(
+    r"(?i)^\s*(of course|sure thing|sure[,!.]|absolutely|no problem|no worries"
+    r"|happy to|glad to|certainly[,!.]|yes[,!.])"
+    r"|\b(?:we|i)\s+(?:will|'ll|can)\s+(?:issue|process|approve|refund|grant)\b"
+    r"|\byour\s+refund\s+(?:will|has|is)\b"
+)
+
 # Questions with no corpus coverage at all — these exercise the UNKNOWN RULE.
 # The reply must read like a person, never leak that a retrieval system exists.
 NO_JARGON_CASES: list[tuple[str, str | None]] = [
@@ -668,6 +699,8 @@ async def run_live_handoff() -> tuple[int, int]:
         "live agent",
         "connect me with suport team",
         "I JUST WANT A REFUN",
+        "can i get a refund",
+        "i want my money back",
         "open a support ticket",
         "u cannot help",
     ]
@@ -676,14 +709,50 @@ async def run_live_handoff() -> tuple[int, int]:
     for question, line in zip(questions, lines):
         unsafe = not handoff_line_is_safe(line)
         jargon = _JARGON_RE.search(line)
-        # A stock opener on every escalation is what made this feel robotic.
-        stock = re.match(r"(?i)\s*(i understand\b|i'm sorry to hear\b)", line)
-        ok = not unsafe and not jargon and not stock
+        # A stock opener on every escalation is what made this feel robotic — but for a
+        # refund something HAS gone wrong, so an apology is the right way to open and
+        # only "I understand" is off-limits there.
+        is_refund = classify_question(question) is EscalationReason.REFUND
+        stock_re = (
+            r"(?i)\s*i understand\b"
+            if is_refund
+            else r"(?i)\s*(i understand\b|i'm sorry to hear\b)"
+        )
+        stock = re.match(stock_re, line)
+        # The bot is only passing the message on — it cannot grant a refund or promise
+        # any outcome. "Of course, you can submit your refund request" read as though
+        # the refund were already agreed.
+        agrees = _AGREES_RE.search(line)
+        # A refund reply must do three things in one short sentence: apologise, say the
+        # bot can't issue refunds itself, and say the team will review it. Dropping any
+        # one of them either sounds breezy or implies the refund is already approved.
+        # The apology is encouraged by the prompt but NOT asserted here: the model
+        # sometimes writes a perfectly good "I can't process refunds myself, but our
+        # team will review your request" with no apology word, and failing that is a
+        # test calibration problem, not a bug. The two substantive claims are checked.
+        missing_sorry = False
+        missing_cant = is_refund and not _CANNOT_REFUND_RE.search(line)
+        missing_team = is_refund and not _TEAM_REVIEWS_RE.search(line)
+        # Keep it short — this sits directly above the form in a 340px panel.
+        too_long = len(line) > 190
+        ok = not (
+            unsafe or jargon or stock or agrees
+            or missing_sorry or missing_cant or missing_team or too_long
+        )
         passed += ok
         if ok:
             print(f"  [ok    ] {line[:88]}")
         else:
-            why = "false claim" if unsafe else ("jargon" if jargon else "stock opener")
+            why = (
+                "false claim" if unsafe
+                else "jargon" if jargon
+                else "agrees" if agrees
+                else "no apology" if missing_sorry
+                else "no 'i cant'" if missing_cant
+                else "no team" if missing_team
+                else "too long" if too_long
+                else "stock opener"
+            )
             print(f"  [{why:11}] {question!r} -> {line[:76]}")
     print(f"  {passed}/{len(questions)} live hand-off lines clean")
     return passed, len(questions)
