@@ -7,8 +7,10 @@ import {
   getStoredConversationId,
   HttpError,
   sendChatStream,
+  sendEscalation,
   setStoredConversationId,
   startNewConversation,
+  type EscalateReason,
   type NavigationHint,
   type SupportMessage,
   type UIGuidance,
@@ -25,6 +27,9 @@ type LocalMessage = {
   navigation?: NavigationHint | null;
   pending?: boolean;
   streaming?: boolean;
+  /** Offer the "talk to a human" / feature-request form under this reply. */
+  escalate?: boolean;
+  escalate_reason?: EscalateReason | null;
 };
 
 function fromServer(msg: SupportMessage): LocalMessage {
@@ -75,6 +80,114 @@ function MarkdownMessage({ content }: { content: string }) {
     >
       {content}
     </ReactMarkdown>
+  );
+}
+
+// No blurb: the assistant's message already explains what the form does, so repeating
+// it here just says the same thing twice in a 340px panel. The two labelled fields
+// and the Send button are self-explanatory.
+const ESCALATION_COPY: Record<EscalateReason, { button: string }> = {
+  human: { button: "💬 Talk to a human" },
+  refund: { button: "💬 Talk to a human" },
+  feature: { button: "✨ Request this feature" },
+};
+
+function EscalationForm({
+  reason,
+  defaultEmail,
+  defaultConcern,
+  pagePath,
+  conversationId,
+  startOpen = false,
+}: {
+  reason: EscalateReason;
+  defaultEmail: string;
+  defaultConcern: string;
+  pagePath: string;
+  conversationId: number | null;
+  /** Skip the collapsed button. Set when the user explicitly asked for a person —
+   *  making them click "Talk to a human" after they just typed it is a wasted step. */
+  startOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(startOpen);
+  const [email, setEmail] = useState(defaultEmail);
+  const [concern, setConcern] = useState(defaultConcern);
+  const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [error, setError] = useState("");
+  const copy = ESCALATION_COPY[reason];
+
+  if (state === "sent") {
+    return (
+      <p className="mt-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded p-2">
+        ✓ Thanks — we'll email you back shortly.
+      </p>
+    );
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="mt-2 text-xs px-2.5 py-1.5 rounded bg-purple-600 text-white hover:bg-purple-700 transition-colors"
+      >
+        {copy.button}
+      </button>
+    );
+  }
+
+  const submit = async () => {
+    if (!email.trim() || !concern.trim() || state === "sending") return;
+    setState("sending");
+    setError("");
+    try {
+      await sendEscalation({ email: email.trim(), concern: concern.trim(), reason, pagePath, conversationId });
+      setState("sent");
+    } catch (err) {
+      setState("error");
+      setError(err instanceof HttpError ? err.message : "Something went wrong. Please try again.");
+    }
+  };
+
+  return (
+    <div className="mt-2 p-2.5 rounded-lg bg-purple-50 border border-purple-200">
+      <input
+        type="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="you@example.com"
+        disabled={state === "sending"}
+        className="w-full text-xs px-2 py-1.5 mb-1.5 rounded border border-purple-200 bg-white focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:bg-gray-100"
+      />
+      <textarea
+        value={concern}
+        onChange={(e) => setConcern(e.target.value)}
+        placeholder="Briefly describe your issue…"
+        rows={3}
+        disabled={state === "sending"}
+        className="w-full text-xs px-2 py-1.5 mb-1.5 rounded border border-purple-200 bg-white resize-none focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:bg-gray-100"
+      />
+      {error && <p className="text-xs text-red-600 mb-1.5">{error}</p>}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={submit}
+          disabled={state === "sending" || !email.trim() || !concern.trim()}
+          className="text-xs px-3 py-1.5 rounded bg-purple-600 text-white hover:bg-purple-700 disabled:bg-gray-300 transition-colors"
+        >
+          {state === "sending" ? "Sending…" : "Send"}
+        </button>
+        {/* No Cancel when the form opened because the user asked for a person —
+            collapsing would leave a button they already pressed past. */}
+        {!startOpen && (
+          <button
+            onClick={() => setOpen(false)}
+            disabled={state === "sending"}
+            className="text-xs text-purple-600 hover:text-purple-800"
+          >
+            Cancel
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -163,8 +276,10 @@ export function SupportChat({ onClose }: { onClose: () => void }) {
       onDone: (data) => {
         conversationIdRef.current = data.conversation_id;
         const answer = accumulated.trim() || "Sorry — I couldn't form an answer.";
-        updateAssistant({ role: "assistant", content: answer, citations: data.citations, ui_guidance: data.ui_guidance, navigation: data.navigation, streaming: false });
-        if (data.ui_guidance.length > 0 && !data.navigation) {
+        updateAssistant({ role: "assistant", content: answer, citations: data.citations, ui_guidance: data.ui_guidance, navigation: data.navigation, streaming: false, escalate: data.escalate, escalate_reason: data.escalate_reason ?? null });
+        // Don't hijack the screen with a tour when we're handing the user to a person.
+        const escalatingToHuman = data.escalate && data.escalate_reason !== "feature";
+        if (data.ui_guidance.length > 0 && !data.navigation && !escalatingToHuman) {
           const steps = data.ui_guidance.flatMap((g) => g.steps);
           if (steps.length > 0) startTour(steps);
         }
@@ -303,6 +418,10 @@ export function SupportChat({ onClose }: { onClose: () => void }) {
 
               {(() => {
                 if (m.pending || m.role !== "assistant") return null;
+                // When we're escalating to a person, a "Show me"/"Take me there" tour
+                // button is noise at best and wrong at worst — the catalog action was
+                // picked for a question we've decided not to answer from the docs.
+                if (m.escalate && m.escalate_reason !== "feature") return null;
                 const steps = m.ui_guidance?.flatMap((g) => g.steps) ?? [];
                 const nav = m.navigation;
 
@@ -357,6 +476,23 @@ export function SupportChat({ onClose }: { onClose: () => void }) {
                 }
                 return null;
               })()}
+
+              {/* Rendered as a sibling of the guidance block above (not inside it) so the
+                  form still appears when that block has already returned a tour button. */}
+              {!m.pending && m.role === "assistant" && m.escalate && (
+                <EscalationForm
+                  reason={m.escalate_reason ?? "human"}
+                  defaultEmail={user?.email ?? ""}
+                  defaultConcern={
+                    m.escalate_reason === "feature" ? messages[i - 1]?.content ?? "" : ""
+                  }
+                  pagePath={location.pathname}
+                  conversationId={conversationIdRef.current}
+                  // They asked for a person — show the fields straight away. Feature
+                  // requests still get a button, since the answer above may satisfy them.
+                  startOpen={m.escalate_reason !== "feature"}
+                />
+              )}
             </div>
           </div>
         ))}

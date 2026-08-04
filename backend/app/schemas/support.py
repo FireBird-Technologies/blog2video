@@ -34,6 +34,18 @@ class ChatResponse(BaseModel):
     citations: list[str] = []
     ui_guidance: list[UIGuidance] = []
     navigation: Optional[NavigationHint] = None
+    escalate: bool = False
+    escalate_reason: Optional[str] = None
+
+
+class EscalateRequest(BaseModel):
+    """Payload for the in-chat "talk to a human" / feature-request form."""
+
+    email: str = Field(..., min_length=3, max_length=320)
+    concern: str = Field(..., min_length=1, max_length=4000)
+    reason: Optional[str] = Field(None, max_length=32)
+    page_path: Optional[str] = Field(None, max_length=512)
+    conversation_id: Optional[int] = None
 
 
 class MessageOut(BaseModel):
