@@ -1625,6 +1625,38 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
 
 # ─── Webhook handlers ─────────────────────────────────────
 
+# Every Checkout Session we create sets metadata["type"] to one of these (see
+# create_checkout_session / create_per_video_checkout / create_bulk_credits_checkout /
+# create_custom_template_checkout). Keep in sync when adding a checkout flow.
+_OUR_CHECKOUT_TYPES = frozenset({
+    "lite_subscription",
+    "standard_subscription",
+    "pro_subscription",
+    "standard_lifetime",
+    "pro_lifetime",
+    "per_video",
+    "bulk_500",
+    "custom_template",
+})
+
+
+def _is_our_checkout_session(session: dict) -> bool:
+    """
+    True when this Checkout Session was created by blog2video.
+
+    The Stripe account (acct_1OXplrBACqQSnujJ) is shared with BlogHub, autodash and
+    autoanalyst, and webhook endpoints are scoped to the *account* — so we receive
+    every checkout.session.* event on the account, not just our own. Ours always
+    carry a metadata["type"] from _OUR_CHECKOUT_TYPES; other products' sessions
+    carry their own shape (BlogHub's, for instance, use slot_id/publication_id and
+    set no `type` at all).
+
+    Deliberately NOT keyed on user_id — the other products set that too.
+    """
+    metadata = session.get("metadata") or {}
+    return metadata.get("type") in _OUR_CHECKOUT_TYPES
+
+
 def _send_winback_coupon(db: Session, user: User, *, abandoned: bool, recovery_url: str | None = None) -> str:
     """
     Send a post-checkout win-back coupon to `user`, applying the shared eligibility
@@ -1705,6 +1737,16 @@ def _handle_checkout_expired(session: dict, db: Session):
     unsubscribed, or was emailed within the window. The SUB25 discount applies to
     any checkout, so every abandoned checkout type qualifies.
     """
+    # Shared-account guard — see _is_our_checkout_session. Without this, another
+    # product's abandoned checkout whose metadata.user_id happens to collide with
+    # one of our user ids would email that user a win-back coupon.
+    if not _is_our_checkout_session(session):
+        logger.info(
+            "[COUPON] Ignoring foreign expired session %s (metadata keys: %s)",
+            session.get("id"), sorted((session.get("metadata") or {}).keys()),
+        )
+        return
+
     metadata = session.get("metadata", {})
     user_id = metadata.get("user_id")
     recovery_url = ((session.get("after_expiration") or {}).get("recovery") or {}).get("url")
@@ -1723,10 +1765,21 @@ def _handle_checkout_expired(session: dict, db: Session):
 
 
 def _handle_checkout_completed(session: dict, db: Session):
+    session_id = session.get("id")
+
+    # Shared-account guard: bail before any DB write if this checkout belongs to
+    # another product on the same Stripe account. Fires several times a day during
+    # normal traffic, so this is info-level, not a warning.
+    if not _is_our_checkout_session(session):
+        logger.info(
+            "[BILLING] Ignoring foreign checkout session %s (metadata keys: %s)",
+            session_id, sorted((session.get("metadata") or {}).keys()),
+        )
+        return
+
     customer_id = session.get("customer")
     metadata = session.get("metadata", {})
-    checkout_type = metadata.get("type", "pro_subscription")
-    session_id = session.get("id")
+    checkout_type = metadata["type"]
 
     # Idempotency: Stripe delivers webhooks at-least-once. If we've already created a
     # Subscription row for this checkout session, this is a redelivery — do not re-grant.
@@ -1972,8 +2025,8 @@ def _handle_checkout_completed(session: dict, db: Session):
             # Thank the subscriber. Best-effort — a failed email must never fail
             # the purchase webhook.
             _send_subscription_thank_you(user, plan_slug)
-    else:
-        # ── Pro or Standard subscription checkout ───────────────────────────
+    elif checkout_type in ("lite_subscription", "standard_subscription", "pro_subscription"):
+        # ── Lite, Standard or Pro recurring subscription checkout ───────────
         subscription_id = session.get("subscription")
         user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
         if user:
