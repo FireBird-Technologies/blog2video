@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
-from mcp.types import TextContent
+from mcp.types import CallToolResult, TextContent
 
 from mcp_server.client import APIError, Blog2VideoClient
 from mcp_server.polling import PollTimeout, poll_until
@@ -56,6 +56,14 @@ TEMPLATE_PREVIEW_URLS: dict[str, str] = {
 
 # Populated by _list_voices; read by mcp_transport._read_resource to inject into voice_gallery.html
 _VOICE_CACHE: list[dict] = []
+# Populated by _list_templates; lets the resource read reuse the same catalog.
+_TEMPLATE_CACHE: list[dict] = []
+
+# Fallback template for auto_video when the LLM picker can't run (scrape or LLM
+# failure). Set AUTO_TEMPLATE_PICK = False to skip the picker entirely and always
+# use this template — cheaper and fully predictable.
+AUTO_TEMPLATE = "newscast"
+AUTO_TEMPLATE_PICK = True
 _TEMPLATE_GALLERY_SHOWN_AT: float = 0.0
 _VOICE_GALLERY_SHOWN_AT: float = 0.0
 _SETUP_BLOG_URL: str = ""  # last blog_url passed to setup_video; read by the setup widget
@@ -139,6 +147,21 @@ def _template_url(template_id: str) -> str:
 
 def _project_url(project_id: int) -> str:
     return f"{FRONTEND_BASE_URL}/projects/{project_id}"
+
+
+def _watch_url(project_id: int, client: "Blog2VideoClient") -> str | None:
+    """Mint (or reuse) the public /preview/<token> watch link.
+
+    Preferred over _project_url in tool output: the editor link requires the
+    viewer to be logged in as the owner, whereas this one is shareable and
+    works for anyone. Returns None if the backend cannot mint a token, so
+    callers can fall back to the editor link.
+    """
+    try:
+        return client.generate_embed_token(project_id).get("preview_url") or None
+    except Exception as e:  # noqa: BLE001 - a missing link must not fail the tool
+        logger.warning("Could not mint preview url for project %s: %s", project_id, e)
+        return None
 
 
 def _status_badge(status: str | None) -> str:
@@ -243,6 +266,8 @@ def dispatch(
             return _create_project(arguments, client)
         if name == "create_video":
             return _create_video(arguments, client)
+        if name == "auto_video":
+            return _auto_video(arguments, client)
         if name == "get_preview_url":
             return _get_preview_url(arguments, client)
         if name == "generate_video":
@@ -474,14 +499,131 @@ def _create_video(args: dict, client: Blog2VideoClient) -> list[TextContent]:
     )
 
     if not do_render:
+        watch = _watch_url(pid, client)
+        link = (
+            f"[▶ Watch the video]({watch})\n\n`{watch}`\n\n"
+            if watch else
+            f"[▶ Open in editor]({_project_url(pid)})\n\n"
+        )
         return _md(
             header
-            + f"[▶ Open in editor]({_project_url(pid)})\n\n"
-            f"Call `get_preview_url` with `project_id={pid}` to get a shareable watch "
-            f"link, or pass `render: true` to also produce a downloadable MP4."
+            + link
+            + f"Pass `render: true` to also produce a downloadable MP4."
         )
 
     # Optional render — blocking poll until the MP4 is ready.
+    resp = client.start_render(pid)
+    if resp.get("r2_video_url"):
+        return _md(header + _render_complete_markdown(pid, resp["r2_video_url"], already=True)[0].text)
+    final = poll_until(
+        check_fn=lambda: client.get_render_status(pid),
+        is_done=lambda s: bool(s.get("done")) and not s.get("error"),
+        is_error=lambda s: (
+            bool(s.get("done") and s.get("error")),
+            s.get("error") or "unknown error",
+        ),
+        interval=DEFAULT_POLL_INTERVAL,
+        timeout=DEFAULT_POLL_TIMEOUT_RENDER,
+        label="Video rendering",
+    )
+    url = final.get("r2_video_url")
+    if not url:
+        return _md(header + f"Render complete but no URL returned. [Open your project]({_project_url(pid)}).")
+    return _md(header + _render_complete_markdown(pid, url, already=False)[0].text)
+
+
+def _auto_video(args: dict, client: Blog2VideoClient) -> list[TextContent]:
+    """Zero-config: URL in, finished video out.
+
+    Differs from _create_video in what it sends rather than how it runs:
+      * template                 — picked HERE from the source site's scraped
+                                   theme + content, then sent as a concrete id
+                                   (see app/dspy_modules/template_picker.py)
+      * stock_footage_enabled    — on; the MCP path left this false by default,
+                                   so b-roll never got attached
+      * no custom_voice_id       — uses the account's default voice; a stale
+                                   saved voice 404s on every scene
+      * NO colours               — so the template's own palette wins instead of
+                                   the generic purple fallback
+    """
+    blog_url = (args.get("blog_url") or "").strip()
+    if not blog_url or not (blog_url.startswith("http://") or blog_url.startswith("https://")):
+        return _err("blog_url is required and must be a valid http(s) URL.")
+
+    # Pick the template up front so the backend receives a concrete id like any
+    # other caller — no sentinel, and nothing in the pipeline or the project
+    # router needs to know auto-selection exists.
+    template = AUTO_TEMPLATE
+    if AUTO_TEMPLATE_PICK:
+        try:
+            import asyncio
+
+            from app.dspy_modules.template_picker import pick_template_for_url
+
+            template = asyncio.run(pick_template_for_url(blog_url))
+        except Exception as e:  # noqa: BLE001 - a pick failure must not block creation
+            logger.warning("auto_video: template pick failed, using %s: %s", AUTO_TEMPLATE, e)
+
+    fields: dict = {
+        "blog_url": blog_url,
+        "template": template,
+        "stock_footage_enabled": True,
+    }
+    if args.get("name"):
+        fields["name"] = args["name"]
+
+    # Deliberately NO custom_voice_id: the backend's own voice_gender/
+    # voice_accent defaults always resolve, whereas a saved voice can be stale
+    # (deleted at the TTS provider) and then every scene fails synthesis with
+    # 404 voice_not_found. Passing a bad id also overrides those working
+    # defaults, so auto_video never sets one — picking a specific voice is what
+    # setup_video / create_video are for.
+
+    project = client.create_project(**fields)
+    pid = project["id"]
+
+    client.start_generation(pid)
+    poll_until(
+        check_fn=lambda: client.get_generation_status(pid),
+        is_done=lambda s: s.get("status") in ("generated", "done"),
+        is_error=lambda s: (
+            bool(s.get("status") in ("failed", "error") or s.get("error")),
+            s.get("error") or "unknown error",
+        ),
+        interval=DEFAULT_POLL_INTERVAL,
+        timeout=DEFAULT_POLL_TIMEOUT_GENERATE,
+        label="Video generation",
+    )
+
+    project = client.get_project(pid)
+    scenes = project.get("scenes", [])
+    voice = project.get("custom_voice_id") or (
+        f"{project.get('voice_gender', 'female')} · {project.get('voice_accent', 'american')}"
+    )
+    header = (
+        f"✅ Created **project #{pid}** and generated the video — {len(scenes)} scenes ready.\n\n"
+        f"| | |\n|---|---|\n"
+        f"| **Template** | {project.get('template', '?')} _(auto-picked)_ |\n"
+        f"| **Voice** | {voice} |\n"
+        f"| **Accent** | `{project.get('accent_color', '?')}` |\n"
+        f"| **Stock footage** | {'on' if project.get('stock_footage_enabled') else 'off'} |\n"
+        f"| **Source** | {project.get('blog_url')} |\n\n"
+    )
+
+    if not bool(args.get("render", False)):
+        watch = _watch_url(pid, client)
+        link = (
+            f"[▶ Watch the video]({watch})\n\n`{watch}`\n\n"
+            if watch else
+            f"[▶ Open in editor]({_project_url(pid)})\n\n"
+        )
+        return _md(
+            header
+            + link
+            + f"Would you like to **render it as an MP4** for download? "
+            f"Say *yes, render it* (takes 3–8 min)."
+        )
+
     resp = client.start_render(pid)
     if resp.get("r2_video_url"):
         return _md(header + _render_complete_markdown(pid, resp["r2_video_url"], already=True)[0].text)
@@ -754,26 +896,37 @@ def _list_templates_markdown(templates: list[dict]) -> str:
 
 
 
-def _list_templates(client: Blog2VideoClient) -> list[TextContent]:
-    global _TEMPLATE_GALLERY_SHOWN_AT
-    templates = client.list_templates()
+def _list_templates(client: Blog2VideoClient):
+    """Open the template gallery widget.
+
+    Per MCP Apps (SEP-1865) the catalog goes in `structuredContent` — the UI
+    data channel, which the spec excludes from model context — while `content`
+    carries only a one-line summary. Putting the 12 image rows in `content`
+    (as this used to) drops the whole catalog into Claude's context, and Claude
+    then paraphrases it in prose instead of letting the widget speak.
+    """
+    global _TEMPLATE_GALLERY_SHOWN_AT, _TEMPLATE_CACHE
+    templates = [
+        {
+            "id": t.get("id", "?"),
+            "name": t.get("name") or t.get("id", "?"),
+            "genres": t.get("genres") or [],
+            "preview_url": TEMPLATE_PREVIEW_URLS.get(t.get("id", ""), ""),
+        }
+        for t in (client.list_templates() or [])
+    ]
+    _TEMPLATE_CACHE = templates
     _TEMPLATE_GALLERY_SHOWN_AT = time.time()
 
-    lines = []
-    for t in templates:
-        tid = t.get("id", "?")
-        name = t.get("name") or tid
-        genres = ", ".join(t.get("genres") or [])
-        r2_url = TEMPLATE_PREVIEW_URLS.get(tid, "")
-        if r2_url:
-            lines.append(f"![{name}]({r2_url})")
-        genre_str = f" · {genres}" if genres else ""
-        lines.append(f"**`{tid}`** — {name}{genre_str}")
-        lines.append("")
-
-    lines.append("_Say `use <id>` to select, e.g. `use nightfall`._")
-    lines.append("\nNow call `list_voices` to show the voice selection gallery.")
-    return _md("\n".join(lines))
+    return CallToolResult(
+        content=[TextContent(
+            type="text",
+            text=f"Template gallery shown ({len(templates)} templates). "
+                 "Click a card to select one.",
+        )],
+        structuredContent={"templates": templates},
+        isError=False,
+    )
 
 
 def _normalize_voice(v: dict) -> dict:
@@ -896,11 +1049,21 @@ def _fetch_user_voices(client: Blog2VideoClient) -> list[dict]:
     ]
 
 
-def _list_voices(client: Blog2VideoClient) -> list[TextContent]:
+def _list_voices(client: Blog2VideoClient):
+    """Open the voice gallery widget. Same structuredContent contract as
+    _list_templates — the widget reads the catalog, the model sees one line."""
     global _VOICE_CACHE, _VOICE_GALLERY_SHOWN_AT
     _VOICE_CACHE = _fetch_user_voices(client)
     _VOICE_GALLERY_SHOWN_AT = time.time()
-    return _md("The voice gallery is shown above — click a card to hear a preview and select it.")
+    return CallToolResult(
+        content=[TextContent(
+            type="text",
+            text=f"Voice gallery shown ({len(_VOICE_CACHE)} voices). "
+                 "Click a card to hear a preview and select it.",
+        )],
+        structuredContent={"voices": _VOICE_CACHE},
+        isError=False,
+    )
 
 
 def _get_templates_json(client: Blog2VideoClient) -> list[TextContent]:

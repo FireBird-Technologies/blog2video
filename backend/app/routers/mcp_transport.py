@@ -149,7 +149,7 @@ async def _list_tools() -> list[Tool]:
 
 
 @mcp_server.call_tool()
-async def _call_tool(name: str, arguments: dict) -> list[TextContent]:
+async def _call_tool(name: str, arguments: dict):
     token = _REQUEST_TOKEN.get()
     if not token:
         return [TextContent(type="text", text="ERROR: missing authentication token")]
@@ -160,7 +160,7 @@ async def _call_tool(name: str, arguments: dict) -> list[TextContent]:
     import anyio
     base_url = settings.BACKEND_URL
 
-    def _run() -> list[TextContent]:
+    def _run():
         client = Blog2VideoClient(jwt_token=token, base_url=base_url)
         return dispatch(name, arguments, client)
 
@@ -179,7 +179,10 @@ async def _call_tool(name: str, arguments: dict) -> list[TextContent]:
 # Without these handlers Claude never fetches the HTML and no iframe appears.
 # ---------------------------------------------------------------------------
 
-_GALLERY_URI = "ui://blog2video/template_gallery"
+# _v2: claude.ai caches widget HTML per resource URI and does not re-read it on
+# reconnect, so shipping a changed bundle requires a new URI (same reason
+# setup_gallery carries _v2). Bump again if the bundle changes materially.
+_GALLERY_URI = "ui://blog2video/template_gallery_v2"
 _VOICES_URI  = "ui://blog2video/voice_gallery"
 _SETUP_URI   = "ui://blog2video/setup_gallery_v2"
 _GALLERY_MIME = "text/html;profile=mcp-app"
@@ -220,6 +223,17 @@ async def _fetch_voices() -> list[dict]:
     return []
 
 
+# CSP for the widget sandboxes. Per SEP-1865 an omitted `resourceDomains` means
+# "no network resources" — the iframe blocks every <img>/<audio> and the cards
+# render as broken-image icons. These are the origins our widgets actually load
+# from: R2 for template preview PNGs, the backend for voice preview audio.
+_R2_PREVIEW_ORIGIN = "https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev"
+_WIDGET_CSP = {
+    "resourceDomains": [_R2_PREVIEW_ORIGIN, "https://*.r2.dev"],
+    "connectDomains": [_R2_PREVIEW_ORIGIN, "https://*.r2.dev"],
+}
+
+
 @mcp_server.list_resources()
 async def _list_resources():
     from mcp.types import Resource
@@ -230,18 +244,21 @@ async def _list_resources():
             name="Blog2Video Template Gallery",
             mimeType=_GALLERY_MIME,
             description="Interactive 12-card template gallery.",
+            _meta={"ui": {"csp": _WIDGET_CSP}},
         ),
         Resource(
             uri=AnyUrl(_VOICES_URI),
             name="Blog2Video Voice Gallery",
             mimeType=_GALLERY_MIME,
             description="Interactive voice selector with audio previews.",
+            _meta={"ui": {"csp": _WIDGET_CSP}},
         ),
         Resource(
             uri=AnyUrl(_SETUP_URI),
             name="Blog2Video Setup Panel",
             mimeType=_GALLERY_MIME,
             description="Combined template + voice selection panel for creating a video.",
+            _meta={"ui": {"csp": _WIDGET_CSP}},
         ),
     ]
 
@@ -256,7 +273,17 @@ async def _read_resource(uri):
     uri_str = str(uri)
 
     if uri_str == _GALLERY_URI:
+        # The widget's primary data channel is the tool result's
+        # structuredContent, delivered by the host via ontoolresult. This
+        # injection is only a fallback for hosts that read the resource before
+        # (or without) a tool call — the bundle checks __B2V_TEMPLATES__ last.
+        import mcp_server.handlers as h
+        templates = h._TEMPLATE_CACHE or await _fetch_templates()
+        if not h._TEMPLATE_CACHE and templates:
+            h._TEMPLATE_CACHE = templates
         html = load_html("template_gallery")
+        injection = f"<script>window.__B2V_TEMPLATES__={json.dumps(templates, ensure_ascii=False)};</script>"
+        html = html.replace("</head>", f"{injection}</head>", 1)
         return [ReadResourceContents(content=html, mime_type=_GALLERY_MIME)]
 
     if uri_str == _VOICES_URI:

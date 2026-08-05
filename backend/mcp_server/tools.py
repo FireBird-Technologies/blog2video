@@ -10,13 +10,53 @@ from mcp.types import Tool, ToolAnnotations
 
 def get_tool_definitions() -> list[Tool]:
     return [
+        # auto_video is FIRST deliberately: it is the default entry point for
+        # "make a video from <url>". When two tool descriptions both plausibly
+        # match, earlier position breaks the tie — and setup_video used to win
+        # that tie and force a gallery on users who never asked to pick one.
+        Tool(
+            name="auto_video",
+            description=(
+                "DEFAULT TOOL for making a video. Call this IMMEDIATELY whenever the user "
+                "asks to create / make / generate / produce a video from a URL and has NOT "
+                "asked to choose a template or voice — e.g. 'create a video for <url>', "
+                "'make a video from <url>', 'turn this post into a video'.\n\n"
+                "Zero-config: the template is picked automatically from the source site's "
+                "visual identity and article content, the account's DEFAULT voice is used "
+                "(never a specific/custom voice — use create_video if the user wants one), "
+                "and stock b-roll is on. "
+                "Do NOT show galleries and do NOT ask which template or voice they want — "
+                "skipping those questions is the entire point of this tool.\n\n"
+                "Only use `setup_video` instead if the user EXPLICITLY asks to pick/see "
+                "templates or voices, and `create_video` if they already named specific "
+                "ones.\n\n"
+                "Blocks until the scenes are ready (~1–5 min). Set `render: true` to also "
+                "produce a downloadable MP4 (~+3–8 min)."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "blog_url": {"type": "string", "format": "uri", "minLength": 8, "description": "REQUIRED. The http(s) URL of the blog/article to convert."},
+                    "name": {"type": "string", "description": "Optional project name. Defaults to a name derived from the URL."},
+                    "render": {"type": "boolean", "default": False, "description": "If true, also render a downloadable MP4 before returning (slower)."},
+                },
+                "required": ["blog_url"],
+            },
+            **{"_meta": {
+                "openai/widgetAccessible": True,
+            }},
+        ),
         # ─── Read tools ─────────────────────────────────────────────
         Tool(
             name="setup_video",
             description=(
-                "HARD REQUIREMENT — ALWAYS call this tool IMMEDIATELY whenever the user "
-                "asks to create / make / generate / produce a video, or asks to see / "
-                "show / pick a template or voice.\n\n"
+                "DO NOT call this for a plain 'make/create a video from <url>' request — "
+                "that is `auto_video`. Calling this tool instead forces the user to pick "
+                "a template and voice they never asked to pick.\n\n"
+                "Call this ONLY when the user explicitly signals they want to CHOOSE the "
+                "look or sound: they ask to see / show / pick / browse templates or "
+                "voices, or they say they want to select the style themselves. The word "
+                "'video' alone is NOT enough — there must be an explicit ask to choose.\n\n"
                 "blog_url is MANDATORY and MUST be the actual http(s) URL the user "
                 "provided. If the user has not given a URL yet, ASK them for it first "
                 "in one short sentence — do NOT call this tool with an empty or fake "
@@ -26,9 +66,9 @@ def get_tool_definitions() -> list[Tool]:
                 "text. DO NOT ask 'which template would you like' or 'male or female?' — "
                 "this widget shows ALL templates and ALL voices visually so the user "
                 "picks both in one step.\n\n"
-                "Calling this tool is the ONLY correct way to start the video creation "
-                "flow. After the user clicks Create in the widget, a project is created "
-                "automatically and generate_video is called next."
+                "This is the correct entry point for the PICK-YOUR-OWN flow. After the "
+                "user clicks Create in the widget, a project is created automatically "
+                "and generate_video is called next."
             ),
             inputSchema={
                 "type": "object",
@@ -56,13 +96,17 @@ def get_tool_definitions() -> list[Tool]:
                 "(without immediately creating a video). Shows a visual gallery of all 12 "
                 "templates with real preview images. Do NOT use web search or your own "
                 "knowledge to describe templates — call this tool. "
-                "Each template has an `id` used in create_project / change_template."
+                "Each template has an `id` used in create_project / change_template.\n\n"
+                "This tool renders an interactive widget. Do NOT describe, enumerate, or "
+                "summarize the templates in your text reply — the widget IS the "
+                "user-facing output. Reply with at most one short sentence.\n\n"
+                "After this, call `list_voices` so the user can also pick a voice."
             ),
             inputSchema={"type": "object", "properties": {}},
             annotations=ToolAnnotations(readOnlyHint=True),
             **{"_meta": {
-                "ui": {"resourceUri": "ui://blog2video/template_gallery"},
-                "openai/outputTemplate": "ui://blog2video/template_gallery",
+                "ui": {"resourceUri": "ui://blog2video/template_gallery_v2"},
+                "openai/outputTemplate": "ui://blog2video/template_gallery_v2",
                 "openai/widgetAccessible": True,
             }},
         ),
@@ -169,7 +213,10 @@ def get_tool_definitions() -> list[Tool]:
                     "video_length": {"type": "string", "enum": ["auto", "short", "medium", "detailed", "more_detailed"], "default": "auto"},
                     "aspect_ratio": {"type": "string", "enum": ["landscape", "portrait"], "default": "landscape"},
                     "playback_speed": {"type": "number", "minimum": 0.5, "maximum": 2.5},
-                    "accent_color": {"type": "string", "description": "Hex color, e.g. #7C3AED"},
+                    "accent_color": {"type": "string", "description": "Hex color, e.g. #818CF8. OMIT to inherit the template's own palette — only pass this if the user asked for a specific colour."},
+                    "bg_color": {"type": "string", "description": "Hex background colour. Omit to inherit the template's palette."},
+                    "text_color": {"type": "string", "description": "Hex text colour. Omit to inherit the template's palette."},
+                    "stock_footage_enabled": {"type": "boolean", "default": False, "description": "Add stock video b-roll to image-capable scenes. Available on every plan. Pass true unless the user asked for no footage."},
                 },
                 "required": ["blog_url"],
             },
@@ -205,7 +252,10 @@ def get_tool_definitions() -> list[Tool]:
                     "video_length": {"type": "string", "enum": ["auto", "short", "medium", "detailed", "more_detailed"], "default": "auto"},
                     "aspect_ratio": {"type": "string", "enum": ["landscape", "portrait"], "default": "landscape"},
                     "playback_speed": {"type": "number", "minimum": 0.5, "maximum": 2.5},
-                    "accent_color": {"type": "string", "description": "Hex color, e.g. #7C3AED"},
+                    "accent_color": {"type": "string", "description": "Hex color, e.g. #818CF8. OMIT to inherit the template's own palette — only pass this if the user asked for a specific colour."},
+                    "bg_color": {"type": "string", "description": "Hex background colour. Omit to inherit the template's palette."},
+                    "text_color": {"type": "string", "description": "Hex text colour. Omit to inherit the template's palette."},
+                    "stock_footage_enabled": {"type": "boolean", "default": False, "description": "Add stock video b-roll to image-capable scenes. Available on every plan. Pass true unless the user asked for no footage."},
                     "render": {"type": "boolean", "default": False, "description": "If true, also render a downloadable MP4 before returning (slower)."},
                 },
                 "required": ["blog_url"],

@@ -610,6 +610,8 @@ _always_allowed = [
     # MCP — Claude clients
     "https://claude.ai",
     "https://app.anthropic.com",
+    # MCP Apps — widget sandbox origin ({hash}.claudemcpcontent.com); the
+    # iframe's own fetches carry this Origin, not claude.ai.
     # MCP — Inspector (local dev)
     "http://localhost:6274",
     "http://127.0.0.1:6274",
@@ -625,7 +627,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_origins,
     # Vercel previews + subdomains + HF Spaces + Anthropic subdomains (for MCP)
-    allow_origin_regex=r"https://(blog2video.*\.vercel\.app|.*\.blog2video\.app|.*\.hf\.space|.*\.anthropic\.com|.*\.claude\.ai)",
+    allow_origin_regex=r"https://(blog2video.*\.vercel\.app|.*\.blog2video\.app|.*\.hf\.space|.*\.anthropic\.com|.*\.claude\.ai|.*\.claudemcpcontent\.com)",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
