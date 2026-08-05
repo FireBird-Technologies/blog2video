@@ -78,6 +78,21 @@ class Settings(BaseSettings):
     # (30 min – 24 h); values outside that range are clamped before use.
     STRIPE_CHECKOUT_EXPIRES_SECONDS: int = 86400
 
+    # ── Anti card-testing controls (see app/services/checkout_guard.py) ──
+    # Card testers mint a Checkout Session, then replay stolen cards against the
+    # hosted Stripe page. These caps bound how many sessions one account/IP can
+    # mint, and cut off customers with a recent decline history.
+    CHECKOUT_SESSION_COOLDOWN_SECONDS: int = 10   # min gap between sessions for one user
+    CHECKOUT_MAX_SESSIONS_PER_USER_HOUR: int = 8
+    CHECKOUT_MAX_SESSIONS_PER_IP_HOUR: int = 12
+    CHECKOUT_MAX_RECENT_DECLINES: int = 2         # failed charges before checkout is cut off
+    CHECKOUT_DECLINE_WINDOW_HOURS: int = 24       # window the declines are counted over
+    # Emergency levers — flip these in the deployment env while an attack is live.
+    # Age gate (seconds) applies only to ad-hoc-amount checkouts (per-video, custom
+    # template); 0 disables it. Kill switch disables per-video checkout entirely.
+    CHECKOUT_MIN_ACCOUNT_AGE_SECONDS: int = 0
+    PER_VIDEO_CHECKOUT_ENABLED: bool = True
+
     # JWT
     JWT_SECRET: str = "change-me-in-production"
     JWT_ALGORITHM: str = "HS256"

@@ -25,6 +25,13 @@ from app.services.per_video_pricing import (
     MIN_QUANTITY as PER_VIDEO_MIN_QTY,
     MAX_QUANTITY as PER_VIDEO_MAX_QTY,
 )
+from app.services.checkout_guard import (
+    client_ip,
+    enforce_checkout_guard,
+    invalidate_decline_cache,
+    note_successful_payment,
+    recent_decline_count,
+)
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -54,6 +61,16 @@ def _checkout_expires_at() -> int:
     """Absolute expiry timestamp for a new session, clamped to Stripe's valid range."""
     secs = max(_CHECKOUT_EXPIRES_MIN, min(settings.STRIPE_CHECKOUT_EXPIRES_SECONDS, _CHECKOUT_EXPIRES_MAX))
     return int(time.time()) + secs
+
+
+def _short_checkout_expires_at() -> int:
+    """Shortest expiry Stripe allows (30 min), for the ad-hoc-amount sessions.
+
+    A hosted Checkout page accepts card attempts for as long as its session is
+    open, so session lifetime is the real ceiling on how many cards one minted
+    session can test. Keep it at the floor for the endpoints card testers pick.
+    """
+    return int(time.time()) + _CHECKOUT_EXPIRES_MIN
 
 
 class CheckoutResponse(BaseModel):
@@ -227,11 +244,14 @@ class CheckoutRequest(BaseModel):
 
 @router.post("/checkout", response_model=CheckoutResponse)
 def create_checkout_session(
+    request: Request,
     body: CheckoutRequest = CheckoutRequest(),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Create a Stripe Checkout session for Pro or Standard plan."""
+    enforce_checkout_guard(user, request, kind="plan")
+
     # Lifetime is a one-time payment (mode="payment"), not a recurring subscription.
     # Allowed even for users with an active recurring subscription — we don't auto-cancel
     # the recurring plan here.
@@ -348,6 +368,7 @@ def create_checkout_session(
 
 @router.post("/checkout-per-video", response_model=CheckoutResponse)
 def create_per_video_checkout(
+    request: Request,
     body: PerVideoCheckoutRequest,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -357,6 +378,10 @@ def create_per_video_checkout(
     If project_id is provided, unlocks that specific project.
     If project_id is omitted (e.g. from Pricing page), buys a video credit.
     """
+    # Prime card-testing target: cheap, one-time, ad-hoc amount. Guarded before
+    # any Stripe call so a throttled caller costs us nothing.
+    enforce_checkout_guard(user, request, kind="per_video")
+
     # Project-specific unlock is always qty=1 by design
     if body.project_id and body.quantity != 1:
         raise HTTPException(
@@ -371,6 +396,9 @@ def create_per_video_checkout(
         "user_id": str(user.id),
         "type": "per_video",
         "qty": str(qty),
+        # Forensics: lets a Radar rule / manual review tie a session back to the
+        # caller that minted it, not just to the card used on the hosted page.
+        "client_ip": client_ip(request),
     }
     success_url = f"{settings.FRONTEND_URL}/dashboard?purchased=true&session_id={{CHECKOUT_SESSION_ID}}"
     cancel_url = f"{settings.FRONTEND_URL}/pricing"
@@ -422,6 +450,10 @@ def create_per_video_checkout(
         success_url=success_url,
         cancel_url=cancel_url,
         metadata=meta,
+        # Short lifetime + recovery: bounds card attempts per session and still
+        # fires checkout.session.expired for the abandoned-cart win-back email.
+        expires_at=_short_checkout_expires_at(),
+        after_expiration=_checkout_after_expiration(allow_promotion_codes=True),
     )
 
     return CheckoutResponse(checkout_url=session.url)
@@ -433,6 +465,7 @@ BULK_500_CREDITS = 500
 
 @router.post("/checkout-bulk-credits", response_model=CheckoutResponse)
 def create_bulk_credits_checkout(
+    request: Request,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -441,6 +474,8 @@ def create_bulk_credits_checkout(
     One-time payment (mode="payment") using the LIFETIME_DEAL_500 price. The
     credits never expire — they are consumed only as the user makes videos.
     """
+    enforce_checkout_guard(user, request, kind="bulk_500")
+
     price_id = settings.LIFETIME_DEAL_500
     if not price_id:
         raise HTTPException(status_code=400, detail="500-video deal not configured yet")
@@ -476,6 +511,7 @@ def create_bulk_credits_checkout(
 
 @router.post("/checkout-custom-template", response_model=CheckoutResponse)
 def create_custom_template_checkout(
+    request: Request,
     body: CustomTemplateCheckoutRequest = CustomTemplateCheckoutRequest(),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -484,6 +520,9 @@ def create_custom_template_checkout(
 
     Grants +``qty`` to ``user.custom_template_bonus`` on payment (lifetime, no expiry).
     """
+    # Ad-hoc amount like per-video, so the same card-testing surface.
+    enforce_checkout_guard(user, request, kind="custom_template")
+
     qty = max(CUSTOM_TEMPLATE_MIN_QTY, min(body.quantity, CUSTOM_TEMPLATE_MAX_QTY))
 
     # Ensure the user has a Stripe customer
@@ -521,10 +560,15 @@ def create_custom_template_checkout(
         allow_promotion_codes=True,
         success_url=success_url,
         cancel_url=cancel_url,
-        metadata={"user_id": str(user.id), "type": "custom_template", "qty": str(qty)},
-        # Bounded lifetime + recovery so an uncompleted session fires
+        metadata={
+            "user_id": str(user.id),
+            "type": "custom_template",
+            "qty": str(qty),
+            "client_ip": client_ip(request),
+        },
+        # Short lifetime + recovery so an uncompleted session fires
         # checkout.session.expired and yields a resume-cart recovery URL.
-        expires_at=_checkout_expires_at(),
+        expires_at=_short_checkout_expires_at(),
         after_expiration=_checkout_after_expiration(allow_promotion_codes=True),
     )
 
@@ -1671,6 +1715,10 @@ def _handle_checkout_completed(session: dict, db: Session):
             logger.info("[BILLING] Duplicate checkout webhook for session %s — skipping", session_id)
             return
 
+    # A completed payment clears the cached decline count so a customer who
+    # simply mistyped a card earlier isn't held under the guard's cooldown.
+    note_successful_payment(customer_id)
+
     if checkout_type == "per_video":
         # One-time per-video payment
         project_id = metadata.get("project_id")
@@ -2146,14 +2194,49 @@ def _handle_payment_action_required(invoice: dict, db: Session):
 def _handle_payment_intent_failed(payment_intent: dict, db: Session):
     """
     Handle a PaymentIntent failure (one-time or subscription payment failed at intent level).
-    Log it for debugging — the invoice.payment_failed handler covers subscription failures.
+    The invoice.payment_failed handler covers subscription failures; this one is
+    also the card-testing tripwire — a burst of declines on one customer is the
+    signature of a tester walking a card list against a hosted Checkout page.
     """
     pi_id = payment_intent.get("id")
     customer_id = payment_intent.get("customer")
     last_error = payment_intent.get("last_payment_error", {})
     decline_code = last_error.get("decline_code", "unknown")
     message = last_error.get("message", "No message")
-    print(f"[BILLING] PaymentIntent {pi_id} failed for customer={customer_id}: {decline_code} - {message}")
+
+    user = (
+        db.query(User).filter(User.stripe_customer_id == customer_id).first()
+        if customer_id
+        else None
+    )
+    logger.warning(
+        "[BILLING] PaymentIntent %s failed customer=%s user=%s: %s - %s",
+        pi_id,
+        customer_id,
+        user.id if user else None,
+        decline_code,
+        message,
+        extra={"user_id": user.id if user else None, "decline_code": decline_code},
+    )
+
+    if not customer_id:
+        return
+
+    # Force a fresh count (the cached one predates this failure) and shout when
+    # the customer crosses the threshold — enforce_checkout_guard will now
+    # refuse to mint further sessions for them.
+    invalidate_decline_cache(customer_id)
+    declines = recent_decline_count(customer_id)
+    if declines > settings.CHECKOUT_MAX_RECENT_DECLINES:
+        logger.error(
+            "[CARD_TESTING] customer=%s user=%s email=%s has %s declines in %sh — checkout blocked",
+            customer_id,
+            user.id if user else None,
+            user.email if user else None,
+            declines,
+            settings.CHECKOUT_DECLINE_WINDOW_HOURS,
+            extra={"user_id": user.id if user else None, "declines": declines},
+        )
 
 
 def _handle_dispute_created(dispute: dict, db: Session):
