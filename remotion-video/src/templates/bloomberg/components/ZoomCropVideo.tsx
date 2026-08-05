@@ -1,5 +1,6 @@
 import React from "react";
-import { Loop, OffthreadVideo } from "remotion";
+import { Loop } from "remotion";
+import { SmartVideo } from "../../SmartVideo";
 import { useSceneDurationInFrames } from "../../SceneDurationContext";
 
 /**
@@ -12,7 +13,7 @@ import { useSceneDurationInFrames } from "../../SceneDurationContext";
  *
  * Two deliberate choices keep playback smooth:
  *
- * 1. `OffthreadVideo` (not `<Video>`): during a CLI render Remotion extracts the
+ * 1. `SmartVideo`: during a CLI render it uses `OffthreadVideo`, which extracts the
  *    exact frame with ffmpeg rather than driving a real <video> element, so
  *    output frames land on precise timestamps instead of wherever a media
  *    element happened to be.
@@ -23,7 +24,7 @@ import { useSceneDurationInFrames } from "../../SceneDurationContext";
  *    re-introduce the fractional sampling — i.e. judder — that normalising
  *    exists to remove.
  *
- * `OffthreadVideo` has no `loop` prop, so repetition uses the separate <Loop>
+ * Neither video primitive has a `loop` prop, so repetition uses the separate <Loop>
  * component. Without a known clip length we cannot pick a loop point, so the
  * clip plays once rather than cutting at a guessed frame.
  */
@@ -53,7 +54,7 @@ export function ZoomCropVideo({
   const start = Math.max(0, Math.round(startInFrames || 0));
 
   const video = (
-    <OffthreadVideo
+    <SmartVideo
       src={src}
       muted={muted}
       volume={muted ? 0 : Math.max(0, Math.min(1, volume))}
