@@ -1,5 +1,6 @@
 import React from "react";
-import { Loop, OffthreadVideo } from "remotion";
+import { Loop } from "remotion";
+import { SmartVideo } from "../../SmartVideo";
 import { useSceneDurationInFrames } from "../../SceneDurationContext";
 
 /**
@@ -9,7 +10,8 @@ import { useSceneDurationInFrames } from "../../SceneDurationContext";
  * zoom >= 1  →  object-fit: cover  + scale(z) from the focus point
  * zoom <  1  →  object-fit: contain + scale(z) from center
  *
- * `OffthreadVideo` (not `<Video>`) so the CLI render extracts exact frames with
+ * `SmartVideo` so the CLI render extracts exact frames with ffmpeg while the
+ * Player uses a continuously-playing `<Video>`;
  * ffmpeg. `playbackRate` is never set — clips are CFR-30 on ingest, so frame n
  * maps 1:1. `trimBefore` skips the first `startInFrames` source frames (the
  * adjust-modal trim); the `<Loop>` period is the trimmed window so it repeats
@@ -41,7 +43,7 @@ export function ZoomCropVideo({
   const start = Math.max(0, Math.round(startInFrames || 0));
 
   const video = (
-    <OffthreadVideo
+    <SmartVideo
       src={src}
       muted={muted}
       volume={muted ? 0 : Math.max(0, Math.min(1, volume))}
