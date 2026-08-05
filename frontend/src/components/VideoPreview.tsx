@@ -7,9 +7,9 @@ import {
   Sequence,
   Audio,
   Loop,
-  OffthreadVideo,
   useCurrentFrame,
 } from "remotion";
+import { SmartVideo } from "./remotion/SmartVideo";
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import {
   BACKEND_URL,
@@ -81,7 +81,7 @@ function PreviewZoomCropVideo({
   const start = Math.max(0, Math.round(startInFrames || 0));
 
   const video = (
-    <OffthreadVideo
+    <SmartVideo
       src={src}
       muted={muted}
       volume={muted ? 0 : Math.max(0, Math.min(1, volume))}
@@ -681,6 +681,8 @@ interface SceneInput {
   bgmVolume?: number | null;
   imageUrl?: string;
   voiceoverUrl?: string;
+  /** Stock-footage clip URL, when the scene uses a clip instead of a still. */
+  videoUrl?: string;
   /** Position in the FULL project, preserved when sliced to a single scene. */
   trueIndex?: number;
   /** Scene count of the FULL project, preserved when sliced to a single scene. */
@@ -2143,13 +2145,15 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     return Math.max(0, Math.min(max, Math.floor(initialFrame)));
   }, [initialFrame, totalDurationFrames]);
 
-  // Preload images and voiceover so they're in browser cache when Remotion renders
+  // Preload images, voiceover and stock clips so they're in browser cache when
+  // Remotion renders. Clips matter most: a cold .mp4 stalls the Player timeline
+  // mid-playback while the media element fetches and seeks.
   const [mediaReady, setMediaReady] = useState(false);
   const [isPreloadingMedia, setIsPreloadingMedia] = useState(false);
   const mediaSources = useMemo(
     () =>
       scenes
-        .flatMap((s) => [s.imageUrl, s.voiceoverUrl])
+        .flatMap((s) => [s.imageUrl, s.voiceoverUrl, s.videoUrl])
         .filter(Boolean) as string[],
     [scenes],
   );
@@ -2165,6 +2169,9 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     );
     const audioUrls = mediaSources.filter((src) =>
       /\.(mp3|wav|m4a|ogg)(\?|$)/i.test(src),
+    );
+    const videoUrls = mediaSources.filter((src) =>
+      /\.(mp4|webm|mov|m4v)(\?|$)/i.test(src),
     );
 
     const imagePromises = imageUrls.map(
@@ -2218,7 +2225,40 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
         }),
     );
 
-    Promise.all([...imagePromises, ...audioPromises]).then(() => {
+    // Stock clips: resolve on `canplaythrough`, NOT `loadedmetadata`. Metadata
+    // only means headers arrived — the buffer is still empty, which is exactly
+    // the state that stalls the Player's timeline once playback reaches the clip.
+    const videoPromises = videoUrls.map(
+      (src) =>
+        new Promise<void>((resolve) => {
+          const video = document.createElement("video");
+          video.preload = "auto";
+          video.muted = true;
+          // Required for the buffer to actually fill on iOS Safari.
+          video.playsInline = true;
+          let settled = false;
+          const done = () => {
+            if (settled) return;
+            settled = true;
+            resolve();
+          };
+          video.addEventListener("canplaythrough", done);
+          video.addEventListener("error", done); // don't block on error
+          video.src = src;
+          video.load();
+          // Clips are larger than voiceover; allow more headroom before giving up.
+          const timeoutId = window.setTimeout(done, 30000);
+          cleanupFns.push(() => {
+            window.clearTimeout(timeoutId);
+            video.removeEventListener("canplaythrough", done);
+            video.removeEventListener("error", done);
+            video.src = "";
+            video.load(); // release the pending fetch
+          });
+        }),
+    );
+
+    Promise.all([...imagePromises, ...audioPromises, ...videoPromises]).then(() => {
       if (cancelled) return;
       setMediaReady(true);
       setIsPreloadingMedia(false);
