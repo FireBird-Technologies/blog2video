@@ -7,6 +7,7 @@ import { LogoOverlay } from "../LogoOverlay";
 import { BackgroundMusic } from "../BackgroundMusic";
 import { CaptionTrack } from "../CaptionTrack";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
+import { SceneDurationInFramesContext } from "../SceneDurationContext";
 
 export interface WhiteboardSceneInput {
   id: number;
@@ -21,6 +22,14 @@ export interface WhiteboardSceneInput {
   /** Spoken-audio length in seconds — for caption timing. */
   speechDurationSeconds?: number;
   imageUrl?: string;
+  /** Stock-footage clip URL. Mutually exclusive with `imageUrl`. */
+  videoUrl?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  /** Normalised clip length; converted to frames for <Loop>. */
+  videoDurationSeconds?: number;
+  /** Start offset into the clip, in seconds (the adjust-modal trim). */
+  videoStartSeconds?: number;
   voiceoverUrl?: string;
   avatarUrl?: string;
   /** Per-scene avatar overrides; undefined = inherit the project setting. */
@@ -101,6 +110,15 @@ export const WhiteboardVideoComposition: React.FC<
           title: scene.title,
           narration: scene.narration,
           imageUrl: scene.imageUrl,
+          videoUrl: scene.videoUrl,
+          videoMuted: scene.videoMuted ?? true,
+          videoVolume: scene.videoVolume ?? 0.35,
+          videoDurationInFrames: scene.videoDurationSeconds
+            ? Math.max(1, Math.round(scene.videoDurationSeconds * FPS))
+            : undefined,
+          videoStartInFrames: scene.videoStartSeconds
+            ? Math.max(0, Math.round(scene.videoStartSeconds * FPS))
+            : undefined,
           imageObjectPosition: String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))) + "% " + String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))) + "%",
           imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
           accentColor: accentColor || "#1F2937",
@@ -117,7 +135,9 @@ export const WhiteboardVideoComposition: React.FC<
             durationInFrames={durationFrames}
             name={scene.title}
           >
-            <LayoutComponent {...layoutProps} />
+            <SceneDurationInFramesContext.Provider value={durationFrames}>
+              <LayoutComponent {...layoutProps} />
+            </SceneDurationInFramesContext.Provider>
             {scene.voiceoverUrl && (
               <Audio src={scene.voiceoverUrl} playbackRate={resolvedPlaybackSpeed} />
             )}

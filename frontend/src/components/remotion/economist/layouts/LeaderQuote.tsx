@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { EconomistLayoutProps } from "../types";
+import { EconomistClip } from "../components/EconomistClip";
 import { ECONOMIST_COLORS, CHROME_INSET } from "../constants";
 import { ECONOMIST_SERIF_FONT, ECONOMIST_SANS_FONT } from "../../../../fonts/economist-defaults";
 import { EditorialDivider, EngravingTexture, ConcentricRings } from "../components/EconomistOrnaments";
@@ -26,6 +27,11 @@ export const LeaderQuote: React.FC<EconomistLayoutProps> = ({
   imageUrl,
   imageObjectPosition = "50% 50%",
   imageZoom = 1,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   accentColor = ECONOMIST_COLORS.accent,
   textColor = ECONOMIST_COLORS.ink,
   titleFontSize,
@@ -35,7 +41,7 @@ export const LeaderQuote: React.FC<EconomistLayoutProps> = ({
   const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
   const isPortrait = aspectRatio === "portrait";
-  const hasImage = Boolean(imageUrl);
+  const hasImage = Boolean(imageUrl || videoUrl);
   const splitView = hasImage && !isPortrait;
 
   const text = quote || narration || "";
@@ -101,17 +107,30 @@ export const LeaderQuote: React.FC<EconomistLayoutProps> = ({
       }}
     >
       <div style={{ width: "100%", height: "100%", overflow: "hidden" }}>
-        <Img
-          src={imageUrl as string}
-          style={{
+        {(() => {
+          const visualStyle: React.CSSProperties = {
             width: "100%",
             height: "100%",
             objectFit: "cover",
             objectPosition: imageObjectPosition,
             transform: `scale(${kbScale.toFixed(4)})`,
             filter: `grayscale(${(1 - developT).toFixed(3)})`,
-          }}
-        />
+          };
+          return videoUrl ? (
+            <EconomistClip
+              src={videoUrl}
+              imageObjectPosition={imageObjectPosition}
+              imageZoom={imageZoom}
+              muted={videoMuted ?? true}
+              volume={videoVolume ?? 0.35}
+              durationInFrames={videoDurationInFrames}
+              startInFrames={videoStartInFrames}
+              style={visualStyle}
+            />
+          ) : (
+            <Img src={imageUrl as string} style={visualStyle} />
+          );
+        })()}
       </div>
       {/* Red plate tab over the mat's top rule. */}
       <div style={{ position: "absolute", top: -1, left: 26, width: 44, height: 6, background: accentColor }} />

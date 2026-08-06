@@ -141,6 +141,10 @@ class ProjectCreate(BaseModel):
     content_language: Optional[str] = None     # preferred target language (ISO code or name)
     bgm_track_id: Optional[str] = None
     bgm_volume: Optional[float] = 0.10
+    # Paid + Newscast only. Pauses generation after the script stage so the user
+    # can approve an auto-picked stock clip per image-capable scene. Enforced
+    # server-side in create_project — never trust the client for this.
+    stock_footage_enabled: Optional[bool] = False
     captions_enabled: Optional[bool] = False
     caption_position: Optional[str] = "bottom_center"  # bottom_center | top_center
     caption_font_family: Optional[str] = "inter"
@@ -423,6 +427,17 @@ class AssetOut(BaseModel):
     r2_url: Optional[str] = None
     excluded: bool = False
     created_at: datetime
+    # VIDEO assets (stock footage) only — null on image/audio rows. Without these
+    # the editor cannot tell whether a clip has an audio track (audio toggle) or
+    # how long it is, so they must be serialized.
+    duration_seconds: Optional[float] = None
+    width: Optional[int] = None
+    height: Optional[int] = None
+    source_provider: Optional[str] = None
+    source_id: Optional[str] = None
+    source_author: Optional[str] = None
+    source_page_url: Optional[str] = None
+    audio_variant_filename: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -558,6 +573,8 @@ class ProjectOut(BaseModel):
     bgm_track_id: Optional[str] = None
     bgm_volume: float = 0.10
     bgm_track_url: Optional[str] = None
+    stock_footage_enabled: bool = False
+    is_bulk: bool = False
     captions_enabled: bool = False
     caption_position: str = "bottom_center"
     caption_font_family: str = "inter"
@@ -583,14 +600,17 @@ class ProjectOut(BaseModel):
     # True when the project has ≥1 member (invited/pending or accepted). Gates the
     # per-scene comment affordance in the UI.
     is_shared: bool = False
-    # True when the project OWNER is on a paid plan (standard/pro). On a shared
-    # project the owner pays, so the frontend gates Pro-only features (custom/crafted
+    # True when the project OWNER is on a paid plan (lite/standard/pro). On a shared
+    # project the owner pays, so the frontend gates premium features (custom/crafted
     # templates, paid voices) on the OWNER's plan for collaborators — not their own.
     owner_is_pro: bool = False
     # The project OWNER's remaining per-user purchased AI-edit credit pool. On a
-    # shared project the owner pays, so a FREE collaborator's AI-edit gating draws
+    # shared project the owner pays, so a collaborator's AI-edit gating draws
     # from the OWNER's credits — this surfaces the owner's balance for the UI.
     owner_ai_edit_credits: int = 0
+    # The project OWNER's remaining monthly plan allowance (0 on FREE). Combined
+    # with owner_ai_edit_credits this is the owner's full spendable AI-edit budget.
+    owner_ai_edit_allowance_remaining: int = 0
     # The project OWNER's display name. Populated for every project (owner + shared)
     # so a collaborator's settings pop-ups can attribute the templates/voices they see
     # as belonging to the owner (e.g. "Alice's custom templates").
@@ -648,6 +668,7 @@ class BulkProjectItem(BaseModel):
     caption_position: Optional[str] = "bottom_center"
     caption_font_family: Optional[str] = "inter"
     caption_font_size: Optional[str] = "medium"
+    stock_footage_enabled: Optional[bool] = False
 
     @field_validator("caption_position")
     @classmethod
@@ -807,6 +828,21 @@ class AddSceneRequest(BaseModel):
     # slot and everything at/after it shifts one down. Clamped server-side to
     # [1, active_count + 1] (append when omitted / out of range).
     position: Optional[int] = None
+
+
+class AddSceneJobOut(BaseModel):
+    """Status of a background add-scene generation job (polled by the frontend)."""
+    id: int
+    status: str  # queued | running | completed | failed
+    current_step: str
+    error_message: Optional[str] = None
+    # Set on success so the client can locate the newly inserted scene row.
+    new_scene_id: Optional[int] = None
+    # 1-indexed insert position among active scenes (None = appended at end).
+    position: Optional[int] = None
+
+    class Config:
+        from_attributes = True
 
 
 # ─── Chat ──────────────────────────────────────────────────

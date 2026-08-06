@@ -3,6 +3,7 @@ import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY, derivePalette } from "
 import type { BloombergLayoutProps } from "../types";
 import { BackgroundHistogramGraph } from "./BackgroundHistogramGraph";
 import { ZoomCropImg } from "../components/ZoomCropImg";
+import { ZoomCropVideo } from "../components/ZoomCropVideo";
 
 export const TerminalProfile: React.FC<BloombergLayoutProps> = ({
   title,
@@ -18,6 +19,11 @@ export const TerminalProfile: React.FC<BloombergLayoutProps> = ({
   imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
 }) => {
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
@@ -48,10 +54,22 @@ export const TerminalProfile: React.FC<BloombergLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff, overflow: "hidden" }}>
-      {imageUrl && (
+      {(videoUrl || imageUrl) && (
         <>
           <div style={{ position: "absolute", inset: 0 }}>
-            <ZoomCropImg src={imageUrl} imageObjectPosition={imageObjectPosition} imageZoom={imageZoom} />
+            {videoUrl ? (
+              <ZoomCropVideo
+                src={videoUrl}
+                imageObjectPosition={imageObjectPosition}
+                imageZoom={imageZoom}
+                muted={videoMuted ?? true}
+                volume={videoVolume ?? 0.35}
+                durationInFrames={videoDurationInFrames}
+                startInFrames={videoStartInFrames}
+              />
+            ) : (
+              <ZoomCropImg src={imageUrl!} imageObjectPosition={imageObjectPosition} imageZoom={imageZoom} />
+            )}
           </div>
           <div style={{ position: "absolute", inset: 0, backgroundColor: "rgba(0,0,0,0.65)" }} />
         </>

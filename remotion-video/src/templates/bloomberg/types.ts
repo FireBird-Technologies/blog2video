@@ -34,6 +34,11 @@ export interface BloombergLayoutProps {
   imageUrl?: string;
   imageObjectPosition?: string;
   imageZoom?: number;
+  videoUrl?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  videoDurationInFrames?: number;
+  videoStartInFrames?: number;
 
   // Global color/style
   accentColor: string;
@@ -91,5 +96,10 @@ export interface BloombergSceneInput {
   layoutProps: Record<string, unknown>;
   durationSeconds: number;
   imageUrl?: string;
+  videoUrl?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  videoDurationSeconds?: number;
+  videoStartSeconds?: number;
   voiceoverUrl?: string;
 }

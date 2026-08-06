@@ -29,6 +29,11 @@ export const VersusFolio: React.FC<ChronicleLayoutProps> = ({
   imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, height, width } = useVideoConfig();
@@ -65,7 +70,14 @@ export const VersusFolio: React.FC<ChronicleLayoutProps> = ({
     { extrapolateLeft: "clamp" },
   );
 
-  const Page = ({
+  // Deliberately a plain function that RETURNS JSX, not a component rendered as
+  // <Page />. Defining a component inside this body gives it a new function
+  // identity every render, and `useCurrentFrame()` re-renders every frame — so
+  // React would unmount and remount the whole subtree 30x/second, destroying and
+  // recreating the <video> element inside EmbossedImage. That was the flicker
+  // when a stock clip was attached. Calling it inline keeps the element identity
+  // stable across frames. Do not convert this back to a nested component.
+  const renderPage = ({
     align,
     label,
     desc,
@@ -178,6 +190,11 @@ export const VersusFolio: React.FC<ChronicleLayoutProps> = ({
         >
           <EmbossedImage
             src={imageUrl!}
+            videoUrl={videoUrl}
+            videoMuted={videoMuted}
+            videoVolume={videoVolume}
+            videoDurationInFrames={videoDurationInFrames}
+            videoStartInFrames={videoStartInFrames}
             objectPosition={imageObjectPosition}
             zoom={imageZoom}
             rotate={align === "left" ? -2.5 : 2.5}
@@ -247,24 +264,24 @@ export const VersusFolio: React.FC<ChronicleLayoutProps> = ({
           position: "relative",
         }}
       >
-        <Page
-          align="left"
-          label={leftLabel}
-          desc={leftDescription || narration || ""}
-          tint="rgba(248,239,214,0.55)"
-          slideOffset={leftIn}
-          opacity={leftOp}
-          showImage={Boolean(imageUrl)}
-        />
-        <Page
-          align="right"
-          label={rightLabel}
-          desc={rightDescription || ""}
-          tint="rgba(248,239,214,0.55)"
-          slideOffset={rightIn}
-          opacity={rightOp}
-          showImage={false}
-        />
+        {renderPage({
+          align: "left",
+          label: leftLabel,
+          desc: leftDescription || narration || "",
+          tint: "rgba(248,239,214,0.55)",
+          slideOffset: leftIn,
+          opacity: leftOp,
+          showImage: Boolean(imageUrl || videoUrl),
+        })}
+        {renderPage({
+          align: "right",
+          label: rightLabel,
+          desc: rightDescription || "",
+          tint: "rgba(248,239,214,0.55)",
+          slideOffset: rightIn,
+          opacity: rightOp,
+          showImage: false,
+        })}
 
         {/* Central spine + VS medallion */}
         <div

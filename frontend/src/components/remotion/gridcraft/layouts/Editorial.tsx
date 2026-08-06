@@ -13,6 +13,11 @@ export const Editorial: React.FC<GridcraftLayoutProps> = ({
   narration,imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   accentColor,
   titleFontSize,
   descriptionFontSize,
@@ -33,7 +38,7 @@ export const Editorial: React.FC<GridcraftLayoutProps> = ({
   const slideUp = interpolate(spr, [0, 1], [30, 0]);
 
   // Dynamic Layout: If image exists, split 50/50. Else center text.
-  const hasImage = !!imageUrl;
+  const hasImage = !!(imageUrl || videoUrl);
 
   return (
     <div
@@ -65,6 +70,11 @@ export const Editorial: React.FC<GridcraftLayoutProps> = ({
             <div style={{ flex: 1, position: "relative", overflow: "hidden", minHeight: 0 }}>
                 <ZoomCropImg
                   src={imageUrl}
+                  videoUrl={videoUrl}
+                  videoMuted={videoMuted}
+                  videoVolume={videoVolume}
+                  videoDurationInFrames={videoDurationInFrames}
+                  videoStartInFrames={videoStartInFrames}
                   imageObjectPosition={imageObjectPosition}
                   imageZoom={imageZoom}
                 />

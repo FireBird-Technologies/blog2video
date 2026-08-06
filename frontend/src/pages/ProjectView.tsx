@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef, MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef, Fragment, MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react";
 import ReactDOM from "react-dom";
 import { LinkIcon } from "@heroicons/react/24/outline";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
@@ -22,6 +22,8 @@ import {
   updateSceneVoiceover,
   assignExistingImageToScene,
   updateSceneImageFocus,
+  uploadStockFootage,
+  type StockClip,
   deleteScene,
   getValidLayouts,
   updateProjectLogo,
@@ -56,9 +58,13 @@ import {
   getBgmTracks,
   type BgmTrack,
   AVATAR_PRESETS,
+  getAddSceneStatus,
+  type AddSceneJob,
 } from "../api/client";
 import Joyride, { CallBackProps, STATUS, Step } from "react-joyride";
 import { useAuth } from "../hooks/useAuth";
+import { isPaidPlan } from "../lib/plan";
+import { formatAiEditCreditsDisplay } from "../lib/formatAiEditCredits";
 import { CollabProvider } from "../components/CollabContext";
 import CollabToolbar from "../components/CollabToolbar";
 import EditHistoryPanel from "../components/EditHistoryPanel";
@@ -70,14 +76,21 @@ import { useNoticeModal } from "../contexts/NoticeModalContext";
 import { trackGoogleAdsPurchaseConversion } from "../gtag";
 import StatusBadge from "../components/StatusBadge";
 import ScriptPanel from "../components/ScriptPanel";
+import { StockFootageModal, STOCK_FOOTAGE_CREDIT_COST } from "../components/StockFootageModal";
+import { StockFootageVerifyModal } from "../components/StockFootageVerifyModal";
+import { StockFootageVerifyModalLegacy } from "../components/StockFootageVerifyModalLegacy";
+import { ImageAdjustStage } from "../components/ImageAdjustStage";
+import { TrimmedClipVideo } from "../utils/trimmedClipPlayback";
+import { isStockClipAdjustSource } from "../utils/stockClipMedia";
 import SceneEditModal, {
   SceneImageItem,
   resolveDefaultFontSizesForScene,
 } from "../components/SceneEditModal";
-import GenerateSceneImageModal from "../components/GenerateSceneImageModal";
+import GenerateSceneImageModal, { AI_IMAGE_CREDIT_COST } from "../components/GenerateSceneImageModal";
 import AvatarEditModal from "../components/AvatarEditModal";
 import RecordVoiceoverModal from "../components/RecordVoiceoverModal";
-import AddSceneModal from "../components/AddSceneModal";
+import AddSceneModal, { ADD_SCENE_CREDIT_COST } from "../components/AddSceneModal";
+import AddScenePlaceholderRow from "../components/AddScenePlaceholderRow";
 import ChatPanel from "../components/ChatPanel";
 import UpgradeModal from "../components/UpgradeModal";
 import UpgradePlanModal from "../components/UpgradePlanModal";
@@ -104,6 +117,7 @@ import SceneCommentModal from "../components/SceneCommentModal";
 import { listComments } from "../api/collaboration";
 import CustomPreviewLandscape from "../components/templatePreviews/CustomPreviewLandscape";
 import CraftedTemplatePreview from "../components/templatePreviews/CraftedTemplatePreview";
+import useIsMobileViewport from "../hooks/useIsMobileViewport";
 import CraftYourTemplateCard from "../components/CraftYourTemplateCard";
 import GetMoreTemplatesModal from "../components/GetMoreTemplatesModal";
 import DesignerTemplateRequestModal from "../components/DesignerTemplateRequestModal";
@@ -139,6 +153,13 @@ const SCENE_EDIT_FIRST_STEP: Step = {
   disableBeacon: true,
   placement: "right",
 };
+const SCENE_VISUALS_FIRST_STEP: Step = {
+  target: '[data-tour="scene-visuals-first"]',
+  content:
+    "This is the scene's visual: the assigned image or stock footage clip, plus cards to generate one with AI. You can change a scene's visuals from here or from the scene edit modal.",
+  disableBeacon: true,
+  placement: "right",
+};
 const CAPTIONS_STEP: Step = {
   target: '[data-tour="captions"]',
   content: "Turn on captions here: enable subtitles for your video, then fine-tune their font, size, and timing.",
@@ -161,7 +182,12 @@ const PROJECT_JOYRIDE_STYLES = {
 
 function buildProjectTourSteps(project: Project | null): Step[] {
   const steps: Step[] = [TABS_CONTAINER_STEP];
-  if (project?.scenes?.length) steps.push(SCENE_EDIT_FIRST_STEP);
+  if (project?.scenes?.length) {
+    steps.push(SCENE_EDIT_FIRST_STEP);
+    // The visuals block only renders inside an EXPANDED scene row (the first
+    // scene auto-expands), so this anchor rides on the same condition.
+    steps.push(SCENE_VISUALS_FIRST_STEP);
+  }
   // Captions require a voiceover to have anything to transcribe; the CC button is
   // only rendered when the project has narration audio.
   const hasVoiceover = project?.scenes?.some((s) => s.voiceover_path) ?? false;
@@ -235,6 +261,7 @@ const GENERATION_TIPS = [
   { tab: "Script", text: "Not happy with the narration? Regenerate the whole script from the Script tab with your own instructions." },
   { tab: "Images", text: "Add or remove images per scene from the Images tab — you can also drop in your own logo." },
   { tab: "Settings", text: "Switch the template, colors, and fonts anytime from the Settings tab." },
+  { tab: "Edit Scenes", text: "Want motion instead of a still? Add or swap stock footage for any scene from the Edit Scenes tab." },
   { tab: "Edit Scenes", text: "Edit a scene's narration and regenerate just that voiceover." },
   { tab: "Edit Scenes", text: "Reorder, duplicate, or delete scenes from the Edit Scenes tab to shape the final flow." },
 ] as const;
@@ -250,7 +277,7 @@ function GenerationTips() {
       setTimeout(() => {
         setIdx((i) => (i + 1) % GENERATION_TIPS.length);
         setVisible(true);
-      }, 250);
+      }, 450);
     }, 4500);
     return () => clearInterval(timer);
   }, []);
@@ -286,7 +313,12 @@ function resolveAssetUrl(asset: { r2_url: string | null; filename: string; asset
 
   if (asset.r2_url) return asset.r2_url;
 
-  const subdir = asset.asset_type === "image" ? "images" : "audio";
+  const subdir =
+    asset.asset_type === "image"
+      ? "images"
+      : asset.asset_type === "video"
+        ? "videos"
+        : "audio";
   const localPath = `/media/projects/${projectId}/${subdir}/${asset.filename}`;
 
   return `${mediaBaseUrl}${localPath}`;
@@ -715,7 +747,10 @@ export default function ProjectView() {
   const projectId = Number(id);
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, refreshUser } = useAuth();
-  const isPro = user?.plan === "pro" || user?.plan === "standard";
+  const isPro = isPaidPlan(user?.plan);
+  // On mobile, template-picker previews render static (image/placeholder) instead
+  // of compiling/mounting a Remotion Player, which OOMs/reloads the tab on iOS.
+  const isMobile = useIsMobileViewport();
   const offer = useOutOfVideosOffer();
 
   const [project, setProject] = useState<Project | null>(null);
@@ -805,6 +840,7 @@ export default function ProjectView() {
   const [regenScriptPreviousScenes, setRegenScriptPreviousScenes] =
     useState<RegenerateScriptPreviewScene[] | null>(null);
   const regenerateScriptPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const addScenePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // True once the user has clicked "Proceed". The DB write that flips the job from
   // "awaiting_review" to "running" may not be visible to the very next poll, so we ignore
   // any stale "awaiting_review" reads while this is set — otherwise the UI bounces back to
@@ -1061,7 +1097,14 @@ export default function ProjectView() {
 
   // Upload-based project detection
   const isUploadProject = project?.blog_url?.startsWith("upload://") ?? false;
-  const PIPELINE_STEPS = isUploadProject ? PIPELINE_STEPS_UPLOAD : PIPELINE_STEPS_URL;
+  // Stock-footage clip fetching (when enabled) now runs in parallel with scene
+  // generation instead of pausing the pipeline, so there's no inline "Review"
+  // step anymore — the review gate (if any) appears as a modal AFTER
+  // generation finishes (see awaitingStockFootageReview below).
+  const PIPELINE_STEPS = useMemo(
+    () => (isUploadProject ? PIPELINE_STEPS_UPLOAD : PIPELINE_STEPS_URL),
+    [isUploadProject],
+  );
 
   // Page-level voiceover add/change/delete progress modal (survives tab switches
   // and page refresh — see VoiceOperationModal). Set to kick it off instantly.
@@ -1079,6 +1122,13 @@ export default function ProjectView() {
 
   // Pipeline state
   const [pipelineRunning, setPipelineRunning] = useState(false);
+  // Generation finished; parked at the post-generation stock-footage review
+  // gate, waiting on user approve/change/reject. Purely DB-status-driven (see
+  // the polling logic below), so it reappears on every reload.
+  const [awaitingStockFootageReview, setAwaitingStockFootageReview] = useState(false);
+  // Legacy: a project still parked at the OLD pre-scene-gen gate when this
+  // shipped. TODO(cleanup): remove once no rows remain at that status.
+  const [awaitingFootageLegacy, setAwaitingFootageLegacy] = useState(false);
   const [pipelineStep, setPipelineStep] = useState(0);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const generationStarted = useRef(false);
@@ -1200,8 +1250,11 @@ export default function ProjectView() {
   const [imageAdjustFocusX, setImageAdjustFocusX] = useState(50);
   const [imageAdjustFocusY, setImageAdjustFocusY] = useState(50);
   const [imageAdjustZoom, setImageAdjustZoom] = useState(1);
+  // Clip trim (video only): start offset (seconds) into a longer clip.
+  const [imageAdjustStartSeconds, setImageAdjustStartSeconds] = useState(0);
   const [savingImageAdjust, setSavingImageAdjust] = useState(false);
   const imageAdjustPreviewRef = useRef<HTMLDivElement>(null);
+  const imageAdjustScrollRef = useRef<HTMLDivElement>(null);
   const imageAdjustFocusRef = useRef({ x: 50, y: 50 });
   const imageAdjustPanRef = useRef<{
     startX: number;
@@ -1214,6 +1267,13 @@ export default function ProjectView() {
   const [reorderSaving, setReorderSaving] = useState(false);
   const [sceneToDelete, setSceneToDelete] = useState<Scene | null>(null);
   const [addSceneOpen, setAddSceneOpen] = useState(false);
+  // The scene the new one will be inserted after (null = append at end).
+  const [addSceneAnchor, setAddSceneAnchor] = useState<Scene | null>(null);
+  // The in-flight background add-scene job (drives the placeholder row + polling).
+  const [addSceneJob, setAddSceneJob] = useState<AddSceneJob | null>(null);
+  // 1-indexed insert position of the pending add (for placing the placeholder row).
+  const [addScenePosition, setAddScenePosition] = useState<number | null>(null);
+  const addSceneRunning = addSceneJob?.status === "queued" || addSceneJob?.status === "running";
   const [removingAssetId, setRemovingAssetId] = useState<number | null>(null);
   const [uploadingSceneId, setUploadingSceneId] = useState<number | null>(null);
   // Custom user-recorded voiceovers: applied-but-unsaved recordings, keyed by scene id.
@@ -1242,11 +1302,92 @@ export default function ProjectView() {
   }, []);
   const [imageSourceChooserSceneId, setImageSourceChooserSceneId] = useState<number | null>(null);
   const [scrapedImagesPickerSceneId, setScrapedImagesPickerSceneId] = useState<number | null>(null);
+  // Which asset kind the existing-assets picker offers. The image flow shows only
+  // stills; the stock-footage flow shows only clips (reusing one is free — it's a
+  // descriptor relink, no download/transcode/credits).
+  const [existingPickerKind, setExistingPickerKind] = useState<"image" | "video">("image");
+  // Stock-footage picker + audio-adjust, driven from the expanded scene section.
+  const [stockFootagePickerSceneId, setStockFootagePickerSceneId] = useState<number | null>(null);
+  // Source chooser for the stock-footage flow: reuse an owned clip, or search new.
+  const [stockSourceChooserSceneId, setStockSourceChooserSceneId] = useState<number | null>(null);
+  // Scene whose clip is currently being downloaded + transcoded in the
+  // background. Drives the top-right toast, the per-scene loader, and the
+  // editing lock — mirroring generatingImageSceneId for AI images.
+  const [stockFootageBusySceneId, setStockFootageBusySceneId] = useState<number | null>(null);
+  // Draft audio settings for the expanded-section clip preview — always visible
+  // when the expanded scene has an audio-capable clip.
+  const [stockAudioDraft, setStockAudioDraft] = useState<{ muted: boolean; volume: number } | null>(null);
+  const [stockAudioSaving, setStockAudioSaving] = useState(false);
+  // Expanded-section clip preview: play/stop control + the <video> element, so
+  // the user can pause the clip even while its audio is on. Only one scene is
+  // expanded at a time, so a single ref/flag suffices.
+  const expandedClipVideoRef = useRef<HTMLVideoElement | null>(null);
+  const [expandedClipPlaying, setExpandedClipPlaying] = useState(true);
+  useEffect(() => {
+    // Reset to playing whenever a different scene is expanded.
+    setExpandedClipPlaying(true);
+    if (expandedScene == null) {
+      setStockAudioDraft(null);
+      return;
+    }
+    const scene = project?.scenes.find((s) => s.id === expandedScene);
+    if (!scene) {
+      setStockAudioDraft(null);
+      return;
+    }
+    let lp: Record<string, unknown> = {};
+    try {
+      lp = scene.remotion_code ? JSON.parse(scene.remotion_code).layoutProps || {} : {};
+    } catch {
+      lp = {};
+    }
+    if (lp.hideImage || !lp.assignedVideo) {
+      setStockAudioDraft(null);
+      return;
+    }
+    const asset = project?.assets.find(
+      (a) => a.asset_type === "video" && a.filename === lp.assignedVideo && !a.excluded,
+    );
+    const hasAudio = Boolean(
+      (asset as { audio_variant_filename?: string | null } | undefined)?.audio_variant_filename,
+    );
+    if (!hasAudio) {
+      setStockAudioDraft(null);
+      return;
+    }
+    setStockAudioDraft({
+      muted: lp.videoMuted === undefined ? true : Boolean(lp.videoMuted),
+      volume: Number.isFinite(Number(lp.videoVolume)) ? Number(lp.videoVolume) : 0.35,
+    });
+  }, [expandedScene]);
+  // Apply the live audio draft to the currently-playing clip preview so dragging
+  // the volume slider is heard immediately (the `volume` attribute is not
+  // reactive on the element).
+  useEffect(() => {
+    const el = expandedClipVideoRef.current;
+    if (!el || !stockAudioDraft) return;
+    el.volume = Math.max(0, Math.min(1, stockAudioDraft.volume));
+  }, [stockAudioDraft]);
+  const toggleExpandedClipPlaying = () => {
+    const el = expandedClipVideoRef.current;
+    setExpandedClipPlaying((prev) => {
+      const next = !prev;
+      if (el) {
+        if (next) void el.play().catch(() => { /* refused; harmless */ });
+        else el.pause();
+      }
+      return next;
+    });
+  };
   const [selectedExistingAssetId, setSelectedExistingAssetId] = useState<number | null>(null);
   const [localUploadTargetSceneId, setLocalUploadTargetSceneId] = useState<number | null>(null);
   const [assigningExistingImage, setAssigningExistingImage] = useState(false);
   const [imageGenModalSceneId, setImageGenModalSceneId] = useState<number | null>(null);
   const [generatingImageSceneId, setGeneratingImageSceneId] = useState<number | null>(null);
+  // Lets the Scene Edit modal stage a kept AI image into its own (unsaved) form. The
+  // modal registers a stager on mount; ProjectView calls it when the user keeps an
+  // image while the edit modal for that scene is still open. Null when no modal is open.
+  const stageEditModalImageRef = useRef<((file: File) => void) | null>(null);
   const [generatedImageSceneId, setGeneratedImageSceneId] = useState<number | null>(null);
   const [generatedImageBase64, setGeneratedImageBase64] = useState<string | null>(null);
   const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
@@ -1529,6 +1670,14 @@ export default function ProjectView() {
     id: number;
     filename: string;
   } | null>(null);
+  // Expanded scene section: confirm removing a scene's image/clip. This only
+  // UNASSIGNS it from the scene — the asset stays in the project's media list
+  // (deleting outright is the Media tab's ✕).
+  const [sceneMediaRemovePending, setSceneMediaRemovePending] = useState<{
+    scene: Scene;
+    assetId: number;
+    isClip: boolean;
+  } | null>(null);
 
   // Video blob URL for playback (fetched via backend to avoid CORS, loads completely)
   const [videoBlobUrl, setVideoBlobUrl] = useState<string | null>(null);
@@ -1666,6 +1815,20 @@ export default function ProjectView() {
       }
     },
     [projectId, showError],
+  );
+
+  /** Render failed — warn the user, then reload once they dismiss the modal so
+   *  project.status and the stuck "Rendering" badge sync with the server. */
+  const showRenderFailureError = useCallback(
+    (message: string) => {
+      showError(message, {
+        variant: "warning",
+        onClose: () => {
+          window.location.reload();
+        },
+      });
+    },
+    [showError],
   );
 
   // ─── Collaboration: apply a peer's live edit into local state ──
@@ -1832,6 +1995,70 @@ export default function ProjectView() {
       regenerateScriptPollRef.current = null;
     }
   }, []);
+
+  const stopAddScenePolling = useCallback(() => {
+    if (addScenePollRef.current) {
+      clearInterval(addScenePollRef.current);
+      addScenePollRef.current = null;
+    }
+  }, []);
+
+  // Poll the background add-scene job. On completion → reload project + credits and
+  // clear the placeholder. On failure → clear placeholder, refresh credits (the refund
+  // is reflected) and surface the global "Oops" modal.
+  const startAddScenePolling = useCallback(() => {
+    stopAddScenePolling();
+    addScenePollRef.current = setInterval(async () => {
+      try {
+        const res = await getAddSceneStatus(projectId);
+        const job = res.data;
+        if (!job) return;
+        setAddSceneJob(job);
+        if (job.status === "completed") {
+          stopAddScenePolling();
+          setAddSceneJob(null);
+          setAddScenePosition(null);
+          await loadProject();
+          void refreshUser();
+        } else if (job.status === "failed") {
+          stopAddScenePolling();
+          setAddSceneJob(null);
+          setAddScenePosition(null);
+          void refreshUser();
+          showError(
+            "We're sorry — we couldn't generate the new scene. No AI edits were deducted. Please try again.",
+            { variant: "pipeline" }
+          );
+        }
+      } catch {
+        // Transient poll error — keep trying on the next tick.
+      }
+    }, 2000);
+  }, [projectId, loadProject, refreshUser, showError, stopAddScenePolling]);
+
+  // On mount / project change: if an add-scene job is already in flight (e.g. after a
+  // refresh, or started by a collaborator), resume the placeholder + polling.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await getAddSceneStatus(projectId);
+        const job = res.data;
+        if (cancelled || !job) return;
+        if (job.status === "queued" || job.status === "running") {
+          setAddSceneJob(job);
+          setAddScenePosition(job.position ?? null);
+          startAddScenePolling();
+        }
+      } catch {
+        /* ignore — no add-scene job to resume */
+      }
+    })();
+    return () => {
+      cancelled = true;
+      stopAddScenePolling();
+    };
+  }, [projectId, startAddScenePolling, stopAddScenePolling]);
 
   // Load the previous scenes for the verify popup. On error, fall back to [] so the popup
   // isn't stuck on a loading spinner (it then treats every scene as new, no comparison).
@@ -2051,11 +2278,52 @@ export default function ProjectView() {
         return;
       }
 
+      // Returning to a project parked at the post-generation review gate (e.g.
+      // the user closed the tab mid-review): show the review modal instead of
+      // restarting generation — deliberately NOT part of needsGeneration below.
+      if (proj.status === "awaiting_stock_footage_review") {
+        generationStarted.current = true;
+        setAwaitingStockFootageReview(true);
+        return;
+      }
+      // Legacy: a project still parked at the OLD pre-scene-gen gate.
+      if (proj.status === "awaiting_footage") {
+        generationStarted.current = true;
+        setAwaitingFootageLegacy(true);
+        return;
+      }
+
       const needsGeneration = ["created", "scraped", "scripted"].includes(
         proj.status
       );
       if (needsGeneration) {
         generationStarted.current = true;
+        // Do not call /generate again if a pipeline is already running on the
+        // server (e.g. user refreshed mid stock-footage prep). Restarting would
+        // re-pick clips for every scene from scratch.
+        try {
+          const st = await getPipelineStatus(projectId);
+          const d = st.data;
+          if (d.status === "awaiting_stock_footage_review") {
+            generationStarted.current = true;
+            setAwaitingStockFootageReview(true);
+            return;
+          }
+          if (d.status === "awaiting_footage") {
+            generationStarted.current = true;
+            setAwaitingFootageLegacy(true);
+            return;
+          }
+          if (d.running) {
+            setPipelineRunning(true);
+            setPipelineStep(d.step ?? 0);
+            setHasError(false);
+            startPolling();
+            return;
+          }
+        } catch {
+          // fall through to kickOffGeneration
+        }
         kickOffGeneration();
       }
     };
@@ -2097,6 +2365,23 @@ export default function ProjectView() {
 
         setPipelineStep(step);
 
+        // Review gate: trust DB status even when in-memory running is stale.
+        if (status === "awaiting_stock_footage_review") {
+          setPipelineRunning(false);
+          stopPolling();
+          setAwaitingStockFootageReview(true);
+          await loadProject({ silent404: true });
+          return;
+        }
+        // Legacy pre-scene-gen gate.
+        if (status === "awaiting_footage") {
+          setPipelineRunning(false);
+          stopPolling();
+          setAwaitingFootageLegacy(true);
+          await loadProject({ silent404: true });
+          return;
+        }
+
         // Terminal generation failure (scrape/script/scene rollback, or tombstone after delete).
         // Treat `status === "failed"` like an error even if `error` is missing briefly — avoids
         // falling through to `loadProject()` and showing a second "Failed to load project" modal.
@@ -2129,6 +2414,24 @@ export default function ProjectView() {
         // container handles the poll.  If the project is still mid-generation,
         // keep the loader visible and keep polling.
         if (!running) {
+          // Parked at the post-generation review gate: stop polling and hand
+          // over to the review modal. Generation already finished — approve/
+          // change/reject just finalizes the project, no pipeline to resume.
+          if (status === "awaiting_stock_footage_review") {
+            setPipelineRunning(false);
+            stopPolling();
+            setAwaitingStockFootageReview(true);
+            await loadProject({ silent404: true });
+            return;
+          }
+          // Legacy pre-scene-gen gate: approving there resumes the pipeline.
+          if (status === "awaiting_footage") {
+            setPipelineRunning(false);
+            stopPolling();
+            setAwaitingFootageLegacy(true);
+            await loadProject({ silent404: true });
+            return;
+          }
           const stillGenerating = ["created", "scraped", "scripted"].includes(
             status
           );
@@ -2321,7 +2624,13 @@ export default function ProjectView() {
         }
         // If this is a retry, keep going; otherwise show error
         if (renderRetryCountRef.current >= MAX_RENDER_RETRIES) {
-          showError(getErrorMessage(err, "Render failed after multiple attempts. Please try again, or contact support, if the issue persist.")); setHasError(true);
+          showRenderFailureError(
+            getErrorMessage(
+              err,
+              "Render failed after multiple attempts. Please try again, or contact support, if the issue persist.",
+            ),
+          );
+          setHasError(true);
           setRendering(false);
           return;
         }
@@ -2535,7 +2844,7 @@ export default function ProjectView() {
               setHasError(false);
               return;
             }
-            showError(msg);
+            showRenderFailureError(msg);
             setHasError(true);
             setRendering(false);
             stopRenderPolling();
@@ -2595,7 +2904,7 @@ export default function ProjectView() {
       poll(); // immediate first poll
       schedule();
     },
-    [projectId]
+    [projectId, showRenderFailureError]
   );
 
   // Resume render progress after refresh/navigation when the project is still rendering
@@ -2995,6 +3304,50 @@ export default function ProjectView() {
     return () => el.removeEventListener("wheel", onWheel);
   }, [imageAdjustSceneId, imageAdjustSrc]);
 
+  // The preview + trim bar can push the zoom slider and crop controls below
+  // the fold, and users kept missing them starting scrolled to the top. Open
+  // scrolled to the bottom (controls visible first) — users can still scroll
+  // up to see the full framing preview. The image/video hasn't finished
+  // loading (and the crop overlay hasn't measured its natural size) on first
+  // paint, so content height keeps changing for a moment — a ResizeObserver
+  // re-pins to bottom through those changes instead of a single one-shot
+  // scroll that lands before layout has settled. Only auto-pins while the
+  // user hasn't scrolled away from the bottom themselves.
+  useEffect(() => {
+    if (imageAdjustSceneId === null || !imageAdjustSrc) return;
+    const el = imageAdjustScrollRef.current;
+    if (!el) return;
+    let pinned = true;
+    const SCROLL_BOTTOM_SLOP = 4;
+    const onScroll = () => {
+      pinned = el.scrollHeight - el.scrollTop - el.clientHeight <= SCROLL_BOTTOM_SLOP;
+    };
+    const pinToBottom = () => {
+      if (pinned) el.scrollTop = el.scrollHeight;
+    };
+    pinToBottom();
+    el.addEventListener("scroll", onScroll, { passive: true });
+    const ro = new ResizeObserver(pinToBottom);
+    // Observe the CONTENT, not just the scroll port: the port is `flex-1` so its
+    // own box never changes size, and observing only it fires once at mount —
+    // before the stage/filmstrip/video have laid out. The inner wrapper is what
+    // actually grows, and that growth is what needs a re-pin.
+    ro.observe(el);
+    for (const child of Array.from(el.children)) ro.observe(child);
+    // Media loading in doesn't always resize a box (e.g. a fixed-ratio stage
+    // swapping in its poster frame), so re-pin across a few frames too.
+    const raf1 = requestAnimationFrame(pinToBottom);
+    const raf2 = requestAnimationFrame(() => requestAnimationFrame(pinToBottom));
+    const timer = window.setTimeout(pinToBottom, 250);
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+      ro.disconnect();
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+      window.clearTimeout(timer);
+    };
+  }, [imageAdjustSceneId, imageAdjustSrc]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -3048,9 +3401,16 @@ export default function ProjectView() {
     { id: "settings", label: "Settings" },
   ];
 
-  const pipelineComplete = ["generated", "rendering", "done"].includes(
-    project.status
-  );
+  // Includes the post-generation review status so the preview/scenes area
+  // renders underneath the review modal instead of a loading spinner — the
+  // scenes + remotion data are fully written by the time the project reaches
+  // that status, same as GENERATED.
+  const pipelineComplete = [
+    "generated",
+    "rendering",
+    "done",
+    "awaiting_stock_footage_review",
+  ].includes(project.status);
   const showInlineReviewPrompt = Boolean(
     isProjectOwner &&
     !inlineReviewSubmitted &&
@@ -3072,10 +3432,33 @@ export default function ProjectView() {
       if (ad !== bd) return ad - bd;
       return (a.id ?? 0) - (b.id ?? 0);
     });
-  const scrapedImageOptions = imageAssets.map((asset) => ({
-    asset,
-    url: resolveAssetUrl(asset, project.id),
-  }));
+  // Stock-footage clips live alongside images in the media lists (Images tab and
+  // the "existing media" picker) so a clip can be reused across scenes exactly
+  // like a scraped image. Deliberately NOT merged into activeImageAssets, which
+  // drives scene image auto-assignment — a clip must never be auto-assigned.
+  const videoAssets = project.assets.filter((a) => a.asset_type === "video");
+  const activeVideoAssets = videoAssets.filter((a) => !a.excluded);
+
+  /** Images + clips, newest-last, for the media grid and reuse picker. */
+  const mediaAssets = [...imageAssets, ...videoAssets].sort((a, b) => {
+    const ad = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const bd = b.created_at ? new Date(b.created_at).getTime() : 0;
+    if (ad !== bd) return ad - bd;
+    return (a.id ?? 0) - (b.id ?? 0);
+  });
+
+  // Any clip already in this project can be re-used for free.
+  const hasReusableClips = mediaAssets.some((a) => a.asset_type === "video");
+  const scrapedImageOptions = mediaAssets
+    .filter((asset) =>
+      existingPickerKind === "video"
+        ? asset.asset_type === "video"
+        : asset.asset_type !== "video",
+    )
+    .map((asset) => ({
+      asset,
+      url: resolveAssetUrl(asset, project.id),
+    }));
   const sceneImageMap: Record<number, string[]> = {};
   const sceneImageAssetsMap: Record<number, SceneImageItem[]> = {};
   const hideImageFlags: boolean[] = new Array(project.scenes.length).fill(false);
@@ -3103,7 +3486,12 @@ export default function ProjectView() {
         }
       }
 
-      const hideImage = Boolean((layoutProps as any).hideImage);
+      // A scene showing a stock clip has its visual slot filled, so it must be
+      // excluded from image auto-assignment (steps 2 & 3 below) just like
+      // hideImage — otherwise a generic scraped image gets bound underneath and
+      // shows a phantom thumbnail next to the clip.
+      const hideImage =
+        Boolean((layoutProps as any).hideImage) || Boolean(layoutProps.assignedVideo);
       hideImageFlags[idx] = hideImage;
       if (hideImage) {
         return;
@@ -3189,6 +3577,14 @@ export default function ProjectView() {
       delete layoutProps.imageFocusX;
       delete layoutProps.imageFocusY;
       delete layoutProps.imageZoom;
+      // The same ✕ removes a stock clip, which occupies the same visual slot.
+      // Without this the descriptor keeps assignedVideo alongside hideImage:
+      // the renderer honours hideImage and drops it, but the editor's resolvers
+      // key off assignedVideo and keep showing a clip the user already removed.
+      delete layoutProps.assignedVideo;
+      delete layoutProps.videoMuted;
+      delete layoutProps.videoVolume;
+      delete layoutProps.videoStartSeconds;
       descriptor.layoutProps = layoutProps;
       await updateScene(project.id, scene.id, {
         remotion_code: JSON.stringify(descriptor),
@@ -3296,9 +3692,130 @@ export default function ProjectView() {
 
   const handleChooseScrapedImages = () => {
     if (!imageSourceChooserSceneId) return;
+    setExistingPickerKind("image");
     setScrapedImagesPickerSceneId(imageSourceChooserSceneId);
     setImageSourceChooserSceneId(null);
     setSelectedExistingAssetId(null);
+  };
+
+  /** Reuse a clip the project already owns — free, no search or transcode. */
+  const handleChooseExistingStockFootage = () => {
+    if (!stockSourceChooserSceneId) return;
+    setExistingPickerKind("video");
+    setScrapedImagesPickerSceneId(stockSourceChooserSceneId);
+    setStockSourceChooserSceneId(null);
+    setSelectedExistingAssetId(null);
+  };
+
+  /** Search for new footage — this is the path that costs credits. */
+  const handleChooseNewStockFootage = () => {
+    if (!stockSourceChooserSceneId) return;
+    const sceneId = stockSourceChooserSceneId;
+    setStockSourceChooserSceneId(null);
+    if (!canUseStockFootage) {
+      if (ownerBlocksStockFootage) notifyOwnerBlocked("adding new stock footage");
+      else setShowAiImageUpgradeModal(true);
+      return;
+    }
+    setStockFootagePickerSceneId(sceneId);
+  };
+
+  // Offered for every template (builtin, custom, and crafted). The backend
+  // still rejects layouts/scene types that can't render a clip (e.g. dataviz
+  // scenes), see upload_stock_footage in app/routers/projects.py.
+  const stockFootageSupported = true;
+
+  // Opened directly from each scene's own "Clip" plus card, so the scene id is
+  // passed in rather than read from the image-source chooser (stock footage is
+  // no longer one of that chooser's options).
+  // Opens the source chooser (reuse an owned clip vs. search a new one). The
+  // credit gate lives on the "search new" branch only — reusing a clip the
+  // project already paid for is free.
+  const handleChooseStockFootage = (sceneId: number) => {
+    if (!sceneId) return;
+    setStockSourceChooserSceneId(sceneId);
+  };
+
+  /**
+   * Assign a chosen clip to a scene, permanently, as a BACKGROUND task —
+   * mirroring AI image generation: the picker (and the scene edit modal, if it
+   * was the entry point) close immediately, a top-right toast reports progress,
+   * and the scene is locked from editing until it finishes.
+   *
+   * The clip is downloaded + transcoded to CFR 30 fps server-side (several
+   * seconds), then linked by writing assignedVideo + audio settings into the
+   * descriptor. Framing (imageFocusX/Y/zoom) is shared with images and left at
+   * its defaults.
+   */
+  const handleAssignStockFootageToScene = async (
+    sceneId: number,
+    clip: StockClip,
+    audio: { muted: boolean; volume: number },
+  ) => {
+    const scene = project.scenes.find((s) => s.id === sceneId);
+    if (!scene) return;
+    setStockFootagePickerSceneId(null);
+    // Close the scene edit modal: the assignment is committed server-side and
+    // runs in the background, so there is nothing left to Save in the modal.
+    setSceneEditModal(null);
+    setStockFootageBusySceneId(sceneId);
+    try {
+      const res = await uploadStockFootage(project.id, sceneId, clip);
+      let descriptor: Record<string, unknown> = {};
+      if (scene.remotion_code) {
+        try {
+          descriptor = JSON.parse(scene.remotion_code);
+        } catch {
+          descriptor = {};
+        }
+      }
+      const lp: Record<string, unknown> = {
+        ...((descriptor.layoutProps as Record<string, unknown>) || {}),
+      };
+      // A clip fills the visual slot: clear any still, keep no hideImage.
+      delete lp.assignedImage;
+      lp.hideImage = false;
+      lp.assignedVideo = res.data.filename;
+      lp.videoMuted = res.data.has_audio ? audio.muted : true;
+      lp.videoVolume = audio.volume;
+      if (lp.imageFocusX == null) lp.imageFocusX = 50;
+      if (lp.imageFocusY == null) lp.imageFocusY = 50;
+      descriptor.layoutProps = lp;
+      await updateScene(project.id, sceneId, {
+        remotion_code: JSON.stringify(descriptor),
+      });
+      await loadProject();
+      // The upload charged AI-edit credits, so refresh the balance the UI gates on.
+      void refreshUser();
+    } catch (err) {
+      showError(getErrorMessage(err) || DEFAULT_ERROR_MESSAGE);
+    } finally {
+      setStockFootageBusySceneId(null);
+    }
+  };
+
+  /** Update audio settings on a scene's already-assigned clip. */
+  const handleUpdateSceneClipAudio = async (
+    sceneId: number,
+    next: { muted?: boolean; volume?: number },
+  ) => {
+    const scene = project.scenes.find((s) => s.id === sceneId);
+    if (!scene?.remotion_code) return;
+    let descriptor: Record<string, unknown> = {};
+    try {
+      descriptor = JSON.parse(scene.remotion_code);
+    } catch {
+      return;
+    }
+    const lp = (descriptor.layoutProps as Record<string, unknown>) || {};
+    if (!lp.assignedVideo) return;
+    if (next.muted !== undefined) lp.videoMuted = next.muted;
+    if (next.volume !== undefined) lp.videoVolume = next.volume;
+    descriptor.layoutProps = lp;
+    await updateScene(project.id, sceneId, {
+      remotion_code: JSON.stringify(descriptor),
+    });
+    await loadProject();
   };
 
   const handleLocalSceneFilePicked = (file: File | null) => {
@@ -3312,7 +3829,39 @@ export default function ProjectView() {
     if (!scrapedImagesPickerSceneId || !selectedExistingAssetId) return;
     setAssigningExistingImage(true);
     try {
-      await assignExistingImageToScene(project.id, scrapedImagesPickerSceneId, selectedExistingAssetId);
+      const chosen = project.assets.find((a) => a.id === selectedExistingAssetId);
+
+      if (chosen?.asset_type === "video") {
+        // Reusing an already-processed clip: no download/transcode needed, just
+        // relink the descriptor. Mirrors handleAssignStockFootageToScene's write.
+        const scene = project.scenes.find((s) => s.id === scrapedImagesPickerSceneId);
+        let descriptor: Record<string, unknown> = {};
+        if (scene?.remotion_code) {
+          try {
+            descriptor = JSON.parse(scene.remotion_code);
+          } catch {
+            descriptor = {};
+          }
+        }
+        const lp: Record<string, unknown> = {
+          ...((descriptor.layoutProps as Record<string, unknown>) || {}),
+        };
+        delete lp.assignedImage;
+        lp.hideImage = false;
+        lp.assignedVideo = chosen.filename;
+        // Default to muted; a clip with no audio track can never be unmuted.
+        if (lp.videoMuted === undefined) lp.videoMuted = true;
+        if (lp.videoVolume === undefined) lp.videoVolume = 0.35;
+        if (lp.imageFocusX == null) lp.imageFocusX = 50;
+        if (lp.imageFocusY == null) lp.imageFocusY = 50;
+        descriptor.layoutProps = lp;
+        await updateScene(project.id, scrapedImagesPickerSceneId, {
+          remotion_code: JSON.stringify(descriptor),
+        });
+      } else {
+        await assignExistingImageToScene(project.id, scrapedImagesPickerSceneId, selectedExistingAssetId);
+      }
+
       setScrapedImagesPickerSceneId(null);
       setSelectedExistingAssetId(null);
       await loadProject();
@@ -3385,6 +3934,15 @@ export default function ProjectView() {
     setImageAdjustFocusX(focus.x);
     setImageAdjustFocusY(focus.y);
     setImageAdjustZoom(Math.min(IMAGE_ADJUST_ZOOM_MAX, Math.max(IMAGE_ADJUST_ZOOM_MIN, zoom)));
+    // Seed the clip trim from the descriptor (0 for stills / untrimmed clips).
+    let startSec = 0;
+    try {
+      if (scene.remotion_code) {
+        const lp = (JSON.parse(scene.remotion_code) as { layoutProps?: { videoStartSeconds?: unknown } }).layoutProps;
+        startSec = Math.max(0, Number(lp?.videoStartSeconds) || 0);
+      }
+    } catch { /* ignore */ }
+    setImageAdjustStartSeconds(startSec);
     imageAdjustPanRef.current = null;
   };
 
@@ -3394,6 +3952,47 @@ export default function ProjectView() {
     setImageAdjustSrc(null);
     setIsAdjustDragging(false);
     imageAdjustPanRef.current = null;
+  };
+
+  /** Whether the media open in the adjust modal is a stock clip (vs. a still).
+   *  Deliberately NOT a useMemo: this sits after the `if (!project)` early
+   *  return above, so a hook here would change the hook count between renders. */
+  const imageAdjustIsVideo = (() => {
+    if (imageAdjustSceneId == null) return false;
+    const s = project.scenes.find((sc) => sc.id === imageAdjustSceneId);
+    let assignedVideo: string | undefined;
+    try {
+      assignedVideo = s?.remotion_code
+        ? (JSON.parse(s.remotion_code) as { layoutProps?: { assignedVideo?: string } })
+            .layoutProps?.assignedVideo
+        : undefined;
+    } catch { /* ignore */ }
+    const asset = assignedVideo
+      ? project.assets.find(
+          (a) => a.asset_type === "video" && a.filename === assignedVideo && !a.excluded,
+        )
+      : undefined;
+    return isStockClipAdjustSource({
+      assignedVideoFilename: assignedVideo,
+      assetType: asset?.asset_type,
+      src: imageAdjustSrc,
+    });
+  })();
+
+  /**
+   * Swap the scene's visual kind straight from the adjust modal: close it, then
+   * open the corresponding source chooser for the same scene. Framing edits in
+   * progress are dropped — the media itself is being replaced.
+   */
+  const handleSwitchAdjustMedia = (to: "image" | "video") => {
+    if (savingImageAdjust || imageAdjustSceneId == null) return;
+    const sceneId = imageAdjustSceneId;
+    setImageAdjustSceneId(null);
+    setImageAdjustSrc(null);
+    setIsAdjustDragging(false);
+    imageAdjustPanRef.current = null;
+    if (to === "video") setStockSourceChooserSceneId(sceneId);
+    else handleOpenImageSourceChooser(sceneId);
   };
 
   const handleAdjustMouseDown = (e: ReactMouseEvent<HTMLDivElement>) => {
@@ -3433,6 +4032,11 @@ export default function ProjectView() {
         layoutProps.imageFocusY = clampFocus(imageAdjustFocusY);
         layoutProps.imageZoom = zoomToSave;
         layoutProps.hideImage = false;
+        // Clip trim — only meaningful for a scene that carries a clip.
+        if (layoutProps.assignedVideo) {
+          if (imageAdjustStartSeconds > 0) layoutProps.videoStartSeconds = Number(imageAdjustStartSeconds.toFixed(2));
+          else delete layoutProps.videoStartSeconds;
+        }
         descriptor.layoutProps = layoutProps;
         await updateScene(project.id, imageAdjustSceneId, {
           remotion_code: JSON.stringify(descriptor),
@@ -3458,17 +4062,31 @@ export default function ProjectView() {
     }
   };
 
-  // A collaborator blocked by a FREE owner can't fix it by upgrading their own plan,
-  // so show the soft "Oops" warning instead of the self-upgrade modal.
-  const ownerBlocksProFeature = useOwnerScopedAssets && !effectiveIsPro;
-  const notifyOwnerBlocked = () =>
+  // AI image generation costs AI_IMAGE_CREDIT_COST credits per image (all plans;
+  // charged to the OWNER on shared projects).
+  const aiImageCreditRemaining = useOwnerScopedAssets
+    ? (project?.owner_ai_edit_credits ?? 0) + (project?.owner_ai_edit_allowance_remaining ?? 0)
+    : (user?.ai_edit_credits ?? 0) + (user?.ai_edit_allowance_remaining ?? 0);
+  const canUseAiImage = aiImageCreditRemaining >= AI_IMAGE_CREDIT_COST;
+  // Adding a stock clip is charged like AI image generation, at its own rate.
+  const canUseStockFootage =
+    effectiveIsPro || aiImageCreditRemaining >= STOCK_FOOTAGE_CREDIT_COST;
+  // A collaborator blocked by the owner's exhausted access can't fix it by upgrading
+  // their own plan, so show the soft "Oops" warning instead of the self-upgrade modal.
+  const ownerBlocksProFeature = useOwnerScopedAssets && !canUseAiImage;
+  // Stock footage costs less than an AI image, so it has its own affordability
+  // check — an owner with 3-4 credits can afford a clip but not an image.
+  const ownerBlocksStockFootage = useOwnerScopedAssets && !canUseStockFootage;
+  // `feature` names what the collaborator was actually trying to do; passing the
+  // wrong one tells them AI image generation failed when they clicked stock footage.
+  const notifyOwnerBlocked = (feature = "AI image generation") =>
     showError(
-      "The project owner is on the Free plan, so AI image generation isn't available here. Ask the owner to upgrade.",
+      `The project owner is out of AI edit credits, so ${feature} isn't available now. Ask the owner to buy more credits or upgrade.`,
       { variant: "warning" },
     );
 
   const handleGenerateSceneImageClick = (sceneId: number) => {
-    if (!effectiveIsPro) {
+    if (!canUseAiImage) {
       if (ownerBlocksProFeature) notifyOwnerBlocked();
       else setShowAiImageUpgradeModal(true);
       return;
@@ -3489,6 +4107,11 @@ export default function ProjectView() {
   const handleKeepGeneratedSceneImage = (sceneId: number) => {
     if (!generatedImageBase64) return;
     const dataUrl = `data:image/png;base64,${generatedImageBase64}`;
+    // When the Scene Edit modal for this scene is still open, keeping only STAGES the
+    // image into its form (persisted when the user hits Save). When the modal has been
+    // closed, keep saves the image to the scene directly.
+    const stageIntoOpenModal =
+      sceneEditModal?.id === sceneId ? stageEditModalImageRef.current : null;
     // Close preview modal immediately so the spinner shows in the scene row
     setGeneratedImageSceneId(null);
     setGeneratedImageBase64(null);
@@ -3498,10 +4121,14 @@ export default function ProjectView() {
     fetch(dataUrl)
       .then((r) => r.blob())
       .then((blob) => new File([blob], "generated.png", { type: "image/png" }))
-      .then((file) =>
-        handleAddSceneImage(sceneId, file)
-          .catch(() => setGenerateImageError("Failed to use generated image"))
-      )
+      .then((file) => {
+        if (stageIntoOpenModal) {
+          stageIntoOpenModal(file);
+          return;
+        }
+        return handleAddSceneImage(sceneId, file)
+          .catch(() => setGenerateImageError("Failed to use generated image"));
+      })
       .catch(() => setGenerateImageError("Failed to use generated image"));
   };
 
@@ -5011,6 +5638,60 @@ export default function ProjectView() {
         onConfirm={handleConfirmDeleteBlogImage}
       />
 
+      {/* Post-generation gate: review the auto-picked clips before finalizing.
+          The video already exists (scenes + remotion data are fully written) —
+          approve/change/reject just resolves the review, no pipeline to resume. */}
+      {awaitingStockFootageReview && project && (
+        <StockFootageVerifyModal
+          projectId={project.id}
+          templateId={project.template}
+          projectAspectRatio={project.aspect_ratio}
+          isPro={isPro}
+          onResolved={async () => {
+            setAwaitingStockFootageReview(false);
+            await loadProject({ silent404: true });
+          }}
+        />
+      )}
+
+      {/* Legacy: a project still parked at the OLD pre-scene-gen gate when this
+          shipped. TODO(cleanup): remove once no rows remain at that status. */}
+      {awaitingFootageLegacy && project && (
+        <StockFootageVerifyModalLegacy
+          projectId={project.id}
+          templateId={project.template}
+          isPro={isPro}
+          onApproved={() => {
+            setAwaitingFootageLegacy(false);
+            setPipelineRunning(true);
+            setPipelineStep(3);
+            pipelineTerminalFailureHandledRef.current = false;
+            startPolling();
+          }}
+        />
+      )}
+
+      {/* Unassign (not delete) a scene's image/clip from the expanded section. */}
+      <ConfirmDeleteModal
+        open={sceneMediaRemovePending != null}
+        onClose={() => setSceneMediaRemovePending(null)}
+        title={sceneMediaRemovePending?.isClip ? "Remove this clip?" : "Remove this image?"}
+        subtitle={`Scene ${sceneMediaRemovePending?.scene.order ?? ""}`}
+        warningMessage={
+          sceneMediaRemovePending?.isClip
+            ? "The clip is removed from this scene and the scene renders without it. The clip stays in your media list and can be reused."
+            : "The image is removed from this scene and the scene renders without it. The image stays in your media list and can be reused."
+        }
+        confirmLabel="Yes, remove"
+        confirmLoadingLabel="Removing…"
+        onConfirm={async () => {
+          if (!sceneMediaRemovePending) return;
+          const { scene, assetId } = sceneMediaRemovePending;
+          await handleRemoveSceneImage(scene, assetId);
+          setSceneMediaRemovePending(null);
+        }}
+      />
+
       {showTemplateChangeModal &&
         project &&
         ReactDOM.createPortal(
@@ -5116,7 +5797,7 @@ export default function ProjectView() {
                   <div className="border border-gray-200/60 rounded-xl p-4 max-h-[240px] overflow-y-auto bg-gray-50/40">
                     {templateChangePickerTab === "builtin" ? (
                       templateMetas.length > 0 ? (
-                        <div className="grid grid-cols-3 gap-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                           {[...templateMetas].sort((a, b) => {
                             const rank = (t: typeof a) => (t.new_template ? 0 : t.popular_template ? 1 : 2);
                             return rank(a) - rank(b);
@@ -5171,7 +5852,7 @@ export default function ProjectView() {
                         <p className="text-xs text-gray-500 py-6 text-center">No built-in templates loaded.</p>
                       )
                     ) : templateChangePickerTab === "custom" ? (
-                      <div className="grid grid-cols-3 gap-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                         <CraftYourTemplateCard
                           variant="default"
                           isPro={isPro}
@@ -5213,6 +5894,7 @@ export default function ProjectView() {
                                     logoUrls={ct.logo_urls}
                                     ogImage={ct.og_image}
                                     thumbnailMode
+                                    staticThumb={isMobile}
                                   />
                                 </div>
                               </div>
@@ -5235,13 +5917,13 @@ export default function ProjectView() {
                           </div>
                         )}
                         {!customTemplatesLoading && readyCustomForPicker.length === 0 && (
-                          <p className="col-span-2 text-xs text-gray-500 py-4 text-center flex items-center justify-center">
+                          <p className="col-span-2 sm:col-span-3 text-xs text-gray-500 py-4 text-center flex items-center justify-center">
                             No custom templates ready yet.
                           </p>
                         )}
                       </div>
                     ) : (
-                      <div className="grid grid-cols-3 gap-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                         {readyCraftedForPicker.map((ct) => {
                           const craftedId = ct.id;
                           const isSel = templateChangeDraft === craftedId;
@@ -5262,7 +5944,9 @@ export default function ProjectView() {
                                     previewSource={ct.preview_file ?? null}
                                     previewImageUrl={ct.preview_image_url ?? null}
                                     name={ct.name}
+                                    theme={ct.theme}
                                     thumbnailMode
+                                    staticThumb={isMobile}
                                     showLoaderOnEmptyOrError
                                   />
                                 </div>
@@ -5289,7 +5973,7 @@ export default function ProjectView() {
                           </div>
                         )}
                         {!craftedTemplatesLoading && readyCraftedForPicker.length === 0 && (
-                          <p className="col-span-2 text-xs text-gray-500 py-4 text-center flex items-center justify-center">
+                          <p className="col-span-2 sm:col-span-3 text-xs text-gray-500 py-4 text-center flex items-center justify-center">
                             No designer templates available.
                           </p>
                         )}
@@ -5790,37 +6474,43 @@ export default function ProjectView() {
           </svg>
           Edit history
         </button>
-        <button
-          type="button"
-          onClick={() => setAddSceneOpen(true)}
-          disabled={anyJobRunning || !pipelineFinished}
-          className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-medium text-gray-700 border border-gray-300 hover:border-gray-400 rounded-lg transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-          title="Generate and insert a new scene"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Add scene
-        </button>
-        {/* AI-edit credits remaining. Paid owners are unlimited; FREE owners draw
-            from a single per-user pool shared across all their projects (starts at 6,
-            +20 per purchased video) — the owner's pool on a shared project. Mirrors
-            the SceneEdit modal's entitlement. */}
+        {/* AI-edit credits remaining — monthly allowance + purchased pool (owner on shared projects). */}
         {(() => {
           const total = useOwnerScopedAssets
-            ? (project.owner_ai_edit_credits ?? 0)
-            : (user?.ai_edit_credits ?? 0);
+            ? (project.owner_ai_edit_credits ?? 0) + (project.owner_ai_edit_allowance_remaining ?? 0)
+            : (user?.ai_edit_credits ?? 0) + (user?.ai_edit_allowance_remaining ?? 0);
+          // A non-paid owner who has run out of credits sees a red upgrade prompt
+          // linking to pricing. Collaborators can't fix it by upgrading their own
+          // plan (they see the "Oops" flow instead), so keep the neutral display.
+          const ownerOutOfCredits =
+            !effectiveIsPro && !useOwnerScopedAssets && total <= 0;
+          if (ownerOutOfCredits) {
+            return (
+              <span className="text-[10px] sm:text-xs font-semibold text-red-600 shrink-0 self-end pb-1">
+                You're out of AI edit credits.{" "}
+                <button
+                  type="button"
+                  onClick={() => navigate("/subscription")}
+                  className="text-purple-600 underline hover:text-purple-700"
+                >
+                  Upgrade now
+                </button>
+              </span>
+            );
+          }
           return (
             <span
               className="text-[10px] sm:text-xs font-medium text-gray-400 shrink-0 self-end pb-1"
-              title="AI-assisted edits remaining for this project. Buy a video for +20 edits, or upgrade to Pro/Standard for unlimited."
+              title={
+                useOwnerScopedAssets
+                  ? "The project owner's AI-edit budget."
+                  : "AI-assisted edits remaining. Buy a video for +20 edits, or upgrade for a larger monthly allowance."
+              }
             >
-              AI edit credits:{" "}
-              {effectiveIsPro ? (
-                <span className="text-2xl leading-none align-middle relative -top-0.5">∞</span>
-              ) : (
-                <span className="text-md leading-none align-middle relative -top-0.5">{total > 100 ? "100+" : total}</span>
-              )}
+              {useOwnerScopedAssets ? "Project owner's AI edit credits:" : "AI edit credits:"}{" "}
+              <span className="text-md leading-none align-middle relative -top-0.5">
+                {formatAiEditCreditsDisplay(total)}
+              </span>
             </span>
           );
         })()}
@@ -5869,12 +6559,12 @@ export default function ProjectView() {
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="flex flex-col gap-1 mb-2 min-w-0">
-                  <h2 className="text-base font-medium text-gray-900">
+                <div className="flex items-baseline gap-4 mb-2 min-w-0">
+                  <h2 className="text-base font-medium text-gray-900 truncate max-w-[40%] shrink-0" title={project.name}>
                     {project.name}
                   </h2>
                   <span className="text-xs text-gray-400">
-                    {project.scenes.length} scenes — {imageAssets.length} images. Click <span className="font-medium text-purple-600">Edit</span> on any scene to change its text, narration, or layout. Drag to reorder.
+                    {project.scenes.length} scenes — {imageAssets.length} images. Click <span className="font-medium text-purple-600">Edit</span> on any scene to change its settings. Drag from left to reorder.
                   </span>
                 </div>
 
@@ -5898,8 +6588,8 @@ export default function ProjectView() {
                     const isDropTarget = dragOverSceneId === scene.id && !isDragging;
 
                     return (
+                      <Fragment key={scene.id}>
                       <SceneListRow
-                        key={scene.id}
                         scene={scene}
                         index={idx}
                         expanded={isExpanded}
@@ -5910,6 +6600,9 @@ export default function ProjectView() {
                         onToggleExpand={() => setExpandedScene(isExpanded ? null : scene.id)}
                         onEdit={() => setSceneEditModal(scene)}
                         onDelete={() => setSceneToDelete(scene)}
+                        onAddAfter={() => { setAddSceneAnchor(scene); setAddSceneOpen(true); }}
+                        addDisabled={addSceneRunning}
+                        addDisabledReason="A scene is already being added."
                         onComment={project.is_shared ? () => setCommentScene(scene) : undefined}
                         commentCount={commentCounts[scene.id] ?? 0}
                         onDragHandleStart={(e) => {
@@ -6265,16 +6958,180 @@ export default function ProjectView() {
                                   const ctOgImage = isCustomTpl
                                     ? (customTemplatesList.find((ct) => ct.id === ctId)?.og_image || "")
                                     : "";
+                                  // Resolve a stock clip assigned to this scene (from the
+                                  // descriptor + project assets). A clip fills the visual
+                                  // slot, so when present the image controls are hidden.
+                                  const sceneClip = (() => {
+                                    let lp: Record<string, unknown> = {};
+                                    try {
+                                      lp = scene.remotion_code
+                                        ? JSON.parse(scene.remotion_code).layoutProps || {}
+                                        : {};
+                                    } catch { /* legacy */ }
+                                    // hideImage empties the visual slot — honour it
+                                    // like the renderer does, so a removed clip does
+                                    // not linger in the editor.
+                                    if (lp.hideImage) return null;
+                                    const fn = lp.assignedVideo as string | undefined;
+                                    if (!fn) return null;
+                                    const asset = project.assets.find(
+                                      (a) => a.asset_type === "video" && a.filename === fn && !a.excluded,
+                                    );
+                                    if (!asset) return null;
+                                    const audioFn = (asset as { audio_variant_filename?: string | null })
+                                      .audio_variant_filename;
+                                    const url = resolveAssetUrl(asset, project.id);
+                                    // Audio lives in the AAC sibling; derive its URL by
+                                    // swapping the last path segment (same dir), so the
+                                    // preview can actually play sound when unmuted.
+                                    const audioUrl = audioFn
+                                      ? url.slice(0, url.lastIndexOf("/") + 1) + audioFn
+                                      : null;
+                                    return {
+                                      asset,
+                                      url,
+                                      audioUrl,
+                                      hasAudio: Boolean(audioFn),
+                                      muted: lp.videoMuted === undefined ? true : Boolean(lp.videoMuted),
+                                      volume: Number.isFinite(Number(lp.videoVolume))
+                                        ? Number(lp.videoVolume)
+                                        : 0.35,
+                                    };
+                                  })();
+                                  // Live audio state: the draft while this scene is expanded,
+                                  // else the persisted values.
+                                  const clipAudioActive =
+                                    expandedScene === scene.id && stockAudioDraft
+                                      ? stockAudioDraft
+                                      : sceneClip
+                                        ? { muted: sceneClip.muted, volume: sceneClip.volume }
+                                        : null;
+                                  const clipUnmuted = Boolean(clipAudioActive && !clipAudioActive.muted);
+                                  const stockAudioDirty =
+                                    expandedScene === scene.id &&
+                                    stockAudioDraft &&
+                                    sceneClip &&
+                                    (stockAudioDraft.muted !== sceneClip.muted ||
+                                      Math.abs(stockAudioDraft.volume - sceneClip.volume) > 0.001);
                                   return (
-                                    <div className="min-w-0">
+                                    <div className="min-w-0" data-tour={idx === 0 ? "scene-visuals-first" : undefined}>
                                       <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                                        Images ({sceneSupportsImage ? (sceneImageAssetsMap[idx] || []).length : 0})
+                                        {sceneClip
+                                          ? "Stock footage"
+                                          : `Images (${sceneSupportsImage ? (sceneImageAssetsMap[idx] || []).length : 0})`}
                                       </h4>
                                       {sceneSupportsImage ? (
                                         <>
-                                        <div className="flex flex-wrap gap-2 items-start">
+                                        {/* Two items per row on phones (grid), free-wrapping
+                                            fixed-width row from sm up. Children keep their own
+                                            w-20 at sm+; on mobile max-sm:w-full fills the cell. */}
+                                        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-start">
+                                          {/* When a clip is assigned it occupies the visual slot
+                                              and renders first. Its own edit icon opens the shared
+                                              framing modal (same positioning as images); picking any
+                                              image/AI/upload below replaces the clip. */}
+                                          {sceneClip && (
+                                            <div className="relative group rounded-lg overflow-hidden border-2 border-purple-400 max-sm:w-full w-20 h-24 flex-shrink-0 bg-black">
+                                              {(() => {
+                                                let focusX = 50; let focusY = 50; let zoom = 1;
+                                                let clipStartSec = 0;
+                                                try {
+                                                  if (scene.remotion_code) {
+                                                    const p = JSON.parse(scene.remotion_code) as {
+                                                      layoutProps?: {
+                                                        imageFocusX?: unknown;
+                                                        imageFocusY?: unknown;
+                                                        imageZoom?: unknown;
+                                                        videoStartSeconds?: unknown;
+                                                      };
+                                                    };
+                                                    if (typeof p.layoutProps?.imageFocusX === "number") focusX = clampFocus(p.layoutProps.imageFocusX);
+                                                    if (typeof p.layoutProps?.imageFocusY === "number") focusY = clampFocus(p.layoutProps.imageFocusY);
+                                                    if (typeof p.layoutProps?.imageZoom === "number") zoom = Math.max(IMAGE_ADJUST_ZOOM_MIN, p.layoutProps.imageZoom);
+                                                    clipStartSec = Math.max(0, Number(p.layoutProps?.videoStartSeconds) || 0);
+                                                  }
+                                                } catch { /* ignore */ }
+                                                const zoomedOut = zoom < 1;
+                                                return (
+                                                  <TrimmedClipVideo
+                                                    ref={expandedClipVideoRef}
+                                                    src={clipUnmuted && sceneClip.audioUrl ? sceneClip.audioUrl : sceneClip.url}
+                                                    muted={!clipUnmuted}
+                                                    autoPlay={expandedClipPlaying}
+                                                    playsInline
+                                                    onLoadedMetadata={(e) => {
+                                                      e.currentTarget.volume = Math.max(0, Math.min(1, clipAudioActive?.volume ?? 0.35));
+                                                    }}
+                                                    onPlay={(e) => {
+                                                      e.currentTarget.volume = Math.max(0, Math.min(1, clipAudioActive?.volume ?? 0.35));
+                                                      setExpandedClipPlaying(true);
+                                                    }}
+                                                    onPause={() => setExpandedClipPlaying(false)}
+                                                    preload="auto"
+                                                    className="w-full h-full"
+                                                    style={{
+                                                      objectFit: zoomedOut ? "contain" : "cover",
+                                                      objectPosition: zoomedOut ? "center" : `${focusX}% ${focusY}%`,
+                                                      transform: `scale(${zoom})`,
+                                                      transformOrigin: zoomedOut ? "center center" : `${focusX}% ${focusY}%`,
+                                                    }}
+                                                    clipDurationSeconds={sceneClip.asset.duration_seconds ?? undefined}
+                                                    sceneDurationSeconds={Number(scene.duration_seconds) || undefined}
+                                                    startSeconds={clipStartSec}
+                                                  />
+                                                );
+                                              })()}
+                                              <span className="absolute bottom-1 left-1 px-1 py-0.5 rounded bg-black/70 text-white text-[9px] font-medium uppercase tracking-wide">
+                                                Clip
+                                              </span>
+                                              {/* Play/pause acts on this preview, so it lives on the
+                                                  thumbnail rather than in the audio row below. */}
+                                              <button
+                                                type="button"
+                                                onClick={toggleExpandedClipPlaying}
+                                                className="absolute bottom-1 right-1 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/95 text-purple-700 shadow-sm hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+                                                title={expandedClipPlaying ? "Pause clip" : "Play clip"}
+                                              >
+                                                {expandedClipPlaying ? (
+                                                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M6 5h4v14H6zM14 5h4v14h-4z" />
+                                                  </svg>
+                                                ) : (
+                                                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M8 5v14l11-7z" />
+                                                  </svg>
+                                                )}
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => openSceneImageAdjustModal(scene, sceneClip.url)}
+                                                className="absolute top-1 right-8 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/95 text-purple-700 shadow-sm hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+                                                title="Adjust framing"
+                                              >
+                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M16.5 3.964a2.5 2.5 0 113.536 3.536L7 20.5H3v-4L16.5 3.964z" />
+                                                </svg>
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() =>
+                                                  setSceneMediaRemovePending({
+                                                    scene,
+                                                    assetId: sceneClip.asset.id,
+                                                    isClip: true,
+                                                  })
+                                                }
+                                                className="absolute top-1 right-1 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/95 text-purple-700 shadow-sm hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+                                                title="Remove clip"
+                                              >
+                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                                </svg>
+                                              </button>
+                                            </div>
+                                          )}
                                           {isCustomTpl && !(sceneImageAssetsMap[idx] || []).length && ctOgImage && (
-                                            <div className="relative group rounded-lg overflow-hidden border border-gray-200/40 flex-shrink-0">
+                                            <div className="relative group rounded-lg overflow-hidden border border-gray-200/40 flex-shrink-0 max-sm:w-full">
                                               {(() => {
                                                 let focusX = 50; let focusY = 50; let zoom = 1;
                                                 try {
@@ -6289,7 +7146,7 @@ export default function ProjectView() {
                                                   <img
                                                     src={ctOgImage}
                                                     alt=""
-                                                    className="h-24 w-20 object-cover"
+                                                    className="h-24 w-20 max-sm:w-full object-cover"
                                                     style={{ objectPosition: `${focusX}% ${focusY}%`, transform: `scale(${zoom})`, transformOrigin: "center center" }}
                                                     loading="lazy"
                                                     onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
@@ -6311,7 +7168,7 @@ export default function ProjectView() {
                                           {(sceneImageAssetsMap[idx] || []).map(({ url, asset }) => (
                                             <div
                                               key={asset.id}
-                                              className="relative group rounded-lg overflow-hidden border border-gray-200/40 flex-shrink-0"
+                                              className="relative group rounded-lg overflow-hidden border border-gray-200/40 flex-shrink-0 max-sm:w-full"
                                             >
                                               {(generatingImageSceneId === scene.id || uploadingSceneId === scene.id) && (
                                                 <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/60 backdrop-blur-[2px]">
@@ -6338,7 +7195,7 @@ export default function ProjectView() {
                                               <img
                                                 src={url}
                                                 alt=""
-                                                className="h-24 w-20 object-cover"
+                                                className="h-24 w-20 max-sm:w-full object-cover"
                                                 style={{
                                                   objectPosition: `${focusX}% ${focusY}%`,
                                                   transform: `scale(${zoom})`,
@@ -6363,7 +7220,13 @@ export default function ProjectView() {
                                               </button>
                                               <button
                                                 type="button"
-                                                onClick={() => handleRemoveSceneImage(scene, asset.id)}
+                                                onClick={() =>
+                                                  setSceneMediaRemovePending({
+                                                    scene,
+                                                    assetId: asset.id,
+                                                    isClip: false,
+                                                  })
+                                                }
                                                 disabled={removingAssetId === asset.id}
                                                 className="absolute top-1 right-1 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/95 text-purple-700 shadow-sm hover:bg-purple-600 hover:text-white hover:border-purple-600 disabled:opacity-50 transition-colors"
                                               >
@@ -6377,15 +7240,24 @@ export default function ProjectView() {
                                               </button>
                                             </div>
                                           ))}
+                                          {/* Clip is being downloaded + transcoded in the
+                                              background: show a loader card in its slot. */}
+                                          {stockFootageBusySceneId === scene.id && (
+                                            <div className="flex flex-col items-center justify-center gap-1 max-sm:w-full w-20 h-24 rounded-lg border-2 border-purple-300 bg-purple-50/60 flex-shrink-0">
+                                              <span className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                                              <span className="text-[9px] font-medium text-purple-600 uppercase tracking-wide">Clip</span>
+                                            </div>
+                                          )}
                                           {(generatingImageSceneId === scene.id || uploadingSceneId === scene.id) && !(sceneImageAssetsMap[idx] || []).length && !(isCustomTpl && ctOgImage) && (
-                                            <div className="flex items-center justify-center w-20 h-24 rounded-lg border-2 border-purple-200 bg-purple-50/50 flex-shrink-0">
+                                            <div className="flex items-center justify-center max-sm:w-full w-20 h-24 rounded-lg border-2 border-purple-200 bg-purple-50/50 flex-shrink-0">
                                               <span className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
                                             </div>
                                           )}
                                           <button
                                             type="button"
                                             onClick={() => handleGenerateSceneImageClick(scene.id)}
-                                            className="group relative flex items-center justify-center w-20 h-24 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50/50 hover:bg-purple-100/50 transition-colors text-purple-700 flex-shrink-0"
+                                            disabled={stockFootageBusySceneId === scene.id}
+                                            className="group relative flex items-center justify-center max-sm:w-full w-20 h-24 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50/50 hover:bg-purple-100/50 transition-colors text-purple-700 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
                                             title="Generate image with AI"
                                           >
                                             <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -6398,22 +7270,128 @@ export default function ProjectView() {
                                           <button
                                             type="button"
                                             onClick={() => handleOpenImageSourceChooser(scene.id)}
-                                            disabled={uploadingSceneId === scene.id}
-                                            className="flex items-center justify-center w-20 h-24 border-2 border-dashed border-gray-300 bg-gray-50/50 hover:bg-gray-100/50 rounded-lg flex-shrink-0 transition-colors"
+                                            disabled={uploadingSceneId === scene.id || stockFootageBusySceneId === scene.id}
+                                            className="flex flex-col items-center justify-center gap-1 max-sm:w-full w-20 h-24 border-2 border-dashed border-gray-300 bg-gray-50/50 hover:bg-gray-100/50 rounded-lg flex-shrink-0 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                            title="Add image"
                                           >
                                             <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                                             </svg>
+                                            <span className="text-[10px] font-medium text-gray-400">Image</span>
                                           </button>
+                                          {stockFootageSupported && (
+                                            <button
+                                              type="button"
+                                              onClick={() => handleChooseStockFootage(scene.id)}
+                                              disabled={uploadingSceneId === scene.id || stockFootageBusySceneId === scene.id}
+                                              className="flex flex-col items-center justify-center gap-1 max-sm:w-full w-20 h-24 border-2 border-dashed border-gray-300 bg-gray-50/50 hover:bg-gray-100/50 rounded-lg flex-shrink-0 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                              title="Add stock footage"
+                                            >
+                                              <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                              </svg>
+                                              <span className="text-[10px] font-medium text-gray-400 leading-tight text-center px-1">Stock Footage</span>
+                                            </button>
+                                          )}
                                         </div>
+                                        {/* Audio-only row now that play/pause sits on the
+                                            thumbnail — skipped entirely for a silent clip. */}
+                                        {sceneClip && sceneClip.hasAudio && stockAudioDraft && expandedScene === scene.id && (
+                                          <div className="mt-2 space-y-2">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                      setStockAudioDraft((d) =>
+                                                        d ? { ...d, muted: !d.muted } : d,
+                                                      )
+                                                    }
+                                                    disabled={stockAudioSaving}
+                                                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs transition-colors disabled:opacity-50 ${
+                                                      stockAudioDraft.muted
+                                                        ? "border-gray-300 text-gray-600 hover:border-purple-300"
+                                                        : "border-purple-300 bg-purple-50 text-purple-700"
+                                                    }`}
+                                                    title={stockAudioDraft.muted ? "Unmute clip audio" : "Mute clip audio"}
+                                                  >
+                                                    {stockAudioDraft.muted ? (
+                                                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M17 14l-4-4m0 4l4-4" />
+                                                      </svg>
+                                                    ) : (
+                                                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                                                      </svg>
+                                                    )}
+                                                    {stockAudioDraft.muted ? "Muted" : "Audio on"}
+                                                  </button>
+                                                  <label className="flex items-center gap-2 text-xs text-gray-500">
+                                                    Volume
+                                                    <input
+                                                      type="range"
+                                                      min={0}
+                                                      max={1}
+                                                      step={0.05}
+                                                      value={stockAudioDraft.volume}
+                                                      onChange={(e) => {
+                                                        const v = Number(e.target.value);
+                                                        setStockAudioDraft((d) =>
+                                                          d ? { ...d, volume: v } : d,
+                                                        );
+                                                      }}
+                                                      disabled={stockAudioSaving}
+                                                      className="w-28 h-1 cursor-pointer appearance-none accent-purple-600 [&::-webkit-slider-runnable-track]:h-0.5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-gray-200 [&::-webkit-slider-thumb]:-mt-1 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-purple-600 [&::-moz-range-track]:h-0.5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-gray-200 [&::-moz-range-thumb]:h-2.5 [&::-moz-range-thumb]:w-2.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-purple-600"
+                                                    />
+                                                    <span className="tabular-nums w-8">
+                                                      {Math.round(stockAudioDraft.volume * 100)}%
+                                                    </span>
+                                                  </label>
+                                                  {stockAudioDirty && (
+                                                    <div className="flex items-center gap-2">
+                                                      <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                          setStockAudioDraft({
+                                                            muted: sceneClip.muted,
+                                                            volume: sceneClip.volume,
+                                                          })
+                                                        }
+                                                        disabled={stockAudioSaving}
+                                                        className="text-xs text-gray-500 hover:text-gray-700 disabled:opacity-50"
+                                                      >
+                                                        Cancel
+                                                      </button>
+                                                      <button
+                                                        type="button"
+                                                        disabled={stockAudioSaving}
+                                                        onClick={async () => {
+                                                          setStockAudioSaving(true);
+                                                          try {
+                                                            await handleUpdateSceneClipAudio(scene.id, {
+                                                              muted: stockAudioDraft.muted,
+                                                              volume: stockAudioDraft.volume,
+                                                            });
+                                                          } finally {
+                                                            setStockAudioSaving(false);
+                                                          }
+                                                        }}
+                                                        className="px-2.5 py-1.5 rounded-lg bg-purple-600 text-white text-xs hover:bg-purple-700 transition-colors disabled:opacity-60"
+                                                      >
+                                                        {stockAudioSaving ? "Saving…" : "Save"}
+                                                      </button>
+                                                    </div>
+                                                  )}
+                                                </>
+                                            </div>
+                                          </div>
+                                        )}
                                         {generatingImageSceneId === scene.id && (
                                           <p className="text-xs text-purple-500 mt-1.5 flex items-center gap-1.5">
                                             <span className="w-3 h-3 border border-purple-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
                                             Generating image…
                                           </p>
-                                        )}
-                                        {(generateImageError && (generateErrorSceneId === scene.id || generatedImageSceneId === scene.id)) && (
-                                          <p className="text-xs text-red-600 mt-1.5">{generateImageError}</p>
                                         )}
                                         </>
                                       ) : (
@@ -6523,8 +7501,18 @@ export default function ProjectView() {
                               </div>
                             )}
                       </SceneListRow>
+                      {addSceneRunning && addScenePosition === scene.order + 1 && (
+                        <AddScenePlaceholderRow />
+                      )}
+                      </Fragment>
                     );
                   })}
+                  {/* Placeholder for an append (position past the last scene). */}
+                  {addSceneRunning &&
+                    addScenePosition != null &&
+                    addScenePosition > project.scenes.length && (
+                      <AddScenePlaceholderRow />
+                    )}
                 </div>
                 </div>
 
@@ -6550,7 +7538,7 @@ export default function ProjectView() {
                     <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl p-5">
                         <h3 className="text-lg font-semibold text-gray-900">Add scene image</h3>
                         <p className="text-xs text-gray-500 mt-1">Choose where to pick the image from.</p>
-                        <div className="mt-4 grid grid-cols-2 gap-3">
+                        <div className="mt-4 grid gap-3 grid-cols-2">
                           <button
                             type="button"
                             onClick={handleChooseScrapedImages}
@@ -6559,23 +7547,109 @@ export default function ProjectView() {
                             <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M4 12h16M4 17h16" />
                             </svg>
-                            From existing scraped images
+                            Use existing images
                           </button>
                           <button
                             type="button"
                             onClick={handleChooseLocalUpload}
                             className="w-full h-24 p-3 rounded-xl border border-gray-300 text-gray-700 hover:border-purple-300 hover:text-purple-700 hover:bg-purple-50/40 transition-colors text-sm flex flex-col items-center justify-center text-center gap-2"
                           >
+                            {/* Upload arrow rising out of a tray. */}
                             <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 4v12m0 0l-4-4m4 4l4-4" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 16V4m0 0L8 8m4-4l4 4" />
                             </svg>
-                            File upload
+                            Upload image file
                           </button>
                         </div>
                       </div>
                   </div>,
                   document.body
                 )}
+
+                {/* Stock-footage source chooser: reuse an owned clip (free) or
+                    search for new footage (costs credits). */}
+                {stockSourceChooserSceneId !== null && ReactDOM.createPortal(
+                  <div className="fixed inset-0 z-[125] flex items-center justify-center p-4">
+                    <div
+                      className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                      onClick={() => setStockSourceChooserSceneId(null)}
+                    />
+                    <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl p-5">
+                      <h3 className="text-lg font-semibold text-gray-900">Add stock footage</h3>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Reuse a clip this project already has, or find a new one.
+                      </p>
+                      <div className="mt-4 grid gap-3 grid-cols-2">
+                        <button
+                          type="button"
+                          onClick={handleChooseExistingStockFootage}
+                          disabled={!hasReusableClips}
+                          className="w-full h-24 p-3 rounded-xl border border-gray-300 text-gray-700 hover:border-purple-300 hover:text-purple-700 hover:bg-purple-50/40 transition-colors text-sm flex flex-col items-center justify-center text-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-gray-300 disabled:hover:text-gray-700 disabled:hover:bg-transparent"
+                          title={
+                            hasReusableClips
+                              ? "Reuse a clip already in this project — free"
+                              : "This project has no clips yet"
+                          }
+                        >
+                          <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M4 12h16M4 17h16" />
+                          </svg>
+                          Choose existing stock footage
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleChooseNewStockFootage}
+                          className="w-full h-24 p-3 rounded-xl border border-gray-300 text-gray-700 hover:border-purple-300 hover:text-purple-700 hover:bg-purple-50/40 transition-colors text-sm flex flex-col items-center justify-center text-center gap-2"
+                        >
+                          <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                          Add a new one
+                          {!effectiveIsPro && (
+                            <span className="text-[10px] font-medium text-gray-400">
+                              {STOCK_FOOTAGE_CREDIT_COST} AI edits
+                            </span>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>,
+                  document.body
+                )}
+
+                {stockFootagePickerSceneId !== null && (
+                  <StockFootageModal
+                    projectId={project.id}
+                    initialQuery={
+                      project.scenes.find((s) => s.id === stockFootagePickerSceneId)?.title ||
+                      project.scenes.find((s) => s.id === stockFootagePickerSceneId)
+                        ?.visual_description ||
+                      ""
+                    }
+                    // The scene's image box steers orientation + rendition size.
+                    boxAspect={(() => {
+                      const s = project.scenes.find((x) => x.id === stockFootagePickerSceneId);
+                      let layoutId: string | null = null;
+                      try {
+                        if (s?.remotion_code) layoutId = JSON.parse(s.remotion_code).layout ?? null;
+                      } catch { /* legacy descriptor */ }
+                      const cfg = getTemplateConfig(project.template || "default");
+                      return getImageBoxAspectRatio(
+                        layoutId ? normalizeLayoutId(layoutId) : null,
+                        project.aspect_ratio || "landscape",
+                        cfg.baseWidth,
+                        cfg.baseHeight,
+                      );
+                    })()}
+                    onClose={() => setStockFootagePickerSceneId(null)}
+                    onSelect={(clip, audio) =>
+                      handleAssignStockFootageToScene(stockFootagePickerSceneId, clip, audio)
+                    }
+                  />
+                )}
+
+                {/* Progress is reported by the top-right toast (see below) —
+                    the assignment runs in the background, so no blocking overlay. */}
 
                 {scrapedImagesPickerSceneId !== null && ReactDOM.createPortal(
                   <div className="fixed inset-0 z-[126] flex items-center justify-center p-4">
@@ -6586,8 +7660,16 @@ export default function ProjectView() {
                     <div className="relative w-full max-w-4xl rounded-2xl bg-white shadow-2xl overflow-hidden">
                       <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
                         <div>
-                          <h3 className="text-lg font-semibold text-gray-900">Select scraped image</h3>
-                          <p className="text-xs text-gray-500 mt-0.5">Pick one image to assign to this scene.</p>
+                          <h3 className="text-lg font-semibold text-gray-900">
+                            {existingPickerKind === "video"
+                              ? "Select existing stock footage"
+                              : "Select existing image"}
+                          </h3>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {existingPickerKind === "video"
+                              ? "Pick a clip already in this project — reusing it is free."
+                              : "Pick an image to assign to this scene."}
+                          </p>
                         </div>
                         <button
                           type="button"
@@ -6603,21 +7685,46 @@ export default function ProjectView() {
                       </div>
                       <div className="p-5 bg-gray-50 max-h-[60vh] overflow-auto">
                         {scrapedImageOptions.length === 0 ? (
-                          <p className="text-sm text-gray-500">No images available.</p>
+                          <p className="text-sm text-gray-500">
+                            {existingPickerKind === "video"
+                              ? "This project has no stock footage clips yet."
+                              : "No images available."}
+                          </p>
                         ) : (
                           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                             {scrapedImageOptions.map(({ asset, url }) => {
                               const selected = selectedExistingAssetId === asset.id;
+                              const isClip = asset.asset_type === "video";
                               return (
                                 <button
-                                  key={asset.id}
+                                  key={`${asset.asset_type}-${asset.id}`}
                                   type="button"
                                   onClick={() => setSelectedExistingAssetId(asset.id)}
                                   className={`relative rounded-xl overflow-hidden border-2 transition-colors ${
                                     selected ? "border-purple-500" : "border-gray-200 hover:border-purple-300"
                                   }`}
                                 >
-                                  <img src={url} alt="" className="w-full h-24 object-cover" loading="lazy" />
+                                  {isClip ? (
+                                    <>
+                                      <video
+                                        src={url}
+                                        muted
+                                        loop
+                                        playsInline
+                                        preload="metadata"
+                                        className="w-full h-24 object-cover bg-black"
+                                        onMouseEnter={(e) => {
+                                          void (e.currentTarget as HTMLVideoElement).play().catch(() => {});
+                                        }}
+                                        onMouseLeave={(e) => (e.currentTarget as HTMLVideoElement).pause()}
+                                      />
+                                      <span className="absolute bottom-1 left-1 px-1 py-0.5 rounded bg-black/70 text-white text-[9px] font-medium uppercase tracking-wide">
+                                        Clip
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <img src={url} alt="" className="w-full h-24 object-cover" loading="lazy" />
+                                  )}
                                   {selected && (
                                     <span className="absolute top-1 right-1 w-5 h-5 rounded-full bg-purple-600 text-white flex items-center justify-center">
                                       <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
@@ -6684,38 +7791,48 @@ export default function ProjectView() {
                           </svg>
                         </button>
                       </div>
-                      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-gray-50">
+                      <div ref={imageAdjustScrollRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-gray-50">
                         <div className="p-4 sm:p-5">
-                        <div
-                          ref={imageAdjustPreviewRef}
+                        <ImageAdjustStage
+                          src={imageAdjustSrc}
+                          isVideo={imageAdjustIsVideo}
+                          focusX={imageAdjustFocusX}
+                          focusY={imageAdjustFocusY}
+                          zoom={imageAdjustZoom}
+                          aspectRatio={imageAdjustAspectRatio}
+                          circular={imageAdjustCircular}
+                          dragging={isAdjustDragging}
                           onMouseDown={handleAdjustMouseDown}
                           onTouchStart={handleAdjustTouchStart}
-                          style={{
-                            aspectRatio: imageAdjustAspectRatio,
-                            maxHeight: "70vh",
-                            maxWidth: `min(100%, 42rem, calc(70vh * ${imageAdjustAspectRatio.split(" / ")[0]} / ${imageAdjustAspectRatio.split(" / ")[1]}))`,
-                            ...(imageAdjustCircular ? { borderRadius: "50%" } : {}),
-                          }}
-                          className={`relative mx-auto ${imageAdjustCircular ? "" : "rounded-xl"} overflow-hidden border-2 border-gray-200 select-none touch-none ${
-                            isAdjustDragging ? "cursor-grabbing" : "cursor-grab"
-                          }`}
-                        >
-                          <img
-                            src={imageAdjustSrc}
-                            alt="Adjust preview"
-                            className="absolute inset-0 w-full h-full"
-                            style={{
-                              objectFit: imageAdjustZoom < 1 ? "contain" : "cover",
-                              objectPosition: imageAdjustZoom < 1 ? "center" : `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
-                              transform: `scale(${imageAdjustZoom})`,
-                              transformOrigin: imageAdjustZoom < 1 ? "center center" : `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
-                            }}
-                            draggable={false}
-                          />
-                        </div>
+                          windowRef={imageAdjustPreviewRef}
+                          {...(() => {
+                            // Clip trim needs the clip length + scene length for
+                            // the current adjust scene. Only relevant for clips.
+                            const s = project.scenes.find((sc) => sc.id === imageAdjustSceneId);
+                            let clipDur: number | undefined;
+                            try {
+                              const fn = s?.remotion_code
+                                ? (JSON.parse(s.remotion_code) as { layoutProps?: { assignedVideo?: string } }).layoutProps?.assignedVideo
+                                : undefined;
+                              const asset = fn
+                                ? project.assets.find((a) => a.asset_type === "video" && a.filename === fn && !a.excluded)
+                                : undefined;
+                              clipDur = asset?.duration_seconds ?? undefined;
+                            } catch { /* ignore */ }
+                            return {
+                              clipDurationSeconds: clipDur,
+                              sceneDurationSeconds: Number(s?.duration_seconds) || undefined,
+                              startSeconds: imageAdjustStartSeconds,
+                              onStartChange: setImageAdjustStartSeconds,
+                            };
+                          })()}
+                        />
+                        {/* Replace the media itself rather than its framing. The
+                            labels flip so the current kind reads as "change" and
+                            the other as "switch to". */}
                         <div className="mt-4 flex flex-col gap-2 max-w-2xl mx-auto w-full">
                           <label className="flex items-center gap-3 text-sm text-gray-700">
-                            <span className="w-14 shrink-0 tabular-nums">Zoom</span>
+                            <span className="w-14 shrink-0 text-sm font-normal text-gray-900">Zoom</span>
                             <input
                               type="range"
                               min={IMAGE_ADJUST_ZOOM_MIN}
@@ -6730,12 +7847,34 @@ export default function ProjectView() {
                                   )
                                 )
                               }
-                              className="flex-1 min-w-0 h-1 w-full cursor-pointer appearance-none accent-purple-600 [&::-webkit-slider-runnable-track]:h-0.5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-gray-200 [&::-webkit-slider-thumb]:-mt-1 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-purple-600 [&::-moz-range-track]:h-0.5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-gray-200 [&::-moz-range-thumb]:h-2.5 [&::-moz-range-thumb]:w-2.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-purple-600"
+                              className="flex-1 min-w-0 h-4 w-full cursor-pointer appearance-none bg-transparent accent-purple-600 [&::-webkit-slider-runnable-track]:h-1.5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-gray-200 [&::-webkit-slider-thumb]:-mt-1.5 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-purple-600 [&::-webkit-slider-thumb]:shadow [&::-moz-range-track]:h-1.5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-gray-200 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-purple-600"
                             />
-                            <span className="w-12 text-right text-xs text-gray-500 tabular-nums">
+                            <span className="w-14 text-right text-sm font-normal text-gray-900 tabular-nums">
                               {imageAdjustZoom.toFixed(2)}×
                             </span>
                           </label>
+                        </div>
+                        {/* Replace the media itself rather than its framing. Own row
+                            below the zoom slider at every breakpoint; the labels flip
+                            so the current kind reads as "change" and the other as
+                            "switch to". */}
+                        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-2xl mx-auto w-full">
+                          <button
+                            type="button"
+                            onClick={() => handleSwitchAdjustMedia(imageAdjustIsVideo ? "video" : "image")}
+                            className="w-full px-4 py-2 rounded-lg border border-purple-300 bg-purple-50 text-purple-700 font-medium hover:bg-purple-100 hover:border-purple-400 transition-colors text-sm disabled:opacity-50"
+                            disabled={savingImageAdjust}
+                          >
+                            {imageAdjustIsVideo ? "Change stock footage" : "Change image"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSwitchAdjustMedia(imageAdjustIsVideo ? "image" : "video")}
+                            className="w-full px-4 py-2 rounded-lg border border-purple-300 bg-purple-50 text-purple-700 font-medium hover:bg-purple-100 hover:border-purple-400 transition-colors text-sm disabled:opacity-50"
+                            disabled={savingImageAdjust}
+                          >
+                            {imageAdjustIsVideo ? "Switch to image" : "Switch to stock footage"}
+                          </button>
                         </div>
                         <div className="mt-3 text-xs text-gray-500 text-center tabular-nums">
                           Position: X {Math.round(imageAdjustFocusX)}% · Y {Math.round(imageAdjustFocusY)}% · Zoom{" "}
@@ -6801,90 +7940,17 @@ export default function ProjectView() {
                 />
 
 
-                {project && imageGenModalSceneId !== null && (() => {
-                  const imageGenScene = project.scenes?.find((s) => s.id === imageGenModalSceneId);
-                  if (!imageGenScene) return null;
-                  return (
-                    <GenerateSceneImageModal
-                      open
-                      scene={imageGenScene}
-                      project={project}
-                      isPro={effectiveIsPro}
-                      ownerBlocked={ownerBlocksProFeature}
-                      onOwnerBlocked={notifyOwnerBlocked}
-                      onClose={() => setImageGenModalSceneId(null)}
-                      onUpgrade={() => setShowAiImageUpgradeModal(true)}
-                      onGenerateStart={() => {
-                        setGeneratingImageSceneId(imageGenModalSceneId);
-                        setImageGenModalSceneId(null);
-                      }}
-                      onGenerateError={(message) => {
-                        setGeneratingImageSceneId(null);
-                        setGenerateImageError(message);
-                        setGenerateErrorSceneId(imageGenModalSceneId);
-                      }}
-                      onImageReady={(imageBase64, refinedPrompt) => {
-                        setGeneratingImageSceneId(null);
-                        handleSceneImageReady(imageGenModalSceneId, imageBase64, refinedPrompt);
-                        setImageGenModalSceneId(null);
-                      }}
-                    />
-                  );
-                })()}
-
-                {/* AI generated image preview modal */}
-                {generatedImageSceneId !== null && generatedImageBase64 && ReactDOM.createPortal(
-                  <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-                    <div
-                      className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-                      onClick={handleDiscardGeneratedSceneImage}
-                    />
-                    <div
-                      className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div className="p-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
-                        <h3 className="text-lg font-semibold text-gray-900">AI generated image</h3>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => generatedImageSceneId !== null && handleKeepGeneratedSceneImage(generatedImageSceneId)}
-                            className="w-7 h-7 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
-                            title="Use this image"
-                          >
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleDiscardGeneratedSceneImage}
-                            className="w-7 h-7 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
-                            title="Discard"
-                          >
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                      <div className="flex-1 overflow-auto p-4 flex flex-col items-center bg-gray-50 min-h-0 relative">
-                        <img
-                          src={`data:image/png;base64,${generatedImageBase64}`}
-                          alt="AI generated"
-                          className="max-w-full max-h-[70vh] w-auto h-auto object-contain rounded-lg shadow-inner"
-                        />
-                      </div>
-                    </div>
-                  </div>,
-                  document.body
-                )}
+                {/* AI image generation modal + preview are rendered at page top-level
+                    (below, near the Scene Edit modal) so they work from every tab and
+                    survive the Scene Edit modal closing mid-generation. */}
 
                 {/* AI image upgrade modal (scenes tab) */}
                 <UpgradePlanModal
                   open={showAiImageUpgradeModal}
                   onClose={() => setShowAiImageUpgradeModal(false)}
                   projectId={project?.id}
+                  title="You're out of AI edit credits"
+                  subtitle="Upgrade for a larger monthly AI-edit allowance, or buy a video for +20 AI edits."
                 />
               </div>
             )}
@@ -6897,15 +7963,118 @@ export default function ProjectView() {
           <SceneEditModal
             open={!!sceneEditModal}
             onClose={() => setSceneEditModal(null)}
-            scene={sceneEditModal}
+            // Re-derive from the freshly-loaded project rather than using the
+            // snapshot captured when the modal opened. Actions that persist
+            // server-side while the modal stays open (stock footage assignment)
+            // change scene.remotion_code; without this the modal keeps editing
+            // the pre-action descriptor and its Save writes the change back out.
+            scene={project.scenes.find((s) => s.id === sceneEditModal.id) || sceneEditModal}
             project={project}
             imageItems={sceneImageAssetsMap[project.scenes.findIndex((s) => s.id === sceneEditModal.id)] || []}
-            availableImageItems={activeImageAssets.map((asset) => ({
+            availableImageItems={[...activeImageAssets, ...activeVideoAssets].map((asset) => ({
               asset,
               url: resolveAssetUrl(asset, project.id),
             }))}
             onSaved={loadProject}
+            // Delegate AI image generation to ProjectView so a single generation flow
+            // owns the loader/preview and survives this modal being closed mid-generation.
+            imageGenerating={generatingImageSceneId === sceneEditModal.id}
+            onRequestGenerateImage={() => setImageGenModalSceneId(sceneEditModal.id)}
+            clipAssigning={stockFootageBusySceneId === sceneEditModal.id}
+            onAssignStockClip={(clip, audio) =>
+              handleAssignStockFootageToScene(sceneEditModal.id, clip, audio)
+            }
+            registerStageImage={(fn) => { stageEditModalImageRef.current = fn; }}
           />
+        )}
+
+        {/* AI image generation modal — top-level so it opens from any tab and from the
+            Scene Edit modal. On generate start it closes and hands off to the row
+            spinner; the result surfaces in the preview below. */}
+        {project && imageGenModalSceneId !== null && (() => {
+          const imageGenScene = project.scenes?.find((s) => s.id === imageGenModalSceneId);
+          if (!imageGenScene) return null;
+          return (
+            <GenerateSceneImageModal
+              open
+              scene={imageGenScene}
+              project={project}
+              canGenerate={canUseAiImage}
+              creditCost={AI_IMAGE_CREDIT_COST}
+              isCollaborator={useOwnerScopedAssets}
+              creditsRemaining={aiImageCreditRemaining}
+              ownerBlocked={ownerBlocksProFeature}
+              onOwnerBlocked={() => notifyOwnerBlocked()}
+              onClose={() => setImageGenModalSceneId(null)}
+              onUpgrade={() => setShowAiImageUpgradeModal(true)}
+              onUpgradeNow={() => navigate("/subscription")}
+              onGenerateStart={() => {
+                setGeneratingImageSceneId(imageGenModalSceneId);
+                setImageGenModalSceneId(null);
+              }}
+              onGenerateError={(message) => {
+                setGeneratingImageSceneId(null);
+                setGenerateImageError(message);
+                setGenerateErrorSceneId(imageGenModalSceneId);
+              }}
+              onImageReady={(imageBase64, refinedPrompt) => {
+                setGeneratingImageSceneId(null);
+                handleSceneImageReady(imageGenModalSceneId, imageBase64, refinedPrompt);
+                setImageGenModalSceneId(null);
+                // Server charged AI_IMAGE_CREDIT_COST — refresh so the balance isn't stale.
+                void refreshUser();
+              }}
+            />
+          );
+        })()}
+
+        {/* AI generated image preview modal — keep/discard. When the Scene Edit modal
+            for this scene is still open, Keep stages into its form; otherwise it saves
+            to the scene directly. */}
+        {generatedImageSceneId !== null && generatedImageBase64 && ReactDOM.createPortal(
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            {/* Backdrop is non-dismissing: keep the preview open on outside clicks so
+                the user must explicitly keep or discard (no accidental loss). */}
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+            <div
+              className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
+                <h3 className="text-lg font-semibold text-gray-900">AI generated image</h3>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => generatedImageSceneId !== null && handleKeepGeneratedSceneImage(generatedImageSceneId)}
+                    className="w-7 h-7 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+                    title="Use this image"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDiscardGeneratedSceneImage}
+                    className="w-7 h-7 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+                    title="Discard"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 overflow-auto p-4 flex flex-col items-center bg-gray-50 min-h-0 relative">
+                <img
+                  src={`data:image/png;base64,${generatedImageBase64}`}
+                  alt="AI generated"
+                  className="max-w-full max-h-[70vh] w-auto h-auto object-contain rounded-lg shadow-inner"
+                />
+              </div>
+            </div>
+          </div>,
+          document.body
         )}
 
         {/* Avatar edit modal — dedicated to avatar editing only, opened from the
@@ -6930,24 +8099,30 @@ export default function ProjectView() {
             onClose={() => setRecordModalScene(null)}
             scene={recordModalScene}
             onApply={handleApplyRecording}
+            project={project ?? undefined}
+            layoutPropSchema={layoutPropSchema !== null ? layoutPropSchema : undefined}
+            ownerScopedProjectId={useOwnerScopedAssets ? projectId : undefined}
+            precompiledCraftedDetail={ownerScopedCraftedDetail}
+            precompiledTemplateData={currentCustomTemplateCode}
           />
         )}
 
         <AddSceneModal
           open={addSceneOpen}
-          onClose={() => setAddSceneOpen(false)}
+          onClose={() => { setAddSceneOpen(false); setAddSceneAnchor(null); }}
           project={project}
-          isPro={effectiveIsPro}
-          creditsRemaining={
-            useOwnerScopedAssets
-              ? (project.owner_ai_edit_credits ?? 0)
-              : (user?.ai_edit_credits ?? 0)
-          }
-          onAdded={() => {
-            void loadProject();
-            void refreshUser();
+          isCollaborator={useOwnerScopedAssets}
+          anchorScene={addSceneAnchor}
+          creditsRemaining={aiImageCreditRemaining}
+          canAfford={aiImageCreditRemaining >= ADD_SCENE_CREDIT_COST}
+          onAdded={(position) => {
+            // Job enqueued — show the placeholder at the target slot and start polling.
+            setAddScenePosition(position ?? project.scenes.length + 1);
+            setAddSceneJob({ id: 0, status: "queued", current_step: "queued" });
+            startAddScenePolling();
           }}
           onError={(err) => showError(getErrorMessage(err, "Failed to add scene."))}
+          onUpgradeNow={() => navigate("/subscription")}
         />
 
        {activeTab === "avatar" && (
@@ -7539,38 +8714,61 @@ export default function ProjectView() {
               <div className="flex items-center justify-between">
                 <div className="flex items-baseline gap-4">
                   <h2 className="text-base font-medium text-gray-900">
-                    Blog Images
+                    Blog Images and Stock Footages
                   </h2>
                   <span className="text-xs text-gray-400">
                     {imageAssets.length} image{imageAssets.length !== 1 ? "s" : ""}
+                    {videoAssets.length > 0 &&
+                      ` · ${videoAssets.length} stock footage${videoAssets.length !== 1 ? "s" : ""}`}
                   </span>
                 </div>
               </div>
-              {imageAssets.length === 0 ? (
+              {mediaAssets.length === 0 ? (
                 <p className="text-sm text-gray-400 py-8">
                   Images will appear here once scraped.
                 </p>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                  {imageAssets.map((asset) => {
+                  {mediaAssets.map((asset) => {
                     const url = resolveAssetUrl(asset, project.id);
                     const isDeleting = deletingImageAssetId === asset.id;
+                    const isClip = asset.asset_type === "video";
 
                     return (
                       <div
-                        key={asset.id}
+                        key={`${asset.asset_type}-${asset.id}`}
                         className="relative group rounded-xl overflow-hidden border border-gray-200/40 hover:border-gray-300 transition-all"
                       >
-                        <img
-                          src={url}
-                          alt={asset.filename}
-                          className="w-full aspect-[4/3] object-cover"
-                          loading="lazy"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src =
-                              "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='150'><rect fill='%23f3f4f6' width='200' height='150'/><text x='50%25' y='50%25' fill='%239ca3af' font-size='12' text-anchor='middle' dy='.3em'>No preview</text></svg>";
-                          }}
-                        />
+                        {isClip ? (
+                          <>
+                            <video
+                              src={url}
+                              muted
+                              loop
+                              playsInline
+                              preload="metadata"
+                              className="w-full aspect-[4/3] object-cover bg-black"
+                              onMouseEnter={(e) => {
+                                void (e.currentTarget as HTMLVideoElement).play().catch(() => {});
+                              }}
+                              onMouseLeave={(e) => (e.currentTarget as HTMLVideoElement).pause()}
+                            />
+                            <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-black/70 text-white text-[9px] font-medium uppercase tracking-wide">
+                              Clip
+                            </span>
+                          </>
+                        ) : (
+                          <img
+                            src={url}
+                            alt={asset.filename}
+                            className="w-full aspect-[4/3] object-cover"
+                            loading="lazy"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src =
+                                "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='150'><rect fill='%23f3f4f6' width='200' height='150'/><text x='50%25' y='50%25' fill='%239ca3af' font-size='12' text-anchor='middle' dy='.3em'>No preview</text></svg>";
+                            }}
+                          />
+                        )}
 
                         {/* Info bar */}
                         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-2 pt-6">
@@ -7871,7 +9069,7 @@ export default function ProjectView() {
                     <span className="text-xs text-gray-400">
                       {hasVoiceoverContent
                         ? `${audioScenes.length} / ${project.scenes.length} scenes${totalAudioDuration > 0 ? ` -- ${Math.round(totalAudioDuration)}s total` : ""}`
-                        : "No voiceover — text-only video"}
+                        : "No voiceover"}
                     </span>
                   </div>
                   <div className={`flex items-center gap-2 text-[11px] text-gray-400 ${!hasVoiceoverContent ? "hidden" : ""}`}>
@@ -7926,18 +9124,60 @@ export default function ProjectView() {
       document.body,
     )}
 
-    {generateImageError && generateErrorSceneId !== null && ReactDOM.createPortal(
-      <div className="fixed top-5 right-5 z-[99999] flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl bg-white text-gray-900 min-w-[260px] border border-red-100 ring-1 ring-red-200">
-        <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0 text-white text-xs font-bold">!</div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-red-600 leading-tight">Image generation failed</p>
-          <p className="text-xs text-gray-400 mt-0.5 truncate">{generateImageError}</p>
+    {/* Stock-footage assignment toast — mirrors the image-generation toast. */}
+    {stockFootageBusySceneId !== null && ReactDOM.createPortal(
+      <div className="fixed top-5 right-5 z-[99999] flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl bg-white text-gray-900 min-w-[260px] border border-purple-100 ring-1 ring-purple-200">
+        <div className="w-5 h-5 rounded-full border-2 border-purple-200 border-t-purple-600 animate-spin flex-shrink-0" />
+        <div>
+          <p className="text-sm font-semibold text-purple-700 leading-tight">Adding stock footage…</p>
+          <p className="text-xs text-gray-400 mt-0.5">Converting the clip to 30&nbsp;fps</p>
         </div>
-        <button
-          type="button"
+      </div>,
+      document.body,
+    )}
+
+    {generateImageError && generateErrorSceneId !== null && ReactDOM.createPortal(
+      <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
+        <div
+          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
           onClick={() => { setGenerateImageError(null); setGenerateErrorSceneId(null); }}
-          className="text-gray-300 hover:text-gray-600 text-xl leading-none flex-shrink-0 ml-1"
-        >×</button>
+          aria-hidden
+        />
+        <div
+          className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-center"
+          role="alertdialog"
+          aria-labelledby="image-gen-error-title"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="mx-auto mb-4 w-14 h-14 rounded-full bg-red-50 flex items-center justify-center">
+            <span className="text-3xl" aria-hidden>😕</span>
+          </div>
+          <h3 id="image-gen-error-title" className="text-lg font-semibold text-gray-900">
+            Oops — we couldn't generate your image
+          </h3>
+          <p className="text-sm text-gray-600 mt-2 leading-relaxed">
+            {generateImageError}
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              const sceneId = generateErrorSceneId;
+              setGenerateImageError(null);
+              setGenerateErrorSceneId(null);
+              if (sceneId !== null) setImageGenModalSceneId(sceneId);
+            }}
+            className="mt-5 w-full px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700"
+          >
+            Try again with a better description
+          </button>
+          <button
+            type="button"
+            onClick={() => { setGenerateImageError(null); setGenerateErrorSceneId(null); }}
+            className="mt-2 w-full px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800"
+          >
+            Dismiss
+          </button>
+        </div>
       </div>,
       document.body,
     )}

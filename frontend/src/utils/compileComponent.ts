@@ -23,6 +23,7 @@ import { Player } from "@remotion/player";
 import { getTemplateConfig } from "../components/remotion/templateConfig";
 import { CaptionTrack } from "../components/remotion/CaptionTrack";
 import { BackgroundMusic } from "../components/remotion/BackgroundMusic";
+import { SmartVideo } from "../components/remotion/SmartVideo";
 import * as Kit from "../components/remotion/generated/kit";
 
 // Craft-kit exports injected into JIT-compiled AI scene code, mirroring the
@@ -48,6 +49,11 @@ export interface SceneProps {
   imageUrl?: string;
   imageObjectPosition?: string;
   imageZoom?: number;
+  /** True when a stock-footage clip is filling this scene's visual slot.
+   *  GeneratedVideo/the preview renders the clip itself — the component must
+   *  leave that slot's area empty/transparent rather than treating the scene
+   *  as if it has no visual at all. imageUrl is undefined in this case. */
+  hasVideo?: boolean;
   sceneIndex: number;
   totalScenes: number;
   logoUrl?: string;
@@ -443,13 +449,21 @@ export async function compileModuleGraphEntry(
       if (key.startsWith("templates/")) return `/${key}`;
       return Remotion.staticFile(filePath);
     };
-    const remotionRuntime =
-      staticFileOverrides && Object.keys(staticFileOverrides).length > 0
-        ? ({
-            ...Remotion,
-            staticFile: resolveStaticFile,
-          } as typeof Remotion)
-        : ({ ...Remotion, staticFile: resolveStaticFile } as typeof Remotion);
+    // Crafted/custom template code is compiled from an R2 bundle, so it cannot
+    // import repo-local files — the resolver below only maps a few bare
+    // specifiers and returns {} for anything else. Swapping OffthreadVideo here
+    // is therefore the only way to reach that code, and it has the advantage of
+    // fixing already-published bundles without re-publishing them.
+    //
+    // Why swap it at all: in the Player, OffthreadVideo seeks a hidden <video>
+    // and holds a delayRender() until the frame decodes, which freezes the
+    // timeline mid-playback. SmartVideo keeps OffthreadVideo for CLI renders
+    // (frame accuracy preserved) and uses <Video> in the Player.
+    const remotionRuntime = {
+      ...Remotion,
+      staticFile: resolveStaticFile,
+      OffthreadVideo: SmartVideo as unknown as typeof Remotion.OffthreadVideo,
+    } as typeof Remotion;
     const moduleCache = new Map<string, Record<string, unknown>>();
     const compiling = new Set<string>();
     const makeMissingModuleStub = (specifier: string): Record<string, unknown> => {

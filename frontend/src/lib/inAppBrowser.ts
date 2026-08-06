@@ -68,6 +68,23 @@ export function detectInAppBrowser(ua: string = getUA()): InAppBrowserInfo {
 }
 
 /**
+ * True on a phone/tablet OS, per user agent — regardless of window size.
+ *
+ * Deliberately NOT viewport-based: a desktop user who merely narrows their
+ * window (or docks devtools side-by-side) must never be told to "use a
+ * computer". Note `isIOS` also matches iPad, so tablets warn too — accepted,
+ * since they share the same memory ceiling story. An iPad in "Request Desktop
+ * Website" mode reports a macOS UA and so won't match.
+ *
+ * For gating memory-heavy work on first paint use `useIsMobileViewport`
+ * instead — that hook is synchronous by design; this is a UA check.
+ */
+export function isMobileDevice(ua: string = getUA()): boolean {
+  const { isIOS, isAndroid } = detectInAppBrowser(ua);
+  return isIOS || isAndroid;
+}
+
+/**
  * Attempt to reopen the current URL in the system browser.
  *
  * Android: use an `intent://` URL so the OS hands off to Chrome (with a

@@ -17,6 +17,7 @@ import { LogoOverlay } from "../../components/LogoOverlay";
 import { BackgroundMusic } from "../../components/BackgroundMusic";
 import { CaptionTrack } from "../../components/CaptionTrack";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
+import { SceneDurationInFramesContext } from "../SceneDurationContext";
 import { ChronicleChrome } from "./components/ChronicleChrome";
 import { pickChronicleTransition } from "./transitions";
 
@@ -45,6 +46,11 @@ interface SceneData {
   avatarFocusY?: number;
   avatarZoom?: number;
   images: string[];
+  video?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  videoDurationSeconds?: number;
+  videoStartSeconds?: number;
 }
 
 interface VideoData {
@@ -275,10 +281,17 @@ export const ChronicleVideo: React.FC<VideoProps> = ({ dataUrl }) => {
     >
       <TransitionSeries>
         {resolvedScenes.map((s, index) => {
-          const { scene, layoutKey, sequenceFrames } = s;
+          const { scene, layoutKey, sequenceFrames, durationFrames } = s;
           const LayoutComponent = CHRONICLE_LAYOUT_REGISTRY[layoutKey];
           const imageUrl =
             scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
+          const videoUrl = scene.video ? staticFile(scene.video) : undefined;
+          const videoDurationInFrames = scene.videoDurationSeconds
+            ? Math.max(1, Math.round(scene.videoDurationSeconds * FPS))
+            : undefined;
+          const videoStartInFrames = scene.videoStartSeconds
+            ? Math.max(0, Math.round(scene.videoStartSeconds * FPS))
+            : undefined;
 
           const rawProps = (scene.layoutProps ?? {}) as Record<string, unknown>;
           const focusX = Math.max(0, Math.min(100, Number(rawProps.imageFocusX ?? 50)));
@@ -293,6 +306,11 @@ export const ChronicleVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             textColor: data.textColor || "#2A1810",
             aspectRatio: (data.aspectRatio as "landscape" | "portrait") || "landscape",
             imageUrl,
+            videoUrl,
+            videoMuted: scene.videoMuted ?? true,
+            videoVolume: scene.videoVolume ?? 0.35,
+            videoDurationInFrames,
+            videoStartInFrames,
             imageObjectPosition: `${focusX}% ${focusY}%`,
             imageZoom: Math.max(0.1, Number(rawProps.imageZoom ?? 1)),
             fontFamily: resolvedFontFamily || undefined,
@@ -313,7 +331,9 @@ export const ChronicleVideo: React.FC<VideoProps> = ({ dataUrl }) => {
                 disablePageTurn={skipFade}
                 showScripture={showScripture}
               >
-                <LayoutComponent {...layoutProps} />
+                <SceneDurationInFramesContext.Provider value={durationFrames}>
+                  <LayoutComponent {...layoutProps} />
+                </SceneDurationInFramesContext.Provider>
               </ChronicleChrome>
             </TransitionSeries.Sequence>
           );
@@ -337,13 +357,24 @@ export const ChronicleVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         })}
       </TransitionSeries>
 
+      {/* EXTRA_HOLD_FRAMES (10) is smaller than every transition length (30-44,
+          see chronicle/transitions), so sceneStartFrames[index + 1] can land
+          BEFORE this scene's natural durationFrames would end. Clamp the audio
+          window to that next start (when there is one) so scene N+1's
+          voiceover never starts while scene N's is still playing. Must stay
+          in sync with the same clamp in frontend/.../ChronicleVideoComposition.tsx. */}
       {resolvedScenes.map((s, index) => {
         if (!s.scene.voiceoverFile) return null;
+        const nextStart = sceneStartFrames[index + 1];
+        const audioDurationFrames =
+          nextStart !== undefined
+            ? Math.max(1, Math.min(s.durationFrames, nextStart - sceneStartFrames[index]))
+            : s.durationFrames;
         return (
           <Sequence
             key={`audio-${s.scene.id}-${index}`}
             from={sceneStartFrames[index]}
-            durationInFrames={s.durationFrames}
+            durationInFrames={audioDurationFrames}
           >
             <Audio src={staticFile(s.scene.voiceoverFile)} playbackRate={playbackSpeed} />
             {s.scene.avatarVideoFile && (

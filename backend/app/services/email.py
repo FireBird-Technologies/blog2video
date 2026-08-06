@@ -83,6 +83,7 @@ class BaseEmailProvider(ABC):
         from_email: Optional[str] = None,
         scheduled_at: Optional[datetime] = None,
         cc: Optional[list[str]] = None,
+        reply_to: Optional[str] = None,
     ) -> None:
         """
         Send a transactional email (immediately or at a scheduled time).
@@ -95,6 +96,7 @@ class BaseEmailProvider(ABC):
             from_email:   Override the default sender address.
             scheduled_at: If set, schedule send at this time (UTC); provider must support it.
             cc:           Optional list of addresses to copy on the email.
+            reply_to:     Optional Reply-To address for recipient replies.
 
         Raises:
             EmailServiceError: If the send fails for any reason.
@@ -119,6 +121,7 @@ class ResendEmailProvider(BaseEmailProvider):
         from_email: Optional[str] = None,
         scheduled_at: Optional[datetime] = None,
         cc: Optional[list[str]] = None,
+        reply_to: Optional[str] = None,
     ) -> None:
         if not self.api_key:
             raise EmailServiceError("Cannot send email: RESEND_API_KEY is not configured")
@@ -136,6 +139,8 @@ class ResendEmailProvider(BaseEmailProvider):
         }
         if cc:
             params["cc"] = cc
+        if reply_to:
+            params["reply_to"] = reply_to
         if html_content:
             params["html"] = html_content
         if text_content:
@@ -292,9 +297,18 @@ class EmailService:
         </body>
         </html>"""
 
-    def _send_request_confirmation(self, to: str, first_name: str) -> None:
+    def _send_request_confirmation(
+        self,
+        to: str,
+        first_name: str,
+        from_email: str = "sales@blog2video.app",
+    ) -> None:
         """
         Send the requester a short confirmation that their submission was received.
+
+        ``from_email`` defaults to sales@ for the enterprise / custom-template forms.
+        Support-bot escalations pass support@ so the confirmation matches the address
+        the internal email is sent from and the user's reply lands in the right inbox.
 
         Best-effort: this runs after the internal team email has already been
         sent, so any failure here is logged and swallowed — it must never turn
@@ -315,7 +329,7 @@ class EmailService:
                 subject=subject,
                 html_content=html_body,
                 text_content=text,
-                from_email="sales@blog2video.app",
+                from_email=from_email,
                 cc=_CONFIRMATION_CC,
             )
         except Exception as exc:
@@ -670,6 +684,85 @@ class EmailService:
 
 
 
+    def send_support_escalation_email(
+        self,
+        user_email: str,
+        concern: str,
+        reason: str = "human",
+        user_name: Optional[str] = None,
+        user_plan: Optional[str] = None,
+        page_path: Optional[str] = None,
+        transcript: Optional[list[tuple[str, str]]] = None,
+        to: str = settings.INTERNAL_ALERT_EMAIL,
+    ) -> None:
+        """
+        Forward a support-bot escalation to the internal team.
+        Triggered by POST /api/support/escalate.
+
+        ``reason`` is one of "human", "refund" or "feature" and only changes the
+        subject line so the inbox can be triaged at a glance.
+
+        Reply-to is set to the requester so hitting reply in the mail client goes
+        straight back to the customer rather than to the support alias.
+
+        Every interpolated value is HTML-escaped — this is user-submitted text
+        arriving straight from a chat widget.
+        """
+        kind_label = {
+            "refund": "Refund Request",
+            "feature": "Feature Request",
+        }.get(reason, "Support Escalation")
+        display_name = user_name or user_email.split("@")[0]
+
+        text_lines = [
+            f"New {kind_label.lower()} from the support bot:",
+            "",
+            f"From: {display_name} <{user_email}>",
+        ]
+        if user_plan:
+            text_lines.append(f"Plan: {user_plan}")
+        if page_path:
+            text_lines.append(f"Page: {page_path}")
+
+        # What the user typed into the form — the actual request. Always present.
+        text_lines += ["", "What they wrote:", concern.strip() or "(left blank)", ""]
+
+        # The chat message that triggered the escalation. Without this the team only
+        # sees the form text and has no idea what the user originally asked the bot.
+        first_user_msg = next(
+            (c for role, c in (transcript or []) if role == "user"), None
+        )
+        if first_user_msg:
+            text_lines += [f"What they asked the bot: {first_user_msg.strip()}", ""]
+
+        if transcript:
+            text_lines.append("Recent conversation:")
+            for role, content in transcript:
+                text_lines.append(f"  [{role}] {content}")
+            text_lines.append("")
+        # Reply-To is not set, so say how to actually reach them rather than
+        # implying a plain Reply will land in their inbox.
+        text_lines.append(f"Contact them at: {user_email}")
+        text = "\n".join(text_lines)
+
+        # Plain text only — no HTML. This is an internal triage alert, not a marketing
+        # email; a branded card just adds noise. Sending text-only also removes the
+        # HTML-escaping hazard entirely, since nothing is interpolated into markup.
+        # No reply_to: replies stay with support@ rather than going straight to the
+        # customer. Their address is in the body, so the team can still contact them
+        # deliberately rather than by hitting Reply.
+        self.provider.send_email(
+            to=to,
+            subject=f"[{kind_label}] from {display_name}",
+            text_content=text,
+            from_email="support@blog2video.app",
+        )
+
+        # Deliberately NO confirmation email to the requester: support escalations go
+        # to the internal inbox only. The user already sees an in-chat confirmation
+        # ("Thanks — we'll email you back shortly"), so a second acknowledgement is
+        # noise, and replying to them is the team's job, not an automated send.
+
     def send_low_rating_alert_email(
         self,
         user_name: str,
@@ -1003,7 +1096,8 @@ class EmailService:
             subject=subject,
             html_content=html_content,
             text_content=text_content,
-            from_email="Arslan Shahid <arslan@blog2video.app>",
+            from_email="Arslan Shahid <arslan@send.blog2video.app>",
+            reply_to="arslan@blog2video.app",
         )
 
         # Unosend (blast only — transactional mail uses Resend via self.provider):
@@ -1028,64 +1122,6 @@ class EmailService:
         api_base = getattr(settings, "BACKEND_URL", "http://localhost:8000").rstrip("/")
         import urllib.parse
         return f"{api_base}/unsubscribe?email={urllib.parse.quote(email.strip().lower())}&token={token}"
-
-
-    def send_weekly_updates(
-        self,
-        user_email: str,
-        user_name: str,
-        dashboard_url: Optional[str] = None,
-    ) -> None:
-        """Product update email: plain text body with unsubscribe link in footer."""
-        base = "https://blog2video.app"
-        cta_url = dashboard_url or base
-        display = (user_name or "").strip() or "there"
-        subject = "WE JUST SHIPPED 🚀🚀🚀"
-        unsubscribe_url = self._make_unsubscribe_url(user_email)
-
-        text = (
-            f"Hi {display},\n\n"
-            "We've been busy shipping improvements to Blog2Video. Here's what's new:\n\n"
-            "• Two new templates: Mosaic & Black Swan — add more visual variety to your videos.\n"
-            "• Adjustable playback speed — fine-tune pacing during preview and render.\n"
-            "• Smarter voiceovers — numbers, dates, and stats now sound natural every time.\n"
-            "• Expert-crafted templates — professionally designed, ready to use out of the box.\n"
-            "• Enhanced data visualization in Newscaster — richer charts for stats and trends.\n\n"
-            f"Log in to try the new features: {cta_url}\n\n"
-            "We'd love to hear what you think.\n\n"
-            "Team Blog2Video\n\n"
-            "---\n"
-            f"To unsubscribe from these emails, click here: {unsubscribe_url}\n"
-        )
-
-        # Minimal HTML — plain text visually, clickable unsubscribe link in footer
-        html_body = (
-            f"<pre style='font-family:inherit;font-size:15px;white-space:pre-wrap;margin:0;'>"
-            f"Hi {html.escape(display)},\n\n"
-            "We've been busy shipping improvements to Blog2Video. Here's what's new:\n\n"
-            "• Two new templates: Mosaic &amp; Black Swan — add more visual variety to your videos.\n"
-            "• Adjustable playback speed — fine-tune pacing during preview and render.\n"
-            "• Smarter voiceovers — numbers, dates, and stats now sound natural every time.\n"
-            "• Expert-crafted templates — professionally designed, ready to use out of the box.\n"
-            "• Enhanced data visualization in Newscaster — richer charts for stats and trends.\n\n"
-            f"Log in to try the new features: {cta_url}\n\n"
-            "We'd love to hear what you think.\n\n"
-            "Arslan"
-            f"</pre>"
-            f"<hr style='border:none;border-top:1px solid #e5e7eb;margin:24px 0;'/>"
-            f"<p style='font-size:12px;color:#9ca3af;margin:0;'>"
-            f"To unsubscribe from these emails, "
-            f"<a href='{unsubscribe_url}' style='color:#9ca3af;'>Unsubscribe</a>."
-            f"</p>"
-        )
-
-        self.provider.send_email(
-            to=user_email,
-            subject=subject,
-            html_content=html_body,
-            text_content=text,
-            from_email="Arslan Shahid <arslan@blog2video.app>",
-        )
 
 
 # ─── Singleton ────────────────────────────────────────────────

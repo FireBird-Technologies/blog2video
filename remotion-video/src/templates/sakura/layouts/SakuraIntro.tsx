@@ -1,6 +1,7 @@
 import React from "react";
 import { useVideoConfig, interpolate, spring, Img } from "remotion";
 import { SceneLayoutProps } from "../types";
+import { SakuraClip } from "../components/SakuraClip";
 import {
   SAKURA,
   SAKURA_DISPLAY_FONT,
@@ -24,6 +25,11 @@ export const SakuraIntro: React.FC<SceneLayoutProps> = (props) => {
     imageUrl,
     imageObjectPosition,
     imageZoom,
+    videoUrl,
+    videoMuted,
+    videoVolume,
+    videoDurationInFrames,
+    videoStartInFrames,
     accentColor,
     bgColor,
     textColor,
@@ -108,25 +114,36 @@ export const SakuraIntro: React.FC<SceneLayoutProps> = (props) => {
     extrapolateRight: "clamp",
     easing: (t) => 1 - Math.pow(1 - t, 2),
   });
-  const heroBg = imageUrl ? (
+  const heroVisualStyle: React.CSSProperties = {
+    position: "absolute",
+    inset: 0,
+    width: "100%",
+    height: "100%",
+    objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
+    objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
+    transform: `scale(${(imageZoom ?? 1) * interpolate(bgReveal, [0, 1], [1.06, 1])})`,
+    transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
+    // Dim + desaturate so it recedes into the dark washi atmosphere.
+    opacity: bgReveal * 0.3,
+    filter: "grayscale(35%) brightness(0.8)",
+    pointerEvents: "none",
+  };
+  const heroBg = (imageUrl || videoUrl) ? (
     <>
-      <Img
-        src={imageUrl}
-        style={{
-          position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
-          objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
-          objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
-          transform: `scale(${(imageZoom ?? 1) * interpolate(bgReveal, [0, 1], [1.06, 1])})`,
-          transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
-          // Dim + desaturate so it recedes into the dark washi atmosphere.
-          opacity: bgReveal * 0.3,
-          filter: "grayscale(35%) brightness(0.8)",
-          pointerEvents: "none",
-        }}
-      />
+      {videoUrl ? (
+        <SakuraClip
+          src={videoUrl}
+          imageObjectPosition={imageObjectPosition}
+          imageZoom={imageZoom}
+          muted={videoMuted ?? true}
+          volume={videoVolume ?? 0.35}
+          durationInFrames={videoDurationInFrames}
+          startInFrames={videoStartInFrames}
+          style={heroVisualStyle}
+        />
+      ) : (
+        <Img src={imageUrl!} style={heroVisualStyle} />
+      )}
       {/* Background tint: the chosen bgColor's dark wash washed over the photo. */}
       <div
         style={{

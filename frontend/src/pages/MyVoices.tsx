@@ -23,8 +23,10 @@ import VoiceItem, { getMyVoiceDisplayName, subtitleForSavedVoice, subtitleFromEl
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import UpgradePlanModal from "../components/UpgradePlanModal";
 import { useAuth } from "../hooks/useAuth";
+import { isPaidPlan } from "../lib/plan";
 import { useErrorModal } from "../contexts/ErrorModalContext";
 import { COUNTRIES } from "../data/countries";
+import { CustomSelect } from "../components/CustomSelect";
 
 const VOICE_GENDERS = ["female", "male", "neutral"];
 const VOICE_AGE_RANGES = ["child", "teen", "young", "middle-aged", "elderly"];
@@ -94,7 +96,7 @@ export default function MyVoices({ demoMode }: { demoMode?: MyVoicesDemoMode } =
   const { user } = useAuth();
   const { showError } = useErrorModal();
   const isDemo = !!demoMode;
-  const isPro = isDemo ? true : user?.plan === "pro" || user?.plan === "standard";
+  const isPro = isDemo ? true : isPaidPlan(user?.plan);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [showUpgrade, setShowUpgrade] = useState(false);
@@ -1026,35 +1028,38 @@ export default function MyVoices({ demoMode }: { demoMode?: MyVoicesDemoMode } =
                     <button
                       type="button"
                       onClick={() => setCreateVoiceMode("form")}
-                      className={`flex-1 px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      className={`flex-1 whitespace-nowrap px-1.5 sm:px-4 py-1.5 rounded-lg text-[11px] sm:text-xs font-medium transition-all ${
                         createVoiceMode === "form"
                           ? "bg-white text-purple-600 shadow-sm"
                           : "text-gray-400 hover:text-gray-600"
                       }`}
                     >
-                      Build from options
+                      <span className="sm:hidden">Options</span>
+                      <span className="hidden sm:inline">Build from options</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setCreateVoiceMode("prompt")}
-                      className={`flex-1 px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      className={`flex-1 whitespace-nowrap px-1.5 sm:px-4 py-1.5 rounded-lg text-[11px] sm:text-xs font-medium transition-all ${
                         createVoiceMode === "prompt"
                           ? "bg-white text-purple-600 shadow-sm"
                           : "text-gray-400 hover:text-gray-600"
                       }`}
                     >
-                      Describe in your own words
+                      <span className="sm:hidden">Describe</span>
+                      <span className="hidden sm:inline">Describe in your own words</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setCreateVoiceMode("clone")}
-                      className={`flex-1 px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      className={`flex-1 whitespace-nowrap px-1.5 sm:px-4 py-1.5 rounded-lg text-[11px] sm:text-xs font-medium transition-all ${
                         createVoiceMode === "clone"
                           ? "bg-white text-purple-600 shadow-sm"
                           : "text-gray-400 hover:text-gray-600"
                       }`}
                     >
-                      Voice clone
+                      <span className="sm:hidden">Clone</span>
+                      <span className="hidden sm:inline">Voice clone</span>
                     </button>
                   </div>
                 </div>
@@ -1086,77 +1091,57 @@ export default function MyVoices({ demoMode }: { demoMode?: MyVoicesDemoMode } =
                         <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
                           Gender <span className="text-gray-300 font-normal normal-case">(optional)</span>
                         </label>
-                        <select
+                        <CustomSelect
+                          options={[{ value: "", label: "Any" }, ...VOICE_GENDERS.map((o) => ({ value: o, label: o }))]}
                           value={presetGender}
-                          onChange={(e) => setPresetGender(e.target.value)}
-                          className="w-full px-4 py-2.5 bg-white border border-gray-200/60 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
-                        >
-                          <option value=""> </option>
-                          {VOICE_GENDERS.map((g) => (
-                            <option key={g} value={g}>{g}</option>
-                          ))}
-                        </select>
+                          onChange={setPresetGender}
+                          ariaLabel="Gender"
+                        />
                       </div>
                       <div>
                         <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
                           Voice <span className="text-gray-300 font-normal normal-case">(optional)</span>
                         </label>
-                        <select
+                        <CustomSelect
+                          options={[{ value: "", label: "Any" }, ...VOICE_AGE_RANGES.map((o) => ({ value: o, label: o }))]}
                           value={presetAge}
-                          onChange={(e) => setPresetAge(e.target.value)}
-                          className="w-full px-4 py-2.5 bg-white border border-gray-200/60 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
-                        >
-                          <option value=""> </option>
-                          {VOICE_AGE_RANGES.map((a) => (
-                            <option key={a} value={a}>{a}</option>
-                          ))}
-                        </select>
+                          onChange={setPresetAge}
+                          ariaLabel="Voice"
+                        />
                       </div>
                     </div>
                     <div>
                       <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
                         Persona <span className="text-gray-300 font-normal normal-case">(optional)</span>
                       </label>
-                      <select
+                      <CustomSelect
+                        options={[{ value: "", label: "Any" }, ...VOICE_PERSONAS.map((o) => ({ value: o, label: o }))]}
                         value={presetPersona}
-                        onChange={(e) => setPresetPersona(e.target.value)}
-                        className="w-full px-4 py-2.5 bg-white border border-gray-200/60 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
-                      >
-                        <option value=""> </option>
-                        {VOICE_PERSONAS.map((p) => (
-                          <option key={p} value={p}>{p}</option>
-                        ))}
-                      </select>
+                        onChange={setPresetPersona}
+                        ariaLabel="Persona"
+                      />
                     </div>
                     <div>
                       <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
                         Speed <span className="text-gray-300 font-normal normal-case">(optional)</span>
                       </label>
-                      <select
+                      <CustomSelect
+                        options={[{ value: "", label: "Any" }, ...VOICE_SPEEDS.map((o) => ({ value: o, label: o }))]}
                         value={presetSpeed}
-                        onChange={(e) => setPresetSpeed(e.target.value)}
-                        className="w-full px-4 py-2.5 bg-white border border-gray-200/60 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
-                      >
-                        <option value=""> </option>
-                        {VOICE_SPEEDS.map((s) => (
-                          <option key={s} value={s}>{s}</option>
-                        ))}
-                      </select>
+                        onChange={setPresetSpeed}
+                        ariaLabel="Speed"
+                      />
                     </div>
                     <div>
                       <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
                         Country <span className="text-gray-300 font-normal normal-case">(optional)</span>
                       </label>
-                      <select
+                      <CustomSelect
+                        options={[{ value: "", label: "Any" }, ...COUNTRIES.map((c) => ({ value: c.name, label: c.name }))]}
                         value={presetCountry}
-                        onChange={(e) => setPresetCountry(e.target.value)}
-                        className="w-full px-4 py-2.5 bg-white border border-gray-200/60 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
-                      >
-                        <option value=""> </option>
-                        {COUNTRIES.map((c) => (
-                          <option key={c.code} value={c.name}>{c.name}</option>
-                        ))}
-                      </select>
+                        onChange={setPresetCountry}
+                        ariaLabel="Country"
+                      />
                     </div>
                   </div>
                   <div className="mt-4">

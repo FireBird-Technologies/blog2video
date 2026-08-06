@@ -8,6 +8,7 @@ import {
 } from "remotion";
 import { SceneLayoutProps } from "../types";
 import { AnimatedImage } from "./AnimatedImage";
+import { AnimatedVideo } from "./AnimatedVideo";
 import { GeometricBackground } from "../components/GeometricBackground";
 
 export const HeroImage: React.FC<SceneLayoutProps> = (props) => {
@@ -17,6 +18,11 @@ export const HeroImage: React.FC<SceneLayoutProps> = (props) => {
     imageUrl,
     imageObjectPosition,
   imageZoom,
+    videoUrl,
+    videoMuted,
+    videoVolume,
+    videoDurationInFrames,
+    videoStartInFrames,
     accentColor,
     bgColor,
     textColor,
@@ -31,7 +37,7 @@ export const HeroImage: React.FC<SceneLayoutProps> = (props) => {
   const fps = 30;
   const { durationInFrames, width, height } = useVideoConfig();
   const isPortrait = aspectRatio === "portrait";
-  const hasImage = !!imageUrl;
+  const hasImage = !!imageUrl || !!videoUrl;
 
   // --- ENTRANCE ANIMATIONS ---
   const contentEntranceDelay = 10;
@@ -148,20 +154,41 @@ export const HeroImage: React.FC<SceneLayoutProps> = (props) => {
                 overflow: "hidden",
               }}
             >
-              <AnimatedImage
-                src={imageUrl}
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  top: 0,
-                  width: "100%",
-                  height: "100%",
-                  objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
-                  objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
-                  transform: `scale(${imageZoom ?? 1})`,
-                  transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
-                }}
-              />
+              {videoUrl ? (
+                <AnimatedVideo
+                  src={videoUrl}
+                  muted={videoMuted ?? true}
+                  volume={videoVolume ?? 0.35}
+                  durationInFrames={videoDurationInFrames}
+                  startInFrames={videoStartInFrames}
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    top: 0,
+                    width: "100%",
+                    height: "100%",
+                    objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
+                    objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
+                    transform: `scale(${imageZoom ?? 1})`,
+                    transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
+                  }}
+                />
+              ) : (
+                <AnimatedImage
+                  src={imageUrl!}
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    top: 0,
+                    width: "100%",
+                    height: "100%",
+                    objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
+                    objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
+                    transform: `scale(${imageZoom ?? 1})`,
+                    transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
+                  }}
+                />
+              )}
             </div>
           </AbsoluteFill>
         </div>

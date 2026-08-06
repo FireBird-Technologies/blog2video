@@ -3,6 +3,7 @@ import { SpotlightBackground } from "../SpotlightBackground";
 import { AccentBars, SpotlightBeam, StreakField } from "../components/SpotlightArtifacts";
 import { SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
+import { ZoomCropVideo } from "../components/ZoomCropVideo";
 
 /**
  * Statement — Sentence Drop
@@ -16,6 +17,11 @@ export const Statement: React.FC<SpotlightLayoutProps> = ({
   narration,imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   highlightWord,
   accentColor,
   bgColor,
@@ -58,7 +64,7 @@ export const Statement: React.FC<SpotlightLayoutProps> = ({
       {/* Decorative artifacts — drifting stage light + streak energy. */}
       <SpotlightBeam mode="drift" targetX={p ? 50 : 62} intensity={0.8} />
       <StreakField accentColor={accentColor} count={9} seed={25} startFrame={6} />
-      {!imageUrl && <AccentBars accentColor={accentColor} position="top-left" count={2} startFrame={6} />}
+      {!imageUrl && !videoUrl && <AccentBars accentColor={accentColor} position="top-left" count={2} startFrame={6} />}
 
       <div
         style={{
@@ -72,7 +78,7 @@ export const Statement: React.FC<SpotlightLayoutProps> = ({
           gap: p ? 30 : 60,
         }}
       >
-        {imageUrl && (
+        {(imageUrl || videoUrl) && (
           <div
             style={{
               flex: p ? "none" : "0 0 38%",
@@ -84,17 +90,29 @@ export const Statement: React.FC<SpotlightLayoutProps> = ({
               transform: `scale(${imageScale})`,
             }}
           >
-            <Img
-              src={imageUrl}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
-                objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
-                transform: `scale(${imageZoom ?? 1})`,
-                transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
-              }}
-            />
+            {videoUrl ? (
+              <ZoomCropVideo
+                src={videoUrl}
+                imageObjectPosition={imageObjectPosition}
+                imageZoom={imageZoom}
+                muted={videoMuted ?? true}
+                volume={videoVolume ?? 0.35}
+                durationInFrames={videoDurationInFrames}
+                startInFrames={videoStartInFrames}
+              />
+            ) : (
+              <Img
+                src={imageUrl!}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
+                  objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
+                  transform: `scale(${imageZoom ?? 1})`,
+                  transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
+                }}
+              />
+            )}
           </div>
         )}
 

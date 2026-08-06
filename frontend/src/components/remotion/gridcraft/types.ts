@@ -32,6 +32,12 @@ export interface GridcraftLayoutProps {
   imageUrl?: string;
   imageObjectPosition?: string;
   imageZoom?: number;
+  // Stock footage: when videoUrl is set it REPLACES imageUrl in the same slot.
+  videoUrl?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  videoDurationInFrames?: number;
+  videoStartInFrames?: number;
   accentColor: string;
   bgColor: string;
   textColor: string;

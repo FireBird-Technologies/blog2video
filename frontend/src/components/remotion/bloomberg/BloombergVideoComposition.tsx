@@ -34,6 +34,13 @@ export interface BloombergSceneInput {
   imageUrl?: string;
   imageObjectPosition?: string;
   imageZoom?: number;
+  videoUrl?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  /** Normalised clip length, in seconds; converted to frames for <Loop>. */
+  videoDurationSeconds?: number;
+  /** Start offset into the clip, in seconds (the adjust-modal trim). */
+  videoStartSeconds?: number;
   voiceoverUrl?: string;
   avatarUrl?: string;
   /** Per-scene avatar overrides; undefined = inherit the project setting. */
@@ -377,6 +384,12 @@ export const BloombergVideoComposition: React.FC<
         const focusX = typeof lp.imageFocusX === "number" ? lp.imageFocusX : 50;
         const focusY = typeof lp.imageFocusY === "number" ? lp.imageFocusY : 50;
         const resolvedZoom = typeof lp.imageZoom === "number" ? lp.imageZoom : (scene.imageZoom ?? 1);
+        const videoDurationInFrames = scene.videoDurationSeconds
+          ? Math.max(1, Math.round(scene.videoDurationSeconds * FPS))
+          : undefined;
+        const videoStartInFrames = scene.videoStartSeconds
+          ? Math.max(0, Math.round(scene.videoStartSeconds * FPS))
+          : undefined;
 
         const layoutProps: BloombergLayoutProps = {
           ...lp,
@@ -389,6 +402,11 @@ export const BloombergVideoComposition: React.FC<
           imageUrl: scene.imageUrl,
           imageObjectPosition: scene.imageObjectPosition ?? `${focusX}% ${focusY}%`,
           imageZoom: resolvedZoom,
+          videoUrl: scene.videoUrl,
+          videoMuted: scene.videoMuted ?? true,
+          videoVolume: scene.videoVolume ?? 0.35,
+          videoDurationInFrames,
+          videoStartInFrames,
           layoutType: scene.layout,
           fontFamily,
         };

@@ -17,6 +17,7 @@ import { BackgroundMusic } from "../../components/BackgroundMusic";
 import { CaptionTrack } from "../../components/CaptionTrack";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 import { pickSakuraTransition, SAKURA_TRANSITION_FRAMES } from "./sakuraTransitions";
+import { SceneDurationInFramesContext } from "../SceneDurationContext";
 
 interface SceneData {
   id: number;
@@ -44,6 +45,14 @@ interface SceneData {
   avatarFocusY?: number;
   avatarZoom?: number;
   images: string[];
+  /** Stock-footage filename in public/. Mutually exclusive with `images`. */
+  video?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  /** Normalised clip length; converted to frames for <Loop>. */
+  videoDurationSeconds?: number;
+  /** Start offset into the clip, in seconds (the adjust-modal trim). */
+  videoStartSeconds?: number;
 }
 
 interface VideoData {
@@ -239,6 +248,7 @@ export const SakuraVideo: React.FC<VideoProps> = ({ dataUrl }) => {
     const { scene, durationFrames } = r;
     const raw = scene.layoutProps as Record<string, unknown>;
     const imageUrl = scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
+    const videoUrl = scene.video ? staticFile(scene.video) : undefined;
     const focusX = Math.max(0, Math.min(100, Number(raw?.imageFocusX ?? 50)));
     const focusY = Math.max(0, Math.min(100, Number(raw?.imageFocusY ?? 50)));
     return {
@@ -251,6 +261,15 @@ export const SakuraVideo: React.FC<VideoProps> = ({ dataUrl }) => {
       aspectRatio: data.aspectRatio || "landscape",
       sceneDurationInFrames: durationFrames,
       imageUrl,
+      videoUrl,
+      videoMuted: scene.videoMuted ?? true,
+      videoVolume: scene.videoVolume ?? 0.35,
+      videoDurationInFrames: scene.videoDurationSeconds
+        ? Math.max(1, Math.round(scene.videoDurationSeconds * FPS))
+        : undefined,
+      videoStartInFrames: scene.videoStartSeconds
+        ? Math.max(0, Math.round(scene.videoStartSeconds * FPS))
+        : undefined,
       imageObjectPosition: `${focusX}% ${focusY}%`,
       imageZoom: Math.max(0.1, Number(raw?.imageZoom ?? 1)),
       fontFamily: resolvedFontFamily || undefined,
@@ -313,7 +332,9 @@ export const SakuraVideo: React.FC<VideoProps> = ({ dataUrl }) => {
               key={`seq-${scene.id}-${index}`}
               durationInFrames={r.sequenceFrames}
             >
-              <LayoutComponent {...layoutProps} />
+              <SceneDurationInFramesContext.Provider value={r.durationFrames}>
+                <LayoutComponent {...layoutProps} />
+              </SceneDurationInFramesContext.Provider>
             </TransitionSeries.Sequence>
           );
 

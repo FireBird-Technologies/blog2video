@@ -17,6 +17,8 @@ Confirmed public (no get_current_user dependency):
 """
 import pytest
 
+from app.models.user import FREE_TIER_INCLUDED_VIDEOS
+
 pytestmark = pytest.mark.smoke
 
 
@@ -41,7 +43,7 @@ def test_get_billing_plans__plan_out_shape(client):
                   "includes_studio", "includes_chat_editor", "sort_order"):
         assert field in plan
     assert plan["price_cents"] == 0
-    assert plan["video_limit"] == 2
+    assert plan["video_limit"] == FREE_TIER_INCLUDED_VIDEOS
 
 
 # ─── POST /api/contact/enterprise ───────────────────────────────────────────

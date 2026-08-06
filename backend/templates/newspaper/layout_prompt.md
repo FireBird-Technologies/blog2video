@@ -1,4 +1,6 @@
 Layout catalog for Newspaper template
+
+**Never output `assignedVideo`, `videoUrl`, `videoMuted`, or `videoVolume`** — stock-footage clips are chosen by the user in the editor after generation, and inventing one breaks rendering.
 =====================================
 
 Use these layout IDs **exactly** when suggesting `preferred_layout` for scenes using the `newspaper` template. Think like an editor: each scene should feel like a distinct article element. Distribute layouts across the story (headline → lead → quotes → data → fact-check → timeline) instead of repeating one layout.

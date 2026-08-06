@@ -17,11 +17,686 @@ function faq(primary: string, variant: string) {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "best-ai-tools-for-substack-writers",
+    title: "Top 5 AI Tools for Substack Writers in 2026",
+    description:
+      "Most \"best AI tools\" lists are just writing assistants with different logos. Substack's real bottlenecks in 2026 are video and discovery. Here are the five tools worth paying for, and what each one is actually for.",
+    category: "Comparison",
+    publishedAt: "2026-07-31",
+    readTime: "9 min read",
+    heroEyebrow: "Tool stack",
+    heroTitle: "Top 5 AI Tools for Substack Writers in 2026",
+    heroDescription:
+      "Only one of these five is a writing tool, and that is deliberate. Writing volume was never what limited a publication — video presence and discovery are.",
+    primaryKeyword: "ai tools for substack",
+    keywordVariant: "best ai tools for substack writers",
+    relatedPaths: [
+      "/for-substack-writers",
+      "/for-substack-writers/blog-to-video",
+      "/blogs/how-to-grow-your-substack-newsletter",
+      "/blogs/bloghub-product-hunt-for-blogs",
+      "/blogs/substack-newsletter-to-video-workflow",
+    ],
+    sections: [
+      {
+        heading: "Every list of Substack AI tools answers the wrong question",
+        paragraphs: [
+          "Every \"best AI tools for Substack\" list is the same list. ChatGPT, Jasper, Grammarly, some SEO wrapper, a Canva mention at the bottom. All of them answer the same question: how do I produce more words?",
+          "That is the wrong question. Nobody's Substack is failing because they could not generate enough paragraphs. In 2026 there is an infinite supply of competent paragraphs, and the marginal value of one more is approximately zero.",
+          "The two things that actually decide whether a publication grows are unglamorous: whether your ideas exist in video, and whether anyone can find you. Substack itself has been telling you this — Notes and the app now drive the majority of new subscriptions rather than search, and the platform has been pushing hard into video posts and live video. So this list is organised by job to be done, not by leaderboard. In the interest of disclosure, we build two of the five.",
+        ],
+      },
+      {
+        heading: "1. Blog2Video — turn a post into a video without becoming a video editor",
+        paragraphs: [
+          "The job: getting your writing onto the channel where the audience is. Substack has spent two years building video infrastructure, and most writers still publish text only — not because their ideas do not work in video, but because producing a 60-second video and writing a 1,500-word essay have almost nothing in common operationally.",
+          "Blog2Video closes that gap by starting from the post you already wrote. Paste the URL of a Substack issue, pick a template, and you get a video that follows your actual structure — your headings, your argument, your examples — rather than a generic AI summary that could have come from anyone.",
+          "What it is not: a talking-head avatar generator. If you want a synthetic version of your face reading a script, this is the wrong tool. Use it for the two or three posts a month that deserve a second life — not every issue needs a video, but the ones with a strong central argument do.",
+        ],
+        bullets: [
+          "Works from a real URL, PDF, or doc instead of a prompt, so the specifics survive",
+          "Human-made templates assembled with AI, which is why the output does not read as slop",
+          "Scene-level editing after generation, so you can fix pacing without starting over",
+          "Output sized for Notes, Shorts, Reels, and TikTok from one source post",
+        ],
+        ctaPath: "/for-substack-writers/blog-to-video",
+        ctaLabel: "Turn a Substack issue into a video",
+      },
+      {
+        heading: "2. Claude — the drafting partner that argues back",
+        paragraphs: [
+          "The job: thinking, structuring, and editing. Not ghostwriting. The distinction matters more than it used to. If a model writes your ideas, you get exactly the undifferentiated text that has become worthless. If a model pressure-tests ideas you already have, you get a better essay with your voice intact.",
+          "Claude is the strongest of the general assistants for long-form work specifically because it holds a whole draft in context and can tell you which paragraph is doing no work. Ask it to steelman the opposite position before you publish. Ask it where a reader would stop reading. Those are useful. \"Write me a newsletter about X\" is not.",
+          "Skip the $49–125/month brand-voice wrappers. For a solo publication they are a premium skin on a model you can access for $20.",
+        ],
+      },
+      {
+        heading: "3. Perplexity — research with receipts",
+        paragraphs: [
+          "The job: finding sources fast without hallucinating them. The failure mode of using a chatbot for research is confident, fabricated citations. Perplexity's whole design is search-first with linked sources, which makes it the right tool for the part of the job where being wrong is expensive.",
+          "For any publication that touches finance, policy, health, or tech news, this is the highest-leverage subscription on the list — it collapses the \"spend two hours finding the primary source\" step without asking you to trust an unsourced claim. Always click through before you cite: the tool finds links, it does not vouch for them.",
+        ],
+      },
+      {
+        heading: "4. Ideogram — cover images that can actually hold text",
+        paragraphs: [
+          "The job: the thumbnail, which is doing more work than you think. In the Substack app and in Notes, your cover image is a large part of the click decision. Most image models still mangle text, which is a problem when the thing you want on the image is your headline.",
+          "Ideogram's differentiator is legible typography in generated images, which makes it materially more useful than a general image generator for newsletter covers, quote cards, and Notes graphics. If you want templates and brand kits more than you want generation, Canva is the alternative.",
+        ],
+      },
+      {
+        heading: "5. BlogHub — a discovery surface that is not an algorithm",
+        paragraphs: [
+          "The job: being found at all, especially in year one. This is the problem nobody's tool stack addresses. Notes is a real discovery engine, but it is still an engagement-optimised feed, which means it rewards what performs rather than what is good. A publication with zero readers has almost no mechanism to break in.",
+          "BlogHub is built like Product Hunt, but for publications. You list your Substack, get a profile page structured for both search engines and AI answer engines, get backlinks to the publication and to individual posts, and rise through community upvotes rather than paid placement.",
+          "The AEO angle is the underrated part. When someone asks ChatGPT or Perplexity \"what are the best newsletters about climate policy,\" the answer gets assembled from structured, authoritative pages, and being on one is a cheap way to be in that answer set. Honest caveat: BlogHub is in beta. It is a real discovery surface, not a traffic firehose.",
+        ],
+        ctaPath: "https://bloghub.app",
+        ctaLabel: "List your publication on BlogHub",
+      },
+      {
+        heading: "What this stack actually costs",
+        paragraphs: [
+          "Roughly $40–60 a month for the paid pieces, depending on which subscriptions you keep. That is the entire operational budget for a serious one-person publication in 2026, which is a genuinely strange thing to be able to say.",
+          "More importantly: notice that only one of the five is a writing tool. That ratio is the point. If your stack is four writing assistants and nothing else, you have optimised the one part of the job that was never scarce.",
+        ],
+      },
+      {
+        heading: "The honest version of the advice",
+        paragraphs: [
+          "Do not adopt five tools this week. Pick the bottleneck you actually have.",
+          "The tools are cheap and they are all reversible. The thing that is not reversible is spending another year producing excellent writing into a channel where nobody is looking for it.",
+        ],
+        bullets: [
+          "Publishing consistently but nobody sees it? That is discovery — start with BlogHub and Notes.",
+          "Getting read but not shared? That is format — start with video.",
+          "Struggling to finish drafts? That is process — use Claude to structure, not to write.",
+          "Spending your good hours on research? Perplexity.",
+          "Good posts, dead click-through? Your covers — Ideogram.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "What are the best AI tools for Substack writers in 2026?",
+        answer:
+          "The stack that maps to real bottlenecks: Claude for drafting and structural editing, Perplexity for sourced research, Ideogram for cover images, Blog2Video for turning posts into video, and BlogHub for discovery. Only one of those is a writing tool, which is deliberate — writing volume is not what limits most publications.",
+      },
+      {
+        question: "Does Substack have its own AI tools?",
+        answer:
+          "Substack provides audio narration and publishing infrastructure including video posts and live video, but it does not generate your content, your visuals, or your video for you. The tools on this list fill those gaps around the platform rather than replacing it.",
+      },
+      {
+        question: "Will using AI hurt my Substack?",
+        answer:
+          "It depends entirely on which part of the job you hand over. If a model supplies the ideas, you produce the same undifferentiated text as everyone else and readers eventually notice. If it handles research, production, and formatting while your thinking supplies the substance, it is leverage.",
+      },
+      {
+        question: "Do I need video for a Substack newsletter?",
+        answer:
+          "You do not need it, but video is where discovery is heading on the platform, and Substack has invested heavily in it while most writers have not. That gap is currently an advantage for whoever moves first in a given niche.",
+      },
+      {
+        question: "How do I turn a Substack post into a video?",
+        answer:
+          "Paste the issue URL into Blog2Video, choose a template, and edit the generated scenes before exporting. It works from the published post, so the structure and examples from your writing carry through instead of being flattened into a generic script.",
+      },
+      {
+        question: "What is bloghub.app?",
+        answer:
+          "A Product Hunt-style discovery platform for blogs and publications. Listing is free and gives you a profile page optimised for search and AI answer engines, backlinks to your publication and posts, and a community-ranked feed where new publications can surface on merit.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Top 5 AI Tools for Substack Writers in 2026",
+        angle:
+          "Capture 'ai tools for substack' search demand with a listicle that reframes the category — the bottleneck is distribution, not writing volume — and lands Blog2Video and BlogHub as the two tools nobody else on the list covers.",
+      },
+      {
+        channel: "substack",
+        title: "Four of the five tools on my stack are not writing tools",
+        angle:
+          "Founder note to newsletter readers. Lead with the ratio observation, then walk the five bottlenecks. Disclosure of the two we build stated up front, not buried.",
+      },
+      {
+        channel: "twitter",
+        title: "Every 'best AI tools for Substack' list answers the wrong question",
+        angle:
+          "Thread: one tweet per bottleneck. Hook on the fact that nobody's Substack failed from a shortage of paragraphs. End on the video/discovery gap and the two products built for it.",
+      },
+      {
+        channel: "video",
+        title: "The 5-tool Substack stack (only one writes)",
+        angle:
+          "Fast-cut explainer, one scene per tool, showing the actual job each does. Close on turning the issue you just published into the video you are watching.",
+      },
+    ],
+  },
+  {
+    slug: "blogging-is-not-dead-authentic-writing-2026",
+    title: "Blogging Is Dead? I'm Betting My Entire Company That Authentic Writing Is Back",
+    description:
+      "Everyone can prompt ChatGPT to pump out paragraphs, so blogging is over. That is the 2026 consensus. Here is why authentic writing has never been more valuable, and the two products we are building on that conviction.",
+    category: "Opinion",
+    publishedAt: "2026-07-31",
+    readTime: "6 min read",
+    heroEyebrow: "Opinion",
+    heroTitle: "Blogging Is Dead? I'm Betting My Entire Company That Authentic Writing Is Back",
+    heroDescription:
+      "The \"blogging is dead\" argument only proves that undifferentiated writing is dead. Authentic writing has two distribution problems instead — and those are the ones we are building for.",
+    primaryKeyword: "is blogging dead in 2026",
+    keywordVariant: "blogging dead ai content",
+    relatedPaths: [
+      "/blog-to-video",
+      "/for-substack-writers/blog-to-video",
+      "/distribution-flywheel",
+      "/blogs/content-with-no-second-life",
+    ],
+    sections: [
+      {
+        heading: "The claim you will keep hearing in 2026",
+        paragraphs: [
+          "Blogging is dead. That is what you will keep hearing this year. \"Everyone can prompt ChatGPT to pump out paragraphs. There is no reliable way to tell AI-generated text from human writing. It is so over for bloggers.\"",
+          "What if I told you that authentic writing has never been so back? If you write authentic content, you will find an audience. I have enough conviction in that idea that I am betting my entire company on it.",
+        ],
+      },
+      {
+        heading: "What the argument actually proves",
+        paragraphs: [
+          "Strip the doom out of it and the argument is narrower than it sounds. It says: text is now cheap to generate, so text no longer signals effort, so text no longer carries value. The first two parts are true. The third does not follow.",
+          "What became worthless is undifferentiated writing — the SEO-shaped, keyword-first, could-have-been-written-by-anyone kind. That was already a commodity before the models arrived; they just made it obvious. What did not become worthless is a specific person with a specific point of view, real experience, and something at stake in the argument.",
+          "If anything, when the volume of generic text goes up, the value of a voice you recognise goes up with it. Scarcity moved. It did not disappear.",
+        ],
+      },
+      {
+        heading: "Problem one: short-form video is where the attention is, and bloggers are not there",
+        paragraphs: [
+          "Most people now discover ideas through short-form video. That is where the attention is, and it is not going back.",
+          "Bloggers have almost no presence on those platforms — not because their ideas do not work in video, but because video production is a completely different skill set with a completely different cost structure. Writing a good 1,500-word post and producing a good 60-second video have almost nothing in common operationally. So writers keep publishing into the channel they know, while the audience keeps moving to the one they do not.",
+          "That is a distribution gap, not a talent gap.",
+        ],
+      },
+      {
+        heading: "Problem two: social feeds got worse at surfacing human writing",
+        paragraphs: [
+          "The second problem is discovery. Social platforms are now saturated with AI-generated content, which makes it materially harder to find authentic human writing in the flood.",
+          "The algorithms are not helping, because they are not optimising for what you would want them to. They optimise for engagement, which in practice means clickbait — not insight, not craft, not the piece that changes how someone thinks.",
+          "So the writer with the genuinely good essay is competing against an infinite supply of content engineered specifically to beat the ranking system. Being good is not the constraint. Being found is.",
+        ],
+      },
+      {
+        heading: "Our answer to the video gap: Blog2Video",
+        paragraphs: [
+          "My team and I are investing everything into tools for bloggers, aimed squarely at those two problems.",
+          "Blog2Video generates a video from your post in minutes, using templates crafted by humans and assembled with AI. The distinction that matters to us is that your authentic voice stays intact — it is your argument, your structure, your words, packaged for the channel where the audience actually is. Video without the slop.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Turn a post into a video",
+      },
+      {
+        heading: "Our answer to the discovery gap: BlogHub",
+        paragraphs: [
+          "bloghub.app is a launch platform for publications, still in beta. Think Product Hunt, but for writing.",
+          "The premise is that new writers need somewhere their work can be surfaced on its merits rather than on how well it games a feed. A launch moment, a place to be discovered, an audience actively looking for new publications instead of scrolling past them.",
+        ],
+      },
+      {
+        heading: "We have not solved this yet",
+        paragraphs: [
+          "I want to be honest about where this is: we are iterating and improving both platforms, validating them with actual user feedback.",
+          "We are not claiming to have found the perfect solution. We are claiming the problems are real, the bet is worth making, and we are getting closer. If you write, and you have felt both of these problems, I would rather hear from you than pitch you.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Is blogging actually dead in 2026?",
+        answer:
+          "No. Generic, undifferentiated writing lost its value because it became free to produce. Writing with a recognisable voice, real experience, and an actual point of view did not — it got scarcer relative to everything else, which makes it more valuable rather than less.",
+      },
+      {
+        question: "If AI text is indistinguishable from human text, does authenticity even matter?",
+        answer:
+          "It matters at the level of the body of work, not the individual paragraph. Readers may not be able to classify a single sentence, but over time they can tell whether a writer has been anywhere, believes anything, or is worth returning to.",
+      },
+      {
+        question: "Why do bloggers need video at all?",
+        answer:
+          "Because short-form video is where most people now discover ideas. The point is not to abandon writing for video — it is to stop letting the format gap decide who gets found.",
+      },
+      {
+        question: "Does turning a blog post into a video make it AI slop?",
+        answer:
+          "It depends on what is being generated. If the model writes the ideas, you get slop. If the model handles the production work while your writing supplies the substance, you get your own piece in a second format.",
+      },
+      {
+        question: "What is bloghub.app?",
+        answer:
+          "A launch platform for publications — Product Hunt for writing. It is in beta, built to give new writers a discovery surface that is not a social algorithm optimising for clickbait.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Blogging Is Dead? I'm Betting My Entire Company That Authentic Writing Is Back",
+        angle:
+          "Lead with the 2026 consensus, dismantle it in one move (undifferentiated writing died, not authentic writing), then name the two real problems and what we are building for each.",
+      },
+      {
+        channel: "twitter",
+        title: "Blogging is DEAD. That is what you will keep hearing in 2026.",
+        angle:
+          "Thread: the doom take only proves commodity text is dead. The two actual problems are video presence and broken social discovery. End on the bet — we are putting the whole company behind it.",
+      },
+      {
+        channel: "video",
+        title: "Why I'm betting my company on blogging in 2026",
+        angle:
+          "Founder-voice explainer over a stickman or Chronicle template. Two problems, two products, one honest admission that it is not solved yet. Link back to /blogs/blogging-is-not-dead-authentic-writing-2026.",
+      },
+    ],
+  },
+  {
+    slug: "how-much-is-my-substack-newsletter-worth",
+    title: "How Much Is My Substack Worth? The Valuation Formula, Explained",
+    description:
+      "Paid newsletters sell for roughly 2x to 5x annual revenue. Here is what moves you inside that range — churn, audience geography, niche, scale, and growth — and how to estimate your own number.",
+    category: "Guide",
+    heroImage: "/blog/blog-cover-how-much-is-my-substack-newsletter-worth.png",
+    heroImageAlt:
+      "Paid newsletters sell for roughly 2x to 5x annual revenue. Here is what moves you inside that range — churn, audience geography, niche, scale, and growth — and how to estimate your own number.",
+    publishedAt: "2026-07-28",
+    readTime: "9 min read",
+    heroEyebrow: "Guide",
+    heroTitle: "How Much Is My Substack Worth? The Valuation Formula, Explained",
+    heroDescription:
+      "Paid newsletters sell for roughly 2x to 5x annual revenue. Here is what moves you inside that range — churn, audience geography, niche, scale, and growth — and how to estimate your own number.",
+    primaryKeyword: "how much is my substack worth",
+    keywordVariant: "substack newsletter valuation",
+    relatedPaths: [
+      "/tools/substack-valuation-calculator",
+      "/tools/substack-revenue-calculator",
+      "/blogs/newsletter-valuation-multiples-explained",
+      "/for-substack-writers/blog-to-video",
+    ],
+    sections: [
+      {
+        heading: "The short answer",
+        paragraphs: [
+          "A paid Substack newsletter is typically worth 2x to 5x its annual revenue. A publication earning $100,000 a year usually sells somewhere between $200,000 and $500,000. Where you land inside that range is decided mostly by churn, then by growth rate, audience quality, and how much the publication depends on you personally.",
+          "That is the whole formula in one sentence. The rest of this piece is about the second half of it — because the gap between 2x and 5x is the difference between $200,000 and $500,000 on the same revenue, and that gap is where all the real money is.",
+        ],
+      },
+      {
+        heading: "Why revenue multiples, and not subscriber counts",
+        paragraphs: [
+          "Writers tend to think in subscribers. Buyers think in revenue. A 100,000-subscriber free list with no paid tier is worth far less than a 900-subscriber paid list at $15 a month, because only one of them has proven that people will pay.",
+          "This is why per-subscriber rules of thumb are misleading. The number that matters is annual recurring revenue, and the multiple applied to it is a judgment about how durable that revenue is. Everything below is really a statement about durability.",
+        ],
+      },
+      {
+        heading: "Churn is the single biggest lever",
+        paragraphs: [
+          "Churn decides how long the revenue a buyer is purchasing actually lasts, which makes it the most heavily weighted input in almost any newsletter valuation.",
+          "The math is unforgiving. At 7% monthly churn, the average subscriber sticks around about 14 months. At 1.5%, they stay about 67 months — nearly five times longer. A buyer purchasing the second business is buying five years of a relationship; a buyer purchasing the first is buying just over one. They will not pay the same multiple, and they should not.",
+          "If you are planning to sell in the next couple of years, cutting churn is worth more than adding subscribers. It compounds into the multiple itself rather than just into this year's revenue line.",
+        ],
+        bullets: [
+          "Below 2% monthly churn: exceptional, and priced as such.",
+          "Around 3% to 4%: normal for a healthy paid newsletter.",
+          "Above 6%: a buyer will discount hard, or walk.",
+        ],
+      },
+      {
+        heading: "Where your readers live changes what they are worth",
+        paragraphs: [
+          "Two newsletters with identical revenue are not identically valuable if one list is concentrated in high-income markets and the other is not.",
+          "This is not about the revenue you have today — a subscriber pays the same USD price wherever they live. It is about what happens next. A high-income list absorbs price increases better, commands higher sponsorship rates, and is less exposed to currency moves and discretionary-spending shocks. Buyers price that forward risk.",
+          "The honest version of this adjustment is a dampened one. Weighting your paid list by GDP per capita against a US benchmark gets you a directional signal, but applying it at full strength would be wrong, since it would discount revenue you are already reliably collecting. Our calculator dampens it heavily for exactly this reason, and lets you turn it down further if you disagree.",
+        ],
+      },
+      {
+        heading: "Niche, priced the way the market already prices it",
+        paragraphs: [
+          "An AI newsletter and a recipe newsletter with the same revenue do not fetch the same multiple. Rather than inventing a ranking of which topics are fashionable, the cleanest approach is to read it off the public markets, which price categories all day long.",
+          "Compare the price-to-sales ratio of the listed sector closest to your topic against the market as a whole. Information technology trades at a large premium to the index; consumer staples and energy trade at a discount. Finance sits modestly above. That relative spread is a reasonable proxy for how much appetite there is for exposure to your category.",
+          "As with geography, the raw spread is far too wide to apply directly — sectors can differ by 8x, and no one thinks a cooking newsletter is worth an eighth of an AI one. Dampen it, and let it tilt the number rather than decide it.",
+        ],
+      },
+      {
+        heading: "Scale and growth: the two things that move the multiple up",
+        paragraphs: [
+          "Larger businesses sell for higher multiples. There is less key-person risk, more institutional buyers able to write the cheque, and more of an actual operation to acquire rather than one person's habit. The effect is roughly logarithmic — each 10x of revenue adds a step, rather than scaling linearly.",
+          "Growth works the same way but faster. A buyer is purchasing next year's revenue, not last year's. A list still compounding at 3% a month is on a very different trajectory from a flat one at the same size, and gets paid for it.",
+          "These are the two factors most within your control on a 12-month horizon, and the two most worth optimising before a conversation with a buyer.",
+        ],
+      },
+      {
+        heading: "What the model cannot see",
+        paragraphs: [
+          "Every valuation model, including ours, is blind to the thing that most often decides a newsletter sale: whether the audience follows the writer or the publication.",
+          "If readers subscribed for your voice, the business does not fully transfer, and sophisticated buyers know it. Publications with a distinct editorial identity, a repeatable format, or multiple contributors survive the handover far better than a one-person column does. This is why some newsletters sell at 5x and structurally identical ones struggle to clear 2x.",
+          "Sponsorship concentration is the other blind spot. Revenue that depends on three advertiser relationships you personally maintain is worth less than the same revenue spread across a thousand subscribers, even though both show up identically in ARR.",
+        ],
+      },
+      {
+        heading: "Estimate your own number",
+        paragraphs: [
+          "We built a calculator that runs this whole model: base revenue multiple, adjusted for audience GDP per capita, sector price-to-sales, churn, scale, and growth — with weight sliders on every factor so you can dial out any adjustment you disagree with.",
+          "It also shows the distribution rather than a single figure, because a valuation is a range and anyone who gives you one number is selling you something.",
+        ],
+        ctaPath: "/tools/substack-valuation-calculator",
+        ctaLabel: "Value your newsletter",
+      },
+    ],
+    faq: [
+      {
+        question: "How much is a Substack newsletter worth?",
+        answer:
+          "Most paid newsletters sell for 2x to 5x annual revenue. A newsletter earning $100,000 a year is typically valued between $200,000 and $500,000, with churn, growth rate, and how transferable the publication is from its founding writer deciding where inside that range it lands.",
+      },
+      {
+        question: "What is the most important factor in a newsletter valuation?",
+        answer:
+          "Churn, because it determines how long the revenue a buyer is purchasing actually lasts. A newsletter at 1.5% monthly churn has an implied subscriber lifetime nearly five times longer than one at 7%, and buyers price that difference aggressively.",
+      },
+      {
+        question: "Can you value a free newsletter with no paid subscribers?",
+        answer:
+          "Only loosely, and at much lower multiples. Without paid conversion there is no proven willingness to pay, so buyers value a free list on sponsorship potential or on a per-subscriber basis that is usually a small fraction of what a paid list commands.",
+      },
+      {
+        question: "Does audience location really affect newsletter value?",
+        answer:
+          "Yes, but less than people assume. A subscriber pays the same USD price wherever they live, so it does not discount current revenue. It affects forward risk: high-income lists absorb price increases better and command higher sponsorship rates, so the adjustment should be applied in a heavily dampened form.",
+      },
+      {
+        question: "How do I increase what my newsletter is worth before selling?",
+        answer:
+          "Cut churn first, since it lifts the multiple rather than just this year's revenue. Then work on growth rate, reduce dependence on any single sponsor, and build editorial identity that is not purely your personal voice so the audience transfers to a buyer.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How Much Is My Substack Worth? The Valuation Formula, Explained",
+        angle:
+          "Answer the head question directly in the first paragraph, then break down the five factors that decide where inside the 2x-5x range a newsletter lands. Drive to the valuation calculator.",
+      },
+      {
+        channel: "twitter",
+        title: "Your newsletter is worth 2-5x annual revenue. Here is what decides which.",
+        angle:
+          "Thread on the churn math: 7% monthly churn is a 14-month subscriber lifetime, 1.5% is 67 months. Same revenue, wildly different price. Link the calculator.",
+      },
+      {
+        channel: "video",
+        title: "What is your Substack actually worth?",
+        angle:
+          "Narrated explainer walking through the valuation bridge — base multiple, then each adjustment moving the number up or down. Link back to /tools/substack-valuation-calculator.",
+      },
+    ],
+  },
+  {
+    slug: "newsletter-valuation-multiples-explained",
+    title: "Newsletter Valuation Multiples: Why Two Publications With the Same Revenue Sell for Different Prices",
+    description:
+      "Same ARR, very different price. A breakdown of the adjustments buyers actually apply to a newsletter revenue multiple — and how to work out which ones are costing you.",
+    category: "Guide",
+    heroImage: "/blog/blog-cover-newsletter-valuation-multiples-explained.png",
+    heroImageAlt:
+      "Same ARR, very different price. A breakdown of the adjustments buyers actually apply to a newsletter revenue multiple — and how to work out which ones are costing you.",
+    publishedAt: "2026-07-28",
+    readTime: "8 min read",
+    heroEyebrow: "Guide",
+    heroTitle: "Why Two Newsletters With the Same Revenue Sell for Different Prices",
+    heroDescription:
+      "Same ARR, very different price. A breakdown of the adjustments buyers actually apply to a newsletter revenue multiple — and how to work out which ones are costing you.",
+    primaryKeyword: "newsletter valuation multiple",
+    keywordVariant: "what multiple do newsletters sell for",
+    relatedPaths: [
+      "/tools/substack-valuation-calculator",
+      "/blogs/how-much-is-my-substack-newsletter-worth",
+      "/tools/substack-revenue-calculator",
+      "/for-newsletters/url-to-video",
+    ],
+    sections: [
+      {
+        heading: "The short answer",
+        paragraphs: [
+          "Newsletters sell on a multiple of annual revenue, usually between 2x and 5x. Two publications with identical revenue get different multiples because a multiple is not a price for revenue — it is a price for how long that revenue will keep arriving after the founder leaves.",
+          "Everything a buyer adjusts for is a proxy for that one question.",
+        ],
+      },
+      {
+        heading: "Start with the anchor, then adjust",
+        paragraphs: [
+          "The workable way to think about this is a base multiple with adjustments stacked on top. Anchor around 3.2x annual revenue — roughly the midpoint of observed small subscription-media deals — and then move it.",
+          "Each adjustment is a multiplier centred on 1.0. Something that makes the business more durable pushes above 1.0; something that makes it riskier pulls below. Multiply them together and you have your multiple. The value of framing it this way is that you can see which single factor is costing you the most, instead of staring at one opaque number.",
+        ],
+      },
+      {
+        heading: "Adjustment 1: retention",
+        paragraphs: [
+          "The largest adjustment, and the one most worth fixing. Monthly churn converts directly into implied subscriber lifetime: divide 100 by your monthly churn percentage to get the number of months an average subscriber stays.",
+          "Benchmark against roughly 3.5% monthly churn for a healthy paid newsletter. Beating it moves you up; missing it moves you down. Note that this adjustment should be dampened rather than applied at full strength — a newsletter with half the benchmark churn is not worth double, because other risks do not disappear just because retention is strong.",
+        ],
+      },
+      {
+        heading: "Adjustment 2: growth",
+        paragraphs: [
+          "A buyer is purchasing forward revenue. At 3% monthly growth a list compounds roughly 43% a year; at 0.5% it manages about 6%. Over a three-year ownership period those two businesses diverge enormously, and the multiple reflects it.",
+          "Growth is also the fastest adjustment to move deliberately. Retention improvements take a year to show up in the data. A visible growth trend can be established in a quarter.",
+        ],
+      },
+      {
+        heading: "Adjustment 3: scale",
+        paragraphs: [
+          "Bigger businesses get better multiples. A $40,000-a-year newsletter and a $2,000,000-a-year one do not sell at the same ratio even with identical metrics, because the larger one has less key-person risk, more buyers able to transact, and something resembling an operation rather than a habit.",
+          "Treat this logarithmically. Each 10x of revenue adds a comparable step to the multiple rather than a proportional one. Around $250,000 ARR the adjustment is roughly neutral; well below that you are taking a discount, and well above it you are earning a premium.",
+        ],
+      },
+      {
+        heading: "Adjustment 4: category",
+        paragraphs: [
+          "Not all topics carry the same appetite. Rather than guessing, take the reading the public markets already publish: compare the price-to-sales ratio of the sector closest to your topic against the index.",
+          "Technology and AI-adjacent categories trade at a substantial premium to the market. Finance sits modestly above it. Media, consumer, food, and energy sit below. That relative position is a fair proxy for how much a buyer wants exposure to your category — but the raw spread between sectors is far too wide to apply literally, so dampen it into a tilt rather than a verdict.",
+        ],
+      },
+      {
+        heading: "Adjustment 5: audience quality",
+        paragraphs: [
+          "The last adjustment is who your readers are. Weighting your paid list by the GDP per capita of the countries they live in, benchmarked against the United States, gives a rough measure of forward pricing power.",
+          "Apply this one gently. It does not discount the revenue you already collect — everyone pays the same list price. It captures the difference in how much room you have to raise prices, what sponsors will pay to reach the list, and how exposed the revenue is to a downturn in any one market.",
+        ],
+      },
+      {
+        heading: "Revenue mix: the quiet discount",
+        paragraphs: [
+          "Two newsletters at $200,000 ARR are not equivalent if one is entirely subscriptions and the other is half sponsorship.",
+          "Sponsorship revenue is lumpier, less contractual, and often tied to relationships the founder personally holds. It does not vanish in a sale, but it widens the range of outcomes considerably — which in practice means a more cautious buyer and a lower offer. If a large share of your revenue is sponsorship, expect the negotiation to focus there.",
+        ],
+      },
+      {
+        heading: "Run it on your own numbers",
+        paragraphs: [
+          "Our valuation calculator applies exactly this stack — base multiple, then retention, growth, scale, category, and audience adjustments — and shows a bridge chart of how each one moves the number, plus the full distribution of outcomes rather than a single figure.",
+          "Every adjustment has a weight slider, so if you think one of them is wrong for your publication, turn it down and see what happens.",
+        ],
+        ctaPath: "/tools/substack-valuation-calculator",
+        ctaLabel: "Run your valuation",
+      },
+    ],
+    faq: [
+      {
+        question: "What multiple do newsletters sell for?",
+        answer:
+          "Typically 2x to 5x annual revenue, anchored around 3x for a healthy paid newsletter. Multiples above 4x usually require strong retention, visible growth, and meaningful scale. Below 2x generally signals high churn, heavy founder dependence, or concentrated sponsorship revenue.",
+      },
+      {
+        question: "Why do two newsletters with the same revenue sell for different prices?",
+        answer:
+          "Because a multiple prices durability, not revenue. Churn, growth rate, size, category, audience geography, and revenue mix all change how likely that revenue is to keep arriving after the founder leaves, and each one adjusts the multiple up or down.",
+      },
+      {
+        question: "Is sponsorship revenue valued the same as subscription revenue?",
+        answer:
+          "No. Sponsorship revenue is lumpier, rarely contractual beyond a few months, and often tied to relationships the founder holds personally. It counts toward ARR but widens the uncertainty in a valuation, which in practice produces a more cautious offer.",
+      },
+      {
+        question: "How is the category adjustment calculated?",
+        answer:
+          "By comparing the price-to-sales ratio of the listed sector closest to your topic against the wider market. Technology trades at a premium, consumer staples and energy at a discount. The raw spread is too wide to apply literally, so it is dampened into a tilt on the multiple.",
+      },
+      {
+        question: "What is the fastest way to improve my newsletter's multiple?",
+        answer:
+          "Establish a visible growth trend, which can be done in a quarter, then attack churn, which takes longer but moves the multiple more. Reducing dependence on any single sponsor and building editorial identity beyond your personal voice both help on a longer horizon.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Why Two Newsletters With the Same Revenue Sell for Different Prices",
+        angle:
+          "Break the newsletter valuation multiple into a base anchor plus five named adjustments, so readers can identify which one is costing them. Drive to the valuation calculator.",
+      },
+      {
+        channel: "twitter",
+        title: "Same ARR, half the price. Here is why.",
+        angle:
+          "Thread walking through the five adjustments buyers apply to a newsletter multiple, with the retention math as the hook. Link the calculator.",
+      },
+      {
+        channel: "video",
+        title: "The five adjustments that decide your newsletter's multiple",
+        angle:
+          "Narrated breakdown using the bridge chart to show each adjustment moving the valuation. Link back to /blogs/newsletter-valuation-multiples-explained.",
+      },
+    ],
+  },
+  {
+    slug: "blog2video-official-site-vs-copycats",
+    title: "Blog2Video: the Only Official Site, and the Copycats Using Our Name",
+    description:
+      "There is exactly one official Blog2Video, and it lives at blog2video.app. A growing list of look-alike sites and accounts have copied the name — here is the full list, and how to tell you are on the real one.",
+    category: "Announcement",
+    heroImage: "/blog/blog-cover-blog2video-official-site-vs-copycats.png",
+    heroImageAlt:
+      "blog2video.app official site with shield checkmark versus crossed-out copycat clone websites.",
+    publishedAt: "2026-07-21",
+    readTime: "3 min read",
+    heroEyebrow: "Announcement",
+    heroTitle: "Blog2Video: the Only Official Site, and the Copycats Using Our Name",
+    heroDescription:
+      "There is exactly one official Blog2Video, and it lives at blog2video.app. A growing list of look-alike sites and accounts have copied the name — here is the full list, and how to tell you are on the real one.",
+    primaryKeyword: "blog2video official site",
+    keywordVariant: "blog2video copycats and clones",
+    relatedPaths: ["/blog-to-video", "/blogs", "/pricing"],
+    sections: [
+      {
+        heading: "The short version",
+        paragraphs: [
+          "There is exactly one official Blog2Video, and it is blog2video.app — built and operated by FireBird Technologies.",
+          "Every other website, app, social account, or listing that uses the \"Blog2Video\" name is unaffiliated with us. We do not run them, we did not license the name to them, and we cannot vouch for what they do with your content, your payments, or your data.",
+        ],
+      },
+      {
+        heading: "The only official Blog2Video",
+        paragraphs: [
+          "The genuine product is at blog2video.app. It is the same tool documented across this blog, the FireBird Technologies newsletter, and our open-source repository at github.com/FireBird-Technologies/blog2video.",
+          "If you are paying for a subscription, logging in, or connecting an account, make sure the address bar reads exactly blog2video.app. Anything else is not us.",
+        ],
+      },
+      {
+        heading: "Sites and accounts we are NOT affiliated with",
+        paragraphs: [
+          "These use the \"Blog2Video\" name but are not connected to blog2video.app in any way. This list is not exhaustive — clones come and go — so treat any \"Blog2Video\" that is not blog2video.app as unaffiliated:",
+        ],
+        bullets: [
+          "blog2video.ai — a separate website running the near-identical pitch \"Turn Blog Posts into Videos with AI,\" with no company, footer, or contact information identifying who operates it. Not us.",
+          "The \"Blog2VideoAI\" YouTube channel — an account reusing the name; not our official channel.",
+          "The @blog2video account on X (Twitter) — a copycat account using our name; not operated by us.",
+          "Any other domain variation — such as blog2video.com, .io, .net, .co, or similar — and any app-store listing, browser extension, or reseller page trading on the \"Blog2Video\" name. If it is not blog2video.app, it is not us.",
+        ],
+      },
+      {
+        heading: "How to tell you are on the real one",
+        paragraphs: [
+          "A few quick checks before you sign up or pay:",
+        ],
+        bullets: [
+          "The domain is exactly blog2video.app — not a .ai, .com, .io, or a subdomain that merely contains \"blog2video.\"",
+          "It links back to FireBird Technologies and the open-source repo at github.com/FireBird-Technologies/blog2video.",
+          "The content, templates, and product updates match what you see on this blog and in our newsletter at firebird-technologies.com.",
+        ],
+      },
+      {
+        heading: "Why this matters",
+        paragraphs: [
+          "Copycats that borrow a name can borrow trust that they have not earned. When you hand a tool your draft, your voice, your API keys, or your card details, you are trusting whoever is actually behind it — and on the look-alike sites, that is not us and often nobody you can identify.",
+          "We are flagging this so nobody pays the wrong site by mistake, and so the work we publish under the Blog2Video name is not confused with tools we have no control over.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "One name, one official home: blog2video.app. If you got here through anything else, come to the real thing.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Go to the official Blog2Video",
+      },
+    ],
+    faq: [
+      {
+        question: "Is blog2video.ai the same as blog2video.app?",
+        answer:
+          "No. blog2video.app is the only official Blog2Video, built by FireBird Technologies. blog2video.ai is a separate, unaffiliated site that reuses the name. We do not operate it and are not connected to it.",
+      },
+      {
+        question: "How do I know I am on the official Blog2Video?",
+        answer:
+          "Check that the domain is exactly blog2video.app. It is tied to FireBird Technologies and the open-source repository at github.com/FireBird-Technologies/blog2video. Any other domain, app, or account using the name is unaffiliated.",
+      },
+      {
+        question: "Are the other 'Blog2Video' tools endorsed or licensed by you?",
+        answer:
+          "No. We have not licensed the name to anyone. Any website, app, or social account other than blog2video.app is unaffiliated with us, and we cannot vouch for how they handle your content, payments, or data.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Blog2Video: the Only Official Site, and the Copycats Using Our Name",
+        angle:
+          "State plainly that blog2video.app is the only official Blog2Video and list the unaffiliated look-alikes so customers do not sign up or pay the wrong site.",
+      },
+      {
+        channel: "twitter",
+        title: "PSA: blog2video.app is the only official Blog2Video",
+        angle:
+          "Short thread clarifying that blog2video.app is the real one and that sites like blog2video.ai and copycat accounts are unaffiliated. Link the full post.",
+      },
+      {
+        channel: "video",
+        title: "The only official Blog2Video — 60-second explainer",
+        angle:
+          "Quick narrated short pointing viewers to blog2video.app and warning about look-alike domains and accounts. Link back to /blogs/blog2video-official-site-vs-copycats.",
+      },
+    ],
+  },
+  {
     slug: "2008-financial-crisis-stickman-explainer",
     title: "The 2008 Financial Crisis, Explained in Four Steps with Stick Figures",
     description:
       "The whole thing nearly collapsed, and it started with a house. We stripped the 2008 crash down to four steps you can follow with a row of stick figures and a few charts — a documentary-style Remotion short.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-2008-financial-crisis-stickman-explainer.png",
+    heroImageAlt:
+      "The whole thing nearly collapsed, and it started with a house. We stripped the 2008 crash down to four steps you can follow with a row of stick figures and a few charts — a documentary-style Remotion short.",
     publishedAt: "2026-07-14",
     readTime: "3 min read",
     heroEyebrow: "Behind the scenes",
@@ -98,6 +773,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Every adventure is a story worth telling. A stickman and his stickdog hike into moonlit hills, build a fire, and watch the stars spell out B2V. One continuous campsite world, no cuts — and the debut of our four-legged companion.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-camping-night-stickman-animation.png",
+    heroImageAlt:
+      "Every adventure is a story worth telling. A stickman and his stickdog hike into moonlit hills, build a fire, and watch the stars spell out B2V. One continuous campsite world, no cuts — and the debut of our four-legged companion.",
     publishedAt: "2026-07-14",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -170,6 +848,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "An homage to the opening titles of Drive (2011), rebuilt as a synthwave stickman short — a neon-rimmed muscle car, hot-pink brush-script titles, and one line of dialogue. The shortest film in our series, and all of it is code.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-drive-title-sequence-stickman.png",
+    heroImageAlt:
+      "An homage to the opening titles of Drive (2011), rebuilt as a synthwave stickman short — a neon-rimmed muscle car, hot-pink brush-script titles, and one line of dialogue. The shortest film in our series, and all of it is code.",
     publishedAt: "2026-07-14",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -244,6 +925,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Keep the middle course. We told the full myth of Icarus and Daedalus as a narrated stickman short — wings built feather by feather, the leap over a shining sea, and the fall everyone watches twice. Here's how we built it.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-icarus-stickman-animation.png",
+    heroImageAlt:
+      "Keep the middle course. We told the full myth of Icarus and Daedalus as a narrated stickman short — wings built feather by feather, the leap over a shining sea, and the fall everyone watches twice. Here's how we built it.",
     publishedAt: "2026-07-14",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -318,6 +1002,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Why, Mister Anderson? Because my content is worth it. We built a full Matrix-style stickman fight — Neo against a red-eyed agent of AI slop, hand-to-hand, bullet-time and all — with voices designed from scratch in ElevenLabs.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-neo-stops-ai-slop-stickman.png",
+    heroImageAlt:
+      "Why, Mister Anderson? Because my content is worth it. We built a full Matrix-style stickman fight — Neo against a red-eyed agent of AI slop, hand-to-hand, bullet-time and all — with voices designed from scratch in ElevenLabs.",
     publishedAt: "2026-07-14",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -391,6 +1078,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "One shot. Your videos. A calm stickman in a trench coat and fedora meets a knife-juggling burglar on a rain-slick street — and ends it with a single bullet. A neon-noir short about why you don't need ten takes.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-one-shot-stickman-animation.png",
+    heroImageAlt:
+      "One shot. Your videos. A calm stickman in a trench coat and fedora meets a knife-juggling burglar on a rain-slick street — and ends it with a single bullet. A neon-noir short about why you don't need ten takes.",
     publishedAt: "2026-07-14",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -463,6 +1153,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "She only wanted a peek. We retold the myth of Pandora's box as a narrated stickman short under an enchanted night sky — every trouble of the world pouring out, and one warm light left inside. Here's how we built it in Remotion.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-pandoras-box-stickman-animation.png",
+    heroImageAlt:
+      "She only wanted a peek. We retold the myth of Pandora's box as a narrated stickman short under an enchanted night sky — every trouble of the world pouring out, and one warm light left inside. Here's how we built it in Remotion.",
     publishedAt: "2026-07-14",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -538,6 +1231,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "No chain ever forged could take the fire back. We told the myth of Prometheus as a narrated stickman short — eight crossfaded shots, a valley lighting up fire by fire, and a Titan who smiles in his chains. Here's how we built it.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-prometheus-stickman-animation.png",
+    heroImageAlt:
+      "No chain ever forged could take the fire back. We told the myth of Prometheus as a narrated stickman short — eight crossfaded shots, a valley lighting up fire by fire, and a Titan who smiles in his chains. Here's how we built it.",
     publishedAt: "2026-07-14",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -613,6 +1309,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "A parody of the legendary Reservoir Dogs diner opening, rebuilt as a stickman short — six suited crooks, six ElevenLabs voices, and one argument over a tip. Here's how we made stick figures carry an ensemble dialogue scene.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-reservoir-dogs-stickman-parody.png",
+    heroImageAlt:
+      "A parody of the legendary Reservoir Dogs diner opening, rebuilt as a stickman short — six suited crooks, six ElevenLabs voices, and one argument over a tip. Here's how we made stick figures carry an ensemble dialogue scene.",
     publishedAt: "2026-07-14",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -686,6 +1385,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "They never caught him. We told the legend of Robin Hood as a narrated stickman short — a warning arrow, coins on doorsteps, and a golden arrow split clean in two. Here's how we built the greenwood in code.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-robin-hood-stickman-animation.png",
+    heroImageAlt:
+      "They never caught him. We told the legend of Robin Hood as a narrated stickman short — a warning arrow, coins on doorsteps, and a golden arrow split clean in two. Here's how we built the greenwood in code.",
     publishedAt: "2026-07-14",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -761,6 +1463,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Your day, worth a story. A tired salaryman trudges home, rides to the rooftop, and lets out one long sigh under a huge moon. A completely silent stickman short — proof the format can do mood, not just jokes.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-salaryman-stickman-animation.png",
+    heroImageAlt:
+      "Your day, worth a story. A tired salaryman trudges home, rides to the rooftop, and lets out one long sigh under a huge moon. A completely silent stickman short — proof the format can do mood, not just jokes.",
     publishedAt: "2026-07-14",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -834,6 +1539,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "One must imagine Sisyphus happy. We animated the myth as a narrated stickman short with a physically honest boulder — and chose to end not on the stone thundering down, but on the man setting his hands to it again.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-sisyphus-stickman-animation.png",
+    heroImageAlt:
+      "One must imagine Sisyphus happy. We animated the myth as a narrated stickman short with a physically honest boulder — and chose to end not on the stone thundering down, but on the man setting his hands to it again.",
     publishedAt: "2026-07-14",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -907,6 +1615,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "AI slop… I am your content. We staged a stickman lightsaber duel above the stars — Luke, powered by Blog2Video, against a caped figure who is AI slop — with procedural sabers and an original orchestral score.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-star-wars-stickman-parody.png",
+    heroImageAlt:
+      "AI slop… I am your content. We staged a stickman lightsaber duel above the stars — Luke, powered by Blog2Video, against a caped figure who is AI slop — with procedural sabers and an original orchestral score.",
     publishedAt: "2026-07-14",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -979,6 +1690,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "A faceless stickman pours an entire day into the perfect blog post and earns exactly one like — his own. Here's the silent 50-second Remotion film we built, and why distribution, not writing, is the real problem.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-the-grind-stickman-animation.png",
+    heroImageAlt:
+      "A faceless stickman pours an entire day into the perfect blog post and earns exactly one like — his own. Here's the silent 50-second Remotion film we built, and why distribution, not writing, is the real problem.",
     publishedAt: "2026-07-14",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -1054,6 +1768,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "For ten years no army could break the walls of Troy — then a single story walked through the front gate. We retold the fall of Troy as a two-minute stickman short, plus what the oldest trick in war teaches about reaching a guarded audience.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-trojan-horse-stickman-animation.png",
+    heroImageAlt:
+      "For ten years no army could break the walls of Troy — then a single story walked through the front gate. We retold the fall of Troy as a two-minute stickman short, plus what the oldest trick in war teaches about reaching a guarded audience.",
     publishedAt: "2026-07-14",
     readTime: "3 min read",
     heroEyebrow: "Behind the scenes",
@@ -1140,6 +1857,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "He fell for the only face that never looked back. We told the myth of Narcissus as a narrated stickman short — a waterline mirror, a point-of-view into the pool, and a flower where a boy used to kneel. Here's how we built it.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-narcissus-stickman-animation.png",
+    heroImageAlt:
+      "He fell for the only face that never looked back. We told the myth of Narcissus as a narrated stickman short — a waterline mirror, a point-of-view into the pool, and a flower where a boy used to kneel. Here's how we built it.",
     publishedAt: "2026-07-16",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -1214,6 +1934,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "How (not) to lift a sword. We told the Excalibur legend as a comic stickman short — boastful knights flying backwards, a skinny squire pulling it free like a stick from mud, and one engineering trick that makes every heave read as real contact.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-sword-in-the-stone-stickman-animation.png",
+    heroImageAlt:
+      "How (not) to lift a sword. We told the Excalibur legend as a comic stickman short — boastful knights flying backwards, a skinny squire pulling it free like a stick from mud, and one engineering trick that makes every heave read as real contact.",
     publishedAt: "2026-07-16",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -1288,6 +2011,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Replace every plank, and is it still your ship? We told the Ship of Theseus paradox as a narrated stickman short — a galley rebuilt plank by plank on screen, and a twist about a second ship. Here's how we built it in Remotion.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-ship-of-theseus-stickman-animation.png",
+    heroImageAlt:
+      "Replace every plank, and is it still your ship? We told the Ship of Theseus paradox as a narrated stickman short — a galley rebuilt plank by plank on screen, and a twist about a second ship. Here's how we built it in Remotion.",
     publishedAt: "2026-07-16",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -1362,6 +2088,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Whatever's in the case, it's worth the whole movie. We reimagined the Pulp Fiction briefcase-check as a stickman parody — two hitmen, a terrified man named Brett, and a glow we never quite let you see. Here's how we built it.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-pulp-fiction-stickman-parody.png",
+    heroImageAlt:
+      "Whatever's in the case, it's worth the whole movie. We reimagined the Pulp Fiction briefcase-check as a stickman parody — two hitmen, a terrified man named Brett, and a glow we never quite let you see. Here's how we built it.",
     publishedAt: "2026-07-16",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -1436,6 +2165,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Look at that subtle off-white coloring. We turned the American Psycho business-card scene into a stickman ad — execs one-upping each other with AI video tools, until Bateman lays down the one card nobody can stop staring at.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-american-psycho-stickman-parody.png",
+    heroImageAlt:
+      "Look at that subtle off-white coloring. We turned the American Psycho business-card scene into a stickman ad — execs one-upping each other with AI video tools, until Bateman lays down the one card nobody can stop staring at.",
     publishedAt: "2026-07-16",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -1510,6 +2242,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "The only word the slop ever gets to say is 'Die.' We rebuilt the Matrix bullet-dodge as a stickman short — one lean, stretched and re-covered from every angle, where Neo wins by not being hit. Here's how we built it.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-neo-first-dodge-stickman.png",
+    heroImageAlt:
+      "The only word the slop ever gets to say is 'Die.' We rebuilt the Matrix bullet-dodge as a stickman short — one lean, stretched and re-covered from every angle, where Neo wins by not being hit. Here's how we built it.",
     publishedAt: "2026-07-16",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -1584,6 +2319,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Green versus red. Craft versus slop. We crossed our Matrix and Star Wars films into one stickman saber duel — Neo against a Sith embodiment of AI slop — and let the fight lead before the message lands.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-neo-vs-sith-stickman.png",
+    heroImageAlt:
+      "Green versus red. Craft versus slop. We crossed our Matrix and Star Wars films into one stickman saber duel — Neo against a Sith embodiment of AI slop — and let the fight lead before the message lands.",
     publishedAt: "2026-07-16",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -1658,6 +2396,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Were you listening, or looking at the woman in the red dress? We rebuilt the Matrix training-program scene as a stickman parody — a grey crowd, one red accent, and a freeze-reveal that turns the distraction into the danger.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-matrix-red-dress-stickman.png",
+    heroImageAlt:
+      "Were you listening, or looking at the woman in the red dress? We rebuilt the Matrix training-program scene as a stickman parody — a grey crowd, one red accent, and a freeze-reveal that turns the distraction into the danger.",
     publishedAt: "2026-07-16",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -1732,6 +2473,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Science, bitch. We turned the Breaking Bad RV scene into a stickman parody — panicked Jesse, unflappable Walt, one clean fix — and pointed the same calm, one-move solution at turning your blog into a video.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-breaking-bad-stickman-parody.png",
+    heroImageAlt:
+      "Science, bitch. We turned the Breaking Bad RV scene into a stickman parody — panicked Jesse, unflappable Walt, one clean fix — and pointed the same calm, one-move solution at turning your blog into a video.",
     publishedAt: "2026-07-16",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -1806,6 +2550,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Every story deserves to be told. Tell yours. The Overlook is a silent night-drive short — a climb up a cliff road, a cigarette over a sea of city lights, and a quiet reminder to go tell your own story.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-the-overlook-stickman-animation.png",
+    heroImageAlt:
+      "Every story deserves to be told. Tell yours. The Overlook is a silent night-drive short — a climb up a cliff road, a cigarette over a sea of city lights, and a quiet reminder to go tell your own story.",
     publishedAt: "2026-07-16",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -1880,6 +2627,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Growth, new templates, and Collaboration. The mascot's second outing doubles as a release note — a bike intro, a dance, a high-five, and a quarter of updates threaded through it. Here's how we turned a changelog into a film.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-stickman-v2-showcase.png",
+    heroImageAlt:
+      "Growth, new templates, and Collaboration. The mascot's second outing doubles as a release note — a bike intro, a dance, a high-five, and a quarter of updates threaded through it. Here's how we turned a changelog into a film.",
     publishedAt: "2026-07-16",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -1954,6 +2704,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Numbers alone don't move anyone — an underdog climbing does. Stickman v3 is a growth-story arc: a mascot climbing a trail of milestones toward a summit while the numbers climb with him. Here's how we built it.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-stickman-v3-journey-so-far.png",
+    heroImageAlt:
+      "Numbers alone don't move anyone — an underdog climbing does. Stickman v3 is a growth-story arc: a mascot climbing a trail of milestones toward a summit while the numbers climb with him. Here's how we built it.",
     publishedAt: "2026-07-16",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -2028,6 +2781,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Strap in — a whole tank of updates just landed. Stickman v4 flies you through everything new on Blog2Video, one feature per scene, with a jetpack that sputters, ignites, and touches back down. Here's how we built it.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-stickman-v4-jetpack-update.png",
+    heroImageAlt:
+      "Strap in — a whole tank of updates just landed. Stickman v4 flies you through everything new on Blog2Video, one feature per scene, with a jetpack that sputters, ignites, and touches back down. Here's how we built it.",
     publishedAt: "2026-07-16",
     readTime: "2 min read",
     heroEyebrow: "Behind the scenes",
@@ -5863,6 +6619,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "How we retold the 3,000-year-old Greek myth of Persephone and Demeter — abduction, famine, and the birth of the seasons — with stick figures in a single React/Remotion composition, in under 2 minutes.",
     category: "Behind the scenes",
+    heroImage: "/blog/blog-cover-persephone-stick-figure-animation.png",
+    heroImageAlt:
+      "How we retold the 3,000-year-old Greek myth of Persephone and Demeter — abduction, famine, and the birth of the seasons — with stick figures in a single React/Remotion composition, in under 2 minutes.",
     publishedAt: "2026-07-14",
     readTime: "3 min read",
     heroEyebrow: "Behind the scenes",
@@ -15741,6 +16500,502 @@ export const blogPosts: BlogPost[] = [
         title: "Generic AI video tools make your finance newsletter look like a TikTok. Here's the fix.",
         angle:
           "Lead with the TikTok contrast, show the branded template and chart visualization, end with the one-video-many-formats point.",
+      },
+    ],
+  },
+  {
+    slug: "how-to-write-a-video-script-from-a-blog-post",
+    title: "How to Write a Video Script from a Blog Post (Free Generator)",
+    description:
+      "A blog post is not a video script. Here's how to turn an article into a scene-by-scene script with a hook, ordered beats, and a call to action — plus a free generator that does the first draft for you.",
+    category: "How-to",
+    heroImage: "/blog/blog-cover-how-to-write-a-video-script-from-a-blog-post.png",
+    heroImageAlt:
+      "blog2video.app blog post converting into a scene-by-scene video script with hook, beats, and call to action.",
+    publishedAt: "2026-07-22",
+    readTime: "5 min read",
+    heroEyebrow: "How-to",
+    heroTitle: "How to write a video script from a blog post",
+    heroDescription:
+      "A blog post is not a video script. Here's how to turn an article into a scene-by-scene script with a hook, ordered beats, and a call to action — plus a free generator that does the first draft for you.",
+    primaryKeyword: "video script generator",
+    keywordVariant: "how to write a video script from a blog post",
+    relatedPaths: [
+      "/tools/video-script-generator",
+      "/blog-to-video",
+      "/tools/video-length-calculator",
+      "/blog-to-youtube-video",
+    ],
+    sections: [
+      {
+        heading: "Why you can't just read your blog post aloud",
+        paragraphs: [
+          "Writing is built for the eye; video is built for the ear. A blog post can open with a slow, contextual paragraph because a reader can skim ahead. A video can't — you have about three seconds before someone scrolls past, so the first line has to earn attention immediately.",
+          "The other difference is structure. An article flows as continuous prose. A video is a sequence of scenes, each with something on screen and something spoken. To go from one to the other, you're not editing sentences — you're re-cutting the whole thing into beats.",
+        ],
+      },
+      {
+        heading: "The anatomy of a short video script",
+        paragraphs: [
+          "Almost every effective short follows the same shape, regardless of topic:",
+        ],
+        bullets: [
+          "Hook (scene 1): a punchy opening line that creates curiosity or states a bold promise. No throat-clearing, no \"in this video.\"",
+          "Beats (middle scenes): the key ideas from your post, in a logical order, one idea per scene.",
+          "Payoff and CTA (final scene): the takeaway, then a clear next step appropriate to the platform.",
+        ],
+      },
+      {
+        heading: "Turn your article into beats",
+        paragraphs: [
+          "Read your post and pull out the three to nine ideas that actually carry it. Each becomes one scene. Drop the transitional prose, the caveats, and the SEO padding — video has no room for them.",
+          "For each beat, write two things: a short on-screen label (what the viewer sees) and one or two spoken sentences (what you'll read aloud). Keep the spoken lines short and conversational — write for the ear, not the page.",
+        ],
+      },
+      {
+        heading: "Let the free generator do the first draft",
+        paragraphs: [
+          "You don't have to start from a blank page. Our free Video Script Generator takes a topic, a blog URL, or a few notes and returns a full scene-by-scene script — a hook, ordered beats with on-screen text and voiceover, and a closing call to action. Pick a tone (explainer, promotional, storytelling, or casual) and a length, and edit from there.",
+          "Treat the output as a strong first draft: tighten the hook, personalize any specifics, and adjust the CTA to match where the video will live.",
+        ],
+        ctaPath: "/tools/video-script-generator",
+        ctaLabel: "Try the free Video Script Generator",
+      },
+      {
+        heading: "From script to finished video",
+        paragraphs: [
+          "Once the script reads well out loud, the fastest path to a finished video is to skip manual editing entirely. Paste the same article into Blog2Video and it generates a narrated video from it — script, scenes, voiceover, and visuals — so the script you just shaped becomes a real video in minutes.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Turn your post into a video",
+      },
+    ],
+    faq: [
+      {
+        question: "Is the video script generator free?",
+        answer:
+          "Yes. The Video Script Generator is free to use with a Blog2Video account. Paste a topic, blog URL, or notes and it returns a scene-by-scene script you can edit and record.",
+      },
+      {
+        question: "How long should a video script be?",
+        answer:
+          "Match the platform. A 60-second Short is roughly 130-160 spoken words (4-5 scenes); a long-form YouTube explainer can run 12-15 scenes. The generator lets you pick short, medium, or long.",
+      },
+      {
+        question: "Can I write a script from an existing blog post?",
+        answer:
+          "Yes — that's the ideal input. Paste the topic or the article URL and the generator drafts a spoken, scene-by-scene version of that content, which is the natural first step before turning the post into a narrated video.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Write a Video Script from a Blog Post (Free Generator)",
+        angle:
+          "How-to guide teaching the hook/beats/CTA structure, funneling to the free Video Script Generator and then Blog2Video.",
+      },
+      {
+        channel: "video",
+        title: "Turn any blog post into a video script in 60 seconds",
+        angle:
+          "Screen-record the generator turning a real article URL into a scene-by-scene script, then generate the video from it. Link back to /blogs/how-to-write-a-video-script-from-a-blog-post.",
+      },
+      {
+        channel: "twitter",
+        title: "A blog post is not a video script. Here's how to convert one.",
+        angle:
+          "Short thread on the eye-vs-ear difference and the hook/beats/CTA structure, ending with the free generator link.",
+      },
+    ],
+  },
+  {
+    slug: "how-to-write-thumbnail-text-that-gets-clicks",
+    title: "How to Write Thumbnail Text That Gets Clicks (Free Generator)",
+    description:
+      "Thumbnail text is not your video title — it's the 2-5 word punch that earns the click. Here's how to write high-CTR thumbnail overlays, plus a free generator that gives you a batch of options.",
+    category: "How-to",
+    heroImage: "/blog/blog-cover-how-to-write-thumbnail-text-that-gets-clicks.png",
+    heroImageAlt:
+      "blog2video.app YouTube thumbnail with bold overlay text designed for high click-through rate.",
+    publishedAt: "2026-07-22",
+    readTime: "4 min read",
+    heroEyebrow: "How-to",
+    heroTitle: "How to write thumbnail text that gets clicks",
+    heroDescription:
+      "Thumbnail text is not your video title — it's the 2-5 word punch that earns the click. Here's how to write high-CTR thumbnail overlays, plus a free generator that gives you a batch of options.",
+    primaryKeyword: "thumbnail text generator",
+    keywordVariant: "youtube thumbnail text ideas",
+    relatedPaths: [
+      "/tools/thumbnail-text-generator",
+      "/tools/headline-analyzer",
+      "/blog-to-youtube-video",
+      "/tools/youtube-description-generator",
+    ],
+    sections: [
+      {
+        heading: "Thumbnail text is a different job than the title",
+        paragraphs: [
+          "The title is the full descriptive line next to your video. Thumbnail text is the short overlay printed on the image itself — usually two to five words, designed to do exactly one thing: stop the scroll and create enough curiosity to earn the click.",
+          "Because it competes for a fraction of a second of attention on a small mobile image, it has to read instantly. Clever loses to clear. A viewer should decode it without effort.",
+        ],
+      },
+      {
+        heading: "The angles that work",
+        paragraphs: [
+          "Strong thumbnail text usually falls into one of a few reliable patterns. Rotate through them rather than defaulting to the same one every time:",
+        ],
+        bullets: [
+          "Curiosity gap: hint at an answer without giving it (\"It backfired\").",
+          "Bold claim: a confident, slightly contrarian statement (\"Stop doing this\").",
+          "Number: a specific, scannable figure (\"$0 to $10k\").",
+          "Contrast or warning: tension the viewer wants resolved (\"Before you post\").",
+        ],
+      },
+      {
+        heading: "Rules for text that reads at a glance",
+        paragraphs: [
+          "Keep the winner to five words or fewer — shorter is almost always better. Use high-contrast type, keep the words out of the bottom-right corner where the duration badge sits, and pair the overlay with a clear, uncluttered image.",
+          "Don't repeat the title verbatim. The thumbnail and title should work together: one creates the curiosity, the other confirms the topic.",
+        ],
+      },
+      {
+        heading: "Generate a batch, then test",
+        paragraphs: [
+          "The fastest way to find a winner is to look at several options side by side. Our free Thumbnail Text Generator takes your video topic or title and returns up to eight short, high-CTR overlays across curiosity, bold-claim, number, and benefit angles.",
+          "Shortlist two or three, put them on your thumbnail, and let click-through rate decide — the best creators treat thumbnail text as something they iterate on, not something they get right on the first try.",
+        ],
+        ctaPath: "/tools/thumbnail-text-generator",
+        ctaLabel: "Try the free Thumbnail Text Generator",
+      },
+    ],
+    faq: [
+      {
+        question: "What is thumbnail text?",
+        answer:
+          "It's the short text overlay printed on a video thumbnail image — usually 2-5 words — meant to create curiosity and earn the click. It's separate from the video title.",
+      },
+      {
+        question: "How many words should thumbnail text be?",
+        answer:
+          "Five words or fewer. Shorter text reads instantly on a small mobile thumbnail, which is where most impressions happen.",
+      },
+      {
+        question: "Is the thumbnail text generator free?",
+        answer:
+          "Yes. Sign in with a free Blog2Video account and the generator returns up to eight distinct thumbnail overlay options across several proven angles.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Write Thumbnail Text That Gets Clicks (Free Generator)",
+        angle:
+          "How-to guide separating thumbnail text from the title, listing the proven angles, and funneling to the free generator.",
+      },
+      {
+        channel: "twitter",
+        title: "Your thumbnail text is not your title. Here's the difference.",
+        angle:
+          "Thread showing before/after thumbnail overlays and the curiosity/number/claim angles, ending with the free generator link.",
+      },
+      {
+        channel: "video",
+        title: "8 thumbnail text ideas for any video in 30 seconds",
+        angle:
+          "Screen-record the generator producing a batch of overlays for a real topic. Link back to /blogs/how-to-write-thumbnail-text-that-gets-clicks.",
+      },
+    ],
+  },
+  {
+    slug: "how-to-write-an-seo-youtube-description",
+    title: "How to Write an SEO YouTube Description (Free Generator)",
+    description:
+      "YouTube reads your first two lines the hardest. Here's how to write a description that front-loads your keyword, earns the click, and helps the video get recommended — plus a free generator for the description and tags.",
+    category: "How-to",
+    heroImage: "/blog/blog-cover-how-to-write-an-seo-youtube-description.png",
+    heroImageAlt:
+      "blog2video.app SEO YouTube description with keyword-rich first lines and tags highlighted.",
+    publishedAt: "2026-07-22",
+    readTime: "5 min read",
+    heroEyebrow: "How-to",
+    heroTitle: "How to write an SEO YouTube description",
+    heroDescription:
+      "YouTube reads your first two lines the hardest. Here's how to write a description that front-loads your keyword, earns the click, and helps the video get recommended — plus a free generator for the description and tags.",
+    primaryKeyword: "youtube description generator",
+    keywordVariant: "how to write an seo youtube description",
+    relatedPaths: [
+      "/tools/youtube-description-generator",
+      "/tools/thumbnail-text-generator",
+      "/blog-to-youtube-video",
+      "/tools/headline-analyzer",
+    ],
+    sections: [
+      {
+        heading: "The first two lines do most of the work",
+        paragraphs: [
+          "YouTube weights the opening of your description heavily, and those same one or two lines are what viewers see above the \"show more\" fold. So the first sentence has to do two jobs at once: front-load your primary keyword and clearly state what the viewer will get.",
+          "Everything after that adds context YouTube uses to understand and recommend the video — but if the first lines are weak, the rest rarely gets read.",
+        ],
+      },
+      {
+        heading: "A description structure that ranks and converts",
+        paragraphs: [
+          "Use a simple, repeatable shape:",
+        ],
+        bullets: [
+          "Line 1-2: primary keyword plus the core promise, in natural language.",
+          "Middle: two to four short paragraphs expanding on the value, using related terms naturally (no keyword stuffing).",
+          "Chapters: timestamps once the video is edited — great for retention and for surfacing in search.",
+          "Close: a clear call to action (subscribe, or a link) and any disclosures.",
+        ],
+      },
+      {
+        heading: "Tags still help — use them well",
+        paragraphs: [
+          "Tags are a secondary signal, but they're free to add and worth getting right. Use a mix of broad and specific long-tail terms that genuinely describe the video, lowercase, without the \"#\" prefix (those are hashtags, a separate thing you can add in the description if you want them).",
+          "Don't pad the tag field with loosely related keywords — relevance matters more than volume.",
+        ],
+      },
+      {
+        heading: "Generate the description and tags in one step",
+        paragraphs: [
+          "Our free YouTube Description Generator takes your video topic, title, or full transcript and returns a search-optimized description with the keyword front-loaded, a clear value section, and a call to action — plus a ready-to-paste set of relevant tags.",
+          "Paste it in as a starting point, then add your real links, timestamps, and disclosures, and prune any tags that don't fit.",
+        ],
+        ctaPath: "/tools/youtube-description-generator",
+        ctaLabel: "Try the free YouTube Description Generator",
+      },
+    ],
+    faq: [
+      {
+        question: "How long should a YouTube description be?",
+        answer:
+          "Long enough to give real context — usually a few short paragraphs — but the first one or two lines matter most, since that's what shows above the fold and what YouTube weights most heavily.",
+      },
+      {
+        question: "Do YouTube tags still matter?",
+        answer:
+          "They're a secondary ranking signal, but they're free and worth adding. Use 12-15 relevant tags mixing broad and long-tail terms. The generator produces these automatically alongside the description.",
+      },
+      {
+        question: "Can I generate a description from a transcript?",
+        answer:
+          "Yes. Paste a topic, a title, or a full transcript — the more detail you provide, the more specific and accurate the description and tags will be.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Write an SEO YouTube Description (Free Generator)",
+        angle:
+          "How-to guide on front-loading the keyword and structuring the description, funneling to the free generator.",
+      },
+      {
+        channel: "video",
+        title: "Write a ranking YouTube description in 60 seconds",
+        angle:
+          "Screen-record pasting a transcript into the generator and getting a description plus tags. Link back to /blogs/how-to-write-an-seo-youtube-description.",
+      },
+      {
+        channel: "twitter",
+        title: "YouTube reads your first two description lines the hardest. Use them.",
+        angle:
+          "Thread on the above-the-fold rule and the description structure, ending with the free generator link.",
+      },
+    ],
+  },
+  {
+    slug: "how-long-will-my-video-be-estimate-runtime-from-a-script",
+    title: "How Long Will My Video Be? Estimate Runtime from a Script",
+    description:
+      "Spoken-word pacing is remarkably consistent, so you can estimate a video's runtime from its word count before you record. Here's the math — and a free calculator that does it across slow, normal, and fast narration.",
+    category: "How-to",
+    heroImage: "/blog/blog-cover-how-long-will-my-video-be-estimate-runtime-from-a-script.png",
+    heroImageAlt:
+      "blog2video.app script word count converting to estimated video runtime at slow, normal, and fast pacing.",
+    publishedAt: "2026-07-22",
+    readTime: "4 min read",
+    heroEyebrow: "How-to",
+    heroTitle: "How long will my video be? Estimate runtime from a script",
+    heroDescription:
+      "Spoken-word pacing is remarkably consistent, so you can estimate a video's runtime from its word count before you record. Here's the math — and a free calculator that does it across slow, normal, and fast narration.",
+    primaryKeyword: "video length calculator",
+    keywordVariant: "estimate video length from word count",
+    relatedPaths: [
+      "/tools/video-length-calculator",
+      "/tools/video-script-generator",
+      "/blog-to-shorts",
+      "/tools/content-repurposing-calculator",
+    ],
+    sections: [
+      {
+        heading: "Speaking speed is more predictable than you'd think",
+        paragraphs: [
+          "Most narration lands between roughly 120 and 160 words per minute. Slow, deliberate delivery sits near the bottom of that range; energetic, high-tempo editing sits near the top. Around 140 words per minute is a safe default for most explainer and talking-head videos.",
+          "Because the range is so consistent, you can turn a word count into a runtime estimate before recording a single second — which is exactly when the estimate is most useful.",
+        ],
+      },
+      {
+        heading: "The quick math",
+        paragraphs: [
+          "Runtime in minutes is roughly your word count divided by your words-per-minute. So a 700-word script at 140 wpm is about five minutes of narration. At 120 wpm it stretches to nearly six; at 160 wpm it compresses to under four and a half.",
+          "Working backward is even more useful. Targeting a 60-second Short? Plan for roughly 130-160 spoken words. Targeting a 10-minute explainer? You need somewhere around 1,400 words of script.",
+        ],
+      },
+      {
+        heading: "Why your real video runs longer",
+        paragraphs: [
+          "The estimate counts spoken words only. Real videos add time on top: pauses, music intros, on-screen text beats, transitions, and B-roll all stretch the runtime. Leave a buffer when you're planning to a hard length.",
+        ],
+        bullets: [
+          "Add a few seconds per scene for on-screen text and transitions.",
+          "Account for a music intro or outro if you use one.",
+          "Trim to length in the script, not in the edit — it's far faster.",
+        ],
+      },
+      {
+        heading: "Use the free calculator",
+        paragraphs: [
+          "Rather than doing the arithmetic by hand, paste your script into our free Video Length Calculator. It counts the words and shows the estimated runtime at slow, normal, and fast narration speeds, so you can trim or expand to your target before you record.",
+          "Need a script to measure in the first place? Generate one with the free Video Script Generator, then paste it straight into the calculator.",
+        ],
+        ctaPath: "/tools/video-length-calculator",
+        ctaLabel: "Try the free Video Length Calculator",
+      },
+    ],
+    faq: [
+      {
+        question: "How many words is a one-minute video?",
+        answer:
+          "Roughly 130-160 spoken words at a normal-to-fast narration pace. For a calmer delivery, plan closer to 120 words per minute.",
+      },
+      {
+        question: "What narration speed should I assume?",
+        answer:
+          "Around 140 words per minute is a good default for most explainer and talking-head videos. Use the slow estimate for deliberate narration and the fast estimate for energetic, high-tempo edits.",
+      },
+      {
+        question: "Why is my finished video longer than the estimate?",
+        answer:
+          "The estimate counts spoken words only. Pauses, music, on-screen text, transitions, and B-roll all add time — build in a buffer when planning to a hard runtime.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How Long Will My Video Be? Estimate Runtime from a Script",
+        angle:
+          "How-to explaining words-per-minute pacing and the working-backward math, funneling to the free calculator.",
+      },
+      {
+        channel: "twitter",
+        title: "How many words is a 60-second video? (It's fewer than you think.)",
+        angle:
+          "Short thread with the wpm math and the 130-160 words rule, ending with the free calculator link.",
+      },
+      {
+        channel: "video",
+        title: "Estimate your video length before you record",
+        angle:
+          "Screen-record pasting a script into the calculator and reading off the slow/normal/fast runtimes. Link back to /blogs/how-long-will-my-video-be-estimate-runtime-from-a-script.",
+      },
+    ],
+  },
+  {
+    slug: "how-to-make-an-ai-book-cover-from-a-description",
+    title: "How to Make an AI Book Cover from a Description (Free Tool)",
+    description:
+      "Describe your book in a paragraph or two and get a designed front cover in classic 2:3 proportions — exportable as PNG, JPEG, or a print-ready PDF. Here's how to write the description and use the free generator.",
+    category: "How-to",
+    heroImage: "/blog/blog-cover-how-to-make-an-ai-book-cover-from-a-description.png",
+    heroImageAlt:
+      "blog2video.app book description transforming into a designed 2:3 book cover exportable as PNG or PDF.",
+    publishedAt: "2026-07-22",
+    readTime: "5 min read",
+    heroEyebrow: "How-to",
+    heroTitle: "How to make an AI book cover from a description",
+    heroDescription:
+      "Describe your book in a paragraph or two and get a designed front cover in classic 2:3 proportions — exportable as PNG, JPEG, or a print-ready PDF. Here's how to write the description and use the free generator.",
+    primaryKeyword: "book cover generator",
+    keywordVariant: "ai book cover maker",
+    relatedPaths: [
+      "/tools/book-cover-generator",
+      "/tools/thumbnail-text-generator",
+      "/tools/quote-card-generator",
+      "/blog-to-video",
+    ],
+    sections: [
+      {
+        heading: "A good cover starts with a good description",
+        paragraphs: [
+          "An AI book cover is only as strong as the description you feed it. The generator can't read your manuscript — it works from what you tell it — so the more specific and evocative your description, the more the cover will feel like your book rather than generic stock art.",
+          "Aim for roughly 200 words. That's enough to be specific without turning into a full synopsis the model has to compress.",
+        ],
+      },
+      {
+        heading: "What to include in the description",
+        paragraphs: [
+          "Cover the elements that actually shape a cover's look and mood:",
+        ],
+        bullets: [
+          "Genre, stated outright: \"a tense literary thriller,\" \"a cozy small-town romance,\" \"a hard sci-fi epic.\"",
+          "Tone and mood: cold and atmospheric, warm and hopeful, dark and urgent.",
+          "One or two concrete images or symbols you want featured — a lighthouse, a cracked crown, a lone figure on a ridge.",
+          "Any palette or era cues: muted winter tones, neon-noir, 1920s art deco.",
+        ],
+      },
+      {
+        heading: "Why book covers are portrait 2:3",
+        paragraphs: [
+          "Almost every printed and e-book cover uses a portrait 2:3 proportion — it's what reads correctly as a physical book and what stays legible as a small thumbnail on a store page. The generator is fixed to that ratio, so you don't have to think about dimensions.",
+          "It also leaves natural space near the top or center for a title and author name, which you'll usually want to finalize with your own typography.",
+        ],
+      },
+      {
+        heading: "Generate and export in the format you need",
+        paragraphs: [
+          "Paste your description into the free Book Cover Generator and it designs a front cover for you. Once it's generated, export it in the format that fits your workflow: PNG for the highest quality, JPEG for a smaller file, or a print-ready PDF sized to the cover for Kindle Direct Publishing and other print-on-demand services.",
+          "Free accounts include five cover generations, which is plenty to try a few directions and pick a favorite. Treat any AI-rendered title text as a placeholder and replace it with your final typography before you publish.",
+        ],
+        ctaPath: "/tools/book-cover-generator",
+        ctaLabel: "Try the free Book Cover Generator",
+      },
+    ],
+    faq: [
+      {
+        question: "How many book covers can I generate for free?",
+        answer:
+          "Free accounts include five AI book cover generations. Exported covers are yours to keep, and Pro and Standard plans have unlimited generations.",
+      },
+      {
+        question: "What formats can I export the cover in?",
+        answer:
+          "PNG (highest quality), JPEG (smaller file), or a print-ready PDF sized to the cover — useful for Kindle Direct Publishing and other print-on-demand services.",
+      },
+      {
+        question: "Can I use the generated cover commercially?",
+        answer:
+          "It's a strong design starting point. Review the imagery for anything resembling a real person or trademarked work before commercial use, and replace AI-rendered title text with your own final typography.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Make an AI Book Cover from a Description (Free Tool)",
+        angle:
+          "How-to on writing a strong book description and using the free generator, with the PNG/JPEG/PDF export angle.",
+      },
+      {
+        channel: "video",
+        title: "Turn a book description into a cover in under a minute",
+        angle:
+          "Screen-record pasting a 200-word description into the generator and exporting a PDF. Link back to /blogs/how-to-make-an-ai-book-cover-from-a-description.",
+      },
+      {
+        channel: "twitter",
+        title: "Describe your book in 200 words, get a book cover. Free.",
+        angle:
+          "Thread showing a description and the resulting cover, with the 2:3 and export-formats points, ending with the free tool link.",
       },
     ],
   },

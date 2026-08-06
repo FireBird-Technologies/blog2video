@@ -21,12 +21,20 @@ import CustomPreview from "../components/templatePreviews/CustomPreview";
 import CustomPreviewLandscape from "../components/templatePreviews/CustomPreviewLandscape";
 import CraftedTemplatePreview from "../components/templatePreviews/CraftedTemplatePreview";
 import DesignerTemplateRequestModal from "../components/DesignerTemplateRequestModal";
+import useIsMobileViewport from "../hooks/useIsMobileViewport";
 
 // A template stuck "generating" longer than this (no code, not flagged failed) is
 // treated as errored — generation crashed / connection was lost and the backend
-// never marked it failed, so it would otherwise spin forever. Real generation
-// finishes in ~2 min; 8 min is a safe ceiling that won't false-flag a live run.
-const STUCK_GENERATION_MS = 8 * 60 * 1000;
+// never marked it failed, so it would otherwise spin forever.
+//
+// The ceiling must sit ABOVE the real worst case, or a live run gets false-flagged
+// as stalled and the user is shown a "try again or delete" card while the backend
+// is still working (observed: a 14-minute run flagged at 8). Generation is 1 intro +
+// N content archetypes + 1 outro, each with its own dspy.Refine retries, plus up to
+// MAX_SCENE_RETRIES per scene in the final validation pass — so a slow-but-healthy
+// run legitimately reaches double digits. The in-card copy quotes 5–10 minutes;
+// 15 leaves headroom past that without spinning forever on a truly dead run.
+const STUCK_GENERATION_MS = 15 * 60 * 1000;
 
 // Backend emits naive UTC timestamps (datetime.utcnow().isoformat(), no tz suffix).
 // Date.parse() would read those as LOCAL time, so for any user in a positive UTC
@@ -39,7 +47,8 @@ function parseServerTimestamp(s: string): number {
 }
 
 function isStuckGenerating(tpl: CustomTemplateItem): boolean {
-  if (tpl.intro_code || tpl.generation_failed) return false;
+  const firstTimeGenerating = !tpl.intro_code && !tpl.generation_failed;
+  if (!firstTimeGenerating && !tpl.is_regenerating) return false;
   const ts = parseServerTimestamp(tpl.updated_at || tpl.created_at);
   if (Number.isNaN(ts)) return false;
   return Date.now() - ts > STUCK_GENERATION_MS;
@@ -55,6 +64,10 @@ export default function CustomTemplates() {
   // the "no templates" state before the real list arrives.
   const craftedTemplatesLoading = craftedTemplatesFetching || !craftedTemplatesInitialized;
   const previewCompileScope = user?.id != null ? String(user.id) : undefined;
+  // On mobile, template previews render as static images/placeholders (no live
+  // Remotion Players) — a grid of Players exhausts iOS Safari's memory and
+  // reloads the tab.
+  const isMobile = useIsMobileViewport();
   const [templates, setTemplates] = useState<CustomTemplateItem[]>([]);
   const [activeTemplatesTab, setActiveTemplatesTab] = useState<"custom" | "crafted">("custom");
   const [loaded, setLoaded] = useState(false);
@@ -66,6 +79,7 @@ export default function CustomTemplates() {
   const [deleteImpactCount, setDeleteImpactCount] = useState<number | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [regeneratingId, setRegeneratingId] = useState<number | null>(null);
+  const [regenerateConfirmTarget, setRegenerateConfirmTarget] = useState<CustomTemplateItem | null>(null);
   const [rateLimitError, setRateLimitError] = useState<string | null>(null);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [showRequestForm, setShowRequestForm] = useState(false);
@@ -113,29 +127,39 @@ export default function CustomTemplates() {
     }
   };
 
+  // A template is "pending" either during its first-ever generation (no
+  // intro_code yet, not flagged failed) or while a regeneration overwrites
+  // its existing code (is_regenerating — intro_code is still the OLD code
+  // until this flips back to false).
+  const isPending = (t: CustomTemplateItem) =>
+    (!t.intro_code && !t.generation_failed) || t.is_regenerating;
+
   // Merge only pending/failed templates from server — leaves completed ones untouched to avoid resetting preview
   const mergePendingTemplates = (fresh: CustomTemplateItem[]) => {
     setTemplates((prev) => prev.map((t) => {
-      if (t.intro_code) return t; // already complete — don't replace
+      if (!isPending(t)) return t; // already settled — don't replace
       const updated = fresh.find((f) => f.id === t.id);
       return updated ?? t;
     }));
   };
 
   const startPollingIfNeeded = (data: CustomTemplateItem[]) => {
-    const anyPending = data.some((t: CustomTemplateItem) => !t.intro_code && !t.generation_failed);
+    const anyPending = data.some(isPending);
     if (anyPending && !pollingRef.current) {
       pollingRef.current = setInterval(async () => {
         try {
           const r = await listCustomTemplates();
           mergePendingTemplates(r.data);
-          const stillPending = r.data.some((t: CustomTemplateItem) => !t.intro_code && !t.generation_failed);
+          const stillPending = r.data.some(isPending);
           if (!stillPending) {
             clearInterval(pollingRef.current!);
             pollingRef.current = null;
-            // A template just finished generating — refresh the project-creation
-            // picker's cache so the now-ready template appears there.
+            // A template just finished (re)generating — refresh the
+            // project-creation picker's cache so it reflects the new code.
             invalidateBlogUrlFormAvailabilityCache();
+            // A FAILED regeneration refunds its slot server-side, so re-pull
+            // the user to pick that back up in the "X / Y Created" counter.
+            void refreshUser();
           }
         } catch { /* ignore */ }
       }, 4000);
@@ -194,19 +218,39 @@ export default function CustomTemplates() {
     setRegeneratingId(tpl.id);
     try {
       if (!tpl.intro_code) {
-        // First-time generation (failed previously) — fire and poll
+        // First-time generation (failed previously) — fire and poll. Bump
+        // updated_at locally too: isStuckGenerating() flags a codeless
+        // template whose updated_at is older than STUCK_GENERATION_MS, so a
+        // retry on a STALLED (never flagged failed) template would otherwise
+        // fall straight back to the "Generation stalled" card instead of
+        // showing a spinner. The server bumps it too; this just avoids the
+        // gap until the next poll.
         await generateTemplateCode(tpl.id);
-        setTimeout(() => loadTemplates(), 5000);
+        const retried = {
+          ...tpl,
+          generation_failed: false,
+          updated_at: new Date().toISOString(),
+        };
+        setTemplates((prev) => prev.map((t) => (t.id === tpl.id ? retried : t)));
+        startPollingIfNeeded([retried]);
       } else {
-        const res = await regenerateTemplateCode(tpl.id);
-        setTemplates((prev) => prev.map((t) => (t.id === tpl.id ? res.data : t)));
-        setTimeout(() => loadTemplates(), 5000);
+        // Regenerate: fire-and-poll (202, no synchronous result). Flip
+        // is_regenerating optimistically so the UI shows "Regenerating..."
+        // immediately and survives a refresh/tab-switch via the poller —
+        // the server's is_regenerating flag is the actual source of truth.
+        await regenerateTemplateCode(tpl.id);
+        const optimistic = { ...tpl, is_regenerating: true };
+        setTemplates((prev) => prev.map((t) => (t.id === tpl.id ? optimistic : t)));
+        startPollingIfNeeded([optimistic]);
+        // A regeneration consumes one custom-template slot, so re-pull the user
+        // to update the "X / Y Created" counter and at-limit gating.
+        void refreshUser();
       }
     } catch (err: any) {
       const status = err?.response?.status;
       const detail = err?.response?.data?.detail;
       if (status === 403 && detail?.code === "custom_template_limit") {
-        // Over limit on a re-design of a succeeded template → offer the $5 slot.
+        // Over limit on first-time generation → offer the $5 slot.
         setShowUpgrade(true);
       } else if (status === 429) {
         setRateLimitError(typeof detail === "string" ? detail : "Daily AI generation limit reached. Try again tomorrow.");
@@ -216,6 +260,13 @@ export default function CustomTemplates() {
     } finally {
       setRegeneratingId(null);
     }
+  };
+
+  const confirmRegenerate = () => {
+    if (!regenerateConfirmTarget) return;
+    const tpl = regenerateConfirmTarget;
+    setRegenerateConfirmTarget(null);
+    void handleRegenerate(tpl);
   };
 
   const handleDelete = async () => {
@@ -364,30 +415,35 @@ export default function CustomTemplates() {
 
         {/* Header */}
         <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">
+          <div className="flex items-center justify-between gap-2 sm:gap-4">
+            <h2 className="text-base sm:text-lg font-semibold text-gray-900 min-w-0">
               {activeTemplatesTab === "custom" ? "Custom Templates" : "Designer Templates"}
-              <span className="text-sm font-normal text-gray-400 ml-2">
+              <span className="text-xs sm:text-sm font-normal text-gray-400 ml-1.5 sm:ml-2">
                 ({activeTemplatesTab === "custom" ? templates.length : readyCraftedTemplates.length})
               </span>
             </h2>
-            <div className="flex items-center gap-4">
+            {/* Buttons shrink with the viewport instead of wrapping their labels
+                onto multiple lines (which made them grow tall on narrow screens). */}
+            <div className="flex items-center gap-2 sm:gap-4 shrink-0">
               {activeTemplatesTab === "custom" && templateQuotaMeter && (
                 <div className="hidden sm:block">{templateQuotaMeter}</div>
               )}
               {activeTemplatesTab === "custom" && (
                 <button
                   onClick={openCreator}
-                  className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white text-sm font-semibold rounded-xl shadow-sm transition-all duration-200"
+                  className="whitespace-nowrap px-2.5 sm:px-5 py-1.5 sm:py-2.5 bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white text-xs sm:text-sm font-semibold rounded-lg sm:rounded-xl shadow-sm transition-all duration-200"
                 >
                   Create New +
                 </button>
               )}
               <button
                 onClick={openRequestForm}
-                className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white text-sm font-semibold rounded-xl shadow-sm transition-all duration-200"
+                className="whitespace-nowrap px-2.5 sm:px-5 py-1.5 sm:py-2.5 bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white text-xs sm:text-sm font-semibold rounded-lg sm:rounded-xl shadow-sm transition-all duration-200"
               >
-                Get Designer Template
+                {/* Shorter label on small screens — "Get Designer Template" is the
+                    widest element in this row and forces the layout to break. */}
+                <span className="sm:hidden">Get Designer</span>
+                <span className="hidden sm:inline">Get Designer Template</span>
               </button>
             </div>
           </div>
@@ -445,6 +501,10 @@ export default function CustomTemplates() {
               // A crashed/stalled generation never gets flagged by the backend, so
               // treat a long-stuck one as failed → surfaces the Retry/Delete UI.
               const effectiveFailed = tpl.generation_failed || isStuckGenerating(tpl);
+              // Same idea for a stuck regeneration — falls through to the normal
+              // Regenerate/Edit/Delete UI instead of spinning forever if the
+              // background thread died without clearing is_regenerating.
+              const effectivelyRegenerating = tpl.is_regenerating && !isStuckGenerating(tpl);
               return (
               <div key={tpl.id} className="glass-card overflow-hidden group">
                 {/* Template preview */}
@@ -460,6 +520,8 @@ export default function CustomTemplates() {
                       previewImageUrl={tpl.preview_image_url}
                       logoUrls={tpl.logo_urls}
                       ogImage={tpl.og_image}
+                      thumbnailMode={isMobile}
+                      staticThumb={isMobile}
                     />
                   ) : (
                     <div
@@ -549,7 +611,7 @@ export default function CustomTemplates() {
                         <span className="text-[11px] text-gray-400">This may take 5–10 minutes.</span>
                       </div>
                     )
-                  ) : regeneratingId === tpl.id ? (
+                  ) : regeneratingId === tpl.id || effectivelyRegenerating ? (
                     <div className="flex flex-col gap-1 text-xs text-purple-500">
                       <div className="flex items-center gap-2">
                         <div className="w-3 h-3 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
@@ -561,7 +623,7 @@ export default function CustomTemplates() {
                     <div className="opacity-0 group-hover:opacity-100 transition-opacity space-y-3">
                       <div className="flex gap-2">
                         <button
-                          onClick={() => handleRegenerate(tpl)}
+                          onClick={() => setRegenerateConfirmTarget(tpl)}
                           className="flex-1 px-3 py-1.5 text-xs font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors"
                           title="Generate a completely new design for this brand"
                         >
@@ -635,6 +697,9 @@ export default function CustomTemplates() {
                       previewSource={tpl.preview_file ?? null}
                       previewImageUrl={tpl.preview_image_url ?? null}
                       name={tpl.name}
+                      theme={tpl.theme}
+                      thumbnailMode={isMobile}
+                      staticThumb={isMobile}
                       showLoaderOnEmptyOrError
                     />
                   </div>
@@ -739,6 +804,38 @@ export default function CustomTemplates() {
                 className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-200 text-white text-sm font-medium rounded-xl transition-colors"
               >
                 {deleting ? "Deleting..." : deleteImpactCount == null ? "Delete" : "Delete Anyway"}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Regenerate confirmation */}
+      {regenerateConfirmTarget && ReactDOM.createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setRegenerateConfirmTarget(null)}
+          />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Regenerate Template</h3>
+            <p className="text-sm text-gray-500 mb-5">
+              This will replace <strong>{regenerateConfirmTarget.name}</strong>'s current design with a completely
+              new AI-generated one. This will cost one template count.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setRegenerateConfirmTarget(null)}
+                className="flex-1 px-4 py-2 border border-gray-200 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmRegenerate}
+                className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-xl transition-colors"
+              >
+                Regenerate
               </button>
             </div>
           </div>

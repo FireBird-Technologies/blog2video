@@ -2,6 +2,8 @@
  * Maps legacy / alias layout IDs to the canonical key used in LAYOUT_IMAGE_BOX_DIMS.
  * Add any new aliases here when templates rename layouts.
  */
+import { buildMagazineImageBoxDims } from "./magazine/magazineImageBoxDims";
+
 const LAYOUT_ID_ALIASES: Record<string, string> = {
   // nightfall legacy names
   cinematic_title:              "cinematic_title",
@@ -65,7 +67,8 @@ export interface ImageBoxDims {
  *
  * Canvas base sizes (landscape):
  *   default, nightfall, gridcraft, spotlight, matrix, mosaic, blackswan → 1920 × 1080
- *   whiteboard, newspaper, newscast → 1280 × 720
+ *   whiteboard, newspaper, newscast → 1920 × 1080
+ *   magazine → 1920 × 1080
  *
  * In portrait mode the canvas is rotated (e.g. 1080 × 1920), and the fractions
  * are applied to those swapped dimensions by getImageBoxAspectRatio().
@@ -513,10 +516,12 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
   },
 
   // Polaroid expert photo: left 45% column landscape / top 38% band portrait
-  // (see ExpertProfile.tsx — image card with 6% side margins in portrait).
+  // (see ExpertProfile.tsx). Landscape: 45%-wide column, side padding 6%/4%
+  // (% is width-relative) → card ~448px wide; flex:1 fills the column minus the
+  // credit line → ~76% canvas height. Portrait: top 38% band with 6% margins.
   expert_profile: {
-    landscape: { w: 0.38, h: 0.58 }, // ~45% col polaroid card
-    portrait:  { w: 0.88, h: 0.38 }, // top 38% with 6% side margin
+    landscape: { w: 0.42, h: 0.76 }, // widened preview box for the left-column polaroid card
+    portrait:  { w: 0.88, h: 0.38 }, // top 38% with 6% side margin → 634 × 486
   },
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -664,6 +669,37 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
   },
 
   // ─────────────────────────────────────────────────────────────────────────
+  // ECONOMIST template  (canvas 1920 × 1080)
+  // Image-capable: cover_reveal, image_feature, section_divider (full-bleed
+  // hero/backdrop) and the matted leader_article (left plate) / leader_quote
+  // (portrait mat card). See CoverReveal/ImageFeature/SectionDivider/
+  // LeaderArticle/LeaderQuote.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  cover_reveal: {
+    landscape: { w: 1.0, h: 1.0 },
+    portrait:  { w: 1.0, h: 1.0 },
+  },
+  image_feature: {
+    landscape: { w: 1.0, h: 1.0 },
+    portrait:  { w: 1.0, h: 1.0 },
+  },
+  section_divider: {
+    landscape: { w: 1.0, h: 1.0 },
+    portrait:  { w: 1.0, h: 1.0 },
+  },
+  // Left duotone plate ~42% width / full height (landscape); top band in portrait.
+  leader_article: {
+    landscape: { w: 0.42, h: 0.85 }, // ~806 × 918
+    portrait:  { w: 0.86, h: 0.28 }, // ~929 × 528
+  },
+  // Matted editorial portrait card up the right margin (landscape) / lower band (portrait).
+  leader_quote: {
+    landscape: { w: 0.26, h: 0.58 }, // ~499 × 626
+    portrait:  { w: 0.64, h: 0.22 }, // ~691 × 422
+  },
+
+  // ─────────────────────────────────────────────────────────────────────────
   // SAKURA template  (canvas 1920 × 1080)
   // Mirrors SAKURA_LAYOUTS in templateConfig.tsx + SAKURA_LAYOUT_REGISTRY.
   // Only sakura_intro, sakura_section, sakura_text_narration,
@@ -710,56 +746,9 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
   },
 
   // ─────────────────────────────────────────────────────────────────────────
-  // MAGAZINE template  (canvas 1920 × 1080 landscape / 1080 × 1920 portrait)
-  // Only six layouts render the scene photo; the rest are typographic spreads
-  // (they're image-less, so they fall through to the full-canvas placeholder).
-  // The sheet has a content pad of 7.5% (landscape) / 7% (portrait) per side —
-  // see PAD in magazineStyle.tsx — so the fractions below fold that in
-  // (canvas fraction = content fraction × the layout's fraction of the sheet).
+  // MAGAZINE template — computed from layout geometry (magazineImageBoxDims.ts)
   // ─────────────────────────────────────────────────────────────────────────
-
-  // Full-bleed cover photo behind the masthead (both orientations).
-  magazine_cover: {
-    landscape: { w: 1.0, h: 1.0 },
-    portrait:  { w: 1.0, h: 1.0 },
-  },
-
-  // Full-bleed page background under the field-notes ledger (MagazinePage
-  // backgroundImageSrc). Fills the whole sheet in both orientations.
-  text_narration: {
-    landscape: { w: 1.0, h: 1.0 },
-    portrait:  { w: 1.0, h: 1.0 },
-  },
-
-  // Full-bleed page background behind the timeline band (MagazinePage bg).
-  timeline_journey: {
-    landscape: { w: 1.0, h: 1.0 },
-    portrait:  { w: 1.0, h: 1.0 },
-  },
-
-  // Framed photo plate (MagPlate). Landscape: fills the RIGHT leaf (~44% of
-  // the content width, full content height). Portrait: full-width plate at
-  // 32% of the content height, above the body.
-  feature: {
-    landscape: { w: 0.37, h: 0.85 }, // ~716 × 918 on 1920×1080
-    portrait:  { w: 0.86, h: 0.28 }, // ~929 × 528 on 1080×1920
-  },
-
-  // Two-panel color block. Landscape: image is the right half (50% content
-  // width, full content height). Portrait: image is the bottom panel
-  // (flex 1.3 of a 0.7+1.3 column → ~65% content height, full width).
-  colorblock: {
-    landscape: { w: 0.42, h: 0.85 }, // ~816 × 918
-    portrait:  { w: 0.86, h: 0.56 }, // ~929 × 1075
-  },
-
-  // Absolutely-positioned editorial photo plate. Landscape: tall plate up the
-  // right margin (width 30%, height 68% of content). Portrait: wide plate on
-  // the lower band (width 74%, height 26% of content).
-  editorial_quote: {
-    landscape: { w: 0.26, h: 0.58 }, // ~499 × 626
-    portrait:  { w: 0.64, h: 0.22 }, // ~691 × 422
-  },
+  ...buildMagazineImageBoxDims(),
 };
 
 /**

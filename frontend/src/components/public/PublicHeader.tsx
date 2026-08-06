@@ -86,7 +86,7 @@ export default function PublicHeader() {
                     </button>
 
                     {toolsOpen && (
-                      <div className="absolute left-1/2 top-full mt-3 w-56 -translate-x-1/2 rounded-2xl border border-gray-200 bg-white p-2 shadow-xl">
+                      <div className="absolute left-1/2 top-full mt-3 max-h-[70vh] w-56 -translate-x-1/2 overflow-y-auto overscroll-contain rounded-2xl border border-gray-200 bg-white p-2 shadow-xl">
                         {toolsMenuLinks.map((tool) => (
                           <Link
                             key={tool.href}
@@ -165,7 +165,7 @@ export default function PublicHeader() {
                   </svg>
                 </button>
                 {mobileTemplatesOpen && (
-                  <div className="space-y-1 pl-2 pb-1">
+                  <div className="max-h-[50vh] space-y-1 overflow-y-auto overscroll-contain pl-2 pb-1">
                     {templateMenuLinks.map((t) => (
                       <Link
                         key={t.href}
@@ -199,7 +199,7 @@ export default function PublicHeader() {
                   </svg>
                 </button>
                 {mobileToolsOpen && (
-                  <div className="space-y-1 pl-2 pb-1">
+                  <div className="max-h-[50vh] space-y-1 overflow-y-auto overscroll-contain pl-2 pb-1">
                     {toolsMenuLinks.map((tool) => (
                       <Link
                         key={tool.href}

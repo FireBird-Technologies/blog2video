@@ -9,12 +9,12 @@ import {
   SubscriptionDetail,
 } from "./types";
 
-export type PlanKey = "standard" | "pro";
-export type BillingCycle = "monthly" | "annual" | "lifetime";
+export type PlanKey = "lite" | "standard" | "pro";
+export type BillingCycle = "monthly" | "annual" | "lifetime"; // "lifetime" unsupported for "lite"
 
 // ─── Billing API ──────────────────────────────────────────
 
-export type CheckoutPlan = "pro" | "standard";
+export type CheckoutPlan = "pro" | "standard" | "lite";
 
 export const createCheckoutSession = (
   options:

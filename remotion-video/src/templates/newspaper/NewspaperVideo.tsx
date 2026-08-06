@@ -15,6 +15,7 @@ import { LogoOverlay } from "../../components/LogoOverlay";
 import { BackgroundMusic } from "../../components/BackgroundMusic";
 import { CaptionTrack } from "../../components/CaptionTrack";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
+import { SceneDurationInFramesContext } from "../SceneDurationContext";
 
 interface SceneData {
   id: number;
@@ -41,6 +42,14 @@ interface SceneData {
   avatarFocusY?: number;
   avatarZoom?: number;
   images: string[];
+  /** Stock-footage filename in public/. Mutually exclusive with `images`. */
+  video?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  /** Normalised clip length; converted to frames for <Loop>. */
+  videoDurationSeconds?: number;
+  /** Start offset into the clip, in seconds (the adjust-modal trim). */
+  videoStartSeconds?: number;
 }
 
 interface VideoData {
@@ -170,6 +179,15 @@ export const NewspaperVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           NEWSPAPER_LAYOUT_REGISTRY[scene.layout as NewspaperLayoutType] ||
           NEWSPAPER_LAYOUT_REGISTRY.article_lead;
         const imageUrl = scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
+        const videoUrl = scene.video ? staticFile(scene.video) : undefined;
+        // Clip length in frames for <Loop>; undefined = play once rather than
+        // looping at a guessed point.
+        const videoDurationInFrames = scene.videoDurationSeconds
+          ? Math.max(1, Math.round(scene.videoDurationSeconds * FPS))
+          : undefined;
+        const videoStartInFrames = scene.videoStartSeconds
+          ? Math.max(0, Math.round(scene.videoStartSeconds * FPS))
+          : undefined;
 
         const layoutProps: BlogLayoutProps = {
           ...(scene.layoutProps as Partial<BlogLayoutProps>),
@@ -180,6 +198,11 @@ export const NewspaperVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           textColor: data.textColor || "#111111",
           aspectRatio: (data.aspectRatio as "landscape" | "portrait") || "landscape",
           imageUrl,
+          videoUrl,
+          videoMuted: scene.videoMuted ?? true,
+          videoVolume: scene.videoVolume ?? 0.35,
+          videoDurationInFrames,
+          videoStartInFrames,
           imageObjectPosition: String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))) + "% " + String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))) + "%",
           imageZoom: Math.max(0.1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
           fontFamily: resolvedFontFamily || undefined,
@@ -187,7 +210,9 @@ export const NewspaperVideo: React.FC<VideoProps> = ({ dataUrl }) => {
 
         return (
           <Sequence key={scene.id} from={startFrame} durationInFrames={durationFrames} name={scene.title}>
-            <LayoutComponent {...layoutProps} />
+            <SceneDurationInFramesContext.Provider value={durationFrames}>
+              <LayoutComponent {...layoutProps} />
+            </SceneDurationInFramesContext.Provider>
             {scene.voiceoverFile && (
               <Audio src={staticFile(scene.voiceoverFile)} playbackRate={playbackSpeed} />
             )}

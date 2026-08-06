@@ -16,6 +16,7 @@ import InviteOthers from "./pages/InviteOthers";
 import AcceptInvite from "./pages/AcceptInvite";
 import InviteDecisionModal from "./components/InviteDecisionModal";
 import MarketingDesignerPopup from "./components/MarketingDesignerPopup";
+import MobileMemoryWarningPopup from "./components/MobileMemoryWarningPopup";
 import Contact from "./pages/Contact";
 import Blog from "./pages/Blog";
 import BlogPostPage from "./pages/BlogPostPage";
@@ -100,6 +101,7 @@ function AppRoutes() {
       {user && <Navbar />}
       {user && <InviteDecisionModal />}
       {user && <MarketingDesignerPopup />}
+      {user && <MobileMemoryWarningPopup />}
 
       <Routes>
         {/* Hidden: poster capture (scripts/capture-posters.ts) */}
@@ -227,7 +229,9 @@ function App() {
           <NoticeModalProvider>
           <SupportTourProvider>
               <AppRoutes />
-            <SupportWidget />
+            {/* The hidden /_capture route is screenshotted for template posters —
+                the support widget would otherwise be baked into every image. */}
+            {!window.location.pathname.startsWith("/_capture") && <SupportWidget />}
             <UIHighlightOverlay />
           </SupportTourProvider>
           </NoticeModalProvider>

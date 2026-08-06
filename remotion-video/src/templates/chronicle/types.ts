@@ -42,6 +42,11 @@ export interface ChronicleLayoutProps {
   imageUrl?: string;
   imageObjectPosition?: string;
   imageZoom?: number;
+  videoUrl?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  videoDurationInFrames?: number;
+  videoStartInFrames?: number;
 
   // Layout-specific inputs
   stats?: ChronicleStat[];

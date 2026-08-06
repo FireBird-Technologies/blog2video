@@ -12,6 +12,7 @@ NEWSCAST is a premium broadcast news video template system. Every frame feels li
 
 ## Scene image (`layoutProps.imageUrl`)
 - **Never output `imageUrl` yourself.** You are not given any real image URLs, so any value you invent here (including anything on `example.com` or a similar placeholder domain) is a hallucination and will break rendering. The full-bleed background plate behind the NEWSCAST stack (globe, chrome, glass, type) is assigned automatically by a separate system from the project's own images after your output is generated. Do not include `imageUrl` in `layoutProps` under any circumstances.
+- **The same rule applies to stock footage.** Never output `assignedVideo`, `videoUrl`, `videoMuted`, or `videoVolume`. A scene's background clip is chosen by the user in the editor after generation, and any value you invent would break rendering exactly as a fake `imageUrl` does.
 
 ## Background field
 - Always `#060614` (deep space navy).

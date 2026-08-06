@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, Img } from "remotion";
 import type { EconomistLayoutProps } from "../types";
+import { EconomistClip } from "../components/EconomistClip";
 import { ECONOMIST_COLORS } from "../constants";
 import { EconomistMasthead } from "../components/EconomistMasthead";
 import { EditorialDivider, EngravingTexture } from "../components/EconomistOrnaments";
@@ -23,6 +24,11 @@ export const ImageFeature: React.FC<EconomistLayoutProps> = ({
   imageUrl,
   imageObjectPosition = "50% 50%",
   imageZoom = 1,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   accentColor = ECONOMIST_COLORS.accent,
   textColor = ECONOMIST_COLORS.ink,
   titleFontSize,
@@ -32,7 +38,7 @@ export const ImageFeature: React.FC<EconomistLayoutProps> = ({
   const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
   const isPortrait = aspectRatio === "portrait";
-  const hasImage = Boolean(imageUrl);
+  const hasImage = Boolean(imageUrl || videoUrl);
   // Brand masthead from the brief; hidden when none (never print "The Economist").
   const brandWordmark = (wordmark ?? "").trim();
 
@@ -111,10 +117,23 @@ export const ImageFeature: React.FC<EconomistLayoutProps> = ({
   return (
     <AbsoluteFill style={{ backgroundColor: "#111", overflow: "hidden" }}>
       <AbsoluteFill style={{ opacity: photoOp }}>
-        <Img
-          src={imageUrl as string}
-          style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: imageObjectPosition, transform: `scale(${kbScale})`, filter: photoFilter }}
-        />
+        {(() => {
+          const visualStyle: React.CSSProperties = { width: "100%", height: "100%", objectFit: "cover", objectPosition: imageObjectPosition, transform: `scale(${kbScale})`, filter: photoFilter };
+          return videoUrl ? (
+            <EconomistClip
+              src={videoUrl}
+              imageObjectPosition={imageObjectPosition}
+              imageZoom={imageZoom}
+              muted={videoMuted ?? true}
+              volume={videoVolume ?? 0.35}
+              durationInFrames={videoDurationInFrames}
+              startInFrames={videoStartInFrames}
+              style={visualStyle}
+            />
+          ) : (
+            <Img src={imageUrl as string} style={visualStyle} />
+          );
+        })()}
         <AbsoluteFill style={{ background: "linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.32) 38%, rgba(0,0,0,0) 62%)" }} />
         <AbsoluteFill style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0) 22%)" }} />
       </AbsoluteFill>

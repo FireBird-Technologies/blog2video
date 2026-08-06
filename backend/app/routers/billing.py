@@ -13,7 +13,7 @@ import stripe
 from app.config import settings
 from app.database import get_db
 from app.auth import get_current_user
-from app.models.user import User, PlanTier, FREE_TIER_INCLUDED_VIDEOS, AI_EDIT_CREDITS_PER_VIDEO
+from app.models.user import User, PlanTier, PAID_TIERS, FREE_TIER_INCLUDED_VIDEOS, AI_EDIT_CREDITS_PER_VIDEO
 from app.models.project import Project
 from app.models.subscription import (
     Subscription, SubscriptionStatus, SubscriptionPlan,
@@ -159,7 +159,7 @@ def _recalculate_video_limit_bonus(user: User, db: Session) -> None:
     """
     Called when a user subscribes to a Pro/Standard plan, or when a plan renews.
 
-    Absorption order: base(2) → free_grants → referral_video_bonus → paid_credits.
+    Absorption order: base(FREE_TIER_INCLUDED_VIDEOS) → free_grants → referral_video_bonus → paid_credits.
     Base and free-grant usage disappears on upgrade. Referral and paid usage carries
     into the new period's videos_used_this_period so the user doesn't get phantom headroom.
     referral_video_bonus persists (reduced by what was consumed) — it is NOT wiped on upgrade.
@@ -169,7 +169,7 @@ def _recalculate_video_limit_bonus(user: User, db: Session) -> None:
     videos_used    = user.videos_used_this_period or 0
     paid_credits   = _count_active_per_video_credits(user.id, db)
 
-    # Usage absorption order: base(2) → free_grants → referral → paid
+    # Usage absorption order: base(FREE_TIER_INCLUDED_VIDEOS) → free_grants → referral → paid
     #
     # free_grants: portion of old video_limit_bonus that came from free promo grants
     #   (total old_bonus minus the paid per-video credits within it)
@@ -217,8 +217,8 @@ def _recalculate_video_limit_bonus(user: User, db: Session) -> None:
 # ─── Pro / Standard Subscription Checkout ─────────────────
 
 class CheckoutRequest(BaseModel):
-    plan: str = "pro"  # "pro" or "standard"
-    billing_cycle: str = "monthly"  # "monthly", "annual", or "lifetime"
+    plan: str = "pro"  # "lite", "standard", or "pro"
+    billing_cycle: str = "monthly"  # "monthly", "annual", or "lifetime" (lifetime unsupported for "lite")
     apply_third_video_offer: bool = False  # Out-of-videos offer (15% monthly / 25% annual Standard)
     # Whether to schedule the post-checkout win-back coupon email. The frontend
     # sets this to False to suppress repeats within the same browser/day.
@@ -231,20 +231,40 @@ def create_checkout_session(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Create a Stripe Checkout session for Pro or Standard plan."""
+    """Create a Stripe Checkout session for the Lite, Standard, or Pro plan."""
+    if body.plan not in ("lite", "standard", "pro"):
+        raise HTTPException(status_code=400, detail="plan must be 'lite', 'standard', or 'pro'")
+
     # Lifetime is a one-time payment (mode="payment"), not a recurring subscription.
     # Allowed even for users with an active recurring subscription — we don't auto-cancel
-    # the recurring plan here.
+    # the recurring plan here. Lite has no lifetime option.
     is_lifetime = body.billing_cycle == "lifetime"
+    if is_lifetime and body.plan == "lite":
+        raise HTTPException(status_code=400, detail="Lite has no lifetime option")
 
-    if body.plan == "standard":
+    if body.plan == "lite":
+        if user.plan == PlanTier.LITE:
+            raise HTTPException(status_code=400, detail="Already on Lite plan")
+        if body.billing_cycle == "annual":
+            price_id = settings.STRIPE_LITE_ANNUAL_PRICE_ID
+            if not price_id:
+                raise HTTPException(status_code=400, detail="Lite annual plan not configured yet")
+        elif body.billing_cycle == "monthly":
+            price_id = settings.STRIPE_LITE_PRICE_ID
+            if not price_id:
+                raise HTTPException(status_code=400, detail="Lite plan not configured yet")
+        else:
+            raise HTTPException(status_code=400, detail="billing_cycle must be 'monthly' or 'annual' for Lite")
+        subscription_type = "lite_subscription"
+        billing_cycle = body.billing_cycle
+    elif body.plan == "standard":
         if is_lifetime:
             price_id = settings.STANDARD_PLAN_LIFETIME_DEAL
             if not price_id:
                 raise HTTPException(status_code=400, detail="Standard lifetime deal not configured yet")
             subscription_type = "standard_lifetime"
         else:
-            if user.plan in (PlanTier.STANDARD):
+            if user.plan == PlanTier.STANDARD:
                 raise HTTPException(status_code=400, detail="Already on Standard plan")
             if body.billing_cycle == "annual":
                 price_id = settings.STRIPE_STANDARD_ANNUAL_PRICE_ID
@@ -256,7 +276,7 @@ def create_checkout_session(
                     raise HTTPException(status_code=400, detail="Standard plan not configured yet")
             subscription_type = "standard_subscription"
         billing_cycle = body.billing_cycle
-    else:
+    else:  # pro
         if is_lifetime:
             price_id = settings.PRO_PLAN_LIFETIME_DEAL
             if not price_id:
@@ -405,16 +425,22 @@ def create_per_video_checkout(
         else f"blog2video — {qty} video pack"
     )
 
+    # Pin every ad-hoc price to a single fixed Product when configured, so coupons
+    # can be scoped to per-video purchases (and the Stripe catalog isn't flooded with
+    # a throwaway product per checkout). Falls back to an inline product_data name
+    # when the env var is unset, preserving the old behavior.
+    price_data: dict = {"currency": "usd", "unit_amount": unit_amount}
+    if settings.STRIPE_PER_VIDEO_PRODUCT_ID:
+        price_data["product"] = settings.STRIPE_PER_VIDEO_PRODUCT_ID
+    else:
+        price_data["product_data"] = {"name": product_name}
+
     session = stripe.checkout.Session.create(
         customer=user.stripe_customer_id,
         mode="payment",
         line_items=[
             {
-                "price_data": {
-                    "currency": "usd",
-                    "product_data": {"name": product_name},
-                    "unit_amount": unit_amount,
-                },
+                "price_data": price_data,
                 "quantity": qty,
             }
         ],
@@ -534,11 +560,14 @@ def create_custom_template_checkout(
 # ─── Change Plan (Upgrade / Downgrade for existing paid users) ────
 
 # Lexicographic rank — tier dominates cycle. Higher rank = more expensive commitment.
+# Must stay in lockstep with the frontend's PLAN_RANK in lib/planSwitch.ts.
 _PLAN_RANK: dict[str, tuple[int, int]] = {
-    "standard_monthly": (1, 1),
-    "standard_annual":  (1, 2),
-    "pro_monthly":      (2, 1),
-    "pro_annual":       (2, 2),
+    "lite_monthly":     (1, 1),
+    "lite_annual":      (1, 2),
+    "standard_monthly": (2, 1),
+    "standard_annual":  (2, 2),
+    "pro_monthly":      (3, 1),
+    "pro_annual":       (3, 2),
 }
 
 
@@ -556,7 +585,7 @@ def _classify_direction(current_slug: str, target_slug: str) -> str:
 
 
 class ChangePlanRequest(BaseModel):
-    plan: str           # "standard" | "pro"
+    plan: str           # "lite" | "standard" | "pro"
     billing_cycle: str  # "monthly" | "annual"
 
 
@@ -606,8 +635,8 @@ def _get_active_subscription(user: User, db: Session) -> Subscription:
 
 
 def _validate_change_plan_request(body: ChangePlanRequest) -> str:
-    if body.plan not in ("standard", "pro"):
-        raise HTTPException(status_code=400, detail="plan must be 'standard' or 'pro'")
+    if body.plan not in ("lite", "standard", "pro"):
+        raise HTTPException(status_code=400, detail="plan must be 'lite', 'standard', or 'pro'")
     if body.billing_cycle not in ("monthly", "annual"):
         raise HTTPException(status_code=400, detail="billing_cycle must be 'monthly' or 'annual'")
     return _target_slug(body.plan, body.billing_cycle)
@@ -830,11 +859,15 @@ def change_plan(
         # Update user-level state for the new cycle.
         if target_slug.startswith("pro"):
             user.plan = PlanTier.PRO
-        else:
+        elif target_slug.startswith("standard"):
             user.plan = PlanTier.STANDARD
+        else:
+            user.plan = PlanTier.LITE
         user.videos_used_this_period = 0
         user.period_start = now
         user.reset_custom_template_period()
+        user.reset_tool_usage_period()
+        user.reset_ai_edit_period()
         _recalculate_video_limit_bonus(user, db)
 
         db.commit()
@@ -1592,6 +1625,38 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
 
 # ─── Webhook handlers ─────────────────────────────────────
 
+# Every Checkout Session we create sets metadata["type"] to one of these (see
+# create_checkout_session / create_per_video_checkout / create_bulk_credits_checkout /
+# create_custom_template_checkout). Keep in sync when adding a checkout flow.
+_OUR_CHECKOUT_TYPES = frozenset({
+    "lite_subscription",
+    "standard_subscription",
+    "pro_subscription",
+    "standard_lifetime",
+    "pro_lifetime",
+    "per_video",
+    "bulk_500",
+    "custom_template",
+})
+
+
+def _is_our_checkout_session(session: dict) -> bool:
+    """
+    True when this Checkout Session was created by blog2video.
+
+    The Stripe account (acct_1OXplrBACqQSnujJ) is shared with BlogHub, autodash and
+    autoanalyst, and webhook endpoints are scoped to the *account* — so we receive
+    every checkout.session.* event on the account, not just our own. Ours always
+    carry a metadata["type"] from _OUR_CHECKOUT_TYPES; other products' sessions
+    carry their own shape (BlogHub's, for instance, use slot_id/publication_id and
+    set no `type` at all).
+
+    Deliberately NOT keyed on user_id — the other products set that too.
+    """
+    metadata = session.get("metadata") or {}
+    return metadata.get("type") in _OUR_CHECKOUT_TYPES
+
+
 def _send_winback_coupon(db: Session, user: User, *, abandoned: bool, recovery_url: str | None = None) -> str:
     """
     Send a post-checkout win-back coupon to `user`, applying the shared eligibility
@@ -1602,7 +1667,7 @@ def _send_winback_coupon(db: Session, user: User, *, abandoned: bool, recovery_u
     """
     if not user or not user.email or user.email_unsubscribed:
         return "skipped (no user / no email / unsubscribed)"
-    if user.plan in (PlanTier.PRO, PlanTier.STANDARD):
+    if user.plan in PAID_TIERS:
         return f"skipped (subscribed: {user.plan.value})"
 
     # Throttle: one user can spawn several checkout sessions (each can expire), and
@@ -1632,6 +1697,8 @@ def _send_winback_coupon(db: Session, user: User, *, abandoned: bool, recovery_u
 
 
 _PLAN_LABELS = {
+    "lite_monthly": "Lite",
+    "lite_annual": "Lite",
     "standard_monthly": "Standard",
     "standard_annual": "Standard",
     "standard_lifetime": "Standard (Lifetime)",
@@ -1670,6 +1737,16 @@ def _handle_checkout_expired(session: dict, db: Session):
     unsubscribed, or was emailed within the window. The SUB25 discount applies to
     any checkout, so every abandoned checkout type qualifies.
     """
+    # Shared-account guard — see _is_our_checkout_session. Without this, another
+    # product's abandoned checkout whose metadata.user_id happens to collide with
+    # one of our user ids would email that user a win-back coupon.
+    if not _is_our_checkout_session(session):
+        logger.info(
+            "[COUPON] Ignoring foreign expired session %s (metadata keys: %s)",
+            session.get("id"), sorted((session.get("metadata") or {}).keys()),
+        )
+        return
+
     metadata = session.get("metadata", {})
     user_id = metadata.get("user_id")
     recovery_url = ((session.get("after_expiration") or {}).get("recovery") or {}).get("url")
@@ -1688,10 +1765,21 @@ def _handle_checkout_expired(session: dict, db: Session):
 
 
 def _handle_checkout_completed(session: dict, db: Session):
+    session_id = session.get("id")
+
+    # Shared-account guard: bail before any DB write if this checkout belongs to
+    # another product on the same Stripe account. Fires several times a day during
+    # normal traffic, so this is info-level, not a warning.
+    if not _is_our_checkout_session(session):
+        logger.info(
+            "[BILLING] Ignoring foreign checkout session %s (metadata keys: %s)",
+            session_id, sorted((session.get("metadata") or {}).keys()),
+        )
+        return
+
     customer_id = session.get("customer")
     metadata = session.get("metadata", {})
-    checkout_type = metadata.get("type", "pro_subscription")
-    session_id = session.get("id")
+    checkout_type = metadata["type"]
 
     # Idempotency: Stripe delivers webhooks at-least-once. If we've already created a
     # Subscription row for this checkout session, this is a redelivery — do not re-grant.
@@ -1897,6 +1985,8 @@ def _handle_checkout_completed(session: dict, db: Session):
             user.videos_used_this_period = 0
             user.period_start = now
             user.reset_custom_template_period()
+            user.reset_tool_usage_period()
+            user.reset_ai_edit_period()
 
             # Drop any free grants, keep paid per-video credits — same as the
             # recurring-subscription path.
@@ -1935,22 +2025,33 @@ def _handle_checkout_completed(session: dict, db: Session):
             # Thank the subscriber. Best-effort — a failed email must never fail
             # the purchase webhook.
             _send_subscription_thank_you(user, plan_slug)
-    else:
-        # ── Pro or Standard subscription checkout ───────────────────────────
+    elif checkout_type in ("lite_subscription", "standard_subscription", "pro_subscription"):
+        # ── Lite, Standard or Pro recurring subscription checkout ───────────
         subscription_id = session.get("subscription")
         user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
         if user:
             billing_cycle = metadata.get("billing_cycle", "monthly")
-            if checkout_type == "standard_subscription":
+            if checkout_type == "lite_subscription":
+                plan_slug = "lite_annual" if billing_cycle == "annual" else "lite_monthly"
+                user.plan = PlanTier.LITE
+            elif checkout_type == "standard_subscription":
                 plan_slug = "standard_annual" if billing_cycle == "annual" else "standard_monthly"
                 user.plan = PlanTier.STANDARD
-            else:
+            elif checkout_type == "pro_subscription":
                 plan_slug = "pro_annual" if billing_cycle == "annual" else "pro_monthly"
                 user.plan = PlanTier.PRO
+            else:
+                logger.error(
+                    "[BILLING] Unknown checkout_type %r for session %s — skipping plan grant",
+                    checkout_type, session_id,
+                )
+                return
             user.stripe_subscription_id = subscription_id
             user.videos_used_this_period = 0
             user.period_start = datetime.utcnow()
             user.reset_custom_template_period()
+            user.reset_tool_usage_period()
+            user.reset_ai_edit_period()
 
             # Strip free grants from video_limit_bonus — only keep paid per-video
             # credits that haven't expired. Adjust videos_used_this_period to
@@ -2008,13 +2109,15 @@ def _handle_subscription_updated(subscription_data: dict, db: Session):
     user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
     if user:
         if status in ("canceled", "unpaid", "past_due"):
-            was_paid = user.plan in (PlanTier.STANDARD, PlanTier.PRO)
+            was_paid = user.plan in PAID_TIERS
             user.plan = PlanTier.FREE
             # Downgrading a paid user to FREE must not hand them fresh free quota they
             # already consumed pre-upgrade. Cap usage at the included free count so the
             # free tier shows 0 remaining (mirrors the delete-account flow in auth.py).
             if was_paid and (user.videos_used_this_period or 0) < FREE_TIER_INCLUDED_VIDEOS:
                 user.videos_used_this_period = FREE_TIER_INCLUDED_VIDEOS
+            # Same rule for the /tools allowances.
+            user.cap_tool_usage_to_free(was_paid)
         # For active/trialing, set plan from existing Subscription record so we don't overwrite Standard with Pro
 
         # Update the Subscription record
@@ -2047,11 +2150,16 @@ def _handle_subscription_updated(subscription_data: dict, db: Session):
                         user.videos_used_this_period = 0
                         user.period_start = datetime.utcnow()
                         user.reset_custom_template_period()
+                        user.reset_tool_usage_period()
+                        user.reset_ai_edit_period()
 
-            if status in ("active", "trialing") and sub.plan and sub.plan.slug.startswith("standard"):
-                user.plan = PlanTier.STANDARD
-            elif status in ("active", "trialing") and sub.plan and sub.plan.slug.startswith("pro"):
-                user.plan = PlanTier.PRO
+            if status in ("active", "trialing") and sub.plan:
+                if sub.plan.slug.startswith("lite"):
+                    user.plan = PlanTier.LITE
+                elif sub.plan.slug.startswith("standard"):
+                    user.plan = PlanTier.STANDARD
+                elif sub.plan.slug.startswith("pro"):
+                    user.plan = PlanTier.PRO
             if status in ("active", "trialing"):
                 sub.status = SubscriptionStatus.ACTIVE
             elif status == "past_due":
@@ -2089,13 +2197,15 @@ def _handle_subscription_deleted(subscription_data: dict, db: Session):
 
     user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
     if user:
-        was_paid = user.plan in (PlanTier.STANDARD, PlanTier.PRO)
+        was_paid = user.plan in PAID_TIERS
         user.plan = PlanTier.FREE
         user.stripe_subscription_id = None
         # Don't let a downgraded paid user regain already-consumed free quota; cap usage
         # at the included free count (mirrors the delete-account flow in auth.py).
         if was_paid and (user.videos_used_this_period or 0) < FREE_TIER_INCLUDED_VIDEOS:
             user.videos_used_this_period = FREE_TIER_INCLUDED_VIDEOS
+        # Same rule for the /tools allowances.
+        user.cap_tool_usage_to_free(was_paid)
 
         # Mark the Subscription record as canceled
         sub = db.query(Subscription).filter_by(

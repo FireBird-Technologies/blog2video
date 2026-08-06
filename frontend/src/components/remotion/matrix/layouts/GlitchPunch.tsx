@@ -4,6 +4,7 @@ import { CipherRing, CodeFragments, GlitchSlice, ScanlinesOverlay } from "../com
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
+import { ZoomCropVideo } from "../components/ZoomCropVideo";
 
 const GLITCH_CHARS = "アイウエオ0123456789!@#$%^&*<>{}[]|/\\";
 
@@ -23,6 +24,11 @@ export const GlitchPunch: React.FC<MatrixLayoutProps> = ({
   title,imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   accentColor,
   bgColor,
   aspectRatio,
@@ -53,7 +59,7 @@ export const GlitchPunch: React.FC<MatrixLayoutProps> = ({
 
   const scale = isSettled ? 0.9 + scaleSpring * 0.1 : 1;
 
-  const hasImage = !!imageUrl;
+  const hasImage = !!imageUrl || !!videoUrl;
   const imageOpacity = interpolate(frame, [10, 35], [0, 1], {
     extrapolateRight: "clamp",
   });
@@ -97,11 +103,23 @@ export const GlitchPunch: React.FC<MatrixLayoutProps> = ({
               border: `1px solid ${accent}33`,
             }}
           >
-            <ZoomCropImg
-              src={imageUrl}
-              imageObjectPosition={imageObjectPosition}
-              imageZoom={imageZoom}
-            />
+            {videoUrl ? (
+              <ZoomCropVideo
+                src={videoUrl}
+                imageObjectPosition={imageObjectPosition}
+                imageZoom={imageZoom}
+                muted={videoMuted ?? true}
+                volume={videoVolume ?? 0.35}
+                durationInFrames={videoDurationInFrames}
+                startInFrames={videoStartInFrames}
+              />
+            ) : (
+              <ZoomCropImg
+                src={imageUrl!}
+                imageObjectPosition={imageObjectPosition}
+                imageZoom={imageZoom}
+              />
+            )}
           </div>
         )}
 

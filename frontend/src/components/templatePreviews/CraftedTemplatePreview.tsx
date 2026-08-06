@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { compilePreviewComponent } from "../../utils/compileComponent";
+import type { CustomTemplateTheme } from "../../api/client";
+import StaticPreviewImage from "./StaticPreviewImage";
 
 interface CraftedTemplatePreviewProps {
   /** Stable identifier for module caching across re-mounts. */
@@ -23,6 +25,15 @@ interface CraftedTemplatePreviewProps {
   thumbnailMode?: boolean;
   /** Show a spinner while compiling (use for the large featured card). */
   showLoaderOnEmptyOrError?: boolean;
+  /**
+   * Force a zero-cost static render: skip compiling and mounting the live
+   * preview component, showing a themed name placeholder instead. Set on mobile
+   * for non-selected grid tiles so the step-2 grid never mounts many live
+   * Remotion Players at once (iOS Safari OOMs and reloads the tab otherwise).
+   */
+  staticThumb?: boolean;
+  /** Theme used for the {@link staticThumb} placeholder colours. */
+  theme?: CustomTemplateTheme;
 }
 
 // Compiled-preview cache survives unmount/remount within the session.
@@ -96,16 +107,26 @@ export default function CraftedTemplatePreview({
   name,
   thumbnailMode = false,
   showLoaderOnEmptyOrError = false,
+  staticThumb = false,
+  theme,
 }: CraftedTemplatePreviewProps) {
   const cacheKey = moduleKey(compileCacheScope, templateId);
   const [Component, setComponent] = useState<React.ComponentType<{ thumbnailMode?: boolean }> | null>(
-    () => moduleCache.get(cacheKey) ?? null,
+    () => (staticThumb ? null : moduleCache.get(cacheKey) ?? null),
   );
   const [compileFailed, setCompileFailed] = useState(false);
   const cancelledRef = useRef(false);
 
   useEffect(() => {
     cancelledRef.current = false;
+    // Static mode: never compile or mount the live preview — hold zero Players.
+    if (staticThumb) {
+      setComponent(null);
+      setCompileFailed(false);
+      return () => {
+        cancelledRef.current = true;
+      };
+    }
     if (!previewSource) {
       setComponent(null);
       setCompileFailed(false);
@@ -134,7 +155,13 @@ export default function CraftedTemplatePreview({
     return () => {
       cancelledRef.current = true;
     };
-  }, [cacheKey, templateId, previewSource]);
+  }, [cacheKey, templateId, previewSource, staticThumb]);
+
+  // Static mode: show the bundled static preview image if one exists and loads,
+  // else a themed name placeholder — never compile/mount a Player.
+  if (staticThumb) {
+    return <StaticPreviewImage src={previewImageUrl} name={name} theme={theme} />;
+  }
 
   if (Component) {
     return <Component thumbnailMode={thumbnailMode} />;

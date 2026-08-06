@@ -495,6 +495,13 @@ def revert_fields(
     for r in targets:
         r.reverted = not bool(getattr(r, "reverted", False))
 
+    # Reverting/redoing a reorder, un-delete or add restores scene.order values; audio
+    # files are named by order, so resync filenames + voiceover_paths to the new order
+    # (otherwise scenes play each other's voiceover after a structural revert).
+    if reorder_reverted or structural_scene_change:
+        from app.routers.projects import _sync_audio_filenames_to_order
+        _sync_audio_filenames_to_order(db, project)
+
     db.commit()
 
     # Push the applied values live to any collaborators connected on this project.

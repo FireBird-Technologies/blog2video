@@ -9,6 +9,8 @@ import type { BillingCycle, PlanKey } from "../api/billing";
 import type { ChangePlanPreview } from "../api/types";
 
 const PLAN_NAMES: Record<string, string> = {
+  lite_monthly: "Lite Monthly",
+  lite_annual: "Lite Annual",
   standard_monthly: "Standard Monthly",
   standard_annual: "Standard Annual",
   pro_monthly: "Pro Monthly",

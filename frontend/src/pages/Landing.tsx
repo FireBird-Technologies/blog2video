@@ -18,7 +18,7 @@ import CustomTemplateShowcase from "../components/CustomTemplateShowcase";
 import MCPConnectorShowcase from "../components/MCPConnectorShowcase";
 // import FeaturedUserTemplates from "../components/FeaturedUserTemplates";
 import GoogleAuthButton from "../components/public/GoogleAuthButton";
-import { detectInAppBrowser } from "../lib/inAppBrowser";
+import { detectInAppBrowser, isMobileDevice } from "../lib/inAppBrowser";
 import AccountDeletedModal from "../components/AccountDeletedModal";
 import LandingResourceSection from "../components/public/LandingResourceSection";
 import PlatformShowcaseSection from "../components/PlatformShowcaseSection";
@@ -27,6 +27,7 @@ import PublicFooter from "../components/public/PublicFooter";
 import DiscountBanner from "../components/DiscountBanner";
 import Seo from "../components/seo/Seo";
 import { homepageSchema } from "../seo/schema";
+import { LITE_MONTHLY_PRICE } from "../content/pricingContent";
 
 // ─── Demo videos ─────────────────────────────────────────
 // Add more entries here to show them as tabs in "See it in action"
@@ -593,6 +594,13 @@ export default function Landing() {
   const googleBtnRef = useRef<HTMLDivElement>(null);
   const [signingIn, setSigningIn] = useState(false);
   const isInApp = detectInAppBrowser().isInApp;
+  // Phone/tablet by user agent, not by window size — a narrowed desktop window
+  // must not be told to switch to a computer.
+  const isMobile = isMobileDevice();
+  // The in-app browser's "open in Safari to sign in" card is both amber and more
+  // urgent (it blocks sign-in outright), so hide the memory advisory while it's
+  // up rather than stacking two warnings in the same hero.
+  const [inAppInstructionsVisible, setInAppInstructionsVisible] = useState(false);
 
   const handleGenerateClick = () => {
     // Inside an in-app browser the hidden Google (GIS) button silently no-ops,
@@ -828,6 +836,7 @@ export default function Landing() {
               onError={() => showError("Google sign-in failed")}
               text="continue_with"
               width="300"
+              onInstructionsVisibleChange={setInAppInstructionsVisible}
             />
           </div>
 
@@ -854,7 +863,34 @@ export default function Landing() {
               Get Started →
             </button>
           </form>
-          <p className="text-xs text-gray-400 mt-3">2 videos free — no credit card required</p>
+          <p className="text-xs text-gray-400 mt-3">1 video free — no credit card required</p>
+          {/* Editing/preview hold a Remotion runtime that exceeds most phone
+              browsers' memory ceiling, so set expectations before sign-up. */}
+          {isMobile && !inAppInstructionsVisible && (
+            <div className="mx-auto mt-4 max-w-md rounded-xl border border-amber-200 bg-amber-50 p-3 flex items-start gap-2 text-left text-xs text-amber-900">
+              <svg
+                className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                viewBox="0 0 24 24"
+                aria-hidden
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 9v3.75m0 3.5h.007M10.34 3.94l-7.6 13.2A1.5 1.5 0 004.04 19.5h15.92a1.5 1.5 0 001.3-2.36l-7.6-13.2a1.5 1.5 0 00-2.6 0z"
+                />
+              </svg>
+              <p>
+                <span className="font-medium">Optimal experience on a computer.</span>{" "}
+                <span className="text-amber-800">
+                  Video rendering and previews are memory-heavy and may not play reliably
+                  on a phone.
+                </span>
+              </p>
+            </div>
+          )}
         </div>
       </section>
 
@@ -1224,24 +1260,29 @@ export default function Landing() {
         <div className="max-w-6xl mx-auto px-6 text-center reveal">
           <p className="text-xs font-medium text-purple-600 mb-4 tracking-widest uppercase">Pricing</p>
           <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-4">
-            Start free. Pay per video. Standard or Pro.
+            Start free. Pay per video. Lite, Standard, or Pro.
           </h2>
           <p className="text-sm text-gray-500 mb-10 max-w-lg mx-auto leading-relaxed">
-            Your first 2 videos are free. Then from $2.80/video pay-as-you-go, $34.99/month,
-            $59.99/month with unlimited AI edit & image generation,
+            Your first video is free. Then from $2.80/video pay-as-you-go, ${LITE_MONTHLY_PRICE}/month,
+            $34.99/month, $59.99/month with a monthly AI-edit allowance,
             or custom plans for enterprise teams.
           </p>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <div className="glass-card px-4 sm:px-7 py-6 text-center">
               <p className="text-sm font-medium text-gray-900 mb-1">Free</p>
               <p className="text-3xl font-bold text-gray-900">$0</p>
-              <p className="text-xs text-gray-400 mt-1">2 videos free</p>
+              <p className="text-xs text-gray-400 mt-1">1 video free</p>
             </div>
             <div className="glass-card px-4 sm:px-7 py-6 text-center">
               <p className="text-sm font-medium text-gray-900 mb-1">Per Video</p>
               <p className="text-3xl font-bold text-gray-900">$3.99</p>
               <p className="text-xs text-gray-400 mt-1">from $2.80 bulk</p>
+            </div>
+            <div className="glass-card px-4 sm:px-7 py-6 text-center">
+              <p className="text-sm font-medium text-gray-900 mb-1">Lite</p>
+              <p className="text-3xl font-bold text-gray-900">${LITE_MONTHLY_PRICE}<span className="text-sm font-normal text-gray-400">/mo</span></p>
+              <p className="text-xs text-gray-400 mt-1">10 videos</p>
             </div>
             <div className="glass-card px-4 sm:px-7 py-6 text-center col-span-2 sm:col-span-1">
               <p className="text-sm font-medium text-gray-900 mb-1">Standard</p>
@@ -1292,7 +1333,7 @@ export default function Landing() {
                 text="continue_with"
                 width="300"
               />
-              <p className="text-xs text-gray-400">2 videos free — no credit card required</p>
+              <p className="text-xs text-gray-400">1 video free — no credit card required</p>
             </div>
           </div>
         </div>

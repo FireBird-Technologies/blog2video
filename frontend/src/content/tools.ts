@@ -126,6 +126,102 @@ export const tools: ToolDefinition[] = [
     ],
   },
   {
+    slug: "substack-valuation-calculator",
+    path: "/tools/substack-valuation-calculator",
+    title: "Substack Valuation Calculator",
+    description:
+      "Estimate what a paid newsletter is worth using a revenue multiple adjusted for audience GDP per capita, sector price-to-sales, churn, scale, and growth.",
+    eyebrow: "Calculator",
+    heroTitle: "Find out what your Substack is actually worth.",
+    heroDescription:
+      "A paid newsletter is typically valued at 2x to 5x annual revenue. This calculator starts there, then adjusts the multiple for where your readers live, how your niche is priced in public markets, your churn, your size, and your growth rate — and shows the full range of outcomes, not one flattering number.",
+    category: "calculator",
+    icon: "SV",
+    primaryKeyword: "substack valuation calculator",
+    keywordVariant: "how much is my newsletter worth",
+    badges: ["Revenue multiple", "GDP-adjusted subscribers", "Churn and growth weighted"],
+    proofPoints: [
+      "Adjusts subscriber value by audience GDP per capita instead of treating every reader as a US reader.",
+      "Prices your niche off the listed sector's price-to-sales ratio against the wider market.",
+      "Shows a P10 to P90 distribution and a factor-by-factor bridge, so the number is auditable.",
+    ],
+    sections: [
+      {
+        title: "How this calculator values a newsletter",
+        body: [
+          "Subscription media is bought and sold on a multiple of revenue. Small paid newsletters generally trade somewhere between 2x and 5x annual revenue, so this model anchors on 3.2x and then moves that multiple up or down based on five things a buyer actually cares about.",
+          "Each adjustment is a multiplier centred on 1.0, and each one is shown separately in the results. Nothing is hidden inside a single black-box figure — if the model says your valuation is 18% lower because of churn, you can see exactly that line and decide whether you agree.",
+        ],
+        bullets: [
+          "Geography: your paid list weighted by GDP per capita, against the US benchmark.",
+          "Niche: the listed sector closest to your topic, priced on sales versus the market.",
+          "Retention: your monthly churn expressed as an implied subscriber lifetime.",
+          "Scale: the size premium that larger revenue bases attract from buyers.",
+          "Growth: what a still-compounding list is worth over a flat one.",
+        ],
+      },
+      {
+        title: "Why audience geography changes the number",
+        body: [
+          "Two newsletters with identical revenue are not identically valuable. A list concentrated in high-income markets converts better on price increases, sells sponsorships at higher rates, and carries lower risk of revenue falling away when a currency moves.",
+          "The model weights each country in your paid list by its GDP per capita and compares the blend against the United States. That raw ratio is then heavily dampened, because a subscriber in a lower-GDP country still pays the same USD list price once they subscribe. GDP shifts the odds they subscribe and the price you can charge over time — it does not linearly discount the revenue you already have.",
+        ],
+      },
+      {
+        title: "Why the niche multiplier comes from the stock market",
+        body: [
+          "Public markets already do the work of pricing categories. An AI newsletter and a cooking newsletter are not worth the same multiple, and rather than inventing a ranking, the model reads it off how the equivalent listed sector trades on price-to-sales against the S&P 500.",
+          "A finance newsletter is priced against financials, an AI newsletter against information technology, a food newsletter against consumer staples. The raw spread between sectors is wide, so it is dampened before it reaches your multiple — the aim is to tilt the valuation toward market reality, not to let sector rotation swamp everything else about your business.",
+        ],
+      },
+      {
+        title: "Reading the range instead of the point estimate",
+        body: [
+          "The headline number is the middle of a distribution, not a price. The bell curve shows the full spread of plausible outcomes, with the shaded band covering the middle 80%.",
+          "That band widens when your business is small, when churn is high, or when a large share of revenue comes from sponsorships rather than subscriptions — all things that make real buyers less certain and therefore more conservative. If your band is wide, the fastest way to narrow it is usually to fix churn.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "How much is a Substack newsletter worth?",
+        answer:
+          "Most small paid newsletters sell for roughly 2x to 5x annual revenue. A newsletter earning $100,000 a year would typically be valued between $200,000 and $500,000, with the exact multiple driven by churn, growth rate, audience quality, and how transferable the publication is from its founding writer.",
+      },
+      {
+        question: "What is the most important factor in a newsletter valuation?",
+        answer:
+          "Churn. It determines how long the revenue a buyer is purchasing actually lasts. A newsletter with 1.5% monthly churn has an implied subscriber lifetime more than four times longer than one at 7%, and buyers price that difference aggressively.",
+      },
+      {
+        question: "Why does the calculator ask where my subscribers live?",
+        answer:
+          "Because ability to pay varies enormously by market and it affects what your list is worth to a buyer. The calculator weights your paid subscribers by their country's GDP per capita against the US benchmark, then dampens that ratio, since a subscriber anywhere still pays your USD list price once they convert.",
+      },
+      {
+        question: "Does this calculator account for sponsorship revenue?",
+        answer:
+          "Yes, and it treats it differently from subscription revenue. Sponsorship income is included in ARR but widens the uncertainty band, because it is less predictable and less transferable than recurring subscriptions. A newsletter that is mostly sponsorship-funded gets a wider valuation range than one of the same size funded by subscriptions.",
+      },
+      {
+        question: "Can I change how much each factor counts?",
+        answer:
+          "Yes. Every factor has a weight slider from off to double. If you think the niche adjustment is overstated for your publication, turn it down or set it to zero and the model recalculates without it.",
+      },
+      {
+        question: "Is this an official valuation?",
+        answer:
+          "No. It is a planning estimate. Real sales turn on factors no model can see, including whether the audience follows the writer or the publication, sponsor relationships, and how many buyers are genuinely at the table. Use it to set a starting range and to see which inputs move the number most.",
+      },
+    ],
+    relatedPaths: [
+      "/tools/substack-revenue-calculator",
+      "/tools/content-repurposing-calculator",
+      "/for-substack-writers/blog-to-video",
+      "/blogs/how-to-grow-your-substack-newsletter",
+    ],
+  },
+  {
     slug: "substack-revenue-calculator",
     path: "/tools/substack-revenue-calculator",
     title: "Substack Revenue Calculator",
@@ -538,6 +634,337 @@ export const tools: ToolDefinition[] = [
       "/blog-to-video",
       "/templates",
       "/tools/headline-analyzer",
+    ],
+  },
+  {
+    slug: "video-script-generator",
+    path: "/tools/video-script-generator",
+    title: "Video Script Generator",
+    description:
+      "Turn a topic, blog URL, or rough notes into a scene-by-scene video script with a hook, ordered beats, and a call to action.",
+    eyebrow: "Generator",
+    heroTitle: "Generate a scene-by-scene video script from a topic or blog post.",
+    heroDescription:
+      "Paste a topic, article URL, or a few notes and get a structured script — a scroll-stopping hook, ordered scene beats with on-screen text and voiceover, and a closing call to action you can record right away.",
+    category: "generator",
+    icon: "VS",
+    primaryKeyword: "video script generator",
+    keywordVariant: "ai video script generator",
+    badges: ["Hook + beats + CTA", "Explainer or promo tone", "Sign in to generate"],
+    proofPoints: [
+      "Writes for the ear — short spoken-word lines you can read straight into a mic.",
+      "Structures every script as hook, ordered beats, and a platform-appropriate CTA.",
+      "Adjustable tone and length so the same topic works for a short or a long-form video.",
+    ],
+    sections: [
+      {
+        title: "What this generator produces",
+        body: [
+          "A finished video script is more than a paragraph of text — it is a sequence of scenes, each with something on screen and something spoken. This generator returns exactly that: a suggested title, a hook scene designed to earn the first three seconds, middle scenes that move the idea forward, and a closing call to action.",
+          "It is built for creators repurposing written content. Feed it the topic or URL of a post you already published and it drafts the spoken version so you are editing, not staring at a blank page.",
+        ],
+      },
+      {
+        title: "How to get the best script",
+        body: [
+          "Give it something specific. A concrete topic or a real article URL produces a sharper script than a one-word prompt. Then pick the tone and length that match where the video will live.",
+        ],
+        bullets: [
+          "Use explainer tone for tutorials and documentary-style breakdowns.",
+          "Use promotional tone for product, launch, and landing-page videos.",
+          "Use short length for Shorts and Reels, long for YouTube explainers.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Do I need to sign in to use the Video Script Generator?",
+        answer:
+          "Yes. Generating a script requires a free Blog2Video account so we can run the AI request for you. Sign in with Google and you can generate scripts immediately — no credit card required.",
+      },
+      {
+        question: "Can it write a script from a blog post URL?",
+        answer:
+          "Yes. Paste the topic or the article URL and the generator drafts a spoken, scene-by-scene version of that content — the natural first step before turning the post into a finished narrated video.",
+      },
+      {
+        question: "Is the script ready to record?",
+        answer:
+          "The voiceover lines are written to be read aloud as-is, but treat the output as a strong first draft. Tighten the hook, adjust the CTA, and personalize any specifics before you record or generate the video.",
+      },
+    ],
+    relatedPaths: [
+      "/blog-to-video",
+      "/tools/content-repurposing-calculator",
+      "/blog-to-youtube-video",
+      "/tools/video-length-calculator",
+    ],
+  },
+  {
+    slug: "thumbnail-text-generator",
+    path: "/tools/thumbnail-text-generator",
+    title: "Thumbnail Text Generator",
+    description:
+      "Generate short, high-CTR thumbnail text overlays for your video — punchy 2-5 word options built for curiosity and clicks.",
+    eyebrow: "Generator",
+    heroTitle: "Generate high-CTR thumbnail text for your video.",
+    heroDescription:
+      "Paste your video topic or title and get a batch of short thumbnail overlays — the 2-5 word punch that goes on the image, not the title — across curiosity, bold-claim, number, and benefit angles.",
+    category: "generator",
+    icon: "TT",
+    primaryKeyword: "thumbnail text generator",
+    keywordVariant: "youtube thumbnail text ideas",
+    badges: ["2-5 word overlays", "Multiple angles", "Sign in to generate"],
+    proofPoints: [
+      "Returns thumbnail text, not titles — the short overlay that actually drives the click.",
+      "Every option stays five words or fewer so it reads at a glance on mobile.",
+      "Mixes curiosity, contrast, numbers, and benefit angles so you can A/B test.",
+    ],
+    sections: [
+      {
+        title: "Why thumbnail text is its own skill",
+        body: [
+          "The text on a thumbnail is not the video title. It is a two-to-five word hook that overlays the image and creates enough curiosity or tension to earn the click. Great creators treat it as a separate craft — and iterate on it constantly.",
+          "This generator gives you a batch of options in different directions at once, so you can pick the angle that fits the video and test variations instead of guessing.",
+        ],
+      },
+      {
+        title: "How to use the options",
+        body: [
+          "Shortlist two or three that create the strongest curiosity gap, then pair them with a clear, high-contrast image. Uppercase them if that fits your channel style.",
+        ],
+        bullets: [
+          "Pick contrast over cleverness — the overlay should read in under a second.",
+          "Test a curiosity angle against a bold-claim angle on the same video.",
+          "Keep the text out of the corners where the duration badge sits.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Do I need an account to generate thumbnail text?",
+        answer:
+          "Yes. Thumbnail text generation runs an AI request, so it requires a free Blog2Video account. Sign in with Google and you can start generating right away.",
+      },
+      {
+        question: "What is the difference between thumbnail text and the video title?",
+        answer:
+          "The title is the full descriptive line next to the video. Thumbnail text is the short overlay printed on the image itself — usually 2-5 words designed purely to stop the scroll and create curiosity.",
+      },
+      {
+        question: "How many options do I get?",
+        answer:
+          "Each run returns up to eight distinct options across different angles — questions, bold claims, numbers, warnings, and benefits — so you have real variety to choose and test from.",
+      },
+    ],
+    relatedPaths: [
+      "/tools/headline-analyzer",
+      "/blog-to-youtube-video",
+      "/blog-to-video",
+      "/tools/youtube-description-generator",
+    ],
+  },
+  {
+    slug: "youtube-description-generator",
+    path: "/tools/youtube-description-generator",
+    title: "YouTube Description Generator",
+    description:
+      "Generate an SEO-optimized YouTube video description and a set of relevant tags from your topic, title, or transcript.",
+    eyebrow: "Generator",
+    heroTitle: "Generate an SEO YouTube description and tags in seconds.",
+    heroDescription:
+      "Paste your video topic, title, or transcript and get a search-optimized description — keyword front-loaded above the fold, a clear value section, a call to action — plus a set of relevant tags ready to paste in.",
+    category: "generator",
+    icon: "YD",
+    primaryKeyword: "youtube description generator",
+    keywordVariant: "ai youtube description generator",
+    badges: ["Keyword front-loaded", "12-15 tags", "Sign in to generate"],
+    proofPoints: [
+      "Front-loads the primary keyword in the first line that shows above the fold.",
+      "Returns a complete description plus a ready-to-paste set of relevant tags.",
+      "Natural, human phrasing — optimized for search without keyword stuffing.",
+    ],
+    sections: [
+      {
+        title: "What makes a description rank",
+        body: [
+          "YouTube reads the first one or two lines of your description most heavily, and those same lines are what viewers see before clicking 'show more'. This generator front-loads your primary keyword and the core promise there, then expands with the context YouTube uses to understand and recommend the video.",
+          "It finishes with a call to action and returns a set of tags that mix broad and long-tail terms — the practical metadata you need to publish, not just a blob of prose.",
+        ],
+      },
+      {
+        title: "How to use the output",
+        body: [
+          "Paste the description in as a starting point, then add your real links, timestamps, and affiliate or sponsor disclosures. Drop the tags into the tags field and prune any that do not fit the video.",
+        ],
+        bullets: [
+          "Keep the strongest keyword phrasing in the first sentence.",
+          "Add real chapter timestamps once your video is edited.",
+          "Trim tags down to the ones that genuinely describe the video.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Do I need to log in to generate a description?",
+        answer:
+          "Yes. The YouTube Description Generator runs an AI request, so it requires a free Blog2Video account. Sign in with Google and you can generate descriptions and tags immediately.",
+      },
+      {
+        question: "Can I generate a description from a transcript?",
+        answer:
+          "Yes. Paste a topic, a title, or a full transcript. The more detail you provide, the more specific and accurate the description and tags will be.",
+      },
+      {
+        question: "Are the tags YouTube tags or hashtags?",
+        answer:
+          "They are YouTube tags — lowercase keyword phrases without the '#' prefix, meant for the tags field. You can add hashtags separately in the description if you want them.",
+      },
+    ],
+    relatedPaths: [
+      "/tools/thumbnail-text-generator",
+      "/blog-to-youtube-video",
+      "/blog-to-video",
+      "/tools/headline-analyzer",
+    ],
+  },
+  {
+    slug: "video-length-calculator",
+    path: "/tools/video-length-calculator",
+    title: "Video Length Calculator",
+    description:
+      "Estimate how long your video will run from a word count or script — at slow, normal, and fast narration speeds.",
+    eyebrow: "Calculator",
+    heroTitle: "Estimate your video runtime from a script or word count.",
+    heroDescription:
+      "Paste your script or enter a word count and see the estimated runtime at slow, normal, and fast narration speeds — so you can trim to a target length before you ever hit record.",
+    category: "calculator",
+    icon: "VL",
+    primaryKeyword: "video length calculator",
+    keywordVariant: "script to video runtime calculator",
+    badges: ["Word count to runtime", "Slow / normal / fast", "Sign in to use"],
+    proofPoints: [
+      "Converts a word count or pasted script into an estimated runtime instantly.",
+      "Shows a range across slow, normal, and fast narration speeds.",
+      "Helps you hit a target length before recording instead of re-editing after.",
+    ],
+    sections: [
+      {
+        title: "How the estimate works",
+        body: [
+          "Spoken-word pacing is remarkably consistent: most narration lands between roughly 120 and 160 words per minute. This calculator takes your word count — typed in directly or counted from a pasted script — and translates it into a runtime range across slow, normal, and fast delivery.",
+          "Use it as a planning number. Real runtime shifts with pauses, on-screen beats, music, and B-roll, so treat the estimate as a target to write toward rather than a stopwatch guarantee.",
+        ],
+      },
+      {
+        title: "How to hit a target length",
+        body: [
+          "If you are aiming for a 60-second Short or a 10-minute explainer, work backward: the calculator tells you roughly how many words fit, so you can trim or expand the script before recording.",
+        ],
+        bullets: [
+          "For a 60s Short, plan for roughly 130-160 spoken words.",
+          "Leave headroom for pauses, transitions, and on-screen text beats.",
+          "Trim to length in the script, not in the edit — it is far faster.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Do I need to sign in to use the Video Length Calculator?",
+        answer:
+          "Yes. Access to the calculator requires a free Blog2Video account. Sign in with Google and you can use it right away — no credit card required.",
+      },
+      {
+        question: "What narration speed should I use?",
+        answer:
+          "Normal (around 140 words per minute) is a safe default for most explainer and talking-head videos. Use the slow estimate for calm, deliberate narration and the fast estimate for energetic, high-tempo edits.",
+      },
+      {
+        question: "Why is my real video longer than the estimate?",
+        answer:
+          "The estimate counts spoken words only. Pauses, music intros, on-screen text beats, transitions, and B-roll all add time. Add a buffer on top of the estimate when planning to a hard runtime.",
+      },
+    ],
+    relatedPaths: [
+      "/tools/video-script-generator",
+      "/tools/content-repurposing-calculator",
+      "/blog-to-video",
+      "/blog-to-shorts",
+    ],
+  },
+  {
+    slug: "book-cover-generator",
+    path: "/tools/book-cover-generator",
+    title: "AI Book Cover Generator",
+    description:
+      "Describe your book and generate a professional AI book cover — portrait 2:3 proportions, exportable as PNG, JPEG, or print-ready PDF.",
+    eyebrow: "Generator",
+    heroTitle: "Generate a professional book cover from a description.",
+    heroDescription:
+      "Describe your book in a paragraph or two and get an AI-designed front cover in classic 2:3 book proportions — then export it as a PNG, JPEG, or print-ready PDF.",
+    category: "generator",
+    icon: "BC",
+    primaryKeyword: "book cover generator",
+    keywordVariant: "ai book cover maker",
+    badges: ["Portrait 2:3 cover", "PNG / JPEG / PDF export", "5 free covers"],
+    proofPoints: [
+      "Turns a plain-language book description into a designed front cover.",
+      "Renders in classic 2:3 portrait proportions built for print and e-book thumbnails.",
+      "Exports as PNG, JPEG, or a print-ready PDF in one click.",
+    ],
+    sections: [
+      {
+        title: "How the book cover generator works",
+        body: [
+          "Describe your book the way you would to a friend — the genre, the mood, the central idea or character, and any imagery you have in mind. The generator turns that description into a professional front-cover composition with clear space for a title and author name.",
+          "The output is a design starting point. Use it as a finished cover for drafts and pitches, or as a base to hand a designer with a clear visual direction already established.",
+        ],
+      },
+      {
+        title: "How to write a good description",
+        body: [
+          "The more specific and evocative your description, the stronger the cover. Name the genre outright, describe the tone, and mention one or two concrete images or symbols that capture the book.",
+        ],
+        bullets: [
+          "State the genre and mood explicitly (e.g. 'a tense literary thriller, cold and atmospheric').",
+          "Mention a central image, symbol, or setting you want featured.",
+          "Keep it to roughly 200 words — enough detail to be specific, not a full synopsis.",
+        ],
+      },
+      {
+        title: "Exporting your cover",
+        body: [
+          "Once your cover is generated, export it in the format you need: PNG for the highest quality, JPEG for smaller files, or a print-ready PDF sized to the cover for KDP and other print workflows.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Do I need an account to generate a book cover?",
+        answer:
+          "Yes. Book cover generation runs an AI image request, so it requires a free Blog2Video account. Sign in with Google and you can generate and export covers right away.",
+      },
+      {
+        question: "How many book covers can I generate for free?",
+        answer:
+          "Free accounts include 5 AI book cover generations. Pro and Standard plans have unlimited generations. Exported covers are yours to keep regardless of plan.",
+      },
+      {
+        question: "What formats can I export the cover in?",
+        answer:
+          "You can download your cover as a PNG (highest quality), a JPEG (smaller file size), or a print-ready PDF sized to the cover — useful for Kindle Direct Publishing and other print-on-demand services.",
+      },
+      {
+        question: "Can I use the generated cover commercially?",
+        answer:
+          "The cover is a design starting point you can build on. Review the imagery for anything that resembles a real person or trademarked work before commercial use, and treat AI titles or text as placeholders to replace with your final typography.",
+      },
+    ],
+    relatedPaths: [
+      "/tools/thumbnail-text-generator",
+      "/tools/quote-card-generator",
+      "/blog-to-video",
+      "/tools/video-script-generator",
     ],
   },
 ];

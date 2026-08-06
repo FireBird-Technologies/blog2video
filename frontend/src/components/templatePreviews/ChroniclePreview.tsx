@@ -89,7 +89,8 @@ export default function ChroniclePreview({
     () => computeChronicleVideoTotalFrames([activeScene], 1),
     [activeScene],
   );
-  const thumbnailFrame = Math.min(Math.max(0, durationInFrames - 1), 100);
+  // Freeze on the opening frame for the static thumbnail/poster.
+  const thumbnailFrame = 0;
 
   const config = getTemplateConfig("chronicle");
   const Composition = config.component as React.ComponentType<any>;

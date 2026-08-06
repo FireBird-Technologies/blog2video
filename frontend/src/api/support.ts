@@ -21,12 +21,17 @@ export type NavigationHint = {
   description: string;
 };
 
+/** Why the bot is offering the contact form. Drives the button label. */
+export type EscalateReason = "human" | "refund" | "feature";
+
 export type ChatResponse = {
   conversation_id: number;
   answer: string;
   citations: string[];
   ui_guidance: UIGuidance[];
   navigation: NavigationHint | null;
+  escalate?: boolean;
+  escalate_reason?: EscalateReason | null;
 };
 
 export type SupportMessage = {
@@ -45,6 +50,14 @@ export type ConversationDetail = {
   session_state: Record<string, unknown>;
   messages: SupportMessage[];
 };
+
+export class HttpError extends Error {
+  status: number;
+  constructor(status: number, message?: string) {
+    super(message ?? `HTTP ${status}`);
+    this.status = status;
+  }
+}
 
 function getOrCreateSessionId(): string {
   let sid = localStorage.getItem(SESSION_KEY);
@@ -133,7 +146,7 @@ export async function sendChatStream(
     return;
   }
   if (!res.ok || !res.body) {
-    callbacks.onError(new Error(`HTTP ${res.status}`));
+    callbacks.onError(new HttpError(res.status));
     return;
   }
   const reader = res.body.getReader();
@@ -207,4 +220,29 @@ export async function claimConversation(conversationId: number): Promise<void> {
   await supportApi.post("/conversations/claim", {
     conversation_id: conversationId,
   });
+}
+
+/** Send the in-chat "talk to a human" / feature-request form to the internal team. */
+export async function sendEscalation(payload: {
+  email: string;
+  concern: string;
+  reason?: EscalateReason | null;
+  pagePath?: string;
+  conversationId?: number | null;
+}): Promise<void> {
+  try {
+    await supportApi.post("/escalate", {
+      email: payload.email,
+      concern: payload.concern,
+      reason: payload.reason ?? "human",
+      page_path: payload.pagePath ?? null,
+      conversation_id: payload.conversationId ?? null,
+    });
+  } catch (err) {
+    const res = (err as AxiosError<{ detail?: string }>).response;
+    if (res) {
+      throw new HttpError(res.status, res.data?.detail);
+    }
+    throw err;
+  }
 }

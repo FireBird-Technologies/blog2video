@@ -6,6 +6,7 @@ import {
   SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY,
 } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
+import { ZoomCropVideo } from "../components/ZoomCropVideo";
 
 /**
  * SpotlightImage — Image From Darkness
@@ -19,6 +20,11 @@ export const SpotlightImage: React.FC<SpotlightLayoutProps> = ({
   narration,imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   accentColor,
   bgColor,
   textColor,
@@ -57,8 +63,26 @@ export const SpotlightImage: React.FC<SpotlightLayoutProps> = ({
     <AbsoluteFill style={{ overflow: "hidden" }}>
       <SpotlightBackground bgColor={bgColor} accentColor={accentColor} />
 
-      {/* Image layer */}
-      {imageUrl ? (
+      {/* Image/video layer */}
+      {videoUrl ? (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            transform: `scale(${imageScale})`,
+          }}
+        >
+          <ZoomCropVideo
+            src={videoUrl}
+            imageObjectPosition={imageObjectPosition}
+            imageZoom={imageZoom}
+            muted={videoMuted ?? true}
+            volume={videoVolume ?? 0.35}
+            durationInFrames={videoDurationInFrames}
+            startInFrames={videoStartInFrames}
+          />
+        </div>
+      ) : imageUrl ? (
         <div
           style={{
             position: "absolute",

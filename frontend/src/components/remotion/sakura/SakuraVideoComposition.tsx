@@ -8,6 +8,7 @@ import { BackgroundMusic } from "../BackgroundMusic";
 import { CaptionTrack } from "../CaptionTrack";
 import { resolveFontFamily } from "../../../fonts/registry";
 import { pickSakuraTransition, SAKURA_TRANSITION_FRAMES } from "./sakuraTransitions";
+import { SceneDurationInFramesContext } from "../SceneDurationContext";
 
 export interface SakuraSceneInput {
   id: number;
@@ -23,6 +24,14 @@ export interface SakuraSceneInput {
   /** Spoken-audio length in seconds — for caption timing. */
   speechDurationSeconds?: number;
   imageUrl?: string;
+  /** Stock-footage clip URL. Mutually exclusive with `imageUrl`. */
+  videoUrl?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  /** Normalised clip length; converted to frames for <Loop>. */
+  videoDurationSeconds?: number;
+  /** Start offset into the clip, in seconds (the adjust-modal trim). */
+  videoStartSeconds?: number;
   voiceoverUrl?: string;
   avatarUrl?: string;
   /** Per-scene avatar overrides; undefined = inherit the project setting. */
@@ -191,6 +200,15 @@ export const SakuraVideoComposition: React.FC<SakuraVideoCompositionProps> = ({
       title: scene.title,
       narration: scene.narration,
       imageUrl: scene.imageUrl,
+      videoUrl: scene.videoUrl,
+      videoMuted: scene.videoMuted ?? true,
+      videoVolume: scene.videoVolume ?? 0.35,
+      videoDurationInFrames: scene.videoDurationSeconds
+        ? Math.max(1, Math.round(scene.videoDurationSeconds * FPS))
+        : undefined,
+      videoStartInFrames: scene.videoStartSeconds
+        ? Math.max(0, Math.round(scene.videoStartSeconds * FPS))
+        : undefined,
       imageObjectPosition: `${focusX}% ${focusY}%`,
       imageZoom: Math.max(0.1, Number(raw?.imageZoom ?? 1)),
       accentColor: accentColor || "#C0143C",
@@ -253,7 +271,9 @@ export const SakuraVideoComposition: React.FC<SakuraVideoCompositionProps> = ({
               key={`seq-${scene.id}-${index}`}
               durationInFrames={sequenceFrames}
             >
-              <LayoutComponent {...layoutProps} />
+              <SceneDurationInFramesContext.Provider value={durationFrames}>
+                <LayoutComponent {...layoutProps} />
+              </SceneDurationInFramesContext.Provider>
             </TransitionSeries.Sequence>
           );
 

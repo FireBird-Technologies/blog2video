@@ -99,6 +99,7 @@ def kill_network(monkeypatch):
         "send_enterprise_contact_email",
         "send_custom_template_request_email",
         "send_referral_invite_email",
+        "send_support_escalation_email",
     ):
         monkeypatch.setattr(
             email_module.EmailService, method,

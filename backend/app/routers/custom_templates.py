@@ -8,10 +8,10 @@ import asyncio
 import json
 import time
 import threading
-from datetime import date
+from datetime import date, datetime
 from pydantic import BaseModel, Field
 import logging
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, UploadFile, File, Form
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session, joinedload
 
@@ -70,18 +70,48 @@ def _check_custom_template_quota(user: User) -> None:
         )
 
 
+def _refund_template_slot(db: Session, user_id: int) -> None:
+    """Give back a consumed custom-template slot when generation fails.
+
+    Charged up front by create (first-time generation) and by regenerate-code;
+    both refund here so a template that never produced code costs nothing.
+    Floors at 0 so a double-refund can't hand out free slots. Caller commits,
+    so the refund lands in the same transaction as the failure-state write.
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return
+    user.custom_templates_created = max(0, (user.custom_templates_created or 0) - 1)
+    db.add(user)
+
+
 def _render_and_store_thumbnail(template_id: int, user_id: int) -> None:
-    """Background task: render a preview thumbnail and store URL in DB."""
+    """Background task: snapshot the real template preview and store its URL.
+
+    Drives the puppeteer capture worker
+    ({@link app.services.custom_template_snapshot.request_snapshot}), which
+    screenshots the deployed frontend's `/_capture` route for this template,
+    uploads the image to R2 and sets ``preview_image_url``. Falling back to the
+    legacy Remotion-still renderer when the capture worker is unavailable keeps
+    template creation from ever depending on a browser being reachable.
+    """
+    try:
+        from app.services.custom_template_snapshot import request_snapshot
+
+        if request_snapshot(template_id):
+            return
+    except Exception as e:
+        logger.warning("Puppeteer snapshot failed for template %d: %s", template_id, e)
+
+    # Fallback: legacy server-side Remotion still (mock intro scene).
     try:
         from app.services.thumbnail_renderer import render_template_thumbnail
-        from app.database import SessionLocal
-        from app.models.custom_template import CustomTemplate as CT
 
         url = render_template_thumbnail(template_id, user_id)
         if url:
             db = SessionLocal()
             try:
-                tpl = db.query(CT).filter(CT.id == template_id).first()
+                tpl = db.query(CustomTemplate).filter(CustomTemplate.id == template_id).first()
                 if tpl:
                     tpl.preview_image_url = url
                     db.commit()
@@ -90,6 +120,15 @@ def _render_and_store_thumbnail(template_id: int, user_id: int) -> None:
                 db.close()
     except Exception as e:
         logger.warning("Background thumbnail render failed for template %d: %s", template_id, e)
+
+
+def _verify_capture_secret(x_capture_secret: str | None) -> None:
+    """Guard the internal capture endpoints with the shared CAPTURE_SECRET."""
+    secret = settings.CAPTURE_SECRET
+    if not secret:
+        raise HTTPException(status_code=404, detail="Capture endpoints are disabled")
+    if not x_capture_secret or x_capture_secret != secret:
+        raise HTTPException(status_code=401, detail="Invalid capture secret")
 
 
 # ─── Pydantic schemas ────────────────────────────────────────
@@ -243,6 +282,7 @@ def _serialize_template(
         "logo_urls": logo_urls,
         "og_image": og_image,
         "generation_failed": bool(tpl.generation_failed),
+        "is_regenerating": bool(tpl.is_regenerating),
         "my_rating": my_rating,
         "my_rating_comment": my_rating_comment,
         "created_at": _utc_iso(tpl.created_at),
@@ -558,6 +598,91 @@ def list_custom_templates(
     ]
 
 
+# ─── Internal capture endpoints (shared-secret; no per-user auth) ──────────
+# Used by the puppeteer snapshot pipeline to (1) list templates to snapshot,
+# (2) read a template's data to render its real preview, and (3) store the
+# resulting image. Guarded by the CAPTURE_SECRET shared secret, not user auth,
+# so a backfill can run across every user's templates.
+
+
+@router.get("/internal/ids")
+def list_template_ids_for_capture(
+    only_missing: bool = Query(False, description="Only templates without a preview image"),
+    x_capture_secret: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    """List custom-template ids (+ owner) for the snapshot backfill."""
+    _verify_capture_secret(x_capture_secret)
+    q = db.query(CustomTemplate.id, CustomTemplate.user_id)
+    if only_missing:
+        q = q.filter(
+            (CustomTemplate.preview_image_url.is_(None))
+            | (CustomTemplate.preview_image_url == "")
+        )
+    return [{"id": tid, "user_id": uid} for tid, uid in q.all()]
+
+
+@router.get("/internal/capture-data/{template_id}")
+def get_template_capture_data(
+    template_id: int,
+    x_capture_secret: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    """Return a template's render data (theme/codes/etc.) for capture.
+
+    Same shape as the authenticated detail endpoint (reuses ``_serialize_template``),
+    but keyed by the shared capture secret so the snapshot worker can render any
+    user's template. Read-only.
+    """
+    _verify_capture_secret(x_capture_secret)
+    tpl = (
+        db.query(CustomTemplate)
+        .options(joinedload(CustomTemplate.brand_kit))
+        .filter(CustomTemplate.id == template_id)
+        .first()
+    )
+    if not tpl:
+        raise HTTPException(status_code=404, detail="Custom template not found")
+    return _serialize_template(tpl)
+
+
+@router.post("/internal/preview-image/{template_id}")
+async def store_template_preview_image(
+    template_id: int,
+    file: UploadFile = File(...),
+    x_capture_secret: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    """Upload a captured preview snapshot to R2 and set ``preview_image_url``."""
+    from app.services import r2_storage
+
+    _verify_capture_secret(x_capture_secret)
+    tpl = db.query(CustomTemplate).filter(CustomTemplate.id == template_id).first()
+    if not tpl:
+        raise HTTPException(status_code=404, detail="Custom template not found")
+
+    body = await file.read()
+    if not body:
+        raise HTTPException(status_code=400, detail="Empty image upload")
+
+    ext = "webp" if (file.content_type or "").endswith("webp") else "png"
+    content_type = file.content_type or ("image/webp" if ext == "webp" else "image/png")
+    key = r2_storage.custom_template_preview_key(tpl.user_id, tpl.id, ext)
+    url = r2_storage.upload_bytes(key, body, content_type=content_type)
+    if not url:
+        raise HTTPException(status_code=503, detail="R2 not configured")
+
+    # Cache-bust: the R2 object key is stable, so replacing the image leaves the
+    # URL unchanged and browsers/CDN keep serving the old bytes for the full
+    # 7-day max-age. A version param makes each re-capture a distinct URL.
+    versioned_url = f"{url}?v={int(time.time())}"
+
+    tpl.preview_image_url = versioned_url
+    db.commit()
+    logger.info("Stored captured preview for template %d: %s", template_id, versioned_url)
+    return {"preview_image_url": versioned_url}
+
+
 @router.get("/{template_id}")
 def get_custom_template(
     template_id: int,
@@ -778,13 +903,24 @@ def _run_codegen_background(template_id: int, user_id: int) -> None:
             "running": False,
             "error": str(e),
         }
-        # Persist failure state so frontend knows without time-based guessing
+        # Persist failure state so frontend knows without time-based guessing,
+        # and refund the slot charged at create time — a template that never
+        # produced any code shouldn't consume one.
+        #
+        # Only refund ONCE per template: a retry (generate-code) reuses the
+        # original charge rather than charging again, so refunding on every
+        # failed attempt would hand out a free slot per retry. generation_failed
+        # can't serve as the guard — the retry endpoint clears it before
+        # relaunching — so track the refund separately.
         try:
             _db = SessionLocal()
             _tpl = _db.query(CustomTemplate).filter(CustomTemplate.id == template_id).first()
             if _tpl:
                 _tpl.generation_failed = True
-                _db.commit()
+                if not _tpl.slot_refunded:
+                    _tpl.slot_refunded = True
+                    _refund_template_slot(_db, user_id)
+            _db.commit()
             _db.close()
         except Exception:
             pass
@@ -815,10 +951,14 @@ async def generate_code(
             content={"detail": "Code generation already in progress", "template_id": template_id},
         )
 
-    # Clear any previous failure state before retrying
-    if tpl.generation_failed:
-        tpl.generation_failed = False
-        db.commit()
+    # Clear any previous failure state before retrying. Always touch the row so
+    # updated_at moves forward: the frontend treats a codeless template whose
+    # updated_at is older than STUCK_GENERATION_MS as stalled, so without this a
+    # retry would keep rendering the "Generation stalled" card instead of a
+    # spinner (the original updated_at never changes on its own).
+    tpl.generation_failed = False
+    tpl.updated_at = datetime.utcnow()
+    db.commit()
 
     # Launch in background thread
     thread = threading.Thread(
@@ -848,8 +988,13 @@ def get_generation_status(
     if progress:
         return progress
 
-    # No in-memory progress — check if template already has code (e.g. after restart)
+    # No in-memory progress (e.g. after a server restart). is_regenerating is
+    # DB-persisted so it still reports "running" here even though the process
+    # that was tracking it in _codegen_progress is gone — the frontend keeps
+    # polling instead of reading the stale pre-regeneration code as "done".
     tpl = _get_user_template(template_id, user.id, db)
+    if tpl.is_regenerating:
+        return {"status": "generating", "step": "unknown", "running": True, "error": None}
     if tpl.intro_code:
         return {"status": "complete", "step": "done", "running": False, "error": None}
 
@@ -929,17 +1074,155 @@ async def upload_template_logo(
 # ─── Regenerate + versioning endpoints ──────────────────────
 
 
+def _run_regen_background(template_id: int, user_id: int) -> None:
+    """Run code regeneration in a background thread, mirroring
+    _run_codegen_background — same _codegen_progress tracker (polled by
+    /generation-status) plus the durable is_regenerating DB flag, which
+    survives a page refresh/tab-switch (unlike the in-memory-only progress
+    dict, which is still useful for step-level detail while the tab stays
+    open, but can't answer "is this still running" after a fresh page load
+    on its own).
+    """
+    import asyncio as _asyncio
+    from app.services.code_generator import generate_component_code
+
+    loop = _asyncio.new_event_loop()
+    _asyncio.set_event_loop(loop)
+
+    try:
+        _codegen_progress[template_id] = {
+            "status": "generating",
+            "step": "design_system",
+            "running": True,
+            "error": None,
+        }
+
+        _db_pre = SessionLocal()
+        try:
+            tpl = (
+                _db_pre.query(CustomTemplate)
+                .options(joinedload(CustomTemplate.brand_kit))
+                .filter(CustomTemplate.id == template_id, CustomTemplate.user_id == user_id)
+                .first()
+            )
+            if not tpl:
+                _codegen_progress[template_id] = {
+                    "status": "error",
+                    "step": "init",
+                    "running": False,
+                    "error": "Template not found",
+                }
+                _refund_template_slot(_db_pre, user_id)
+                _db_pre.commit()
+                return
+            # Snapshot current state before overwriting.
+            _save_version(tpl, "Before regeneration", _db_pre)
+            # Detach BEFORE commit: commit() expires all attributes by default
+            # (expire_on_commit=True), and an expired attribute on an already-
+            # detached instance can't be refreshed — accessing tpl.brand_kit
+            # inside generate_component_code() would then raise "not bound to
+            # a Session". Expunging first just removes it from the identity
+            # map; the flushed SQL from _save_version still commits normally.
+            _db_pre.expunge_all()
+            _db_pre.commit()
+        finally:
+            _db_pre.close()
+
+        t_start = time.time()
+        _codegen_progress[template_id]["step"] = "generating_scenes"
+        # A single scene exhausting its own internal retries (see
+        # generate_component_code) fails the whole batch — often a transient
+        # LLM flake rather than a real problem with the brand/prompt. Retry
+        # the entire regeneration once before surfacing an error, so the user
+        # doesn't have to notice the failure and manually click Regenerate
+        # again for what's usually a one-off hiccup.
+        try:
+            variants = loop.run_until_complete(generate_component_code(tpl))
+        except Exception as first_error:
+            print(f"[F7-DEBUG] [REGEN-CODE] first attempt failed for template {template_id}, retrying once: {first_error}")
+            _codegen_progress[template_id]["step"] = "retrying"
+            variants = loop.run_until_complete(generate_component_code(tpl))
+
+        db = SessionLocal()
+        try:
+            tpl = (
+                db.query(CustomTemplate)
+                .filter(CustomTemplate.id == template_id, CustomTemplate.user_id == user_id)
+                .first()
+            )
+
+            tpl.component_code = None
+            tpl.intro_code = variants["intro_code"]
+            tpl.outro_code = variants["outro_code"]
+            tpl.content_codes = json.dumps(variants["content_codes"]) if variants.get("content_codes") else None
+            tpl.content_archetype_ids = json.dumps(variants.get("archetype_ids", []))
+            _default_ar = {"landscape": "16 / 9", "portrait": "9 / 16"}
+            tpl.image_box_aspect_ratios = json.dumps({
+                "intro": variants.get("intro_aspect_ratio") or _default_ar,
+                "content": variants.get("content_aspect_ratios") or [],
+                "outro": variants.get("outro_aspect_ratio") or _default_ar,
+            })
+
+            _codegen_progress[template_id]["step"] = "saving"
+            _save_version(tpl, "Regenerated", db)
+            tpl.is_regenerating = False
+            db.commit()
+
+            elapsed = time.time() - t_start
+            print(f"[F7-DEBUG] [REGEN-CODE] '{tpl.name}' completed in {elapsed:.1f}s (background)")
+
+            _codegen_progress[template_id] = {
+                "status": "complete",
+                "step": "done",
+                "running": False,
+                "error": None,
+            }
+
+            try:
+                _render_and_store_thumbnail(template_id, user_id)
+            except Exception:
+                pass
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"[F7-DEBUG] [REGEN-CODE] FAILED for template {template_id}: {e}")
+        _codegen_progress[template_id] = {
+            "status": "error",
+            "step": "failed",
+            "running": False,
+            "error": str(e),
+        }
+        try:
+            _db = SessionLocal()
+            _tpl = _db.query(CustomTemplate).filter(CustomTemplate.id == template_id).first()
+            if _tpl:
+                _tpl.is_regenerating = False
+                # regenerate-code resets slot_refunded to False when it charges,
+                # so this refunds exactly the charge for THIS run.
+                if not _tpl.slot_refunded:
+                    _tpl.slot_refunded = True
+                    _refund_template_slot(_db, user_id)
+            _db.commit()
+            _db.close()
+        except Exception:
+            pass
+    finally:
+        loop.close()
+
+
 @router.post("/{template_id}/regenerate-code")
-async def regenerate_code(
+def regenerate_code(
     template_id: int,
-    background_tasks: BackgroundTasks,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Regenerate all code variants from scratch (keeps old versions for rollback)."""
-    from app.services.code_generator import generate_component_code
+    """Launch full code regeneration in the background. Returns 202 immediately.
 
-    _check_ai_rate_limit(user.id)
+    Costs one custom-template slot (a regeneration is a fresh AI design, same
+    cost as creating one), charged up front and refunded by the background
+    worker if generation fails. No daily AI rate limit. Old versions are kept
+    for rollback via /versions.
+    """
     if not ((settings.CUSTOM_ANTHROPIC_API_KEY or settings.ANTHROPIC_API_KEY or "").strip()):
         raise HTTPException(
             status_code=400,
@@ -950,48 +1233,35 @@ async def regenerate_code(
     if not tpl.intro_code:
         raise HTTPException(status_code=400, detail="No code to regenerate — run generate-code first.")
 
-    # Regenerating a SUCCEEDED template (intro_code present) is a fresh design and
-    # counts against the quota. A FAILED template has no intro_code and reaches this
-    # endpoint only via the 400 above — its free retry goes through generate-code.
+    if tpl.is_regenerating:
+        return JSONResponse(
+            status_code=202,
+            content={"detail": "Regeneration already in progress", "template_id": template_id},
+        )
+
+    # Charge before starting — raises 403 (custom_template_limit) when the user
+    # is out of slots, so the frontend can show the upgrade modal. Refunded in
+    # _run_regen_background if generation fails.
     _check_custom_template_quota(user)
+    user.custom_templates_created = (user.custom_templates_created or 0) + 1
+    db.add(user)
 
-    # Snapshot current state before overwriting
-    _save_version(tpl, "Before regeneration", db)
-
-    try:
-        variants = await generate_component_code(tpl)
-    except RuntimeError as e:
-        print(f"[F7-DEBUG] [REGEN-CODE] FAILED for '{tpl.name}': {e}")
-        raise HTTPException(status_code=502, detail=str(e))
-
-    content_codes_list = variants.get("content_codes", [])
-
-    # Expire all cached state so the next query hits the DB fresh
-    # (avoids stale SSL connections after long LLM calls)
-    db.expire_all()
-    tpl = _get_user_template(template_id, user.id, db)
-
-    tpl.component_code = None
-    tpl.intro_code = variants["intro_code"]
-    tpl.outro_code = variants["outro_code"]
-    tpl.content_codes = json.dumps(variants["content_codes"]) if variants.get("content_codes") else None
-    tpl.content_archetype_ids = json.dumps(variants.get("archetype_ids", []))
-    _default_ar = {"landscape": "16 / 9", "portrait": "9 / 16"}
-    tpl.image_box_aspect_ratios = json.dumps({
-        "intro": variants.get("intro_aspect_ratio") or _default_ar,
-        "content": variants.get("content_aspect_ratios") or [],
-        "outro": variants.get("outro_aspect_ratio") or _default_ar,
-    })
-
-    _save_version(tpl, "Regenerated", db)
+    tpl.is_regenerating = True
+    # Fresh charge → fresh refund budget for this run.
+    tpl.slot_refunded = False
     db.commit()
-    db.refresh(tpl)
 
+    thread = threading.Thread(
+        target=_run_regen_background,
+        args=(template_id, user.id),
+        daemon=True,
+    )
+    thread.start()
 
-    # Render preview thumbnail in background (non-blocking)
-    background_tasks.add_task(_render_and_store_thumbnail, tpl.id, user.id)
-
-    return _serialize_template(tpl)
+    return JSONResponse(
+        status_code=202,
+        content={"detail": "Regeneration started", "template_id": template_id},
+    )
 
 
 @router.get("/{template_id}/versions")

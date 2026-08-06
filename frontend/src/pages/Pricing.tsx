@@ -25,8 +25,12 @@ import LimitedSeatsBar from "../components/LimitedSeatsBar";
 import PlanCardCTA from "../components/PlanCardCTA";
 import PlanSwitchConfirmModal from "../components/PlanSwitchConfirmModal";
 import BillingCycleTabs from "../components/BillingCycleTabs";
+import CustomPlanSalesFooter from "../components/CustomPlanSalesFooter";
 import { isPaidSlug, type CurrentSlug } from "../lib/planSwitch";
 import {
+  LITE_MONTHLY_PRICE,
+  LITE_ANNUAL_MONTHLY_PRICE,
+  LITE_ANNUAL_TOTAL_PRICE,
   STANDARD_MONTHLY_PRICE,
   STANDARD_ANNUAL_MONTHLY_PRICE,
   STANDARD_ANNUAL_TOTAL_PRICE,
@@ -36,9 +40,13 @@ import {
   PRO_COST_PER_VIDEO_MONTHLY,
   PRO_COST_PER_VIDEO_ANNUAL,
   FREE_CUSTOM_TEMPLATE_COUNT,
+  LITE_CUSTOM_TEMPLATE_COUNT,
   STANDARD_CUSTOM_TEMPLATE_COUNT,
   PRO_CUSTOM_TEMPLATE_COUNT,
   AI_EDITS_PER_VIDEO,
+  LITE_AI_EDIT_ALLOWANCE,
+  STANDARD_AI_EDIT_ALLOWANCE,
+  PRO_AI_EDIT_ALLOWANCE,
   pricingFaq,
 } from "../content/pricingContent";
 // import DiscountCodeBadge from "../components/DiscountCodeBadge";
@@ -149,6 +157,20 @@ export default function Pricing() {
     }
   };
 
+  const [liteCheckoutLoading, setLiteCheckoutLoading] = useState(false);
+  const handleLiteUpgrade = async () => {
+    if (!user) return;
+    setLiteCheckoutLoading(true);
+    try {
+      const res = await createCheckoutSession({ plan: "lite", billing_cycle: billingCycle === "lifetime" ? "monthly" : billingCycle });
+      window.location.href = res.data.checkout_url;
+    } catch (err: any) {
+      console.error("Lite checkout error:", err);
+      showError(getErrorMessage(err, "Checkout failed. Please try again."));
+      setLiteCheckoutLoading(false);
+    }
+  };
+
   const [standardCheckoutLoading, setStandardCheckoutLoading] = useState(false);
   const handleStandardUpgrade = async () => {
     if (!user) return;
@@ -213,6 +235,7 @@ export default function Pricing() {
 
   const isPro = user?.plan === "pro";
   const isStandard = user?.plan === "standard";
+  const isLite = user?.plan === "lite";
 
   const currentSlug: CurrentSlug = (() => {
     if (subscription?.plan_slug && isPaidSlug(subscription.plan_slug)) {
@@ -220,6 +243,7 @@ export default function Pricing() {
     }
     if (user?.plan === "pro") return "pro_monthly";
     if (user?.plan === "standard") return "standard_monthly";
+    if (user?.plan === "lite") return "lite_monthly";
     return "free";
   })();
 
@@ -302,7 +326,7 @@ export default function Pricing() {
             Simple, transparent pricing
           </h1>
           <p className="text-lg text-gray-500 max-w-xl mx-auto leading-relaxed">
-            Start free. Pay per video. Or go Pro for unlimited power.
+            Start free. Pay per video. Or subscribe — Lite, Standard, or Pro.
           </p>
         </div>
       </div>
@@ -322,8 +346,13 @@ export default function Pricing() {
       </div>
 
       {/* Plans */}
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-8 max-w-[1600px] mx-auto">
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mx-auto w-full max-w-6xl">
+        <div
+          className={`grid w-full grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 ${
+            isLifetime ? "lg:grid-cols-4" : "lg:grid-cols-5"
+          }`}
+        >
           {/* Free */}
           <div className="glass-card p-5 sm:p-7 flex flex-col">
             <div className="mb-6">
@@ -337,7 +366,7 @@ export default function Pricing() {
             </div>
             <ul className="space-y-3 mb-8 flex-1">
               {[
-                "2 videos free",
+                "1 video free",
                 "AI script generation",
                 "ElevenLabs voiceover",
                 "Remotion video preview",
@@ -352,7 +381,7 @@ export default function Pricing() {
                   {f}
                 </li>
               ))}
-              {["Unlimited AI edit & image generation", "Premium voiceover + cloning"].map((f) => (
+              {["Monthly AI edit allowance", "Premium voiceover + cloning"].map((f) => (
                 <li
                   key={f}
                   className="flex items-start gap-2.5 text-sm text-gray-300"
@@ -391,26 +420,12 @@ export default function Pricing() {
               bulkLoading={bulkLoading}
               onBuyBulk={handleBulkCredits}
               onBuy={(quantity) => handlePerVideo(quantity)}
-              features={[
-                "No subscription required",
-                "AI script generation",
-                "ElevenLabs voiceover",
-                "Render & download MP4",
-                `${AI_EDITS_PER_VIDEO} AI edits per video purchase, usable across all videos`,
-              ]}
             />
           ) : (
             <PerVideoSliderCard
               variant="full"
               bulkDeal={isLifetime}
               onBuy={() => {}}
-              features={[
-                "No subscription required",
-                "AI script generation",
-                "ElevenLabs voiceover",
-                "Render & download MP4",
-                `${AI_EDITS_PER_VIDEO} AI edits per video purchase, usable across all videos`,
-              ]}
               customButton={
                 <div className="flex justify-center">
                   <GoogleAuthButton
@@ -424,8 +439,87 @@ export default function Pricing() {
             />
           )}
 
+          {/* Lite — monthly/annual only, no lifetime option */}
+          {!isLifetime && (
+            <div className="glass-card p-5 sm:p-7 flex flex-col">
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                  Lite
+                </h3>
+                <p className="text-sm text-gray-400">
+                  Getting started, 10 videos/month
+                </p>
+              </div>
+              <div className="mb-6">
+                {isAnnual ? (
+                  <>
+                    <span className="text-3xl sm:text-4xl font-bold text-gray-900">${LITE_ANNUAL_MONTHLY_PRICE}</span>
+                    <span className="text-sm text-gray-400 ml-1">/month</span>
+                    <div className="mt-1 flex items-center gap-2">
+                      <span className="text-sm text-gray-400 line-through">${LITE_MONTHLY_PRICE}/mo</span>
+                      <span className="text-xs font-medium text-green-600 bg-green-50 px-1.5 py-0.5 rounded">
+                        Save 20%
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">${LITE_ANNUAL_TOTAL_PRICE} billed annually</p>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-3xl sm:text-4xl font-bold text-gray-900">${LITE_MONTHLY_PRICE}</span>
+                    <span className="text-sm text-gray-400 ml-1">/month</span>
+                    <p className="text-xs text-gray-400 mt-1">or ${LITE_ANNUAL_MONTHLY_PRICE}/mo billed annually</p>
+                  </>
+                )}
+              </div>
+              <ul className="space-y-3 mb-8 flex-1">
+                {[
+                  "10 videos per month",
+                  "AI script generation",
+                  "ElevenLabs voiceover",
+                  "Remotion video preview",
+                  "Render & download MP4",
+                  `${LITE_AI_EDIT_ALLOWANCE} AI edit credits/month`,
+                  `${LITE_CUSTOM_TEMPLATE_COUNT} custom video templates`,
+                  "Premium voiceover + cloning",
+                  "Priority support",
+                ].map((f) => (
+                  <li
+                    key={f}
+                    className="flex items-start gap-2.5 text-sm text-gray-600"
+                  >
+                    <CheckIcon />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              {user ? (
+                <PlanCardCTA
+                  tier="lite"
+                  currentSlug={currentSlug}
+                  billingCycle={billingCycle}
+                  scheduledTargetSlug={subscription?.scheduled_plan_slug}
+                  scheduledPending={scheduledPending}
+                  paymentBlocked={paymentBlocked}
+                  onSubscribe={handleLiteUpgrade}
+                  onSwitch={openSwitchModal}
+                  subscribeLoading={liteCheckoutLoading}
+                  variant="full"
+                />
+              ) : (
+                <div className="flex justify-center">
+                  <GoogleAuthButton
+                    onSuccess={handleGoogleSuccess}
+                    onError={() => showError("Google sign-in failed")}
+                    text="continue_with"
+                    width="190"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Standard */}
-          <div className="glass-card p-7 flex flex-col">
+          <div className="glass-card p-5 sm:p-6 flex flex-col">
             {isLifetime && <LimitedSeatsBar seed="standard-lifetime" seatsLeft={6} />}
             <div className="mb-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-1">
@@ -469,7 +563,7 @@ export default function Pricing() {
                 "ElevenLabs voiceover",
                 "Remotion video preview",
                 "Render & download MP4",
-                "Unlimited AI edit & image generation",
+                `${STANDARD_AI_EDIT_ALLOWANCE} AI edit credits/month`,
                 `${STANDARD_CUSTOM_TEMPLATE_COUNT} custom video templates`,
                 "Premium voiceover + cloning",
                 "Priority support",
@@ -519,7 +613,7 @@ export default function Pricing() {
           </div>
 
           {/* Pro */}
-          <div className="glass-card p-7 flex flex-col ring-2 ring-purple-200 relative">
+          <div className="glass-card p-5 sm:p-6 flex flex-col ring-2 ring-purple-200 relative">
             <div className="absolute -top-3 left-1/2 -translate-x-1/2">
               <span className="px-4 py-1 bg-purple-600 text-white text-xs font-semibold rounded-full">
                 Best value
@@ -578,7 +672,7 @@ export default function Pricing() {
                 "ElevenLabs voiceover",
                 "Remotion video preview",
                 "Render & download MP4",
-                "Unlimited AI edit & image generation",
+                `${PRO_AI_EDIT_ALLOWANCE} AI edit credits/month`,
                 `${PRO_CUSTOM_TEMPLATE_COUNT} custom video templates`,
                 "Premium voiceover + cloning",
                 "Priority support",
@@ -626,51 +720,9 @@ export default function Pricing() {
               </div>
             )}
           </div>
-
-          {/* Customized Subscription */}
-          <div className="glass-card p-5 sm:p-7 flex flex-col border-2 border-purple-300">
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                Customized
-              </h3>
-              <p className="text-sm text-gray-400">Enterprise & teams</p>
-            </div>
-            <div className="mb-6">
-              <span className="text-4xl font-bold text-gray-900">Custom</span>
-            </div>
-            <ul className="space-y-3 mb-8 flex-1">
-              {[
-                "Custom video limits",
-                "AI script generation",
-                "ElevenLabs voiceover",
-                "Remotion video preview",
-                "Render & download MP4",
-                "Unlimited AI edit & image generation",
-                "Custom video templates",
-                "Premium voiceover + cloning",
-                "Custom integrations",
-                "Dedicated support",
-                "SSO & enterprise security",
-                "On-prem deployment available",
-                "Custom pricing",
-              ].map((f) => (
-                <li
-                  key={f}
-                  className="flex items-start gap-2.5 text-sm text-gray-600"
-                >
-                  <CheckIcon />
-                  {f}
-                </li>
-              ))}
-            </ul>
-            <button
-              onClick={() => navigate("/contact")}
-              className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-purple-600 hover:bg-purple-700 text-white transition-colors"
-            >
-              Contact Sales
-            </button>
-          </div>
         </div>
+
+        <CustomPlanSalesFooter className="mt-6" />
 
         {/* Cost breakdown callout */}
         <div className="max-w-md mx-auto mt-8 text-center">
@@ -687,6 +739,7 @@ export default function Pricing() {
               </>
             )}
           </p>
+        </div>
         </div>
       </div>
 
@@ -710,6 +763,9 @@ export default function Pricing() {
                   Per Video
                 </th>
                 <th className="py-4 px-3 sm:px-6 font-medium text-gray-600 text-center">
+                  Lite
+                </th>
+                <th className="py-4 px-3 sm:px-6 font-medium text-gray-600 text-center">
                   Standard
                 </th>
                 <th className="py-4 px-3 sm:px-6 font-medium text-purple-600 text-center">
@@ -722,21 +778,21 @@ export default function Pricing() {
             </thead>
             <tbody>
               {[
-                { feature: "Price", free: "$0", perVideo: "$2.80–$3.99/video", standard: isLifetime ? "$999.99 one-time" : isAnnual ? `$${STANDARD_ANNUAL_MONTHLY_PRICE}/mo` : `$${STANDARD_MONTHLY_PRICE}/mo`, pro: isLifetime ? "$1,599.99 one-time" : isAnnual ? `$${PRO_ANNUAL_MONTHLY_PRICE}/mo` : `$${PRO_MONTHLY_PRICE}/mo`, customized: "Custom" },
-                { feature: "Videos", free: "2 free", perVideo: "Unlimited", standard: "30/month", pro: "100/month", customized: "Custom" },
-                { feature: "AI script generation", free: true, perVideo: true, standard: true, pro: true, customized: true },
-                { feature: "ElevenLabs voiceover", free: true, perVideo: true, standard: true, pro: true, customized: true },
-                { feature: "Voice selection (4 options)", free: true, perVideo: true, standard: true, pro: true, customized: true },
-                { feature: "Video preview", free: true, perVideo: true, standard: true, pro: true, customized: true },
-                { feature: "Render & download MP4", free: true, perVideo: true, standard: true, pro: true, customized: true },
-                { feature: "AI-assisted edits", free: "3 / project", perVideo: `+${AI_EDITS_PER_VIDEO} per video purchase`, standard: "Unlimited", pro: "Unlimited", customized: "Unlimited" },
-                { feature: "AI image generation", free: false, perVideo: false, standard: true, pro: true, customized: true },
-                { feature: "Custom video templates", free: String(FREE_CUSTOM_TEMPLATE_COUNT), perVideo: "—", standard: String(STANDARD_CUSTOM_TEMPLATE_COUNT), pro: String(PRO_CUSTOM_TEMPLATE_COUNT), customized: "Custom" },
-                { feature: "Premium voiceover + cloning", free: false, perVideo: false, standard: true, pro: true, customized: true },
-                { feature: "Music Addition", free: true, perVideo: true, standard: true, pro: true, customized: true },
-                { feature: "Advanced voiceover settings", free: false, perVideo: false, standard: true, pro: true, customized: true },
-                { feature: "Priority support", free: false, perVideo: false, standard: true, pro: true, customized: true },
-                { feature: "On-prem deployment", free: false, perVideo: false, standard: false, pro: false, customized: true },
+                { feature: "Price", free: "$0", perVideo: "$2.80–$3.99/video", lite: isLifetime ? "N/A" : isAnnual ? `$${LITE_ANNUAL_MONTHLY_PRICE}/mo` : `$${LITE_MONTHLY_PRICE}/mo`, standard: isLifetime ? "$999.99 one-time" : isAnnual ? `$${STANDARD_ANNUAL_MONTHLY_PRICE}/mo` : `$${STANDARD_MONTHLY_PRICE}/mo`, pro: isLifetime ? "$1,599.99 one-time" : isAnnual ? `$${PRO_ANNUAL_MONTHLY_PRICE}/mo` : `$${PRO_MONTHLY_PRICE}/mo`, customized: "Custom" },
+                { feature: "Videos", free: "1 free", perVideo: "Unlimited", lite: "10/month", standard: "30/month", pro: "100/month", customized: "Custom" },
+                { feature: "AI script generation", free: true, perVideo: true, lite: true, standard: true, pro: true, customized: true },
+                { feature: "ElevenLabs voiceover", free: true, perVideo: true, lite: true, standard: true, pro: true, customized: true },
+                { feature: "Voice selection (4 options)", free: true, perVideo: true, lite: true, standard: true, pro: true, customized: true },
+                { feature: "Video preview", free: true, perVideo: true, lite: true, standard: true, pro: true, customized: true },
+                { feature: "Render & download MP4", free: true, perVideo: true, lite: true, standard: true, pro: true, customized: true },
+                { feature: "AI-assisted edits", free: "6 shared", perVideo: `+${AI_EDITS_PER_VIDEO} per video purchase`, lite: `${LITE_AI_EDIT_ALLOWANCE}/month`, standard: `${STANDARD_AI_EDIT_ALLOWANCE}/month`, pro: `${PRO_AI_EDIT_ALLOWANCE}/month`, customized: "Custom" },
+                { feature: "AI image generation", free: false, perVideo: false, lite: true, standard: true, pro: true, customized: true },
+                { feature: "Custom video templates", free: String(FREE_CUSTOM_TEMPLATE_COUNT), perVideo: "—", lite: String(LITE_CUSTOM_TEMPLATE_COUNT), standard: String(STANDARD_CUSTOM_TEMPLATE_COUNT), pro: String(PRO_CUSTOM_TEMPLATE_COUNT), customized: "Custom" },
+                { feature: "Premium voiceover + cloning", free: false, perVideo: false, lite: true, standard: true, pro: true, customized: true },
+                { feature: "Music Addition", free: true, perVideo: true, lite: true, standard: true, pro: true, customized: true },
+                { feature: "Advanced voiceover settings", free: false, perVideo: false, lite: true, standard: true, pro: true, customized: true },
+                { feature: "Priority support", free: false, perVideo: false, lite: true, standard: true, pro: true, customized: true },
+                { feature: "On-prem deployment", free: false, perVideo: false, lite: false, standard: false, pro: false, customized: true },
               ].map((row, i) => (
                 <tr
                   key={row.feature}
@@ -765,6 +821,17 @@ export default function Pricing() {
                       )
                     ) : (
                       <span className="text-gray-500">{row.perVideo}</span>
+                    )}
+                  </td>
+                  <td className="py-3.5 px-3 sm:px-6 text-center">
+                    {typeof row.lite === "boolean" ? (
+                      row.lite ? (
+                        <GreenCheck />
+                      ) : (
+                        <GrayX />
+                      )
+                    ) : (
+                      <span className="text-gray-700">{row.lite}</span>
                     )}
                   </td>
                   <td className="py-3.5 px-3 sm:px-6 text-center">

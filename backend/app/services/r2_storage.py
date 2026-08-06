@@ -83,6 +83,14 @@ def audio_key(user_id: int, project_id: int, filename: str) -> str:
     return f"{_prefix()}users/{user_id}/projects/{project_id}/audio/{filename}"
 
 
+def stock_video_key(user_id: int, project_id: int, filename: str) -> str:
+    """R2 object key for a stock-footage clip attached to a scene.
+
+    Distinct from ``video_key`` below, which is the project's *rendered output*.
+    """
+    return f"{_prefix()}users/{user_id}/projects/{project_id}/videos/{filename}"
+
+
 def avatar_key(user_id: int, project_id: int, filename: str) -> str:
     """R2 object key for a project talking-head avatar clip."""
     return f"{_prefix()}users/{user_id}/projects/{project_id}/avatars/{filename}"
@@ -122,6 +130,11 @@ def brand_asset_key(user_id: int, brand_kit_id: int, filename: str) -> str:
 def voice_preview_key(user_id: int, voice_id: str) -> str:
     """R2 object key for a custom voice preview (cloned voice TTS clip)."""
     return f"{_prefix()}users/{user_id}/voices/{voice_id}/preview.mp3"
+
+
+def custom_template_preview_key(user_id: int, template_id: int, ext: str = "webp") -> str:
+    """R2 object key for a custom template's static preview snapshot."""
+    return f"{_prefix()}users/{user_id}/custom-templates/{template_id}/preview.{ext}"
 
 
 # ─── Public URL ───────────────────────────────────────────────
@@ -391,6 +404,31 @@ def delete_object(key: str) -> bool:
     except ClientError as e:
         print(f"[R2] Failed to delete {key}: {e}")
         return False
+
+
+def copy_object(src_key: str, dest_key: str) -> Optional[str]:
+    """Server-side copy an R2 object from ``src_key`` to ``dest_key``.
+
+    Returns the public URL of the destination on success, or None on error /
+    when R2 is not configured / when the source object doesn't exist. Does not
+    delete the source — callers that want a move delete it afterwards.
+    """
+    if not is_r2_configured():
+        return None
+    if src_key == dest_key:
+        return public_url(dest_key)
+    try:
+        client = _get_client()
+        client.copy_object(
+            Bucket=settings.R2_BUCKET_NAME,
+            CopySource={"Bucket": settings.R2_BUCKET_NAME, "Key": src_key},
+            Key=dest_key,
+        )
+        print(f"[R2] Copied {src_key} -> {dest_key}")
+        return public_url(dest_key)
+    except ClientError as e:
+        print(f"[R2] Failed to copy {src_key} -> {dest_key}: {e}")
+        return None
 
 
 def delete_project_files(user_id: int, project_id: int) -> int:

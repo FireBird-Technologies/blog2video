@@ -20,6 +20,7 @@ import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 import { EconomistChrome } from "./components/EconomistChrome";
 import { pickEconomistTransition } from "./transitions";
 import { ECONOMIST_COLORS, LAYOUT_MIN_FRAMES } from "./constants";
+import { SceneDurationInFramesContext } from "../SceneDurationContext";
 
 interface SceneData {
   id: number;
@@ -46,6 +47,14 @@ interface SceneData {
   avatarFocusY?: number;
   avatarZoom?: number;
   images: string[];
+  /** Stock-footage filename in public/. Mutually exclusive with `images`. */
+  video?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  /** Normalised clip length; converted to frames for <Loop>. */
+  videoDurationSeconds?: number;
+  /** Start offset into the clip, in seconds (the adjust-modal trim). */
+  videoStartSeconds?: number;
 }
 
 interface VideoData {
@@ -243,10 +252,17 @@ export const EconomistVideo: React.FC<VideoProps> = ({ dataUrl }) => {
     >
       <TransitionSeries>
         {resolvedScenes.map((s, index) => {
-          const { scene, layoutKey, sequenceFrames } = s;
+          const { scene, layoutKey, sequenceFrames, durationFrames } = s;
           const LayoutComponent = ECONOMIST_LAYOUT_REGISTRY[layoutKey];
           const imageUrl =
             scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
+          const videoUrl = scene.video ? staticFile(scene.video) : undefined;
+          const videoDurationInFrames = scene.videoDurationSeconds
+            ? Math.max(1, Math.round(scene.videoDurationSeconds * FPS))
+            : undefined;
+          const videoStartInFrames = scene.videoStartSeconds
+            ? Math.max(0, Math.round(scene.videoStartSeconds * FPS))
+            : undefined;
 
           const rawProps = (scene.layoutProps ?? {}) as Record<string, unknown>;
           const focusX = Math.max(0, Math.min(100, Number(rawProps.imageFocusX ?? 50)));
@@ -261,6 +277,11 @@ export const EconomistVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             textColor: data.textColor || ECONOMIST_COLORS.ink,
             aspectRatio: (data.aspectRatio as "landscape" | "portrait") || "landscape",
             imageUrl,
+            videoUrl,
+            videoMuted: scene.videoMuted ?? true,
+            videoVolume: scene.videoVolume ?? 0.35,
+            videoDurationInFrames,
+            videoStartInFrames,
             imageObjectPosition: `${focusX}% ${focusY}%`,
             imageZoom: Math.max(0.1, Number(rawProps.imageZoom ?? 1)),
             fontFamily: resolvedFontFamily || undefined,
@@ -287,7 +308,9 @@ export const EconomistVideo: React.FC<VideoProps> = ({ dataUrl }) => {
                 sceneCount={resolvedScenes.length}
                 fontFamily={layoutProps.fontFamily}
               >
-                <LayoutComponent {...layoutProps} />
+                <SceneDurationInFramesContext.Provider value={durationFrames}>
+                  <LayoutComponent {...layoutProps} />
+                </SceneDurationInFramesContext.Provider>
               </EconomistChrome>
             </TransitionSeries.Sequence>
           );

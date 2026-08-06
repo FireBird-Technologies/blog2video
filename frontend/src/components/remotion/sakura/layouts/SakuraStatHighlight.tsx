@@ -1,5 +1,6 @@
 import React from "react";
 import { useCurrentFrame, useVideoConfig, interpolate, spring, Img } from "remotion";
+import { SakuraClip } from "../components/SakuraClip";
 import { SceneLayoutProps } from "../types";
 import {
   SAKURA,
@@ -28,6 +29,11 @@ export const SakuraStatHighlight: React.FC<SceneLayoutProps> = (props) => {
     imageUrl,
     imageObjectPosition,
     imageZoom,
+    videoUrl,
+    videoMuted,
+    videoVolume,
+    videoDurationInFrames,
+    videoStartInFrames,
     accentColor,
     bgColor,
     textColor,
@@ -201,7 +207,7 @@ export const SakuraStatHighlight: React.FC<SceneLayoutProps> = (props) => {
   });
   const vignetteMask =
     "radial-gradient(circle at 50% 50%, #000 42%, rgba(0,0,0,0.6) 66%, transparent 84%)";
-  const imageVignette = imageUrl ? (
+  const imageVignette = (imageUrl || videoUrl) ? (
     <div
       style={{
         position: "absolute",
@@ -224,9 +230,8 @@ export const SakuraStatHighlight: React.FC<SceneLayoutProps> = (props) => {
           WebkitMaskImage: vignetteMask,
         }}
       >
-        <Img
-          src={imageUrl}
-          style={{
+        {(() => {
+          const visualStyle: React.CSSProperties = {
             width: "100%",
             height: "100%",
             // Zoom-out (imageZoom < 1) keeps the whole image visible instead of
@@ -235,8 +240,22 @@ export const SakuraStatHighlight: React.FC<SceneLayoutProps> = (props) => {
             objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
             transform: `scale(${imageZoom ?? 1})`,
             transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
-          }}
-        />
+          };
+          return videoUrl ? (
+            <SakuraClip
+              src={videoUrl}
+              imageObjectPosition={imageObjectPosition}
+              imageZoom={imageZoom}
+              muted={videoMuted ?? true}
+              volume={videoVolume ?? 0.35}
+              durationInFrames={videoDurationInFrames}
+              startInFrames={videoStartInFrames}
+              style={visualStyle}
+            />
+          ) : (
+            <Img src={imageUrl!} style={visualStyle} />
+          );
+        })()}
       </div>
       {/* Background-tinted scrim over the photo so the number reads cleanly on top. */}
       <div

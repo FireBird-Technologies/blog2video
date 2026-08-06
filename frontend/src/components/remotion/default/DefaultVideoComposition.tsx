@@ -25,6 +25,13 @@ export interface DefaultSceneInput {
   /** Spoken-audio length in seconds — for caption timing. */
   speechDurationSeconds?: number;
   imageUrl?: string;
+  videoUrl?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  /** Normalised clip length, in seconds; converted to frames for <Loop>. */
+  videoDurationSeconds?: number;
+  /** Start offset into the clip, in seconds (the adjust-modal trim). */
+  videoStartSeconds?: number;
   voiceoverUrl?: string;
   avatarUrl?: string;
   /** Per-scene avatar overrides; undefined = inherit the project setting. */
@@ -112,6 +119,15 @@ export const DefaultVideoComposition: React.FC<DefaultVideoCompositionProps> = (
           imageUrl: scene.imageUrl,
           imageObjectPosition,
           imageZoom,
+          videoUrl: scene.videoUrl,
+          videoMuted: scene.videoMuted ?? true,
+          videoVolume: scene.videoVolume ?? 0.35,
+          videoDurationInFrames: scene.videoDurationSeconds
+            ? Math.max(1, Math.round(scene.videoDurationSeconds * FPS))
+            : undefined,
+          videoStartInFrames: scene.videoStartSeconds
+            ? Math.max(0, Math.round(scene.videoStartSeconds * FPS))
+            : undefined,
           accentColor,
           bgColor,
           textColor,

@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom";
 import { useAuth } from "../hooks/useAuth";
+import { isPaidPlan } from "../lib/plan";
+import useJustLoggedIn from "../hooks/useJustLoggedIn";
 import DesignerTemplateRequestModal from "./DesignerTemplateRequestModal";
 
 /**
@@ -10,12 +12,10 @@ import DesignerTemplateRequestModal from "./DesignerTemplateRequestModal";
  * DesignerTemplateRequestModal form.
  *
  * Shown on every real login (fresh sign-in / logout→login) but NOT on page reloads.
- * `login()` in useAuth sets the `b2v_just_logged_in` flag; a reload restores the
- * session via setUser without calling login(), so the flag is absent and the popup
- * stays closed. We consume the flag on show so it fires exactly once per login.
+ * The `useJustLoggedIn` hook owns that distinction (and the reading/consuming of
+ * the underlying session flag), so several login-only surfaces can coexist
+ * without racing each other over who deletes it first.
  */
-const JUST_LOGGED_IN_KEY = "b2v_just_logged_in";
-
 const PERKS = [
   "Our in-house design team crafts a bespoke template around your fonts, logo, colors & brand",
   "Save $500+ in editing costs on every video — one template, endless polished results",
@@ -25,32 +25,38 @@ const PERKS = [
 
 export default function MarketingDesignerPopup() {
   const { user } = useAuth();
+  const justLoggedIn = useJustLoggedIn();
 
   const [show, setShow] = useState(false);
   const [requestOpen, setRequestOpen] = useState(false);
+  // Once dismissed, stay dismissed for this page — a dep re-firing (e.g. the
+  // `user` object changing identity after refreshUser on Dashboard) must not
+  // re-open the popup.
+  const dismissedRef = useRef(false);
 
   useEffect(() => {
     if (!user) return;
     // Only fire on a real login event, not on session-restore/reload.
-    if (sessionStorage.getItem(JUST_LOGGED_IN_KEY) !== "1") return;
-
-    const isPaid = user.plan === "pro" || user.plan === "standard";
-    // Consume the flag regardless of plan so a free→paid change within the same
-    // tab session doesn't surface it on a later reload.
-    sessionStorage.removeItem(JUST_LOGGED_IN_KEY);
-    if (!isPaid) return;
+    if (!justLoggedIn) return;
+    if (dismissedRef.current) return;
+    if (!isPaidPlan(user.plan)) return;
 
     setShow(true);
-  }, [user]);
+  }, [user, justLoggedIn]);
+
+  const close = useCallback(() => {
+    dismissedRef.current = true;
+    setShow(false);
+  }, []);
 
   useEffect(() => {
     if (!show) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setShow(false);
+      if (e.key === "Escape") close();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [show]);
+  }, [show, close]);
 
   if (!show) {
     // Still allow the request form to close cleanly if it was open.
@@ -63,7 +69,7 @@ export default function MarketingDesignerPopup() {
     <>
       {ReactDOM.createPortal(
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShow(false)} aria-hidden />
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={close} aria-hidden />
           <div
             className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden"
             role="dialog"
@@ -77,7 +83,7 @@ export default function MarketingDesignerPopup() {
 
               <button
                 type="button"
-                onClick={() => setShow(false)}
+                onClick={close}
                 className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-full bg-white/15 text-white/90 hover:bg-white/25 transition-colors"
                 aria-label="Close"
               >
@@ -119,7 +125,7 @@ export default function MarketingDesignerPopup() {
               </button>
               <button
                 type="button"
-                onClick={() => setShow(false)}
+                onClick={close}
                 className="mt-2 w-full py-2 text-xs font-medium text-gray-400 hover:text-gray-600 transition-colors"
               >
                 Maybe later

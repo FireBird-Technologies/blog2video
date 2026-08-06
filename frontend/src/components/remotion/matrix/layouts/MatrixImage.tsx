@@ -4,6 +4,7 @@ import { buildHudStatus, DecodeSweep, GlitchSlice, ScanlinesOverlay, TerminalHUD
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
+import { ZoomCropVideo } from "../components/ZoomCropVideo";
 
 /**
  * MatrixImage — Image Revealed Through Digital Rain
@@ -18,6 +19,11 @@ export const MatrixImage: React.FC<MatrixLayoutProps> = ({
   imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   accentColor,
   bgColor,
   textColor,
@@ -61,8 +67,8 @@ export const MatrixImage: React.FC<MatrixLayoutProps> = ({
       <GlitchSlice accentColor={accent} every={74} seed={67} />
       <ScanlinesOverlay accentColor={accent} intensity={0.7} />
 
-      {/* Image layer */}
-      {imageUrl ? (
+      {/* Image/video layer */}
+      {(videoUrl || imageUrl) ? (
         <div
           style={{
             position: "absolute",
@@ -71,11 +77,23 @@ export const MatrixImage: React.FC<MatrixLayoutProps> = ({
             clipPath: `inset(${50 - revealPercent / 2}% 0 ${50 - revealPercent / 2}% 0)`,
           }}
         >
-          <ZoomCropImg
-            src={imageUrl}
-            imageObjectPosition={imageObjectPosition}
-            imageZoom={imageZoom}
-          />
+          {videoUrl ? (
+            <ZoomCropVideo
+              src={videoUrl}
+              imageObjectPosition={imageObjectPosition}
+              imageZoom={imageZoom}
+              muted={videoMuted ?? true}
+              volume={videoVolume ?? 0.35}
+              durationInFrames={videoDurationInFrames}
+              startInFrames={videoStartInFrames}
+            />
+          ) : (
+            <ZoomCropImg
+              src={imageUrl!}
+              imageObjectPosition={imageObjectPosition}
+              imageZoom={imageZoom}
+            />
+          )}
           {/* Scanline overlay */}
           <div
             style={{

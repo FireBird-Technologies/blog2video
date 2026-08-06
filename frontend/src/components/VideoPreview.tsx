@@ -6,7 +6,10 @@ import {
   AbsoluteFill,
   Sequence,
   Audio,
+  Loop,
+  useCurrentFrame,
 } from "remotion";
+import { SmartVideo } from "./remotion/SmartVideo";
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import {
   BACKEND_URL,
@@ -17,6 +20,10 @@ import {
   type CraftedTemplateDetail,
   type CraftedTemplateItem,
 } from "../api/client";
+import {
+  SceneDurationInFramesContext,
+  useSceneDurationInFrames,
+} from "./remotion/SceneDurationContext";
 import { getDefaultFontSizesFromSchema } from "./SceneEditModal";
 import { isBuiltinDataVizChartLayout, isBuiltinTickerLayout } from "./sceneEditBuiltinDataViz";
 import { mergeLayoutSchemaDefaults } from "../utils/mergeLayoutSchemaDefaults";
@@ -46,6 +53,272 @@ import { pickGeneratedTransition } from "./remotion/generated/generatedTransitio
 // uses, so preview matches the final video.
 import { DataChartScene, DataTableScene } from "./remotion/generated/kit";
 
+/**
+ * Stock-footage clip player for the live preview — mirrors
+ * remotion-video/src/templates/newscast/components/ZoomCropVideo.tsx (and its
+ * generated/components/ZoomCropVideo.tsx twin used by the real render).
+ */
+function PreviewZoomCropVideo({
+  src,
+  imageObjectPosition,
+  imageZoom,
+  muted = true,
+  volume = 0.35,
+  durationInFrames,
+  startInFrames = 0,
+}: {
+  src: string;
+  imageObjectPosition?: string;
+  imageZoom?: number;
+  muted?: boolean;
+  volume?: number;
+  /** Clip length in frames — enables looping when the scene outlasts the clip. */
+  durationInFrames?: number;
+  /** Trim offset into the clip, in frames. */
+  startInFrames?: number;
+}) {
+  const pos = imageObjectPosition ?? "50% 50%";
+  const z = Math.max(0.1, imageZoom ?? 1);
+  const isZoomedOut = z < 1;
+  const sceneDurationInFrames = useSceneDurationInFrames();
+  const start = Math.max(0, Math.round(startInFrames || 0));
+
+  const video = (
+    <SmartVideo
+      src={src}
+      muted={muted}
+      volume={muted ? 0 : Math.max(0, Math.min(1, volume))}
+      trimBefore={start || undefined}
+      style={{
+        position: "absolute",
+        left: 0,
+        top: 0,
+        width: "100%",
+        height: "100%",
+        objectFit: isZoomedOut ? "contain" : "cover",
+        objectPosition: isZoomedOut ? "center" : pos,
+        transform: `scale(${z})`,
+        transformOrigin: isZoomedOut ? "center center" : pos,
+      }}
+    />
+  );
+
+  // Loop a clip that's shorter than its scene, matching the built-in templates'
+  // clip components (e.g. MagazineClip / ChronicleClip). Without this a custom or
+  // crafted scene freezes on the clip's last frame once it runs out.
+  const loopFrames = (() => {
+    const clipLen =
+      durationInFrames && durationInFrames > 0 ? Math.round(durationInFrames) : 0;
+    if (clipLen <= 0) return undefined;
+    const maxWindow = Math.max(1, clipLen - start);
+    if (sceneDurationInFrames && sceneDurationInFrames > 0) {
+      return Math.max(1, Math.min(Math.round(sceneDurationInFrames), maxWindow));
+    }
+    return maxWindow;
+  })();
+
+  return (
+    <div style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden" }}>
+      {loopFrames ? (
+        <Loop durationInFrames={loopFrames} layout="none">
+          {video}
+        </Loop>
+      ) : (
+        video
+      )}
+    </div>
+  );
+}
+
+/**
+ * Positions a stock-footage clip for a generated scene component — mirrors
+ * GeneratedVideo.tsx's ClipSlotOverlay in the real render.
+ *
+ * imageUrl is genuinely omitted for a clip scene (never fed a video URL as a
+ * fake image src — Remotion's <Img> calls cancelRender() on a failed load
+ * with no onError handler, which hard-fails real CLI renders even though it
+ * looks harmless here in the interactive Player).
+ *
+ * Components generated under the hasVideo-aware prompt leave a real, empty
+ * [data-content-img] placeholder (no <Img>) when props.hasVideo is true —
+ * same geometry as their normal with-image layout. We measure that box and
+ * position the clip to fill it, expressed as a PERCENTAGE of the container
+ * (not raw pixels): the Player scales the whole composition to fit its
+ * visible box, and this overlay renders inside that same scaled ancestor, so
+ * copying already-scaled pixel values would double-apply the scale.
+ *
+ * Older, already-generated components predate that contract and have no such
+ * marker. For those we fall back to a full-bleed layer, always rendered
+ * BEHIND SceneComp (z-index in PreviewSceneVisual) — not a precise fit, but
+ * the only option without regenerating that brand's code.
+ */
+function PreviewClipSlotOverlay({
+  containerRef,
+  videoUrl,
+  imageObjectPosition,
+  imageZoom,
+  muted,
+  volume,
+  videoDurationInFrames,
+  videoStartInFrames,
+}: {
+  containerRef: React.RefObject<HTMLDivElement | null>;
+  videoUrl: string;
+  imageObjectPosition?: string;
+  imageZoom?: number;
+  muted?: boolean;
+  volume?: number;
+  videoDurationInFrames?: number;
+  videoStartInFrames?: number;
+}) {
+  // Re-measure every frame — most generated components spring/translate the
+  // image container in on entrance, so a one-time on-mount measurement
+  // freezes the clip at whatever position the slot happened to be in on
+  // that first paint (visibly offset/ghosted for the rest of the scene).
+  const frame = useCurrentFrame();
+  const [box, setBox] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
+  const [legacyFallback, setLegacyFallback] = useState(false);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const slot = container.querySelector<HTMLElement>("[data-content-img]");
+    if (!slot) {
+      setLegacyFallback(true);
+      return;
+    }
+    const containerRect = container.getBoundingClientRect();
+    const slotRect = slot.getBoundingClientRect();
+    const next = {
+      left: ((slotRect.left - containerRect.left) / containerRect.width) * 100,
+      top: ((slotRect.top - containerRect.top) / containerRect.height) * 100,
+      width: (slotRect.width / containerRect.width) * 100,
+      height: (slotRect.height / containerRect.height) * 100,
+    };
+    setBox((prev) =>
+      prev && prev.left === next.left && prev.top === next.top && prev.width === next.width && prev.height === next.height
+        ? prev
+        : next,
+    );
+  }, [containerRef, frame]);
+
+  const video = (
+    <PreviewZoomCropVideo
+      src={videoUrl}
+      imageObjectPosition={imageObjectPosition}
+      imageZoom={imageZoom}
+      muted={muted}
+      volume={volume}
+      durationInFrames={videoDurationInFrames}
+      startInFrames={videoStartInFrames}
+    />
+  );
+
+  if (legacyFallback) {
+    return (
+      <div style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
+        {video}
+      </div>
+    );
+  }
+
+  if (!box || box.width <= 0 || box.height <= 0) return null;
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: `${box.left}%`,
+        top: `${box.top}%`,
+        width: `${box.width}%`,
+        height: `${box.height}%`,
+        overflow: "hidden",
+      }}
+    >
+      {video}
+    </div>
+  );
+}
+
+/** Renders a custom-template scene's image/clip layer + generated component — mirrors GeneratedVideo.tsx's SceneVisual. */
+function PreviewSceneVisual({
+  SceneComp,
+  sceneProps,
+  isDataViz,
+  s,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  imageObjectPosition,
+  imageZoom,
+}: {
+  SceneComp: React.ComponentType<Record<string, unknown>>;
+  sceneProps: SceneProps;
+  isDataViz: boolean;
+  s: any;
+  videoUrl?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  imageObjectPosition?: string;
+  imageZoom: number;
+}) {
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+
+  return (
+    <AbsoluteFill
+      style={{
+        ["--img-pos" as string]: imageObjectPosition,
+        ["--img-zoom" as string]: String(imageZoom),
+      }}
+    >
+      <style>{`[data-scene-wrapper] img:not([data-logo]){object-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}[data-scene-wrapper] [data-content-img]{object-position:var(--img-pos,50% 50%) !important;background-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}${videoUrl ? "[data-scene-wrapper] [data-scenecomp-layer]{background:transparent !important;}[data-scene-wrapper] [data-scenecomp-layer]>div{background:transparent !important;}" : ""}`}</style>
+      <div data-scene-wrapper ref={wrapperRef} style={{ width: "100%", height: "100%", position: "relative" }}>
+        {videoUrl && (
+          <div style={{ position: "absolute", inset: 0, zIndex: 0 }}>
+            <PreviewClipSlotOverlay
+              containerRef={wrapperRef}
+              videoUrl={videoUrl}
+              imageObjectPosition={imageObjectPosition}
+              imageZoom={imageZoom}
+              muted={videoMuted}
+              volume={videoVolume}
+              videoDurationInFrames={
+                s?.videoDurationSeconds
+                  ? Math.max(1, Math.round(Number(s.videoDurationSeconds) * 30))
+                  : undefined
+              }
+              videoStartInFrames={
+                s?.videoStartSeconds
+                  ? Math.max(0, Math.round(Number(s.videoStartSeconds) * 30))
+                  : undefined
+              }
+            />
+          </div>
+        )}
+        {/* data-scenecomp-layer: when a clip is active, force this layer's own
+            background AND its direct child's background-color to transparent
+            — some generated components correctly gate their inner decorative
+            backdrop on hasVideo but leave their OUTERMOST AbsoluteFill's own
+            backgroundColor unconditional. */}
+        <div data-scenecomp-layer style={{ position: "absolute", inset: 0, zIndex: 1 }}>
+          {isDataViz ? (
+            <SceneComp
+              {...(sceneProps as unknown as Record<string, unknown>)}
+              displayText={s.title || sceneProps.displayText}
+              chartTable={(s.layoutProps as Record<string, unknown>)?.chartTable}
+              chartType={(s.layoutProps as Record<string, unknown>)?.chartType}
+              chartSummary={(s.layoutProps as Record<string, unknown>)?.chartSummary}
+              logoUrl={undefined}
+            />
+          ) : (
+            <SceneComp {...sceneProps} logoUrl={undefined} />
+          )}
+        </div>
+      </div>
+    </AbsoluteFill>
+  );
+}
+
 const StableCustomComposition: React.FC<any> = ({
   isCustom,
   compiledScenes,
@@ -57,6 +330,8 @@ const StableCustomComposition: React.FC<any> = ({
   captionFontFamily,
   captionFontSize,
   captionOffset,
+  sceneOnlyIndex,
+  suppressAudio,
 }) => {
   if (!isCustom || !compiledScenes) return null;
 
@@ -93,16 +368,22 @@ const StableCustomComposition: React.FC<any> = ({
     console.log(`[F7-DEBUG][V3][PREVIEW-TRANSITION] injecting ${Math.max(0, totalScenes - 1)} transitions, family=${transitionFamily ? transitionFamily.join(",") : "default"}`);
   }
 
-  const sceneAssignments: { type: string; variantKey: string }[] = [];
+  // Scene type / content-variant / image assignment all depend on a scene's position
+  // among ALL its siblings, so this loop always runs over the FULL project scene list —
+  // even when `scenes` has been sliced to a single scene (sceneOnlyIndex). Slicing the
+  // result afterwards is what keeps a lone middle scene rendering as content-with-the-
+  // right-variant instead of an intro.
+  const fullSceneCount = project.scenes?.length ?? scenes.length;
+  const allSceneAssignments: { type: string; variantKey: string }[] = [];
   let contentIdx = 0;
-  for (let i = 0; i < scenes.length; i++) {
+  for (let i = 0; i < fullSceneCount; i++) {
     const scene = project.scenes[i];
     let sceneType = "content";
     let variantIdx = 0;
 
     // Dedicated data-viz scenes route by scene_type (set on the DB scene).
     if (scene?.scene_type === "dataviz_chart" || scene?.scene_type === "dataviz_table") {
-      sceneAssignments.push({ type: scene.scene_type, variantKey: scene.scene_type });
+      allSceneAssignments.push({ type: scene.scene_type, variantKey: scene.scene_type });
       continue;
     }
 
@@ -113,7 +394,7 @@ const StableCustomComposition: React.FC<any> = ({
           sceneType = desc.sceneTypeOverride;
         } else if (i === 0) {
           sceneType = "intro";
-        } else if (i === totalScenes - 1 && totalScenes > 1) {
+        } else if (i === fullSceneCount - 1 && fullSceneCount > 1) {
           sceneType = "outro";
         }
         if (sceneType === "content" && typeof desc.contentVariantIndex === "number") {
@@ -122,7 +403,7 @@ const StableCustomComposition: React.FC<any> = ({
       } catch { /* ignore */ }
     } else {
       if (i === 0) sceneType = "intro";
-      else if (i === totalScenes - 1 && totalScenes > 1) sceneType = "outro";
+      else if (i === fullSceneCount - 1 && fullSceneCount > 1) sceneType = "outro";
     }
 
     if (sceneType === "content") {
@@ -130,11 +411,17 @@ const StableCustomComposition: React.FC<any> = ({
         variantIdx = numContentVariants > 0 ? contentIdx % numContentVariants : 0;
       }
       contentIdx++;
-      sceneAssignments.push({ type: "content", variantKey: `content_${variantIdx}` });
+      allSceneAssignments.push({ type: "content", variantKey: `content_${variantIdx}` });
     } else {
-      sceneAssignments.push({ type: sceneType, variantKey: sceneType });
+      allSceneAssignments.push({ type: sceneType, variantKey: sceneType });
     }
   }
+
+  // Slice to the rendered scene(s) AFTER full-project resolution above.
+  const sceneAssignments =
+    sceneOnlyIndex !== undefined && allSceneAssignments[sceneOnlyIndex]
+      ? [allSceneAssignments[sceneOnlyIndex]]
+      : allSceneAssignments;
 
   const frameOffsets: number[] = [];
   const frameDurations: number[] = [];
@@ -177,14 +464,22 @@ const StableCustomComposition: React.FC<any> = ({
           1,
           Number((s.layoutProps as Record<string, unknown> | undefined)?.imageZoom ?? 1),
         );
+        // Never pass a video URL as imageUrl: Remotion's <Img> calls
+        // cancelRender() on a failed load with no onError handler, which
+        // hard-fails real CLI renders. Omit imageUrl for a clip scene —
+        // PreviewClipSlotOverlay renders the clip itself (see below).
+        const videoUrl: string | undefined = s.videoUrl;
         const sceneProps: SceneProps = {
           displayText: s.narration || s.title,
           narrationText: s.narration || "",
-          imageUrl: s.imageUrl,
+          imageUrl: videoUrl ? undefined : s.imageUrl,
+          hasVideo: !!videoUrl,
           imageObjectPosition: `${Math.max(0, Math.min(100, focusX))}% ${Math.max(0, Math.min(100, focusY))}%`,
           imageZoom,
-          sceneIndex: i,
-          totalScenes,
+          // Report the scene's TRUE position in the full video, so templates that
+          // render "N of M" / progress chrome stay correct when sliced to one scene.
+          sceneIndex: s.trueIndex ?? i,
+          totalScenes: s.trueTotal ?? totalScenes,
           logoUrl: project.logo_r2_url || project.brand_logo_url || undefined,
           brandColors,
           aspectRatio,
@@ -219,28 +514,17 @@ const StableCustomComposition: React.FC<any> = ({
             logoUrl={sceneProps.logoUrl}
           />
         ) : (
-          <AbsoluteFill
-            style={{
-              ["--img-pos" as string]: sceneProps.imageObjectPosition,
-              ["--img-zoom" as string]: String(imageZoom),
-            }}
-          >
-            <style>{`[data-scene-wrapper] img:not([data-logo]){object-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}[data-scene-wrapper] [data-content-img]{object-position:var(--img-pos,50% 50%) !important;background-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}`}</style>
-            <div data-scene-wrapper style={{ width: "100%", height: "100%" }}>
-              {isDataViz ? (
-                <SceneComp
-                  {...(sceneProps as unknown as Record<string, unknown>)}
-                  displayText={s.title || sceneProps.displayText}
-                  chartTable={(s.layoutProps as Record<string, unknown>)?.chartTable}
-                  chartType={(s.layoutProps as Record<string, unknown>)?.chartType}
-                  chartSummary={(s.layoutProps as Record<string, unknown>)?.chartSummary}
-                  logoUrl={undefined}
-                />
-              ) : (
-                <SceneComp {...sceneProps} logoUrl={undefined} />
-              )}
-            </div>
-          </AbsoluteFill>
+          <PreviewSceneVisual
+            SceneComp={SceneComp}
+            sceneProps={sceneProps}
+            isDataViz={isDataViz}
+            s={s}
+            videoUrl={videoUrl}
+            videoMuted={s.videoMuted ?? true}
+            videoVolume={s.videoVolume ?? 0.35}
+            imageObjectPosition={sceneProps.imageObjectPosition}
+            imageZoom={imageZoom}
+          />
         );
 
         const sequence = (
@@ -248,7 +532,11 @@ const StableCustomComposition: React.FC<any> = ({
             key={`seq-${s.id}`}
             durationInFrames={frameDurations[i] + (t ? t.frames : 0)}
           >
-            {visual}
+            {/* Gives clip components the scene's own length so a short clip can
+                loop across it, the same way the built-in templates do. */}
+            <SceneDurationInFramesContext.Provider value={frameDurations[i]}>
+              {visual}
+            </SceneDurationInFramesContext.Provider>
           </TransitionSeries.Sequence>
         );
         if (!t) return sequence;
@@ -328,7 +616,7 @@ const StableCustomComposition: React.FC<any> = ({
         </AbsoluteFill>
       )}
 
-      {project.bgm_track_url && (
+      {project.bgm_track_url && !suppressAudio && (
         <BackgroundMusic
           src={project.bgm_track_url}
           volume={project.bgm_volume ?? 0.10}
@@ -386,6 +674,27 @@ interface VideoPreviewProps {
    * the preview reflects recordings (and their timing) before they're persisted.
    */
   pendingVoiceovers?: Map<number, { url: string; duration: number }>;
+  /**
+   * Render ONLY this scene index, while still resolving scene type, content
+   * variant and image assignment against the FULL project (all three depend on a
+   * scene's position among its siblings). Prefer the `SceneOnlyPlayer` wrapper
+   * over setting this directly.
+   */
+  sceneOnlyIndex?: number;
+  /** With `sceneOnlyIndex`: force that scene's length, in seconds. */
+  sceneOnlyDurationSeconds?: number;
+  /**
+   * Start the player muted. Seeds Remotion's MediaVolumeContext, which silences
+   * the scene `<Audio>` and the background music for every template.
+   */
+  initiallyMuted?: boolean;
+  /** Also hide the floating caption / playback-speed overlay buttons. */
+  hideOverlayControls?: boolean;
+  /**
+   * When playback reaches the end, hold on the last frame instead of snapping
+   * back to frame 0 (Remotion's default).
+   */
+  holdOnLastFrame?: boolean;
 }
 
 interface SceneInput {
@@ -412,6 +721,12 @@ interface SceneInput {
   avatarFocusX?: number;
   avatarFocusY?: number;
   avatarZoom?: number;
+  /** Stock-footage clip URL, when the scene uses a clip instead of a still. */
+  videoUrl?: string;
+  /** Position in the FULL project, preserved when sliced to a single scene. */
+  trueIndex?: number;
+  /** Scene count of the FULL project, preserved when sliced to a single scene. */
+  trueTotal?: number;
 }
 
 /** Which avatar clip file a scene currently resolves to, as a stable token.
@@ -1209,6 +1524,11 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     precompiledCraftedDetail,
     ownerScopedProjectId,
     pendingVoiceovers,
+    sceneOnlyIndex,
+    sceneOnlyDurationSeconds,
+    initiallyMuted = false,
+    hideOverlayControls = false,
+    holdOnLastFrame = false,
   },
   ref
 ) {
@@ -1492,9 +1812,61 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
       });
     const audioAssets = project.assets.filter((a) => a.asset_type === "audio");
     const avatarAssets = project.assets.filter((a) => a.asset_type === "avatar");
+    const videoAssets = project.assets.filter(
+      (a) => a.asset_type === "video" && !a.excluded,
+    );
     const sceneImageMap: Record<number, string> = {};
     const hideImageFlags: boolean[] = new Array(project.scenes.length).fill(false);
     const usedGenericFiles = new Set<string>();
+
+    // Stock footage occupies the same visual slot as the still, so a scene with
+    // a clip is resolved first and then excluded from image assignment below —
+    // otherwise a generic scraped image would be layered under the clip.
+    const sceneVideoMap: Record<
+      number,
+      { url: string; durationSeconds?: number; muted: boolean; volume: number }
+    > = {};
+    if (videoAssets.length > 0 && project.scenes.length > 0) {
+      const videoByFilename = new Map(videoAssets.map((a) => [a.filename, a]));
+      project.scenes.forEach((sceneRow, idx) => {
+        if (!sceneRow.remotion_code) return;
+        let layoutProps: Record<string, unknown> = {};
+        try {
+          layoutProps =
+            (JSON.parse(sceneRow.remotion_code).layoutProps as Record<string, unknown>) || {};
+        } catch {
+          return;
+        }
+        if (layoutProps.hideImage) return;
+        const assignedVideo = layoutProps.assignedVideo as string | undefined;
+        const asset = assignedVideo ? videoByFilename.get(assignedVideo) : undefined;
+        if (!asset) return;
+        const rawVolume = Number(layoutProps.videoVolume);
+        const muted =
+          layoutProps.videoMuted === undefined ? true : Boolean(layoutProps.videoMuted);
+        // The main clip file is silent (audio stripped on ingest); the audible
+        // track lives in the AAC sibling `audio_variant_filename`. When a scene
+        // unmutes, point playback at that sibling — otherwise unmuting is a no-op
+        // because the silent file has no audio stream. Mirrors remotion.py.
+        let url = resolveUrl(asset);
+        if (!muted && asset.audio_variant_filename) {
+          const audioAsset = { ...asset, filename: asset.audio_variant_filename };
+          if (asset.r2_url) {
+            // Same R2 directory, only the last path segment differs.
+            audioAsset.r2_url =
+              asset.r2_url.slice(0, asset.r2_url.lastIndexOf("/") + 1) +
+              asset.audio_variant_filename;
+          }
+          url = resolveUrl(audioAsset);
+        }
+        sceneVideoMap[idx] = {
+          url,
+          durationSeconds: asset.duration_seconds ?? undefined,
+          muted,
+          volume: Number.isFinite(rawVolume) ? rawVolume : 0.35,
+        };
+      });
+    }
 
     if (imageAssets.length > 0 && project.scenes.length > 0) {
       // Build filename -> asset lookup
@@ -1516,6 +1888,12 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
         const hideImage = Boolean((layoutProps as any).hideImage);
         hideImageFlags[idx] = hideImage;
         if (hideImage) {
+          return;
+        }
+
+        // A clip fills this scene's visual slot; skip so no still is assigned too.
+        if (sceneVideoMap[idx]) {
+          hideImageFlags[idx] = true;
           return;
         }
 
@@ -1572,7 +1950,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
       }
     }
 
-    return project.scenes.map((scene, idx) => {
+    const built: SceneInput[] = project.scenes.map((scene, idx) => {
       let layout = config.fallbackLayout;
       let layoutProps: Record<string, unknown> = {};
       let layoutConfig: Record<string, unknown> | undefined;
@@ -1748,6 +2126,14 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
               : 0,
         bgmVolume: scene.bgm_volume ?? null,
         imageUrl: sceneImageMap[idx],
+        videoUrl: sceneVideoMap[idx]?.url,
+        videoMuted: sceneVideoMap[idx]?.muted ?? true,
+        videoVolume: sceneVideoMap[idx]?.volume ?? 0.35,
+        videoDurationSeconds: sceneVideoMap[idx]?.durationSeconds,
+        videoStartSeconds: (() => {
+          const raw = Number(layoutProps.videoStartSeconds);
+          return Number.isFinite(raw) && raw > 0 ? raw : undefined;
+        })(),
         voiceoverUrl,
         avatarUrl,
         // Per-scene avatar overrides. Undefined means "inherit", which is what the
@@ -1773,7 +2159,39 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
         avatarZoom: scene.avatar_zoom ?? undefined,
       };
     });
-  }, [project, config, isCustom, effectiveLayoutPropSchema, pendingVoiceovers]);
+
+    // Slice to a single scene LAST — every index-dependent decision above (image
+    // assignment from a shared pool, scene type, content variant) is resolved
+    // against the full project first, so a lone middle scene still renders exactly
+    // as it does in the real video. Carry its true position for scene chrome.
+    if (sceneOnlyIndex !== undefined && built[sceneOnlyIndex]) {
+      const only = built[sceneOnlyIndex];
+      return [
+        {
+          ...only,
+          durationSeconds: sceneOnlyDurationSeconds ?? only.durationSeconds,
+          trueIndex: sceneOnlyIndex,
+          trueTotal: built.length,
+          // Drop the voiceover when muted. Muting alone isn't enough: a mounted
+          // <Audio> still buffers, and Remotion halts the whole timeline until it
+          // fires `canplay` — which stalls the scene a few frames in. Stripping the
+          // URL here covers every composition path (custom + all the built-in
+          // adapters, which each render their own <Audio>) from one place.
+          ...(initiallyMuted ? { voiceoverUrl: undefined } : {}),
+        },
+      ];
+    }
+    return built;
+  }, [
+    project,
+    config,
+    isCustom,
+    effectiveLayoutPropSchema,
+    pendingVoiceovers,
+    sceneOnlyIndex,
+    sceneOnlyDurationSeconds,
+    initiallyMuted,
+  ]);
 
   const totalDurationFrames = useMemo(() => {
     const FPS = 30;
@@ -1848,7 +2266,9 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     return Math.max(0, Math.min(max, Math.floor(initialFrame)));
   }, [initialFrame, totalDurationFrames]);
 
-  // Preload images and voiceover so they're in browser cache when Remotion renders
+  // Preload images, voiceover and stock clips so they're in browser cache when
+  // Remotion renders. Clips matter most: a cold .mp4 stalls the Player timeline
+  // mid-playback while the media element fetches and seeks.
   const [mediaReady, setMediaReady] = useState(false);
   const [isPreloadingMedia, setIsPreloadingMedia] = useState(false);
   const mediaSources = useMemo(
@@ -1857,7 +2277,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
         // avatarUrl is included so a talking-head clip is buffered BEFORE the
         // player starts. Without it the mp4 streams on first paint and the
         // avatar visibly pops in a beat after its scene appears.
-        .flatMap((s) => [s.imageUrl, s.voiceoverUrl, s.avatarUrl])
+        .flatMap((s) => [s.imageUrl, s.voiceoverUrl, s.avatarUrl, s.videoUrl])
         .filter(Boolean) as string[],
     [scenes],
   );
@@ -1873,6 +2293,9 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     );
     const audioUrls = mediaSources.filter((src) =>
       /\.(mp3|wav|m4a|ogg)(\?|$)/i.test(src),
+    );
+    const videoUrls = mediaSources.filter((src) =>
+      /\.(mp4|webm|mov|m4v)(\?|$)/i.test(src),
     );
 
     const imagePromises = imageUrls.map(
@@ -1926,11 +2349,9 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
         }),
     );
 
-    // Avatar clips are mp4 — matched by neither pattern above, so they need
-    // their own branch or they would silently never be preloaded.
-    const videoUrls = mediaSources.filter((src) =>
-      /\.(mp4|webm|mov)(\?|$)/i.test(src),
-    );
+    // Avatar clips and stock footage are mp4/webm — matched by neither the
+    // image nor the audio pattern above, so they need their own branch or they
+    // would silently never be preloaded.
     const videoPromises = videoUrls.map(
       (src) =>
         new Promise<void>((resolve) => {
@@ -2214,6 +2635,10 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
             project,
             numContentVariants,
             resolvedFontFamily,
+            sceneOnlyIndex,
+            // A muted player has nothing to gain from mounting media elements,
+            // and they'd stall the timeline while buffering. See the <Audio> note.
+            suppressAudio: initiallyMuted,
           }}
           durationInFrames={totalDurationFrames}
           compositionWidth={isPortrait ? config.baseHeight : config.baseWidth}
@@ -2221,6 +2646,8 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
           fps={30}
           ref={setPlayerRef}
           playbackRate={currentPlaybackSpeed}
+          initiallyMuted={initiallyMuted}
+          {...(holdOnLastFrame ? { moveToBeginningWhenEnded: false } : {})}
           {...(safeInitialFrame !== undefined ? { initialFrame: safeInitialFrame, clickToPlay: false, doubleClickToFullscreen: false } : {})}
           controls={!hideControls}
           style={{
@@ -2230,22 +2657,26 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
             overflow: "hidden",
           }}
         />
-        <CaptionControl
-          captionsEnabled={savedCaptionSettings.captionsEnabled}
-          captionFontFamily={savedCaptionSettings.captionFontFamily}
-          captionFontSize={savedCaptionSettings.captionFontSize}
-          captionOffset={savedCaptionSettings.captionOffset}
-          saving={captionsSaving}
-          onSave={onCaptionSettingsChange}
-          onPreviewChange={setCaptionPreviewOverride}
-          playerContainerRef={playerRef as React.RefObject<PlayerRef | null>}
-        />
-        <PlaybackSpeedControl
-          currentSpeed={currentPlaybackSpeed}
-          saving={playbackSpeedSaving}
-          onChange={onPlaybackSpeedChange}
-          playerContainerRef={playerRef as React.RefObject<PlayerRef | null>}
-        />
+        {!hideOverlayControls && (
+          <>
+            <CaptionControl
+              captionsEnabled={savedCaptionSettings.captionsEnabled}
+              captionFontFamily={savedCaptionSettings.captionFontFamily}
+              captionFontSize={savedCaptionSettings.captionFontSize}
+              captionOffset={savedCaptionSettings.captionOffset}
+              saving={captionsSaving}
+              onSave={onCaptionSettingsChange}
+              onPreviewChange={setCaptionPreviewOverride}
+              playerContainerRef={playerRef as React.RefObject<PlayerRef | null>}
+            />
+            <PlaybackSpeedControl
+              currentSpeed={currentPlaybackSpeed}
+              saving={playbackSpeedSaving}
+              onChange={onPlaybackSpeedChange}
+              playerContainerRef={playerRef as React.RefObject<PlayerRef | null>}
+            />
+          </>
+        )}
       </div>
     </div>
   );

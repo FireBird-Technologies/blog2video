@@ -1,5 +1,6 @@
 import React from "react";
 import { useVideoConfig, interpolate, spring, Img } from "remotion";
+import { SakuraClip } from "../components/SakuraClip";
 import { SceneLayoutProps } from "../types";
 import {
   SAKURA,
@@ -21,6 +22,11 @@ export const SakuraTextNarration: React.FC<SceneLayoutProps> = (props) => {
     imageUrl,
     imageObjectPosition,
     imageZoom,
+    videoUrl,
+    videoMuted,
+    videoVolume,
+    videoDurationInFrames,
+    videoStartInFrames,
     accentColor,
     bgColor,
     textColor,
@@ -30,6 +36,7 @@ export const SakuraTextNarration: React.FC<SceneLayoutProps> = (props) => {
     descriptionFontSize,
     fontFamily,
   } = props;
+  const hasVisual = !!(imageUrl || videoUrl);
 
   const p = aspectRatio === "portrait";
   const frame = useSakuraFrame();
@@ -113,7 +120,7 @@ export const SakuraTextNarration: React.FC<SceneLayoutProps> = (props) => {
   const featherMask =
     "radial-gradient(120% 120% at 50% 45%, #000 55%, rgba(0,0,0,0.55) 78%, transparent 100%)";
 
-  const imagePanel = imageUrl ? (
+  const imagePanel = hasVisual ? (
     <div
       style={{
         width: panelW,
@@ -133,9 +140,8 @@ export const SakuraTextNarration: React.FC<SceneLayoutProps> = (props) => {
           WebkitMaskImage: featherMask,
         }}
       >
-        <Img
-          src={imageUrl}
-          style={{
+        {(() => {
+          const visualStyle: React.CSSProperties = {
             width: "100%",
             height: "100%",
             // Zoom-out (imageZoom < 1) keeps the whole image visible instead of
@@ -144,8 +150,22 @@ export const SakuraTextNarration: React.FC<SceneLayoutProps> = (props) => {
             objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
             transform: `scale(${imageZoom ?? 1})`,
             transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
-          }}
-        />
+          };
+          return videoUrl ? (
+            <SakuraClip
+              src={videoUrl}
+              imageObjectPosition={imageObjectPosition}
+              imageZoom={imageZoom}
+              muted={videoMuted ?? true}
+              volume={videoVolume ?? 0.35}
+              durationInFrames={videoDurationInFrames}
+              startInFrames={videoStartInFrames}
+              style={visualStyle}
+            />
+          ) : (
+            <Img src={imageUrl!} style={visualStyle} />
+          );
+        })()}
       </div>
       {/* Plum→washi wash over the photo so it settles into the palette. */}
       <div
@@ -224,11 +244,11 @@ export const SakuraTextNarration: React.FC<SceneLayoutProps> = (props) => {
           position: "absolute",
           inset: 0,
           display: "flex",
-          flexDirection: imageUrl ? (p ? "column" : "row") : "column",
+          flexDirection: hasVisual ? (p ? "column" : "row") : "column",
           alignItems: "center",
           justifyContent: "center",
-          gap: imageUrl ? (p ? 50 : 80) : 0,
-          padding: imageUrl
+          gap: hasVisual ? (p ? 50 : 80) : 0,
+          padding: hasVisual
             ? p
               ? "130px 80px"
               : "110px 110px"

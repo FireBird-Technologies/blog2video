@@ -1,5 +1,6 @@
 import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { DarkBackground } from "../DarkBackground";
+import { NightfallClip } from "../components/NightfallClip";
 import type { NightfallLayoutProps } from "../types";
 
 /**
@@ -24,6 +25,11 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
   descriptionFontSize,imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
@@ -109,7 +115,7 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
       <DarkBackground bgColor={bgColor} />
 
       {/* ── Hero image: appears AFTER intro text (frame 70+), full-bleed with lighter overlay ── */}
-      {imageUrl && (
+      {(imageUrl || videoUrl) && (
         <>
           <div
             style={{
@@ -120,18 +126,31 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
               transformOrigin: "center center",
             }}
           >
-            <img
-              src={imageUrl}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
-                objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
-                transform: `scale(${imageZoom ?? 1})`,
-                transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
-                display: "block",
-              }}
-            />
+            {videoUrl ? (
+              <NightfallClip
+                src={videoUrl}
+                imageObjectPosition={imageObjectPosition}
+                imageZoom={imageZoom}
+                muted={videoMuted ?? true}
+                volume={videoVolume ?? 0.35}
+                durationInFrames={videoDurationInFrames}
+                startInFrames={videoStartInFrames}
+                style={{ display: "block" }}
+              />
+            ) : (
+              <img
+                src={imageUrl}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
+                  objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
+                  transform: `scale(${imageZoom ?? 1})`,
+                  transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
+                  display: "block",
+                }}
+              />
+            )}
           </div>
           {/* Lighter overlay — image stays prominent (lower = more image visibility) */}
           <div

@@ -11,6 +11,7 @@ Core rules:
 - **Always** populate `layout_props_json` with the layout-specific keys listed below when content supports them — do not leave structured layouts with `{}` if the narration contains extractable data.
 - **Do not** put `titleFontSize` or `descriptionFontSize` in `layout_props_json`. Those are UI defaults from `meta.json` and are not set by the scene generator.
 - Global scene fields `title` and `narration` are **not** `layout_props_json` keys — they are set separately on every scene.
+- **Never output `assignedVideo`, `videoUrl`, `videoMuted`, or `videoVolume`.** A scene's background clip is stock footage chosen by the user in the editor after generation; any value you invent breaks rendering.
 
 **Prop naming reminders (same key, different meaning per layout):**
 - On `news_headline`: `leftThought` = comma-separated **highlight words** in the headline — not a person's name or panel argument.

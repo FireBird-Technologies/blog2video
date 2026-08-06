@@ -2,6 +2,8 @@
 
 Gridcraft is a Vercel feature page or Stripe product announcement that animates. Content is arranged spatially in bento grid cells — multiple pieces of information coexist on screen, organized in a "bento box." It feels structured, intentional, and info-dense without being cluttered. One cell per scene gets an accent pop (#F97316 background with white text). Non-grid layouts (editorial_body, pull_quote) intentionally break the grid pattern for rhythm contrast.
 
+**Stock footage:** **Never output `assignedVideo`, `videoUrl`, `videoMuted`, or `videoVolume`.** A scene's background clip is stock footage chosen by the user in the editor after generation; any value you invent breaks rendering.
+
 **Visual Rules (apply to EVERY component):**
 - **Grid fundamentals:** Layouts use CSS Grid. Cells have border-radius 20px, gap 12px. White (#FFFFFF) cell backgrounds with subtle box-shadow (0 1px 3px rgba(0,0,0,0.06)). Frame background is near-white (#FAFAFA).
 - **Accent pop cell:** In every grid layout, exactly ONE cell gets the accent background color (#F97316) with white text inside. Choose which cell gets accent based on content importance.

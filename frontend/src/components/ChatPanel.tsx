@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { ChatMessage, sendChatMessage, getChatHistory } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
+import { isPaidPlan } from "../lib/plan";
 import UpgradeModal from "./UpgradeModal";
 
 interface Props {
@@ -10,7 +11,7 @@ interface Props {
 
 export default function ChatPanel({ projectId, onScenesUpdated }: Props) {
   const { user } = useAuth();
-  const isPro = user?.plan === "pro" || user?.plan === "standard";
+  const isPro = isPaidPlan(user?.plan);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);

@@ -20,6 +20,7 @@ from app.models.project_regenerate_script_job import ProjectRegenerateScriptJob
 from app.models.project_voice_change_job import ProjectVoiceChangeJob
 from app.models.scene_avatar_job import SceneAvatarJob
 from app.models.project_language_change_job import ProjectLanguageChangeJob
+from app.models.project_add_scene_job import ProjectAddSceneJob
 from app.models.update_email import UpdateEmail
 from app.models.update_email_send import UpdateEmailSend
 from app.models.referral import Referral, ReferralSignup, ReferralInvite
@@ -45,7 +46,7 @@ __all__ = [
     "SubscriptionPlan", "Subscription", "CustomTemplate", "BrandKit", "SavedVoice", "CustomVoice", "PrebuiltVoice",
     "ProjectEditHistory", "SceneEditHistory", "SceneComment", "Review", "TemplateRating", "TemplateVersion",
     "ProjectTemplateChangeJob", "ProjectRegenerateScriptJob", "ProjectVoiceChangeJob",
-    "ProjectLanguageChangeJob",
+    "ProjectLanguageChangeJob", "ProjectAddSceneJob",
     "UpdateEmail", "UpdateEmailSend",
     "Referral", "ReferralSignup", "ReferralInvite", "SurveyResponse", "CraftedTemplate", "CraftedTemplateEntitlement",
     "ProjectMember", "MemberRole", "MemberStatus", "ROLE_RANK",

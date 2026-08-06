@@ -17,6 +17,18 @@ export const siteName = "Blog2Video";
 export const defaultOgImage = `${siteUrl}/og-image-v2.png`;
 export const organizationName = "FireBird Technologies";
 
+// Verified brand profiles emitted as schema.org `sameAs`. These tell Google that
+// blog2video.app is the authoritative "Blog2Video" entity — critical for holding
+// the brand SERP against the same-name competitor blog2video.ai.
+// Only include URLs the brand controls or authoritative third-party listings.
+export const brandSameAs = [
+  "https://github.com/FireBird-Technologies/blog2video",
+  "https://www.youtube.com/@FirebirdTechnologies",
+  "https://www.linkedin.com/company/firebird-technologies-singapore/",
+  "https://x.com/ArslanSAAS",
+  "https://theresanaiforthat.com/ai/blog2video/",
+];
+
 export const marketingPages: MarketingPage[] = [
   ...coreCommercialPages,
   ...useCasePages,
@@ -127,6 +139,11 @@ export const footerGroups = [
       "/tools/markdown-to-medium-substack-formatter",
       "/tools/headline-analyzer",
       "/tools/quote-card-generator",
+      "/tools/video-script-generator",
+      "/tools/thumbnail-text-generator",
+      "/tools/youtube-description-generator",
+      "/tools/video-length-calculator",
+      "/tools/book-cover-generator",
     ],
   },
   {
@@ -272,4 +289,5 @@ export function getTemplateProfile(slug: string) {
   return templateProfiles.find((template) => template.slug === slug);
 }
 
+export { getRelatedBlogPosts } from "./relatedPosts";
 export { blogPosts, defaultCta, helpPosts, getTool, getToolByPath, templateProfiles, tools, toolsHub };

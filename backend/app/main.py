@@ -32,7 +32,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import init_db, SessionLocal
-from app.models.user import User, PlanTier
+from app.models.user import User, PlanTier, PAID_TIERS
 from app.models.prebuilt_voice import PrebuiltVoice
 from app.models.project import Project
 from app.models.subscription import Subscription, SubscriptionStatus
@@ -41,7 +41,7 @@ from app.models.update_email_send import UpdateEmailSend
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
 from app.services import r2_storage
 from app.services import elevenlabs_keys
-from app.routers import projects, pipeline, chat, auth, billing, contact, custom_templates, crafted_templates, saved_voices, template_studio, embed, unsubscribe, affiliate, support, mcp_oauth, mcp_transport, free_templates, voice, background_music, stock_data, collaboration, collab_ws, collab_history, project_shared_assets
+from app.routers import projects, pipeline, chat, auth, billing, contact, custom_templates, crafted_templates, saved_voices, template_studio, embed, unsubscribe, affiliate, support, mcp_oauth, mcp_transport, free_templates, free_tools, voice, background_music, stock_data, collaboration, collab_ws, collab_history, project_shared_assets
 from app.observability.tracing import init_tracing
 from app.observability.logging import configure_logging
 
@@ -166,7 +166,7 @@ async def _periodic_paid_tier_cleanup():
             # Clean expired subscription users' projects
             for user_id in user_ids_to_clean:
                 user = db.query(User).filter(User.id == user_id).first()
-                if not user or user.plan in (PlanTier.PRO, PlanTier.STANDARD):
+                if not user or user.plan in PAID_TIERS:
                     continue  # Skip if they re-subscribed
 
                 stale_projects = (
@@ -233,7 +233,7 @@ async def _periodic_monthly_allotment_reset():
             # re-checks the exact eligibility and skips monthly subscribers.
             candidates = (
                 db.query(User)
-                .filter(User.plan.in_([PlanTier.STANDARD, PlanTier.PRO]))
+                .filter(User.plan.in_(PAID_TIERS))
                 .all()
             )
             reset_count = 0
@@ -322,7 +322,7 @@ def _ensure_prebuilt_voices_seeded() -> None:
 
 
 def _build_update_email_user_query(db, user_filter: str):
-    from app.models.user import User, PlanTier
+    from app.models.user import User, PlanTier, PAID_TIERS
     q = db.query(User).filter(
         User.is_active == True,  # noqa: E712
         User.email.isnot(None),
@@ -332,7 +332,9 @@ def _build_update_email_user_query(db, user_filter: str):
     if user_filter == "free":
         q = q.filter(User.plan == PlanTier.FREE)
     elif user_filter == "paid":
-        q = q.filter(User.plan != PlanTier.FREE)
+        q = q.filter(User.plan.in_(PAID_TIERS))
+    elif user_filter == "lite":
+        q = q.filter(User.plan == PlanTier.LITE)
     elif user_filter == "standard":
         q = q.filter(User.plan == PlanTier.STANDARD)
     elif user_filter == "pro":
@@ -675,6 +677,7 @@ app.include_router(custom_templates.router)
 app.include_router(crafted_templates.router)
 app.include_router(project_shared_assets.router)
 app.include_router(free_templates.router)
+app.include_router(free_tools.router)
 app.include_router(saved_voices.router)
 app.include_router(voice.router)
 app.include_router(template_studio.router)

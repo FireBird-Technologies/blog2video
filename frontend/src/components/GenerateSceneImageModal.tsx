@@ -1,17 +1,36 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Project, Scene } from "../api/client";
 import { generateSceneImage } from "../api/client";
+import { formatAiEditCreditsDisplay } from "../lib/formatAiEditCredits";
+
+// AI image generation costs this many AI-edit credits per image (all plans).
+// Kept in sync with the backend GENERATE_IMAGE_CREDIT_COST.
+export const AI_IMAGE_CREDIT_COST = 3;
 
 export interface GenerateSceneImageModalProps {
   open: boolean;
   onClose: () => void;
   scene: Scene;
   project: Project;
-  /** Owner-scoped: true when the project OWNER is on a paid plan. */
-  isPro: boolean;
-  /** True when the blocker is the OWNER's free plan, not the viewer's own. */
+  /**
+   * Whether the owner has enough AI-edit budget for one generation (monthly
+   * allowance + purchased pool).
+   */
+  canGenerate: boolean;
+  /** Credits one generation costs (shown in the modal for every plan). */
+  creditCost: number;
+  /**
+   * True when the viewer is a collaborator on a shared project (spending the OWNER's
+   * credit pool). They can't fix an exhausted pool by upgrading their own plan.
+   */
+  isCollaborator?: boolean;
+  /** Total AI-edit budget available (allowance + purchased pool). */
+  creditsRemaining: number;
+  /** True when the blocker is the OWNER's exhausted access, not the viewer's own. */
   ownerBlocked?: boolean;
   onUpgrade: () => void;
+  /** Navigate to the billing page from the inline "Upgrade now" link. */
+  onUpgradeNow: () => void;
   /** Shown instead of the self-upgrade prompt when `ownerBlocked`. */
   onOwnerBlocked?: () => void;
   onImageReady: (imageBase64: string, refinedPrompt: string) => void;
@@ -24,9 +43,13 @@ export default function GenerateSceneImageModal({
   onClose,
   scene,
   project,
-  isPro,
+  canGenerate,
+  creditCost,
+  isCollaborator = false,
+  creditsRemaining,
   ownerBlocked,
   onUpgrade,
+  onUpgradeNow,
   onOwnerBlocked,
   onImageReady,
   onGenerateStart,
@@ -64,7 +87,7 @@ export default function GenerateSceneImageModal({
       setError("Image description must be at least 3 characters.");
       return;
     }
-    if (!isPro) {
+    if (!canGenerate) {
       promptForAccess();
       return;
     }
@@ -122,6 +145,37 @@ export default function GenerateSceneImageModal({
           </h3>
           <p className="text-xs text-gray-500 mt-1">
             Describe the image you want. Your description is the main input.
+          </p>
+          <p className="text-xs text-gray-400 mt-1">
+            Costs{" "}
+            <span className="font-medium text-gray-600">
+              {creditCost} AI edit credits
+            </span>
+            {isCollaborator ? (
+              <>
+                {" "}
+                from the project owner&apos;s balance (
+                {formatAiEditCreditsDisplay(creditsRemaining)} remaining).
+              </>
+            ) : (
+              <>
+                {" "}
+                · {formatAiEditCreditsDisplay(creditsRemaining)} remaining
+                {!canGenerate && (
+                  <>
+                    {" "}
+                    ·{" "}
+                    <button
+                      type="button"
+                      onClick={onUpgradeNow}
+                      className="text-purple-600 hover:text-purple-700 underline font-medium"
+                    >
+                      Upgrade for more
+                    </button>
+                  </>
+                )}
+              </>
+            )}
           </p>
         </div>
 

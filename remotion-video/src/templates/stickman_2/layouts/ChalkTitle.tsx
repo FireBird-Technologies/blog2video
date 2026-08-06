@@ -6,6 +6,7 @@ import { Stickman2BackgroundImage } from "../Stickman2BackgroundImage";
 export const ChalkTitle: React.FC<SceneLayoutProps> = (props) => {
   const {
     title, narration, imageUrl, imageObjectPosition, imageZoom,
+    videoUrl, videoMuted, videoVolume, videoDurationInFrames, videoStartInFrames,
     accentColor, bgColor, textColor, aspectRatio, sceneDurationInFrames,
     titleFontSize, descriptionFontSize, fontFamily,
   } = props;
@@ -527,7 +528,7 @@ export const ChalkTitle: React.FC<SceneLayoutProps> = (props) => {
     <AbsoluteFill style={{ background: bg, overflow: "hidden", opacity: masterOpacity }}>
 
       {/* ── Layer 1: Background image ── */}
-      <Stickman2BackgroundImage imageUrl={imageUrl} imageObjectPosition={imageObjectPosition} imageZoom={imageZoom} />
+      <Stickman2BackgroundImage imageUrl={imageUrl} imageObjectPosition={imageObjectPosition} imageZoom={imageZoom} videoUrl={videoUrl} videoMuted={videoMuted} videoVolume={videoVolume} videoDurationInFrames={videoDurationInFrames} videoStartInFrames={videoStartInFrames} />
 
       {/* ── Layer 2: Starfield ── */}
       <AbsoluteFill style={{ zIndex: 1 }}>

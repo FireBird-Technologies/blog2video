@@ -1,6 +1,8 @@
 Layout catalog for BLACKSWAN template
 ====================================
 
+**Never output `assignedVideo`, `videoUrl`, `videoMuted`, or `videoVolume`** — stock-footage clips are chosen by the user in the editor after generation, and inventing one breaks rendering.
+
 Use these layout IDs exactly for `preferred_layout`:
 
 - `droplet_intro`    — opening hero (scene 0 only)

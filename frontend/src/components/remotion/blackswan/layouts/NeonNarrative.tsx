@@ -3,6 +3,7 @@ import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remo
 import { Swan } from "../components/Swan";
 import type { BlackswanLayoutProps } from "../types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
+import { ZoomCropVideo } from "../components/ZoomCropVideo";
 import { NeonWater } from "./neonWater";
 import { neonTitleTubeStyle, StarField } from "./scenePrimitives";
 import { blackswanNeonPalette } from "./blackswanAccent";
@@ -171,14 +172,26 @@ export const NeonNarrative: React.FC<BlackswanLayoutProps> = (props) => {
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor, overflow: "hidden" }}>
       {/* Background image — full screen, very low opacity with black overlay so all content remains legible */}
-      {props.imageUrl && (
+      {(props.imageUrl || props.videoUrl) && (
         <div style={{ position: "absolute", inset: 0, zIndex: 0, opacity: 0.18, overflow: "hidden" }}>
-          <ZoomCropImg
-            src={props.imageUrl}
-            imageObjectPosition={props.imageObjectPosition}
-            imageZoom={props.imageZoom}
-            alt=""
-          />
+          {props.videoUrl ? (
+            <ZoomCropVideo
+              src={props.videoUrl}
+              imageObjectPosition={props.imageObjectPosition}
+              imageZoom={props.imageZoom}
+              muted={props.videoMuted ?? true}
+              volume={props.videoVolume ?? 0.35}
+              durationInFrames={props.videoDurationInFrames}
+              startInFrames={props.videoStartInFrames}
+            />
+          ) : (
+            <ZoomCropImg
+              src={props.imageUrl!}
+              imageObjectPosition={props.imageObjectPosition}
+              imageZoom={props.imageZoom}
+              alt=""
+            />
+          )}
           {/* Modified: Reduced the opacity of the dark overlay from 0.5 to 0.35 */}
           <div style={{ position: "absolute", inset: 0, backgroundColor: bgColor, opacity: 0.35 }} />
         </div>

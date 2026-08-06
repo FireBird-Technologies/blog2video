@@ -18,6 +18,12 @@ interface Props {
   onToggleExpand: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  /** When provided, shows an "Add scene" button beside Edit that inserts after this row. */
+  onAddAfter?: () => void;
+  /** Disables the Add button (e.g. while another add-scene job is running). */
+  addDisabled?: boolean;
+  /** Tooltip explaining why Add is disabled. */
+  addDisabledReason?: string;
   /** When provided, shows a Comment button beside Edit. Omit to hide it (unshared project). */
   onComment?: () => void;
   /** Number of comments on this scene, shown as a badge on the Comment button. */
@@ -45,6 +51,9 @@ export default function SceneListRow({
   onToggleExpand,
   onEdit,
   onDelete,
+  onAddAfter,
+  addDisabled = false,
+  addDisabledReason,
   onComment,
   commentCount = 0,
   onDragHandleStart,
@@ -149,6 +158,24 @@ export default function SceneListRow({
                     </svg>
                     <span className="hidden sm:inline-block text-xs font-medium">Edit</span>
                   </button>
+
+                  {onAddAfter && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!addDisabled) onAddAfter();
+                      }}
+                      disabled={addDisabled}
+                      className="inline-flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2.5 py-1.5 rounded-lg border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 hover:border-purple-300 transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-purple-50 disabled:hover:border-purple-200"
+                      title={addDisabled ? (addDisabledReason || "A scene is already being added.") : "Add a scene after this one"}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      <span className="hidden sm:inline-block text-xs font-medium">Add scene</span>
+                    </button>
+                  )}
 
                   <div className="flex items-center gap-1.5">
                     <span

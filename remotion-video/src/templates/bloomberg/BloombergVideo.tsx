@@ -269,6 +269,14 @@ interface SceneData {
   avatarFocusY?: number;
   avatarZoom?: number;
   images: string[];
+  /** Stock-footage filename in public/. Mutually exclusive with `images`. */
+  video?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  /** Normalised clip length; converted to frames for <Loop>. */
+  videoDurationSeconds?: number;
+  /** Start offset into the clip, in seconds (the adjust-modal trim). */
+  videoStartSeconds?: number;
 }
 
 interface VideoData {
@@ -434,11 +442,18 @@ export const BloombergVideo: React.FC<VideoProps> = ({ dataUrl }) => {
 
         const imageUrl =
           scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
+        const videoUrl = scene.video ? staticFile(scene.video) : undefined;
 
         const lp = scene.layoutProps || {};
         const focusX = typeof lp.imageFocusX === "number" ? lp.imageFocusX : 50;
         const focusY = typeof lp.imageFocusY === "number" ? lp.imageFocusY : 50;
         const resolvedZoom = typeof lp.imageZoom === "number" ? Math.max(0.1, lp.imageZoom) : 1;
+        const videoDurationInFrames = scene.videoDurationSeconds
+          ? Math.max(1, Math.round(scene.videoDurationSeconds * FPS))
+          : undefined;
+        const videoStartInFrames = scene.videoStartSeconds
+          ? Math.max(0, Math.round(scene.videoStartSeconds * FPS))
+          : undefined;
 
         const layoutProps: BloombergLayoutProps = {
           ...lp,
@@ -451,6 +466,11 @@ export const BloombergVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           imageUrl,
           imageObjectPosition: `${focusX}% ${focusY}%`,
           imageZoom: resolvedZoom,
+          videoUrl,
+          videoMuted: scene.videoMuted ?? true,
+          videoVolume: scene.videoVolume ?? 0.35,
+          videoDurationInFrames,
+          videoStartInFrames,
           layoutType: scene.layout,
           fontFamily: resolvedFontFamily || undefined,
         };

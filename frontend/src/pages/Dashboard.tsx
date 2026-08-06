@@ -14,6 +14,7 @@ import {
   ProjectListItem,
 } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
+import { isPaidPlan } from "../lib/plan";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import { trackGoogleAdsPurchaseConversion } from "../gtag";
 import BlogUrlForm, { GENRE_CRAFTED } from "../components/BlogUrlForm";
@@ -29,7 +30,21 @@ import type { VideoStyleId } from "../constants/videoStyles";
 import { primeBlogUrlFormStep2Prefetch } from "../api/blogUrlFormStep2Prefetch";
 
 const BULK_PENDING_IDS_KEY = "b2v_bulk_pending_ids";
-const BULK_TERMINAL_STATUSES = new Set(["generated", "done", "error", "failed"]);
+// `awaiting_stock_footage_review` (and the legacy `awaiting_footage`) are
+// terminal *for polling*: the project won't advance without the user opening
+// it and resolving the review, so we stop polling and surface it instead of
+// spinning. In practice bulk projects never actually reach either — clips
+// are auto-picked and auto-approved server-side (see pipeline.py) — these
+// entries exist defensively in case that ever changes or a non-bulk card is
+// somehow polled through this same code path.
+const BULK_TERMINAL_STATUSES = new Set([
+  "generated",
+  "done",
+  "error",
+  "failed",
+  "awaiting_stock_footage_review",
+  "awaiting_footage", // legacy, kept for any in-flight project
+]);
 
 export default function Dashboard() {
   const { user, loading, refreshUser } = useAuth();
@@ -42,6 +57,10 @@ export default function Dashboard() {
   const [blogFormInitialGenre, setBlogFormInitialGenre] = useState<string | undefined>(undefined);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
   const [creating, setCreating] = useState(false);
+  // Options the form can't pass through onSubmit's positional list (22 args).
+  const [extraCreateOptions, setExtraCreateOptions] = useState<{ stockFootageEnabled: boolean }>({
+    stockFootageEnabled: false,
+  });
   const [loaded, setLoaded] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -83,7 +102,7 @@ export default function Dashboard() {
       }
     }
   }, [searchParams]);
-  const isPro = user?.plan === "pro" || user?.plan === "standard";
+  const isPro = isPaidPlan(user?.plan);
   const templatesRequested = searchParams.get("tab") === "templates";
   const voicesRequested = searchParams.get("tab") === "voices";
   const [activeTab, setActiveTab] = useState<"projects" | "templates" | "voices">(
@@ -317,6 +336,7 @@ export default function Dashboard() {
           content_language: contentLanguage,
           bgm_track_id: bgmTrackId,
           bgm_volume: bgmVolume,
+          stock_footage_enabled: extraCreateOptions.stockFootageEnabled,
         });
       } else {
         // URL flow
@@ -339,7 +359,10 @@ export default function Dashboard() {
           contentLanguage,
           voiceEmotion,
           bgmTrackId,
-          bgmVolume
+          bgmVolume,
+          undefined,
+          undefined,
+          { stock_footage_enabled: extraCreateOptions.stockFootageEnabled },
         );
       }
 
@@ -440,7 +463,7 @@ export default function Dashboard() {
 
           {/* Inline form (same fields, not a modal) */}
           <div className="glass-card p-7">
-            <BlogUrlForm onSubmit={handleCreate} onSubmitBulk={handleCreateBulk} loading={creating} />
+            <BlogUrlForm onSubmit={handleCreate} onSubmitBulk={handleCreateBulk} onExtraOptionsChange={setExtraCreateOptions} loading={creating} />
           </div>
 
           {/* Upgrade nudge */}
@@ -474,7 +497,7 @@ export default function Dashboard() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div>
           <p className="text-xs text-gray-400">
-            {user?.videos_used_this_period ?? 0} of {user?.video_limit ?? 3}{" "}
+            {user?.videos_used_this_period ?? 0} of {user?.video_limit ?? 1}{" "}
             videos used
             {!isPro && " -- upgrade for 100/month"}
           </p>
@@ -537,6 +560,7 @@ export default function Dashboard() {
           key={blogFormMountKey}
           onSubmit={handleCreate}
           onSubmitBulk={handleCreateBulk}
+          onExtraOptionsChange={setExtraCreateOptions}
           loading={creating}
           asModal
           onClose={() => { setShowModal(false); setBlogFormInitialGenre(undefined); }}

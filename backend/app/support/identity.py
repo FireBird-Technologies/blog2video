@@ -47,3 +47,20 @@ def get_support_identity(
         )
     user_id = _extract_jwt_user(request)
     return SupportIdentity(user_id=user_id, session_id=x_support_session.lower())
+
+
+def get_authed_support_identity(
+    identity: SupportIdentity = Depends(get_support_identity),
+) -> SupportIdentity:
+    """Like get_support_identity, but requires a signed-in user.
+
+    Use this on any endpoint that lets a user submit a new message to the bot.
+    Read-only/session-scoped endpoints (e.g. conversation restore-on-refresh)
+    should keep using get_support_identity so anonymous visitors can still be served.
+    """
+    if identity.user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Login required to send a message",
+        )
+    return identity

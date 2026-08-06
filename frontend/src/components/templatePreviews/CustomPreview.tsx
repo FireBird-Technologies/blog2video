@@ -6,6 +6,7 @@ import { compileComponentCode, compileModuleGraphEntry, type SceneProps } from "
 import { DataChartScene, DataTableScene } from "../remotion/generated/kit";
 import { CtaOverlay } from "../remotion/CtaOverlay";
 import { pickGeneratedTransition } from "../remotion/generated/generatedTransitions";
+import StaticPreviewImage from "./StaticPreviewImage";
 
 const RemotionPreviewPlayer = lazy(() => import("../RemotionPreviewPlayer"));
 
@@ -313,6 +314,13 @@ interface CustomPreviewProps {
    *  so a parent (e.g. the Edit Template modal) can drive a live-highlighted scene strip. */
   onLiveSceneChange?: (idx: number) => void;
   thumbnailMode?: boolean;
+  /**
+   * Force a static, zero-Player render: show the template's static preview image
+   * if one exists, else a themed name placeholder — never mount
+   * `RemotionPreviewPlayer`. Set on mobile so a grid/preview of custom templates
+   * holds no Players (iOS Safari OOMs and reloads the tab otherwise).
+   */
+  staticThumb?: boolean;
 }
 
 export default function CustomPreview({
@@ -335,6 +343,7 @@ export default function CustomPreview({
   onAllScenesEnded,
   onLiveSceneChange,
   thumbnailMode = false,
+  staticThumb = false,
 }: CustomPreviewProps) {
   const [activeScene, setActiveScene] = useState(0);
   const [outgoingScene, setOutgoingScene] = useState<number | null>(null);
@@ -658,6 +667,14 @@ export default function CustomPreview({
   const goToScene = useCallback((idx: number) => {
     switchScene(() => idx);
   }, [switchScene]);
+
+  // ─── Static mode (mobile) — never mount a Player ──────────────
+  // Show the template's static preview image if it has one and it loads, else a
+  // themed name placeholder. A grid/preview of live custom Players exhausts iOS
+  // Safari's per-tab memory and reloads the tab.
+  if (staticThumb) {
+    return <StaticPreviewImage src={previewImageUrl} name={name} theme={theme} />;
+  }
 
   // ─── No code yet — show blank placeholder ─────────────────────
   if (!hasCode && !hasFrontendRuntime) {

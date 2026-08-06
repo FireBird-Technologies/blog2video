@@ -46,7 +46,7 @@ const DEFAULT_FEATURES = [
 ];
 
 const DEFAULT_EXCLUDED_FEATURES = [
-  "Unlimited AI edit & image generation",
+  "Monthly AI edit allowance",
   "Custom video templates",
   "Premium voiceover + cloning",
 ];
@@ -301,7 +301,7 @@ export default function PerVideoSliderCard({
       </>
       )}
 
-      <ul className={`space-y-2 mb-5 flex-1 ${featureClass}`}>
+      <ul className={`space-y-2 ${isCompact ? "mb-3" : "mb-5"} flex-1 ${featureClass}`}>
         {features.map((f) => (
           <li key={f} className="flex items-start gap-2">
             <CheckMark />

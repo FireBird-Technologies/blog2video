@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     ELEVENLABS_VOICE_ID: str = "21m00Tcm4TlvDq8ikWAM"
     EXA_API_KEY: str = ""
     FIRECRAWL_API_KEY: str = ""
+    # Stock-footage providers. Each is optional and independently skipped when
+    # blank, so local dev works with only one key configured.
+    PEXELS_API_KEY: str = ""
+    PIXABAY_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
     OPEN_ROUTER_KEY: str = ""
     GEMINI_API_KEY: str = ""
@@ -79,7 +83,10 @@ class Settings(BaseSettings):
     STRIPE_PRO_ANNUAL_PRICE_ID: str = ""  # Price ID for $576/yr Pro plan (20% off)
     STRIPE_STANDARD_PRICE_ID: str = ""  # Price ID for $35/mo Standard plan (30 videos)
     STRIPE_STANDARD_ANNUAL_PRICE_ID: str = ""  # Price ID for $28/mo effective Standard annual
+    STRIPE_LITE_PRICE_ID: str = ""  # Price ID for $19.99/mo Lite plan (10 videos, no lifetime option)
+    STRIPE_LITE_ANNUAL_PRICE_ID: str = ""  # Price ID for Lite annual billing
     STRIPE_PER_VIDEO_PRICE_ID: str = ""  # Price ID for $5 one-time per-video
+    STRIPE_PER_VIDEO_PRODUCT_ID: str = ""  # Fixed Product ID for per-video ad-hoc prices (lets coupons target it). Falls back to inline product_data when unset.
     CUSTOM_TEMPLATE_PRICE_ID: str = ""  # Price ID for $5 one-time custom-template slot
     STANDARD_PLAN_LIFETIME_DEAL: str = ""  # Price ID for $1000 one-time Standard lifetime
     PRO_PLAN_LIFETIME_DEAL: str = ""       # Price ID for $1600 one-time Pro lifetime
@@ -104,6 +111,13 @@ class Settings(BaseSettings):
     JWT_SECRET: str = "change-me-in-production"
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_HOURS: int = 72
+
+    # Shared secret guarding the internal template-capture endpoints (capture-data
+    # + preview-image upload). The puppeteer snapshot script and the in-process
+    # capture background task pass this via the X-Capture-Secret header so the
+    # capture route can read/write any user's custom template without per-user
+    # auth. Empty disables the endpoints.
+    CAPTURE_SECRET: str = ""
 
     # Local testing override — set DEFAULT_PLAN=PRO in .env to auto-assign plan on login
     DEFAULT_PLAN: str = ""

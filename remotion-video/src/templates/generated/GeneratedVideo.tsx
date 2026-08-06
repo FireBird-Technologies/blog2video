@@ -13,7 +13,7 @@
  * The contentVariantIndex field on each scene (from data.json) assigns which
  * content variant to use. Scenes cycle through variants for visual variety.
  */
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { AvatarOverlay } from "../../components/AvatarOverlay";
 import {
   AbsoluteFill,
@@ -23,11 +23,13 @@ import {
   CalculateMetadataFunction,
   delayRender,
   continueRender,
+  useCurrentFrame,
 } from "remotion";
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import { LogoOverlay } from "../../components/LogoOverlay";
 import { BackgroundMusic } from "../../components/BackgroundMusic";
 import { CaptionTrack } from "../../components/CaptionTrack";
+import { ZoomCropVideo } from "./components/ZoomCropVideo";
 import { resolveFontFamily } from "../../fonts/registry";
 import type { GeneratedVideoData, GeneratedSceneData, GeneratedSceneProps } from "./types";
 
@@ -90,6 +92,205 @@ export const calculateGeneratedMetadata: CalculateMetadataFunction<VideoProps> =
       };
     }
   };
+
+// ─── Clip-slot overlay ─────────────────────────────────────────
+
+/**
+ * Positions a stock-footage clip for a generated scene component.
+ *
+ * imageUrl is genuinely omitted for a clip scene (never fed a video URL as a
+ * fake image src — Remotion's <Img> calls cancelRender() on a failed load
+ * with no onError handler, which hard-fails real CLI renders even though it
+ * looked harmless in the interactive Player/Studio).
+ *
+ * Components generated under the hasVideo-aware prompt (code_generator.py)
+ * know to leave a real, empty [data-content-img] placeholder box (no <Img>)
+ * when props.hasVideo is true — same geometry as their normal with-image
+ * layout. We measure that box and position the clip to fill it exactly,
+ * expressed as a PERCENTAGE of the container (not raw pixels): Remotion
+ * Studio/Player scale the whole composition to fit their preview panel, and
+ * our overlay renders inside that same scaled ancestor, so copying already-
+ * scaled pixel values would double-apply the scale.
+ *
+ * Older, already-generated components predate that contract and have no such
+ * marker (their no-image branch renders an opaque full-width backdrop
+ * instead, with no data-content-img at all when hasImage is false). For
+ * those we fall back to a full-bleed layer, always rendered BEHIND SceneComp
+ * (z-index in SceneVisual) — a solid legacy backdrop simply hides the clip
+ * (no worse than before this feature existed), while a semi-transparent one
+ * lets it show through. Not a precise fit, but the only option without
+ * regenerating that brand's code (via the dashboard's Regenerate action).
+ *
+ * Re-measures every frame (via useCurrentFrame): the box isn't static — most
+ * generated components spring/translate the image container in on entrance,
+ * so a one-time on-mount measurement would freeze the clip at whatever
+ * position the slot happened to be in on that first paint.
+ */
+function ClipSlotOverlay({
+  containerRef,
+  videoUrl,
+  imageObjectPosition,
+  imageZoom,
+  muted,
+  volume,
+  durationInFrames,
+  startInFrames,
+}: {
+  containerRef: React.RefObject<HTMLDivElement | null>;
+  videoUrl: string;
+  imageObjectPosition?: string;
+  imageZoom?: number;
+  muted?: boolean;
+  volume?: number;
+  durationInFrames?: number;
+  startInFrames?: number;
+}) {
+  const frame = useCurrentFrame();
+  const [box, setBox] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
+  const [legacyFallback, setLegacyFallback] = useState(false);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const slot = container.querySelector<HTMLElement>("[data-content-img]");
+    if (!slot) {
+      setLegacyFallback(true);
+      return;
+    }
+    const containerRect = container.getBoundingClientRect();
+    const slotRect = slot.getBoundingClientRect();
+    const next = {
+      left: ((slotRect.left - containerRect.left) / containerRect.width) * 100,
+      top: ((slotRect.top - containerRect.top) / containerRect.height) * 100,
+      width: (slotRect.width / containerRect.width) * 100,
+      height: (slotRect.height / containerRect.height) * 100,
+    };
+    // Skip the re-render when nothing actually moved (common once an
+    // entrance animation settles) — avoids a setState-per-frame churn for
+    // the rest of a long, static scene.
+    setBox((prev) =>
+      prev && prev.left === next.left && prev.top === next.top && prev.width === next.width && prev.height === next.height
+        ? prev
+        : next,
+    );
+  }, [containerRef, frame]);
+
+  const video = (
+    <ZoomCropVideo
+      src={videoUrl}
+      imageObjectPosition={imageObjectPosition}
+      imageZoom={imageZoom}
+      muted={muted}
+      volume={volume}
+      durationInFrames={durationInFrames}
+      startInFrames={startInFrames}
+    />
+  );
+
+  if (legacyFallback) {
+    return (
+      <div style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
+        {video}
+      </div>
+    );
+  }
+
+  if (!box || box.width <= 0 || box.height <= 0) return null;
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: `${box.left}%`,
+        top: `${box.top}%`,
+        width: `${box.width}%`,
+        height: `${box.height}%`,
+        overflow: "hidden",
+      }}
+    >
+      {video}
+    </div>
+  );
+}
+
+// ─── Scene visual (image/clip layer + generated component) ────
+
+function SceneVisual({
+  SceneComp,
+  sceneProps,
+  videoUrl,
+  imageObjectPosition,
+  imageZoom,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
+  brandColors,
+  headingFont,
+  resolvedFontFamily,
+}: {
+  SceneComp: React.FC<GeneratedSceneProps>;
+  sceneProps: GeneratedSceneProps;
+  videoUrl?: string;
+  imageObjectPosition: string;
+  imageZoom: number;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  videoDurationInFrames?: number;
+  videoStartInFrames?: number;
+  brandColors: GeneratedSceneProps["brandColors"];
+  headingFont?: string;
+  resolvedFontFamily?: string | null;
+}) {
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+
+  return (
+    <AbsoluteFill
+      style={{
+        ["--img-pos" as string]: imageObjectPosition,
+        ["--img-zoom" as string]: String(imageZoom),
+      }}
+    >
+      <style>{`[data-scene-wrapper] img:not([data-logo]){object-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}[data-scene-wrapper] [data-content-img]{object-position:var(--img-pos,50% 50%) !important;background-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}${videoUrl ? "[data-scene-wrapper] [data-scenecomp-layer]{background:transparent !important;}[data-scene-wrapper] [data-scenecomp-layer]>div{background:transparent !important;}" : ""}`}</style>
+      <div data-scene-wrapper ref={wrapperRef} style={{ width: "100%", height: "100%", position: "relative" }}>
+        {/* Clip layer paints first (behind). In the precise-slot case this
+            doesn't matter — the placeholder it fills is empty and non-
+            overlapping with SceneComp's other content. In the legacy
+            full-bleed case (no placeholder found) it's required — SceneComp's
+            own backdrop/text must stay on top or the clip would cover them. */}
+        {videoUrl && (
+          <div style={{ position: "absolute", inset: 0, zIndex: 0 }}>
+            <ClipSlotOverlay
+              containerRef={wrapperRef}
+              videoUrl={videoUrl}
+              imageObjectPosition={imageObjectPosition}
+              imageZoom={imageZoom}
+              muted={videoMuted}
+              volume={videoVolume}
+              durationInFrames={videoDurationInFrames}
+              startInFrames={videoStartInFrames}
+            />
+          </div>
+        )}
+        {/* data-scenecomp-layer: when a clip is active, the CSS above forces
+            this layer's own background AND its direct child's background-color
+            to transparent — some generated components correctly gate their
+            inner decorative backdrop on hasVideo but leave their OUTERMOST
+            AbsoluteFill's own backgroundColor unconditional (an opaque fill
+            that would otherwise sit right on top of the clip). */}
+        <div data-scenecomp-layer style={{ position: "absolute", inset: 0, zIndex: 1 }}>
+          <SceneErrorBoundary
+            brandColors={brandColors}
+            fallbackText={sceneProps.displayText}
+            fontFamily={headingFont || resolvedFontFamily || undefined}
+          >
+            <SceneComp {...sceneProps} logoUrl={undefined} />
+          </SceneErrorBoundary>
+        </div>
+      </div>
+    </AbsoluteFill>
+  );
+}
 
 // ─── Scene type resolution ────────────────────────────────────
 
@@ -323,6 +524,16 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             scene.images.length > 0
               ? staticFile(scene.images[0])
               : (scene.ogImageUrl || undefined);
+          // Dataviz scenes render a bound chart/table, not an image/clip slot,
+          // and CTA scenes render the overlay branch below — neither gets a clip.
+          const canShowClip = !scene.ctaProps && scene.sceneType !== "dataviz_chart" && scene.sceneType !== "dataviz_table";
+          const videoUrl = canShowClip && scene.video ? staticFile(scene.video) : undefined;
+          const videoDurationInFrames = scene.videoDurationSeconds
+            ? Math.max(1, Math.round(scene.videoDurationSeconds * FPS))
+            : undefined;
+          const videoStartInFrames = scene.videoStartSeconds
+            ? Math.max(0, Math.round(scene.videoStartSeconds * FPS))
+            : undefined;
           const focusX = Number(scene.layoutProps?.imageFocusX ?? 50);
           const focusY = Number(scene.layoutProps?.imageFocusY ?? 50);
           const imageZoom = Math.max(0.1, Number(scene.layoutProps?.imageZoom ?? 1));
@@ -333,7 +544,14 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           const sceneProps: GeneratedSceneProps = {
             displayText: scene.displayText || scene.narration || scene.title,
             narrationText: scene.narrationText || scene.narration || "",
-            imageUrl,
+            // Never pass a video URL as imageUrl: Remotion's <Img> calls
+            // cancelRender() on a failed load with no onError handler, which
+            // hard-fails real CLI renders (confirmed — looked harmless in the
+            // interactive Player/Studio but isn't). Omit it for a clip scene;
+            // hasVideo tells hasVideo-aware components (see prompt) to still
+            // reserve the with-image layout/geometry without an <Img>.
+            imageUrl: videoUrl ? undefined : imageUrl,
+            hasVideo: !!videoUrl,
             imageObjectPosition,
             imageZoom,
             sceneIndex: index,
@@ -375,23 +593,20 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
               logoUrl={sceneProps.logoUrl}
             />
           ) : (
-            <AbsoluteFill
-              style={{
-                ["--img-pos" as string]: imageObjectPosition,
-                ["--img-zoom" as string]: String(imageZoom),
-              }}
-            >
-              <style>{`[data-scene-wrapper] img:not([data-logo]){object-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}[data-scene-wrapper] [data-content-img]{object-position:var(--img-pos,50% 50%) !important;background-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}`}</style>
-              <div data-scene-wrapper style={{ width: "100%", height: "100%" }}>
-                <SceneErrorBoundary
-                  brandColors={brandColors}
-                  fallbackText={sceneProps.displayText}
-                  fontFamily={headingFont || resolvedFontFamily || undefined}
-                >
-                  <SceneComp {...sceneProps} logoUrl={undefined} />
-                </SceneErrorBoundary>
-              </div>
-            </AbsoluteFill>
+            <SceneVisual
+              SceneComp={SceneComp}
+              sceneProps={sceneProps}
+              videoUrl={videoUrl}
+              imageObjectPosition={imageObjectPosition}
+              imageZoom={imageZoom}
+              videoMuted={scene.videoMuted ?? true}
+              videoVolume={scene.videoVolume ?? 0.35}
+              videoDurationInFrames={videoDurationInFrames}
+              videoStartInFrames={videoStartInFrames}
+              brandColors={brandColors}
+              headingFont={headingFont}
+              resolvedFontFamily={resolvedFontFamily}
+            />
           );
 
           const sequence = (

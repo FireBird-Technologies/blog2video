@@ -1,4 +1,5 @@
 import React from "react";
+import { NewspaperClip } from "../components/NewspaperClip";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, Img, spring, staticFile } from "remotion";
 import { NewsBackground } from "../NewsBackground";
 import type { BlogLayoutProps } from "../types";
@@ -19,6 +20,11 @@ export const ExpertProfile: React.FC<BlogLayoutProps> = ({
   imageUrl,
   imageObjectPosition,
   imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
   leftThought,
   rightThought,
   category,
@@ -32,7 +38,8 @@ export const ExpertProfile: React.FC<BlogLayoutProps> = ({
   const expertRole = rightThought ?? "";
   const statVal = stats?.[0]?.value ?? "";
   const statLabel = stats?.[0]?.label ?? "";
-  const hasImage = Boolean(imageUrl);
+  // A clip counts as a visual for layout purposes.
+  const hasImage = Boolean(imageUrl || videoUrl);
 
   const titleSize = titleFontSize ?? (p ? 55 : 58);
   const descSize = descriptionFontSize ?? (p ? 32 : 26);
@@ -168,7 +175,7 @@ export const ExpertProfile: React.FC<BlogLayoutProps> = ({
           /* ── PORTRAIT LAYOUT — WITH IMAGE ─────────────────────────── */
           <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", zIndex: 5, transform: "translateZ(50px)" }}>
             {/* Image top 38% */}
-            {imageUrl && (
+            {hasImage && (
               <div
                 style={{
                   width: "100%",
@@ -186,11 +193,25 @@ export const ExpertProfile: React.FC<BlogLayoutProps> = ({
                     padding: "8px",
                     backgroundColor: "#fff",
                     boxShadow: "0 16px 40px rgba(0,0,0,0.22)",
-                    clipPath: "polygon(0% 2%, 98% 0%, 100% 95%, 96% 100%, 50% 97%, 4% 100%, 0% 50%)",
+                    clipPath: "polygon(0% 1%, 98% 0%, 100% 99%, 2% 100%)",
                     transform: `rotate(${imgRotation}deg)`,
                     overflow: "hidden",
                   }}
                 >
+                  {videoUrl ? (
+                    <NewspaperClip
+                      src={videoUrl}
+                      imageObjectPosition={imageObjectPosition}
+                      imageZoom={imageZoom}
+                      muted={videoMuted ?? true}
+                      volume={videoVolume ?? 0.35}
+                      durationInFrames={videoDurationInFrames}
+                startInFrames={videoStartInFrames}
+                      style={{
+                    filter: "grayscale(0.5) contrast(1.1)",
+                      }}
+                    />
+                  ) : imageUrl ? (
                   <Img
                     src={imageUrl}
                     style={{
@@ -201,6 +222,7 @@ export const ExpertProfile: React.FC<BlogLayoutProps> = ({
                       filter: "grayscale(0.5) contrast(1.1)",
                     }}
                   />
+                  ) : null}
                 </div>
               </div>
             )}
@@ -326,7 +348,7 @@ export const ExpertProfile: React.FC<BlogLayoutProps> = ({
           <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "row", zIndex: 5, transform: "translateZ(50px)" }}>
             {/* Left column: image + credit */}
             <div style={{ width: "45%", flexShrink: 0, display: "flex", flexDirection: "column", padding: "5% 4% 5% 6%", gap: 16 }}>
-              {imageUrl ? (
+              {hasImage ? (
                 <div
                   style={{
                     flex: 1,
@@ -334,11 +356,25 @@ export const ExpertProfile: React.FC<BlogLayoutProps> = ({
                     padding: "8px",
                     backgroundColor: "#fff",
                     boxShadow: "10px 15px 40px rgba(0,0,0,0.2)",
-                    clipPath: "polygon(0% 2%, 98% 0%, 100% 95%, 96% 100%, 50% 97%, 4% 100%, 0% 50%)",
+                    clipPath: "polygon(0% 1%, 98% 0%, 100% 99%, 2% 100%)",
                     transform: `scale(${imgScale}) rotate(${imgRotation}deg)`,
                     overflow: "hidden",
                   }}
                 >
+                  {videoUrl ? (
+                    <NewspaperClip
+                      src={videoUrl}
+                      imageObjectPosition={imageObjectPosition}
+                      imageZoom={imageZoom}
+                      muted={videoMuted ?? true}
+                      volume={videoVolume ?? 0.35}
+                      durationInFrames={videoDurationInFrames}
+                startInFrames={videoStartInFrames}
+                      style={{
+                    filter: "grayscale(0.5) contrast(1.1)",
+                      }}
+                    />
+                  ) : imageUrl ? (
                   <Img
                     src={imageUrl}
                     style={{
@@ -349,6 +385,7 @@ export const ExpertProfile: React.FC<BlogLayoutProps> = ({
                       filter: "grayscale(0.5) contrast(1.1)",
                     }}
                   />
+                  ) : null}
                 </div>
               ) : (
                 <div style={{ flex: 1 }} />
