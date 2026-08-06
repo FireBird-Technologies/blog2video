@@ -103,6 +103,11 @@ _SHARED_SRC_FILES = [
     "src/templates/playbackSpeed.ts",
     # Stock-footage clip looping — shared by Economist/Newscast/Gridcraft/etc.
     "src/templates/SceneDurationContext.tsx",
+    # Stock-footage video primitive — every template's clip component imports it.
+    # Lives directly under src/templates/ (not src/templates/{id}/), so the
+    # per-template scan below never picks it up; it must be listed here or
+    # bundling fails with "SmartVideo doesn't exist" for every template.
+    "src/templates/SmartVideo.tsx",
     # Shared font registry so templates can resolve font IDs to CSS families
     "src/fonts/registry.ts",
     # Caption font constant + render preload helpers (used by CaptionTrack)
