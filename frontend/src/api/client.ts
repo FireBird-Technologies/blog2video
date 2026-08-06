@@ -1575,6 +1575,10 @@ export interface StockClip {
   fps: number | null;
   author: string;
   page_url: string;
+  /** Provider keywords, used server-side for relevance ranking. Not rendered. */
+  tags?: string;
+  /** Provider title/alt text (Pexels: derived from the page URL slug). */
+  description?: string;
 }
 
 export const searchStockFootage = (

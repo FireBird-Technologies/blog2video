@@ -21,6 +21,37 @@ from app.services import stock_footage
 pytestmark = pytest.mark.depth
 
 
+@pytest.fixture(autouse=True)
+def _clear_stock_search_cache():
+    """Provider responses are cached for 24h, so without this a monkeypatched
+    payload from one test leaks into the next (same query + params = same key)."""
+    stock_footage.clear_search_cache()
+    yield
+    stock_footage.clear_search_cache()
+
+
+@pytest.fixture(autouse=True)
+def _both_provider_keys_present(monkeypatch):
+    """search() skips a provider with no API key, so tests that monkeypatch the
+    provider functions must still look configured. Real deployments may run with
+    one key (Pixabay-only); tests that care about that set it explicitly."""
+    monkeypatch.setattr(stock_footage.settings, "PEXELS_API_KEY", "test-pexels", raising=False)
+    monkeypatch.setattr(stock_footage.settings, "PIXABAY_API_KEY", "test-pixabay", raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _no_live_llm_query_gen(monkeypatch):
+    """The pipeline now writes stock queries with an LLM. Stub it out: these
+    tests must not make network calls, and a real one costs ~7s per scene and
+    fails in CI. Returning {} exercises the keyword-fallback path."""
+    async def _none(*args, **kwargs):
+        return {}
+
+    monkeypatch.setattr(
+        "app.dspy_modules.stock_query_gen.generate_stock_queries", _none
+    )
+
+
 # ─── Provider parsing ───────────────────────────────────────────────────────
 
 
@@ -1090,7 +1121,10 @@ def test_fill_missing_stock_clips_targets_final_image_layout(
 
     called: list[int] = []
 
-    async def _fake_assign(project, scene, db, *, orientation, loop, used_generics=None):
+    async def _fake_assign(
+        project, scene, db, *, orientation, loop,
+        used_generics=None, used_clip_ids=None, llm_query=None,
+    ):
         called.append(scene.id)
         return True
 
@@ -1145,7 +1179,7 @@ def test_prepare_stock_footage_falls_back_to_image_when_no_clip(
     db_session.commit()
 
     monkeypatch.setattr(
-        "app.services.stock_footage.pick_top_for_query",
+        "app.services.stock_footage.pick_best_for_scene",
         lambda *a, **k: None,
     )
 
@@ -1195,7 +1229,10 @@ def test_prepare_stock_footage_candidates_skips_already_assigned(
 
     called: list[int] = []
 
-    async def _fake_assign(project, scene, db, *, orientation, loop, used_generics=None):
+    async def _fake_assign(
+        project, scene, db, *, orientation, loop,
+        used_generics=None, used_clip_ids=None, llm_query=None,
+    ):
         called.append(scene.id)
         return True
 
@@ -1206,3 +1243,384 @@ def test_prepare_stock_footage_candidates_skips_already_assigned(
     n = asyncio.run(_prepare_stock_footage_candidates(project, db_session))
     assert n == 3
     assert called == [scenes[2].id]
+
+
+# ─── Relevance metadata + candidate pool ────────────────────────────────────
+
+
+def test_pexels_search__derives_description_from_url_slug(monkeypatch):
+    """Pexels video hits carry no title — the URL slug is the only text we get."""
+    payload = {
+        "videos": [{
+            "id": 3209828, "width": 1920, "height": 1080, "duration": 8,
+            "url": "https://www.pexels.com/video/a-woman-typing-on-a-laptop-3209828/",
+            "image": "i", "user": {"name": "Jane"},
+            "video_files": [
+                {"width": 1280, "height": 720, "fps": 30, "link": "https://cdn/720.mp4"},
+            ],
+        }]
+    }
+    monkeypatch.setattr(stock_footage.settings, "PEXELS_API_KEY", "k", raising=False)
+    monkeypatch.setattr(
+        stock_footage.requests, "get",
+        lambda *a, **k: SimpleNamespace(json=lambda: payload, raise_for_status=lambda: None),
+    )
+
+    clips = stock_footage._pexels_search("typing", 6, 1, None)
+
+    assert clips[0].description == "a woman typing on a laptop"
+
+
+def test_pixabay_search__carries_tags_through(monkeypatch):
+    """Pixabay's comma-separated tags are the richest relevance signal we have."""
+    payload = {
+        "hits": [{
+            "id": 55, "duration": 9, "picture_id": "pic", "user": "Bob",
+            "pageURL": "https://pixabay.com/videos/x-55/",
+            "tags": "nature, forest, trees",
+            "videos": {"medium": {"url": "https://cdn/m.mp4", "width": 1280, "height": 720}},
+        }]
+    }
+    monkeypatch.setattr(stock_footage.settings, "PIXABAY_API_KEY", "k", raising=False)
+    monkeypatch.setattr(
+        stock_footage.requests, "get",
+        lambda *a, **k: SimpleNamespace(json=lambda: payload, raise_for_status=lambda: None),
+    )
+
+    clips = stock_footage._pixabay_search("forest", 6, 1, None)
+
+    assert clips[0].tags == "nature, forest, trees"
+
+
+def test_stock_clip_to_dict__includes_relevance_fields():
+    """to_dict() feeds the manual picker API — the new keys must be present."""
+    clip = stock_footage.StockClip(
+        provider="pexels", id="1", preview_url="p", thumbnail_url="t",
+        download_url="d", width=1280, height=720, duration=5.0, fps=30.0,
+        author="a", page_url="u",
+    )
+    out = clip.to_dict()
+    assert out["tags"] == ""
+    assert out["description"] == ""
+
+
+def _pool_clip(provider: str, cid: str, fps: float = 30.0):
+    return stock_footage.StockClip(
+        provider=provider, id=cid, preview_url="p", thumbnail_url="t",
+        download_url="d", width=1280, height=720, duration=5.0, fps=fps,
+        author="a", page_url="u",
+    )
+
+
+def test_pick_best_for_scene__requests_a_pool_not_one_clip(monkeypatch):
+    """per_page and the pool cap are different numbers — guard both."""
+    captured: dict = {}
+
+    def fake_search(*args, **kwargs):
+        captured.update(kwargs)
+        return [_pool_clip("pexels", "1")]
+
+    monkeypatch.setattr(stock_footage, "search", fake_search)
+
+    clip = stock_footage.pick_best_for_scene("startup", orientation="landscape")
+
+    assert clip is not None
+    assert captured["per_page"] == stock_footage.AUTO_SEARCH_PER_PAGE
+    assert captured["max_results"] == stock_footage.AUTO_CANDIDATE_POOL_SIZE
+
+
+def test_pick_best_for_scene__issues_exactly_one_search(monkeypatch):
+    calls: list[str] = []
+
+    def fake_search(query, **kwargs):
+        calls.append(query)
+        return [_pool_clip("pexels", "1"), _pool_clip("pixabay", "2")]
+
+    monkeypatch.setattr(stock_footage, "search", fake_search)
+
+    stock_footage.pick_best_for_scene("solar panels")
+
+    assert calls == ["solar panels"]
+
+
+def test_pick_best_for_scene__skips_excluded_clips(monkeypatch):
+    """Cross-scene dedup: a clip another scene already took must not come back."""
+    monkeypatch.setattr(
+        stock_footage, "search",
+        lambda *a, **k: [_pool_clip("pexels", "1"), _pool_clip("pixabay", "2")],
+    )
+
+    clip = stock_footage.pick_best_for_scene("q", exclude_ids={"pexels:1"})
+
+    assert clip is not None
+    assert f"{clip.provider}:{clip.id}" == "pixabay:2"
+
+
+def test_pick_best_for_scene__returns_none_when_all_excluded(monkeypatch):
+    monkeypatch.setattr(
+        stock_footage, "search", lambda *a, **k: [_pool_clip("pexels", "1")]
+    )
+
+    assert stock_footage.pick_best_for_scene("q", exclude_ids={"pexels:1"}) is None
+
+
+def test_pick_best_for_scene__returns_none_on_empty_pool(monkeypatch):
+    monkeypatch.setattr(stock_footage, "search", lambda *a, **k: [])
+
+    assert stock_footage.pick_best_for_scene("q") is None
+
+
+def test_search__caches_provider_responses(monkeypatch):
+    """Pixabay's terms require 24h caching; it also removes a ~650ms round-trip."""
+    calls: list[str] = []
+
+    def fake_pixabay(query, per_page, page, orientation):
+        calls.append(query)
+        return [_pool_clip("pixabay", "1")]
+
+    monkeypatch.setattr(stock_footage, "_pixabay_search", fake_pixabay)
+
+    first = stock_footage.search("solar", provider="pixabay", per_page=6)
+    second = stock_footage.search("solar", provider="pixabay", per_page=6)
+
+    assert len(calls) == 1, "second identical search should be served from cache"
+    assert [c.id for c in first] == [c.id for c in second]
+
+
+def test_search__cache_is_keyed_by_query_and_params(monkeypatch):
+    calls: list[tuple] = []
+
+    def fake_pixabay(query, per_page, page, orientation):
+        calls.append((query, orientation))
+        return [_pool_clip("pixabay", "1")]
+
+    monkeypatch.setattr(stock_footage, "_pixabay_search", fake_pixabay)
+
+    stock_footage.search("solar", provider="pixabay", per_page=6)
+    stock_footage.search("wind", provider="pixabay", per_page=6)
+    stock_footage.search("solar", provider="pixabay", per_page=6, orientation="portrait")
+
+    assert len(calls) == 3, "different query or params must miss the cache"
+
+
+def test_search__does_not_cache_empty_responses(monkeypatch):
+    """A transient failure must not be pinned for 24 hours."""
+    calls: list[str] = []
+
+    def fake_pixabay(query, per_page, page, orientation):
+        calls.append(query)
+        return []
+
+    monkeypatch.setattr(stock_footage, "_pixabay_search", fake_pixabay)
+
+    stock_footage.search("solar", provider="pixabay", per_page=6)
+    stock_footage.search("solar", provider="pixabay", per_page=6)
+
+    assert len(calls) == 2
+
+
+def test_search__cached_list_is_isolated_from_caller_mutation(monkeypatch):
+    """Callers filter/sort results in place — that must not corrupt the cache."""
+    monkeypatch.setattr(
+        stock_footage, "_pixabay_search",
+        lambda *a, **k: [_pool_clip("pixabay", "1"), _pool_clip("pixabay", "2")],
+    )
+
+    first = stock_footage.search("solar", provider="pixabay", per_page=6)
+    first.clear()
+    second = stock_footage.search("solar", provider="pixabay", per_page=6)
+
+    assert len(second) == 2
+
+
+def test_pixabay_search__clamps_per_page_to_provider_minimum(monkeypatch):
+    """Pixabay 400s below per_page=3; search() allows 1."""
+    captured: dict = {}
+
+    def fake_get(url, **kwargs):
+        captured.update(kwargs.get("params") or {})
+        return SimpleNamespace(json=lambda: {"hits": []}, raise_for_status=lambda: None)
+
+    monkeypatch.setattr(stock_footage.settings, "PIXABAY_API_KEY", "k", raising=False)
+    monkeypatch.setattr(stock_footage.requests, "get", fake_get)
+
+    stock_footage._pixabay_search("solar", 1, 1, None)
+
+    assert captured["per_page"] >= 3
+    assert captured["safesearch"] == "true"
+    assert captured["order"] == "popular"
+
+
+def test_pixabay_search__truncates_overlong_query(monkeypatch):
+    """The API caps q at 100 characters."""
+    captured: dict = {}
+
+    def fake_get(url, **kwargs):
+        captured.update(kwargs.get("params") or {})
+        return SimpleNamespace(json=lambda: {"hits": []}, raise_for_status=lambda: None)
+
+    monkeypatch.setattr(stock_footage.settings, "PIXABAY_API_KEY", "k", raising=False)
+    monkeypatch.setattr(stock_footage.requests, "get", fake_get)
+
+    stock_footage._pixabay_search("x" * 250, 6, 1, None)
+
+    assert len(captured["q"]) == 100
+
+
+def test_pixabay_search__enforces_duration_cap_client_side(monkeypatch):
+    """Pixabay accepts `max_duration` and ignores it — verified live: a request
+    capped at 12s returned 14s, 30s, 41s and 169s clips. The ceiling must be
+    applied to the response, not delegated to the API."""
+    payload = {
+        "hits": [
+            {"id": 1, "duration": 8, "pageURL": "p1", "user": "A", "tags": "a",
+             "videos": {"medium": {"url": "https://cdn/1.mp4", "width": 1280, "height": 720}}},
+            {"id": 2, "duration": 169, "pageURL": "p2", "user": "B", "tags": "b",
+             "videos": {"medium": {"url": "https://cdn/2.mp4", "width": 1280, "height": 720}}},
+            {"id": 3, "duration": 12, "pageURL": "p3", "user": "C", "tags": "c",
+             "videos": {"medium": {"url": "https://cdn/3.mp4", "width": 1280, "height": 720}}},
+        ]
+    }
+    monkeypatch.setattr(stock_footage.settings, "PIXABAY_API_KEY", "k", raising=False)
+    monkeypatch.setattr(
+        stock_footage.requests, "get",
+        lambda *a, **k: SimpleNamespace(json=lambda: payload, raise_for_status=lambda: None),
+    )
+
+    clips = stock_footage._pixabay_search("q", 6, 1, None)
+
+    assert [c.id for c in clips] == ["1", "3"]          # 169s dropped
+    assert all(c.duration <= stock_footage.MAX_CLIP_DURATION_SECONDS for c in clips)
+
+
+def test_pixabay_search__overfetches_to_survive_the_duration_filter(monkeypatch):
+    """Only ~30-50% of a page survives the 12s cap, so ask for more than we need."""
+    captured: dict = {}
+
+    def fake_get(url, **kwargs):
+        captured.update(kwargs.get("params") or {})
+        return SimpleNamespace(json=lambda: {"hits": []}, raise_for_status=lambda: None)
+
+    monkeypatch.setattr(stock_footage.settings, "PIXABAY_API_KEY", "k", raising=False)
+    monkeypatch.setattr(stock_footage.requests, "get", fake_get)
+
+    stock_footage._pixabay_search("q", 6, 1, None)
+
+    assert captured["per_page"] > 6
+    # And `max_duration` must not be sent — it is silently ignored, so sending it
+    # would imply a guarantee the API does not provide.
+    assert "max_duration" not in captured
+
+
+def test_pixabay_search__returns_no_more_than_requested(monkeypatch):
+    """Over-fetching must not let Pixabay dominate the provider interleave."""
+    payload = {
+        "hits": [
+            {"id": i, "duration": 5, "pageURL": f"p{i}", "user": "A", "tags": "a",
+             "videos": {"medium": {"url": f"https://cdn/{i}.mp4", "width": 1280, "height": 720}}}
+            for i in range(40)
+        ]
+    }
+    monkeypatch.setattr(stock_footage.settings, "PIXABAY_API_KEY", "k", raising=False)
+    monkeypatch.setattr(
+        stock_footage.requests, "get",
+        lambda *a, **k: SimpleNamespace(json=lambda: payload, raise_for_status=lambda: None),
+    )
+
+    assert len(stock_footage._pixabay_search("q", 6, 1, None)) == 6
+
+
+def test_unknown_fps_ranks_between_clean_and_resampling_rates():
+    """Pixabay reports no fps. Unknown must beat a known-bad 25fps but lose to a
+    known 30fps, so 'prefer 30fps' still holds across both providers."""
+    assert stock_footage.fps_rank(30.0) < stock_footage.fps_rank(None)
+    assert stock_footage.fps_rank(None) < stock_footage.fps_rank(25.0)
+
+
+def test_search__never_returns_an_over_length_clip(monkeypatch):
+    """Single enforcement point: Pexels applies max_duration server-side and
+    Pixabay ignores it entirely, so search() re-checks. An over-length clip
+    costs a download and two ffmpeg passes for footage the renderer loops."""
+    long_clip = stock_footage.StockClip(
+        provider="pexels", id="long", preview_url="p", thumbnail_url="t",
+        download_url="d", width=1280, height=720, duration=169.0, fps=30.0,
+        author="a", page_url="u",
+    )
+    ok_clip = _pool_clip("pixabay", "ok")
+
+    monkeypatch.setattr(stock_footage, "_pexels_search", lambda *a, **k: [long_clip])
+    monkeypatch.setattr(stock_footage, "_pixabay_search", lambda *a, **k: [ok_clip])
+
+    out = stock_footage.search("q", provider="all", per_page=4, max_results=8)
+
+    assert [c.id for c in out] == ["ok"]
+
+
+def test_pexels_search__skips_over_length_hits(monkeypatch):
+    payload = {
+        "videos": [
+            {"id": 1, "duration": 8, "url": "https://www.pexels.com/video/a-b-1/",
+             "image": "i", "user": {"name": "A"},
+             "video_files": [{"width": 1280, "height": 720, "fps": 30, "link": "https://cdn/1.mp4"}]},
+            {"id": 2, "duration": 40, "url": "https://www.pexels.com/video/c-d-2/",
+             "image": "i", "user": {"name": "B"},
+             "video_files": [{"width": 1280, "height": 720, "fps": 30, "link": "https://cdn/2.mp4"}]},
+        ]
+    }
+    monkeypatch.setattr(stock_footage.settings, "PEXELS_API_KEY", "k", raising=False)
+    monkeypatch.setattr(
+        stock_footage.requests, "get",
+        lambda *a, **k: SimpleNamespace(json=lambda: payload, raise_for_status=lambda: None),
+    )
+
+    assert [c.id for c in stock_footage._pexels_search("q", 4, 1, None)] == ["1"]
+
+
+def test_auto_pool__one_provider_can_fill_it_alone():
+    """With a single key configured there is no second provider to cover a
+    shortfall, so each must be able to supply the whole pool by itself."""
+    assert stock_footage.AUTO_SEARCH_PER_PAGE >= stock_footage.AUTO_CANDIDATE_POOL_SIZE
+    assert stock_footage.AUTO_CANDIDATE_POOL_SIZE == 8
+
+
+def test_search__skips_providers_with_no_api_key(monkeypatch):
+    """An unconfigured provider is off, not failing — it must not be dispatched."""
+    calls: list[str] = []
+    monkeypatch.setattr(stock_footage.settings, "PEXELS_API_KEY", "", raising=False)
+    monkeypatch.setattr(
+        stock_footage, "_pexels_search",
+        lambda *a, **k: calls.append("pexels") or [],
+    )
+    monkeypatch.setattr(
+        stock_footage, "_pixabay_search",
+        lambda *a, **k: [_pool_clip("pixabay", "1")],
+    )
+
+    out = stock_footage.search("q", provider="all", per_page=8, max_results=8)
+
+    assert calls == []                      # never dispatched
+    assert [c.provider for c in out] == ["pixabay"]
+
+
+def test_search__returns_empty_when_no_keys_configured(monkeypatch):
+    monkeypatch.setattr(stock_footage.settings, "PEXELS_API_KEY", "", raising=False)
+    monkeypatch.setattr(stock_footage.settings, "PIXABAY_API_KEY", "", raising=False)
+
+    assert stock_footage.search("q", provider="all") == []
+
+
+def test_pixabay_search__overfetch_covers_the_whole_pool(monkeypatch):
+    """Most of a Pixabay page is discarded by the 12s ceiling — measured across
+    12 real queries, per_page=40 left two unable to fill 8. The request must be
+    sized for the worst query, not the median."""
+    captured: dict = {}
+
+    def fake_get(url, **kwargs):
+        captured.update(kwargs.get("params") or {})
+        return SimpleNamespace(json=lambda: {"hits": []}, raise_for_status=lambda: None)
+
+    monkeypatch.setattr(stock_footage.requests, "get", fake_get)
+
+    stock_footage._pixabay_search("q", stock_footage.AUTO_CANDIDATE_POOL_SIZE, 1, None)
+
+    assert captured["per_page"] >= 80
