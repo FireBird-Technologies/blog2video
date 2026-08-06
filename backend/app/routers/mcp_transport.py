@@ -181,10 +181,13 @@ async def _call_tool(name: str, arguments: dict):
 
 # _v2: claude.ai caches widget HTML per resource URI and does not re-read it on
 # reconnect, so shipping a changed bundle requires a new URI (same reason
-# setup_gallery carries _v2). Bump again if the bundle changes materially.
+# setup_gallery carries a version suffix). Bump again if the bundle changes
+# materially. The setup URI lives in mcp_server.handlers so the tool _meta, the
+# per-result _meta and this resource read can never drift apart.
+from mcp_server.handlers import SETUP_RESOURCE_URI as _SETUP_URI
+
 _GALLERY_URI = "ui://blog2video/template_gallery_v2"
 _VOICES_URI  = "ui://blog2video/voice_gallery"
-_SETUP_URI   = "ui://blog2video/setup_gallery_v2"
 _GALLERY_MIME = "text/html;profile=mcp-app"
 
 
@@ -300,9 +303,15 @@ async def _read_resource(uri):
         voices = h._VOICE_CACHE or await _fetch_voices()
         if not h._VOICE_CACHE and voices:
             h._VOICE_CACHE = voices  # warm cache for create_project gate
+        # Cold-read fallback only — the tool-call path (structuredContent) always
+        # fires before the user can interact, and carries fresher data.
+        # bgm_tracks has no unauthenticated fetch (the endpoint needs a JWT), and
+        # is_paid fails closed so paid-only lengths stay hidden when unknown.
         setup = {
             "templates": templates,
             "voices": voices,
+            "bgm_tracks": h._BGM_CACHE,
+            "is_paid": False,
             "blog_url": h._SETUP_BLOG_URL,
         }
         html = load_html("setup_gallery")

@@ -8,30 +8,105 @@ conversational two-step polling flow for long-running operations.
 from mcp.types import Tool, ToolAnnotations
 
 
+# Kept in sync BY HAND with app/services/background_music.py:BGM_TRACKS.
+# Deliberately not imported: this module is loaded by the local stdio server
+# (mcp_server/server.py), which runs without `app` on the import path.
+BGM_TRACK_IDS = [
+    "corporate_upbeat", "trending_reels", "documentary_sad", "podcast_intro",
+    "ambient_background", "chasing_success", "relaxed_narrative", "sad_violin",
+    "dramatic_trailer", "powerful_percussion", "dark_cyberpunk",
+    "wonders_of_the_earth", "action_race_rock", "moment_of_peace",
+]
+
+# Mirrors CAPTION_FONT_OPTIONS in frontend/src/components/VideoPreview.tsx.
+CAPTION_FONT_IDS = [
+    "inter", "poppins", "montserrat", "roboto_slab", "oswald", "lora",
+    "patrick_hand", "arimo", "archivo_black", "merriweather",
+    "playfair_display", "fira_code",
+]
+
+# Music + caption settings. Accepted by ProjectCreate on the backend but absent
+# from the MCP surface until the Manual setup flow needed them. Shared verbatim
+# by create_project and create_video so the two can't drift.
+_MEDIA_SETTINGS_PROPERTIES = {
+    "bgm_track_id": {"type": "string", "enum": BGM_TRACK_IDS, "description": "Optional background music track id. Omit for no music."},
+    "bgm_volume": {"type": "number", "minimum": 0.0, "maximum": 1.0, "default": 0.10, "description": "Background music volume, 0–1. Only meaningful together with bgm_track_id."},
+    "captions_enabled": {"type": "boolean", "default": False, "description": "Burn on-screen subtitles into the video."},
+    "caption_position": {"type": "string", "enum": ["bottom_center", "top_center"], "default": "bottom_center", "description": "Only used when captions_enabled."},
+    "caption_font_family": {"type": "string", "enum": CAPTION_FONT_IDS, "default": "inter", "description": "Caption font id. Only used when captions_enabled."},
+    "caption_font_size": {"type": "string", "default": "36", "description": "Caption font size in px, as a STRING (e.g. '36'). Range 12–64. Only used when captions_enabled."},
+    "caption_offset": {"type": "integer", "minimum": -100, "maximum": 100, "default": 0, "description": "Vertical caption shift, -100..100 (positive = up). Only used when captions_enabled."},
+}
+
+
 def get_tool_definitions() -> list[Tool]:
     return [
-        # auto_video is FIRST deliberately: it is the default entry point for
+        # start_video is FIRST deliberately: it is the ONLY entry point for
         # "make a video from <url>". When two tool descriptions both plausibly
-        # match, earlier position breaks the tie — and setup_video used to win
-        # that tie and force a gallery on users who never asked to pick one.
+        # match, earlier position breaks the tie. auto_video and setup_video are
+        # now its Auto/Manual delegates and are marked INTERNAL in their
+        # descriptions — do NOT promote either of them back above this one.
+        Tool(
+            name="start_video",
+            description=(
+                "THE ONLY tool to call when a user asks to make/create/generate/turn a blog "
+                "post or URL into a video. Call it IMMEDIATELY on the first such request — "
+                "do not call auto_video, setup_video, create_video or create_project first; "
+                "those are internal steps this tool routes to.\n\n"
+                "TWO-STEP. Step 1: call with ONLY `blog_url` and no `mode`. It returns a "
+                "short question asking the user to choose Auto or Manual. Relay that "
+                "question in one line and STOP — do not call another tool, do not guess a "
+                "mode.\n\n"
+                "Step 2: once the user answers, call start_video AGAIN with the SAME "
+                "blog_url plus mode='auto' or mode='manual'.\n"
+                "  • mode='auto'   — user said auto / just do it / whatever's best / you pick.\n"
+                "    Returns once generation has STARTED; then poll `check_generation_status`\n"
+                "    with the returned project_id every ~15s until complete.\n"
+                "  • mode='manual' — user said manual / I'll choose / let me pick / custom.\n\n"
+                "NEVER call start_video twice for the same URL once a project exists — each "
+                "creation costs the user a video credit.\n\n"
+                "If the user's FIRST message already states the mode, skip step 1 and call "
+                "once with both blog_url and mode.\n\n"
+                "If no URL was given, ask for it in one sentence first — never invent one."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "blog_url": {"type": "string", "format": "uri", "minLength": 8, "description": "REQUIRED. The exact http(s) URL of the blog/article the user gave. Never guess or invent."},
+                    "mode": {"type": "string", "enum": ["auto", "manual"], "description": "OMIT on the first call — the tool asks the user. Set only after they answer: 'auto' = zero questions, 'manual' = user picks template/voice/settings."},
+                    "name": {"type": "string", "description": "Optional project name. Only meaningful with mode='auto'."},
+                    "render": {"type": "boolean", "default": False, "description": "Only meaningful with mode='auto'. If true, also render a downloadable MP4 (slower)."},
+                },
+                "required": ["blog_url"],
+            },
+            # Deliberately NO ui.resourceUri / openai/outputTemplate here: a
+            # tool-level outputTemplate binds the widget to EVERY result of this
+            # tool, so the Auto/Manual question turn would render an empty setup
+            # panel. The manual branch attaches the widget per-result instead
+            # (see handlers._setup_video).
+            **{"_meta": {
+                "openai/widgetAccessible": True,
+            }},
+        ),
         Tool(
             name="auto_video",
             description=(
-                "DEFAULT TOOL for making a video. Call this IMMEDIATELY whenever the user "
-                "asks to create / make / generate / produce a video from a URL and has NOT "
-                "asked to choose a template or voice — e.g. 'create a video for <url>', "
-                "'make a video from <url>', 'turn this post into a video'.\n\n"
-                "Zero-config: the template is picked automatically from the source site's "
+                "INTERNAL — do not call this in response to a user's request for a video. "
+                "`start_video` is the entry point; it asks the user Auto or Manual and "
+                "delegates here when they choose Auto.\n\n"
+                "Only call auto_video directly when the user has EXPLICITLY opted out of "
+                "being asked — e.g. 'skip the questions', 'don't ask me anything, just "
+                "build it'. In every other case call `start_video` instead.\n\n"
+                "Behaviour: zero-config. The template is auto-picked from the source site's "
                 "visual identity and article content, the account's DEFAULT voice is used "
-                "(never a specific/custom voice — use create_video if the user wants one), "
-                "and stock b-roll is on. "
-                "Do NOT show galleries and do NOT ask which template or voice they want — "
-                "skipping those questions is the entire point of this tool.\n\n"
-                "Only use `setup_video` instead if the user EXPLICITLY asks to pick/see "
-                "templates or voices, and `create_video` if they already named specific "
-                "ones.\n\n"
-                "Blocks until the scenes are ready (~1–5 min). Set `render: true` to also "
-                "produce a downloadable MP4 (~+3–8 min)."
+                "(never a specific/custom voice), and stock b-roll is on.\n\n"
+                "Returns as soon as the project is created and generation has started — it "
+                "does NOT wait for the video. Poll `check_generation_status` with the "
+                "returned project_id every ~15s until it reports complete. NEVER call this "
+                "tool a second time for the same URL while a generation is in flight: each "
+                "call costs the user a video credit.\n\n"
+                "Set `render: true` to instead block through generation AND produce a "
+                "downloadable MP4 (slow, ~5–13 min; may exceed the client timeout)."
             ),
             inputSchema={
                 "type": "object",
@@ -50,13 +125,12 @@ def get_tool_definitions() -> list[Tool]:
         Tool(
             name="setup_video",
             description=(
-                "DO NOT call this for a plain 'make/create a video from <url>' request — "
-                "that is `auto_video`. Calling this tool instead forces the user to pick "
-                "a template and voice they never asked to pick.\n\n"
-                "Call this ONLY when the user explicitly signals they want to CHOOSE the "
-                "look or sound: they ask to see / show / pick / browse templates or "
-                "voices, or they say they want to select the style themselves. The word "
-                "'video' alone is NOT enough — there must be an explicit ask to choose.\n\n"
+                "Renders the template + voice + settings picker panel.\n\n"
+                "Do NOT call this as the FIRST response to a user's request for a video — "
+                "`start_video` is the entry point and asks Auto or Manual first.\n\n"
+                "DO call this immediately when `start_video` tells you to (the user chose "
+                "Manual), or when the user wants to reopen the panel to change their "
+                "choices. Pass the same blog_url start_video was given.\n\n"
                 "blog_url is MANDATORY and MUST be the actual http(s) URL the user "
                 "provided. If the user has not given a URL yet, ASK them for it first "
                 "in one short sentence — do NOT call this tool with an empty or fake "
@@ -66,9 +140,8 @@ def get_tool_definitions() -> list[Tool]:
                 "text. DO NOT ask 'which template would you like' or 'male or female?' — "
                 "this widget shows ALL templates and ALL voices visually so the user "
                 "picks both in one step.\n\n"
-                "This is the correct entry point for the PICK-YOUR-OWN flow. After the "
-                "user clicks Create in the widget, a project is created automatically "
-                "and generate_video is called next."
+                "After the user clicks Create in the widget, a project is created "
+                "automatically and generate_video is called next."
             ),
             inputSchema={
                 "type": "object",
@@ -84,8 +157,8 @@ def get_tool_definitions() -> list[Tool]:
             },
             annotations=ToolAnnotations(readOnlyHint=True),
             **{"_meta": {
-                "ui": {"resourceUri": "ui://blog2video/setup_gallery_v2"},
-                "openai/outputTemplate": "ui://blog2video/setup_gallery_v2",
+                "ui": {"resourceUri": "ui://blog2video/setup_gallery_v3"},
+                "openai/outputTemplate": "ui://blog2video/setup_gallery_v3",
                 "openai/widgetAccessible": True,
             }},
         ),
@@ -178,6 +251,8 @@ def get_tool_definitions() -> list[Tool]:
         Tool(
             name="create_project",
             description=(
+                "INTERNAL. Called by the setup widget. Do not call directly for a "
+                "'make me a video' request — that is `start_video`.\n\n"
                 "Create a new video project from a blog URL.\n\n"
                 "HARD REQUIREMENT — DO NOT skip or shortcut these steps. DO NOT list "
                 "templates or voices from your own knowledge or from this tool's parameter "
@@ -217,6 +292,7 @@ def get_tool_definitions() -> list[Tool]:
                     "bg_color": {"type": "string", "description": "Hex background colour. Omit to inherit the template's palette."},
                     "text_color": {"type": "string", "description": "Hex text colour. Omit to inherit the template's palette."},
                     "stock_footage_enabled": {"type": "boolean", "default": False, "description": "Add stock video b-roll to image-capable scenes. Available on every plan. Pass true unless the user asked for no footage."},
+                    **_MEDIA_SETTINGS_PROPERTIES,
                 },
                 "required": ["blog_url"],
             },
@@ -227,6 +303,9 @@ def get_tool_definitions() -> list[Tool]:
         Tool(
             name="create_video",
             description=(
+                "INTERNAL / programmatic. For a user asking for a video, call "
+                "`start_video`. Use create_video only when the user has already named an "
+                "explicit template AND voice in text, or another tool routed here.\n\n"
                 "One call to make a video: creates a project from a blog URL and runs the "
                 "generation pipeline (scrape → script → scenes), waiting until the scenes are "
                 "ready (~1–5 min). Bypasses the template/voice gallery widgets — pass the "
@@ -257,6 +336,7 @@ def get_tool_definitions() -> list[Tool]:
                     "text_color": {"type": "string", "description": "Hex text colour. Omit to inherit the template's palette."},
                     "stock_footage_enabled": {"type": "boolean", "default": False, "description": "Add stock video b-roll to image-capable scenes. Available on every plan. Pass true unless the user asked for no footage."},
                     "render": {"type": "boolean", "default": False, "description": "If true, also render a downloadable MP4 before returning (slower)."},
+                    **_MEDIA_SETTINGS_PROPERTIES,
                 },
                 "required": ["blog_url"],
             },

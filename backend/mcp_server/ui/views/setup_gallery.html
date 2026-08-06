@@ -113,6 +113,61 @@
     #create:not(:disabled):hover { background: #1d4ed8; }
 
     .empty { color: #555; font-size: 12px; padding: 14px 0; }
+
+    /* Settings — every control is pre-set to its backend default, so a user who
+       ignores this whole section gets exactly the defaults. */
+    .hint {
+      font-weight: 400; text-transform: none; letter-spacing: 0; color: #444;
+    }
+    #settings {
+      background: #111; border: 1.5px solid #1e1e1e; border-radius: 8px;
+      padding: 2px 12px;
+    }
+    #settings.locked { opacity: .5; pointer-events: none; }
+    .srow {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 0; border-bottom: 1px solid #191919;
+    }
+    .srow:last-child { border-bottom: none; }
+    .srow > label:first-child { flex: 1; font-size: 12px; color: #bbb; }
+    .srow select, .srow input[type=range] {
+      background: #171717; color: #ddd; border: 1px solid #2a2a2a;
+      border-radius: 6px; font-size: 12px; padding: 5px 8px; min-width: 150px;
+    }
+    .srow input[type=range] { padding: 0; min-width: 110px; }
+    .srow select:disabled { color: #555; }
+    .rangeval { font-size: 11px; color: #666; width: 46px; text-align: right; }
+    .switch input {
+      appearance: none; -webkit-appearance: none;
+      width: 36px; height: 20px; background: #2a2a2a; border-radius: 10px;
+      position: relative; cursor: pointer; transition: background .15s;
+    }
+    .switch input::after {
+      content: ""; position: absolute; top: 2px; left: 2px;
+      width: 16px; height: 16px; border-radius: 50%; background: #777;
+      transition: transform .15s, background .15s;
+    }
+    .switch input:checked { background: #1e3a5f; }
+    .switch input:checked::after { transform: translateX(16px); background: #3b82f6; }
+    .bgmwrap, .colorwrap { display: flex; align-items: center; gap: 8px; }
+    .colorwrap input[type=color] {
+      width: 34px; height: 26px; padding: 0; background: #171717;
+      border: 1px solid #2a2a2a; border-radius: 6px; cursor: pointer;
+    }
+    .clearcol {
+      background: none; border: 1px solid #2a2a2a; color: #666;
+      border-radius: 6px; font-size: 10px; padding: 4px 8px; cursor: pointer;
+    }
+    .clearcol:hover { color: #aaa; border-color: #444; }
+    #more { margin: 2px 0 6px; }
+    #more > summary {
+      font-size: 11px; color: #666; cursor: pointer; padding: 10px 0;
+      list-style: none; user-select: none;
+    }
+    #more > summary::-webkit-details-marker { display: none; }
+    #more > summary::after { content: " ▾"; }
+    #more[open] > summary::after { content: " ▴"; }
+    option.paid-locked { color: #555; }
   </style>
 </head>
 <body>
@@ -121,6 +176,124 @@
 
   <div class="section-label">2 · Choose a voice</div>
   <div id="voices" class="vgrid"><p class="empty">Loading voices…</p></div>
+
+  <div class="section-label">3 · Settings <span class="hint">(optional — defaults are already set)</span></div>
+  <div id="settings">
+    <div class="srow">
+      <label for="s-length">Video length</label>
+      <select id="s-length" data-key="video_length">
+        <option value="auto" selected>Auto (recommended)</option>
+        <option value="short">Short · 4–5 scenes</option>
+        <option value="medium">Medium · 12–15 scenes</option>
+        <option value="detailed" data-paid="1">Detailed · 23–30 scenes</option>
+        <option value="more_detailed" data-paid="1">More detailed · 35–40 scenes</option>
+      </select>
+    </div>
+    <div class="srow">
+      <label for="s-style">Video style</label>
+      <select id="s-style" data-key="video_style">
+        <option value="auto" selected>Auto (recommended)</option>
+        <option value="explainer">Explainer</option>
+        <option value="promotional">Promotional</option>
+        <option value="storytelling">Storytelling</option>
+      </select>
+    </div>
+    <div class="srow">
+      <label for="s-stock">Stock footage</label>
+      <label class="switch"><input type="checkbox" id="s-stock" data-key="stock_footage_enabled" checked></label>
+    </div>
+    <div class="srow">
+      <label for="s-bgm">Background music</label>
+      <div class="bgmwrap">
+        <select id="s-bgm" data-key="bgm_track_id">
+          <option value="" selected>None</option>
+        </select>
+        <button type="button" id="bgm-play" class="play-btn" title="Preview">▶</button>
+      </div>
+    </div>
+    <div class="srow" id="bgm-vol-row" hidden>
+      <label for="s-bgmvol">Music volume</label>
+      <input type="range" id="s-bgmvol" data-key="bgm_volume" min="0" max="0.4" step="0.01" value="0.10">
+      <span class="rangeval" id="s-bgmvol-val">10%</span>
+    </div>
+
+    <details id="more">
+      <summary>More settings</summary>
+      <div class="srow">
+        <label for="s-aspect">Aspect ratio</label>
+        <select id="s-aspect" data-key="aspect_ratio">
+          <option value="landscape" selected>Landscape 16:9</option>
+          <option value="portrait">Portrait 9:16</option>
+        </select>
+      </div>
+      <div class="srow">
+        <label for="s-speed">Playback speed</label>
+        <input type="range" id="s-speed" data-key="playback_speed" min="0.5" max="2.5" step="0.05" value="1.0">
+        <span class="rangeval" id="s-speed-val">1.00×</span>
+      </div>
+      <div class="srow">
+        <label for="s-cap">Captions</label>
+        <label class="switch"><input type="checkbox" id="s-cap" data-key="captions_enabled"></label>
+      </div>
+      <div id="capgroup" hidden>
+        <div class="srow">
+          <label for="s-cappos">Caption position</label>
+          <select id="s-cappos" data-key="caption_position">
+            <option value="bottom_center" selected>Bottom</option>
+            <option value="top_center">Top</option>
+          </select>
+        </div>
+        <div class="srow">
+          <label for="s-capfont">Caption font</label>
+          <select id="s-capfont" data-key="caption_font_family">
+            <option value="inter" selected>Inter</option>
+            <option value="poppins">Poppins</option>
+            <option value="montserrat">Montserrat</option>
+            <option value="roboto_slab">Roboto Slab</option>
+            <option value="oswald">Oswald</option>
+            <option value="lora">Lora</option>
+            <option value="patrick_hand">Patrick Hand</option>
+            <option value="arimo">Arimo</option>
+            <option value="archivo_black">Archivo Black</option>
+            <option value="merriweather">Merriweather</option>
+            <option value="playfair_display">Playfair Display</option>
+            <option value="fira_code">Fira Code</option>
+          </select>
+        </div>
+        <div class="srow">
+          <label for="s-capsize">Caption size</label>
+          <input type="range" id="s-capsize" data-key="caption_font_size" min="12" max="64" step="1" value="36">
+          <span class="rangeval" id="s-capsize-val">36px</span>
+        </div>
+        <div class="srow">
+          <label for="s-capoff">Caption offset</label>
+          <input type="range" id="s-capoff" data-key="caption_offset" min="-100" max="100" step="5" value="0">
+          <span class="rangeval" id="s-capoff-val">0</span>
+        </div>
+      </div>
+      <div class="srow">
+        <label for="s-accent">Accent colour</label>
+        <div class="colorwrap">
+          <input type="color" id="s-accent" data-key="accent_color" value="#7c3aed">
+          <button type="button" class="clearcol" data-for="s-accent">Template default</button>
+        </div>
+      </div>
+      <div class="srow">
+        <label for="s-bg">Background colour</label>
+        <div class="colorwrap">
+          <input type="color" id="s-bg" data-key="bg_color" value="#ffffff">
+          <button type="button" class="clearcol" data-for="s-bg">Template default</button>
+        </div>
+      </div>
+      <div class="srow">
+        <label for="s-text">Text colour</label>
+        <div class="colorwrap">
+          <input type="color" id="s-text" data-key="text_color" value="#000000">
+          <button type="button" class="clearcol" data-for="s-text">Template default</button>
+        </div>
+      </div>
+    </details>
+  </div>
 
   <div id="bar">
     <div class="status" id="status">Select a template and a voice to continue.</div>
@@ -131,7 +304,7 @@
     var R2_BASE = "https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/";
     var GENDER_EMOJI = { male: "👨", female: "👩" };
 
-    var data = { templates: [], voices: [], blog_url: "" };
+    var data = { templates: [], voices: [], bgm_tracks: [], is_paid: false, blog_url: "" };
     // ChatGPT (OpenAI Apps SDK) delivers data via window.openai.toolOutput
     // Apply the injected-HTML data first (Claude / direct browser; also
     // ChatGPT's first render on a fresh connector). ChatGPT may cache this
@@ -163,6 +336,151 @@
     var videoUrl = null;       // final MP4 URL, set after render completes
 
     function cap(s){ return s ? s.charAt(0).toUpperCase()+s.slice(1) : ""; }
+
+    // ─── Settings ────────────────────────────────────────────────────────
+    // Mirrors ProjectCreate (app/schemas/schemas.py). Every control starts at
+    // its default, and a control still AT its default is omitted from the args
+    // entirely — that is what "skip this setting" means.
+    var DEFAULTS = {
+      video_length: "auto", video_style: "auto", stock_footage_enabled: true,
+      bgm_track_id: "", bgm_volume: 0.10, aspect_ratio: "landscape",
+      playback_speed: 1.0, captions_enabled: false, caption_position: "bottom_center",
+      caption_font_family: "inter", caption_font_size: "36", caption_offset: 0
+    };
+    // stock_footage_enabled is checked by default here (matching auto_video's
+    // behaviour) even though ProjectCreate defaults it to FALSE — so it must be
+    // transmitted explicitly rather than omitted as "already the default".
+    var ALWAYS_SEND = { stock_footage_enabled: 1 };
+    // <input type=color> cannot express "unset" — it always reports a value, so
+    // an untouched picker would send #000000 and override the template palette.
+    // A colour is only sent once the user actually edits it.
+    var colorDirty = {};
+    var bgmAudio = null;
+
+    function collectSettings() {
+      var out = {};
+      var els = document.querySelectorAll("#settings [data-key]");
+      Array.prototype.forEach.call(els, function (el) {
+        var key = el.dataset.key, v;
+        if (el.type === "checkbox") v = el.checked;
+        else if (el.type === "range") v = parseFloat(el.value);
+        else if (el.type === "color") { if (!colorDirty[el.id]) return; v = el.value; }
+        else v = el.value;
+
+        if (key === "caption_offset") v = Math.round(v);
+        if (key === "caption_font_size") v = String(Math.round(v));  // schema wants a string
+        if (v === "" || v === null || typeof v === "undefined") return;
+        if (!ALWAYS_SEND[key] && el.type !== "color" && v === DEFAULTS[key]) return;
+        out[key] = v;
+      });
+      // Volume is meaningless without a track.
+      if (!out.bgm_track_id) delete out.bgm_volume;
+      // Caption sub-settings are meaningless when captions are off.
+      if (!document.getElementById("s-cap").checked) {
+        ["caption_position", "caption_font_family", "caption_font_size", "caption_offset"]
+          .forEach(function (k) { delete out[k]; });
+      }
+      return out;
+    }
+
+    function stopBgm() {
+      if (bgmAudio) { bgmAudio.pause(); bgmAudio = null; }
+      document.getElementById("bgm-play").classList.remove("playing");
+      document.getElementById("bgm-play").textContent = "▶";
+    }
+
+    function renderBgm() {
+      var sel = document.getElementById("s-bgm");
+      (data.bgm_tracks || []).forEach(function (t) {
+        var o = document.createElement("option");
+        o.value = t.track_id;
+        o.textContent = t.display_name + (t.mood ? " · " + t.mood : "");
+        o.dataset.url = t.r2_url || "";
+        sel.appendChild(o);
+      });
+    }
+
+    function applyPlanGate() {
+      // Fail closed: paid-only lengths stay disabled unless we know the plan is
+      // paid. The backend rejects them with 403 regardless, so this only avoids
+      // letting the user pick something that then fails.
+      if (data.is_paid) return;
+      var opts = document.querySelectorAll('#s-length option[data-paid]');
+      Array.prototype.forEach.call(opts, function (o) {
+        o.disabled = true;
+        o.classList.add("paid-locked");
+        o.textContent += " · Pro";
+      });
+    }
+
+    function lockSettings() {
+      document.getElementById("settings").classList.add("locked");
+      stopBgm();
+    }
+
+    function wireSettings() {
+      // Live value readouts for the range inputs.
+      var fmt = {
+        "s-speed": function (v) { return (+v).toFixed(2) + "×"; },
+        "s-bgmvol": function (v) { return Math.round(v * 100) + "%"; },
+        "s-capsize": function (v) { return Math.round(v) + "px"; },
+        "s-capoff": function (v) { return String(Math.round(v)); }
+      };
+      Object.keys(fmt).forEach(function (id) {
+        var el = document.getElementById(id), out = document.getElementById(id + "-val");
+        if (!el || !out) return;
+        el.addEventListener("input", function () { out.textContent = fmt[id](el.value); });
+        out.textContent = fmt[id](el.value);
+      });
+
+      // Progressive disclosure — hide sub-settings until their parent is on.
+      document.getElementById("s-cap").addEventListener("change", function () {
+        document.getElementById("capgroup").hidden = !this.checked;
+      });
+      document.getElementById("s-bgm").addEventListener("change", function () {
+        document.getElementById("bgm-vol-row").hidden = !this.value;
+        stopBgm();
+      });
+
+      // BGM preview.
+      var bgmBtn = document.getElementById("bgm-play");
+      bgmBtn.addEventListener("click", function () {
+        if (bgmAudio) { stopBgm(); return; }
+        var sel = document.getElementById("s-bgm");
+        var opt = sel.options[sel.selectedIndex];
+        var url = opt && opt.dataset.url;
+        if (!url) return;
+        // Voice previews and music share one "currently playing" slot.
+        if (curAudio) { curAudio.pause(); curAudio = null; }
+        if (curPlayBtn) { curPlayBtn.classList.remove("playing"); curPlayBtn.textContent = "▶"; curPlayBtn = null; }
+        bgmAudio = new Audio(url);
+        bgmAudio.addEventListener("ended", stopBgm);
+        bgmAudio.play().then(function () {
+          bgmBtn.classList.add("playing");
+          bgmBtn.textContent = "❚❚";
+        }).catch(function () { stopBgm(); });
+      });
+
+      // Colour dirty-tracking.
+      ["s-accent", "s-bg", "s-text"].forEach(function (id) {
+        var input = document.getElementById(id);
+        var btn = document.querySelector('.clearcol[data-for="' + id + '"]');
+        input.addEventListener("input", function () {
+          colorDirty[id] = true;
+          btn.textContent = "Reset";
+          updateBar();
+        });
+        btn.addEventListener("click", function () {
+          colorDirty[id] = false;
+          btn.textContent = "Template default";
+          updateBar();
+        });
+      });
+
+      // Keep the "N settings changed" chip live.
+      document.getElementById("settings").addEventListener("change", updateBar);
+      document.getElementById("settings").addEventListener("input", updateBar);
+    }
 
     function renderTemplates() {
       var box = document.getElementById("templates");
@@ -228,6 +546,7 @@
     }
 
     function togglePlay(btn, url) {
+      stopBgm();   // voice previews and background music share one audio slot
       if (curAudio) {
         curAudio.pause(); curAudio = null;
         if (curPlayBtn) { curPlayBtn.textContent="▶"; curPlayBtn.classList.remove("playing"); }
@@ -244,7 +563,14 @@
       var parts = [];
       parts.push(selTemplate ? "Template: <strong>"+selTemplate+"</strong>" : "Template: —");
       parts.push(selVoice ? "Voice: <strong>"+selVoice.name+"</strong>" : "Voice: —");
+      // stock_footage_enabled is always transmitted, so it doesn't count as a
+      // user-made change for this chip.
+      var changed = collectSettings();
+      delete changed.stock_footage_enabled;
+      var n = Object.keys(changed).length;
+      if (n) parts.push("<strong>"+n+"</strong> setting"+(n>1?"s":"")+" changed");
       status.innerHTML = parts.join(" &nbsp;·&nbsp; ");
+      // Settings are NEVER required — only template and voice gate Create.
       btn.disabled = !(selTemplate && selVoice);
     }
 
@@ -348,16 +674,22 @@
 
       // phase === "idle" or "failed" → run the create + generate flow.
       if (!(selTemplate && selVoice)) return;
-      var args = {
+      var args = Object.assign({
         blog_url: data.blog_url || "",
         template: selTemplate,
         voice_gender: selVoice.gender || "female",
-        voice_accent: selVoice.accent || "american",
-        voice_id: selVoice.voice_id || ""
-      };
+        voice_accent: selVoice.accent || "american"
+      }, collectSettings());
+      // The backend field is custom_voice_id — `voice_id` was silently dropped
+      // by ProjectCreate. Omit entirely when blank so no empty string is sent.
+      if (selVoice.voice_id) args.custom_voice_id = selVoice.voice_id;
+
       btnEl.disabled = true;
       btnEl.textContent = "Creating…";
       phase = "generating";
+      // The project exists from here on; editing settings would silently do
+      // nothing, which reads as a bug.
+      lockSettings();
 
       function extractProjectId(result) {
         // Try common shapes the MCP tool result might come back as.
@@ -543,6 +875,9 @@
 
     renderTemplates();
     renderVoices();
+    renderBgm();
+    applyPlanGate();
+    wireSettings();
     updateBar();
   </script>
 </body>

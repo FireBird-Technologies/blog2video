@@ -79,6 +79,23 @@ logger = get_logger(__name__)
 
 
 import threading as _threading
+from datetime import timedelta as _timedelta
+
+# How far back create_project looks for an identical in-flight request before
+# treating a call as a retry rather than a new video. Sized to comfortably cover
+# a full generation (the MCP generate poll tops out at 300s) so a client that
+# times out and retries mid-generation reuses the project it already paid for.
+_DUPLICATE_CREATE_WINDOW = _timedelta(minutes=10)
+
+# Statuses that mean "this project is still mid-pipeline". Deliberately excludes
+# GENERATED/DONE/ERROR: those are settled outcomes, and asking for the same URL
+# again afterwards is a genuine new video that must create and charge normally.
+# Only an unfinished run is treated as the target of a retry.
+_IN_FLIGHT_STATUSES = (
+    ProjectStatus.CREATED,
+    ProjectStatus.SCRAPED,
+    ProjectStatus.SCRIPTED,
+)
 
 # URL → (expires_at_epoch, is_reachable). Avoids HEAD-ing the same brand-logo
 # URL on every project serialization (_inject_custom_theme runs on every GET).
@@ -949,6 +966,32 @@ def create_project(
 
     if not data.blog_url:
         raise HTTPException(status_code=400, detail="blog_url is required for URL-based project creation.")
+
+    # Idempotency guard. A client that times out waiting for this endpoint (the
+    # MCP connector gives up well before a long generation finishes) retries the
+    # same request — and every retry used to create another project AND charge
+    # another video credit, while the original kept generating server-side.
+    # Return the in-flight project instead of duplicating it. Scoped tightly:
+    # same user, same URL, only recently, and only while it is still progressing
+    # — a finished or failed project must not block a deliberate re-run.
+    duplicate = (
+        db.query(Project)
+        .filter(
+            Project.user_id == user.id,
+            Project.blog_url == data.blog_url,
+            Project.created_at >= datetime.utcnow() - _DUPLICATE_CREATE_WINDOW,
+            Project.status.in_(_IN_FLIGHT_STATUSES),
+        )
+        .order_by(Project.id.desc())
+        .first()
+    )
+    if duplicate is not None:
+        logger.info(
+            "[PROJECTS] Reusing in-flight project %s for user %s (duplicate create for %s)",
+            duplicate.id, user.id, data.blog_url,
+            extra={"project_id": duplicate.id, "user_id": user.id},
+        )
+        return _prepare_project_response(duplicate, user, db)
 
     name = data.name or _name_from_url(data.blog_url)
     template_id = validate_template_id(data.template, db=db, user_id=user.id)

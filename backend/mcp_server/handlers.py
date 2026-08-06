@@ -58,6 +58,16 @@ TEMPLATE_PREVIEW_URLS: dict[str, str] = {
 _VOICE_CACHE: list[dict] = []
 # Populated by _list_templates; lets the resource read reuse the same catalog.
 _TEMPLATE_CACHE: list[dict] = []
+# Populated by _setup_video; the background-music catalog for the setup widget.
+# There is no unauthenticated fallback fetch — /api/background-music/tracks needs
+# a JWT, so a cold resource read just yields [] and the picker shows only "None".
+_BGM_CACHE: list[dict] = []
+
+# Widget resource URI for the combined setup panel. Single source of truth:
+# mcp_transport imports this, and tools.py's setup_video _meta must match it.
+# claude.ai caches widget HTML per URI and never re-reads it, so shipping a
+# changed bundle requires bumping the version suffix here AND in tools.py.
+SETUP_RESOURCE_URI = "ui://blog2video/setup_gallery_v3"
 
 # Fallback template for auto_video when the LLM picker can't run (scrape or LLM
 # failure). Set AUTO_TEMPLATE_PICK = False to skip the picker entirely and always
@@ -66,7 +76,12 @@ AUTO_TEMPLATE = "newscast"
 AUTO_TEMPLATE_PICK = True
 _TEMPLATE_GALLERY_SHOWN_AT: float = 0.0
 _VOICE_GALLERY_SHOWN_AT: float = 0.0
-_SETUP_BLOG_URL: str = ""  # last blog_url passed to setup_video; read by the setup widget
+_SETUP_BLOG_URL: str = ""  # last blog_url seen, any user. Cold-read fallback only.
+# Per-user blog_url, keyed by user id. The hosted transport serves every user
+# from one process, so a single global gets clobbered between concurrent users —
+# and start_video widens that window (the question turn and the answer turn can
+# be minutes apart). Falls back to _SETUP_BLOG_URL when the user id is unknown.
+_SETUP_BLOG_URL_BY_USER: dict[int, str] = {}
 
 # id (used by backend) → marketing slug (used by blog2video.app/templates/<slug>)
 TEMPLATE_SLUGS = {
@@ -122,6 +137,27 @@ def _ok(data) -> list[TextContent]:
 
 def _err(msg: str) -> list[TextContent]:
     return [TextContent(type="text", text=f"ERROR: {msg}")]
+
+
+def _friendly_create_error(e: APIError) -> str | None:
+    """Turn a known project-creation rejection into a message worth showing.
+
+    Plan-gated failures come back as a dict detail (e.g.
+    {"code": "video_length_requires_paid", ...}), which the generic _err path
+    would stringify into the chat as a raw dict. Returns None for anything not
+    specifically handled so the caller re-raises.
+    """
+    detail = e.detail
+    code = detail.get("code") if isinstance(detail, dict) else None
+    text = str(detail)
+
+    if e.status_code == 403 and (code == "video_length_requires_paid" or "video_length_requires_paid" in text):
+        return (
+            "⚠️ **Detailed** and **More detailed** lengths need a paid plan.\n\n"
+            "Re-open the setup panel and choose **Short** or **Medium**, or upgrade at "
+            "https://blog2video.app/pricing."
+        )
+    return None
 
 
 def _color_swatch(colors: dict | None) -> str:
@@ -260,6 +296,8 @@ def dispatch(
     logger.info("MCP_CALL tool=%s args=%s", name, _arg_preview)
     try:
         # Pipeline tools
+        if name == "start_video":
+            return _start_video(arguments, client)
         if name == "setup_video":
             return _setup_video(arguments, client)
         if name == "create_project":
@@ -338,6 +376,95 @@ def dispatch(
 # Pipeline handlers
 # ---------------------------------------------------------------------------
 
+def _current_user_id(client: Blog2VideoClient) -> int | None:
+    """Best-effort user id for per-user state. None on any failure."""
+    try:
+        return (client.get_me() or {}).get("id")
+    except Exception as exc:  # noqa: BLE001 - never let this break a tool call
+        logger.warning("get_me failed: %s", exc)
+        return None
+
+
+def _remember_setup_url(client: Blog2VideoClient, blog_url: str) -> None:
+    """Stash the blog_url so a later create_project can backfill it."""
+    global _SETUP_BLOG_URL
+    _SETUP_BLOG_URL = blog_url
+    uid = _current_user_id(client)
+    if uid is not None:
+        _SETUP_BLOG_URL_BY_USER[uid] = blog_url
+
+
+def _recall_setup_url(client: Blog2VideoClient) -> str:
+    """This user's last setup blog_url, falling back to the shared global."""
+    uid = _current_user_id(client)
+    if uid is not None and _SETUP_BLOG_URL_BY_USER.get(uid):
+        return _SETUP_BLOG_URL_BY_USER[uid]
+    return _SETUP_BLOG_URL
+
+
+# The Auto/Manual question. This transport has no MCP elicitation support
+# (mcp_transport._call_tool dispatches into a worker thread with no session
+# handle), so the question is returned as markdown for the model to relay and
+# the answer arrives as a second start_video call carrying `mode`.
+_MODE_QUESTION = (
+    "How would you like to make this video?\n\n"
+    "**⚡ Auto** — I pick the template, voice and settings and build it now. No questions.\n\n"
+    "**🎛 Manual** — you choose the template, voice, length, style, music and more "
+    "in a visual panel.\n\n"
+    "_Reply **auto** or **manual**._"
+)
+
+
+def _start_video(args: dict, client: Blog2VideoClient):
+    """Entry point for every 'make a video from <url>' request.
+
+    Two-step: the first call (no `mode`) returns the Auto/Manual question with no
+    widget; the second carries the answer and delegates to the unchanged
+    _auto_video / _setup_video handlers, so each flow has exactly one
+    implementation.
+
+    `mode` deliberately lives on THIS tool rather than telling the model to call
+    auto_video/setup_video directly — otherwise the model learns mid-thread that
+    those tools are callable and skips the fork on the next URL.
+    """
+    blog_url = (args.get("blog_url") or "").strip()
+    if not (blog_url.startswith("http://") or blog_url.startswith("https://")):
+        return _err(
+            "blog_url is required and must be a valid http(s) URL. Ask the user for "
+            "the article URL they want to convert, then call start_video again."
+        )
+
+    mode = (args.get("mode") or "").strip().lower()
+    if mode == "auto":
+        return _auto_video(args, client)
+    if mode == "manual":
+        # Hand off rather than calling _setup_video inline. claude.ai decides
+        # whether to render a widget from the TOOL definition's _meta.ui, not
+        # from the result's — so a result returned under start_video's name (no
+        # resourceUri) renders no panel, however it is annotated. setup_video
+        # carries the binding at tool level, so the model must call it by name.
+        _remember_setup_url(client, blog_url)
+        return _md(
+            "Opening the setup panel.\n\n"
+            f'<!-- Call `setup_video` NOW with blog_url="{blog_url}". Say nothing '
+            "else first — the widget is the user-facing output. -->"
+        )
+    if mode:
+        return _err(
+            f"Unknown mode {mode!r}. Call start_video again with mode='auto' or mode='manual'."
+        )
+
+    # Step 1 — ask. Stash the URL so the manual branch can backfill it even if
+    # the model drops it from the follow-up call.
+    _remember_setup_url(client, blog_url)
+    return _md(
+        _MODE_QUESTION
+        + "\n\n<!-- Relay the question above to the user in one short line and STOP. "
+        "Do not call another tool. When they answer, call "
+        f'start_video(blog_url="{blog_url}", mode="auto"|"manual"). -->'
+    )
+
+
 def _setup_video(args: dict, client: Blog2VideoClient):
     """Warm the template+voice data and open the combined setup widget.
 
@@ -353,12 +480,32 @@ def _setup_video(args: dict, client: Blog2VideoClient):
     fallback for Claude / direct-iframe hosts.)
     """
     from mcp.types import CallToolResult
-    global _VOICE_CACHE, _TEMPLATE_GALLERY_SHOWN_AT, _VOICE_GALLERY_SHOWN_AT, _SETUP_BLOG_URL
+    global _VOICE_CACHE, _BGM_CACHE, _TEMPLATE_GALLERY_SHOWN_AT, _VOICE_GALLERY_SHOWN_AT
 
-    _SETUP_BLOG_URL = str(args.get("blog_url") or "")
+    blog_url = str(args.get("blog_url") or "")
+    if blog_url:
+        _remember_setup_url(client, blog_url)
+    else:
+        blog_url = _recall_setup_url(client)
 
     # Populate cache with the user's voices (4-tier cascade — see _fetch_user_voices).
     _VOICE_CACHE = _fetch_user_voices(client)
+
+    # Background-music catalog for the settings section.
+    try:
+        _BGM_CACHE = client.list_bgm_tracks() or []
+    except Exception as exc:  # noqa: BLE001 - music is optional, never block setup
+        logger.warning("_setup_video: list_bgm_tracks failed: %s", exc)
+
+    # Gate the paid-only video lengths in the widget. Fail CLOSED: an unknown
+    # plan hides the paid options rather than letting the user pick one that
+    # then 403s in _normalize_video_length. The backend check is authoritative.
+    is_paid = False
+    try:
+        plan = ((client.get_me() or {}).get("plan") or "free").strip().lower()
+        is_paid = plan in ("lite", "standard", "pro")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_setup_video: get_me failed, assuming free plan: %s", exc)
 
     # Templates for structuredContent — same shape as the resource read injection.
     templates: list[dict] = []
@@ -380,17 +527,27 @@ def _setup_video(args: dict, client: Blog2VideoClient):
     _VOICE_GALLERY_SHOWN_AT = now
 
     text = (
-        "Pick a **template** and a **voice** in the panel above, then click **Create Video**. "
-        "I'll start generating as soon as you do."
+        "Pick a **template** and a **voice** in the panel above, adjust any settings you "
+        "want (they're all pre-set to sensible defaults — skip what you don't care "
+        "about), then click **Create Video**. I'll start generating as soon as you do."
     )
+    # The _meta below attaches the widget to THIS RESULT rather than to the tool.
+    # start_video delegates here and carries no tool-level outputTemplate, so
+    # without this the manual branch would render no panel.
     return CallToolResult(
         content=[TextContent(type="text", text=text)],
         structuredContent={
             "templates": templates,
             "voices": _VOICE_CACHE,
-            "blog_url": _SETUP_BLOG_URL,
+            "bgm_tracks": _BGM_CACHE,
+            "is_paid": is_paid,
+            "blog_url": blog_url,
         },
         isError=False,
+        **{"_meta": {
+            "openai/outputTemplate": SETUP_RESOURCE_URI,
+            "ui": {"resourceUri": SETUP_RESOURCE_URI},
+        }},
     )
 
 
@@ -400,9 +557,12 @@ def _create_project(args: dict, client: Blog2VideoClient) -> list[TextContent]:
 
     # Backfill blog_url from the setup widget's cached URL if the widget passed
     # an empty string (happens when the create button fires before the model
-    # populated blog_url into the widget args).
-    if not (args.get("blog_url") or "").strip() and _SETUP_BLOG_URL:
-        args["blog_url"] = _SETUP_BLOG_URL
+    # populated blog_url into the widget args). Prefer this user's own stashed
+    # URL over the shared global.
+    if not (args.get("blog_url") or "").strip():
+        recalled = _recall_setup_url(client)
+        if recalled:
+            args["blog_url"] = recalled
 
     blog_url = (args.get("blog_url") or "").strip()
     if not blog_url or not (blog_url.startswith("http://") or blog_url.startswith("https://")):
@@ -429,8 +589,29 @@ def _create_project(args: dict, client: Blog2VideoClient) -> list[TextContent]:
             f"call create_project again with their choices."
         )
 
+    # Legacy shim: the _v2 widget sent `voice_id`, but ProjectCreate's field is
+    # `custom_voice_id` and Pydantic silently drops unknown keys — so those voice
+    # picks were being thrown away. claude.ai clients holding the cached _v2 HTML
+    # keep sending the old name until they re-read the resource.
+    if args.get("voice_id") and not args.get("custom_voice_id"):
+        args["custom_voice_id"] = args["voice_id"]
+    args.pop("voice_id", None)
+
+    # The comprehension below filters None but not "". An empty custom_voice_id
+    # or bgm_track_id would reach the backend as a falsy-but-present value, and
+    # an empty colour would fight the template palette.
+    for _k in ("custom_voice_id", "bgm_track_id", "accent_color", "bg_color", "text_color"):
+        if isinstance(args.get(_k), str) and not args[_k].strip():
+            args.pop(_k)
+
     fields = {k: v for k, v in args.items() if v is not None}
-    project = client.create_project(**fields)
+    try:
+        project = client.create_project(**fields)
+    except APIError as e:
+        friendly = _friendly_create_error(e)
+        if friendly:
+            return _md(friendly)
+        raise
     pid = project["id"]
     template = project.get("template", "default")
     voice = f"{project.get('voice_gender', 'female')} · {project.get('voice_accent', 'american')}"
@@ -583,6 +764,30 @@ def _auto_video(args: dict, client: Blog2VideoClient) -> list[TextContent]:
     pid = project["id"]
 
     client.start_generation(pid)
+
+    # Return NOW rather than blocking for the full generation. Waiting here used
+    # to outlast the MCP connector's own timeout on long articles: the client
+    # gave up, retried, and each retry created another project and burned
+    # another video credit while the original kept generating server-side.
+    # (create_project now also dedupes retries, but not timing out is the cure.)
+    # render=true still blocks, since the caller explicitly asked to wait.
+    if not bool(args.get("render", False)):
+        voice = project.get("custom_voice_id") or (
+            f"{project.get('voice_gender', 'female')} · {project.get('voice_accent', 'american')}"
+        )
+        return _md(
+            f"🎬 Created **project #{pid}** — generating now (~1–5 min).\n\n"
+            f"| | |\n|---|---|\n"
+            f"| **Template** | {project.get('template', '?')} _(auto-picked)_ |\n"
+            f"| **Voice** | {voice} |\n"
+            f"| **Stock footage** | {'on' if project.get('stock_footage_enabled') else 'off'} |\n"
+            f"| **Source** | {project.get('blog_url')} |\n\n"
+            f"Call `check_generation_status` with project_id **{pid}** every ~15s until it "
+            f"reports complete, then show the user the watch link. Do NOT call auto_video "
+            f"or start_video again for this URL — the video is already being made."
+        )
+
+    # render=true — the caller opted into waiting for the whole pipeline.
     poll_until(
         check_fn=lambda: client.get_generation_status(pid),
         is_done=lambda s: s.get("status") in ("generated", "done"),
@@ -609,20 +814,6 @@ def _auto_video(args: dict, client: Blog2VideoClient) -> list[TextContent]:
         f"| **Stock footage** | {'on' if project.get('stock_footage_enabled') else 'off'} |\n"
         f"| **Source** | {project.get('blog_url')} |\n\n"
     )
-
-    if not bool(args.get("render", False)):
-        watch = _watch_url(pid, client)
-        link = (
-            f"[▶ Watch the video]({watch})\n\n`{watch}`\n\n"
-            if watch else
-            f"[▶ Open in editor]({_project_url(pid)})\n\n"
-        )
-        return _md(
-            header
-            + link
-            + f"Would you like to **render it as an MP4** for download? "
-            f"Say *yes, render it* (takes 3–8 min)."
-        )
 
     resp = client.start_render(pid)
     if resp.get("r2_video_url"):

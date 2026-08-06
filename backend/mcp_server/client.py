@@ -128,6 +128,14 @@ class Blog2VideoClient:
     def list_voices(self) -> list:
         return self._get("/api/voices/prebuilt")
 
+    def list_bgm_tracks(self) -> list:
+        """Background-music catalog with R2 preview URLs.
+
+        GET /api/background-music/tracks (auth required) ->
+        [{track_id, display_name, mood, r2_url}, ...]
+        """
+        return self._get("/api/background-music/tracks")
+
     def get_me(self) -> dict:
         """Current user record — {id, email, plan, ...}.
 
