@@ -55,6 +55,7 @@ import {
   type CustomTemplateItem,
   getBgmTracks,
   type BgmTrack,
+  AVATAR_PRESETS,
 } from "../api/client";
 import Joyride, { CallBackProps, STATUS, Step } from "react-joyride";
 import { useAuth } from "../hooks/useAuth";
@@ -74,6 +75,7 @@ import SceneEditModal, {
   resolveDefaultFontSizesForScene,
 } from "../components/SceneEditModal";
 import GenerateSceneImageModal from "../components/GenerateSceneImageModal";
+import AvatarEditModal from "../components/AvatarEditModal";
 import RecordVoiceoverModal from "../components/RecordVoiceoverModal";
 import AddSceneModal from "../components/AddSceneModal";
 import ChatPanel from "../components/ChatPanel";
@@ -89,6 +91,7 @@ import VerifyScriptModal from "../components/VerifyScriptModal";
 import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge, PopularTemplateBadge } from "../components/templatePreviewRegistry";
 import ProjectTemplateSettingsCard, { TemplateAssignPreview } from "../components/ProjectTemplateSettingsCard";
 import ProjectVoiceLanguageSettingsCard from "../components/ProjectVoiceLanguageSettingsCard";
+import ProjectAvatarSettingsCard from "../components/ProjectAvatarSettingsCard";
 import { BgmTrackDropdown } from "../components/BgmTrackDropdown";
 import VoiceOperationModal from "../components/VoiceOperationModal";
 import LanguageChangeTracker, {
@@ -1185,6 +1188,7 @@ export default function ProjectView() {
     }
   }, [project?.scenes?.[0]?.id]);
   const [sceneEditModal, setSceneEditModal] = useState<Scene | null>(null);
+  const [avatarEditScene, setAvatarEditScene] = useState<Scene | null>(null);
   const [commentScene, setCommentScene] = useState<Scene | null>(null);
   const [commentCounts, setCommentCounts] = useState<Record<number, number>>({});
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -3037,6 +3041,10 @@ export default function ProjectView() {
     pendingRecordings.size > 0
       ? [{ id: "audio" as Tab, label: "Audio" }]
       : []),
+    // Always shown, unlike the Audio gate above: this is the only entry point to
+    // the avatar feature, so hiding it until an avatar exists would leave the user
+    // no way to discover it. The card itself explains what to do when empty.
+    { id: "avatar", label: "Avatar", badge: "BETA" },
     { id: "settings", label: "Settings" },
   ];
 
@@ -6243,7 +6251,8 @@ export default function ProjectView() {
                                   );
                                 })()}
 
-                                {/* Scene images — same add/remove as manual edit in modal */}
+                                {/* Scene images + avatar side by side */}
+                                <div className="flex items-start gap-6">
                                 {(() => {
                                   const sceneLayout = (() => {
                                     try {
@@ -6257,7 +6266,7 @@ export default function ProjectView() {
                                     ? (customTemplatesList.find((ct) => ct.id === ctId)?.og_image || "")
                                     : "";
                                   return (
-                                    <div>
+                                    <div className="min-w-0">
                                       <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
                                         Images ({sceneSupportsImage ? (sceneImageAssetsMap[idx] || []).length : 0})
                                       </h4>
@@ -6415,6 +6424,102 @@ export default function ProjectView() {
                                     </div>
                                   );
                                 })()}
+
+                                {/* Scene avatar — a compact status row, not a full
+                                    editor. A scene that already has a clip opens the
+                                    per-scene AvatarEditModal; a scene with none yet
+                                    jumps to the project-wide Avatar tab instead, since
+                                    generating an avatar is a whole-video decision (one
+                                    presenter for every scene), not a per-scene one. */}
+                                {(() => {
+                                  const preset = AVATAR_PRESETS.find(
+                                    (p) => p.id === scene.avatar_preset,
+                                  );
+                                  const hasAvatar = !!scene.avatar_video_path;
+                                  // Compares VALUES, not null-ness: saving the
+                                  // project-wide Avatar tab stamps its settings
+                                  // onto every scene, so `!= null` would report
+                                  // "custom" on every scene of any project saved
+                                  // even once. A scene is custom iff it actually
+                                  // looks different from the project.
+                                  const overrides =
+                                    (scene.avatar_shape != null &&
+                                      scene.avatar_shape !== project.avatar_shape) ||
+                                    (scene.avatar_size != null &&
+                                      scene.avatar_size !== project.avatar_size) ||
+                                    (scene.avatar_position != null &&
+                                      scene.avatar_position !== project.avatar_position) ||
+                                    (scene.avatar_bg != null &&
+                                      scene.avatar_bg !== project.avatar_bg);
+                                  const shape =
+                                    scene.avatar_shape ?? project.avatar_shape ?? "circle";
+                                  const bg = scene.avatar_bg ?? project.avatar_bg ?? null;
+                                  return (
+                                    <div className="flex-shrink-0">
+                                      <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                                        Avatar
+                                      </h4>
+                                      {!scene.voiceover_path ? (
+                                        <p className="text-xs text-gray-400 italic">
+                                          An avatar is lip-synced to the narration — add narration audio first.
+                                        </p>
+                                      ) : (
+                                        <div className="flex items-center gap-3">
+                                          <div className="relative group flex-shrink-0">
+                                            {hasAvatar && preset ? (
+                                              <div
+                                                style={{
+                                                  width: 80,
+                                                  height: shape === "rounded" ? 96 : 80,
+                                                  borderRadius:
+                                                    shape === "circle" ? "50%" : shape === "square" ? 0 : 8,
+                                                  overflow: "hidden",
+                                                  backgroundColor:
+                                                    bg && bg !== "transparent" ? bg : undefined,
+                                                }}
+                                                className="border border-gray-200/60"
+                                              >
+                                                <img
+                                                  src={`/avatars/${preset.id}.jpg`}
+                                                  alt={preset.label}
+                                                  className="w-full h-full object-cover"
+                                                />
+                                              </div>
+                                            ) : (
+                                              <div className="w-20 h-20 rounded-full bg-gray-50 border border-dashed border-gray-300" />
+                                            )}
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                hasAvatar
+                                                  ? setAvatarEditScene(scene)
+                                                  : handleTabChange("avatar")
+                                              }
+                                              className="absolute top-1 right-1 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/95 text-purple-700 shadow-sm hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+                                              title={hasAvatar ? "Edit avatar" : "Generate avatar"}
+                                            >
+                                              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M16.5 3.964a2.5 2.5 0 113.536 3.536L7 20.5H3v-4L16.5 3.964z" />
+                                              </svg>
+                                            </button>
+                                          </div>
+                                          <div className="min-w-0 flex-1">
+                                            <p className="text-xs text-gray-600 truncate">
+                                              {hasAvatar ? (preset?.label ?? "Presenter") : "No avatar"}
+                                            </p>
+                                            {hasAvatar && (
+                                              <span className="text-[10px] text-gray-400">
+                                                {overrides ? "Custom" : "Project default"}
+                                                {bg && !scene.has_matte ? " · needs cutout" : ""}
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
+                                </div>
                               </div>
                             )}
                       </SceneListRow>
@@ -6803,6 +6908,22 @@ export default function ProjectView() {
           />
         )}
 
+        {/* Avatar edit modal — dedicated to avatar editing only, opened from the
+            pencil icon on the scene list's avatar row (kept separate from the
+            much larger Scene Edit modal). */}
+        {avatarEditScene && (
+          <AvatarEditModal
+            open={!!avatarEditScene}
+            onClose={() => setAvatarEditScene(null)}
+            scene={avatarEditScene}
+            project={project}
+            onSaved={loadProject}
+            ownerScopedProjectId={useOwnerScopedAssets ? projectId : undefined}
+            precompiledCraftedDetail={ownerScopedCraftedDetail}
+            precompiledTemplateData={currentCustomTemplateCode}
+          />
+        )}
+
         {recordModalScene && (
           <RecordVoiceoverModal
             open={!!recordModalScene}
@@ -6828,6 +6949,49 @@ export default function ProjectView() {
           }}
           onError={(err) => showError(getErrorMessage(err, "Failed to add scene."))}
         />
+
+       {activeTab === "avatar" && (
+        // Full width, unlike the two-column Settings grid: this tab holds a single
+        // card whose controls (preview row, sliders, swatches) all read better with
+        // room, and there is no second card to sit beside it.
+        <div className="overflow-visible">
+          <ProjectAvatarSettingsCard
+            projectId={project.id}
+            hasAnyAvatar={(project.scenes ?? []).some((s) => !!s.avatar_video_path)}
+            avatarShape={project.avatar_shape}
+            avatarSize={project.avatar_size}
+            avatarPosition={project.avatar_position}
+            avatarBg={project.avatar_bg}
+            avatarOpacity={project.avatar_opacity}
+            avatarCustomImageUrl={project.avatar_custom_image_url}
+            aspectRatio={project.aspect_ratio}
+            // A custom background only renders on scenes whose clip has been cut
+            // out, so the card can offer to do the ones still missing it.
+            scenesNeedingMatte={(project.scenes ?? [])
+              .filter((s) => !!s.avatar_video_path && !s.has_matte)
+              .map((s) => ({ id: s.id, order: s.order }))}
+            batchScenes={(project.scenes ?? []).map((s) => ({
+              id: s.id,
+              order: s.order,
+              hasVoiceover: !!s.voiceover_path,
+            }))}
+            // Scenes a pencil-icon click can land here for (no clip yet, but
+            // at least one sibling scene already has one) — lets the card
+            // offer to generate just these rather than stranding the user.
+            scenesMissingAvatar={(project.scenes ?? [])
+              .filter((s) => !!s.voiceover_path && !s.avatar_video_path)
+              .map((s) => ({ id: s.id, order: s.order, hasVoiceover: true }))}
+            avatarBatchUnlocked={!!project.avatar_batch_unlocked}
+            disabled={anyJobRunning}
+            onError={(msg) => showError(msg)}
+            onSaved={async () => { await loadProject(); }}
+            project={project}
+            ownerScopedProjectId={useOwnerScopedAssets ? projectId : undefined}
+            precompiledCraftedDetail={ownerScopedCraftedDetail}
+            precompiledTemplateData={currentCustomTemplateCode}
+          />
+        </div>
+      )}
 
        {activeTab === "settings" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-visible">
@@ -7137,7 +7301,9 @@ export default function ProjectView() {
                 }}
               />
 
-              {/* 3. Playback Speed */}
+              {/* Avatar overlay settings now live in their own Avatar tab. */}
+
+              {/* 4. Playback Speed */}
               <div>
                 <h2 className="text-base font-medium text-gray-900 mb-1">Playback Speed</h2>
                 <p className="text-xs text-gray-400 mb-5">

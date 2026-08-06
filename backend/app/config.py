@@ -137,6 +137,79 @@ class Settings(BaseSettings):
     R2_PUBLIC_URL: str = ""  # e.g. https://media.yourdomain.com or https://pub-xxx.r2.dev
     R2_KEY_PREFIX: str = ""  # Set to "dev" (or any string) locally to avoid overwriting production R2 data
 
+    # Talking-head avatar service (self-hosted OmniAvatar on Modal serverless GPU).
+    # Avatars are per-scene and on demand: the user asks for one from the Scene Edit
+    # modal, which renders that scene's voiceover into a lip-synced clip via this
+    # service and overlays it. See services/avatar.py.
+    # AVATAR_ENABLED=False makes the generate endpoint fail with a clear message.
+    #
+    # The provider is Modal serverless GPU (modal-service/omniavatar/). It replaced
+    # a self-hosted HuggingFace Space on 2026-08-02; the Space and its settings
+    # (AVATAR_SERVICE_HF_TOKEN, AVATAR_PREPARE_TIMEOUT_SECONDS) were deleted on
+    # 2026-08-07, so there is no longer a rollback target in this repo.
+    AVATAR_ENABLED: bool = True
+    AVATAR_SERVICE_URL: str = "https://h-raheel622--omniavatar-omniavatarservice-web.modal.run"
+    AVATAR_SERVICE_SECRET: str = ""       # X-Avatar-Key shared secret (matches the provider's secret)
+    # How long a job will wait for a cold service to come up before giving up.
+    # A Modal cold start is a container schedule plus mounting the weights Volume.
+    # 15 min is generous headroom; polling is cheap GETs, so a long wait costs
+    # nothing and the GPU only bills once it is actually up.
+    AVATAR_SERVICE_WAIT_SECONDS: int = int(
+        os.environ.get("AVATAR_SERVICE_WAIT_SECONDS", "900")
+    )
+    AVATAR_SERVICE_POLL_SECONDS: int = int(
+        os.environ.get("AVATAR_SERVICE_POLL_SECONDS", "10")
+    )
+    # How many RENDERS may be in flight at once — this governs kind="render"
+    # only (see AVATAR_MATTE_CONCURRENCY below for cutouts). MUST NOT exceed the
+    # provider's own ceiling (`max_containers` in modal-service/omniavatar/app.py,
+    # default 5) or the surplus jobs just queue AT THE PROVIDER while holding a
+    # `running` row here — invisible from this side, since the dispatcher only
+    # counts its own outstanding requests and never queries provider capacity.
+    # main.py asserts this relationship at boot against
+    # AVATAR_PROVIDER_MAX_CONTAINERS.
+    AVATAR_CONCURRENCY: int = int(os.environ.get("AVATAR_CONCURRENCY", "5"))
+    # The provider-side ceiling, mirrored here ONLY so the boot assertion can
+    # check it — the authoritative value is MODAL_MAX_CONTAINERS on the Modal
+    # deployment. Keep in sync when that changes.
+    AVATAR_PROVIDER_MAX_CONTAINERS: int = int(
+        os.environ.get("AVATAR_PROVIDER_MAX_CONTAINERS", "5")
+    )
+    # How many CUTOUTS (kind="matte") may run at once. A SEPARATE ceiling from
+    # AVATAR_CONCURRENCY because matte jobs are not provider-bound at all: they
+    # are CPU-bound rembg (u2net_human_seg, ~170MB ONNX) running in THIS
+    # process's executor pool, so the constraint is local cores, not Modal
+    # containers. Matting originally inherited AVATAR_CONCURRENCY by accident
+    # when it joined the same queue, which is the bug this exists to fix.
+    #
+    # Default 1 (sequential) from measurement, not taste: uncontended a cutout
+    # takes 100-164s, but with 5 running at once they took 900s+ each and never
+    # finished — load average 15.23 with a single Python process at 311% CPU.
+    # Being CPU-bound they do not parallelise, they thrash, so one at a time at
+    # full speed finishes the batch sooner AND keeps cores free for the API.
+    # Also the lowest memory: one rembg session rather than five.
+    #
+    # Deliberately has NO boot assertion — there is no provider ceiling to check
+    # it against, and inventing one would repeat the category error above.
+    AVATAR_MATTE_CONCURRENCY: int = int(
+        os.environ.get("AVATAR_MATTE_CONCURRENCY", "1")
+    )
+    # Attempts allowed per SCENE (not per job row). The in-job retry loop in
+    # services/avatar_queue.py stops at this many, and a successor row created by
+    # the bulk retry endpoint INHERITS the count — so an unattended retry can
+    # never burn more than this many renders for one scene. An explicit per-scene
+    # Generate click resets it (see routers/projects.py), so a user is never
+    # locked out of a scene that would now succeed.
+    AVATAR_MAX_ATTEMPTS: int = int(os.environ.get("AVATAR_MAX_ATTEMPTS", "3"))
+    # Per-render client timeout. L40S ≈ 158s/render at 25fps/10-steps; fps=30 adds
+    # ~20% → ~190s. 600s leaves generous headroom for a queued/cold render.
+    # A warm render is ~3 min, but this call can also QUEUE behind a cold start
+    # (HF's GPU allocation is unbounded and was observed at ~8 min), so the
+    # budget covers wake + render, not just render.
+    AVATAR_RENDER_TIMEOUT_SECONDS: int = int(
+        os.environ.get("AVATAR_RENDER_TIMEOUT_SECONDS", "1200")
+    )
+
     # Crafted templates (separate from built-ins and user custom templates)
     CRAFTED_TEMPLATES_ENABLED: bool = False
     CRAFTED_TEMPLATE_R2_PREFIX: str = ""  # optional namespace, e.g. "dev" | "staging" | "prod"
@@ -173,6 +246,12 @@ class Settings(BaseSettings):
     # is slower than a voice-only change.
     STALL_THRESHOLD_LANGUAGE_SECONDS: int = int(
         os.environ.get("STALL_THRESHOLD_LANGUAGE_SECONDS", "1200")
+    )
+    # Must exceed the WORST case a job can legitimately take, or a slow-but-alive
+    # render gets reaped as "stuck": prepare (720s) + render (1200s) + one
+    # re-prepare/retry after a Space restart (720s + 1200s) = 3840s, plus headroom.
+    STALL_THRESHOLD_AVATAR_SECONDS: int = int(
+        os.environ.get("STALL_THRESHOLD_AVATAR_SECONDS", "4200")
     )
 
 

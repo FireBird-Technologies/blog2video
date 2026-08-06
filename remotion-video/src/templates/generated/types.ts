@@ -68,6 +68,15 @@ export interface GeneratedVideoData {
   captionFontFamily?: string;
   captionFontSize?: string;
   captionOffset?: number;
+  /** Avatar overlay presentation (see components/AvatarOverlay.tsx). */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
   scenes: GeneratedSceneData[];
   /** Brand colors derived from template theme */
   brandColors?: {
@@ -107,6 +116,17 @@ export interface GeneratedSceneData {
   /** Spoken-audio length in seconds (scene duration minus trailing pad) — for caption timing. */
   speechDurationSeconds?: number;
   voiceoverFile: string | null;
+  avatarVideoFile?: string | null;
+  /** Per-scene avatar presentation, already resolved by the backend
+   *  (scene override ?? project ?? default). See services/remotion.py. */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
   images: string[];
   /** External image URL (og_image from brand kit) — used when no local image is assigned */
   ogImageUrl?: string;

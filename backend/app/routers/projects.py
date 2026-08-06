@@ -8,7 +8,7 @@ import time
 import requests
 from datetime import datetime
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form, BackgroundTasks
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func, inspect, text, update, or_
@@ -25,6 +25,7 @@ from app.models.project_template_change_job import ProjectTemplateChangeJob
 from app.models.project_regenerate_script_job import ProjectRegenerateScriptJob
 from app.models.project_voice_change_job import ProjectVoiceChangeJob
 from app.models.project_language_change_job import ProjectLanguageChangeJob
+from app.models.scene_avatar_job import SceneAvatarJob
 from app.services import stall_recovery
 from app.services.stall_recovery import STALL_RETRY_MESSAGE
 from app.models.crafted_template import CraftedTemplate
@@ -35,6 +36,8 @@ from app.schemas.schemas import (
     BulkProjectItem, BulkCreateResponse,
     ReviewOut, ReviewStateOut, ReviewSubmit, ReviewSubmitResponse, SceneOut,
     SceneUpdate, ReorderScenesRequest, RegenerateSceneRequest, AddSceneRequest,
+    SceneAvatarAppearanceUpdate,
+    SceneAvatarFocusUpdate,
     SceneTypographyBulkUpdate, ProjectUpdate, ProjectTemplateChangeRequest,
     ProjectTemplateChangeJobOut, ProjectVoiceChange, ProjectLanguageChange,
     ProjectRegenerateScriptJobOut,
@@ -963,7 +966,10 @@ def update_project(
     for field, value in raw_data.items():
         if field not in fields_set:
             continue
-        if field in ("font_family", "bgm_track_id"):
+        if field in ("font_family", "bgm_track_id", "avatar_bg"):
+            # avatar_bg: NULL is a MEANINGFUL value ("keep the portrait's own
+            # background"), not "unchanged" — so it must bypass the drop-nulls
+            # branch below or the user could never turn a custom background off.
             update_data[field] = value  # allow nulling or changing
         elif field == "content_language":
             update_data[field] = normalize_preferred_language_code(value) if value is not None else None
@@ -1007,6 +1013,40 @@ def update_project(
 
         setattr(project, field, value)
 
+    # The avatar overlay settings are GLOBAL: saving them in the Avatar tab
+    # pushes the values onto every scene, overwriting per-scene edits. Without
+    # this, a scene the user had customised earlier was the one scene a later
+    # global change could not reach — `scene.avatar_* ?? project.avatar_*` meant
+    # its non-null value kept winning, which is exactly the bug this fixes.
+    #
+    # Keyed off update_data (NOT the constant below, and NOT the schema fields):
+    # update_project honours model_fields_set, so a PATCH sending only, say,
+    # bgm_volume puts no avatar key here and must leave scene overlays alone.
+    # Values are already normalised/clamped by the field validators.
+    #
+    # Scene-only framing (avatar_focus_x/_y/_zoom) is deliberately absent: it
+    # describes a region of THAT clip and has no project-level counterpart.
+    _AVATAR_SCENE_FIELDS = (
+        "avatar_shape", "avatar_size", "avatar_position",
+        "avatar_bg", "avatar_opacity",
+    )
+    stamped = {f: update_data[f] for f in _AVATAR_SCENE_FIELDS if f in update_data}
+    if stamped:
+        # Not gated on avatar_video_path (unlike the matte sweep, which is gated
+        # because matting is expensive work that is pointless without a clip):
+        # writing five columns is cheap, and a scene that generates an avatar
+        # LATER must already carry these values or it would silently resolve
+        # against whatever the project says at render time.
+        #
+        # No edit-history rows — same reasoning as update_scene_avatar_appearance,
+        # which documents overlay presentation as "not editorial" and bypasses the
+        # revertible change-sets. A bulk update also avoids N x 5 history rows per
+        # save, which prune_project_history does not prune.
+        db.query(Scene).filter(
+            Scene.project_id == project.id,
+            Scene.is_active.is_(True),
+        ).update(stamped, synchronize_session=False)
+
     from app.services.edit_tracker import prune_project_history
     prune_project_history(db, project.id)
 
@@ -1022,6 +1062,14 @@ def update_project(
                 project.id, field, value,
                 user_id=user.id, name=user.name, change_set_id=_proj_change_set,
             )
+
+    if stamped:
+        # broadcast_project_edit only carries PROJECT fields, so a collaborator's
+        # scene rows would stay stale after the stamp above. Reload instead —
+        # the sync helper, since this endpoint is a plain def (the async
+        # endpoints await collab_manager.broadcast directly).
+        from app.routers.collab_ws import broadcast_project_reload
+        broadcast_project_reload(project.id, exclude_user_id=user.id)
 
     return _prepare_project_response(project, user, db)
 
@@ -4223,6 +4271,836 @@ async def update_scene_voiceover(
         project_id, {"type": "project_reloaded"}, exclude_user_id=user.id
     )
 
+    return scene
+
+
+# ─── Per-scene talking-head avatar (on demand) ─────────────────────────────────
+#
+# Jobs are a real server-side FIFO queue (see services/avatar_queue.py): every
+# request below just inserts a "queued" row and returns immediately. A single
+# in-process dispatcher runs exactly one job at a time, strictly in the order
+# rows were created, across ALL projects and scenes — the shared OmniAvatar
+# Space is one GPU render slot, so there is no per-project concurrency to
+# reason about here anymore (no batch-start bookkeeping, no project-level
+# 409 — that reject-and-retry pattern is what this queue replaces).
+
+_ACTIVE_AVATAR_STATUSES = ("queued", "running")
+
+
+def _assert_can_generate_avatar(payer: User, project: Project, db: Session) -> None:
+    """Entitlement gate for per-scene avatar generation.
+
+    Intentionally a no-op today: avatar generation is currently free. This exists
+    as the single seam where a charge (e.g. $2/scene) would be enforced, so adding
+    billing later touches one call site rather than reshaping the endpoint.
+    """
+    return None
+
+
+def _active_avatar_job(scene_id: int, db: Session) -> SceneAvatarJob | None:
+    """The scene's in-flight job, or None. A job whose heartbeat has gone stale is
+    treated as dead so a stuck render can never permanently block the button.
+    This is the only per-scene guard left: it stops a double-click from
+    enqueueing the same scene twice, not a queue-position concern."""
+    job = (
+        db.query(SceneAvatarJob)
+        .filter(
+            SceneAvatarJob.scene_id == scene_id,
+            SceneAvatarJob.status.in_(_ACTIVE_AVATAR_STATUSES),
+        )
+        .order_by(SceneAvatarJob.id.desc())
+        .first()
+    )
+    if job and _seconds_since(job.updated_at) < settings.STALL_THRESHOLD_AVATAR_SECONDS:
+        return job
+    return None
+
+
+def _queue_position(job: SceneAvatarJob, db: Session) -> int | None:
+    """0-based position among still-queued jobs ("0" = next up), or None once
+    the job is no longer queued. Cheap indexed COUNT — used so the UI can show
+    real queue depth instead of an unchanging spinner."""
+    if job.status != "queued":
+        return None
+    return (
+        db.query(SceneAvatarJob)
+        .filter(
+            SceneAvatarJob.status == "queued",
+            or_(
+                SceneAvatarJob.created_at < job.created_at,
+                (SceneAvatarJob.created_at == job.created_at)
+                & (SceneAvatarJob.id < job.id),
+            ),
+        )
+        .count()
+    )
+
+
+def reap_orphaned_avatar_jobs() -> None:
+    """Boot sweep: any active avatar job is orphaned (its process is gone).
+
+    With --workers 1, a `queued`/`running` row at boot means the process that
+    owned it crashed or was restarted — nothing else could be running it. Left
+    alone, the row would just sit until STALL_THRESHOLD_AVATAR_SECONDS (70 min)
+    quietly makes the per-scene guard ignore it, without ever telling the user
+    or letting them retry immediately. Mark it failed-and-retryable instead, so
+    a fresh request or a Retry click works right away — matching the other
+    reap_orphaned_* sweeps run alongside this one at startup.
+    """
+    db = SessionLocal()
+    try:
+        jobs = (
+            db.query(SceneAvatarJob)
+            .filter(SceneAvatarJob.status.in_(_ACTIVE_AVATAR_STATUSES))
+            .all()
+        )
+        for job in jobs:
+            try:
+                job.status = "failed"
+                job.phase = None
+                job.error_message = "Server restarted during processing — click Retry."
+                job.retryable = True
+                job.completed_at = datetime.utcnow()
+            except Exception:
+                logger.exception("[AVATAR_QUEUE] boot recovery failed for job=%s", job.id)
+        db.commit()
+        if jobs:
+            logger.info("[AVATAR_QUEUE] boot sweep: reaped %d orphaned job(s)", len(jobs))
+    except Exception:
+        logger.exception("[AVATAR_QUEUE] boot sweep failed")
+        db.rollback()
+    finally:
+        db.close()
+
+
+@router.post("/{project_id}/avatar-batch/authorize")
+def authorize_avatar_batch(
+    project_id: int,
+    scene_ids: list[int] = Body(..., embed=True),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Charge for a batch of avatars and unlock generation for this project.
+
+    ONE charge for the whole batch, deliberately — not per scene. The wizard
+    fans out N parallel POSTs to the per-scene endpoint, and consume_* is a
+    non-atomic read-modify-write, so charging there would let concurrent
+    requests read the same balance and systematically under-charge. Worse, a
+    user could be charged for scenes 1-3 and rejected on 4-10, left with a
+    part-finished batch and spent credits. Authorizing once removes both.
+
+    Also deliberately: the deduction happens BEFORE the work, unlike
+    add_scene/regenerate_scene which deduct after theirs succeeds. Those are
+    synchronous — a mid-flight raise aborts before the deduction, which is why
+    they need no refund path. Avatar renders are queued and asynchronous, so
+    there is no single request whose success we could hang the charge on.
+
+    Retries are NOT charged again (see avatar-retry-failed): the user already
+    paid for that scene.
+    """
+    from app.models.user import AI_EDIT_CREDITS_PER_VIDEO
+    from app.services.access import (
+        AVATAR_BATCH_MAX_SCENES,
+        AVATAR_CREDIT_COST_PER_SCENE,
+        avatar_batch_min_scenes,
+        can_afford_avatars,
+        consume_avatar_credits,
+        project_owner,
+    )
+
+    project = _get_user_project(project_id, user.id, db)
+
+    # Only scenes that could actually render: active, with narration to lip-sync
+    # to, and no clip yet. Recomputed here rather than trusted from the client —
+    # the UI gate must not be the only gate.
+    eligible = (
+        db.query(Scene)
+        .filter(
+            Scene.project_id == project_id,
+            Scene.is_active.is_(True),
+            Scene.voiceover_path.isnot(None),
+            Scene.avatar_video_path.is_(None),
+        )
+        .all()
+    )
+    eligible_ids = {s.id for s in eligible}
+    requested = [sid for sid in dict.fromkeys(scene_ids) if sid in eligible_ids]
+
+    min_scenes = avatar_batch_min_scenes(len(eligible_ids))
+    if len(requested) < min_scenes:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Select at least {min_scenes} scene"
+                f"{'' if min_scenes == 1 else 's'} to generate avatars for."
+            ),
+        )
+    if len(requested) > AVATAR_BATCH_MAX_SCENES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"You can generate avatars for at most {AVATAR_BATCH_MAX_SCENES} scenes at a time.",
+        )
+
+    # Owner pays — a collaborator's batch is charged to the project owner, the
+    # same convention as every other credit-consuming action here.
+    payer = project_owner(project, db)
+    cost = len(requested) * AVATAR_CREDIT_COST_PER_SCENE
+    if not can_afford_avatars(payer, len(requested)):
+        balance = payer.ai_edit_credits or 0
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"This needs {cost} AI credits ({AVATAR_CREDIT_COST_PER_SCENE} per scene) "
+                f"and you have {balance}. Choose fewer scenes, or buy a video for "
+                f"+{AI_EDIT_CREDITS_PER_VIDEO} AI credits."
+            ),
+        )
+
+    consume_avatar_credits(payer, len(requested))
+    # Persisted so a mid-batch reload doesn't re-show the paywall.
+    project.avatar_batch_unlocked = True
+    db.commit()
+
+    return {
+        "authorized": True,
+        "scene_ids": requested,
+        "credits_charged": cost,
+        "credits_remaining": payer.ai_edit_credits or 0,
+    }
+
+
+@router.post("/{project_id}/scenes/{scene_id}/avatar")
+def generate_scene_avatar(
+    project_id: int,
+    scene_id: int,
+    avatar_preset: Optional[str] = Form(None),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Enqueue an on-demand talking-head render for ONE scene.
+
+    This also serves as the RETRY action for a scene whose last job failed —
+    there is no separate retry endpoint, a fresh request is exactly the same
+    thing as a first-time one. Returns immediately; the server-side queue (see
+    services/avatar_queue.py) processes it in FIFO order alongside every other
+    project's pending jobs.
+
+    Being an EXPLICIT user action, this resets the scene's attempt budget. The
+    bulk ``avatar-retry-failed`` endpoint inherits it instead, so unattended
+    retries stay bounded while a human can always ask again.
+    """
+    project = _get_user_project(project_id, user.id, db)
+    scene = (
+        db.query(Scene)
+        .filter(Scene.id == scene_id, Scene.project_id == project_id)
+        .first()
+    )
+    if not scene:
+        raise HTTPException(status_code=404, detail="Scene not found")
+
+    # An avatar is lip-synced to the scene's voiceover — no audio, nothing to sync.
+    if not scene.voiceover_path or not os.path.exists(scene.voiceover_path):
+        raise HTTPException(
+            status_code=400,
+            detail="This scene has no voiceover yet. Add narration audio first.",
+        )
+
+    if _active_avatar_job(scene_id, db):
+        raise HTTPException(
+            status_code=409,
+            detail="An avatar is already being generated for this scene.",
+        )
+
+    from app.services.access import project_owner
+    from app.services.avatar_presets import normalize_preset
+
+    _assert_can_generate_avatar(project_owner(project, db), project, db)
+
+    preset = normalize_preset(avatar_preset or scene.avatar_preset)
+    scene.avatar_preset = preset
+
+    job = SceneAvatarJob(
+        project_id=project_id,
+        scene_id=scene_id,
+        user_id=user.id,
+        status="queued",
+        avatar_preset=preset,
+        # A deliberate human click RESETS the per-scene attempt budget (unlike
+        # the bulk retry endpoint, which inherits it). The service being down an
+        # hour ago must never refuse a render that would succeed now.
+        attempt_count=0,
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+
+    return {
+        "started": True,
+        "queued": True,
+        "job_id": job.id,
+        "avatar_preset": preset,
+        "queue_position": _queue_position(job, db),
+    }
+
+
+@router.get("/{project_id}/scenes/{scene_id}/avatar-status")
+def get_scene_avatar_status(
+    project_id: int,
+    scene_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Poll one scene's avatar render.
+
+    A plain ``def`` (not ``async``) on purpose: it does only blocking DB work and
+    is polled every ~1.2s, so running it on the event loop would stall the app.
+    """
+    _get_user_project(project_id, user.id, db)
+    scene = (
+        db.query(Scene)
+        .filter(Scene.id == scene_id, Scene.project_id == project_id)
+        .first()
+    )
+    if not scene:
+        raise HTTPException(status_code=404, detail="Scene not found")
+
+    job = (
+        db.query(SceneAvatarJob)
+        .filter(SceneAvatarJob.scene_id == scene_id)
+        .order_by(SceneAvatarJob.id.desc())
+        .first()
+    )
+    active = _active_avatar_job(scene_id, db) is not None
+    stalled = bool(
+        job and job.status in _ACTIVE_AVATAR_STATUSES and not active
+    )
+    kind = getattr(job, "kind", "render") if job else None
+    return {
+        "active": active,
+        # A stalled job is reported as done-with-an-error rather than spinning forever.
+        "done": bool(job and (job.status in ("completed", "failed") or stalled)),
+        "error": (
+            (
+                "Background removal timed out. Please try again."
+                if kind == "matte"
+                else "The avatar render timed out. Please try again."
+            )
+            if stalled
+            else (job.error_message if job else None)
+        ),
+        "status": job.status if job else None,
+        "phase": job.phase if job else None,
+        # Which operation the polled job is: lets one polling loop drive both the
+        # "Generating avatar…" and "Removing background…" messages.
+        "kind": kind,
+        "duration_seconds": job.duration_seconds if job else None,
+        "has_avatar": bool(scene.avatar_video_path),
+        "has_matte": bool(scene.avatar_matte_path),
+        "avatar_preset": scene.avatar_preset,
+        # None once running/terminal — only meaningful while still queued.
+        "queue_position": _queue_position(job, db) if job else None,
+        # Whether a `failed` job is worth an automatic/manual retry. None
+        # while not failed (nothing to retry) or on legacy rows predating
+        # this column.
+        "retryable": job.retryable if job else None,
+        # Attempts this SCENE has burned (carried across job rows) and the
+        # ceiling, so the UI can say "attempt 2 of 3" live rather than only
+        # reporting a bare failure at the end.
+        "attempt_count": job.attempt_count if job else None,
+        "max_attempts": int(settings.AVATAR_MAX_ATTEMPTS),
+    }
+
+
+@router.delete("/{project_id}/scenes/{scene_id}/avatar", response_model=SceneOut)
+async def delete_scene_avatar(
+    project_id: int,
+    scene_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Remove the avatar overlay from a scene (the rendered file/asset is left in
+    place — clearing the path is what takes it out of the composition)."""
+    _get_user_project(project_id, user.id, db)
+    scene = (
+        db.query(Scene)
+        .filter(Scene.id == scene_id, Scene.project_id == project_id)
+        .first()
+    )
+    if not scene:
+        raise HTTPException(status_code=404, detail="Scene not found")
+
+    scene.avatar_video_path = None
+    # The matte is derived from the clip we just detached, so it must go too —
+    # leaving it would make a later background change silently reuse a stale cutout
+    # of an avatar the scene no longer has.
+    scene.avatar_matte_path = None
+    db.commit()
+    db.refresh(scene)
+
+    from app.routers.collab_ws import collab_manager
+
+    await collab_manager.broadcast(
+        project_id, {"type": "project_reloaded"}, exclude_user_id=user.id
+    )
+    return scene
+
+
+def _queue_matte(project_id: int, scene: Scene, user_id: int, db: Session) -> int | None:
+    """Create a queued matte job for a scene, or None if it doesn't need one.
+
+    Skips scenes with no avatar, scenes already matted, and scenes with a job in
+    flight — so "apply to all" is idempotent and safe to press twice.
+    """
+    if not scene.avatar_video_path or scene.avatar_matte_path:
+        return None
+    if _active_avatar_job(scene.id, db):
+        return None
+    job = SceneAvatarJob(
+        project_id=project_id,
+        scene_id=scene.id,
+        user_id=user_id,
+        status="queued",
+        kind="matte",
+        avatar_preset=scene.avatar_preset,
+    )
+    db.add(job)
+    db.flush()
+    return job.id
+
+
+@router.post("/{project_id}/scenes/{scene_id}/avatar-matte")
+def matte_scene_avatar(
+    project_id: int,
+    scene_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Enqueue cutting the presenter out of ONE scene's existing avatar clip.
+
+    Needed before a custom background can show through, because the roster
+    portraits have their rooms baked in. Does NOT re-render: it reads the mp4 this
+    scene already has. Returns started=False when the scene is already matted, so
+    the UI can treat "nothing to do" as success rather than an error. Enqueues
+    onto the same system-wide FIFO queue as render jobs (see
+    services/avatar_queue.py) — it will run once every earlier job has.
+    """
+    _get_user_project(project_id, user.id, db)
+    scene = (
+        db.query(Scene)
+        .filter(Scene.id == scene_id, Scene.project_id == project_id)
+        .first()
+    )
+    if not scene:
+        raise HTTPException(status_code=404, detail="Scene not found")
+    if not scene.avatar_video_path:
+        raise HTTPException(
+            status_code=400,
+            detail="This scene has no avatar yet. Generate one first.",
+        )
+    if scene.avatar_matte_path:
+        return {"started": False, "already_matted": True}
+    if _active_avatar_job(scene_id, db):
+        raise HTTPException(
+            status_code=409,
+            detail="This scene's avatar is already being processed.",
+        )
+
+    job_id = _queue_matte(project_id, scene, user.id, db)
+    db.commit()
+    return {"started": True, "queued": True, "job_id": job_id}
+
+
+@router.post("/{project_id}/avatar-matte-all")
+def matte_all_scene_avatars(
+    project_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Enqueue a matte for every scene that has an avatar but no cutout yet.
+
+    This is what the Background control's "Apply to N scenes" calls. Each scene is
+    an independent job — a failure on one leaves the others alone, and the project
+    still renders (un-matted scenes just keep their original background). All
+    enqueued jobs share the same system-wide FIFO queue as render jobs, so they
+    run one at a time rather than all at once.
+    """
+    _get_user_project(project_id, user.id, db)
+    scenes = (
+        db.query(Scene)
+        .filter(
+            Scene.project_id == project_id,
+            Scene.is_active.is_(True),
+            Scene.avatar_video_path.isnot(None),
+            Scene.avatar_matte_path.is_(None),
+        )
+        .order_by(Scene.order)
+        .all()
+    )
+
+    job_ids = [
+        job_id
+        for scene in scenes
+        if (job_id := _queue_matte(project_id, scene, user.id, db)) is not None
+    ]
+    db.commit()
+    return {"started": len(job_ids), "queued": True, "job_ids": job_ids}
+
+
+@router.post("/{project_id}/avatar-retry-failed")
+def retry_failed_scene_avatars(
+    project_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Re-enqueue every scene in this project whose most recent avatar job
+    failed. This is THE project-wide retry action — it re-enters the back of
+    the same system-wide FIFO queue as a fresh request, so a retried scene
+    doesn't jump ahead of anything already waiting.
+
+    Idempotent and safe to press repeatedly: a scene whose latest job is
+    already queued/running is left alone (matches _queue_matte's skip logic),
+    and a scene whose latest job is `completed` is not re-run. Skips
+    non-retryable failures — retrying "voiceover missing" would just fail
+    again identically, so only jobs marked retryable=True (or legacy rows
+    predating that column, where retryable is NULL) are retried.
+    """
+    _get_user_project(project_id, user.id, db)
+
+    # Latest job per scene, for every scene in this project that has ever had one.
+    scene_ids_with_jobs = (
+        db.query(SceneAvatarJob.scene_id)
+        .filter(SceneAvatarJob.project_id == project_id)
+        .distinct()
+        .all()
+    )
+    max_attempts = int(settings.AVATAR_MAX_ATTEMPTS)
+    retried: list[dict] = []
+    skipped_exhausted = 0
+    for (scene_id,) in scene_ids_with_jobs:
+        latest = (
+            db.query(SceneAvatarJob)
+            .filter(SceneAvatarJob.scene_id == scene_id)
+            .order_by(SceneAvatarJob.id.desc())
+            .first()
+        )
+        if not latest or latest.status != "failed":
+            continue
+        if latest.retryable is False:
+            continue
+        # The attempt ceiling is per SCENE and carried across job rows, so this
+        # bulk/unattended path can never burn more than max_attempts renders for
+        # one scene however often it is called. `retryable` alone is not enough:
+        # a scene that just exhausted its budget against a service that is down
+        # is still retryable=True (the error CLASS is transient), and without
+        # this check it would be re-enqueued indefinitely. An explicit per-scene
+        # Generate click resets the count, so the user is never locked out.
+        if (latest.attempt_count or 0) >= max_attempts:
+            skipped_exhausted += 1
+            continue
+        scene = db.query(Scene).filter(Scene.id == scene_id).first()
+        if not scene:
+            continue
+        job = SceneAvatarJob(
+            project_id=project_id,
+            scene_id=scene_id,
+            user_id=user.id,
+            status="queued",
+            kind=latest.kind,
+            avatar_preset=latest.avatar_preset,
+            # INHERIT the tally — the dispatcher resumes counting from here
+            # rather than restarting at 1.
+            attempt_count=latest.attempt_count or 0,
+        )
+        db.add(job)
+        db.flush()
+        retried.append({"scene_id": scene_id, "job_id": job.id, "kind": latest.kind})
+    db.commit()
+    return {
+        "retried": len(retried),
+        "jobs": retried,
+        # Lets the UI say "3 scenes have failed too many times — open the scene
+        # to try again" instead of silently retrying nothing.
+        "skipped_exhausted": skipped_exhausted,
+    }
+
+
+@router.get("/{project_id}/avatar-progress")
+def get_avatar_progress(
+    project_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Project-wide rollup of every scene's avatar job — replaces client-side
+    progress tracking (e.g. the batch wizard counting its own sequential
+    awaits) with server-computed truth. One scene appears at most once, keyed
+    by its MOST RECENT job.
+
+    ``batch_status`` is the authoritative answer to "is this project's avatar
+    run finished?", so the client never has to derive settledness by comparing
+    array lengths — a scene whose enqueue POST silently failed has no job row,
+    which used to make that comparison never come true and spin forever.
+    """
+    _get_user_project(project_id, user.id, db)
+
+    scene_ids_with_jobs = (
+        db.query(SceneAvatarJob.scene_id)
+        .filter(SceneAvatarJob.project_id == project_id)
+        .distinct()
+        .all()
+    )
+
+    # Scenes that COULD have an avatar (an avatar is lip-synced to narration, so
+    # a scene with no voiceover is never eligible — matching the guard in
+    # generate_scene_avatar). The client shows progress against this, not against
+    # however many job rows happen to exist.
+    eligible_total = (
+        db.query(Scene)
+        .filter(
+            Scene.project_id == project_id,
+            Scene.voiceover_path.isnot(None),
+            Scene.voiceover_path != "",
+        )
+        .count()
+    )
+
+    max_attempts = int(settings.AVATAR_MAX_ATTEMPTS)
+    scenes_out = []
+    counts = {"queued": 0, "running": 0, "completed": 0, "failed": 0}
+    for (scene_id,) in scene_ids_with_jobs:
+        job = (
+            db.query(SceneAvatarJob)
+            .filter(SceneAvatarJob.scene_id == scene_id)
+            .order_by(SceneAvatarJob.id.desc())
+            .first()
+        )
+        if not job:
+            continue
+        active = _active_avatar_job(scene_id, db) is not None
+        effective_status = job.status if (job.status != "running" or active) else "failed"
+        counts[effective_status] = counts.get(effective_status, 0) + 1
+        scenes_out.append({
+            "scene_id": scene_id,
+            "job_id": job.id,
+            "status": effective_status,
+            "kind": job.kind,
+            # Which stage a running job is in, so a per-scene batch view can say
+            # "warming up" vs "rendering" without N separate avatar-status calls.
+            "phase": job.phase,
+            "queue_position": _queue_position(job, db),
+            "error": job.error_message,
+            "retryable": job.retryable,
+            "attempt_count": job.attempt_count,
+            # True once this SCENE has burned its whole per-scene budget: the
+            # bulk retry endpoint will skip it, though an explicit per-scene
+            # Generate still resets and works.
+            "attempts_exhausted": (job.attempt_count or 0) >= max_attempts,
+        })
+
+    # "running" if anything is still queued or in flight; "settled" once every
+    # scene that has a job has reached a terminal state; "idle" before anything
+    # has been enqueued at all.
+    if counts["queued"] or counts["running"]:
+        batch_status = "running"
+    elif scenes_out:
+        batch_status = "settled"
+    else:
+        batch_status = "idle"
+
+    return {
+        "scenes": scenes_out,
+        "counts": counts,
+        "total": len(scenes_out),
+        "batch_status": batch_status,
+        "eligible_total": eligible_total,
+        "max_attempts": max_attempts,
+    }
+
+
+@router.post("/{project_id}/avatar-portrait")
+def upload_avatar_portrait(
+    project_id: int,
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Upload a presenter portrait to use instead of the built-in roster.
+
+    Stored per PROJECT (not per scene): a video with two different faces
+    presenting it would be odd, and scenes already choose per-scene whether to use
+    the custom presenter via avatar_preset == "custom".
+
+    The photo is NOT sent to the avatar Space here — it is staged at generate time
+    (services/avatar.py uploads the bytes with /prepare), so uploading costs
+    nothing and can be re-done freely before committing to a ~2.6-min render.
+    """
+    project = _get_user_project(project_id, user.id, db)
+
+    allowed = {"image/png", "image/jpeg", "image/webp"}
+    if file.content_type not in allowed:
+        raise HTTPException(
+            status_code=400, detail="Photo must be a PNG, JPEG or WebP image."
+        )
+    raw = file.file.read()
+    MAX_PORTRAIT_SIZE = 8 * 1024 * 1024
+    if len(raw) > MAX_PORTRAIT_SIZE:
+        raise HTTPException(
+            status_code=400, detail="Photo is too large. Maximum size is 8 MB."
+        )
+    if not raw:
+        raise HTTPException(status_code=400, detail="That file appears to be empty.")
+
+    ext = "png" if file.content_type == "image/png" else (
+        "webp" if file.content_type == "image/webp" else "jpg"
+    )
+    # Versioned filename (like video_key_versioned) so each re-upload/re-crop gets
+    # a distinct R2 URL — a fixed name would let the browser keep serving its
+    # cached copy of the OLD photo at the same URL after a new one is uploaded.
+    filename = f"custom_presenter_{int(time.time())}.{ext}"
+    avatar_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project_id}/avatars")
+    os.makedirs(avatar_dir, exist_ok=True)
+    local_path = os.path.join(avatar_dir, filename)
+    with open(local_path, "wb") as f:
+        f.write(raw)
+
+    # R2 is the durable copy: Cloud Run containers are ephemeral, so the local
+    # file may well be gone by the time a render actually needs it.
+    r2_url = None
+    if r2_storage.is_r2_configured():
+        try:
+            r2_url = r2_storage.upload_project_avatar(
+                user.id, project_id, local_path, filename
+            )
+        except Exception as e:
+            logger.warning(
+                "[AVATAR] R2 upload failed for custom portrait: %s", e,
+                extra={"project_id": project_id},
+            )
+
+    project.avatar_custom_image_path = local_path
+    project.avatar_custom_image_url = r2_url
+    db.commit()
+    db.refresh(project)
+    return {
+        "ok": True,
+        "avatar_custom_image_url": project.avatar_custom_image_url,
+        "has_custom_portrait": True,
+    }
+
+
+@router.delete("/{project_id}/avatar-portrait")
+def delete_avatar_portrait(
+    project_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Forget the uploaded presenter photo.
+
+    Scenes whose avatar_preset is "custom" are reset to the default roster
+    presenter, so a later Generate cannot fail on a portrait that no longer
+    exists. Clips ALREADY rendered from the old photo are left alone — they are
+    finished videos, and silently discarding them would lose real work.
+    """
+    project = _get_user_project(project_id, user.id, db)
+
+    from app.services.avatar_presets import CUSTOM_PRESET_ID, DEFAULT_PRESET_ID
+
+    project.avatar_custom_image_path = None
+    project.avatar_custom_image_url = None
+    (
+        db.query(Scene)
+        .filter(Scene.project_id == project_id, Scene.avatar_preset == CUSTOM_PRESET_ID)
+        .update({Scene.avatar_preset: DEFAULT_PRESET_ID}, synchronize_session=False)
+    )
+    db.commit()
+    return {"ok": True, "has_custom_portrait": False}
+
+
+@router.patch(
+    "/{project_id}/scenes/{scene_id}/avatar-focus", response_model=SceneOut
+)
+async def update_scene_avatar_focus(
+    project_id: int,
+    scene_id: int,
+    data: SceneAvatarFocusUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Choose which part of the rendered avatar frame to keep.
+
+    Stored as a focal point + zoom and applied as CSS by AvatarOverlay, so it is
+    instant and re-adjustable and the mp4 is never re-encoded. Reuses the same
+    clamps as scene-image framing, which is the identical problem one level up.
+
+    Requires an avatar: there is no frame to reframe otherwise.
+    """
+    _get_user_project(project_id, user.id, db)
+    scene = (
+        db.query(Scene)
+        .filter(Scene.id == scene_id, Scene.project_id == project_id)
+        .first()
+    )
+    if not scene:
+        raise HTTPException(status_code=404, detail="Scene not found")
+    if not scene.avatar_video_path:
+        raise HTTPException(
+            status_code=400,
+            detail="This scene has no avatar yet. Generate one first.",
+        )
+
+    scene.avatar_focus_x = _clamp_image_focus(data.avatar_focus_x)
+    scene.avatar_focus_y = _clamp_image_focus(data.avatar_focus_y)
+    if data.avatar_zoom is not None:
+        scene.avatar_zoom = _clamp_image_zoom(data.avatar_zoom)
+    db.commit()
+    db.refresh(scene)
+
+    from app.routers.collab_ws import collab_manager
+
+    await collab_manager.broadcast(
+        project_id, {"type": "project_reloaded"}, exclude_user_id=user.id
+    )
+    return scene
+
+
+@router.patch(
+    "/{project_id}/scenes/{scene_id}/avatar-appearance", response_model=SceneOut
+)
+async def update_scene_avatar_appearance(
+    project_id: int,
+    scene_id: int,
+    data: SceneAvatarAppearanceUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Set (or clear) this scene's overrides of the project avatar presentation.
+
+    Separate from PUT /scenes/{id} because that path routes everything through
+    MANUAL_TRACKED_FIELDS and the revertible edit-history change-sets, which exist
+    for editorial content. Overlay presentation is not editorial.
+
+    Reads ``model_fields_set`` rather than dropping nulls: an EXPLICIT null means
+    "stop overriding, inherit the project setting again", while an omitted field
+    means "leave as-is". Collapsing those two would make Reset-to-project a no-op.
+    """
+    _get_user_project(project_id, user.id, db)
+    scene = (
+        db.query(Scene)
+        .filter(Scene.id == scene_id, Scene.project_id == project_id)
+        .first()
+    )
+    if not scene:
+        raise HTTPException(status_code=404, detail="Scene not found")
+
+    for field in data.model_fields_set:
+        setattr(scene, field, getattr(data, field))
+    db.commit()
+    db.refresh(scene)
+
+    from app.routers.collab_ws import collab_manager
+
+    await collab_manager.broadcast(
+        project_id, {"type": "project_reloaded"}, exclude_user_id=user.id
+    )
     return scene
 
 

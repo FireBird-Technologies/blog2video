@@ -1,4 +1,5 @@
 export * from "./types";
+import type { AvatarBg, AvatarCorner, AvatarShape } from "./types";
 export * from "./auth";
 export * from "./billing";
 export * from "./projects";
@@ -120,6 +121,20 @@ export interface Scene {
   visual_description: string;
   remotion_code: string | null;
   voiceover_path: string | null;
+  avatar_video_path?: string | null;
+  avatar_preset?: string | null;
+  /** True once this scene's clip has been cut out — required for a custom background. */
+  has_matte?: boolean;
+  /** Per-scene overrides of the project avatar presentation; null = inherit. */
+  avatar_shape?: AvatarShape | null;
+  avatar_size?: number | null;
+  avatar_position?: AvatarCorner | null;
+  avatar_bg?: AvatarBg;
+  avatar_opacity?: number | null;
+  /** Which region of the rendered clip to show; null = default framing. */
+  avatar_focus_x?: number | null;
+  avatar_focus_y?: number | null;
+  avatar_zoom?: number | null;
   duration_seconds: number;
   extra_hold_seconds?: number | null;
   bgm_volume?: number | null;
@@ -183,6 +198,15 @@ export interface Project {
   caption_font_family?: string;
   caption_font_size?: string | number;
   caption_offset?: number;
+  avatar_shape?: AvatarShape;
+  avatar_size?: number;
+  avatar_position?: AvatarCorner;
+  avatar_bg?: AvatarBg;
+  avatar_opacity?: number;
+  /** URL of the presenter photo this user uploaded; null = using the roster. */
+  avatar_custom_image_url?: string | null;
+  /** Cleared the Avatar tab's whole-video batch-generation paywall. */
+  avatar_batch_unlocked?: boolean;
   ai_assisted_editing_count?: number;
   custom_theme?: CustomTemplateTheme | null;
   custom_image_box_aspect_ratios?: {
@@ -1306,7 +1330,13 @@ export const updateProject = (
     caption_font_family?: string;
     caption_font_size?: number;
     caption_offset?: number;
-  }
+    avatar_shape?: AvatarShape;
+    avatar_size?: number;
+    avatar_position?: AvatarCorner;
+    avatar_bg?: AvatarBg;
+    avatar_opacity?: number | null;
+    avatar_batch_unlocked?: boolean;
+    }
 ) => api.patch<Project>(`/projects/${projectId}/update-project`, data);
 
 export interface VoiceChangeStartResponse {
@@ -1583,6 +1613,270 @@ export const regenerateScene = (
     { headers: { "Content-Type": "multipart/form-data" } }
   );
 };
+
+/** The fixed talking-head roster. Thumbnails live at /avatars/<id>.jpg and the
+ *  ids mirror backend/app/services/avatar_presets.py. */
+export const AVATAR_PRESETS: { id: string; label: string }[] = [
+  { id: "woman_red", label: "Elena" },
+  { id: "man_beard", label: "Marcus" },
+];
+
+/** Every roster presenter is offered up front, so this is simply every id.
+ *  It used to be a two-of-five subset: the roster listed Maya, Priya and Daniel
+ *  as well, but two of their portraits were never committed to the render
+ *  service's image, so those ids resolved to a missing file on a clean deploy.
+ *  They were cut on 2026-08-07 (see backend/app/services/avatar_presets.py).
+ *  Kept as a derived alias rather than deleted so its call sites keep working
+ *  and cannot drift from AVATAR_PRESETS again. */
+export const MAIN_AVATAR_PRESET_IDS = AVATAR_PRESETS.map((p) => p.id); // Elena, Marcus
+
+export interface SceneAvatarStatus {
+  active: boolean;
+  done: boolean;
+  error: string | null;
+  status: string | null;
+  /** Which operation the polled job is — one loop drives both progress messages. */
+  kind: "render" | "matte" | null;
+  /** Stage of a running job. "starting_service" means the GPU Space is being
+   *  woken (minutes) — worth saying so, or the spinner looks stuck. */
+  phase: "starting_service" | "rendering" | null;
+  /** Wall-clock seconds the render took (null while running). */
+  duration_seconds: number | null;
+  has_avatar: boolean;
+  /** True once the clip has been cut out (needed for a custom background). */
+  has_matte: boolean;
+  avatar_preset: string | null;
+  /** 0-based position among still-queued jobs ("0" = next up). Null once the
+   *  job is running or terminal — the server-side queue is strictly FIFO
+   *  across every project, so this tells the user how many jobs (from ANY
+   *  project) are ahead of theirs. */
+  queue_position: number | null;
+  /** Whether a `failed` job is worth retrying. Null while not failed, or on
+   *  legacy rows predating this field. */
+  retryable: boolean | null;
+  /** Attempts this SCENE has burned, carried across job rows — so the UI can
+   *  say "attempt 2 of 3" while running, not just report a bare failure at the
+   *  end. Null on legacy rows predating this field. */
+  attempt_count: number | null;
+  max_attempts: number;
+}
+
+/** Enqueue an on-demand avatar render for ONE scene. Returns immediately — the
+ *  request just inserts a queue row; poll getSceneAvatarStatus for progress
+ *  (a render takes ~2.6 min once it starts, plus however long the FIFO queue
+ *  takes to reach it). Also doubles as the RETRY action for a scene whose
+ *  last job failed — there is no separate retry endpoint. */
+export const generateSceneAvatar = (
+  projectId: number,
+  sceneId: number,
+  avatarPreset?: string
+) => {
+  const formData = new FormData();
+  if (avatarPreset) formData.append("avatar_preset", avatarPreset);
+  return api.post<{
+    started: boolean;
+    queued: boolean;
+    job_id: number;
+    avatar_preset: string;
+    queue_position: number | null;
+  }>(
+    `/projects/${projectId}/scenes/${sceneId}/avatar`,
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } }
+  );
+};
+
+export const getSceneAvatarStatus = (projectId: number, sceneId: number) =>
+  api.get<SceneAvatarStatus>(
+    `/projects/${projectId}/scenes/${sceneId}/avatar-status`
+  );
+
+/** One scene's row in the project-wide avatar-progress rollup. */
+export interface AvatarProgressScene {
+  scene_id: number;
+  job_id: number;
+  status: "queued" | "running" | "completed" | "failed";
+  kind: "render" | "matte";
+  /** Stage of a running job — lets a per-scene batch view distinguish "warming
+   *  up" from "rendering" without N separate getSceneAvatarStatus calls. */
+  phase: "starting_service" | "rendering" | null;
+  queue_position: number | null;
+  error: string | null;
+  retryable: boolean | null;
+  attempt_count: number | null;
+  /** True once this scene has burned its whole per-scene attempt budget: the
+   *  bulk retry endpoint skips it, though an explicit per-scene Generate still
+   *  resets the count and works. */
+  attempts_exhausted: boolean;
+}
+
+export interface AvatarProgress {
+  scenes: AvatarProgressScene[];
+  counts: { queued: number; running: number; completed: number; failed: number };
+  total: number;
+  /** Authoritative answer to "is this project's avatar run finished?" — the
+   *  client must NOT derive settledness by comparing array lengths, since a
+   *  scene whose enqueue POST failed has no job row at all and would make such
+   *  a comparison never come true (spinning forever). */
+  batch_status: "idle" | "running" | "settled";
+  /** Scenes that could have an avatar (i.e. have narration). Progress is shown
+   *  against this, not against however many job rows happen to exist. */
+  eligible_total: number;
+  max_attempts: number;
+}
+
+/** Last rollup seen for each project, kept so a view can paint real per-scene
+ *  status on its FIRST frame instead of a blank gap.
+ *
+ *  Module-level on purpose: the problem it solves is an unmount. The Avatar tab
+ *  is rendered as `{activeTab === "avatar" && …}`, so leaving the tab destroys
+ *  the wizard's state entirely — React state cannot survive that, but this can.
+ *
+ *  This is a last-known-VALUE cache for first paint, NOT a request cache:
+ *  getAvatarProgress still performs its network call every single time, so
+ *  polling cadence and freshness are exactly as before. Consumers seed initial
+ *  state from it and the in-flight poll overwrites that a moment later. */
+const avatarProgressCache = new Map<number, AvatarProgress>();
+
+/** The last rollup seen for this project, or null if none has landed yet.
+ *  Seed component state from this to avoid a blank first frame on remount —
+ *  it may be stale, so treat it as a starting point the next poll corrects. */
+export const getCachedAvatarProgress = (
+  projectId: number,
+): AvatarProgress | null => avatarProgressCache.get(projectId) ?? null;
+
+/** Server-computed rollup of every scene's avatar job in this project — the
+ *  source of truth for the batch wizard's progress bar, since the queue is
+ *  now server-side and no longer client-sequenced.
+ *
+ *  Every successful response is cached (see avatarProgressCache) purely so the
+ *  next mount has something real to paint immediately. */
+export const getAvatarProgress = async (projectId: number) => {
+  const res = await api.get<AvatarProgress>(
+    `/projects/${projectId}/avatar-progress`,
+  );
+  avatarProgressCache.set(projectId, res.data);
+  return res;
+};
+
+/** Re-enqueue every scene in this project whose most recent avatar job
+ *  failed for a retryable reason. Safe to call repeatedly — a scene already
+ *  queued/running is left alone, and a non-retryable failure (e.g. missing
+ *  voiceover) is skipped rather than retried. */
+export const retryFailedSceneAvatars = (projectId: number) =>
+  api.post<{
+    retried: number;
+    jobs: { scene_id: number; job_id: number; kind: string }[];
+    /** Scenes skipped because they exhausted their per-scene attempt budget.
+     *  They are NOT retried here — only an explicit per-scene Generate resets
+     *  the count. */
+    skipped_exhausted: number;
+  }>(`/projects/${projectId}/avatar-retry-failed`);
+
+/** Upload a presenter photo to use instead of the built-in roster. Stored per
+ *  project; scenes opt in by setting their preset to AVATAR_CUSTOM_PRESET_ID.
+ *  The photo is only sent to the render service at generate time, so uploading
+ *  (and replacing) it is free. */
+export const uploadAvatarPortrait = (projectId: number, file: File) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  return api.post<{
+    ok: boolean;
+    avatar_custom_image_url: string | null;
+    has_custom_portrait: boolean;
+  }>(`/projects/${projectId}/avatar-portrait`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
+
+/** Forget the uploaded photo. Scenes set to the custom presenter fall back to the
+ *  default roster one; clips already rendered from it are left alone. */
+export const deleteAvatarPortrait = (projectId: number) =>
+  api.delete<{ ok: boolean; has_custom_portrait: boolean }>(
+    `/projects/${projectId}/avatar-portrait`
+  );
+
+/** Take the avatar overlay off a scene (the rendered file is kept). */
+export const deleteSceneAvatar = (projectId: number, sceneId: number) =>
+  api.delete<Scene>(`/projects/${projectId}/scenes/${sceneId}/avatar`);
+
+/** Cut the presenter out of ONE scene's EXISTING clip so a custom background can
+ *  show through. Does NOT re-render — it reuses the avatar already there, so this
+ *  costs ~1 min of CPU rather than a ~3.5 min regeneration. Poll
+ *  getSceneAvatarStatus (kind === "matte") for progress. */
+export const matteSceneAvatar = (projectId: number, sceneId: number) =>
+  api.post<{ started: boolean; queued?: boolean; job_id?: number; already_matted?: boolean }>(
+    `/projects/${projectId}/scenes/${sceneId}/avatar-matte`
+  );
+
+/** Queue a cutout for every scene that has an avatar but no matte yet. Returns how
+ *  many jobs were started; each scene is independent, so one failure leaves the
+ *  rest alone. All jobs share the same server-side FIFO queue as renders. */
+export const matteAllSceneAvatars = (projectId: number) =>
+  api.post<{ started: number; queued: boolean; job_ids: number[] }>(
+    `/projects/${projectId}/avatar-matte-all`
+  );
+
+/** AI credits charged per scene for an avatar render. Mirrors
+ *  AVATAR_CREDIT_COST_PER_SCENE in backend/app/services/access.py — the server
+ *  is authoritative; this exists so the modal can price a selection live. */
+export const AVATAR_CREDIT_COST_PER_SCENE = 10;
+/** Largest batch one authorization may cover. Mirrors the backend constant. */
+export const AVATAR_BATCH_MAX_SCENES = 10;
+/** Smallest batch, unless the project has fewer eligible scenes than this — see
+ *  avatar_batch_min_scenes on the backend, which this must agree with. */
+export const AVATAR_BATCH_MIN_SCENES = 5;
+
+/** Charge for a batch of avatars and unlock generation for the project.
+ *
+ *  ONE call for the whole batch: the per-scene generate endpoint is fanned out in
+ *  parallel, and charging there would let concurrent requests race the same
+ *  balance. Re-validates the selection server-side, so this is the real gate —
+ *  the modal's own limits are only there to keep the user out of a 403. */
+export const authorizeAvatarBatch = (projectId: number, sceneIds: number[]) =>
+  api.post<{
+    authorized: boolean;
+    scene_ids: number[];
+    credits_charged: number;
+    credits_remaining: number;
+  }>(`/projects/${projectId}/avatar-batch/authorize`, { scene_ids: sceneIds });
+
+/** Choose which region of the rendered avatar clip to show. Stored as a focal
+ *  point + zoom and applied as CSS by the overlay, so it is instant and the mp4 is
+ *  never re-encoded. Mirrors the scene-image framing model. */
+export const updateSceneAvatarFocus = (
+  projectId: number,
+  sceneId: number,
+  payload: {
+    avatar_focus_x: number;
+    avatar_focus_y: number;
+    avatar_zoom?: number;
+  }
+) =>
+  api.patch<Scene>(
+    `/projects/${projectId}/scenes/${sceneId}/avatar-focus`,
+    payload
+  );
+
+/** Set (or clear) one scene's overrides of the project avatar presentation.
+ *  Pass null for a field to STOP overriding it and inherit the project value
+ *  again — the endpoint distinguishes an explicit null from an omitted key, so
+ *  only send the fields you actually mean to change. */
+export const updateSceneAvatarAppearance = (
+  projectId: number,
+  sceneId: number,
+  payload: {
+    avatar_shape?: AvatarShape | null;
+    avatar_size?: number | null;
+    avatar_position?: AvatarCorner | null;
+    avatar_bg?: AvatarBg;
+    avatar_opacity?: number | null;
+  }
+) =>
+  api.patch<Scene>(
+    `/projects/${projectId}/scenes/${sceneId}/avatar-appearance`,
+    payload
+  );
 
 // Generate and insert a new AI scene. `position` is 1-indexed among active scenes
 // (the new scene takes that slot, everything after shifts down); omit to append.

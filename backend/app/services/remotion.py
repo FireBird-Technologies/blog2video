@@ -17,6 +17,7 @@ from app.config import settings
 from app.models.project import Project, ProjectStatus
 from app.models.scene import Scene
 from app.models.user import User
+from app.schemas.schemas import AVATAR_BG_ORIGINAL, avatar_bg_wants_cutout
 from app.services import r2_storage
 from app.services.email import email_service, EmailServiceError
 from app.services.template_service import (
@@ -1001,6 +1002,12 @@ def write_remotion_data(
         for a in project.assets
         if a.asset_type.value == "audio"
     }
+    # Avatar clip lookup (for R2 fallback on re-render/rebuild, mirroring audio).
+    avatar_assets = {
+        a.filename: a
+        for a in project.assets
+        if a.asset_type.value == "avatar"
+    }
 
     # Build scene data
     scene_data = []
@@ -1037,6 +1044,52 @@ def write_remotion_data(
             if audio_asset and audio_asset.r2_url:
                 if _download_url_to_file(audio_asset.r2_url, dest):
                     voiceover_filename = audio_dest_name
+
+        # Avatar clip — same copy-or-R2-fallback dance as the voiceover above.
+        # NULL when the scene has no avatar or the render failed → no overlay.
+        #
+        # Which FILE we ship depends on the resolved background: a custom colour or
+        # "transparent" needs the matted ProRes 4444 .mov (presenter cut out), anything
+        # else uses the original mp4. A scene whose matte hasn't been produced yet
+        # silently keeps its mp4 — a partially-matted project still renders, just with
+        # mixed backgrounds, rather than failing the whole render.
+        avatar_settings = resolve_avatar_settings(scene, project)
+        # NOT `bg is not None`: "original" is a real, explicitly-chosen value that
+        # means "show the clip as filmed", so it must pick the mp4 exactly like
+        # NULL does. See avatar_bg_wants_cutout for why this is a shared predicate.
+        wants_matte = avatar_bg_wants_cutout(avatar_settings["bg"])
+        use_matte = bool(wants_matte and scene.avatar_matte_path)
+
+        avatar_filename = None
+        avatar_src = scene.avatar_matte_path if use_matte else scene.avatar_video_path
+        avatar_ext = "mov" if use_matte else "mp4"
+        avatar_dest_name = f"avatar_scene_{scene.order}.{avatar_ext}"
+        avatar_dest = os.path.join(public_dir, avatar_dest_name)
+        if avatar_src and os.path.exists(avatar_src):
+            avatar_filename = avatar_dest_name
+            _copy_file(avatar_src, avatar_dest)
+        elif avatar_src:
+            # Local file gone (re-render/rebuild) — fall back to the R2 AVATAR asset.
+            avatar_asset = avatar_assets.get(avatar_dest_name)
+            if avatar_asset and avatar_asset.r2_url:
+                if _download_url_to_file(avatar_asset.r2_url, avatar_dest):
+                    avatar_filename = avatar_dest_name
+
+        # If the matte was wanted but is unavailable both locally and on R2, fall
+        # all the way back to the plain mp4 rather than dropping the avatar: a
+        # baked background is a far smaller regression than a missing presenter.
+        if use_matte and not avatar_filename and scene.avatar_video_path:
+            use_matte = False
+            avatar_dest_name = f"avatar_scene_{scene.order}.mp4"
+            avatar_dest = os.path.join(public_dir, avatar_dest_name)
+            if os.path.exists(scene.avatar_video_path):
+                _copy_file(scene.avatar_video_path, avatar_dest)
+                avatar_filename = avatar_dest_name
+            else:
+                mp4_asset = avatar_assets.get(avatar_dest_name)
+                if mp4_asset and mp4_asset.r2_url:
+                    if _download_url_to_file(mp4_asset.r2_url, avatar_dest):
+                        avatar_filename = avatar_dest_name
 
         # Parse layout descriptor from remotion_code (JSON)
         fallback = get_fallback_layout(template_id)
@@ -1130,6 +1183,25 @@ def write_remotion_data(
             "durationSeconds": round(effective_duration, 1),
             "speechDurationSeconds": speech_duration,
             "voiceoverFile": voiceover_filename,
+            "avatarVideoFile": avatar_filename,
+            # Already-resolved presentation (scene override ?? project ?? default),
+            # so neither Remotion tree has to know the inheritance rule.
+            "avatarShape": avatar_settings["shape"],
+            "avatarSize": avatar_settings["size"],
+            "avatarPosition": avatar_settings["position"],
+            "avatarOpacity": avatar_settings["opacity"],
+            "avatarFocusX": avatar_settings["focusX"],
+            "avatarFocusY": avatar_settings["focusY"],
+            "avatarZoom": avatar_settings["zoom"],
+            # AVATAR_BG_ORIGINAL rather than None when no cutout is wanted: None
+            # makes the overlay fall back to the PROJECT-level avatarBg, so a
+            # scene set to Original under a transparent project inherited
+            # "transparent" and had its corner rounding stripped — a circle
+            # rendered as a hard square. The sentinel states the scene's own
+            # answer, and both AvatarOverlay twins collapse it to "no fill".
+            # Any real colour only takes visual effect when avatarHasAlpha is true.
+            "avatarBg": avatar_settings["bg"] if use_matte else AVATAR_BG_ORIGINAL,
+            "avatarHasAlpha": use_matte,
             "images": scene_images,
             "layoutProps": layout_props,
             # Per-scene background-music volume override (None = use project bgm_volume).
@@ -1230,6 +1302,26 @@ def write_remotion_data(
         "captionFontFamily": getattr(project, "caption_font_family", None) or "inter",
         "captionFontSize": str(getattr(project, "caption_font_size", None) or "36"),
         "captionOffset": int(getattr(project, "caption_offset", 0) or 0),
+        # Avatar overlay presentation — consumed by AvatarOverlay in the render
+        # tree; must mirror the defaults in that component and its player twin.
+        # Project-level defaults. Each scene also carries its own already-resolved
+        # avatarShape/Size/Position/Bg; these remain for templates that read the
+        # top-level data object, and as the value a scene inherits when it has no
+        # override of its own.
+        "avatarShape": getattr(project, "avatar_shape", None) or "circle",
+        "avatarSize": float(getattr(project, "avatar_size", 0.16) or 0.16),
+        "avatarPosition": getattr(project, "avatar_position", None) or "bottom_left",
+        # "original" is collapsed to None here so the sentinel never escapes into
+        # the render tree: templates use this as the `??` fallback behind a
+        # scene's own avatarBg, and downstream it is treated purely as a FILL —
+        # a literal "original" would reach CSS background-color and, worse, tell
+        # Remotion to decode an alpha channel out of an opaque mp4.
+        "avatarBg": (
+            None
+            if not avatar_bg_wants_cutout(getattr(project, "avatar_bg", None))
+            else getattr(project, "avatar_bg", None)
+        ),
+        "avatarOpacity": float(getattr(project, "avatar_opacity", 1.0) or 1.0),
         "scenes": scene_data,
     }
     print(f"[F7-DEBUG] write_remotion_data: final bgmFile={data['bgmFile']!r}, bgmVolume={data['bgmVolume']!r}")
@@ -2685,6 +2777,43 @@ def _download_logo_normalized(url: str, public_dir: str, base_name: str) -> Opti
     except Exception as e:
         logger.warning("[REMOTION] Failed to download/normalize logo %s: %s", url, e)
         return None
+
+
+def resolve_avatar_settings(scene, project) -> dict:
+    """Collapse the scene/project/default chain into concrete avatar presentation.
+
+    Scene columns are nullable and NULL means "inherit"; project columns are
+    non-nullable with defaults. Resolving here means the render tree and the
+    preview player both receive already-decided values and never have to
+    reimplement the inheritance rule — which is exactly the kind of logic that
+    drifts between the two AvatarOverlay twins.
+    """
+    def pick(attr, fallback):
+        v = getattr(scene, attr, None)
+        if v is not None:
+            return v
+        v = getattr(project, attr, None)
+        return fallback if v is None else v
+
+    return {
+        "shape": pick("avatar_shape", "circle"),
+        "size": float(pick("avatar_size", 0.16)),
+        "position": pick("avatar_position", "bottom_left"),
+        "opacity": float(pick("avatar_opacity", 1.0)),
+        # Frame focus is per-scene only (no project-level default): it describes a
+        # region of THIS clip, which is meaningless to share across scenes.
+        # Defaults match the overlay's own anchor so an unset scene is unchanged.
+        "focusX": float(scene.avatar_focus_x) if getattr(scene, "avatar_focus_x", None) is not None else 50.0,
+        "focusY": float(scene.avatar_focus_y) if getattr(scene, "avatar_focus_y", None) is not None else 35.0,
+        "zoom": float(scene.avatar_zoom) if getattr(scene, "avatar_zoom", None) is not None else 1.0,
+        # bg is nullable at BOTH levels — NULL is a real value ("keep the
+        # portrait's own background"), so it cannot use `pick`'s fallback logic.
+        "bg": (
+            scene.avatar_bg
+            if getattr(scene, "avatar_bg", None) is not None
+            else getattr(project, "avatar_bg", None)
+        ),
+    }
 
 
 def _copy_file(src: str, dest: str) -> None:

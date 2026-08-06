@@ -1,4 +1,5 @@
 import { resolveFontFamily } from "../../../fonts/registry";
+import { AvatarOverlay } from "../AvatarOverlay";
 import { AbsoluteFill, Audio, Sequence } from "remotion";
 import { STICKMAN_2_LAYOUT_REGISTRY as LAYOUT_REGISTRY, Stickman2LayoutType, SceneLayoutProps } from "./layouts";
 import { LogoOverlay } from "../LogoOverlay";
@@ -21,6 +22,16 @@ export interface Stickman2SceneInput {
   speechDurationSeconds?: number;
   imageUrl?: string;
   voiceoverUrl?: string;
+  avatarUrl?: string;
+  /** Per-scene avatar overrides; undefined = inherit the project setting. */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
 }
 
 export interface Stickman2VideoCompositionProps {
@@ -105,6 +116,7 @@ export const Stickman2VideoComposition: React.FC<Stickman2VideoCompositionProps>
           >
             <LayoutComponent {...layoutProps} />
             {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
+            {scene.avatarUrl && <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />}
             {captionsEnabled && (scene.narrationText || scene.narration) && (
               <CaptionTrack
                 text={scene.narrationText || scene.narration}

@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from pydantic import BaseModel, Field, HttpUrl, field_validator, model_validator
 from typing import Optional, Union
@@ -14,6 +15,104 @@ def _normalize_caption_position(v: Optional[str]) -> Optional[str]:
     n = (v or "").strip().lower()
     if n not in VALID_CAPTION_POSITIONS:
         raise ValueError("caption_position must be 'top_center' or 'bottom_center'")
+    return n
+
+
+# ─── Avatar overlay presentation ───────────────────────────
+
+VALID_AVATAR_SHAPES = {"circle", "rounded", "square"}
+VALID_AVATAR_POSITIONS = {"top_left", "top_right", "bottom_left", "bottom_right"}
+MIN_AVATAR_SIZE = 0.10
+MAX_AVATAR_SIZE = 0.32
+# Floor rather than 0.0: a fully invisible avatar is indistinguishable from a
+# broken render, so the slider bottoms out at "clearly faded but present".
+MIN_AVATAR_OPACITY = 0.2
+
+# avatar_bg value meaning "show the clip exactly as filmed, room and all".
+#
+# NULL cannot express this at SCENE scope, because there it already means
+# "inherit the project setting" — so a scene had no way to say "original" while
+# the project default was a colour. This sentinel is that missing fourth state.
+AVATAR_BG_ORIGINAL = "original"
+
+
+def avatar_bg_wants_cutout(bg: Optional[str]) -> bool:
+    """Does this avatar_bg require the MATTED clip rather than the plain mp4?
+
+    `bg` conflates two questions — "do we want a cutout?" and "what fill goes
+    behind it?" — and only the first one decides which file to load. Every
+    caller must ask through here rather than testing `bg is not None`, which
+    silently treats "original" as a request to matte.
+    """
+    return bg is not None and bg != AVATAR_BG_ORIGINAL
+
+
+def _normalize_avatar_shape(v: Optional[str]) -> Optional[str]:
+    if v is None:
+        return None
+    n = (v or "").strip().lower()
+    if n not in VALID_AVATAR_SHAPES:
+        raise ValueError("avatar_shape must be 'circle', 'rounded' or 'square'")
+    return n
+
+
+def _normalize_avatar_position(v: Optional[str]) -> Optional[str]:
+    if v is None:
+        return None
+    n = (v or "").strip().lower()
+    if n not in VALID_AVATAR_POSITIONS:
+        raise ValueError(
+            "avatar_position must be one of 'top_left', 'top_right', "
+            "'bottom_left', 'bottom_right'"
+        )
+    return n
+
+
+def _normalize_avatar_size(v: Optional[float]) -> Optional[float]:
+    """Clamp rather than reject — the UI slider is already bounded, so an
+    out-of-range value is a stale client, not something worth 422-ing over."""
+    if v is None:
+        return None
+    return round(max(MIN_AVATAR_SIZE, min(MAX_AVATAR_SIZE, float(v))), 3)
+
+
+def _normalize_avatar_opacity(v: Optional[float]) -> Optional[float]:
+    """Clamp like _normalize_avatar_size — the UI slider is bounded, so an
+    out-of-range value means a stale client, not something worth 422-ing over.
+    Floored at 0.2 so the presenter can never be made completely invisible."""
+    if v is None:
+        return None
+    return round(max(MIN_AVATAR_OPACITY, min(1.0, float(v))), 2)
+
+
+def _normalize_avatar_bg(v: Optional[str]) -> Optional[str]:
+    """NULL | "original" | "transparent" | "#RRGGBB".
+
+    Only the last two need matting; the first two show the clip as filmed.
+
+      NULL          on a PROJECT: keep the portrait's own photographic background.
+                    on a SCENE:   inherit whatever the project says.
+      "original"    keep the photographic background, explicitly. Exists because
+                    NULL is already spoken for at scene scope — without it a scene
+                    simply cannot say "show the room" while the project default is
+                    a colour, which is the bug this value was added to fix.
+      "transparent" matted, no fill.
+      "#RRGGBB"     matted, composited over that colour.
+
+    Anything else is rejected rather than coerced: a bad colour would otherwise
+    cost the user a matte job before they found out.
+    """
+    if v is None:
+        return None
+    n = (v or "").strip().lower()
+    if not n:
+        return None
+    if n in ("transparent", AVATAR_BG_ORIGINAL):
+        return n
+    if not re.fullmatch(r"#[0-9a-f]{6}", n):
+        raise ValueError(
+            "avatar_bg must be null, 'original', 'transparent', or a '#RRGGBB' hex colour"
+        )
     return n
 
 
@@ -47,6 +146,36 @@ class ProjectCreate(BaseModel):
     caption_font_family: Optional[str] = "inter"
     caption_font_size: Optional[str] = "36"
     caption_offset: Optional[int] = 0  # vertical shift within bottom region: -100..+100 (0 = default, + = up)
+    avatar_shape: Optional[str] = "circle"       # circle | rounded | square
+    avatar_size: Optional[float] = 0.16          # fraction of composition width
+    avatar_position: Optional[str] = "bottom_left"
+    avatar_bg: Optional[str] = None              # None | "transparent" | "#RRGGBB"
+    avatar_opacity: Optional[float] = 1.0        # 0.2 - 1.0
+
+    @field_validator("avatar_shape")
+    @classmethod
+    def validate_create_avatar_shape(cls, v: Optional[str]) -> Optional[str]:
+        return _normalize_avatar_shape(v)
+
+    @field_validator("avatar_position")
+    @classmethod
+    def validate_create_avatar_position(cls, v: Optional[str]) -> Optional[str]:
+        return _normalize_avatar_position(v)
+
+    @field_validator("avatar_size")
+    @classmethod
+    def validate_create_avatar_size(cls, v: Optional[float]) -> Optional[float]:
+        return _normalize_avatar_size(v)
+
+    @field_validator("avatar_bg")
+    @classmethod
+    def validate_create_avatar_bg(cls, v: Optional[str]) -> Optional[str]:
+        return _normalize_avatar_bg(v)
+
+    @field_validator("avatar_opacity")
+    @classmethod
+    def validate_create_avatar_opacity(cls, v: Optional[float]) -> Optional[float]:
+        return _normalize_avatar_opacity(v)
 
     @field_validator("bgm_volume")
     @classmethod
@@ -87,6 +216,41 @@ class ProjectUpdate(BaseModel):
     caption_font_family: Optional[str] = None
     caption_font_size: Optional[Union[str, int]] = None
     caption_offset: Optional[int] = None
+    avatar_shape: Optional[str] = None
+    avatar_size: Optional[float] = None
+    avatar_position: Optional[str] = None
+    # NULL here means "keep the portrait's own background". Because that is a real
+    # value rather than "unchanged", update_project() lists avatar_bg among the
+    # fields allowed to be nulled — see the field loop in routers/projects.py.
+    avatar_bg: Optional[str] = None
+    avatar_opacity: Optional[float] = None
+    # Set once the placeholder $5 batch-generation paywall has been cleared.
+    avatar_batch_unlocked: Optional[bool] = None
+
+    @field_validator("avatar_shape")
+    @classmethod
+    def validate_update_avatar_shape(cls, v: Optional[str]) -> Optional[str]:
+        return _normalize_avatar_shape(v)
+
+    @field_validator("avatar_position")
+    @classmethod
+    def validate_update_avatar_position(cls, v: Optional[str]) -> Optional[str]:
+        return _normalize_avatar_position(v)
+
+    @field_validator("avatar_size")
+    @classmethod
+    def validate_update_avatar_size(cls, v: Optional[float]) -> Optional[float]:
+        return _normalize_avatar_size(v)
+
+    @field_validator("avatar_bg")
+    @classmethod
+    def validate_update_avatar_bg(cls, v: Optional[str]) -> Optional[str]:
+        return _normalize_avatar_bg(v)
+
+    @field_validator("avatar_opacity")
+    @classmethod
+    def validate_update_avatar_opacity(cls, v: Optional[float]) -> Optional[float]:
+        return _normalize_avatar_opacity(v)
 
     @field_validator("caption_font_size", mode="before")
     @classmethod
@@ -208,6 +372,22 @@ class SceneOut(BaseModel):
     preferred_layout: Optional[str] = None
     scene_type: Optional[str] = None
     voiceover_path: Optional[str] = None
+    avatar_video_path: Optional[str] = None
+    avatar_preset: Optional[str] = None
+    # True once this scene's clip has been matted (services/avatar_matte.py), which
+    # is what a custom background needs. The UI uses it to list the scenes still
+    # requiring a ~1-min matte job before a background change can show.
+    has_matte: bool = False
+    # Per-scene overrides; NULL means "inherit the project setting".
+    avatar_shape: Optional[str] = None
+    avatar_size: Optional[float] = None
+    avatar_position: Optional[str] = None
+    avatar_bg: Optional[str] = None
+    avatar_opacity: Optional[float] = None
+    # Which part of the rendered avatar frame to keep. NULL = default framing.
+    avatar_focus_x: Optional[float] = None
+    avatar_focus_y: Optional[float] = None
+    avatar_zoom: Optional[float] = None
     duration_seconds: float
     extra_hold_seconds: Optional[float] = None
     bgm_volume: Optional[float] = None
@@ -383,6 +563,16 @@ class ProjectOut(BaseModel):
     caption_font_family: str = "inter"
     caption_font_size: str = "36"
     caption_offset: int = 0
+    avatar_shape: str = "circle"
+    avatar_size: float = 0.16
+    avatar_position: str = "bottom_left"
+    avatar_bg: Optional[str] = None
+    avatar_opacity: float = 1.0
+    # The user's uploaded presenter portrait (URL only — the server path is not
+    # the client's business). Null means they are using the built-in roster.
+    avatar_custom_image_url: Optional[str] = None
+    # Cleared the Avatar tab's whole-video batch-generation paywall.
+    avatar_batch_unlocked: bool = False
     content_language: Optional[str] = None  # ISO 639-1, e.g. 'en', 'es'. Null = auto-detect from content.
     ai_assisted_editing_count: int = 0
     custom_theme: Optional[dict] = None
@@ -533,6 +723,65 @@ class SceneUpdate(BaseModel):
         if v is None:
             return None
         return round(max(0.0, min(1.0, float(v))), 2)
+
+
+class SceneAvatarFocusUpdate(BaseModel):
+    """Which region of the rendered avatar clip to show.
+
+    Mirrors the scene-image framing model (imageFocusX/Y + imageZoom): a focal
+    point in percent plus a zoom, applied as CSS by the overlay rather than
+    re-encoding the video. Bounds match _clamp_image_focus / _clamp_image_zoom in
+    routers/projects.py, which do the authoritative clamping.
+    """
+    avatar_focus_x: float = Field(default=50, ge=0, le=100)
+    avatar_focus_y: float = Field(default=35, ge=0, le=100)
+    avatar_zoom: Optional[float] = Field(default=None, ge=0.5, le=4)
+
+
+class SceneAvatarAppearanceUpdate(BaseModel):
+    """Per-scene overrides of the project's avatar presentation.
+
+    Deliberately separate from SceneUpdate: that path runs every field through
+    MANUAL_TRACKED_FIELDS and the revertible edit-history change-set machinery,
+    which is for editorial content (text, layout, timing). How an overlay looks is
+    presentation, so it does not belong in a user's edit history.
+
+    Every field is Optional and NULL is MEANINGFUL — it means "stop overriding,
+    inherit the project setting again". The endpoint therefore reads
+    ``model_fields_set`` rather than filtering nulls, so "omitted" (leave alone)
+    stays distinguishable from "explicitly null" (reset to inherit). Losing that
+    distinction is exactly what would make Reset-to-project silently do nothing.
+    """
+    avatar_shape: Optional[str] = None
+    avatar_size: Optional[float] = None
+    avatar_position: Optional[str] = None
+    avatar_bg: Optional[str] = None
+    avatar_opacity: Optional[float] = None
+
+    @field_validator("avatar_shape")
+    @classmethod
+    def validate_scene_avatar_shape(cls, v: Optional[str]) -> Optional[str]:
+        return _normalize_avatar_shape(v)
+
+    @field_validator("avatar_position")
+    @classmethod
+    def validate_scene_avatar_position(cls, v: Optional[str]) -> Optional[str]:
+        return _normalize_avatar_position(v)
+
+    @field_validator("avatar_size")
+    @classmethod
+    def validate_scene_avatar_size(cls, v: Optional[float]) -> Optional[float]:
+        return _normalize_avatar_size(v)
+
+    @field_validator("avatar_bg")
+    @classmethod
+    def validate_scene_avatar_bg(cls, v: Optional[str]) -> Optional[str]:
+        return _normalize_avatar_bg(v)
+
+    @field_validator("avatar_opacity")
+    @classmethod
+    def validate_scene_avatar_opacity(cls, v: Optional[float]) -> Optional[float]:
+        return _normalize_avatar_opacity(v)
 
 
 # ─── Scene Editing ──────────────────────────────────────────

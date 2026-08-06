@@ -18,6 +18,7 @@ from app.models.template_rating import TemplateRating
 from app.models.project_template_change_job import ProjectTemplateChangeJob
 from app.models.project_regenerate_script_job import ProjectRegenerateScriptJob
 from app.models.project_voice_change_job import ProjectVoiceChangeJob
+from app.models.scene_avatar_job import SceneAvatarJob
 from app.models.project_language_change_job import ProjectLanguageChangeJob
 from app.models.update_email import UpdateEmail
 from app.models.update_email_send import UpdateEmailSend

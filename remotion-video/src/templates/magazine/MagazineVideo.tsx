@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { AvatarOverlay } from "../../components/AvatarOverlay";
 import {
   AbsoluteFill,
   Audio,
@@ -33,6 +34,17 @@ interface SceneData {
   /** Spoken-audio length in seconds (scene duration minus trailing pad) — for caption timing. */
   speechDurationSeconds?: number;
   voiceoverFile: string | null;
+  avatarVideoFile?: string | null;
+  /** Per-scene avatar presentation, already resolved by the backend
+   *  (scene override ?? project ?? default). See services/remotion.py. */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
   images: string[];
 }
 
@@ -56,6 +68,15 @@ interface VideoData {
   captionFontFamily?: string;
   captionFontSize?: string;
   captionOffset?: number;
+  /** Avatar overlay presentation (see components/AvatarOverlay.tsx). */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
   scenes: SceneData[];
 }
 
@@ -394,6 +415,9 @@ export const MagazineVideo: React.FC<VideoProps> = ({ dataUrl }) => {
               <LayoutComponent {...layoutProps} />
               {only.scene.voiceoverFile && (
                 <Audio src={staticFile(only.scene.voiceoverFile)} playbackRate={playbackSpeed} />
+              )}
+              {only.scene.avatarVideoFile && (
+                <AvatarOverlay src={staticFile(only.scene.avatarVideoFile)} aspectRatio={data.aspectRatio} shape={only.scene.avatarShape ?? data.avatarShape} size={only.scene.avatarSize ?? data.avatarSize} position={only.scene.avatarPosition ?? data.avatarPosition} bg={only.scene.avatarBg ?? data.avatarBg} opacity={only.scene.avatarOpacity ?? data.avatarOpacity} focusX={only.scene.avatarFocusX} focusY={only.scene.avatarFocusY} zoom={only.scene.avatarZoom} />
               )}
             </Sequence>
           );

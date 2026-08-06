@@ -80,5 +80,12 @@ backend/.venv-test/
 # Local docs
 docs/
 
-# Avatar/talking-head experimentation working log (local notes, not shipped)
-AVATAR_PROGRESS.md
+# Avatar service — benchmark/test outputs & scratch (NOT the bundled avatar_presets/,
+# which add_local_dir ships into the Modal image and the app depends on)
+modal-service/omniavatar/outputs/
+modal-service/omniavatar/*.mp4
+modal-service/omniavatar/run_benchmark.sh
+# One-off rendered example clips from project 1094 — build output of a scratch
+# task, not an input to anything (see backend/scratch_assign_avatars.py).
+avatar_scene_examples/
+avatar_video_examples/

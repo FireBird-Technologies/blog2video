@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { AvatarOverlay, type AvatarOverlayProps } from "../../components/AvatarOverlay";
 import {
   AbsoluteFill,
   Audio,
@@ -181,6 +182,9 @@ const NewscastSequenceInner: React.FC<{
   layoutProps: NewscastLayoutProps;
   LayoutComponent: React.ComponentType<NewscastLayoutProps>;
   voiceoverSrc?: string;
+  avatarSrc?: string;
+  /** Avatar presentation, forwarded whole so this drilled prop list stays short. */
+  avatarSettings?: Partial<AvatarOverlayProps>;
   playbackSpeed: number;
   captionsEnabled?: boolean;
   captionText?: string;
@@ -201,6 +205,8 @@ const NewscastSequenceInner: React.FC<{
   layoutProps,
   LayoutComponent,
   voiceoverSrc,
+  avatarSrc,
+  avatarSettings,
   playbackSpeed,
   captionsEnabled,
   captionText,
@@ -270,6 +276,7 @@ const NewscastSequenceInner: React.FC<{
         </div>
       </NewscastSceneZTransition>
       {voiceoverSrc ? <Audio src={voiceoverSrc} playbackRate={playbackSpeed} /> : null}
+      {avatarSrc ? <AvatarOverlay src={avatarSrc} aspectRatio={aspectRatio || "landscape"} {...avatarSettings} /> : null}
       {captionsEnabled && captionText && (
         <CaptionTrack
           text={captionText}
@@ -299,6 +306,17 @@ interface SceneData {
   /** Spoken-audio length in seconds (scene duration minus trailing pad) — for caption timing. */
   speechDurationSeconds?: number;
   voiceoverFile: string | null;
+  avatarVideoFile?: string | null;
+  /** Per-scene avatar presentation, already resolved by the backend
+   *  (scene override ?? project ?? default). See services/remotion.py. */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
   images: string[];
   imageUrl?: string;
 }
@@ -323,6 +341,15 @@ interface VideoData {
   captionFontFamily?: string;
   captionFontSize?: string;
   captionOffset?: number;
+  /** Avatar overlay presentation (see components/AvatarOverlay.tsx). */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
   scenes: SceneData[];
 }
 
@@ -397,6 +424,7 @@ export const NewscastVideo: React.FC<VideoProps> = ({ dataUrl }) => {
               },
               durationSeconds: 5,
               voiceoverFile: null,
+              avatarVideoFile: null,
               images: [],
             },
           ],
@@ -482,6 +510,13 @@ export const NewscastVideo: React.FC<VideoProps> = ({ dataUrl }) => {
               layoutProps={layoutProps}
               LayoutComponent={LayoutComponent}
               voiceoverSrc={scene.voiceoverFile ? staticFile(scene.voiceoverFile) : undefined}
+              avatarSrc={scene.avatarVideoFile ? staticFile(scene.avatarVideoFile) : undefined}
+              avatarSettings={{
+                shape: scene.avatarShape ?? data.avatarShape,
+                size: scene.avatarSize ?? data.avatarSize,
+                position: scene.avatarPosition ?? data.avatarPosition,
+                bg: scene.avatarBg ?? data.avatarBg,
+              }}
               playbackSpeed={playbackSpeed}
               captionsEnabled={data.captionsEnabled}
               captionText={scene.narrationText || scene.narration}

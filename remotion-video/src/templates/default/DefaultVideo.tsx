@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AvatarOverlay } from "../../components/AvatarOverlay";
 import {
   AbsoluteFill,
   Audio,
@@ -31,6 +32,17 @@ interface SceneData {
   /** Spoken-audio length in seconds (scene duration minus trailing pad) — for caption timing. */
   speechDurationSeconds?: number;
   voiceoverFile: string | null;
+  avatarVideoFile?: string | null;
+  /** Per-scene avatar presentation, already resolved by the backend
+   *  (scene override ?? project ?? default). See services/remotion.py. */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
   images: string[];
 }
 
@@ -54,6 +66,15 @@ interface VideoData {
   captionFontFamily?: string;
   captionFontSize?: string;
   captionOffset?: number;
+  /** Avatar overlay presentation (see components/AvatarOverlay.tsx). */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
   scenes: SceneData[];
 }
 
@@ -185,6 +206,7 @@ export const DefaultVideo: React.FC<VideoProps> = ({ dataUrl }) => {
               layoutProps: {},
               durationSeconds: 5,
               voiceoverFile: null,
+              avatarVideoFile: null,
               images: [],
             },
           ],
@@ -274,6 +296,9 @@ export const DefaultVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             {/* Voiceover audio */}
             {scene.voiceoverFile && (
               <Audio src={staticFile(scene.voiceoverFile)} playbackRate={playbackSpeed} />
+            )}
+            {scene.avatarVideoFile && (
+              <AvatarOverlay src={staticFile(scene.avatarVideoFile)} aspectRatio={data.aspectRatio} shape={scene.avatarShape ?? data.avatarShape} size={scene.avatarSize ?? data.avatarSize} position={scene.avatarPosition ?? data.avatarPosition} bg={scene.avatarBg ?? data.avatarBg} opacity={scene.avatarOpacity ?? data.avatarOpacity} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />
             )}
 
             {/* Captions — narration text, synced to this scene's voiceover window */}

@@ -1754,6 +1754,11 @@ async def _generate_scenes(
     db.commit()
     logger.info("[PIPELINE] All %s scene descriptors committed to DB", len(scenes))
 
+    # NOTE: avatars are NOT generated here. They are per-scene and on-demand —
+    # the user requests one from the Scene Edit modal, which starts a SceneAvatarJob
+    # (see POST /projects/{id}/scenes/{id}/avatar). A scene without a rendered clip
+    # simply plays with no overlay.
+
     # Write data.json + assets to per-project Remotion workspace
     write_remotion_data(project, scenes, db, redistribute_images=redistribute_images)
 

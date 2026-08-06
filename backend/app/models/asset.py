@@ -8,6 +8,7 @@ from app.database import Base
 class AssetType(str, enum.Enum):
     IMAGE = "image"
     AUDIO = "audio"
+    AVATAR = "avatar"
 
 
 class Asset(Base):

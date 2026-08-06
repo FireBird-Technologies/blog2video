@@ -124,6 +124,56 @@ def consume_ai_edit(payer: User, project: Project, cost: int = 1) -> None:
     payer.ai_edit_credits = max(0, (payer.ai_edit_credits or 0) - cost)
 
 
+# Avatar generation is priced per SCENE, and much higher than a text edit: each
+# scene is a real lip-sync render on a dedicated GPU, not an LLM call.
+AVATAR_CREDIT_COST_PER_SCENE = 10
+
+# Bounds on one batch. The floor exists so a batch is worth its fixed overhead;
+# the ceiling caps what a single authorization can spend. The floor is waived
+# when the project simply does not HAVE five eligible scenes — see
+# avatar_batch_min_scenes.
+AVATAR_BATCH_MAX_SCENES = 10
+AVATAR_BATCH_MIN_SCENES = 5
+
+
+def avatar_batch_min_scenes(eligible_count: int) -> int:
+    """Smallest batch this project can authorize.
+
+    Normally AVATAR_BATCH_MIN_SCENES, but a project with fewer eligible scenes
+    than that could otherwise never use avatars at all — and neither could a
+    project down to its last few scenes without one (the "generate the
+    remaining scenes" path). In both cases the floor becomes what is available.
+
+    Defined here rather than in the endpoint so the UI and the server derive the
+    same number from the same rule.
+    """
+    return min(AVATAR_BATCH_MIN_SCENES, max(0, eligible_count))
+
+
+def can_afford_avatars(payer: User, scene_count: int) -> bool:
+    """Whether ``payer`` can cover avatars for ``scene_count`` scenes.
+
+    DELIBERATELY UNLIKE can_use_ai_edit: there is no PRO/STANDARD exemption. An
+    avatar is per-scene GPU spend rather than an LLM call, so every plan draws
+    from the same ``ai_edit_credits`` pool. Do not "fix" this to match its
+    sibling — the divergence is the point.
+    """
+    return (payer.ai_edit_credits or 0) >= scene_count * AVATAR_CREDIT_COST_PER_SCENE
+
+
+def consume_avatar_credits(payer: User, scene_count: int) -> None:
+    """Spend the credits for a batch of ``scene_count`` avatars.
+
+    Charged for EVERY plan (see can_afford_avatars). Mutates the ORM object in
+    place; the caller owns the commit. Floored at zero and non-atomic, matching
+    consume_ai_edit — a concurrent read-modify-write could under-charge, which is
+    pre-existing accepted behaviour here rather than something introduced.
+    """
+    payer.ai_edit_credits = max(
+        0, (payer.ai_edit_credits or 0) - scene_count * AVATAR_CREDIT_COST_PER_SCENE
+    )
+
+
 def is_owner(project: Project, user: User) -> bool:
     return project.user_id == user.id
 

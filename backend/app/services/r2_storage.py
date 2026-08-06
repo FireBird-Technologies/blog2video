@@ -83,6 +83,11 @@ def audio_key(user_id: int, project_id: int, filename: str) -> str:
     return f"{_prefix()}users/{user_id}/projects/{project_id}/audio/{filename}"
 
 
+def avatar_key(user_id: int, project_id: int, filename: str) -> str:
+    """R2 object key for a project talking-head avatar clip."""
+    return f"{_prefix()}users/{user_id}/projects/{project_id}/avatars/{filename}"
+
+
 def video_key(user_id: int, project_id: int) -> str:
     """R2 object key for a project's rendered video (legacy — same key every time)."""
     return f"{_prefix()}users/{user_id}/projects/{project_id}/output/video.mp4"
@@ -237,6 +242,12 @@ def upload_project_audio(user_id: int, project_id: int, local_path: str, filenam
     """Upload a project audio file to R2. Returns the public URL."""
     key = audio_key(user_id, project_id, filename)
     return upload_file(local_path, key, content_type="audio/mpeg")
+
+
+def upload_project_avatar(user_id: int, project_id: int, local_path: str, filename: str) -> str:
+    """Upload a project talking-head avatar clip to R2. Returns the public URL."""
+    key = avatar_key(user_id, project_id, filename)
+    return upload_file(local_path, key, content_type="video/mp4")
 
 
 def upload_project_video(user_id: int, project_id: int, local_path: str) -> str:

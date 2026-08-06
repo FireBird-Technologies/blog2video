@@ -1,6 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback, Fragment } from "react";
 import type { MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent, ReactNode, CSSProperties } from "react";
 import ReactDOM from "react-dom";
+import SceneAvatarSection from "./SceneAvatarSection";
 import {
   Scene,
   Project,
@@ -2642,7 +2643,7 @@ export function SceneEditModalDemo({
   );
 }
 
-type ManualTab = "settings" | "props" | "chartdata";
+type ManualTab = "settings" | "props" | "chartdata" | "avatar";
 
 function ManualTabCard({
   title,
@@ -6114,6 +6115,46 @@ export default function SceneEditModal({
                   </p>
                 );
               })()}
+              </ManualTabCard>
+
+              <ManualTabCard
+                title="Avatar"
+                open={openManualTab === "avatar"}
+                onToggle={() => setOpenManualTab(openManualTab === "avatar" ? null : "avatar")}
+              >
+                <SceneAvatarSection
+                  projectId={project.id}
+                  sceneId={scene.id}
+                  sceneOrder={scene.order}
+                  hasVoiceover={!!scene.voiceover_path}
+                  hasAvatar={!!scene.avatar_video_path}
+                  avatarPreset={scene.avatar_preset}
+                  hasMatte={!!scene.has_matte}
+                  customPortraitUrl={project.avatar_custom_image_url}
+                  aspectRatio={project.aspect_ratio}
+                  project={project}
+                  sceneFocus={{
+                    x: scene.avatar_focus_x,
+                    y: scene.avatar_focus_y,
+                    zoom: scene.avatar_zoom,
+                  }}
+                  sceneAppearance={{
+                    shape: scene.avatar_shape ?? null,
+                    size: scene.avatar_size ?? null,
+                    position: scene.avatar_position ?? null,
+                    bg: scene.avatar_bg ?? null,
+                    opacity: scene.avatar_opacity ?? null,
+                  }}
+                  projectAppearance={{
+                    shape: project.avatar_shape ?? "circle",
+                    size: project.avatar_size ?? 0.16,
+                    position: project.avatar_position ?? "bottom_left",
+                    bg: project.avatar_bg ?? null,
+                    opacity: project.avatar_opacity ?? 1,
+                  }}
+                  onChanged={onSaved}
+                  onGoToNarration={() => setOpenManualTab("settings")}
+                />
               </ManualTabCard>
 
               <div>
