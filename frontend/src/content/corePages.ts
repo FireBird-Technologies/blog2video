@@ -506,41 +506,107 @@ export const coreCommercialPages: MarketingPage[] = [
   }),
   createPage({
     path: "/pdf-to-video",
-    title: "PDF To Video Converter for Educators and Researchers",
+    title: "AI PDF to Video Generator — Narrated Explainers From Documents",
     description:
-      "Turn PDFs into narrated videos with scenes, diagrams, and educational templates built for explainers.",
+      "Turn a PDF into a narrated AI video with real scenes, diagrams, and voiceover — not a page-by-page slideshow. Built for whitepapers, lesson notes, and research summaries.",
     eyebrow: "Document workflow",
-    heroTitle: "Turn PDFs into video explainers without manually rebuilding the deck",
+    heroTitle: "Turn a PDF into a narrated explainer, not a slideshow of its pages",
     heroDescription:
-      "Blog2Video supports PDF-based workflows for educators, researchers, and teams who already publish structured material and want it in video format.",
+      "Most PDF-to-video tools photograph each page and call it a video. Blog2Video reads the document's structure and rebuilds it as narrated scenes with text sized for a screen, so the result is actually watchable.",
     category: "commercial",
-    primaryKeyword: "pdf to video",
-    keywordVariant: "convert pdf to video",
+    primaryKeyword: "pdf to video ai",
+    keywordVariant: "ai pdf to video generator",
+    badges: ["AI narration", "Scene-by-scene rebuild", "Educational templates"],
     proofPoints: [
-      "Useful for whitepapers, lesson notes, research summaries, and guides.",
-      "Preserves educational structure better than generic AI video generation.",
-      "Lets you repurpose static PDF content into YouTube-ready assets.",
+      "Rebuilds the document as scenes with narration instead of showing shrunken PDF pages.",
+      "Handles whitepapers, lesson notes, research summaries, and guides.",
+      "Exports to YouTube, Shorts, and LinkedIn from one source document.",
     ],
     sections: [
       {
-        title: "Strong fit for educational content",
+        title: "Why page-by-page conversion produces unwatchable video",
         body: [
-          "PDF workflows often break inside lightweight content tools because the original context disappears. Blog2Video keeps the educational arc intact and turns it into a readable scene sequence.",
+          "A PDF page is designed for a reader holding it at arm's length, at roughly A4 proportions, with body text around 11pt. A video frame is 16:9, watched from across a room or on a phone. When a converter drops that page into a video frame unchanged, the body text lands at the visual equivalent of about 4pt. It is technically a video and practically unreadable.",
+          "The second problem is pacing. A slideshow converter gives every page the same number of seconds, whether it holds a single chart or six paragraphs of dense argument. Viewers spend three seconds staring at a title page and then get three seconds to absorb a methodology section.",
+        ],
+      },
+      {
+        title: "What a structural rebuild does differently",
+        body: [
+          "Blog2Video parses the document rather than photographing it. Headings become scene boundaries, body copy becomes narration, and lists, tables, and figures become layouts designed to be legible at video sizes. A section that needs 40 seconds gets 40 seconds; a title page gets four.",
+          "The narration is generated from the document's actual text, so the video says what the PDF says. Nothing is invented to fill time, and the argument arrives in the order the author wrote it.",
+        ],
+        bullets: [
+          "Headings and sections define scene structure and pacing.",
+          "Figures and tables are re-laid out for legibility, not scaled down.",
+          "Narration is grounded in the document text rather than a generic script.",
+          "Output lengths and aspect ratios are set per channel.",
+        ],
+      },
+      {
+        title: "Where this works well",
+        body: [
+          "Educators converting lesson notes and course readings into material students will actually finish. Researchers turning a paper into a summary explainer for a general audience. Consultants and analysts giving a whitepaper a second life as a video that circulates on LinkedIn instead of sitting behind a download form.",
+          "The common thread is that the source document already has a logical structure worth preserving. Scanned PDFs without a text layer are the main exception — with no text to parse, there is nothing to rebuild, so run those through OCR first.",
+        ],
+      },
+      {
+        title: "Getting started",
+        body: [
+          "Upload the PDF on the create step, pick a template and voice, and review the scenes Blog2Video generates before rendering. DOCX and PPTX go through the same workflow, so a deck and its accompanying write-up can both become video without changing tools.",
         ],
       },
     ],
+    cta: {
+      title: "Turn your PDF into a narrated video",
+      body:
+        "Upload a whitepaper, lesson plan, report, or research summary and get a narrated explainer with scenes and templates — not a slideshow of shrunken pages.",
+      primaryLabel: "Upload a PDF",
+      primaryHref: "/dashboard?mode=upload",
+      secondaryLabel: "See pricing",
+      secondaryHref: "/pricing",
+    },
     recommendedTemplate: "whiteboard",
     recommendedTemplateReason:
       "Whiteboard is the best default for PDFs because it supports teaching-oriented structure, diagrams, and accessible pacing.",
-    faq: createFaq(
-      "PDF to video conversion",
-      "Educators, consultants, and researchers",
-      "Blog2Video is designed to keep the logic and readability of structured documents instead of flattening them into generic narration."
-    ),
+    faq: [
+      {
+        question: "How is this different from a free PDF to video converter?",
+        answer:
+          "Most free converters turn each PDF page into a timed frame, so the video shows your pages as silent images at whatever size they scale to. Blog2Video reads the document's structure and rebuilds it as narrated scenes with text sized for video, which is why the output is watchable rather than just technically a video file.",
+      },
+      {
+        question: "Does the video read my PDF word for word?",
+        answer:
+          "No. Reading a document aloud verbatim produces narration that is far too dense for video, because written prose assumes a reader who can re-read a sentence. The narration is condensed from your text while staying grounded in it, so the claims and the order are yours.",
+      },
+      {
+        question: "What kinds of PDFs work best?",
+        answer:
+          "Documents with clear structure — headings, sections, lists, labelled figures. Whitepapers, lesson notes, research summaries, reports, and guides all convert well. Scanned PDFs without a text layer will not, since there is no text to parse.",
+      },
+      {
+        question: "Can I edit the scenes after generation?",
+        answer:
+          "Yes. Every scene, its narration, and its layout can be edited before rendering, so you can cut a section, rewrite a line, or reorder the sequence without regenerating the whole video.",
+      },
+      {
+        question: "How long is the finished video?",
+        answer:
+          "It depends on the source document and the length you target. A 10-page whitepaper typically becomes a three to six minute explainer, or a 60-second short if you set it to summarise aggressively.",
+      },
+      {
+        question: "Can I make vertical video for Shorts and Reels?",
+        answer:
+          "Yes. The same document can render to 16:9 for YouTube and LinkedIn or 9:16 for Shorts, Reels, and TikTok, with layouts adjusted for each rather than cropped.",
+      },
+    ],
     relatedPaths: [
+      "/tools/pdf-to-video-converter",
       "/docx-to-video",
       "/pptx-to-video",
       "/for-educators",
+      "/blogs/how-to-convert-pdf-into-video",
       "/blogs/pdf-to-video-fastest-workflow-for-educators",
     ],
   }),

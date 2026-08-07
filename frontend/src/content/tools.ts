@@ -967,6 +967,105 @@ export const tools: ToolDefinition[] = [
       "/tools/video-script-generator",
     ],
   },
+  {
+    slug: "pdf-to-video-converter",
+    path: "/tools/pdf-to-video-converter",
+    title: "PDF to Video Converter — Free AI Tool",
+    description:
+      "Convert a PDF into a narrated AI video free. Drop in your document and Blog2Video rebuilds it as scenes with voiceover and templates — not a silent page slideshow.",
+    eyebrow: "Free Converter",
+    heroTitle: "Convert a PDF into a narrated video, free.",
+    heroDescription:
+      "Drop in your PDF and Blog2Video reads its structure, then rebuilds it as a narrated video with scenes, voiceover, and designed templates. Free account, no credit card.",
+    category: "generator",
+    icon: "PV",
+    primaryKeyword: "pdf to video",
+    keywordVariant: "convert pdf to video free",
+    badges: ["Free account", "AI narration", "PDF, DOCX, PPTX"],
+    proofPoints: [
+      "Rebuilds the document as narrated scenes rather than photographing each page.",
+      "Renders 16:9 for YouTube and LinkedIn or 9:16 for Shorts, Reels, and TikTok.",
+      "Free to start with no credit card — PDF, DOCX, and PPTX all supported.",
+    ],
+    sections: [
+      {
+        title: "How to convert a PDF to video",
+        body: [
+          "Drop your PDF onto the converter or pick it from your file browser, then sign in with Google to continue. You land on the upload step of the create flow, where you select the document and choose how the video should look.",
+          "Blog2Video parses the document rather than screenshotting it. Headings become scene boundaries, body copy becomes narration, and figures and tables are re-laid out at sizes that stay readable on a phone. You review the generated scenes, adjust anything that needs it, and render.",
+        ],
+        bullets: [
+          "Drop in a PDF, DOCX, or PPTX and sign in with a free account.",
+          "Pick a template, voice, and output length.",
+          "Review the generated scenes and narration, then render the video.",
+        ],
+      },
+      {
+        title: "Why page-by-page converters produce unwatchable video",
+        body: [
+          "Most free PDF-to-video tools turn each page into a timed frame. That sounds like a conversion, but a PDF page is designed for a reader holding it at arm's length with body text around 11pt. Dropped into a 16:9 video frame unchanged, that text lands at the visual equivalent of roughly 4pt — technically a video, practically unreadable.",
+          "Pacing breaks too. A page slideshow gives every page the same few seconds whether it holds one chart or six paragraphs of dense argument, so viewers stare at a title page and then get three seconds to absorb a methodology section.",
+        ],
+      },
+      {
+        title: "What a structural rebuild does instead",
+        body: [
+          "Because the document is parsed rather than photographed, each section gets the time it actually needs and the text is re-typeset for a screen. A section carrying a real argument gets forty seconds; a title page gets four.",
+          "The narration is generated from the document's own text, so the video says what the PDF says. Nothing is invented to fill time, and the argument arrives in the order the author wrote it.",
+        ],
+      },
+      {
+        title: "What converts well",
+        body: [
+          "Documents with clear structure — headings, sections, lists, labelled figures. Whitepapers, lesson notes, research summaries, reports, and guides all convert well, because there is a logical spine worth preserving.",
+          "Scanned PDFs without a text layer will not convert, since there is no text to parse. Run those through OCR first.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Is this PDF to video converter free?",
+        answer:
+          "Yes — converting runs on a free Blog2Video account with no credit card required. You sign in with Google, and free accounts include video generation so you can convert a document and see the result before deciding on a paid plan.",
+      },
+      {
+        question: "Why do I need to sign in?",
+        answer:
+          "The conversion parses your document and generates narration and rendered video on our servers, which is work tied to an account. Signing in also means your projects are saved, so you can come back and edit scenes or re-render rather than starting over.",
+      },
+      {
+        question: "Do I get a slideshow of my PDF pages?",
+        answer:
+          "No, and that is the point. Page-by-page converters produce silent video of shrunken, unreadable pages. Blog2Video reads the document structure and rebuilds it as narrated scenes with text sized for video.",
+      },
+      {
+        question: "What file types can I convert?",
+        answer:
+          "PDF, DOCX, and PPTX are all supported, along with Markdown and plain text. You can also paste a URL instead of uploading if the content is already published online.",
+      },
+      {
+        question: "How long is the finished video?",
+        answer:
+          "It depends on the source document and the length you target. A 10-page whitepaper typically becomes a three to six minute explainer, or a 60-second short if you set it to summarise aggressively.",
+      },
+      {
+        question: "Can I make vertical video for Shorts and Reels?",
+        answer:
+          "Yes. The same document renders to 16:9 for YouTube and LinkedIn or 9:16 for Shorts, Reels, and TikTok, with layouts adjusted for each format rather than cropped.",
+      },
+      {
+        question: "Can I edit the video after it is generated?",
+        answer:
+          "Yes. Every scene, its narration, and its layout can be edited before rendering, so you can cut a section, rewrite a line, or reorder the sequence without regenerating the whole video.",
+      },
+    ],
+    relatedPaths: [
+      "/pdf-to-video",
+      "/blogs/how-to-convert-pdf-into-video",
+      "/tools/video-length-calculator",
+      "/pptx-to-video",
+    ],
+  },
 ];
 
 export function getTool(slug: string) {

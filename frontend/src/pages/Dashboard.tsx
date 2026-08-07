@@ -105,6 +105,12 @@ export default function Dashboard() {
   const isPro = isPaidPlan(user?.plan);
   const templatesRequested = searchParams.get("tab") === "templates";
   const voicesRequested = searchParams.get("tab") === "voices";
+  /** Document landing pages (/pdf-to-video, /docx-to-video, …) deep-link here with ?mode=upload. */
+  const requestedMode = searchParams.get("mode");
+  const initialFormMode =
+    requestedMode === "upload" || requestedMode === "bulk" || requestedMode === "url"
+      ? requestedMode
+      : undefined;
   const [activeTab, setActiveTab] = useState<"projects" | "templates" | "voices">(
     voicesRequested ? "voices" : templatesRequested ? "templates" : "projects"
   );
@@ -463,7 +469,7 @@ export default function Dashboard() {
 
           {/* Inline form (same fields, not a modal) */}
           <div className="glass-card p-7">
-            <BlogUrlForm onSubmit={handleCreate} onSubmitBulk={handleCreateBulk} onExtraOptionsChange={setExtraCreateOptions} loading={creating} />
+            <BlogUrlForm onSubmit={handleCreate} onSubmitBulk={handleCreateBulk} onExtraOptionsChange={setExtraCreateOptions} loading={creating} initialMode={initialFormMode} />
           </div>
 
           {/* Upgrade nudge */}
@@ -566,6 +572,7 @@ export default function Dashboard() {
           onClose={() => { setShowModal(false); setBlogFormInitialGenre(undefined); }}
           onDismissFlow={() => { setShowModal(false); setBlogFormInitialGenre(undefined); }}
           initialGenre={blogFormInitialGenre}
+          initialMode={initialFormMode}
         />
       )}
 

@@ -91,6 +91,12 @@ export interface BlogPost {
   title: string;
   description: string;
   category: string;
+  /**
+   * Set when this post covers the same search intent as another post and should
+   * consolidate its ranking signals onto it. Emits a cross-URL canonical and
+   * drops the post from the sitemap.
+   */
+  canonicalPath?: string;
   heroImage?: string;
   heroImageAlt?: string;
   publishedAt: string;

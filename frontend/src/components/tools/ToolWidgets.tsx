@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import PdfToVideoConverter from "./PdfToVideoConverter";
 import StockVisualizer from "./StockVisualizer";
 import SubstackValuationTool from "./SubstackValuationTool";
 import { Link } from "react-router-dom";
@@ -2072,6 +2073,8 @@ export function ToolWidget({ slug }: ToolWidgetProps) {
       return <VideoLengthCalculatorWidget />;
     case "book-cover-generator":
       return <BookCoverGeneratorWidget />;
+    case "pdf-to-video-converter":
+      return <PdfToVideoConverter />;
     default:
       return null;
   }

@@ -215,6 +215,8 @@ interface Props {
   demoMode?: BlogUrlFormDemoMode;
   /** Pre-select a genre filter when step 2 opens (e.g. GENRE_CRAFTED to show Designer Templates). */
   initialGenre?: string;
+  /** Open the form on a specific source tab. Used by document landing pages that deep-link to upload. */
+  initialMode?: "url" | "upload" | "bulk";
 }
 
 const MAX_UPLOAD_FILES = 5;
@@ -749,7 +751,7 @@ function getFileExtension(s: string): string | null {
   }
 }
 
-export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChange, loading, asModal, onClose, onDismissFlow, demoMode, initialGenre }: Props) {
+export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChange, loading, asModal, onClose, onDismissFlow, demoMode, initialGenre, initialMode }: Props) {
   const { user } = useAuth();
   const { showError } = useErrorModal();
   const navigate = useNavigate();
@@ -767,7 +769,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
   }, [demoMode?.step]);
 
   // Step 1 — input
-  const [mode, setMode] = useState<"url" | "upload" | "bulk">("url");
+  const [mode, setMode] = useState<"url" | "upload" | "bulk">(
+    initialMode === "bulk" && !onSubmitBulk ? "url" : (initialMode ?? "url")
+  );
   const [urls, setUrls] = useState<string[]>([""]);
   const [name, setName] = useState("");
   const [docFiles, setDocFiles] = useState<File[]>([]);
