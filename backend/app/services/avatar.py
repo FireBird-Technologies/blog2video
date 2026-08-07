@@ -36,6 +36,7 @@ import logging
 import os
 import time
 from dataclasses import dataclass
+from datetime import datetime
 
 import requests
 
@@ -166,33 +167,181 @@ def _read_project_custom_image(project_id: int) -> str | None:
         return None
 
 
+def voiceover_r2_url(scene, db) -> str | None:
+    """The R2 URL of ``scene``'s voiceover mp3, or None.
+
+    Scenes have no FK to their audio Asset — the link is the FILENAME, exactly
+    the join _read_matte_inputs uses for the AVATAR asset. Kept public because
+    the enqueue endpoint needs the same lookup to decide whether a scene is
+    renderable before charging for it.
+    """
+    if not scene or not scene.voiceover_path:
+        return None
+    asset = (
+        db.query(Asset)
+        .filter(
+            Asset.project_id == scene.project_id,
+            Asset.asset_type == AssetType.AUDIO,
+            Asset.filename == os.path.basename(scene.voiceover_path),
+        )
+        .first()
+    )
+    return asset.r2_url if asset else None
+
+
+def ensure_local_voiceover(voiceover_path: str | None, r2_url: str | None) -> str | None:
+    """Local path to the scene's voiceover, re-downloading from R2 if needed.
+
+    MEDIA_DIR is container-local and ephemeral (on HF Spaces it is /tmp), so the
+    mp3 written by a previous container is simply gone after a restart while the
+    DB still records its path. R2 is the durable copy, so a missing local file is
+    a CACHE MISS, not missing audio — treating it as the latter is what rejected
+    a whole paid batch with "this scene has no voiceover yet".
+
+    Returns the usable path, or None only when the audio exists nowhere.
+    """
+    if voiceover_path and os.path.exists(voiceover_path):
+        return voiceover_path
+    if not voiceover_path or not r2_url:
+        return None
+    try:
+        os.makedirs(os.path.dirname(voiceover_path), exist_ok=True)
+        with requests.get(r2_url, timeout=60, stream=True) as resp:
+            resp.raise_for_status()
+            with open(voiceover_path, "wb") as f:
+                for chunk in resp.iter_content(chunk_size=8192):
+                    f.write(chunk)
+        return voiceover_path
+    except Exception as e:
+        logger.warning("[AVATAR] Could not fetch voiceover from R2 (%s): %s", r2_url, e)
+        return None
+
+
+@dataclass
+class RenderPayload:
+    """What one /render call came back with.
+
+    ``mp4`` is always present on success. ``mov``/``webm`` are the transparent
+    cutouts the service produced inline; they are None when matting was disabled,
+    when the service is an older deployment that only knows how to return an mp4,
+    or when the matte failed — in which case ``matte_error`` says why so it can be
+    recorded against the scene.
+    """
+
+    mp4: bytes
+    mov: bytes | None = None
+    webm: bytes | None = None
+    matte_error: str | None = None
+    timings: dict | None = None
+
+
+def _parse_render_response(resp) -> RenderPayload:
+    """Decode a /render response into its (up to) three files.
+
+    TWO SHAPES ARE ACCEPTED, deliberately:
+
+      - ``multipart/form-data`` with parts named video/matte/preview — the current
+        service, which mattes inline (see modal-service/omniavatar/app.py).
+      - a bare ``video/mp4`` body — what /render returned before inline matting,
+        and what it still returns when matting is off or has failed.
+
+    The fallback is not just politeness: the backend and the Modal service deploy
+    SEPARATELY, so either can be newer than the other for a while. A backend that
+    could only parse multipart would break every render the moment it shipped
+    ahead of the service.
+    """
+    content_type = (resp.headers.get("content-type") or "").lower()
+    matte_error = resp.headers.get("X-Matte-Error")
+    timings = {
+        k: resp.headers[k]
+        for k in (
+            "X-Render-Seconds", "X-Render-Gpu-Seconds", "X-Render-Wall-Seconds",
+            "X-Matte-Seconds", "X-Matte-Explode-Seconds", "X-Matte-Rembg-Seconds",
+            "X-Matte-Prores-Seconds", "X-Matte-Webm-Seconds", "X-Matte-Frames",
+        )
+        if k in resp.headers
+    }
+
+    if not content_type.startswith("multipart/"):
+        return RenderPayload(
+            mp4=resp.content, matte_error=matte_error, timings=timings
+        )
+
+    # Parsed with the stdlib `email` package rather than a new dependency, mirroring
+    # the hand-rolled encoder on the service side.
+    import email
+
+    raw = b"Content-Type: " + content_type.encode() + b"\r\n\r\n" + resp.content
+    message = email.message_from_bytes(raw)
+    parts: dict[str, bytes] = {}
+    for part in message.walk():
+        if part.is_multipart():
+            continue
+        name = part.get_param("name", header="content-disposition")
+        payload = part.get_payload(decode=True)
+        if name and payload:
+            parts[name] = payload
+
+    return RenderPayload(
+        mp4=parts.get("video", b""),
+        mov=parts.get("matte"),
+        webm=parts.get("preview"),
+        matte_error=matte_error,
+        timings=timings,
+    )
+
+
 def _read_scene_render_inputs(scene_id: int):
     """Short-lived DB read: pull the fields we need for the render, then CLOSE the
     session immediately. We must NOT hold a DB connection across the ~2.6-min
     render — Neon (serverless Postgres) drops idle SSL connections, so a session
     held open across the render is dead by commit time
     ('SSL connection has been closed unexpectedly'). Returns
-    (order, voiceover_path, user_id) or None."""
+    (order, voiceover_path, voiceover_r2_url, user_id) or None.
+
+    The R2 url comes back WITH the path because the caller may need to rehydrate
+    the file, and by then this session is closed."""
     db = SessionLocal()
     try:
         scene = db.query(Scene).filter(Scene.id == scene_id).first()
         if not scene:
             return None
         user_id = scene.project.user_id if scene.project else None
-        return (scene.order, scene.voiceover_path, user_id)
+        return (scene.order, scene.voiceover_path, voiceover_r2_url(scene, db), user_id)
     finally:
         db.close()
 
 
 def _persist_render_result(scene_id: int, project_id: int, order: int,
-                           output_path: str, filename: str, r2_key_val, r2_url_val) -> None:
+                           output_path: str, filename: str, r2_key_val, r2_url_val,
+                           matte_files: list | None = None,
+                           matte_path: str | None = None,
+                           matte_error: str | None = None) -> None:
     """FRESH short-lived session for the writes AFTER the render finished, so the
-    connection is new (not one that went stale during the long render)."""
+    connection is new (not one that went stale during the long render).
+
+    Writes the mp4 and — when the service matted inline — its transparent twins, in
+    ONE transaction: two Scene columns and up to three AssetType.AVATAR rows. The
+    .webm goes in the same asset bucket as the others, differing only by filename
+    and codec, so the frontend's existing filename-based Asset lookup finds it for
+    free.
+
+    ``matte_error`` is recorded ON THE SCENE rather than on the job row, because
+    the JOB SUCCEEDED — the render is there and the video will play; only the
+    cutout is missing. Storing it here is what lets the UI explain why a background
+    change is unavailable and offer the manual re-matte, instead of the failure
+    existing only in a server log. It is cleared on success so a later re-matte
+    wipes it.
+    """
     db = SessionLocal()
     try:
         scene = db.query(Scene).filter(Scene.id == scene_id).first()
         if scene:
             scene.avatar_video_path = output_path
+            if matte_path:
+                scene.avatar_matte_path = matte_path
+            scene.avatar_matte_error = matte_error
+            scene.avatar_matte_failed_at = datetime.utcnow() if matte_error else None
         db.add(Asset(
             project_id=project_id,
             asset_type=AssetType.AVATAR,
@@ -202,6 +351,16 @@ def _persist_render_result(scene_id: int, project_id: int, order: int,
             r2_key=r2_key_val,
             r2_url=r2_url_val,
         ))
+        for path, fname, key, url in (matte_files or []):
+            db.add(Asset(
+                project_id=project_id,
+                asset_type=AssetType.AVATAR,
+                original_url=None,
+                local_path=path,
+                filename=fname,
+                r2_key=key,
+                r2_url=url,
+            ))
         db.commit()
     finally:
         db.close()
@@ -230,8 +389,11 @@ def _render_and_store(
         inputs = _read_scene_render_inputs(scene_id)
         if not inputs:
             return AvatarRenderError("That scene no longer exists.", retryable=False)
-        order, voiceover_path, user_id = inputs
-        if not voiceover_path or not os.path.exists(voiceover_path):
+        order, voiceover_path, voiceover_url, user_id = inputs
+        # Cache miss on a fresh container is normal — rehydrate from R2 rather
+        # than declaring the audio missing (see ensure_local_voiceover).
+        voiceover_path = ensure_local_voiceover(voiceover_path, voiceover_url)
+        if not voiceover_path:
             return AvatarRenderError("This scene's voiceover audio is missing.", retryable=False)
 
         render_id = f"{project_id}_{order}"
@@ -270,6 +432,9 @@ def _render_and_store(
                     "avatar_id": preset,
                     "render_id": render_id,
                     "prompt": DEFAULT_AVATAR_PROMPT,
+                    # Sent explicitly so matting can be turned off from backend
+                    # config alone, with no redeploy of the Modal service.
+                    "inline_matte": str(settings.AVATAR_INLINE_MATTE).lower(),
                 },
                 files=files,
                 timeout=settings.AVATAR_RENDER_TIMEOUT_SECONDS,
@@ -312,7 +477,7 @@ def _render_and_store(
                 order, resp.status_code, resp.text[:300],
                 extra={"project_id": project_id},
             )
-            if resp.status_code in (500, 502, 503, 504):
+            if resp.status_code in (408, 409, 425, 429, 500, 502, 503, 504):
                 # A 500 here is virtually always the Space itself crashing (an
                 # unhandled exception in the Gradio app, an OOM, a container
                 # fault) rather than us sending a malformed request — the body
@@ -320,6 +485,20 @@ def _render_and_store(
                 # JSON error from our /render handler. That is the same kind
                 # of transient, environment-level failure as 502/503/504, so
                 # it gets the same retry treatment rather than failing fast.
+                #
+                # The 4xx codes here are transient for the SAME reason, even
+                # though 4xx normally means "our request was bad". The provider
+                # scales to zero, so a render posted into a cold start can be
+                # dropped at the edge before the container is ready:
+                #   408 — Modal returns "Missing request, possibly due to expiry
+                #         or cancellation" when it drops a queued request. It is
+                #         about the request's LIFECYCLE, not its content, so the
+                #         identical payload succeeds once a container is warm.
+                #   409/425 — raced against a container still starting up.
+                #   429 — provider concurrency cap (AVATAR_PROVIDER_MAX_CONTAINERS);
+                #         the queue should wait its turn, not kill the job.
+                # Treating these as permanent stranded scenes on a dead end that
+                # a plain retry would have cleared.
                 return AvatarRenderError(
                     "The avatar service is unavailable right now. Please try again.",
                     retryable=True,
@@ -328,8 +507,8 @@ def _render_and_store(
                 f"The avatar service rejected the render (HTTP {resp.status_code}): {detail}",
                 retryable=False,
             )
-        mp4_bytes = resp.content
-        if not mp4_bytes:
+        payload = _parse_render_response(resp)
+        if not payload.mp4:
             logger.warning(
                 "[AVATAR] Scene %s render returned empty body — skipping.",
                 order, extra={"project_id": project_id},
@@ -343,37 +522,95 @@ def _render_and_store(
         filename = f"avatar_scene_{order}.mp4"
         output_path = os.path.join(avatar_dir, filename)
         with open(output_path, "wb") as f:
-            f.write(mp4_bytes)
+            f.write(payload.mp4)
 
-        r2_key_val = None
-        r2_url_val = None
-        if r2_storage.is_r2_configured() and user_id is not None:
+        def _upload(path: str, fname: str):
+            """R2 upload for one file, isolated so a single failure cannot cost the
+            others. Returns (key, url), either of which may be None — R2 is the
+            durable copy, but a local file plus a DB row is still a usable result."""
+            if not (r2_storage.is_r2_configured() and user_id is not None):
+                return None, None
             try:
-                r2_url_val = r2_storage.upload_project_avatar(
-                    user_id, project_id, output_path, filename
-                )
-                r2_key_val = r2_storage.avatar_key(user_id, project_id, filename)
+                url = r2_storage.upload_project_avatar(user_id, project_id, path, fname)
+                return r2_storage.avatar_key(user_id, project_id, fname), url
             except Exception as e:
                 logger.warning(
-                    "[AVATAR] R2 upload failed for %s: %s", filename, e,
+                    "[AVATAR] R2 upload failed for %s: %s", fname, e,
                     extra={"project_id": project_id},
                 )
+                return None, None
+
+        r2_key_val, r2_url_val = _upload(output_path, filename)
+
+        # The transparent twins, when the service matted inline. Filenames match
+        # what avatar_matte.py has always produced, so every existing lookup that
+        # joins an Asset by filename keeps working unchanged — and the fallback
+        # matte job overwrites exactly these paths on a re-matte.
+        matte_files: list = []
+        matte_path = None
+        for data, ext, mime_label in (
+            (payload.mov, "mov", "matte"),
+            (payload.webm, "webm", "preview"),
+        ):
+            if not data:
+                continue
+            fname = f"avatar_scene_{order}.{ext}"
+            path = os.path.join(avatar_dir, fname)
+            with open(path, "wb") as f:
+                f.write(data)
+            key, url = _upload(path, fname)
+            matte_files.append((path, fname, key, url))
+            if ext == "mov":
+                # Only the ProRes is recorded on the scene; the webm is preview-only
+                # and is found by filename off the same asset bucket.
+                matte_path = path
+
+        if payload.matte_error:
+            logger.warning(
+                "[AVATAR] Scene %s rendered OK but the inline matte failed: %s",
+                order, payload.matte_error, extra={"project_id": project_id},
+            )
 
         # --- FRESH session for the writes ---
-        _persist_render_result(scene_id, project_id, order, output_path, filename, r2_key_val, r2_url_val)
+        _persist_render_result(
+            scene_id, project_id, order, output_path, filename,
+            r2_key_val, r2_url_val,
+            matte_files=matte_files,
+            matte_path=matte_path,
+            matte_error=payload.matte_error,
+        )
         # elapsed is measured HERE (wall time of the whole call, including upload
-        # and download); the X-Render-* headers are the Space's own view of where
-        # that time went. Logging both makes network vs GPU time distinguishable.
+        # and download); the X-Render-*/X-Matte-* headers are the SERVICE's own view
+        # of where that time went. Logging both is what makes network vs GPU vs
+        # matte-CPU time distinguishable — the matte stages in particular are the
+        # ones that hold a billed GPU without being able to use it.
         elapsed = time.time() - started_at
+        h = resp.headers
+        matte_note = ""
+        if payload.matte_error:
+            matte_note = f" matte=FAILED({payload.matte_error[:80]})"
+        elif payload.mov:
+            matte_note = (
+                f" matte={h.get('X-Matte-Seconds', '?')}s"
+                f" [explode={h.get('X-Matte-Explode-Seconds', '?')}s"
+                f" rembg={h.get('X-Matte-Rembg-Seconds', '?')}s"
+                f" prores={h.get('X-Matte-Prores-Seconds', '?')}s"
+                f" webm={h.get('X-Matte-Webm-Seconds', '?')}s"
+                f" {h.get('X-Matte-Frames', '?')} frames]"
+                f" ({len(payload.mov)}B mov, {len(payload.webm or b'')}B webm)"
+            )
+        else:
+            matte_note = " matte=off"
         logger.info(
             "[AVATAR] Scene %s: avatar clip saved in %.1fs "
-            "(space total=%ss queue=%ss gpu=%ss audio=%ss) (%d bytes)%s",
+            "(service total=%ss queue=%ss gpu=%ss audio=%ss wall=%ss) (%d bytes)%s%s",
             order, elapsed,
-            resp.headers.get("X-Render-Seconds", "?"),
-            resp.headers.get("X-Render-Queue-Seconds", "?"),
-            resp.headers.get("X-Render-Gpu-Seconds", "?"),
-            resp.headers.get("X-Render-Audio-Seconds", "?"),
-            len(mp4_bytes), " + R2" if r2_url_val else "",
+            h.get("X-Render-Seconds", "?"),
+            h.get("X-Render-Queue-Seconds", "?"),
+            h.get("X-Render-Gpu-Seconds", "?"),
+            h.get("X-Render-Audio-Seconds", "?"),
+            h.get("X-Render-Wall-Seconds", "?"),
+            len(payload.mp4), matte_note, " + R2" if r2_url_val else "",
             extra={"project_id": project_id},
         )
         return None

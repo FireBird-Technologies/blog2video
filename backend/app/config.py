@@ -162,7 +162,19 @@ class Settings(BaseSettings):
     # (AVATAR_SERVICE_HF_TOKEN, AVATAR_PREPARE_TIMEOUT_SECONDS) were deleted on
     # 2026-08-07, so there is no longer a rollback target in this repo.
     AVATAR_ENABLED: bool = True
-    AVATAR_SERVICE_URL: str = "https://h-raheel622--omniavatar-omniavatarservice-web.modal.run"
+    # Modal workspace `hstyle622`. The default is the REAL deployment, not a
+    # placeholder, so a container without the env var set still reaches a live
+    # service — the previous default pointed at the h-raheel622 workspace, which
+    # is disabled and answers every request with
+    # "modal-http: workspace ... is disabled".
+    #
+    # Redeploying to a different Modal workspace CHANGES THIS HOSTNAME (it is
+    # derived from the workspace name), so it has to be updated here and in every
+    # deployed environment's env.
+    AVATAR_SERVICE_URL: str = os.environ.get(
+        "AVATAR_SERVICE_URL",
+        "https://hstyle622--omniavatar-omniavatarservice-web.modal.run",
+    )
     AVATAR_SERVICE_SECRET: str = ""       # X-Avatar-Key shared secret (matches the provider's secret)
     # How long a job will wait for a cold service to come up before giving up.
     # A Modal cold start is a container schedule plus mounting the weights Volume.
@@ -215,6 +227,21 @@ class Settings(BaseSettings):
     # Generate click resets it (see routers/projects.py), so a user is never
     # locked out of a scene that would now succeed.
     AVATAR_MAX_ATTEMPTS: int = int(os.environ.get("AVATAR_MAX_ATTEMPTS", "3"))
+
+    # Cut the presenter out INSIDE the Modal render container, so /render returns
+    # the mp4 plus its transparent .mov/.webm twins in one call and a scene's
+    # cutout exists the moment its render lands (no second job, no second wait, and
+    # nothing heavy on this server's CPU).
+    #
+    # Sent to the service as a form field on every render rather than being baked
+    # into the service's own default, so matting can be switched off from backend
+    # config alone — no Modal redeploy — if it ever destabilises renders or the
+    # extra GPU-seconds need pausing. Turning it off falls back to the old shape:
+    # /render returns a bare mp4 and cutouts come from the AVATAR_MATTE_CONCURRENCY
+    # job below.
+    AVATAR_INLINE_MATTE: bool = (
+        os.environ.get("AVATAR_INLINE_MATTE", "true").lower() != "false"
+    )
     # Per-render client timeout. L40S ≈ 158s/render at 25fps/10-steps; fps=30 adds
     # ~20% → ~190s. 600s leaves generous headroom for a queued/cold render.
     # A warm render is ~3 min, but this call can also QUEUE behind a cold start

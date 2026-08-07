@@ -152,7 +152,12 @@ def public_url(key: str) -> str:
 # ─── Upload ───────────────────────────────────────────────────
 
 
-def upload_file(local_path: str, key: str, content_type: Optional[str] = None) -> str:
+def upload_file(
+    local_path: str,
+    key: str,
+    content_type: Optional[str] = None,
+    as_attachment: bool = False,
+) -> str:
     """
     Upload a local file to R2.
 
@@ -160,6 +165,11 @@ def upload_file(local_path: str, key: str, content_type: Optional[str] = None) -
         local_path: Path to the local file.
         key: The R2 object key (e.g. "projects/42/images/img_abc123.webp").
         content_type: Optional MIME type. Auto-detected if not provided.
+        as_attachment: Serve with `Content-Disposition: attachment` so browsers
+            DOWNLOAD the object instead of playing it inline. True only for the
+            finished project video, which is the one thing a user saves to disk.
+            Everything else — avatar clips, their transparent twins, portraits —
+            is consumed inline by a <video>/<img> tag and must NOT carry it.
 
     Returns:
         The public URL of the uploaded object.
@@ -181,7 +191,14 @@ def upload_file(local_path: str, key: str, content_type: Optional[str] = None) -
     # Set cache and disposition headers based on file type
     if content_type.startswith("video/"):
         extra_args["CacheControl"] = "public, max-age=86400"  # 1 day
-        extra_args["ContentDisposition"] = "attachment; filename=\"video.mp4\""
+        # Opt-in, NOT blanket on video/*. This header used to be attached to
+        # every video, which broke the two clips a browser has to play inline:
+        # the .webm avatar preview (fetched by a <video> tag — a VP9-with-alpha
+        # stream marked "attachment" simply will not render) and, once the
+        # content-type bug below was fixed, anything else served from the same
+        # helper.
+        if as_attachment:
+            extra_args["ContentDisposition"] = "attachment; filename=\"video.mp4\""
     elif content_type.startswith("image/"):
         extra_args["CacheControl"] = "public, max-age=604800"  # 7 days
     elif content_type.startswith("audio/"):
@@ -258,15 +275,34 @@ def upload_project_audio(user_id: int, project_id: int, local_path: str, filenam
 
 
 def upload_project_avatar(user_id: int, project_id: int, local_path: str, filename: str) -> str:
-    """Upload a project talking-head avatar clip to R2. Returns the public URL."""
+    """Upload a project avatar file to R2. Returns the public URL.
+
+    Deliberately does NOT pass a content_type: this one helper carries FOUR
+    different formats, and passing anything here suppresses upload_file's
+    mimetypes.guess_type fallback for all of them.
+
+        .mp4   the rendered clip
+        .mov   the transparent ProRes 4444 cutout (services/avatar.py)
+        .webm  the browser-preview cutout, played by a <video> tag
+        .png/.jpg/.webp  the user's custom presenter portrait, shown in an <img>
+
+    It used to hardcode "video/mp4", so every cutout and every portrait was
+    stored mislabelled — a portrait served as video/mp4 is a broken <img>, and a
+    VP9-with-alpha stream served as video/mp4 silently fails to decode. guess_type
+    resolves all four correctly, and returns video/mp4 for .mp4, so the original
+    path is unchanged.
+
+    Objects already in R2 keep their stored metadata; they self-heal when a scene
+    is re-matted or a portrait re-uploaded to the same key.
+    """
     key = avatar_key(user_id, project_id, filename)
-    return upload_file(local_path, key, content_type="video/mp4")
+    return upload_file(local_path, key)
 
 
 def upload_project_video(user_id: int, project_id: int, local_path: str) -> str:
     """Upload a rendered video to R2. Uses legacy key (same URL every time). Prefer upload_project_video_versioned for re-renders."""
     key = video_key(user_id, project_id)
-    return upload_file(local_path, key, content_type="video/mp4")
+    return upload_file(local_path, key, content_type="video/mp4", as_attachment=True)
 
 
 def upload_project_video_versioned(
@@ -275,7 +311,7 @@ def upload_project_video_versioned(
     """Upload a rendered video to R2 with a versioned key. Returns the public URL.
     Each render (including re-render) should use a new version so the URL changes and caches serve fresh content."""
     key = video_key_versioned(user_id, project_id, version)
-    return upload_file(local_path, key, content_type="video/mp4")
+    return upload_file(local_path, key, content_type="video/mp4", as_attachment=True)
 
 
 def upload_render_progress_json(user_id: int, project_id: int, payload: dict) -> str:

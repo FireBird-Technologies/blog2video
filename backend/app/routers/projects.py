@@ -4742,6 +4742,25 @@ def _assert_can_generate_avatar(payer: User, project: Project, db: Session) -> N
     return None
 
 
+def _scene_has_voiceover(scene: Scene, db: Session) -> bool:
+    """Does this scene have narration an avatar could be lip-synced to?
+
+    True when the mp3 is on local disk OR still in R2. The R2 half matters
+    because MEDIA_DIR is container-local and ephemeral: after a restart the DB
+    still records a /tmp path whose file is gone, and a disk-only check reads
+    that as "no voiceover" for every scene in the project. The render path
+    rehydrates from R2 anyway (services/avatar.ensure_local_voiceover), so
+    refusing here would reject work that would in fact succeed.
+    """
+    from app.services.avatar import voiceover_r2_url
+
+    if not scene.voiceover_path:
+        return False
+    if os.path.exists(scene.voiceover_path):
+        return True
+    return bool(voiceover_r2_url(scene, db))
+
+
 def _active_avatar_job(scene_id: int, db: Session) -> SceneAvatarJob | None:
     """The scene's in-flight job, or None. A job whose heartbeat has gone stale is
     treated as dead so a stuck render can never permanently block the button.
@@ -4822,6 +4841,7 @@ def reap_orphaned_avatar_jobs() -> None:
 def authorize_avatar_batch(
     project_id: int,
     scene_ids: list[int] = Body(..., embed=True),
+    avatar_preset: Optional[str] = Body(None, embed=True),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -4852,6 +4872,7 @@ def authorize_avatar_batch(
         consume_avatar_credits,
         project_owner,
     )
+    from app.services.avatar_presets import normalize_preset
 
     project = _get_user_project(project_id, user.id, db)
 
@@ -4868,6 +4889,10 @@ def authorize_avatar_batch(
         )
         .all()
     )
+    # …and whose audio is actually reachable. A path column that points at a
+    # file no container still has is not something we may charge for: that is
+    # exactly how a paid batch used to end up with zero renders.
+    eligible = [s for s in eligible if _scene_has_voiceover(s, db)]
     eligible_ids = {s.id for s in eligible}
     requested = [sid for sid in dict.fromkeys(scene_ids) if sid in eligible_ids]
 
@@ -4901,14 +4926,45 @@ def authorize_avatar_batch(
             ),
         )
 
+    # The charge and the work it pays for are ONE transaction. They used to be
+    # separate requests — this endpoint charged, and the browser then fanned out
+    # a POST per scene to create the rows. Any failure in that second step (a
+    # stale MEDIA_DIR path 400ing every scene, a closed laptop, a dropped
+    # connection) left the user charged with nothing queued and no way to tell,
+    # because the boolean below is the only thing the UI resumes from. Creating
+    # the rows here removes the window: the credits cannot land without them.
+    scene_by_id = {s.id: s for s in eligible}
+    jobs = []
+    for sid in requested:
+        # A scene already in flight keeps its existing job rather than gaining a
+        # duplicate — same guard the per-scene endpoint applies.
+        if _active_avatar_job(sid, db):
+            continue
+        scene = scene_by_id[sid]
+        scene.avatar_preset = normalize_preset(avatar_preset or scene.avatar_preset)
+        jobs.append(SceneAvatarJob(
+            project_id=project_id,
+            scene_id=sid,
+            user_id=user.id,
+            status="queued",
+            kind="render",
+            avatar_preset=scene.avatar_preset,
+            # An explicit, paid-for request starts with a full retry budget.
+            attempt_count=0,
+        ))
+
     consume_avatar_credits(payer, len(requested))
     # Persisted so a mid-batch reload doesn't re-show the paywall.
     project.avatar_batch_unlocked = True
+    db.add_all(jobs)
     db.commit()
+    # The in-process dispatcher (services/avatar_queue) claims queued rows on its
+    # own ~2s tick, so nothing further has to be triggered from here.
 
     return {
         "authorized": True,
         "scene_ids": requested,
+        "job_ids": [j.id for j in jobs],
         "credits_charged": cost,
         "credits_remaining": payer.ai_edit_credits or 0,
     }
@@ -4944,7 +5000,10 @@ def generate_scene_avatar(
         raise HTTPException(status_code=404, detail="Scene not found")
 
     # An avatar is lip-synced to the scene's voiceover — no audio, nothing to sync.
-    if not scene.voiceover_path or not os.path.exists(scene.voiceover_path):
+    # Checked against R2 as well as disk: MEDIA_DIR is ephemeral, so a bare
+    # os.path.exists rejects scenes whose audio is merely not cached on THIS
+    # container (see services/avatar.ensure_local_voiceover).
+    if not _scene_has_voiceover(scene, db):
         raise HTTPException(
             status_code=400,
             detail="This scene has no voiceover yet. Add narration audio first.",
@@ -5041,6 +5100,12 @@ def get_scene_avatar_status(
         "duration_seconds": job.duration_seconds if job else None,
         "has_avatar": bool(scene.avatar_video_path),
         "has_matte": bool(scene.avatar_matte_path),
+        # Why the cutout is missing on a scene that DID render. The render job is
+        # `completed` in that case — only the transparent twin failed — so this is
+        # the one place the UI can learn that a background change is unavailable
+        # and offer the manual "Remove them now" retry instead of silently
+        # ignoring the user's colour choice.
+        "matte_error": scene.avatar_matte_error,
         "avatar_preset": scene.avatar_preset,
         # None once running/terminal — only meaningful while still queued.
         "queue_position": _queue_position(job, db) if job else None,
@@ -5079,6 +5144,13 @@ async def delete_scene_avatar(
     # leaving it would make a later background change silently reuse a stale cutout
     # of an avatar the scene no longer has.
     scene.avatar_matte_path = None
+    # ...and so must the record of WHY a cutout is missing, for the same reason:
+    # it describes a clip that no longer exists. Left set, avatar-status would
+    # report has_matte=false beside an error about the deleted avatar, and
+    # avatar_matte_failed_at would keep this scene out of the automatic matte
+    # sweeps even after a fresh, healthy render.
+    scene.avatar_matte_error = None
+    scene.avatar_matte_failed_at = None
     db.commit()
     db.refresh(scene)
 
@@ -5150,6 +5222,16 @@ def matte_scene_avatar(
             detail="This scene's avatar is already being processed.",
         )
 
+    # Clear any recorded failure as the retry is enqueued. BOTH columns, not just
+    # the message: avatar_matte_failed_at is what the automatic sweeps back off
+    # on (see _scene_needs_matte), so leaving it set would exclude this scene from
+    # them forever even after the retry succeeds. Clearing it here is also what
+    # stops the UI showing the previous error while the new job sits queued.
+    #
+    # This endpoint is the ONE deliberately unfiltered matte path: a user asking
+    # for a specific scene again must never be refused because it failed before.
+    scene.avatar_matte_error = None
+    scene.avatar_matte_failed_at = None
     job_id = _queue_matte(project_id, scene, user.id, db)
     db.commit()
     return {"started": True, "queued": True, "job_id": job_id}
@@ -5169,19 +5251,29 @@ def matte_all_scene_avatars(
     enqueued jobs share the same system-wide FIFO queue as render jobs, so they
     run one at a time rather than all at once.
     """
+    from app.services.avatar_queue import scene_needs_matte_filters
+
     _get_user_project(project_id, user.id, db)
+    # Same predicate the post-render chain uses, so the two automatic sweeps can
+    # never disagree about which scenes are owed a cutout. Notably this EXCLUDES
+    # scenes whose inline matte already failed (avatar_matte_failed_at set) —
+    # those are deterministic failures and re-running them in bulk just burns
+    # queue slots. The per-scene "Remove them now" button stays unfiltered for
+    # exactly that case. See avatar_queue.scene_needs_matte_filters.
     scenes = (
         db.query(Scene)
         .filter(
             Scene.project_id == project_id,
             Scene.is_active.is_(True),
-            Scene.avatar_video_path.isnot(None),
-            Scene.avatar_matte_path.is_(None),
+            *scene_needs_matte_filters(),
         )
         .order_by(Scene.order)
         .all()
     )
 
+    # `started` counts what was actually ENQUEUED, not what was swept: _queue_matte
+    # returns None for a scene that already has an active job, so the number the
+    # UI shows never claims work that was skipped.
     job_ids = [
         job_id
         for scene in scenes
@@ -5285,7 +5377,7 @@ def get_avatar_progress(
     array lengths — a scene whose enqueue POST silently failed has no job row,
     which used to make that comparison never come true and spin forever.
     """
-    _get_user_project(project_id, user.id, db)
+    project = _get_user_project(project_id, user.id, db)
 
     scene_ids_with_jobs = (
         db.query(SceneAvatarJob.scene_id)
@@ -5350,6 +5442,15 @@ def get_avatar_progress(
         batch_status = "settled"
     else:
         batch_status = "idle"
+
+    # Release the paywall latch once nothing is in flight. The flag exists so a
+    # mid-batch reload doesn't re-show the paywall, but it used to be set and
+    # never cleared — so every later page load resumed into the "generating"
+    # view, which is why a batch that produced no rows showed a spinner forever.
+    # Clearing it on a quiet project makes the flag mean "a batch is live" again.
+    if batch_status != "running" and project.avatar_batch_unlocked:
+        project.avatar_batch_unlocked = False
+        db.commit()
 
     return {
         "scenes": scenes_out,

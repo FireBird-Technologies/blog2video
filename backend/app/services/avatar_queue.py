@@ -374,12 +374,13 @@ def _run_scene_avatar_job(
             # job as terminal. Autoflush would do it anyway; being explicit means
             # the chain can't silently stop firing if that default ever changes.
             db.flush()
-        # If this was the project's LAST render and a background was chosen, the
-        # cutouts are owed now. Queued on THIS session rather than opening
-        # another: a render completing is the moment the pool is most contended
-        # (every concurrent job lands its own result around the same time), and
-        # a second connection here competes with _persist_render_result for the
-        # last free slot.
+        # Cutouts are NOT chained here any more: /render now returns the
+        # transparent twins alongside the mp4 (matting runs inside the Modal
+        # container — see modal-service/omniavatar/app.py), so by the time a render
+        # job lands its scene already has them. The chain is kept as a BACKSTOP for
+        # the cases inline matting cannot cover: renders made before this existed,
+        # AVATAR_INLINE_MATTE turned off, and scenes whose inline matte failed and
+        # recorded an avatar_matte_error. It no-ops when there is nothing owed.
         if not error:
             _chain_matte_if_background_chosen(project_id, db)
         db.commit()
@@ -407,6 +408,35 @@ def _run_scene_avatar_job(
             logger.exception("[AVATAR_QUEUE] Job %s status write failed", job_id)
     finally:
         db.close()
+
+
+def scene_needs_matte_filters():
+    """SQLAlchemy predicates selecting scenes an AUTOMATIC sweep should matte.
+
+    Shared by the two automatic sweeps — the post-render chain below and
+    ``/avatar-matte-all`` in routers/projects.py — so they can never drift apart
+    on which scenes they consider owed a cutout.
+
+    ``avatar_matte_failed_at`` is the backoff, and it is the reason this helper
+    exists. Matting now happens INLINE inside the Modal render container and gets
+    exactly ONE attempt there, because its failures are deterministic (a bad
+    frame, a codec, an ffmpeg crash) rather than transient. Selecting purely on
+    ``avatar_matte_path IS NULL`` therefore meant a scene that fails matting is
+    re-enqueued every single time any other render in the project completes — an
+    unbounded retry loop burning a queue slot and CPU to fail identically.
+
+    Deliberately NOT applied to the single-scene ``/avatar-matte`` endpoint: that
+    one is a human explicitly asking again, and must always be allowed. It clears
+    both columns as it enqueues, so a scene that succeeds on manual retry rejoins
+    these sweeps (avatar_matte.py does the same on success).
+    """
+    from app.models.scene import Scene
+
+    return (
+        Scene.avatar_video_path.isnot(None),
+        Scene.avatar_matte_path.is_(None),
+        Scene.avatar_matte_failed_at.is_(None),
+    )
 
 
 def _chain_matte_if_background_chosen(project_id: int, db) -> None:
@@ -469,13 +499,15 @@ def _chain_matte_if_background_chosen(project_id: int, db) -> None:
 
         # Sweep every scene that now has a clip but no cutout — including ones
         # whose renders finished earlier in this batch and were skipped above.
+        # Scenes whose inline matte already failed are excluded by
+        # scene_needs_matte_filters (see its docstring): retrying them here would
+        # loop, and the user can still retry one explicitly from the UI.
         scenes = (
             db.query(Scene)
             .filter(
                 Scene.project_id == project_id,
                 Scene.is_active.is_(True),
-                Scene.avatar_video_path.isnot(None),
-                Scene.avatar_matte_path.is_(None),
+                *scene_needs_matte_filters(),
             )
             .order_by(Scene.order)
             .all()

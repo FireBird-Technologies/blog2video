@@ -33,6 +33,23 @@ class Scene(Base):
     # fall back to. NULL means "not matted yet" — a custom background needs a matte
     # job first.
     avatar_matte_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    # Why this scene has no cutout, when the render itself succeeded.
+    #
+    # The matte now runs inside the Modal render container (see the /render
+    # docstring in modal-service/omniavatar/app.py), and it gets exactly ONE
+    # attempt: its failures are deterministic (ffmpeg, a bad frame, a codec), so a
+    # retry would just hold a billed GPU to fail identically. A failure therefore
+    # has to be RECORDED rather than retried.
+    #
+    # It lives on the Scene and not on the job row because the JOB SUCCEEDED — the
+    # mp4 is there and the video plays; only the transparent twin is missing. That
+    # is what lets the UI explain why a background change is unavailable and offer
+    # the manual re-matte, instead of the reason existing only in a server log.
+    # Both columns are cleared on a successful (re-)matte.
+    avatar_matte_error: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    avatar_matte_failed_at: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True
+    )
     # Per-scene avatar presentation, mirroring Project.avatar_shape / _size /
     # _position / _bg / _opacity.
     #

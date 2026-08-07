@@ -17,12 +17,27 @@ not:
     background costs ~1 min of CPU instead of a ~3.5 min re-render, and makes no
     Space call at all.
 
-WHEN IT RUNS
-Never automatically. Generation (services/avatar.py) is untouched and still produces
-a plain mp4. This runs only when the user asks for a non-default background, as a
-SceneAvatarJob(kind="matte"). The mp4 is READ, never modified: TWO transparent
-twins are written beside it (see step 3 below for why there are two), so the
-original always survives for re-matting or fallback.
+WHEN IT RUNS — THIS IS NOW THE FALLBACK PATH, NOT THE MAIN ONE
+Matting normally happens INSIDE the Modal render container, so /render returns the
+mp4 and both transparent twins in one call and a scene's cutout exists the moment
+its render lands (see modal-service/omniavatar/app.py's _matte_mp4, which is a port
+of the pipeline below — keep the two in sync).
+
+This module still runs, as a SceneAvatarJob(kind="matte"), for the cases inline
+matting cannot cover:
+  - clips rendered BEFORE inline matting existed;
+  - AVATAR_INLINE_MATTE turned off;
+  - a scene whose inline matte failed (Scene.avatar_matte_error records why — the
+    inline matte gets exactly one attempt, because its failures are deterministic);
+  - a deliberate re-matte, e.g. after changing the model.
+
+Because it runs in the API process it is still the one thing here that can OOM the
+server (see _peak_rss_mb), which is why AVATAR_MATTE_CONCURRENCY stays at 1. That
+is now a rare path rather than the routine one.
+
+The mp4 is READ, never modified: TWO transparent twins are written beside it (see
+step 3 below for why there are two), so the original always survives for re-matting
+or fallback.
 
 Cost is paid once per scene. Once a scene has a matte, further colour changes are a
 CSS repaint in the overlay — no job at all.
@@ -123,6 +138,12 @@ def _persist_matte_result(scene_id: int, project_id: int, output_path: str,
         scene = db.query(Scene).filter(Scene.id == scene_id).first()
         if scene:
             scene.avatar_matte_path = output_path
+            # This path is now the BACKSTOP for a failed inline matte (see the
+            # module docstring), so a success here must clear the reason the
+            # inline one failed — otherwise the UI would keep offering a retry
+            # for a cutout that already exists.
+            scene.avatar_matte_error = None
+            scene.avatar_matte_failed_at = None
         db.add(Asset(
             project_id=project_id,
             asset_type=AssetType.AVATAR,

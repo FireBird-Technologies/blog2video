@@ -30,7 +30,7 @@ Column semantics are preserved exactly, because the application depends on them:
     "legacy row / not yet a terminal failure" and the queue reads it that way.
 
 Revision ID: avatar_feature_squash
-Revises: tool_usage_counters
+Revises: support_escalation_count
 Create Date: 2026-08-07
 """
 
@@ -43,7 +43,7 @@ import sqlalchemy as sa
 # revision identifiers, used by Alembic.
 # NB: alembic_version.version_num is varchar(32) in this DB — keep ids short.
 revision: str = "avatar_feature_squash"
-down_revision: Union[str, None] = "tool_usage_counters"
+down_revision: Union[str, None] = "support_escalation_count"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

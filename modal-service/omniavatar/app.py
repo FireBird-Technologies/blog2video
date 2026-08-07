@@ -2,11 +2,30 @@
 OmniAvatar-1.3B on Modal serverless GPU — an alternative INFERENCE PROVIDER to the
 HuggingFace Space at hf-space/omniavatar-service/.
 
-Endpoint contract is IDENTICAL to the Space (GET /ping, POST /prepare, POST /render,
-GET /lastlog), so backend/app/services/avatar.py works against either host with no
-code change — only AVATAR_SERVICE_URL differs. This file exists to measure cold-start
-and generation time against the Space's recorded baseline; the app integration is
-deliberately untouched.
+Endpoints: GET /ping, POST /render, GET /lastlog. (/prepare is gone — see the note
+above the /render handler.)
+
+/render RETURNS THE CUTOUTS TOO. Matting used to run on the app server's CPU after
+the render came back, as a second job the user waited for separately. It now runs
+HERE, in this container, immediately after inference — so one call returns the mp4
+plus its transparent ProRes .mov and WebM .webm twins, and a scene's cutout exists
+the moment its render lands. Three reasons it belongs here rather than on the
+backend:
+
+  - the backend's matte was the only heavy CPU/memory work in the API process, and
+    it OOM-killed a 16GB box mid-batch, taking every user's requests with it;
+  - it was capped at AVATAR_MATTE_CONCURRENCY=1, so five scenes matted one after
+    another (~5 min) instead of in parallel;
+  - this container already has the mp4 on local disk and ffmpeg installed, so
+    there is no second dispatch, no second cold start and no R2 round trip.
+
+The cost is honest and accepted: the L40S stays billed through ~30-60s of matte
+work it cannot accelerate (only rembg uses the GPU — NVENC encodes neither ProRes
+nor VP9), roughly +18% per scene. See the `inline_matte` form field for the
+off-switch, and _matte_mp4 for the pipeline.
+
+backend/app/services/avatar_matte.py stays as the FALLBACK path: re-mattes, clips
+rendered before this existed, and scenes whose inline matte failed.
 
 Two structural differences from the Space version, both deliberate:
 
@@ -120,7 +139,67 @@ image = (
     # OmniAvatar's attention has a native FA3 -> FA2 -> SageAttention -> SDPA fallback
     # chain. Without this it lands on SDPA, the slowest option. Plain pip, no CUDA build.
     .pip_install("sageattention")
-    .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
+    # ── Matting (see _matte_mp4) ──────────────────────────────────────────────────
+    # rembg cuts the presenter out of the rendered mp4 IN THIS CONTAINER, so the
+    # backend never runs it.
+    #
+    # VERSION IS NOT THE SAME AS THE BACKEND'S, and cannot be: the backend pins
+    # rembg[cpu]==2.0.77, but every rembg >=2.0.70 declares Requires-Python >=3.11
+    # while this image is Python 3.10 — fixed by OmniAvatar's cu124 torch stack, not
+    # a free choice. 2.0.69 is the newest release that installs here. Both versions
+    # run the SAME u2netp ONNX weights through the same `remove()` call, so mattes
+    # from the two paths are equivalent in practice; if that ever stops being true,
+    # this pin is the first thing to check.
+    #
+    # onnxruntime-GPU, not the [cpu] extra the backend uses: the L40S is already
+    # attached and paid for, and rembg is the ONE matte stage that can use it
+    # (ffmpeg explode / ProRes / VP9 are all CPU-bound — NVENC encodes neither
+    # ProRes nor VP9). --no-deps on rembg keeps its own `onnxruntime` requirement
+    # from pulling the CPU build back in on top of the GPU one.
+    #
+    # 1.19.2, NOT 1.18.x. This pin is CUDA-VERSION-SENSITIVE and gets no error if
+    # you get it wrong — onnxruntime-gpu <=1.18 links against CUDA 11, so on this
+    # CUDA 12.4 image it fails to load libonnxruntime_providers_cuda.so
+    # ("libcublasLt.so.11: cannot open shared object file") and rembg SILENTLY
+    # FALLS BACK TO CPU. Everything still works, just at ~0.1s/frame instead of
+    # ~0.01s, which is exactly the cost this whole block exists to avoid. 1.19 is
+    # the first release built against CUDA 12.
+    #
+    # This is unrelated to OmniAvatar itself, which runs on torch and never
+    # touches onnxruntime — the only shared surface is numpy, re-pinned below.
+    # _get_rembg_session asserts the CUDA provider actually loaded, so a future
+    # mismatch fails loudly instead of quietly halving the matte's speed.
+    .pip_install("onnxruntime-gpu==1.19.2")
+    .pip_install("rembg==2.0.69", extra_options="--no-deps")
+    # rembg's runtime deps, minus onnxruntime (installed above as the GPU build).
+    # Listed explicitly BECAUSE of --no-deps: pooch/pymatting/jsonschema are
+    # imported at `from rembg import ...` time, so a missing one is an ImportError
+    # on the first matte, not a warning.
+    .pip_install("pooch", "pymatting", "jsonschema", "scikit-image")
+    # numpy LAST and re-pinned: rembg's dependency tree (opencv, scikit-image,
+    # pymatting) will happily upgrade past OmniAvatar's 1.26.4 pin, which is the
+    # exact class of breakage the comment block above documents. Same defensive
+    # re-pin, same reason.
+    .pip_install("numpy==1.26.4")
+    # Bake the u2netp weights (~4.6MB) INTO the image. rembg otherwise fetches them
+    # from GitHub into ~/.u2net on first use — and with scaledown_window=2s /
+    # min_containers=0 essentially EVERY render is a cold container, so that would
+    # be a network round trip per render plus a hard failure whenever GitHub is
+    # unreachable. Downloading once at build time removes both.
+    # DOWNLOAD the weights only — do NOT construct a session here. Image builds run
+    # on a CPU-only builder with no GPU driver, and onnxruntime-gpu SEGFAULTS
+    # (exit 139) trying to initialise its CUDA provider there rather than failing
+    # over cleanly. Fetching the file with pooch is all this step needs to do; the
+    # session is built at runtime by _get_rembg_session, on a container that does
+    # have the L40S.
+    .run_commands(
+        "python -c \"import pooch, os; "
+        "os.makedirs('/root/.u2net', exist_ok=True); "
+        "pooch.retrieve("
+        "'https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx', "
+        "None, fname='u2netp.onnx', path='/root/.u2net')\""
+    )
+    .env({"HF_HUB_ENABLE_HF_TRANSFER": "1", "U2NET_HOME": "/root/.u2net"})
     .add_local_dir(
         os.path.join(os.path.dirname(__file__), "avatar_presets"),
         PRESETS_DIR,
@@ -182,6 +261,29 @@ DEFAULT_FPS = 30            # matches the 30fps Remotion composition
 # CPU offload — only needed if downgrading to a smaller card.
 _np_env = os.environ.get("AVATAR_NUM_PERSISTENT_PARAM_IN_DIT", "").strip()
 NUM_PERSISTENT_PARAM_IN_DIT = int(_np_env) if _np_env else None
+
+# ── Matting defaults ──────────────────────────────────────────────────────────────
+# u2netp is the lightweight u2net variant, chosen on MEASURED evidence in the
+# backend (see backend/app/services/avatar_matte.py's _REMBG_MODEL comment for the
+# numbers): 4.9x faster and 1.6x lighter than u2net_human_seg with no visible
+# difference in hair/beard/collar edges at the size an avatar overlay renders.
+# Keep this in sync with that constant — the inline matte and the fallback matte
+# job must produce identical output.
+REMBG_MODEL = "u2netp"
+
+# libvpx-vp9 speed knobs for the PREVIEW twin only.
+#   row-mt=1  — row-based multithreading. WITHOUT it libvpx can only split work
+#               across TILE COLUMNS, and at avatar resolution there is exactly one
+#               tile column, so the encode runs single-threaded no matter how many
+#               cores the container has.
+#   cpu-used=4 — speed/quality dial (0-8). The default 0 does an exhaustive motion
+#               search; 4 is the usual "good enough, much faster" point.
+#   threads    — row-mt cannot use cores libvpx does not know exist.
+# Safe here specifically because this file is preview-only (see _matte_mp4 step 4):
+# the ProRes that actually gets rendered is untouched by these.
+VP9_ROW_MT = "1"
+VP9_CPU_USED = os.environ.get("MATTE_VP9_CPU_USED", "4")
+VP9_THREADS = os.environ.get("MATTE_VP9_THREADS", "4")
 
 
 @app.function(
@@ -281,7 +383,26 @@ class OmniAvatarService:
                 f"weights missing from Volume: {missing}. "
                 f"Run `modal run app.py::download_weights` first."
             )
-        print(f">>> [setup] weights ready via {WEIGHTS_MOUNT} -> {WEIGHTS_DIR}", flush=True)
+        # numpy is the ONE package OmniAvatar and rembg both depend on, and
+        # OmniAvatar's 1.26.4 pin is load-bearing (see the image build comments).
+        # rembg's tree — opencv, scikit-image, pymatting — will happily upgrade
+        # past it, which is why the image re-pins numpy AFTER installing them.
+        # Asserting the result at boot rather than trusting the ordering: the
+        # CUDA-provider fallback already proved that a silent regression here is
+        # the expensive kind, costing a full render to notice.
+        import numpy
+
+        if numpy.__version__ != "1.26.4":
+            raise RuntimeError(
+                f"numpy is {numpy.__version__}, expected 1.26.4 — something in the "
+                f"rembg dependency tree upgraded it past OmniAvatar's pin. Check the "
+                f"pip_install ordering in this file's `image` definition."
+            )
+        print(
+            f">>> [setup] weights ready via {WEIGHTS_MOUNT} -> {WEIGHTS_DIR} "
+            f"(numpy {numpy.__version__})",
+            flush=True,
+        )
 
     @modal.asgi_app()
     def web(self):
@@ -289,6 +410,7 @@ class OmniAvatarService:
         import shutil
         import subprocess
         import time
+        import uuid
 
         from fastapi import FastAPI, File, Form, HTTPException, UploadFile
         from fastapi.responses import FileResponse, JSONResponse
@@ -299,6 +421,38 @@ class OmniAvatarService:
         SHARED_SECRET = os.environ.get("AVATAR_SERVICE_SECRET", "changeme-dev-secret")
 
         web_app = FastAPI()
+
+        # Built lazily and reused for the container's lifetime. Constructing a
+        # session loads the ONNX weights; doing that per frame (or even per render)
+        # would dominate the matte's runtime. A list is used as the cell because
+        # this closes over web()'s scope rather than module scope.
+        _rembg_session_cell = []
+
+        def _get_rembg_session():
+            if not _rembg_session_cell:
+                from rembg import new_session
+                t = time.time()
+                session = new_session(REMBG_MODEL)
+                _rembg_session_cell.append(session)
+
+                # Report which execution provider ACTUALLY got used, not which one
+                # we asked for. onnxruntime falls back to CPU silently when the
+                # CUDA provider cannot load (a CUDA 11 build on this CUDA 12 image
+                # does exactly that — see the onnxruntime-gpu pin), so without this
+                # line a matte quietly running ~10x slower looks identical in the
+                # logs to one on the GPU. It cost a full render to notice once.
+                try:
+                    providers = session.inner_session.get_providers()
+                except Exception:
+                    providers = ["<unknown>"]
+                on_gpu = any("CUDA" in p for p in providers)
+                print(
+                    f">>> [matte] rembg session ready ({REMBG_MODEL}) "
+                    f"in {time.time() - t:.1f}s providers={providers} "
+                    f"{'GPU' if on_gpu else 'CPU (!! CUDA provider did not load)'}",
+                    flush=True,
+                )
+            return _rembg_session_cell[0]
 
         @web_app.middleware("http")
         async def check_secret(request, call_next):
@@ -335,6 +489,221 @@ class OmniAvatarService:
                 return float(out.stdout.strip())
             except Exception:
                 return 0.0
+
+        def _multipart_response(parts, headers):
+            """Build a multipart/form-data body carrying several files.
+
+            Hand-rolled rather than pulling in requests_toolbelt: the body is a few
+            lines of well-specified framing (RFC 7578), and this image's dependency
+            list is load-bearing enough already (see the pin comments on `image`).
+            The backend parses it with the stdlib `email` package for the same
+            reason.
+
+            Files are read fully into memory. That is fine at these sizes — an mp4
+            plus its two cutouts for a ~10s clip — and the container is discarded
+            immediately after the response anyway.
+            """
+            from fastapi.responses import Response
+
+            boundary = f"----omniavatar{uuid.uuid4().hex}"
+            chunks = []
+            for name, filename, content_type, path in parts:
+                with open(path, "rb") as f:
+                    body = f.read()
+                chunks.append(
+                    f"--{boundary}\r\n"
+                    f'Content-Disposition: form-data; name="{name}"; '
+                    f'filename="{filename}"\r\n'
+                    f"Content-Type: {content_type}\r\n\r\n".encode()
+                )
+                chunks.append(body)
+                chunks.append(b"\r\n")
+            chunks.append(f"--{boundary}--\r\n".encode())
+            return Response(
+                content=b"".join(chunks),
+                media_type=f"multipart/form-data; boundary={boundary}",
+                headers=headers,
+            )
+
+        def _probe_fps(src):
+            """Source frame rate, so the matte plays at the same speed as the mp4.
+
+            Falls back to 25 rather than raising — a slightly wrong fps beats
+            losing the whole matte."""
+            try:
+                out = subprocess.run(
+                    ["ffprobe", "-v", "error", "-select_streams", "v:0",
+                     "-show_entries", "stream=r_frame_rate", "-of", "csv=p=0", src],
+                    capture_output=True, text=True, timeout=30,
+                ).stdout.strip()
+                # ffprobe reports a rational like "25/1"; ffmpeg accepts it as-is.
+                if out and "/" in out and not out.startswith("0"):
+                    return out
+            except Exception:
+                pass
+            return "25"
+
+        def _matte_mp4(mp4_path, work_dir, rid):
+            """Cut the presenter out of a rendered mp4 -> transparent .mov + .webm.
+
+            Returns (mov_path, webm_path, timings). RAISES on failure — the caller
+            wraps this so a matte failure never costs the render that already paid
+            for a GPU.
+
+            WHY TWO OUTPUT FILES. They are not redundant:
+
+              - RENDER needs ProRes 4444. VP9/WebM alpha does NOT survive a real
+                decode: confirmed with system ffmpeg (`-vf alphaextract` yields a
+                flat, non-varying mask even though the container claims
+                `alpha_mode=1`), and separately confirmed inside Remotion's own
+                compositor via a real render (solid black box, whatever WebM
+                encoding trick was used). ProRes 4444 is the only format verified
+                in this codebase to carry a REAL, VARYING alpha channel through an
+                encode -> decode round trip. It also requires `transparent` on the
+                `<OffthreadVideo>` that reads it (remotion-video/src/components/
+                AvatarOverlay.tsx) — without that prop even correct ProRes renders
+                as an opaque box, because Remotion's global config
+                (`Config.setVideoImageFormat("jpeg")`) has no alpha by default.
+
+              - PREVIEW needs WebM. Chromium's <video> element (used by the editor
+                Player, frontend/src/components/remotion/AvatarOverlay.tsx) has no
+                ProRes decoder at all. This twin is NOT expected to composite
+                pixel-perfectly with the ProRes render — it only has to look right
+                in a browser <video> tag.
+
+            Ported from backend/app/services/avatar_matte.py, which remains the
+            fallback path for re-mattes and for clips rendered before this existed.
+            """
+            from rembg import remove
+
+            fps = _probe_fps(mp4_path)
+            frames_dir = os.path.join(work_dir, "frames_in")
+            cut_dir = os.path.join(work_dir, "frames_out")
+            os.makedirs(frames_dir, exist_ok=True)
+            os.makedirs(cut_dir, exist_ok=True)
+
+            # 1. Explode to PNG frames.
+            t = time.time()
+            subprocess.run(
+                ["ffmpeg", "-y", "-i", mp4_path, os.path.join(frames_dir, "%06d.png")],
+                capture_output=True, timeout=600, check=True,
+            )
+            explode_s = time.time() - t
+            names = sorted(n for n in os.listdir(frames_dir) if n.endswith(".png"))
+            if not names:
+                raise RuntimeError("ffmpeg produced no frames from the rendered mp4")
+            # PNG is lossless: a few hundred frames is easily hundreds of MB, which
+            # matters as much as memory on a container with finite disk.
+            frames_mb = sum(
+                os.path.getsize(os.path.join(frames_dir, n)) for n in names
+            ) / (1024 * 1024)
+
+            # 2. Cut the presenter out of every frame. The session is built ONCE
+            #    (loading the ONNX weights per frame would dominate the runtime)
+            #    and reused for the container's lifetime.
+            t = time.time()
+            session = _get_rembg_session()
+            for name in names:
+                with open(os.path.join(frames_dir, name), "rb") as f:
+                    data = f.read()
+                cut = remove(data, session=session)
+                with open(os.path.join(cut_dir, name), "wb") as f:
+                    f.write(cut)
+            rembg_s = time.time() - t
+
+            # 3. ProRes 4444 — the file the final video render actually uses.
+            mov_path = os.path.join(work_dir, f"{rid}.mov")
+            t = time.time()
+            subprocess.run(
+                [
+                    "ffmpeg", "-y",
+                    "-framerate", fps,
+                    "-i", os.path.join(cut_dir, "%06d.png"),
+                    "-c:v", "prores_ks",
+                    "-profile:v", "4444",
+                    "-pix_fmt", "yuva444p10le",
+                    # Without this, prores_ks defaults to NEAR-LOSSLESS, which is
+                    # enormously wasteful here: the clip is 720x400, renders at
+                    # 16-32% of frame width, and the pipeline's final output is
+                    # h264 anyway — so the preserved detail is thrown away one
+                    # step later. The file, not the GPU, is the bottleneck: a 57.7MB
+                    # ProRes took ~890s to transfer against 370s of actual compute.
+                    #
+                    # MEASURED on a real 358-frame clip, re-encoding the lossless
+                    # original at several quantisers:
+                    #
+                    #   qscale   size     alpha PSNR   RGB PSNR
+                    #   (none)   57.7MB   —            —
+                    #   7        26.9MB   inf          59.2 dB
+                    #   9        24.8MB   inf          57.5 dB
+                    #   11       23.4MB   inf          56.0 dB   <- chosen
+                    #   13       22.3MB   inf          54.9 dB
+                    #
+                    # ALPHA IS BIT-IDENTICAL AT EVERY SETTING (mse 0.00, psnr inf
+                    # across all 300 compared frames): ProRes 4444 keeps the alpha
+                    # plane mathematically lossless and quantises only the colour
+                    # planes. So the obvious worry — quantisation fraying the hair
+                    # and collar edges into a halo — cannot happen here. Only the
+                    # colour is touched, and 56 dB is far past the ~40 dB usually
+                    # called visually lossless.
+                    #
+                    # 11 rather than 13 because the curve has flattened by then:
+                    # 13 saves ~1MB more for another 1 dB. Lower the number if the
+                    # roster ever gains a preset where colour fidelity matters more.
+                    "-qscale:v", "11",
+                    mov_path,
+                ],
+                capture_output=True, timeout=900, check=True,
+            )
+            prores_s = time.time() - t
+
+            # 4. WebM — browser-preview twin only.
+            #    -auto-alt-ref 0 is REQUIRED: with alt-ref frames enabled
+            #    libvpx-vp9 silently discards the alpha plane in some players.
+            webm_path = os.path.join(work_dir, f"{rid}.webm")
+            t = time.time()
+            subprocess.run(
+                [
+                    "ffmpeg", "-y",
+                    "-framerate", fps,
+                    "-i", os.path.join(cut_dir, "%06d.png"),
+                    "-c:v", "libvpx-vp9",
+                    "-pix_fmt", "yuva420p",
+                    "-auto-alt-ref", "0",
+                    "-b:v", "0", "-crf", "30",
+                    "-row-mt", VP9_ROW_MT,
+                    "-cpu-used", VP9_CPU_USED,
+                    "-threads", VP9_THREADS,
+                    webm_path,
+                ],
+                capture_output=True, timeout=900, check=True,
+            )
+            webm_s = time.time() - t
+
+            # The PNG working set is the largest thing on disk by far and is dead
+            # the moment both encodes are done. Drop it before the response streams
+            # the two videos back.
+            shutil.rmtree(frames_dir, ignore_errors=True)
+            shutil.rmtree(cut_dir, ignore_errors=True)
+
+            timings = {
+                "frames": len(names),
+                "frames_mb": frames_mb,
+                "explode_s": explode_s,
+                "rembg_s": rembg_s,
+                "prores_s": prores_s,
+                "webm_s": webm_s,
+                "total_s": explode_s + rembg_s + prores_s + webm_s,
+            }
+            print(
+                f">>> [matte] TIMING rid={rid} total={timings['total_s']:.1f}s "
+                f"explode={explode_s:.1f}s ({len(names)} frames, {frames_mb:.0f}MB) "
+                f"rembg={rembg_s:.1f}s ({rembg_s / max(len(names), 1):.3f}s/frame) "
+                f"prores={prores_s:.1f}s webm={webm_s:.1f}s "
+                f"size={os.path.getsize(mov_path)}B/{os.path.getsize(webm_path)}B",
+                flush=True,
+            )
+            return mov_path, webm_path, timings
 
         def _safe_render_id(raw):
             """Filesystem-safe token. Becomes the work-dir name AND the input-file
@@ -397,8 +766,26 @@ class OmniAvatarService:
             tea_cache: float = Form(DEFAULT_TEA_CACHE),
             seed: int = Form(DEFAULT_SEED),
             fps: int = Form(DEFAULT_FPS),
+            # Cut the presenter out in THIS container, right after inference, and
+            # return the transparent twins alongside the mp4. Defaults to on; the
+            # backend sends it explicitly (settings.AVATAR_INLINE_MATTE) so matting
+            # can be switched off without redeploying this service.
+            inline_matte: bool = Form(True),
         ):
-            """audio + avatar_id (+ optional inline portrait) -> lip-synced mp4 bytes."""
+            """audio + avatar_id (+ optional inline portrait) -> lip-synced mp4.
+
+            RESPONSE SHAPE. With inline_matte off (or when matting fails) this
+            returns the mp4 alone as video/mp4, exactly as it always did. With a
+            successful matte it returns multipart/form-data with three parts:
+
+                video   video/mp4         the render          (ALWAYS present)
+                matte   video/quicktime   ProRes 4444 cutout
+                preview video/webm        browser-preview cutout
+
+            Bytes, never paths: this container's filesystem is destroyed ~2s after
+            the response (scaledown_window), so a path here would be meaningless to
+            the caller. The backend constructs its own paths and uploads to R2.
+            """
             print(
                 f">>> [render] REQUEST avatar={avatar_id!r} render_id={render_id!r} "
                 f"steps={steps} fps={fps} gpu={GPU_TYPE} inline_image={image is not None}",
@@ -540,21 +927,93 @@ class OmniAvatarService:
                 flush=True,
             )
 
-            # Same headers as the Space, so the CLI test and any caller read timings
-            # identically across providers. queue is always 0 here: Modal gives each
-            # render its own container rather than queueing for a GPU slot.
-            return FileResponse(
-                output_path,
-                media_type="video/mp4",
-                filename=f"{rid}.mp4",
-                headers={
-                    "X-Render-Seconds": f"{total_s:.1f}",
-                    "X-Render-Queue-Seconds": "0.0",
-                    "X-Render-Gpu-Seconds": f"{gpu_s:.1f}",
-                    "X-Render-Audio-Seconds": f"{audio_s:.1f}",
-                    "X-Render-Id": rid,
-                    "X-Render-Provider": f"modal-{GPU_TYPE}",
-                },
+            # ── Matte, in this same container ─────────────────────────────────────
+            # WRAPPED, and deliberately WITHOUT a retry. The render above has
+            # already cost real GPU money; a matte that blows up must never take it
+            # down with it, so every failure degrades to "mp4 only" plus an
+            # X-Matte-Error the backend records against the scene.
+            #
+            # No retry because matte failures are DETERMINISTIC (a bad frame, a
+            # missing codec, an ffmpeg crash) — unlike render failures, which are
+            # usually transient cold-start/5xx and DO get retried by the caller.
+            # Retrying here would just hold an L40S for another ~30-60s to fail
+            # identically.
+            mov_path = webm_path = None
+            matte_timings = None
+            matte_error = None
+            matte_s = 0.0
+            if inline_matte:
+                t_matte = time.time()
+                try:
+                    mov_path, webm_path, matte_timings = _matte_mp4(
+                        output_path, work_dir, rid
+                    )
+                except Exception as e:
+                    mov_path = webm_path = None
+                    matte_error = f"{type(e).__name__}: {e}"[:400]
+                    print(
+                        f">>> [matte] FAILED rid={rid} after={time.time() - t_matte:.1f}s "
+                        f"{matte_error}",
+                        flush=True,
+                    )
+                matte_s = time.time() - t_matte
+
+            wall_s = time.time() - render_start
+            # gpu_billed is the HONEST number: the L40S is attached for the whole
+            # request, including the matte stages that cannot use it (ffmpeg and
+            # both encodes). Logging it separately is what makes the cost of
+            # inlining the matte visible rather than theoretical.
+            print(
+                f">>> [render] TOTAL rid={rid} render={total_s:.1f}s "
+                f"matte={matte_s:.1f}s wall={wall_s:.1f}s gpu_billed={wall_s:.1f}s"
+                + (" matte=SKIPPED" if not inline_matte else "")
+                + (" matte=FAILED" if matte_error else ""),
+                flush=True,
+            )
+
+            # Same X-Render-* headers as the Space, so the CLI test and any caller
+            # read timings identically across providers. queue is always 0 here:
+            # Modal gives each render its own container rather than queueing for a
+            # GPU slot.
+            headers = {
+                "X-Render-Seconds": f"{total_s:.1f}",
+                "X-Render-Queue-Seconds": "0.0",
+                "X-Render-Gpu-Seconds": f"{gpu_s:.1f}",
+                "X-Render-Audio-Seconds": f"{audio_s:.1f}",
+                "X-Render-Id": rid,
+                "X-Render-Provider": f"modal-{GPU_TYPE}",
+                "X-Render-Wall-Seconds": f"{wall_s:.1f}",
+            }
+            if matte_timings:
+                headers.update({
+                    "X-Matte-Seconds": f"{matte_s:.1f}",
+                    "X-Matte-Explode-Seconds": f"{matte_timings['explode_s']:.1f}",
+                    "X-Matte-Rembg-Seconds": f"{matte_timings['rembg_s']:.1f}",
+                    "X-Matte-Prores-Seconds": f"{matte_timings['prores_s']:.1f}",
+                    "X-Matte-Webm-Seconds": f"{matte_timings['webm_s']:.1f}",
+                    "X-Matte-Frames": str(matte_timings["frames"]),
+                })
+            if matte_error:
+                headers["X-Matte-Error"] = matte_error
+
+            # No matte (disabled or failed) -> the ORIGINAL single-file contract,
+            # byte for byte. An older backend that has not learned multipart yet
+            # keeps working, and so does the CLI test.
+            if not (mov_path and webm_path):
+                return FileResponse(
+                    output_path,
+                    media_type="video/mp4",
+                    filename=f"{rid}.mp4",
+                    headers=headers,
+                )
+
+            return _multipart_response(
+                [
+                    ("video", f"{rid}.mp4", "video/mp4", output_path),
+                    ("matte", f"{rid}.mov", "video/quicktime", mov_path),
+                    ("preview", f"{rid}.webm", "video/webm", webm_path),
+                ],
+                headers,
             )
 
         return web_app
