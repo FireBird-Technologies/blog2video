@@ -1340,9 +1340,22 @@ async def _try_assign_stock_clip_to_scene(
     orientation: str,
     loop: asyncio.AbstractEventLoop,
     used_generics: set[str] | None = None,
+    used_clip_ids: set[str] | None = None,
+    llm_query: str | None = None,
 ) -> bool:
     """Search, ingest, upload, and link one stock clip to a scene."""
-    query = (scene.title or scene.visual_description or "").strip()
+    from app.services.stock_relevance import build_scene_query
+
+    # Keyword extraction always runs: it is pure CPU over already-loaded fields,
+    # and its token list is what the local relevance ranker scores clips against.
+    # The LLM only replaces the *search* string.
+    keyword_query, scene_tokens = build_scene_query(scene)
+    query = (llm_query or "").strip() or keyword_query.strip()
+    logger.info(
+        "[STOCK_QUERY] project=%s scene=%s: title=%r -> query=%r (%s) tokens=%s",
+        project.id, scene.id, (scene.title or "")[:80], query,
+        "llm" if (llm_query or "").strip() else "keyword-fallback", scene_tokens[:8],
+    )
     if not query:
         logger.info(
             "[PIPELINE] project=%s scene=%s: no title/visual for stock search — skipping",
@@ -1364,7 +1377,9 @@ async def _try_assign_stock_clip_to_scene(
                 orientation=orientation,
                 loop=loop,
                 query=query,
+                scene_tokens=scene_tokens,
                 used_generics=used_generics,
+                used_clip_ids=used_clip_ids,
             ),
             timeout=STOCK_CLIP_ASSIGN_TIMEOUT_SECONDS,
         )
@@ -1391,7 +1406,9 @@ async def _try_assign_stock_clip_to_scene_impl(
     orientation: str,
     loop: asyncio.AbstractEventLoop,
     query: str,
+    scene_tokens: list[str] | None = None,
     used_generics: set[str] | None = None,
+    used_clip_ids: set[str] | None = None,
 ) -> bool:
     """Inner implementation for :func:`_try_assign_stock_clip_to_scene`."""
     from concurrent.futures import ThreadPoolExecutor
@@ -1408,8 +1425,18 @@ async def _try_assign_stock_clip_to_scene_impl(
 
     try:
         clip = await loop.run_in_executor(
-            None, lambda q=query: stock_footage.pick_top_for_query(q, orientation=orientation)
+            None,
+            lambda q=query: stock_footage.pick_best_for_scene(
+                q,
+                scene_tokens=scene_tokens,
+                orientation=orientation,
+                exclude_ids=used_clip_ids or set(),
+            ),
         )
+        if clip is not None and used_clip_ids is not None:
+            # Claim at selection, not after commit: a retry following a failed
+            # ingest must not re-pick the clip that just failed to download.
+            used_clip_ids.add(f"{clip.provider}:{clip.id}")
         if clip is None:
             logger.info(
                 "[PIPELINE] project=%s scene=%s: no stock result for %r",
@@ -1595,6 +1622,7 @@ async def _fill_missing_stock_clips_after_scene_gen(
     loop = asyncio.get_running_loop()
     assigned = 0
     used_generics: set[str] = set()
+    used_clip_ids: set[str] = set()
     for scene in needing:
         if await _try_assign_stock_clip_to_scene(
             project,
@@ -1603,6 +1631,7 @@ async def _fill_missing_stock_clips_after_scene_gen(
             orientation=orientation,
             loop=loop,
             used_generics=used_generics,
+            used_clip_ids=used_clip_ids,
         ):
             assigned += 1
 
@@ -1614,13 +1643,66 @@ async def _fill_missing_stock_clips_after_scene_gen(
     return assigned
 
 
+async def _build_llm_stock_queries(
+    project: Project, scenes: list, db: Session
+) -> dict[int, str]:
+    """Write a stock search query for each scene with one batched LLM pass.
+
+    Returns ``{scene_id: query}``, empty on any failure — callers fall back to
+    keyword extraction per scene, so this can never block footage assignment.
+
+    Runs *before* the per-scene assign loop, so its latency sits outside
+    ``STOCK_CLIP_ASSIGN_TIMEOUT_SECONDS`` and a slow model cannot push scenes
+    into the timeout path. Scene fields are snapshotted into plain dicts first
+    because the DB connection is released across the await.
+    """
+    if not scenes:
+        return {}
+
+    from app.dspy_modules.stock_query_gen import generate_stock_queries
+
+    try:
+        payload = [
+            {
+                "scene_id": s.id,
+                "title": s.title or "",
+                "display_text": s.display_text or "",
+                "narration": s.narration_text or "",
+                "visual_description": s.visual_description or "",
+            }
+            for s in scenes
+        ]
+        # Project has `name`, not `title` — a getattr on the wrong field would
+        # silently disable topic context rather than error.
+        topic = (getattr(project, "name", None) or "").strip()
+    except Exception:
+        logger.warning("[STOCK_QUERY_GEN] could not snapshot scenes", exc_info=True)
+        return {}
+
+    project_id = project.id
+    # The batched call can run for tens of seconds; Neon kills a connection held
+    # idle that long.
+    _release_db_connection(db, project_id=project_id)
+    try:
+        return await generate_stock_queries(payload, video_topic=topic)
+    except Exception:
+        logger.warning(
+            "[STOCK_QUERY_GEN] project=%s batch failed — falling back to keywords",
+            project_id, exc_info=True,
+        )
+        return {}
+
+
 async def _prepare_stock_footage_candidates(project: Project, db: Session) -> int:
     """Auto-pick and ingest one stock clip per image-capable scene.
 
     Runs between the script and scene-generation stages. Each clip is searched by
-    the scene's title, ingested through the shared
-    :func:`stock_footage.ingest_clip` (so the CFR-30 contract matches the editor's
-    path exactly), and linked into the scene descriptor as ``assignedVideo``.
+    keywords extracted from the whole scene (see
+    :func:`stock_relevance.build_scene_query`), picked from a ranked candidate
+    pool, ingested through the shared :func:`stock_footage.ingest_clip` (so the
+    CFR-30 contract matches the editor's path exactly), and linked into the scene
+    descriptor as ``assignedVideo``. ``used_clip_ids`` keeps two scenes in the
+    same run from landing on the same clip.
 
     A scene whose search returns nothing, or whose download fails, is simply left
     without a clip — the user fills it in during review rather than the whole
@@ -1658,6 +1740,14 @@ async def _prepare_stock_footage_candidates(project: Project, db: Session) -> in
     assigned = already_assigned
     total = len(scenes)
     used_generics: set[str] = set()
+    used_clip_ids: set[str] = set()
+
+    # One batched LLM pass for the whole video, before the assign loop so its
+    # latency stays outside each scene's assign timeout.
+    llm_queries = await _build_llm_stock_queries(project, pending, db)
+    refreshed = _reload_project(db, project.id)
+    if refreshed is not None:
+        project = refreshed
 
     for idx, scene in enumerate(pending, start=already_assigned + 1):
         _pipeline_progress.setdefault(project.id, {})["stock_footage"] = {
@@ -1672,6 +1762,8 @@ async def _prepare_stock_footage_candidates(project: Project, db: Session) -> in
             orientation=orientation,
             loop=loop,
             used_generics=used_generics,
+            used_clip_ids=used_clip_ids,
+            llm_query=llm_queries.get(scene.id),
         ):
             assigned += 1
         else:

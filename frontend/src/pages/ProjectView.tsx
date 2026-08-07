@@ -258,6 +258,7 @@ const GENERATION_TIPS = [
   { tab: "Script", text: "Not happy with the narration? Regenerate the whole script from the Script tab with your own instructions." },
   { tab: "Images", text: "Add or remove images per scene from the Images tab — you can also drop in your own logo." },
   { tab: "Settings", text: "Switch the template, colors, and fonts anytime from the Settings tab." },
+  { tab: "Edit Scenes", text: "Want motion instead of a still? Add or swap stock footage for any scene from the Edit Scenes tab." },
   { tab: "Edit Scenes", text: "Edit a scene's narration and regenerate just that voiceover." },
   { tab: "Edit Scenes", text: "Reorder, duplicate, or delete scenes from the Edit Scenes tab to shape the final flow." },
 ] as const;
@@ -273,7 +274,7 @@ function GenerationTips() {
       setTimeout(() => {
         setIdx((i) => (i + 1) % GENERATION_TIPS.length);
         setVisible(true);
-      }, 250);
+      }, 450);
     }, 4500);
     return () => clearInterval(timer);
   }, []);
