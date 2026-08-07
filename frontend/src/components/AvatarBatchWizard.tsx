@@ -170,12 +170,15 @@ export default function AvatarBatchWizard({
   // the backend, which enforces the same rule.
   const minSelectable = Math.min(AVATAR_BATCH_MIN_SCENES, eligibleScenes.length);
 
-  // Which scenes get an avatar. Defaults to the first MAX, in scene order —
-  // most projects are at or under the cap, so the common case is "everything".
+  // Which scenes get an avatar. Defaults to the first MIN, in scene order:
+  // every selected scene is billed (AVATAR_CREDIT_COST_PER_SCENE each), so a
+  // long project defaulting to the cap would pre-select the most expensive
+  // batch on the user's behalf. Seeding the floor makes the cheap option the
+  // default and leaves opting up to the cap an explicit choice.
   const [selectedIds, setSelectedIds] = useState<Set<number>>(
     () =>
       new Set(
-        eligibleScenes.slice(0, AVATAR_BATCH_MAX_SCENES).map((s) => s.id),
+        eligibleScenes.slice(0, AVATAR_BATCH_MIN_SCENES).map((s) => s.id),
       ),
   );
   // Re-seed if the eligible set itself changes (a voiceover lands, or the card
@@ -184,7 +187,7 @@ export default function AvatarBatchWizard({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     setSelectedIds(
-      new Set(eligibleScenes.slice(0, AVATAR_BATCH_MAX_SCENES).map((s) => s.id)),
+      new Set(eligibleScenes.slice(0, AVATAR_BATCH_MIN_SCENES).map((s) => s.id)),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eligibleKey]);
@@ -283,6 +286,21 @@ export default function AvatarBatchWizard({
   const retryableFailures = sceneRows.filter(
     (s) => s.status === "failed" && s.retryable !== false && !s.attempts_exhausted,
   );
+  // "Some scenes couldn't be generated" leaves the user hunting through the
+  // Scenes tab for which one. Name them, using the same 1-based `order` the
+  // scene list shows (scene_id is a DB id and means nothing to the user).
+  const orderOfScene = new Map(
+    eligibleScenes.map((s, i) => [s.id, s.order ?? i + 1]),
+  );
+  const sceneLabel = (ids: number[]) => {
+    const nums = ids
+      .map((id) => orderOfScene.get(id))
+      .filter((n): n is number => n != null)
+      .sort((a, b) => a - b);
+    if (nums.length === 0) return "";
+    if (nums.length === 1) return `Scene ${nums[0]}`;
+    return `Scenes ${nums.slice(0, -1).join(", ")} and ${nums[nums.length - 1]}`;
+  };
 
   // Upload/crop state for the "instructions" step (a presenter photo upload).
   const [uploading, setUploading] = useState(false);
@@ -1232,15 +1250,24 @@ export default function AvatarBatchWizard({
         now have an avatar.
         {hasFailures &&
           (failedAreMatte
-            ? " Some backgrounds couldn't be applied — those scenes keep the presenter's original background."
-            : " Some scenes couldn't be generated.")}
+            ? ` ${sceneLabel(failedScenes)} couldn't have the background applied — ${
+                failedScenes.length === 1 ? "it keeps" : "they keep"
+              } the presenter's original background.`
+            : ` ${sceneLabel(failedScenes)} couldn't be generated.`)}
       </p>
       {(exhaustedNotice > 0 || (hasFailures && !canRetry)) && (
         <p className="text-[11px] text-gray-500 mt-1.5">
-          {exhaustedNotice > 0 ? exhaustedNotice : failedScenes.length} scene
-          {(exhaustedNotice > 0 ? exhaustedNotice : failedScenes.length) === 1 ? "" : "s"}{" "}
-          failed too many times to retry automatically — open the scene in the
-          Scenes tab to try again.
+          {/* Name the scenes when we know which they are. exhaustedNotice is a
+              bare count from the bulk-retry response (no ids came back with
+              it), so that path keeps the count wording. */}
+          {exhaustedNotice > 0
+            ? `${exhaustedNotice} scene${exhaustedNotice === 1 ? "" : "s"} failed`
+            : `${sceneLabel(failedScenes)} failed`}{" "}
+          too many times to retry automatically — open{" "}
+          {(exhaustedNotice > 0 ? exhaustedNotice : failedScenes.length) === 1
+            ? "it"
+            : "them"}{" "}
+          in the Scenes tab to try again.
         </p>
       )}
       {canRetry && (
