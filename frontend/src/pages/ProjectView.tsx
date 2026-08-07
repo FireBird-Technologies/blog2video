@@ -6474,8 +6474,11 @@ export default function ProjectView() {
           </svg>
           Edit history
         </button>
-        {/* AI-edit credits remaining — monthly allowance + purchased pool (owner on shared projects). */}
-        {(() => {
+        {/* AI-edit credits remaining — monthly allowance + purchased pool (owner on shared projects).
+            Hidden on the avatar tab: that flow states its own price per scene and
+            the running total on the Generate button, so a second, differently
+            scoped credit figure beside it just reads as a contradiction. */}
+        {activeTab !== "avatar" && (() => {
           const total = useOwnerScopedAssets
             ? (project.owner_ai_edit_credits ?? 0) + (project.owner_ai_edit_allowance_remaining ?? 0)
             : (user?.ai_edit_credits ?? 0) + (user?.ai_edit_allowance_remaining ?? 0);
@@ -6514,6 +6517,7 @@ export default function ProjectView() {
             </span>
           );
         })()}
+
       </div>
 
       {/* Tab content */}

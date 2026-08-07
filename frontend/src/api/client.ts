@@ -2003,17 +2003,27 @@ export const AVATAR_BATCH_MIN_SCENES = 5;
 
 /** Charge for a batch of avatars and unlock generation for the project.
  *
- *  ONE call for the whole batch: the per-scene generate endpoint is fanned out in
- *  parallel, and charging there would let concurrent requests race the same
- *  balance. Re-validates the selection server-side, so this is the real gate —
- *  the modal's own limits are only there to keep the user out of a 403. */
-export const authorizeAvatarBatch = (projectId: number, sceneIds: number[]) =>
+ *  ONE call for the whole batch, and the ONLY call needed to start one: it
+ *  charges, creates every scene's job row, and unlocks the project in a single
+ *  transaction. The rows used to come from a fan-out of per-scene POSTs sent
+ *  after this returned, which meant any failure there left the user charged
+ *  with nothing queued. Re-validates the selection server-side, so this is the
+ *  real gate — the modal's own limits only keep the user out of a 403. */
+export const authorizeAvatarBatch = (
+  projectId: number,
+  sceneIds: number[],
+  avatarPreset?: string,
+) =>
   api.post<{
     authorized: boolean;
     scene_ids: number[];
+    job_ids: number[];
     credits_charged: number;
     credits_remaining: number;
-  }>(`/projects/${projectId}/avatar-batch/authorize`, { scene_ids: sceneIds });
+  }>(`/projects/${projectId}/avatar-batch/authorize`, {
+    scene_ids: sceneIds,
+    avatar_preset: avatarPreset,
+  });
 
 /** Choose which region of the rendered avatar clip to show. Stored as a focal
  *  point + zoom and applied as CSS by the overlay, so it is instant and the mp4 is

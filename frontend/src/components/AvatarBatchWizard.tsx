@@ -7,7 +7,6 @@ import {
   AVATAR_PRESETS,
   MAIN_AVATAR_PRESET_IDS,
   authorizeAvatarBatch,
-  generateSceneAvatar,
   getAvatarProgress,
   getCachedAvatarProgress,
   matteAllSceneAvatars,
@@ -226,6 +225,10 @@ export default function AvatarBatchWizard({
   // an actionable "pick this many instead".
   const affordableScenes = Math.floor(aiCreditRemaining / AVATAR_CREDIT_COST_PER_SCENE);
 
+  // Resume mid-batch on reload. Safe to key on the unlock flag only because the
+  // server now CLEARS it once nothing is queued or running (see the avatar
+  // rollup): while it was set-once-never-cleared, a batch that produced no rows
+  // pinned every later page load into this spinner permanently.
   const [step, setStep] = useState<WizardStep>(
     avatarBatchUnlocked ? "generating" : "pick",
   );
@@ -401,51 +404,12 @@ export default function AvatarBatchWizard({
 
   const isCustom = preset === AVATAR_CUSTOM_PRESET_ID;
 
-  /** Enqueue every eligible scene that does not already have live or finished
-   *  work. Called ONLY from the pricing step's Confirm — never from a mount
-   *  effect, or reopening the tab would re-POST the whole batch.
-   *
-   *  Skips scenes whose latest job is queued/running/completed, but deliberately
-   *  INCLUDES `failed` ones: testing mere row PRESENCE (as this once did) meant a
-   *  scene that failed was treated as "already handled" and never retried. A 409
-   *  that slips through anyway (a job started between the check and the POST) is
-   *  swallowed — it just means "already started." */
-  const enqueueScenes = useCallback(
-    async (scenesToRun: SceneLite[]) => {
-      let skip = new Set<number>();
-      try {
-        const { data } = await getAvatarProgress(projectId);
-        skip = new Set(
-          data.scenes
-            .filter(
-              (s) =>
-                s.status === "queued" ||
-                s.status === "running" ||
-                s.status === "completed",
-            )
-            .map((s) => s.scene_id),
-        );
-      } catch {
-        /* if the rollup fetch fails, fall through and just try enqueueing
-           everything — the per-scene 409 guard still prevents duplicates */
-      }
-      await Promise.all(
-        scenesToRun
-          .filter((scene) => !skip.has(scene.id))
-          .map(async (scene) => {
-            try {
-              await generateSceneAvatar(projectId, scene.id, preset as string);
-            } catch (err: any) {
-              if (err?.response?.status === 409) return;
-              // Swallow — the rollup poll is the source of truth for whether a
-              // scene ultimately succeeded. A POST failure just means no job row
-              // was created, which `batch_status` accounts for.
-            }
-          }),
-      );
-    },
-    [projectId, preset],
-  );
+  // Scenes are NOT enqueued from this component any more. avatar-batch/authorize
+  // creates the job rows in the same transaction as the charge, so the fan-out of
+  // per-scene POSTs that used to live here is gone — along with the window it
+  // opened, where a POST failing after the charge left the user paid-up with no
+  // rows and a spinner that never resolved. Retries go through
+  // retryFailedSceneAvatars, which is also server-side.
 
   /** Subscribe to the server-computed rollup. This is the ONLY thing that
    *  drives the generating view — there is no client-side sequencing, no
@@ -590,6 +554,15 @@ export default function AvatarBatchWizard({
         const { data } = await getAvatarProgress(projectId);
         if (cancelled) return;
         setHasPolled(true);
+        // "idle" means this project has no avatar jobs AT ALL, so there is
+        // nothing to resume and nothing to wait for. Without this the view sat
+        // on an indeterminate spinner until the stall timer eventually tripped,
+        // showing every scene as "Not started" — the visible symptom of a batch
+        // whose rows were never created.
+        if (data.batch_status === "idle") {
+          setStep("pick");
+          return;
+        }
         if (data.batch_status === "settled") {
           const eligibleIds = new Set(eligibleScenesRef.current.map((s) => s.id));
           const relevant = data.scenes.filter((s) => eligibleIds.has(s.scene_id));
@@ -680,29 +653,28 @@ export default function AvatarBatchWizard({
    *  wizard no longer asks); they exist so the row is consistent with what
    *  ProjectAvatarSettingsCard will show when the user edits it afterward.
    *
-   *  This is the ONLY place scenes are enqueued. It used to be a mount effect
-   *  keyed on `avatarBatchUnlocked`, which never gets cleared — so every
-   *  subsequent page load re-ran the whole batch and fired a project-wide
-   *  retry, which is what made scenes appear to restart on refresh. */
+   *  Scenes are no longer enqueued from here. Authorize charges AND creates the
+   *  job rows in one transaction, so there is no window in which the user is
+   *  charged for rows that never got created — which is exactly what a fan-out
+   *  of per-scene POSTs after the charge used to allow. */
   const handleConfirm = async () => {
     setUnlocking(true);
     try {
-      // Charge FIRST, and for the whole batch in one call. It also flips
-      // avatar_batch_unlocked, so there is no separate updateProject for that.
-      // If this 403s (not enough credits) nothing below runs, so no scene is
-      // enqueued and no credits are spent.
-      const { data } = await authorizeAvatarBatch(
+      // Charges for the batch, creates its job rows, and flips
+      // avatar_batch_unlocked — one call, one transaction. If this throws (403
+      // for credits, 400 for an unrenderable selection) nothing was charged and
+      // nothing was queued.
+      await authorizeAvatarBatch(
         projectId,
         selectedScenes.map((s) => s.id),
+        preset as string,
       );
-      // Reflect the new balance without waiting for a page-level refetch.
+      // Reflect the new balance without waiting for a page-level refetch. These
+      // run AFTER the work is durably queued, so a failure here can no longer
+      // strand a paid batch.
       await refreshUser();
       await onChanged();
       setStep("generating");
-      // Only what was paid for — NOT every eligible scene.
-      await enqueueScenes(
-        eligibleScenes.filter((s) => data.scene_ids.includes(s.id)),
-      );
     } catch (err: unknown) {
       // Surface the server's message: on a 403 it names the shortfall and the
       // remedy, which a generic string cannot.
@@ -1132,21 +1104,34 @@ export default function AvatarBatchWizard({
   }
 
   if (step === "generating") {
-    const total = eligibleScenes.length;
+    // The scenes THIS batch is about — the ones with a job row, i.e. the ones
+    // that were paid for. Not every eligible scene: a 6-scene batch on a
+    // 25-scene project used to list all 25 and report "0 of 25", showing 19
+    // scenes as "Not started" that the user never asked to generate. Before the
+    // first poll lands there are no rows yet, so fall back to the selection.
+    const batchSceneIds = new Set(
+      sceneRows.length > 0
+        ? sceneRows.map((r) => r.scene_id)
+        : selectedScenes.map((s) => s.id),
+    );
+    const batchScenes = eligibleScenes.filter((s) => batchSceneIds.has(s.id));
+    const total = batchScenes.length;
     const done = doneRows.length;
-    // Scene order is what the user recognises, not the DB id.
+    // Scene order is what the user recognises, not the DB id. Numbered against
+    // the FULL eligible list so "Scene 6" still means the sixth scene of the
+    // project, not the sixth of the batch.
     const orderOf = new Map(eligibleScenes.map((s, i) => [s.id, s.order ?? i + 1]));
     // `rows` stays the pure SERVER mirror — hasMatteRows, the progress count and
     // everything else derived below must never see a synthetic row.
     const rows = [...sceneRows].sort(
       (a, b) => (orderOf.get(a.scene_id) ?? 0) - (orderOf.get(b.scene_id) ?? 0),
     );
-    // What the list actually renders: one entry per eligible scene from the very
-    // first paint, so the breakdown doesn't pop in a second later and shove the
-    // layout down when the first poll lands. Server rows replace the
+    // What the list actually renders: one entry per scene IN THIS BATCH from the
+    // very first paint, so the breakdown doesn't pop in a second later and shove
+    // the layout down when the first poll lands. Server rows replace the
     // placeholders as they arrive.
     const rowByScene = new Map(sceneRows.map((r) => [r.scene_id, r]));
-    const displayRows: DisplayRow[] = [...eligibleScenes]
+    const displayRows: DisplayRow[] = [...batchScenes]
       .sort((a, b) => (orderOf.get(a.id) ?? 0) - (orderOf.get(b.id) ?? 0))
       .map((s) => rowByScene.get(s.id) ?? { scene_id: s.id, placeholder: true as const });
     // Say we are on the background phase from the moment it is REQUESTED, not
@@ -1244,8 +1229,11 @@ export default function AvatarBatchWizard({
       }`}
     >
       <p className="text-[11px] text-gray-700 leading-relaxed">
+        {/* Counted against the BATCH (the rows that exist), not every eligible
+            scene — "0 of 1" on a 25-scene project was reporting against a
+            denominator the user never chose. */}
         <strong className={hasFailures ? "text-amber-700" : "text-green-700"}>
-          {successCount} of {eligibleScenes.length} scene{eligibleScenes.length === 1 ? "" : "s"}
+          {successCount} of {sceneRows.length} scene{sceneRows.length === 1 ? "" : "s"}
         </strong>{" "}
         now have an avatar.
         {hasFailures &&

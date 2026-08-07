@@ -119,6 +119,18 @@ export default function AvatarSceneStatusList({
                   aria-hidden
                 />
               )}
+              {/* Waiting its turn gets its own, deliberately different, motion.
+                  Renders are capped by AVATAR_CONCURRENCY, so on a batch larger
+                  than that cap the last scenes sit queued for minutes — and a
+                  completely static row beside spinning ones reads as forgotten
+                  rather than pending. A pulse says "waiting" without borrowing
+                  the spinner's meaning of "being worked on right now". */}
+              {status === "queued" && (
+                <span
+                  className="w-1.5 h-1.5 bg-gray-300 rounded-full animate-pulse flex-shrink-0"
+                  aria-hidden
+                />
+              )}
               {loading ? (
                 // Sized to a typical label so the row doesn't resize when the
                 // real text arrives.
