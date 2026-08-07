@@ -5524,6 +5524,8 @@ export const blogPosts: BlogPost[] = [
     description:
       "Learn how to make a PDF into a video using 5 AI tools tested in 2026 — Synthesia, Visla, X-Pilot, Vidnoz, and Blog2Video. Step-by-step instructions included.",
     category: "How-to",
+    // Duplicate intent with the canonical PDF-to-video how-to; consolidate signals there.
+    canonicalPath: "/blogs/how-to-convert-pdf-into-video",
     heroImage: "/blog/blog-cover-how-to-make-a-pdf-into-a-video.png",
     heroImageAlt:
       "Step-by-step workflow turning a PDF into a publishable MP4 video.",
@@ -9453,7 +9455,7 @@ export const blogPosts: BlogPost[] = [
     heroDescription:
       "When the source document is dense, the best video does not try to show every page. It pulls out the main points, builds a clearer sequence, and turns the PDF into something people will actually watch.",
     primaryKeyword: "create summary videos from pdfs",
-    keywordVariant: "pdf to video",
+    keywordVariant: "pdf summary video",
     relatedPaths: ["/pdf-to-video", "/for-educators", "/article-to-video"],
     sections: [
       {
@@ -12143,6 +12145,8 @@ export const blogPosts: BlogPost[] = [
     description:
       "A step-by-step PDF-to-video workflow for turning whitepapers, lesson notes, research summaries, and guides into narrated explainer videos.",
     category: "How-to",
+    // Duplicate intent with the canonical PDF-to-video how-to; consolidate signals there.
+    canonicalPath: "/blogs/how-to-convert-pdf-into-video",
     heroImage: "/blog/blog-cover-pdf-educators.png",
     heroImageAlt:
       "Editorial illustration of a PDF document being converted into a structured narrated explainer video.",
