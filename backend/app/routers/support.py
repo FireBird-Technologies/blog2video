@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import re
 from datetime import datetime
 from typing import Optional
@@ -24,20 +25,33 @@ from app.models.support_conversation import (
     SupportMessage,
     SupportMessageRole,
 )
+from app.models.user import User
 from app.schemas.support import (
     ChatRequest,
     ChatResponse,
     ClaimRequest,
     ConversationOut,
+    EscalateRequest,
     GuidanceStep,
     MessageOut,
     NavigationHint,
     UIGuidance,
 )
+from app.services.email import EmailServiceError, email_service
 from app.support.identity import (
     SupportIdentity,
     get_authed_support_identity,
     get_support_identity,
+)
+from app.support.escalation import (
+    EscalationReason,
+    classify_answer,
+    classify_question,
+    confirm_feature_request,
+    handoff_line_is_safe,
+    handoff_prompt,
+    short_circuit_reply,
+    should_short_circuit,
 )
 from app.support.llm_client import LLMError, SupportResponse, complete_json, stream_answer
 from app.support.memory_manager import (
@@ -81,13 +95,17 @@ Blog2Video turns articles, blog posts, PDFs, newsletters, and other written cont
 
 GREETING RULE: If the user sends only a greeting (hi, hello, hey, thanks, etc.) with no question, set "answer" to a short friendly reply like "Hi! How can I help you today?", set "citations" to [], set "ui_guidance" to []. No steps, no headings.
 
-For all other messages, answer using ONLY the documents below. If the documents don't cover it, follow the NOT-IN-DOCS RULE.
+For all other messages, answer using the documents below.
 
-NOT-IN-DOCS RULE: If the user's question IS about Blog2Video or making videos, but the documents below do not answer it, keep the reply SHORT: set "answer" to "I apologise, but I do not have enough information about this." plus at most ONE brief question offering further help — never more than 2 short sentences total. Set "citations" to [] and "ui_guidance" to []. Never guess, and never invent steps, buttons, or UI flows that are not explicitly in the documents.
-Example: {{"answer":"I apologise, but I do not have enough information about this. Is there anything else about Blog2Video I can help with?","citations":[],"ui_guidance":[]}}
+BE HELPFUL FIRST: If the documents contain ANYTHING relevant — even a partial answer — use it. A partial answer is always better than a refusal. Do not refuse just because the documents don't cover every detail of the question.
 
-OFF-TOPIC RULE: If the user's message has nothing to do with Blog2Video or videos — general-knowledge questions (current events, facts, people, definitions), requests to perform unrelated tasks, or random/nonsense messages — keep the reply SHORT: set "answer" to "I apologise, but I do not have enough information about this." plus at most ONE brief question inviting a Blog2Video question — never more than 2 short sentences total. Do not answer the off-topic content, do not explain who you are or what you can't do, do not guess, and never invent steps, buttons, or UI flows. Set "citations" to [] and "ui_guidance" to [].
-Example: {{"answer":"I apologise, but I do not have enough information about this. Is there anything about Blog2Video I can help with?","citations":[],"ui_guidance":[]}}
+PARTIAL-ANSWER RULE: When the documents cover part of the question, answer that part directly in "answer", then name the specific missing piece in one short sentence. Do not open with an apology and do not refuse the whole question because one detail is missing.
+
+UNKNOWN RULE: Only when the documents contain nothing relevant at all, set "answer" to a short, human reply that names the specific thing you can't confirm and offers to put the user in touch with the team — e.g. "I'm not sure about the annual billing discount. I can pass this to our team if you'd like." Never mention documents, documentation, sources, context, or what you were "given" — the user doesn't know those exist and doesn't care. Never say "I apologise" or "I do not have enough information". Only ever OFFER to contact the team — never claim you have already sent, forwarded, escalated, or opened a ticket. Nothing is sent unless the user fills in the form themselves, so past-tense claims like "I've passed this on" or "I've opened a ticket for you" are always false. Set "citations" to [] and "ui_guidance" to []. Never guess, and never invent steps, buttons, or UI flows.
+
+OFF-TOPIC RULE: If the user's message has nothing to do with Blog2Video or videos — general-knowledge questions (current events, facts, people, definitions), requests to perform unrelated tasks, or random/nonsense messages — set "answer" to ONE short line redirecting to Blog2Video. Do not answer the off-topic content, do not explain who you are or what you can't do, and never invent steps, buttons, or UI flows. Set "citations" to [] and "ui_guidance" to [].
+
+CAPABILITY RULE: If the user asks for something Blog2Video genuinely does not do, say so plainly in one sentence and briefly point to the closest thing it does do. Do not apologise at length.
 
 FEATURE-TRUTH RULE: Only describe features and steps that the documents present as Blog2Video's OWN capabilities. Some documents mention other tools (e.g. HeyGen, Synthesia, Lumen5) or capabilities Blog2Video does NOT have — most notably AI avatars / talking-head presenters. Never tell the user that Blog2Video can do something it cannot. If the user asks about a capability that only appears as a competitor's feature (like avatars), do NOT claim Blog2Video has it. Instead, briefly clarify that Blog2Video does not use avatars and redirect to what it actually does: it turns your articles, blog posts, PDFs, and newsletters into narrated videos with templates, scenes, voiceover, and branding.
 
@@ -129,13 +147,17 @@ Blog2Video turns articles, blog posts, PDFs, newsletters, and other written cont
 
 GREETING RULE: If the user sends only a greeting (hi, hello, hey, thanks, etc.) with no question, reply with a short friendly sentence. No lists, no headings.
 
-For all other messages, answer using ONLY the documents below. If the documents don't cover it, follow the NOT-IN-DOCS RULE.
+For all other messages, answer using the documents below.
 
-NOT-IN-DOCS RULE: If the user's question IS about Blog2Video or making videos, but the documents below do not answer it, keep the reply SHORT: say "I apologise, but I do not have enough information about this." plus at most ONE brief question offering further help — never more than 2 short sentences total. Never guess, and never invent steps, buttons, or UI flows that are not explicitly in the documents.
-Example: I apologise, but I do not have enough information about this. Is there anything else about Blog2Video I can help with?
+BE HELPFUL FIRST: If the documents contain ANYTHING relevant — even a partial answer — use it. A partial answer is always better than a refusal. Do not refuse just because the documents don't cover every detail of the question.
 
-OFF-TOPIC RULE: If the user's message has nothing to do with Blog2Video or videos — general-knowledge questions (current events, facts, people, definitions), requests to perform unrelated tasks, or random/nonsense messages — keep the reply SHORT: say "I apologise, but I do not have enough information about this." plus at most ONE brief question inviting a Blog2Video question — never more than 2 short sentences total. Do not answer the off-topic content, do not explain who you are or what you can't do, do not guess, and never invent steps, buttons, or UI flows.
-Example: I apologise, but I do not have enough information about this. Is there anything about Blog2Video I can help with?
+PARTIAL-ANSWER RULE: When the documents cover part of the question, answer that part directly, then name the specific missing piece in one short sentence. Do not open with an apology and do not refuse the whole question because one detail is missing.
+
+UNKNOWN RULE: Only when the documents contain nothing relevant at all, reply in one or two short, human sentences: name the specific thing you can't confirm, then offer to put the user in touch with the team — e.g. "I'm not sure about the annual billing discount. I can pass this to our team if you'd like." Never mention documents, documentation, sources, context, or what you were "given" — the user doesn't know those exist and doesn't care. Never say "I apologise" or "I do not have enough information". Only ever OFFER to contact the team — never claim you have already sent, forwarded, escalated, or opened a ticket. Nothing is sent unless the user fills in the form themselves, so past-tense claims like "I've passed this on" or "I've opened a ticket for you" are always false. Never guess, and never invent steps, buttons, or UI flows.
+
+OFF-TOPIC RULE: If the user's message has nothing to do with Blog2Video or videos — general-knowledge questions (current events, facts, people, definitions), requests to perform unrelated tasks, or random/nonsense messages — reply with ONE short line redirecting to Blog2Video. Do not answer the off-topic content, do not explain who you are or what you can't do, and never invent steps, buttons, or UI flows.
+
+CAPABILITY RULE: If the user asks for something Blog2Video genuinely does not do, say so plainly in one sentence and briefly point to the closest thing it does do. Do not apologise at length.
 
 FEATURE-TRUTH RULE: Only describe features and steps that the documents present as Blog2Video's OWN capabilities. Some documents mention other tools (e.g. HeyGen, Synthesia, Lumen5) or capabilities Blog2Video does NOT have — most notably AI avatars / talking-head presenters. Never tell the user that Blog2Video can do something it cannot. If the user asks about a capability that only appears as a competitor's feature (like avatars), do NOT claim Blog2Video has it. Instead, briefly clarify that Blog2Video does not use avatars and redirect to what it actually does: it turns your articles, blog posts, PDFs, and newsletters into narrated videos with templates, scenes, voiceover, and branding.
 
@@ -167,19 +189,31 @@ FINAL REMINDER: If your answer contains steps, format them as a numbered markdow
 
 METADATA_SYSTEM_PROMPT_TEMPLATE = """You are a metadata extractor. Output ONLY a JSON object — no prose, no fences.
 
-Required shape (include ALL three fields):
-{{"answer":"","citations":["doc-id",...],"ui_guidance":[{{"action_id":"..."}}]}}
+Required shape (include ALL four fields):
+{{"answer":"","citations":["doc-id",...],"ui_guidance":[{{"action_id":"..."}}],"escalate":false}}
 
 RULES:
 1. "answer" — always empty string "".
 2. "citations" — list of document IDs from below that the answer actually used. Empty list if none.
 3. "ui_guidance" — if the user asked HOW TO DO something, include the most relevant action_id from the UI ACTION CATALOG. Empty list if the question was not a how-to. NEVER invent action_ids.
+4. "escalate" — MUST be true if ANY of these hold:
+   - the user asks for a human / representative / agent / live support / customer support / support ticket
+   - the user asks about a REFUND, chargeback, cancelling a charge, or a billing dispute
+   - the user REQUESTS A FEATURE that does not exist, asks to add/build/support something, asks "will you add X", "is X on the roadmap", or wants an integration Blog2Video does not have
+   - THE ASSISTANT ANSWER says Blog2Video does NOT support / cannot do / does not have the thing asked about
+   - the user is frustrated or angry, or says the assistant cannot help
+   - the answer says it lacks enough information
+   Otherwise false. ALWAYS include "escalate".
+   Do NOT escalate when the user simply asks how to use a feature that EXISTS.
 
 EXAMPLE — user asks "how do I render my video?":
-{{"answer":"","citations":["support:user-manual"],"ui_guidance":[{{"action_id":"project.render"}}]}}
+{{"answer":"","citations":["support:user-manual"],"ui_guidance":[{{"action_id":"project.render"}}],"escalate":false}}
 
 EXAMPLE — user asks "why does rendering fail?":
-{{"answer":"","citations":["support:error-reference"],"ui_guidance":[]}}
+{{"answer":"","citations":["support:error-reference"],"ui_guidance":[],"escalate":false}}
+
+EXAMPLE — user asks "can you add TikTok export?":
+{{"answer":"","citations":[],"ui_guidance":[],"escalate":true}}
 
 AVAILABLE DOCUMENT IDs:
 {doc_ids}
@@ -189,15 +223,115 @@ UI ACTION CATALOG (only these action_ids are valid):
 """
 
 
-def _build_doc_section(scored_docs) -> str:
+DOC_BUDGET_CHARS = 5000
+
+
+def _excerpt_for_query(body: str, query: str, budget: int = DOC_BUDGET_CHARS) -> str:
+    """Return up to `budget` chars of `body`, centred on the part matching `query`.
+
+    A plain body[:budget] silently hides everything past the cutoff. The user manual
+    is >22k chars, so its later sections (logging out, aspect ratio, export) were
+    never reachable no matter how well they scored in retrieval.
+    """
+    if len(body) <= budget:
+        return body
+
+    from app.support.retriever import tokenize
+
+    terms = {t for t in tokenize(query) if len(t) > 2}
+    if not terms:
+        return body[:budget]
+
+    # Tokenize the body the same way the retriever does and keep each token's offset.
+    # Comparing stemmed token to stemmed token is what makes this work: raw substring
+    # matching fails because the tokenizer stems ("logo" vs "Logo", "reorder" vs
+    # "Reordering"), so query terms often don't appear literally in the text.
+    token_re = re.compile(r"[a-z0-9]+")
+    from app.support.retriever import _strip_suffix
+
+    positions: list[tuple[int, str]] = []
+    for m in token_re.finditer(body.lower()):
+        tok = m.group()
+        if len(tok) >= 3:
+            positions.append((m.start(), _strip_suffix(tok)))
+
+    # Weight by rarity so ubiquitous words ("video", "scene") don't pick a window at
+    # random. Use log-scaled IDF rather than 1/(1+count): the latter is so top-heavy
+    # that ONE stray occurrence (weight .50) outranks a five-occurrence cluster
+    # (weight .17). That is exactly how "I'm trying to log out" — which tokenizes to
+    # just {try, log} — chased a single "try" at char 17.7k and excluded the logout
+    # section at 22k entirely.
+    counts: dict[str, int] = {}
+    for _, tok in positions:
+        if tok in terms:
+            counts[tok] = counts.get(tok, 0) + 1
+    if not counts:
+        return body[:budget]
+    total_tokens = max(len(positions), 1)
+    weights = {t: math.log(1 + total_tokens / (1 + c)) for t, c in counts.items()}
+
+    # Score by term DENSITY (counting distinct terms makes every window holding one of
+    # each tie, and the earliest tie wins — how "upload a logo" landed on a passing
+    # mention at char 4.3k instead of LOGO SETTINGS at 13.7k), then break ties toward
+    # the window covering more DISTINCT query terms, so a cluster of one repeated word
+    # can't beat a passage that actually matches the whole question.
+    hits = [(pos, weights[tok], tok) for pos, tok in positions if tok in weights]
+    window = budget
+    step = max(window // 10, 200)
+    best_start, best_score = 0, -1.0
+    for start in range(0, max(len(body) - window, 0) + step, step):
+        end = start + window
+        inside = [(w, tok) for pos, w, tok in hits if start <= pos < end]
+        if not inside:
+            continue
+        density = sum(w for w, _ in inside)
+        coverage = len({tok for _, tok in inside}) / len(weights)
+        score = density * (1.0 + coverage)
+        if score > best_score:
+            best_start, best_score = start, score
+
+    # Re-anchor to the densest CLUSTER of matches, not the single highest-weight token.
+    # Picking one token lets an isolated rare word hijack the anchor: for "I'm trying
+    # to log out" the lone "try" at 17.7k outweighed four "log" hits at 21.9k, snapping
+    # the excerpt back to "== DOWNLOAD FORMATS ==" and dropping the logout steps.
+    # Score each match by the weight of everything within half a window of it.
+    inside = [(pos, w) for pos, w, _tok in hits if best_start <= pos < best_start + window]
+    peak_pos = best_start
+    if inside:
+        reach = window // 2
+        peak_pos = max(
+            inside,
+            key=lambda pw: sum(w2 for p2, w2 in inside if abs(p2 - pw[0]) <= reach),
+        )[0]
+
+    header = body.rfind("\n== ", 0, peak_pos + 1)
+    if header != -1 and peak_pos - header < window:
+        best_start = header + 1
+    elif best_start == 0:
+        return body[:budget]
+
+    # Slide back so the excerpt always runs to the end of the document when the match
+    # is near the tail. Anchoring to a heading that sits within `budget` of the end
+    # would otherwise emit the heading and clip its own steps — "I'm trying to log
+    # out" got "== HOW TO LOGOUT ==" with the Sign out steps cut off, and the model
+    # both refused AND hallucinated a "Logout" button that does not exist.
+    if best_start + budget > len(body):
+        best_start = max(0, len(body) - budget)
+
+    excerpt = body[best_start : best_start + budget]
+    return excerpt if best_start == 0 else f"[...]\n{excerpt}"
+
+
+def _build_doc_section(scored_docs, query: str = "") -> str:
     parts = []
     for s in scored_docs:
         d = s.doc
+        body = _excerpt_for_query(d.body, query) if query else d.body[:DOC_BUDGET_CHARS]
         parts.append(
             f"--- id: {d.id}\n"
             f"title: {d.title}\n"
             f"route: {d.route}\n"
-            f"{d.body[:5000]}"
+            f"{body}"
         )
     return "\n\n".join(parts) if parts else "(no matching documents)"
 
@@ -313,11 +447,13 @@ async def chat(
         page_path=body.page_path,
         last_cited_doc_ids=last_cited,
         top_k=3,
-        min_score=1.0,
+        # 0.5 matches eval_retrieval.py. At 1.0 marginally-relevant docs were dropped
+        # and the model fell back to refusing instead of giving a partial answer.
+        min_score=0.5,
     )
 
     logger.info("[CHAT] Step 3: Build prompt context")
-    docs_section = _build_doc_section(scored)
+    docs_section = _build_doc_section(scored, query=body.message)
     logger.info("[CHAT] Retrieved %d docs for prompt: %s", len(scored), [s.doc.id for s in scored])
     catalog_section = catalog_summary_for_prompt()
     summary = conv.summary or "(none)"
@@ -473,10 +609,12 @@ async def chat_stream(
         page_path=body.page_path,
         last_cited_doc_ids=last_cited,
         top_k=3,
-        min_score=1.0,
+        # 0.5 matches eval_retrieval.py. At 1.0 marginally-relevant docs were dropped
+        # and the model fell back to refusing instead of giving a partial answer.
+        min_score=0.5,
     )
 
-    docs_section = _build_doc_section(scored)
+    docs_section = _build_doc_section(scored, query=body.message)
     catalog_section = catalog_summary_for_prompt()
     summary = conv.summary or "(none)"
     user_context = session_state_block(conv.session_state or {})
@@ -502,6 +640,14 @@ async def chat_stream(
     _identity = identity
     _page_path = body.page_path
 
+    # Refund / human requests skip the documentation answer entirely. Answering them
+    # from docs is what produced the stalling "could you provide more details about
+    # the project" replies that never routed anyone to a person.
+    _question_reason = classify_question(body.message)
+    _short_circuit = should_short_circuit(_question_reason)
+    if _short_circuit:
+        logger.info("[STREAM] Escalation short-circuit: reason=%s", _question_reason.value)
+
     def _sse_token(text: str) -> str:
         """Emit text as SSE token frames — one frame per line to avoid breaking SSE format."""
         lines = text.split("\n")
@@ -516,14 +662,42 @@ async def chat_stream(
         full_text = ""
 
         # --- Phase 1: stream prose answer to the client ---
-        try:
-            async for token in stream_answer(messages):
-                full_text += token
-                yield _sse_token(token)
-        except LLMError as exc:
-            logger.error("[STREAM] LLM error: %s", exc)
-            yield f"event: error\ndata: LLM unavailable\n\n"
-            return
+        if _short_circuit:
+            # The user asked for a person, so we never answer from the docs. We still
+            # let the LLM write the hand-off line — given only the user's message and
+            # no documents — so it responds to what they actually said instead of
+            # reciting a fixed sentence. Falls back to a canned line if that fails.
+            handoff_messages = [
+                {"role": "system", "content": handoff_prompt(_question_reason)},
+                {"role": "user", "content": body.message},
+            ]
+            # Buffered, not streamed: the line has to be checked before the user sees
+            # it. The model occasionally writes "I've got you connected to a live
+            # agent" — a lie, since nothing happens until they submit the form — and
+            # streamed tokens cannot be taken back. It's one short sentence, so the
+            # buffering costs nothing perceptible.
+            drafted = ""
+            try:
+                async for token in stream_answer(handoff_messages):
+                    drafted += token
+            except LLMError as exc:
+                logger.warning("[STREAM] Handoff LLM failed, using canned line: %s", exc)
+            drafted = drafted.strip()
+            if not drafted or not handoff_line_is_safe(drafted):
+                if drafted:
+                    logger.warning("[STREAM] Handoff line claimed a false action: %r", drafted)
+                drafted = short_circuit_reply(_question_reason, seed=_conv_id + len(recent))
+            full_text = drafted
+            yield _sse_token(drafted)
+        else:
+            try:
+                async for token in stream_answer(messages):
+                    full_text += token
+                    yield _sse_token(token)
+            except LLMError as exc:
+                logger.error("[STREAM] LLM error: %s", exc)
+                yield f"event: error\ndata: LLM unavailable\n\n"
+                return
 
         answer = full_text.strip() or "Sorry — I couldn't form an answer."
 
@@ -533,22 +707,58 @@ async def chat_stream(
         yield f"event: answer_done\ndata: {json.dumps({'conversation_id': _conv_id})}\n\n"
 
         # --- Phase 2: fast structured call for citations + ui_guidance ---
-        doc_ids_text = "\n".join(f"- {s.doc.id}: {s.doc.title}" for s in _scored)
-        meta_system = METADATA_SYSTEM_PROMPT_TEMPLATE.format(
-            doc_ids=doc_ids_text or "(none)",
-            catalog=catalog_summary_for_prompt(),
+        if _short_circuit:
+            # Nothing to cite and no tour to offer — skip the call and its latency.
+            raw_llm = SupportResponse(answer=answer, escalate=True)
+        else:
+            doc_ids_text = "\n".join(f"- {s.doc.id}: {s.doc.title}" for s in _scored)
+            meta_system = METADATA_SYSTEM_PROMPT_TEMPLATE.format(
+                doc_ids=doc_ids_text or "(none)",
+                catalog=catalog_summary_for_prompt(),
+            )
+            meta_messages = [
+                {"role": "system", "content": meta_system},
+                {"role": "user", "content": body.message},
+                {"role": "assistant", "content": answer},
+            ]
+            try:
+                raw_llm = await complete_json(meta_messages, max_tokens=300, temperature=0.0, use_json_mode=False)
+                logger.info(
+                    "[STREAM] Metadata: citations=%s, ui_guidance=%s, escalate=%s",
+                    raw_llm.citations, raw_llm.ui_guidance, raw_llm.escalate,
+                )
+            except LLMError:
+                logger.warning("[STREAM] Metadata call failed, using empty citations/ui_guidance")
+                raw_llm = SupportResponse(answer=answer)
+
+        # Resolve escalation from three independent signals. The metadata call can fail
+        # (above) and silently drop the LLM's verdict, so the regex nets are what keep
+        # escalation from being lost entirely.
+        _answer_reason = classify_answer(answer)
+        # A FEATURE guess from the question wording is dropped if the answer shows the
+        # feature already exists ("will you ever add Hindi voices?" — Hindi already ships).
+        escalate_reason = confirm_feature_request(_question_reason, answer) or _answer_reason
+        # If the question looked like a feature request but the answer shows the feature
+        # already exists, that's a definitive "no escalation" — don't let the LLM's flag
+        # drag it back in, or "will you ever add Hindi voices?" offers a form for a
+        # language that already ships.
+        _feature_already_shipped = (
+            _question_reason is EscalationReason.FEATURE
+            and escalate_reason is None
+            and _answer_reason is None
         )
-        meta_messages = [
-            {"role": "system", "content": meta_system},
-            {"role": "user", "content": body.message},
-            {"role": "assistant", "content": answer},
-        ]
-        try:
-            raw_llm = await complete_json(meta_messages, max_tokens=300, temperature=0.0, use_json_mode=False)
-            logger.info("[STREAM] Metadata: citations=%s, ui_guidance=%s", raw_llm.citations, raw_llm.ui_guidance)
-        except LLMError:
-            logger.warning("[STREAM] Metadata call failed, using empty citations/ui_guidance")
-            raw_llm = SupportResponse(answer=answer)
+        if raw_llm.escalate and escalate_reason is None and not _feature_already_shipped:
+            # LLM says escalate but neither net matched — default to the human form.
+            escalate_reason = EscalationReason.HUMAN
+        escalate = bool(escalate_reason) or (raw_llm.escalate and not _feature_already_shipped)
+        if escalate:
+            logger.info(
+                "[STREAM] Escalating: reason=%s (llm=%s, question=%s, answer=%s)",
+                escalate_reason.value if escalate_reason else None,
+                raw_llm.escalate,
+                _question_reason.value if _question_reason else None,
+                _answer_reason.value if _answer_reason else None,
+            )
 
         # Keep the streamed prose as the answer — metadata call only gives us citations/ui_guidance
         valid_ids = {s.doc.id for s in _scored}
@@ -591,6 +801,8 @@ async def chat_stream(
             "citations": citations,
             "ui_guidance": [g.model_dump() for g in ui_guidance],
             "navigation": navigation.model_dump() if navigation else None,
+            "escalate": escalate,
+            "escalate_reason": escalate_reason.value if escalate_reason else None,
         })
         yield f"event: done\ndata: {done_payload}\n\n"
 
@@ -711,3 +923,82 @@ def claim_conversation(
     db.commit()
     logger.info("[CLAIM] Successfully claimed conv_id=%d for user_id=%d", body.conversation_id, identity.user_id)
     return {"ok": True, "claimed": True}
+
+
+# Max escalations per conversation, so the form can't be used to flood the inbox.
+MAX_ESCALATIONS_PER_CONVERSATION = 3
+
+# Deliberately not pydantic.EmailStr: that requires the `email-validator` package,
+# which is not installed, and importing it would break the whole router.
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+@router.post("/escalate", status_code=status.HTTP_202_ACCEPTED)
+def escalate_to_human(
+    body: EscalateRequest,
+    identity: SupportIdentity = Depends(get_authed_support_identity),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Forward a support-bot escalation to the internal team by email."""
+    email = body.email.strip()
+    if not _EMAIL_RE.match(email):
+        raise HTTPException(status_code=422, detail="Please enter a valid email address.")
+
+    concern = body.concern.strip()
+    if not concern:
+        raise HTTPException(status_code=422, detail="Please describe your concern.")
+
+    user = db.query(User).filter(User.id == identity.user_id).first() if identity.user_id else None
+    user_name = user.name if user and user.name else None
+    raw_plan = getattr(user.plan, "value", str(user.plan)) if (user and user.plan) else None
+    user_plan = raw_plan.capitalize() if raw_plan else None
+
+    # Attach the recent conversation so the team has context without asking for it.
+    transcript: list[tuple[str, str]] = []
+    if body.conversation_id is not None:
+        conv = (
+            db.query(SupportConversation)
+            .filter(SupportConversation.id == body.conversation_id)
+            .first()
+        )
+        if conv is not None:
+            owns = (
+                conv.user_id == identity.user_id
+                if conv.user_id is not None
+                else conv.session_id == identity.session_id
+            )
+            if not owns:
+                raise HTTPException(status_code=403, detail="Forbidden")
+            if conv.escalation_count >= MAX_ESCALATIONS_PER_CONVERSATION:
+                logger.warning("[ESCALATE] Rate limited: conv_id=%d", conv.id)
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="You've already sent this a few times — we'll be in touch shortly.",
+                )
+            msgs = (
+                db.query(SupportMessage)
+                .filter(SupportMessage.conversation_id == conv.id)
+                .order_by(SupportMessage.created_at.desc())
+                .limit(6)
+                .all()
+            )
+            transcript = [(m.role.value, m.content[:500]) for m in reversed(msgs)]
+            conv.escalation_count = (conv.escalation_count or 0) + 1
+            db.commit()
+
+    try:
+        email_service.send_support_escalation_email(
+            user_email=email,
+            concern=concern,
+            reason=body.reason or "human",
+            user_name=user_name,
+            user_plan=user_plan,
+            page_path=body.page_path,
+            transcript=transcript or None,
+        )
+    except EmailServiceError as exc:
+        logger.error("[ESCALATE] Email send failed: %s", exc)
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
+
+    logger.info("[ESCALATE] Sent: reason=%s, from=%s", body.reason, email)
+    return {"ok": True}

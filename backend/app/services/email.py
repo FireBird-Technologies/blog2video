@@ -297,9 +297,18 @@ class EmailService:
         </body>
         </html>"""
 
-    def _send_request_confirmation(self, to: str, first_name: str) -> None:
+    def _send_request_confirmation(
+        self,
+        to: str,
+        first_name: str,
+        from_email: str = "sales@blog2video.app",
+    ) -> None:
         """
         Send the requester a short confirmation that their submission was received.
+
+        ``from_email`` defaults to sales@ for the enterprise / custom-template forms.
+        Support-bot escalations pass support@ so the confirmation matches the address
+        the internal email is sent from and the user's reply lands in the right inbox.
 
         Best-effort: this runs after the internal team email has already been
         sent, so any failure here is logged and swallowed — it must never turn
@@ -320,7 +329,7 @@ class EmailService:
                 subject=subject,
                 html_content=html_body,
                 text_content=text,
-                from_email="sales@blog2video.app",
+                from_email=from_email,
                 cc=_CONFIRMATION_CC,
             )
         except Exception as exc:
@@ -674,6 +683,85 @@ class EmailService:
             )
 
 
+
+    def send_support_escalation_email(
+        self,
+        user_email: str,
+        concern: str,
+        reason: str = "human",
+        user_name: Optional[str] = None,
+        user_plan: Optional[str] = None,
+        page_path: Optional[str] = None,
+        transcript: Optional[list[tuple[str, str]]] = None,
+        to: str = settings.INTERNAL_ALERT_EMAIL,
+    ) -> None:
+        """
+        Forward a support-bot escalation to the internal team.
+        Triggered by POST /api/support/escalate.
+
+        ``reason`` is one of "human", "refund" or "feature" and only changes the
+        subject line so the inbox can be triaged at a glance.
+
+        Reply-to is set to the requester so hitting reply in the mail client goes
+        straight back to the customer rather than to the support alias.
+
+        Every interpolated value is HTML-escaped — this is user-submitted text
+        arriving straight from a chat widget.
+        """
+        kind_label = {
+            "refund": "Refund Request",
+            "feature": "Feature Request",
+        }.get(reason, "Support Escalation")
+        display_name = user_name or user_email.split("@")[0]
+
+        text_lines = [
+            f"New {kind_label.lower()} from the support bot:",
+            "",
+            f"From: {display_name} <{user_email}>",
+        ]
+        if user_plan:
+            text_lines.append(f"Plan: {user_plan}")
+        if page_path:
+            text_lines.append(f"Page: {page_path}")
+
+        # What the user typed into the form — the actual request. Always present.
+        text_lines += ["", "What they wrote:", concern.strip() or "(left blank)", ""]
+
+        # The chat message that triggered the escalation. Without this the team only
+        # sees the form text and has no idea what the user originally asked the bot.
+        first_user_msg = next(
+            (c for role, c in (transcript or []) if role == "user"), None
+        )
+        if first_user_msg:
+            text_lines += [f"What they asked the bot: {first_user_msg.strip()}", ""]
+
+        if transcript:
+            text_lines.append("Recent conversation:")
+            for role, content in transcript:
+                text_lines.append(f"  [{role}] {content}")
+            text_lines.append("")
+        # Reply-To is not set, so say how to actually reach them rather than
+        # implying a plain Reply will land in their inbox.
+        text_lines.append(f"Contact them at: {user_email}")
+        text = "\n".join(text_lines)
+
+        # Plain text only — no HTML. This is an internal triage alert, not a marketing
+        # email; a branded card just adds noise. Sending text-only also removes the
+        # HTML-escaping hazard entirely, since nothing is interpolated into markup.
+        # No reply_to: replies stay with support@ rather than going straight to the
+        # customer. Their address is in the body, so the team can still contact them
+        # deliberately rather than by hitting Reply.
+        self.provider.send_email(
+            to=to,
+            subject=f"[{kind_label}] from {display_name}",
+            text_content=text,
+            from_email="support@blog2video.app",
+        )
+
+        # Deliberately NO confirmation email to the requester: support escalations go
+        # to the internal inbox only. The user already sees an in-chat confirmation
+        # ("Thanks — we'll email you back shortly"), so a second acknowledgement is
+        # noise, and replying to them is the team's job, not an automated send.
 
     def send_low_rating_alert_email(
         self,

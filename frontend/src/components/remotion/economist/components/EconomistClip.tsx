@@ -1,5 +1,6 @@
 import React from "react";
-import { Loop, OffthreadVideo } from "remotion";
+import { Loop } from "remotion";
+import { SmartVideo } from "../../SmartVideo";
 import { useSceneDurationInFrames } from "../../SceneDurationContext";
 
 /**
@@ -12,7 +13,7 @@ import { useSceneDurationInFrames } from "../../SceneDurationContext";
  *
  * Two deliberate choices, carried over from the verified Newspaper/Newscast
  * components:
- *  1. `OffthreadVideo` (not `<Video>`): during a CLI render Remotion extracts the
+ *  1. `SmartVideo`: during a CLI render it uses `OffthreadVideo`, which extracts the
  *     exact frame with ffmpeg, so output frames land on precise timestamps.
  *  2. `playbackRate` is never set. Clips are normalised to CFR 30 on ingest
  *     (backend/app/services/stock_footage.py), so composition frame n maps 1:1
@@ -50,7 +51,7 @@ export function EconomistClip({
   const start = Math.max(0, Math.round(startInFrames || 0));
 
   const video = (
-    <OffthreadVideo
+    <SmartVideo
       src={src}
       muted={muted}
       volume={muted ? 0 : Math.max(0, Math.min(1, volume))}

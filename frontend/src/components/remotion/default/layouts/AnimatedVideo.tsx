@@ -1,5 +1,6 @@
 import React from "react";
-import { Loop, OffthreadVideo } from "remotion";
+import { Loop } from "remotion";
+import { SmartVideo } from "../../SmartVideo";
 import { useSceneDurationInFrames } from "../../SceneDurationContext";
 
 /**
@@ -9,10 +10,10 @@ import { useSceneDurationInFrames } from "../../SceneDurationContext";
  *
  * Two deliberate choices keep playback smooth:
  *
- * 1. `OffthreadVideo` (not `<Video>`): during a CLI render Remotion extracts the
- *    exact frame with ffmpeg rather than driving a real <video> element, so
- *    output frames land on precise timestamps instead of wherever a media
- *    element happened to be.
+ * 1. `SmartVideo`: uses `OffthreadVideo` during a CLI render, so Remotion
+ *    extracts the exact frame with ffmpeg and output frames land on precise
+ *    timestamps; and a plain `<Video>` in the Player, which plays continuously
+ *    instead of freezing the timeline on a per-frame seek.
  *
  * 2. `playbackRate` is never set. Clips are normalised to CFR 30 fps on ingest
  *    (backend/app/services/stock_footage.py) to match the composition's fps, so
@@ -20,7 +21,7 @@ import { useSceneDurationInFrames } from "../../SceneDurationContext";
  *    re-introduce the fractional sampling — i.e. judder — that normalising
  *    exists to remove.
  *
- * `OffthreadVideo` has no `loop` prop, so repetition uses the separate <Loop>
+ * Neither video primitive has a `loop` prop, so repetition uses the separate <Loop>
  * component. Without a known clip length we cannot pick a loop point, so the
  * clip plays once rather than cutting at a guessed frame.
  */
@@ -38,7 +39,7 @@ export const AnimatedVideo: React.FC<{
   const start = Math.max(0, Math.round(startInFrames || 0));
 
   const video = (
-    <OffthreadVideo
+    <SmartVideo
       src={src}
       muted={muted}
       volume={muted ? 0 : Math.max(0, Math.min(1, volume))}

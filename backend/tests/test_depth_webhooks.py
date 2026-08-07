@@ -69,6 +69,58 @@ def test_checkout_completed__pro_subscription__upgrades_plan(db_session, free_us
     assert free_user.stripe_subscription_id == "sub_123"
 
 
+# ─── shared-account guard ───────────────────────────────────────────────────
+# The Stripe account is shared with BlogHub / autodash / autoanalyst, and webhook
+# endpoints are account-scoped, so we receive their checkout.session.* events too.
+
+def test_checkout_completed__foreign_bloghub_session__ignored(db_session, free_user):
+    # BlogHub's metadata shape: slot_id/publication_id/dates, no `type`, no plan.
+    free_user.stripe_customer_id = "cus_foreign_1"
+    db_session.commit()
+    session = {
+        "id": "cs_bloghub_1", "customer": "cus_foreign_1", "amount_total": 0,
+        "metadata": {
+            "slot_id": "7", "publication_id": "12", "duration_days": "30",
+            "start_date": "2026-08-01", "end_date": "2026-08-31",
+        },
+    }
+    _handle_checkout_completed(session, db_session)
+    db_session.refresh(free_user)
+    assert free_user.plan == PlanTier.FREE
+    assert db_session.query(Subscription).filter_by(user_id=free_user.id).count() == 0
+
+
+def test_checkout_completed__foreign_session_with_user_id__ignored(db_session, free_user):
+    # Another product setting user_id must not be enough to pass the guard —
+    # their ids collide with ours and would provision a subscription for a
+    # blog2video user who never bought anything.
+    free_user.stripe_customer_id = "cus_foreign_2"
+    db_session.commit()
+    session = {
+        "id": "cs_autodash_1", "customer": "cus_foreign_2", "amount_total": 0,
+        "metadata": {"user_id": str(free_user.id), "workspace_id": "88"},
+    }
+    _handle_checkout_completed(session, db_session)
+    db_session.refresh(free_user)
+    assert free_user.plan == PlanTier.FREE
+    assert db_session.query(Subscription).filter_by(user_id=free_user.id).count() == 0
+
+
+def test_checkout_completed__unknown_type_value__ignored(db_session, free_user):
+    # A `type` we don't recognise is not ours either — no silent pro_subscription
+    # fallback (the old default granted Pro to any typeless session).
+    free_user.stripe_customer_id = "cus_foreign_3"
+    db_session.commit()
+    session = {
+        "id": "cs_unknown_1", "customer": "cus_foreign_3",
+        "metadata": {"type": "featured_slot", "user_id": str(free_user.id)},
+    }
+    _handle_checkout_completed(session, db_session)
+    db_session.refresh(free_user)
+    assert free_user.plan == PlanTier.FREE
+    assert db_session.query(Subscription).filter_by(user_id=free_user.id).count() == 0
+
+
 # ═══ subscription lifecycle ═════════════════════════════════════════════════
 
 def _user_with_sub(db, *, slug="pro_monthly", plan=PlanTier.PRO, status=SubscriptionStatus.ACTIVE,

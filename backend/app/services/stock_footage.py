@@ -18,12 +18,17 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import shutil
 import subprocess
 import tempfile
+import threading
+import time
+from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, asdict
 from typing import Any, Literal
+from urllib.parse import urlparse
 
 import requests
 
@@ -49,7 +54,28 @@ MAX_DOWNLOAD_BYTES = 60 * 1024 * 1024
 MAX_SEARCH_RESULTS = 6
 MAX_CLIP_DURATION_SECONDS = 12.0
 DEFAULT_SEARCH_PER_PAGE = 6
-AUTO_SEARCH_PER_PAGE = 1
+
+# Pixabay ignores `max_duration`, so the ceiling is applied client-side and most
+# of every page is discarded — measured across 12 real queries, per_page=40 left
+# 2 unable to fill a pool of 8 (one returned only 3), per_page=64 left 1, and
+# per_page=80 filled every one. With a single provider there is no second source
+# to cover a shortfall, so size for the worst query, not the median. Latency is
+# effectively flat in per_page (~540ms at 3, ~670ms at 50), so the wide page is
+# close to free.
+_PIXABAY_DURATION_OVERFETCH = 10
+AUTO_SEARCH_PER_PAGE = 8
+
+# The auto-pick ranks a pool locally instead of trusting the first hit. Eight
+# usable candidates, which a single provider must be able to fill on its own:
+# with only one key configured there is no second provider to make up a
+# shortfall, and a thin pool means the ranker chooses from whatever happened to
+# come back rather than from a real field.
+AUTO_CANDIDATE_POOL_SIZE = 8
+
+# Ceiling on the per-provider page once cross-scene exclusions widen the request.
+# Pexels caps per_page at 80; a long video would otherwise keep growing the page
+# for every scene already assigned.
+_MAX_AUTO_PER_PAGE = 40
 # Pexels ``size=medium`` = Full HD catalog floor; prefer these heights when
 # picking a ``video_files`` rendition for download/preview.
 PREFERRED_RENDITION_HEIGHTS = (720, 1080, 540, 360)
@@ -57,6 +83,18 @@ PREFERRED_RENDITION_HEIGHTS = (720, 1080, 540, 360)
 _SEARCH_TIMEOUT = 12
 _DOWNLOAD_TIMEOUT = 120
 _FFMPEG_TIMEOUT = 300
+
+# Pixabay's terms require search responses to be cached for 24 hours, and the
+# same discipline is good manners toward Pexels. Beyond compliance it is a real
+# speed win: a provider round-trip is ~650 ms and scenes in one video routinely
+# extract to the same query, so repeats collapse to a dict lookup.
+#
+# Deliberately in-process rather than Redis — entries are small, a cold worker
+# simply re-fetches, and this keeps the module dependency-free.
+_SEARCH_CACHE_TTL_SECONDS = 24 * 60 * 60
+_SEARCH_CACHE_MAX_ENTRIES = 512
+_search_cache: "OrderedDict[tuple, tuple[float, list]]" = OrderedDict()
+_search_cache_lock = threading.Lock()
 
 Provider = Literal["pexels", "pixabay"]
 
@@ -80,6 +118,10 @@ class StockClip:
     fps: float | None
     author: str
     page_url: str
+    # Relevance signals for the local ranker. Defaulted so existing keyword
+    # constructions keep working; surfaced through to_dict() but unused by the UI.
+    tags: str = ""          # comma-separated keywords, provider-supplied
+    description: str = ""   # human-readable title/alt, provider-supplied
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -136,6 +178,58 @@ def _pick_rendition(
     return max(under, key=lambda f: f.get("height") or 0)
 
 
+def _cache_get(key: tuple) -> list | None:
+    """Return a cached provider response, or None when absent/expired."""
+    with _search_cache_lock:
+        entry = _search_cache.get(key)
+        if entry is None:
+            return None
+        stored_at, clips = entry
+        if time.time() - stored_at > _SEARCH_CACHE_TTL_SECONDS:
+            _search_cache.pop(key, None)
+            return None
+        _search_cache.move_to_end(key)  # LRU
+        # Copy: callers filter and sort the list in place.
+        return list(clips)
+
+
+def _cache_put(key: tuple, clips: list) -> None:
+    with _search_cache_lock:
+        _search_cache[key] = (time.time(), list(clips))
+        _search_cache.move_to_end(key)
+        while len(_search_cache) > _SEARCH_CACHE_MAX_ENTRIES:
+            _search_cache.popitem(last=False)
+
+
+def clear_search_cache() -> None:
+    """Drop every cached provider response (used by tests)."""
+    with _search_cache_lock:
+        _search_cache.clear()
+
+
+_PEXELS_SLUG_ID_RE = re.compile(r"-\d+$")
+
+
+def _pexels_description(page_url: str) -> str:
+    """Derive a text description from a Pexels video page URL.
+
+    Pexels' *video* search returns no title/alt field — the URL slug is the only
+    human-readable text on the hit, so it is all the ranker has to work with:
+    ``.../video/a-woman-typing-3209828/`` -> ``a woman typing``.
+    """
+    if not page_url:
+        return ""
+    try:
+        path = urlparse(page_url).path.strip("/")
+    except (ValueError, AttributeError):
+        return ""
+    if not path:
+        return ""
+    slug = path.rsplit("/", 1)[-1]
+    slug = _PEXELS_SLUG_ID_RE.sub("", slug)
+    return slug.replace("-", " ").strip()
+
+
 def _pexels_search(
     query: str,
     per_page: int,
@@ -168,6 +262,12 @@ def _pexels_search(
 
     clips: list[StockClip] = []
     for hit in payload.get("videos") or []:
+        # Pexels honours `max_duration` server-side (verified), but re-check:
+        # a long clip costs download time and two ffmpeg passes, and the renderer
+        # loops short clips anyway, so an over-length source buys nothing.
+        if float(hit.get("duration") or 0) > MAX_CLIP_DURATION_SECONDS:
+            continue
+
         files = [f for f in (hit.get("video_files") or []) if f.get("link")]
         if not files:
             continue
@@ -177,6 +277,14 @@ def _pexels_search(
             continue
 
         user = hit.get("user") or {}
+        page_url = hit.get("url") or "https://www.pexels.com"
+        # Videos usually carry no tags at all (that is the photo API); read
+        # defensively so a future/partial response still contributes signal.
+        raw_tags = hit.get("tags") or []
+        if isinstance(raw_tags, str):
+            tags = raw_tags.strip()
+        else:
+            tags = ", ".join(str(t).strip() for t in raw_tags if str(t).strip())
         clips.append(
             StockClip(
                 provider="pexels",
@@ -189,7 +297,9 @@ def _pexels_search(
                 duration=float(hit.get("duration") or 0),
                 fps=float(best["fps"]) if best.get("fps") else None,
                 author=user.get("name") or "Pexels contributor",
-                page_url=hit.get("url") or "https://www.pexels.com",
+                page_url=page_url,
+                tags=tags,
+                description=_pexels_description(page_url),
             )
         )
     return clips
@@ -203,11 +313,24 @@ def _pixabay_search(query: str, per_page: int, page: int, orientation: str | Non
         "https://pixabay.com/api/videos/",
         params={
             "key": settings.PIXABAY_API_KEY,
-            "q": query,
-            "per_page": per_page,
+            # The API caps q at 100 chars and 400s past it.
+            "q": query[:100],
+            # Over-fetch, because the duration ceiling is enforced below rather
+            # than by the API: only ~30-50% of hits come back at or under 12s
+            # (for some queries, none in the first six). Requesting per_page
+            # directly would quietly starve Pixabay out of the pool. Latency is
+            # effectively flat in per_page (~540ms at 3, ~670ms at 50), so the
+            # wider page is free. Documented range is 3-200; below 3 is a 400.
+            "per_page": max(3, min(per_page * _PIXABAY_DURATION_OVERFETCH, 200)),
             "page": page,
-            "video_type": "all",
-            "max_duration": int(MAX_CLIP_DURATION_SECONDS),
+            "video_type": "film",
+            # Videos are rendered into customer-facing content, so exclude
+            # anything not suitable for all audiences.
+            "safesearch": "true",
+            # Community-vetted clips first. The relevance ranker reorders the
+            # pool afterwards, so this only decides *which* clips we see, not
+            # which one wins.
+            "order": "popular",
         },
         timeout=_SEARCH_TIMEOUT,
     )
@@ -216,6 +339,15 @@ def _pixabay_search(query: str, per_page: int, page: int, orientation: str | Non
 
     clips: list[StockClip] = []
     for hit in payload.get("hits") or []:
+        # Pixabay accepts `max_duration` and silently ignores it — verified live:
+        # a request capped at 12s returned clips of 14, 30, 41 and 169 seconds.
+        # (It is an *images* API parameter; the video endpoint 200s and drops it.)
+        # Clips loop to the scene duration, so a long source only costs download
+        # time and disk, hence the same ceiling Pexels enforces server-side.
+        duration = float(hit.get("duration") or 0)
+        if duration > MAX_CLIP_DURATION_SECONDS:
+            continue
+
         variants = hit.get("videos") or {}
         chosen = None
         for name in ("medium", "small", "large", "tiny"):
@@ -238,12 +370,22 @@ def _pixabay_search(query: str, per_page: int, page: int, orientation: str | Non
         if orientation == "landscape" and h > w:
             continue
 
-        picture_id = hit.get("picture_id") or ""
-        thumbnail = (
-            f"https://i.vimeocdn.com/video/{picture_id}_640x360.jpg"
-            if picture_id
-            else (variants.get("tiny") or {}).get("url", "")
-        )
+        # Pixabay now ships a still per variant (``videos.<size>.thumbnail``) and
+        # leaves the legacy ``picture_id`` null, so the old vimeocdn URL could
+        # not be built and this fell through to a *video* URL — the picker grid
+        # was loading multi-MB MP4s where it wanted a JPEG.
+        thumbnail = ""
+        for name in ("medium", "large", "small", "tiny"):
+            thumb = (variants.get(name) or {}).get("thumbnail")
+            if thumb:
+                thumbnail = thumb
+                break
+        if not thumbnail:
+            picture_id = hit.get("picture_id") or ""
+            if picture_id:
+                thumbnail = f"https://i.vimeocdn.com/video/{picture_id}_640x360.jpg"
+            else:
+                thumbnail = (variants.get("tiny") or {}).get("url", "")
 
         clips.append(
             StockClip(
@@ -254,12 +396,19 @@ def _pixabay_search(query: str, per_page: int, page: int, orientation: str | Non
                 download_url=chosen["url"],
                 width=w,
                 height=h,
-                duration=float(hit.get("duration") or 0),
+                duration=duration,
                 fps=None,  # Pixabay does not report source fps.
                 author=hit.get("user") or "Pixabay contributor",
                 page_url=hit.get("pageURL") or "https://pixabay.com",
+                # Already a comma-separated keyword string, e.g. "nature, forest".
+                # This is the richest relevance signal either provider gives us.
+                tags=(hit.get("tags") or "").strip(),
             )
         )
+        # We over-fetched to survive the duration filter — hand back only what
+        # the caller asked for, so neither provider dominates the interleave.
+        if len(clips) >= per_page:
+            break
     return clips
 
 
@@ -316,16 +465,34 @@ def search(
     per_page = max(1, min(int(per_page or DEFAULT_SEARCH_PER_PAGE), 80))  # Pexels caps per_page at 80
     page = max(1, int(page or 1))
 
+    # A provider with no key configured is *off*, not broken: skip it rather than
+    # dispatching a thread and logging a failure for every search. This is the
+    # difference between "Pixabay-only by choice" and "Pexels is down".
     wanted: list[str] = []
-    if provider in ("all", "pexels"):
+    if provider in ("all", "pexels") and settings.PEXELS_API_KEY:
         wanted.append("pexels")
-    if provider in ("all", "pixabay"):
+    if provider in ("all", "pixabay") and settings.PIXABAY_API_KEY:
         wanted.append("pixabay")
+    if not wanted:
+        logger.error("[STOCK] no provider API keys configured — cannot search")
+        return []
 
     def _run(name: str) -> list[StockClip]:
+        # Cache per provider, not per search(), so a repeat still pays off when
+        # only one provider's parameters differ (e.g. a different scene box).
+        key = (name, query.lower(), per_page, page, orientation, box_w, box_h)
+        hit = _cache_get(key)
+        if hit is not None:
+            return hit
         if name == "pexels":
-            return _pexels_search(query, per_page, page, orientation, box_w, box_h)
-        return _pixabay_search(query, per_page, page, orientation)
+            clips = _pexels_search(query, per_page, page, orientation, box_w, box_h)
+        else:
+            clips = _pixabay_search(query, per_page, page, orientation)
+        # Only cache successful, non-empty responses: a transient failure or an
+        # empty page should not be pinned for 24 hours.
+        if clips:
+            _cache_put(key, clips)
+        return clips
 
     results: dict[str, list[StockClip]] = {}
     with ThreadPoolExecutor(max_workers=2) as pool:
@@ -334,8 +501,21 @@ def search(
             try:
                 results[name] = fut.result()
             except Exception:
-                logger.warning("[STOCK] %s search failed for %r", name, query, exc_info=True)
+                # Loud on purpose: a provider dropping out silently halves the
+                # pool and strips its metadata, which reads downstream as "the
+                # ranking got worse" rather than "a key expired". An HTTP 400
+                # from a bad key looked identical to a genuinely empty search.
+                logger.error(
+                    "[STOCK] %s search FAILED for %r — pool will be %s-only",
+                    name, query,
+                    " + ".join(n for n in wanted if n != name) or "empty",
+                    exc_info=True,
+                )
                 results[name] = []
+
+    for name in wanted:
+        if not results.get(name):
+            logger.warning("[STOCK] %s returned 0 clips for %r", name, query)
 
     # Interleave so neither provider dominates the top of the grid.
     interleaved: list[StockClip] = []
@@ -344,6 +524,14 @@ def search(
         for l in lists:
             if i < len(l):
                 interleaved.append(l[i])
+
+    # Single enforcement point for the duration ceiling: Pexels applies it
+    # server-side, Pixabay ignores the parameter entirely, and the manual picker
+    # calls straight through here. Re-checking once means no parsing change in
+    # either provider can leak an over-length clip into a download.
+    interleaved = [
+        c for c in interleaved if 0 < c.duration <= MAX_CLIP_DURATION_SECONDS
+    ]
 
     # Then pull the cleanest frame rates to the front. Stable sort, so the
     # provider interleave survives as the tiebreak within each rank.
@@ -616,3 +804,74 @@ def pick_top_for_query(
         max_results=1,
     )
     return clips[0] if clips else None
+
+
+def pick_best_for_scene(
+    query: str,
+    *,
+    scene_tokens: list[str] | None = None,
+    orientation: str | None = None,
+    box_w: float | None = None,
+    box_h: float | None = None,
+    exclude_ids: set[str] | None = None,
+) -> StockClip | None:
+    """Best clip for a scene: one search, then rank the returned pool locally.
+
+    Unlike :func:`pick_top_for_query` this pulls a real candidate pool (still a
+    single ``search`` call — only ``per_page`` differs) so relevance can be
+    scored instead of trusting whichever hit the provider happened to return
+    first. ``exclude_ids`` holds ``"provider:id"`` strings already used by other
+    scenes, so two scenes never land on the same clip.
+
+    Without ``scene_tokens`` the pool is left in ``search`` order (fps-ranked),
+    which is the pre-ranking behaviour.
+    """
+    # Fetch a wider field than the pool, then drop already-used clips *before*
+    # capping. Capping first meant the eight best were chosen, the ones earlier
+    # scenes had taken were removed from that eight, and a late scene ranked
+    # whatever remained — which is how a penguin video drifted to jellyfish by
+    # scene 9. Excluding first keeps eight genuine candidates for every scene as
+    # long as either provider still has footage on the subject.
+    # Ask each provider for the pool *plus* everything already taken, so the
+    # eight candidates that survive exclusion are still the eight best available
+    # rather than the leftovers. Capped so a long video cannot request an
+    # unbounded page.
+    already_used = len(exclude_ids or ())
+    per_page = min(AUTO_SEARCH_PER_PAGE + already_used, _MAX_AUTO_PER_PAGE)
+    clips = search(
+        query,
+        provider="all",
+        per_page=per_page,
+        page=1,
+        orientation=orientation,
+        box_w=box_w,
+        box_h=box_h,
+        max_results=AUTO_CANDIDATE_POOL_SIZE + already_used,
+    )
+    if exclude_ids:
+        clips = [c for c in clips if f"{c.provider}:{c.id}" not in exclude_ids]
+    clips = clips[:AUTO_CANDIDATE_POOL_SIZE]
+    if not clips:
+        return None
+
+    if scene_tokens:
+        from app.services.stock_relevance import (
+            _merge_query_tokens,
+            rank_clips_by_relevance,
+        )
+
+        try:
+            # Rank against the terms actually searched for, then the scene's
+            # wider vocabulary — otherwise the pick is decided by words the
+            # provider never matched on.
+            ranked = rank_clips_by_relevance(
+                clips, _merge_query_tokens(scene_tokens, query)
+            )
+            if ranked:
+                return ranked[0][0]
+        except Exception:
+            # Ranking is an optimisation, never a gate — fall through to the
+            # provider/fps order rather than losing the clip entirely.
+            logger.warning("[STOCK] relevance ranking failed for %r", query, exc_info=True)
+
+    return clips[0]

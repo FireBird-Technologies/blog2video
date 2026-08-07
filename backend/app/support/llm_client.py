@@ -46,6 +46,9 @@ class SupportResponse(BaseModel):
     citations: list[str] = []
     # LLM sometimes returns list of strings, sometimes list of dicts — accept both
     ui_guidance: list[dict[str, Any] | str] = []
+    # True when the turn should offer the "talk to a human" / feature-request form.
+    # Without this field Pydantic silently drops the key the model emits.
+    escalate: bool = False
 
 
 def _parse_response(content: str) -> SupportResponse | None:

@@ -84,10 +84,33 @@ def test_handle_checkout_expired__routes_to_winback(db_session, monkeypatch, fre
     )
     session = {
         "id": "cs_exp_1",
-        "metadata": {"user_id": str(free_user.id)},
+        # Real sessions of ours always carry `type` — the shared-account guard
+        # requires it before any win-back is sent.
+        "metadata": {"user_id": str(free_user.id), "type": "per_video", "qty": "1"},
         "after_expiration": {"recovery": {"url": "https://stripe/recover"}},
     }
     billing_router._handle_checkout_expired(session, db_session)
     assert sent["user_id"] == free_user.id
     assert sent["abandoned"] is True
     assert sent["recovery_url"] == "https://stripe/recover"
+
+
+def test_handle_checkout_expired__foreign_session__no_winback(db_session, monkeypatch, free_user):
+    # A BlogHub-shaped expired session on the shared Stripe account. Its user_id
+    # belongs to *their* user table but collides with one of ours — we must not
+    # email that user a win-back coupon.
+    sent: list = []
+    monkeypatch.setattr(
+        billing_router, "_send_winback_coupon",
+        lambda db, user, *, abandoned, recovery_url=None: sent.append(user) or "ok",
+    )
+    session = {
+        "id": "cs_bloghub_exp",
+        "metadata": {
+            "user_id": str(free_user.id), "slot_id": "7",
+            "publication_id": "12", "duration_days": "30",
+        },
+        "after_expiration": {"recovery": {"url": "https://stripe/recover"}},
+    }
+    billing_router._handle_checkout_expired(session, db_session)
+    assert sent == []
