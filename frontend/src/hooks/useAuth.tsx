@@ -97,9 +97,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await getMe();
       setUser(res.data);
       localStorage.setItem("b2v_user", JSON.stringify(res.data));
-    } catch {
-      // Token may be invalid
-      logout();
+    } catch (err: unknown) {
+      // Same rule as the mount effect below: only a genuine 401 is a dead token.
+      // A network blip or a slow response is not, and logging out on one is
+      // especially bad here — refreshUser runs right after an avatar batch is
+      // authorized, which is exactly when the connection pool is most contended.
+      const status = (err as { response?: { status?: number } })?.response
+        ?.status;
+      if (status === 401) logout();
     }
   }, [logout]);
 
@@ -126,8 +131,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(res.data);
           localStorage.setItem("b2v_user", JSON.stringify(res.data));
         })
-        .catch(() => {
-          logout();
+        .catch((err: unknown) => {
+          // ONLY a real 401 means the token is dead. This used to log out on ANY
+          // rejection, including the 8s timeout above — which exists to stop a
+          // cold backend BLOCKING the UI, not to sign anyone out.
+          //
+          // That distinction is not academic: a reload during an avatar batch
+          // fires ~15 concurrent requests while renders hold DB connections
+          // against a pool of 5 + 10 overflow, /api/auth/me misses 8s, and the
+          // user was silently logged out mid-batch.
+          //
+          // On a timeout the cached session (already read from localStorage and
+          // applied above) stays put and the next call re-verifies. A genuine 401
+          // is still handled either way — api's response interceptor clears
+          // storage and redirects — so this only has to catch the case the
+          // interceptor cannot see.
+          const status = (err as { response?: { status?: number } })?.response
+            ?.status;
+          if (status === 401) logout();
         })
         .finally(() => setLoading(false));
     } else {

@@ -6,6 +6,7 @@ export * from "./projects";
 export * from "./enterprise";
 
 import axios from "axios";
+import type { AxiosResponse } from "axios";
 import type { VideoStyleId } from "../constants/videoStyles";
 
 // In production, VITE_BACKEND_URL points to the Cloud Run backend.
@@ -1882,6 +1883,33 @@ export interface AvatarProgressScene {
    *  bulk retry endpoint skips it, though an explicit per-scene Generate still
    *  resets the count and works. */
   attempts_exhausted: boolean;
+  /** 1-based scene number, resolved SERVER-SIDE. Present on batch rows only.
+   *  The client used to fall back to an array index, so a finished scene — which
+   *  drops out of the "eligible" list — rendered as "Scene ?". */
+  order?: number | null;
+  /** This scene failed for good and its credits were returned. It is closed:
+   *  no retry anywhere, and a new batch cannot include it. NOT the same as
+   *  `retryable === false`, which only says the error class was terminal. */
+  credits_refunded?: boolean;
+}
+
+/** The most recent run, resolved by the server: its rows already in scene order,
+ *  with the numerator and denominator already counted. Everything here exists so
+ *  the client does no derivation — see `view` on AvatarProgress. */
+export interface AvatarBatch {
+  scene_ids: number[];
+  rows: AvatarProgressScene[];
+  /** Size of THIS BATCH. Not `total` below, which is project-wide and once made
+   *  a 6-scene batch report as "of 20". */
+  total: number;
+  /** completed + failed. A failed scene will not move again on its own, so
+   *  counting it as outstanding spins forever. */
+  done: number;
+  all_terminal: boolean;
+  /** Scene numbers whose credits were returned, for the apology modal. */
+  refunded_scene_orders: number[];
+  /** Total credits returned for this batch. 0 when nothing failed for good. */
+  refunded_credits: number;
 }
 
 export interface AvatarProgress {
@@ -1896,6 +1924,16 @@ export interface AvatarProgress {
   /** Scenes that could have an avatar (i.e. have narration). Progress is shown
    *  against this, not against however many job rows happen to exist. */
   eligible_total: number;
+  /** WHICH VIEW TO RENDER — the server's answer, not a hint.
+   *
+   *  "progress" while any scene in the most recent batch is still queued or
+   *  running; "settings" otherwise. The client must NOT re-derive this. It used
+   *  to, from ~16 separate guesses (a module cache that survives a tab switch but
+   *  not a refresh, a stale avatar_batch_unlocked latch, a default first-5 scene
+   *  selection), which is why the same server state produced a different screen
+   *  on every reload. */
+  view: "progress" | "settings";
+  batch: AvatarBatch;
   max_attempts: number;
 }
 
@@ -1912,6 +1950,12 @@ export interface AvatarProgress {
  *  state from it and the in-flight poll overwrites that a moment later. */
 const avatarProgressCache = new Map<number, AvatarProgress>();
 
+/** Requests currently in flight, keyed by project — see getAvatarProgress. */
+const avatarProgressInFlight = new Map<
+  number,
+  Promise<AxiosResponse<AvatarProgress>>
+>();
+
 /** The last rollup seen for this project, or null if none has landed yet.
  *  Seed component state from this to avoid a blank first frame on remount —
  *  it may be stale, so treat it as a starting point the next poll corrects. */
@@ -1926,11 +1970,23 @@ export const getCachedAvatarProgress = (
  *  Every successful response is cached (see avatarProgressCache) purely so the
  *  next mount has something real to paint immediately. */
 export const getAvatarProgress = async (projectId: number) => {
-  const res = await api.get<AvatarProgress>(
-    `/projects/${projectId}/avatar-progress`,
-  );
-  avatarProgressCache.set(projectId, res.data);
-  return res;
+  // Coalesce concurrent callers onto ONE request. The endpoint is polled about
+  // once a second and was, for a while, polled by three components at once; a
+  // StrictMode double-invoke or two overlapping ticks would otherwise each open
+  // their own DB connection from a pool of 5 + 10 that renders already share.
+  const inFlight = avatarProgressInFlight.get(projectId);
+  if (inFlight) return inFlight;
+  const p = api
+    .get<AvatarProgress>(`/projects/${projectId}/avatar-progress`)
+    .then((res) => {
+      avatarProgressCache.set(projectId, res.data);
+      return res;
+    })
+    .finally(() => {
+      avatarProgressInFlight.delete(projectId);
+    });
+  avatarProgressInFlight.set(projectId, p);
+  return p;
 };
 
 /** Re-enqueue every scene in this project whose most recent avatar job

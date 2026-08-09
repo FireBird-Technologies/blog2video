@@ -4,7 +4,6 @@ import {
   AVATAR_PRESETS,
   MAIN_AVATAR_PRESET_IDS,
   deleteSceneAvatar,
-  generateSceneAvatar,
   getSceneAvatarStatus,
   matteSceneAvatar,
   updateSceneAvatarAppearance,
@@ -162,6 +161,7 @@ export default function SceneAvatarSection({
   onChanged,
   onSaved,
   onGoToNarration,
+  onGoToAvatarTab,
   project,
   ownerScopedProjectId,
   precompiledCraftedDetail,
@@ -198,6 +198,22 @@ export default function SceneAvatarSection({
   onSaved?: () => void;
   /** Jump to wherever narration is authored, shown only when there is none yet. */
   onGoToNarration?: () => void;
+  /** Jump to the project-wide Avatar tab.
+   *
+   *  This is the ONLY route to a first render. A scene with no finished clip —
+   *  including one that is queued, rendering or failed — sends the user there
+   *  rather than offering a per-scene Generate button, for two reasons:
+   *
+   *    1. per-scene generation goes through an endpoint that charges nothing,
+   *       so it was a free path to work the batch wizard prices at
+   *       AVATAR_CREDIT_COST_PER_SCENE credits a scene;
+   *    2. a single scene's spinner hides the batch it belongs to — the Avatar
+   *       tab shows every scene's status at once, which is what someone
+   *       checking on a render actually wants.
+   *
+   *  Optional: AvatarEditModal only ever opens for scenes that already have a
+   *  clip, so it has no un-rendered state to redirect out of. */
+  onGoToAvatarTab?: () => void;
   /** The full project — when provided, the Appearance preview shows the real
    *  scene (via VideoPreview) instead of a generic mock. */
   project?: Project;
@@ -218,11 +234,8 @@ export default function SceneAvatarSection({
   const [error, setError] = useState<string | null>(null);
   // Set only once a job has actually failed — distinct from `error`, which is
   // cleared as soon as a new attempt starts. Drives the "Retry" button label.
-  const [lastFailed, setLastFailed] = useState(false);
-  const [lastRetryable, setLastRetryable] = useState<boolean | null>(null);
   // 0-based position among still-queued jobs system-wide (this project's job
   // may be waiting behind another project's), or null once running/terminal.
-  const [queuePosition, setQueuePosition] = useState<number | null>(null);
   const [ready, setReady] = useState(hasAvatar);
   const [tookSeconds, setTookSeconds] = useState<number | null>(null);
   const [removing, setRemoving] = useState(false);
@@ -230,7 +243,6 @@ export default function SceneAvatarSection({
   const [uploading, setUploading] = useState(false);
   // Which tile is hovered. Only the hovered (or selected) tile plays its sample
   // clip — five simultaneously-decoding videos is real CPU for a glance.
-  const [hoveredPreset, setHoveredPreset] = useState<string | null>(null);
   const portraitInputRef = useRef<HTMLInputElement>(null);
   const emptyAppearance: AvatarAppearanceValue = {
     shape: null, size: null, position: null, bg: null, opacity: null,
@@ -302,6 +314,24 @@ export default function SceneAvatarSection({
       }
       setSavedAppearance(appearance);
       setSavedZoom(zoom);
+      // Picking a background IS the request to see it, and a colour is only
+      // visible once the presenter is cut out of their filmed room — so queue
+      // the cutout here rather than saving a setting that silently does nothing.
+      // Mirrors what the project-wide card does on ITS save.
+      //
+      // Gated on the matte being MISSING, not on the field being dirty: a scene
+      // can already carry the right colour and still have no cutout (a render
+      // that finished after the background was chosen), and that scene needs
+      // this exactly as much as one being changed now.
+      if (ready && !matted && avatarBgWantsCutout(appearance.bg as AvatarBg)) {
+        try {
+          await matteSceneAvatar(projectId, sceneId);
+          setMatted(true);
+        } catch {
+          /* non-fatal: the avatar still shows with its original background, and
+             the settings card surfaces a Retry for cutouts that failed. */
+        }
+      }
       await onChanged();
       flashSaved();
       // INSIDE the try, never in finally: this fires only when the save really
@@ -339,9 +369,6 @@ export default function SceneAvatarSection({
       finishingRef.current = true;
       stop();
       setError(err);
-      setLastFailed(!!err);
-      setLastRetryable(retryable);
-      setQueuePosition(null);
       setReady(nowHasAvatar);
       // Refresh BEFORE dropping the spinner so the preview is already correct.
       if (!err) await onChanged();
@@ -363,7 +390,6 @@ export default function SceneAvatarSection({
       else if (data.active) {
         setRunning(true);
         setPhase(data.phase);
-        setQueuePosition(data.status === "queued" ? data.queue_position : null);
       }
     } catch {
       // Transient failures are ignored — keep polling, like VoiceOperationModal.
@@ -385,14 +411,9 @@ export default function SceneAvatarSection({
         setReady(data.has_avatar);
         if (data.has_avatar) setWantsAvatar(true);
         if (data.avatar_preset) setPreset(data.avatar_preset);
-        if (data.status === "failed") {
-          setLastFailed(true);
-          setLastRetryable(data.retryable);
-        }
         if (data.active) {
           setRunning(true);
-          setQueuePosition(data.status === "queued" ? data.queue_position : null);
-          startPolling();
+            startPolling();
         }
       } catch {
         /* non-fatal — the section just shows its idle state */
@@ -404,30 +425,13 @@ export default function SceneAvatarSection({
     };
   }, [projectId, sceneId, startPolling, stop]);
 
-  const handleGenerate = async () => {
-    setError(null);
-    setLastFailed(false);
-    setQueuePosition(null);
-    setRunning(true);
-    // Ask at the moment a long job starts — the only point where the permission
-    // is both relevant and clearly motivated, rather than on page load.
-    try {
-      if (typeof Notification !== "undefined" && Notification.permission === "default") {
-        void Notification.requestPermission();
-      }
-    } catch { /* non-fatal */ }
-    try {
-      const { data } = await generateSceneAvatar(projectId, sceneId, preset);
-      setQueuePosition(data.queue_position);
-      startPolling();
-    } catch (e: unknown) {
-      const detail =
-        (e as { response?: { data?: { detail?: string } } })?.response?.data
-          ?.detail ?? "Could not start the avatar render.";
-      setError(detail);
-      setRunning(false);
-    }
-  };
+  // NOTE: there is deliberately no handleGenerate here any more. Starting a
+  // render from this section POSTed to /scenes/{id}/avatar, which charges
+  // nothing, while the batch wizard charges AVATAR_CREDIT_COST_PER_SCENE for the
+  // same GPU work — and this section mounts for every scene in SceneEditModal,
+  // so it was a free route to paid work. A scene with no finished clip now
+  // redirects to the Avatar tab (see the !ready branch below), which is the one
+  // priced entry point. The endpoint itself stays for the fallback matte path.
 
   /** Upload a presenter photo and immediately select it, since choosing it is the
    *  only reason to have uploaded one here. */
@@ -519,159 +523,20 @@ export default function SceneAvatarSection({
       ? "Your photo"
       : (AVATAR_PRESETS.find((p) => p.id === preset)?.label ?? "Presenter");
 
-  /** Presenter picker grid, shown only before a clip exists — once generated,
-   *  the ready view below shows a read-only summary instead (no in-place
-   *  regenerate; switching presenters means removing this avatar first). */
-  const presenterPicker = (
-    <div>
-      <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-        Presenter
-      </label>
-      <div className="grid grid-cols-3 gap-2">
-        {[
-          ...AVATAR_PRESETS.filter((p) => MAIN_AVATAR_PRESET_IDS.includes(p.id)).map((p) => ({
-            id: p.id,
-            label: p.label,
-            src: `/avatars/${p.id}.jpg`,
-          })),
-          // The uploaded portrait sits in the same grid as a sixth choice; it
-          // only appears once one exists, since selecting it otherwise would
-          // fail at generate time with nothing to render from.
-          ...(customPortraitUrl
-            ? [{
-                id: AVATAR_CUSTOM_PRESET_ID,
-                label: "Your photo",
-                src: customPortraitUrl,
-              }]
-            : []),
-        ].map((p) => {
-          const selected = preset === p.id;
-          return (
-            <button
-              key={p.id}
-              type="button"
-              disabled={running}
-              onClick={() => setPreset(p.id)}
-              onMouseEnter={() => setHoveredPreset(p.id)}
-              onMouseLeave={() => setHoveredPreset(null)}
-              title={p.label}
-              className={`relative rounded-xl overflow-hidden border-2 transition-colors disabled:opacity-50 ${
-                selected
-                  ? "border-purple-600"
-                  : "border-transparent hover:border-gray-200"
-              }`}
-            >
-              {/* The source photos are shot TIGHT — two of them frame the head
-                  larger than the square itself, so no crop can add margin that
-                  was never photographed. Scaling the face down inside the tile
-                  is the only way to give it breathing room, and it also makes
-                  the five differently-framed sources look consistent. */}
-              <div className="w-full aspect-square bg-gradient-to-b from-gray-100 to-gray-200 flex items-center justify-center overflow-hidden">
-                <AvatarPresetMedia
-                  presetId={p.id}
-                  label={p.label}
-                  srcOverride={p.id === AVATAR_CUSTOM_PRESET_ID ? p.src : undefined}
-                  playing={hoveredPreset === p.id || selected}
-                  className="w-[82%] h-[82%] object-cover rounded-lg"
-                  style={{ objectPosition: "50% 28%" }}
-                />
-              </div>
-              <span className="absolute bottom-0 inset-x-0 bg-black/45 text-white text-[10px] py-0.5 text-center">
-                {p.label}
-              </span>
-            </button>
-          );
-        })}
-
-        {/* Upload tile, in the grid rather than off to the side: picking a
-            presenter is exactly the moment someone realises they want their
-            own face, so the option belongs among the faces. */}
-        <button
-          type="button"
-          disabled={running || uploading}
-          onClick={() => portraitInputRef.current?.click()}
-          title={customPortraitUrl ? "Replace your photo" : "Upload your own photo"}
-          /* While uploading the tile stays at full strength with a purple border
-             rather than fading out: an upload in progress is active work, and
-             dimming it reads as "unavailable". disabled:opacity-50 is kept for
-             the genuinely-blocked case (a render running). */
-          className={`relative rounded-xl border-2 border-dashed transition-colors flex flex-col items-center justify-center aspect-square gap-1 ${
-            uploading
-              ? "border-purple-400 bg-purple-50/60 cursor-wait"
-              : "border-gray-300 hover:border-purple-400 hover:bg-purple-50/40 disabled:opacity-50"
-          }`}
-        >
-          {uploading ? (
-            <div className="w-4 h-4 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
-          ) : (
-            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-          )}
-          <span
-            className={`text-[10px] px-1 text-center leading-tight ${
-              uploading ? "text-purple-600 font-medium" : "text-gray-400"
-            }`}
-          >
-            {uploading ? "Uploading…" : customPortraitUrl ? "Replace" : "Your photo"}
-          </span>
-        </button>
-      </div>
-
-      <input
-        ref={portraitInputRef}
-        type="file"
-        accept="image/png,image/jpeg,image/webp"
-        className="hidden"
-        onChange={(e) => {
-          void handlePortraitUpload(e.target.files?.[0] ?? null);
-          e.target.value = "";
-        }}
-      />
-
-      {/* Photo requirements. Collapsed by default here — the picker is the
-          main event and most users take a built-in presenter. */}
-      <div className="mt-2.5">
-        <AvatarPhotoGuide variant="inline" />
-      </div>
-    </div>
-  );
+  // NOTE: the presenter picker that lived here is gone. Choosing a presenter is
+  // now part of the Avatar tab's wizard, which is the single priced entry point
+  // to a render; a scene with no finished clip redirects there instead. Once a
+  // clip exists the ready view below shows the presenter read-only, as it always
+  // did — switching presenters still means removing the avatar first.
 
   // Queued (not yet claimed by the dispatcher) shows real queue depth rather
   // than an unchanging spinner — the server-side queue is system-wide, so
   // this project's job may be waiting behind another project's.
-  const isWaitingInQueue = running && phase == null && queuePosition != null && queuePosition > 0;
 
-  const generateAction = running ? (
-    <AvatarJobCallout
-      tone="progress"
-      running
-      runningLabel={
-        isWaitingInQueue
-          ? `Waiting in queue — ${queuePosition} scene${queuePosition === 1 ? "" : "s"} ahead of this one.`
-          : phase === "starting_service"
-            ? "Starting the avatar service…"
-            : "Generating avatar… this takes a few minutes."
-      }
-      runningDetail={
-        isWaitingInQueue
-          ? "Renders run one at a time. This starts automatically once it's next."
-          : phase === "starting_service"
-            ? "The GPU is waking up — this can take several minutes the first time."
-            : "You can close this window — it keeps running."
-      }
-    />
-  ) : (
-    <div className="flex items-center gap-2">
-      <button
-        type="button"
-        onClick={handleGenerate}
-        className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-xl transition-all"
-      >
-        {lastFailed ? (lastRetryable === false ? "Try again" : "Retry") : "Generate avatar"}
-      </button>
-    </div>
-  );
+  // NOTE: the per-scene progress callout and Generate/Retry button that used to
+  // live here are gone with the !ready branch below. A scene that is queued,
+  // rendering or failed now redirects to the Avatar tab, which shows the whole
+  // batch rather than this one scene in isolation.
 
   const appearanceControls = projectAppearance && (
     <AvatarAppearanceControls
@@ -696,33 +561,38 @@ export default function SceneAvatarSection({
     />
   );
 
-  // No clip yet: skip the on/off toggle and tabs entirely — go straight to a
-  // single combined view (presenter + appearance, then Generate), since there
-  // is nothing to turn off yet and appearance is worth setting up up front.
+  // NO FINISHED CLIP — including queued, rendering and failed. Everything about
+  // starting or watching a render lives on the project-wide Avatar tab, so send
+  // the user there instead of duplicating it per scene.
+  //
+  // This replaced a per-scene presenter picker + "Generate avatar" button. That
+  // button POSTed to an endpoint which charges NOTHING, while the batch wizard
+  // charges AVATAR_CREDIT_COST_PER_SCENE credits a scene for the same GPU work —
+  // and the section mounts for every scene in SceneEditModal, so it was a free
+  // route to paid work. It also showed a lone spinner for a scene that is usually
+  // one of several rendering together; the Avatar tab shows them all.
+  //
+  // The condition is deliberately "is there something to EDIT?", not "does a job
+  // exist": a failed scene redirects too, because retrying belongs next to the
+  // batch-wide retry rather than in a modal for one scene.
   if (!ready) {
     return (
       <div className="space-y-4">
         <p className="text-xs text-gray-400">
-          Generate a presenter that lip-syncs to this scene's narration and set
-          how it appears on screen. Only this scene is affected.
+          {running
+            ? "This scene's presenter is being generated. The Avatar tab shows progress for every scene."
+            : "Presenters are generated for the whole video from the Avatar tab, where you pick the presenter and see the cost before anything starts."}
         </p>
 
-        {presenterPicker}
-
-        <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
-          Appearance
-        </label>
-        {appearanceControls}
-
-        <SaveBar
-          dirty={appearanceDirty}
-          saving={savingAppearance}
-          savedFlash={savedFlash}
-          onSave={() => void handleSaveAppearance()}
-          onDiscard={handleDiscardAppearance}
-        />
-
-        {generateAction}
+        {onGoToAvatarTab && (
+          <button
+            type="button"
+            onClick={onGoToAvatarTab}
+            className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-xl transition-all"
+          >
+            {running ? "View progress" : "Go to Avatar tab"}
+          </button>
+        )}
 
         {error && (
           <p className="text-xs text-red-600" role="alert">

@@ -10,8 +10,8 @@ import {
   getAvatarProgress,
   getCachedAvatarProgress,
   matteAllSceneAvatars,
-  retryFailedSceneAvatars,
   uploadAvatarPortrait,
+  type AvatarBatch,
   type AvatarProgressScene,
   type CraftedTemplateDetail,
   type Project,
@@ -24,6 +24,7 @@ import AvatarSceneStatusList, {
   type DisplayRow,
 } from "./AvatarSceneStatusList";
 import AvatarPresetMedia from "./AvatarPresetMedia";
+import NoticeModal from "./NoticeModal";
 import ImageCropOverlay from "./ImageCropOverlay";
 
 /** Matches SceneAvatarSection/ProjectAvatarSettingsCard — a render is minutes-scale. */
@@ -114,6 +115,8 @@ export default function AvatarBatchWizard({
   project,
   onError,
   onChanged,
+  pickInModal = false,
+  onDismiss,
 }: {
   projectId: number;
   scenes: SceneLite[];
@@ -137,6 +140,17 @@ export default function AvatarBatchWizard({
   onError: (msg: string) => void;
   /** Refetch the project — called after unlocking and again once the batch finishes. */
   onChanged: () => void | Promise<void>;
+  /** Render the presenter picker in a modal instead of inline.
+   *
+   *  The main avatar tab gives the wizard a full-width card, where the picker's
+   *  large preview and 3-up tile grid lay out correctly. The "generate the
+   *  remaining N scenes" prompt does not — it is a narrow inline callout, and
+   *  rendering the picker inside it squashed the whole step. Those call sites
+   *  set this so the picker gets the same modal the later steps already use. */
+  pickInModal?: boolean;
+  /** Close the picker modal (pickInModal only) — returns the caller to its
+   *  pre-wizard state, since there is no earlier wizard step to fall back to. */
+  onDismiss?: () => void;
   /** Needed for the owner-pays credit balance: on a shared project the pricing
    *  step must show (and spend) the OWNER's pool, which arrives on the project as
    *  `owner_ai_edit_credits`. Optional, so a call site that omits it falls back
@@ -250,16 +264,46 @@ export default function AvatarBatchWizard({
   // an empty list and a blank status column for one round-trip, which read as
   // the batch having lost track of itself. Filtered to eligible scenes exactly
   // as the poll tick does, so the seed and the first real response agree.
-  const [sceneRows, setSceneRows] = useState<AvatarProgressScene[]>(() => {
-    const cached = getCachedAvatarProgress(projectId);
-    if (!cached) return [];
-    const eligibleIds = new Set(eligibleScenes.map((s) => s.id));
-    return cached.scenes.filter((s) => eligibleIds.has(s.scene_id));
-  });
+  // Seeded UNFILTERED, matching what the poll tick stores. These rows are the
+  // project-wide rollup — batch scoping comes from `serverBatch`, so filtering
+  // here would only make the seed disagree with the first real response and the
+  // list visibly change as polls landed.
+  const [sceneRows, setSceneRows] = useState<AvatarProgressScene[]>(
+    () => getCachedAvatarProgress(projectId)?.scenes ?? [],
+  );
+  // The server's own count of scenes with a job row for this project. Unlike
+  // anything derived from the live scene list it does not shrink as renders
+  // land, so it is what a resumed batch (reload) falls back on for its total.
+  // Scene ids of the MOST RECENT run, straight from the server. This is how a
+  // reload recovers which scenes the batch actually covers — the local
+  // membership ref is memory-only and the default selection is the wrong answer.
+  // Seeded from the session cache so the first paint after a remount is right.
+  // The most recent run as the SERVER resolved it: rows in scene order, with
+  // total and done already counted. This is the whole batch view — see where it
+  // is consumed in the "generating" step for what it replaced. Seeded from the
+  // session cache so a tab switch paints immediately; null until the first
+  // response on a hard refresh, which renders an empty list for one tick rather
+  // than inventing scenes.
+  // The apology modal's payload, set once when a settled batch reports a refund.
+  const [refundNotice, setRefundNotice] = useState<{
+    credits: number;
+    orders: number[];
+  } | null>(null);
+  // Fires ONCE per batch. Both settle paths call maybeShowRefund, and a remount
+  // re-runs the mount one, so without this a reload would re-open the modal for
+  // a refund the user already acknowledged.
+  const refundShownForRef = useRef<string | null>(null);
+
+  const [serverBatch, setServerBatch] = useState<AvatarBatch | null>(
+    () => getCachedAvatarProgress(projectId)?.batch ?? null,
+  );
+  // True only when this mount RESUMED a batch it did not start (the wizard came
+  // up already unlocked, i.e. a reload mid-run). A batch started in this session
+  // knows its own membership exactly and must never defer to the project-wide
+  // server count, which would over-report any partial run such as a retry.
   const [stalled, setStalled] = useState(false);
   // How many scenes the last bulk retry refused because they had exhausted
   // their per-scene attempt budget.
-  const [exhaustedNotice, setExhaustedNotice] = useState(0);
   // Where the automatic cutout pass has got to. STATE, not a ref, because the
   // generating view has to RENDER it: between "we POSTed avatar-matte-all" and
   // "the rollup reports matte rows" the server still returns the old render
@@ -280,21 +324,37 @@ export default function AvatarBatchWizard({
     () => getCachedAvatarProgress(projectId) !== null,
   );
 
-  const doneRows = sceneRows.filter(
-    (s) => s.status === "completed" || s.status === "failed",
-  );
+  // The scenes THIS batch is about: everything the user selected and paid for,
+  // fixed for the life of the batch.
+  //
+  // Seeded from the SELECTION at authorize time, not from the rollup. The rollup
+  // is keyed off the live scene list and a scene drops out of it once its render
+  // lands, so anything derived from polls alone shrinks as work succeeds: a
+  // 10-scene batch became "0 of 5" once the first five finished — the finished
+  // ones left the denominator instead of counting toward it.
+  //
+  // Append-only. A scene that was ever in this batch stays in it, so the total
+  // can only ever be the number the user chose.
   const failedScenes = sceneRows
     .filter((s) => s.status === "failed")
     .map((s) => s.scene_id);
-  const retryableFailures = sceneRows.filter(
-    (s) => s.status === "failed" && s.retryable !== false && !s.attempts_exhausted,
-  );
   // "Some scenes couldn't be generated" leaves the user hunting through the
   // Scenes tab for which one. Name them, using the same 1-based `order` the
   // scene list shows (scene_id is a DB id and means nothing to the user).
   const orderOfScene = new Map(
     eligibleScenes.map((s, i) => [s.id, s.order ?? i + 1]),
   );
+  /** "Scene 21" / "Scenes 21 and 23" from ORDERS the server already resolved.
+   *  sceneLabel below takes scene IDS and maps them through orderOfScene, which
+   *  only knows about eligible scenes — a refunded scene has no clip but may
+   *  still have dropped out of that list, so it needs the direct form. */
+  const orderLabel = (orders: number[]) => {
+    const nums = [...orders].sort((a, b) => a - b);
+    if (nums.length === 0) return "";
+    if (nums.length === 1) return `Scene ${nums[0]}`;
+    return `Scenes ${nums.slice(0, -1).join(", ")} and ${nums[nums.length - 1]}`;
+  };
+
   const sceneLabel = (ids: number[]) => {
     const nums = ids
       .map((id) => orderOfScene.get(id))
@@ -420,6 +480,29 @@ export default function AvatarBatchWizard({
    *  Terminal state comes from the server's `batch_status`, never from
    *  comparing array lengths: a scene whose enqueue POST failed has no job row,
    *  which made the old length comparison unsatisfiable and spun forever. */
+  /** Open the apology modal if this settled batch had scenes refunded.
+   *
+   *  Read off the SERVER's `batch.refunded_credits`, not derived here — the
+   *  sweep decides what was paid back, and the client only reports it. Refreshes
+   *  both balances because they come from different places: `refreshUser` for
+   *  the owner's own header, and `onChanged` for `project.owner_ai_edit_credits`,
+   *  which is what this wizard reads on a SHARED project. */
+  const maybeShowRefund = useCallback(
+    (batch: AvatarBatch | null | undefined) => {
+      if (!batch || !batch.refunded_credits) return;
+      const key = batch.scene_ids.join(",");
+      if (refundShownForRef.current === key) return;
+      refundShownForRef.current = key;
+      setRefundNotice({
+        credits: batch.refunded_credits,
+        orders: batch.refunded_scene_orders ?? [],
+      });
+      void refreshUser();
+      void onChangedRef.current();
+    },
+    [refreshUser],
+  );
+
   const startPolling = useCallback(() => {
     if (progressTimer.current) return; // already subscribed
     lastChangeRef.current = Date.now();
@@ -428,9 +511,28 @@ export default function AvatarBatchWizard({
     const tick = async () => {
       try {
         const { data } = await getAvatarProgress(projectId);
-        const eligibleIds = new Set(eligibleScenesRef.current.map((s) => s.id));
-        const relevant = data.scenes.filter((s) => eligibleIds.has(s.scene_id));
+        // A page refresh leaves this component with no memory of which scenes the
+        // running batch covers. `data.batch` carries that — the scenes whose jobs
+        // were created in the same transaction as the most recent run.
+        //
+        // It must be `data.batch` and NOT `data.scenes`: the rollup is
+        // project-wide, so treating all of it as the batch makes a new 7-scene run
+        // render as 14 on a project that generated 7 earlier, with the old ones
+        // already "Done". And it must not fall back to the local selection, which
+        // on a fresh mount is the wizard's default first-N — that is what rendered
+        // a refreshed 7-scene batch as 5.
+        //
+        // `sceneRows` keeps the project-wide rollup for the things that legitimately
+        // span batches (failed-scene retry, matte rows). WHICH SCENES THIS BATCH
+        // CONTAINS is no longer derived here at all — `data.batch` answers it.
+        //
+        // What this dropped: an append-only membership ref that a refresh emptied,
+        // reseeded from whatever survived an "is it still eligible?" filter. Since
+        // eligible means no-avatar-yet, that filter discarded exactly the scenes
+        // that had FINISHED, so a batch's own completed work fell out of its list.
+        const relevant = data.scenes;
         setSceneRows(relevant);
+        setServerBatch(data.batch ?? null);
         setHasPolled(true);
 
         // Bound the spin: if nothing about the rollup changes for STALL_MS, the
@@ -510,8 +612,18 @@ export default function AvatarBatchWizard({
           // "Original" case — renders were the whole job) or the cutout has
           // already run. Either way this batch is finished.
           stopAllPolling();
-          setStep("done");
-          void onChangedRef.current();
+          // Refetch BEFORE showing the summary. The summary reports how many
+          // scenes of the project now have an avatar, which it reads off the
+          // project row — switching first would paint a stale count for one
+          // frame and then correct itself.
+          maybeShowRefund(data.batch);
+          void (async () => {
+            try {
+              await onChangedRef.current();
+            } finally {
+              setStep("done");
+            }
+          })();
         }
       } catch {
         /* transient — keep polling */
@@ -564,9 +676,10 @@ export default function AvatarBatchWizard({
           return;
         }
         if (data.batch_status === "settled") {
-          const eligibleIds = new Set(eligibleScenesRef.current.map((s) => s.id));
-          const relevant = data.scenes.filter((s) => eligibleIds.has(s.scene_id));
+          // Project-wide rollup, unfiltered — `data.batch` scopes the batch.
+          const relevant = data.scenes;
           setSceneRows(relevant);
+          setServerBatch(data.batch ?? null);
 
           // A settled batch is NOT necessarily a finished one. If a background
           // was chosen and no cutout has been queued for it, the renders were
@@ -595,6 +708,11 @@ export default function AvatarBatchWizard({
           // Settled and nothing owed — either no background was chosen, or the
           // cutout has already run.
           if (hasMatteRows(relevant)) setMattePhase("running");
+          maybeShowRefund(data.batch);
+          // Same as the polling path: the summary counts avatars off the project
+          // row, so refresh it before switching rather than after.
+          await onChangedRef.current();
+          if (cancelled) return;
           setStep("done");
           return;
         }
@@ -618,34 +736,10 @@ export default function AvatarBatchWizard({
    *  endpoint, which re-enters the back of the server-side FIFO queue. Scenes
    *  that exhausted their per-scene attempt budget are skipped by the server;
    *  only an explicit per-scene Generate resets that. */
-  const retryFailed = useCallback(async () => {
-    if (failedScenes.length === 0) return;
-    setStalled(false);
-    // Re-derive the phase from the rollup rather than carrying it over. A retry
-    // of a failed RENDER would otherwise keep saying "Generating background"
-    // (left over from the earlier cutout pass) while it re-renders — and the
-    // "none" reset is also what re-arms the automatic cutout for the scenes
-    // this retry is about to produce clips for.
-    setMattePhase("none");
-    // New rows are about to be created; until the rollup reports them a scene
-    // without one is "Starting…" again, not "Not started".
-    setHasPolled(false);
-    setStep("generating");
-    try {
-      const { data } = await retryFailedSceneAvatars(projectId);
-      if (data.retried === 0) {
-        // Nothing was eligible (all exhausted) — don't spin waiting for work
-        // that will never be enqueued.
-        setStep("done");
-        setExhaustedNotice(data.skipped_exhausted);
-        return;
-      }
-      setExhaustedNotice(data.skipped_exhausted);
-    } catch {
-      /* the poll will just show these scenes still failed */
-    }
-    startPolling();
-  }, [failedScenes, projectId, startPolling]);
+  // NOTE: there is no retryFailed() any more, and no Retry button. A scene
+  // either succeeds inside its three automatic attempts or it is refunded and
+  // permanently closed (see SceneAvatarJob.credits_refunded). The server keeps
+  // /avatar-retry-failed as an operator tool; nothing in the UI calls it.
 
   /** Seed the project's appearance columns alongside the presenter choice,
    *  unlock the batch, and start generating — the modal's final "Pay" action.
@@ -673,6 +767,9 @@ export default function AvatarBatchWizard({
       // run AFTER the work is durably queued, so a failure here can no longer
       // strand a paid batch.
       await refreshUser();
+      // Clear the previous run's numbers. The jobs just created are the newest
+      // rows, so the next poll returns exactly them as the latest batch — no
+      // local seeding, and nothing to go stale.
       await onChanged();
       setStep("generating");
     } catch (err: unknown) {
@@ -725,7 +822,7 @@ export default function AvatarBatchWizard({
   };
 
   if (step === "pick") {
-    return (
+    const pickBody = (
       <div className="space-y-5">
         <div>
           <h3 className="text-sm font-semibold text-gray-900">
@@ -856,6 +953,14 @@ export default function AvatarBatchWizard({
           </button>
         </div>
       </div>
+    );
+    // Inline by default (the avatar tab hosts this in a full-width card). The
+    // narrow "generate the remaining scenes" callout opts into the modal so the
+    // preview and tile grid get the room they need.
+    return pickInModal ? (
+      <StepModal onClose={() => onDismiss?.()}>{pickBody}</StepModal>
+    ) : (
+      pickBody
     );
   }
 
@@ -1104,23 +1209,51 @@ export default function AvatarBatchWizard({
   }
 
   if (step === "generating") {
-    // The scenes THIS batch is about — the ones with a job row, i.e. the ones
-    // that were paid for. Not every eligible scene: a 6-scene batch on a
-    // 25-scene project used to list all 25 and report "0 of 25", showing 19
-    // scenes as "Not started" that the user never asked to generate. Before the
-    // first poll lands there are no rows yet, so fall back to the selection.
-    const batchSceneIds = new Set(
-      sceneRows.length > 0
-        ? sceneRows.map((r) => r.scene_id)
-        : selectedScenes.map((s) => s.id),
-    );
-    const batchScenes = eligibleScenes.filter((s) => batchSceneIds.has(s.id));
-    const total = batchScenes.length;
-    const done = doneRows.length;
-    // Scene order is what the user recognises, not the DB id. Numbered against
-    // the FULL eligible list so "Scene 6" still means the sixth scene of the
-    // project, not the sixth of the batch.
-    const orderOf = new Map(eligibleScenes.map((s, i) => [s.id, s.order ?? i + 1]));
+    // The scenes THIS batch is about — the ones that were paid for. Not every
+    // eligible scene: a 6-scene batch on a 25-scene project used to list all 25
+    // and report "0 of 25", showing 19 scenes as "Not started" that the user
+    // never asked to generate.
+    //
+    // Read straight off the append-only membership set, which was seeded from
+    // the selection at authorize time — or, on a reload, from the server's own
+    // rows in the poll tick above.
+    //
+    // ORDER MATTERS HERE, and on a RESUMED batch there is deliberately no
+    // fallback at all.
+    //
+    // `selectedScenes` is only meaningful when THIS mount made the selection. On
+    // a reload it has fallen back to the wizard's default first-N, which has
+    // nothing to do with what is actually generating — that is what listed
+    // "Scene 1..5" with blank status bars while scenes 18 and 20 were the ones on
+    // the GPU. Showing the wrong scenes is worse than showing none, so a resumed
+    // batch waits for latest_batch_scene_ids and renders an empty list (the
+    // spinner above still says "Rendering…") for the one tick until it lands.
+    // THE SERVER DECIDES WHAT THIS BATCH IS. `serverBatch` is the most recent
+    // run, already resolved: its rows in scene order, with `total` and `done`
+    // counted. The client does no derivation.
+    //
+    // What this replaced, and why:
+    //   - membership came from an append-only ref that a refresh emptied, whose
+    //     fallback was `selectedScenes` — the wizard's DEFAULT FIRST-5. That is
+    //     what listed "Scene 1..5" with blank bars while scenes 18 and 20 were
+    //     the ones actually on the GPU.
+    //   - `total` came from `serverBatchTotal`, the PROJECT-WIDE job count, so a
+    //     6-scene batch on a project with earlier runs reported "of 20".
+    //   - scene numbers fell back to an array index, so a finished scene — which
+    //     drops out of `eligibleScenes` — rendered as "Scene ?".
+    const batchRows = serverBatch?.rows ?? [];
+    const batchSceneIds = new Set(serverBatch?.scene_ids ?? []);
+    const total = serverBatch?.total ?? 0;
+    const done = serverBatch?.done ?? 0;
+    // Scene numbers ship ON the rows now; `scenes` only fills in a scene the
+    // batch response has not described yet.
+    const orderOf = new Map<number, number>();
+    for (const r of batchRows) {
+      if (r.order != null) orderOf.set(r.scene_id, r.order);
+    }
+    for (const s of scenes) {
+      if (!orderOf.has(s.id) && s.order != null) orderOf.set(s.id, s.order);
+    }
     // `rows` stays the pure SERVER mirror — hasMatteRows, the progress count and
     // everything else derived below must never see a synthetic row.
     const rows = [...sceneRows].sort(
@@ -1130,10 +1263,9 @@ export default function AvatarBatchWizard({
     // very first paint, so the breakdown doesn't pop in a second later and shove
     // the layout down when the first poll lands. Server rows replace the
     // placeholders as they arrive.
-    const rowByScene = new Map(sceneRows.map((r) => [r.scene_id, r]));
-    const displayRows: DisplayRow[] = [...batchScenes]
-      .sort((a, b) => (orderOf.get(a.id) ?? 0) - (orderOf.get(b.id) ?? 0))
-      .map((s) => rowByScene.get(s.id) ?? { scene_id: s.id, placeholder: true as const });
+    // Already in scene order from the server — no client-side sort, and no
+    // placeholders, because every row the batch contains is described.
+    const displayRows: DisplayRow[] = batchRows;
     // Say we are on the background phase from the moment it is REQUESTED, not
     // from the moment its rows appear. Driving this off the rows alone left a
     // window where the cutout had been POSTed but the rollup still described
@@ -1205,7 +1337,40 @@ export default function AvatarBatchWizard({
   }
 
   // step === "done"
-  const successCount = sceneRows.filter((s) => s.status === "completed").length;
+  // Counted against the batch's REMEMBERED membership, not the rows still in the
+  // latest rollup. Scenes drop out of the rollup as the project refetches around
+  // them, so reading the live rows here collapsed a finished 10-scene batch to
+  // "1 of 1 scene now have an avatar".
+  // Falls back to the live rows when membership was never recorded (a reload
+  // straight onto an already-settled batch). Both numbers read the SAME set, so
+  // the count can never be scoped differently from its denominator.
+  // Straight from the server's batch, same as the generating step. This used to
+  // pick between a local membership ref and the live rows, then take
+  // Math.max(..., projectWideTotal) if the mount looked like a resume — three
+  // guesses to answer a question the server already answers.
+  const settledMembers = new Set(serverBatch?.scene_ids ?? []);
+  const batchTotal = serverBatch?.total ?? 0;
+  // Scenes whose credits went back — resolved server-side, so this is the same
+  // set the apology modal names.
+  const refundedOrders = serverBatch?.refunded_scene_orders ?? [];
+  const successCount = (serverBatch?.rows ?? []).filter(
+    (s) => s.status === "completed",
+  ).length;
+  // How many scenes in the PROJECT now actually have an avatar clip — ground
+  // truth from the project row, not from this batch's job rows.
+  //
+  // The batch-scoped count is the wrong thing to report here: after generating
+  // the last scene of a video whose other 9 were done earlier, "1 of 1" is
+  // technically true of the batch and useless to the user, who wants to know
+  // where the VIDEO stands. Falls back to the batch numbers when the project
+  // isn't available (the prop is optional).
+  const scenesWithAvatar = (project?.scenes ?? []).filter(
+    (s) => !!s.avatar_video_path,
+  ).length;
+  const eligibleProjectTotal = (project?.scenes ?? []).filter(
+    (s) => !!s.voiceover_path,
+  ).length;
+  const canReportProjectWide = scenesWithAvatar > 0 && eligibleProjectTotal > 0;
   const hasFailures = failedScenes.length > 0;
   // Whose failure was it? After the cutout phase these rows are MATTE jobs, so
   // an unqualified "couldn't be generated" would blame the render for work that
@@ -1215,11 +1380,6 @@ export default function AvatarBatchWizard({
   const failedAreMatte =
     hasFailures &&
     sceneRows.every((s) => s.status !== "failed" || s.kind === "matte");
-  // Only offer Retry for failures the server would actually act on: a scene
-  // that exhausted its per-scene attempt budget is skipped by the bulk endpoint
-  // (only an explicit per-scene Generate resets it), so offering a button that
-  // silently does nothing would be worse than not offering one.
-  const canRetry = retryableFailures.length > 0;
   return (
     <div
       className={`rounded-xl px-4 py-3.5 border ${
@@ -1229,13 +1389,25 @@ export default function AvatarBatchWizard({
       }`}
     >
       <p className="text-[11px] text-gray-700 leading-relaxed">
-        {/* Counted against the BATCH (the rows that exist), not every eligible
-            scene — "0 of 1" on a 25-scene project was reporting against a
-            denominator the user never chose. */}
-        <strong className={hasFailures ? "text-amber-700" : "text-green-700"}>
-          {successCount} of {sceneRows.length} scene{sceneRows.length === 1 ? "" : "s"}
-        </strong>{" "}
-        now have an avatar.
+        {/* Reports where the VIDEO stands, not where the batch does. Generating
+            the last missing scene of a 10-scene video is a 1-scene batch, and
+            saying "1 of 1" there told the user nothing about their video. */}
+        {canReportProjectWide ? (
+          <>
+            <strong className={hasFailures ? "text-amber-700" : "text-green-700"}>
+              {scenesWithAvatar} of {eligibleProjectTotal} scene
+              {eligibleProjectTotal === 1 ? "" : "s"}
+            </strong>{" "}
+            {scenesWithAvatar === 1 ? "now has an avatar." : "now have an avatar."}
+          </>
+        ) : (
+          <>
+            <strong className={hasFailures ? "text-amber-700" : "text-green-700"}>
+              {successCount} of {batchTotal} scene{batchTotal === 1 ? "" : "s"}
+            </strong>{" "}
+            {successCount === 1 ? "now has an avatar." : "now have an avatar."}
+          </>
+        )}
         {hasFailures &&
           (failedAreMatte
             ? ` ${sceneLabel(failedScenes)} couldn't have the background applied — ${
@@ -1243,33 +1415,38 @@ export default function AvatarBatchWizard({
               } the presenter's original background.`
             : ` ${sceneLabel(failedScenes)} couldn't be generated.`)}
       </p>
-      {(exhaustedNotice > 0 || (hasFailures && !canRetry)) && (
+      {/* NO RETRY BUTTON, deliberately. A scene either succeeds inside its three
+          automatic attempts or it is refunded and closed — there is nothing for
+          the user to press, and the apology modal has already told them their
+          credits are back. The old copy here ("open them in the Scenes tab to
+          try again") was doubly wrong: that tab no longer offers per-scene
+          Generate, and a refunded scene cannot be generated at all. */}
+      {refundedOrders.length > 0 && (
         <p className="text-[11px] text-gray-500 mt-1.5">
-          {/* Name the scenes when we know which they are. exhaustedNotice is a
-              bare count from the bulk-retry response (no ids came back with
-              it), so that path keeps the count wording. */}
-          {exhaustedNotice > 0
-            ? `${exhaustedNotice} scene${exhaustedNotice === 1 ? "" : "s"} failed`
-            : `${sceneLabel(failedScenes)} failed`}{" "}
-          too many times to retry automatically — open{" "}
-          {(exhaustedNotice > 0 ? exhaustedNotice : failedScenes.length) === 1
-            ? "it"
-            : "them"}{" "}
-          in the Scenes tab to try again.
+          We&apos;ve returned the credits for{" "}
+          {refundedOrders.length === 1 ? "that scene" : "those scenes"}.
         </p>
       )}
-      {canRetry && (
-        <button
-          type="button"
-          onClick={() => void retryFailed()}
-          className="mt-2 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-semibold rounded-lg transition-all"
-        >
-          {/* avatar-retry-failed re-enqueues each scene with its OWN latest
-              kind, so this retries a failed cutout as a cutout — it never
-              re-runs (or re-charges for) a render that already succeeded. */}
-          {failedAreMatte ? "Retry background" : "Retry"}
-        </button>
-      )}
+      {/* An apology, not an error: NoticeModal's success variant rather than
+          showError's "Oops 😢", which would read as another thing breaking when
+          the actual news is that the user has their credits back. */}
+      <NoticeModal
+        open={refundNotice !== null}
+        title="We've returned your credits"
+        variant="success"
+        message={
+          refundNotice
+            ? `We couldn't generate an avatar for ${
+                orderLabel(refundNotice.orders) || "one of your scenes"
+              }, even after several tries. We're sorry — ${
+                refundNotice.orders.length === 1 ? "that one's" : "those are"
+              } on us.\n\n${
+                refundNotice.credits
+              } AI credits have been returned to your account. You can pick different scenes and try again whenever you like.`
+            : ""
+        }
+        onClose={() => setRefundNotice(null)}
+      />
     </div>
   );
 }

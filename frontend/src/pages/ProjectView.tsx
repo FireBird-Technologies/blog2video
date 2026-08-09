@@ -7432,7 +7432,12 @@ export default function ProjectView() {
                                     (scene.avatar_position != null &&
                                       scene.avatar_position !== project.avatar_position) ||
                                     (scene.avatar_bg != null &&
-                                      scene.avatar_bg !== project.avatar_bg);
+                                      scene.avatar_bg !== project.avatar_bg) ||
+                                    // Opacity is a per-scene override like the rest;
+                                    // omitting it labelled a scene that differs ONLY
+                                    // in opacity as "Project default".
+                                    (scene.avatar_opacity != null &&
+                                      scene.avatar_opacity !== project.avatar_opacity);
                                   const shape =
                                     scene.avatar_shape ?? project.avatar_shape ?? "circle";
                                   const bg = scene.avatar_bg ?? project.avatar_bg ?? null;
@@ -7480,8 +7485,16 @@ export default function ProjectView() {
                                               className="absolute top-1 right-1 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/95 text-purple-700 shadow-sm hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
                                               title={hasAvatar ? "Edit avatar" : "Generate avatar"}
                                             >
+                                              {/* A pencil promises in-place editing, but with no clip
+                                                  to edit this button navigates to the Avatar tab — so
+                                                  show the generate icon instead and let the affordance
+                                                  match the "Generate avatar" title it already carries. */}
                                               <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M16.5 3.964a2.5 2.5 0 113.536 3.536L7 20.5H3v-4L16.5 3.964z" />
+                                                {hasAvatar ? (
+                                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M16.5 3.964a2.5 2.5 0 113.536 3.536L7 20.5H3v-4L16.5 3.964z" />
+                                                ) : (
+                                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                                                )}
                                               </svg>
                                             </button>
                                           </div>
@@ -7967,6 +7980,7 @@ export default function ProjectView() {
           <SceneEditModal
             open={!!sceneEditModal}
             onClose={() => setSceneEditModal(null)}
+            onGoToAvatarTab={() => handleTabChange("avatar")}
             // Re-derive from the freshly-loaded project rather than using the
             // snapshot captured when the modal opened. Actions that persist
             // server-side while the modal stays open (stock footage assignment)

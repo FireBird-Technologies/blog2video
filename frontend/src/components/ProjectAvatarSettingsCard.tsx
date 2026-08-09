@@ -8,6 +8,7 @@ import {
   type CraftedTemplateDetail,
   type Project,
 } from "../api/client";
+import { useAvatarProgress } from "../hooks/useAvatarProgress";
 import type { AvatarBg, AvatarCorner, AvatarShape } from "../api/types";
 import { avatarBgWantsCutout } from "../api/types";
 import AvatarAppearanceControls, {
@@ -169,12 +170,18 @@ export default function ProjectAvatarSettingsCard({
   // came back. The effect below still recomputes it (including the owed-cutout
   // case, which needs project data this seed can't see) — this only decides
   // what the first frame shows.
-  const [batchActive, setBatchActive] = useState<boolean | null>(
-    () => {
-      const cached = getCachedAvatarProgress(projectId);
-      return cached ? cached.batch_status === "running" : null;
-    },
-  );
+  // THE VIEW COMES FROM THE SERVER. `avatarView.kind` is read straight off
+  // `data.view`, which the backend computes from the DB — "progress" while any
+  // scene in the most recent batch is still queued or running, "settings"
+  // otherwise, and "loading" until the first response lands.
+  //
+  // This replaced a `batchActive` flag that had FOUR different initial values for
+  // identical server state, depending on whether a module-level cache happened to
+  // be warm (it survives a tab switch but not a refresh) and whether the stale
+  // `avatar_batch_unlocked` latch was set. That is why the tab showed something
+  // different on every reload. Nothing here re-derives the view.
+  const { view: avatarView, refreshNow: refreshAvatarProgress } =
+    useAvatarProgress(projectId);
   // Auto-resume rather than waiting for a click: a scene can end up here with
   // no avatar not just because it had no narration at generation time, but
   // because the batch was interrupted mid-run (tab closed/navigated away
@@ -183,14 +190,21 @@ export default function ProjectAvatarSettingsCard({
   // that's exactly the interrupted-batch case, so pick generation back up
   // automatically instead of showing a "Generate N scenes" button and hoping
   // the user notices it.
-  const [showRemainingWizard, setShowRemainingWizard] = useState(
-    avatarBatchUnlocked && scenesMissingAvatar.length > 0,
-  );
-  useEffect(() => {
-    if (avatarBatchUnlocked && scenesMissingAvatar.length > 0) {
-      setShowRemainingWizard(true);
-    }
-  }, [avatarBatchUnlocked, scenesMissingAvatar.length]);
+  //
+  // …but ONLY while no avatar exists yet. Once some scenes have one, this panel's
+  // job is editing how they look, and generating the rest is a secondary action
+  // reached from the button. Auto-expanding regardless meant a partly-generated
+  // project could never show its appearance controls: on a 25-scene project with
+  // 6 avatars, 19 were still "missing", so the presenter picker permanently
+  // covered the settings the user opened the tab to change.
+  // Plain click state now — "has the user opened the remaining-scenes wizard?".
+  //
+  // It used to be a ONE-WAY LATCH: an effect set it true whenever a resume looked
+  // likely and nothing but an explicit dismiss ever cleared it, so once the first
+  // render landed and `hasAnyAvatar` flipped, the inline wizard stayed open over
+  // the settings the user came to edit. Resuming an interrupted batch is no
+  // longer this flag's job — the server's `view` answers that.
+  const [showRemainingWizard, setShowRemainingWizard] = useState(false);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const stopPolling = useCallback(() => {
@@ -208,16 +222,22 @@ export default function ProjectAvatarSettingsCard({
    *  render landing flips `hasAnyAvatar`, which used to swap the wizard out
    *  mid-batch and take its polling — and its automatic cutout — with it.
    *
-   *  Deliberately does NOT consult `avatarBatchUnlocked` while `batchActive` is
-   *  still null (the ~1s before the rollup replies). That flag stays set forever
-   *  once a batch has run, so trusting it mounted the wizard on projects whose
-   *  avatars finished long ago — every scene flashing "Starting…" before the
-   *  panel appeared. `hasAnyAvatar` comes straight from props and needs no
-   *  fetch, so an already-generated project renders this panel immediately, and
-   *  the wizard reclaims the view only once `batchActive` actually comes back
-   *  true — which is the genuine mid-batch case this rule exists for. */
+   *  Deliberately does NOT consult `avatarBatchUnlocked`. That latch stays set
+   *  once a batch has run AND is cleared as a side effect of a GET, so pollers
+   *  race to clear it while this reads it — trusting it mounted the wizard on
+   *  projects whose avatars finished long ago, every scene flashing "Starting…"
+   *  before the panel appeared. The server's `view` answers this now. */
+  // The server's answer, not a derivation. "loading" deliberately does NOT own
+  // the view — the card renders its own skeleton for that case (see the render
+  // below), because treating unknown as settled is what painted the appearance
+  // sliders over five rendering scenes for a frame after every refresh.
+  //
+  // `!hasAnyAvatar` keeps the first-run case: a project with nothing generated
+  // yet opens on the presenter picker rather than settings for an avatar that
+  // does not exist.
   const wizardOwnsView =
-    batchScenes.length > 0 && (!hasAnyAvatar || batchActive === true);
+    batchScenes.length > 0 &&
+    (!hasAnyAvatar || avatarView.kind === "progress");
   // Read inside the adopt-effect's async body instead of closing over it: that
   // body resolves AFTER the fetch, by which point ownership may have been
   // settled by the very response it is handling.
@@ -230,6 +250,9 @@ export default function ProjectAvatarSettingsCard({
   bgRef.current = bg;
   const scenesNeedingMatteRef = useRef(scenesNeedingMatte);
   scenesNeedingMatteRef.current = scenesNeedingMatte;
+  // handleMatteAll is declared below this effect, so reach it through a ref
+  // rather than the binding — same reason as the three refs above.
+  const handleMatteAllRef = useRef<() => Promise<void>>(async () => {});
 
   /** Adopt a cutout pass that is ALREADY running, whoever started it.
    *
@@ -239,23 +262,19 @@ export default function ProjectAvatarSettingsCard({
    *  now" prompt on top of work already in flight. Ask the server instead: if
    *  any matte job is queued/running, show progress, never the prompt.
    *
-   *  Also answers `batchActive` from the same response, so keeping the wizard
-   *  mounted through a live batch costs no extra request and no second poll. */
+   *  Scoped to the MATTE pass only. It used to answer "is a batch live?" too,
+   *  from the draft background — useAvatarProgress owns that now. */
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
         const { data } = await getAvatarProgress(projectId);
         if (cancelled) return;
-        // "Settled" does NOT mean finished when a background was chosen and no
-        // cutout has run for it — that batch is only half done, and handing the
-        // view to this panel is exactly what stranded the user on "Remove them
-        // now" with their chosen background silently not applied. Treat an owed
-        // cutout as live work so the wizard stays mounted and starts it.
-        const owesCutout =
-          avatarBgWantsCutout(bgRef.current) &&
-          scenesNeedingMatteRef.current.length > 0;
-        setBatchActive(data.batch_status === "running" || owesCutout);
+        // NOTE: this effect no longer answers "is a batch live?" — the server
+        // does, via `view`. It used to, and it got the answer from
+        // `avatarBgWantsCutout(bgRef.current)`, the DRAFT background: clicking a
+        // swatch without saving flipped the whole tab to the wizard. This is now
+        // only about the MATTE pass below.
         const active = data.scenes.filter(
           (s) =>
             s.kind === "matte" &&
@@ -272,6 +291,29 @@ export default function ProjectAvatarSettingsCard({
           setMatting(true);
           setMattingLeft(active.length);
           watchMatteProgress();
+        } else if (
+          active.length === 0 &&
+          // The SAVED background, not the draft. This used to read `bgRef`, which
+          // tracks the swatch the user is currently hovering over — so picking a
+          // colour without saving could kick off a cutout for it.
+          avatarBgWantsCutout(avatarBg ?? null) &&
+          scenesNeedingMatteRef.current.length > 0 &&
+          data.batch_status !== "running" &&
+          !wizardOwnsViewRef.current
+        ) {
+          // A cutout is owed, none is running, and the renders are done — so
+          // START it here. Until this branch existed the cutout had exactly one
+          // trigger: the wizard's poll catching the instant batch_status turned
+          // "settled". Miss that instant — tab closed, server restarted, or a
+          // background saved BEFORE the renders finished (so scenesNeedingMatte
+          // was still empty and handleSave's own guard correctly skipped) — and
+          // nothing ever asked again. The user was left with a background set,
+          // every clip un-matted, and no progress to watch.
+          //
+          // Safe to run on a plain mount: avatar-matte-all only selects scenes
+          // with a clip and no matte, and _queue_matte skips anything already
+          // matted or in flight, so a redundant call queues nothing.
+          void handleMatteAllRef.current();
         } else if (active.length === 0) {
           // Clear the optimistic seed. `matting` is initialised from the CACHED
           // rollup so a live pass paints instantly on remount, but that cache
@@ -304,8 +346,19 @@ export default function ProjectAvatarSettingsCard({
     // "Checking background removal…" span indefinitely. The saved value is read
     // through bgRef inside the effect body, so re-running on a draft edit buys
     // nothing anyway.
+    //
+    // ALSO on the count of scenes that now have a clip, so the matte question is
+    // re-asked as a run progresses. (Deciding when a BATCH ends is no longer this
+    // effect's job — useAvatarProgress polls the server for that.)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId, scenesNeedingMatte.length]);
+  }, [projectId, scenesNeedingMatte.length, scenesMissingAvatar.length]);
+
+  // NOTE: the card no longer polls. useAvatarProgress above owns the single
+  // poller for this endpoint. There were three at once before — this one at 3s,
+  // the matte watcher at 1.2s and the wizard's at 1.2s — all hitting the same
+  // endpoint, all writing the same cache, and racing each other to answer
+  // whether a batch was live. At ~41 queries a request that was ~123 queries a
+  // second against a DB pool of 5 + 10 that renders already hold for minutes.
 
   // Re-hydrate when the project reloads (e.g. after a save elsewhere).
   useEffect(() => {
@@ -400,6 +453,7 @@ export default function ProjectAvatarSettingsCard({
   const handleMatteAll = async () => {
     setMatting(true);
     setMattingLeft(scenesNeedingMatte.length);
+    // (see handleMatteAllRef above — the adopt-effect calls this through a ref)
     try {
       const { data } = await matteAllSceneAvatars(projectId);
       // `started` is a COUNT of queued jobs, not a boolean — compare explicitly
@@ -415,6 +469,8 @@ export default function ProjectAvatarSettingsCard({
       onError("Could not start background removal.");
     }
   };
+
+  handleMatteAllRef.current = handleMatteAll;
 
   // Deliberately NOT gated on hasAnyAvatar — the settings are editable before any
   // avatar exists so the user can set their preference up front.
@@ -479,7 +535,21 @@ export default function ProjectAvatarSettingsCard({
           landed used to unmount the wizard mid-run, taking its polling and its
           automatic background cutout with it — which is how a chosen background
           ended up silently not applied. */}
-      {wizardOwnsView ? (
+      {avatarView.kind === "loading" ? (
+        /* "We don't know yet" is its OWN render, not a guess at settings.
+           Those two used to be the same branch, so a refresh mid-batch painted
+           the placement/shape/size controls over five rendering scenes and only
+           corrected itself once the rollup replied. A skeleton in the card's own
+           chrome is honest, and it shows for one round trip on a hard refresh
+           only — a tab switch is seeded from the session cache. */
+        <div className="glass-card px-6 py-8">
+          <div className="animate-pulse space-y-4">
+            <div className="h-4 w-40 bg-gray-200/70 rounded" />
+            <div className="h-3 w-64 bg-gray-200/50 rounded" />
+            <div className="h-32 bg-gray-200/40 rounded-xl" />
+          </div>
+        </div>
+      ) : wizardOwnsView ? (
         <div className="glass-card px-6 py-8">
           <AvatarBatchWizard
             projectId={projectId}
@@ -530,7 +600,16 @@ export default function ProjectAvatarSettingsCard({
                 click on one of the missing scenes lands here rather than
                 opening a single-scene wizard — offer to fill in just those,
                 reusing the same presenter/appearance already in use. */}
-            {hasAnyAvatar && scenesMissingAvatar.length > 0 && (
+            {/* Suppressed while a batch is IN FLIGHT (avatarBatchUnlocked is the
+                server's "a batch is live" latch, cleared once nothing is running).
+                Mid-batch this callout counts every scene that has not finished YET
+                — including the ones currently rendering — so it read as "23 scenes
+                still don't have an avatar" while 7 were actively generating, which
+                looks like the run went wrong. Offering to generate the rest only
+                makes sense once the current run has settled. */}
+            {hasAnyAvatar &&
+              scenesMissingAvatar.length > 0 &&
+              (!avatarBatchUnlocked || showRemainingWizard) && (
               <div className="rounded-xl bg-purple-50/60 border border-purple-100 px-4 py-3">
                 {showRemainingWizard ? (
                   <AvatarBatchWizard
@@ -538,6 +617,10 @@ export default function ProjectAvatarSettingsCard({
                     scenes={scenesMissingAvatar}
                     customPortraitUrl={avatarCustomImageUrl}
                     avatarBatchUnlocked={avatarBatchUnlocked}
+                    // This callout is a narrow inline strip — the picker needs
+                    // the modal or it renders squashed on top of the card.
+                    pickInModal
+                    onDismiss={() => setShowRemainingWizard(false)}
                     initialPreset={
                       (project?.scenes ?? []).find((s) => !!s.avatar_video_path)
                         ?.avatar_preset ?? null
@@ -549,7 +632,14 @@ export default function ProjectAvatarSettingsCard({
                     avatarOpacity={avatarOpacity}
                     aspectRatio={aspectRatio}
                     onError={onError}
-                    onChanged={onSaved}
+                    // Refetch the rollup alongside the project. Authorizing a
+                    // batch is the case that matters: the view flips to
+                    // "progress" on the server's next answer instead of waiting
+                    // out a poll interval.
+                    onChanged={async () => {
+                      await onSaved();
+                      await refreshAvatarProgress();
+                    }}
                     project={project}
                     ownerScopedProjectId={ownerScopedProjectId}
                     precompiledCraftedDetail={precompiledCraftedDetail}
@@ -677,14 +767,16 @@ export default function ProjectAvatarSettingsCard({
                       hasPolled
                       className="mt-2 space-y-1.5"
                     />
-                    <button
-                      type="button"
-                      disabled={disabled || saving}
-                      onClick={handleMatteAll}
-                      className="mt-2.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-[11px] font-semibold rounded-lg transition-all"
-                    >
-                      Retry
-                    </button>
+                    {/* NO RETRY BUTTON — no retry buttons anywhere in the Avatar
+                        UI. Cutouts are produced on the GPU alongside the render
+                        now, so a failed one is rare, and the adopt-effect above
+                        already re-runs avatar-matte-all automatically when one is
+                        owed and nothing is in flight. /avatar-matte-all remains
+                        server-side as an operator tool.
+
+                        Accepted consequence: a scene whose cutout keeps failing
+                        keeps the presenter's original background, and there is
+                        no manual way to re-run it from here. */}
                   </>
                 )}
               </div>

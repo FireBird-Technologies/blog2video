@@ -2480,6 +2480,10 @@ export interface SceneImageItem {
 interface Props {
   open: boolean;
   onClose: () => void;
+  /** Switch the page to the project-wide Avatar tab. Used by the Avatar card for
+   *  a scene with no finished clip, which has nothing to edit here — see
+   *  SceneAvatarSection's onGoToAvatarTab. */
+  onGoToAvatarTab?: () => void;
   scene: Scene;
   project: Project;
   imageItems: SceneImageItem[];
@@ -2722,6 +2726,7 @@ function ManualTabCard({
 export default function SceneEditModal({
   open,
   onClose,
+  onGoToAvatarTab,
   scene,
   project,
   imageItems,
@@ -6549,6 +6554,19 @@ export default function SceneEditModal({
                   }}
                   onChanged={onSaved}
                   onGoToNarration={() => setOpenManualTab("settings")}
+                  // A scene with no FINISHED clip has nothing to edit here, so the
+                  // section sends the user to the project-wide Avatar tab instead —
+                  // the only priced entry point to a render, and the only view that
+                  // shows every scene's progress at once. Closing this modal first
+                  // is what makes the tab visible behind it.
+                  onGoToAvatarTab={
+                    onGoToAvatarTab
+                      ? () => {
+                          onClose();
+                          onGoToAvatarTab();
+                        }
+                      : undefined
+                  }
                 />
               </ManualTabCard>
 
