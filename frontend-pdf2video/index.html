@@ -3,8 +3,47 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Google tag (gtag.js) — GA4 property for pdf2vid.com. Must stay
+         immediately after <head> per Google's install instructions, and there
+         must only ever be ONE Google tag on the page. Note src/gtag.ts loads a
+         separate Google Ads tag at runtime; that's a different id and is fine
+         alongside this one. -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1LJ7ZTVML4"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-1LJ7ZTVML4');
+    </script>
+
+    <!-- Prevent a flash of unstyled prerendered markup.
+
+         scripts/build-seo.ts bakes server-rendered HTML into #root for SEO, but
+         the bundled stylesheet is an external, render-blocking file that lands
+         after the Google Fonts requests. On a cold load the browser therefore
+         paints raw <h1>/<p> in Times before any CSS arrives. This inline rule
+         runs before the first paint (it can't be delayed by the network), and
+         is cleared by the bundle's own CSS below, so styled content is the
+         first thing shown. -->
+    <style>
+      #root { visibility: hidden; }
+    </style>
+    <script>
+      // Failsafe: index.css reveals #root, so if that stylesheet ever fails to
+      // load the page would stay blank forever. Unstyled content beats no
+      // content, so force it visible once the page has settled.
+      addEventListener("load", function () {
+        var r = document.getElementById("root");
+        if (r && getComputedStyle(r).visibility === "hidden") {
+          r.style.visibility = "visible";
+        }
+      });
+    </script>
+
     <!-- Site ownership verification token is Blog2Video-specific — re-verify
-         and add a pdf2vid.app token here once that's set up. -->
+         and add a pdf2vid.com token here once that's set up. -->
     <title>PDF2Video</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%239333ea'/%3E%3Ctext x='32' y='33' font-family='Inter,Helvetica,Arial,sans-serif' font-size='20' font-weight='700' fill='%23fff' text-anchor='middle' dominant-baseline='central'%3EP2V%3C/text%3E%3C/svg%3E" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />

@@ -611,10 +611,11 @@ _always_allowed = [
     # pdf2vid — separate frontend deployment (frontend-pdf2video/), same
     # backend/DB as blog2video. See frontend-pdf2video/ for why it's a
     # separate build rather than a brand switch inside frontend/.
-    # NOTE: the live domain is pdf2vid.app (not pdf2video.app); the directory
-    # and Vercel project keep the longer "pdf2video" name.
-    "https://pdf2vid.app",
-    "https://www.pdf2vid.app",
+    # NOTE: the production custom domain is pdf2vid.com. The directory, Vercel
+    # project, and Cloudflare Pages project all keep the longer "pdf2video"
+    # name — don't assume the host matches the project name.
+    "https://pdf2vid.com",
+    "https://www.pdf2vid.com",
     "https://pdf2video.vercel.app",
     # Cloudflare Pages project for the pdf2video frontend. Every deploy also
     # gets its own <hash>.pdf2video.pages.dev subdomain, so the regex below
@@ -637,7 +638,6 @@ for origin in _always_allowed:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_origins,
-    # Vercel previews + subdomains + HF Spaces + Anthropic subdomains (for MCP)
     # Vercel previews + Cloudflare Pages deploys + subdomains + HF Spaces +
     # Anthropic subdomains (for MCP). The *.pages.dev branches cover Cloudflare's
     # per-deploy hostnames, which are siblings (pdf2video-4sr.pages.dev), not
@@ -646,7 +646,7 @@ app.add_middleware(
         r"https://("
         r"blog2video.*\.vercel\.app|pdf2vid.*\.vercel\.app"
         r"|blog2video.*\.pages\.dev|pdf2video.*\.pages\.dev|pdf2vid.*\.pages\.dev"
-        r"|.*\.blog2video\.app|.*\.pdf2vid\.app"
+        r"|.*\.blog2video\.app|.*\.pdf2vid\.com"
         r"|.*\.hf\.space|.*\.anthropic\.com|.*\.claude\.ai"
         r")"
     ),
