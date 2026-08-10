@@ -216,7 +216,15 @@ export default function PdfLanding() {
   const [typedPlaceholder, setTypedPlaceholder] = useState("");
   const [inAppInstructionsVisible, setInAppInstructionsVisible] = useState(false);
 
+  /**
+   * The hero's off-screen GIS button, clicked programmatically by the CTAs.
+   * Kept separate from {@link authButtonRef} (the visible button further down
+   * the page): both used to share one ref, so React pointed it at whichever
+   * mounted last and the CTA ended up clicking the wrong — unrendered — node.
+   */
   const googleBtnRef = useRef<HTMLDivElement>(null);
+  /** The visible "continue with Google" button rendered by `authButton()`. */
+  const authButtonRef = useRef<HTMLDivElement>(null);
   const isInApp = detectInAppBrowser().isInApp;
   // Phone/tablet by user agent, not by window size — a narrowed desktop window
   // must not be told to switch to a computer.
@@ -292,8 +300,21 @@ export default function PdfLanding() {
       googleBtnRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
-    const btn = googleBtnRef.current?.querySelector("div[role='button']") as HTMLElement | null;
-    btn?.click();
+    // GIS renders its button asynchronously into an iframe wrapper. Prefer the
+    // hero's off-screen instance, but fall back to the visible one further down
+    // the page so a slow/failed GIS mount can't leave the CTA doing nothing.
+    const findBtn = (root: HTMLDivElement | null) =>
+      root?.querySelector("div[role='button']") as HTMLElement | null;
+    const btn = findBtn(googleBtnRef.current) ?? findBtn(authButtonRef.current);
+    if (btn) {
+      btn.click();
+      return;
+    }
+    // Nothing rendered yet — surface the real button instead of failing silently.
+    (authButtonRef.current ?? googleBtnRef.current)?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
   };
 
   /** Hero CTA: there is no local session on this deployment, so it always starts sign-in. */
@@ -350,7 +371,7 @@ export default function PdfLanding() {
   };
 
   const authButton = (width = "300") => (
-    <div ref={googleBtnRef} className="inline-flex flex-col items-center gap-2">
+    <div ref={authButtonRef} className="inline-flex flex-col items-center gap-2">
       {signingIn ? (
         <div className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-6 py-3 text-sm font-medium text-gray-500 shadow-sm">
           <span className="h-4 w-4 animate-spin rounded-full border-2 border-purple-500/30 border-t-purple-500" />
@@ -497,9 +518,20 @@ export default function PdfLanding() {
             Turn reports, whitepapers, and decks into narrated videos in minutes.
           </p>
 
-          {/* Hidden Google button — triggered programmatically by the CTA below.
-              In an in-app browser it's revealed so the escape/instructions UI shows. */}
-          <div ref={googleBtnRef} className={isInApp ? "mt-4 flex justify-center" : "hidden"}>
+          {/* Google button driven programmatically by the CTAs below.
+              In an in-app browser it's revealed so the escape/instructions UI shows.
+
+              Off-screen rather than `hidden`: Google Identity Services renders
+              its button into an iframe and skips it entirely inside a
+              `display:none` container, so there'd be no `div[role="button"]`
+              for handleGenerateClick to click and the CTA would silently do
+              nothing. `sr-only` keeps it laid out (and clickable) while
+              invisible. */}
+          <div
+            ref={googleBtnRef}
+            className={isInApp ? "mt-4 flex justify-center" : "sr-only"}
+            aria-hidden={!isInApp}
+          >
             <GoogleAuthButton
               onSuccess={handleGoogleSuccess}
               onError={() => showError("Google sign-in failed")}
