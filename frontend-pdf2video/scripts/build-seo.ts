@@ -215,6 +215,17 @@ function getSeoPayload(routePath: string): SeoPayload {
   };
 }
 
+/**
+ * Intrinsic size of `defaultOgImage` (public/assets/PDF2Vid.png).
+ *
+ * LinkedIn and WhatsApp in particular are more reliable at rendering a large
+ * card when width/height are declared, since it saves them fetching the image
+ * before deciding on a layout. Keep in sync if the banner is replaced — the
+ * build asserts these match the real file.
+ */
+const OG_IMAGE_WIDTH = 1672;
+const OG_IMAGE_HEIGHT = 941;
+
 function buildHeadTags(routePath: string) {
   const payload = getSeoPayload(routePath);
   const canonicalUrl = `${siteUrl}${payload.canonicalPath ?? payload.path}`;
@@ -234,6 +245,9 @@ function buildHeadTags(routePath: string) {
 <meta property="og:description" content="${escapeHtml(payload.description)}" />
 <meta property="og:url" content="${canonicalUrl}" />
 <meta property="og:image" content="${ogImage}" />
+<meta property="og:image:width" content="${OG_IMAGE_WIDTH}" />
+<meta property="og:image:height" content="${OG_IMAGE_HEIGHT}" />
+<meta property="og:image:alt" content="${escapeHtml(siteName)}" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="${escapeHtml(fullTitle)}" />
 <meta name="twitter:description" content="${escapeHtml(payload.description)}" />
@@ -402,7 +416,40 @@ Sitemap: ${siteUrl}/sitemap.xml
   ]);
 }
 
+/**
+ * Fail the build if the share banner is missing, or if OG_IMAGE_WIDTH/HEIGHT
+ * have drifted from the real file. A wrong-but-plausible og:image:width makes
+ * crawlers lay the card out incorrectly, which is invisible until someone
+ * shares a link — so catch it here instead.
+ */
+async function assertOgImage() {
+  const relative = defaultOgImage.replace(siteUrl, "");
+  const file = path.join(distDir, relative);
+  let bytes: Awaited<ReturnType<typeof readFile>>;
+  try {
+    bytes = await readFile(file);
+  } catch {
+    throw new Error(
+      `og:image missing from build output: ${relative}\n` +
+        `defaultOgImage (content/siteContent.ts) must point at a file in public/.`,
+    );
+  }
+  // PNG: IHDR width/height are big-endian uint32s at byte offsets 16 and 20.
+  const isPng = bytes.subarray(1, 4).toString("ascii") === "PNG";
+  if (!isPng) return; // only PNG is introspected; other formats are trusted
+  const width = bytes.readUInt32BE(16);
+  const height = bytes.readUInt32BE(20);
+  if (width !== OG_IMAGE_WIDTH || height !== OG_IMAGE_HEIGHT) {
+    throw new Error(
+      `og:image dimensions out of sync: ${relative} is ${width}×${height}, ` +
+        `but build-seo.ts declares ${OG_IMAGE_WIDTH}×${OG_IMAGE_HEIGHT}. ` +
+        `Update OG_IMAGE_WIDTH/OG_IMAGE_HEIGHT.`,
+    );
+  }
+}
+
 async function main() {
+  await assertOgImage();
   await buildPrerenderedPages();
   await buildSeoFiles();
 }

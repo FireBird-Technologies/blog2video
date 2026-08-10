@@ -8,7 +8,7 @@ import { BLOG2VIDEO_URL } from "../config/urls";
  * Deliberately empty hub — same reasoning as ToolsHub.tsx.
  *
  * Help articles are long-form indexed content on blog2video.app; mirroring
- * them onto pdf2vid.app is the duplicate-content case App.tsx calls out.
+ * them onto pdf2vid.com is the duplicate-content case App.tsx calls out.
  * This page exists so the "Help" nav item resolves, points users at the real
  * help centre, and stays noindex until PDF2Video has its own articles.
  */
