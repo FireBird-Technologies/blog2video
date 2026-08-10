@@ -17,6 +17,139 @@ function faq(primary: string, variant: string) {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "blog2video-august-2026-update",
+    title: "Blog2Video August 2026 Update: Lite Plan, Stock Footage, and Four More Things",
+    description:
+      "Five things just shipped on Blog2Video — a $19.99 Lite plan, stock footage inside your scenes, a rebuilt image adjust window, voiceover recording with the scene playing beside you, and much lower memory use on mobile.",
+    category: "Product Update",
+    publishedAt: "2026-08-04",
+    readTime: "5 min read",
+    heroEyebrow: "Product Update - August 2026",
+    heroTitle: "Five new things just landed on Blog2Video.",
+    heroDescription:
+      "A new Lite plan at $19.99, stock footage you can drop straight into any scene, an image adjust window that finally shows the whole photo, voiceover recording in time with the visuals, and a far lighter experience on mobile.",
+    primaryKeyword: "blog2video update",
+    keywordVariant: "blog2video new features august 2026",
+    relatedPaths: [
+      "/pricing",
+      "/blog-to-video",
+      "/custom-branded-video-templates",
+      "/blogs/blog2video-just-shipped-june-2026",
+      "/blogs/whats-new-in-blog2video-six-features",
+    ],
+    sections: [
+      {
+        heading: "1. The new Lite plan — $19.99 a month",
+        paragraphs: [
+          "There has been a gap between the per-video option and the Standard plan for a while. Some people do not need thirty videos a month. They need a handful, reliably, without thinking about credits every time.",
+          "Lite fills that gap: 10 videos every month, 2 custom video templates built from your own site, and 300 AI edit credits for image regeneration and voiceover edits — for $19.99 a month, or $15.99 a month billed annually.",
+          "It is the easy way in. If you outgrow it, Standard and Pro are one click away, and nothing you have already made goes anywhere.",
+        ],
+        bullets: [
+          "10 videos per month",
+          "2 custom video templates in your own brand look",
+          "300 AI edit credits per month",
+          "$19.99/month, or $15.99/month billed annually ($191.88/year)",
+        ],
+        ctaPath: "/pricing",
+        ctaLabel: "See the Lite plan",
+      },
+      {
+        heading: "2. Stock footage, right inside your scenes",
+        paragraphs: [
+          "Until now a scene was type, charts, and images. Now it can hold real footage. Search for a clip from inside the editor and drop it straight into any scene.",
+          "The footage sits behind your text and motion the same way a generated image would — same framing controls, same scene timing, no round trip through an external editor and no re-render of anything else.",
+          "That is the difference between a video that illustrates your post and a video that has something behind it. A market breakdown gets a trading floor. A travel piece gets the road. Stock footage is wired into the built-in templates and the custom template flow, so it works wherever you already are.",
+        ],
+      },
+      {
+        heading: "3. The image adjust window got a lot better",
+        paragraphs: [
+          "The old crop window had one real problem: it showed you the crop, not the photo. You were adjusting a frame while half-blind to what sat outside it.",
+          "The rebuilt window shows the entire picture, with the crop region drawn on top of it. Drag it where you want it, zoom in, and save. What you see is what renders — and because framing is stored per orientation, a landscape adjustment does not fight with the portrait cut of the same asset.",
+          "Small change to describe. Large change if you have ever lost a subject's head to an automatic crop.",
+        ],
+      },
+      {
+        heading: "4. Record your voiceover with the scene playing beside you",
+        paragraphs: [
+          "Recording your own narration used to be a guessing game about timing. You would record, attach, play it back, discover you were two seconds long, and go again.",
+          "Now the scene plays right beside the recorder while you speak. You watch the visuals move and narrate to them, so every word lands in time with what is on screen. No stopwatch, no third-party editor, no re-cutting your own audio to fit.",
+          "It works per scene, so you can record one line in your own voice and leave the rest to the AI voice — or do the whole thing yourself.",
+        ],
+      },
+      {
+        heading: "5. Much less memory on mobile",
+        paragraphs: [
+          "The editor was heavy on phones. Previews would hold on to memory, and long sessions on a small screen ended in reloads.",
+          "We went through the mobile preview path and cut memory use substantially: lighter previews, far fewer reloads, and a much smoother ride on a small screen. If you have been editing on a laptop purely because the phone gave up halfway, it is worth trying again.",
+        ],
+      },
+      {
+        heading: "Try it",
+        paragraphs: [
+          "All five are live now at blog2video.app. Go make something great.",
+          "Made with love, by Firebird Technologies.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video",
+      },
+    ],
+    faq: [
+      {
+        question: "What do you get on the Lite plan?",
+        answer:
+          "10 videos per month, 2 custom video templates, and 300 AI edit credits per month, plus the standard subscription features. It costs $19.99 per month, or $15.99 per month if you pay annually ($191.88 per year).",
+      },
+      {
+        question: "How does stock footage work in a scene?",
+        answer:
+          "Search for a clip inside the editor and drop it into any scene. It behaves like any other scene asset — same framing controls and scene timing — so you do not need an external video editor or a full re-render of the project.",
+      },
+      {
+        question: "What changed in the image adjust window?",
+        answer:
+          "It now shows the entire image with the crop region drawn on top, instead of only the cropped area. You can drag the crop where you want it, zoom in, and save, and framing is stored per orientation so landscape and portrait versions do not overwrite each other.",
+      },
+      {
+        question: "Can I record my own voiceover while watching the scene?",
+        answer:
+          "Yes. The scene plays beside the recorder while you speak, so your narration lines up with the visuals. You can do this per scene and mix your own recordings with AI voiceover in the same video.",
+      },
+      {
+        question: "Is Blog2Video usable on a phone now?",
+        answer:
+          "It is much better. The mobile preview path was reworked to use significantly less memory, which means lighter previews and far fewer reloads during a long editing session on a small screen.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Blog2Video August 2026 Update: Lite Plan, Stock Footage, and Four More Things",
+        angle:
+          "Product update post covering the Lite plan, in-scene stock footage, the rebuilt image adjust window, voiceover recording with scene playback, and mobile memory improvements.",
+      },
+      {
+        channel: "video",
+        title: "Blog2Video latest updates August 2026",
+        angle:
+          "Ride through all five updates in order: the Lite pricing card, dropping a stock clip into a scene, dragging the crop across a full photo, recording a voiceover beside the playing scene, and the memory meter dropping on mobile.",
+      },
+      {
+        channel: "substack",
+        title: "What we shipped in August: a cheaper way in, and real footage in your scenes",
+        angle:
+          "Written-first creators get the practical read — what the Lite plan costs, and what changes when a scene can hold footage instead of only stills.",
+      },
+      {
+        channel: "twitter",
+        title: "Five new things on Blog2Video",
+        angle:
+          "One post per feature with a clip from the release video, closing on the Lite plan price as the entry point.",
+      },
+    ],
+  },
+  {
     slug: "best-ai-tools-for-substack-writers",
     title: "Top 5 AI Tools for Substack Writers in 2026",
     description:
@@ -5391,6 +5524,8 @@ export const blogPosts: BlogPost[] = [
     description:
       "Learn how to make a PDF into a video using 5 AI tools tested in 2026 — Synthesia, Visla, X-Pilot, Vidnoz, and Blog2Video. Step-by-step instructions included.",
     category: "How-to",
+    // Duplicate intent with the canonical PDF-to-video how-to; consolidate signals there.
+    canonicalPath: "/blogs/how-to-convert-pdf-into-video",
     heroImage: "/blog/blog-cover-how-to-make-a-pdf-into-a-video.png",
     heroImageAlt:
       "Step-by-step workflow turning a PDF into a publishable MP4 video.",
@@ -9320,7 +9455,7 @@ export const blogPosts: BlogPost[] = [
     heroDescription:
       "When the source document is dense, the best video does not try to show every page. It pulls out the main points, builds a clearer sequence, and turns the PDF into something people will actually watch.",
     primaryKeyword: "create summary videos from pdfs",
-    keywordVariant: "pdf to video",
+    keywordVariant: "pdf summary video",
     relatedPaths: ["/pdf-to-video", "/for-educators", "/article-to-video"],
     sections: [
       {
@@ -12010,6 +12145,8 @@ export const blogPosts: BlogPost[] = [
     description:
       "A step-by-step PDF-to-video workflow for turning whitepapers, lesson notes, research summaries, and guides into narrated explainer videos.",
     category: "How-to",
+    // Duplicate intent with the canonical PDF-to-video how-to; consolidate signals there.
+    canonicalPath: "/blogs/how-to-convert-pdf-into-video",
     heroImage: "/blog/blog-cover-pdf-educators.png",
     heroImageAlt:
       "Editorial illustration of a PDF document being converted into a structured narrated explainer video.",

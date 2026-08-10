@@ -215,7 +215,7 @@ interface Props {
   demoMode?: BlogUrlFormDemoMode;
   /** Pre-select a genre filter when step 2 opens (e.g. GENRE_CRAFTED to show Designer Templates). */
   initialGenre?: string;
-  /** Pre-select an input tab when step 1 opens (e.g. "upload" for users who arrived via pdf2video). */
+  /** Open the form on a specific source tab. Used by document landing pages that deep-link to upload. */
   initialMode?: "url" | "upload" | "bulk";
 }
 

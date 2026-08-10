@@ -114,6 +114,12 @@ export default function Dashboard() {
   const isPro = isPaidPlan(user?.plan);
   const templatesRequested = searchParams.get("tab") === "templates";
   const voicesRequested = searchParams.get("tab") === "voices";
+  /** Document landing pages (/pdf-to-video, /docx-to-video, …) deep-link here with ?mode=upload. */
+  const requestedMode = searchParams.get("mode");
+  const initialFormMode =
+    requestedMode === "upload" || requestedMode === "bulk" || requestedMode === "url"
+      ? requestedMode
+      : undefined;
   const [activeTab, setActiveTab] = useState<"projects" | "templates" | "voices">(
     voicesRequested ? "voices" : templatesRequested ? "templates" : "projects"
   );

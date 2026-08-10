@@ -343,6 +343,7 @@ function getSeoPayload(routePath: string): SeoPayload {
         title: post.title,
         description: post.description,
         path: routePath,
+        canonicalPath: post.canonicalPath,
         image: post.heroImage ? `${siteUrl}${post.heroImage}` : undefined,
         schema: blogPostSchema(post),
       };
