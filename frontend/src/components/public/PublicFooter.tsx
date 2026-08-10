@@ -7,7 +7,15 @@ import {
   getMarketingPage,
 } from "../../content/siteContent";
 import { useAuth } from "../../hooks/useAuth";
-import { counterpartOf, getBrand, useBrand, type BrandId } from "../../brand/brand";
+import { getBrand, useBrand, type BrandId } from "../../brand/brand";
+import { bloghubUrl, pdf2vidUrl } from "../../config/siblingSites";
+
+/**
+ * When the pdf2video brand is active, the counterpart is blog2video — which is
+ * this same origin, so the link is relative and carries no UTM (there is no
+ * cross-domain referral to attribute).
+ */
+const blog2videoFooterUrl = "/";
 
 /**
  * `brandId` overrides the ambient brand, for pages rendered under the other
@@ -18,7 +26,6 @@ export default function PublicFooter({ brandId }: { brandId?: BrandId } = {}) {
   const sessionBrand = useBrand();
   const brand = brandId ? getBrand(brandId) : sessionBrand;
   const isPdfBrand = brand.id === "pdf2video";
-  const otherBrand = counterpartOf(brand.id);
 
   const featuredPages = featuredPagePaths
     .map((path) => getMarketingPage(path))
@@ -75,15 +82,30 @@ export default function PublicFooter({ brandId }: { brandId?: BrandId } = {}) {
                 ? "Turn PDFs, reports, whitepapers, and decks into narrated, branded videos people actually finish."
                 : "Turn blog posts, articles, PDFs, and documentation into video workflows that can rank, distribute, and convert."}
             </p>
-            {/* Reciprocal cross-brand link — same product, different front door. */}
-            <a
-              href={otherBrand.siteUrl}
-              className="mt-3 inline-block text-sm text-gray-500 transition-colors hover:text-gray-900"
-            >
-              {isPdfBrand
-                ? "Have a blog instead? Try Blog2Video →"
-                : "Have a PDF instead? Try PDF2Video →"}
-            </a>
+            {/* Reciprocal links across the three properties in this family.
+                The cross-brand link is the same product through a different
+                front door; BlogHub is the directory that feeds both. UTM tags
+                let the receiving domain attribute the referral — see
+                ../../config/siblingSites.ts. */}
+            <p className="mt-4 text-xs font-semibold uppercase tracking-[0.16em] text-gray-400">
+              Also from FireBird
+            </p>
+            <div className="mt-2 space-y-1.5">
+              <a
+                href={isPdfBrand ? blog2videoFooterUrl : pdf2vidUrl("footer")}
+                className="block text-sm text-gray-500 transition-colors hover:text-gray-900"
+              >
+                {isPdfBrand
+                  ? "Blog2Video — turn a URL into video →"
+                  : "PDF2Video — turn a document into video →"}
+              </a>
+              <a
+                href={bloghubUrl("footer")}
+                className="block text-sm text-gray-500 transition-colors hover:text-gray-900"
+              >
+                BlogHub — the newsletter directory →
+              </a>
+            </div>
           </div>
 
           {footerGroups.map((group) => (

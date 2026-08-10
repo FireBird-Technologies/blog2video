@@ -7,11 +7,14 @@ import {
   getMarketingPage,
   getPublicPaths,
   getRelatedBlogPosts,
+  getToolByPath,
   marketingPages,
   siteName,
   siteUrl,
+  tools,
+  toolsHub,
 } from "../src/content/siteContent";
-import type { BlogPost, MarketingPage } from "../src/content/seoTypes";
+import type { BlogPost, MarketingPage, ToolDefinition } from "../src/content/seoTypes";
 import {
   normalizeSchemaForJsonLd,
   SEO_JSON_LD_SCRIPT_ID,
@@ -24,6 +27,8 @@ import {
   homepageSchema,
   marketingPageSchema,
   pricingSchema,
+  toolPageSchema,
+  toolsHubSchema,
 } from "../src/seo/schema";
 
 const frontendRoot = process.cwd();
@@ -113,6 +118,42 @@ function renderMarketingPageHtml(page: MarketingPage): string {
   return `<main><h1>${escapeHtml(page.heroTitle)}</h1><p>${escapeHtml(page.heroDescription)}</p>${sectionsHtml}${faqHtml}</main>`;
 }
 
+function renderToolsHubHtml(): string {
+  const toolsHtml = tools
+    .map(
+      (tool) =>
+        `<article><a href="${tool.path}"><h2>${escapeHtml(tool.title)}</h2></a><p>${escapeHtml(tool.description)}</p></article>`
+    )
+    .join("");
+  return `<main><h1>${escapeHtml(toolsHub.heroTitle)}</h1><p>${escapeHtml(toolsHub.heroDescription)}</p>${toolsHtml}</main>`;
+}
+
+/**
+ * Tool pages render their widget client-side, so the prerendered markup carries
+ * the article half only — the H1, the proof points, the prose, and the FAQ. That
+ * is the part a crawler can read anyway; the widget is a form.
+ */
+function renderToolPageHtml(tool: ToolDefinition): string {
+  const proofHtml = tool.proofPoints.length
+    ? `<ul>${tool.proofPoints.map((point) => `<li>${escapeHtml(point)}</li>`).join("")}</ul>`
+    : "";
+  const sectionsHtml = tool.sections
+    .map((section) => {
+      const body = section.body.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("");
+      const bullets = section.bullets?.length
+        ? `<ul>${section.bullets.map((bullet) => `<li>${escapeHtml(bullet)}</li>`).join("")}</ul>`
+        : "";
+      return `<section><h2>${escapeHtml(section.title)}</h2>${body}${bullets}</section>`;
+    })
+    .join("");
+  const faqHtml = tool.faq.length
+    ? `<section><h2>Frequently Asked Questions</h2>${tool.faq
+        .map((entry) => `<div><h3>${escapeHtml(entry.question)}</h3><p>${escapeHtml(entry.answer)}</p></div>`)
+        .join("")}</section>`
+    : "";
+  return `<main><p>${escapeHtml(tool.eyebrow)}</p><h1>${escapeHtml(tool.heroTitle)}</h1><p>${escapeHtml(tool.heroDescription)}</p>${proofHtml}${sectionsHtml}${faqHtml}</main>`;
+}
+
 /**
  * Server-rendered pdf2video hero.
  *
@@ -127,10 +168,14 @@ function renderPdfHomeHtml(): string {
 function getAppHtml(routePath: string): string {
   if (routePath === "/") return renderPdfHomeHtml();
   if (routePath === "/blogs") return renderBlogIndexHtml(blogPosts);
+  if (routePath === toolsHub.path) return renderToolsHubHtml();
   if (routePath.startsWith("/blogs/")) {
     const post = getBlogPost(routePath.replace("/blogs/", ""));
     if (post) return renderBlogPostHtml(post);
   }
+
+  const tool = getToolByPath(routePath);
+  if (tool) return renderToolPageHtml(tool);
 
   const page = getMarketingPage(routePath);
   if (page) return renderMarketingPageHtml(page);
@@ -185,6 +230,15 @@ function getSeoPayload(routePath: string): SeoPayload {
     };
   }
 
+  if (routePath === toolsHub.path) {
+    return {
+      title: toolsHub.title,
+      description: toolsHub.description,
+      path: routePath,
+      schema: toolsHubSchema(),
+    };
+  }
+
   if (routePath.startsWith("/blogs/")) {
     const post = getBlogPost(routePath.replace("/blogs/", ""));
     if (post) {
@@ -196,6 +250,16 @@ function getSeoPayload(routePath: string): SeoPayload {
         schema: blogPostSchema(post),
       };
     }
+  }
+
+  const tool = getToolByPath(routePath);
+  if (tool) {
+    return {
+      title: tool.title,
+      description: tool.description,
+      path: routePath,
+      schema: toolPageSchema(tool),
+    };
   }
 
   const page = getMarketingPage(routePath);
@@ -358,11 +422,11 @@ function isCanonicalPath(routePath: string) {
 }
 
 async function buildSeoFiles() {
-  // /help and /tools exist only as empty, noindex hub pages (ToolsHub.tsx /
-  // HelpHub.tsx) so their nav items resolve; they carry no article content and
-  // are deliberately kept out of getPublicPaths(), so they are neither
-  // prerendered nor listed here. /blogs IS included, but only ever with
-  // PDF2Video's own posts (content/blogPosts.ts) — never a copy of anything
+  // /help is still an empty, noindex hub page (HelpHub.tsx) so its nav item
+  // resolves; it carries no article content and is deliberately kept out of
+  // getPublicPaths(), so it is neither prerendered nor listed here. /tools and
+  // /blogs ARE included, but only ever with PDF2Video's own tools and posts
+  // (content/tools.ts, content/blogPosts.ts) — never a copy of anything
   // indexed on blog2video.app. That's what actually keeps this domain free of
   // duplicate content, more so than any route removal or robots meta tag.
   const allPaths = getPublicPaths().filter(isCanonicalPath);
@@ -392,6 +456,11 @@ Sitemap: ${siteUrl}/sitemap.xml
         path: `/blogs/${post.slug}`,
         category: post.category,
         primaryKeyword: post.primaryKeyword,
+      })),
+      tools: tools.map((tool) => ({
+        path: tool.path,
+        category: tool.category,
+        primaryKeyword: tool.primaryKeyword,
       })),
     },
     null,
