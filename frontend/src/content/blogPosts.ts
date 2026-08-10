@@ -22,6 +22,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Reddit bans you, LinkedIn buries you, X suppresses your links, and Substack wants a second job out of you. An honest look at every promotion channel left to writers in 2026 — and what to do about it.",
     category: "Distribution",
+    heroImage: "/blog/blog-cover-where-to-promote-your-writing-2026.png",
+    heroImageAlt:
+      "Reddit bans you, LinkedIn buries you, X suppresses your links, and Substack wants a second job out of you. An honest look at every promotion channel left to writers in 2026 — and what to do about it.",
     publishedAt: "2026-08-07",
     readTime: "7 min read",
     heroEyebrow: "Distribution",
@@ -151,6 +154,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Five things just shipped on Blog2Video — a $19.99 Lite plan, stock footage inside your scenes, a rebuilt image adjust window, voiceover recording with the scene playing beside you, and much lower memory use on mobile.",
     category: "Product Update",
+    heroImage: "/blog/blog-cover-blog2video-august-2026-update.png",
+    heroImageAlt:
+      "Five things just shipped on Blog2Video — a $19.99 Lite plan, stock footage inside your scenes, a rebuilt image adjust window, voiceover recording with the scene playing beside you, and much lower memory use on mobile.",
     publishedAt: "2026-08-04",
     readTime: "5 min read",
     heroEyebrow: "Product Update - August 2026",
@@ -284,6 +290,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Most \"best AI tools\" lists are just writing assistants with different logos. Substack's real bottlenecks in 2026 are video and discovery. Here are the five tools worth paying for, and what each one is actually for.",
     category: "Comparison",
+    heroImage: "/blog/blog-cover-best-ai-tools-for-substack-writers.png",
+    heroImageAlt:
+      "Most \"best AI tools\" lists are just writing assistants with different logos. Substack's real bottlenecks in 2026 are video and discovery. Here are the five tools worth paying for, and what each one is actually for.",
     publishedAt: "2026-07-31",
     readTime: "9 min read",
     heroEyebrow: "Tool stack",
@@ -443,6 +452,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Everyone can prompt ChatGPT to pump out paragraphs, so blogging is over. That is the 2026 consensus. Here is why authentic writing has never been more valuable, and the two products we are building on that conviction.",
     category: "Opinion",
+    heroImage: "/blog/blog-cover-blogging-is-not-dead-authentic-writing-2026.png",
+    heroImageAlt:
+      "Everyone can prompt ChatGPT to pump out paragraphs, so blogging is over. That is the 2026 consensus. Here is why authentic writing has never been more valuable, and the two products we are building on that conviction.",
     publishedAt: "2026-07-31",
     readTime: "6 min read",
     heroEyebrow: "Opinion",

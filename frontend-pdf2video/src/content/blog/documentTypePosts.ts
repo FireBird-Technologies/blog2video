@@ -16,6 +16,9 @@ export const documentTypePosts: BlogPost[] = [
     description:
       "How to make a paper watchable without over-claiming: what to cut, which hedges are load-bearing, and how to handle the figures.",
     category: "Document Types",
+    heroImage: "/blog/blog-cover-research-paper-to-video-without-losing-the-nuance.png",
+    heroImageAlt:
+      "How to make a paper watchable without over-claiming: what to cut, which hedges are load-bearing, and how to handle the figures.",
     publishedAt: "2026-04-27",
     readTime: "9 min read",
     heroEyebrow: "Research",
@@ -123,6 +126,9 @@ export const documentTypePosts: BlogPost[] = [
     description:
       "A whitepaper behind a form reaches the people who filled the form. The video version reaches the ones who never would.",
     category: "Document Types",
+    heroImage: "/blog/blog-cover-whitepaper-to-video-for-demand-generation.png",
+    heroImageAlt:
+      "A whitepaper behind a form reaches the people who filled the form. The video version reaches the ones who never would.",
     publishedAt: "2026-04-20",
     readTime: "8 min read",
     heroEyebrow: "Marketing",
@@ -216,6 +222,9 @@ export const documentTypePosts: BlogPost[] = [
     description:
       "A hundred-page annual report becomes a six-minute video only if you know which six numbers matter. How to choose them.",
     category: "Document Types",
+    heroImage: "/blog/blog-cover-annual-report-to-video-for-stakeholders.png",
+    heroImageAlt:
+      "A hundred-page annual report becomes a six-minute video only if you know which six numbers matter. How to choose them.",
     publishedAt: "2026-04-13",
     readTime: "8 min read",
     heroEyebrow: "Finance",
@@ -311,6 +320,9 @@ export const documentTypePosts: BlogPost[] = [
     description:
       "Docs videos rot because they are recordings of a UI that changed. How to build ones you can regenerate when the docs update.",
     category: "Document Types",
+    heroImage: "/blog/blog-cover-technical-documentation-to-video-without-a-screen-recording.png",
+    heroImageAlt:
+      "Docs videos rot because they are recordings of a UI that changed. How to build ones you can regenerate when the docs update.",
     publishedAt: "2026-04-06",
     readTime: "8 min read",
     heroEyebrow: "Technical",
@@ -406,6 +418,9 @@ export const documentTypePosts: BlogPost[] = [
     description:
       "Written case studies bury the result under context. Video punishes that harder than prose does. How to restructure.",
     category: "Document Types",
+    heroImage: "/blog/blog-cover-case-study-to-video-that-a-buyer-will-finish.png",
+    heroImageAlt:
+      "Written case studies bury the result under context. Video punishes that harder than prose does. How to restructure.",
     publishedAt: "2026-03-30",
     readTime: "7 min read",
     heroEyebrow: "Sales",
@@ -495,6 +510,9 @@ export const documentTypePosts: BlogPost[] = [
     description:
       "The obvious mapping produces uneven, unwatchable episodes. How to episode an ebook by argument rather than by chapter.",
     category: "Document Types",
+    heroImage: "/blog/blog-cover-ebook-to-video-series.png",
+    heroImageAlt:
+      "The obvious mapping produces uneven, unwatchable episodes. How to episode an ebook by argument rather than by chapter.",
     publishedAt: "2026-03-23",
     readTime: "7 min read",
     heroEyebrow: "Long Form",
@@ -590,6 +608,9 @@ export const documentTypePosts: BlogPost[] = [
     description:
       "Recording the lecture reproduces the thing they already skipped. What a generated version does differently, and where it helps most.",
     category: "Document Types",
+    heroImage: "/blog/blog-cover-lecture-notes-to-video-for-students-who-skip-lectures.png",
+    heroImageAlt:
+      "Recording the lecture reproduces the thing they already skipped. What a generated version does differently, and where it helps most.",
     publishedAt: "2026-03-16",
     readTime: "7 min read",
     heroEyebrow: "Education",
@@ -685,6 +706,9 @@ export const documentTypePosts: BlogPost[] = [
     description:
       "A deck forwarded without you is a deck read wrong. What a narrated version fixes, and the parts you should never put in one.",
     category: "Document Types",
+    heroImage: "/blog/blog-cover-investor-deck-to-video-for-the-meetings-you-did-not-get.png",
+    heroImageAlt:
+      "A deck forwarded without you is a deck read wrong. What a narrated version fixes, and the parts you should never put in one.",
     publishedAt: "2026-03-09",
     readTime: "7 min read",
     heroEyebrow: "Fundraising",

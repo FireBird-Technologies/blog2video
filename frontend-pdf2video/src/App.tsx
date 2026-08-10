@@ -15,6 +15,7 @@ import BlogPostPage from "./pages/BlogPostPage";
 import MarketingPageView from "./pages/MarketingPageView";
 import TemplatePageView from "./pages/TemplatePageView";
 import ToolsHub from "./pages/ToolsHub";
+import ToolPage from "./pages/ToolPage";
 import HelpHub from "./pages/HelpHub";
 import NotFoundPage from "./pages/NotFoundPage";
 import { marketingPages } from "./content/siteContent";
@@ -55,14 +56,15 @@ function AppRoutes() {
             new posts go here, never a copy of a blog2video.app article. */}
         <Route path="/blogs" element={<Blog />} />
         <Route path="/blogs/:slug" element={<BlogPostPage />} />
-        {/* /tools and /help exist ONLY as empty, noindex hub pages so the nav
-            items resolve instead of 404ing. They deliberately render no article
-            or tool content and link out to blog2video.app instead: this
-            deployment must never serve the same long-form content that's
-            indexed there, or Google can flag it as duplicate content across two
-            domains. Add PDF2Video-original content here before removing
-            noindex. */}
+        {/* /tools is PDF2Video's own — five widgets that exist only on this
+            domain, with original copy (content/tools.ts,
+            components/tools/). It is indexable for that reason.
+            /help is still an empty, noindex hub so its nav item resolves
+            instead of 404ing: those articles ARE a copy of blog2video.app's,
+            and a second indexed copy across two domains is the duplicate
+            content risk this deployment exists to avoid. */}
         <Route path="/tools" element={<ToolsHub />} />
+        <Route path="/tools/:slug" element={<ToolPage />} />
         <Route path="/help" element={<HelpHub />} />
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />

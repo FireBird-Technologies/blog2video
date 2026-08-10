@@ -20,6 +20,9 @@ export const convergentPosts: BlogPost[] = [
     description:
       "PDF-to-PowerPoint conversion works, badly, and only matters if you need editable slides. A guide to which output your job actually requires.",
     category: "Converters",
+    heroImage: "/blog/blog-cover-pdf-to-powerpoint-or-pdf-to-video.png",
+    heroImageAlt:
+      "PDF-to-PowerPoint conversion works, badly, and only matters if you need editable slides. A guide to which output your job actually requires.",
     publishedAt: "2026-06-15",
     readTime: "9 min read",
     heroEyebrow: "Converters",
@@ -120,6 +123,9 @@ export const convergentPosts: BlogPost[] = [
     description:
       "PowerPoint exports video natively in three clicks. Here is exactly how, plus the four reasons the result underperforms and what to do instead.",
     category: "Converters",
+    heroImage: "/blog/blog-cover-how-to-save-a-powerpoint-as-a-video.png",
+    heroImageAlt:
+      "PowerPoint exports video natively in three clicks. Here is exactly how, plus the four reasons the result underperforms and what to do instead.",
     publishedAt: "2026-06-08",
     readTime: "8 min read",
     heroEyebrow: "How To",
@@ -226,6 +232,9 @@ export const convergentPosts: BlogPost[] = [
     description:
       "Embedding video in a PDF is possible, poorly supported, and usually the wrong way round. The mechanics, the compatibility reality, and the inversion.",
     category: "Converters",
+    heroImage: "/blog/blog-cover-embed-a-video-in-a-pdf-or-invert-the-problem.png",
+    heroImageAlt:
+      "Embedding video in a PDF is possible, poorly supported, and usually the wrong way round. The mechanics, the compatibility reality, and the inversion.",
     publishedAt: "2026-06-01",
     readTime: "8 min read",
     heroEyebrow: "Compatibility",
@@ -328,6 +337,9 @@ export const convergentPosts: BlogPost[] = [
     description:
       "Turning a video into a PDF and turning a PDF into a video solve different problems. How to tell which one you are actually trying to do.",
     category: "Converters",
+    heroImage: "/blog/blog-cover-video-to-pdf-or-pdf-to-video.png",
+    heroImageAlt:
+      "Turning a video into a PDF and turning a PDF into a video solve different problems. How to tell which one you are actually trying to do.",
     publishedAt: "2026-05-25",
     readTime: "7 min read",
     heroEyebrow: "Disambiguation",
@@ -415,6 +427,9 @@ export const convergentPosts: BlogPost[] = [
     description:
       "A summary makes a document faster to read. It does not make an unread document read. When each one is the right answer.",
     category: "Converters",
+    heroImage: "/blog/blog-cover-pdf-summarizer-or-pdf-video-summary.png",
+    heroImageAlt:
+      "A summary makes a document faster to read. It does not make an unread document read. When each one is the right answer.",
     publishedAt: "2026-05-18",
     readTime: "7 min read",
     heroEyebrow: "Comparison",
@@ -503,6 +518,9 @@ export const convergentPosts: BlogPost[] = [
     description:
       "Audio wins for commutes and personal reading. Video wins for anything with a chart in it. The specific trade-offs.",
     category: "Converters",
+    heroImage: "/blog/blog-cover-pdf-to-audio-or-pdf-to-video.png",
+    heroImageAlt:
+      "Audio wins for commutes and personal reading. Video wins for anything with a chart in it. The specific trade-offs.",
     publishedAt: "2026-05-11",
     readTime: "7 min read",
     heroEyebrow: "Comparison",
@@ -597,6 +615,9 @@ export const convergentPosts: BlogPost[] = [
     description:
       "Text extraction is step one of five things people actually want. A guide to what comes next depending on why you extracted it.",
     category: "Converters",
+    heroImage: "/blog/blog-cover-you-extracted-the-text-from-your-pdf-now-what.png",
+    heroImageAlt:
+      "Text extraction is step one of five things people actually want. A guide to what comes next depending on why you extracted it.",
     publishedAt: "2026-05-04",
     readTime: "6 min read",
     heroEyebrow: "Next Steps",

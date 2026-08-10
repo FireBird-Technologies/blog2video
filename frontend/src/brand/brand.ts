@@ -44,11 +44,11 @@ const BRANDS: Record<BrandId, Brand> = {
   pdf2video: {
     id: "pdf2video",
     siteName: "PDF2Video",
-    // Live domain is pdf2vid.app; the brand id keeps the longer "pdf2video".
-    siteUrl: "https://pdf2vid.app",
+    // Live domain is pdf2vid.com; the brand id keeps the longer "pdf2video".
+    siteUrl: "https://pdf2vid.com",
     // Falls back to the Blog2Video card until a pdf2video-specific OG image
     // lands in public/. Swap the filename here once it exists.
-    defaultOgImage: "https://pdf2vid.app/og-image-v2.png",
+    defaultOgImage: "https://pdf2vid.com/og-image-v2.png",
     logoText: "P2V",
     wordmark: "PDF2Video",
     defaultFormMode: "upload",
@@ -109,7 +109,9 @@ function resolveBrand(): Brand {
     }
   }
 
-  if (window.location.hostname.includes("pdf2video")) return BRANDS.pdf2video;
+  // "pdf2vid" (not "pdf2video") — the live host is pdf2vid.com, so matching on
+  // the full brand id would never fire.
+  if (window.location.hostname.includes("pdf2vid")) return BRANDS.pdf2video;
 
   // Sticky session brand: a visitor who landed on the pdf2video page (including
   // via /pdf2video on the blog2video domain) keeps that identity while browsing

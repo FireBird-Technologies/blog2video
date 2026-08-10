@@ -17,6 +17,9 @@ export const pipelinePosts: BlogPost[] = [
     description:
       "Four ways to turn a PDF into a video, what each one actually produces, and how to pick based on whether anyone else has to watch it.",
     category: "PDF to Video",
+    heroImage: "/blog/blog-cover-how-to-convert-a-pdf-into-a-video.png",
+    heroImageAlt:
+      "Four ways to turn a PDF into a video, what each one actually produces, and how to pick based on whether anyone else has to watch it.",
     publishedAt: "2026-08-10",
     readTime: "9 min read",
     heroEyebrow: "Core Workflow",
@@ -128,6 +131,9 @@ export const pipelinePosts: BlogPost[] = [
     description:
       "AI PDF-to-video tools do four separate jobs and are good at two of them. A breakdown of which parts to trust and which to check.",
     category: "PDF to Video",
+    heroImage: "/blog/blog-cover-pdf-to-video-ai-what-it-does-and-what-it-fakes.png",
+    heroImageAlt:
+      "AI PDF-to-video tools do four separate jobs and are good at two of them. A breakdown of which parts to trust and which to check.",
     publishedAt: "2026-08-03",
     readTime: "8 min read",
     heroEyebrow: "Under The Hood",
@@ -221,6 +227,9 @@ export const pipelinePosts: BlogPost[] = [
     description:
       "Every free PDF-to-video tool gates something. A guide to which limits are real compute costs, which are marketing, and how to get the most out of the free tier.",
     category: "PDF to Video",
+    heroImage: "/blog/blog-cover-free-pdf-to-video-tools-where-free-stops.png",
+    heroImageAlt:
+      "Every free PDF-to-video tool gates something. A guide to which limits are real compute costs, which are marketing, and how to get the most out of the free tier.",
     publishedAt: "2026-07-27",
     readTime: "7 min read",
     heroEyebrow: "Buying Guide",
@@ -309,6 +318,9 @@ export const pipelinePosts: BlogPost[] = [
     description:
       "How to build a slideshow video from a document: what belongs on each slide, how long to hold it, and why fixed timings feel wrong.",
     category: "PDF to Video",
+    heroImage: "/blog/blog-cover-turn-a-pdf-into-a-video-slideshow.png",
+    heroImageAlt:
+      "How to build a slideshow video from a document: what belongs on each slide, how long to hold it, and why fixed timings feel wrong.",
     publishedAt: "2026-07-20",
     readTime: "8 min read",
     heroEyebrow: "Format",
@@ -404,6 +416,9 @@ export const pipelinePosts: BlogPost[] = [
     description:
       "Screen recording is faster today and more expensive every time after. Where the crossover point actually sits.",
     category: "PDF to Video",
+    heroImage: "/blog/blog-cover-screen-recording-your-deck-versus-rendering-it.png",
+    heroImageAlt:
+      "Screen recording is faster today and more expensive every time after. Where the crossover point actually sits.",
     publishedAt: "2026-07-13",
     readTime: "7 min read",
     heroEyebrow: "Method",
@@ -490,6 +505,9 @@ export const pipelinePosts: BlogPost[] = [
     description:
       "Word count divided by 150 gives you the runtime. Here is what to do when that number is 40 minutes, which it usually is.",
     category: "PDF to Video",
+    heroImage: "/blog/blog-cover-how-long-should-a-document-video-be.png",
+    heroImageAlt:
+      "Word count divided by 150 gives you the runtime. Here is what to do when that number is 40 minutes, which it usually is.",
     publishedAt: "2026-07-06",
     readTime: "6 min read",
     heroEyebrow: "Planning",
@@ -585,6 +603,9 @@ export const pipelinePosts: BlogPost[] = [
     description:
       "Seven stages from a PDF on disk to a published video, what can go wrong at each, and which ones you should never automate away.",
     category: "PDF to Video",
+    heroImage: "/blog/blog-cover-the-document-to-video-pipeline-end-to-end.png",
+    heroImageAlt:
+      "Seven stages from a PDF on disk to a published video, what can go wrong at each, and which ones you should never automate away.",
     publishedAt: "2026-06-29",
     readTime: "10 min read",
     heroEyebrow: "Reference",
@@ -689,6 +710,9 @@ export const pipelinePosts: BlogPost[] = [
     description:
       "What actually happens when you point an automated pipeline at 200 PDFs, and the four controls that keep the output worth publishing.",
     category: "PDF to Video",
+    heroImage: "/blog/blog-cover-batch-converting-a-document-library-into-video.png",
+    heroImageAlt:
+      "What actually happens when you point an automated pipeline at 200 PDFs, and the four controls that keep the output worth publishing.",
     publishedAt: "2026-06-22",
     readTime: "8 min read",
     heroEyebrow: "At Scale",

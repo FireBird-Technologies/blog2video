@@ -15,6 +15,9 @@ export const distributionPosts: BlogPost[] = [
     description:
       "Putting the same words in both channels is the most common mistake in document video. The split that actually works.",
     category: "Craft",
+    heroImage: "/blog/blog-cover-what-goes-on-the-slide-and-what-goes-in-the-voiceover.png",
+    heroImageAlt:
+      "Putting the same words in both channels is the most common mistake in document video. The split that actually works.",
     publishedAt: "2026-03-02",
     readTime: "7 min read",
     heroEyebrow: "Craft",
@@ -111,6 +114,9 @@ export const distributionPosts: BlogPost[] = [
     description:
       "Written and spoken English are different registers. Six mechanical transformations that make document prose speakable.",
     category: "Craft",
+    heroImage: "/blog/blog-cover-writing-narration-from-written-prose.png",
+    heroImageAlt:
+      "Written and spoken English are different registers. Six mechanical transformations that make document prose speakable.",
     publishedAt: "2026-02-23",
     readTime: "7 min read",
     heroEyebrow: "Craft",
@@ -220,6 +226,9 @@ export const distributionPosts: BlogPost[] = [
     description:
       "The render is the easy part. Twelve things to get right on the upload, in the order they affect whether the video is found.",
     category: "Distribution",
+    heroImage: "/blog/blog-cover-pdf-to-youtube-the-upload-checklist.png",
+    heroImageAlt:
+      "The render is the easy part. Twelve things to get right on the upload, in the order they affect whether the video is found.",
     publishedAt: "2026-02-16",
     readTime: "8 min read",
     heroEyebrow: "Distribution",
@@ -325,6 +334,9 @@ export const distributionPosts: BlogPost[] = [
     description:
       "LinkedIn plays video on mute, in a small frame, to someone scrolling. Six constraints that determine whether a document video works there.",
     category: "Distribution",
+    heroImage: "/blog/blog-cover-pdf-to-linkedin-video-that-survives-the-feed.png",
+    heroImageAlt:
+      "LinkedIn plays video on mute, in a small frame, to someone scrolling. Six constraints that determine whether a document video works there.",
     publishedAt: "2026-02-09",
     readTime: "7 min read",
     heroEyebrow: "Distribution",
@@ -420,6 +432,9 @@ export const distributionPosts: BlogPost[] = [
     description:
       "Search engines do not watch your video. What they index instead, and how to make sure the right text exists.",
     category: "Distribution",
+    heroImage: "/blog/blog-cover-document-video-seo-what-actually-gets-indexed.png",
+    heroImageAlt:
+      "Search engines do not watch your video. What they index instead, and how to make sure the right text exists.",
     publishedAt: "2026-02-02",
     readTime: "8 min read",
     heroEyebrow: "SEO",
@@ -516,6 +531,9 @@ export const distributionPosts: BlogPost[] = [
     description:
       "Captions, transcripts, contrast, and pacing — the requirements, why document video fails them specifically, and how to fix each.",
     category: "Craft",
+    heroImage: "/blog/blog-cover-captions-and-accessibility-for-document-video.png",
+    heroImageAlt:
+      "Captions, transcripts, contrast, and pacing — the requirements, why document video fails them specifically, and how to fix each.",
     publishedAt: "2026-01-26",
     readTime: "7 min read",
     heroEyebrow: "Accessibility",
@@ -618,6 +636,9 @@ export const distributionPosts: BlogPost[] = [
     description:
       "Views are not the comparison. Four metrics that tell you whether the video version was worth making.",
     category: "Distribution",
+    heroImage: "/blog/blog-cover-measuring-whether-the-video-beat-the-pdf.png",
+    heroImageAlt:
+      "Views are not the comparison. Four metrics that tell you whether the video version was worth making.",
     publishedAt: "2026-01-19",
     readTime: "7 min read",
     heroEyebrow: "Measurement",
