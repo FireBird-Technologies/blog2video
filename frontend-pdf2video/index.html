@@ -30,6 +30,13 @@
     <style>
       #root { visibility: hidden; }
     </style>
+    <noscript>
+      <!-- No JS means .fonts-ready is never set, so show the prerendered
+           content immediately rather than an indefinitely blank page. -->
+      <style>
+        #root { visibility: visible !important; }
+      </style>
+    </noscript>
     <script>
       // Failsafe: index.css reveals #root, so if that stylesheet ever fails to
       // load the page would stay blank forever. Unstyled content beats no
@@ -44,11 +51,54 @@
       // Instead, watch the bundle stylesheet itself and only force visibility
       // if it actually errors, or if it still hasn't applied after a timeout.
       (function () {
+        var done = false;
+        // index.css reveals #root only under html.fonts-ready. Setting the class
+        // is therefore the normal, correct way to show the page.
+        function markReady() {
+          if (done) return;
+          done = true;
+          document.documentElement.classList.add("fonts-ready");
+        }
+        // Last-resort override for when the bundle stylesheet itself is missing,
+        // so .fonts-ready would have nothing to trigger.
         function reveal() {
+          markReady();
           var r = document.getElementById("root");
           if (r && getComputedStyle(r).visibility === "hidden") {
             r.style.visibility = "visible";
           }
+        }
+
+        // Primary path: wait until the heading font is genuinely usable.
+        // `display=swap` paints Times first and swaps later, so revealing early
+        // is what caused the serif flash.
+        //
+        // `document.fonts.check()` is the real test — `load()`'s promise can
+        // resolve while status is still "loading", and `ready` resolves once
+        // *all* fonts settle, which is slower than needed. Poll check() and cap
+        // the wait so a dead font CDN can't hide the page.
+        if (document.fonts && document.fonts.check) {
+          var FONT = '600 1em "Plus Jakarta Sans"';
+          var deadline = Date.now() + 2500;
+          try {
+            document.fonts.load(FONT);
+          } catch (e) {
+            /* older engines: polling below still resolves it */
+          }
+          (function poll() {
+            if (done) return;
+            var ok = false;
+            try {
+              ok = document.fonts.check(FONT);
+            } catch (e) {
+              ok = true; // can't introspect — don't hold the page hostage
+            }
+            if (ok || Date.now() > deadline) markReady();
+            else requestAnimationFrame(poll);
+          })();
+        } else {
+          // No CSS Font Loading API — reveal on next tick rather than hang.
+          setTimeout(markReady, 0);
         }
         function bundleApplied() {
           // The reveal rule only exists in the bundle stylesheet, so its

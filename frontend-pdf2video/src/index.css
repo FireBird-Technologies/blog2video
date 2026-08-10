@@ -4,10 +4,17 @@
 
 @layer base {
   /* Reveals #root, which index.html hides inline to avoid a flash of unstyled
-     prerendered markup. Because this rule ships in the bundled stylesheet, it
-     only applies once that CSS has loaded — so the first painted frame is
-     always styled. Keep the two in sync: dropping this leaves the page blank. */
-  #root {
+     prerendered markup.
+
+     Gated on .fonts-ready (set by the inline script in index.html) rather than
+     applying as soon as this stylesheet loads. The Google Fonts links use
+     `display=swap`, so the browser paints fallback Times immediately and swaps
+     when the webfont arrives ~500ms later — revealing on CSS alone therefore
+     still flashes serif text. Waiting for the font removes that.
+
+     index.html's <noscript> covers the JS-disabled case; the inline script's
+     timeout covers a font CDN that never responds. */
+  html.fonts-ready #root {
     visibility: visible;
   }
 
