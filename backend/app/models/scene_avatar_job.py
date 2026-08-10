@@ -66,6 +66,35 @@ class SceneAvatarJob(Base):
     # human asking again should never be refused. NULL on legacy rows predating
     # this column, treated as 0.
     attempt_count: Mapped[int | None] = mapped_column(nullable=True)
+    # Were this scene's credits given back? Set once, by the refund sweep, when
+    # a render has failed for good (see services/avatar_queue.py).
+    #
+    # ONE COLUMN, THREE JOBS — deliberate, and the only non-obvious decision in
+    # the refund feature:
+    #
+    #   1. IDEMPOTENCY GUARD. The sweep selects only rows where this is not true
+    #      and sets it in the SAME transaction as the balance change. Without it
+    #      a second sweep — two jobs settling together, a restart mid-sweep, a
+    #      retry row for the same scene — would silently hand out free credits,
+    #      with nothing in the data to show it happened.
+    #
+    #   2. PERMANENT-BLOCK MARKER. A refunded scene is a closed matter: the
+    #      money is back, so re-rendering it would be free GPU work. Every gate
+    #      that could start one checks this — the bulk retry endpoint, the
+    #      per-scene endpoint, and batch eligibility in authorize_avatar_batch.
+    #      NOTE this is NOT `retryable`, which records whether the ERROR CLASS
+    #      was transient and stays true even on a refunded scene. Two different
+    #      questions; do not collapse them.
+    #
+    #   3. OPERATOR UNBLOCK LEVER. Because every gate keys off this one column,
+    #      clearing it is the whole undo:
+    #          UPDATE scene_avatar_jobs SET credits_refunded = NULL WHERE ...
+    #      Clearing it on a scene that was refunded but NOT re-charged lets the
+    #      next sweep pay again — an escape hatch for someone who knows that,
+    #      not something to put a button on.
+    #
+    # NULL = not refunded, which is the right reading for every legacy row.
+    credits_refunded: Mapped[bool | None] = mapped_column(nullable=True)
     # Wall-clock seconds for the whole render, so the UI can say how long it took
     # without anyone reading Space logs.
     duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)

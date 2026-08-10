@@ -70,6 +70,14 @@ class AvatarRenderError:
 # Calibrated default prompt (P7/P8 from the OmniAvatar test-set iteration): lip
 # movement and expression that subtly match the actual volume/pacing of the voice,
 # no exaggerated or theatrical motion, natural head/neck movement, no hand mention.
+# What the USER is told when a render fails. The real reason stays in
+# SceneAvatarJob.error_message and the logs, which is where it is useful:
+# "Could not reach the avatar service: ChunkedEncodingError" tells a user
+# nothing they can act on, and reads as the product being broken. Sanitising at
+# the API boundary (see /avatar-status and /avatar-progress) fixes every
+# consumer at once and cannot be reintroduced by a new one.
+AVATAR_GENERIC_FAILURE = "We couldn't generate an avatar for this scene."
+
 DEFAULT_AVATAR_PROMPT = (
     "A person looking at the camera, speaking naturally with lip movements and "
     "facial expressions that closely and subtly match the actual volume and pacing "

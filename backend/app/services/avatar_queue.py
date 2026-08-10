@@ -69,7 +69,7 @@ import logging
 import time
 from datetime import datetime
 
-from sqlalchemy import or_, text
+from sqlalchemy import func, or_, select, text
 
 from app.config import settings
 from app.database import SessionLocal
@@ -360,54 +360,181 @@ def _run_scene_avatar_job(
         heartbeat_stop.set()
         heartbeat_thread.join(timeout=5)
 
+    def _write_terminal(db) -> None:
+        """Record this job's outcome. ONE definition, used by both paths below.
+
+        It used to be copy-pasted into the recovery branch, which is how that
+        branch came to skip everything that runs after it — see _on_batch_settled.
+        """
+        job = db.query(SceneAvatarJob).filter(SceneAvatarJob.id == job_id).first()
+        if not job:
+            return
+        job.status = "failed" if error else "completed"
+        job.phase = None
+        job.error_message = error.reason if error else None
+        job.retryable = error.retryable if error else None
+        job.duration_seconds = round(time.time() - started_at, 1)
+        job.completed_at = datetime.utcnow()
+        # Flush so the "are any renders still active?" query in _on_batch_settled
+        # sees THIS job as terminal. Autoflush would do it anyway; being explicit
+        # means the hook can't silently stop firing if that default ever changes.
+        db.flush()
+
     db = SessionLocal()
     try:
-        job = db.query(SceneAvatarJob).filter(SceneAvatarJob.id == job_id).first()
-        if job:
-            job.status = "failed" if error else "completed"
-            job.phase = None
-            job.error_message = error.reason if error else None
-            job.retryable = error.retryable if error else None
-            job.duration_seconds = round(time.time() - started_at, 1)
-            job.completed_at = datetime.utcnow()
-            # Flush so the "are any renders still active?" query below sees THIS
-            # job as terminal. Autoflush would do it anyway; being explicit means
-            # the chain can't silently stop firing if that default ever changes.
-            db.flush()
-        # Cutouts are NOT chained here any more: /render now returns the
-        # transparent twins alongside the mp4 (matting runs inside the Modal
-        # container — see modal-service/omniavatar/app.py), so by the time a render
-        # job lands its scene already has them. The chain is kept as a BACKSTOP for
-        # the cases inline matting cannot cover: renders made before this existed,
-        # AVATAR_INLINE_MATTE turned off, and scenes whose inline matte failed and
-        # recorded an avatar_matte_error. It no-ops when there is nothing owed.
-        if not error:
-            _chain_matte_if_background_chosen(project_id, db)
+        _write_terminal(db)
+        # Runs on BOTH outcomes. It used to be `if not error: _chain_matte...`,
+        # which meant a batch whose LAST render FAILED never noticed it had
+        # finished — precisely the case the refund exists for.
+        _on_batch_settled(project_id, db)
         db.commit()
     except Exception:
-        # Recording the job's outcome is the critical write here; the chained
-        # matte is best-effort. Roll back rather than leave the session dirty,
-        # then retry the status write alone so a chain problem can never lose
-        # the result of a render that actually succeeded.
+        # Recording the job's outcome is the critical write here; everything the
+        # settle hook does is best-effort. Roll back rather than leave the session
+        # dirty, then retry the status write alone so a hook problem can never
+        # lose the result of a render that actually succeeded.
         logger.exception(
             "[AVATAR_QUEUE] Failed to persist job %s outcome; retrying status only",
             job_id,
         )
         try:
             db.rollback()
-            job = db.query(SceneAvatarJob).filter(SceneAvatarJob.id == job_id).first()
-            if job:
-                job.status = "failed" if error else "completed"
-                job.phase = None
-                job.error_message = error.reason if error else None
-                job.retryable = error.retryable if error else None
-                job.duration_seconds = round(time.time() - started_at, 1)
-                job.completed_at = datetime.utcnow()
-                db.commit()
+            _write_terminal(db)
+            db.commit()
         except Exception:
             logger.exception("[AVATAR_QUEUE] Job %s status write failed", job_id)
     finally:
         db.close()
+
+
+def _on_batch_settled(project_id: int, db) -> None:
+    """Everything that must happen once a project's LAST render lands.
+
+    Called from BOTH terminal paths — success and failure. The failure case is
+    the point: the matte chain used to be called under `if not error:`, so a
+    batch whose last render failed never noticed it had finished, and a refund
+    hung off that hook would never have fired for the very scenes it exists for.
+
+    Takes the caller's session and does NOT commit, so the job's status, the
+    credit refund and any queued cutouts land in one transaction. Never raises —
+    a render that actually succeeded must not be recorded as failed because a
+    follow-up step had a bad day.
+    """
+    try:
+        # Matte completions re-enter this too (they are SceneAvatarJob rows as
+        # well). Nothing here concerns them, so skip before spending any queries.
+        renders_left = (
+            db.query(SceneAvatarJob)
+            .filter(
+                SceneAvatarJob.project_id == project_id,
+                SceneAvatarJob.kind == "render",
+                SceneAvatarJob.status.in_(_ACTIVE_AVATAR_STATUSES),
+            )
+            .first()
+        )
+        if renders_left:
+            return
+        refund_exhausted_avatar_failures(project_id, db)
+        _chain_matte_if_background_chosen(project_id, db)
+    except Exception:
+        logger.exception(
+            "[AVATAR_QUEUE] Batch-settled hook failed for project %s", project_id
+        )
+
+
+def refund_exhausted_avatar_failures(project_id: int, db) -> int:
+    """Return the credits for scenes that failed for good. Returns the amount.
+
+    A batch charges AVATAR_CREDIT_COST_PER_SCENE up front, so a scene that will
+    never render has been paid for and produced nothing.
+
+    "For good" is two cases, and both matter:
+      - attempts exhausted: burned the whole budget against, say, an outage;
+      - retryable=False: died on the first attempt with a terminal error (no
+        portrait, no voiceover). Same money, same dead end.
+
+    SAFE TO CALL FROM ANYWHERE, as often as you like. `credits_refunded` is set
+    in the same transaction as the balance change, and only unset rows are
+    selected — so a second sweep is a no-op rather than free credits. That is
+    what lets this run from the settle hook AND from the boot reaper, instead of
+    needing one perfect chokepoint that every terminal path has to route through.
+
+    Public (no underscore) because routers/projects.py calls it at boot.
+    """
+    from app.models.project import Project
+    from app.models.scene import Scene
+    from app.services.access import refund_avatar_credits
+
+    max_attempts = _max_attempts()
+
+    # Latest job per scene. A scene with three historical failed rows was charged
+    # ONCE, so refunding per row would pay three times over.
+    latest_ids = (
+        db.query(func.max(SceneAvatarJob.id))
+        .filter(
+            SceneAvatarJob.project_id == project_id,
+            SceneAvatarJob.kind == "render",
+        )
+        .group_by(SceneAvatarJob.scene_id)
+        .subquery()
+    )
+    candidates = (
+        db.query(SceneAvatarJob)
+        .filter(
+            SceneAvatarJob.id.in_(select(latest_ids)),
+            SceneAvatarJob.status == "failed",
+            SceneAvatarJob.credits_refunded.isnot(True),
+            or_(
+                SceneAvatarJob.attempt_count >= max_attempts,
+                SceneAvatarJob.retryable.is_(False),
+            ),
+        )
+        .all()
+    )
+    if not candidates:
+        return 0
+
+    # Never refund a scene that ended up with a clip anyway — an earlier attempt
+    # may have landed, or the user generated it another way.
+    with_clip = {
+        sid
+        for (sid,) in db.query(Scene.id).filter(
+            Scene.id.in_([j.scene_id for j in candidates]),
+            Scene.avatar_video_path.isnot(None),
+        )
+    }
+    payable = [j for j in candidates if j.scene_id not in with_clip]
+    if not payable:
+        return 0
+
+    # THE OWNER PAYS, so the owner is refunded. The job row's user_id is whoever
+    # CLICKED — on a shared project that is the collaborator, and crediting them
+    # would leave the person actually charged out of pocket. authorize_avatar_batch
+    # charges project_owner(project, db); this is the same person.
+    owner_id = (
+        db.query(Project.user_id).filter(Project.id == project_id).scalar()
+    )
+    if owner_id is None:
+        # Project mid-delete. Leave the flags UNSET so the money is still
+        # reconcilable by hand rather than silently written off.
+        logger.warning(
+            "[AVATAR_QUEUE] Project %s has no owner — skipping refund of %d scene(s)",
+            project_id, len(payable),
+        )
+        return 0
+
+    amount = refund_avatar_credits(db, owner_id, len(payable))
+    for job in payable:
+        job.credits_refunded = True
+    db.flush()
+    # This is money moving: log enough to reconcile it without a debugger.
+    logger.info(
+        "[AVATAR_QUEUE] Refunded %d credits to user %s for %d failed scene(s) "
+        "in project %s (scene_ids=%s)",
+        amount, owner_id, len(payable), project_id,
+        sorted(j.scene_id for j in payable),
+    )
+    return amount
 
 
 def scene_needs_matte_filters():

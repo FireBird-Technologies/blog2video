@@ -33,8 +33,8 @@ export default function AvatarPortraitUpload({
     if (!file) return;
     // Check client-side too so the user is not made to wait for an 8 MB round
     // trip only to be told no. The server still enforces both.
-    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
-      onError("Photo must be a PNG, JPEG or WebP image.");
+    if (!["image/png", "image/jpeg"].includes(file.type)) {
+      onError("Photo must be a PNG or JPEG image.");
       return;
     }
     if (file.size > 8 * 1024 * 1024) {
@@ -109,7 +109,7 @@ export default function AvatarPortraitUpload({
           <input
             ref={inputRef}
             type="file"
-            accept="image/png,image/jpeg,image/webp"
+            accept="image/png,image/jpeg"
             className="hidden"
             onChange={(e) => {
               void handleFile(e.target.files?.[0] ?? null);
@@ -151,7 +151,7 @@ export default function AvatarPortraitUpload({
             )}
           </div>
           <span className="text-[10px] text-gray-400">
-            PNG, JPEG or WebP · up to 8 MB
+            PNG or JPEG · up to 8 MB
           </span>
         </div>
       </div>

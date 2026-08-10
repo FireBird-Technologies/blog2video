@@ -6,12 +6,12 @@ import os
 import shutil
 import time
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import func, inspect, text, update, or_
+from sqlalchemy import func, inspect, select, text, update, or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db, SessionLocal
@@ -4761,6 +4761,93 @@ def _scene_has_voiceover(scene: Scene, db: Session) -> bool:
     return bool(voiceover_r2_url(scene, db))
 
 
+def _normalise_portrait(raw: bytes) -> bytes:
+    """Make an uploaded presenter photo look like a bundled roster preset.
+
+    The presets render reliably because of WHAT THEY ARE — opaque sRGB JPEGs at a
+    sane size — not because anything processes them. A custom upload reached
+    OmniAvatar completely untouched (this endpoint wrote `raw` straight to disk,
+    and the render service just writes the bytes it receives), so a phone photo
+    arrived tagged Display P3, possibly with an alpha channel and 4000px wide.
+    OmniAvatar reads raw pixels and assumes sRGB, which is why a custom avatar's
+    colour drifts through the clip while a preset never does.
+
+    Four things, in this order — the order is the substance:
+
+      1. EXIF rotation, FIRST. A phone stores a portrait shot as landscape plus an
+         orientation tag; every step below works on pixels, so the rotation has to
+         be baked in before them or the avatar renders sideways.
+      2. ICC -> sRGB, BEFORE convert("RGB"). `convert` drops the profile without
+         applying it, so a P3 image would keep its wrong numbers and merely lose
+         the metadata saying they were wrong.
+      3. Flatten alpha onto white. Pillow's RGB conversion leaves transparent
+         regions BLACK, which is worse than the fringing being fixed. (A
+         1920x1080 RGBA png did exactly this once: white fringing and a yellow
+         smear baked into the mp4 before matting ever ran.)
+      4. Cap the size and re-encode as JPEG. One predictable format is the point.
+
+    Raises on an undecodable image — the caller turns that into a 400. Storing it
+    anyway would just move the failure to a render six minutes later.
+    """
+    from io import BytesIO
+
+    from PIL import Image, ImageCms, ImageOps
+
+    img = Image.open(BytesIO(raw))
+    img = ImageOps.exif_transpose(img)
+
+    icc = img.info.get("icc_profile")
+    if icc:
+        try:
+            img = ImageCms.profileToProfile(
+                img, ImageCms.ImageCmsProfile(BytesIO(icc)),
+                ImageCms.createProfile("sRGB"), outputMode="RGB",
+            )
+        except Exception:
+            # A corrupt or exotic profile must not fail the upload — falling
+            # through untagged is exactly what happened before this existed.
+            logger.warning("[AVATAR] Could not convert portrait ICC profile to sRGB")
+
+    if img.mode in ("RGBA", "LA", "P"):
+        img = img.convert("RGBA")
+        flat = Image.new("RGB", img.size, (255, 255, 255))
+        flat.paste(img, mask=img.split()[-1])
+        img = flat
+    else:
+        img = img.convert("RGB")
+
+    # Presets are ~1200px; the model renders at 720x400, so anything larger is
+    # thrown away downstream anyway — and the portrait is re-uploaded with EVERY
+    # scene's render, so this also shrinks each of those requests.
+    img.thumbnail((1280, 1280), Image.LANCZOS)
+
+    # Embed sRGB explicitly. Pillow writes NO icc_profile unless asked, so
+    # without this the output is UNTAGGED — which is not what a preset is. Every
+    # bundled preset carries the 3144-byte "sRGB IEC61966-2.1" profile, and the
+    # stated goal here is for a custom photo to be indistinguishable from one.
+    # An untagged JPEG is merely *assumed* sRGB by whatever opens it; a tagged
+    # one says so.
+    out = BytesIO()
+    img.save(
+        out, "JPEG", quality=92, optimize=True,
+        icc_profile=ImageCms.ImageCmsProfile(
+            ImageCms.createProfile("sRGB")
+        ).tobytes(),
+    )
+    return out.getvalue()
+
+
+def _avatar_generic_failure() -> str:
+    """The only failure text a user ever sees for an avatar render.
+
+    Imported lazily to match how the rest of this module reaches into
+    services/avatar (which pulls in the render client at import time).
+    """
+    from app.services.avatar import AVATAR_GENERIC_FAILURE
+
+    return AVATAR_GENERIC_FAILURE
+
+
 def _active_avatar_job(scene_id: int, db: Session) -> SceneAvatarJob | None:
     """The scene's in-flight job, or None. A job whose heartbeat has gone stale is
     treated as dead so a stuck render can never permanently block the button.
@@ -4822,14 +4909,48 @@ def reap_orphaned_avatar_jobs() -> None:
             try:
                 job.status = "failed"
                 job.phase = None
-                job.error_message = "Server restarted during processing — click Retry."
+                job.error_message = "Server restarted during processing."
+                # `retryable` records that the ERROR CLASS was transient, which is
+                # true — a restart says nothing about the render. It is a
+                # diagnostic, not a permission: the refund sweep below closes
+                # these out and credits_refunded is what actually blocks them.
                 job.retryable = True
+                # Burn the budget. Nothing is coming back for these — the process
+                # that owned them is gone and no dispatcher saw them end — so
+                # leaving attempt_count as it was made them look retryable to the
+                # refund sweep and they would never be paid back. Marking them
+                # spent is what makes them eligible.
+                job.attempt_count = int(settings.AVATAR_MAX_ATTEMPTS)
                 job.completed_at = datetime.utcnow()
             except Exception:
                 logger.exception("[AVATAR_QUEUE] boot recovery failed for job=%s", job.id)
         db.commit()
         if jobs:
             logger.info("[AVATAR_QUEUE] boot sweep: reaped %d orphaned job(s)", len(jobs))
+
+            # Refund what the reap just killed for good.
+            #
+            # This is the ONE terminal path with no dispatcher running to notice
+            # the batch ended — the process that owned those jobs is gone, so
+            # nothing else will ever come back to them. Without this they would
+            # sit failed and paid-for indefinitely: they keep retryable=True and
+            # their attempt_count, so they do not even look "exhausted" to any
+            # later sweep.
+            #
+            # Only the projects just touched, and the sweep no-ops on anything
+            # already refunded, so a restart with nothing owed costs one query
+            # per affected project.
+            from app.services.avatar_queue import refund_exhausted_avatar_failures
+
+            for pid in {j.project_id for j in jobs}:
+                try:
+                    refund_exhausted_avatar_failures(pid, db)
+                    db.commit()
+                except Exception:
+                    logger.exception(
+                        "[AVATAR_QUEUE] boot refund failed for project=%s", pid
+                    )
+                    db.rollback()
     except Exception:
         logger.exception("[AVATAR_QUEUE] boot sweep failed")
         db.rollback()
@@ -4879,6 +5000,20 @@ def authorize_avatar_batch(
     # Only scenes that could actually render: active, with narration to lip-sync
     # to, and no clip yet. Recomputed here rather than trusted from the client —
     # the UI gate must not be the only gate.
+    # Scenes whose credits were already given back are OUT. They have no clip, so
+    # the filter below would happily re-offer them — and the charge is
+    # len(requested) * COST, so the user would pay a second time for a scene every
+    # other gate refuses to render. Excluded HERE, before eligible_ids, so
+    # `requested` is filtered too and the money is never taken.
+    refunded_scene_ids = {
+        sid
+        for (sid,) in db.query(SceneAvatarJob.scene_id)
+        .filter(
+            SceneAvatarJob.project_id == project_id,
+            SceneAvatarJob.credits_refunded.is_(True),
+        )
+        .distinct()
+    }
     eligible = (
         db.query(Scene)
         .filter(
@@ -4889,6 +5024,8 @@ def authorize_avatar_batch(
         )
         .all()
     )
+    if refunded_scene_ids:
+        eligible = [s for s in eligible if s.id not in refunded_scene_ids]
     # …and whose audio is actually reachable. A path column that points at a
     # file no container still has is not something we may charge for: that is
     # exactly how a paid batch used to end up with zero renders.
@@ -5020,6 +5157,24 @@ def generate_scene_avatar(
 
     _assert_can_generate_avatar(project_owner(project, db), project, db)
 
+    # A refunded scene is closed. This endpoint is the only remaining place that
+    # RESETS attempt_count to 0, so without this gate it is a free-render hole:
+    # the credits went back, and a fresh budget would render it for nothing.
+    latest_job = (
+        db.query(SceneAvatarJob)
+        .filter(SceneAvatarJob.scene_id == scene_id)
+        .order_by(SceneAvatarJob.id.desc())
+        .first()
+    )
+    if latest_job is not None and latest_job.credits_refunded:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "We couldn't generate an avatar for this scene and have returned "
+                "your credits. This scene can't be generated again."
+            ),
+        )
+
     preset = normalize_preset(avatar_preset or scene.avatar_preset)
     scene.avatar_preset = preset
 
@@ -5090,7 +5245,13 @@ def get_scene_avatar_status(
                 else "The avatar render timed out. Please try again."
             )
             if stalled
-            else (job.error_message if job else None)
+            # Never the raw reason — that is a diagnostic, not a message. It
+            # stays in the DB and the logs; see AVATAR_GENERIC_FAILURE.
+            else (
+                _avatar_generic_failure()
+                if job and job.status == "failed"
+                else None
+            )
         ),
         "status": job.status if job else None,
         "phase": job.phase if job else None,
@@ -5313,6 +5474,9 @@ def retry_failed_scene_avatars(
     max_attempts = int(settings.AVATAR_MAX_ATTEMPTS)
     retried: list[dict] = []
     skipped_exhausted = 0
+    # Scenes closed out by a refund — reported separately so the UI can say
+    # "we returned your credits" instead of "try again".
+    blocked_refunded = 0
     for (scene_id,) in scene_ids_with_jobs:
         latest = (
             db.query(SceneAvatarJob)
@@ -5321,6 +5485,13 @@ def retry_failed_scene_avatars(
             .first()
         )
         if not latest or latest.status != "failed":
+            continue
+        # Refunded means closed: the user's money is back, so re-running this
+        # would be free GPU work. Checked BEFORE `retryable`, which stays true on
+        # a refunded row (it records that the error class was transient — a
+        # diagnostic, not a permission).
+        if latest.credits_refunded:
+            blocked_refunded += 1
             continue
         if latest.retryable is False:
             continue
@@ -5358,6 +5529,7 @@ def retry_failed_scene_avatars(
         # Lets the UI say "3 scenes have failed too many times — open the scene
         # to try again" instead of silently retrying nothing.
         "skipped_exhausted": skipped_exhausted,
+        "blocked_refunded": blocked_refunded,
     }
 
 
@@ -5386,51 +5558,155 @@ def get_avatar_progress(
         .all()
     )
 
-    # Scenes that COULD have an avatar (an avatar is lip-synced to narration, so
-    # a scene with no voiceover is never eligible — matching the guard in
-    # generate_scene_avatar). The client shows progress against this, not against
-    # however many job rows happen to exist.
-    eligible_total = (
-        db.query(Scene)
-        .filter(
-            Scene.project_id == project_id,
-            Scene.voiceover_path.isnot(None),
-            Scene.voiceover_path != "",
-        )
-        .count()
+    # Which scenes belong to the MOST RECENT run, as opposed to every scene this
+    # project has ever generated an avatar for.
+    #
+    # The client cannot work this out for itself. It used to remember the
+    # selection in a React ref, which a page refresh wipes — so a reload fell back
+    # to the wizard's default first-N and a 7-scene batch rendered as 5. Seeding
+    # from `scenes` instead swaps that for the opposite error: on a project with an
+    # earlier run, a NEW 7-scene batch renders as 14 with the previous 7 already
+    # "Done". Only the server can tell the two runs apart.
+    #
+    # authorize_avatar_batch inserts every job of a run in ONE transaction, so a
+    # run lands inside a few hundred MICROSECONDS while separate runs are minutes
+    # or hours apart. Grouping by a short window off the newest row therefore
+    # isolates a run with no extra column.
+    #
+    # It is a WINDOW and not an equality test because created_at is a per-row
+    # server_default: rows in the same INSERT differ in the microseconds, so
+    # `created_at == max(created_at)` matches exactly one job and reported a
+    # 7-scene batch as 1. The window only has to be wider than one transaction
+    # and narrower than the gap between two runs; a minute clears both by orders
+    # of magnitude. Rows from other sources (a per-scene retry, a fallback matte)
+    # get their own timestamp and correctly form a run of one.
+    latest_created = (
+        db.query(func.max(SceneAvatarJob.created_at))
+        .filter(SceneAvatarJob.project_id == project_id)
+        .scalar()
     )
+    latest_batch_scene_ids = (
+        [
+            sid
+            for (sid,) in db.query(SceneAvatarJob.scene_id)
+            .filter(
+                SceneAvatarJob.project_id == project_id,
+                SceneAvatarJob.created_at >= latest_created - timedelta(minutes=1),
+            )
+            .distinct()
+            .all()
+        ]
+        if latest_created
+        else []
+    )
+
+    # Scenes that COULD have an avatar (an avatar is lip-synced to narration, so
+    # a scene with no voiceover is never eligible).
+    #
+    # Deliberately mirrors authorize_avatar_batch's own eligibility filter, which
+    # is the only thing that can actually enqueue a render. This used to test the
+    # voiceover alone, so it counted SOFT-DELETED scenes and scenes that ALREADY
+    # have an avatar — on a 25-scene project it reported 25 where authorize would
+    # have accepted a handful. A number the client could show as a denominator but
+    # that no endpoint would honour is worse than no number at all.
+    #
+    # `_scene_has_voiceover`'s R2 reachability check is NOT applied: it touches
+    # storage per scene, which is far too expensive for an endpoint the UI polls
+    # about once a second. This stays a cheap upper bound on what authorize would
+    # take.
+    # NOTE: eligible_total is computed further down, AFTER latest_jobs — it has to
+    # exclude refunded scenes, and those are already in that result. Doing it here
+    # would need a second query on an endpoint polled about once a second.
 
     max_attempts = int(settings.AVATAR_MAX_ATTEMPTS)
     scenes_out = []
     counts = {"queued": 0, "running": 0, "completed": 0, "failed": 0}
-    for (scene_id,) in scene_ids_with_jobs:
-        job = (
-            db.query(SceneAvatarJob)
-            .filter(SceneAvatarJob.scene_id == scene_id)
-            .order_by(SceneAvatarJob.id.desc())
-            .first()
+
+    # THREE QUERIES, NOT ~2N+1. This loop used to run a query per scene for the
+    # latest job, another per scene via _active_avatar_job, and a COUNT per queued
+    # scene via _queue_position — 41 queries for a 20-scene project, on an endpoint
+    # the UI polls about once a second. With a DB pool of 5 + 10 overflow shared
+    # with renders that hold a connection for minutes, that is the same exhaustion
+    # which once recorded a clip already paid for on the GPU as a failed attempt.
+    #
+    # 1. Latest job per scene in ONE grouped query. Equivalent to the old
+    #    `order_by(id.desc()).first()` because MAX(id) is that same tiebreak.
+    latest_job_ids = (
+        db.query(func.max(SceneAvatarJob.id))
+        .filter(SceneAvatarJob.project_id == project_id)
+        .group_by(SceneAvatarJob.scene_id)
+        .subquery()
+    )
+    latest_jobs = (
+        db.query(SceneAvatarJob)
+        .filter(SceneAvatarJob.id.in_(select(latest_job_ids)))
+        .all()
+    )
+    from app.services.access import AVATAR_CREDIT_COST_PER_SCENE
+
+    # Refunded scenes are closed — authorize_avatar_batch refuses them, so the
+    # "N scenes still don't have an avatar" banner must not advertise them either.
+    # Read off latest_jobs, which is already in memory: no extra query.
+    refunded_scene_ids = {j.scene_id for j in latest_jobs if j.credits_refunded}
+    eligible_total = (
+        db.query(Scene)
+        .filter(
+            Scene.project_id == project_id,
+            Scene.is_active.is_(True),
+            Scene.voiceover_path.isnot(None),
+            Scene.voiceover_path != "",
+            Scene.avatar_video_path.is_(None),
+            *([Scene.id.notin_(refunded_scene_ids)] if refunded_scene_ids else []),
         )
-        if not job:
-            continue
-        active = _active_avatar_job(scene_id, db) is not None
+        .count()
+    )
+    # 2. Queue position is a GLOBAL FIFO rank, so it is one ordered read for the
+    #    whole response instead of a COUNT per queued job.
+    queued_rank = {
+        jid: idx
+        for idx, (jid,) in enumerate(
+            db.query(SceneAvatarJob.id)
+            .filter(SceneAvatarJob.status == "queued")
+            .order_by(SceneAvatarJob.created_at.asc(), SceneAvatarJob.id.asc())
+            .all()
+        )
+    }
+
+    for job in latest_jobs:
+        # 3. _active_avatar_job is not needed here. Its only use was this
+        #    staleness downgrade, and updated_at is already on the row — so the
+        #    same answer costs zero extra queries.
+        active = (
+            job.status in _ACTIVE_AVATAR_STATUSES
+            and _seconds_since(job.updated_at)
+            < settings.STALL_THRESHOLD_AVATAR_SECONDS
+        )
         effective_status = job.status if (job.status != "running" or active) else "failed"
         counts[effective_status] = counts.get(effective_status, 0) + 1
         scenes_out.append({
-            "scene_id": scene_id,
+            "scene_id": job.scene_id,
             "job_id": job.id,
             "status": effective_status,
             "kind": job.kind,
             # Which stage a running job is in, so a per-scene batch view can say
             # "warming up" vs "rendering" without N separate avatar-status calls.
             "phase": job.phase,
-            "queue_position": _queue_position(job, db),
-            "error": job.error_message,
+            "queue_position": queued_rank.get(job.id) if job.status == "queued" else None,
+            # Generic on purpose (same rule as /avatar-status). Nothing in the
+            # batch UI renders this today; keeping it sanitised means a future
+            # consumer cannot leak the raw reason by accident.
+            "error": (
+                _avatar_generic_failure() if job.status == "failed" else None
+            ),
             "retryable": job.retryable,
             "attempt_count": job.attempt_count,
             # True once this SCENE has burned its whole per-scene budget: the
             # bulk retry endpoint will skip it, though an explicit per-scene
             # Generate still resets and works.
             "attempts_exhausted": (job.attempt_count or 0) >= max_attempts,
+            # Closed out by a refund: no retry anywhere, and the wizard
+            # names these in its apology.
+            "credits_refunded": bool(job.credits_refunded),
         })
 
     # "running" if anything is still queued or in flight; "settled" once every
@@ -5442,6 +5718,38 @@ def get_avatar_progress(
         batch_status = "settled"
     else:
         batch_status = "idle"
+
+    # ── The complete, client-renderable answer ────────────────────────────────
+    #
+    # Everything below exists so the CLIENT NEVER DERIVES THE VIEW. It used to,
+    # from ~16 separate guesses — a module-level cache that survives a tab switch
+    # but not a refresh, a stale `avatar_batch_unlocked` latch, a default
+    # first-5 scene selection — which is why the same server state produced a
+    # different screen on every reload: the appearance sliders painted over five
+    # rendering scenes, or "Scene 1..5" listed while scenes 18 and 20 were the
+    # ones actually on the GPU.
+    #
+    # Modelled on get_pipeline_status (routers/pipeline.py): the server resolves
+    # a coherent answer from the DB and the client just renders it.
+    batch_rows = [r for r in scenes_out if r["scene_id"] in set(latest_batch_scene_ids)]
+    # Scene ORDER travels with each row. The client used to fall back to an array
+    # index, so a finished scene — which drops out of the "eligible" list — showed
+    # as "Scene ?". Sorting here also means the client never has to sort from a
+    # list the scene may no longer be in.
+    order_by_scene = dict(
+        db.query(Scene.id, Scene.order)
+        .filter(Scene.id.in_(latest_batch_scene_ids))
+        .all()
+    ) if latest_batch_scene_ids else {}
+    for r in batch_rows:
+        r["order"] = order_by_scene.get(r["scene_id"])
+    batch_rows.sort(key=lambda r: (r["order"] is None, r["order"] or 0))
+
+    batch_live = any(r["status"] in ("queued", "running") for r in batch_rows)
+    # The user's rule, stated exactly: show progress while any scene in the most
+    # recent batch is not done; otherwise show the editing options (and, if
+    # scenes still lack avatars, the "Generate N scenes" banner).
+    view = "progress" if batch_live else "settings"
 
     # Release the paywall latch once nothing is in flight. The flag exists so a
     # mid-batch reload doesn't re-show the paywall, but it used to be set and
@@ -5458,6 +5766,44 @@ def get_avatar_progress(
         "total": len(scenes_out),
         "batch_status": batch_status,
         "eligible_total": eligible_total,
+        # PROJECT-WIDE list of scenes closed out by a refund — deliberately not
+        # `batch.rows`, which only covers the most recent run while a refunded
+        # scene can come from any earlier one.
+        #
+        # The wizard needs this to show those scenes as unselectable. Without it
+        # the UI happily walks the user to a priced Generate button for scenes
+        # authorize_avatar_batch will refuse (400, no charge — safe, but a dead
+        # end). Free: read off latest_jobs, already in memory.
+        "refunded_scene_ids": sorted(refunded_scene_ids),
+        # WHICH VIEW TO RENDER. Not a hint — the answer. See the block above.
+        "view": view,
+        # The most recent run, resolved: its rows in scene order, with the
+        # numerator and denominator already counted. `total` is the BATCH's size,
+        # not the project's — the client used to use a project-wide job count and
+        # reported a 6-scene batch as "of 20".
+        "batch": {
+            "scene_ids": [r["scene_id"] for r in batch_rows],
+            "rows": batch_rows,
+            "total": len(batch_rows),
+            # A failed scene is finished for progress purposes: it will not move
+            # again on its own, so counting it as outstanding spins forever.
+            "done": sum(
+                1 for r in batch_rows if r["status"] in ("completed", "failed")
+            ),
+            "all_terminal": not batch_live,
+            # What the apology modal needs, derived from rows already in memory.
+            # `refunded_credits` is computed from the LIVE constant, matching how
+            # the sweep pays — there is no per-row cost column by design.
+            "refunded_scene_orders": [
+                r["order"]
+                for r in batch_rows
+                if r.get("credits_refunded") and r.get("order") is not None
+            ],
+            "refunded_credits": (
+                sum(1 for r in batch_rows if r.get("credits_refunded"))
+                * AVATAR_CREDIT_COST_PER_SCENE
+            ),
+        },
         "max_attempts": max_attempts,
     }
 
@@ -5481,10 +5827,10 @@ def upload_avatar_portrait(
     """
     project = _get_user_project(project_id, user.id, db)
 
-    allowed = {"image/png", "image/jpeg", "image/webp"}
+    allowed = {"image/png", "image/jpeg"}
     if file.content_type not in allowed:
         raise HTTPException(
-            status_code=400, detail="Photo must be a PNG, JPEG or WebP image."
+            status_code=400, detail="Photo must be a PNG or JPEG image."
         )
     raw = file.file.read()
     MAX_PORTRAIT_SIZE = 8 * 1024 * 1024
@@ -5495,9 +5841,22 @@ def upload_avatar_portrait(
     if not raw:
         raise HTTPException(status_code=400, detail="That file appears to be empty.")
 
-    ext = "png" if file.content_type == "image/png" else (
-        "webp" if file.content_type == "image/webp" else "jpg"
-    )
+    # Normalise before anything is stored, so the local copy, the R2 copy and
+    # every render all see the same prepared image. See _normalise_portrait for
+    # why an untouched upload made a custom avatar's colour drift.
+    try:
+        raw = _normalise_portrait(raw)
+    except Exception:
+        logger.warning("[AVATAR] Could not read uploaded portrait", exc_info=True)
+        raise HTTPException(
+            status_code=400,
+            detail="That image couldn't be read. Please try a different photo.",
+        )
+
+    # Always .jpg now — normalisation re-encodes every input to JPEG, and the
+    # extension is what upload_project_avatar's mimetypes.guess_type reads to
+    # label the object in R2.
+    ext = "jpg"
     # Versioned filename (like video_key_versioned) so each re-upload/re-crop gets
     # a distinct R2 URL — a fixed name would let the browser keep serving its
     # cached copy of the OLD photo at the same URL after a new one is uploaded.

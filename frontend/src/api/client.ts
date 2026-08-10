@@ -1934,6 +1934,11 @@ export interface AvatarProgress {
    *  on every reload. */
   view: "progress" | "settings";
   batch: AvatarBatch;
+  /** PROJECT-WIDE scene ids closed out by a refund — not just this batch's.
+   *  These can never be generated again (authorize_avatar_batch refuses them),
+   *  so the wizard must show them as unselectable rather than walking the user
+   *  to a Generate button that 400s. */
+  refunded_scene_ids: number[];
   max_attempts: number;
 }
 

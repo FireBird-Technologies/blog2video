@@ -13,6 +13,7 @@ Usage:
 
 from typing import Optional
 from fastapi import HTTPException
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from app.models.project import Project
@@ -189,6 +190,40 @@ def consume_avatar_credits(payer: User, scene_count: int) -> None:
     payer.ai_edit_credits = max(
         0, (payer.ai_edit_credits or 0) - scene_count * AVATAR_CREDIT_COST_PER_SCENE
     )
+
+
+def refund_avatar_credits(db: Session, payer_user_id: int, scene_count: int) -> int:
+    """Give back the credits for ``scene_count`` avatars that will never render.
+
+    The inverse of consume_avatar_credits, with two deliberate differences.
+
+    ATOMIC, unlike the charge. consume_avatar_credits mutates the ORM object and
+    is documented-accepted non-atomic, but this runs from a WORKER THREAD on its
+    own session: a read-modify-write here would race a concurrent
+    authorize_avatar_batch from the same owner and write back a stale balance,
+    silently swallowing a charge. A guarded UPDATE cannot. No lower bound is
+    needed — a credit only ever goes up.
+
+    ONLY ``ai_edit_credits``. Do NOT reuse refund_ai_edit, which sits a few lines
+    up and looks like the obvious helper: it credits the monthly allowance first
+    and only spills over into the purchased pool. Avatars are charged purely
+    against ai_edit_credits (see consume_avatar_credits), so routing a refund
+    through that split would mint allowance the user never spent.
+
+    Does not commit — the caller owns the transaction, so the balance change and
+    the credits_refunded flags land together or not at all.
+
+    Returns the number of credits returned (0 if scene_count <= 0).
+    """
+    if scene_count <= 0:
+        return 0
+    amount = scene_count * AVATAR_CREDIT_COST_PER_SCENE
+    db.execute(
+        update(User)
+        .where(User.id == payer_user_id)
+        .values(ai_edit_credits=User.ai_edit_credits + amount)
+    )
+    return amount
 
 
 def is_owner(project: Project, user: User) -> bool:

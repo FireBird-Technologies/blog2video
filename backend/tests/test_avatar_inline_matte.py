@@ -328,3 +328,122 @@ def test_scene_needs_matte_filters__excludes_scenes_that_already_failed(
     orders = {s.order for s in swept}
     assert 1 in orders, "a healthy un-matted scene should still be swept"
     assert 2 not in orders, "a previously-failed scene must be skipped"
+
+
+# ─── custom presenter portrait normalisation ────────────────────────────────
+
+def _img_bytes(img, fmt="PNG", **save_kwargs) -> bytes:
+    from io import BytesIO
+
+    buf = BytesIO()
+    img.save(buf, fmt, **save_kwargs)
+    return buf.getvalue()
+
+
+def _reopen(raw: bytes):
+    from io import BytesIO
+
+    from PIL import Image
+
+    return Image.open(BytesIO(raw))
+
+
+def test_portrait__alpha_is_flattened_onto_white():
+    """The failure this whole helper exists for.
+
+    A 1920x1080 RGBA png once produced white fringing and a yellow smear baked
+    into the rendered mp4 — before matting ever ran. Pillow's plain RGB
+    conversion would leave those regions BLACK, which is worse, so the flatten
+    has to composite explicitly.
+    """
+    from PIL import Image
+
+    from app.routers.projects import _normalise_portrait
+
+    img = Image.new("RGBA", (300, 200), (200, 50, 50, 255))
+    for x in range(50):
+        for y in range(50):
+            img.putpixel((x, y), (0, 0, 0, 0))
+
+    out = _reopen(_normalise_portrait(_img_bytes(img)))
+    assert out.mode == "RGB", "alpha must be gone — OmniAvatar has no defined behaviour for it"
+    assert out.getpixel((10, 10)) == (255, 255, 255), "transparent → white, not black"
+
+
+def test_portrait__oversized_is_capped_but_keeps_aspect():
+    from PIL import Image
+
+    from app.routers.projects import _normalise_portrait
+
+    out = _reopen(_normalise_portrait(_img_bytes(Image.new("RGB", (4000, 3000)), "JPEG")))
+    assert max(out.size) == 1280
+    assert out.size == (1280, 960), "aspect ratio preserved"
+
+
+def test_portrait__exif_rotation_is_baked_in():
+    """A phone stores a portrait shot as landscape plus an orientation tag. Every
+    other step works on pixels, so the rotation must be applied first or the
+    avatar renders sideways."""
+    from PIL import Image
+
+    from app.routers.projects import _normalise_portrait
+
+    img = Image.new("RGB", (400, 200), (10, 20, 30))
+    exif = img.getexif()
+    exif[274] = 6  # orientation: rotate 90° CW
+    out = _reopen(_normalise_portrait(_img_bytes(img, "JPEG", exif=exif)))
+    assert out.size == (200, 400), "landscape+tag becomes real portrait pixels"
+
+
+def test_portrait__palette_mode_survives():
+    from PIL import Image
+
+    from app.routers.projects import _normalise_portrait
+
+    out = _reopen(_normalise_portrait(_img_bytes(Image.new("P", (120, 120)))))
+    assert out.mode == "RGB"
+
+
+def test_portrait__always_jpeg_regardless_of_input():
+    """One predictable format is the point — it is what every working preset is,
+    and the stored .jpg extension is what labels the R2 object's content type."""
+    from PIL import Image
+
+    from app.routers.projects import _normalise_portrait
+
+    for fmt in ("PNG", "WEBP", "JPEG"):
+        out = _reopen(_normalise_portrait(_img_bytes(Image.new("RGB", (200, 200)), fmt)))
+        assert out.format == "JPEG", f"{fmt} input should still store as JPEG"
+
+
+def test_portrait__undecodable_raises():
+    """The endpoint turns this into a 400. Storing it anyway would just move the
+    failure to a render six minutes later."""
+    from app.routers.projects import _normalise_portrait
+
+    with pytest.raises(Exception):
+        _normalise_portrait(b"this is definitely not an image")
+
+
+def test_portrait__a_real_preset_passes_through_unchanged():
+    """The normaliser must be a NO-OP on input that is already right.
+
+    The roster presets are the reference: JPEG, RGB, no alpha, no EXIF, ~1200px.
+    Nothing in the code ever prepared them — they simply are what OmniAvatar
+    expects, which is exactly why they render reliably and raw uploads did not.
+    """
+    import os
+
+    from app.routers.projects import _normalise_portrait
+
+    preset = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        "modal-service/omniavatar/avatar_presets/candidate_man2.jpg",
+    )
+    if not os.path.exists(preset):
+        pytest.skip("preset image not present in this checkout")
+
+    out = _reopen(_normalise_portrait(open(preset, "rb").read()))
+    assert out.mode == "RGB"
+    assert out.size == (1200, 675), "already within the cap — must not be resized"
+    assert out.format == "JPEG"

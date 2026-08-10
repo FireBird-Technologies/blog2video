@@ -71,16 +71,24 @@ export function useAvatarProgress(projectId: number) {
     }
   }, [projectId]);
 
+  /** One tick: refetch, and stop the timer once nothing is in flight.
+   *
+   *  Held in a ref so `refreshNow` can restart polling with the SAME
+   *  self-stopping tick. An earlier version had `refreshNow` schedule bare
+   *  `refresh` instead, which had no stop condition — so starting a batch left
+   *  a 1.5s poll running forever after that batch settled. */
+  const tickRef = useRef<() => Promise<void>>(async () => {});
+
   useEffect(() => {
     let cancelled = false;
     const tick = async () => {
       const next = await refresh();
       if (cancelled || !next) return;
-      // Stop once nothing is in flight. A settled project then costs one request
-      // per mount instead of a permanent timer. `refreshNow` restarts it when the
-      // user starts a batch.
+      // A settled project costs one request per mount instead of a permanent
+      // timer. `refreshNow` restarts it when the user starts a batch.
       if (next.view !== "progress") stop();
     };
+    tickRef.current = tick;
     stop();
     timerRef.current = setInterval(() => void tick(), POLL_MS);
     void tick();
@@ -95,7 +103,7 @@ export function useAvatarProgress(projectId: number) {
   const refreshNow = useCallback(async () => {
     const next = await refresh();
     if (next?.view === "progress" && !timerRef.current) {
-      timerRef.current = setInterval(() => void refresh(), POLL_MS);
+      timerRef.current = setInterval(() => void tickRef.current(), POLL_MS);
     }
     return next;
   }, [refresh]);
