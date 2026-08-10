@@ -1,0 +1,2256 @@
+export * from "./types";
+export * from "./auth";
+export * from "./billing";
+export * from "./projects";
+export * from "./enterprise";
+
+import axios from "axios";
+import type { VideoStyleId } from "../constants/videoStyles";
+
+// In production, VITE_BACKEND_URL points to the Cloud Run backend.
+// In local dev it's empty — Vite proxy handles /api and /media routing.
+const viteEnv =
+  typeof import.meta !== "undefined" ? import.meta.env : undefined;
+const processEnv =
+  typeof globalThis !== "undefined" && "process" in globalThis
+    ? (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env
+    : undefined;
+
+export const BACKEND_URL = viteEnv?.VITE_BACKEND_URL || processEnv?.VITE_BACKEND_URL || "";
+
+const api = axios.create({
+  baseURL: `${BACKEND_URL}/api`,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+// ─── Auth interceptor ─────────────────────────────────────
+
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("b2v_token");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+api.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    if (err.response?.status === 401) {
+      localStorage.removeItem("b2v_token");
+      localStorage.removeItem("b2v_user");
+      // Only redirect if not already on landing/login page
+      if (
+        window.location.pathname !== "/" &&
+        window.location.pathname !== "/pricing"
+      ) {
+        window.location.href = "/";
+      }
+    }
+    return Promise.reject(err);
+  }
+);
+
+/** Public JSON client — no auth interceptor so 401 from gates (e.g. template studio) does not log the user out. */
+const publicApi = axios.create({
+  baseURL: `${BACKEND_URL}/api`,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+export interface TemplateStudioAuthStatusResponse {
+  gated: boolean;
+}
+
+export interface TemplateStudioAuthVerifyResponse {
+  ok: boolean;
+  gated: boolean;
+}
+
+export async function getTemplateStudioAuthStatus(): Promise<TemplateStudioAuthStatusResponse> {
+  const res = await publicApi.get<TemplateStudioAuthStatusResponse>("/template-studio/auth/status");
+  return res.data;
+}
+
+export async function verifyTemplateStudioPassword(
+  password: string
+): Promise<TemplateStudioAuthVerifyResponse> {
+  const res = await publicApi.post<TemplateStudioAuthVerifyResponse>("/template-studio/auth/verify", {
+    password,
+  });
+  return res.data;
+}
+
+// ─── Types ────────────────────────────────────────────────
+
+export interface UserInfo {
+  id: number;
+  email: string;
+  name: string;
+  picture: string | null;
+  plan: string;
+  videos_used_this_period: number;
+  video_limit: number;
+  can_create_video: boolean;
+  /** Per-user, non-expirable pool of AI-assisted edits (+20 per purchased video). */
+  ai_edit_credits: number;
+  /** Remaining monthly AI-edit allowance for this plan (0 on FREE). Spent before ai_edit_credits. */
+  ai_edit_allowance_remaining: number;
+  custom_templates_created: number;
+  custom_template_limit: number;
+  can_create_custom_template: boolean;
+  preferred_voice_emotion: string | null;
+  survey_submitted: boolean;
+}
+
+export interface AuthResponse {
+  access_token: string;
+  token_type: string;
+  user: UserInfo;
+}
+
+export interface Scene {
+  id: number;
+  project_id: number;
+  order: number;
+  title: string;
+  narration_text: string;
+  display_text?: string | null;
+  visual_description: string;
+  remotion_code: string | null;
+  voiceover_path: string | null;
+  duration_seconds: number;
+  extra_hold_seconds?: number | null;
+  bgm_volume?: number | null;
+  preferred_layout?: string | null;
+  /** "intro"|"content"|"outro"|"dataviz_chart"|"dataviz_table" (custom templates). */
+  scene_type?: string | null;
+  created_at: string;
+}
+
+export interface Asset {
+  id: number;
+  project_id: number;
+  asset_type: string;
+  original_url: string | null;
+  local_path: string;
+  filename: string;
+  r2_key: string | null;
+  r2_url: string | null;
+  excluded: boolean;
+  created_at: string;
+  /** VIDEO assets (stock footage) only — null on image/audio rows. */
+  duration_seconds?: number | null;
+  width?: number | null;
+  height?: number | null;
+  source_provider?: string | null;
+  source_id?: string | null;
+  source_author?: string | null;
+  source_page_url?: string | null;
+  /** Sibling AAC file when the source had audio; null/absent = clip is silent. */
+  audio_variant_filename?: string | null;
+}
+
+export interface Project {
+  id: number;
+  // Owner user id — lets the editor tell owners from collaborators.
+  user_id: number;
+  name: string;
+  blog_url: string | null;
+  blog_content: string | null;
+  status: string;
+  template?: string;
+  voice_gender: string;
+  voice_accent: string;
+  accent_color: string;
+  bg_color: string;
+  text_color: string;
+  font_family?: string | null;
+  animation_instructions: string | null;
+  studio_unlocked: boolean;
+  studio_port: number | null;
+  player_port: number | null;
+  r2_video_key: string | null;
+  r2_video_url: string | null;
+  logo_r2_url: string | null;
+  logo_position: string;
+  logo_opacity: number;
+  logo_size: number;
+  custom_voice_id: string | null;
+  voice_emotion: string | null;
+  aspect_ratio: string;
+  video_style?: VideoStyleId;
+  video_length?: "auto" | "short" | "medium" | "detailed" | "more_detailed";
+  /** ISO 639-1 content language ('en', 'es'). Null = auto-detected from the source. */
+  content_language?: string | null;
+  playback_speed?: number;
+  bgm_track_id?: string | null;
+  bgm_volume?: number;
+  bgm_track_url?: string | null;
+  /** Paid + Newscast: generation pauses for stock-footage review after scripting. */
+  stock_footage_enabled?: boolean;
+  /** Bulk-created: stock footage auto-approves (no review step). */
+  is_bulk?: boolean;
+  captions_enabled?: boolean;
+  caption_position?: "bottom_center" | "top_center";
+  caption_font_family?: string;
+  caption_font_size?: string | number;
+  caption_offset?: number;
+  ai_assisted_editing_count?: number;
+  custom_theme?: CustomTemplateTheme | null;
+  custom_image_box_aspect_ratios?: {
+    intro?: string | { landscape?: string; portrait?: string };
+    content?: (string | { landscape?: string; portrait?: string })[];
+    outro?: string | { landscape?: string; portrait?: string };
+  } | null;
+  custom_template_missing?: boolean;
+  brand_logo_url?: string | null;
+  review_state?: ReviewState | null;
+  /** True when the project has ≥1 collaborator — gates the per-scene comment button. */
+  is_shared?: boolean;
+  /**
+   * True when the project OWNER is on a paid plan. On a shared project the owner
+   * pays, so collaborators gate Pro-only features (custom/crafted templates, paid
+   * voices) on this rather than their own plan.
+   */
+  owner_is_pro?: boolean;
+  /**
+   * The project OWNER's remaining per-user purchased AI-edit credits. On a shared
+   * project a FREE collaborator draws from the owner's pool once the free
+   * per-project allowance is spent — the UI shows this balance for collaborators.
+   */
+  owner_ai_edit_credits?: number;
+  /** The project OWNER's remaining monthly plan allowance (0 on FREE). */
+  owner_ai_edit_allowance_remaining?: number;
+  /** The project OWNER's display name — used to attribute owner-scoped templates/voices in a collaborator's UI. */
+  owner_name?: string | null;
+  created_at: string;
+  updated_at: string;
+  scenes: Scene[];
+  assets: Asset[];
+}
+
+export interface EmbedProjectResponse extends Project {
+  crafted_template?: CraftedTemplateDetail | null;
+  custom_template_code?: {
+    intro_code: string | null;
+    outro_code: string | null;
+    content_codes: string[] | null;
+  } | null;
+  layout_prop_schema?: Record<string, LayoutPropSchemaEntry> | null;
+}
+
+export interface ProjectListItem {
+  id: number;
+  name: string;
+  blog_url: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  scene_count: number;
+  // Collaboration: acting user's role ("owner" | "editor") + owner display name.
+  role?: string;
+  owner_name?: string | null;
+}
+
+export interface ChatMessage {
+  id: number;
+  role: string;
+  content: string;
+  created_at: string;
+}
+
+export interface ReviewState {
+  project_sequence: number;
+  has_review_for_project: boolean;
+  should_show_inline: boolean;
+}
+
+export interface Review {
+  id: number;
+  user_id: number;
+  project_id: number;
+  rating: number;
+  suggestion: string | null;
+  source: "first_project_popup" | "inline_row";
+  trigger_event: "delayed_popup" | "manual";
+  project_sequence: number;
+  plan_at_submission: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SubmitProjectReviewPayload {
+  rating: 1 | 2 | 3 | 4 | 5;
+  suggestion?: string;
+  source: "first_project_popup" | "inline_row";
+  trigger_event: "delayed_popup" | "manual";
+}
+
+export interface SubmitProjectReviewResponse {
+  review: Review;
+  review_state: ReviewState;
+}
+
+export interface ChatResponse {
+  reply: string;
+  changes_made: string;
+  updated_scenes: Scene[];
+}
+
+export interface StudioResponse {
+  studio_url: string;
+  port: number;
+}
+
+export interface BillingStatus {
+  plan: string;
+  videos_used: number;
+  video_limit: number;
+  can_create_video: boolean;
+  stripe_subscription_id: string | null;
+  is_active: boolean;
+}
+
+export interface SubscriptionDetail {
+  id: number;
+  plan_name: string;
+  plan_slug: string;
+  status: string;
+  stripe_subscription_id: string | null;
+  current_period_start: string | null;
+  current_period_end: string | null;
+  videos_used: number;
+  amount_paid_cents: number;
+  canceled_at: string | null;
+  retention_offer_eligible: boolean;
+  scheduled_plan_slug: string | null;
+  scheduled_plan_name: string | null;
+  scheduled_change_at: string | null;
+  created_at: string;
+}
+
+export interface RetentionOfferImpressionResponse {
+  recorded: boolean;
+  shown_count: number;
+  eligible: boolean;
+}
+
+export interface Invoice {
+  id: string;
+  number: string | null;
+  status: string | null;
+  amount_due: number;
+  amount_paid: number;
+  currency: string;
+  created: string;
+  hosted_invoice_url: string | null;
+  invoice_pdf: string | null;
+}
+
+export interface DataSummary {
+  total_projects: number;
+  total_videos_rendered: number;
+  total_assets: number;
+  account_created: string;
+  plan: string;
+}
+
+export interface PlanInfo {
+  id: number;
+  slug: string;
+  name: string;
+  description: string | null;
+  price_cents: number;
+  currency: string;
+  billing_interval: string;
+  video_limit: number;
+  includes_studio: boolean;
+  includes_chat_editor: boolean;
+  includes_priority_support: boolean;
+  sort_order: number;
+}
+
+export interface PublicConfig {
+  google_client_id: string;
+  stripe_publishable_key: string;
+  survey_promo_code: string;
+}
+
+// ─── Auth API ─────────────────────────────────────────────
+
+export const googleLogin = (credential: string, reactivate = false, refCode?: string | null) => {
+  const params: Record<string, unknown> = { reactivate };
+  if (refCode) params.ref_code = refCode;
+  return api.post<AuthResponse>("/auth/google", { credential }, { params });
+};
+
+// Share B2V (referral/invite) disabled
+// export const getAffiliateStats = () => api.get<AffiliateStats>("/affiliate/stats");
+// export const sendAffiliateInvites = (emails: string[]) =>
+//   api.post<{ sent: number; failed: number }>("/affiliate/invite", { emails });
+//
+// export interface AffiliateStats {
+//   link: string;
+//   signups_count: number;
+//   bonus_earned: number;
+//   max_signups: number;
+//   bonus_per_signup: number;
+// }
+
+export interface SurveyPayload {
+  rating?: string;
+  use_case?: string;
+  target_audience?: string;
+  desired_feature?: string;
+  heard_from?: string;
+}
+
+export const submitSurvey = (payload: SurveyPayload) =>
+  api.post<{ submitted: boolean; promo_code: string | null }>("/affiliate/survey", payload);
+
+export const getMe = () => api.get<UserInfo>("/auth/me");
+
+export const logoutCleanup = () => api.post("/auth/logout");
+
+export const deleteAccount = () => api.post("/auth/delete-account");
+
+export const getPublicConfig = () =>
+  api.get<PublicConfig>("/config/public");
+
+// ─── Billing API ──────────────────────────────────────────
+
+export type CheckoutPlan = "pro" | "standard" | "lite";
+
+// Post-checkout win-back coupon gate. We want at most one follow-up scheduled
+// per browser per day, BUT only count checkouts that actually succeed — a failed
+// / unauthorized attempt must not "burn" the day. So we *read* the flag to decide
+// whether to ask the backend to schedule, and only *write* it after a 2xx.
+const COUPON_FOLLOWUP_KEY = "b2v_coupon_followup_date";
+
+function couponFollowupAllowedToday(): boolean {
+  try {
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    return localStorage.getItem(COUPON_FOLLOWUP_KEY) !== today;
+  } catch {
+    return true; // storage blocked → fall back to scheduling
+  }
+}
+
+function markCouponFollowupScheduled(): void {
+  try {
+    localStorage.setItem(COUPON_FOLLOWUP_KEY, new Date().toISOString().slice(0, 10));
+  } catch {
+    /* storage blocked → nothing to record */
+  }
+}
+
+export const createCheckoutSession = (
+  options:
+    | {
+        plan?: CheckoutPlan;
+        billing_cycle?: "monthly" | "annual" | "lifetime";
+        apply_third_video_offer?: boolean;
+      }
+    | "monthly"
+    | "annual"
+    = "monthly"
+) => {
+  const plan =
+    typeof options === "string" ? "pro" : (options?.plan ?? "pro");
+  const billing_cycle =
+    typeof options === "string" ? options : (options?.billing_cycle ?? "monthly");
+  const apply_third_video_offer =
+    typeof options === "string" ? false : (options?.apply_third_video_offer ?? false);
+  const schedule_coupon_followup = couponFollowupAllowedToday();
+  return api
+    .post<{ checkout_url: string }>("/billing/checkout", {
+      plan,
+      billing_cycle,
+      apply_third_video_offer,
+      schedule_coupon_followup,
+    })
+    .then((res) => {
+      if (schedule_coupon_followup) markCouponFollowupScheduled();
+      return res;
+    });
+};
+
+export const createPerVideoCheckout = (
+  options?: number | { projectId?: number; quantity?: number }
+) => {
+  const projectId =
+    typeof options === "number" ? options : options?.projectId;
+  const quantity =
+    typeof options === "object" && options?.quantity ? options.quantity : 1;
+  const schedule_coupon_followup = couponFollowupAllowedToday();
+  return api
+    .post<{ checkout_url: string }>("/billing/checkout-per-video", {
+      project_id: projectId ?? null,
+      quantity,
+      schedule_coupon_followup,
+    })
+    .then((res) => {
+      if (schedule_coupon_followup) markCouponFollowupScheduled();
+      return res;
+    });
+};
+
+
+export const createCustomTemplateCheckout = (quantity: number = 1) =>
+  api.post<{ checkout_url: string }>("/billing/checkout-custom-template", {
+    quantity,
+  });
+
+
+/** One-time $300 purchase of 500 never-expiring video credits. */
+export const createBulkCreditsCheckout = () =>
+  api.post<{ checkout_url: string }>("/billing/checkout-bulk-credits", {});
+
+export const createPortalSession = () =>
+  api.post<{ portal_url: string }>("/billing/portal");
+
+export const getBillingStatus = () =>
+  api.get<BillingStatus>("/billing/status");
+
+export const getSubscriptionDetail = () =>
+  api.get<SubscriptionDetail | null>("/billing/subscription");
+
+export const getInvoices = () =>
+  api.get<Invoice[]>("/billing/invoices");
+
+export const getDataSummary = () =>
+  api.get<DataSummary>("/billing/data-summary");
+
+export const getPlans = () =>
+  api.get<PlanInfo[]>("/billing/plans");
+
+export const cancelSubscription = (body?: { declined_retention_offer?: boolean }) =>
+  api.post("/billing/cancel", body ?? {});
+
+export const recordRetentionOfferImpression = () =>
+  api.post<RetentionOfferImpressionResponse>("/billing/retention-offer/impression");
+
+export type RetentionOfferAcceptResponse = {
+  status: "applied" | "already_applied";
+  message: string;
+};
+
+export const acceptRetentionOffer = () =>
+  api.post<RetentionOfferAcceptResponse>("/billing/retention-offer/accept");
+
+export const resumeSubscription = () =>
+  api.post("/billing/resume");
+
+// ─── Project API ──────────────────────────────────────────
+
+export interface TemplateMeta {
+  id: string;
+  name: string;
+  description: string;
+  /** When true, show a highlighted "New" tag on the template picker (step 2). */
+  new_template?: boolean;
+  /** When true, show an amber "Popular" tag on the template picker. */
+  popular_template?: boolean;
+  styles?: string[];  // DEPRECATED — was video_style filter; now replaced by `genres`. Kept for back-compat readers.
+  genres?: string[];  // topical categorization, e.g. ["Finance", "Politics"] — drives the genre dropdown filter
+  preview_colors?: { accent: string; bg: string; text: string };
+  composition_id?: string;
+  hero_layout?: string;
+  fallback_layout?: string;
+  valid_layouts?: string[];
+  studio_only_layouts?: string[];
+  layouts_without_image?: string[];
+  layout_prop_schema?: Record<string, LayoutPropSchema>;
+}
+
+export type LayoutPropFieldType =
+  | "string"
+  | "text"
+  | "number"
+  | "color"
+  | "select"
+  | "string_array"
+  | "object_array"
+  | "chart_table"
+  | "ticker_table";
+
+export interface LayoutPropSubField {
+  key: string;
+  label: string;
+  placeholder?: string;
+}
+
+export interface LayoutPropField {
+  key: string;
+  label: string;
+  type: LayoutPropFieldType;
+  responsive?: boolean;
+  placeholder?: string;
+  min?: number;
+  max?: number;
+  step?: number;
+  maxItems?: number;
+  minItems?: number;
+  options?: Array<{ label: string; value: string }>;
+  subFields?: LayoutPropSubField[];
+}
+
+export interface LayoutSceneDefaults {
+  title?: string;
+  narration?: string;
+  durationSeconds?: number;
+}
+
+export interface LayoutPropSchema {
+  label?: string;
+  description?: string;
+  defaults?: Record<string, unknown>;
+  /** Studio-preview-only prop samples — merged over defaults in Template Studio,
+      NEVER merged into real renders (remotion.py reads only `defaults`). */
+  sample_props?: Record<string, unknown>;
+  scene_defaults?: LayoutSceneDefaults;
+  fields: LayoutPropField[];
+}
+
+export const getTemplates = (style?: string) =>
+  api.get<TemplateMeta[]>(style ? `/templates?style=${encodeURIComponent(style)}` : "/templates");
+
+export interface TemplateAvailabilitySignal {
+  has_custom_templates: boolean;
+  has_crafted_templates: boolean;
+}
+
+export const getTemplateAvailabilitySignal = () =>
+  api.get<TemplateAvailabilitySignal>("/projects/template-availability");
+
+export interface CraftedTemplateSummary {
+  id: string;
+  name: string;
+  description?: string;
+  styles?: string[];
+  genres?: string[];
+  preview_colors?: { accent: string; bg: string; text: string };
+  composition_id?: string;
+  hero_layout?: string;
+  fallback_layout?: string;
+  valid_layouts?: string[];
+  layouts_without_image?: string[];
+  layout_prop_schema?: Record<string, LayoutPropSchema>;
+  theme?: CustomTemplateTheme;
+  preview_image_url?: string | null;
+  /** Source code for the marquee preview component (optional, compiled at runtime). */
+  preview_file?: string | null;
+  /** Bundle-relative path to the marquee preview source. */
+  preview_file_rel?: string | null;
+  /** Source for SceneEditModal field defs per layout (TS/JSON, compiled at runtime). */
+  layout_fields?: string | null;
+  /** Bundle-relative path to the layout_fields source. */
+  layout_fields_rel?: string | null;
+  logo_urls?: string[] | null;
+  og_image?: string | null;
+  template_type?: "crafted";
+  crafted?: boolean;
+}
+
+export interface CraftedTemplateItem extends CraftedTemplateSummary {
+  intro_code?: string | null;
+  outro_code?: string | null;
+  content_codes?: string[] | null;
+  content_archetype_ids?: (string | { id: string; best_for?: string[] })[] | null;
+  frontend_files?: Record<string, string> | null;
+  frontend_entry_rel?: string | null;
+  frontend_layout_index_rel?: string | null;
+  frontend_mount_id?: string | null;
+  /** R2/CDN URLs keyed like Remotion staticFile("fonts/foo.woff2") → full URL */
+  public_asset_urls?: Record<string, string> | null;
+}
+
+export interface CraftedTemplateDetail extends CraftedTemplateItem {}
+
+export interface CraftedTemplateFetchOptions {
+  /**
+   * When true, ask the backend to bypass its in-process cache and re-read
+   * `summary.json` (or the full bundle) directly from R2. Used on hard
+   * refresh so a fresh upload to R2 is visible without a server restart.
+   */
+  forceFresh?: boolean;
+}
+
+function craftedRequestConfig(opts?: CraftedTemplateFetchOptions) {
+  if (!opts?.forceFresh) return undefined;
+  return { headers: { "Cache-Control": "no-cache" } } as const;
+}
+
+export const listCraftedTemplates = (opts?: CraftedTemplateFetchOptions) =>
+  api.get<CraftedTemplateSummary[]>("/crafted-templates", craftedRequestConfig(opts));
+
+export const getCraftedTemplateDetail = (
+  templateId: string,
+  opts?: CraftedTemplateFetchOptions,
+) =>
+  api.get<CraftedTemplateDetail>(
+    `/crafted-templates/${encodeURIComponent(templateId)}`,
+    craftedRequestConfig(opts),
+  );
+
+export interface AspectValue {
+  portrait: number;
+  landscape: number;
+}
+
+export interface SaveTemplateSourceRequest {
+  template_id: string;
+  layout_id: string;
+  title_font_size?: AspectValue;
+  description_font_size?: AspectValue;
+}
+
+export interface SaveTemplateSourceResponse {
+  ok: boolean;
+  updated_file: string;
+  updated_files?: string[];
+  updated_meta_file?: string | null;
+  layout_id: string;
+  template_id: string;
+  changes_applied: number;
+}
+
+export const saveTemplateSourceDefaults = (payload: SaveTemplateSourceRequest) =>
+  api.post<SaveTemplateSourceResponse>("/template-studio/save-source", payload);
+
+export interface ProposeTemplateAiEditRequest {
+  template_id: string;
+  layout_id: string;
+  instruction: string;
+  image_base64?: string | null;
+  image_mime_type?: string | null;
+}
+
+export interface StartTemplateAiPreviewResponse {
+  ok: boolean;
+  session_id: string;
+  template_id: string;
+  layout_id: string;
+  preview_files: string[];
+  versions?: string[];
+  active_version_id?: string;
+}
+
+export interface TemplateAiPreviewSessionRequest {
+  session_id: string;
+}
+
+export interface SwitchTemplateAiPreviewRequest {
+  session_id: string;
+  version: string;
+}
+
+export interface ApplyTemplateAiPreviewResponse {
+  ok: boolean;
+  session_id: string;
+  template_id: string;
+  layout_id: string;
+  updated_files: string[];
+}
+
+export interface DiscardTemplateAiPreviewResponse {
+  ok: boolean;
+  session_id: string;
+}
+
+export interface ListTemplateAiVersionsRequest {
+  template_id: string;
+  layout_id: string;
+}
+
+export interface ListTemplateAiVersionsResponse {
+  ok: boolean;
+  session_id: string | null;
+  template_id: string;
+  layout_id: string;
+  versions: string[];
+  active_version_id: string | null;
+}
+
+export const startTemplateAiPreview = (payload: ProposeTemplateAiEditRequest) =>
+  api.post<StartTemplateAiPreviewResponse>("/template-studio/ai-edit/preview", payload);
+
+export const startTemplateAiPreviewFile = (payload: {
+  template_id: string;
+  layout_id: string;
+  instruction: string;
+  image: File;
+}) => {
+  const formData = new FormData();
+  formData.append("template_id", payload.template_id);
+  formData.append("layout_id", payload.layout_id);
+  formData.append("instruction", payload.instruction);
+  formData.append("image", payload.image);
+  return api.post<StartTemplateAiPreviewResponse>("/template-studio/ai-edit/preview-file", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
+
+export const applyTemplateAiPreview = (payload: TemplateAiPreviewSessionRequest) =>
+  api.post<ApplyTemplateAiPreviewResponse>("/template-studio/ai-edit/preview-apply", payload);
+
+export const switchTemplateAiPreviewVersion = (payload: SwitchTemplateAiPreviewRequest) =>
+  api.post<{ ok: boolean; session_id: string; version: string }>(
+    "/template-studio/ai-edit/preview-switch",
+    payload
+  );
+
+export const discardTemplateAiPreview = (payload: TemplateAiPreviewSessionRequest) =>
+  api.post<DiscardTemplateAiPreviewResponse>("/template-studio/ai-edit/preview-discard", payload);
+
+export const getTemplateAiVersions = (payload: ListTemplateAiVersionsRequest) =>
+  api.post<ListTemplateAiVersionsResponse>("/template-studio/ai-edit/versions", payload);
+
+export const getFeaturedPublicTemplates = (ids: number[]) =>
+  api.get<any[]>(`/custom-templates/public/featured?ids=${ids.join(',')}`);
+
+// ─── Layout rebuild / create ──────────────────────────────────────────────────
+
+export interface PropDef {
+  name: string;
+  type: string;
+  description: string;
+  default?: string;
+}
+
+export const SUPPORTED_PROP_TYPES = [
+  "string",
+  "text",
+  "number",
+  "boolean",
+  "color",
+  "imageUrl",
+  "string_array",
+  "object_array",
+] as const;
+export type PropType = typeof SUPPORTED_PROP_TYPES[number];
+
+export interface RebuildLayoutRequest {
+  template_id: string;
+  layout_id: string;
+  instruction: string;
+  extra_props: PropDef[];
+  image_base64?: string | null;
+  image_mime_type?: string | null;
+  // Optional HTML / SVG mock to drive the redesign (paste or read from a file).
+  html_example?: string | null;
+  svg_example?: string | null;
+  // How the SVG should be used (e.g. "use as a full-bleed background").
+  svg_usage?: string | null;
+}
+
+export interface RebuildLayoutResponse {
+  ok: boolean;
+  session_id: string;
+  template_id: string;
+  layout_id: string;
+  versions: string[];
+  active_version_id: string;
+  updated_files: string[];
+  schema: object;
+}
+
+export const rebuildTemplateLayout = (payload: RebuildLayoutRequest) =>
+  api.post<RebuildLayoutResponse>("/template-studio/ai-layout/rebuild", payload);
+
+export const rebuildTemplateLayoutFile = (payload: {
+  template_id: string;
+  layout_id: string;
+  instruction: string;
+  extra_props: PropDef[];
+  image: File;
+  html_example?: string | null;
+  svg_example?: string | null;
+  svg_usage?: string | null;
+}) => {
+  const formData = new FormData();
+  formData.append("template_id", payload.template_id);
+  formData.append("layout_id", payload.layout_id);
+  formData.append("instruction", payload.instruction);
+  formData.append("extra_props_json", JSON.stringify(payload.extra_props || []));
+  if (payload.html_example) formData.append("html_example", payload.html_example);
+  if (payload.svg_example) formData.append("svg_example", payload.svg_example);
+  if (payload.svg_usage) formData.append("svg_usage", payload.svg_usage);
+  formData.append("image", payload.image);
+  return api.post<RebuildLayoutResponse>("/template-studio/ai-layout/rebuild-file", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
+
+export interface CreateLayoutRequest {
+  template_id: string;
+  base_layout_id: string;
+  new_layout_id: string;
+  layout_description: string;
+  props: PropDef[];
+  image_base64?: string | null;
+  image_mime_type?: string | null;
+}
+
+export interface CreateLayoutResponse {
+  ok: boolean;
+  session_id: string;
+  template_id: string;
+  new_layout_id: string;
+  versions: string[];
+  active_version_id: string;
+  created_files: string[];
+  schema: object;
+}
+
+export const createTemplateLayout = (payload: CreateLayoutRequest) =>
+  api.post<CreateLayoutResponse>("/template-studio/ai-layout/create", payload);
+
+export const createTemplateLayoutFile = (payload: {
+  template_id: string;
+  base_layout_id: string;
+  new_layout_id: string;
+  layout_description: string;
+  props: PropDef[];
+  image: File;
+}) => {
+  const formData = new FormData();
+  formData.append("template_id", payload.template_id);
+  formData.append("base_layout_id", payload.base_layout_id);
+  formData.append("new_layout_id", payload.new_layout_id);
+  formData.append("layout_description", payload.layout_description);
+  formData.append("props_json", JSON.stringify(payload.props || []));
+  formData.append("image", payload.image);
+  return api.post<CreateLayoutResponse>("/template-studio/ai-layout/create-file", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
+
+// The structured plan extracted from a (normalized) design doc. Passed
+// opaquely from POST /template/plan back into POST /template/create.
+export type TemplatePlan = Record<string, unknown>;
+
+export interface TemplateVerification {
+  ok: boolean;
+  checked: string[];
+  repaired: string[];
+  stubbed: string[];
+  errors: Record<string, string[]>;
+}
+
+// Phase 1: normalize the design doc + extract the plan (fast, no codegen).
+export interface PlanTemplateRequest {
+  template_id: string;
+  design_doc: string;
+  overwrite?: boolean;
+}
+
+export interface PlanTemplateResponse {
+  ok: boolean;
+  template_id: string;
+  name: string;
+  normalized_doc: string;
+  plan: TemplatePlan;
+  layout_ids: string[];
+  hero_layout: string;
+  fallback_layout: string;
+  warnings: string[];
+}
+
+export const planTemplateFromDoc = (payload: PlanTemplateRequest) =>
+  api.post<PlanTemplateResponse>("/template-studio/template/plan", payload, {
+    timeout: 600000, // 10 min — two sequential Claude calls (normalize + extract) on a large doc
+  });
+
+// Phase 2: build the template. Supply `plan` (from planTemplateFromDoc) so
+// what the user previewed is exactly what gets built; `design_doc` alone is
+// the legacy path.
+export interface CreateTemplateRequest {
+  template_id: string;
+  design_doc?: string;
+  normalized_doc?: string;
+  plan?: TemplatePlan;
+  /** With plan: subset of layout ids to generate (Studio verify step). */
+  keep_layout_ids?: string[];
+  overwrite?: boolean;
+}
+
+export interface CreateTemplateResponse {
+  ok: boolean;
+  session_id: string;
+  template_id: string;
+  name: string;
+  layout_ids: string[];
+  hero_layout: string;
+  fallback_layout: string;
+  created_files: string[];
+  normalized_doc?: string;
+  verification?: TemplateVerification;
+  warnings: string[];
+  note?: string;
+}
+
+export const createTemplateFromDoc = (payload: CreateTemplateRequest) =>
+  api.post<CreateTemplateResponse>("/template-studio/template/create", payload, {
+    timeout: 900000, // 15 min — sequential codegen + full-template typechecks
+  });
+
+export interface ExtractDesignDocResponse {
+  ok: boolean;
+  filename: string;
+  text: string;
+}
+
+export const extractDesignDocFile = (file: File) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  return api.post<ExtractDesignDocResponse>("/template-studio/template/extract-doc", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+    timeout: 120000,
+  });
+};
+
+export const renderTemplateLayout = (payload: {
+  template_id: string;
+  layout_id: string;
+  aspect_ratio?: string;
+  duration_seconds?: number;
+  layout_props?: Record<string, unknown>;
+  resolution?: "1080p" | "720p";
+  scenes?: Array<{
+    id?: number;
+    order?: number;
+    title?: string;
+    narration?: string;
+    layout?: string;
+    layoutProps?: Record<string, unknown>;
+    durationSeconds?: number;
+    imageUrl?: string;
+  }>;
+}) =>
+  api.post<Blob>("/template-studio/render-layout", payload, {
+    responseType: "blob",
+  });
+
+export interface VoicePreview {
+  voice_id: string;
+  name: string;
+  preview_url: string | null;
+  description: string;
+  gender: string;
+  accent: string;
+}
+
+export const getVoicePreviews = () =>
+  api.get<Record<string, VoicePreview>>("/voices/previews");
+
+export interface BgmTrack {
+  track_id: string;
+  display_name: string;
+  mood: string;
+  r2_url: string;
+}
+
+export const getBgmTracks = () => api.get<BgmTrack[]>("/background-music/tracks");
+
+export const createProject = (
+  blog_url: string,
+  name?: string,
+  voice_gender?: string,
+  voice_accent?: string,
+  accent_color?: string,
+  bg_color?: string,
+  text_color?: string,
+  animation_instructions?: string,
+  logo_position?: string,
+  logo_opacity?: number,
+  custom_voice_id?: string,
+  aspect_ratio?: string,
+  template?: string,
+  video_style?: VideoStyleId,
+  video_length?: "auto" | "short" | "medium" | "detailed" | "more_detailed",
+  content_language?: string | null,
+  voice_emotion?: string,
+  bgm_track_id?: string | null,
+  bgm_volume?: number,
+  captions_enabled?: boolean,
+  caption_position?: "bottom_center" | "top_center",
+  /** Options that don't warrant another positional arg (already 22). */
+  extra?: { stock_footage_enabled?: boolean }
+) =>
+  api.post<Project>("/projects", {
+    blog_url,
+    name,
+    voice_gender,
+    voice_accent,
+    accent_color,
+    bg_color,
+    text_color,
+    animation_instructions,
+    logo_position,
+    logo_opacity,
+    custom_voice_id,
+    aspect_ratio,
+    template,
+    video_style,
+    video_length,
+    content_language,
+    voice_emotion,
+    bgm_track_id,
+    bgm_volume,
+    captions_enabled,
+    caption_position,
+    stock_footage_enabled: extra?.stock_footage_enabled ?? false,
+  });
+
+/** One project config for bulk create (same shape as single create). */
+export interface BulkProjectItem {
+  blog_url: string;
+  name?: string;
+  template?: string;
+  video_style?: VideoStyleId;
+  video_length?: "auto" | "short" | "medium" | "detailed" | "more_detailed";
+  voice_gender?: string;
+  voice_accent?: string;
+  voice_emotion?: string;
+  accent_color?: string;
+  bg_color?: string;
+  text_color?: string;
+  animation_instructions?: string;
+  logo_position?: string;
+  logo_opacity?: number;
+  custom_voice_id?: string;
+  aspect_ratio?: string;
+  content_language?: string | null;
+  stock_footage_enabled?: boolean;
+  captions_enabled?: boolean;
+  caption_position?: "bottom_center" | "top_center";
+}
+
+export interface BulkCreateResponse {
+  project_ids: number[];
+}
+
+/** Per-project logos: indices into the projects array and corresponding files. */
+export interface BulkLogoOptions {
+  logoIndices: number[];
+  logoFiles: File[];
+}
+
+export const createProjectsBulk = (
+  projects: BulkProjectItem[],
+  logoOptions?: BulkLogoOptions | null
+) => {
+  const formData = new FormData();
+  formData.append("projects", JSON.stringify(projects));
+  if (logoOptions && logoOptions.logoIndices.length > 0 && logoOptions.logoFiles.length === logoOptions.logoIndices.length) {
+    formData.append("logo_indices", JSON.stringify(logoOptions.logoIndices));
+    logoOptions.logoFiles.forEach((f) => formData.append("logos", f));
+  }
+  return api.post<BulkCreateResponse>("/projects/bulk", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
+
+export const createProjectFromDocs = (
+  files: File[],
+  config: {
+    name?: string;
+    voice_gender?: string;
+    voice_accent?: string;
+    voice_emotion?: string;
+    accent_color?: string;
+    bg_color?: string;
+    text_color?: string;
+    animation_instructions?: string;
+    logo_position?: string;
+    logo_opacity?: number;
+    custom_voice_id?: string;
+    aspect_ratio?: string;
+    template?: string;
+    video_style?: VideoStyleId;
+    video_length?: "auto" | "short" | "medium" | "detailed" | "more_detailed";
+    content_language?: string | null;
+    bgm_track_id?: string | null;
+    bgm_volume?: number;
+    stock_footage_enabled?: boolean;
+  } = {}
+) => {
+  const formData = new FormData();
+  files.forEach((f) => formData.append("files", f));
+  if (config.name) formData.append("name", config.name);
+  if (config.voice_gender) formData.append("voice_gender", config.voice_gender);
+  if (config.voice_accent) formData.append("voice_accent", config.voice_accent);
+  if (config.voice_emotion) formData.append("voice_emotion", config.voice_emotion);
+  if (config.accent_color) formData.append("accent_color", config.accent_color);
+  if (config.bg_color) formData.append("bg_color", config.bg_color);
+  if (config.text_color) formData.append("text_color", config.text_color);
+  if (config.animation_instructions)
+    formData.append("animation_instructions", config.animation_instructions);
+  if (config.logo_position) formData.append("logo_position", config.logo_position);
+  if (config.logo_opacity !== undefined)
+    formData.append("logo_opacity", String(config.logo_opacity));
+  if (config.custom_voice_id) formData.append("custom_voice_id", config.custom_voice_id);
+  if (config.aspect_ratio) formData.append("aspect_ratio", config.aspect_ratio);
+  if (config.content_language !== undefined && config.content_language !== null) {
+    formData.append("content_language", config.content_language);
+  }
+  if (config.template) formData.append("template", config.template);
+  if (config.video_style) formData.append("video_style", config.video_style);
+  if (config.video_length !== undefined && config.video_length !== null) {
+    formData.append("video_length", config.video_length);
+  }
+  if (config.bgm_track_id) formData.append("bgm_track_id", config.bgm_track_id);
+  if (config.bgm_volume !== undefined && config.bgm_volume !== null) {
+    formData.append("bgm_volume", String(config.bgm_volume));
+  if (config.stock_footage_enabled)
+    formData.append("stock_footage_enabled", "true");
+  }
+  return api.post<Project>("/projects/upload", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
+
+export const uploadProjectDocuments = (projectId: number, files: File[]) => {
+  const formData = new FormData();
+  files.forEach((f) => formData.append("files", f));
+  return api.post<Project>(`/projects/${projectId}/upload-documents`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
+
+export const uploadLogo = (projectId: number, file: File) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  return api.post<{ logo_url: string; logo_position: string }>(
+    `/projects/${projectId}/logo`,
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } }
+  );
+};
+
+export const deleteLogo = (projectId: number) =>
+  api.delete<{ detail: string }>(`/projects/${projectId}/logo`);
+
+export interface ProjectLogoUpdate {
+  logo_position?: string;
+  logo_size?: number;
+  logo_opacity?: number;
+}
+
+export const updateProjectLogo = (
+  projectId: number,
+  data: ProjectLogoUpdate
+) => api.patch<Project>(`/projects/${projectId}`, data);
+
+export const listProjects = () =>
+  api.get<ProjectListItem[]>("/projects");
+
+export const getProject = (id: number) =>
+  api.get<Project>(`/projects/${id}`);
+
+export const submitProjectReview = (
+  projectId: number,
+  data: SubmitProjectReviewPayload
+) => api.post<SubmitProjectReviewResponse>(`/projects/${projectId}/review`, data);
+
+export const deleteProject = (id: number) =>
+  api.delete(`/projects/${id}`);
+
+export const toggleAssetExclusion = (projectId: number, assetId: number) =>
+  api.patch<{ id: number; excluded: boolean }>(
+    `/projects/${projectId}/assets/${assetId}/exclude`
+  );
+
+export const deleteAsset = (projectId: number, assetId: number) =>
+  api.delete(`/projects/${projectId}/assets/${assetId}`);
+
+export const scrapeProject = (id: number) =>
+  api.post<Project>(`/projects/${id}/scrape`);
+
+export const generateScript = (id: number) =>
+  api.post<Project>(`/projects/${id}/generate-script`);
+
+export const generateScenes = (id: number) =>
+  api.post<Project>(`/projects/${id}/generate-scenes`);
+
+// ─── Async pipeline ──────────────────────────────────────
+
+export interface PipelineStatus {
+  status: string;
+  step: number;
+  running: boolean;
+  error: string | null;
+  error_code?: string | null;
+  /** True when the server removed the project after a failed generation (quota reverted). */
+  project_removed?: boolean;
+  notice?: {
+    code: string;
+    message?: string;
+    requested_video_length?: string;
+    effective_video_length?: string;
+    video_style?: string;
+  } | null;
+  stock_footage?: {
+    current: number;
+    total: number;
+    scene_id: number;
+  } | null;
+  studio_port: number | null;
+}
+
+export const startGeneration = (id: number) =>
+  api.post(`/projects/${id}/generate`);
+
+
+export const getPipelineStatus = (id: number) =>
+  api.get<PipelineStatus>(`/projects/${id}/status`);
+
+
+export const bulkUpdateSceneTypography = (
+  projectId: number,
+  data: { title_font_size?: number; description_font_size?: number }
+) =>
+  api.put<Scene[]>(
+    `/projects/${projectId}/bulk-update-scenes`,
+    data
+  );
+
+export const updateProject = (
+  projectId: number,
+  data: {
+    accent_color?: string;
+    bg_color?: string;
+    text_color?: string;
+    font_family?: string | null;
+    aspect_ratio?: string;
+    playback_speed?: number;
+    bgm_track_id?: string | null;
+    bgm_volume?: number;
+    stock_footage_enabled?: boolean;
+    captions_enabled?: boolean;
+    caption_position?: "bottom_center" | "top_center";
+    caption_font_family?: string;
+    caption_font_size?: number;
+    caption_offset?: number;
+  }
+) => api.patch<Project>(`/projects/${projectId}/update-project`, data);
+
+export interface VoiceChangeStartResponse {
+  started: boolean;
+  total: number;
+}
+
+export interface VoiceChangeStatus {
+  active: boolean;
+  done: boolean;
+  error: string | null;
+  total: number;
+  completed: number;
+  progress: number;
+  status: string;
+  r2_video_url: string | null;
+  /** Which operation is running: "voice_change" (add/change) or "delete". */
+  kind?: string;
+}
+
+/**
+ * Change the project voice and regenerate every scene's voiceover (verbatim, in
+ * the new voice). Counts as a new video (deducts one credit). Regeneration runs
+ * in the background — poll getVoiceChangeStatus for scene-by-scene progress.
+ */
+export const changeProjectVoice = (
+  projectId: number,
+  data: {
+    voice_gender?: string;
+    voice_accent?: string;
+    custom_voice_id?: string;
+    voice_emotion?: string;
+  }
+) => api.post<VoiceChangeStartResponse>(`/projects/${projectId}/change-voice`, data);
+
+export const getVoiceChangeStatus = (projectId: number) =>
+  api.get<VoiceChangeStatus>(`/projects/${projectId}/voice-change-status`);
+
+export interface LanguageChangeStartResponse {
+  started: boolean;
+  /** Scene count x 2 (translate pass + voiceover pass). */
+  total: number;
+  content_language: string;
+}
+
+export interface LanguageChangeStatus {
+  active: boolean;
+  done: boolean;
+  error: string | null;
+  total: number;
+  completed: number;
+  progress: number;
+  /** Which pass is running: "translating" then "voiceover". */
+  phase?: "translating" | "voiceover";
+  status: string;
+  r2_video_url: string | null;
+  kind?: string;
+  content_language: string | null;
+}
+
+/**
+ * Translate the whole project into a new language and regenerate every voiceover.
+ * Layouts, image assignments, colors, chart data and links are preserved — only the
+ * prose changes language.
+ *
+ * Any editor may trigger this, but it counts as a new video and deducts one credit
+ * from the project OWNER. Runs in the background — poll getLanguageChangeStatus.
+ */
+export const changeProjectLanguage = (projectId: number, contentLanguage: string) =>
+  api.post<LanguageChangeStartResponse>(`/projects/${projectId}/change-language`, {
+    content_language: contentLanguage,
+  });
+
+export const getLanguageChangeStatus = (projectId: number) =>
+  api.get<LanguageChangeStatus>(`/projects/${projectId}/language-change-status`);
+
+/**
+ * Remove the project's voiceover and make the video mute. Does NOT deduct a video
+ * credit. Runs in the background as a job — poll getVoiceChangeStatus for progress
+ * (it reports kind="delete"). The existing render is kept; re-rendering to apply the
+ * mute is a normal (paid) re-render.
+ */
+export const deleteProjectVoiceover = (projectId: number) =>
+  api.post<VoiceChangeStartResponse>(`/projects/${projectId}/delete-voiceover`);
+
+/**
+ * Synthesize a short on-demand voice preview with the given voice + tuning (Advanced Options).
+ * Returns an object URL for playback — the caller must revoke it. Paid + rate-limited server-side.
+ */
+export const previewVoice = async (params: {
+  voice_gender?: string | null;
+  voice_accent?: string | null;
+  custom_voice_id?: string | null;
+  voice_emotion?: string | null;
+  video_style?: string | null;
+}): Promise<string> => {
+  const res = await api.post("/voice/preview", params, { responseType: "blob" });
+  const blob = res.data as Blob;
+  if (!blob || blob.size === 0) throw new Error("Empty audio");
+  return window.URL.createObjectURL(blob);
+};
+
+export const updateScene = (
+  projectId: number,
+  sceneId: number,
+  data: Partial<Scene>
+) => api.put<Scene>(`/projects/${projectId}/scenes/${sceneId}`, data);
+
+
+export const updateSceneImage = (
+  projectId: number,
+  sceneId: number,
+  imageFile: File
+) => {
+  const formData = new FormData();
+  formData.append("image", imageFile);
+  return api.post<Scene>(
+    `/projects/${projectId}/scenes/${sceneId}/image`,
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } }
+  );
+};
+
+/**
+ * Upload a user-recorded voiceover for a scene. The backend transcodes the
+ * recording (WebM/MP4) to MP3, uploads to R2, and replaces the scene's existing
+ * voiceover (updating voiceover_path and duration). Voice settings are unchanged.
+ */
+export const updateSceneVoiceover = (
+  projectId: number,
+  sceneId: number,
+  audioBlob: Blob
+) => {
+  const formData = new FormData();
+  const ext = audioBlob.type.includes("mp4")
+    ? "mp4"
+    : audioBlob.type.includes("ogg")
+      ? "ogg"
+      : "webm";
+  formData.append("audio", audioBlob, `recording.${ext}`);
+  return api.post<Scene>(
+    `/projects/${projectId}/scenes/${sceneId}/voiceover`,
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } }
+  );
+};
+
+export const updateSceneImageFocus = (
+  projectId: number,
+  sceneId: number,
+  imageFocusX: number,
+  imageFocusY: number,
+  imageZoom?: number,
+  /** Clip trim offset; only applied when the scene carries a stock clip. */
+  videoStartSeconds?: number
+) =>
+  api.patch<Scene>(`/projects/${projectId}/scenes/${sceneId}/image-focus`, {
+    image_focus_x: imageFocusX,
+    image_focus_y: imageFocusY,
+    ...(imageZoom !== undefined ? { image_zoom: imageZoom } : {}),
+    ...(videoStartSeconds !== undefined
+      ? { video_start_seconds: videoStartSeconds }
+      : {}),
+  });
+
+export const moveSceneImage = (
+  projectId: number,
+  fromSceneId: number,
+  toSceneId: number
+) =>
+  api.post<{ detail: string }>(`/projects/${projectId}/images/move`, {
+    from_scene_id: fromSceneId,
+    to_scene_id: toSceneId,
+  });
+
+export const swapSceneImages = (
+  projectId: number,
+  firstSceneId: number,
+  secondSceneId: number
+) =>
+  api.post<{ detail: string }>(`/projects/${projectId}/images/swap`, {
+    first_scene_id: firstSceneId,
+    second_scene_id: secondSceneId,
+  });
+
+export const duplicateSceneImage = (
+  projectId: number,
+  sourceSceneId: number,
+  targetSceneId: number
+) =>
+  api.post<{ detail: string }>(`/projects/${projectId}/images/duplicate`, {
+    source_scene_id: sourceSceneId,
+    target_scene_id: targetSceneId,
+  });
+
+export const assignExistingImageToScene = (
+  projectId: number,
+  sceneId: number,
+  assetId: number
+) =>
+  api.post<{ detail: string }>(`/projects/${projectId}/images/assign-existing`, {
+    scene_id: sceneId,
+    asset_id: assetId,
+  });
+
+export interface GenerateSceneImageRequest {
+  image_description: string;
+}
+
+export interface GenerateSceneImageResponse {
+  image_base64: string;
+  refined_prompt: string;
+}
+
+export const generateSceneImage = (
+  projectId: number,
+  sceneId: number,
+  body: GenerateSceneImageRequest
+) =>
+  api.post<GenerateSceneImageResponse>(
+    `/projects/${projectId}/scenes/${sceneId}/generate-image`,
+    body
+  );
+
+/** A stock-footage search result, normalised across Pexels and Pixabay. */
+export interface StockClip {
+  provider: string;
+  id: string;
+  preview_url: string;
+  thumbnail_url: string;
+  download_url: string;
+  width: number;
+  height: number;
+  duration: number;
+  fps: number | null;
+  author: string;
+  page_url: string;
+  /** Provider keywords, used server-side for relevance ranking. Not rendered. */
+  tags?: string;
+  /** Provider title/alt text (Pexels: derived from the page URL slug). */
+  description?: string;
+}
+
+export const searchStockFootage = (
+  projectId: number,
+  params: {
+    q: string;
+    provider?: string;
+    page?: number;
+    per_page?: number;
+    /** Scene image box in px on the 1080p canvas — steers orientation + rendition. */
+    box_w?: number;
+    box_h?: number;
+  }
+) =>
+  api.get<{ clips: StockClip[] }>(`/projects/${projectId}/stock-footage/search`, {
+    params,
+  });
+
+/** One scene awaiting stock-footage review at the generation gate. */
+export interface PendingFootageScene {
+  scene_id: number;
+  order: number;
+  title: string;
+  scene_type: string | null;
+  layout: string | null;
+  /** Scene length + saved framing, used to seed the review gate's clip editor. */
+  duration_seconds?: number | null;
+  image_focus_x?: number | null;
+  image_focus_y?: number | null;
+  image_zoom?: number | null;
+  video_start_seconds?: number | null;
+  /** Set for custom templates, where the box ratio can't be derived from layout. */
+  image_box_aspect_ratio?: string | null;
+  clip: {
+    filename: string;
+    url: string;
+    duration_seconds: number | null;
+    author: string | null;
+    provider: string | null;
+  } | null;
+  /** Scraped still used when auto stock search found no clip for this scene. */
+  fallback_image?: {
+    filename: string;
+    url: string;
+  } | null;
+}
+
+/** Scenes to review while a project sits at `awaiting_stock_footage_review`
+ *  (or, for a legacy project, the old `awaiting_footage` gate). */
+export const getPendingStockFootage = (projectId: number) =>
+  api.get<{ status: string; awaiting: boolean; scenes: PendingFootageScene[] }>(
+    `/projects/${projectId}/stock-footage/pending`
+  );
+
+/**
+ * Point a scene at an already-uploaded clip. The upload endpoint creates the
+ * asset but does not touch the scene, so the review gate calls this right after
+ * swapping — otherwise the new clip is orphaned and the scene keeps the old one.
+ */
+export const linkStockFootage = (
+  projectId: number,
+  sceneId: number,
+  filename: string
+) =>
+  api.post<{ detail: string; scene_id: number; filename: string }>(
+    `/projects/${projectId}/stock-footage/link`,
+    { scene_id: sceneId, filename }
+  );
+
+/** Accept the auto-picked clips as-is and finalize the video. */
+export const approveStockFootage = (projectId: number) =>
+  api.post<{ detail: string; status: string }>(
+    `/projects/${projectId}/stock-footage/approve`
+  );
+
+/** Discard every auto-picked clip: fall back to images (or hide), then finalize. */
+export const rejectStockFootage = (projectId: number) =>
+  api.post<{ detail: string; status: string }>(
+    `/projects/${projectId}/stock-footage/reject`
+  );
+
+/** The processed VIDEO asset returned after uploading a chosen clip. */
+export interface UploadedStockClip {
+  asset_id: number;
+  filename: string;
+  video_url: string;
+  audio_variant_url: string | null;
+  has_audio: boolean;
+  duration_seconds: number | null;
+  width: number | null;
+  height: number | null;
+  source_author: string;
+  source_provider: string;
+}
+
+/**
+ * Download + normalise a chosen clip into a VIDEO asset, WITHOUT linking it to
+ * the scene. The backend transcodes it to CFR 30 fps (so it stays in sync with
+ * the 30 fps composition) — expect a few seconds. The returned URLs let the
+ * editor stage and preview the clip (audio included); the scene link is written
+ * later by the normal scene Save (via `assignedVideo` in the descriptor).
+ */
+export const uploadStockFootage = (
+  projectId: number,
+  sceneId: number,
+  clip: StockClip
+) =>
+  api.post<UploadedStockClip>(
+    `/projects/${projectId}/scenes/${sceneId}/stock-footage`,
+    {
+      provider: clip.provider,
+      clip_id: clip.id,
+      download_url: clip.download_url,
+      width: clip.width,
+      height: clip.height,
+      duration: clip.duration,
+      author: clip.author,
+      page_url: clip.page_url,
+    }
+  );
+
+export interface LayoutPropSchemaEntry {
+  label?: string;
+  defaults?: Record<string, unknown>;
+  fields?: Array<{ key: string; label?: string; type?: string }>;
+  scene_defaults?: { title?: string; narration?: string };
+}
+
+export interface LayoutInfo {
+  layouts: string[];
+  layout_names: Record<string, string>;
+  layouts_without_image?: string[];
+  layout_prop_schema?: Record<string, LayoutPropSchemaEntry>;
+}
+
+export const getValidLayouts = (projectId: number) =>
+  api.get<LayoutInfo>(`/projects/${projectId}/layouts`);
+
+export interface SceneOrderItem {
+  scene_id: number;
+  order: number;
+}
+
+export const reorderScenes = (
+  projectId: number,
+  sceneOrders: SceneOrderItem[]
+) =>
+  api.post<Scene[]>(`/projects/${projectId}/scenes/reorder`, {
+    scene_orders: sceneOrders,
+  });
+
+export const regenerateScene = (
+  projectId: number,
+  sceneId: number,
+  description: string,
+  narrationText: string,
+  regenerateVoiceover: boolean,
+  layout?: string,
+  imageFile?: File,
+  voiceoverVerbatim: boolean = true
+) => {
+  const formData = new FormData();
+  // Only append description if it has a value
+  if (description && description.trim()) {
+    formData.append("description", description);
+  }
+  formData.append("narration_text", narrationText);
+  formData.append("regenerate_voiceover", regenerateVoiceover ? "true" : "false");
+  formData.append("voiceover_verbatim", voiceoverVerbatim ? "true" : "false");
+  if (layout) formData.append("layout", layout);
+  if (imageFile) formData.append("image", imageFile);
+  
+  return api.post<Scene>(
+    `/projects/${projectId}/scenes/${sceneId}/regenerate`,
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } }
+  );
+};
+
+// A background add-scene generation job (polled via getAddSceneStatus).
+export interface AddSceneJob {
+  id: number;
+  status: "queued" | "running" | "completed" | "failed";
+  current_step: string;
+  error_message?: string | null;
+  // Set on success so the client can locate the newly inserted scene row.
+  new_scene_id?: number | null;
+  // 1-indexed insert position among active scenes (null = appended at end).
+  position?: number | null;
+}
+
+// Enqueue background generation of a new AI scene. `position` is 1-indexed among
+// active scenes (the new scene takes that slot, everything after shifts down); omit
+// to append. Returns a job immediately — poll getAddSceneStatus for completion.
+export const addScene = (
+  projectId: number,
+  prompt: string,
+  position?: number
+) =>
+  api.post<AddSceneJob>(`/projects/${projectId}/scenes/add`, {
+    prompt,
+    position: position ?? null,
+  });
+
+// Latest add-scene job for a project (null if one has never been run).
+export const getAddSceneStatus = (projectId: number) =>
+  api.get<AddSceneJob | null>(`/projects/${projectId}/scenes/add-status`);
+
+export const launchStudio = (id: number) =>
+  api.post<StudioResponse>(`/projects/${id}/launch-studio`);
+
+export const renderVideo = (
+  id: number,
+  forceReRender = false
+) =>
+  api.post<RenderStartResponse>(
+    `/projects/${id}/render?force_render=${forceReRender}`
+  );
+
+export interface RenderStartResponse {
+  detail: string;
+  progress: number;
+  resolution?: string;
+  render_run_id?: string | null;
+}
+
+export interface RenderStatus {
+  progress: number;
+  rendered_frames: number;
+  total_frames: number;
+  done: boolean;
+  error: string | null;
+  time_remaining: string | null;
+  eta_seconds: number | null;
+  progress_unknown?: boolean;
+  render_attempt?: number | null;
+  render_run_id?: string | null;
+  r2_video_url: string | null;
+}
+
+export const getRenderStatus = (id: number) =>
+  api.get<RenderStatus>(`/projects/${id}/render-status`);
+
+export const cancelRender = (id: number) =>
+  api.post<{ detail: string; cancelled: boolean }>(`/projects/${id}/cancel-render`);
+
+/** Fetch video as blob for playback. Returns object URL; caller must revoke it. */
+export const fetchVideoBlob = async (id: number): Promise<string> => {
+  const res = await api.get(`/projects/${id}/download`, {
+    responseType: "blob",
+  });
+  if (res.status !== 200) throw new Error(`Download failed (${res.status})`);
+  const blob = res.data as Blob;
+  if (!blob || blob.size === 0) throw new Error("Empty video");
+  return window.URL.createObjectURL(blob);
+};
+
+export const downloadVideo = async (id: number, filename?: string) => {
+  try {
+  
+    const res = await api.get(`/projects/${id}/download`);
+
+    const finalR2Url = res.request.responseURL;
+
+    const link = document.createElement("a");
+    link.href = finalR2Url;
+    link.setAttribute("download", filename || "video.mp4");
+    
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    
+  } catch (err) {
+    // Fallback: If the API call fails, just try a direct browser navigation
+    console.error("Link trigger failed, trying direct window location", err);
+  }
+};
+
+
+export const downloadStudioZip = async (id: number, filename?: string) => {
+  const res = await api.get(`/projects/${id}/download-studio`, {
+    responseType: "blob",
+  });
+  const url = window.URL.createObjectURL(new Blob([res.data]));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename || "studio_project.zip";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+};
+
+export const sendChatMessage = (id: number, message: string) =>
+  api.post<ChatResponse>(`/projects/${id}/chat`, { message });
+
+export const getChatHistory = (id: number) =>
+  api.get<ChatMessage[]>(`/projects/${id}/chat/history`);
+
+// ─── Custom Templates API (Pro only) ─────────────────────
+
+/** Scene-exit transition styles (must match GeneratedTransition registry). */
+export type TransitionStyle =
+  | "fade"
+  | "accent_wash"
+  | "rule_sweep"
+  | "ink_wash"
+  | "whip_blur"
+  | "push_slide"
+  | "cover_wipe"
+  | "page_flip"
+  | "clock_sweep"
+  // richer custom presentations (palette-driven; ported from economist/chronicle)
+  | "parallax_push"
+  | "whip_pan"
+  | "accent_bar"
+  | "page_fold"
+  | "ink_bleed";
+
+export interface CustomTemplateTheme {
+  colors: { accent: string; bg: string; text: string; surface: string; muted: string; bg2?: string };
+  fonts: { heading: string; body: string; mono: string };
+  borderRadius: number;
+  style: string;
+  animationPreset: string;
+  category: string;
+  patterns: {
+    cards: { corners: string; shadowDepth: string; borderStyle: string };
+    spacing: { density: string; gridGap: number };
+    images: { treatment: string; overlay: string; captionStyle: string };
+    layout: { direction: string; decorativeElements: string[] };
+  };
+  /** Motion personality — drives kit animation timing + scene-exit transitions. */
+  motion?: {
+    energy?: "calm" | "smooth" | "energetic";
+    easing?: string;
+    transitionFamily?: TransitionStyle[];
+  };
+  /** Data-viz styling cues for the craft kit's CustomChart. */
+  charts?: {
+    style?: "clean" | "precise" | "editorial";
+    gridStyle?: "dashed" | "horizontal" | "none";
+    palette?: string[];
+  };
+  /** Background decoration system for the kit's <Decor>. */
+  decor?: {
+    system?: "none" | "dots" | "grid" | "orbs" | "starfield" | "rules" | "vignette";
+    intensity?: number;
+  };
+  /** Preferred content archetypes for this brand (scene-type variety hint). */
+  sceneBias?: string[];
+  /**
+   * The user's raw prompt / uploaded-doc text (prompt & doc creation paths only).
+   * Round-trips extract → create → DB so scene generation can honor explicit
+   * scene requests ("add a testimonial scene"). Absent for URL-scraped themes.
+   */
+  brief?: string;
+}
+
+export interface CustomTemplateItem {
+  id: number;
+  name: string;
+  source_url: string | null;
+  category: string;
+  genres?: string[];
+  theme: CustomTemplateTheme;
+  preview_colors: { accent: string; bg: string; text: string };
+  component_code: string | null;
+  intro_code: string | null;
+  outro_code: string | null;
+  content_codes: string[] | null;
+  content_archetype_ids: (string | { id: string; best_for?: string[] })[] | null;
+  current_version_id: number | null;
+  preview_image_url: string | null;
+  logo_urls?: string[];
+  og_image?: string;
+  generation_failed: boolean;
+  is_regenerating: boolean;
+  my_rating?: number | null;
+  my_rating_comment?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TemplateRating {
+  id: number;
+  user_id: number;
+  custom_template_id: number;
+  rating: number;
+  suggestion: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TemplateVersionItem {
+  id: number;
+  label: string;
+  created_at: string;
+}
+
+export interface TemplateVersionsResponse {
+  current_version_id: number | null;
+  versions: TemplateVersionItem[];
+}
+
+export interface ExtractThemeResponse {
+  extractable: boolean;
+  reason: string;
+  theme: CustomTemplateTheme | null;
+  template_name: string;
+  logo_urls: string[];
+  og_image: string;
+  screenshot_url: string;
+}
+
+export const listCustomTemplates = () =>
+  api.get<CustomTemplateItem[]>("/custom-templates");
+
+export const getCustomTemplate = (id: number) =>
+  api.get<CustomTemplateItem>(`/custom-templates/${id}`);
+
+export const createCustomTemplate = (data: {
+  name: string;
+  source_url?: string;
+  theme: CustomTemplateTheme;
+  logo_urls?: string[];
+  og_image?: string;
+  screenshot_url?: string;
+  reason?: string;
+}) => api.post<CustomTemplateItem>("/custom-templates", data);
+
+export const updateCustomTemplate = (
+  id: number,
+  data: { name?: string; theme?: CustomTemplateTheme }
+) => api.put<CustomTemplateItem>(`/custom-templates/${id}`, data);
+
+export const deleteCustomTemplate = (id: number, force = false) =>
+  api.delete(`/custom-templates/${id}${force ? "?force=true" : ""}`);
+
+export const extractTheme = (url: string) =>
+  api.post<ExtractThemeResponse>("/custom-templates/extract-theme", { url });
+
+export const extractThemeFromPrompt = (prompt: string, name?: string) =>
+  api.post<ExtractThemeResponse>("/custom-templates/extract-theme-from-prompt", { prompt, name });
+
+export const extractThemeFromDoc = (file: File, name?: string) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (name) formData.append("name", name);
+  return api.post<ExtractThemeResponse>(
+    "/custom-templates/extract-theme-from-doc",
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } }
+  );
+};
+
+export const generateTemplateCode = (templateId: number) =>
+  api.post<{ detail: string; template_id: number }>(`/custom-templates/${templateId}/generate-code`);
+
+export interface CodeGenStatus {
+  status: "generating" | "complete" | "error" | "unknown";
+  step: string;
+  running: boolean;
+  error: string | null;
+}
+
+export const getCodeGenerationStatus = (templateId: number) =>
+  api.get<CodeGenStatus>(`/custom-templates/${templateId}/generation-status`);
+
+export const getTemplateCode = (templateId: number) =>
+  api.get<{ component_code: string | null; intro_code: string | null; outro_code: string | null; content_codes: string[] | null }>(
+    `/custom-templates/${templateId}/code`
+  );
+
+// ─── Project-scoped (owner-resolved) reads for shared projects ─────
+// On a shared project, a collaborator must see the OWNER's templates/voices,
+// not their own. These authorize via project membership on the backend and
+// resolve against the project owner. The frontend routes through them only
+// when the viewer is a collaborator (project.user_id !== user.id).
+
+export const listProjectCustomTemplates = (projectId: number) =>
+  api.get<CustomTemplateItem[]>(`/projects/${projectId}/custom-templates`);
+
+export const getProjectTemplateCode = (projectId: number, templateId: number) =>
+  api.get<{ component_code: string | null; intro_code: string | null; outro_code: string | null; content_codes: string[] | null }>(
+    `/projects/${projectId}/custom-templates/${templateId}/code`
+  );
+
+export const listProjectCraftedTemplates = (
+  projectId: number,
+  opts?: CraftedTemplateFetchOptions,
+) =>
+  api.get<CraftedTemplateSummary[]>(
+    `/projects/${projectId}/crafted-templates`,
+    craftedRequestConfig(opts),
+  );
+
+export const getProjectCraftedTemplateDetail = (
+  projectId: number,
+  templateId: string,
+  opts?: CraftedTemplateFetchOptions,
+) =>
+  api.get<CraftedTemplateDetail>(
+    `/projects/${projectId}/crafted-templates/${encodeURIComponent(templateId)}`,
+    craftedRequestConfig(opts),
+  );
+
+export const getProjectVoices = (projectId: number) =>
+  api.get<SavedVoiceFromAPI[]>(`/projects/${projectId}/voices`);
+
+// ─── Brand asset uploads ────────────────────────────────────
+
+export const uploadTemplateLogo = (templateId: number, file: File) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  return api.post<{ logo_url: string; template: CustomTemplateItem }>(
+    `/custom-templates/${templateId}/upload-logo`,
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } }
+  );
+};
+
+// ─── Template versioning & regeneration ─────────────────────
+
+// Fire-and-poll, like generateTemplateCode: returns 202 immediately and the
+// caller polls getCodeGenerationStatus / re-fetches the template list.
+export const regenerateTemplateCode = (templateId: number) =>
+  api.post<{ detail: string; template_id: number }>(`/custom-templates/${templateId}/regenerate-code`);
+
+export const getTemplateVersions = (templateId: number) =>
+  api.get<TemplateVersionsResponse>(`/custom-templates/${templateId}/versions`);
+
+export const rollbackTemplateVersion = (templateId: number, versionId: number) =>
+  api.post<CustomTemplateItem>(
+    `/custom-templates/${templateId}/versions/${versionId}/rollback`
+  );
+
+export const submitTemplateRating = (
+  templateId: number,
+  data: { rating: 1 | 2 | 3 | 4 | 5; suggestion?: string }
+) => api.post<TemplateRating>(`/custom-templates/${templateId}/rating`, data);
+
+// ─── ElevenLabs voices (default / available) ─────────────────
+
+export interface ElevenLabsVoice {
+  voice_id: string;
+  name: string;
+  preview_url: string | null;
+  labels: Record<string, string>;
+  category?: string;
+  description?: string;
+  plan?: "free" | "paid";
+}
+
+export interface ListVoicesResponse {
+  voices: ElevenLabsVoice[];
+  has_more: boolean;
+}
+
+export const getVoices = () => api.get<ListVoicesResponse>("/voices");
+
+export const getPrebuiltVoices = () =>
+  api.get<{ voices: ElevenLabsVoice[]; has_more: boolean }>("/voices/prebuilt");
+
+// ─── Voice design (preset + custom prompt) ───────────────────
+
+export interface VoiceDesignPreview {
+  generated_voice_id: string;
+  audio_base_64: string;
+  media_type?: string;
+  duration_secs?: number;
+}
+
+export interface VoiceDesignResponse {
+  previews: VoiceDesignPreview[];
+  text?: string;
+}
+
+export interface DesignFromPresetPayload {
+  gender?: string;
+  age?: string;
+  persona?: string;
+  speed?: string;
+  accent?: string;
+}
+
+export const designVoiceFromPreset = (payload: DesignFromPresetPayload) =>
+  api.post<VoiceDesignResponse>("/voices/design-from-preset", payload);
+
+export const designVoiceFromPrompt = (payload: { prompt: string }) =>
+  api.post<VoiceDesignResponse>("/voices/design-from-prompt", payload);
+
+// ─── Saved voices (user's My Voices, persisted in DB) ─────────
+
+export interface SavedVoiceFromAPI {
+  id: number;
+  voice_id: string;
+  name: string;
+  preview_url?: string | null;
+  source: string;
+  plan?: string | null;  // "free" | "paid" for prebuilt (ElevenLabs)
+  gender?: string | null;
+  accent?: string | null;
+  description?: string | null;
+  created_at: string;
+  custom_voice_id?: number | null;
+}
+
+export const getMyVoices = () => api.get<SavedVoiceFromAPI[]>("/voices/saved");
+
+export const saveVoice = (payload: {
+  voice_id: string;
+  name: string;
+  preview_url?: string;
+  source?: string;
+  plan?: string;  // "free" | "paid" for prebuilt
+  gender?: string;
+  accent?: string;
+  description?: string;
+  custom_voice_id?: number;
+}) => api.post<SavedVoiceFromAPI>("/voices/saved", payload);
+
+// ─── Custom voices (creation records: prompt/response/form) ─────
+
+export interface CustomVoiceFromAPI {
+  id: number;
+  name: string;
+  voice_id: string;
+  source: string;
+  prompt_text?: string | null;
+  form_gender?: string | null;
+  form_age?: string | null;
+  form_persona?: string | null;
+  form_speed?: string | null;
+  form_accent?: string | null;
+  preview_url?: string | null;
+  created_at: string;
+}
+
+export const createCustomVoice = (payload: {
+  voice_id: string;
+  source: "prompt" | "form";
+  name?: string;
+  prompt_text?: string;
+  response?: Record<string, unknown>;
+  form_gender?: string;
+  form_age?: string;
+  form_persona?: string;
+  form_speed?: string;
+  form_accent?: string;
+  preview_url?: string;
+}) => api.post<CustomVoiceFromAPI>("/voices/custom", payload);
+
+export const getCustomVoices = () => api.get<CustomVoiceFromAPI[]>("/voices/custom");
+
+export const getCustomVoicePreview = (customVoiceId: number) =>
+  api.get<{ preview_url: string | null; ready: boolean }>(`/voices/custom/${customVoiceId}/preview`);
+
+export const deleteCustomVoice = (id: number) =>
+  api.delete<{ ok: boolean }>(`/voices/custom/${id}`);
+
+export const createCustomVoiceClone = (formData: FormData) =>
+  api.post<CustomVoiceFromAPI>("/voices/clone", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+
+export const deleteSavedVoice = (id: number) =>
+  api.delete<{ ok: boolean }>(`/voices/saved/${id}`);
+
+// ─── Embed API ────────────────────────────────────────────
+
+export const generateEmbedToken = (projectId: number) =>
+  api.post<{ embed_token: string; preview_url: string }>(`/embed/token/${projectId}`);
+
+export default api;

@@ -768,9 +768,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
     if (demoMode?.step) setStep(demoMode.step);
   }, [demoMode?.step]);
 
-  // Step 1 — input
+  // Step 1 — input. Dashboard remounts this form on every open (blogFormMountKey),
+  // so seeding state from the prop is enough — no effect needed to resync.
+  // "bulk" is ignored unless the bulk tab is actually rendered, otherwise the
+  // form would open on a panel with no way back to it.
   const [mode, setMode] = useState<"url" | "upload" | "bulk">(
-    initialMode === "bulk" && !onSubmitBulk ? "url" : (initialMode ?? "url")
+    initialMode && (initialMode !== "bulk" || onSubmitBulk) ? initialMode : "url"
   );
   const [urls, setUrls] = useState<string[]>([""]);
   const [name, setName] = useState("");

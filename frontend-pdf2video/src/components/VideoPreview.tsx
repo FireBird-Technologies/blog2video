@@ -1,0 +1,2484 @@
+import React, { useMemo, useEffect, useState, useCallback, useRef, forwardRef } from "react";
+import { createPortal } from "react-dom";
+import { Player } from "@remotion/player";
+import type { PlayerRef } from "@remotion/player";
+import {
+  AbsoluteFill,
+  Sequence,
+  Audio,
+  Loop,
+  useCurrentFrame,
+} from "remotion";
+import { SmartVideo } from "./remotion/SmartVideo";
+import { TransitionSeries, linearTiming } from "@remotion/transitions";
+import {
+  BACKEND_URL,
+  Project,
+  getTemplateCode,
+  getProjectTemplateCode,
+  getValidLayouts,
+  type CraftedTemplateDetail,
+  type CraftedTemplateItem,
+} from "../api/client";
+import {
+  SceneDurationInFramesContext,
+  useSceneDurationInFrames,
+} from "./remotion/SceneDurationContext";
+import { getDefaultFontSizesFromSchema } from "../utils/sceneFontDefaults";
+import { isBuiltinDataVizChartLayout, isBuiltinTickerLayout } from "./sceneEditBuiltinDataViz";
+import { mergeLayoutSchemaDefaults } from "../utils/mergeLayoutSchemaDefaults";
+import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
+import { getTemplateConfig, normalizeBuiltInTemplateId } from "./remotion/templateConfig";
+import { resolveFontFamily } from "../fonts/registry";
+import { getPlaybackSpeed, getSceneDurationFrames } from "./remotion/playbackSpeed";
+import { computeChronicleVideoTotalFrames } from "./remotion/chronicle/ChronicleVideoComposition";
+import { computeSakuraVideoTotalFrames } from "./remotion/sakura/SakuraVideoComposition";
+import { planMagazineBoundaries, resolveMagazineLayout } from "./remotion/magazine/MagazineVideoComposition";
+import {
+  compileComponentCode,
+  compileModuleGraphEntry,
+  type SceneProps,
+} from "../utils/compileComponent";
+import { LogoOverlay } from "./remotion/LogoOverlay";
+import { CtaOverlay } from "./remotion/CtaOverlay";
+import { BackgroundMusic } from "./remotion/BackgroundMusic";
+import { CaptionTrack } from "./remotion/CaptionTrack";
+// Brand exit-flourish between scenes — mirrors the headless render so the
+// "all scenes together" preview shows the SAME transitions the final video has.
+import { pickGeneratedTransition } from "./remotion/generated/generatedTransitions";
+// Dedicated data-viz scenes (custom templates) — same kit components the render
+// uses, so preview matches the final video.
+import { DataChartScene, DataTableScene } from "./remotion/generated/kit";
+
+/**
+ * Stock-footage clip player for the live preview — mirrors
+ * remotion-video/src/templates/newscast/components/ZoomCropVideo.tsx (and its
+ * generated/components/ZoomCropVideo.tsx twin used by the real render).
+ */
+function PreviewZoomCropVideo({
+  src,
+  imageObjectPosition,
+  imageZoom,
+  muted = true,
+  volume = 0.35,
+  durationInFrames,
+  startInFrames = 0,
+}: {
+  src: string;
+  imageObjectPosition?: string;
+  imageZoom?: number;
+  muted?: boolean;
+  volume?: number;
+  /** Clip length in frames — enables looping when the scene outlasts the clip. */
+  durationInFrames?: number;
+  /** Trim offset into the clip, in frames. */
+  startInFrames?: number;
+}) {
+  const pos = imageObjectPosition ?? "50% 50%";
+  const z = Math.max(0.1, imageZoom ?? 1);
+  const isZoomedOut = z < 1;
+  const sceneDurationInFrames = useSceneDurationInFrames();
+  const start = Math.max(0, Math.round(startInFrames || 0));
+
+  const video = (
+    <SmartVideo
+      src={src}
+      muted={muted}
+      volume={muted ? 0 : Math.max(0, Math.min(1, volume))}
+      trimBefore={start || undefined}
+      style={{
+        position: "absolute",
+        left: 0,
+        top: 0,
+        width: "100%",
+        height: "100%",
+        objectFit: isZoomedOut ? "contain" : "cover",
+        objectPosition: isZoomedOut ? "center" : pos,
+        transform: `scale(${z})`,
+        transformOrigin: isZoomedOut ? "center center" : pos,
+      }}
+    />
+  );
+
+  // Loop a clip that's shorter than its scene, matching the built-in templates'
+  // clip components (e.g. MagazineClip / ChronicleClip). Without this a custom or
+  // crafted scene freezes on the clip's last frame once it runs out.
+  const loopFrames = (() => {
+    const clipLen =
+      durationInFrames && durationInFrames > 0 ? Math.round(durationInFrames) : 0;
+    if (clipLen <= 0) return undefined;
+    const maxWindow = Math.max(1, clipLen - start);
+    if (sceneDurationInFrames && sceneDurationInFrames > 0) {
+      return Math.max(1, Math.min(Math.round(sceneDurationInFrames), maxWindow));
+    }
+    return maxWindow;
+  })();
+
+  return (
+    <div style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden" }}>
+      {loopFrames ? (
+        <Loop durationInFrames={loopFrames} layout="none">
+          {video}
+        </Loop>
+      ) : (
+        video
+      )}
+    </div>
+  );
+}
+
+/**
+ * Positions a stock-footage clip for a generated scene component — mirrors
+ * GeneratedVideo.tsx's ClipSlotOverlay in the real render.
+ *
+ * imageUrl is genuinely omitted for a clip scene (never fed a video URL as a
+ * fake image src — Remotion's <Img> calls cancelRender() on a failed load
+ * with no onError handler, which hard-fails real CLI renders even though it
+ * looks harmless here in the interactive Player).
+ *
+ * Components generated under the hasVideo-aware prompt leave a real, empty
+ * [data-content-img] placeholder (no <Img>) when props.hasVideo is true —
+ * same geometry as their normal with-image layout. We measure that box and
+ * position the clip to fill it, expressed as a PERCENTAGE of the container
+ * (not raw pixels): the Player scales the whole composition to fit its
+ * visible box, and this overlay renders inside that same scaled ancestor, so
+ * copying already-scaled pixel values would double-apply the scale.
+ *
+ * Older, already-generated components predate that contract and have no such
+ * marker. For those we fall back to a full-bleed layer, always rendered
+ * BEHIND SceneComp (z-index in PreviewSceneVisual) — not a precise fit, but
+ * the only option without regenerating that brand's code.
+ */
+function PreviewClipSlotOverlay({
+  containerRef,
+  videoUrl,
+  imageObjectPosition,
+  imageZoom,
+  muted,
+  volume,
+  videoDurationInFrames,
+  videoStartInFrames,
+}: {
+  containerRef: React.RefObject<HTMLDivElement | null>;
+  videoUrl: string;
+  imageObjectPosition?: string;
+  imageZoom?: number;
+  muted?: boolean;
+  volume?: number;
+  videoDurationInFrames?: number;
+  videoStartInFrames?: number;
+}) {
+  // Re-measure every frame — most generated components spring/translate the
+  // image container in on entrance, so a one-time on-mount measurement
+  // freezes the clip at whatever position the slot happened to be in on
+  // that first paint (visibly offset/ghosted for the rest of the scene).
+  const frame = useCurrentFrame();
+  const [box, setBox] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
+  const [legacyFallback, setLegacyFallback] = useState(false);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const slot = container.querySelector<HTMLElement>("[data-content-img]");
+    if (!slot) {
+      setLegacyFallback(true);
+      return;
+    }
+    const containerRect = container.getBoundingClientRect();
+    const slotRect = slot.getBoundingClientRect();
+    const next = {
+      left: ((slotRect.left - containerRect.left) / containerRect.width) * 100,
+      top: ((slotRect.top - containerRect.top) / containerRect.height) * 100,
+      width: (slotRect.width / containerRect.width) * 100,
+      height: (slotRect.height / containerRect.height) * 100,
+    };
+    setBox((prev) =>
+      prev && prev.left === next.left && prev.top === next.top && prev.width === next.width && prev.height === next.height
+        ? prev
+        : next,
+    );
+  }, [containerRef, frame]);
+
+  const video = (
+    <PreviewZoomCropVideo
+      src={videoUrl}
+      imageObjectPosition={imageObjectPosition}
+      imageZoom={imageZoom}
+      muted={muted}
+      volume={volume}
+      durationInFrames={videoDurationInFrames}
+      startInFrames={videoStartInFrames}
+    />
+  );
+
+  if (legacyFallback) {
+    return (
+      <div style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
+        {video}
+      </div>
+    );
+  }
+
+  if (!box || box.width <= 0 || box.height <= 0) return null;
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: `${box.left}%`,
+        top: `${box.top}%`,
+        width: `${box.width}%`,
+        height: `${box.height}%`,
+        overflow: "hidden",
+      }}
+    >
+      {video}
+    </div>
+  );
+}
+
+/** Renders a custom-template scene's image/clip layer + generated component — mirrors GeneratedVideo.tsx's SceneVisual. */
+function PreviewSceneVisual({
+  SceneComp,
+  sceneProps,
+  isDataViz,
+  s,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  imageObjectPosition,
+  imageZoom,
+}: {
+  SceneComp: React.ComponentType<Record<string, unknown>>;
+  sceneProps: SceneProps;
+  isDataViz: boolean;
+  s: any;
+  videoUrl?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  imageObjectPosition?: string;
+  imageZoom: number;
+}) {
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+
+  return (
+    <AbsoluteFill
+      style={{
+        ["--img-pos" as string]: imageObjectPosition,
+        ["--img-zoom" as string]: String(imageZoom),
+      }}
+    >
+      <style>{`[data-scene-wrapper] img:not([data-logo]){object-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}[data-scene-wrapper] [data-content-img]{object-position:var(--img-pos,50% 50%) !important;background-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}${videoUrl ? "[data-scene-wrapper] [data-scenecomp-layer]{background:transparent !important;}[data-scene-wrapper] [data-scenecomp-layer]>div{background:transparent !important;}" : ""}`}</style>
+      <div data-scene-wrapper ref={wrapperRef} style={{ width: "100%", height: "100%", position: "relative" }}>
+        {videoUrl && (
+          <div style={{ position: "absolute", inset: 0, zIndex: 0 }}>
+            <PreviewClipSlotOverlay
+              containerRef={wrapperRef}
+              videoUrl={videoUrl}
+              imageObjectPosition={imageObjectPosition}
+              imageZoom={imageZoom}
+              muted={videoMuted}
+              volume={videoVolume}
+              videoDurationInFrames={
+                s?.videoDurationSeconds
+                  ? Math.max(1, Math.round(Number(s.videoDurationSeconds) * 30))
+                  : undefined
+              }
+              videoStartInFrames={
+                s?.videoStartSeconds
+                  ? Math.max(0, Math.round(Number(s.videoStartSeconds) * 30))
+                  : undefined
+              }
+            />
+          </div>
+        )}
+        {/* data-scenecomp-layer: when a clip is active, force this layer's own
+            background AND its direct child's background-color to transparent
+            — some generated components correctly gate their inner decorative
+            backdrop on hasVideo but leave their OUTERMOST AbsoluteFill's own
+            backgroundColor unconditional. */}
+        <div data-scenecomp-layer style={{ position: "absolute", inset: 0, zIndex: 1 }}>
+          {isDataViz ? (
+            <SceneComp
+              {...(sceneProps as unknown as Record<string, unknown>)}
+              displayText={s.title || sceneProps.displayText}
+              chartTable={(s.layoutProps as Record<string, unknown>)?.chartTable}
+              chartType={(s.layoutProps as Record<string, unknown>)?.chartType}
+              chartSummary={(s.layoutProps as Record<string, unknown>)?.chartSummary}
+              logoUrl={undefined}
+            />
+          ) : (
+            <SceneComp {...sceneProps} logoUrl={undefined} />
+          )}
+        </div>
+      </div>
+    </AbsoluteFill>
+  );
+}
+
+const StableCustomComposition: React.FC<any> = ({
+  isCustom,
+  compiledScenes,
+  scenes,
+  project,
+  numContentVariants,
+  resolvedFontFamily,
+  captionsEnabled,
+  captionFontFamily,
+  captionFontSize,
+  captionOffset,
+  sceneOnlyIndex,
+  suppressAudio,
+}) => {
+  if (!isCustom || !compiledScenes) return null;
+
+  // Project-level color overrides (from Settings > Colors) take precedence
+  // over the template's default theme colors.
+  const themeColors = project.custom_theme?.colors;
+  const brandColors: SceneProps["brandColors"] = {
+        primary: project.accent_color || themeColors?.accent || "#7C3AED",
+        secondary: themeColors?.surface || "#F5F5F5",
+        accent: project.accent_color || themeColors?.accent || "#7C3AED",
+        background: project.bg_color || themeColors?.bg || "#FFFFFF",
+        text: project.text_color || themeColors?.text || "#1A1A2E",
+      };
+
+  // Font props: user override (resolvedFontFamily) takes precedence over template theme fonts.
+  const themeFonts = project.custom_theme?.fonts;
+  const headingFont = resolvedFontFamily || themeFonts?.heading || undefined;
+  const bodyFont = resolvedFontFamily || themeFonts?.body || undefined;
+
+  const aspectRatio = (project.aspect_ratio || "landscape") as "landscape" | "portrait";
+  const totalScenes = scenes.length;
+  const FPS = 30;
+  const playbackSpeed = 1;
+
+  // Brand transition family (motion personality) — drives which real two-scene
+  // transition plays between scenes, matching the render. Falls back to the
+  // default pool.
+  const transitionFamily = (project.custom_theme as { motion?: { transitionFamily?: string[] } } | undefined)
+    ?.motion?.transitionFamily;
+  const canvasW = aspectRatio === "portrait" ? 1080 : 1920;
+  const canvasH = aspectRatio === "portrait" ? 1920 : 1080;
+  if (typeof console !== "undefined") {
+    // eslint-disable-next-line no-console
+    console.log(`[F7-DEBUG][V3][PREVIEW-TRANSITION] injecting ${Math.max(0, totalScenes - 1)} transitions, family=${transitionFamily ? transitionFamily.join(",") : "default"}`);
+  }
+
+  // Scene type / content-variant / image assignment all depend on a scene's position
+  // among ALL its siblings, so this loop always runs over the FULL project scene list —
+  // even when `scenes` has been sliced to a single scene (sceneOnlyIndex). Slicing the
+  // result afterwards is what keeps a lone middle scene rendering as content-with-the-
+  // right-variant instead of an intro.
+  const fullSceneCount = project.scenes?.length ?? scenes.length;
+  const allSceneAssignments: { type: string; variantKey: string }[] = [];
+  let contentIdx = 0;
+  for (let i = 0; i < fullSceneCount; i++) {
+    const scene = project.scenes[i];
+    let sceneType = "content";
+    let variantIdx = 0;
+
+    // Dedicated data-viz scenes route by scene_type (set on the DB scene).
+    if (scene?.scene_type === "dataviz_chart" || scene?.scene_type === "dataviz_table") {
+      allSceneAssignments.push({ type: scene.scene_type, variantKey: scene.scene_type });
+      continue;
+    }
+
+    if (scene?.remotion_code) {
+      try {
+        const desc = JSON.parse(scene.remotion_code);
+        if (desc.sceneTypeOverride && ["intro", "content", "outro"].includes(desc.sceneTypeOverride)) {
+          sceneType = desc.sceneTypeOverride;
+        } else if (i === 0) {
+          sceneType = "intro";
+        } else if (i === fullSceneCount - 1 && fullSceneCount > 1) {
+          sceneType = "outro";
+        }
+        if (sceneType === "content" && typeof desc.contentVariantIndex === "number") {
+          variantIdx = desc.contentVariantIndex;
+        }
+      } catch { /* ignore */ }
+    } else {
+      if (i === 0) sceneType = "intro";
+      else if (i === fullSceneCount - 1 && fullSceneCount > 1) sceneType = "outro";
+    }
+
+    if (sceneType === "content") {
+      if (variantIdx === 0 && !scene?.remotion_code?.includes("contentVariantIndex")) {
+        variantIdx = numContentVariants > 0 ? contentIdx % numContentVariants : 0;
+      }
+      contentIdx++;
+      allSceneAssignments.push({ type: "content", variantKey: `content_${variantIdx}` });
+    } else {
+      allSceneAssignments.push({ type: sceneType, variantKey: sceneType });
+    }
+  }
+
+  // Slice to the rendered scene(s) AFTER full-project resolution above.
+  const sceneAssignments =
+    sceneOnlyIndex !== undefined && allSceneAssignments[sceneOnlyIndex]
+      ? [allSceneAssignments[sceneOnlyIndex]]
+      : allSceneAssignments;
+
+  const frameOffsets: number[] = [];
+  const frameDurations: number[] = [];
+  let offset = 0;
+  for (const s of scenes) {
+    frameOffsets.push(offset);
+    const dur = getSceneDurationFrames(s.durationSeconds, FPS, playbackSpeed);
+    frameDurations.push(dur);
+    offset += dur;
+  }
+  // Real two-scene transitions (TransitionSeries). Each non-last sequence is held
+  // by exactly its transition's frames, so total duration + audio start frames
+  // (frameOffsets) stay the back-to-back schedule — totalDurationFrames and audio
+  // sync are unchanged. See generatedTransitions.ts.
+  const transitions = scenes.map((_: unknown, i: number) =>
+    i < totalScenes - 1
+      ? pickGeneratedTransition(i, transitionFamily, canvasW, canvasH, brandColors.accent)
+      : null,
+  );
+
+  return (
+    <AbsoluteFill style={{ fontFamily: resolvedFontFamily || undefined }}>
+      <TransitionSeries>
+      {scenes.map((s: any, i: number) => {
+        const assignment = sceneAssignments[i];
+        const isDataViz =
+          assignment.type === "dataviz_chart" || assignment.type === "dataviz_table";
+        const SceneComp: React.ComponentType<Record<string, unknown>> = isDataViz
+          ? ((assignment.type === "dataviz_chart" ? DataChartScene : DataTableScene) as unknown as React.ComponentType<Record<string, unknown>>)
+          : ((compiledScenes[assignment.variantKey] ||
+             compiledScenes["intro"] ||
+             Object.values(compiledScenes)[0]) as unknown as React.ComponentType<Record<string, unknown>>);
+
+        const t = transitions[i];
+
+        const sc = (s.structuredContent || {}) as Record<string, unknown>;
+        const focusX = Number((s.layoutProps as Record<string, unknown> | undefined)?.imageFocusX ?? 50);
+        const focusY = Number((s.layoutProps as Record<string, unknown> | undefined)?.imageFocusY ?? 50);
+        const imageZoom = Math.max(
+          1,
+          Number((s.layoutProps as Record<string, unknown> | undefined)?.imageZoom ?? 1),
+        );
+        // Never pass a video URL as imageUrl: Remotion's <Img> calls
+        // cancelRender() on a failed load with no onError handler, which
+        // hard-fails real CLI renders. Omit imageUrl for a clip scene —
+        // PreviewClipSlotOverlay renders the clip itself (see below).
+        const videoUrl: string | undefined = s.videoUrl;
+        const sceneProps: SceneProps = {
+          displayText: s.narration || s.title,
+          narrationText: s.narration || "",
+          imageUrl: videoUrl ? undefined : s.imageUrl,
+          hasVideo: !!videoUrl,
+          imageObjectPosition: `${Math.max(0, Math.min(100, focusX))}% ${Math.max(0, Math.min(100, focusY))}%`,
+          imageZoom,
+          // Report the scene's TRUE position in the full video, so templates that
+          // render "N of M" / progress chrome stay correct when sliced to one scene.
+          sceneIndex: s.trueIndex ?? i,
+          totalScenes: s.trueTotal ?? totalScenes,
+          logoUrl: project.logo_r2_url || project.brand_logo_url || undefined,
+          brandColors,
+          aspectRatio,
+          contentType: sc.contentType as SceneProps["contentType"],
+          bullets: sc.bullets as string[] | undefined,
+          metrics: sc.metrics as SceneProps["metrics"],
+          codeLines: sc.codeLines as string[] | undefined,
+          codeLanguage: sc.codeLanguage as string | undefined,
+          quote: sc.quote as string | undefined,
+          quoteAuthor: sc.quoteAuthor as string | undefined,
+          comparisonLeft: sc.comparisonLeft as SceneProps["comparisonLeft"],
+          comparisonRight: sc.comparisonRight as SceneProps["comparisonRight"],
+          timelineItems: sc.timelineItems as SceneProps["timelineItems"],
+          steps: sc.steps as string[] | undefined,
+          titleFontSize: (s.layoutConfig as any)?.titleFontSize as number | undefined,
+          descriptionFontSize: (s.layoutConfig as any)?.descriptionFontSize as number | undefined,
+          headingFont,
+          bodyFont,
+        };
+
+        // console.log(`[F7-DEBUG] [CustomComp] scene ${i}: displayText=${sceneProps.displayText?.substring(0,60)}, contentType=${sceneProps.contentType}, bullets=${sceneProps.bullets?.length}`);
+        const visual = !SceneComp ? (
+          <AbsoluteFill />
+        ) : s.ctaProps ? (
+          <CtaOverlay
+            ctaProps={s.ctaProps as any}
+            brandColors={brandColors}
+            aspectRatio={aspectRatio}
+            headingFont={headingFont}
+            bodyFont={bodyFont}
+            title={sceneProps.displayText}
+            logoUrl={sceneProps.logoUrl}
+          />
+        ) : (
+          <PreviewSceneVisual
+            SceneComp={SceneComp}
+            sceneProps={sceneProps}
+            isDataViz={isDataViz}
+            s={s}
+            videoUrl={videoUrl}
+            videoMuted={s.videoMuted ?? true}
+            videoVolume={s.videoVolume ?? 0.35}
+            imageObjectPosition={sceneProps.imageObjectPosition}
+            imageZoom={imageZoom}
+          />
+        );
+
+        const sequence = (
+          <TransitionSeries.Sequence
+            key={`seq-${s.id}`}
+            durationInFrames={frameDurations[i] + (t ? t.frames : 0)}
+          >
+            {/* Gives clip components the scene's own length so a short clip can
+                loop across it, the same way the built-in templates do. */}
+            <SceneDurationInFramesContext.Provider value={frameDurations[i]}>
+              {visual}
+            </SceneDurationInFramesContext.Provider>
+          </TransitionSeries.Sequence>
+        );
+        if (!t) return sequence;
+        return (
+          <React.Fragment key={`scene-${s.id}`}>
+            {sequence}
+            <TransitionSeries.Transition
+              presentation={t.presentation}
+              timing={linearTiming({ durationInFrames: t.frames })}
+            />
+          </React.Fragment>
+        );
+      })}
+      </TransitionSeries>
+
+      {/* Voiceover lives on a parallel absolute timeline (NOT inside the
+          TransitionSeries) so transition overlap never warps audio sync —
+          frameOffsets is the plain back-to-back schedule. */}
+      {scenes.map((s: any, i: number) =>
+        s.voiceoverUrl ? (
+          <Sequence key={`audio-${s.id}`} from={frameOffsets[i]} durationInFrames={frameDurations[i]}>
+            <Audio src={s.voiceoverUrl} playbackRate={1} />
+            {captionsEnabled && (s.narrationText || s.narration) && (
+              <CaptionTrack
+                text={s.narrationText || s.narration}
+                aspectRatio={aspectRatio || "landscape"}
+                fontFamily={captionFontFamily ? (resolveFontFamily(captionFontFamily) || captionFontFamily) : undefined}
+                fontSize={captionFontSize || undefined}
+                offset={captionOffset ?? 0}
+                speechDurationFrames={
+                  s.speechDurationSeconds
+                    ? getSceneDurationFrames(s.speechDurationSeconds, FPS, playbackSpeed)
+                    : undefined
+                }
+              />
+            )}
+          </Sequence>
+        ) : null,
+      )}
+
+      {project.logo_r2_url && (
+        <AbsoluteFill style={{ zIndex: 20, pointerEvents: "none" }}>
+          <LogoOverlay
+            src={project.logo_r2_url}
+            position={project.logo_position || "bottom_right"}
+            maxOpacity={project.logo_opacity ?? 0.9}
+            size={typeof project.logo_size === "number" ? project.logo_size : 100}
+            aspectRatio={aspectRatio}
+          />
+        </AbsoluteFill>
+      )}
+
+      {project.bgm_track_url && !suppressAudio && (
+        <BackgroundMusic
+          src={project.bgm_track_url}
+          volume={project.bgm_volume ?? 0.10}
+          scenes={(project.scenes ?? []).map((s: { duration_seconds?: number; extra_hold_seconds?: number | null; bgm_volume?: number | null }) => ({
+            durationSeconds: (Number(s.duration_seconds) || 5) + (Number(s.extra_hold_seconds) || 0),
+            bgmVolume: s.bgm_volume ?? null,
+          }))}
+        />
+      )}
+    </AbsoluteFill>
+  );
+};
+
+interface VideoPreviewProps {
+  project: Project;
+  /**
+   * `layout_prop_schema` from backend `meta.json` (via GET `/projects/:id/layouts`).
+   * When omitted, VideoPreview loads it itself (unless template is custom).
+   */
+  layoutPropSchema?: Record<string, { defaults?: Record<string, unknown> }>;
+  logoSizeOverride?: number;
+  logoOpacityOverride?: number;
+  logoPositionOverride?: string;
+  onPlaybackSpeedChange?: (speed: number) => void | Promise<void>;
+  playbackSpeedSaving?: boolean;
+  onCaptionSettingsChange?: (settings: CaptionSettings) => void | Promise<void>;
+  captionsSaving?: boolean;
+  captionSettingsKey?: number;
+  precompiledTemplateData?: {
+    intro_code: string | null;
+    content_codes: string[] | null;
+    outro_code: string | null;
+  };
+  /** Start the player at this frame and keep it paused there (for modal preview). */
+  initialFrame?: number;
+  /** Hide the Remotion playback controls bar. */
+  hideControls?: boolean;
+  /**
+   * Pre-fetched crafted template detail (e.g. from a public embed response).
+   * When provided, bypasses `useCraftedTemplates()` / `ensureCraftedTemplateDetail`,
+   * which require an authenticated user and are unavailable on public preview pages.
+   */
+  precompiledCraftedDetail?: CraftedTemplateDetail | null;
+  /**
+   * On a *shared* project a collaborator does not own the custom template, so
+   * the owner-only `/custom-templates/:id/code` endpoint 404s for them. When set
+   * (the project id), custom template code is fetched via the project-scoped,
+   * owner-resolved endpoint instead. Undefined for owners / public previews.
+   */
+  ownerScopedProjectId?: number;
+  /**
+   * Applied-but-unsaved user recordings (sceneId → { url, duration }). When a
+   * scene has an entry here, its voiceover is played from this URL instead of the
+   * saved asset AND the scene length uses the recording's measured duration, so
+   * the preview reflects recordings (and their timing) before they're persisted.
+   */
+  pendingVoiceovers?: Map<number, { url: string; duration: number }>;
+  /**
+   * Render ONLY this scene index, while still resolving scene type, content
+   * variant and image assignment against the FULL project (all three depend on a
+   * scene's position among its siblings). Prefer the `SceneOnlyPlayer` wrapper
+   * over setting this directly.
+   */
+  sceneOnlyIndex?: number;
+  /** With `sceneOnlyIndex`: force that scene's length, in seconds. */
+  sceneOnlyDurationSeconds?: number;
+  /**
+   * Start the player muted. Seeds Remotion's MediaVolumeContext, which silences
+   * the scene `<Audio>` and the background music for every template.
+   */
+  initiallyMuted?: boolean;
+  /** Also hide the floating caption / playback-speed overlay buttons. */
+  hideOverlayControls?: boolean;
+  /**
+   * When playback reaches the end, hold on the last frame instead of snapping
+   * back to frame 0 (Remotion's default).
+   */
+  holdOnLastFrame?: boolean;
+}
+
+interface SceneInput {
+  id: number;
+  order: number;
+  title: string;
+  narration: string;
+  layout: string;
+  layoutProps: Record<string, unknown>;
+  layoutConfig?: Record<string, unknown>;
+  structuredContent?: Record<string, unknown>;
+  ctaProps?: Record<string, unknown>;
+  durationSeconds: number;
+  bgmVolume?: number | null;
+  imageUrl?: string;
+  voiceoverUrl?: string;
+  /** Stock-footage clip URL, when the scene uses a clip instead of a still. */
+  videoUrl?: string;
+  /** Position in the FULL project, preserved when sliced to a single scene. */
+  trueIndex?: number;
+  /** Scene count of the FULL project, preserved when sliced to a single scene. */
+  trueTotal?: number;
+}
+
+function resolveCraftedTemplateLogoUrl(template?: CraftedTemplateItem | CraftedTemplateDetail | null): string | null {
+  if (!template) return null;
+  const directLogo = Array.isArray(template.logo_urls)
+    ? template.logo_urls.find((url) => typeof url === "string" && url.trim())
+    : null;
+  if (directLogo) return directLogo;
+
+  const publicAssets = template.public_asset_urls;
+  if (publicAssets && typeof publicAssets === "object") {
+    const preferredEntry = Object.entries(publicAssets).find(([key]) =>
+      /(?:^|\/)(?:laduc-)?(?:brand-)?logo\.(?:png|jpe?g|webp|svg)$/i.test(key),
+    );
+    const fallbackEntry = Object.entries(publicAssets).find(([key]) =>
+      /logo.*\.(?:png|jpe?g|webp|svg)$/i.test(key),
+    );
+
+    const resolved = preferredEntry?.[1] || fallbackEntry?.[1];
+    if (resolved) return resolved;
+  }
+
+  // No hardcoded per-bundle fallback here (unlike ../frontend's version) —
+  // this deployment doesn't ship the laduc/fj_market_brief asset folders
+  // those fallbacks pointed at, since no crafted template is used on this
+  // landing page.
+  return null;
+}
+
+/** Map of scene type keys ("intro", "content_0", ..., "outro") to compiled React components. */
+type CompiledSceneMap = Record<string, React.FC<SceneProps>>;
+
+/** Fill missing title/description font sizes from meta.json layout_prop_schema (matches SceneEditModal). */
+function mergeMetaFontSizesIntoLayoutProps(
+  layoutProps: Record<string, unknown>,
+  layoutId: string | null | undefined,
+  aspectRatio: string,
+  schema: Record<string, { defaults?: Record<string, unknown> }> | null | undefined,
+): Record<string, unknown> {
+  if (!layoutId || !schema || Object.keys(schema).length === 0) return layoutProps;
+  const titleRaw = layoutProps.titleFontSize;
+  const descRaw = layoutProps.descriptionFontSize;
+  const hasTitle = typeof titleRaw === "number" && Number.isFinite(titleRaw);
+  const hasDesc = typeof descRaw === "number" && Number.isFinite(descRaw);
+  if (hasTitle && hasDesc) return layoutProps;
+  const ar = aspectRatio === "portrait" ? "portrait" : "landscape";
+  const fromSchema = getDefaultFontSizesFromSchema(schema, layoutId, ar);
+  if (!fromSchema) return layoutProps;
+  const next = { ...layoutProps };
+  if (!hasTitle) next.titleFontSize = fromSchema.title;
+  if (!hasDesc) next.descriptionFontSize = fromSchema.desc;
+  return next;
+}
+
+/**
+ * For LaDuc `market_annotation*` layouts, fill in `chartTable` (and
+ * `chartType`) from meta.json defaults when the stored layoutProps don't
+ * carry one. Mirrors the backend renderer's defaults-merge in
+ * `remotion.py:932-953`, so the project preview shows the same chart that
+ * the rendered MP4 produces.
+ *
+ * Narrowly scoped to the chart fields only — does not touch any other defaults.
+ * Keep in sync with `mergeMarketAnnotationChartDefaultsForLayout` in SceneEditModal.
+ */
+function mergeMarketAnnotationChartDefaults(
+  layoutProps: Record<string, unknown>,
+  templateId: string | null | undefined,
+  layoutId: string | null | undefined,
+  schema: Record<string, { defaults?: Record<string, unknown> }> | null | undefined,
+): Record<string, unknown> {
+  const isChartLayout =
+    (!!layoutId && layoutId.startsWith("market_annotation")) ||
+    isBuiltinDataVizChartLayout(templateId, layoutId);
+  const isTickerLayout = isBuiltinTickerLayout(templateId, layoutId);
+  if (!layoutId || (!isChartLayout && !isTickerLayout)) return layoutProps;
+  if (!schema || Object.keys(schema).length === 0) return layoutProps;
+  const defaults = schema[layoutId]?.defaults;
+  if (!defaults || Object.keys(defaults).length === 0) return layoutProps;
+
+  if (isTickerLayout) {
+    const existingTickerTable = layoutProps.tickerTable;
+    const existingTickerTableHasRows =
+      existingTickerTable &&
+      typeof existingTickerTable === "object" &&
+      Array.isArray((existingTickerTable as { rows?: unknown }).rows) &&
+      ((existingTickerTable as { rows: unknown[] }).rows.length > 0);
+    if (existingTickerTableHasRows) return layoutProps;
+    if (defaults.tickerTable && typeof defaults.tickerTable === "object") {
+      return { ...layoutProps, tickerTable: defaults.tickerTable };
+    }
+    return layoutProps;
+  }
+
+  const existingTable = layoutProps.chartTable;
+  const existingTableHasRows =
+    existingTable &&
+    typeof existingTable === "object" &&
+    Array.isArray((existingTable as { rows?: unknown }).rows) &&
+    ((existingTable as { rows: unknown[] }).rows.length > 0);
+  if (existingTableHasRows && layoutProps.chartType) return layoutProps;
+
+  const next = { ...layoutProps };
+  if (!existingTableHasRows && defaults.chartTable && typeof defaults.chartTable === "object") {
+    next.chartTable = defaults.chartTable;
+  }
+  if (!layoutProps.chartType && typeof defaults.chartType === "string") {
+    next.chartType = defaults.chartType;
+  }
+  return next;
+}
+
+export interface CaptionSettings {
+  captionsEnabled: boolean;
+  captionFontFamily: string;
+  captionFontSize: number;
+  /** Vertical fine-tune within the bottom region: -100..+100 (0 = default, + = up). */
+  captionOffset: number;
+}
+
+function buildCaptionSettingsFromProject(project: Project): CaptionSettings {
+  const hasVoiceover = (project.scenes || []).some((s) => !!s.voiceover_path);
+  return {
+    captionsEnabled: (project.captions_enabled ?? false) && hasVoiceover,
+    captionFontFamily: project.caption_font_family ?? "inter",
+    captionFontSize: project.caption_font_size ? Number(project.caption_font_size) || 36 : 36,
+    captionOffset: typeof project.caption_offset === "number" ? project.caption_offset : 0,
+  };
+}
+
+// ─── YouTube-style playback speed control ────────────────────────────────────
+
+const SPEED_OPTIONS: (0.5 | 1 | 1.5 | 2 | 2.5)[] = [0.5, 1, 1.5, 2, 2.5];
+
+function PlaybackSpeedControl({
+  currentSpeed,
+  saving,
+  onChange,
+  playerContainerRef,
+}: {
+  currentSpeed: number;
+  saving: boolean;
+  onChange?: (speed: number) => void | Promise<void>;
+  playerContainerRef?: React.RefObject<PlayerRef | null>;
+}) {
+  // Keep Remotion's control bar visible while cursor is inside this component.
+  // Remotion hides controls on "mouseleave" from its container; dispatching a
+  // synthetic "mousemove" on that container tricks it into staying shown.
+  const keepPlayerControlsVisible = useCallback(() => {
+    const container = playerContainerRef?.current?.getContainerNode();
+    if (!container) return;
+    container.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, cancelable: true }));
+  }, [playerContainerRef]);
+  const [open, setOpen] = useState(false);
+  const [sliderSpeed, setSliderSpeed] = useState(currentSpeed);
+  const ref = useRef<HTMLDivElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
+  const lastCommittedSpeedRef = useRef<number>(currentSpeed);
+  // Popup is rendered via portal into document.body so no ancestor overflow/transform clips it
+  const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({});
+
+  useEffect(() => {
+    setSliderSpeed(currentSpeed);
+    lastCommittedSpeedRef.current = currentSpeed;
+  }, [currentSpeed]);
+
+  const commitSliderSpeed = useCallback(() => {
+    const next = Math.min(2.5, Math.max(0.5, Math.round(sliderSpeed * 10) / 10));
+    if (Math.abs(next - lastCommittedSpeedRef.current) < 0.001) return;
+    lastCommittedSpeedRef.current = next;
+    void onChange?.(next);
+  }, [onChange, sliderSpeed]);
+
+  // Calculate fixed-position coordinates for the popup so it is never clipped
+  const openPopup = useCallback(() => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    const POPUP_HEIGHT = 290; // approximate height of the popup
+    const rightOffset = window.innerWidth - rect.right;
+    // Prefer opening upward; fall back to downward on small screens
+    if (rect.top >= POPUP_HEIGHT + 6) {
+      setPopupStyle({
+        position: "fixed",
+        bottom: window.innerHeight - rect.top + 6,
+        right: rightOffset,
+        zIndex: 9999,
+      });
+    } else {
+      setPopupStyle({
+        position: "fixed",
+        top: rect.bottom + 6,
+        right: rightOffset,
+        zIndex: 9999,
+      });
+    }
+    setOpen(true);
+  }, []);
+
+  // Close on outside click or touch — check both the button wrapper and the portal popup
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent | TouchEvent) => {
+      const target = (e.type === "touchstart"
+        ? (e as TouchEvent).touches[0]?.target
+        : (e as MouseEvent).target) as Node | null;
+      if (
+        ref.current?.contains(target) ||
+        popupRef.current?.contains(target)
+      ) return;
+      setOpen(false);
+    };
+    document.addEventListener("mousedown", handler as EventListener);
+    document.addEventListener("touchstart", handler as EventListener, { passive: true });
+    return () => {
+      document.removeEventListener("mousedown", handler as EventListener);
+      document.removeEventListener("touchstart", handler as EventListener);
+    };
+  }, [open]);
+
+  const btnStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 38,
+    height: 38,
+    borderRadius: 6,
+    border: "none",
+    background: open ? "rgba(255,255,255,0.15)" : "transparent",
+    cursor: saving || !onChange ? "default" : "pointer",
+    color: "#f9fafb",
+    transition: "background 150ms",
+    position: "relative",
+  };
+
+  return (
+    <div
+      ref={ref}
+      onMouseEnter={keepPlayerControlsVisible}
+      onMouseMove={keepPlayerControlsVisible}
+      style={{
+        position: "absolute",
+        // Sit inside the Remotion control bar row, just to the left of the fullscreen button
+        right: 40,
+        bottom: 30,
+        zIndex: 40,
+        pointerEvents: "auto",
+      }}
+    >
+      {/* Popup menu — rendered via portal into document.body so no ancestor overflow/transform clips it */}
+      {open && createPortal(
+        <div
+          ref={popupRef}
+          style={{
+            ...popupStyle,
+            background: "#ffffff",
+            border: "1px solid rgba(15,23,42,0.12)",
+            borderRadius: 12,
+            backdropFilter: "blur(6px)",
+            padding: "8px 0",
+            minWidth: 200,
+            boxShadow: "0 12px 28px rgba(15,23,42,0.2)",
+          }}
+        >
+          <p
+            style={{
+              color: "#64748b",
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: "0.02em",
+              textTransform: "none",
+              padding: "0 14px 8px",
+              margin: 0,
+              borderBottom: "1px solid rgba(15,23,42,0.1)",
+            }}
+          >
+            Playback speed
+          </p>
+          {SPEED_OPTIONS.map((speed) => {
+            const active = speed === currentSpeed;
+            return (
+              <button
+                key={speed}
+                onClick={() => {
+                  if (speed === currentSpeed) { setOpen(false); return; }
+                  setOpen(false);
+                  setSliderSpeed(speed);
+                  void onChange?.(speed);
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  width: "100%",
+                  background: active ? "rgba(147,51,234,0.25)" : "transparent",
+                  border: "none",
+                  color: active ? "#7c3aed" : "#0f172a",
+                  fontSize: 12,
+                  fontWeight: active ? 600 : 500,
+                  padding: "8px 14px",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  transition: "background 120ms",
+                }}
+                onMouseEnter={(e) => {
+                  if (!active) (e.currentTarget as HTMLButtonElement).style.background = "rgba(15,23,42,0.06)";
+                }}
+                onMouseLeave={(e) => {
+                  if (!active) (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+                }}
+              >
+                <span>{speed === 1 ? "Normal" : `${speed}×`}</span>
+                {active && (
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <path d="M2 6l3 3 5-5" stroke="#7c3aed" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
+              </button>
+            );
+          })}
+          <div style={{ padding: "10px 14px", borderTop: "1px solid rgba(15,23,42,0.1)" }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 6,
+              }}
+            >
+              <span style={{ fontSize: 11, fontWeight: 500, color: "#64748b" }}>Custom speed</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "#7c3aed" }}>
+                {sliderSpeed.toFixed(1)}×
+              </span>
+            </div>
+            <input
+              type="range"
+              min={0.5}
+              max={2.5}
+              step={0.1}
+              value={sliderSpeed}
+              onChange={(e) => {
+                setSliderSpeed(Number(e.target.value));
+              }}
+              onMouseUp={commitSliderSpeed}
+              onTouchEnd={commitSliderSpeed}
+              onKeyUp={commitSliderSpeed}
+              onBlur={commitSliderSpeed}
+              style={{
+                width: "100%",
+                cursor: "pointer",
+                accentColor: "#a855f7",
+                height: 3,
+              }}
+              aria-label="Playback speed slider"
+            />
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Icon button */}
+      <button
+        data-tour="playback-speed"
+        onClick={() => { if (!saving && onChange) { open ? setOpen(false) : openPopup(); } }}
+        style={btnStyle}
+        title={`Playback speed: ${currentSpeed.toFixed(1)}×`}
+        aria-label="Playback speed"
+      >
+        {saving ? (
+          /* Spinner */
+          <svg width="22" height="22" viewBox="0 0 16 16" fill="none" style={{ animation: "spin 0.8s linear infinite" }}>
+            <circle cx="8" cy="8" r="6" stroke="rgba(255,255,255,0.25)" strokeWidth="2"/>
+            <path d="M14 8a6 6 0 0 0-6-6" stroke="#f9fafb" strokeWidth="2" strokeLinecap="round"/>
+          </svg>
+        ) : (
+          /* Speedometer / gauge icon (matches YouTube style) */
+          <svg width="22" height="22" viewBox="0 0 20 20" fill="none">
+            {/* Outer arc */}
+            <path
+              d="M3.5 13.5A7.5 7.5 0 1 1 16.5 13.5"
+              stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" fill="none"
+            />
+            {/* Tick marks */}
+            <line x1="10" y1="3" x2="10" y2="4.8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+            <line x1="4.5" y1="5.5" x2="5.6" y2="6.6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+            <line x1="15.5" y1="5.5" x2="14.4" y2="6.6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+            {/* Needle pointing toward top-right */}
+            <line x1="10" y1="10" x2="13.8" y2="6.2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+            {/* Center dot */}
+            <circle cx="10" cy="10" r="1.2" fill="currentColor"/>
+          </svg>
+        )}
+        {/* Speed label */}
+        {!saving && (
+          <span style={{
+            position: "absolute",
+            bottom: -1,
+            right: -1,
+            fontSize: 8,
+            fontWeight: 700,
+            lineHeight: 1,
+            color: "#fff",
+            borderRadius: 3,
+            padding: "1px 2px",
+          }}>
+            {`${currentSpeed.toFixed(1)}×`}
+          </span>
+        )}
+      </button>
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
+
+// ─── CC (captions) control button ────────────────────────────────────────────
+
+const CAPTION_FONT_OPTIONS: { id: string; label: string }[] = [
+  { id: "inter", label: "Inter" },
+  { id: "poppins", label: "Poppins" },
+  { id: "montserrat", label: "Montserrat" },
+  { id: "roboto_slab", label: "Roboto Slab" },
+  { id: "oswald", label: "Oswald" },
+  { id: "lora", label: "Lora" },
+  { id: "patrick_hand", label: "Patrick Hand" },
+  { id: "arimo", label: "Arimo" },
+  { id: "archivo_black", label: "Archivo Black" },
+  { id: "merriweather", label: "Merriweather" },
+  { id: "playfair_display", label: "Playfair Display" },
+  { id: "fira_code", label: "Fira Code" },
+];
+
+function CaptionControl({
+  captionsEnabled,
+  captionFontFamily,
+  captionFontSize,
+  captionOffset,
+  saving,
+  onSave,
+  onPreviewChange,
+  playerContainerRef,
+}: {
+  captionsEnabled: boolean;
+  captionFontFamily: string;
+  captionFontSize: number;
+  captionOffset: number;
+  saving: boolean;
+  onSave?: (settings: CaptionSettings) => void | Promise<void>;
+  onPreviewChange?: (settings: CaptionSettings | null) => void;
+  playerContainerRef?: React.RefObject<PlayerRef | null>;
+}) {
+  const savedSettings = useMemo(
+    (): CaptionSettings => ({
+      captionsEnabled,
+      captionFontFamily,
+      captionFontSize,
+      captionOffset,
+    }),
+    [captionsEnabled, captionFontFamily, captionFontSize, captionOffset],
+  );
+
+  const keepPlayerControlsVisible = useCallback(() => {
+    const container = playerContainerRef?.current?.getContainerNode();
+    if (!container) return;
+    container.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, cancelable: true }));
+  }, [playerContainerRef]);
+
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<CaptionSettings>(savedSettings);
+  const ref = useRef<HTMLDivElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
+  const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({});
+
+  useEffect(() => {
+    if (!open) setDraft(savedSettings);
+  }, [open, savedSettings]);
+
+  const closePopup = useCallback(() => {
+    setOpen(false);
+    onPreviewChange?.(null);
+  }, [onPreviewChange]);
+
+  const openPopup = useCallback(() => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    const POPUP_HEIGHT = 420;
+    const rightOffset = window.innerWidth - rect.right;
+    setDraft(savedSettings);
+    onPreviewChange?.(null);
+    if (rect.top >= POPUP_HEIGHT + 6) {
+      setPopupStyle({ position: "fixed", bottom: window.innerHeight - rect.top + 6, right: rightOffset, zIndex: 9999 });
+    } else {
+      setPopupStyle({ position: "fixed", top: rect.bottom + 6, right: rightOffset, zIndex: 9999 });
+    }
+    setOpen(true);
+  }, [onPreviewChange, savedSettings]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent | TouchEvent) => {
+      const target = (e.type === "touchstart"
+        ? (e as TouchEvent).touches[0]?.target
+        : (e as MouseEvent).target) as Node | null;
+      if (ref.current?.contains(target) || popupRef.current?.contains(target)) return;
+      closePopup();
+    };
+    document.addEventListener("mousedown", handler as EventListener);
+    document.addEventListener("touchstart", handler as EventListener, { passive: true });
+    return () => {
+      document.removeEventListener("mousedown", handler as EventListener);
+      document.removeEventListener("touchstart", handler as EventListener);
+    };
+  }, [open, closePopup]);
+
+  const updateDraft = useCallback((patch: Partial<CaptionSettings>) => {
+    setDraft((prev) => {
+      const next = { ...prev, ...patch };
+      onPreviewChange?.(next);
+      return next;
+    });
+  }, [onPreviewChange]);
+
+  const hasUnsavedChanges =
+    draft.captionsEnabled !== savedSettings.captionsEnabled
+    || draft.captionFontFamily !== savedSettings.captionFontFamily
+    || draft.captionFontSize !== savedSettings.captionFontSize
+    || draft.captionOffset !== savedSettings.captionOffset;
+
+  const handleSave = useCallback(async () => {
+    if (!onSave || saving) return;
+    await onSave(draft);
+    closePopup();
+  }, [closePopup, draft, onSave, saving]);
+
+  // Enable captions directly (with save) without opening the popup. Used when the
+  // user clicks the CC button while captions are off — a one-click turn-on.
+  const handleQuickEnable = useCallback(async () => {
+    if (!onSave || saving) return;
+    await onSave({ ...savedSettings, captionsEnabled: true });
+  }, [onSave, saving, savedSettings]);
+
+  const handleCcButtonClick = useCallback(() => {
+    if (saving || !onSave) return;
+    if (open) {
+      closePopup();
+      return;
+    }
+    // Off → enable in one click and save. On → open the popup so the user can
+    // tweak settings or turn captions off (which requires an explicit Save).
+    if (!captionsEnabled) {
+      void handleQuickEnable();
+    } else {
+      openPopup();
+    }
+  }, [saving, onSave, open, closePopup, captionsEnabled, handleQuickEnable, openPopup]);
+
+  const btnStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 38,
+    height: 38,
+    borderRadius: 6,
+    border: "none",
+    background: open ? "rgba(255,255,255,0.15)" : "transparent",
+    cursor: saving || !onSave ? "default" : "pointer",
+    color: captionsEnabled ? "#f9fafb" : "rgba(249,250,251,0.4)",
+    transition: "background 150ms, color 150ms",
+    position: "relative",
+  };
+
+  return (
+    <div
+      ref={ref}
+      onMouseEnter={keepPlayerControlsVisible}
+      onMouseMove={keepPlayerControlsVisible}
+      style={{ position: "absolute", right: 84, bottom: 30, zIndex: 40, pointerEvents: "auto" }}
+    >
+      {open && createPortal(
+        <div
+          ref={popupRef}
+          style={{
+            ...popupStyle,
+            background: "#ffffff",
+            border: "1px solid rgba(15,23,42,0.12)",
+            borderRadius: 12,
+            backdropFilter: "blur(6px)",
+            padding: "8px 0",
+            minWidth: 220,
+            boxShadow: "0 12px 28px rgba(15,23,42,0.2)",
+          }}
+        >
+          <p style={{ color: "#64748b", fontSize: 11, fontWeight: 600, padding: "0 14px 8px", margin: 0, borderBottom: "1px solid rgba(15,23,42,0.1)" }}>
+            Captions
+          </p>
+
+          {/* Enable toggle */}
+          <div style={{ padding: "10px 14px", borderBottom: "1px solid rgba(15,23,42,0.08)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontSize: 12, fontWeight: 500, color: "#0f172a" }}>Enable captions</span>
+            <button
+              onClick={() => updateDraft({ captionsEnabled: !draft.captionsEnabled })}
+              style={{
+                width: 36, height: 20, borderRadius: 10, border: "none", cursor: "pointer",
+                background: draft.captionsEnabled ? "#7c3aed" : "#cbd5e1",
+                position: "relative", transition: "background 150ms", flexShrink: 0,
+              }}
+            >
+              <span style={{
+                position: "absolute", top: 2, left: draft.captionsEnabled ? 18 : 2,
+                width: 16, height: 16, borderRadius: "50%", background: "#fff",
+                transition: "left 150ms", display: "block",
+              }} />
+            </button>
+          </div>
+
+          {draft.captionsEnabled && (
+            <>
+              {/* Vertical position — always bottom-anchored; slider fine-tunes
+                  up (right/positive) or down (left/negative). Center = default. */}
+              <div style={{ padding: "8px 14px", borderBottom: "1px solid rgba(15,23,42,0.08)" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                  <p style={{ fontSize: 10, fontWeight: 600, color: "#94a3b8", margin: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>Offset</p>
+                  <button
+                    onClick={() => updateDraft({ captionOffset: 0 })}
+                    style={{ fontSize: 10, fontWeight: 600, color: draft.captionOffset === 0 ? "#94a3b8" : "#7c3aed", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                  >
+                    {draft.captionOffset === 0 ? "Default" : "Reset"}
+                  </button>
+                </div>
+                <input
+                  type="range"
+                  min={-100}
+                  max={100}
+                  step={1}
+                  value={draft.captionOffset}
+                  onChange={(e) => updateDraft({ captionOffset: Number(e.target.value) })}
+                  style={{ width: "100%", cursor: "pointer", accentColor: "#a855f7", height: 3 }}
+                />
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
+                  <span style={{ fontSize: 9, color: "#94a3b8" }}>Down</span>
+                  <span style={{ fontSize: 9, color: "#94a3b8" }}>Up</span>
+                </div>
+              </div>
+
+              {/* Font size */}
+              <div style={{ padding: "8px 14px", borderBottom: "1px solid rgba(15,23,42,0.08)" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                  <p style={{ fontSize: 10, fontWeight: 600, color: "#94a3b8", margin: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>Size</p>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "#7c3aed" }}>{draft.captionFontSize}px</span>
+                </div>
+                <input
+                  type="range"
+                  min={12}
+                  max={64}
+                  step={1}
+                  value={draft.captionFontSize}
+                  onChange={(e) => updateDraft({ captionFontSize: Number(e.target.value) })}
+                  style={{ width: "100%", cursor: "pointer", accentColor: "#a855f7", height: 3 }}
+                />
+              </div>
+
+              {/* Font family */}
+              <div style={{ padding: "8px 14px", borderBottom: "1px solid rgba(15,23,42,0.08)" }}>
+                <p style={{ fontSize: 10, fontWeight: 600, color: "#94a3b8", margin: "0 0 6px", textTransform: "uppercase", letterSpacing: "0.04em" }}>Font</p>
+                <div style={{ position: "relative" }}>
+                  <select
+                    value={draft.captionFontFamily}
+                    onChange={(e) => updateDraft({ captionFontFamily: e.target.value })}
+                    style={{
+                      width: "100%", padding: "6px 28px 6px 8px", borderRadius: 6,
+                      border: "1px solid rgba(15,23,42,0.12)", background: "#fff",
+                      fontSize: 12, fontWeight: 500, color: "#0f172a",
+                      cursor: "pointer", appearance: "none", outline: "none",
+                    }}
+                  >
+                    {CAPTION_FONT_OPTIONS.map(({ id, label }) => (
+                      <option key={id} value={id}>{label}</option>
+                    ))}
+                  </select>
+                  <div style={{ pointerEvents: "none", position: "absolute", inset: 0, right: 8, display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ color: "#94a3b8" }}>
+                      <path d="M2 3.5l3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          <div style={{ padding: "10px 14px 6px", borderTop: "1px solid rgba(15,23,42,0.08)" }}>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving || !onSave || !hasUnsavedChanges}
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                borderRadius: 8,
+                border: "none",
+                background: saving || !onSave || !hasUnsavedChanges ? "#e2e8f0" : "#7c3aed",
+                color: saving || !onSave || !hasUnsavedChanges ? "#94a3b8" : "#ffffff",
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: saving || !onSave || !hasUnsavedChanges ? "default" : "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+              }}
+            >
+              {saving ? (
+                <>
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ animation: "spin 0.8s linear infinite" }}>
+                    <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" strokeDasharray="20" strokeLinecap="round" opacity="0.35" />
+                    <path d="M14 8a6 6 0 0 0-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                  Saving…
+                </>
+              ) : (
+                "Save caption settings"
+              )}
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* CC button */}
+      <button
+        data-tour="captions"
+        onClick={handleCcButtonClick}
+        style={btnStyle}
+        title="Captions"
+        aria-label="Captions"
+      >
+        {saving ? (
+          <svg width="22" height="22" viewBox="0 0 16 16" fill="none" style={{ animation: "spin 0.8s linear infinite" }}>
+            <circle cx="8" cy="8" r="6" stroke="rgba(255,255,255,0.25)" strokeWidth="2"/>
+            <path d="M14 8a6 6 0 0 0-6-6" stroke="#f9fafb" strokeWidth="2" strokeLinecap="round"/>
+          </svg>
+        ) : (
+          /* CC icon — rounded rectangle with "CC" text */
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+            <rect x="1.5" y="5" width="19" height="12" rx="2.5" stroke="currentColor" strokeWidth="1.6"/>
+            <text x="11" y="14.5" textAnchor="middle" fontSize="7.5" fontWeight="700" fill="currentColor" fontFamily="system-ui, sans-serif">CC</text>
+          </svg>
+        )}
+      </button>
+    </div>
+  );
+}
+
+const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function VideoPreview(
+  {
+    project,
+    layoutPropSchema,
+    logoSizeOverride,
+    logoOpacityOverride,
+    logoPositionOverride,
+    onPlaybackSpeedChange,
+    playbackSpeedSaving = false,
+    onCaptionSettingsChange,
+    captionsSaving = false,
+    captionSettingsKey = 0,
+    precompiledTemplateData,
+    initialFrame,
+    hideControls = false,
+    precompiledCraftedDetail,
+    ownerScopedProjectId,
+    pendingVoiceovers,
+    sceneOnlyIndex,
+    sceneOnlyDurationSeconds,
+    initiallyMuted = false,
+    hideOverlayControls = false,
+    holdOnLastFrame = false,
+  },
+  ref
+) {
+  const templateId = normalizeBuiltInTemplateId(project.template);
+  const isCustom = templateId.startsWith("custom_");
+  const isCrafted = templateId.startsWith("crafted_");
+  const { craftedTemplates, loading: craftedTemplatesLoading, ensureCraftedTemplateDetail } = useCraftedTemplates();
+
+  // ─── Crafted template: fetch + JIT-compile R2-bundled frontend ─────────
+  // Crafted templates use the same data shape as a built-in (scenes with a
+  // `layout` string), but the composition lives in R2 instead of the repo.
+  // We pull the matching entry from /crafted-templates, runtime-compile its
+  // frontend bundle, and use that compiled component as the Player composition.
+  // Without this, getTemplateConfig falls back to `default` and the project
+  // view shows DefaultVideoComposition with crafted layout names it can't map.
+  const craftedItem = useMemo<CraftedTemplateItem | null>(() => {
+    if (!isCrafted) return null;
+    return craftedTemplates.find((d) => d.id === project.template) ?? null;
+  }, [craftedTemplates, isCrafted, project.template]);
+  const craftedDetail = useMemo<CraftedTemplateDetail | null>(() => {
+    if (!craftedItem) return null;
+    if (craftedItem.frontend_files && craftedItem.frontend_entry_rel) {
+      return craftedItem as CraftedTemplateDetail;
+    }
+    return null;
+  }, [craftedItem]);
+  // Pre-fetched detail (e.g. from a public embed response) takes precedence
+  // over the auth-only CraftedTemplatesContext, which is unavailable to
+  // logged-out viewers.
+  const effectiveCraftedItem: CraftedTemplateItem | null = precompiledCraftedDetail ?? craftedItem;
+  const effectiveCraftedDetail: CraftedTemplateDetail | null = precompiledCraftedDetail ?? craftedDetail;
+  const [compiledCrafted, setCompiledCrafted] = useState<React.ComponentType<any> | null>(null);
+  const [isCompilingCrafted, setIsCompilingCrafted] = useState(false);
+  const craftedTemplateLogoUrl = useMemo(
+    () => resolveCraftedTemplateLogoUrl(effectiveCraftedDetail || effectiveCraftedItem),
+    [effectiveCraftedDetail, effectiveCraftedItem],
+  );
+
+  useEffect(() => {
+    if (!isCrafted) {
+      setCompiledCrafted(null);
+      setIsCompilingCrafted(false);
+      return;
+    }
+    // Still waiting on the crafted item fetch — keep the player locked behind
+    // the loading overlay so it never falls back to DefaultVideoComposition
+    // with unknown layout names mid-mount.
+    if (!effectiveCraftedItem) {
+      setCompiledCrafted(null);
+      setIsCompilingCrafted(true);
+      return;
+    }
+    if (!effectiveCraftedDetail) {
+      setCompiledCrafted(null);
+      setIsCompilingCrafted(true);
+      if (!precompiledCraftedDetail) {
+        void ensureCraftedTemplateDetail(templateId);
+      }
+      return;
+    }
+    if (!effectiveCraftedDetail.frontend_files || !effectiveCraftedDetail.frontend_entry_rel) {
+      setCompiledCrafted(null);
+      setIsCompilingCrafted(false);
+      return;
+    }
+    let cancelled = false;
+    setIsCompilingCrafted(true);
+    compileModuleGraphEntry(
+      effectiveCraftedDetail.frontend_files,
+      effectiveCraftedDetail.frontend_entry_rel,
+      effectiveCraftedDetail.public_asset_urls,
+    )
+      .then((result) => {
+        if (cancelled) return;
+        if (result.success) {
+          setCompiledCrafted(() => result.component);
+        } else {
+          console.error("[VideoPreview] Crafted bundle compile failed:", result.error);
+          setCompiledCrafted(null);
+        }
+        setIsCompilingCrafted(false);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("[VideoPreview] Crafted bundle compile threw:", err);
+        setCompiledCrafted(null);
+        setIsCompilingCrafted(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isCrafted, effectiveCraftedItem, effectiveCraftedDetail, precompiledCraftedDetail, ensureCraftedTemplateDetail, templateId]);
+
+  const [fetchedLayoutPropSchema, setFetchedLayoutPropSchema] = useState<Record<
+    string,
+    { defaults?: Record<string, unknown> }
+  > | null>(null);
+  const [fetchedValidLayouts, setFetchedValidLayouts] = useState<readonly string[] | null>(null);
+
+  useEffect(() => {
+    if (layoutPropSchema !== undefined || !project.id || isCustom) {
+      return;
+    }
+    let cancelled = false;
+    void getValidLayouts(project.id).then((lr) => {
+      if (cancelled) return;
+      const s = lr.data.layout_prop_schema;
+      setFetchedLayoutPropSchema(
+        s && typeof s === "object" ? (s as Record<string, { defaults?: Record<string, unknown> }>) : null,
+      );
+      const layouts = lr.data.layouts;
+      setFetchedValidLayouts(Array.isArray(layouts) && layouts.length > 0 ? layouts : null);
+    }).catch(() => {
+      if (!cancelled) {
+        setFetchedLayoutPropSchema(null);
+        setFetchedValidLayouts(null);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [project.id, project.template, isCustom, layoutPropSchema]);
+
+  const config = useMemo(() => {
+    const base = getTemplateConfig(templateId);
+    if (isCrafted && effectiveCraftedItem) {
+      const validLayouts =
+        Array.isArray(effectiveCraftedItem.valid_layouts) && effectiveCraftedItem.valid_layouts.length > 0
+          ? new Set(effectiveCraftedItem.valid_layouts)
+          : base.validLayouts;
+      const fallbackLayout = effectiveCraftedItem.fallback_layout || base.fallbackLayout;
+      const heroLayout = effectiveCraftedItem.hero_layout || base.heroLayout;
+      const previewColors = effectiveCraftedItem.preview_colors;
+      return {
+        ...base,
+        validLayouts,
+        fallbackLayout,
+        heroLayout,
+        defaultColors: previewColors
+          ? {
+              accent: previewColors.accent || base.defaultColors.accent,
+              bg: previewColors.bg || base.defaultColors.bg,
+              text: previewColors.text || base.defaultColors.text,
+            }
+          : base.defaultColors,
+      };
+    }
+    if (!isCustom && fetchedValidLayouts && fetchedValidLayouts.length > 0) {
+      return {
+        ...base,
+        validLayouts: new Set(fetchedValidLayouts),
+      };
+    }
+    return base;
+  }, [templateId, isCrafted, effectiveCraftedItem, isCustom, fetchedValidLayouts]);
+
+  const effectiveLayoutPropSchema = useMemo((): Record<string, { defaults?: Record<string, unknown> }> | null => {
+    if (layoutPropSchema !== undefined) {
+      return layoutPropSchema;
+    }
+    if (fetchedLayoutPropSchema && Object.keys(fetchedLayoutPropSchema).length > 0) {
+      return fetchedLayoutPropSchema;
+    }
+    if (
+      isCrafted &&
+      craftedItem?.layout_prop_schema &&
+      typeof craftedItem.layout_prop_schema === "object"
+    ) {
+      return craftedItem.layout_prop_schema as Record<string, { defaults?: Record<string, unknown> }>;
+    }
+    return null;
+  }, [layoutPropSchema, fetchedLayoutPropSchema, isCrafted, craftedItem]);
+
+  const resolvedFontFamily = resolveFontFamily(project.font_family ?? null);
+
+  // Ref to Remotion Player — passed to PlaybackSpeedControl and forwarded for slide export.
+  const playerRef = useRef<PlayerRef | null>(null);
+  const setPlayerRef = useCallback(
+    (node: PlayerRef | null) => {
+      playerRef.current = node;
+      if (typeof ref === "function") {
+        ref(node);
+      } else if (ref) {
+        (ref as React.MutableRefObject<PlayerRef | null>).current = node;
+      }
+    },
+    [ref]
+  );
+
+  // ─── Custom template: fetch + JIT-compile AI-generated scene code ─────
+  const [compiledScenes, setCompiledScenes] = useState<CompiledSceneMap | null>(null);
+  const [isCompiling, setIsCompiling] = useState(false);
+
+  const compileCustomTemplate = useCallback(async () => {
+    if (!isCustom) return;
+    const match = project.template?.match(/^custom_(\d+)$/);
+    if (!match) return;
+    const templateId = parseInt(match[1], 10);
+
+    setIsCompiling(true);
+    try {
+      const data =
+        precompiledTemplateData ||
+        (ownerScopedProjectId != null
+          ? (await getProjectTemplateCode(ownerScopedProjectId, templateId)).data
+          : (await getTemplateCode(templateId)).data);
+      const map: CompiledSceneMap = {};
+
+      // Compile intro
+      if (data.intro_code) {
+        const result = await compileComponentCode(data.intro_code);
+        if (result.success) map["intro"] = result.component;
+      }
+      // Compile content variants
+      if (data.content_codes && data.content_codes.length > 0) {
+        for (let i = 0; i < data.content_codes.length; i++) {
+          const result = await compileComponentCode(data.content_codes[i]);
+          if (result.success) map[`content_${i}`] = result.component;
+        }
+      }
+      // Compile outro
+      if (data.outro_code) {
+        const result = await compileComponentCode(data.outro_code);
+        if (result.success) map["outro"] = result.component;
+      }
+      setCompiledScenes(Object.keys(map).length > 0 ? map : null);
+    } catch (err) {
+      console.error("[VideoPreview] Failed to compile custom template:", err);
+      setCompiledScenes(null);
+    } finally {
+      setIsCompiling(false);
+    }
+  }, [isCustom, project.template, precompiledTemplateData, ownerScopedProjectId]);
+
+  useEffect(() => {
+    compileCustomTemplate();
+  }, [compileCustomTemplate]);
+
+  const scenes = useMemo((): SceneInput[] => {
+    const resolveUrl = (asset: {
+      id?: number;
+      r2_url: string | null;
+      filename: string;
+      asset_type: string;
+    }, cacheBuster?: string) => {
+      const subdir = asset.asset_type === "image" ? "images" : "audio";
+      const localPath = `/media/projects/${project.id}/${subdir}/${asset.filename}`;
+      
+      // In local dev, prefer R2 when available so projects still preview
+      // even if local /media files were cleaned up.
+      const isLocalDev = !BACKEND_URL || 
+                         BACKEND_URL.includes('localhost') || 
+                         BACKEND_URL.includes('127.0.0.1');
+      
+      let base: string;
+      if (isLocalDev) {
+        base = asset.r2_url ? asset.r2_url : localPath;
+        console.log("base", base);
+      } else {
+        base = asset.r2_url ? asset.r2_url : `${BACKEND_URL}${localPath}`;
+      }
+      // Cache-bust so regenerated voiceovers (new asset id) load fresh instead of browser cache
+      const suffix = cacheBuster ? (base.includes("?") ? `&v=${cacheBuster}` : `?v=${cacheBuster}`) : "";
+      return base + suffix;
+    };
+
+    const imageAssets = project.assets
+      .filter((a) => a.asset_type === "image" && !a.excluded)
+      .slice()
+      // Keep ordering deterministic so 1:1 generic assignment is stable
+      .sort((a, b) => {
+        const ad = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const bd = b.created_at ? new Date(b.created_at).getTime() : 0;
+        if (ad !== bd) return ad - bd;
+        return (a.id ?? 0) - (b.id ?? 0);
+      });
+    const audioAssets = project.assets.filter((a) => a.asset_type === "audio");
+    const videoAssets = project.assets.filter(
+      (a) => a.asset_type === "video" && !a.excluded,
+    );
+    const sceneImageMap: Record<number, string> = {};
+    const hideImageFlags: boolean[] = new Array(project.scenes.length).fill(false);
+    const usedGenericFiles = new Set<string>();
+
+    // Stock footage occupies the same visual slot as the still, so a scene with
+    // a clip is resolved first and then excluded from image assignment below —
+    // otherwise a generic scraped image would be layered under the clip.
+    const sceneVideoMap: Record<
+      number,
+      { url: string; durationSeconds?: number; muted: boolean; volume: number }
+    > = {};
+    if (videoAssets.length > 0 && project.scenes.length > 0) {
+      const videoByFilename = new Map(videoAssets.map((a) => [a.filename, a]));
+      project.scenes.forEach((sceneRow, idx) => {
+        if (!sceneRow.remotion_code) return;
+        let layoutProps: Record<string, unknown> = {};
+        try {
+          layoutProps =
+            (JSON.parse(sceneRow.remotion_code).layoutProps as Record<string, unknown>) || {};
+        } catch {
+          return;
+        }
+        if (layoutProps.hideImage) return;
+        const assignedVideo = layoutProps.assignedVideo as string | undefined;
+        const asset = assignedVideo ? videoByFilename.get(assignedVideo) : undefined;
+        if (!asset) return;
+        const rawVolume = Number(layoutProps.videoVolume);
+        const muted =
+          layoutProps.videoMuted === undefined ? true : Boolean(layoutProps.videoMuted);
+        // The main clip file is silent (audio stripped on ingest); the audible
+        // track lives in the AAC sibling `audio_variant_filename`. When a scene
+        // unmutes, point playback at that sibling — otherwise unmuting is a no-op
+        // because the silent file has no audio stream. Mirrors remotion.py.
+        let url = resolveUrl(asset);
+        if (!muted && asset.audio_variant_filename) {
+          const audioAsset = { ...asset, filename: asset.audio_variant_filename };
+          if (asset.r2_url) {
+            // Same R2 directory, only the last path segment differs.
+            audioAsset.r2_url =
+              asset.r2_url.slice(0, asset.r2_url.lastIndexOf("/") + 1) +
+              asset.audio_variant_filename;
+          }
+          url = resolveUrl(audioAsset);
+        }
+        sceneVideoMap[idx] = {
+          url,
+          durationSeconds: asset.duration_seconds ?? undefined,
+          muted,
+          volume: Number.isFinite(rawVolume) ? rawVolume : 0.35,
+        };
+      });
+    }
+
+    if (imageAssets.length > 0 && project.scenes.length > 0) {
+      // Build filename -> asset lookup
+      const filenameToAsset = new Map<string, typeof imageAssets[0]>();
+      imageAssets.forEach((asset) => filenameToAsset.set(asset.filename, asset));
+
+      // 1) Honor stored assignedImage (any filename); multiple scenes may share one file.
+      project.scenes.forEach((sceneRow, idx) => {
+        let layoutProps: Record<string, unknown> = {};
+        if (sceneRow.remotion_code) {
+          try {
+            const descriptor = JSON.parse(sceneRow.remotion_code);
+            layoutProps = (descriptor.layoutProps as Record<string, unknown>) || {};
+          } catch {
+            /* legacy */
+          }
+        }
+
+        const hideImage = Boolean((layoutProps as any).hideImage);
+        hideImageFlags[idx] = hideImage;
+        if (hideImage) {
+          return;
+        }
+
+        // A clip fills this scene's visual slot; skip so no still is assigned too.
+        if (sceneVideoMap[idx]) {
+          hideImageFlags[idx] = true;
+          return;
+        }
+
+        const assignedImage = layoutProps.assignedImage as string | undefined;
+        if (assignedImage && filenameToAsset.has(assignedImage)) {
+          const asset = filenameToAsset.get(assignedImage)!;
+          sceneImageMap[idx] = resolveUrl(asset);
+          usedGenericFiles.add(assignedImage);
+        }
+      });
+
+      // 2) Orphan scene_<id>_ files with no layoutProps — bind to matching scene only
+      const sceneSpecificAssets: { sceneId: number; url: string; asset: (typeof imageAssets)[0] }[] =
+        [];
+      const genericAssets: typeof imageAssets = [];
+      for (const asset of imageAssets) {
+        const match = asset.filename.match(/^scene_(\d+)_/);
+        if (match) {
+          const sceneId = parseInt(match[1], 10);
+          sceneSpecificAssets.push({ sceneId, url: resolveUrl(asset), asset });
+        } else {
+          genericAssets.push(asset);
+        }
+      }
+      for (const { sceneId, url, asset } of sceneSpecificAssets) {
+        const sceneIdx = project.scenes.findIndex((s) => s.id === sceneId);
+        if (sceneIdx < 0 || hideImageFlags[sceneIdx]) continue;
+        let layoutProps: Record<string, unknown> = {};
+        if (project.scenes[sceneIdx].remotion_code) {
+          try {
+            const descriptor = JSON.parse(project.scenes[sceneIdx].remotion_code!);
+            layoutProps = (descriptor.layoutProps as Record<string, unknown>) || {};
+          } catch {
+            /* legacy */
+          }
+        }
+        if (layoutProps.assignedImage || layoutProps.hideImage) continue;
+        sceneImageMap[sceneIdx] = url;
+        usedGenericFiles.add(asset.filename);
+      }
+
+      // 3) Auto-fill remaining scenes with unused generic images
+      let genericIdx = 0;
+      for (let sceneIdx = 0; sceneIdx < project.scenes.length; sceneIdx++) {
+        if (sceneImageMap[sceneIdx] != null || hideImageFlags[sceneIdx]) continue;
+        while (genericIdx < genericAssets.length) {
+          const candidate = genericAssets[genericIdx];
+          genericIdx++;
+          if (usedGenericFiles.has(candidate.filename)) continue;
+          usedGenericFiles.add(candidate.filename);
+          sceneImageMap[sceneIdx] = resolveUrl(candidate);
+          break;
+        }
+      }
+    }
+
+    const built: SceneInput[] = project.scenes.map((scene, idx) => {
+      let layout = config.fallbackLayout;
+      let layoutProps: Record<string, unknown> = {};
+      let layoutConfig: Record<string, unknown> | undefined;
+      let structuredContent: Record<string, unknown> | undefined;
+      let ctaProps: Record<string, unknown> | undefined;
+
+      if (scene.remotion_code) {
+        try {
+          const descriptor = JSON.parse(scene.remotion_code);
+          if (isCustom) {
+            // Custom templates: always extract structuredContent
+            if (descriptor.structuredContent) {
+              structuredContent = descriptor.structuredContent;
+            }
+            if (descriptor.ctaProps) {
+              ctaProps = descriptor.ctaProps;
+            }
+            // Custom templates also store image controls in layoutProps.
+            // Without this, imageFocusX/imageFocusY/imageZoom from remotion_code
+            // are ignored in preview even though they exist in DB.
+            layoutProps = descriptor.layoutProps || {};
+            if (descriptor.layoutConfig) {
+              layoutConfig = descriptor.layoutConfig;
+              layout = descriptor.layoutConfig.arrangement || "full-center";
+            }
+            // console.log(`[VideoPreview] scene ${idx}: custom template, arrangement=${layout}, contentType=${structuredContent?.contentType || 'none'}`);
+            // console.log(`[F7-DEBUG] [VideoPreview] scene ${idx} PARSED: structuredContent=${JSON.stringify(structuredContent)?.substring(0,150)}, layoutConfig=${JSON.stringify(layoutConfig)?.substring(0,100)}`);
+          } else if (descriptor.layoutConfig) {
+            // Built-in template with layoutConfig (unlikely but supported)
+            layoutConfig = descriptor.layoutConfig;
+            layout = descriptor.layoutConfig.arrangement || "full-center";
+            if (descriptor.structuredContent) {
+              structuredContent = descriptor.structuredContent;
+            }
+          } else {
+            // Built-in templates: legacy layout + layoutProps
+            layout = descriptor.layout || config.fallbackLayout;
+            layoutProps = descriptor.layoutProps || {};
+          }
+        } catch {
+          if (isCustom) {
+            console.error(`[VideoPreview] scene ${idx} ❌: failed to parse remotion_code: ${scene.remotion_code?.substring(0, 100)}`);
+          }
+        }
+      } else if (isCustom) {
+        console.error(`[VideoPreview] scene ${idx} ❌: no remotion_code at all — pipeline hasn't generated this scene yet`);
+      }
+
+      if (scene.order === 1 && !scene.remotion_code) {
+        layout = config.heroLayout;
+      }
+
+      // For custom templates, arrangements are validated by the backend;
+      // for built-in templates, validate against the template's layout set.
+      if (!isCustom && !config.validLayouts.has(layout)) {
+        layout = config.fallbackLayout;
+      }
+
+      // Extract audio filename from voiceover_path to ensure correct audio after reordering
+      // voiceover_path format: ".../audio/scene_X.mp3" or "C:\...\audio\scene_X.mp3"
+      // After reordering, voiceover_path still points to the original filename, so we use it directly
+      let voiceoverUrl: string | undefined = undefined;
+
+      // Applied-but-unsaved recording wins over any saved asset, so the preview
+      // plays the user's recorded voice before it's persisted.
+      const pending = pendingVoiceovers?.get(scene.id);
+      if (pending) {
+        voiceoverUrl = pending.url;
+      }
+
+      if (!voiceoverUrl && scene.voiceover_path) {
+        // Extract filename from voiceover_path (handles Windows paths with mixed separators)
+        // Path format: "C:\...\audio\scene_X.mp3" or ".../audio/scene_X.mp3"
+        const pathParts = scene.voiceover_path.split(/[/\\]/);
+        const filename = pathParts.find(part => part.startsWith('scene_') && part.endsWith('.mp3'));
+        
+        if (filename) {
+          // When a scene is regenerated, a new audio Asset is created (same filename). Pick the
+          // latest by id so we use the new voiceover; cache-bust with ?v=assetId so the browser
+          // doesn't serve cached old audio.
+          const matchingAudios = audioAssets.filter((a) => a.filename === filename);
+          const latestAudio = matchingAudios.length > 0
+            ? matchingAudios.sort((a, b) => (b.id ?? 0) - (a.id ?? 0))[0]
+            : null;
+          
+          if (latestAudio) {
+            voiceoverUrl = resolveUrl(latestAudio, String(latestAudio.id));
+          } else {
+            const isLocalDev = !BACKEND_URL || 
+                               BACKEND_URL.includes('localhost') || 
+                               BACKEND_URL.includes('127.0.0.1');
+            const localPath = `/media/projects/${project.id}/audio/${filename}`;
+            voiceoverUrl = isLocalDev ? localPath : `${BACKEND_URL}${localPath}`;
+          }
+        }
+      }
+      
+      // If no voiceover_path, try matching by current order (backwards compatibility)
+      if (!voiceoverUrl) {
+        const byOrder = audioAssets.filter((a) => a.filename === `scene_${scene.order}.mp3`);
+        const latest = byOrder.length > 0 ? byOrder.sort((a, b) => (b.id ?? 0) - (a.id ?? 0))[0] : null;
+        if (latest) {
+          voiceoverUrl = resolveUrl(latest, String(latest.id));
+        }
+      }
+
+      const onScreenText = scene.display_text ?? scene.narration_text;
+
+      if (!isCustom) {
+        layoutProps = mergeLayoutSchemaDefaults(
+          layoutProps,
+          layout,
+          effectiveLayoutPropSchema ?? undefined,
+          project.aspect_ratio || "landscape",
+          templateId,
+        );
+      }
+
+      return {
+        id: scene.id,
+        order: scene.order,
+        title: scene.title,
+        narration: onScreenText,
+        narrationText: scene.narration_text || "",
+        layout,
+        layoutProps,
+        ...(layoutConfig ? { layoutConfig } : {}),
+        ...(structuredContent ? { structuredContent } : {}),
+        ...(ctaProps ? { ctaProps } : {}),
+        // For an applied (unsaved) recording, mirror the backend's saved-scene math:
+        // round(max(MIN_SCENE_DURATION_SECONDS=7, recordedDuration + DURATION_PAD=1), 1),
+        // so pre-save timing matches the eventual saved scene. Else use the stored value.
+        durationSeconds:
+          (pending
+            ? Math.max(7, pending.duration + 1.0)
+            : Number(scene.duration_seconds) || 5) +
+          (Number(scene.extra_hold_seconds) || 0),
+        // Spoken-audio window for caption timing: scene.duration_seconds = audio + ~1s pad,
+        // so speech ≈ duration - 1.0s. Only meaningful when a voiceover exists.
+        speechDurationSeconds:
+          pending
+            ? Math.max(0.5, pending.duration)
+            : scene.voiceover_path
+              ? Math.max(0.5, (Number(scene.duration_seconds) || 5) - 1.0)
+              : 0,
+        bgmVolume: scene.bgm_volume ?? null,
+        imageUrl: sceneImageMap[idx],
+        videoUrl: sceneVideoMap[idx]?.url,
+        videoMuted: sceneVideoMap[idx]?.muted ?? true,
+        videoVolume: sceneVideoMap[idx]?.volume ?? 0.35,
+        videoDurationSeconds: sceneVideoMap[idx]?.durationSeconds,
+        videoStartSeconds: (() => {
+          const raw = Number(layoutProps.videoStartSeconds);
+          return Number.isFinite(raw) && raw > 0 ? raw : undefined;
+        })(),
+        voiceoverUrl,
+      };
+    });
+
+    // Slice to a single scene LAST — every index-dependent decision above (image
+    // assignment from a shared pool, scene type, content variant) is resolved
+    // against the full project first, so a lone middle scene still renders exactly
+    // as it does in the real video. Carry its true position for scene chrome.
+    if (sceneOnlyIndex !== undefined && built[sceneOnlyIndex]) {
+      const only = built[sceneOnlyIndex];
+      return [
+        {
+          ...only,
+          durationSeconds: sceneOnlyDurationSeconds ?? only.durationSeconds,
+          trueIndex: sceneOnlyIndex,
+          trueTotal: built.length,
+          // Drop the voiceover when muted. Muting alone isn't enough: a mounted
+          // <Audio> still buffers, and Remotion halts the whole timeline until it
+          // fires `canplay` — which stalls the scene a few frames in. Stripping the
+          // URL here covers every composition path (custom + all the built-in
+          // adapters, which each render their own <Audio>) from one place.
+          ...(initiallyMuted ? { voiceoverUrl: undefined } : {}),
+        },
+      ];
+    }
+    return built;
+  }, [
+    project,
+    config,
+    isCustom,
+    effectiveLayoutPropSchema,
+    pendingVoiceovers,
+    sceneOnlyIndex,
+    sceneOnlyDurationSeconds,
+    initiallyMuted,
+  ]);
+
+  const totalDurationFrames = useMemo(() => {
+    const FPS = 30;
+    // Chronicle uses TransitionSeries with scene-minimum enforcement and last-scene
+    // trimming, so its actual rendered length differs from a raw sum. Use its own
+    // calculator to keep the Player duration in sync (no brown tail at the end).
+    if (templateId === "chronicle") {
+      const chronicleScenes = scenes.map((s) => ({
+        id: s.id,
+        order: s.order,
+        title: s.title,
+        narration: s.narration,
+        layout: s.layout,
+        layoutProps: s.layoutProps,
+        durationSeconds: s.durationSeconds,
+        imageUrl: s.imageUrl,
+        voiceoverUrl: s.voiceoverUrl,
+      }));
+      return computeChronicleVideoTotalFrames(chronicleScenes, 1);
+    }
+    if (templateId === "sakura") {
+      // Sakura renders as a TransitionSeries whose neighbouring scenes OVERLAP by the
+      // transition length, so its real length is the raw per-scene sum minus the overlaps.
+      // Use its own calculator so the Player's declared length matches the render.
+      const sakuraScenes = scenes.map((s) => ({
+        id: s.id,
+        order: s.order,
+        title: s.title,
+        narration: s.narration,
+        layout: s.layout,
+        layoutProps: s.layoutProps,
+        durationSeconds: s.durationSeconds,
+        imageUrl: s.imageUrl,
+        voiceoverUrl: s.voiceoverUrl,
+      }));
+      return computeSakuraVideoTotalFrames(sakuraScenes);
+    }
+    if (templateId === "magazine") {
+      // Magazine renders as a black-bridged TransitionSeries whose real length is NOT the
+      // raw per-scene sum (each boundary adds a net black bridge). Use the SAME planner the
+      // composition uses so the Player's declared length matches it exactly — otherwise the
+      // Player clips the tail. Mirrors MagazinePreview / Template Studio.
+      if (scenes.length === 0) return FPS * 5;
+      const layoutKeys = scenes.map((s) => resolveMagazineLayout(String(s.layout)));
+      const per = scenes.map((s) =>
+        Math.max(1, Math.round((Number(s.durationSeconds) || 5) * FPS)),
+      );
+      const { totalFrames } = planMagazineBoundaries(
+        layoutKeys,
+        per,
+        project.accent_color || "#D71921",
+      );
+      return Math.max(totalFrames, FPS * 5);
+    }
+    // Use the derived `scenes` (which already applies pending-recording duration
+    // overrides and includes extra_hold_seconds) so the Player's total length
+    // reflects applied recordings before save — not just after loadProject.
+    const sceneFrames = scenes.map((s) =>
+      getSceneDurationFrames(Number(s.durationSeconds) || 5, FPS, 1),
+    );
+    const sum = sceneFrames.reduce((a, b) => a + b, 0);
+    return Math.max(sum, FPS * 5);
+  }, [project.scenes, project.aspect_ratio, project.accent_color, templateId, scenes]);
+
+  // `initialFrame` (used by PPT/scene export) is computed from a raw frame sum,
+  // but templates with TransitionSeries overlap (FJ Market Brief, Chronicle)
+  // have a shorter true composition length. Clamp to totalDurationFrames - 1 so
+  // the Player never gets an out-of-range initialFrame (Remotion throws otherwise).
+  const safeInitialFrame = useMemo(() => {
+    if (initialFrame === undefined) return undefined;
+    const max = Math.max(0, totalDurationFrames - 1);
+    return Math.max(0, Math.min(max, Math.floor(initialFrame)));
+  }, [initialFrame, totalDurationFrames]);
+
+  // Preload images, voiceover and stock clips so they're in browser cache when
+  // Remotion renders. Clips matter most: a cold .mp4 stalls the Player timeline
+  // mid-playback while the media element fetches and seeks.
+  const [mediaReady, setMediaReady] = useState(false);
+  const [isPreloadingMedia, setIsPreloadingMedia] = useState(false);
+  const mediaSources = useMemo(
+    () =>
+      scenes
+        .flatMap((s) => [s.imageUrl, s.voiceoverUrl, s.videoUrl])
+        .filter(Boolean) as string[],
+    [scenes],
+  );
+  const mediaSourcesKey = useMemo(() => mediaSources.join("||"), [mediaSources]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const cleanupFns: Array<() => void> = [];
+    setMediaReady(false);
+    setIsPreloadingMedia(true);
+    const imageUrls = mediaSources.filter((src) =>
+      /\.(png|jpe?g|webp|gif|svg)(\?|$)/i.test(src),
+    );
+    const audioUrls = mediaSources.filter((src) =>
+      /\.(mp3|wav|m4a|ogg)(\?|$)/i.test(src),
+    );
+    const videoUrls = mediaSources.filter((src) =>
+      /\.(mp4|webm|mov|m4v)(\?|$)/i.test(src),
+    );
+
+    const imagePromises = imageUrls.map(
+      (src) =>
+        new Promise<void>((resolve) => {
+          const img = new Image();
+          let settled = false;
+          const done = () => {
+            if (settled) return;
+            settled = true;
+            resolve();
+          };
+          img.onload = done;
+          img.onerror = done; // don't block on error
+          img.src = src;
+          cleanupFns.push(() => {
+            img.onload = null;
+            img.onerror = null;
+          });
+        }),
+    );
+
+    const audioPromises = audioUrls.map(
+      (src) =>
+        new Promise<void>((resolve) => {
+          const audio = document.createElement("audio");
+          audio.preload = "auto";
+          audio.muted = true;
+          let settled = false;
+          const done = () => {
+            if (settled) return;
+            settled = true;
+            resolve();
+          };
+          // Consider audio ready only once metadata/playability is available.
+          audio.addEventListener("loadedmetadata", done);
+          audio.addEventListener("canplay", done);
+          audio.addEventListener("canplaythrough", done);
+          audio.addEventListener("error", done);
+          audio.src = src;
+          // Safety timeout — keep generous to avoid starting before media is warm.
+          const timeoutId = window.setTimeout(done, 15000);
+          cleanupFns.push(() => {
+            window.clearTimeout(timeoutId);
+            audio.removeEventListener("loadedmetadata", done);
+            audio.removeEventListener("canplay", done);
+            audio.removeEventListener("canplaythrough", done);
+            audio.removeEventListener("error", done);
+            audio.src = "";
+          });
+        }),
+    );
+
+    // Stock clips: resolve on `canplaythrough`, NOT `loadedmetadata`. Metadata
+    // only means headers arrived — the buffer is still empty, which is exactly
+    // the state that stalls the Player's timeline once playback reaches the clip.
+    const videoPromises = videoUrls.map(
+      (src) =>
+        new Promise<void>((resolve) => {
+          const video = document.createElement("video");
+          video.preload = "auto";
+          video.muted = true;
+          // Required for the buffer to actually fill on iOS Safari.
+          video.playsInline = true;
+          let settled = false;
+          const done = () => {
+            if (settled) return;
+            settled = true;
+            resolve();
+          };
+          video.addEventListener("canplaythrough", done);
+          video.addEventListener("error", done); // don't block on error
+          video.src = src;
+          video.load();
+          // Clips are larger than voiceover; allow more headroom before giving up.
+          const timeoutId = window.setTimeout(done, 30000);
+          cleanupFns.push(() => {
+            window.clearTimeout(timeoutId);
+            video.removeEventListener("canplaythrough", done);
+            video.removeEventListener("error", done);
+            video.src = "";
+            video.load(); // release the pending fetch
+          });
+        }),
+    );
+
+    Promise.all([...imagePromises, ...audioPromises, ...videoPromises]).then(() => {
+      if (cancelled) return;
+      setMediaReady(true);
+      setIsPreloadingMedia(false);
+    });
+
+    return () => {
+      cancelled = true;
+      cleanupFns.forEach((fn) => fn());
+    };
+  }, [mediaSourcesKey]);
+
+  const isPortrait = project.aspect_ratio === "portrait";
+  const currentPlaybackSpeed = Math.max(0.5, Math.min(2.5, getPlaybackSpeed(project.playback_speed)));
+
+  const savedCaptionSettings = useMemo(
+    () => buildCaptionSettingsFromProject(project),
+    [
+      project.captions_enabled,
+      project.caption_font_family,
+      project.caption_font_size,
+      project.caption_offset,
+      project.scenes,
+      captionSettingsKey,
+    ],
+  );
+  const [captionPreviewOverride, setCaptionPreviewOverride] = useState<CaptionSettings | null>(null);
+
+  useEffect(() => {
+    setCaptionPreviewOverride(null);
+  }, [savedCaptionSettings]);
+
+  const activeCaptionSettings = captionPreviewOverride ?? savedCaptionSettings;
+
+  const colors = config.defaultColors;
+
+  const inputProps = {
+    scenes,
+    projectName: project.name,
+    accentColor: project.accent_color || colors.accent,
+    bgColor: project.bg_color || colors.bg,
+    textColor: project.text_color || colors.text,
+    playbackSpeed: 1,
+    logo: project.logo_r2_url || craftedTemplateLogoUrl || null,
+    logoPosition: logoPositionOverride ?? project.logo_position ?? "bottom_right",
+    logoOpacity: logoOpacityOverride ?? project.logo_opacity ?? 0.9,
+    logoSize: logoSizeOverride ?? (typeof project.logo_size === "number" ? project.logo_size : 100),
+    aspectRatio: project.aspect_ratio || "landscape",
+    bgmUrl: project.bgm_track_url || null,
+    bgmVolume: project.bgm_volume ?? 0.10,
+    // Captions ride on the voiceover — never show them when there's no audio,
+    // even if the stored flag is stale.
+    captionsEnabled: activeCaptionSettings.captionsEnabled,
+    // Resolve the caption font ID (e.g. "poppins") to a CSS family here so every
+    // preview composition — including JIT-compiled crafted templates that can't
+    // import the font registry — receives a usable font-family rather than a bare
+    // ID that the browser can't match. (The render side resolves from the data
+    // JSON independently.)
+    captionFontFamily:
+      resolveFontFamily(activeCaptionSettings.captionFontFamily) ||
+      activeCaptionSettings.captionFontFamily,
+    captionFontSize: activeCaptionSettings.captionFontSize,
+    captionOffset: activeCaptionSettings.captionOffset,
+    ...(resolvedFontFamily ? { fontFamily: resolvedFontFamily } : {}),
+    ...(project.custom_theme ? { theme: project.custom_theme } : {}),
+  };
+
+  // ─── Build custom composition for AI-generated templates ─────────────
+  const numContentVariants = compiledScenes
+    ? Object.keys(compiledScenes).filter((k) => k.startsWith("content_")).length
+    : 0;
+
+  const Composition = (isCustom && compiledScenes)
+    ? StableCustomComposition
+    : (isCrafted && compiledCrafted)
+      ? compiledCrafted
+      : config.component;
+
+  // When a precompiled/owner-scoped crafted detail is supplied (e.g. a collaborator
+  // viewing an owner's crafted template they are NOT entitled to), the global,
+  // entitlement-gated CraftedTemplatesContext is empty — so `craftedItem` is null
+  // and `craftedTemplatesLoading` never resolves for us. Gate on the EFFECTIVE
+  // item (which falls back to precompiledCraftedDetail) and ignore the context's
+  // loading flag on that path; otherwise the loader spins forever.
+  const craftedStillLoading = precompiledCraftedDetail
+    ? (isCompilingCrafted || !compiledCrafted)
+    : (craftedTemplatesLoading || !effectiveCraftedItem || isCompilingCrafted || !compiledCrafted);
+  const isPreviewLoading =
+    (isCustom && isCompiling) ||
+    (isCrafted && craftedStillLoading) ||
+    isPreloadingMedia ||
+    !mediaReady;
+
+  // Show unified loader until template + media are fully ready.
+  if (isPreviewLoading) {
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          minWidth: 0,
+          minHeight: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: "min(100%, 90vw)",
+            maxHeight: "min(100%, 90vh)",
+            width: isPortrait ? "auto" : "100%",
+            height: isPortrait ? "max(100%, 80vh)" : "auto",
+            aspectRatio: isPortrait ? "9/16" : "16/9",
+            minWidth: 0,
+            minHeight: 0,
+            backgroundColor: "#1a1a2e",
+            borderRadius: 8,
+            color: "#9ca3af",
+            fontSize: 14,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexDirection: "column",
+            gap: 10,
+          }}
+        >
+          <div
+            className="animate-spin"
+            style={{
+              width: 28,
+              height: 28,
+              border: "3px solid rgba(255,255,255,0.2)",
+              borderTopColor: "#ffffff",
+              borderRadius: "50%",
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Responsive wrapper: up to 90% of viewport, centered, aspect ratio preserved
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        minWidth: 0,
+        minHeight: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <div
+        style={{
+          position: "relative",
+          maxWidth: "min(100%, 90vw)",
+          maxHeight: "min(100%, 90vh)",
+          width: isPortrait ? "auto" : "100%",
+          // Portrait: use max(100%, 80vh) so we have an intrinsic height when parent
+          // has no explicit height (flex chain), avoiding 0-height collapse
+          height: isPortrait ? "max(100%, 80vh)" : "auto",
+          aspectRatio: isPortrait ? "9/16" : "16/9",
+          minWidth: 0,
+          minHeight: 0,
+        }}
+      >
+        <Player
+          key={`preview-${project.id}-${isPortrait ? "p" : "l"}${safeInitialFrame !== undefined ? `-f${safeInitialFrame}` : ""}-ck${captionSettingsKey}`}
+          component={Composition}
+          inputProps={{
+            ...inputProps,
+            isCustom,
+            compiledScenes,
+            scenes,
+            project,
+            numContentVariants,
+            resolvedFontFamily,
+            sceneOnlyIndex,
+            // A muted player has nothing to gain from mounting media elements,
+            // and they'd stall the timeline while buffering. See the <Audio> note.
+            suppressAudio: initiallyMuted,
+          }}
+          durationInFrames={totalDurationFrames}
+          compositionWidth={isPortrait ? config.baseHeight : config.baseWidth}
+          compositionHeight={isPortrait ? config.baseWidth : config.baseHeight}
+          fps={30}
+          ref={setPlayerRef}
+          playbackRate={currentPlaybackSpeed}
+          initiallyMuted={initiallyMuted}
+          {...(holdOnLastFrame ? { moveToBeginningWhenEnded: false } : {})}
+          {...(safeInitialFrame !== undefined ? { initialFrame: safeInitialFrame, clickToPlay: false, doubleClickToFullscreen: false } : {})}
+          controls={!hideControls}
+          style={{
+            width: "100%",
+            height: "100%",
+            display: "block",
+            overflow: "hidden",
+          }}
+        />
+        {!hideOverlayControls && (
+          <>
+            <CaptionControl
+              captionsEnabled={savedCaptionSettings.captionsEnabled}
+              captionFontFamily={savedCaptionSettings.captionFontFamily}
+              captionFontSize={savedCaptionSettings.captionFontSize}
+              captionOffset={savedCaptionSettings.captionOffset}
+              saving={captionsSaving}
+              onSave={onCaptionSettingsChange}
+              onPreviewChange={setCaptionPreviewOverride}
+              playerContainerRef={playerRef as React.RefObject<PlayerRef | null>}
+            />
+            <PlaybackSpeedControl
+              currentSpeed={currentPlaybackSpeed}
+              saving={playbackSpeedSaving}
+              onChange={onPlaybackSpeedChange}
+              playerContainerRef={playerRef as React.RefObject<PlayerRef | null>}
+            />
+          </>
+        )}
+      </div>
+    </div>
+  );
+});
+
+export default VideoPreview;
