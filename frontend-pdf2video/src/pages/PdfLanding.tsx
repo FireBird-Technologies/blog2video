@@ -300,21 +300,17 @@ export default function PdfLanding() {
       googleBtnRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
-    // GIS renders its button asynchronously into an iframe wrapper. Prefer the
-    // hero's off-screen instance, but fall back to the visible one further down
-    // the page so a slow/failed GIS mount can't leave the CTA doing nothing.
+    // GIS renders a (0×0) div[role="button"] into the hidden wrapper; clicking
+    // it programmatically opens the Google popup in place. Fall back to the
+    // visible button further down only if the hero's hasn't mounted yet.
+    //
+    // Deliberately NO scrollIntoView fallback: if neither has rendered, doing
+    // nothing matches ../frontend/src/pages/Landing.tsx. Scrolling instead sent
+    // the user to the bottom of the page, which read as the CTA being broken.
     const findBtn = (root: HTMLDivElement | null) =>
       root?.querySelector("div[role='button']") as HTMLElement | null;
     const btn = findBtn(googleBtnRef.current) ?? findBtn(authButtonRef.current);
-    if (btn) {
-      btn.click();
-      return;
-    }
-    // Nothing rendered yet — surface the real button instead of failing silently.
-    (authButtonRef.current ?? googleBtnRef.current)?.scrollIntoView({
-      behavior: "smooth",
-      block: "center",
-    });
+    btn?.click();
   };
 
   /** Hero CTA: there is no local session on this deployment, so it always starts sign-in. */
@@ -329,7 +325,7 @@ export default function PdfLanding() {
    * reads it, writes it into its own localStorage, and strips it from the URL
    * immediately (see ../frontend/src/App.tsx).
    *
-   * pdf2vid.app never stores the token itself — there's nothing here for it
+   * pdf2vid.com never stores the token itself — there's nothing here for it
    * to authenticate.
    */
   const redirectToBlog2Video = (token: string) => {
@@ -518,20 +514,16 @@ export default function PdfLanding() {
             Turn reports, whitepapers, and decks into narrated videos in minutes.
           </p>
 
-          {/* Google button driven programmatically by the CTAs below.
+          {/* Hidden Google button — triggered programmatically by the CTAs.
               In an in-app browser it's revealed so the escape/instructions UI shows.
 
-              Off-screen rather than `hidden`: Google Identity Services renders
-              its button into an iframe and skips it entirely inside a
-              `display:none` container, so there'd be no `div[role="button"]`
-              for handleGenerateClick to click and the CTA would silently do
-              nothing. `sr-only` keeps it laid out (and clickable) while
-              invisible. */}
-          <div
-            ref={googleBtnRef}
-            className={isInApp ? "mt-4 flex justify-center" : "sr-only"}
-            aria-hidden={!isInApp}
-          >
+              Must stay `hidden` (display:none), matching
+              ../frontend/src/pages/Landing.tsx. GIS still renders a real (0×0)
+              `div[role="button"]` into the host DOM here, and a programmatic
+              .click() on it works. Under `sr-only` GIS instead renders the
+              button *inside* its cross-origin iframe, leaving nothing in the
+              host DOM to click — which is what broke the CTA in production. */}
+          <div ref={googleBtnRef} className={isInApp ? "mt-4 flex justify-center" : "hidden"}>
             <GoogleAuthButton
               onSuccess={handleGoogleSuccess}
               onError={() => showError("Google sign-in failed")}

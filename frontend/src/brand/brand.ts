@@ -44,7 +44,7 @@ const BRANDS: Record<BrandId, Brand> = {
   pdf2video: {
     id: "pdf2video",
     siteName: "PDF2Video",
-    // Live domain is pdf2vid.com; the brand id keeps the longer "pdf2video".
+    // Production domain is pdf2vid.com; the brand id keeps the longer "pdf2video".
     siteUrl: "https://pdf2vid.com",
     // Falls back to the Blog2Video card until a pdf2video-specific OG image
     // lands in public/. Swap the filename here once it exists.

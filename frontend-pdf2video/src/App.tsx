@@ -26,7 +26,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import { trackPageView } from "./gtag";
 
 /**
- * This deployment is landing-page-only: pdf2vid.app sells the product and
+ * This deployment is landing-page-only: pdf2vid.com sells the product and
  * signs users in, but the actual app (dashboard, project editor, everything
  * post-login) only ever runs on blog2video.app. See PdfLanding.tsx's
  * handleGoogleSuccess for the cross-domain token handoff, and

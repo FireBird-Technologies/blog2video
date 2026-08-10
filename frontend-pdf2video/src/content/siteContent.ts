@@ -12,12 +12,20 @@ import { useCasePages } from "./useCasePages";
 
 // This deployment is pdf2video-only — no brand switching (see ../frontend for
 // the shared-brand build that has one).
-// The live domain is pdf2vid.com; the directory and Vercel project keep the
-// longer "pdf2video" name. Drives canonical tags, OG URLs, sitemap.xml, and
-// robots.txt, so it must match the domain the site is actually served from.
+// Production custom domain is pdf2vid.com; the directory, Vercel project, and
+// Cloudflare Pages project keep the longer "pdf2video" name. Drives canonical
+// tags, OG URLs, sitemap.xml, and robots.txt, so it must match the domain the
+// site is actually served from.
 export const siteUrl = "https://pdf2vid.com";
 export const siteName = "PDF2Video";
-export const defaultOgImage = `${siteUrl}/og-image-v2.png`;
+/**
+ * Social share banner (og:image / twitter:image, and the `image` field on every
+ * JSON-LD entity via seo/schema.ts). PDF2Vid-branded, 1672×941.
+ *
+ * Must stay an absolute URL: crawlers like Slack, X, LinkedIn, and iMessage do
+ * not resolve relative paths.
+ */
+export const defaultOgImage = `${siteUrl}/assets/PDF2Vid.png`;
 export const organizationName = "FireBird Technologies";
 
 // Verified brand profiles emitted as schema.org `sameAs`.
