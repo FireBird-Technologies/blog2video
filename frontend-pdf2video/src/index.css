@@ -3,6 +3,14 @@
 @tailwind utilities;
 
 @layer base {
+  /* Reveals #root, which index.html hides inline to avoid a flash of unstyled
+     prerendered markup. Because this rule ships in the bundled stylesheet, it
+     only applies once that CSS has loaded — so the first painted frame is
+     always styled. Keep the two in sync: dropping this leaves the page blank. */
+  #root {
+    visibility: visible;
+  }
+
   body {
     font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
   }
