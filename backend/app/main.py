@@ -616,6 +616,10 @@ _always_allowed = [
     "https://pdf2vid.app",
     "https://www.pdf2vid.app",
     "https://pdf2video.vercel.app",
+    # Cloudflare Pages project for the pdf2video frontend. Every deploy also
+    # gets its own <hash>.pdf2video.pages.dev subdomain, so the regex below
+    # covers previews too.
+    "https://pdf2video.pages.dev",
     # MCP — Claude clients
     "https://claude.ai",
     "https://app.anthropic.com",
@@ -634,7 +638,18 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_origins,
     # Vercel previews + subdomains + HF Spaces + Anthropic subdomains (for MCP)
-    allow_origin_regex=r"https://(blog2video.*\.vercel\.app|pdf2vid.*\.vercel\.app|.*\.blog2video\.app|.*\.pdf2vid\.app|.*\.hf\.space|.*\.anthropic\.com|.*\.claude\.ai)",
+    # Vercel previews + Cloudflare Pages deploys + subdomains + HF Spaces +
+    # Anthropic subdomains (for MCP). The *.pages.dev branches cover Cloudflare's
+    # per-deploy hostnames, which are siblings (pdf2video-4sr.pages.dev), not
+    # subdomains, of the project name — hence the leading prefix match.
+    allow_origin_regex=(
+        r"https://("
+        r"blog2video.*\.vercel\.app|pdf2vid.*\.vercel\.app"
+        r"|blog2video.*\.pages\.dev|pdf2video.*\.pages\.dev|pdf2vid.*\.pages\.dev"
+        r"|.*\.blog2video\.app|.*\.pdf2vid\.app"
+        r"|.*\.hf\.space|.*\.anthropic\.com|.*\.claude\.ai"
+        r")"
+    ),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
