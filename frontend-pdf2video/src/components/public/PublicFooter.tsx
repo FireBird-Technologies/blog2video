@@ -1,13 +1,13 @@
 import { Link } from "react-router-dom";
 import { footerGroups } from "../../content/siteContent";
-import { BLOG2VIDEO_URL } from "../../config/urls";
+import { blog2videoUrl, bloghubUrl } from "../../config/urls";
 
 const LOGO_TEXT = "P2V";
 const SITE_NAME = "PDF2Video";
 
 /** Footer paths that aren't marketing pages, so `getMarketingPage` can't name them. */
 const STATIC_LINK_LABELS: Record<string, string> = {
-  "/tools": "Tools",
+  "/tools": "All Tools",
   "/help": "Help",
   "/blogs": "Blog",
   "/pricing": "Pricing",
@@ -64,8 +64,10 @@ export default function PublicFooter() {
   return (
     <footer className="border-t border-gray-100 bg-gray-50/70">
       <div className="mx-auto max-w-6xl px-6 py-14">
-        <div className="grid gap-8 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
-          <div className="lg:col-span-1">
+        {/* Brand column sits beside the link grid rather than inside it: with
+            six link groups, a seventh grid cell left a one-item orphan row. */}
+        <div className="grid gap-8 lg:grid-cols-[1fr_2.2fr]">
+          <div>
             <div className="mb-3 flex items-center gap-2">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-600 text-[11px] font-bold text-white">
                 {LOGO_TEXT}
@@ -76,34 +78,54 @@ export default function PublicFooter() {
               Turn PDFs, reports, whitepapers, and decks into narrated, branded videos people
               actually finish.
             </p>
-            <a
-              href={BLOG2VIDEO_URL}
-              className="mt-3 inline-block text-sm text-gray-500 transition-colors hover:text-gray-900"
-            >
-              Have a blog instead? Try Blog2Video →
-            </a>
+
+            {/* Reciprocal links across the three properties in this family.
+                blog2video.app is the same engine with a URL as its input (and
+                the app every signed-in user here is handed off to);
+                bloghub.app is the newsletter directory that feeds both. Each
+                site carries the other two, and the UTM tags let the receiving
+                domain attribute the referral. */}
+            <p className="mt-4 text-xs font-semibold uppercase tracking-[0.16em] text-gray-400">
+              Also from FireBird
+            </p>
+            <div className="mt-2 space-y-1.5">
+              <a
+                href={blog2videoUrl("footer")}
+                className="block text-sm text-gray-500 transition-colors hover:text-gray-900"
+              >
+                Blog2Video — turn a URL into video →
+              </a>
+              <a
+                href={bloghubUrl("footer")}
+                className="block text-sm text-gray-500 transition-colors hover:text-gray-900"
+              >
+                BlogHub — the newsletter directory →
+              </a>
+            </div>
           </div>
 
-          {footerGroups.map((group) => (
-            <div key={group.title}>
-              <p className="mb-3 text-sm font-semibold text-gray-900">{group.title}</p>
-              <div className="space-y-2">
-                {group.links.map((path) => {
-                  const label = STATIC_LINK_LABELS[path] ?? labelFromPath(path);
+          <div className="grid gap-8 sm:grid-cols-2 md:grid-cols-3">
+            {footerGroups.map((group) => (
+              <div key={group.title}>
+                <p className="mb-3 text-sm font-semibold text-gray-900">{group.title}</p>
+                <div className="space-y-2">
+                  {group.links.map((path) => {
+                    const label = STATIC_LINK_LABELS[path] ?? labelFromPath(path);
 
-                  return (
-                    <Link
-                      key={path}
-                      to={path}
-                      className="block text-sm text-gray-500 transition-colors hover:text-gray-900"
-                    >
-                      {label}
-                    </Link>
-                  );
-                })}
+                    return (
+                      <Link
+                        key={path}
+                        to={path}
+                        className="block text-sm text-gray-500 transition-colors hover:text-gray-900"
+                      >
+                        {label}
+                      </Link>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
     </footer>

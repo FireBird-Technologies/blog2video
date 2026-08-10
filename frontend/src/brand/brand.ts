@@ -109,7 +109,9 @@ function resolveBrand(): Brand {
     }
   }
 
-  if (window.location.hostname.includes("pdf2video")) return BRANDS.pdf2video;
+  // "pdf2vid" (not "pdf2video") — the live host is pdf2vid.com, so matching on
+  // the full brand id would never fire.
+  if (window.location.hostname.includes("pdf2vid")) return BRANDS.pdf2video;
 
   // Sticky session brand: a visitor who landed on the pdf2video page (including
   // via /pdf2video on the blog2video domain) keeps that identity while browsing

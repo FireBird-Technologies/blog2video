@@ -65,7 +65,7 @@ export function homepageSchema() {
       "@type": "Organization",
       "@id": organizationId,
       name: siteName,
-      alternateName: "Blog 2 Video",
+      alternateName: "PDF 2 Video",
       legalName: organizationName,
       url: siteUrl,
       logo: `${siteUrl}/Logo-Firebird.webp`,
@@ -80,7 +80,7 @@ export function homepageSchema() {
       "@type": "WebSite",
       "@id": websiteId,
       name: siteName,
-      alternateName: "Blog 2 Video",
+      alternateName: "PDF 2 Video",
       url: siteUrl,
       publisher: { "@id": organizationId },
       sameAs: brandSameAs,
@@ -96,7 +96,7 @@ export function homepageSchema() {
       image: defaultOgImage,
       sameAs: brandSameAs,
       description:
-        "Turn blog posts, articles, PDFs, and documents into structured narrated videos.",
+        "Turn PDFs, reports, whitepapers, and decks into structured narrated videos.",
       brand: { "@id": organizationId },
       publisher: { "@id": organizationId },
     },
@@ -108,21 +108,21 @@ export function pricingSchema() {
     {
       "@context": "https://schema.org",
       "@type": "WebPage",
-      name: "Blog2Video Pricing",
+      name: `${siteName} Pricing`,
       url: `${siteUrl}/pricing`,
       description:
-        "Blog2Video pricing for free, pay-as-you-go, Standard, Pro, and custom team plans.",
+        `${siteName} pricing for free, pay-as-you-go, Standard, Pro, and custom team plans.`,
       image: defaultOgImage,
     },
     {
       "@context": "https://schema.org",
       "@type": "SoftwareApplication",
-      name: "Blog2Video",
+      name: siteName,
       applicationCategory: "BusinessApplication",
       operatingSystem: "Web",
       url: `${siteUrl}/pricing`,
       description:
-        "Turn blog posts, articles, PDFs, and documents into narrated videos with reusable templates and AI scene editing.",
+        "Turn PDFs, reports, and decks into narrated videos with reusable templates and AI scene editing.",
       image: defaultOgImage,
       brand: {
         "@type": "Organization",
@@ -145,7 +145,7 @@ export function contactSchema() {
     {
       "@context": "https://schema.org",
       "@type": "ContactPage",
-      name: "Contact Blog2Video",
+      name: `Contact ${siteName}`,
       url: `${siteUrl}/contact`,
       about: {
         "@type": "Organization",
@@ -184,7 +184,7 @@ export function helpIndexSchema() {
       name: `${siteName} Help / How-to`,
       url: `${siteUrl}/help`,
       description:
-        "Step-by-step Blog2Video help guides with embedded explainers for project creation, scene editing, voiceover, and templates.",
+        "Step-by-step help guides for project creation, scene editing, voiceover, and templates.",
     },
     breadcrumbList([
       { name: "Home", path: "/" },
@@ -205,7 +205,7 @@ export function toolsHubSchema() {
     {
       "@context": "https://schema.org",
       "@type": "ItemList",
-      name: "Blog2Video tools",
+      name: `${siteName} free tools`,
       itemListElement: tools.map((tool, index) => ({
         "@type": "ListItem",
         position: index + 1,
@@ -259,13 +259,24 @@ export function toolPageSchema(tool: ToolDefinition) {
   const schemas: Record<string, unknown>[] = [
     {
       "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
+      // WebApplication rather than SoftwareApplication: these run in the page,
+      // with no install step, and the free Offer below is the claim the page
+      // actually makes — every tool is usable without an account.
+      "@type": "WebApplication",
       name: tool.title,
-      applicationCategory: "BusinessApplication",
+      applicationCategory: "UtilitiesApplication",
+      browserRequirements: "Requires JavaScript",
       operatingSystem: "Web",
       url: `${siteUrl}${tool.path}`,
       image: defaultOgImage,
       description: tool.description,
+      isAccessibleForFree: true,
+      offers: {
+        "@type": "Offer",
+        price: "0",
+        priceCurrency: "USD",
+      },
+      featureList: tool.proofPoints,
       brand: {
         "@type": "Organization",
         name: organizationName,

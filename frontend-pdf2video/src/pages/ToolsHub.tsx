@@ -2,55 +2,130 @@ import { Link } from "react-router-dom";
 import PublicFooter from "../components/public/PublicFooter";
 import PublicHeader from "../components/public/PublicHeader";
 import Seo from "../components/seo/Seo";
-import { BLOG2VIDEO_URL } from "../config/urls";
+import { tools, toolsHub } from "../content/tools";
+import { toolsHubSchema } from "../seo/schema";
 
 /**
- * Deliberately empty hub.
+ * Real hub, indexable.
  *
- * content/tools.ts carries 11 tool definitions, but they are blog/newsletter
- * tools whose article-length copy is already indexed on blog2video.app.
- * Rendering them here would publish a second copy of that content on a second
- * domain, which is exactly the duplicate-content risk App.tsx warns about.
- * So this page exists only so the "Tools" nav item resolves instead of 404ing;
- * it ships no article content and is marked noindex until there are
- * PDF2Video-specific tools to put here.
+ * This page was previously an empty noindex placeholder, because the tools it
+ * would have listed were a copy of blog2video.app's — and a second copy of
+ * indexed article content on a second domain is a duplicate-content problem.
+ * The five tools here are PDF2Video's own: original copy, and widgets that
+ * exist nowhere else. See content/tools.ts.
  */
 export default function ToolsHub() {
   return (
     <div className="min-h-screen bg-white text-gray-900">
       <Seo
-        title="Tools"
-        description="PDF2Video tools for turning documents into narrated video. Coming soon."
-        path="/tools"
-        noindex
+        title={toolsHub.title}
+        description={toolsHub.description}
+        path={toolsHub.path}
+        schema={toolsHubSchema()}
       />
       <PublicHeader />
-      <main className="mx-auto flex max-w-4xl flex-col items-center px-6 py-28 text-center">
-        <p className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-purple-600">
-          Tools
-        </p>
-        <h1 className="mb-4 text-4xl font-bold tracking-tight text-gray-900">
-          Document tools are on the way
-        </h1>
-        <p className="mb-8 max-w-2xl text-lg leading-relaxed text-gray-500">
-          We're building free calculators and generators for teams who publish from PDFs,
-          reports, and decks. In the meantime, our creator tools live on Blog2Video.
-        </p>
-        <div className="flex flex-wrap justify-center gap-3">
-          <a
-            href={`${BLOG2VIDEO_URL}/tools`}
-            className="rounded-lg bg-purple-600 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-purple-700"
-          >
-            Browse tools on Blog2Video
-          </a>
-          <Link
-            to="/pdf-to-video"
-            className="rounded-lg border border-gray-200 px-5 py-3 text-sm font-medium text-gray-700 transition-colors hover:border-gray-300 hover:text-gray-900"
-          >
-            Turn a PDF into video
-          </Link>
-        </div>
+
+      <main>
+        <section className="border-b border-gray-100 bg-gradient-to-b from-purple-50/40 via-white to-white">
+          <div className="mx-auto max-w-6xl px-6 py-20">
+            <p className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-purple-600">
+              Free Tools
+            </p>
+            <h1 className="max-w-4xl text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
+              {toolsHub.heroTitle}
+            </h1>
+            <p className="mt-5 max-w-3xl text-lg leading-relaxed text-gray-500">
+              {toolsHub.heroDescription}
+            </p>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-6xl px-6 py-16">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {tools.map((tool) => (
+              <Link
+                key={tool.slug}
+                to={tool.path}
+                className="group flex flex-col rounded-2xl border border-gray-200 bg-white p-6 transition-shadow hover:shadow-md"
+              >
+                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-purple-600 text-xs font-bold text-white">
+                  {tool.icon}
+                </div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-purple-600">
+                  {tool.eyebrow}
+                </p>
+                <h2 className="mt-2 text-xl font-semibold text-gray-900 group-hover:text-purple-700">
+                  {tool.title}
+                </h2>
+                <p className="mt-3 flex-1 text-sm leading-relaxed text-gray-600">
+                  {tool.description}
+                </p>
+                <div className="mt-5 flex flex-wrap gap-1.5">
+                  {tool.badges.map((badge) => (
+                    <span
+                      key={badge}
+                      className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-[11px] text-gray-500"
+                    >
+                      {badge}
+                    </span>
+                  ))}
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        <section className="border-t border-gray-100 bg-gray-50/70">
+          <div className="mx-auto max-w-6xl px-6 py-16">
+            <div className="grid gap-10 lg:grid-cols-[1.2fr_0.8fr]">
+              <div>
+                <h2 className="text-2xl font-semibold text-gray-900">
+                  What "free" means on these pages
+                </h2>
+                <div className="mt-4 space-y-4 text-base leading-relaxed text-gray-600">
+                  <p>
+                    Every tool here works fully without an account. Extraction, summarisation,
+                    scripting, storyboarding, playback, copying, and downloading all run in your
+                    browser using APIs your device already has — which means they cost us nothing,
+                    so there is no reason to meter them and no file for us to store.
+                  </p>
+                  <p>
+                    One action is gated: rendering a finished video. That runs our models and our
+                    renderer on our machines, so it needs an account. It is free to start, and the
+                    tools say which side of the line each button is on before you press it.
+                  </p>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-gray-200 bg-white p-6">
+                <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-purple-600">
+                  Start Here
+                </p>
+                <div className="space-y-4">
+                  <Link to="/pdf-to-video" className="block">
+                    <p className="text-sm font-semibold text-gray-900">PDF to video</p>
+                    <p className="text-sm leading-relaxed text-gray-500">
+                      The full pipeline: document in, narrated MP4 out.
+                    </p>
+                  </Link>
+                  <Link to="/blogs" className="block">
+                    <p className="text-sm font-semibold text-gray-900">The blog</p>
+                    <p className="text-sm leading-relaxed text-gray-500">
+                      Workflows for turning reports, papers, and decks into video.
+                    </p>
+                  </Link>
+                  <Link to="/pricing" className="block">
+                    <p className="text-sm font-semibold text-gray-900">Pricing</p>
+                    <p className="text-sm leading-relaxed text-gray-500">
+                      What the rendered videos cost once the free tier runs out.
+                    </p>
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
+
       <PublicFooter />
     </div>
   );

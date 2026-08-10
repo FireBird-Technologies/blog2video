@@ -7,6 +7,7 @@ import { programmaticPages } from "./programmaticPages";
 import { resourcePages } from "./resourcePages";
 import type { BlogPost, MarketingPage } from "./seoTypes";
 import { templatePages } from "./templatePages";
+import { getTool, getToolByPath, tools, toolsHub } from "./tools";
 import { useCasePages } from "./useCasePages";
 
 // This deployment is pdf2video-only — no brand switching (see ../frontend for
@@ -29,7 +30,16 @@ export const organizationName = "FireBird Technologies";
 
 // Verified brand profiles emitted as schema.org `sameAs`.
 // Only include URLs the brand controls or authoritative third-party listings.
-export const brandSameAs: string[] = [];
+//
+// The two sibling properties are here because they are the same organisation's
+// products: declaring them lets a search engine resolve pdf2vid.com,
+// blog2video.app, and bloghub.app to one entity rather than three unrelated
+// domains that happen to link to each other. The reciprocal links live in
+// PublicFooter (and in each sibling's own footer).
+export const brandSameAs: string[] = [
+  "https://blog2video.app",
+  "https://bloghub.app",
+];
 
 /**
  * Marketing pages shown on this deployment.
@@ -39,10 +49,16 @@ export const brandSameAs: string[] = [];
  * PdfLanding.tsx). It deliberately excludes anything that would duplicate
  * blog2video.app's indexed content or that only makes sense for an app the
  * user is already inside of:
- *   - Help articles, tools — indexed article content; a second copy at a
- *     different domain risks a Google duplicate-content penalty.
+ *   - Help articles — indexed article content; a second copy at a different
+ *     domain risks a Google duplicate-content penalty.
  * `coreCommercialPages` etc. are short commercial/landing pages (not
  * articles), so they're fine to share with blog2video.
+ *
+ * /tools is no longer in that excluded set. The five tools in content/tools.ts
+ * are PDF2Video's own — original copy, and widgets (components/tools/) that
+ * exist only on this domain — so they carry no duplicate-content risk. They are
+ * routed separately from `marketingPages` because they render through ToolPage
+ * rather than MarketingPageView.
  *
  * Individual /templates/:slug pages ARE included (templatePages.ts), matching
  * ../frontend: each is generated from `templateProfiles` with PDF2Video's own
@@ -51,9 +67,9 @@ export const brandSameAs: string[] = [];
  * exists, but the "Templates" nav item now points at a real page instead of an
  * on-page anchor.
  *
- * Blog posts (/blogs) ARE kept, unlike Help/Tools — this domain has its own,
- * currently-empty blog (content/blogPosts.ts) for PDF2Video-specific SEO/
- * marketing content, written fresh rather than mirrored from blog2video.app.
+ * Blog posts (/blogs) ARE kept, unlike Help — this domain has its own blog
+ * (content/blogPosts.ts) for PDF2Video-specific SEO/marketing content, written
+ * fresh rather than mirrored from blog2video.app.
  */
 export const marketingPages: MarketingPage[] = [
   ...coreCommercialPages,
@@ -76,16 +92,16 @@ export const topNavLinks = [
 ];
 
 /**
- * Footer mirrors ../frontend's five-group structure, but every link is the
+ * Footer mirrors ../frontend's group structure, but every link is the
  * document-first equivalent: /pdf-to-video and /docx-to-video lead instead of
  * /blog-to-video, and the use-case column leads with researchers/educators
- * rather than bloggers. Every path here is a real page in `marketingPages`
- * (see the assertion in getPublicPaths' callers) — these pages already
- * existed on this deployment and were simply never linked.
+ * rather than bloggers. Every path here is a real page in `marketingPages`,
+ * `tools`, or the static route list — the assertion for that is the link check
+ * against getPublicPaths().
  *
- * Tools and Help are intentionally listed but resolve to empty hub pages
- * (see ToolsHub.tsx / HelpHub.tsx) — this domain must not serve a second copy
- * of blog2video.app's indexed articles.
+ * Help is intentionally listed but resolves to an empty hub page (HelpHub.tsx)
+ * — this domain must not serve a second copy of blog2video.app's indexed help
+ * articles. Tools now has its own column of real pages.
  */
 export const footerGroups = [
   {
@@ -110,6 +126,10 @@ export const footerGroups = [
       "/for-newsletters",
       "/for-medium-writers",
     ],
+  },
+  {
+    title: "Free Tools",
+    links: [toolsHub.path, ...tools.map((tool) => tool.path)],
   },
   {
     title: "Templates",
@@ -140,7 +160,6 @@ export const footerGroups = [
       "/video-seo-checklist",
       "/distribution-flywheel",
       "/measurement-playbook",
-      "/tools",
       "/help",
       "/blogs",
       "/contact",
@@ -167,9 +186,13 @@ export function getDisplayTitle(path: string): string {
   if (path === "/pricing") return "Pricing";
   if (path === "/contact") return "Contact";
   if (path === "/blogs") return "Blog";
+  if (path === toolsHub.path) return "Tools";
 
   const marketingPage = getMarketingPage(path);
   if (marketingPage) return marketingPage.heroTitle;
+
+  const tool = getToolByPath(path);
+  if (tool) return tool.title;
 
   const blogSlugPrefix = "/blogs/";
   if (path.startsWith(blogSlugPrefix)) {
@@ -186,7 +209,9 @@ export function getPublicPaths(): string[] {
     "/pricing",
     "/contact",
     "/blogs",
+    toolsHub.path,
     ...marketingPages.map((page) => page.path),
+    ...tools.map((tool) => tool.path),
     ...blogPosts.map((post) => `/blogs/${post.slug}`),
   ];
 }
@@ -201,10 +226,18 @@ export function getPublicLinkDetails(path: string) {
   if (path === "/blogs") {
     return { path, label: "Blog", description: `Document-to-video workflows and research publishing playbooks for ${siteName}.` };
   }
+  if (path === toolsHub.path) {
+    return { path, label: "Free Tools", description: toolsHub.description };
+  }
 
   const marketingPage = getMarketingPage(path);
   if (marketingPage) {
     return { path, label: marketingPage.heroTitle, description: marketingPage.description };
+  }
+
+  const tool = getToolByPath(path);
+  if (tool) {
+    return { path, label: tool.title, description: tool.description };
   }
 
   if (path.startsWith("/blogs/")) {
@@ -226,4 +259,4 @@ export function getTemplateProfile(slug: string) {
 }
 
 export { getRelatedBlogPosts } from "./relatedPosts";
-export { blogPosts, defaultCta, templateProfiles };
+export { blogPosts, defaultCta, getTool, getToolByPath, templateProfiles, tools, toolsHub };

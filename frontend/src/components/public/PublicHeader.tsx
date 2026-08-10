@@ -12,7 +12,7 @@ export default function PublicHeader() {
   // On the blog2video domain the pdf2video landing lives at /pdf2video, so the
   // logo must return there rather than to the blog2video hero.
   const homePath =
-    activeBrand.id === "pdf2video" && !window.location.hostname.includes("pdf2video")
+    activeBrand.id === "pdf2video" && !window.location.hostname.includes("pdf2vid")
       ? "/pdf2video"
       : "/";
   const [toolsOpen, setToolsOpen] = useState(false);

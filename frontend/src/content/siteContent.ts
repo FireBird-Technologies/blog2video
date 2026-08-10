@@ -26,6 +26,12 @@ export const organizationName = "FireBird Technologies";
 // the brand SERP against the same-name competitor blog2video.ai.
 // Only include URLs the brand controls or authoritative third-party listings.
 export const brandSameAs = [
+  // Sibling properties from the same organisation. Declaring them lets a search
+  // engine resolve blog2video.app, pdf2vid.com, and bloghub.app to one entity
+  // rather than three domains that happen to link to each other. Reciprocal
+  // links live in PublicFooter — see ../config/siblingSites.ts.
+  "https://pdf2vid.com",
+  "https://bloghub.app",
   "https://github.com/FireBird-Technologies/blog2video",
   "https://www.youtube.com/@FirebirdTechnologies",
   "https://www.linkedin.com/company/firebird-technologies-singapore/",

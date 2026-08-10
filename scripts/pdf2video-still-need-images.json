@@ -1,0 +1,44 @@
+[
+  {
+    "slug": "pdf-to-video-ai-what-it-does-and-what-it-fakes",
+    "title": "PDF to Video AI: What It Actually Does, and What It Fakes",
+    "description": "AI PDF-to-video tools do four separate jobs and are good at two of them. A breakdown of which parts to trust and which to check.",
+    "heroImage": "/blog/blog-cover-pdf-to-video-ai-what-it-does-and-what-it-fakes.png",
+    "source": "pipelinePosts.ts"
+  },
+  {
+    "slug": "free-pdf-to-video-tools-where-free-stops",
+    "title": "Free PDF to Video Tools: Where the Free Part Actually Stops",
+    "description": "Every free PDF-to-video tool gates something. A guide to which limits are real compute costs, which are marketing, and how to get the most out of the free tier.",
+    "heroImage": "/blog/blog-cover-free-pdf-to-video-tools-where-free-stops.png",
+    "source": "pipelinePosts.ts"
+  },
+  {
+    "slug": "embed-a-video-in-a-pdf-or-invert-the-problem",
+    "title": "How to Embed a Video in a PDF — and Why You Probably Should Not",
+    "description": "Embedding video in a PDF is possible, poorly supported, and usually the wrong way round. The mechanics, the compatibility reality, and the inversion.",
+    "heroImage": "/blog/blog-cover-embed-a-video-in-a-pdf-or-invert-the-problem.png",
+    "source": "convergentPosts.ts"
+  },
+  {
+    "slug": "video-to-pdf-or-pdf-to-video",
+    "title": "Video to PDF or PDF to Video? Two Opposite Jobs, Constantly Confused",
+    "description": "Turning a video into a PDF and turning a PDF into a video solve different problems. How to tell which one you are actually trying to do.",
+    "heroImage": "/blog/blog-cover-video-to-pdf-or-pdf-to-video.png",
+    "source": "convergentPosts.ts"
+  },
+  {
+    "slug": "pdf-to-audio-or-pdf-to-video",
+    "title": "PDF to Audio or PDF to Video? Pick Based on Where It Gets Consumed",
+    "description": "Audio wins for commutes and personal reading. Video wins for anything with a chart in it. The specific trade-offs.",
+    "heroImage": "/blog/blog-cover-pdf-to-audio-or-pdf-to-video.png",
+    "source": "convergentPosts.ts"
+  },
+  {
+    "slug": "you-extracted-the-text-from-your-pdf-now-what",
+    "title": "You Extracted the Text From Your PDF. Now What?",
+    "description": "Text extraction is step one of five things people actually want. A guide to what comes next depending on why you extracted it.",
+    "heroImage": "/blog/blog-cover-you-extracted-the-text-from-your-pdf-now-what.png",
+    "source": "convergentPosts.ts"
+  }
+]
