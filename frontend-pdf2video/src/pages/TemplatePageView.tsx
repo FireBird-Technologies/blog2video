@@ -8,7 +8,7 @@ import {
   getStructuredInternalLinks,
   getTemplateProfile,
 } from "../content/siteContent";
-import { templateProfiles } from "../content/marketingBase";
+import { visibleTemplateProfiles } from "../content/marketingBase";
 import { getSceneLayoutLabel } from "../utils/layoutLabels";
 import NotFoundPage from "./NotFoundPage";
 import { marketingPageSchema } from "../seo/schema";
@@ -48,7 +48,7 @@ export default function TemplatePageView() {
       <div className="border-b border-gray-100 bg-white">
         <div className="mx-auto max-w-6xl px-6">
           <nav className="flex flex-wrap gap-1 py-3" aria-label="Templates">
-            {templateProfiles.map((t) => {
+            {visibleTemplateProfiles.map((t) => {
               const isActive = slug === t.slug;
               return (
                 <Link
@@ -213,7 +213,7 @@ export default function TemplatePageView() {
                   Other Templates
                 </p>
                 <div className="space-y-3">
-                  {templateProfiles
+                  {visibleTemplateProfiles
                     .filter((t) => t.slug !== slug)
                     .map((t) => {
                       const tPage = getMarketingPage(`/templates/${t.slug}`);
@@ -266,11 +266,11 @@ export default function TemplatePageView() {
 
         {/* Prev / Next Navigation */}
         {(() => {
-          const currentIdx = templateProfiles.findIndex((t) => t.slug === slug);
-          const prev = currentIdx > 0 ? templateProfiles[currentIdx - 1] : null;
+          const currentIdx = visibleTemplateProfiles.findIndex((t) => t.slug === slug);
+          const prev = currentIdx > 0 ? visibleTemplateProfiles[currentIdx - 1] : null;
           const next =
-            currentIdx >= 0 && currentIdx < templateProfiles.length - 1
-              ? templateProfiles[currentIdx + 1]
+            currentIdx >= 0 && currentIdx < visibleTemplateProfiles.length - 1
+              ? visibleTemplateProfiles[currentIdx + 1]
               : null;
           if (!prev && !next) return null;
           return (

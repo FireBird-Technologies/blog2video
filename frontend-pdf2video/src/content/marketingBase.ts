@@ -541,6 +541,26 @@ export const templateBySlug = Object.fromEntries(
   templateProfiles.map((template) => [template.slug, template])
 ) as Record<string, TemplateProfile>;
 
+/**
+ * Template slugs hidden from the Templates navigation (the strip on
+ * /templates/:slug, the header's Templates menu, and the footer's Templates
+ * column).
+ *
+ * They stay in {@link templateProfiles} on purpose: their /templates/:slug
+ * pages keep working, `templateBySlug` / `getTemplateProfile` still resolve
+ * them, and existing projects that already use them keep rendering. This only
+ * removes them from navigation. Mirrors SHOWCASE_HIDDEN_TEMPLATE_IDS in
+ * components/templatePreviewRegistry.tsx, which does the same for the
+ * carousels — note that one keys off preview ids ("default"), while this keys
+ * off profile slugs ("geometric-explainer").
+ */
+export const NAV_HIDDEN_TEMPLATE_SLUGS = new Set(["geometric-explainer", "economist"]);
+
+/** Template profiles shown in Templates navigation, in `templateProfiles` order. */
+export const visibleTemplateProfiles = templateProfiles.filter(
+  (template) => !NAV_HIDDEN_TEMPLATE_SLUGS.has(template.slug),
+);
+
 export function createFaq(
   subject: string,
   audience: string,

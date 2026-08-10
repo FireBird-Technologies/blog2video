@@ -4,7 +4,7 @@ import { blogPosts } from "./blogPosts";
 import { coreCommercialPages } from "./corePages";
 import { featurePages } from "./featurePages";
 import { helpPosts } from "./helpPosts";
-import { defaultCta, templateProfiles } from "./marketingBase";
+import { defaultCta, templateProfiles, visibleTemplateProfiles } from "./marketingBase";
 import { programmaticPages } from "./programmaticPages";
 import { resourcePages } from "./resourcePages";
 import type { BlogPost, MarketingPage } from "./seoTypes";
@@ -46,7 +46,7 @@ export const marketingPages: MarketingPage[] = [
 export const topNavLinks = [
   { href: "/blog-to-video", label: "Blog to Video" },
   { href: "/for-technical-bloggers", label: "Use Cases" },
-  { href: "/templates/geometric-explainer", label: "Templates" },
+  { href: "/templates/nightfall", label: "Templates" },
   { href: toolsHub.path, label: "Tools" },
   { href: "/help", label: "Help" },
   { href: "/blogs", label: "Blog" },
@@ -54,7 +54,7 @@ export const topNavLinks = [
 ];
 
 export const templateMenuLinks = [
-  ...templateProfiles.map((template) => ({
+  ...visibleTemplateProfiles.map((template) => ({
     href: `/templates/${template.slug}`,
     label: template.name,
     description: template.bestFor.split(",")[0].trim(),
@@ -113,7 +113,6 @@ export const footerGroups = [
       "/templates/gridcraft",
       "/templates/matrix",
       "/templates/newspaper",
-      "/templates/geometric-explainer",
       "/custom-branded-video-templates",
     ],
   },

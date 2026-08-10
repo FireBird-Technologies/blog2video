@@ -60,7 +60,7 @@ export const marketingPages: MarketingPage[] = [
 export const topNavLinks = [
   { href: "/pdf-to-video", label: "PDF to Video" },
   { href: "/for-researchers", label: "Use Cases" },
-  { href: "/templates/geometric-explainer", label: "Templates" },
+  { href: "/templates/nightfall", label: "Templates" },
   { href: "/tools", label: "Tools" },
   { href: "/help", label: "Help" },
   { href: "/blogs", label: "Blog" },
@@ -106,10 +106,8 @@ export const footerGroups = [
   {
     title: "Templates",
     links: [
-      "/templates/geometric-explainer",
       "/templates/nightfall",
       "/templates/newscast",
-      "/templates/economist",
       "/templates/chronicle",
       "/templates/magazine",
       "/custom-branded-video-templates",
