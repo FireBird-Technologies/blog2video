@@ -1246,7 +1246,7 @@ export default function Landing() {
               <p className="text-3xl font-bold text-gray-900">${LITE_MONTHLY_PRICE}<span className="text-sm font-normal text-gray-400">/mo</span></p>
               <p className="text-xs text-gray-400 mt-1">10 videos</p>
             </div>
-            <div className="glass-card px-4 sm:px-7 py-6 text-center col-span-2 sm:col-span-1">
+            <div className="glass-card px-4 sm:px-7 py-6 text-center">
               <p className="text-sm font-medium text-gray-900 mb-1">Standard</p>
               <p className="text-3xl font-bold text-gray-900">$27.99<span className="text-sm font-normal text-gray-400">/mo</span></p>
               <p className="text-xs text-gray-400 mt-1">30 videos</p>
