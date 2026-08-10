@@ -1,0 +1,643 @@
+/**
+ * Central template configuration for VideoPreview.
+ * Add new templates here; no changes needed in VideoPreview.
+ *
+ * To add a template:
+ * 1. Create your composition (e.g. src/components/remotion/myTemplate/MyVideoComposition.tsx)
+ * 2. Add an entry to TEMPLATE_REGISTRY with: component, heroLayout, fallbackLayout,
+ *    validLayouts (Set of layout IDs), and defaultColors.
+ */
+
+import { DefaultVideoComposition } from "./default/DefaultVideoComposition";
+import { NightfallVideoComposition } from "./nightfall/NightfallVideoComposition";
+import { GridcraftVideoComposition } from "./gridcraft/GridcraftVideoComposition";
+import { SpotlightVideoComposition } from "./spotlight/SpotlightVideoComposition";
+import { MatrixVideoComposition } from "./matrix/MatrixVideoComposition";
+import { WhiteboardVideoComposition } from "./whiteboard/WhiteboardVideoComposition";
+import { NewspaperVideoComposition } from "./newspaper/NewspaperVideoComposition";
+import { NewscastVideoComposition } from "./newscast/NewscastVideoComposition";
+import { BlackswanVideoComposition } from "./blackswan/BlackswanVideoComposition";
+import { MosaicVideoComposition } from "./mosaic/MosaicVideoComposition";
+import { BloombergVideoComposition } from "./bloomberg/BloombergVideoComposition";
+import { ChronicleVideoComposition } from "./chronicle/ChronicleVideoComposition";
+import { EconomistVideoComposition } from "./economist/EconomistVideoComposition";
+import { Stickman2VideoComposition } from "./stickman_2/Stickman2VideoComposition";
+import { MagazineVideoComposition } from "./magazine/MagazineVideoComposition";
+import { StickmanFootballVideoComposition } from "./stickman_football/StickmanFootballVideoComposition";
+import { SakuraVideoComposition } from "./sakura/SakuraVideoComposition";
+import {
+  RemotionDefaultVideoComposition,
+  RemotionGridcraftVideoComposition,
+  RemotionMatrixVideoComposition,
+  RemotionMosaicVideoComposition,
+  RemotionNewspaperVideoComposition,
+  RemotionNewscastVideoComposition,
+  RemotionNightfallVideoComposition,
+  RemotionSpotlightVideoComposition,
+  RemotionWhiteboardVideoComposition,
+  RemotionBlackswanVideoComposition,
+  RemotionBloombergVideoComposition,
+  RemotionChronicleVideoComposition,
+  RemotionEconomistVideoComposition,
+  RemotionStickman2VideoComposition,
+  RemotionMagazineVideoComposition,
+  RemotionSakuraVideoComposition,
+  RemotionStickmanFootballVideoComposition,
+} from "./remotionAdapters";
+
+export interface TemplateColors {
+  accent: string;
+  bg: string;
+  text: string;
+}
+
+export interface TemplateConfig {
+  /** Remotion composition component */
+  component: React.ComponentType<{
+    scenes: Array<{
+      id: number;
+      order: number;
+      title: string;
+      narration: string;
+      narrationText?: string;
+      layout: string;
+      layoutProps: Record<string, unknown>;
+      durationSeconds: number;
+      speechDurationSeconds?: number;
+      imageUrl?: string;
+      voiceoverUrl?: string;
+    }>;
+    accentColor: string;
+    bgColor: string;
+    textColor: string;
+    logo?: string | null;
+    logoPosition?: string;
+    logoOpacity?: number;
+    logoSize?: number;
+    aspectRatio?: string;
+    playbackSpeed?: number;
+    captionsEnabled?: boolean;
+    captionPosition?: string;
+    captionFontFamily?: string;
+    captionFontSize?: number;
+    captionOffset?: number;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    theme?: any;
+  }>;
+  /** Layout for scene 0 (hero) when no remotion_code */
+  heroLayout: string;
+  /** Fallback layout when descriptor is invalid or layout not in validLayouts */
+  fallbackLayout: string;
+  /** Valid layout IDs; layout from remotion_code must be in this set */
+  validLayouts: ReadonlySet<string>;
+  /** Default colors when project has no overrides */
+  defaultColors: TemplateColors;
+  /** Base canvas resolution for this template in landscape (width x height). Portrait swaps these. */
+  baseWidth: number;
+  baseHeight: number;
+}
+
+const DEFAULT_LAYOUTS = new Set([
+  "hero_image",
+  "text_narration",
+  "code_block",
+  "bullet_list",
+  "flow_diagram",
+  "comparison",
+  "metric",
+  "quote_callout",
+  "image_caption",
+  "timeline",
+  "default_data_visualization",
+  "default_ticker",
+  "ending_socials",
+]);
+
+const NIGHTFALL_LAYOUTS = new Set([
+  "cinematic_title",
+  "glass_narrative",
+  "glow_metric",
+  "glass_code",
+  "kinetic_insight",
+  "glass_stack",
+  "split_glass",
+  "chapter_break",
+  "glass_image",
+  "nightfall_data_visualization",
+  "nightfall_ticker",
+  "ending_socials",
+]);
+
+const GRIDCRAFT_LAYOUTS = new Set([
+  "bento_hero",
+  "bento_features",
+  "bento_highlight",
+  "editorial_body",
+  "kpi_grid",
+  "bento_compare",
+  "bento_code",
+  "pull_quote",
+  "bento_steps",
+  "data_visualisation",
+  "ticker_table",
+  "ending_socials",
+]);
+
+const SPOTLIGHT_LAYOUTS = new Set([
+  "impact_title",
+  "statement",
+  "word_punch",
+  "cascade_list",
+  "stat_stage",
+  "versus",
+  "spotlight_image",
+  "rapid_points",
+  "spotlight_data",
+  "spotlight_table",
+  "closer",
+  "ending_socials",
+]);
+
+const MATRIX_LAYOUTS = new Set([
+  "matrix_title",
+  "terminal_text",
+  "glitch_punch",
+  "data_stream",
+  "cipher_metric",
+  "fork_choice",
+  "matrix_image",
+  "transmission",
+  "awakening",
+  "matrix_data",
+  "matrix_ticker",
+  "ending_socials",
+]);
+
+const MOSAIC_LAYOUTS = new Set([
+  "mosaic_title",
+  "mosaic_text",
+  "mosaic_punch",
+  "mosaic_stream",
+  "mosaic_metric",
+  "mosaic_phrases",
+  "mosaic_close",
+  "mosaic_data_visualization",
+  "mosaic_ticker",
+  "ending_socials",
+]);
+
+const WHITEBOARD_LAYOUTS = new Set([
+  "drawn_title",
+  "marker_story",
+  "stick_figure_scene",
+  "stats_figures",
+  "stats_chart",
+  "comparison",
+  "countdown_timer",
+  "handwritten_equation",
+  "speech_bubble_dialogue",
+  "data_visualisation",
+  "ticker_table",
+  "ending_socials",
+]);
+
+const NEWSPAPER_LAYOUTS = new Set([
+  "news_headline",
+  "article_lead",
+  "pull_quote",
+  "data_snapshot",
+  "fact_check",
+  "news_timeline",
+  "data_visualisation",
+  "expert_profile",
+  "perspective_split",
+  "ticker_table",
+  "ending_socials",
+]);
+
+const NEWSCAST_LAYOUTS = new Set([
+  "opening",
+  "anchor_narrative",
+  "live_metrics_board",
+  "data_visualization",
+  "briefing_code_panel",
+  "headline_insight",
+  "story_stack",
+  "side_by_side_brief",
+  "segment_break",
+  "field_image_focus",
+  "ending_socials",
+]);
+const BLACKSWAN_LAYOUTS = new Set([
+  "droplet_intro",
+  "neon_narrative",
+  "arc_features",
+  "pulse_metric",
+  "signal_split",
+  "dive_insight",
+  "reactor_code",
+  "flight_path",
+  "data_visualisation",
+  "ticker_table",
+  "ending_socials",
+]);
+
+const BLOOMBERG_LAYOUTS = new Set([
+  "terminal_boot",
+  "terminal_narrative",
+  "terminal_chart",
+  "terminal_dashboard",
+  "terminal_ticker",
+  "terminal_table",
+  "terminal_dataviz",
+  "terminal_split",
+  "terminal_list",
+  "terminal_metric",
+  "terminal_profile",
+  "terminal_options",
+  "ending_socials",
+]);
+
+const CHRONICLE_LAYOUTS = new Set([
+  "book_open",
+  "parchment_scroll",
+  "chapter_plate",
+  "illuminated_quote",
+  "ledger_stats",
+  "versus_folio",
+  "chronicle_timeline",
+  "map_reveal",
+  "decree_seal",
+  "chronicle_data",
+  "chronicle_table",
+  "ending_socials",
+]);
+
+const ECONOMIST_LAYOUTS = new Set([
+  "cover_reveal",
+  "leader_article",
+  "section_divider",
+  "chart_line",
+  "chart_bar",
+  "data_table",
+  "pros_cons",
+  "key_indicators",
+  "leader_quote",
+  "image_feature",
+  "ending_socials",
+]);
+const STICKMAN_2_LAYOUTS = new Set([
+  "chalk_title",
+  "night_walk",
+  "shooting_star",
+  "constellation_stats",
+  "moonphase_chart",
+  "shadow_comparison",
+  "signal_fire_scene",
+  "neon_countdown",
+  "lantern_dialogue",
+  "data_visualisation",
+  "ticker_table",
+  "ending_socials",
+]);
+
+const MAGAZINE_LAYOUTS = new Set([
+  "magazine_cover",
+  "editorial_quote",
+  "by_the_numbers",
+  "interview_qa",
+  "magazine_data_visualization",
+  "timeline_journey",
+  "text_narration",
+  "ending_socials",
+  "magazine_ticker",
+  "colorblock",
+  "feature",
+  "comparison",
+]);
+
+const STICKMAN_FOOTBALL_LAYOUTS = new Set([
+  "kickoff_title",
+  "passing_play",
+  "freekick_setup",
+  "goal_moment",
+  "match_stats",
+  "injury_break",
+  "ball_control",
+  "text_narration",
+  "ending_socials",
+  "football_data_viz",
+  "football_ticker",
+  "corner_kick",
+]);
+
+const SAKURA_LAYOUTS = new Set([
+  "sakura_intro",
+  "sakura_section",
+  "sakura_quote",
+  "sakura_two_column_detail",
+  "sakura_stat_highlight",
+  "sakura_list_scene",
+  "sakura_text_narration",
+  "sakura_ending_socials",
+  // Canonical ending id the backend emits; aliased to sakura_ending_socials in the
+  // layout registry. Must be a valid layout so VideoPreview doesn't fall it back.
+  "ending_socials",
+  "sakura_data_visualization",
+  "sakura_ticker",
+]);
+
+export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
+  default: {
+    component: DefaultVideoComposition as React.ComponentType<any>,
+    heroLayout: "hero_image",
+    fallbackLayout: "text_narration",
+    validLayouts: DEFAULT_LAYOUTS,
+    defaultColors: {
+      accent: "#7C3AED",
+      bg: "#FFFFFF",
+      text: "#000000",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
+  nightfall: {
+    component: NightfallVideoComposition as React.ComponentType<any>,
+    heroLayout: "cinematic_title",
+    fallbackLayout: "glass_narrative",
+    validLayouts: NIGHTFALL_LAYOUTS,
+    defaultColors: {
+      accent: "#818CF8",
+      bg: "#0A0A1A",
+      text: "#E2E8F0",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
+  gridcraft: {
+    component: GridcraftVideoComposition as React.ComponentType<any>,
+    heroLayout: "bento_hero",
+    fallbackLayout: "editorial_body",
+    validLayouts: GRIDCRAFT_LAYOUTS,
+    defaultColors: {
+      accent: "#F97316",
+      bg: "#FAFAFA",
+      text: "#171717",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
+  spotlight: {
+    component: SpotlightVideoComposition as React.ComponentType<any>,
+    heroLayout: "impact_title",
+    fallbackLayout: "statement",
+    validLayouts: SPOTLIGHT_LAYOUTS,
+    defaultColors: {
+      accent: "#EF4444",
+      bg: "#000000",
+      text: "#FFFFFF",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
+  matrix: {
+    component: MatrixVideoComposition as React.ComponentType<any>,
+    heroLayout: "matrix_title",
+    fallbackLayout: "terminal_text",
+    validLayouts: MATRIX_LAYOUTS,
+    defaultColors: {
+      accent: "#00FF41",
+      bg: "#000000",
+      text: "#00FF41",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
+  mosaic: {
+    component: MosaicVideoComposition as React.ComponentType<any>,
+    heroLayout: "mosaic_title",
+    fallbackLayout: "mosaic_text",
+    validLayouts: MOSAIC_LAYOUTS,
+    defaultColors: {
+      accent: "#C26240",
+      bg: "#EAE4DA",
+      text: "#2A2A28",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
+  whiteboard: {
+    component: WhiteboardVideoComposition as React.ComponentType<any>,
+    heroLayout: "drawn_title",
+    fallbackLayout: "marker_story",
+    validLayouts: WHITEBOARD_LAYOUTS,
+    defaultColors: {
+      accent: "#1F2937",
+      bg: "#F7F3E8",
+      text: "#111827",
+    },
+    baseWidth: 1280,
+    baseHeight: 720,
+  },
+  newspaper: {
+    component: NewspaperVideoComposition as React.ComponentType<any>,
+    heroLayout: "news_headline",
+    fallbackLayout: "article_lead",
+    validLayouts: NEWSPAPER_LAYOUTS,
+    defaultColors: {
+      accent: "#FFE34D",
+      bg: "#FAFAF8",
+      text: "#111111",
+    },
+    baseWidth: 1280,
+    baseHeight: 720,
+  },
+  newscast: {
+    component: NewscastVideoComposition as React.ComponentType<any>,
+    heroLayout: "opening",
+    fallbackLayout: "anchor_narrative",
+    validLayouts: NEWSCAST_LAYOUTS,
+    defaultColors: {
+      accent: "#E82020",
+      bg: "#060614",
+      text: "#B8C8E0",
+    },
+    baseWidth: 1280,
+    baseHeight: 720,
+  },
+  blackswan: {
+    component: BlackswanVideoComposition as React.ComponentType<any>,
+    heroLayout: "droplet_intro",
+    fallbackLayout: "neon_narrative",
+    validLayouts: BLACKSWAN_LAYOUTS,
+    defaultColors: {
+      accent: "#00E5FF",
+      bg: "#000000",
+      text: "#DFFFFF",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
+  bloomberg: {
+    component: BloombergVideoComposition as React.ComponentType<any>,
+    heroLayout: "terminal_boot",
+    fallbackLayout: "terminal_narrative",
+    validLayouts: BLOOMBERG_LAYOUTS,
+    defaultColors: {
+      accent: "#5EA2FF",
+      bg: "#000000",
+      text: "#FFB340",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
+  chronicle: {
+    component: ChronicleVideoComposition as React.ComponentType<any>,
+    heroLayout: "book_open",
+    fallbackLayout: "parchment_scroll",
+    validLayouts: CHRONICLE_LAYOUTS,
+    defaultColors: {
+      accent: "#B8860B",
+      bg: "#F1E4C9",
+      text: "#2A1810",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
+  economist: {
+    component: EconomistVideoComposition as React.ComponentType<any>,
+    heroLayout: "cover_reveal",
+    fallbackLayout: "leader_article",
+    validLayouts: ECONOMIST_LAYOUTS,
+    defaultColors: {
+      accent: "#E3120B",
+      bg: "#F6F4EE",
+      text: "#1A1A1A",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
+  stickman_2: {
+    component: Stickman2VideoComposition as React.ComponentType<any>,
+    heroLayout: "chalk_title",
+    fallbackLayout: "night_walk",
+    validLayouts: STICKMAN_2_LAYOUTS,
+    defaultColors: {
+      accent: "#FFFFFF",
+      bg: "#000000",
+      text: "#FFFFFF",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
+  magazine: {
+    component: MagazineVideoComposition as React.ComponentType<any>,
+    heroLayout: "magazine_cover",
+    fallbackLayout: "text_narration",
+    validLayouts: MAGAZINE_LAYOUTS,
+    defaultColors: {
+      accent: "#E63946",
+      bg: "#FDFCFB",
+      text: "#1A1A1A",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
+  stickman_football: {
+    component: StickmanFootballVideoComposition as React.ComponentType<any>,
+    heroLayout: "kickoff_title",
+    fallbackLayout: "passing_play",
+    validLayouts: STICKMAN_FOOTBALL_LAYOUTS,
+    defaultColors: {
+      accent: "#869358",
+      bg: "#FFFFFF",
+      text: "#111111",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
+  sakura: {
+    component: SakuraVideoComposition as React.ComponentType<any>,
+    heroLayout: "sakura_intro",
+    fallbackLayout: "sakura_section",
+    validLayouts: SAKURA_LAYOUTS,
+    defaultColors: {
+      accent: "#C0143C",
+      bg: "#FDF6F0",
+      text: "#2A0A12",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
+};
+
+const DEFAULT_CONFIG = TEMPLATE_REGISTRY.default;
+
+/** Legacy template ids → current registry id (preview + render must match DB migrations). */
+const BUILTIN_TEMPLATE_ID_ALIASES: Record<string, string> = {
+  newsreport: "newscast",
+};
+
+export function normalizeBuiltInTemplateId(templateId: string | undefined): string {
+  const raw = (templateId ?? "default").trim().toLowerCase();
+  return BUILTIN_TEMPLATE_ID_ALIASES[raw] ?? raw;
+}
+
+type TemplateSource = "frontend" | "remotion";
+
+export function getTemplateConfig(
+  templateId: string | undefined,
+  source: TemplateSource = "frontend",
+): TemplateConfig {
+  const id = normalizeBuiltInTemplateId(templateId);
+
+  const base = TEMPLATE_REGISTRY[id] ?? DEFAULT_CONFIG;
+
+  if (source === "remotion") {
+    const overrideComponent =
+      id === "default"
+        ? RemotionDefaultVideoComposition
+        : id === "nightfall"
+          ? RemotionNightfallVideoComposition
+          : id === "gridcraft"
+            ? RemotionGridcraftVideoComposition
+            : id === "spotlight"
+              ? RemotionSpotlightVideoComposition
+              : id === "matrix"
+                ? RemotionMatrixVideoComposition
+                : id === "mosaic"
+                  ? RemotionMosaicVideoComposition
+                : id === "whiteboard"
+                  ? RemotionWhiteboardVideoComposition
+                  : id === "newspaper"
+                    ? RemotionNewspaperVideoComposition
+                    : id === "newscast"
+                      ? RemotionNewscastVideoComposition
+                      : id === "blackswan"
+                        ? RemotionBlackswanVideoComposition
+                        : id === "bloomberg"
+                          ? RemotionBloombergVideoComposition
+                          : id === "chronicle"
+                            ? RemotionChronicleVideoComposition
+                            : id === "economist"
+                              ? RemotionEconomistVideoComposition
+                              : id === "stickman_2"
+                                ? RemotionStickman2VideoComposition
+                                : id === "magazine"
+                                  ? RemotionMagazineVideoComposition
+                                : id === "sakura"
+                                  ? RemotionSakuraVideoComposition
+                                : id === "stickman_football"
+                                  ? RemotionStickmanFootballVideoComposition
+                    : null;
+
+    if (overrideComponent) {
+      return {
+        ...base,
+        component: overrideComponent as React.ComponentType<any>,
+      };
+    }
+  }
+
+  return base;
+}

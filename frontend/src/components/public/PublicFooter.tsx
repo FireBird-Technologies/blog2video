@@ -7,9 +7,18 @@ import {
   getMarketingPage,
 } from "../../content/siteContent";
 import { useAuth } from "../../hooks/useAuth";
+import { counterpartOf, getBrand, useBrand, type BrandId } from "../../brand/brand";
 
-export default function PublicFooter() {
+/**
+ * `brandId` overrides the ambient brand, for pages rendered under the other
+ * brand's domain (PdfLanding at /pdf2video on blog2video.app).
+ */
+export default function PublicFooter({ brandId }: { brandId?: BrandId } = {}) {
   const { user } = useAuth();
+  const sessionBrand = useBrand();
+  const brand = brandId ? getBrand(brandId) : sessionBrand;
+  const isPdfBrand = brand.id === "pdf2video";
+  const otherBrand = counterpartOf(brand.id);
 
   const featuredPages = featuredPagePaths
     .map((path) => getMarketingPage(path))
@@ -57,13 +66,24 @@ export default function PublicFooter() {
           <div>
             <div className="mb-3 flex items-center gap-2">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-600 text-[11px] font-bold text-white">
-                B2V
+                {brand.logoText}
               </div>
-              <span className="text-lg font-semibold text-gray-900">Blog2Video</span>
+              <span className="text-lg font-semibold text-gray-900">{brand.siteName}</span>
             </div>
             <p className="text-sm leading-relaxed text-gray-500">
-              Turn blog posts, articles, PDFs, and documentation into video workflows that can rank, distribute, and convert.
+              {isPdfBrand
+                ? "Turn PDFs, reports, whitepapers, and decks into narrated, branded videos people actually finish."
+                : "Turn blog posts, articles, PDFs, and documentation into video workflows that can rank, distribute, and convert."}
             </p>
+            {/* Reciprocal cross-brand link — same product, different front door. */}
+            <a
+              href={otherBrand.siteUrl}
+              className="mt-3 inline-block text-sm text-gray-500 transition-colors hover:text-gray-900"
+            >
+              {isPdfBrand
+                ? "Have a blog instead? Try Blog2Video →"
+                : "Have a PDF instead? Try PDF2Video →"}
+            </a>
           </div>
 
           {footerGroups.map((group) => (

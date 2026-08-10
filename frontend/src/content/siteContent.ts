@@ -1,9 +1,10 @@
+import { brand } from "../brand/brand";
 import { alternativePages } from "./alternativePages";
 import { blogPosts } from "./blogPosts";
 import { coreCommercialPages } from "./corePages";
 import { featurePages } from "./featurePages";
 import { helpPosts } from "./helpPosts";
-import { defaultCta, templateProfiles } from "./marketingBase";
+import { defaultCta, templateProfiles, visibleTemplateProfiles } from "./marketingBase";
 import { programmaticPages } from "./programmaticPages";
 import { resourcePages } from "./resourcePages";
 import type { BlogPost, MarketingPage } from "./seoTypes";
@@ -12,9 +13,12 @@ import { templatePages } from "./templatePages";
 import { getTool, getToolByPath, tools, toolsHub } from "./tools";
 import { useCasePages } from "./useCasePages";
 
-export const siteUrl = "https://blog2video.app";
-export const siteName = "Blog2Video";
-export const defaultOgImage = `${siteUrl}/og-image-v2.png`;
+// Derived from the active brand so the pdf2video deployment emits its own
+// canonical URLs, titles, and OG tags without touching any of the ~11 call
+// sites that import these. See src/brand/brand.ts.
+export const siteUrl = brand.siteUrl;
+export const siteName = brand.siteName;
+export const defaultOgImage = brand.defaultOgImage;
 export const organizationName = "FireBird Technologies";
 
 // Verified brand profiles emitted as schema.org `sameAs`. These tell Google that
@@ -42,7 +46,7 @@ export const marketingPages: MarketingPage[] = [
 export const topNavLinks = [
   { href: "/blog-to-video", label: "Blog to Video" },
   { href: "/for-technical-bloggers", label: "Use Cases" },
-  { href: "/templates/geometric-explainer", label: "Templates" },
+  { href: "/templates/nightfall", label: "Templates" },
   { href: toolsHub.path, label: "Tools" },
   { href: "/help", label: "Help" },
   { href: "/blogs", label: "Blog" },
@@ -50,7 +54,7 @@ export const topNavLinks = [
 ];
 
 export const templateMenuLinks = [
-  ...templateProfiles.map((template) => ({
+  ...visibleTemplateProfiles.map((template) => ({
     href: `/templates/${template.slug}`,
     label: template.name,
     description: template.bestFor.split(",")[0].trim(),
@@ -109,7 +113,6 @@ export const footerGroups = [
       "/templates/gridcraft",
       "/templates/matrix",
       "/templates/newspaper",
-      "/templates/geometric-explainer",
       "/custom-branded-video-templates",
     ],
   },

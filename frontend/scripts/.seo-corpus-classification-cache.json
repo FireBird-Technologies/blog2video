@@ -3022,5 +3022,13 @@
   "blog:best-ai-tools-for-substack-writers@501d105df5b07a6c@20aaebd1": {
     "keep": false,
     "reason": "Article primarily about Substack tools, not Blog2Video features."
+  },
+  "marketing:/pdf-to-video@e8f75bb0db9c4f70@20aaebd1": {
+    "keep": true,
+    "reason": "Describes PDF-to-video feature without mentioning competitors."
+  },
+  "blog:blog2video-august-2026-update@8ce68d893e5417b6@20aaebd1": {
+    "keep": true,
+    "reason": "Describes Blog2Video features and pricing updates."
   }
 }

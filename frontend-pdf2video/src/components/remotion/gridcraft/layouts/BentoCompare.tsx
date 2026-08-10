@@ -1,0 +1,167 @@
+import React from "react";
+import { useCurrentFrame, useVideoConfig, spring, interpolate } from "remotion";
+import { GridcraftLayoutProps } from "../types";
+import { GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY } from "../constants";
+import { glass, COLORS } from "../utils/styles";
+import { ZoomCropImg } from "../components/ZoomCropImg";
+
+export const BentoCompare: React.FC<GridcraftLayoutProps> = ({
+  dataPoints,
+  leftLabel,
+  rightLabel,
+  leftDescription,
+  rightDescription,
+  verdict,
+  title,imageUrl,
+  imageObjectPosition,
+  imageZoom,
+  videoUrl,
+  videoMuted,
+  videoVolume,
+  videoDurationInFrames,
+  videoStartInFrames,
+  accentColor,
+  aspectRatio,
+  titleFontSize,
+  descriptionFontSize,
+  fontFamily,
+}) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+
+  const spr = (d: number) => spring({ frame: Math.max(0, frame - d), fps, config: { damping: 16 } });
+
+  // Construct points from specific props or fallback to dataPoints
+  const points = (leftLabel && rightLabel) ? [
+      { label: leftLabel, title: leftLabel, description: leftDescription },
+      { label: rightLabel, title: rightLabel, description: rightDescription }
+  ] : (dataPoints || [
+      { label: "Old Way", title: "Slow & Static", description: "Hard coded pages." },
+      { label: "New Way", title: "Dynamic & Fast", description: "Generated on the fly." }
+  ]);
+
+  const finalVerdict = verdict || title;
+  const hasImage = !!(imageUrl || videoUrl);
+  const p = aspectRatio === "portrait";
+  const resolvedFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY;
+
+  const imageOpacity = interpolate(frame, [5, 25], [0, 1], { extrapolateRight: "clamp" });
+  const imageScale = spring({ frame: Math.max(0, frame - 5), fps, config: { damping: 14 } });
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: hasImage && !p ? "row" : "column",
+        alignItems: "center",
+        justifyContent: "center",
+        width: "90%",
+        height: "80%",
+        margin: "auto",
+        gap: hasImage ? (p ? 24 : 32) : 0,
+        fontFamily: resolvedFontFamily,
+      }}
+    >
+      {hasImage && (
+        <div
+          style={{
+            flex: p ? "none" : "0 0 38%",
+            width: p ? "80%" : "auto",
+            height: p ? 220 : 320,
+            borderRadius: 12,
+            overflow: "hidden",
+            opacity: imageOpacity,
+            transform: `scale(${imageScale})`,
+            boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+          }}
+        >
+          <ZoomCropImg
+            src={imageUrl}
+            videoUrl={videoUrl}
+            videoMuted={videoMuted}
+            videoVolume={videoVolume}
+            videoDurationInFrames={videoDurationInFrames}
+            videoStartInFrames={videoStartInFrames}
+            imageObjectPosition={imageObjectPosition}
+            imageZoom={imageZoom}
+          />
+        </div>
+      )}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: p ? "1fr" : "1fr 1fr",
+          gridTemplateRows: p ? "auto auto auto" : "1fr auto",
+          gap: 20,
+          flex: hasImage && !p ? 1 : "none",
+          width: hasImage && !p ? "auto" : "100%",
+          minWidth: 0,
+        }}
+      >
+      {/* Left Item */}
+      <div style={{
+          ...glass(false),
+          padding: p ? 24 : 32,
+          display: "flex", flexDirection: "column", justifyContent: "center",
+          minWidth: 0,
+          overflow: "hidden",
+          transform: p
+            ? `translateY(${interpolate(spr(0), [0, 1], [24, 0])}px)`
+            : `translateX(${interpolate(spr(0), [0, 1], [-50, 0])}px)`,
+          opacity: interpolate(spr(0), [0, 1], [0, 1]),
+      }}>
+         <div style={{ fontSize: 12, color: COLORS.MUTED, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 12 }}>
+             {points[0]?.label || "Before"}
+         </div>
+         <div style={{ fontSize: titleFontSize ?? (p ? 44 : 49), fontWeight: 700, marginBottom: 12, color: COLORS.DARK, wordBreak: "break-word" }}>
+             {points[0]?.title}
+         </div>
+         <div style={{ fontSize: descriptionFontSize ?? (p ? 26 : 35), lineHeight: 1.5, color: COLORS.MUTED, wordBreak: "break-word" }}>
+             {points[0]?.description}
+         </div>
+      </div>
+
+       {/* Right Item */}
+       <div style={{
+          ...glass(false),
+          padding: p ? 24 : 32,
+          display: "flex", flexDirection: "column", justifyContent: "center",
+          minWidth: 0,
+          overflow: "hidden",
+          transform: p
+            ? `translateY(${interpolate(spr(5), [0, 1], [24, 0])}px)`
+            : `translateX(${interpolate(spr(5), [0, 1], [50, 0])}px)`,
+          opacity: interpolate(spr(5), [0, 1], [0, 1]),
+      }}>
+         <div style={{ fontSize: 12, color: COLORS.MUTED, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 12 }}>
+             {points[1]?.label || "After"}
+         </div>
+         <div style={{ fontSize: titleFontSize ?? (p ? 44 : 49), fontWeight: 700, marginBottom: 12, color: COLORS.DARK, wordBreak: "break-word" }}>
+             {points[1]?.title}
+         </div>
+         <div style={{ fontSize: descriptionFontSize ?? (p ? 26 : 35), lineHeight: 1.5, color: COLORS.MUTED, wordBreak: "break-word" }}>
+             {points[1]?.description}
+         </div>
+      </div>
+
+      {/* Verdict / Bottom Bar */}
+      {finalVerdict && (
+          <div style={{
+              gridColumn: p ? "1" : "1 / 3",
+              ...glass(true),
+              backgroundColor: accentColor || COLORS.ACCENT,
+              padding: "20px",
+              textAlign: "center",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              minWidth: 0,
+              transform: `translateY(${interpolate(spr(15), [0, 1], [20, 0])}px)`,
+              opacity: interpolate(spr(15), [0, 1], [0, 1]),
+          }}>
+              <div style={{ fontSize: 18, fontWeight: 600, wordBreak: "break-word" }}>{finalVerdict}</div>
+          </div>
+      )}
+      </div>
+    </div>
+  );
+};
+

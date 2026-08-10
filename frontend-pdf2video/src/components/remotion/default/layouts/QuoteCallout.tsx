@@ -1,0 +1,156 @@
+import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import { SceneLayoutProps } from "../types";
+import { GeometricBackground } from "../components/GeometricBackground";
+import { FlybyPlane } from "../components/FlybyPlane";
+
+export const QuoteCallout: React.FC<SceneLayoutProps> = ({
+  title,
+  narration,
+  accentColor,
+  bgColor,
+  textColor,
+  quote,
+  quoteAuthor,
+  aspectRatio,
+  titleFontSize,
+  descriptionFontSize,
+  fontFamily,
+  sceneIndex,
+}) => {
+  const frame = useCurrentFrame();
+  const fps = 30;
+  const p = aspectRatio === "portrait";
+
+  const barH = interpolate(frame, [0, 25], [0, 100], {
+    extrapolateRight: "clamp",
+  });
+
+  // Quote text springs in with slide
+  const textSpring = spring({
+    frame: frame - 8,
+    fps,
+    config: { damping: 20, stiffness: 80, mass: 1 },
+  });
+  const textOp = interpolate(textSpring, [0, 1], [0, 1], {
+    extrapolateRight: "clamp",
+  });
+  const textX = interpolate(textSpring, [0, 1], [-30, 0], {
+    extrapolateRight: "clamp",
+  });
+
+  // Author label springs in after quote
+  const labelSpring = spring({
+    frame: frame - 20,
+    fps,
+    config: { damping: 22, stiffness: 90, mass: 1 },
+  });
+  const labelOp = interpolate(labelSpring, [0, 1], [0, 1], {
+    extrapolateRight: "clamp",
+  });
+  const glowOp = interpolate(frame, [5, 40], [0, 0.15], {
+    extrapolateRight: "clamp",
+  });
+
+  const displayQuote = quote || narration;
+  const displayAuthor = quoteAuthor || title;
+
+  return (
+    <AbsoluteFill
+      style={{
+        backgroundColor: bgColor,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: p ? "80px 50px" : "80px 120px",
+        overflow: "hidden",
+      }}
+    >
+      <GeometricBackground accentColor={accentColor} frame={frame} sceneIndex={sceneIndex} />
+      {/* Decorative flyby — different startFrame + slightly lower yZone than BulletList */}
+      <FlybyPlane accentColor={accentColor} startFrame={50} yZone={0.16} />
+      {/* Glow effect */}
+      <div
+        style={{
+          position: "absolute",
+          top: "20%",
+          left: "10%",
+          width: p ? 280 : 400,
+          height: p ? 280 : 400,
+          borderRadius: "50%",
+          background: `radial-gradient(circle, ${accentColor}${Math.round(glowOp * 255)
+            .toString(16)
+            .padStart(2, "0")}, transparent)`,
+        }}
+      />
+
+      <div
+        style={{
+          display: "flex",
+          gap: p ? 28 : 40,
+          alignItems: "stretch",
+          maxWidth: p ? 900 : 1000,
+          position: "relative",
+        }}
+      >
+        {/* Accent bar */}
+        <div
+          style={{
+            width: 6,
+            backgroundColor: accentColor,
+            borderRadius: 3,
+            height: `${barH}%`,
+            alignSelf: "center",
+            flexShrink: 0,
+          }}
+        />
+
+        <div
+          style={{
+            opacity: textOp,
+            transform: `translateX(${textX}px)`,
+          }}
+        >
+          <p
+            style={{
+              color: textColor,
+              fontSize: titleFontSize ?? (p ? 54 : 49),
+              fontWeight: 600,
+              fontFamily: fontFamily ?? "'Roboto Slab', serif",
+              lineHeight: 1.55,
+              fontStyle: "italic",
+              marginTop: 0,
+              marginBottom: 24,
+            }}
+          >
+            &ldquo;{displayQuote}&rdquo;
+          </p>
+          <p
+            style={{
+              color: accentColor,
+              fontSize: descriptionFontSize ?? (p ? 30 : 26),
+              fontWeight: 500,
+              fontFamily: fontFamily ?? "'Roboto Slab', serif",
+              opacity: labelOp,
+              textTransform: "uppercase",
+              letterSpacing: 3,
+              margin: 0,
+            }}
+          >
+            {displayAuthor}
+          </p>
+        </div>
+      </div>
+
+      <div
+        style={{
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          width: "100%",
+          height: 4,
+          backgroundColor: accentColor,
+        }}
+      />
+    </AbsoluteFill>
+  );
+};
