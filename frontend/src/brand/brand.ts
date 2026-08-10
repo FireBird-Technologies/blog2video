@@ -192,7 +192,7 @@ function faviconDataUri(text: string): string {
 
 /** Favicon href for a brand — a real file for blog2video, synthesized otherwise. */
 export function brandFaviconHref(b: Brand = getSessionBrand()): string {
-  return b.id === "blog2video" ? "/b2b.png" : faviconDataUri(b.logoText);
+  return faviconDataUri(b.logoText);
 }
 
 /**
