@@ -118,6 +118,13 @@ function renderMarketingPageHtml(page: MarketingPage): string {
   return `<main><h1>${escapeHtml(page.heroTitle)}</h1><p>${escapeHtml(page.heroDescription)}</p>${sectionsHtml}${faqHtml}</main>`;
 }
 
+function renderFaqHtml(faq: { question: string; answer: string }[]): string {
+  if (!faq.length) return "";
+  return `<section><h2>Frequently Asked Questions</h2>${faq
+    .map((f) => `<div><h3>${escapeHtml(f.question)}</h3><p>${escapeHtml(f.answer)}</p></div>`)
+    .join("")}</section>`;
+}
+
 function renderToolsHubHtml(): string {
   const toolsHtml = tools
     .map(
@@ -128,45 +135,35 @@ function renderToolsHubHtml(): string {
   return `<main><h1>${escapeHtml(toolsHub.heroTitle)}</h1><p>${escapeHtml(toolsHub.heroDescription)}</p>${toolsHtml}</main>`;
 }
 
-/**
- * Tool pages render their widget client-side, so the prerendered markup carries
- * the article half only — the H1, the proof points, the prose, and the FAQ. That
- * is the part a crawler can read anyway; the widget is a form.
- */
 function renderToolPageHtml(tool: ToolDefinition): string {
-  const proofHtml = tool.proofPoints.length
-    ? `<ul>${tool.proofPoints.map((point) => `<li>${escapeHtml(point)}</li>`).join("")}</ul>`
-    : "";
   const sectionsHtml = tool.sections
-    .map((section) => {
-      const body = section.body.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("");
-      const bullets = section.bullets?.length
-        ? `<ul>${section.bullets.map((bullet) => `<li>${escapeHtml(bullet)}</li>`).join("")}</ul>`
+    .map((s) => {
+      const body = s.body.map((p) => `<p>${escapeHtml(p)}</p>`).join("");
+      const bullets = s.bullets?.length
+        ? `<ul>${s.bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join("")}</ul>`
         : "";
-      return `<section><h2>${escapeHtml(section.title)}</h2>${body}${bullets}</section>`;
+      return `<section><h2>${escapeHtml(s.title)}</h2>${body}${bullets}</section>`;
     })
     .join("");
-  const faqHtml = tool.faq.length
-    ? `<section><h2>Frequently Asked Questions</h2>${tool.faq
-        .map((entry) => `<div><h3>${escapeHtml(entry.question)}</h3><p>${escapeHtml(entry.answer)}</p></div>`)
-        .join("")}</section>`
+  const proofHtml = tool.proofPoints?.length
+    ? `<ul>${tool.proofPoints.map((p) => `<li>${escapeHtml(p)}</li>`).join("")}</ul>`
     : "";
-  return `<main><p>${escapeHtml(tool.eyebrow)}</p><h1>${escapeHtml(tool.heroTitle)}</h1><p>${escapeHtml(tool.heroDescription)}</p>${proofHtml}${sectionsHtml}${faqHtml}</main>`;
-}
-
-/**
- * Server-rendered pdf2video hero.
- *
- * The SPA is JavaScript-rendered, which costs crawlability. This is a
- * brand-new homepage with no authority to fall back on, so its H1 and opening
- * copy ship in the HTML rather than waiting for hydration.
- */
-function renderPdfHomeHtml(): string {
-  return `<main><h1>Turn your PDF into a video in minutes</h1><p>Nobody opens the PDF. Everybody watches the video.</p><p>Upload a document. Get a narrated, branded video in minutes. Reports, whitepapers, research notes, decks, and one-pagers. No editor, no camera, no timeline to fight with.</p><section><h2>The PDF graveyard</h2><p>Documents are the worst performing format you own. They ask for a quiet room and twenty uninterrupted minutes, and nobody has either. Meanwhile the same argument, narrated over clean visuals, gets watched to the end on a phone in a lift.</p></section><section><h2>Three steps. Four minutes.</h2><h3>Upload your document</h3><p>Drop in a PDF, Word doc, or slide deck. We pull out the structure, the headings, the key figures, and the argument.</p><h3>Pick your look and voice</h3><p>Choose a template and a narrator. Add your logo and brand colours once and every future video inherits them.</p><h3>Download and publish</h3><p>Get an MP4 ready for LinkedIn, YouTube, email, or your own site.</p></section><section><h2>Why this is not another AI video generator</h2><p>Most AI video tools generate footage. PDF2Video renders. Every frame is drawn from a real design system, which means your figures are your figures, your quotes are word for word, and your logo is the right shade of your logo.</p></section></main>`;
+  return `<main><p>${escapeHtml(tool.eyebrow)}</p><h1>${escapeHtml(tool.heroTitle)}</h1><p>${escapeHtml(tool.heroDescription)}</p>${proofHtml}${sectionsHtml}${renderFaqHtml(tool.faq)}</main>`;
 }
 
 function getAppHtml(routePath: string): string {
-  if (routePath === "/") return renderPdfHomeHtml();
+  // "/" deliberately renders NO markup into #root, matching
+  // ../frontend/scripts/build-seo.ts (which only prerenders "/" for the
+  // pdf brand inside the shared build).
+  //
+  // The landing page's fonts use `display: swap`, so any prerendered text is
+  // painted in fallback Times for ~500ms before the webfont swaps in — a
+  // visible flash of unstyled content on every cold load. An empty #root means
+  // there is simply nothing to paint before React mounts.
+  //
+  // SEO is unaffected: buildHeadTags() still emits the full title, description,
+  // canonical, OG/Twitter tags, and JSON-LD for "/" — only the visible body
+  // markup is omitted, exactly as on blog2video.app.
   if (routePath === "/blogs") return renderBlogIndexHtml(blogPosts);
   if (routePath === toolsHub.path) return renderToolsHubHtml();
   if (routePath.startsWith("/blogs/")) {
