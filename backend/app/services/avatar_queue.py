@@ -600,6 +600,13 @@ def _chain_matte_if_background_chosen(project_id: int, db) -> None:
     the follow-up cutout could not be enqueued. The settings card's manual
     "Remove them now" is still there as the backstop.
     """
+    # BG-REMOVAL-DISABLED: no cutout ever follows a render now. This is already
+    # implied by avatar_bg_wants_cutout() returning False further down, but the
+    # chain is stated explicitly here so the dead path is obvious at the call site
+    # rather than resting on a predicate three files away.
+    # TO RE-ENABLE: delete this return.
+    return
+
     try:
         from app.models.project import Project
         from app.models.scene import Scene

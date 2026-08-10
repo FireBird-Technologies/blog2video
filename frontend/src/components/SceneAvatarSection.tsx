@@ -323,15 +323,20 @@ export default function SceneAvatarSection({
       // can already carry the right colour and still have no cutout (a render
       // that finished after the background was chosen), and that scene needs
       // this exactly as much as one being changed now.
-      if (ready && !matted && avatarBgWantsCutout(appearance.bg as AvatarBg)) {
-        try {
-          await matteSceneAvatar(projectId, sceneId);
-          setMatted(true);
-        } catch {
-          /* non-fatal: the avatar still shows with its original background, and
-             the settings card surfaces a Retry for cutouts that failed. */
-        }
-      }
+      //
+      // BG-REMOVAL-DISABLED: commented out. avatarBgWantsCutout() is hard-wired to
+      // false, so this branch was already unreachable — it is commented anyway so
+      // the dead call to matteSceneAvatar is visible here rather than implied by a
+      // predicate in another file. TO RE-ENABLE: uncomment.
+      // if (ready && !matted && avatarBgWantsCutout(appearance.bg as AvatarBg)) {
+      //   try {
+      //     await matteSceneAvatar(projectId, sceneId);
+      //     setMatted(true);
+      //   } catch {
+      //     /* non-fatal: the avatar still shows with its original background, and
+      //        the settings card surfaces a Retry for cutouts that failed. */
+      //   }
+      // }
       await onChanged();
       flashSaved();
       // INSIDE the try, never in finally: this fires only when the save really

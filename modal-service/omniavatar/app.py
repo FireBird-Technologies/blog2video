@@ -5,6 +5,14 @@ HuggingFace Space at hf-space/omniavatar-service/.
 Endpoints: GET /ping, POST /render, GET /lastlog. (/prepare is gone — see the note
 above the /render handler.)
 
+BG-REMOVAL-DISABLED: /render CURRENTLY RETURNS THE PLAIN MP4 ONLY. Background
+removal (matting/cutouts) is switched off product-wide to cut ~30-60s of billed
+L40S time per scene. MATTE_DISABLED below is the single switch; the pipeline
+itself (_matte_mp4, the rembg image layers, the multipart branch) is left INTACT
+and merely unreachable, so restoring the feature is a one-line flip plus a
+redeploy. `grep -rn BG-REMOVAL-DISABLED` lists every site across the repo.
+The rest of this docstring describes the feature AS IT BEHAVES WHEN RE-ENABLED.
+
 /render RETURNS THE CUTOUTS TOO. Matting used to run on the app server's CPU after
 the render came back, as a second job the user waited for separately. It now runs
 HERE, in this container, immediately after inference — so one call returns the mp4
@@ -261,6 +269,23 @@ DEFAULT_FPS = 30            # matches the 30fps Remotion composition
 # CPU offload — only needed if downgrading to a smaller card.
 _np_env = os.environ.get("AVATAR_NUM_PERSISTENT_PARAM_IN_DIT", "").strip()
 NUM_PERSISTENT_PARAM_IN_DIT = int(_np_env) if _np_env else None
+
+# ── BG-REMOVAL-DISABLED: matting kill switch ──────────────────────────────────────
+# THE off switch for background removal in this service. While True, _matte_mp4 is
+# never called and /render always answers with the plain video/mp4 single-file
+# contract, whatever the caller sends for `inline_matte`.
+#
+# Why a constant rather than only flipping the `inline_matte` default: an older or
+# cached backend may still send inline_matte=true explicitly, and this feature is
+# off as a PRODUCT decision, not a per-request preference. One authority beats two.
+#
+# TO RE-ENABLE: set this to False, set the backend's AVATAR_INLINE_MATTE back to
+# "true", then redeploy this Modal app. Nothing below was removed.
+#
+# The rembg / onnxruntime-gpu / u2netp image layers are DELIBERATELY still built.
+# Commenting them out changes the image hash and forces a full rebuild of the whole
+# CUDA + torch stack; they cost nothing at runtime now that nothing calls them.
+MATTE_DISABLED = True
 
 # ── Matting defaults ──────────────────────────────────────────────────────────────
 # u2netp is the lightweight u2net variant, chosen on MEASURED evidence in the
@@ -767,10 +792,14 @@ class OmniAvatarService:
             seed: int = Form(DEFAULT_SEED),
             fps: int = Form(DEFAULT_FPS),
             # Cut the presenter out in THIS container, right after inference, and
-            # return the transparent twins alongside the mp4. Defaults to on; the
-            # backend sends it explicitly (settings.AVATAR_INLINE_MATTE) so matting
-            # can be switched off without redeploying this service.
-            inline_matte: bool = Form(True),
+            # return the transparent twins alongside the mp4. The backend sends it
+            # explicitly (settings.AVATAR_INLINE_MATTE) so matting can be switched
+            # off without redeploying this service.
+            #
+            # BG-REMOVAL-DISABLED: default flipped to False, and MATTE_DISABLED
+            # overrides this field entirely — see the constant for the full note.
+            # Restore the True default when re-enabling.
+            inline_matte: bool = Form(False),
         ):
             """audio + avatar_id (+ optional inline portrait) -> lip-synced mp4.
 
@@ -942,7 +971,13 @@ class OmniAvatarService:
             matte_timings = None
             matte_error = None
             matte_s = 0.0
-            if inline_matte:
+            # BG-REMOVAL-DISABLED: `and not MATTE_DISABLED` makes this branch dead
+            # while the feature is off, so the response falls through to the plain
+            # video/mp4 FileResponse below. matte_error stays None on purpose — a
+            # disabled feature is not a failure, and setting it here would make the
+            # backend record a matte error against every scene. Drop the clause to
+            # re-enable.
+            if inline_matte and not MATTE_DISABLED:
                 t_matte = time.time()
                 try:
                     mov_path, webm_path, matte_timings = _matte_mp4(

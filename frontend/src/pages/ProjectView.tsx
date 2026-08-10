@@ -7505,7 +7505,10 @@ export default function ProjectView() {
                                             {hasAvatar && (
                                               <span className="text-[10px] text-gray-400">
                                                 {overrides ? "Custom" : "Project default"}
-                                                {bg && !scene.has_matte ? " · needs cutout" : ""}
+                                                {/* BG-REMOVAL-DISABLED: no cutout is ever owed now, so this
+                                                    would flag every scene with a legacy avatar_bg forever.
+                                                    TO RE-ENABLE: uncomment.
+                                                {bg && !scene.has_matte ? " · needs cutout" : ""} */}
                                               </span>
                                             )}
                                           </div>

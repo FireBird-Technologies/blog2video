@@ -35,9 +35,22 @@ export const AVATAR_BG_ORIGINAL = "original";
  *  behind it?" — and only the first decides which file to load. Ask through
  *  here rather than testing `bg !== null`, which treats "original" as a request
  *  to matte and would show the cut-out (and queue CPU work) for a user who
- *  explicitly asked for the room. */
+ *  explicitly asked for the room.
+ *
+ *  BG-REMOVAL-DISABLED: HARD-WIRED TO false. Every consumer routes through this
+ *  one predicate, so returning false disables the whole cutout path client-side
+ *  from a single place:
+ *
+ *    - VideoPreview.tsx loads the .mp4 rather than the matted .webm
+ *    - AvatarBatchWizard.tsx never enters its matte phase (MattePhase stays "none")
+ *    - SceneAvatarSection.tsx queues no cutout on save
+ *
+ *  Twin of avatar_bg_wants_cutout() in backend/app/schemas/schemas.py — the two
+ *  must always agree, so flip them together. */
 export function avatarBgWantsCutout(bg: AvatarBg | undefined): boolean {
-  return bg != null && bg !== AVATAR_BG_ORIGINAL;
+  return false;
+  // TO RE-ENABLE: delete the `return false` above and restore this line.
+  // return bg != null && bg !== AVATAR_BG_ORIGINAL;
 }
 
 export const AVATAR_MIN_SIZE = 0.10;

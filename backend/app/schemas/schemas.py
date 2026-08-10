@@ -43,8 +43,23 @@ def avatar_bg_wants_cutout(bg: Optional[str]) -> bool:
     behind it?" — and only the first one decides which file to load. Every
     caller must ask through here rather than testing `bg is not None`, which
     silently treats "original" as a request to matte.
+
+    BG-REMOVAL-DISABLED: HARD-WIRED TO False. Because every consumer routes
+    through this one predicate, returning False here disables the entire cutout
+    path server-side in a single place:
+
+      - services/remotion.py picks the plain mp4 instead of the .mov
+      - services/avatar_queue.py chains no follow-up matte jobs
+      - stored avatar_bg values ("transparent", "#RRGGBB") become inert rather
+        than invalid, so existing rows keep validating and nothing is migrated
+
+    Values already in the DB are deliberately left alone: flipping this back
+    restores each project's previous background exactly. Its twin is
+    avatarBgWantsCutout() in frontend/src/api/types.ts — flip both together.
     """
-    return bg is not None and bg != AVATAR_BG_ORIGINAL
+    return False
+    # TO RE-ENABLE: delete the `return False` above and restore this line.
+    # return bg is not None and bg != AVATAR_BG_ORIGINAL
 
 
 def _normalize_avatar_shape(v: Optional[str]) -> Optional[str]:

@@ -486,7 +486,15 @@ export default function ProjectAvatarSettingsCard({
   // appeared BEFORE anything was attempted and asked the user to confirm work
   // they had already requested by picking a background. Saving starts the pass;
   // this panel reports it.
-  const showMatteProgress = matting || failedMatteRows.length > 0;
+  //
+  // BG-REMOVAL-DISABLED: pinned false. `matting` is already unreachable (nothing
+  // queues a cutout), but failedMatteRows can still be non-empty from HISTORIC
+  // matte jobs left in the DB — without this pin, a project that had a cutout
+  // fail months ago would surface a "Background removal didn't finish" panel for
+  // a feature that no longer exists, with no way to clear it.
+  // TO RE-ENABLE: restore the original expression below.
+  const showMatteProgress = false;
+  // const showMatteProgress = matting || failedMatteRows.length > 0;
 
   // On a fresh load the rollup has not answered yet, so `matting` is false and
   // the panel above would be hidden — the card looks settled for ~1s even when

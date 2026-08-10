@@ -239,8 +239,15 @@ class Settings(BaseSettings):
     # extra GPU-seconds need pausing. Turning it off falls back to the old shape:
     # /render returns a bare mp4 and cutouts come from the AVATAR_MATTE_CONCURRENCY
     # job below.
+    #
+    # BG-REMOVAL-DISABLED: default flipped to "false". Background removal is off
+    # product-wide, so no render asks the service to matte. The Modal service also
+    # refuses independently (MATTE_DISABLED there), which is what makes this safe
+    # to flip back on its own without a redeploy having any effect yet.
+    # TO RE-ENABLE: restore the "true" default here AND set MATTE_DISABLED = False
+    # in modal-service/omniavatar/app.py, then redeploy that app.
     AVATAR_INLINE_MATTE: bool = (
-        os.environ.get("AVATAR_INLINE_MATTE", "true").lower() != "false"
+        os.environ.get("AVATAR_INLINE_MATTE", "false").lower() != "false"
     )
     # Per-render client timeout. L40S ≈ 158s/render at 25fps/10-steps; fps=30 adds
     # ~20% → ~190s. 600s leaves generous headroom for a queued/cold render.

@@ -552,6 +552,23 @@ export default function AvatarAppearanceControls({
         </div>
       </div>
 
+      {/* BG-REMOVAL-DISABLED: the entire Background row is hidden.
+
+          Every control in it depended on the cutout: "Transparent" needs the
+          matted clip, and a colour swatch is painted BEHIND the clip — over an
+          un-matted opaque mp4 it is invisible. With matting off, all three
+          (transparent / presets / custom picker) would be pickers that silently
+          do nothing, which is worse than not offering them. So the whole section
+          goes rather than just the transparent swatch.
+
+          "Original" is dropped with them: it is now the only possible state, so a
+          lone always-selected button would be UI noise. bgMode above still
+          computes correctly for any value already stored.
+
+          Stored avatar_bg values are NOT cleared — a project that had
+          "transparent" keeps it in the DB, inert, and gets it back if this is
+          re-enabled. TO RE-ENABLE: uncomment the block below. */}
+      {/*
       <div>
         <label className="flex items-center gap-1.5 text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2">
           Background
@@ -625,13 +642,15 @@ export default function AvatarAppearanceControls({
           </div>
         </div>
 
-        {/* No explainer here. The swatches already say what they do, and how the
-            cutout is produced (reusing the existing clip rather than
-            re-rendering) is an implementation detail the user did not ask about.
-            The only background message worth showing is progress on an actual
-            pass — which lives in ProjectAvatarSettingsCard, next to the Save
-            that starts it. */}
+        NOTE (was a JSX comment; flattened so it does not close this block early
+        when the section is commented out): No explainer here. The swatches
+        already say what they do, and how the cutout is produced (reusing the
+        existing clip rather than re-rendering) is an implementation detail the
+        user did not ask about. The only background message worth showing is
+        progress on an actual pass — which lives in ProjectAvatarSettingsCard,
+        next to the Save that starts it.
       </div>
+      */}
       </div>
     </div>
   );

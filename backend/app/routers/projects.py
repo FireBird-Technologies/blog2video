@@ -5362,6 +5362,13 @@ def matte_scene_avatar(
     onto the same system-wide FIFO queue as render jobs (see
     services/avatar_queue.py) — it will run once every earlier job has.
     """
+    # BG-REMOVAL-DISABLED: the route stays REGISTERED but does nothing. Deleting it
+    # would 404 a stale frontend bundle still holding the old code; answering
+    # started=False is a shape the UI already treats as "nothing to do, not an
+    # error" (same as the already_matted case below).
+    # TO RE-ENABLE: delete this block.
+    return {"started": False, "disabled": True}
+
     _get_user_project(project_id, user.id, db)
     scene = (
         db.query(Scene)
@@ -5412,6 +5419,13 @@ def matte_all_scene_avatars(
     enqueued jobs share the same system-wide FIFO queue as render jobs, so they
     run one at a time rather than all at once.
     """
+    # BG-REMOVAL-DISABLED: registered but inert, for the same reason as the
+    # single-scene endpoint above. started=0 is the shape the wizard already reads
+    # as "no cutouts were owed", so a stale bundle degrades cleanly instead of
+    # hanging on a matte phase that will never report progress.
+    # TO RE-ENABLE: delete this block.
+    return {"started": 0, "queued": False, "job_ids": [], "disabled": True}
+
     from app.services.avatar_queue import scene_needs_matte_filters
 
     _get_user_project(project_id, user.id, db)
