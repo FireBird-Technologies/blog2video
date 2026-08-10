@@ -1,8 +1,50 @@
+/* Self-hosted UI fonts.
+ *
+ * These were five render-blocking <link>s to fonts.googleapis.com in
+ * index.html, which caused a visible flash: the Google CSS uses
+ * `font-display: swap`, so the browser painted the prerendered markup in
+ * fallback Times and swapped to the real face ~500ms later. Bundling them here
+ * means they are same-origin, versioned, and fetched alongside this stylesheet
+ * instead of after two extra cross-origin round trips.
+ *
+ * Only the weights actually used are imported — adding a weight costs a real
+ * network request, so keep this list tight.
+ */
+@import "@fontsource/plus-jakarta-sans/400.css";
+@import "@fontsource/plus-jakarta-sans/500.css";
+@import "@fontsource/plus-jakarta-sans/600.css";
+@import "@fontsource/plus-jakarta-sans/700.css";
+@import "@fontsource/plus-jakarta-sans/800.css";
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
+@import "@fontsource/fira-code/400.css";
+@import "@fontsource/fira-code/500.css";
+@import "@fontsource/patrick-hand/400.css";
+@import "@fontsource/roboto-slab/400.css";
+@import "@fontsource/roboto-slab/700.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  /* Reveals #root, which index.html hides inline to avoid a flash of unstyled
+     prerendered markup.
+
+     Gated on .fonts-ready (set by the inline script in index.html) rather than
+     applying as soon as this stylesheet loads. The Google Fonts links use
+     `display=swap`, so the browser paints fallback Times immediately and swaps
+     when the webfont arrives ~500ms later — revealing on CSS alone therefore
+     still flashes serif text. Waiting for the font removes that.
+
+     index.html's <noscript> covers the JS-disabled case; the inline script's
+     timeout covers a font CDN that never responds. */
+  html.fonts-ready #root {
+    visibility: visible;
+  }
+
   body {
     font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
   }

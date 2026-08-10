@@ -96,7 +96,7 @@ function AppRoutes() {
     trackPageView(path);
   }, [location.pathname, location.search]);
 
-  // Cross-domain handoff from pdf2vid.app (frontend-pdf2video/, a
+  // Cross-domain handoff from pdf2vid.com (frontend-pdf2video/, a
   // landing-page-only deployment with no dashboard of its own — see its
   // PdfLanding.tsx/Pricing.tsx handleGoogleSuccess). A token arriving via
   // ?token= means the user just signed in there; localStorage can't carry
