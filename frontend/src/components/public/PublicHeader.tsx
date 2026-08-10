@@ -2,11 +2,19 @@ import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { templateMenuLinks, toolsMenuLinks, topNavLinks } from "../../content/siteContent";
 import { useAuth } from "../../hooks/useAuth";
+import { useBrand } from "../../brand/brand";
 import DiscountBanner from "../DiscountBanner";
 
 export default function PublicHeader() {
   const { user } = useAuth();
   const location = useLocation();
+  const activeBrand = useBrand();
+  // On the blog2video domain the pdf2video landing lives at /pdf2video, so the
+  // logo must return there rather than to the blog2video hero.
+  const homePath =
+    activeBrand.id === "pdf2video" && !window.location.hostname.includes("pdf2video")
+      ? "/pdf2video"
+      : "/";
   const [toolsOpen, setToolsOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mobileTemplatesOpen, setMobileTemplatesOpen] = useState(false);
@@ -39,11 +47,11 @@ export default function PublicHeader() {
 
       {/* ── Row 1: main nav ── */}
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
-        <Link to="/" className="flex items-center gap-3">
+        <Link to={homePath} className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-600 text-sm font-bold text-white">
-            B2V
+            {activeBrand.logoText}
           </div>
-          <span className="text-xl font-semibold text-gray-900">Blog2Video</span>
+          <span className="text-xl font-semibold text-gray-900">{activeBrand.siteName}</span>
         </Link>
 
         {/* Desktop nav */}

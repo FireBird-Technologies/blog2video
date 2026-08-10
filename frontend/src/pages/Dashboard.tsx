@@ -14,6 +14,7 @@ import {
   ProjectListItem,
 } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
+import { preferredFormMode } from "../brand/brand";
 import { isPaidPlan } from "../lib/plan";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import { trackGoogleAdsPurchaseConversion } from "../gtag";
@@ -55,6 +56,14 @@ export default function Dashboard() {
   /** Increment when opening + New so BlogUrlForm remounts and picks a new random template each time. */
   const [blogFormMountKey, setBlogFormMountKey] = useState(0);
   const [blogFormInitialGenre, setBlogFormInitialGenre] = useState<string | undefined>(undefined);
+  /**
+   * Step-1 tab the create-project form opens on. Defaults to Upload for users
+   * who arrived via pdf2video (sticky, see src/brand/brand.ts); a ?mode= param
+   * overrides it for campaign deep links.
+   */
+  const [blogFormMode, setBlogFormMode] = useState<"url" | "upload" | "bulk" | undefined>(
+    preferredFormMode
+  );
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
   const [creating, setCreating] = useState(false);
   // Options the form can't pass through onSubmit's positional list (22 args).
@@ -204,6 +213,20 @@ export default function Dashboard() {
     const tab = searchParams.get("tab");
     if (tab === "templates") setActiveTab("templates");
     else if (tab === "voices") setActiveTab("voices");
+  }, [searchParams]);
+
+  // Campaign deep link: ?mode=upload opens the create form on a given step-1 tab,
+  // overriding the sticky pdf2video default. Consumed then stripped from the URL.
+  useEffect(() => {
+    const mode = searchParams.get("mode");
+    if (mode !== "url" && mode !== "upload" && mode !== "bulk") return;
+    setBlogFormMode(mode);
+    setBlogFormMountKey((k) => k + 1);
+    setShowModal(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("mode");
+    const qs = next.toString();
+    navigate(qs ? `/dashboard?${qs}` : "/dashboard", { replace: true });
   }, [searchParams]);
 
   // Open BlogUrlForm modal at step 2 with Designer Templates pre-selected
@@ -463,7 +486,7 @@ export default function Dashboard() {
 
           {/* Inline form (same fields, not a modal) */}
           <div className="glass-card p-7">
-            <BlogUrlForm onSubmit={handleCreate} onSubmitBulk={handleCreateBulk} onExtraOptionsChange={setExtraCreateOptions} loading={creating} />
+            <BlogUrlForm onSubmit={handleCreate} onSubmitBulk={handleCreateBulk} onExtraOptionsChange={setExtraCreateOptions} loading={creating} initialMode={blogFormMode} />
           </div>
 
           {/* Upgrade nudge */}
@@ -566,6 +589,7 @@ export default function Dashboard() {
           onClose={() => { setShowModal(false); setBlogFormInitialGenre(undefined); }}
           onDismissFlow={() => { setShowModal(false); setBlogFormInitialGenre(undefined); }}
           initialGenre={blogFormInitialGenre}
+          initialMode={blogFormMode}
         />
       )}
 

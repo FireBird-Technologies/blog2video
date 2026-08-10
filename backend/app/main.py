@@ -598,6 +598,7 @@ _origins = [
 # Always allow local dev + production origins
 _always_allowed = [
     "http://localhost:5173",
+    "http://localhost:5174",
     "http://localhost:3000",
     "https://blog2video.vercel.app",
     "https://blog2video-nu.vercel.app",
@@ -607,6 +608,14 @@ _always_allowed = [
     "https://muhammad-mehdi-backend-b2v.hf.space",
     "https://blog2video.pages.dev",
     "https://blog2video-prod-frontend.pages.dev",
+    # pdf2vid — separate frontend deployment (frontend-pdf2video/), same
+    # backend/DB as blog2video. See frontend-pdf2video/ for why it's a
+    # separate build rather than a brand switch inside frontend/.
+    # NOTE: the live domain is pdf2vid.app (not pdf2video.app); the directory
+    # and Vercel project keep the longer "pdf2video" name.
+    "https://pdf2vid.app",
+    "https://www.pdf2vid.app",
+    "https://pdf2video.vercel.app",
     # MCP — Claude clients
     "https://claude.ai",
     "https://app.anthropic.com",
@@ -625,7 +634,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_origins,
     # Vercel previews + subdomains + HF Spaces + Anthropic subdomains (for MCP)
-    allow_origin_regex=r"https://(blog2video.*\.vercel\.app|.*\.blog2video\.app|.*\.hf\.space|.*\.anthropic\.com|.*\.claude\.ai)",
+    allow_origin_regex=r"https://(blog2video.*\.vercel\.app|pdf2vid.*\.vercel\.app|.*\.blog2video\.app|.*\.pdf2vid\.app|.*\.hf\.space|.*\.anthropic\.com|.*\.claude\.ai)",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
