@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, lazy, Suspense } from "react";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
+import { getMe } from "./api/client";
 import { CraftedTemplatesProvider } from "./contexts/CraftedTemplatesContext";
 import { ErrorModalProvider } from "./contexts/ErrorModalContext";
 import { NoticeModalProvider } from "./contexts/NoticeModalContext";
@@ -8,6 +9,8 @@ import { SupportTourProvider } from "./components/support/SupportTourContext";
 import { SupportWidget } from "./components/support/SupportWidget";
 import { UIHighlightOverlay } from "./components/support/UIHighlightOverlay";
 import Landing from "./pages/Landing";
+import PdfLanding from "./pages/PdfLanding";
+import { applyFavicon, isPdfBrand, useBrand, markPdfOrigin } from "./brand/brand";
 import Pricing from "./pages/Pricing";
 import Dashboard from "./pages/Dashboard";
 import ProjectView from "./pages/ProjectView";
@@ -49,15 +52,25 @@ import { trackPageView } from "./gtag";
 // stays out of the main bundle.
 const CapturePage = lazy(() => import("./pages/CapturePage"));
 
+function AuthLoadingScreen() {
+  return (
+    <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="w-8 h-8 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+    </div>
+  );
+}
+
+function hasHandoffToken(search: string): boolean {
+  return new URLSearchParams(search).has("token");
+}
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
+  const location = useLocation();
+  const handoffPending = hasHandoffToken(location.search) && !user;
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
-      </div>
-    );
+  if (loading || handoffPending) {
+    return <AuthLoadingScreen />;
   }
 
   if (!user) {
@@ -68,14 +81,52 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AppRoutes() {
-  const { user, loading } = useAuth();
+  const { user, login, loading } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  // Tab icon follows the active brand, including when PdfLanding pins the
+  // session brand mid-navigation (useBrand re-renders this on that change).
+  const activeBrand = useBrand();
+  useEffect(() => {
+    applyFavicon(activeBrand);
+  }, [activeBrand]);
 
   useEffect(() => {
     const path = `${location.pathname}${location.search || ""}`;
     trackPageView(path);
   }, [location.pathname, location.search]);
+
+  // Cross-domain handoff from pdf2vid.app (frontend-pdf2video/, a
+  // landing-page-only deployment with no dashboard of its own — see its
+  // PdfLanding.tsx/Pricing.tsx handleGoogleSuccess). A token arriving via
+  // ?token= means the user just signed in there; localStorage can't carry
+  // over across origins, so the JWT travels as a one-time URL param instead.
+  // Consumed once, scrubbed from the URL immediately either way.
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const handoffToken = params.get("token");
+    if (!handoffToken || user) return;
+    (async () => {
+      // getMe() takes no args — the axios interceptor (api/client.ts) reads
+      // localStorage["b2v_token"] directly, so the token must be written
+      // BEFORE this call or the request goes out unauthenticated.
+      localStorage.setItem("b2v_token", handoffToken);
+      try {
+        const res = await getMe();
+        login(handoffToken, res.data); // re-sets token/user in React state, harmless
+        // Cross-origin handoff from pdf2video — localStorage origin flag doesn't
+        // survive the redirect, so set it here for sticky Upload-tab defaults.
+        markPdfOrigin();
+      } catch {
+        localStorage.removeItem("b2v_token"); // invalid/expired handoff token
+      } finally {
+        const next = new URLSearchParams(location.search);
+        next.delete("token");
+        const qs = next.toString();
+        navigate(qs ? `${location.pathname}?${qs}` : location.pathname, { replace: true });
+      }
+    })();
+  }, [location.search]);
 
   // Resume a collaboration invite the user opened before signing in.
   useEffect(() => {
@@ -87,12 +138,13 @@ function AppRoutes() {
     }
   }, [user, location.pathname, navigate]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
-      </div>
-    );
+  // Hold the route tree until the cross-domain ?token= handoff resolves.
+  // Otherwise ProtectedRoute sees no user yet and bounces to "/" (landing)
+  // for a frame before login() completes.
+  const handoffPending = hasHandoffToken(location.search) && !user;
+
+  if (loading || handoffPending) {
+    return <AuthLoadingScreen />;
   }
 
   return (
@@ -113,11 +165,19 @@ function AppRoutes() {
             </Suspense>
           }
         />
-        {/* Public */}
+        {/* Public. "/" serves whichever brand this deployment is running as
+            (see src/brand/brand.ts); everything past sign-in is shared. */}
         <Route
           path="/"
-          element={user ? <Navigate to="/dashboard" replace /> : <Landing />}
+          element={
+            user ? <Navigate to="/dashboard" replace /> : isPdfBrand ? <PdfLanding /> : <Landing />
+          }
         />
+        {/* Brand preview route: reachable on both domains so the pdf2video
+            landing is testable before DNS is live. Deliberately NOT
+            "/pdf-to-video" — that path is an existing Blog2Video SEO page
+            (corePages.ts) with inbound links from several others. */}
+        <Route path="/pdf2video" element={<PdfLanding />} />
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/blogs" element={<Blog />} />

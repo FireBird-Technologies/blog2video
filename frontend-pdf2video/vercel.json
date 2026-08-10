@@ -1,0 +1,14 @@
+{
+  "routes": [
+    { "handle": "filesystem" },
+    {
+      "src": "^/preview/(.*)$",
+      "dest": "/index.html",
+      "headers": {
+        "X-Frame-Options": "ALLOWALL",
+        "Content-Security-Policy": "frame-ancestors *"
+      }
+    },
+    { "src": "^/(.*)$", "dest": "/index.html" }
+  ]
+}

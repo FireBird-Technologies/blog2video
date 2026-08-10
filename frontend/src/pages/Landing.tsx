@@ -3,12 +3,13 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { CredentialResponse } from "@react-oauth/google";
 import { googleLogin } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
+import { usePostLoginRedirect } from "../hooks/usePostLoginRedirect";
 import { useScrollReveal } from "../hooks/useScrollReveal";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import FullTemplateShowcase from "../components/FullTemplateShowcase";
 import CoverflowCarousel, { type CoverflowTemplate, type CoverflowOrientation } from "../components/CoverflowCarousel";
 import OrientationToggle from "../components/OrientationToggle";
-import { TEMPLATE_PREVIEWS, TEMPLATE_PREVIEWS_PORTRAIT, TEMPLATE_DESCRIPTIONS } from "../components/templatePreviewRegistry";
+import { TEMPLATE_PREVIEWS, TEMPLATE_PREVIEWS_PORTRAIT, TEMPLATE_DESCRIPTIONS, SHOWCASE_TEMPLATE_IDS } from "../components/templatePreviewRegistry";
 import YourOwnBrandPreview from "../components/templatePreviews/YourOwnBrandPreview";
 import YourOwnBrandPreviewPortrait from "../components/templatePreviews/portrait/YourOwnBrandPreviewPortrait";
 import DesignerTemplateRequestModal from "../components/DesignerTemplateRequestModal";
@@ -90,15 +91,13 @@ async function fetchOgData(url: string): Promise<{ image?: string; title?: strin
   }
 }
 
-const CAROUSEL_TEMPLATES: CoverflowTemplate[] = Object.entries(TEMPLATE_PREVIEWS).map(
-  ([id, Preview]) => ({
-    id,
-    Preview,
-    PreviewPortrait: TEMPLATE_PREVIEWS_PORTRAIT[id],
-    name: TEMPLATE_DESCRIPTIONS[id]?.title ?? id,
-    subtitle: TEMPLATE_DESCRIPTIONS[id]?.subtitle ?? "",
-  })
-);
+const CAROUSEL_TEMPLATES: CoverflowTemplate[] = SHOWCASE_TEMPLATE_IDS.map((id) => ({
+  id,
+  Preview: TEMPLATE_PREVIEWS[id],
+  PreviewPortrait: TEMPLATE_PREVIEWS_PORTRAIT[id],
+  name: TEMPLATE_DESCRIPTIONS[id]?.title ?? id,
+  subtitle: TEMPLATE_DESCRIPTIONS[id]?.subtitle ?? "",
+}));
 
 const NAV_LINKS = [
   { href: "#demo", label: "Demo" },
@@ -462,6 +461,7 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
 export default function Landing() {
   const { login, user } = useAuth();
   const navigate = useNavigate();
+  const redirectAfterLogin = usePostLoginRedirect();
   const [searchParams] = useSearchParams();
   const { showError } = useErrorModal();
   const [demos, setDemos] = useState<DemoVideo[]>(INITIAL_DEMOS);
@@ -634,34 +634,7 @@ export default function Landing() {
       localStorage.removeItem("b2v_ref_code");
       login(res.data.access_token, res.data.user);
 
-      const pendingDownload = localStorage.getItem("b2v_pending_template_download");
-      if (pendingDownload) {
-        localStorage.removeItem("b2v_pending_template_download");
-        let slug: string;
-        try { slug = JSON.parse(pendingDownload); } catch { slug = ""; }
-        if (slug) {
-          const { triggerTemplateDownload } = await import("./FreeTemplatesPage");
-          void triggerTemplateDownload(slug);
-          navigate(`/tools/free-remotion-templates?downloaded=${encodeURIComponent(slug)}`);
-          return;
-        }
-      }
-
-      if (localStorage.getItem("b2v_pending_mcp")) {
-        localStorage.removeItem("b2v_pending_mcp");
-        navigate("/mcp-connector");
-        return;
-      }
-
-      // Resume a collaboration invite the user opened before signing in.
-      const pendingInvite = localStorage.getItem("b2v_pending_invite");
-      if (pendingInvite) {
-        localStorage.removeItem("b2v_pending_invite");
-        navigate(`/invite/${pendingInvite}`, { replace: true });
-        return;
-      }
-
-      navigate("/dashboard");
+      await redirectAfterLogin();
     } catch (err: any) {
       if (err?.response?.status === 403 && err?.response?.data?.detail === "account_deleted") {
         setPendingCredential(response.credential);
@@ -681,18 +654,7 @@ export default function Landing() {
       login(res.data.access_token, res.data.user);
       setAccountDeletedOpen(false);
       setPendingCredential(null);
-      if (localStorage.getItem("b2v_pending_mcp")) {
-        localStorage.removeItem("b2v_pending_mcp");
-        navigate("/mcp-connector");
-        return;
-      }
-      const pendingInvite = localStorage.getItem("b2v_pending_invite");
-      if (pendingInvite) {
-        localStorage.removeItem("b2v_pending_invite");
-        navigate(`/invite/${pendingInvite}`, { replace: true });
-        return;
-      }
-      navigate("/dashboard");
+      await redirectAfterLogin();
     } catch (err: any) {
       showError(getErrorMessage(err, "Failed to reactivate account."));
     } finally {

@@ -1,0 +1,39 @@
+name: Frontend PDF2Video Checks
+
+# Same gate as frontend-tests.yml, scoped to the separate frontend-pdf2video/
+# deployment (own domain, same backend/DB as blog2video — see
+# frontend-pdf2video/ for why it's a standalone build rather than a brand
+# switch inside frontend/).
+
+on:
+  pull_request:
+    branches: [develop]
+    paths: ["frontend-pdf2video/**", ".github/workflows/frontend-pdf2video-tests.yml"]
+  push:
+    branches: [develop]
+    paths: ["frontend-pdf2video/**", ".github/workflows/frontend-pdf2video-tests.yml"]
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend-pdf2video
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend-pdf2video/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check (tsc -b)
+        run: npm run typecheck
+
+      - name: Lint (Rules of Hooks)
+        run: npm run lint

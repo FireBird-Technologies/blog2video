@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { brand, brandFaviconHref, isPdfBrand } from "../src/brand/brand";
 import {
   blogPosts,
   defaultOgImage,
@@ -208,7 +209,20 @@ function renderSubstackDirectoryHtml(page: SubstackDirectoryPage): string {
   return `<main><h1>${escapeHtml(page.title)}</h1><p>${escapeHtml(page.description)}</p><p>${escapeHtml(niche.audience)}</p><p>${escapeHtml(niche.angle)}</p><section><h2>Publications</h2>${publicationsHtml}</section>${renderFaqHtml(page.faq)}</main>`;
 }
 
+/**
+ * Server-rendered pdf2video hero.
+ *
+ * The SPA is JavaScript-rendered, which already costs crawlability on the
+ * existing site. The pdf2video homepage is a brand-new URL with no authority to
+ * fall back on, so its H1 and opening copy ship in the HTML rather than waiting
+ * for hydration.
+ */
+function renderPdfHomeHtml(): string {
+  return `<main><h1>Turn your PDF into a video in minutes</h1><p>Nobody opens the PDF. Everybody watches the video.</p><p>Upload a document. Get a narrated, branded video in minutes. Reports, whitepapers, research notes, decks, and one-pagers. No editor, no camera, no timeline to fight with.</p><section><h2>The PDF graveyard</h2><p>Documents are the worst performing format you own. They ask for a quiet room and twenty uninterrupted minutes, and nobody has either. Meanwhile the same argument, narrated over clean visuals, gets watched to the end on a phone in a lift.</p></section><section><h2>Three steps. Four minutes.</h2><h3>Upload your document</h3><p>Drop in a PDF, Word doc, or slide deck. We pull out the structure, the headings, the key figures, and the argument.</p><h3>Pick your look and voice</h3><p>Choose a template and a narrator. Add your logo and brand colours once and every future video inherits them.</p><h3>Download and publish</h3><p>Get an MP4 ready for LinkedIn, YouTube, email, or your own site.</p></section><section><h2>Why this is not another AI video generator</h2><p>Most AI video tools generate footage. pdf2video renders. Every frame is drawn from a real design system, which means your figures are your figures, your quotes are word for word, and your logo is the right shade of your logo.</p></section></main>`;
+}
+
 function getAppHtml(routePath: string): string {
+  if (routePath === "/" && isPdfBrand) return renderPdfHomeHtml();
   if (routePath === "/blogs") return renderBlogIndexHtml(blogPosts);
   if (routePath.startsWith("/blogs/")) {
     const post = getBlogPost(routePath.replace("/blogs/", ""));
@@ -255,6 +269,15 @@ function getDuplicatePricingParentPath(page: SubstackDirectoryPage): string | un
 
 function getSeoPayload(routePath: string): SeoPayload {
   if (routePath === "/") {
+    if (isPdfBrand) {
+      return {
+        title: "PDF to Video: Turn Any Document Into a Narrated Video",
+        description:
+          "Upload a PDF, report, or whitepaper. Get a branded, narrated video in minutes. No editors, no cameras, no generic AI slop. Free to try.",
+        path: routePath,
+        schema: homepageSchema(),
+      };
+    }
     return {
       title: "Turn Blog Posts Into Videos",
       description:
@@ -476,6 +499,19 @@ function sanitizeTemplate(template: string) {
     .replace(/<div id="root">\s*<main>[\s\S]*<\/main>\s*<\/div>/i, '<div id="root"></div>');
 }
 
+/**
+ * index.html hardcodes the blog2video icon. Rewrite it at prerender time so the
+ * pdf2video build ships the correct tab icon in the served HTML, rather than
+ * flashing the wrong one until the app boots and applyFavicon runs.
+ */
+function applyBrandFavicon(template: string) {
+  if (!isPdfBrand) return template;
+  return template.replace(
+    /<link\s+rel="icon"[^>]*>/i,
+    `<link rel="icon" type="image/svg+xml" href="${brandFaviconHref(brand)}" />`
+  );
+}
+
 function injectRenderedMarkup(template: string, appHtml: string, head: string) {
   return template
     .replace("<div id=\"root\"></div>", `<div id="root">${appHtml}</div>`)
@@ -502,7 +538,9 @@ ${paths
 }
 
 async function buildPrerenderedPages() {
-  const template = sanitizeTemplate(await readFile(path.join(distDir, "index.html"), "utf8"));
+  const template = applyBrandFavicon(
+    sanitizeTemplate(await readFile(path.join(distDir, "index.html"), "utf8"))
+  );
   const publicPaths = getPublicPaths();
 
   for (const routePath of publicPaths) {
