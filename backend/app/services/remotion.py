@@ -1905,6 +1905,35 @@ RESOLUTION_PRESETS = {
     },
 }
 
+# Compositions that are AUTHORED at a size other than 1920x1080. Their layouts use
+# fixed pixel values, so forcing a different render size reflows them — headlines
+# wrap differently, columns widen, spacing stretches. Keep this in sync with the
+# <Composition width/height> declarations in remotion-video/src/Root.tsx.
+#
+# This matters for slide export in particular: the wizard previews each scene in the
+# Player at the composition's authored size, so rendering the still at 1920x1080
+# produced a slide that did not match the preview the user had just approved.
+NATIVE_COMPOSITION_SIZES: dict[str, tuple[int, int]] = {
+    "NewspaperVideo": (1280, 720),
+    "NewscastVideo": (1280, 720),
+    "WhiteboardVideo": (1280, 720),
+}
+
+
+def get_still_dimensions(composition_id: str, aspect_ratio: str) -> dict:
+    """
+    Pixel size to render a still at, matching what the frontend Player previews.
+
+    Landscape uses the composition's authored size. Portrait swaps the axes of that
+    same size, mirroring how the compositions lay out vertically (the Root.tsx
+    declarations are all landscape).
+    """
+    width, height = NATIVE_COMPOSITION_SIZES.get(composition_id, (1920, 1080))
+    if aspect_ratio == "portrait":
+        width, height = height, width
+    return {"width": width, "height": height}
+
+
 def _build_render_cmd(
     npx: str, output_path: str, resolution: str = "1080p",
     aspect_ratio: str = "landscape",
@@ -2024,11 +2053,13 @@ def render_video(project: Project, resolution: str = "1080p") -> str:
     return output_path
 
 
-def render_still(project: Project, frame: int) -> str:
+def _prepare_still_workspace(project: Project) -> tuple[str, str, dict]:
     """
-    Render a single frame of the project composition using Remotion renderStill.
-    Returns the path to the output PNG file.
-    Uses the same workspace and data.json as the video render — pixel-perfect quality.
+    Ensure the project's Remotion workspace is ready for `remotion still`.
+
+    Returns (workspace, composition_id, resolution_preset). Split out of
+    render_still so a multi-frame export provisions ONCE instead of repeating the
+    full template copy + node_modules link + data.json mirror for every frame.
     """
     template_id = validate_template_id(getattr(project, "template", "default"))
     provision_workspace(project.id, template_id)
@@ -2047,13 +2078,23 @@ def render_still(project: Project, frame: int) -> str:
     except Exception:
         # Non-fatal: original data.json path still exists.
         pass
-    output_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project.id}/stills")
-    os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, f"frame_{frame}.png")
     aspect_ratio = getattr(project, "aspect_ratio", "landscape") or "landscape"
     composition_id = get_composition_id(template_id)
-    presets = RESOLUTION_PRESETS.get(aspect_ratio, RESOLUTION_PRESETS["landscape"])
-    preset = presets.get("1080p", presets["1080p"])
+    preset = get_still_dimensions(composition_id, aspect_ratio)
+    return workspace, composition_id, preset
+
+
+def _render_still_frame(
+    project_id: int,
+    workspace: str,
+    composition_id: str,
+    preset: dict,
+    frame: int,
+) -> str:
+    """Render one frame into the project's stills dir. Assumes the workspace is ready."""
+    output_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project_id}/stills")
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, f"frame_{frame}.png")
     npx = shutil.which("npx") or "npx"
     cmd = [
         npx, "remotion", "still",
@@ -2077,6 +2118,36 @@ def render_still(project: Project, frame: int) -> str:
     if result.returncode != 0 or not os.path.exists(output_path):
         raise RuntimeError(f"Remotion still render failed (frame={frame}): {result.stderr or result.stdout}")
     return output_path
+
+
+def render_still(project: Project, frame: int) -> str:
+    """
+    Render a single frame of the project composition using Remotion renderStill.
+    Returns the path to the output PNG file.
+    Uses the same workspace and data.json as the video render — pixel-perfect quality.
+    """
+    workspace, composition_id, preset = _prepare_still_workspace(project)
+    return _render_still_frame(project.id, workspace, composition_id, preset, frame)
+
+
+def render_stills(project: Project, frames: list[int]) -> list[str]:
+    """
+    Render several frames of the project composition in one go.
+
+    Provisions the workspace once and reuses Remotion's bundle cache across
+    frames, which is what makes a slide export (one frame per scene) viable —
+    calling render_still per frame would redo the whole template copy and
+    node_modules link every time.
+
+    Returns output PNG paths in the same order as `frames`.
+    """
+    if not frames:
+        return []
+    workspace, composition_id, preset = _prepare_still_workspace(project)
+    return [
+        _render_still_frame(project.id, workspace, composition_id, preset, frame)
+        for frame in frames
+    ]
 
 
 MAX_RENDER_RETRIES = 3  # total attempts (1 initial + 2 retries)
