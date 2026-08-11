@@ -65,6 +65,11 @@ export const SmartVideo: React.FC<{
       volume={volume}
       trimBefore={trimBefore}
       style={style}
+      // Must be set at mount so the media fetch is CORS-enabled; required for
+      // DOM screenshot export (sceneSlideExport) to rasterize the current frame
+      // without tainting the canvas. Before {...rest} so JIT custom templates
+      // can still override. OffthreadVideo (render path) intentionally omits this.
+      crossOrigin="anonymous"
       {...rest}
       // Preview-only resilience: if a clip does run dry despite the preload in
       // VideoPreview, let it catch up silently instead of halting the timeline.
