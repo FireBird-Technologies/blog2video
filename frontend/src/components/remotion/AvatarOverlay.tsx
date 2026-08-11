@@ -146,6 +146,27 @@ export const AvatarOverlay: React.FC<AvatarOverlayProps> = ({
   // user asked to remove.
   const isCutout = fill === "transparent";
 
+  // A <video> is decoded onto its own GPU compositor layer, and on some
+  // driver/ANGLE combinations Chrome masks that promoted layer with a cheap
+  // axis-aligned approximation instead of the parent's real corner radius —
+  // a circle then renders as a rounded square, on every browser on the
+  // affected machine (they all share one compositor) and on no others. The
+  // `transform: scale()` below makes that promotion more likely still.
+  //
+  // So the mask must not depend on the parent's overflow clip alone:
+  //   - `clipPath` is a geometric clip, evaluated per-pixel rather than as a
+  //     compositor layer mask, so it survives that fallback path.
+  //   - the same radius is repeated on the clip element itself (see below), so
+  //     the rounding is part of the video's OWN paint.
+  // overflow/borderRadius stay as the third belt for anything that ignores
+  // clip-path. Purely a preview-side concern — the headless render never hits
+  // this path — but the shape math is identical to the render twin.
+  const clipPath = isCutout
+    ? undefined
+    : shape === "circle"
+      ? "circle(50% at 50% 50%)"
+      : `inset(0 round ${typeof radius === "number" ? `${radius}px` : radius})`;
+
   const style: React.CSSProperties = {
     position: "absolute",
     zIndex: 90, // below logo (100) / captions, above scene content
@@ -155,6 +176,7 @@ export const AvatarOverlay: React.FC<AvatarOverlayProps> = ({
     height: boxHeight,
     overflow: "hidden",
     borderRadius: isCutout ? 0 : radius,
+    clipPath,
     boxShadow: isCutout ? undefined : "0 4px 18px rgba(0,0,0,0.28)",
     backgroundColor: fill && !isCutout ? fill : undefined,
   };
@@ -185,6 +207,10 @@ export const AvatarOverlay: React.FC<AvatarOverlayProps> = ({
           transform: zoom !== 1 ? `scale(${zoom})` : undefined,
           transformOrigin: `${focusX}% ${focusY}%`,
           opacity,
+          // Round the clip in its OWN paint too, so the shape does not rely on
+          // the wrapper successfully masking a promoted compositor layer. See
+          // the clipPath note above. Harmless where the wrapper already works.
+          borderRadius: isCutout ? 0 : radius,
         }}
       />
     </div>

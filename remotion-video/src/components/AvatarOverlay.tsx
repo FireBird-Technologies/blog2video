@@ -112,6 +112,18 @@ export const AvatarOverlay: React.FC<AvatarOverlayProps> = ({
   // user asked to remove.
   const isCutout = fill === "transparent";
 
+  // Mirrors the preview twin's mask, which cannot rely on the wrapper's
+  // overflow clip alone: a <video> on its own GPU compositor layer is masked
+  // with an axis-aligned approximation on some drivers, turning a circle into
+  // a rounded square. clip-path is a geometric clip and survives that path.
+  // The headless renderer here never hits it, but the twins must agree on
+  // shape or preview and export would disagree.
+  const clipPath = isCutout
+    ? undefined
+    : shape === "circle"
+      ? "circle(50% at 50% 50%)"
+      : `inset(0 round ${typeof radius === "number" ? `${radius}px` : radius})`;
+
   const style: React.CSSProperties = {
     position: "absolute",
     zIndex: 90, // below logo (100) / captions, above scene content
@@ -121,6 +133,7 @@ export const AvatarOverlay: React.FC<AvatarOverlayProps> = ({
     height: boxHeight,
     overflow: "hidden",
     borderRadius: isCutout ? 0 : radius,
+    clipPath,
     boxShadow: isCutout ? undefined : "0 4px 18px rgba(0,0,0,0.28)",
     backgroundColor: fill && !isCutout ? fill : undefined,
   };
@@ -156,6 +169,8 @@ export const AvatarOverlay: React.FC<AvatarOverlayProps> = ({
           transform: zoom !== 1 ? `scale(${zoom})` : undefined,
           transformOrigin: `${focusX}% ${focusY}%`,
           opacity,
+          // Rounded in its own paint as well as by the wrapper — see clipPath.
+          borderRadius: isCutout ? 0 : radius,
         }}
       />
     </div>
