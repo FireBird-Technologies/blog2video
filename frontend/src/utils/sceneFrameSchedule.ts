@@ -9,6 +9,11 @@ import {
   getTemplateConfig,
   normalizeBuiltInTemplateId,
 } from "../components/remotion/templateConfig";
+import {
+  getCompositionSchedule,
+  hasTransitionAwareSchedule,
+} from "../components/remotion/scheduleRegistry";
+import { resolveScheduleFrame } from "../components/remotion/sceneSchedule";
 
 const FPS = 30;
 
@@ -27,6 +32,15 @@ const MAGAZINE_CLOSING_TAIL_FRAMES: Partial<Record<string, number>> = {
 
 /** Where within each scene to sample (0–1). 0.5 looked too early; ~0.85 matches full layout + imagery. */
 export const SCENE_EXPORT_TIMELINE_FRACTION = 0.85;
+
+/** Zero-padded, filesystem-safe slide name: `03_Scene_Title`. */
+function buildSafeSlug(title: string, index: number): string {
+  const cleaned = title
+    .replace(/[^a-z0-9]+/gi, "_")
+    .replace(/^_|_$/g, "")
+    .slice(0, 40);
+  return `${String(index + 1).padStart(2, "0")}_${cleaned || "scene"}`;
+}
 
 function framesForScene(scene: Scene): number {
   const base = Number(scene.duration_seconds) || 5;
@@ -94,6 +108,22 @@ export function getSceneExportFrameSchedule(
 }[] {
   if (!project.scenes?.length) return [];
   const fracs = normalizeTimelineFractions(project.scenes.length, timelineFractions);
+
+  // Templates whose composition publishes a transition-aware schedule resolve the
+  // fraction against the REAL timeline. In a TransitionSeries each transition
+  // overlaps its neighbours, so a naive running sum drifts further with every
+  // boundary — on a 15-scene chronicle deck it asked for frame 4829 in a
+  // composition ending at 4556 (RangeError on the last slide, wrong-scene content
+  // well before that).
+  if (hasTransitionAwareSchedule(project)) {
+    const schedule = getCompositionSchedule(project);
+    return project.scenes.map((scene, i) => ({
+      frame: resolveScheduleFrame(schedule, i, fracs[i]!),
+      title: scene.title || `Scene ${i + 1}`,
+      order: i + 1,
+      safeSlug: buildSafeSlug(scene.title || `Scene ${i + 1}`, i),
+    }));
+  }
 
   // Magazine uses a TransitionSeries with scene→black→scene boundaries. Its
   // scene starts therefore do not equal a simple sum of durations, and sampling

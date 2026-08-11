@@ -128,6 +128,7 @@ import { getImageBoxAspectRatio, normalizeLayoutId, isImageBoxCircular } from ".
 import type { PlayerRef } from "@remotion/player";
 import { exportScenesPptx, exportScenesPdf, exportScenesPng } from "../utils/sceneSlideExport";
 import type { ExportProgress } from "../utils/sceneSlideExport";
+import { getCompositionSchedule } from "../components/remotion/scheduleRegistry";
 import { getSceneExportGlobalFrame, SCENE_EXPORT_TIMELINE_FRACTION } from "../utils/sceneFrameSchedule";
 
 type Tab = ProjectTabId;
@@ -4221,6 +4222,19 @@ export default function ProjectView() {
     0
   );
 
+  /**
+   * Length of the rendered VIDEO, in seconds.
+   *
+   * Not the same as `totalAudioDuration`: on TransitionSeries templates each
+   * transition overlaps its neighbours, so the composition is shorter than the sum
+   * of the scene durations. Chronicle project 1891 summed to 163s while the Player
+   * reported 2:31 (151s) — this is the number that matches the Player.
+   */
+  // Not memoised: this sits after an early return, so a hook here would break
+  // React's hook ordering. getCompositionSchedule is pure and cheap (arithmetic
+  // over the scene list), so recomputing per render is fine.
+  const totalVideoDuration = getCompositionSchedule(project).totalFrames / 30;
+
   // ─── Generation loader ────────────────────────────────────
   const templateRelayoutRunning =
     templateRelayoutJob?.status === "running" || templateRelayoutJob?.status === "queued";
@@ -5042,8 +5056,8 @@ export default function ProjectView() {
                     <div className={`flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between lg:gap-4${pendingRecordings.size > 0 ? " mt-2" : ""}`}>
                       <p className="text-[11px] text-gray-400 flex-shrink-0">
                         Preview · {project.scenes.length} scenes
-                        {totalAudioDuration > 0 &&
-                          ` · ${Math.round(totalAudioDuration)}s`}
+                        {totalVideoDuration > 0 &&
+                          ` · ${Math.round(totalVideoDuration)}s`}
                       </p>
                       {showInlineReviewPrompt && (
                         <ProjectReviewPrompt
@@ -5376,7 +5390,7 @@ export default function ProjectView() {
                     Make sure you have made all the changes/edits before rendering. Re-rendering of video later will result in deduction of a video count.
                   </span>
                   {playbackSpeedDraft !== 1 && (() => {
-                    const renderedSecs = totalAudioDuration / playbackSpeedDraft;
+                    const renderedSecs = totalVideoDuration / playbackSpeedDraft;
                     const mins = Math.floor(renderedSecs / 60);
                     const secs = Math.round(renderedSecs % 60);
                     const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
@@ -5477,7 +5491,7 @@ export default function ProjectView() {
               This will deduct your video count. Continue only if you have new changes in your video.
             </p>
             {playbackSpeedDraft !== 1 && (() => {
-              const renderedSecs = totalAudioDuration / playbackSpeedDraft;
+              const renderedSecs = totalVideoDuration / playbackSpeedDraft;
               const mins = Math.floor(renderedSecs / 60);
               const secs = Math.round(renderedSecs % 60);
               const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
