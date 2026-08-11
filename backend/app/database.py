@@ -687,6 +687,7 @@ def init_db():
         PrebuiltVoice,
         Review,
         TemplateRating,
+        AvatarReview,
         ProjectTemplateChangeJob,
         ProjectRegenerateScriptJob,
         ProjectVoiceChangeJob,

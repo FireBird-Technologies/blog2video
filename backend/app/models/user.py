@@ -159,6 +159,7 @@ class User(Base):
     custom_voices = relationship("CustomVoice", back_populates="user", cascade="all, delete-orphan")
     reviews = relationship("Review", back_populates="user", cascade="all, delete-orphan")
     template_ratings = relationship("TemplateRating", back_populates="user", cascade="all, delete-orphan")
+    avatar_reviews = relationship("AvatarReview", back_populates="user", cascade="all, delete-orphan")
     brand_kits = relationship("BrandKit", back_populates="user", cascade="all, delete-orphan")
     crafted_template_entitlements = relationship("CraftedTemplateEntitlement", back_populates="user", cascade="all, delete-orphan")
     template_change_jobs = relationship("ProjectTemplateChangeJob", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)

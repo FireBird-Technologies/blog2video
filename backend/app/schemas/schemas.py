@@ -397,6 +397,15 @@ class SceneOut(BaseModel):
     # is what a custom background needs. The UI uses it to list the scenes still
     # requiring a ~1-min matte job before a background change can show.
     has_matte: bool = False
+    # True once this scene's avatar failed for good and its credits were given
+    # back (SceneAvatarJob.credits_refunded). The scene is permanently closed:
+    # authorize_avatar_batch drops it from `eligible`, and the per-scene endpoint
+    # 409s. Exposed so the UI can stop OFFERING it — without this the client has
+    # no way to know, so the picker and the "N scenes still don't have an avatar"
+    # banner both re-listed refunded scenes and the request was rejected or
+    # silently short-changed. Defaults False, which is right for every scene that
+    # has never had a job.
+    avatar_credits_refunded: bool = False
     # Per-scene overrides; NULL means "inherit the project setting".
     avatar_shape: Optional[str] = None
     avatar_size: Optional[float] = None
@@ -554,6 +563,32 @@ class TemplateRatingSubmit(BaseModel):
         return trimmed or None
 
 
+class AvatarReviewOut(BaseModel):
+    id: int
+    user_id: int
+    project_id: int
+    rating: int
+    suggestion: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class AvatarReviewSubmit(BaseModel):
+    rating: int = Field(..., ge=1, le=5)
+    suggestion: Optional[str] = None
+
+    @field_validator("suggestion")
+    @classmethod
+    def normalize_suggestion(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        trimmed = v.strip()
+        return trimmed or None
+
+
 class ProjectOut(BaseModel):
     id: int
     # Owner user id — lets the frontend tell owners from collaborators.
@@ -612,6 +647,11 @@ class ProjectOut(BaseModel):
     custom_template_missing: bool = False
     brand_logo_url: Optional[str] = None
     review_state: Optional[ReviewStateOut] = None
+    # This user's avatar rating for this project, or null when they have not rated.
+    # Rides on the project payload (like review_state) so the Avatar tab — which
+    # unmounts on every tab switch — can decide whether to show the rating form or
+    # the read-only summary on first paint, with no extra request and no flicker.
+    avatar_review: Optional[AvatarReviewOut] = None
     # True when the project has ≥1 member (invited/pending or accepted). Gates the
     # per-scene comment affordance in the UI.
     is_shared: bool = False

@@ -15,6 +15,7 @@ from app.models.custom_voice import CustomVoice
 from app.models.prebuilt_voice import PrebuiltVoice
 from app.models.review import Review
 from app.models.template_rating import TemplateRating
+from app.models.avatar_review import AvatarReview
 from app.models.project_template_change_job import ProjectTemplateChangeJob
 from app.models.project_regenerate_script_job import ProjectRegenerateScriptJob
 from app.models.project_voice_change_job import ProjectVoiceChangeJob
@@ -44,7 +45,7 @@ __all__ = [
 
     "User", "Project", "Scene", "Asset", "ChatMessage",
     "SubscriptionPlan", "Subscription", "CustomTemplate", "BrandKit", "SavedVoice", "CustomVoice", "PrebuiltVoice",
-    "ProjectEditHistory", "SceneEditHistory", "SceneComment", "Review", "TemplateRating", "TemplateVersion",
+    "ProjectEditHistory", "SceneEditHistory", "SceneComment", "Review", "TemplateRating", "AvatarReview", "TemplateVersion",
     "ProjectTemplateChangeJob", "ProjectRegenerateScriptJob", "ProjectVoiceChangeJob",
     "ProjectLanguageChangeJob", "ProjectAddSceneJob",
     "UpdateEmail", "UpdateEmailSend",

@@ -13,7 +13,7 @@ Usage:
 
 from typing import Optional
 from fastapi import HTTPException
-from sqlalchemy import update
+from sqlalchemy import case, update
 from sqlalchemy.orm import Session
 
 from app.models.project import Project
@@ -169,48 +169,64 @@ def avatar_batch_min_scenes(eligible_count: int) -> int:
 
 
 def can_afford_avatars(payer: User, scene_count: int) -> bool:
-    """Whether ``payer`` can cover avatars for ``scene_count`` scenes.
+    """Whether ``payer``'s PLAN ALLOWANCE covers avatars for ``scene_count`` scenes.
 
-    DELIBERATELY UNLIKE can_use_ai_edit: there is no PRO/STANDARD exemption. An
-    avatar is per-scene GPU spend rather than an LLM call, so every plan draws
-    from the same ``ai_edit_credits`` pool. Do not "fix" this to match its
-    sibling — the divergence is the point.
+    Charged strictly against the monthly plan allowance
+    (``ai_edit_allowance_remaining`` = PLAN_AI_EDIT_ALLOWANCE[plan] −
+    ai_edits_used_this_period). The purchased ``ai_edit_credits`` pool is
+    deliberately NOT consulted, which is what makes avatars a subscription
+    entitlement rather than something buyable a video at a time: a FREE user has
+    allowance 0 and can never afford one (the UI asks them to upgrade), while a
+    paid subscriber who exhausts the period is asked to contact support.
+
+    Do NOT add an ``ai_edit_credits`` fallback here to match can_use_ai_edit a
+    few lines up — that would silently re-open the free tier, since every user
+    starts with FREE_AI_EDIT_CREDITS in that pool.
     """
-    return (payer.ai_edit_credits or 0) >= scene_count * AVATAR_CREDIT_COST_PER_SCENE
+    return payer.ai_edit_allowance_remaining >= scene_count * AVATAR_CREDIT_COST_PER_SCENE
 
 
 def consume_avatar_credits(payer: User, scene_count: int) -> None:
-    """Spend the credits for a batch of ``scene_count`` avatars.
+    """Spend the plan allowance for a batch of ``scene_count`` avatars.
 
-    Charged for EVERY plan (see can_afford_avatars). Mutates the ORM object in
-    place; the caller owns the commit. Floored at zero and non-atomic, matching
-    consume_ai_edit — a concurrent read-modify-write could under-charge, which is
+    Charged for every plan that HAS an allowance (see can_afford_avatars).
+    Advances the period counter only — the purchased ``ai_edit_credits`` pool is
+    never touched by the avatar path. Mutates the ORM object in place; the caller
+    owns the commit. No upper clamp is needed because can_afford_avatars gates
+    the call; non-atomic read-modify-write matches consume_ai_edit, which is
     pre-existing accepted behaviour here rather than something introduced.
     """
-    payer.ai_edit_credits = max(
-        0, (payer.ai_edit_credits or 0) - scene_count * AVATAR_CREDIT_COST_PER_SCENE
+    payer.ai_edits_used_this_period = (
+        (payer.ai_edits_used_this_period or 0)
+        + scene_count * AVATAR_CREDIT_COST_PER_SCENE
     )
 
 
 def refund_avatar_credits(db: Session, payer_user_id: int, scene_count: int) -> int:
-    """Give back the credits for ``scene_count`` avatars that will never render.
+    """Give back the allowance for ``scene_count`` avatars that will never render.
 
     The inverse of consume_avatar_credits, with two deliberate differences.
 
     ATOMIC, unlike the charge. consume_avatar_credits mutates the ORM object and
     is documented-accepted non-atomic, but this runs from a WORKER THREAD on its
     own session: a read-modify-write here would race a concurrent
-    authorize_avatar_batch from the same owner and write back a stale balance,
-    silently swallowing a charge. A guarded UPDATE cannot. No lower bound is
-    needed — a credit only ever goes up.
+    authorize_avatar_batch from the same owner and write back a stale counter,
+    silently swallowing a charge. A guarded UPDATE cannot.
 
-    ONLY ``ai_edit_credits``. Do NOT reuse refund_ai_edit, which sits a few lines
-    up and looks like the obvious helper: it credits the monthly allowance first
-    and only spills over into the purchased pool. Avatars are charged purely
-    against ai_edit_credits (see consume_avatar_credits), so routing a refund
-    through that split would mint allowance the user never spent.
+    ONLY ``ai_edits_used_this_period``. Do NOT reuse refund_ai_edit, which sits a
+    few lines up and looks like the obvious helper: it credits the monthly
+    allowance first and only spills over into the PURCHASED pool. Avatars are
+    charged purely against the allowance (see consume_avatar_credits), so
+    routing a refund through that split would mint purchased credits the user
+    never bought.
 
-    Does not commit — the caller owns the transaction, so the balance change and
+    FLOORED AT ZERO, unlike a credit balance that only ever goes up. This gives
+    back a usage COUNTER, and reset_ai_edit_period() zeroes that counter at a
+    billing rollover — so a batch charged just before a reset and refunded just
+    after would drive it negative, silently handing the user free allowance for
+    the new period. The floor is what stops that.
+
+    Does not commit — the caller owns the transaction, so the counter change and
     the credits_refunded flags land together or not at all.
 
     Returns the number of credits returned (0 if scene_count <= 0).
@@ -221,7 +237,12 @@ def refund_avatar_credits(db: Session, payer_user_id: int, scene_count: int) -> 
     db.execute(
         update(User)
         .where(User.id == payer_user_id)
-        .values(ai_edit_credits=User.ai_edit_credits + amount)
+        .values(
+            ai_edits_used_this_period=case(
+                (User.ai_edits_used_this_period < amount, 0),
+                else_=User.ai_edits_used_this_period - amount,
+            )
+        )
     )
     return amount
 

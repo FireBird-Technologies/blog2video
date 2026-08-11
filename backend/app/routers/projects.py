@@ -20,6 +20,7 @@ from app.config import settings
 from app.models.user import User, PlanTier, PAID_TIERS
 from app.models.project import Project, ProjectStatus
 from app.models.review import Review
+from app.models.avatar_review import AvatarReview
 from app.models.scene import Scene
 from app.models.project_template_change_job import ProjectTemplateChangeJob
 from app.models.project_regenerate_script_job import ProjectRegenerateScriptJob
@@ -36,6 +37,7 @@ from app.schemas.schemas import (
     ProjectCreate, ProjectOut, ProjectListOut, ProjectLogoUpdate,
     BulkProjectItem, BulkCreateResponse,
     ReviewOut, ReviewStateOut, ReviewSubmit, ReviewSubmitResponse, SceneOut,
+    AvatarReviewOut, AvatarReviewSubmit,
     SceneUpdate, ReorderScenesRequest, RegenerateSceneRequest, AddSceneRequest, AddSceneJobOut,
     SceneAvatarAppearanceUpdate,
     SceneAvatarFocusUpdate,
@@ -242,10 +244,26 @@ def _build_review_state(project: Project, user: User, db: Session) -> ReviewStat
     )
 
 
+def _build_avatar_review(project: Project, user: User, db: Session) -> Optional[AvatarReviewOut]:
+    """This user's avatar rating for this project, or None when they have not rated.
+
+    Carried on the project payload rather than fetched by the Avatar tab: that tab
+    unmounts on every tab switch, so a fetch-on-mount would re-flash the rating
+    form each time before the saved rating arrived.
+    """
+    row = (
+        db.query(AvatarReview)
+        .filter(AvatarReview.user_id == user.id, AvatarReview.project_id == project.id)
+        .first()
+    )
+    return AvatarReviewOut.model_validate(row) if row else None
+
+
 def _prepare_project_response(project: Project, user: User, db: Session) -> Project:
     from app.models.user import PAID_TIERS
     _inject_custom_theme(project)
     project.review_state = _build_review_state(project, user, db)
+    project.avatar_review = _build_avatar_review(project, user, db)
     project.is_shared = _project_is_shared(project, db)
     # Expose the OWNER's paid-plan status so a collaborator gates premium features
     # (custom/crafted templates, paid voices) on the owner's plan — the owner pays.
@@ -258,7 +276,37 @@ def _prepare_project_response(project: Project, user: User, db: Session) -> Proj
     project.owner_ai_edit_credits = (owner.ai_edit_credits or 0) if owner else 0
     project.owner_ai_edit_allowance_remaining = (owner.ai_edit_allowance_remaining or 0) if owner else 0
     project.owner_name = owner.name if owner else None
+    _mark_refunded_scenes(project, db)
     return project
+
+
+def _mark_refunded_scenes(project: Project, db: Session) -> None:
+    """Stamp ``avatar_credits_refunded`` onto this project's scenes.
+
+    A refunded scene is permanently closed to avatar generation (see
+    SceneAvatarJob.credits_refunded), but that fact lives on the JOB table, so
+    without this the client cannot see it and keeps offering the scene — the
+    picker lists it, the "N scenes still don't have an avatar" banner counts it,
+    and authorize_avatar_batch then either drops it from a paid batch or rejects
+    the whole request for falling under the minimum.
+
+    ONE query for the whole project, not one per scene: this runs on every
+    project response.
+    """
+    scenes = project.scenes or []
+    if not scenes:
+        return
+    refunded = {
+        sid
+        for (sid,) in db.query(SceneAvatarJob.scene_id)
+        .filter(
+            SceneAvatarJob.project_id == project.id,
+            SceneAvatarJob.credits_refunded.is_(True),
+        )
+        .distinct()
+    }
+    for scene in scenes:
+        scene.avatar_credits_refunded = scene.id in refunded
 
 
 def _project_is_shared(project: Project, db: Session) -> bool:
@@ -3555,6 +3603,41 @@ def submit_project_review(
     )
 
 
+@router.post("/{project_id}/avatar-review", response_model=AvatarReviewOut)
+def submit_avatar_review(
+    project_id: int,
+    payload: AvatarReviewSubmit,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Upsert this user's star rating + message for the project's avatars.
+
+    Editor role, so a collaborator can rate the avatars on a project they were
+    invited to — the unique key is (user_id, project_id), so each collaborator
+    gets their own row. Re-rating updates in place rather than inserting.
+
+    Unlike ``submit_project_review`` this sends no low-rating alert email.
+    """
+    project = _get_user_project(project_id, user.id, db)
+
+    review = (
+        db.query(AvatarReview)
+        .filter(AvatarReview.user_id == user.id, AvatarReview.project_id == project.id)
+        .first()
+    )
+    if review is None:
+        review = AvatarReview(user_id=user.id, project_id=project.id)
+        db.add(review)
+
+    review.rating = payload.rating
+    review.suggestion = payload.suggestion
+
+    db.commit()
+    db.refresh(review)
+
+    return AvatarReviewOut.model_validate(review)
+
+
 @router.delete("/{project_id}")
 def delete_project(
     project_id: int,
@@ -4984,7 +5067,6 @@ def authorize_avatar_batch(
     Retries are NOT charged again (see avatar-retry-failed): the user already
     paid for that scene.
     """
-    from app.models.user import AI_EDIT_CREDITS_PER_VIDEO
     from app.services.access import (
         AVATAR_BATCH_MAX_SCENES,
         AVATAR_CREDIT_COST_PER_SCENE,
@@ -5053,14 +5135,34 @@ def authorize_avatar_batch(
     payer = project_owner(project, db)
     cost = len(requested) * AVATAR_CREDIT_COST_PER_SCENE
     if not can_afford_avatars(payer, len(requested)):
-        balance = payer.ai_edit_credits or 0
+        # Two very different dead ends, so they get two different codes. A FREE
+        # payer has no allowance at all and never will without a subscription —
+        # they can act on this, so the UI offers an upgrade. A paid payer who has
+        # spent the period has nothing to buy (there is no AI-credit SKU: videos
+        # grant ai_edit_credits, which avatars no longer draw on), so the only
+        # honest next step is support.
+        remaining = payer.ai_edit_allowance_remaining
+        if payer.plan not in PAID_TIERS:
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "code": "avatar_requires_paid_plan",
+                    "message": (
+                        "Avatar generation is included with paid plans. "
+                        "Upgrade to Pro to generate avatars."
+                    ),
+                },
+            )
         raise HTTPException(
             status_code=403,
-            detail=(
-                f"This needs {cost} AI credits ({AVATAR_CREDIT_COST_PER_SCENE} per scene) "
-                f"and you have {balance}. Choose fewer scenes, or buy a video for "
-                f"+{AI_EDIT_CREDITS_PER_VIDEO} AI credits."
-            ),
+            detail={
+                "code": "avatar_allowance_exhausted",
+                "message": (
+                    f"This needs {cost} AI credits ({AVATAR_CREDIT_COST_PER_SCENE} per scene) "
+                    f"and your plan has {remaining} left this period. "
+                    "Please contact support to continue."
+                ),
+            },
         )
 
     # The charge and the work it pays for are ONE transaction. They used to be
@@ -5103,7 +5205,9 @@ def authorize_avatar_batch(
         "scene_ids": requested,
         "job_ids": [j.id for j in jobs],
         "credits_charged": cost,
-        "credits_remaining": payer.ai_edit_credits or 0,
+        # The allowance, not the purchased pool — that pool is not what was
+        # charged and would never move, so reporting it read as "nothing happened".
+        "credits_remaining": payer.ai_edit_allowance_remaining,
     }
 
 
