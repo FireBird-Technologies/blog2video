@@ -261,6 +261,10 @@ DEFAULT_STEPS = 10          # config default is 50; 10 is the tuned speed/qualit
                             # denoising steps are the dominant cost, so expect render time
                             # (and per-render GPU spend) to scale roughly with this.
 DEFAULT_GUIDANCE = 4.5
+# Audio CFG strength — how hard the model is pushed to follow the speech track.
+# Higher = tighter lip-sync (more pronounced mouth movement); too high starts to
+# distort the face. The upstream config default is 3.0; 6 is the tuned value here.
+DEFAULT_AUDIO_SCALE = 8.0
 DEFAULT_MAX_TOKENS = 30000
 DEFAULT_TEA_CACHE = 0.14    # TeaCache step-skip
 DEFAULT_SEED = 42
@@ -787,6 +791,7 @@ class OmniAvatarService:
             prompt: str = Form(DEFAULT_PROMPT),
             steps: int = Form(DEFAULT_STEPS),
             guidance_scale: float = Form(DEFAULT_GUIDANCE),
+            audio_scale: float = Form(DEFAULT_AUDIO_SCALE),
             max_tokens: int = Form(DEFAULT_MAX_TOKENS),
             tea_cache: float = Form(DEFAULT_TEA_CACHE),
             seed: int = Form(DEFAULT_SEED),
@@ -817,7 +822,8 @@ class OmniAvatarService:
             """
             print(
                 f">>> [render] REQUEST avatar={avatar_id!r} render_id={render_id!r} "
-                f"steps={steps} fps={fps} gpu={GPU_TYPE} inline_image={image is not None}",
+                f"steps={steps} fps={fps} audio_scale={audio_scale} "
+                f"gpu={GPU_TYPE} inline_image={image is not None}",
                 flush=True,
             )
 
@@ -887,6 +893,7 @@ class OmniAvatarService:
             hp_parts = [
                 f"tea_cache_l1_thresh={tea_cache}",
                 f"guidance_scale={guidance_scale}",
+                f"audio_scale={audio_scale}",
                 f"num_steps={steps}",
                 f"max_tokens={max_tokens}",
                 f"seed={seed}",
