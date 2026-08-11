@@ -334,6 +334,7 @@ export default function RemotionPreviewPlayer({
         autoPlay={!thumbnailMode}
         loop={thumbnailMode ? false : loop}
         controls={false}
+        acknowledgeRemotionLicense
       />
     </PlayerErrorBoundary>
   );
