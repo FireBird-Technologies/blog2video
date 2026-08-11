@@ -1,5 +1,6 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { extractDocument, toolErrorMessage, type ExtractedDocument } from "../../api/pdfTools";
+import { useToolAuth } from "./LoginGate";
 
 /**
  * The upload step every PDF tool shares.
@@ -12,6 +13,14 @@ import { extractDocument, toolErrorMessage, type ExtractedDocument } from "../..
  * It is a separate request from the generation that follows. A scanned PDF or
  * an unsupported format fails here, in a second, with a message that says what
  * to do — instead of failing inside a longer AI call.
+ *
+ * This is also where sign-in is demanded, because it is the first thing that
+ * touches the backend. A signed-out visitor sees the whole tool and drops their
+ * file normally; the modal comes up, and on success the very same File is
+ * extracted without asking for it again (see `resumeWithFile`). Only a *click*
+ * to browse cannot be fully resumed — there is no file yet, and re-opening the
+ * OS picker after an OAuth popup is not reliably allowed — so we unlock the
+ * zone and say so instead of opening a picker that may never appear.
  */
 
 const ACCEPT = ".pdf,.docx,.pptx,.txt,.md,.markdown,.vtt";
@@ -33,6 +42,8 @@ export default function DocumentInput({
   const [error, setError] = useState("");
   const [loaded, setLoaded] = useState<DocumentPayload | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [justUnlocked, setJustUnlocked] = useState(false);
+  const { signedIn, loading: authLoading, requireAuth } = useToolAuth();
 
   const handleFile = useCallback(
     async (file: File | undefined) => {
@@ -60,6 +71,51 @@ export default function DocumentInput({
     },
     [disabled, onDocument]
   );
+
+  /**
+   * The sign-in modal resumes work through a callback captured at drop time.
+   * Reading `handleFile` off a ref keeps that callback pointed at the current
+   * one — a stale closure could carry `disabled: true` from the moment of the
+   * drop and swallow the file silently.
+   */
+  const handleFileRef = useRef(handleFile);
+  useEffect(() => {
+    handleFileRef.current = handleFile;
+  }, [handleFile]);
+
+  const resumeWithFile = useCallback((file: File) => {
+    void handleFileRef.current(file);
+  }, []);
+
+  /**
+   * Click / Enter on the zone: sign in first, then let them pick a file.
+   *
+   * After sign-in we do try to re-open the picker, but a browser may refuse a
+   * programmatic file dialog once the OAuth popup has eaten the user gesture —
+   * hence `justUnlocked`, which leaves a visible "choose your file" state
+   * rather than a dead zone if the dialog never appears.
+   */
+  const openPicker = useCallback(() => {
+    if (disabled) return;
+    const ran = requireAuth(() => {
+      setJustUnlocked(true);
+      inputRef.current?.click();
+    });
+    if (ran) inputRef.current?.click();
+  }, [disabled, requireAuth]);
+
+  const acceptDropped = useCallback(
+    (file: File | undefined) => {
+      if (!file || disabled) return;
+      requireAuth(() => resumeWithFile(file), { pendingFile: true });
+    },
+    [disabled, requireAuth, resumeWithFile]
+  );
+
+  // Clear the "signed in, now pick a file" nudge once they act on it.
+  useEffect(() => {
+    if (busy || loaded) setJustUnlocked(false);
+  }, [busy, loaded]);
 
   const clear = () => {
     setLoaded(null);
@@ -111,14 +167,16 @@ export default function DocumentInput({
               ? "cursor-not-allowed border-gray-200 opacity-50"
               : dragging
                 ? "cursor-pointer border-purple-400 bg-purple-50/40"
-                : "cursor-pointer border-gray-200 hover:border-purple-300"
+                : justUnlocked
+                  ? "cursor-pointer border-purple-300 bg-purple-50/30"
+                  : "cursor-pointer border-gray-200 hover:border-purple-300"
           }`}
-          onClick={() => !disabled && inputRef.current?.click()}
+          onClick={openPicker}
           onKeyDown={(event) => {
             if (disabled) return;
             if (event.key === "Enter" || event.key === " ") {
               event.preventDefault();
-              inputRef.current?.click();
+              openPicker();
             }
           }}
           onDragOver={(event) => {
@@ -129,7 +187,7 @@ export default function DocumentInput({
           onDrop={(event) => {
             event.preventDefault();
             setDragging(false);
-            void handleFile(event.dataTransfer.files?.[0]);
+            acceptDropped(event.dataTransfer.files?.[0]);
           }}
         >
           {busy ? (
@@ -158,6 +216,17 @@ export default function DocumentInput({
               <p className="mt-1 text-[11px] text-gray-400">
                 Text-based documents. A scanned PDF has no text layer and needs OCR first.
               </p>
+              {justUnlocked ? (
+                <p className="mt-1 text-[11px] font-medium text-purple-600">
+                  You&apos;re signed in — choose your file to continue.
+                </p>
+              ) : !signedIn && !authLoading ? (
+                // Held back until the stored session has resolved, so a
+                // returning user never sees a sign-in prompt flash.
+                <p className="mt-1 text-[11px] text-gray-400">
+                  Free Google sign-in on the next step, then your file is processed right away.
+                </p>
+              ) : null}
             </>
           )}
           <input

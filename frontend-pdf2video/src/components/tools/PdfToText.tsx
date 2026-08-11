@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import DocumentInput, { type DocumentPayload } from "./DocumentInput";
-import { RequireLogin } from "./LoginGate";
+import { ToolAuthProvider } from "./LoginGate";
 import {
   EmptyState,
   SecondaryButton,
@@ -163,7 +163,7 @@ function TextWidget() {
 export default function PdfToText() {
   return (
     <ToolShell>
-      <RequireLogin
+      <ToolAuthProvider
         copy={{
           headline: "Sign in to extract your document",
           blurb:
@@ -176,7 +176,7 @@ export default function PdfToText() {
         }}
       >
         <TextWidget />
-      </RequireLogin>
+      </ToolAuthProvider>
     </ToolShell>
   );
 }

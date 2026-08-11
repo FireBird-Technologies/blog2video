@@ -1,6 +1,6 @@
 import { useState } from "react";
 import DocumentInput, { type DocumentPayload } from "./DocumentInput";
-import { RequireLogin } from "./LoginGate";
+import { ToolAuthProvider } from "./LoginGate";
 import {
   EmptyState,
   PrimaryButton,
@@ -242,7 +242,7 @@ function ScriptWidget() {
 export default function PdfToVideoScript() {
   return (
     <ToolShell>
-      <RequireLogin
+      <ToolAuthProvider
         copy={{
           headline: "Sign in to script your document",
           blurb:
@@ -255,7 +255,7 @@ export default function PdfToVideoScript() {
         }}
       >
         <ScriptWidget />
-      </RequireLogin>
+      </ToolAuthProvider>
     </ToolShell>
   );
 }

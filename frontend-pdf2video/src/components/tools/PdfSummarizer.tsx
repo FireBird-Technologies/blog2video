@@ -1,6 +1,6 @@
 import { useState } from "react";
 import DocumentInput, { type DocumentPayload } from "./DocumentInput";
-import { RequireLogin } from "./LoginGate";
+import { ToolAuthProvider } from "./LoginGate";
 import {
   EmptyState,
   PrimaryButton,
@@ -194,7 +194,7 @@ function SummarizerWidget() {
 export default function PdfSummarizer() {
   return (
     <ToolShell>
-      <RequireLogin
+      <ToolAuthProvider
         copy={{
           headline: "Sign in to summarise your document",
           blurb:
@@ -207,7 +207,7 @@ export default function PdfSummarizer() {
         }}
       >
         <SummarizerWidget />
-      </RequireLogin>
+      </ToolAuthProvider>
     </ToolShell>
   );
 }

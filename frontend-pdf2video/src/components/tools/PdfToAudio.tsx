@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import DocumentInput, { type DocumentPayload } from "./DocumentInput";
-import { RequireLogin } from "./LoginGate";
+import { ToolAuthProvider } from "./LoginGate";
 import { EmptyState, PrimaryButton, SecondaryButton, StatTile, ToolShell } from "./shared";
 import { narrateText, toolErrorMessage } from "../../api/pdfTools";
 import { countWords, formatDuration, secondsForWords } from "../../lib/docAnalysis";
@@ -237,7 +237,7 @@ function AudioWidget() {
 export default function PdfToAudio() {
   return (
     <ToolShell>
-      <RequireLogin
+      <ToolAuthProvider
         copy={{
           headline: "Sign in to narrate your document",
           blurb:
@@ -250,7 +250,7 @@ export default function PdfToAudio() {
         }}
       >
         <AudioWidget />
-      </RequireLogin>
+      </ToolAuthProvider>
     </ToolShell>
   );
 }

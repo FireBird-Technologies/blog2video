@@ -1,6 +1,6 @@
 import { useState } from "react";
 import DocumentInput, { type DocumentPayload } from "./DocumentInput";
-import { RequireLogin } from "./LoginGate";
+import { ToolAuthProvider } from "./LoginGate";
 import {
   EmptyState,
   PrimaryButton,
@@ -249,7 +249,7 @@ function StoryboardWidget() {
 export default function PdfToSlideshow() {
   return (
     <ToolShell>
-      <RequireLogin
+      <ToolAuthProvider
         copy={{
           headline: "Sign in to storyboard your document",
           blurb:
@@ -262,7 +262,7 @@ export default function PdfToSlideshow() {
         }}
       >
         <StoryboardWidget />
-      </RequireLogin>
+      </ToolAuthProvider>
     </ToolShell>
   );
 }
