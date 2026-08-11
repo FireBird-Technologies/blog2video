@@ -47,6 +47,7 @@ from app.services.remotion import (
     get_workspace_dir,
     cancel_running_render,
     render_still,
+    get_composition_duration_frames,
     _prepare_still_workspace,
     _render_still_frame,
     write_remotion_data,
@@ -3504,17 +3505,25 @@ def render_project_stills(
         logger.exception("render-stills setup failed project=%s", project_id)
         raise HTTPException(status_code=500, detail=f"Could not prepare render: {exc}") from exc
 
+    # Clamp bound. The frontend derives each slide's frame from the composition's own
+    # timeline, but templates whose schedule is not yet transition-aware still sum
+    # scene durations back to back, which overshoots a TransitionSeries and made the
+    # last slide fail with a RangeError. Best-effort: None means no clamp.
+    duration_frames = get_composition_duration_frames(workspace, composition_id)
     total = len(payload.frames)
 
     def stream():
         for i, frame in enumerate(payload.frames):
+            safe_frame = (
+                min(frame, duration_frames - 1) if duration_frames else frame
+            )
             try:
-                path = _render_still_frame(project.id, workspace, composition_id, preset, frame)
+                path = _render_still_frame(project.id, workspace, composition_id, preset, safe_frame)
                 with open(path, "rb") as fh:
                     b64 = base64.b64encode(fh.read()).decode("ascii")
             except Exception as exc:
                 logger.exception(
-                    "render-stills failed project=%s frame=%s", project_id, frame
+                    "render-stills failed project=%s frame=%s", project_id, safe_frame
                 )
                 yield json.dumps({"error": f"Could not render slide {i + 1}: {exc}"}) + "\n"
                 return

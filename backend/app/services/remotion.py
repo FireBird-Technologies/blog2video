@@ -2053,6 +2053,47 @@ def render_video(project: Project, resolution: str = "1080p") -> str:
     return output_path
 
 
+def get_composition_duration_frames(workspace: str, composition_id: str) -> int | None:
+    """
+    The composition's real `durationInFrames`, or None if it cannot be determined.
+
+    Used to clamp slide-export frames. The frontend computes each slide's frame from
+    the composition's own timeline, but templates whose schedule is not yet
+    transition-aware still sum durations back to back — which overshoots on a
+    TransitionSeries and made `remotion still` fail with
+    "Cannot use frame N: Duration of composition is M". Clamping turns that hard
+    500 into a slightly-late final slide.
+
+    Best-effort by design: on any failure the caller skips clamping rather than
+    failing an otherwise fine export.
+    """
+    npx = shutil.which("npx") or "npx"
+    try:
+        result = subprocess.run(
+            [npx, "remotion", "compositions", "--bundle-cache", "true"],
+            cwd=workspace,
+            shell=(os.name == "nt"),
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+    except Exception:
+        logger.warning("remotion compositions failed for %s", composition_id, exc_info=True)
+        return None
+    if result.returncode != 0:
+        return None
+
+    # Rows look like: "ChronicleVideo   30   1920x1080   4557 (151.90 sec)"
+    for line in (result.stdout or "").splitlines():
+        parts = line.split()
+        if len(parts) >= 4 and parts[0] == composition_id:
+            try:
+                return int(parts[3])
+            except ValueError:
+                return None
+    return None
+
+
 def _prepare_still_workspace(project: Project) -> tuple[str, str, dict]:
     """
     Ensure the project's Remotion workspace is ready for `remotion still`.
