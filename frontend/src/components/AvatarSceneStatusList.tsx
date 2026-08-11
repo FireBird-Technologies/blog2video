@@ -37,6 +37,11 @@ export function sceneStatusLabel(row: DisplayRow, hasPolled: boolean): string {
     case "completed":
       return "Done";
     case "failed":
+      // Refunded is checked FIRST: those scenes are closed for good, so the
+      // "open scene to retry" hint below would send the user after something
+      // every server gate refuses. Naming the refund is also the only place
+      // they learn why the scene has quietly left the picker.
+      if (row.credits_refunded) return "Failed after retries — credits returned";
       return row.attempts_exhausted ? "Failed — open scene to retry" : "Failed";
     case "running":
       // A matte job has no phases and never re-renders — describing it as

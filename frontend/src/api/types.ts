@@ -177,6 +177,10 @@ export interface Project {
   avatar_batch_unlocked?: boolean;
   custom_template_missing?: boolean;
   review_state?: ReviewState | null;
+  /** This user's avatar rating, or null when they have not rated. Rides on the
+   *  project payload so the Avatar tab (which unmounts on tab switch) can pick
+   *  the form vs. the saved-summary view on first paint, with no flicker. */
+  avatar_review?: AvatarReview | null;
   /** True when the project has ≥1 collaborator — gates the per-scene comment button. */
   is_shared?: boolean;
   /** True when the project OWNER is on a paid plan — collaborators gate Pro-only features on this. */
@@ -285,6 +289,22 @@ export interface SubmitProjectReviewPayload {
 export interface SubmitProjectReviewResponse {
   review: Review;
   review_state: ReviewState;
+}
+
+/** This user's star rating + message for a project's avatar overlays. */
+export interface AvatarReview {
+  id: number;
+  user_id: number;
+  project_id: number;
+  rating: number;
+  suggestion: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SubmitAvatarReviewPayload {
+  rating: 1 | 2 | 3 | 4 | 5;
+  suggestion?: string;
 }
 
 export interface ChatResponse {

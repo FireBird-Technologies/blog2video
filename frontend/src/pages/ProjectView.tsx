@@ -61,6 +61,7 @@ import {
   getAddSceneStatus,
   type AddSceneJob,
 } from "../api/client";
+import { AVATAR_CUSTOM_PRESET_ID } from "../api/types";
 import Joyride, { CallBackProps, STATUS, Step } from "react-joyride";
 import { useAuth } from "../hooks/useAuth";
 import { isPaidPlan } from "../lib/plan";
@@ -7418,6 +7419,22 @@ export default function ProjectView() {
                                     (p) => p.id === scene.avatar_preset,
                                   );
                                   const hasAvatar = !!scene.avatar_video_path;
+                                  // A user-uploaded portrait is the CUSTOM sentinel, which
+                                  // is deliberately absent from AVATAR_PRESETS — so `preset`
+                                  // is undefined here and /avatars/custom.jpg does not exist.
+                                  // Its photo lives on the project instead. Without this the
+                                  // thumbnail fell through to the empty dashed placeholder
+                                  // and the label to a bare "Presenter".
+                                  const isCustomPreset =
+                                    scene.avatar_preset === AVATAR_CUSTOM_PRESET_ID;
+                                  const avatarImgSrc = isCustomPreset
+                                    ? project.avatar_custom_image_url ?? null
+                                    : preset
+                                      ? `/avatars/${preset.id}.jpg`
+                                      : null;
+                                  const avatarLabel = isCustomPreset
+                                    ? "Your portrait"
+                                    : (preset?.label ?? "Presenter");
                                   // Compares VALUES, not null-ness: saving the
                                   // project-wide Avatar tab stamps its settings
                                   // onto every scene, so `!= null` would report
@@ -7453,7 +7470,7 @@ export default function ProjectView() {
                                       ) : (
                                         <div className="flex items-center gap-3">
                                           <div className="relative group flex-shrink-0">
-                                            {hasAvatar && preset ? (
+                                            {hasAvatar && avatarImgSrc ? (
                                               <div
                                                 style={{
                                                   width: 80,
@@ -7467,8 +7484,8 @@ export default function ProjectView() {
                                                 className="border border-gray-200/60"
                                               >
                                                 <img
-                                                  src={`/avatars/${preset.id}.jpg`}
-                                                  alt={preset.label}
+                                                  src={avatarImgSrc}
+                                                  alt={avatarLabel}
                                                   className="w-full h-full object-cover"
                                                 />
                                               </div>
@@ -7500,7 +7517,7 @@ export default function ProjectView() {
                                           </div>
                                           <div className="min-w-0 flex-1">
                                             <p className="text-xs text-gray-600 truncate">
-                                              {hasAvatar ? (preset?.label ?? "Presenter") : "No avatar"}
+                                              {hasAvatar ? avatarLabel : "No avatar"}
                                             </p>
                                             {hasAvatar && (
                                               <span className="text-[10px] text-gray-400">
@@ -8166,17 +8183,42 @@ export default function ProjectView() {
             scenesNeedingMatte={(project.scenes ?? [])
               .filter((s) => !!s.avatar_video_path && !s.has_matte)
               .map((s) => ({ id: s.id, order: s.order }))}
-            batchScenes={(project.scenes ?? []).map((s) => ({
-              id: s.id,
-              order: s.order,
-              hasVoiceover: !!s.voiceover_path,
-            }))}
+            // Refunded scenes are dropped OUTRIGHT rather than passed with
+            // hasVoiceover:false. That flag renders a scene as "skipped (no
+            // narration yet)", which is both wrong and misleading here — the
+            // narration is fine; the scene is closed because its render failed
+            // for good and the credits were returned.
+            batchScenes={(project.scenes ?? [])
+              .filter((s) => !s.avatar_credits_refunded)
+              .map((s) => ({
+                id: s.id,
+                order: s.order,
+                hasVoiceover: !!s.voiceover_path,
+              }))}
             // Scenes a pencil-icon click can land here for (no clip yet, but
             // at least one sibling scene already has one) — lets the card
             // offer to generate just these rather than stranding the user.
+            // Refunded scenes are EXCLUDED: they failed for good, the credits
+            // went back, and the server refuses to generate them again. Listing
+            // them here made the banner advertise scenes that could not be
+            // rendered — the batch was then either silently short-changed or
+            // rejected for falling under the minimum.
             scenesMissingAvatar={(project.scenes ?? [])
-              .filter((s) => !!s.voiceover_path && !s.avatar_video_path)
+              .filter(
+                (s) =>
+                  !!s.voiceover_path &&
+                  !s.avatar_video_path &&
+                  !s.avatar_credits_refunded,
+              )
               .map((s) => ({ id: s.id, order: s.order, hasVoiceover: true }))}
+            // Refunded scenes are excluded from the generatable list above (the
+            // backend closes them permanently), which left them unaccounted for
+            // in the UI — they simply vanished from the banner with no reason
+            // given. Passed separately so they can be NAMED without being
+            // offered for generation.
+            scenesRefunded={(project.scenes ?? [])
+              .filter((s) => !s.avatar_video_path && !!s.avatar_credits_refunded)
+              .map((s) => ({ id: s.id, order: s.order }))}
             avatarBatchUnlocked={!!project.avatar_batch_unlocked}
             disabled={anyJobRunning}
             onError={(msg) => showError(msg)}

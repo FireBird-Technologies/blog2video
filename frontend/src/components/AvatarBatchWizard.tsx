@@ -7,6 +7,7 @@ import {
   AVATAR_PRESETS,
   MAIN_AVATAR_PRESET_IDS,
   authorizeAvatarBatch,
+  createCheckoutSession,
   getAvatarProgress,
   getCachedAvatarProgress,
   matteAllSceneAvatars,
@@ -44,6 +45,14 @@ const STALL_MS = 10 * 60 * 1000;
  *  boxHeight = boxWidth * 1.25 for "rounded"), which keeps the framing sensible
  *  for the shape the result most likely ends up in. */
 const AVATAR_UPLOAD_ASPECT_RATIO = "4 / 5";
+
+/** Plans that carry a monthly AI-edit allowance — the mirror of PAID_TIERS in
+ *  backend/app/models/user.py. Anything NOT in here (including "free", an
+ *  unrecognised value, or the empty plan during the first render before
+ *  /auth/me resolves) is treated as free, so the pricing step offers an upgrade
+ *  rather than the contact-support dead end. Lower-cased at the call site
+ *  because the server sends PlanTier.value. */
+const PAID_PLANS = new Set(["lite", "standard", "pro"]);
 
 /** Cycled purely for texture while jobs are in flight — real progress still
  *  comes from polling, this just keeps a long wait from feeling stuck. */
@@ -152,9 +161,11 @@ export default function AvatarBatchWizard({
    *  pre-wizard state, since there is no earlier wizard step to fall back to. */
   onDismiss?: () => void;
   /** Needed for the owner-pays credit balance: on a shared project the pricing
-   *  step must show (and spend) the OWNER's pool, which arrives on the project as
-   *  `owner_ai_edit_credits`. Optional, so a call site that omits it falls back
-   *  to the acting user's own balance. */
+   *  step must show (and spend) the OWNER's allowance, which arrives on the
+   *  project as `owner_ai_edit_allowance_remaining` — and the OWNER's plan
+   *  (`owner_is_pro`), which decides whether a shortfall offers an upgrade or
+   *  points at support. Optional, so a call site that omits it falls back to the
+   *  acting user's own balance and plan. */
   project?: Project;
   ownerScopedProjectId?: number;
   precompiledCraftedDetail?: CraftedTemplateDetail | null;
@@ -224,20 +235,72 @@ export default function AvatarBatchWizard({
     });
   };
 
-  // Credit balance, mirroring SceneEditor's derivation with ONE deliberate
-  // difference: there is no `effectiveIsPro` exemption. Avatars are per-scene GPU
-  // spend, so PRO/STANDARD pay too (see can_afford_avatars on the backend, which
-  // enforces the same rule). Owner-pays still applies, hence the collaborator
-  // branch reading the owner's pool off the project.
+  // Credit balance, deliberately UNLIKE SceneEditor's derivation: avatars are a
+  // subscription entitlement billed strictly against the monthly plan allowance,
+  // so this reads `ai_edit_allowance_remaining` ALONE and never the purchased
+  // `ai_edit_credits` pool (see can_afford_avatars on the backend, which enforces
+  // the same rule). Owner-pays still applies, hence the collaborator branch
+  // reading the owner's allowance off the project.
   const { user, refreshUser } = useAuth();
   const isCollaborator = user != null && project != null && project.user_id !== user.id;
   const aiCreditRemaining = isCollaborator
-    ? (project?.owner_ai_edit_credits ?? 0)
-    : (user?.ai_edit_credits ?? 0);
+    ? (project?.owner_ai_edit_allowance_remaining ?? 0)
+    : (user?.ai_edit_allowance_remaining ?? 0);
   const canAfford = aiCreditRemaining >= creditCost;
   // How many scenes the current balance WOULD cover — turns "you're short" into
   // an actionable "pick this many instead".
   const affordableScenes = Math.floor(aiCreditRemaining / AVATAR_CREDIT_COST_PER_SCENE);
+  // WHOSE plan decides the remedy: the payer's. On a shared project that is the
+  // owner (they are charged), so a free collaborator on a paid owner's project
+  // gets the normal flow rather than an upgrade prompt they cannot act on.
+  //
+  // Derived by checking membership of the PAID set rather than `plan === "free"`.
+  // An equality test against one string treats every value it does not recognise
+  // — a casing variant, or the undefined plan during the first render before
+  // /auth/me resolves — as PAID, which routes a broke free user to the
+  // contact-support dead end with no upgrade button. Failing closed to "free"
+  // shows an upgrade CTA at worst, which is recoverable; the other direction is
+  // not.
+  const payerIsFree = isCollaborator
+    ? !(project?.owner_is_pro ?? false)
+    : !PAID_PLANS.has((user?.plan ?? "").toLowerCase());
+  // A free payer has no allowance and never will without a subscription — that is
+  // fixable, so we offer the upgrade. A paid payer who has spent the period has
+  // nothing to buy (videos grant the purchased pool, which avatars don't touch),
+  // so the only honest next step is support.
+  //
+  // Keyed on the PLAN ALONE, never on the balance. A zero-allowance clause used
+  // to be OR-ed in here as a backstop, but zero is the normal state for a paid
+  // payer who has spent the period — so it fired on exactly the users the line
+  // above says must be sent to support, and showed a Pro subscriber an "Upgrade
+  // to Pro plan" button for a plan they already have. Upgrading is only ever the
+  // remedy when the payer is actually unsubscribed.
+  const needsUpgrade = !canAfford && payerIsFree;
+  // Sending the user straight to Pro checkout, rather than opening a second
+  // modal on top of this one to ask WHICH plan. This screen has already named
+  // Pro (the CTA reads "Upgrade to Pro plan"), so re-asking was a step that
+  // only repeated a decision the button had made. Lite is not offered here on
+  // purpose: the copy promises Pro, so this must buy Pro.
+  const [startingCheckout, setStartingCheckout] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const startProCheckout = async () => {
+    setCheckoutError(null);
+    setStartingCheckout(true);
+    try {
+      const res = await createCheckoutSession({ plan: "pro" });
+      window.location.href = res.data.checkout_url;
+      // No setStartingCheckout(false): the navigation above ends this page, and
+      // clearing it would flash the button back to its idle label mid-redirect.
+    } catch {
+      // Falling back to /pricing rather than stranding the user on a dead
+      // button — same recovery UpgradeModal used when checkout could not start.
+      setStartingCheckout(false);
+      setCheckoutError("Could not start checkout. Taking you to pricing…");
+      window.setTimeout(() => {
+        window.location.href = "/pricing";
+      }, 1200);
+    }
+  };
 
   // Resume mid-batch on reload. Safe to key on the unlock flag only because the
   // server now CLEARS it once nothing is queued or running (see the avatar
@@ -373,6 +436,11 @@ export default function AvatarBatchWizard({
   // original, so only the framed region is ever sent.
   const [pendingCropFile, setPendingCropFile] = useState<File | null>(null);
   const portraitInputRef = useRef<HTMLInputElement>(null);
+  // Entered the upload step via "Use another", i.e. to REPLACE the stored photo.
+  // The step then hides the existing portrait: showing the very picture the user
+  // came here to swap made the screen read as though the upload had already
+  // happened. Cleared once a new photo lands, so the fresh crop is reviewable.
+  const [replacingPortrait, setReplacingPortrait] = useState(false);
 
   // How the avatar overlay LOOKS. The wizard no longer ASKS about any of this —
   // choosing placement/background before a single clip exists meant guessing
@@ -774,10 +842,26 @@ export default function AvatarBatchWizard({
       setStep("generating");
     } catch (err: unknown) {
       // Surface the server's message: on a 403 it names the shortfall and the
-      // remedy, which a generic string cannot.
-      const detail = (err as { response?: { data?: { detail?: string } } })
-        ?.response?.data?.detail;
-      onError(detail || "Could not start avatar generation. Please try again.");
+      // remedy, which a generic string cannot. The credit 403s send a structured
+      // {code, message} while everything else still sends a bare string, so both
+      // shapes are unpacked — reading only `.detail` would print [object Object].
+      const raw = (
+        err as {
+          response?: { data?: { detail?: string | { code?: string; message?: string } } };
+        }
+      )?.response?.data?.detail;
+      const code = typeof raw === "object" ? raw?.code : undefined;
+      const message = typeof raw === "string" ? raw : raw?.message;
+      // Covers the race where the locally-derived balance was stale (another tab
+      // spent the allowance, or a period rolled over): the server is the real
+      // gate, so honour its verdict and open the upgrade path rather than
+      // dead-ending on a toast.
+      if (code === "avatar_requires_paid_plan") {
+        setUnlocking(false);
+        void startProCheckout();
+        return;
+      }
+      onError(message || "Could not start avatar generation. Please try again.");
       setUnlocking(false);
       return;
     }
@@ -809,8 +893,16 @@ export default function AvatarBatchWizard({
     try {
       await uploadAvatarPortrait(projectId, cropped);
       setPreset(AVATAR_CUSTOM_PRESET_ID);
+      // The stored photo IS the new one now, so stop suppressing the preview —
+      // the point of staying on this step is reviewing the crop that just landed.
+      setReplacingPortrait(false);
       await onChanged();
-      setStep("pricing");
+      // Deliberately STAYS on "instructions" rather than jumping to pricing.
+      // The upload used to skip the user straight to the paywall, so the first
+      // sight of their cropped photo was as a thumbnail on a payment screen —
+      // with no way to judge the crop or redo it short of backing out. Landing
+      // back here shows the result beside an "Upload a different photo" button,
+      // and Next advances when they are happy with it.
     } catch (e: unknown) {
       const detail =
         (e as { response?: { data?: { detail?: string } } })?.response?.data
@@ -829,8 +921,7 @@ export default function AvatarBatchWizard({
             Choose a presenter for this video
           </h3>
           <p className="text-xs text-gray-400 mt-1">
-            Pick one of our presenters or use your own photo. Click a card to
-            get started.
+            Pick one of our presenters or use your own photo, then continue.
           </p>
         </div>
 
@@ -855,10 +946,12 @@ export default function AvatarBatchWizard({
         </div>
 
         {/* Compact picker strip below the preview — just Elena, Marcus, and
-            "Your photo". Clicking any tile opens the setup modal directly
-            (straight to pricing, or instructions first for "Your photo"). */}
+            "Your photo". A preset tile only SELECTS (the Next button below
+            advances); the "Your photo" tile still goes straight to
+            "instructions", since there is nothing to review until a photo has
+            been uploaded. */}
         <p className="text-[11px] font-medium text-gray-500">
-          Select a presenter to continue
+          Choose your presenter
         </p>
         <div className="grid grid-cols-3 gap-2.5 max-w-sm">
           {mainPresets.map((p) => {
@@ -867,10 +960,7 @@ export default function AvatarBatchWizard({
               <button
                 key={p.id}
                 type="button"
-                onClick={() => {
-                  setPreset(p.id);
-                  setStep("pricing");
-                }}
+                onClick={() => setPreset(p.id)}
                 title={p.label}
                 className="flex flex-col items-center"
               >
@@ -904,15 +994,22 @@ export default function AvatarBatchWizard({
             );
           })}
 
+          {/* Behaves like a preset tile ONCE A PHOTO EXISTS: clicking it selects
+              the custom presenter and nothing else, so Next is the only way
+              forward. It used to always jump to "instructions", which threw a
+              user with an already-uploaded photo into the upload guide they had
+              finished with — losing their selection to re-do work that was
+              already done. With no photo yet there is nothing to select, so the
+              click still opens the upload flow. */}
           <button
             type="button"
-            onClick={() => setStep("instructions")}
+            onClick={() =>
+              customPortraitUrl
+                ? setPreset(AVATAR_CUSTOM_PRESET_ID)
+                : setStep("instructions")
+            }
             title={
-              isCustom
-                ? "Your photo"
-                : customPortraitUrl
-                  ? "Upload or use your saved photo"
-                  : "Upload your own photo"
+              customPortraitUrl ? "Your photo" : "Upload your own photo"
             }
             className="flex flex-col items-center"
           >
@@ -920,19 +1017,28 @@ export default function AvatarBatchWizard({
               className={`relative w-full aspect-[3/4] rounded-lg overflow-hidden transition-all flex flex-col items-center justify-center gap-1 ${
                 isCustom
                   ? "ring-2 ring-purple-600 ring-offset-1"
-                  : "border-2 border-dashed border-gray-300 hover:border-purple-400 hover:bg-purple-50/40"
+                  : customPortraitUrl
+                    ? "ring-1 ring-gray-200 hover:ring-gray-300"
+                    : "border-2 border-dashed border-gray-300 hover:border-purple-400 hover:bg-purple-50/40"
               }`}
             >
-              {isCustom && customPortraitUrl ? (
+              {/* The THUMBNAIL follows the photo, the tick follows the
+                  SELECTION — exactly like a preset tile. Gating the image on
+                  isCustom too meant an uploaded-but-unselected photo fell back
+                  to the dashed "Upload" placeholder, which read as the upload
+                  having been lost. */}
+              {customPortraitUrl ? (
                 <>
                   <img
                     src={customPortraitUrl}
                     alt="Your uploaded presenter"
                     className="w-full h-full object-cover"
                   />
-                  <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-purple-600 text-white flex items-center justify-center shadow-sm">
-                    <CheckMark className="w-2.5 h-2.5 text-white" />
-                  </span>
+                  {isCustom && (
+                    <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-purple-600 text-white flex items-center justify-center shadow-sm">
+                      <CheckMark className="w-2.5 h-2.5 text-white" />
+                    </span>
+                  )}
                 </>
               ) : (
                 <>
@@ -948,9 +1054,66 @@ export default function AvatarBatchWizard({
                 isCustom ? "text-purple-700" : "text-gray-700"
               }`}
             >
-              {isCustom ? "Your photo" : "Upload photo"}
+              {customPortraitUrl ? "Your photo" : "Upload photo"}
             </span>
           </button>
+
+          {/* A SEPARATE add-another slot, shown only once a photo exists. The
+              tile above no longer navigates (it selects), so this is the way
+              into the upload flow — as its own tile rather than a link, so the
+              existing photo stays visible beside it instead of being replaced
+              by a screen that asks the user to redo work they already did.
+              Uploading overwrites the project's single stored portrait, which
+              is why the label is "Use another" rather than implying a gallery. */}
+          {customPortraitUrl && (
+            <button
+              type="button"
+              onClick={() => {
+                setReplacingPortrait(true);
+                setStep("instructions");
+              }}
+              title="Upload a different photo"
+              className="flex flex-col items-center"
+            >
+              <div className="relative w-full aspect-[3/4] rounded-lg overflow-hidden transition-all flex flex-col items-center justify-center gap-1 border-2 border-dashed border-gray-300 hover:border-purple-400 hover:bg-purple-50/40">
+                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                <span className="text-[10px] font-medium text-gray-400">Upload</span>
+              </div>
+              <span className="text-[11px] font-medium mt-1 text-center text-gray-700">
+                Use another
+              </span>
+            </button>
+          )}
+        </div>
+
+
+        {/* Explicit Next, rather than a tile click jumping straight to pricing.
+            Selecting and advancing used to be the SAME gesture, so a mis-click
+            landed the user on the paywall with a presenter they had not settled
+            on, and the only way back was the Back button. Splitting them lets
+            them try tiles against the preview and commit deliberately.
+
+            Disabled until something is picked: `preset` starts null (no default
+            presenter), and the pricing step needs one to name and to send. The
+            custom-photo tile routes through here too once a photo exists; only
+            an EMPTY one still jumps to "instructions", since there is nothing to
+            select until something has been uploaded. */}
+        <div className="flex items-center gap-3 pt-1">
+          <button
+            type="button"
+            disabled={!preset}
+            onClick={() => setStep("pricing")}
+            className="px-6 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl shadow-[0_8px_24px_-6px_rgba(124,58,237,0.5)] transition-all enabled:hover:-translate-y-0.5 enabled:active:scale-[0.99]"
+          >
+            Next
+          </button>
+          {!preset && (
+            <span className="text-[11px] text-gray-400">
+              Select a presenter to continue
+            </span>
+          )}
         </div>
       </div>
     );
@@ -965,6 +1128,11 @@ export default function AvatarBatchWizard({
   }
 
   if (step === "instructions") {
+    // While replacing, this step behaves exactly as it does for a first-time
+    // upload: no portrait shown, "Choose photo", and Next held until a new one
+    // is cropped. Otherwise the old photo would satisfy the Next gate and the
+    // user could leave with the very picture they came to replace.
+    const shownPortraitUrl = replacingPortrait ? null : customPortraitUrl;
     if (pendingCropFile) {
       return (
         <StepModal onClose={() => setPendingCropFile(null)}>
@@ -990,11 +1158,15 @@ export default function AvatarBatchWizard({
           <AvatarPhotoGuide variant="expanded" />
 
           <div className="flex items-center gap-3">
-            {customPortraitUrl && (
+            {/* Bigger than a thumbnail on purpose: this step is now where the
+                crop is REVIEWED, and 14x14 was too small to tell whether the
+                framing came out right. Matches the picker tile's 3:4 ratio, so
+                what is shown here is what the tile will show. */}
+            {shownPortraitUrl && (
               <img
-                src={customPortraitUrl}
+                src={shownPortraitUrl}
                 alt="Your uploaded presenter"
-                className="w-14 h-14 rounded-lg object-cover border border-gray-200/60 flex-shrink-0"
+                className="w-20 aspect-[3/4] rounded-lg object-cover border border-gray-200/60 flex-shrink-0"
               />
             )}
             {/* While uploading the button is replaced outright by a bare purple
@@ -1007,29 +1179,19 @@ export default function AvatarBatchWizard({
                 onClick={() => portraitInputRef.current?.click()}
                 className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-xl transition-all"
               >
-                {customPortraitUrl ? "Upload a different photo" : "Choose photo"}
+                {shownPortraitUrl ? "Upload a different photo" : "Choose photo"}
               </button>
             )}
             <span className="text-[10px] text-gray-400">PNG, JPEG or WebP · up to 8 MB</span>
           </div>
 
-          {/* A photo from a previous session exists but hasn't been committed
-              to yet (the picker tile keeps showing "+ Upload" until it is) —
-              offer to use it as-is without requiring a re-upload. */}
-          {customPortraitUrl && !isCustom && (
-            <button
-              type="button"
-              disabled={uploading}
-              onClick={async () => {
-                setPreset(AVATAR_CUSTOM_PRESET_ID);
-                await onChanged();
-                setStep("pricing");
-              }}
-              className="text-xs font-medium text-purple-600 hover:text-purple-700"
-            >
-              Use this photo →
-            </button>
-          )}
+          {/* Explicit Next, mirroring the picker step. Uploading no longer jumps
+              straight to pricing — the user lands back here with their photo
+              shown, so they can see what was cropped and re-upload if it came
+              out wrong, then advance deliberately. Also covers the case where a
+              photo from a previous session already exists and needs no
+              re-upload. Disabled until there IS a photo, since this step's whole
+              job is producing one. */}
 
           {uploadError && (
             <p className="text-xs text-red-600" role="alert">
@@ -1048,13 +1210,47 @@ export default function AvatarBatchWizard({
             }}
           />
 
-          <button
-            type="button"
-            onClick={() => setStep("pick")}
-            className="px-3 py-2 text-xs font-medium text-gray-500 hover:text-gray-700"
-          >
-            Back
-          </button>
+          {/* ONE footer row: Back at the left edge, Next at the right. They used
+              to be separate blocks stacked vertically, which left Next floating
+              mid-modal above an orphaned Back. The hint sits immediately left of
+              Next so the button stays pinned to the edge either way. */}
+          <div className="flex items-center justify-between pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                // Abandoning the replacement keeps the stored photo, so the flag
+                // must not survive — otherwise the picker's tile would still be
+                // there while a later visit here rendered as if it were empty.
+                setReplacingPortrait(false);
+                setStep("pick");
+              }}
+              className="px-3 py-2 text-xs font-medium text-gray-500 hover:text-gray-700"
+            >
+              Back
+            </button>
+            <div className="flex items-center gap-3">
+              {!shownPortraitUrl && (
+                <span className="text-[11px] text-gray-400">
+                  Choose a photo to continue
+                </span>
+              )}
+              <button
+                type="button"
+                disabled={uploading || !shownPortraitUrl}
+                onClick={async () => {
+                  // Commit the uploaded photo as the chosen presenter. This is
+                  // what makes "Next" use the picture shown above rather than
+                  // whatever tile was highlighted before the upload.
+                  setPreset(AVATAR_CUSTOM_PRESET_ID);
+                  await onChanged();
+                  setStep("pricing");
+                }}
+                className="px-6 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl shadow-[0_8px_24px_-6px_rgba(124,58,237,0.5)] transition-all enabled:hover:-translate-y-0.5 enabled:active:scale-[0.99]"
+              >
+                Next
+              </button>
+            </div>
+          </div>
         </div>
       </StepModal>
     );
@@ -1063,7 +1259,7 @@ export default function AvatarBatchWizard({
   if (step === "pricing") {
     return (
       <StepModal
-        onClose={() => setStep(isCustom ? "instructions" : "pick")}
+        onClose={() => setStep("pick")}
         onGradientHeader
       >
         <div className="-m-8 rounded-2xl overflow-hidden">
@@ -1174,30 +1370,63 @@ export default function AvatarBatchWizard({
               </p>
             )}
 
-            {/* Short on credits: a warning, not a lock. The user can deselect
-                scenes until the cost fits, so the modal stays usable — naming
-                how many they CAN afford is what makes that actionable. */}
+            {/* Short on allowance. Three different dead ends, three different
+                remedies — the old single "top up your credits" line was inert
+                text pointing at a purchase that no longer unlocks avatars. */}
             {!canAfford && (
               <p className="text-[11px] text-amber-600 mt-3">
-                This needs {creditCost} AI credits and you have{" "}
-                {aiCreditRemaining}.{" "}
-                {affordableScenes >= minSelectable
-                  ? `Select ${affordableScenes} scene${affordableScenes === 1 ? "" : "s"} or fewer to continue.`
-                  : "Top up your credits to continue."}
+                {affordableScenes >= minSelectable ? (
+                  // Deselecting scenes fixes it — a warning, not a lock, and
+                  // naming how many they CAN afford is what makes it actionable.
+                  <>
+                    This needs {creditCost} AI credits and you have{" "}
+                    {aiCreditRemaining}. Select {affordableScenes} scene
+                    {affordableScenes === 1 ? "" : "s"} or fewer to continue.
+                  </>
+                ) : needsUpgrade ? (
+                  // A free payer has no allowance at all, so no selection fits.
+                  <>
+                    Avatar generation is included with paid plans. Upgrade to Pro
+                    to bring your photo to life.
+                  </>
+                ) : (
+                  // Paid and spent: nothing to buy, so no CTA — just the truth.
+                  <>
+                    This needs {creditCost} AI credits and your plan has{" "}
+                    {aiCreditRemaining} left this period. Please contact support
+                    to continue.
+                  </>
+                )}
               </p>
             )}
 
+            {needsUpgrade ? (
+              <button
+                type="button"
+                disabled={startingCheckout}
+                onClick={() => void startProCheckout()}
+                className="mt-6 w-full py-3 text-sm font-semibold text-white bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 disabled:opacity-60 rounded-xl shadow-[0_8px_24px_-6px_rgba(124,58,237,0.5)] transition-all hover:-translate-y-0.5 active:scale-[0.99]"
+              >
+                {startingCheckout ? "Taking you to checkout…" : "Upgrade to Pro plan"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={unlocking || !canAfford || selectedScenes.length === 0}
+                onClick={() => void handleConfirm()}
+                className="mt-6 w-full py-3 text-sm font-semibold text-white bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 disabled:opacity-60 rounded-xl shadow-[0_8px_24px_-6px_rgba(124,58,237,0.5)] transition-all hover:-translate-y-0.5 active:scale-[0.99]"
+              >
+                {unlocking ? "Starting…" : `Generate Avatar (${creditCost} AI credits)`}
+              </button>
+            )}
+            {checkoutError && (
+              <p className="mt-2 text-[11px] text-red-600 text-center" role="alert">
+                {checkoutError}
+              </p>
+            )}
             <button
               type="button"
-              disabled={unlocking || !canAfford || selectedScenes.length === 0}
-              onClick={() => void handleConfirm()}
-              className="mt-6 w-full py-3 text-sm font-semibold text-white bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 disabled:opacity-60 rounded-xl shadow-[0_8px_24px_-6px_rgba(124,58,237,0.5)] transition-all hover:-translate-y-0.5 active:scale-[0.99]"
-            >
-              {unlocking ? "Starting…" : `Generate Avatar (${creditCost} AI credits)`}
-            </button>
-            <button
-              type="button"
-              onClick={() => setStep(isCustom ? "instructions" : "pick")}
+              onClick={() => setStep("pick")}
               className="mt-2 w-full py-2 text-xs font-medium text-gray-400 hover:text-gray-600 transition-colors"
             >
               Back
@@ -1322,12 +1551,13 @@ export default function AvatarBatchWizard({
           hasPolled={hasPolled}
         />
 
-        {stalled && (
-          <p className="text-[11px] text-amber-600 mt-4 text-center" role="alert">
-            Nothing has changed for a while. Generation may not have started —
-            try again from the Scenes tab if this persists.
-          </p>
-        )}
+        {/* No stall warning here by design. A long quiet spell is normal — the
+            queue is a global FIFO, so another project's renders can hold this
+            one for many minutes with nothing to report. The old copy told the
+            user generation "may not have started" and to retry from the Scenes
+            tab, which was alarming and wrong: the batch is queued server-side
+            and keeps running whatever this tab shows. `stalled` still softens
+            the heading to "Still waiting…" above, which is the honest signal. */}
         <p className="text-[11px] text-gray-400 mt-4 text-center">
           This may take a while. You can switch tabs or close this page —
           generation keeps running in the background.

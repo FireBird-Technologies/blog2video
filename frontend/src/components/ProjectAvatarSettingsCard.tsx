@@ -17,6 +17,7 @@ import AvatarAppearanceControls, {
 import AvatarSceneStatusList from "./AvatarSceneStatusList";
 import AvatarBatchWizard from "./AvatarBatchWizard";
 import AvatarPortraitUpload from "./AvatarPortraitUpload";
+import AvatarReviewCard from "./AvatarReviewCard";
 
 /** Matches SceneAvatarSection — a matte is minutes-scale, same as a render. */
 const POLL_MS = 1200;
@@ -59,6 +60,7 @@ export default function ProjectAvatarSettingsCard({
   scenesNeedingMatte = [],
   batchScenes = [],
   scenesMissingAvatar = [],
+  scenesRefunded = [],
   avatarBatchUnlocked = false,
   disabled = false,
   onError,
@@ -88,6 +90,9 @@ export default function ProjectAvatarSettingsCard({
    *  already has one (a pencil-icon click on one of these lands here instead
    *  of opening the single-scene modal — see ProjectView.tsx). */
   scenesMissingAvatar?: { id: number; order: number; hasVoiceover: boolean }[];
+  /** Scenes whose avatar render failed and had its credits returned. Reported
+   *  to the user but NOT generatable — the backend closes them permanently. */
+  scenesRefunded?: { id: number; order: number }[];
   /** Whether the batch wizard's placeholder paywall has been cleared. */
   avatarBatchUnlocked?: boolean;
   disabled?: boolean;
@@ -603,6 +608,30 @@ export default function ProjectAvatarSettingsCard({
               </div>
             )}
 
+            {/* Refunded scenes, reported separately from the "generate the rest"
+                banner above. They are deliberately absent from that banner's
+                list (the backend closes a refunded scene to generation for
+                good), so without this they just disappeared: the user saw a
+                gap in the scene numbers and no explanation for it. Stated as
+                fact, with no button, because there is no action to offer.
+                Rendered outside the hasAnyAvatar/batch guards since a refund
+                is worth reporting even when nothing is left to generate. */}
+            {scenesRefunded.length > 0 && (
+              <div className="rounded-xl bg-amber-50/70 border border-amber-100 px-4 py-3">
+                <p className="text-[11px] text-gray-600 leading-relaxed">
+                  Scene{scenesRefunded.length === 1 ? "" : "s"}{" "}
+                  <strong className="text-gray-700">
+                    {scenesRefunded.map((s) => s.order).join(", ")}
+                  </strong>{" "}
+                  failed to render and{" "}
+                  {scenesRefunded.length === 1 ? "its" : "their"} credits were
+                  refunded, so {scenesRefunded.length === 1 ? "it is" : "they are"}{" "}
+                  not included above. Contact support to have{" "}
+                  {scenesRefunded.length === 1 ? "it" : "them"} reopened.
+                </p>
+              </div>
+            )}
+
             {/* Mixed state: some scenes already have an avatar, others don't
                 (e.g. they had no narration yet at generation time). A pencil
                 click on one of the missing scenes lands here rather than
@@ -788,6 +817,16 @@ export default function ProjectAvatarSettingsCard({
                   </>
                 )}
               </div>
+            )}
+
+            {/* Only once something exists to judge — there is nothing to rate
+                before the first avatar renders. */}
+            {hasAnyAvatar && (
+              <AvatarReviewCard
+                projectId={projectId}
+                existing={project?.avatar_review}
+                onSaved={onSaved}
+              />
             )}
 
             <div className="flex justify-end pt-1">

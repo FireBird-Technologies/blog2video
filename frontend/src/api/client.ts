@@ -1,5 +1,11 @@
 export * from "./types";
-import type { AvatarBg, AvatarCorner, AvatarShape } from "./types";
+import type {
+  AvatarBg,
+  AvatarCorner,
+  AvatarShape,
+  AvatarReview,
+  SubmitAvatarReviewPayload,
+} from "./types";
 export * from "./auth";
 export * from "./billing";
 export * from "./projects";
@@ -128,6 +134,10 @@ export interface Scene {
   avatar_preset?: string | null;
   /** True once this scene's clip has been cut out — required for a custom background. */
   has_matte?: boolean;
+  /** True when this scene's avatar failed for good and the credits were returned.
+   *  The scene is permanently closed — the server refuses to generate it again —
+   *  so it must be excluded from every picker and "still missing an avatar" count. */
+  avatar_credits_refunded?: boolean;
   /** Per-scene overrides of the project avatar presentation; null = inherit. */
   avatar_shape?: AvatarShape | null;
   avatar_size?: number | null;
@@ -234,6 +244,10 @@ export interface Project {
   custom_template_missing?: boolean;
   brand_logo_url?: string | null;
   review_state?: ReviewState | null;
+  /** This user's avatar rating, or null when they have not rated. Rides on the
+   *  project payload so the Avatar tab (which unmounts on tab switch) can pick
+   *  the form vs. the saved-summary view on first paint, with no flicker. */
+  avatar_review?: AvatarReview | null;
   /** True when the project has ≥1 collaborator — gates the per-scene comment button. */
   is_shared?: boolean;
   /**
@@ -2051,6 +2065,16 @@ export const matteAllSceneAvatars = (projectId: number) =>
   api.post<{ started: number; queued: boolean; job_ids: number[] }>(
     `/projects/${projectId}/avatar-matte-all`
   );
+
+/** Save this user's star rating + optional message for the project's avatars.
+ *
+ *  Upserts — calling it again with a new rating updates the same row rather than
+ *  erroring, so the user can re-rate. The saved value comes back down on the
+ *  project payload as `avatar_review`, not from a GET. */
+export const submitAvatarReview = (
+  projectId: number,
+  data: SubmitAvatarReviewPayload,
+) => api.post<AvatarReview>(`/projects/${projectId}/avatar-review`, data);
 
 /** AI credits charged per scene for an avatar render. Mirrors
  *  AVATAR_CREDIT_COST_PER_SCENE in backend/app/services/access.py — the server
