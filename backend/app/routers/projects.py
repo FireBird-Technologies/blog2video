@@ -9,7 +9,7 @@ import requests
 from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form, BackgroundTasks
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func, inspect, text, update, or_
 from sqlalchemy.orm import Session
@@ -47,6 +47,9 @@ from app.services.remotion import (
     get_workspace_dir,
     cancel_running_render,
     render_still,
+    get_composition_duration_frames,
+    _prepare_still_workspace,
+    _render_still_frame,
     write_remotion_data,
 )
 from app.services.doc_extractor import extract_from_documents
@@ -3456,6 +3459,81 @@ def render_project_still(
         media_type="image/png",
         filename=f"project_{project_id}_frame_{frame}.png",
     )
+
+
+class RenderStillsRequest(BaseModel):
+    """One frame per exported slide, in slide order."""
+    frames: list[int] = Field(..., min_length=1, max_length=60)
+
+
+@router.post("/{project_id}/render-stills")
+def render_project_stills(
+    project_id: int,
+    payload: RenderStillsRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Render one PNG per requested frame through Remotion — the same pipeline that
+    produces the MP4 — streaming each slide as it completes.
+
+    This backs PDF/PPTX/PNG slide export. The previous approach screenshotted the
+    live Remotion Player with html-to-image, which cannot rasterize some templates
+    (the magazine cover exported as a blank page because its layers never painted
+    into the SVG foreignObject) and also had to work around canvas tainting and
+    <video> elements. Rendering server-side removes that whole class of failure.
+
+    Response is NDJSON — one JSON object per line:
+        {"index": 0, "total": 5, "image": "data:image/png;base64,..."}
+        {"error": "..."}                      (terminal, if a frame fails)
+
+    Streaming rather than returning one JSON blob because each frame is a real
+    render (~3-4s). The client needs to show which slide it is on, and doing that
+    with one HTTP request per slide instead would re-run the workspace sync and
+    re-bundle every time — measured at ~89% slower end to end.
+    """
+    if any(f < 0 for f in payload.frames):
+        raise HTTPException(status_code=400, detail="frames must be >= 0")
+    project = _get_user_project(project_id, user.id, db)
+
+    # Prepare the workspace ONCE, before streaming starts, so a setup failure is
+    # still a clean HTTP error rather than a half-written stream.
+    try:
+        write_remotion_data(project, list(project.scenes), db)
+        workspace, composition_id, preset = _prepare_still_workspace(project)
+    except Exception as exc:
+        logger.exception("render-stills setup failed project=%s", project_id)
+        raise HTTPException(status_code=500, detail=f"Could not prepare render: {exc}") from exc
+
+    # Clamp bound. The frontend derives each slide's frame from the composition's own
+    # timeline, but templates whose schedule is not yet transition-aware still sum
+    # scene durations back to back, which overshoots a TransitionSeries and made the
+    # last slide fail with a RangeError. Best-effort: None means no clamp.
+    duration_frames = get_composition_duration_frames(workspace, composition_id)
+    total = len(payload.frames)
+
+    def stream():
+        for i, frame in enumerate(payload.frames):
+            safe_frame = (
+                min(frame, duration_frames - 1) if duration_frames else frame
+            )
+            try:
+                path = _render_still_frame(project.id, workspace, composition_id, preset, safe_frame)
+                with open(path, "rb") as fh:
+                    b64 = base64.b64encode(fh.read()).decode("ascii")
+            except Exception as exc:
+                logger.exception(
+                    "render-stills failed project=%s frame=%s", project_id, safe_frame
+                )
+                yield json.dumps({"error": f"Could not render slide {i + 1}: {exc}"}) + "\n"
+                return
+            yield json.dumps({
+                "index": i,
+                "total": total,
+                "image": "data:image/png;base64," + b64,
+            }) + "\n"
+
+    return StreamingResponse(stream(), media_type="application/x-ndjson")
 
 
 @router.post("/{project_id}/review", response_model=ReviewSubmitResponse)

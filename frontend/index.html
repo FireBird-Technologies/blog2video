@@ -3,6 +3,32 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Google tag (gtag.js) — GA4 property for blog2video. The id comes from
+         VITE_GA4_MEASUREMENT_ID; Vite substitutes %VITE_GA4_MEASUREMENT_ID% at
+         build time, so each deploy gets its own property from its own env and
+         no id is hardcoded here. Must stay immediately after <head> per
+         Google's install instructions, and there must only ever be ONE GA4 tag
+         on the page. src/gtag.ts loads a separate Google Ads tag at runtime;
+         that's a different id and is fine alongside this one. -->
+    <script>
+      // Guard so an unset/blank VITE_GA4_MEASUREMENT_ID (e.g. a local dev build)
+      // is a silent no-op instead of loading gtag.js with an empty id.
+      (function () {
+        var id = "%VITE_GA4_MEASUREMENT_ID%";
+        if (!id || id.charAt(0) !== "G") return;
+        var s = document.createElement("script");
+        s.async = true;
+        s.src = "https://www.googletagmanager.com/gtag/js?id=" + encodeURIComponent(id);
+        document.head.appendChild(s);
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        window.gtag = gtag;
+        gtag('js', new Date());
+        gtag('config', id);
+      })();
+    </script>
+
     <!-- Site ownership verification (VerifiedTools) -->
     <meta name="verifiedtools-verify" content="c819fbd2e470c99fc23c0b1182a55a472a3db575c4a1f266" />
     <!-- <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval'; connect-src 'self' https://*.blog2video.app; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self' https://fonts.gstatic.com;" /> -->

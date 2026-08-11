@@ -1,19 +1,30 @@
-/** Google Ads global site tag (gtag.js). Loads after DOM; blocked by many ad blockers. */
-const AW_ID = "AW-18067602823";
-const PURCHASE_CONVERSION_LABEL = "GZllCIPyx5ccEIf7pqdD";
-const GA4_ID = (typeof import.meta !== "undefined" ? import.meta.env?.VITE_GA4_MEASUREMENT_ID : "") || "";
+/**
+ * Google Ads global site tag (gtag.js). Loads after DOM; blocked by many ad blockers.
+ *
+ * The GA4 property is NOT configured here — index.html installs it from
+ * %VITE_GA4_MEASUREMENT_ID% so it is present in the prerendered SEO pages too.
+ * This module only adds the Ads tag on top of that shared gtag queue.
+ */
+const env = typeof import.meta !== "undefined" ? import.meta.env : undefined;
+const AW_ID = env?.VITE_GOOGLE_ADS_ID || "";
+const PURCHASE_CONVERSION_LABEL = env?.VITE_GOOGLE_ADS_PURCHASE_LABEL || "";
 
 export function initGoogleAdsGtag(): void {
   if (typeof window === "undefined") return;
+  if (!AW_ID) return;
   const w = window as Window & { __b2vGtagInit?: boolean };
   if (w.__b2vGtagInit) return;
   w.__b2vGtagInit = true;
 
   window.dataLayer = window.dataLayer ?? [];
-  window.gtag = function gtag() {
-    // gtag.js reads this queue; must push `arguments`, not a copied array
-    window.dataLayer.push(arguments as unknown as never);
-  };
+  // Reuse the queue shim index.html already installed. Reassigning it here would
+  // drop the GA4 config that ran before this module loaded.
+  if (typeof window.gtag !== "function") {
+    window.gtag = function gtag() {
+      // gtag.js reads this queue; must push `arguments`, not a copied array
+      window.dataLayer.push(arguments as unknown as never);
+    };
+  }
 
   const script = document.createElement("script");
   script.async = true;
@@ -22,14 +33,12 @@ export function initGoogleAdsGtag(): void {
 
   window.gtag("js", new Date());
   window.gtag("config", AW_ID);
-  if (GA4_ID) {
-    window.gtag("config", GA4_ID);
-  }
 }
 
 export function trackGoogleAdsPurchaseConversion(transactionId?: string | null): void {
   if (typeof window === "undefined") return;
   if (typeof window.gtag !== "function") return;
+  if (!AW_ID || !PURCHASE_CONVERSION_LABEL) return;
   const isDev = typeof import.meta !== "undefined" && Boolean(import.meta.env?.DEV);
 
   const tx = (transactionId || "").trim();
@@ -73,14 +82,16 @@ export function trackGoogleAdsPurchaseConversion(transactionId?: string | null):
   }
 }
 
+/**
+ * SPA route-change page_view. No `send_to`, so it lands on whichever GA4
+ * property index.html configured — the id lives in env, not in this bundle.
+ */
 export function trackPageView(path: string): void {
-  if (!GA4_ID) return;
   if (typeof window === "undefined") return;
   if (typeof window.gtag !== "function") return;
   window.gtag("event", "page_view", {
     page_path: path,
     page_location: window.location.href,
-    send_to: GA4_ID,
   });
 }
 
