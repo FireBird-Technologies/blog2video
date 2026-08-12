@@ -46,11 +46,20 @@ const LAYOUT_ID_ALIASES: Record<string, string> = {
 };
 
 /**
- * Normalize a raw layout ID (which may be a legacy alias) to the canonical key
- * used in LAYOUT_IMAGE_BOX_DIMS.  Returns the input unchanged if no alias matches.
+ * Normalize a raw layout ID (which may be a legacy alias, or a `__vN` visual
+ * variant) to the canonical key used in LAYOUT_IMAGE_BOX_DIMS.  Returns the input
+ * unchanged if nothing matches.
+ *
+ * Variants share their base layout's image box unless they declare their own
+ * LAYOUT_IMAGE_BOX_DIMS entry — an exact entry is checked first, so a variant
+ * that reshapes its image slot just adds one under its full ID.
  */
 export function normalizeLayoutId(layoutId: string): string {
-  return LAYOUT_ID_ALIASES[layoutId] ?? layoutId;
+  const aliased = LAYOUT_ID_ALIASES[layoutId];
+  if (aliased) return aliased;
+  if (layoutId in LAYOUT_IMAGE_BOX_DIMS) return layoutId;
+  const sep = layoutId.indexOf("__");
+  return sep === -1 ? layoutId : layoutId.slice(0, sep);
 }
 
 export interface ImageBoxDims {
@@ -486,16 +495,60 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
   // NEWSPAPER template  (canvas 1280 × 720)
   // ─────────────────────────────────────────────────────────────────────────
 
-  // Polaroid-style card: absolute positioned 40% × 50% landscape / 80% × 35% portrait
+  // ── NEWSPAPER: news_headline / article_lead and their style variants ──
+  //
+  // Every value below is MEASURED, not derived: each layout was rendered in a
+  // real browser at its true canvas (1280×720 / 720×1280) and the painted image
+  // card was read off with getBoundingClientRect, so these match what the
+  // adjust-modal preview has to mirror. Layouts whose image sits in a flex slot
+  // depend on how much room the copy takes, so they were measured with a
+  // representative ~180-character narration.
+  //
+  // Variants need their OWN entry: normalizeLayoutId() strips the `__vN` suffix
+  // and falls back to the base, which is the wrong shape for all four here.
+  // pull_quote__v2 / ending_socials__v2 are intentionally absent — they render
+  // no image (both bases are in meta.json `layouts_without_image`).
+
+  // Polaroid-style card, tilted, pinned right (landscape) / centred (portrait).
   news_headline: {
-    landscape: { w: 0.40, h: 0.5   }, // 512 × 360
-    portrait:  { w: 0.80, h: 0.35  }, // 576 × 448
+    landscape: { w: 0.435, h: 0.594 }, // measured 557 × 428
+    portrait:  { w: 0.841, h: 0.381 }, // measured 606 × 487
   },
 
-  // Tilted photo card: 38% × 60% landscape / 88% × 38% portrait
+  // Tilted photo card beside the lead column.
   article_lead: {
-    landscape: { w: 0.38, h: 0.6   }, // 486 × 432
-    portrait:  { w: 0.88, h: 0.38  }, // 634 × 486
+    landscape: { w: 0.368, h: 0.593 }, // measured 471 × 427
+    portrait:  { w: 0.844, h: 0.367 }, // measured 607 × 469
+  },
+
+  // NewsHeadlineV2 — "Broadsheet": below-the-fold card under the masthead.
+  // Wide and short in landscape; nearly square and much taller in portrait,
+  // where it takes the whole lower half of the page.
+  news_headline__v2: {
+    landscape: { w: 0.521, h: 0.344 }, // measured 667 × 248
+    portrait:  { w: 0.791, h: 0.480 }, // measured 570 × 614
+  },
+
+  // NewsHeadlineV3 — "Stacked Deck": pasted cutout beside the column. Nearly
+  // full content height in landscape, so the box is tall rather than wide.
+  news_headline__v3: {
+    landscape: { w: 0.407, h: 0.783 }, // measured 521 × 564
+    portrait:  { w: 0.900, h: 0.539 }, // measured 648 × 691
+  },
+
+  // ArticleLeadV2 — "Two Column": a wide strip spanning the full measure under
+  // the head, so the landscape box is a letterbox.
+  article_lead__v2: {
+    landscape: { w: 0.840, h: 0.312 }, // measured 1075 × 225
+    portrait:  { w: 0.840, h: 0.288 }, // measured 605 × 368
+  },
+
+  // ArticleLeadV3 — "Sidebar Stat": narrow picture rail down the side in
+  // landscape; a band under the copy in portrait, whose height varies with
+  // narration length (see portraitImageMaxHeight) — this is the mid case.
+  article_lead__v3: {
+    landscape: { w: 0.304, h: 0.639 }, // measured 389 × 460
+    portrait:  { w: 0.878, h: 0.374 }, // measured 632 × 479
   },
 
   // Portrait-oriented card (aspect-ratio 3/4): flex 0.8 landscape / width 100%, height 300 px portrait

@@ -1,6 +1,7 @@
 import os
 import json
 import asyncio
+import hashlib
 import logging
 import traceback
 import re
@@ -78,6 +79,8 @@ from app.services.template_service import (
     validate_template_id,
     get_layout_prompt,
     get_valid_layouts,
+    get_layout_variants,
+    resolve_base_layout,
     get_hero_layout,
     get_fallback_layout,
     get_script_style_hint,
@@ -266,6 +269,37 @@ def _normalize_layout_id(value: str | None) -> str:
     return (value or "").strip().lower().replace(" ", "_").replace("-", "_")
 
 
+def _seeded_variant(
+    *,
+    template_id: str,
+    project_id: int,
+    scene_order: int,
+    base_layout: str,
+) -> str:
+    """Pick a stable visual variant of ``base_layout`` for this (project, scene).
+
+    Templates can declare several renderings of one layout (see meta.json
+    ``layout_variants``). The layout planner only ever picks base IDs, so the
+    concrete style is chosen here — pseudo-randomly, so two projects on the same
+    template don't produce visually identical videos, but *deterministically*, so
+    re-rendering a project reproduces exactly the video the user approved.
+
+    sha256 rather than ``random.Random(seed)``: Mersenne output is not guaranteed
+    stable across Python versions, and a render months from now must still match.
+    ``base_layout`` is part of the seed so a scene whose layout changes doesn't
+    keep the style slot it happened to land on.
+
+    Layouts with no declared variants pass through unchanged.
+    """
+    variants = get_layout_variants(template_id).get(base_layout)
+    if not variants or len(variants) < 2:
+        return base_layout
+    digest = hashlib.sha256(
+        f"{template_id}:{project_id}:{scene_order}:{base_layout}".encode()
+    ).digest()
+    return variants[int.from_bytes(digest[:8], "big") % len(variants)]
+
+
 def _sanitize_script_layouts(
     template_id: str,
     scenes_raw: list[dict],
@@ -307,7 +341,12 @@ def _sanitize_script_layouts(
         return candidates[0] if candidates else fallback_layout
 
     for i, scene in enumerate(scenes_raw):
-        desired = _normalize_layout_id(scene.get("preferred_layout"))
+        # A stored preferred_layout can carry a visual variant (`news_headline__v2`)
+        # from an older write; collapse to the base so it's recognized as valid
+        # (and as the hero) instead of being discarded as an unknown layout.
+        desired = resolve_base_layout(
+            template_id, _normalize_layout_id(scene.get("preferred_layout"))
+        )
         if i == 0 and hero_layout in valid:
             desired = hero_layout
         elif supports_ending and i == last_idx:
@@ -2829,10 +2868,26 @@ async def _generate_scenes(
                         descriptor["layoutProps"]["hideImage"] = True
             except (json.JSONDecodeError, TypeError):
                 pass
+        # Pick this scene's visual variant. The generator only ever emits base
+        # layout IDs (variants are not in the plannable set), so this is where a
+        # scene gets its style. Deterministic per (project, scene), so a re-render
+        # reproduces the same video while a different project gets a different mix.
+        if not is_custom_template(template_id) and isinstance(descriptor.get("layout"), str):
+            _base_layout = resolve_base_layout(template_id, descriptor["layout"])
+            if descriptor["layout"] == _base_layout:
+                descriptor["layout"] = _seeded_variant(
+                    template_id=template_id,
+                    project_id=project.id,
+                    scene_order=scene.order,
+                    base_layout=_base_layout,
+                )
         scene.remotion_code = json.dumps(sanitize_chart_descriptor(descriptor))
         resolved_layout = _descriptor_layout_name(template_id, descriptor)
         if resolved_layout:
-            scene.preferred_layout = resolved_layout
+            # preferred_layout means "which layout FAMILY" — every consumer
+            # validates it against the plannable set, which holds no variant IDs.
+            # The variant itself lives in remotion_code.
+            scene.preferred_layout = resolve_base_layout(template_id, resolved_layout)
         if has_layout_config:
             lc = descriptor["layoutConfig"]
             logger.info(

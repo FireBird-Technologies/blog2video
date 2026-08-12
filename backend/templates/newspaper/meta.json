@@ -35,12 +35,12 @@
       "label": "News Headline",
       "defaults": {
         "titleFontSize": {
-          "portrait": 77,
-          "landscape": 68
+          "portrait": 66,
+          "landscape": 62
         },
         "descriptionFontSize": {
-          "portrait": 39,
-          "landscape": 29
+          "portrait": 35,
+          "landscape": 28
         },
         "category": "News",
         "leftThought": "breakthrough, launch",
@@ -102,12 +102,38 @@
         }
       ]
     },
+    "news_headline__v2": {
+      "label": "News Headline — Broadsheet",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 54,
+          "landscape": 54
+        },
+        "descriptionFontSize": {
+          "portrait": 29,
+          "landscape": 27
+        }
+      }
+    },
+    "news_headline__v3": {
+      "label": "News Headline — Stacked Deck",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 54,
+          "landscape": 50
+        },
+        "descriptionFontSize": {
+          "portrait": 25,
+          "landscape": 26
+        }
+      }
+    },
     "article_lead": {
       "label": "Article Lead",
       "defaults": {
         "titleFontSize": {
-          "portrait": 84,
-          "landscape": 67
+          "portrait": 60,
+          "landscape": 60
         },
         "descriptionFontSize": {
           "portrait": 35,
@@ -156,6 +182,32 @@
           ]
         }
       ]
+    },
+    "article_lead__v2": {
+      "label": "Article Lead — Two Column",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 50,
+          "landscape": 50
+        },
+        "descriptionFontSize": {
+          "portrait": 31,
+          "landscape": 30
+        }
+      }
+    },
+    "article_lead__v3": {
+      "label": "Article Lead — Sidebar Stat",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 50,
+          "landscape": 50
+        },
+        "descriptionFontSize": {
+          "portrait": 31,
+          "landscape": 29
+        }
+      }
     },
     "pull_quote": {
       "label": "Pull Quote",
@@ -211,6 +263,19 @@
           ]
         }
       ]
+    },
+    "pull_quote__v2": {
+      "label": "Pull Quote — Torn Page",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 79,
+          "landscape": 71
+        },
+        "descriptionFontSize": {
+          "portrait": 27,
+          "landscape": 23
+        }
+      }
     },
     "data_snapshot": {
       "label": "Data Snapshot",
@@ -657,6 +722,19 @@
         }
       ]
     },
+    "ending_socials__v2": {
+      "label": "Ending / Follow along — Back Page",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 63,
+          "landscape": 50
+        },
+        "descriptionFontSize": {
+          "portrait": 33,
+          "landscape": 25
+        }
+      }
+    },
     "expert_profile": {
       "label": "Expert Profile",
       "defaults": {
@@ -889,6 +967,38 @@
         }
       ]
     }
+  },
+  "layout_variants": {
+    "news_headline": [
+      "news_headline",
+      "news_headline__v2",
+      "news_headline__v3"
+    ],
+    "article_lead": [
+      "article_lead",
+      "article_lead__v2",
+      "article_lead__v3"
+    ],
+    "pull_quote": [
+      "pull_quote",
+      "pull_quote__v2"
+    ],
+    "ending_socials": [
+      "ending_socials",
+      "ending_socials__v2"
+    ]
+  },
+  "layout_variant_labels": {
+    "news_headline": "Classic",
+    "news_headline__v2": "Broadsheet",
+    "news_headline__v3": "Stacked Deck",
+    "article_lead": "Drop Cap",
+    "article_lead__v2": "Two Column",
+    "article_lead__v3": "Sidebar Stat",
+    "pull_quote": "Classic",
+    "pull_quote__v2": "Torn Page",
+    "ending_socials": "Classic",
+    "ending_socials__v2": "Back Page"
   },
   "layouts_without_image": [
     "pull_quote",

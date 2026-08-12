@@ -201,10 +201,18 @@ const WHITEBOARD_LAYOUTS = new Set([
   "ending_socials",
 ]);
 
+// Includes the `__vN` visual variants (see backend/templates/newspaper/meta.json
+// `layout_variants`). This is the STATIC fallback used before /projects/:id/layouts
+// resolves — a variant missing here renders as the fallback layout on first paint.
 const NEWSPAPER_LAYOUTS = new Set([
   "news_headline",
+  "news_headline__v2",
+  "news_headline__v3",
   "article_lead",
+  "article_lead__v2",
+  "article_lead__v3",
   "pull_quote",
+  "pull_quote__v2",
   "data_snapshot",
   "fact_check",
   "news_timeline",
@@ -213,6 +221,7 @@ const NEWSPAPER_LAYOUTS = new Set([
   "perspective_split",
   "ticker_table",
   "ending_socials",
+  "ending_socials__v2",
 ]);
 
 const NEWSCAST_LAYOUTS = new Set([

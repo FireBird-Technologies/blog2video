@@ -36,6 +36,7 @@ import {
   SUPPORTED_PROP_TYPES,
 } from "../api/client";
 import { getTemplateConfig } from "../components/remotion/templateConfig";
+import { baseLayoutId } from "../utils/layoutVariants";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../components/remotion/playbackSpeed";
 import { getImageBoxAspectRatio, normalizeLayoutId, isImageBoxCircular } from "../components/remotion/imageBoxConfig";
 import { BLOOMBERG_LAYOUT_REGISTRY } from "../components/remotion/bloomberg/layouts";
@@ -179,7 +180,11 @@ function getSchema(
   layoutId: string | null
 ): LayoutPropSchema | undefined {
   if (!template || !layoutId) return undefined;
-  const explicit = template.layout_prop_schema?.[layoutId];
+  // Visual variants share their base layout's schema entry (same props, different
+  // rendering), so resolve to the base — otherwise selecting a variant in Studio
+  // would fall through to the bare typography-only fallback schema.
+  const baseId = baseLayoutId(layoutId) || layoutId;
+  const explicit = template.layout_prop_schema?.[baseId];
   const tid = normalizeTemplateId(template.id);
   const perLayoutTypography =
     tid === "newscast"
@@ -211,7 +216,8 @@ function getSchema(
 function layoutSupportsImageForTemplate(template: TemplateMeta | null, layoutId: string): boolean {
   if (!template || !layoutId) return false;
   const noImage = template.layouts_without_image ?? [];
-  return !noImage.includes(layoutId);
+  // Keyed by base layout — a variant inherits its base's image support.
+  return !noImage.includes(baseLayoutId(layoutId) || layoutId);
 }
 
 /** Per-layout defaults for preview (used when sequencing all layouts; not the editable single-layout overrides). */
@@ -1310,12 +1316,32 @@ export default function TemplateStudio() {
     [selectedTemplate, selectedLayout],
   );
 
+  const layouts = useMemo(() => {
+    const raw =
+      selectedTemplate?.valid_layouts || Object.keys(selectedTemplate?.layout_prop_schema ?? {});
+    const base = [...new Set((Array.isArray(raw) ? raw : []).filter(Boolean))];
+    // Expand each layout into its visual variants, base first. Variants are not
+    // in `valid_layouts` (the LLM must never pick one) but Studio renders every
+    // declared layout directly — same treatment as `studio_only_layouts`.
+    const variantMap = selectedTemplate?.layout_variants ?? {};
+    const list = base.flatMap((id) => {
+      const variants = variantMap[id];
+      return Array.isArray(variants) && variants.length > 1 ? variants : [id];
+    });
+    if (normalizeTemplateId(selectedTemplateId) === "bloomberg") {
+      return list.filter((id) => BLOOMBERG_LAYOUT_IDS.has(id));
+    }
+    return list;
+  }, [selectedTemplate, selectedTemplateId]);
+
   useEffect(() => {
     if (!selectedTemplate) return;
-    const available = selectedTemplate.valid_layouts || Object.keys(selectedTemplate.layout_prop_schema ?? {});
-    if (!available.length) return;
-    if (!available.includes(selectedLayout)) setSelectedLayout(available[0]);
-  }, [selectedTemplate, selectedLayout]);
+    if (!layouts.length) return;
+    // Validate against `layouts`, NOT raw `valid_layouts`: the latter deliberately
+    // omits `__vN` visual variants (the LLM must never pick one), so checking it
+    // here would reset the user's variant selection the instant they make it.
+    if (!layouts.includes(selectedLayout)) setSelectedLayout(layouts[0]);
+  }, [selectedTemplate, selectedLayout, layouts]);
 
   useEffect(() => {
     if (!schema) return;
@@ -1341,21 +1367,12 @@ export default function TemplateStudio() {
   );
   const Composition = config.component as unknown as ComponentType<Record<string, unknown>>;
   const isPortrait  = aspectRatio === "portrait";
-  const layoutSupportsImage = useMemo(() => {
-    if (!selectedTemplate || !selectedLayout) return false;
-    const noImage = selectedTemplate.layouts_without_image ?? [];
-    return !noImage.includes(selectedLayout);
-  }, [selectedTemplate, selectedLayout]);
-
-  const layouts = useMemo(() => {
-    const raw =
-      selectedTemplate?.valid_layouts || Object.keys(selectedTemplate?.layout_prop_schema ?? {});
-    const list = [...new Set((Array.isArray(raw) ? raw : []).filter(Boolean))];
-    if (normalizeTemplateId(selectedTemplateId) === "bloomberg") {
-      return list.filter((id) => BLOOMBERG_LAYOUT_IDS.has(id));
-    }
-    return list;
-  }, [selectedTemplate, selectedTemplateId]);
+  const layoutSupportsImage = useMemo(
+    // Resolves `__vN` variants to their base, which is what layouts_without_image
+    // is keyed by.
+    () => layoutSupportsImageForTemplate(selectedTemplate, selectedLayout),
+    [selectedTemplate, selectedLayout],
+  );
 
   useEffect(() => {
     if (layouts.length <= 1 && playAllLayouts) setPlayAllLayouts(false);
@@ -1725,10 +1742,18 @@ export default function TemplateStudio() {
     label: tpl.name,
   }));
 
-  const layoutOptions = layouts.map((layoutId) => ({
-    value: layoutId,
-    label: selectedTemplate?.layout_prop_schema?.[layoutId]?.label || humanize(layoutId),
-  }));
+  const layoutOptions = layouts.map((layoutId) => {
+    // Variants share their base layout's schema entry, so the label resolves
+    // through the base and gets the style name appended: "News Headline — Broadsheet".
+    const baseId = baseLayoutId(layoutId);
+    const baseLabel =
+      selectedTemplate?.layout_prop_schema?.[baseId]?.label || humanize(baseId);
+    const styleLabel = selectedTemplate?.layout_variant_labels?.[layoutId];
+    return {
+      value: layoutId,
+      label: styleLabel && layoutId !== baseId ? `${baseLabel} — ${styleLabel}` : baseLabel,
+    };
+  });
 
   const handleSaveSource = async () => {
     if (!selectedTemplateId || !selectedLayout) return;
@@ -1845,7 +1870,15 @@ export default function TemplateStudio() {
       setTemplates(refreshed.data);
       // If current layout was removed from selected template, pick another
       const tpl = refreshed.data.find((t) => normalizeTemplateId(t.id) === selectedTemplateId);
-      const layoutIds = new Set(tpl?.valid_layouts ?? []);
+      // Include `__vN` visual variants, or a selected variant would be treated as
+      // "removed from the template" and reset. The reset TARGET stays a base layout.
+      const _variantMap = tpl?.layout_variants ?? {};
+      const layoutIds = new Set(
+        (tpl?.valid_layouts ?? []).flatMap((id) => {
+          const v = _variantMap[id];
+          return Array.isArray(v) && v.length > 1 ? v : [id];
+        }),
+      );
       if (selectedLayout && !layoutIds.has(selectedLayout)) {
         setSelectedLayout(tpl?.valid_layouts?.[0] ?? refreshed.data[0]?.valid_layouts?.[0] ?? "");
       }

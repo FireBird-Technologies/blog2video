@@ -94,15 +94,32 @@ export interface BlogLayoutProps {
   ctas?: Array<{ ctaButtonText?: string; websiteLink?: string; showWebsiteButton?: boolean }>;
 }
 
+/**
+ * Layout IDs this template can render.
+ *
+ * IDs containing `__v` are visual VARIANTS of the base layout before the
+ * separator: they render the same scene in a different style and take the exact
+ * same props, so they share the base's `layout_prop_schema` entry in
+ * backend/templates/newspaper/meta.json (see its `layout_variants` key, which is
+ * the source of truth this union mirrors). Variants are assigned automatically
+ * at generation time and switchable by the user; the layout planner only ever
+ * picks base IDs.
+ */
 export type NewspaperLayoutType =
   | "news_headline"
+  | "news_headline__v2"
+  | "news_headline__v3"
   | "article_lead"
+  | "article_lead__v2"
+  | "article_lead__v3"
   | "pull_quote"
+  | "pull_quote__v2"
   | "data_snapshot"
   | "fact_check"
   | "news_timeline"
   | "data_visualisation"
   | "ending_socials"
+  | "ending_socials__v2"
   | "expert_profile"
   | "perspective_split"
   | "ticker_table";

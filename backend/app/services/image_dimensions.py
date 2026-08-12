@@ -70,6 +70,15 @@ def get_image_aspect_for_layout(
     tid = template_id.strip().lower()
     lid = layout_id.strip().lower()
     mapping = LAYOUT_IMAGE_ASPECT.get((tid, lid))
+    # Visual variants (`news_headline__v2`) inherit their base layout's image box
+    # unless they declare their own entry above — exact key wins, so a variant that
+    # genuinely reshapes its image slot can override just by adding one.
+    if not mapping:
+        from app.services.template_service import resolve_base_layout
+
+        base_lid = resolve_base_layout(tid, lid)
+        if base_lid != lid:
+            mapping = LAYOUT_IMAGE_ASPECT.get((tid, base_lid))
     # Substring fallback: any template_id containing "laduc" (e.g. "laduc_custom_7", "crafted_laduc_3") uses the ("laduc", layout) sentinel
     if not mapping and "laduc" in tid:
         mapping = LAYOUT_IMAGE_ASPECT.get(("laduc", lid))
