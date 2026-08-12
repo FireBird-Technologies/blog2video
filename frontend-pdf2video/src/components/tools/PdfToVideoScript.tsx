@@ -1,85 +1,88 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import DocumentInput, { type DocumentPayload } from "./DocumentInput";
-import { GateHint, useSignupGate } from "./SignupGate";
+import { ToolAuthProvider } from "./LoginGate";
 import {
   EmptyState,
   PrimaryButton,
   SecondaryButton,
   StatTile,
   ToolShell,
+  TruncationNotice,
   copyToClipboard,
   downloadText,
 } from "./shared";
 import {
-  buildScenes,
-  countWords,
-  formatDuration,
-  NARRATION_WPM,
-  secondsForWords,
-} from "../../lib/docAnalysis";
+  scriptFromDocument,
+  toolErrorMessage,
+  type PdfScript,
+  type ScriptLength,
+} from "../../api/pdfTools";
+import { countWords, formatDuration, NARRATION_WPM, secondsForWords } from "../../lib/docAnalysis";
 
 /**
- * PDF → video script.
+ * PDF → video script, written by a model.
  *
- * The free shell does the structural half of the job: it finds the document's
- * headings, cuts the prose into scene-sized narration blocks, and times each
- * one at a real narration pace. That is genuinely the part people get wrong by
- * hand, and it is entirely deterministic, so it can run for a signed-out
- * visitor with no cost to us.
+ * The model does the part that actually needs judgement: choosing what to leave
+ * out. A document narrated end to end is unwatchable, so the prompt is explicit
+ * that dropping methodology, related work, and appendices is correct, and that
+ * the finding belongs in scene one even though the document builds to it.
  *
- * What sits behind the account is the part that needs a model and a renderer:
- * rewriting each block as spoken narration rather than written prose, choosing
- * visuals per scene, and producing the MP4.
+ * Runtimes are computed client-side from the returned narration, because that
+ * is arithmetic and does not need a round trip.
  */
 
-const SCENE_LENGTHS = [
-  { label: "Tight (60 words)", value: 60 },
-  { label: "Standard (90 words)", value: 90 },
-  { label: "Relaxed (130 words)", value: 130 },
+const LENGTHS: Array<{ id: ScriptLength; label: string; hint: string }> = [
+  { id: "short", label: "Short", hint: "5–7 scenes" },
+  { id: "standard", label: "Standard", hint: "8–12 scenes" },
+  { id: "long", label: "Long", hint: "14–20 scenes" },
 ];
 
-const FREE_SCENE_LIMIT = 6;
+const SCENE_WORDS = [
+  { label: "Tight · 60", value: 60 },
+  { label: "Standard · 90", value: 90 },
+  { label: "Relaxed · 130", value: 130 },
+];
 
-export default function PdfToVideoScript() {
-  const [doc, setDoc] = useState<DocumentPayload>({ text: "", fileName: null, pageCount: 0 });
+function ScriptWidget() {
+  const [doc, setDoc] = useState<DocumentPayload | null>(null);
+  const [length, setLength] = useState<ScriptLength>("standard");
   const [maxWords, setMaxWords] = useState(90);
+  const [result, setResult] = useState<PdfScript | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
 
-  const { requireAuth, gateModal } = useSignupGate({
-    eyebrow: "Free PDF tool",
-    headline: "Render this script as a narrated video",
-    blurb:
-      "Your scene breakdown carries over. We rewrite each block as spoken narration, pick visuals, and render an MP4 you can post.",
-    bullets: [
-      "Free account, no card — first videos included",
-      "40+ narrator voices and branded templates",
-      "Edit any scene before you export",
-    ],
-  });
+  const run = async () => {
+    if (!doc) return;
+    setBusy(true);
+    setError("");
+    setResult(null);
+    try {
+      setResult(await scriptFromDocument(doc.text, length, maxWords));
+    } catch (err) {
+      setError(await toolErrorMessage(err, "Script generation failed. Please try again."));
+    } finally {
+      setBusy(false);
+    }
+  };
 
-  const scenes = useMemo(
-    () => (doc.text.trim() ? buildScenes(doc.text, maxWords) : []),
-    [doc.text, maxWords]
-  );
-
-  const totalWords = countWords(doc.text);
+  const scenes = result?.scenes ?? [];
+  const totalWords = scenes.reduce((sum, scene) => sum + countWords(scene.narration), 0);
   const totalSeconds = secondsForWords(totalWords);
-  const visibleScenes = scenes.slice(0, FREE_SCENE_LIMIT);
-  const hiddenCount = Math.max(0, scenes.length - FREE_SCENE_LIMIT);
 
-  const scriptText = useMemo(
-    () =>
-      scenes
-        .map(
-          (scene) =>
-            `SCENE ${scene.index} — ${scene.title}  [${formatDuration(scene.seconds)}]\n${scene.narration}`
-        )
-        .join("\n\n"),
-    [scenes]
-  );
+  const asText = result
+    ? [
+        result.video_title,
+        "",
+        ...scenes.map((scene, index) => {
+          const seconds = secondsForWords(countWords(scene.narration));
+          return `SCENE ${index + 1} — ${scene.title}  [${formatDuration(seconds)}]\n${scene.narration}`;
+        }),
+      ].join("\n\n")
+    : "";
 
   const handleCopy = () => {
-    void copyToClipboard(scriptText).then(
+    void copyToClipboard(asText).then(
       () => {
         setCopied(true);
         window.setTimeout(() => setCopied(false), 2000);
@@ -89,109 +92,170 @@ export default function PdfToVideoScript() {
   };
 
   return (
-    <ToolShell>
-      <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
-        <div>
-          <DocumentInput onDocument={setDoc} label="PDF or text" />
+    <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
+      <div>
+        <DocumentInput onDocument={setDoc} disabled={busy} />
 
-          <div className="mt-5">
-            <label className="mb-2 block text-[11px] font-medium uppercase tracking-wider text-gray-400">
-              Scene length
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {SCENE_LENGTHS.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => setMaxWords(option.value)}
-                  className={`rounded-full border px-4 py-2 text-xs font-medium transition ${
-                    maxWords === option.value
-                      ? "border-purple-200 bg-purple-50 text-purple-700"
-                      : "border-gray-200 bg-white text-gray-500 hover:border-gray-300"
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-            <p className="mt-2 text-xs leading-relaxed text-gray-400">
-              Shorter scenes cut more often, which suits social. Longer scenes suit an explainer
-              someone watches at a desk.
-            </p>
+        <div className="mt-5">
+          <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-gray-400">
+            Script length
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {LENGTHS.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => setLength(option.id)}
+                disabled={busy}
+                className={`rounded-xl border px-4 py-2.5 text-xs font-medium transition disabled:opacity-50 ${
+                  length === option.id
+                    ? "border-purple-200 bg-purple-50 text-purple-700"
+                    : "border-gray-200 bg-white text-gray-500 hover:border-gray-300"
+                }`}
+              >
+                {option.label}
+                <span className="mt-0.5 block text-[10px] font-normal text-gray-400">
+                  {option.hint}
+                </span>
+              </button>
+            ))}
           </div>
         </div>
 
-        <div>
-          {scenes.length === 0 ? (
-            <EmptyState>
-              Drop a PDF or paste your text. We'll split it into timed scenes using its own
-              headings — no account needed.
-            </EmptyState>
-          ) : (
-            <>
-              <div className="grid grid-cols-3 gap-3">
-                <StatTile label="Scenes" value={String(scenes.length)} />
-                <StatTile label="Narration" value={formatDuration(totalSeconds)} sub={`at ${NARRATION_WPM} wpm`} />
-                <StatTile label="Words" value={totalWords.toLocaleString()} />
-              </div>
+        <div className="mt-5">
+          <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-gray-400">
+            Max words per scene
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {SCENE_WORDS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setMaxWords(option.value)}
+                disabled={busy}
+                className={`rounded-full border px-3.5 py-2 text-xs font-medium transition disabled:opacity-50 ${
+                  maxWords === option.value
+                    ? "border-purple-200 bg-purple-50 text-purple-700"
+                    : "border-gray-200 bg-white text-gray-500 hover:border-gray-300"
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
-              <div className="mt-4 max-h-[420px] space-y-3 overflow-y-auto pr-1">
-                {visibleScenes.map((scene) => (
-                  <div key={scene.index} className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4">
+        <div className="mt-6">
+          <PrimaryButton onClick={run} disabled={!doc || busy}>
+            {busy ? "Writing the script…" : "Write the script with AI"}
+          </PrimaryButton>
+        </div>
+
+        {error ? (
+          <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs leading-relaxed text-red-600">
+            {error}
+          </p>
+        ) : null}
+      </div>
+
+      <div>
+        {busy ? (
+          <EmptyState>
+            Reading the document, deciding what to cut, and rewriting it as spoken narration…
+          </EmptyState>
+        ) : !result ? (
+          <EmptyState>
+            Upload a document and press the button. The model selects what belongs in a video and
+            rewrites it for the ear — this is not your prose read back to you.
+          </EmptyState>
+        ) : (
+          <>
+            <div className="grid grid-cols-3 gap-3">
+              <StatTile label="Scenes" value={String(scenes.length)} />
+              <StatTile
+                label="Runtime"
+                value={formatDuration(totalSeconds)}
+                sub={`at ${NARRATION_WPM} wpm`}
+              />
+              <StatTile label="Narration" value={totalWords.toLocaleString()} sub="words" />
+            </div>
+
+            <TruncationNotice truncated={result.truncated} />
+
+            {result.video_title ? (
+              <div className="mt-4 rounded-2xl border border-purple-100 bg-purple-50/50 p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-purple-600">
+                  Suggested title
+                </p>
+                <p className="mt-1 text-base font-semibold text-gray-900">{result.video_title}</p>
+              </div>
+            ) : null}
+
+            <div className="mt-4 max-h-[420px] space-y-3 overflow-y-auto pr-1">
+              {scenes.map((scene, index) => {
+                const seconds = secondsForWords(countWords(scene.narration));
+                return (
+                  <div
+                    key={`${index}-${scene.title}`}
+                    className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4"
+                  >
                     <div className="flex items-baseline justify-between gap-3">
                       <p className="text-xs font-semibold uppercase tracking-wider text-purple-600">
-                        Scene {scene.index} · {scene.title}
+                        Scene {index + 1} · {scene.title}
                       </p>
                       <span className="flex-shrink-0 text-xs tabular-nums text-gray-400">
-                        {formatDuration(scene.seconds)}
+                        {formatDuration(seconds)}
                       </span>
                     </div>
                     <p className="mt-2 text-sm leading-relaxed text-gray-700">{scene.narration}</p>
                   </div>
-                ))}
+                );
+              })}
+            </div>
 
-                {hiddenCount > 0 ? (
-                  <button
-                    type="button"
-                    onClick={requireAuth}
-                    className="w-full rounded-2xl border border-dashed border-purple-200 bg-purple-50/50 p-4 text-left transition hover:bg-purple-50"
-                  >
-                    <p className="text-sm font-semibold text-purple-700">
-                      + {hiddenCount} more {hiddenCount === 1 ? "scene" : "scenes"} in this document
-                    </p>
-                    <p className="mt-1 text-xs leading-relaxed text-gray-500">
-                      The preview shows the first {FREE_SCENE_LIMIT}. Sign in free to open the full
-                      script, edit it scene by scene, and render it.
-                    </p>
-                  </button>
-                ) : null}
-              </div>
-
-              <div className="mt-5 flex flex-wrap gap-3">
-                <PrimaryButton onClick={requireAuth}>Turn this into a video →</PrimaryButton>
-                <SecondaryButton onClick={handleCopy}>
-                  {copied ? "Copied" : "Copy script"}
-                </SecondaryButton>
-                <SecondaryButton
-                  onClick={() =>
-                    downloadText(
-                      `${(doc.fileName ?? "script").replace(/\.[^.]+$/, "")}-video-script.txt`,
-                      scriptText
-                    )
-                  }
-                >
-                  Download .txt
-                </SecondaryButton>
-              </div>
-              <GateHint>
-                Copy and download are free and unlimited. Rendering needs a free account, because
-                that step runs on our machines rather than yours.
-              </GateHint>
-            </>
-          )}
-        </div>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <SecondaryButton onClick={handleCopy}>
+                {copied ? "Copied" : "Copy script"}
+              </SecondaryButton>
+              <SecondaryButton
+                onClick={() =>
+                  downloadText(
+                    `${(doc?.fileName ?? "script").replace(/\.[^.]+$/, "")}-video-script.txt`,
+                    asText
+                  )
+                }
+              >
+                Download .txt
+              </SecondaryButton>
+            </div>
+            <p className="mt-3 text-xs leading-relaxed text-gray-400">
+              Read the narration against your document before recording. The model is instructed
+              to keep figures and qualifiers exact, but a script is worth checking.
+            </p>
+          </>
+        )}
       </div>
-      {gateModal}
+    </div>
+  );
+}
+
+export default function PdfToVideoScript() {
+  return (
+    <ToolShell>
+      <ToolAuthProvider
+        copy={{
+          headline: "Sign in to script your document",
+          blurb:
+            "A language model reads your document, decides what belongs in a video, and rewrites it as spoken narration. That runs on our servers, so it needs an account.",
+          bullets: [
+            "Selects the argument and drops the appendix",
+            "Rewrites written prose into speakable narration",
+            "Free account, no card required",
+          ],
+        }}
+      >
+        <ScriptWidget />
+      </ToolAuthProvider>
     </ToolShell>
   );
 }

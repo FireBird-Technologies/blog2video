@@ -16,6 +16,22 @@ export function EmptyState({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * Shown when the backend clipped the document to fit the model's prompt budget
+ * (see MAX_DOC_CHARS in app/dspy_modules/pdf_tool_gen.py). Silently summarising
+ * the first two-thirds of someone's report would be the worst possible failure
+ * mode for these tools, so it is always surfaced.
+ */
+export function TruncationNotice({ truncated }: { truncated: boolean }) {
+  if (!truncated) return null;
+  return (
+    <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-700">
+      This document was longer than the model can read in one pass, so the result covers the
+      earlier part of it. Split the document and run the sections separately for full coverage.
+    </p>
+  );
+}
+
 export function StatTile({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-4">

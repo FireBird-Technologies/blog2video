@@ -84,15 +84,16 @@ export default function ToolsHub() {
                 </h2>
                 <div className="mt-4 space-y-4 text-base leading-relaxed text-gray-600">
                   <p>
-                    Every tool here works fully without an account. Extraction, summarisation,
-                    scripting, storyboarding, playback, copying, and downloading all run in your
-                    browser using APIs your device already has — which means they cost us nothing,
-                    so there is no reason to meter them and no file for us to store.
+                    Free means a Google account and no card. It does not mean anonymous: every
+                    tool here does its work on our servers — extraction through the same parser
+                    our video pipeline uses, and summarising, scripting, storyboarding, and
+                    narration through real models. Each run costs us something, so each run needs
+                    to belong to someone.
                   </p>
                   <p>
-                    One action is gated: rendering a finished video. That runs our models and our
-                    renderer on our machines, so it needs an account. It is free to start, and the
-                    tools say which side of the line each button is on before you press it.
+                    What you get back is yours. Copy it, download it, use it somewhere else. Your
+                    document is processed to produce your result — it is not saved as a project
+                    and it is not used to train anything.
                   </p>
                 </div>
               </div>

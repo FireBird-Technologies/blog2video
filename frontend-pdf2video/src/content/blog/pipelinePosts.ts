@@ -89,7 +89,7 @@ export const pipelinePosts: BlogPost[] = [
       {
         question: "Can I convert a PDF to video for free?",
         answer:
-          "The scripting and storyboarding half, yes — our tools do it in your browser with no account. Rendering a finished MP4 costs compute, so every service that does it either charges, watermarks, or caps you. Be suspicious of one that claims otherwise.",
+          "The scripting and storyboarding half, yes — our tools do that free with a Google account and no card. Rendering a finished MP4 costs meaningful compute, so every service that does it either charges, watermarks, or caps you. Be suspicious of one that claims otherwise.",
       },
       {
         question: "Will the video keep my charts and figures?",
@@ -248,9 +248,9 @@ export const pipelinePosts: BlogPost[] = [
       {
         heading: "The cost structure, plainly",
         paragraphs: [
-          "Text extraction, summarisation, scene splitting, and runtime estimation are arithmetic. They can run in your browser tab, they cost the provider nothing, and any tool that puts them behind a signup is doing it for the email address rather than the invoice.",
-          "Speech synthesis and video rendering are different. Both consume server time, and rendering consumes a lot of it — a ten-minute 1080p video is meaningful compute. Nobody gives that away without a limit somewhere.",
-          "So the test is simple: if a tool gates something that could have run on your machine, that gate is marketing. If it gates the render, that gate is arithmetic.",
+          "Word counts, runtime estimates, and keyword extraction are arithmetic. They can run in a browser tab, they cost the provider nothing, and a tool that puts those behind a signup is collecting an email address rather than covering an invoice.",
+          "Anything with a model in it is different. Reading a document through a language model, synthesising speech, and rendering video all consume server time — rendering most of all, since a ten-minute 1080p video is meaningful compute. Nobody gives those away without a limit somewhere.",
+          "So the test is not whether a tool asks you to sign in. It is whether the thing behind the sign-in actually costs the provider anything. A word counter behind a login is marketing; an AI summary behind one is arithmetic.",
         ],
       },
       {
@@ -268,17 +268,17 @@ export const pipelinePosts: BlogPost[] = [
       {
         heading: "How to get real value out of a free tier",
         paragraphs: [
-          "Do all the structural work before you spend a credit. Decide the cut, write and check the narration, fix the runtime. Free scripting tools exist precisely for this, and using them means your first render is close to final rather than a draft you re-render three times.",
+          "Do all the scripting work before you spend a render credit. Decide the cut, generate and check the narration, fix the runtime. Script and storyboard tools exist precisely for this, and using them means your first render is close to final rather than a draft you re-render three times.",
           "Then render the shortest useful thing. A three-minute cut of the argument is more shareable than a twenty-minute walkthrough anyway, and it fits inside almost every free allowance.",
         ],
         ctaPath: "/tools/pdf-to-video-script-generator",
-        ctaLabel: "Do the free half first",
+        ctaLabel: "Script it before you render",
       },
       {
         heading: "What we gate, and why",
         paragraphs: [
-          "Every tool on this site runs completely without an account: extraction, summarising, scripting, storyboarding, playback, copy, download. No page cap, no watermark on the text output, no email wall. They run in your browser, so metering them would be theatre.",
-          "Rendering a video needs an account because it runs on our machines. That is the whole line, and every button says which side of it it is on before you press it.",
+          "Our tools ask for a free Google account, and it is worth being precise about why. Every one of them does real work on our servers: extraction runs the same parser our video pipeline uses, and the summariser, script writer, and storyboard builder each read your whole document through a language model. Narration is a genuine speech synthesis. None of that is free to run, so none of it is anonymous.",
+          "What we do not do is hold the output hostage. There is no watermark on text, no page cap, and no partial result you have to pay to finish — sign in and everything you generate is yours to copy, download, and use elsewhere.",
         ],
       },
     ],
@@ -291,7 +291,7 @@ export const pipelinePosts: BlogPost[] = [
       {
         question: "Why do free tools ask for an email before showing results?",
         answer:
-          "Because the result is the leverage. If the computation happened in your browser, there is no cost reason for the wall — the email is the product being collected.",
+          "Sometimes because the work genuinely costs them something — anything with a model behind it does. Sometimes because the result is leverage and the email is the product. The way to tell them apart is to ask what is actually running: a word count is not expensive, and a login in front of one is not about cost.",
       },
       {
         question: "What is the most useful thing to do inside a free tier?",
