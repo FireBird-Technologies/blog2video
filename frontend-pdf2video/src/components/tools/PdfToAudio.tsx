@@ -193,7 +193,6 @@ function AudioWidget() {
                 </div>
               ) : audioUrl ? (
                 <>
-                  {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
                   <audio controls src={audioUrl} className="w-full">
                     Your browser cannot play audio.
                   </audio>
