@@ -212,17 +212,23 @@ def synthesize_voice_preview(
     custom_voice_id: str | None,
     voice_emotion: str | None,
     video_style: str | None = None,
+    text: str | None = None,
 ) -> bytes:
-    """Synthesize a short fixed sample with the given voice + tuning and return mp3 bytes.
+    """Synthesize a short sample with the given voice + tuning and return mp3 bytes.
 
     Mirrors generate_voiceover's expressive path: when tuning is present, runs v3 with the
     stability/style/speed settings + injected emotion tag; otherwise the default v2 path with
     video-style settings. Raises ValueError if no voice is selected (mute).
+
+    ``text`` overrides the fixed preview sample. The Advanced Options panel
+    leaves it unset (it is auditioning a voice, so the words are irrelevant and
+    a constant sample makes voices comparable); the pdf2vid.com narration tool
+    passes the user's own excerpt, which is the whole point of that tool.
     """
     voice_id = resolve_voice_id(gender, accent, custom_voice_id)
     if voice_id is None:
         raise ValueError("No voice selected for preview.")
-    text = PREVIEW_SAMPLE_TEXT
+    text = (text or "").strip() or PREVIEW_SAMPLE_TEXT
     tuning = _parse_voice_tuning(voice_emotion)
     if tuning is not None:
         strength, speed, emotion, style = tuning
