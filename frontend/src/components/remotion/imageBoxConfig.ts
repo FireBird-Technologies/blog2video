@@ -588,6 +588,15 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
     portrait:  { w: 1.0,  h: 0.391 }, // 720 × 500
   },
 
+  // The v2 variant reshapes the slot entirely: instead of an inset rounded card
+  // in a flex row, the photo is a full-bleed panel pinned to the left half
+  // (landscape) or bannered across the top (portrait). Needs its own entry —
+  // falling back to the base above would report the wrong crop box.
+  marker_story__v2: {
+    landscape: { w: 0.52, h: 1.0 },  // 666 × 720 on 1280×720
+    portrait:  { w: 1.0,  h: 0.34 }, // 720 × 435
+  },
+
   // ─────────────────────────────────────────────────────────────────────────
   // CHRONICLE template  (canvas 1920 × 1080)
   // ─────────────────────────────────────────────────────────────────────────

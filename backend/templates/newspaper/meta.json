@@ -281,11 +281,11 @@
       "label": "Data Snapshot",
       "defaults": {
         "titleFontSize": {
-          "portrait": 78,
-          "landscape": 69
+          "portrait": 56,
+          "landscape": 60
         },
         "descriptionFontSize": {
-          "portrait": 36,
+          "portrait": 25,
           "landscape": 22
         },
         "stats": [

@@ -1,9 +1,17 @@
 import type { SocialsMap } from "../SocialIcons";
 
+/**
+ * Layout IDs renderable by this template, including the `__vN` motion variants.
+ * Source of truth: `backend/templates/whiteboard/meta.json` `layout_variants`.
+ * Variants share their base layout's props and metadata and differ only in motion.
+ */
 export type WhiteboardLayoutType =
   | "drawn_title"
+  | "drawn_title__v2"
   | "marker_story"
+  | "marker_story__v2"
   | "stick_figure_scene"
+  | "stick_figure_scene__v2"
   | "stats_figures"
   | "stats_chart"
   | "comparison"
@@ -12,6 +20,7 @@ export type WhiteboardLayoutType =
   | "speech_bubble_dialogue"
   | "data_visualisation"
   | "ending_socials"
+  | "ending_socials__v2"
   | "ticker_table";
 
 export interface WhiteboardStatItem {
