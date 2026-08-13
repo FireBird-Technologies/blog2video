@@ -29,7 +29,7 @@ import {
 } from "../components/templatePreviewRegistry";
 import YourOwnBrandPreview from "../components/templatePreviews/YourOwnBrandPreview";
 import YourOwnBrandPreviewPortrait from "../components/templatePreviews/portrait/YourOwnBrandPreviewPortrait";
-import { detectInAppBrowser, isMobileDevice } from "../lib/inAppBrowser";
+import { detectInAppBrowser } from "../lib/inAppBrowser";
 import {
   LITE_MONTHLY_PRICE,
   STANDARD_MONTHLY_PRICE,
@@ -202,13 +202,9 @@ export default function PdfLanding() {
   const [templatesOrientation, setTemplatesOrientation] =
     useState<CoverflowOrientation>("landscape");
   const [typedPlaceholder, setTypedPlaceholder] = useState("");
-  const [inAppInstructionsVisible, setInAppInstructionsVisible] = useState(false);
 
   const googleBtnRef = useRef<HTMLDivElement>(null);
   const isInApp = detectInAppBrowser().isInApp;
-  // Phone/tablet by user agent, not by window size — a narrowed desktop window
-  // must not be told to switch to a computer.
-  const isMobile = isMobileDevice();
   // Required, not decorative: shared sections (e.g. VoiceShowcaseSection) mark
   // content with `.reveal`, which is opacity:0 until this observer adds
   // `.visible`. Without the hook those sections render as blank space.
@@ -502,7 +498,6 @@ export default function PdfLanding() {
               onError={() => showError("Google sign-in failed")}
               text="continue_with"
               width="300"
-              onInstructionsVisibleChange={setInAppInstructionsVisible}
             />
           </div>
 
@@ -549,34 +544,6 @@ export default function PdfLanding() {
           <p className="text-xs text-gray-400 mt-3">
             1 video free — no credit card required
           </p>
-
-          {/* Editing/preview hold a Remotion runtime that exceeds most phone
-              browsers' memory ceiling, so set expectations before sign-up. */}
-          {isMobile && !inAppInstructionsVisible && (
-            <div className="mx-auto mt-4 max-w-md rounded-xl border border-amber-200 bg-amber-50 p-3 flex items-start gap-2 text-left text-xs text-amber-900">
-              <svg
-                className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                viewBox="0 0 24 24"
-                aria-hidden
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 9v3.75m0 3.5h.007M10.34 3.94l-7.6 13.2A1.5 1.5 0 004.04 19.5h15.92a1.5 1.5 0 001.3-2.36l-7.6-13.2a1.5 1.5 0 00-2.6 0z"
-                />
-              </svg>
-              <p>
-                <span className="font-medium">Optimal experience on a computer.</span>{" "}
-                <span className="text-amber-800">
-                  Video rendering and previews are memory-heavy and may not play reliably
-                  on a phone.
-                </span>
-              </p>
-            </div>
-          )}
         </div>
       </section>
 
