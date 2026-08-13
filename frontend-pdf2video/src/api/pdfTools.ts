@@ -99,18 +99,52 @@ export async function storyboardFromDocument(
   return res.data;
 }
 
-/** Synthesize narration and return an object URL for an <audio> element. */
+/** Usage against a tool's allowance, as reported by the backend. */
+export interface ToolQuota {
+  used: number;
+  limit: number;
+}
+
+/**
+ * Current usage for every /tools generator, keyed by the backend's tool name
+ * (see TOOL_QUOTAS in app/models/user.py). Lets a widget show what is left
+ * before the user spends it, instead of only failing afterwards.
+ */
+export async function fetchToolQuotas(): Promise<Record<string, ToolQuota>> {
+  const res = await api.get<{ quotas: Record<string, ToolQuota> }>("/free-tools/quota");
+  return res.data.quotas ?? {};
+}
+
+export interface NarrationResult {
+  audio: Blob;
+  /** Absent if the headers are unreadable (see below) — callers should refetch. */
+  quota: ToolQuota | null;
+}
+
+/**
+ * Synthesize narration, returning the mp3 plus the caller's remaining allowance.
+ *
+ * The body is the audio itself, so the usage counts ride back on `x-tool-used`
+ * and `x-tool-limit`. Both are simple response headers, exposed to JS on a
+ * same-origin call; a cross-origin deployment would need them in the backend's
+ * CORS `expose_headers`, hence the null-safe parse rather than an assumption.
+ */
 export async function narrateText(
   text: string,
   voiceGender: string,
   voiceAccent?: string
-): Promise<Blob> {
+): Promise<NarrationResult> {
   const res = await api.post(
     "/free-tools/pdf-narration",
     { text, voice_gender: voiceGender, voice_accent: voiceAccent ?? null },
     { responseType: "blob" }
   );
-  return res.data as Blob;
+  const used = Number(res.headers?.["x-tool-used"]);
+  const limit = Number(res.headers?.["x-tool-limit"]);
+  return {
+    audio: res.data as Blob,
+    quota: Number.isFinite(used) && Number.isFinite(limit) ? { used, limit } : null,
+  };
 }
 
 /**

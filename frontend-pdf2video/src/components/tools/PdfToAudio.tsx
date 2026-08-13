@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import DocumentInput, { type DocumentPayload } from "./DocumentInput";
-import { ToolAuthProvider } from "./LoginGate";
+import { ToolAuthProvider, useToolAuth } from "./LoginGate";
 import { EmptyState, PrimaryButton, SecondaryButton, StatTile, ToolShell } from "./shared";
-import { narrateText, toolErrorMessage } from "../../api/pdfTools";
+import { fetchToolQuotas, narrateText, toolErrorMessage, type ToolQuota } from "../../api/pdfTools";
 import { countWords, formatDuration, secondsForWords } from "../../lib/docAnalysis";
 
 /**
@@ -56,15 +56,40 @@ function toSections(text: string): string[] {
 }
 
 function AudioWidget() {
+  const { signedIn } = useToolAuth();
   const [doc, setDoc] = useState<DocumentPayload | null>(null);
   const [voice, setVoice] = useState("female");
   const [sectionIndex, setSectionIndex] = useState(0);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [quota, setQuota] = useState<ToolQuota | null>(null);
 
   const sections = doc ? toSections(doc.text) : [];
   const section = sections[sectionIndex] ?? "";
+
+  // Synthesis is capped at one per account for life, so the allowance is worth
+  // showing before it is spent rather than only in the 403 afterwards. Only
+  // fetchable once signed in — the endpoint is token-gated.
+  useEffect(() => {
+    if (!signedIn) {
+      setQuota(null);
+      return;
+    }
+    let cancelled = false;
+    fetchToolQuotas()
+      .then((quotas) => {
+        if (!cancelled) setQuota(quotas.pdf_narration ?? null);
+      })
+      // A quota we cannot read is not worth an error banner: the button stays
+      // enabled and the backend's 403 remains the real gate.
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [signedIn]);
+
+  const spent = quota ? quota.used >= quota.limit : false;
 
   // Object URLs leak until revoked, and a user auditioning voices will generate
   // several in a row.
@@ -87,13 +112,20 @@ function AudioWidget() {
     setBusy(true);
     setError("");
     try {
-      const blob = await narrateText(section, voice);
+      const { audio, quota: spentQuota } = await narrateText(section, voice);
       setAudioUrl((current) => {
         if (current) URL.revokeObjectURL(current);
-        return URL.createObjectURL(blob);
+        return URL.createObjectURL(audio);
       });
+      // The response carries the new count, so the allowance updates without a
+      // second round trip. Falls back to a refetch if the headers were unreadable.
+      if (spentQuota) setQuota(spentQuota);
+      else fetchToolQuotas().then((q) => setQuota(q.pdf_narration ?? null)).catch(() => undefined);
     } catch (err) {
       setError(await toolErrorMessage(err, "Narration failed. Please try again."));
+      // A 403 means the allowance is gone (possibly spent in another tab), so
+      // resync rather than leaving a stale "1 left" next to the refusal.
+      fetchToolQuotas().then((q) => setQuota(q.pdf_narration ?? null)).catch(() => undefined);
     } finally {
       setBusy(false);
     }
@@ -104,7 +136,11 @@ function AudioWidget() {
 
   return (
     <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
-      <div>
+      {/* min-w-0 on both columns: grid items default to min-width:auto, so a
+          child that cannot wrap (an extracted PDF is full of long URLs and query
+          strings) pushes its track wider than its fr share, and the content
+          spills past the ToolShell border instead of wrapping inside it. */}
+      <div className="min-w-0">
         <DocumentInput onDocument={setDoc} disabled={busy} />
 
         <div className="mt-5">
@@ -159,9 +195,22 @@ function AudioWidget() {
         ) : null}
 
         <div className="mt-6">
-          <PrimaryButton onClick={run} disabled={!section || busy}>
+          <PrimaryButton onClick={run} disabled={!section || busy || spent}>
             {busy ? "Synthesising…" : "Narrate this section"}
           </PrimaryButton>
+          {/* Two different jobs, so two different weights: before the narration is
+              spent this is a quiet footnote, but once it is spent the disabled
+              button needs explaining — in grey it read as more fine print and
+              left the button looking broken. */}
+          {quota && spent ? (
+            <p className="mt-2 text-sm font-medium text-red-600">
+              You&apos;ve used your one free narration.
+            </p>
+          ) : quota ? (
+            <p className="mt-2 text-xs leading-relaxed text-gray-400">
+              Narration is limited to one synthesis per account.
+            </p>
+          ) : null}
         </div>
 
         {error ? (
@@ -171,7 +220,7 @@ function AudioWidget() {
         ) : null}
       </div>
 
-      <div>
+      <div className="min-w-0">
         {!doc ? (
           <EmptyState>
             Upload a document to have it read aloud in a studio narrator voice, and download the
@@ -179,10 +228,17 @@ function AudioWidget() {
           </EmptyState>
         ) : (
           <>
-            <div className="grid grid-cols-3 gap-3">
+            <div className={`grid gap-3 ${quota ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
               <StatTile label="This section" value={words.toLocaleString()} sub="words" />
               <StatTile label="Listen time" value={formatDuration(secondsForWords(words))} />
               <StatTile label="Sections" value={String(sections.length)} />
+              {quota ? (
+                <StatTile
+                  label="Narrations"
+                  value={`${Math.max(0, quota.limit - quota.used)} of ${quota.limit}`}
+                  sub="left"
+                />
+              ) : null}
             </div>
 
             <div className="mt-4 rounded-2xl border border-gray-200 bg-gray-50/70 p-5">
@@ -222,7 +278,11 @@ function AudioWidget() {
               <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
                 What will be read
               </p>
-              <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-gray-600">
+              {/* break-words so a bare URL or query string from the PDF wraps
+                  instead of forcing the column wide. whitespace-pre-wrap keeps
+                  the document's own line breaks but will not break inside a
+                  token on its own. */}
+              <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-600">
                 {section}
               </p>
             </div>
