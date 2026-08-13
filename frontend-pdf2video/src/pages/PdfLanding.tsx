@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import type { CredentialResponse } from "@react-oauth/google";
 import { useScrollReveal } from "../hooks/useScrollReveal";
+import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import { googleLogin } from "../api/client";
 import Seo from "../components/seo/Seo";
@@ -203,6 +204,10 @@ const FAQS = [
 export default function PdfLanding() {
   const [searchParams] = useSearchParams();
   const { showError } = useErrorModal();
+  // A session CAN exist on this domain now: the /tools widgets sign in locally
+  // (see components/tools/LoginGate.tsx) instead of handing off. Without this the
+  // header kept offering "Sign in" to someone already signed in.
+  const { user, token, logout } = useAuth();
 
   const [navOpen, setNavOpen] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
@@ -398,11 +403,34 @@ export default function PdfLanding() {
         }}
       >
         <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
+          {/* Mirrors components/public/PublicHeader.tsx: signed in, the logo opens
+              the app with the JWT attached and a Dashboard link sits beside it.
+              Already on the landing page, so signed out the logo stays inert
+              rather than linking to itself. */}
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
-              {PDF_LOGO_TEXT}
-            </div>
-            <span className="text-xl font-semibold text-gray-900">{PDF_SITE_NAME}</span>
+            {user && token ? (
+              <a href={buildBlog2VideoHandoffUrl(token)} className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
+                  {PDF_LOGO_TEXT}
+                </div>
+                <span className="text-xl font-semibold text-gray-900">{PDF_SITE_NAME}</span>
+              </a>
+            ) : (
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
+                  {PDF_LOGO_TEXT}
+                </div>
+                <span className="text-xl font-semibold text-gray-900">{PDF_SITE_NAME}</span>
+              </div>
+            )}
+            {user && token ? (
+              <a
+                href={buildBlog2VideoHandoffUrl(token)}
+                className="rounded-lg px-1 py-1 pt-3 text-sm font-medium text-gray-400 transition-colors hover:bg-gray-50 hover:text-purple-700"
+              >
+                Dashboard
+              </a>
+            ) : null}
           </div>
 
           <div className="hidden md:flex items-center gap-6">
@@ -425,14 +453,39 @@ export default function PdfLanding() {
                 </Link>
               )
             )}
-            {/* No local session on this deployment — always sign in, which
-                hands off to blog2video.app/dashboard. */}
-            <button
-              onClick={handleGenerateClick}
-              className="rounded-full bg-purple-600 px-5 py-2 text-sm font-medium text-white transition hover:bg-purple-700"
-            >
-              Sign in
-            </button>
+            {/* A /tools sign-in leaves a real session on this domain, so show who
+                is signed in and a way out — the same account corner PublicHeader
+                and blog2video's app navbar use. The route into the app lives on
+                the logo/Dashboard pair above. */}
+            {user ? (
+              <div className="flex items-center gap-3">
+                {user.picture ? (
+                  <img
+                    src={user.picture}
+                    alt={user.name}
+                    referrerPolicy="no-referrer"
+                    className="h-7 w-7 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-xs font-medium text-gray-500">
+                    {(user.name?.trim() || user.email || "?").charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <button
+                  onClick={logout}
+                  className="text-xs text-gray-400 transition-colors hover:text-gray-900"
+                >
+                  Sign out
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleGenerateClick}
+                className="rounded-full bg-purple-600 px-5 py-2 text-sm font-medium text-white transition hover:bg-purple-700"
+              >
+                Sign in
+              </button>
+            )}
           </div>
 
           <button
@@ -474,6 +527,35 @@ export default function PdfLanding() {
                 </Link>
               )
             )}
+
+            {/* The header's account corner is desktop-only, so repeat it here. */}
+            {user ? (
+              <div className="mt-1 flex items-center justify-between border-t border-gray-100 pt-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-gray-900">
+                    {user.name || "Signed in"}
+                  </p>
+                  <p className="truncate text-xs text-gray-500">{user.email}</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setNavOpen(false);
+                    logout();
+                  }}
+                  className="ml-3 flex-shrink-0 text-xs text-gray-400 transition-colors hover:text-gray-900"
+                >
+                  Sign out
+                </button>
+              </div>
+            ) : null}
+            {user && token ? (
+              <a
+                href={buildBlog2VideoHandoffUrl(token)}
+                className="rounded-lg border border-gray-200 px-4 py-2.5 text-center text-sm font-medium text-gray-700"
+              >
+                Dashboard
+              </a>
+            ) : null}
           </div>
         )}
       </nav>

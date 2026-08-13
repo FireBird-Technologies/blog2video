@@ -96,6 +96,10 @@ function AppRoutes() {
     trackPageView(path);
   }, [location.pathname, location.search]);
 
+  // Keep in sync with the same check in components/public/PublicHeader.tsx.
+  const isToolsPath =
+    location.pathname === "/tools" || location.pathname.startsWith("/tools/");
+
   // Cross-domain handoff from pdf2vid.com (frontend-pdf2video/, a
   // landing-page-only deployment with no dashboard of its own — see its
   // PdfLanding.tsx/Pricing.tsx handleGoogleSuccess). A token arriving via
@@ -150,7 +154,12 @@ function AppRoutes() {
   return (
     <div className="min-h-screen bg-white text-gray-900">
       <ScrollToTop />
-      {user && <Navbar />}
+      {/* /tools keeps its marketing header even when signed in — those pages are
+          public content a logged-in user still browses, and the app Navbar (which
+          lists only /dashboard, /subscription, …) would read as the site nav
+          disappearing. PublicHeader mirrors this exact condition; change one and
+          you must change the other, or a tools page renders two headers or none. */}
+      {user && !isToolsPath && <Navbar />}
       {user && <InviteDecisionModal />}
       {user && <MarketingDesignerPopup />}
       {user && <MobileMemoryWarningPopup />}

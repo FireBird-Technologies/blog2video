@@ -10,7 +10,7 @@ moment this ships. The endpoint was previously unmetered, so there is no prior
 usage recorded to preserve.
 
 Revision ID: pdf_narration_usage
-Revises: add_custom_template_quota
+Revises: support_escalation_count
 Create Date: 2026-08-12
 """
 from typing import Sequence, Union
@@ -19,7 +19,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "pdf_narration_usage"
-down_revision: Union[str, Sequence[str]] = "add_custom_template_quota"
+down_revision: Union[str, Sequence[str]] = "support_escalation_count"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
