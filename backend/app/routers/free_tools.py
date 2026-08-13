@@ -27,7 +27,7 @@ from app.dspy_modules.pdf_tool_gen import (
     DocumentToStoryboard,
     DocumentToVideoScript,
 )
-from app.models.user import TOOL_QUOTAS, PlanTier, User
+from app.models.user import LIFETIME_TOOLS, TOOL_QUOTAS, PlanTier, User
 from app.services.doc_extractor import extract_text_from_upload
 
 logger = logging.getLogger(__name__)
@@ -51,7 +51,15 @@ def _check_quota(user: User, tool: str, db: Session) -> tuple[int, int]:
     used = user.tool_used(tool)
     limit = user.tool_limit(tool)
     if used >= limit:
-        if user.plan == PlanTier.FREE:
+        if tool in LIFETIME_TOOLS:
+            # Neither upgrading nor waiting for the next period lifts this cap,
+            # so the copy must not imply either. Saying so plainly beats an
+            # upsell the user would rightly feel misled by.
+            detail = (
+                f"You've already used your {limit} free narration. This tool is "
+                "limited to one synthesis per account."
+            )
+        elif user.plan == PlanTier.FREE:
             detail = (
                 f"You've used all {limit} free generations for this tool. "
                 "Upgrade to Standard or Pro for a much higher monthly allowance."
@@ -469,6 +477,7 @@ async def generate_pdf_storyboard(
 def generate_pdf_narration(
     payload: PdfNarrationRequest,
     user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ) -> StreamingResponse:
     """Synthesize narration for a document excerpt and return it as an mp3.
 
@@ -476,8 +485,15 @@ def generate_pdf_narration(
     allowance) and reads the user's own text rather than a fixed sample. It is
     the half of the pdf-to-audio tool a browser cannot do: the Web Speech API
     can play audio but exposes no way to capture it to a file.
+
+    Every plan gets exactly one synthesis, for the lifetime of the account —
+    this is a metered ElevenLabs call, not a local generation. Because the
+    response body is the mp3 itself, the usage counts ride back on the
+    ``x-tool-used`` / ``x-tool-limit`` headers rather than in JSON.
     """
     from app.services.voiceover import synthesize_voice_preview
+
+    _used, limit = _check_quota(user, "pdf_narration", db)
 
     try:
         audio = synthesize_voice_preview(
@@ -496,11 +512,17 @@ def generate_pdf_narration(
     if not audio:
         raise HTTPException(status_code=502, detail=_GENERIC_FAIL)
 
+    # Charged only here, past every failure path: a provider outage must not
+    # cost the user the one narration they are ever allowed.
+    used = _charge(user, "pdf_narration", db)
+
     return StreamingResponse(
         io.BytesIO(audio),
         media_type="audio/mpeg",
         headers={
             "Cache-Control": "no-store",
             "Content-Disposition": 'attachment; filename="narration.mp3"',
+            "x-tool-used": str(used),
+            "x-tool-limit": str(limit),
         },
     )

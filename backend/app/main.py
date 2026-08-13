@@ -653,6 +653,11 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    # allow_headers governs REQUEST headers; response headers stay hidden from JS
+    # unless named here. /api/free-tools/pdf-narration returns the mp3 as its body
+    # and reports the caller's remaining allowance on these two, so the tools UI
+    # (on a different origin to the API) cannot read them without this.
+    expose_headers=["x-tool-used", "x-tool-limit"],
 )
 
 # Mount media files for serving images/audio
