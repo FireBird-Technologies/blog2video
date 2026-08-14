@@ -506,42 +506,137 @@ export const coreCommercialPages: MarketingPage[] = [
   }),
   createPage({
     path: "/pdf-to-video",
-    title: "PDF To Video Converter for Educators and Researchers",
+    title: "PDF to Video Converter — Free Online, Narrated MP4 | PDF2Video",
     description:
-      "Turn PDFs into narrated videos with scenes, diagrams, and educational templates built for explainers.",
-    eyebrow: "Document workflow",
-    heroTitle: "Turn PDFs into video explainers without manually rebuilding the deck",
+      "Convert PDF to video online. Upload a PDF and get a narrated MP4 with real text, studio voiceover, and your own branding. First video free, no editing skills.",
+    eyebrow: "PDF to video",
+    heroTitle: "PDF to Video Converter: turn any PDF into a narrated MP4",
     heroDescription:
-      "Blog2Video supports PDF-based workflows for educators, researchers, and teams who already publish structured material and want it in video format.",
+      "Upload a PDF and PDF2Video reads the actual document — headings, body copy, tables, and figures — then builds a scene-by-scene video with studio voiceover. No timeline, no re-typing, no stock footage. Your first video is free.",
     category: "commercial",
     primaryKeyword: "pdf to video",
-    keywordVariant: "convert pdf to video",
+    keywordVariant: "pdf to video converter",
+    badges: ["Narrated MP4 output", "First video free", "No editor required"],
     proofPoints: [
-      "Useful for whitepapers, lesson notes, research summaries, and guides.",
-      "Preserves educational structure better than generic AI video generation.",
-      "Lets you repurpose static PDF content into YouTube-ready assets.",
+      "Reads the real text out of your PDF instead of paraphrasing it into generic AI filler.",
+      "Adds studio-quality voiceover automatically — you never have to record yourself.",
+      "Exports a clean MP4 sized for YouTube, LinkedIn, Shorts, or an embed on your own site.",
+    ],
+    workflowTitle: "How to convert a PDF to video in 3 steps",
+    workflowSteps: [
+      "Upload your PDF — a report, whitepaper, lesson plan, deck export, or research summary. Long documents are fine.",
+      "Pick a template and a voice. The template controls the look; the voice narrates the document. Both are changeable afterwards.",
+      "Review the generated scenes, then render and download the finished MP4.",
     ],
     sections: [
       {
-        title: "Strong fit for educational content",
+        title: "What a PDF to video converter actually does",
         body: [
-          "PDF workflows often break inside lightweight content tools because the original context disappears. Blog2Video keeps the educational arc intact and turns it into a readable scene sequence.",
+          "Most tools sold as PDF to video converters do one of two things. Either they screenshot each page and cross-fade between the images — a slideshow with no narration and no understanding of the content — or they feed your document to a language model that writes a loose summary over stock footage, losing the specifics that made the document worth reading.",
+          "PDF2Video sits between those. It extracts the actual text layer of the PDF, keeps the document's own structure — sections, headings, ordered points, figures, tables — and turns each unit into a scene with narration drawn from what the page really says. The output is a video that a reader of the original would recognise as the same document.",
+        ],
+      },
+      {
+        title: "Why converting a PDF to video beats sending the PDF",
+        body: [
+          "A PDF is a terrible distribution format for anything you want people to finish. It opens in a separate viewer, it is unreadable on a phone without pinch-zooming, it cannot be posted natively to any social platform, and it gives you no way of knowing whether anyone got past page one.",
+          "An MP4 of the same content plays inline everywhere, works on mobile by default, can be uploaded to YouTube and LinkedIn as a first-class post, and reports watch time. The research, the argument, and the numbers are identical — the container is one people actually consume.",
+        ],
+        bullets: [
+          "Watch-time analytics instead of a download count that tells you nothing.",
+          "Plays natively in the feed rather than sitting behind a download prompt.",
+          "Readable on a phone without zooming, which is where most of the audience is.",
+          "Captions and narration make the same content accessible to more people.",
+        ],
+      },
+      {
+        title: "What makes this different from a slideshow exporter",
+        body: [
+          "Page-to-image converters are fine when your PDF is already a designed deck and you only need it to autoplay. They fall apart on documents that were written to be read: a 20-page whitepaper becomes 20 frames of unreadable 9pt body copy held on screen for four seconds each.",
+        ],
+        bullets: [
+          "Text is re-typeset for a 16:9 screen rather than photographed at print density.",
+          "Narration is generated per scene, so pacing follows the argument instead of a fixed timer.",
+          "Figures, tables, and diagrams are re-laid out as their own scenes with room to breathe.",
+          "Your logo, colours, and fonts are applied throughout rather than bolted on at the end.",
+        ],
+      },
+      {
+        title: "The PDFs this handles best",
+        body: [
+          "Anything with a real text layer and a clear structure converts well. Scanned PDFs that are really just photographs of paper have no text to extract, so they produce weaker results than a born-digital document.",
+        ],
+        bullets: [
+          "Research papers, preprints, and technical reports.",
+          "Whitepapers, market analyses, and investor updates.",
+          "Lesson plans, course notes, and study guides.",
+          "Product manuals, SOPs, and onboarding documentation.",
+          "Slide decks exported to PDF, and long-form guides or ebooks.",
         ],
       },
     ],
     recommendedTemplate: "whiteboard",
     recommendedTemplateReason:
-      "Whiteboard is the best default for PDFs because it supports teaching-oriented structure, diagrams, and accessible pacing.",
-    faq: createFaq(
-      "PDF to video conversion",
-      "Educators, consultants, and researchers",
-      "Blog2Video is designed to keep the logic and readability of structured documents instead of flattening them into generic narration."
-    ),
+      "Whiteboard is the best default for a PDF because it was built for teaching-oriented structure — diagrams, ordered explanations, and pacing slow enough to actually follow.",
+    faq: [
+      {
+        question: "What is a PDF to video converter?",
+        answer:
+          "It is a tool that takes a PDF document and produces a video file from it. PDF2Video reads the text and structure out of your PDF, builds a scene for each part of the document, narrates it with an AI voice, and renders the result as an MP4 you can download and post anywhere.",
+      },
+      {
+        question: "Is PDF2Video free to use?",
+        answer:
+          "Your first video is free, for life, and no card is required to make it. That free video is the full product — AI script generation, ElevenLabs voiceover, preview, one custom template, and an MP4 download. After that you either pay per video or move to a monthly plan. We would rather tell you that plainly than advertise 'unlimited free' and gate the download at the end.",
+      },
+      {
+        question: "Do I need to create an account?",
+        answer:
+          "Yes — you sign in with Google before your first render. There is no card and no trial timer, but rendering video costs real compute, so an account is what stops the queue being consumed by bots. If you want to see the output quality before signing in, the templates section on this site has full example videos.",
+      },
+      {
+        question: "Can I download the result as an MP4?",
+        answer:
+          "Yes. The finished video downloads as a standard MP4, which every platform accepts — YouTube, LinkedIn, Instagram, TikTok, Slack, your LMS, or a video embed on your own site. It works on mobile and desktop with no player plugin.",
+      },
+      {
+        question: "Will there be a watermark on my video?",
+        answer:
+          "No. PDF2Video does not brand your exports, including on the free video. The only logo that can appear is your own, if you choose to add one in the template's branding settings.",
+      },
+      {
+        question: "Do I have to record my own voice?",
+        answer:
+          "No. Narration is generated automatically with ElevenLabs voices, so a finished video needs no microphone and no recording session. You can change the voice at any point and re-render, and paid plans add premium voices and voice cloning if you want the narration to sound like you.",
+      },
+      {
+        question: "How long can the video be?",
+        answer:
+          "There is no fixed cap — length follows the document. A dense 3,000-word report typically lands around five to eight minutes. Very long PDFs produce proportionally longer videos, and you can cut scenes you do not want before rendering.",
+      },
+      {
+        question: "What kinds of PDFs work best?",
+        answer:
+          "Born-digital PDFs with a real text layer and clear headings convert best: reports, whitepapers, papers, lesson plans, manuals, and decks exported to PDF. Scanned documents are essentially images of pages with no extractable text, so they give noticeably weaker results.",
+      },
+      {
+        question: "Can I apply my own branding?",
+        answer:
+          "Yes. Templates carry your logo, colour palette, and fonts, and a saved custom template applies the same look to every future document automatically — so the tenth video matches the first without you setting anything up again. The free plan includes one custom template.",
+      },
+      {
+        question: "How is this different from a general AI video generator?",
+        answer:
+          "General AI video tools start from a prompt and assemble stock footage, which works for mood pieces and fails for documents where the specifics are the point. PDF2Video starts from your file and treats it as the source of truth, so the numbers, terminology, and argument in the video are the ones in your PDF rather than a plausible-sounding approximation.",
+      },
+    ],
     relatedPaths: [
+      "/pdf-to-youtube-video",
       "/docx-to-video",
       "/pptx-to-video",
+      "/for-researchers",
       "/for-educators",
-      "/blogs/pdf-to-video-fastest-workflow-for-educators",
+      "/tools/pdf-to-video-script-generator",
     ],
   }),
   createPage({

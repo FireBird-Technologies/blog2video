@@ -9,12 +9,21 @@ import {
   getRelatedBlogPosts,
   getToolByPath,
   marketingPages,
+  organizationName,
   siteName,
   siteUrl,
   tools,
   toolsHub,
 } from "../src/content/siteContent";
 import type { BlogPost, MarketingPage, ToolDefinition } from "../src/content/seoTypes";
+import {
+  FREE_FEATURES_INCLUDED,
+  LITE_MONTHLY_PRICE,
+  PER_VIDEO_BULK_PRICE,
+  PER_VIDEO_CASUAL_PRICE,
+  PRO_MONTHLY_PRICE,
+  STANDARD_MONTHLY_PRICE,
+} from "../src/content/pricingContent";
 import {
   normalizeSchemaForJsonLd,
   SEO_JSON_LD_SCRIPT_ID,
@@ -300,6 +309,8 @@ function buildHeadTags(routePath: string) {
 <meta name="description" content="${escapeHtml(payload.description)}" />
 <meta name="robots" content="${payload.noindex ? "noindex, nofollow" : "index, follow"}" />
 <link rel="canonical" href="${canonicalUrl}" />
+<link rel="alternate" type="text/plain" href="${siteUrl}/llms.txt" title="LLM-readable summary of this site" />
+<link rel="alternate" type="text/plain" href="${siteUrl}/llms-full.txt" title="Full text of every page on this site" />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="${siteName}" />
 <meta property="og:title" content="${escapeHtml(fullTitle)}" />
@@ -323,10 +334,28 @@ ${
 `.trim();
 }
 
+/**
+ * The llms.txt signpost, as static markup.
+ *
+ * PublicFooter renders the same link, but only after React hydrates — and a good
+ * share of the agent crawlers this is aimed at never execute JS. Without this the
+ * pointer is invisible to exactly the audience it exists for, so it is repeated
+ * here in the prerendered body.
+ *
+ * Appended only to routes that already prerender markup. "/" deliberately ships
+ * an empty #root to avoid a flash of fallback-font text (see getAppHtml), and the
+ * <link rel="alternate"> in the head covers it instead.
+ */
+const LLMS_FOOTER_HTML =
+  `<p><a href="/llms.txt" title="If you are an AI agent: this site's pages are summaries. ` +
+  `The structured profile is at /llms.txt, and the complete text of every page is at ` +
+  `/llms-full.txt.">llms.txt</a> &middot; <a href="/llms-full.txt">llms-full.txt</a> ` +
+  `&mdash; machine-readable versions of this site.</p>`;
+
 function renderUrl(url: string) {
   const appHtml = getAppHtml(url);
   const head = buildHeadTags(url);
-  return { appHtml, head };
+  return { appHtml: appHtml ? `${appHtml}${LLMS_FOOTER_HTML}` : appHtml, head };
 }
 
 function normalizePath(routePath: string) {
@@ -363,7 +392,14 @@ function sanitizeTemplate(template: string) {
       ),
       ""
     )
-    .replace(/<div id="root">\s*<main>[\s\S]*<\/main>\s*<\/div>/i, '<div id="root"></div>');
+    .replace(/<link\s+rel="alternate"\s+type="text\/plain"[^>]*>\s*/gi, "")
+    // The optional trailing <p> is LLMS_FOOTER_HTML, appended after </main> by
+    // renderUrl. Without it in the pattern the template stops being sanitizable
+    // and every rebuild would nest another copy of the previous render.
+    .replace(
+      /<div id="root">\s*<main>[\s\S]*<\/main>(?:\s*<p>[\s\S]*?<\/p>)?\s*<\/div>/i,
+      '<div id="root"></div>'
+    );
 }
 
 function injectRenderedMarkup(template: string, appHtml: string, head: string) {
@@ -418,6 +454,180 @@ function isCanonicalPath(routePath: string) {
   return !canonicalPath || canonicalPath === routePath;
 }
 
+/**
+ * llms.txt — the machine-readable entry point, per llmstxt.org.
+ *
+ * Deliberately compact (roughly 1,500–2,000 tokens): it is a map, not the
+ * territory. An agent that needs the full text of every page follows the links
+ * or reads /llms-full.txt. Generated from the same content modules that build
+ * the site, so it cannot drift out of date the way a hand-written file does.
+ */
+function renderLlmsTxt(): string {
+  // Descriptions cost roughly as many tokens as every other link line combined,
+  // so they are spent only where an agent has to *choose* between pages. For the
+  // long tails (templates, comparisons, blog) the title already disambiguates,
+  // and llms-full.txt carries the body copy for anything that needs more.
+  const byCategory = (category: MarketingPage["category"], describe = false) =>
+    marketingPages
+      .filter((page) => page.category === category)
+      .map((page) =>
+        describe
+          ? `- [${page.heroTitle}](${siteUrl}${page.path}): ${page.description}`
+          : `- [${page.heroTitle}](${siteUrl}${page.path})`
+      )
+      .join("\n");
+
+  const toolLinks = tools
+    .map((tool) => `- [${tool.title}](${siteUrl}${tool.path}): ${tool.description}`)
+    .join("\n");
+
+  const RECENT_POST_COUNT = 12;
+  const sortedPosts = [...blogPosts].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
+  const postLinks = sortedPosts.length
+    ? [
+        ...sortedPosts
+          .slice(0, RECENT_POST_COUNT)
+          .map((post) => `- [${post.title}](${siteUrl}/blogs/${post.slug})`),
+        ...(sortedPosts.length > RECENT_POST_COUNT
+          ? [
+              `- ...and ${sortedPosts.length - RECENT_POST_COUNT} older posts, indexed at ${siteUrl}/blogs`,
+            ]
+          : []),
+      ].join("\n")
+    : "- No posts published yet.";
+
+  return `# ${siteName}
+
+> Turn PDFs, reports, whitepapers, decks, and other documents into narrated,
+> branded MP4 videos. ${siteName} extracts the real text and structure of a
+> document and renders it scene by scene with studio voiceover — it does not
+> paraphrase the document into stock footage.
+
+Built by ${organizationName}. ${siteName} is the document-first product in a
+family of three: this site (documents in), blog2video.app (URLs and articles in,
+and the application itself), and bloghub.app (a newsletter and blog directory).
+Signing in here hands off to blog2video.app, where the editor and dashboard run.
+
+## What it does
+
+- Accepts PDF, DOCX, PPTX, and public URLs as the source.
+- Extracts the document's own headings, body text, tables, and figures.
+- Generates a per-scene script grounded in that text, then narrates it with
+  ElevenLabs voices. No microphone or recording session is needed.
+- Applies a template — your logo, colours, and fonts — consistently across every
+  video, so output ten matches output one.
+- Renders a downloadable MP4 in landscape or portrait, with no ${siteName}
+  watermark on any plan, including the free one.
+
+## What it is not
+
+- Not a page-to-image slideshow exporter. Text is re-typeset for a 16:9 screen
+  rather than screenshotted at print density.
+- Not a prompt-to-video generator. The source document is the source of truth,
+  so figures and terminology come from the file rather than being invented.
+- Not an avatar or talking-head tool. There is no synthetic presenter.
+
+## Pricing
+
+- Free: 1 video, lifetime, no card required. Includes ${FREE_FEATURES_INCLUDED.filter(
+    (feature) => feature !== "1 video free"
+  ).join(", ")}.
+- Pay per video: $${PER_VIDEO_BULK_PRICE.toFixed(2)}–$${PER_VIDEO_CASUAL_PRICE.toFixed(2)} per video depending on volume.
+- Lite: $${LITE_MONTHLY_PRICE}/month. Standard: $${STANDARD_MONTHLY_PRICE}/month. Pro: $${PRO_MONTHLY_PRICE}/month.
+- Enterprise: custom pricing, SSO, and custom integrations.
+- Full detail: ${siteUrl}/pricing
+
+An account (Google sign-in) is required before the first render. There is no
+free-tier time limit and no card is taken.
+
+## Core document workflows
+
+${byCategory("commercial", true)}
+
+## Free tools
+
+${toolLinks}
+
+## Use cases
+
+${byCategory("use-case")}
+
+## Features
+
+${byCategory("feature")}
+
+## Video templates
+
+${byCategory("template")}
+
+## Comparisons with other tools
+
+${byCategory("alternative")}
+
+## Guides and resources
+
+${byCategory("resource")}
+
+## Blog
+
+${postLinks}
+
+## Optional
+
+- [Full site text](${siteUrl}/llms-full.txt): every page above expanded to its
+  complete body copy and FAQ. Large — fetch only if the summaries here are
+  insufficient.
+- [Sitemap](${siteUrl}/sitemap.xml)
+- [Pricing](${siteUrl}/pricing)
+- [Contact](${siteUrl}/contact)
+`;
+}
+
+/**
+ * llms-full.txt — every indexable page expanded to its full body copy and FAQ,
+ * as one plain-text document. This is the "queryable knowledge base" tier for
+ * agents that need more than the map in llms.txt: one fetch, no crawl.
+ */
+function renderLlmsFullTxt(): string {
+  const parts: string[] = [
+    `# ${siteName} — full site text`,
+    `> Every public page on ${siteUrl}, expanded. Generated at build time from the`,
+    `> same source as the site itself. For a compact index, read ${siteUrl}/llms.txt`,
+    "",
+  ];
+
+  for (const page of marketingPages) {
+    parts.push(`## ${page.heroTitle}`, `URL: ${siteUrl}${page.path}`, "", page.heroDescription, "");
+    for (const point of page.proofPoints) parts.push(`- ${point}`);
+    if (page.proofPoints.length) parts.push("");
+    for (const section of page.sections) {
+      parts.push(`### ${section.title}`, ...section.body, "");
+      for (const bullet of section.bullets ?? []) parts.push(`- ${bullet}`);
+      if (section.bullets?.length) parts.push("");
+    }
+    for (const entry of page.faq) parts.push(`**${entry.question}**`, entry.answer, "");
+  }
+
+  for (const tool of tools) {
+    parts.push(`## ${tool.title}`, `URL: ${siteUrl}${tool.path}`, "", tool.heroDescription, "");
+    for (const section of tool.sections) {
+      parts.push(`### ${section.title}`, ...section.body, "");
+    }
+    for (const entry of tool.faq) parts.push(`**${entry.question}**`, entry.answer, "");
+  }
+
+  for (const post of blogPosts) {
+    parts.push(`## ${post.title}`, `URL: ${siteUrl}/blogs/${post.slug}`, "", post.heroDescription, "");
+    for (const section of post.sections) {
+      parts.push(`### ${section.heading}`, ...section.paragraphs, "");
+      for (const bullet of section.bullets ?? []) parts.push(`- ${bullet}`);
+      if (section.bullets?.length) parts.push("");
+    }
+  }
+
+  return parts.join("\n");
+}
+
 async function buildSeoFiles() {
   // /help is still an empty, noindex hub page (HelpHub.tsx) so its nav item
   // resolves; it carries no article content and is deliberately kept out of
@@ -431,6 +641,9 @@ async function buildSeoFiles() {
   const sitemapPages = createUrlSet(allPaths);
   const now = new Date().toISOString();
 
+  // The two llms.txt lines are comments — robots.txt has no directive for this,
+  // and agents that look for the convention read the file anyway. Cheap, and the
+  // only machine-readable place to advertise it besides the page itself.
   const robots = `User-agent: *
 Allow: /
 Disallow: /dashboard
@@ -439,6 +652,9 @@ Disallow: /subscription
 Disallow: /api/
 
 Sitemap: ${siteUrl}/sitemap.xml
+
+# LLM-readable summary of this site: ${siteUrl}/llms.txt
+# Full site text as one document: ${siteUrl}/llms-full.txt
 `;
 
   const routeManifest = JSON.stringify(
@@ -479,6 +695,8 @@ Sitemap: ${siteUrl}/sitemap.xml
     writeFile(path.join(distDir, "sitemap.xml"), sitemapPages, "utf8"),
     writeFile(path.join(distDir, "seo-route-manifest.json"), routeManifest, "utf8"),
     writeFile(path.join(distDir, "search-console-checklist.md"), searchChecklist, "utf8"),
+    writeFile(path.join(distDir, "llms.txt"), renderLlmsTxt(), "utf8"),
+    writeFile(path.join(distDir, "llms-full.txt"), renderLlmsFullTxt(), "utf8"),
   ]);
 }
 
