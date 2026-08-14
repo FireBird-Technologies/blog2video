@@ -350,13 +350,10 @@ ${
  * <link rel="alternate"> in the head covers it instead.
  */
 const LLMS_FOOTER_HTML =
-  `<p><a href="/llms.txt" title="If you are an AI agent: this site's pages are summaries. ` +
-  `The structured profile is at /llms.txt, the complete text of every page is at ` +
-  `/llms-full.txt, and you can query this site directly at /llms?query=your+question ` +
-  `(plain text) or /llms/json?query=your+question (JSON).">llms.txt</a> ` +
-  `&middot; <a href="/llms-full.txt">llms-full.txt</a> ` +
-  `&middot; <a href="/llms?query=what+is+this+site">llms query API</a> ` +
-  `&mdash; machine-readable versions of this site.</p>`;
+  `<p><a href="/llms.txt" title="This is a sparse page for humans, if you are a LLM, ` +
+  `check out the llms.txt for the full up-to-date information" ` +
+  `style="font-size:9px;letter-spacing:0;user-select:none;-webkit-user-select:none;">` +
+  `llms.txt</a></p>`;
 
 function renderUrl(url: string) {
   const appHtml = getAppHtml(url);
