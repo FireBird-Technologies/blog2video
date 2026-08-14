@@ -2,6 +2,14 @@
   "routes": [
     { "handle": "filesystem" },
     {
+      "src": "^/llms/json/?$",
+      "dest": "/api/llms?format=json"
+    },
+    {
+      "src": "^/llms/?$",
+      "dest": "/api/llms"
+    },
+    {
       "src": "^/preview/(.*)$",
       "dest": "/index.html",
       "headers": {

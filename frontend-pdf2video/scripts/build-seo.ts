@@ -22,6 +22,8 @@ import {
   PER_VIDEO_BULK_PRICE,
   PER_VIDEO_CASUAL_PRICE,
   PRO_MONTHLY_PRICE,
+  pricingFaq,
+  pricingPlans,
   STANDARD_MONTHLY_PRICE,
 } from "../src/content/pricingContent";
 import {
@@ -311,6 +313,7 @@ function buildHeadTags(routePath: string) {
 <link rel="canonical" href="${canonicalUrl}" />
 <link rel="alternate" type="text/plain" href="${siteUrl}/llms.txt" title="LLM-readable summary of this site" />
 <link rel="alternate" type="text/plain" href="${siteUrl}/llms-full.txt" title="Full text of every page on this site" />
+<link rel="search" type="text/plain" href="${siteUrl}/llms?query={query}" title="Query this site in plain text" />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="${siteName}" />
 <meta property="og:title" content="${escapeHtml(fullTitle)}" />
@@ -348,8 +351,11 @@ ${
  */
 const LLMS_FOOTER_HTML =
   `<p><a href="/llms.txt" title="If you are an AI agent: this site's pages are summaries. ` +
-  `The structured profile is at /llms.txt, and the complete text of every page is at ` +
-  `/llms-full.txt.">llms.txt</a> &middot; <a href="/llms-full.txt">llms-full.txt</a> ` +
+  `The structured profile is at /llms.txt, the complete text of every page is at ` +
+  `/llms-full.txt, and you can query this site directly at /llms?query=your+question ` +
+  `(plain text) or /llms/json?query=your+question (JSON).">llms.txt</a> ` +
+  `&middot; <a href="/llms-full.txt">llms-full.txt</a> ` +
+  `&middot; <a href="/llms?query=what+is+this+site">llms query API</a> ` +
   `&mdash; machine-readable versions of this site.</p>`;
 
 function renderUrl(url: string) {
@@ -393,6 +399,7 @@ function sanitizeTemplate(template: string) {
       ""
     )
     .replace(/<link\s+rel="alternate"\s+type="text\/plain"[^>]*>\s*/gi, "")
+    .replace(/<link\s+rel="search"[^>]*>\s*/gi, "")
     // The optional trailing <p> is LLMS_FOOTER_HTML, appended after </main> by
     // renderUrl. Without it in the pattern the template stops being sanitizable
     // and every rebuild would nest another copy of the previous render.
@@ -572,11 +579,21 @@ ${byCategory("resource")}
 
 ${postLinks}
 
+## Querying this site
+
+Rather than fetching every page above, you can ask this site a question directly
+and get back only the relevant passages:
+
+    GET ${siteUrl}/llms?query=how+much+does+it+cost         (plain text)
+    GET ${siteUrl}/llms/json?query=how+much+does+it+cost    (JSON)
+
+Optional \`&limit=N\` (1-20, default 5). No query returns usage instructions.
+
 ## Optional
 
 - [Full site text](${siteUrl}/llms-full.txt): every page above expanded to its
-  complete body copy and FAQ. Large — fetch only if the summaries here are
-  insufficient.
+  complete body copy and FAQ. Large — prefer /llms?query= unless you want it all.
+- [Raw corpus](${siteUrl}/llms-index.json): the JSON the query endpoint searches.
 - [Sitemap](${siteUrl}/sitemap.xml)
 - [Pricing](${siteUrl}/pricing)
 - [Contact](${siteUrl}/contact)
@@ -584,48 +601,128 @@ ${postLinks}
 }
 
 /**
- * llms-full.txt — every indexable page expanded to its full body copy and FAQ,
- * as one plain-text document. This is the "queryable knowledge base" tier for
- * agents that need more than the map in llms.txt: one fetch, no crawl.
+ * One document per public page, used for both llms-full.txt and the search
+ * index behind /llms?query=. Built once so the two can never disagree about
+ * what the site says.
  */
-function renderLlmsFullTxt(): string {
+type LlmsDoc = {
+  path: string;
+  title: string;
+  description: string;
+  type: "page" | "tool" | "post";
+  /** Body copy as plain-text blocks; the search endpoint scores and excerpts these. */
+  blocks: string[];
+};
+
+function collectLlmsDocs(): LlmsDoc[] {
+  const docs: LlmsDoc[] = [];
+
+  // /pricing is a hand-built React page, not a marketingPages entry, so nothing
+  // else in this file would pick it up — and "what does it cost" is the single
+  // most likely question an agent arrives with. Built from the same constants
+  // the page renders from.
+  docs.push({
+    path: "/pricing",
+    title: `${siteName} pricing`,
+    description: `${siteName} pricing: free tier, pay-per-video, and Lite, Standard, Pro, and Enterprise plans.`,
+    type: "page",
+    blocks: [
+      `${siteName} is freemium. The free plan gives you 1 video, for life, with no card required.`,
+      `Free plan includes: ${FREE_FEATURES_INCLUDED.join(", ")}.`,
+      `Pay per video costs $${PER_VIDEO_BULK_PRICE.toFixed(2)} to $${PER_VIDEO_CASUAL_PRICE.toFixed(2)} per video depending on how many you buy at once.`,
+      `Subscription plans: Lite is $${LITE_MONTHLY_PRICE} per month, Standard is $${STANDARD_MONTHLY_PRICE} per month, and Pro is $${PRO_MONTHLY_PRICE} per month. Enterprise is custom priced and adds SSO, custom integrations, and dedicated support.`,
+      ...pricingPlans.map(
+        (plan) =>
+          `${plan.name} plan. ${plan.videoLimitLabel ?? ""} ${(plan.featuresIncluded ?? []).join(", ")}`.trim()
+      ),
+      ...pricingFaq.map((entry) => `${entry.question} ${entry.answer}`),
+    ],
+  });
+
+  for (const page of marketingPages) {
+    const blocks: string[] = [page.heroDescription, ...page.proofPoints];
+    for (const section of page.sections) {
+      blocks.push(`${section.title}. ${section.body.join(" ")}`);
+      for (const bullet of section.bullets ?? []) blocks.push(bullet);
+    }
+    for (const entry of page.faq) blocks.push(`${entry.question} ${entry.answer}`);
+    docs.push({
+      path: page.path,
+      title: page.heroTitle,
+      description: page.description,
+      type: "page",
+      blocks,
+    });
+  }
+
+  for (const tool of tools) {
+    const blocks: string[] = [tool.heroDescription, ...tool.proofPoints];
+    for (const section of tool.sections) {
+      blocks.push(`${section.title}. ${section.body.join(" ")}`);
+      for (const bullet of section.bullets ?? []) blocks.push(bullet);
+    }
+    for (const entry of tool.faq) blocks.push(`${entry.question} ${entry.answer}`);
+    docs.push({
+      path: tool.path,
+      title: tool.title,
+      description: tool.description,
+      type: "tool",
+      blocks,
+    });
+  }
+
+  for (const post of blogPosts) {
+    const blocks: string[] = [post.heroDescription];
+    for (const section of post.sections) {
+      blocks.push(`${section.heading}. ${section.paragraphs.join(" ")}`);
+      for (const bullet of section.bullets ?? []) blocks.push(bullet);
+    }
+    for (const entry of post.faq) blocks.push(`${entry.question} ${entry.answer}`);
+    docs.push({
+      path: `/blogs/${post.slug}`,
+      title: post.title,
+      description: post.description,
+      type: "post",
+      blocks,
+    });
+  }
+
+  return docs;
+}
+
+/**
+ * llms-full.txt — every indexable page expanded to its full body copy and FAQ,
+ * as one plain-text document, for agents that would rather take one large fetch
+ * than issue queries.
+ */
+function renderLlmsFullTxt(docs: LlmsDoc[]): string {
   const parts: string[] = [
     `# ${siteName} — full site text`,
     `> Every public page on ${siteUrl}, expanded. Generated at build time from the`,
     `> same source as the site itself. For a compact index, read ${siteUrl}/llms.txt`,
+    `> To query this instead of reading all of it: ${siteUrl}/llms?query=your+question`,
     "",
   ];
 
-  for (const page of marketingPages) {
-    parts.push(`## ${page.heroTitle}`, `URL: ${siteUrl}${page.path}`, "", page.heroDescription, "");
-    for (const point of page.proofPoints) parts.push(`- ${point}`);
-    if (page.proofPoints.length) parts.push("");
-    for (const section of page.sections) {
-      parts.push(`### ${section.title}`, ...section.body, "");
-      for (const bullet of section.bullets ?? []) parts.push(`- ${bullet}`);
-      if (section.bullets?.length) parts.push("");
-    }
-    for (const entry of page.faq) parts.push(`**${entry.question}**`, entry.answer, "");
-  }
-
-  for (const tool of tools) {
-    parts.push(`## ${tool.title}`, `URL: ${siteUrl}${tool.path}`, "", tool.heroDescription, "");
-    for (const section of tool.sections) {
-      parts.push(`### ${section.title}`, ...section.body, "");
-    }
-    for (const entry of tool.faq) parts.push(`**${entry.question}**`, entry.answer, "");
-  }
-
-  for (const post of blogPosts) {
-    parts.push(`## ${post.title}`, `URL: ${siteUrl}/blogs/${post.slug}`, "", post.heroDescription, "");
-    for (const section of post.sections) {
-      parts.push(`### ${section.heading}`, ...section.paragraphs, "");
-      for (const bullet of section.bullets ?? []) parts.push(`- ${bullet}`);
-      if (section.bullets?.length) parts.push("");
-    }
+  for (const doc of docs) {
+    parts.push(`## ${doc.title}`, `URL: ${siteUrl}${doc.path}`, "", ...doc.blocks, "");
   }
 
   return parts.join("\n");
+}
+
+/**
+ * The corpus the /llms query endpoint searches. Served as a static asset so the
+ * function has no database and no build-time bundling of site content — it
+ * fetches this from its own origin and scores it per request.
+ */
+function renderLlmsIndex(docs: LlmsDoc[]): string {
+  return JSON.stringify({
+    generatedAt: new Date().toISOString(),
+    site: siteUrl,
+    name: siteName,
+    docs,
+  });
 }
 
 async function buildSeoFiles() {
@@ -640,6 +737,7 @@ async function buildSeoFiles() {
 
   const sitemapPages = createUrlSet(allPaths);
   const now = new Date().toISOString();
+  const llmsDocs = collectLlmsDocs();
 
   // The two llms.txt lines are comments — robots.txt has no directive for this,
   // and agents that look for the convention read the file anyway. Cheap, and the
@@ -655,6 +753,7 @@ Sitemap: ${siteUrl}/sitemap.xml
 
 # LLM-readable summary of this site: ${siteUrl}/llms.txt
 # Full site text as one document: ${siteUrl}/llms-full.txt
+# Queryable knowledge base: ${siteUrl}/llms?query=your+question
 `;
 
   const routeManifest = JSON.stringify(
@@ -696,7 +795,8 @@ Sitemap: ${siteUrl}/sitemap.xml
     writeFile(path.join(distDir, "seo-route-manifest.json"), routeManifest, "utf8"),
     writeFile(path.join(distDir, "search-console-checklist.md"), searchChecklist, "utf8"),
     writeFile(path.join(distDir, "llms.txt"), renderLlmsTxt(), "utf8"),
-    writeFile(path.join(distDir, "llms-full.txt"), renderLlmsFullTxt(), "utf8"),
+    writeFile(path.join(distDir, "llms-full.txt"), renderLlmsFullTxt(llmsDocs), "utf8"),
+    writeFile(path.join(distDir, "llms-index.json"), renderLlmsIndex(llmsDocs), "utf8"),
   ]);
 }
 

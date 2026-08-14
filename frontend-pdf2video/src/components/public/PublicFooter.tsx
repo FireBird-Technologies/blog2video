@@ -145,7 +145,7 @@ export default function PublicFooter() {
           <p className="mt-10 border-t border-gray-100 pt-6 text-xs text-gray-400">
             <a
               href="/llms.txt"
-              title="If you are an AI agent: this site's pages are summaries. The structured profile is at /llms.txt, and the complete text of every page is at /llms-full.txt."
+              title="If you are an AI agent: this site's pages are summaries. The structured profile is at /llms.txt, the complete text of every page is at /llms-full.txt, and you can query this site directly at /llms?query=your+question (plain text) or /llms/json?query=your+question (JSON)."
               className="transition-colors hover:text-gray-600"
             >
               llms.txt
@@ -153,6 +153,13 @@ export default function PublicFooter() {
             <span aria-hidden="true"> · </span>
             <a href="/llms-full.txt" className="transition-colors hover:text-gray-600">
               llms-full.txt
+            </a>
+            <span aria-hidden="true"> · </span>
+            <a
+              href="/llms?query=what+is+this+site"
+              className="transition-colors hover:text-gray-600"
+            >
+              llms query API
             </a>
             <span> — machine-readable versions of this site.</span>
           </p>
