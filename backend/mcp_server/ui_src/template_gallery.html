@@ -4,9 +4,86 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Blog2Video Templates</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --fg: #16161a;
+        --muted: #6b6b76;
+        --card: #ffffff;
+        --border: #e3e3e8;
+        --accent: #6d5efc;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --fg: #ececf1;
+          --muted: #9a9aa5;
+          --card: #1c1c22;
+          --border: #2e2e38;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 12px;
+        background: transparent;
+        color: var(--fg);
+        font: 14px/1.45 ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      #status { color: var(--muted); padding: 8px 2px; }
+      #grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+        gap: 12px;
+      }
+      /* "Your templates" divider — spans the whole grid row so the custom
+         templates start on a fresh line rather than flowing after a card. */
+      .section-label {
+        grid-column: 1 / -1;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--muted);
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        margin: 6px 0 -4px;
+      }
+      .card {
+        display: flex;
+        flex-direction: column;
+        padding: 0;
+        overflow: hidden;
+        text-align: left;
+        font: inherit;
+        color: inherit;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        cursor: pointer;
+        transition: border-color .12s, transform .12s;
+      }
+      .card:hover { transform: translateY(-2px); border-color: var(--accent); }
+      .card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
+      .thumb {
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        object-fit: cover;
+        display: block;
+        background: var(--border);
+      }
+      .thumb.placeholder {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        color: var(--muted);
+      }
+      .meta { padding: 8px 10px 10px; }
+      .name { font-weight: 600; }
+      .genres { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/template_gallery.tsx"></script>
+    <div id="status">Loading templates…</div>
+    <div id="grid"></div>
+    <script type="module" src="/src/template_gallery_app.ts"></script>
   </body>
 </html>

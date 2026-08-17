@@ -19,6 +19,7 @@ UI_RESOURCES: dict[str, str] = {
     "template_gallery": "template_gallery.html",
     "voice_gallery": "voice_gallery.html",
     "setup_gallery": "setup_gallery.html",
+    "settings_panel": "settings_panel.html",
 }
 
 
