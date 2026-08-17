@@ -402,7 +402,12 @@ export function getDefaultFontSizesFromSchema(
 ): { title: number; desc: number } | null {
   if (!layoutId || !layoutPropSchema) return null;
   const canonicalLayoutId = LEGACY_NEWSCAST_LAYOUT_ID_ALIASES[layoutId] ?? layoutId;
-  const schema = layoutPropSchema[canonicalLayoutId];
+  // Mirrors backend/app/services/remotion.py: an EXACT entry wins (a variant that
+  // declares its own typography defaults), otherwise fall back to the BASE
+  // layout's entry. Without the fallback a variant with no entry of its own
+  // silently drops to the hardcoded table instead of its base's meta defaults.
+  const baseId = LEGACY_NEWSCAST_LAYOUT_ID_ALIASES[baseLayoutId(layoutId)] ?? baseLayoutId(layoutId);
+  const schema = layoutPropSchema[canonicalLayoutId] ?? layoutPropSchema[baseId];
   const defaults = schema?.defaults;
   if (!defaults) return null;
   const isPortrait = aspectRatio === "portrait";

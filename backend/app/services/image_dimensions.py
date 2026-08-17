@@ -14,6 +14,25 @@ LAYOUT_IMAGE_ASPECT: dict[tuple[str, str], dict[str, str]] = {
     ("newspaper", "news_timeline"): {"landscape": "3:2", "portrait": "2:3"},
     # Card-style (fixed height) layouts: 3:2 / 2:3 fits most
     ("nightfall", "glass_narrative"): {"landscape": "3:2", "portrait": "2:3"},
+    # newscast anchor_narrative: image PANEL beside the text (510×626 landscape,
+    # ≈4:5) and a full-width band above it in portrait (662×505, ≈4:3). Previously
+    # unmapped, so it was fed 16:9 for a slot that is not wide in either case.
+    ("newscast", "anchor_narrative"): {"landscape": "4:5", "portrait": "4:3"},
+    # Variant image slots that differ in SHAPE from their base need an explicit
+    # entry — the exact key wins over the base fallback below.
+    # cinematic_title__v2 "Aperture": circular crop → square source.
+    ("nightfall", "cinematic_title__v2"): {"landscape": "1:1", "portrait": "1:1"},
+    # glass_narrative__v2 "Editorial Stack": tall bled plate, not the base's
+    # 3:2 inset card. 56%×100% landscape ≈ 0.56 → 9:16; portrait band is wide.
+    ("nightfall", "glass_narrative__v2"): {"landscape": "9:16", "portrait": "16:9"},
+    # newscast opening__v2 "Split Feed": the image is a 46%-wide full-height feed
+    # panel (base `opening` is full-bleed), so it wants a tall source.
+    ("newscast", "opening__v2"): {"landscape": "9:16", "portrait": "16:9"},
+    # newscast anchor_narrative__v2 "Studio Desk": the plate is full-bleed, but the
+    # copy band + chrome hide the bottom ~60%, leaving a WIDE visible strip above
+    # the band (1280×282 landscape ≈ 4.5:1, 720×549 portrait ≈ 1.3:1). Generate for
+    # the strip, not the canvas, or the subject lands behind the band.
+    ("newscast", "anchor_narrative__v2"): {"landscape": "16:9", "portrait": "1:1"},
     ("nightfall", "glow_metric"): {"landscape": "3:2", "portrait": "2:3"},
     ("nightfall", "glass_stack"): {"landscape": "3:2", "portrait": "2:3"},
     ("gridcraft", "bento_compare"): {"landscape": "3:2", "portrait": "2:3"},

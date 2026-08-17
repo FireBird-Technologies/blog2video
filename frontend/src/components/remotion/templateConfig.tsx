@@ -113,9 +113,14 @@ const DEFAULT_LAYOUTS = new Set([
   "ending_socials",
 ]);
 
+// Includes the `__vN` visual variants (see backend/templates/nightfall/meta.json
+// `layout_variants`). This is the STATIC fallback used before /projects/:id/layouts
+// resolves — a variant missing here renders as the fallback layout on first paint.
 const NIGHTFALL_LAYOUTS = new Set([
   "cinematic_title",
+  "cinematic_title__v2",
   "glass_narrative",
+  "glass_narrative__v2",
   "glow_metric",
   "glass_code",
   "kinetic_insight",
@@ -126,6 +131,7 @@ const NIGHTFALL_LAYOUTS = new Set([
   "nightfall_data_visualization",
   "nightfall_ticker",
   "ending_socials",
+  "ending_socials__v2",
 ]);
 
 const GRIDCRAFT_LAYOUTS = new Set([
@@ -231,9 +237,14 @@ const NEWSPAPER_LAYOUTS = new Set([
   "ending_socials__v2",
 ]);
 
+// Includes the `__vN` visual variants (see backend/templates/newscast/meta.json
+// `layout_variants`). This is the STATIC fallback used before /projects/:id/layouts
+// resolves — a variant missing here renders as the fallback layout on first paint.
 const NEWSCAST_LAYOUTS = new Set([
   "opening",
+  "opening__v2",
   "anchor_narrative",
+  "anchor_narrative__v2",
   "live_metrics_board",
   "data_visualization",
   "briefing_code_panel",
@@ -243,6 +254,7 @@ const NEWSCAST_LAYOUTS = new Set([
   "segment_break",
   "field_image_focus",
   "ending_socials",
+  "ending_socials__v2",
 ]);
 const BLACKSWAN_LAYOUTS = new Set([
   "droplet_intro",

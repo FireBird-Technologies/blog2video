@@ -180,11 +180,26 @@ function getSchema(
   layoutId: string | null
 ): LayoutPropSchema | undefined {
   if (!template || !layoutId) return undefined;
-  // Visual variants share their base layout's schema entry (same props, different
-  // rendering), so resolve to the base — otherwise selecting a variant in Studio
-  // would fall through to the bare typography-only fallback schema.
+  // Visual variants share their base layout's FIELDS, but may declare their own
+  // entry for per-variant typography defaults — and `save_source_defaults` writes
+  // to the EXACT layout id (see backend _update_meta_defaults). So the exact
+  // entry must win here; resolving straight to the base made Studio read the
+  // base's defaults back after saving a variant, reverting the inputs to the old
+  // values. Falling back to the base keeps variants without an entry working.
   const baseId = baseLayoutId(layoutId) || layoutId;
-  const explicit = template.layout_prop_schema?.[baseId];
+  const baseEntry = template.layout_prop_schema?.[baseId];
+  const variantEntry = layoutId !== baseId ? template.layout_prop_schema?.[layoutId] : undefined;
+  // A variant entry carries only `label` + `defaults` (no `fields`), so it is
+  // MERGED over the base rather than replacing it: base supplies the editable
+  // prop fields, the variant overrides the typography defaults and label.
+  const explicit =
+    variantEntry && baseEntry
+      ? {
+          ...baseEntry,
+          ...variantEntry,
+          defaults: { ...(baseEntry.defaults ?? {}), ...(variantEntry.defaults ?? {}) },
+        }
+      : (variantEntry ?? baseEntry);
   const tid = normalizeTemplateId(template.id);
   const perLayoutTypography =
     tid === "newscast"
@@ -1777,7 +1792,13 @@ export default function TemplateStudio() {
       setTemplates((prev) => prev.map((tpl) => {
         if (normalizeTemplateId(tpl.id) !== selectedTemplateId) return tpl;
         const s = tpl.layout_prop_schema ?? {};
-        const ls = s[selectedLayout];
+        // The backend writes defaults to the EXACT selected layout id (see
+        // _update_meta_defaults), so a variant gets its own entry. Seed from the
+        // base entry when the variant has none yet, otherwise this bails out and
+        // the freshly-saved sizes never reach the local cache — leaving Studio
+        // showing stale values until a full reload.
+        const baseId = baseLayoutId(selectedLayout) || selectedLayout;
+        const ls = s[selectedLayout] ?? s[baseId];
         if (!ls) return tpl;
         const defaults = { ...(ls.defaults ?? {}) };
         if (isResponsiveValue(titleValue)) defaults.titleFontSize = titleValue;

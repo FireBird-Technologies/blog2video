@@ -146,6 +146,29 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
     portrait:  { w: 0.751, h: 0.208 }, // ~811 × 400 on 1080×1920
   },
 
+  // ── Nightfall variants ──
+  // Variants need their OWN entry: normalizeLayoutId() strips the `__vN` suffix
+  // and falls back to the base, which is the wrong shape for all three below.
+
+  // "Aperture": the visual is masked into an OVAL — see RING_W / RING_H in
+  // CinematicTitleV2, where RING_W = round(RING_H * 1.45). Box matches that 1.45:1
+  // ratio (638 × 440 landscape, 667 × 460 portrait) and `circular` rounds the
+  // preview to an ellipse, since borderRadius:50% on a non-square box is exactly
+  // what the layout itself does. Keep these two in sync: widening the ring in the
+  // layout without updating this makes the adjust modal frame the wrong crop.
+  cinematic_title__v2: {
+    landscape: { w: 0.332, h: 0.407 }, // 638 × 440 on 1920×1080
+    portrait:  { w: 0.618, h: 0.240 }, // 667 × 460 on 1080×1920
+    circular: true,
+  },
+
+  // "Editorial Stack": tall plate bled off the top/left edges, diagonally cut.
+  // Landscape 56% width full height; portrait 52% height full width.
+  glass_narrative__v2: {
+    landscape: { w: 0.56, h: 1.0  },
+    portrait:  { w: 1.0,  h: 0.52 },
+  },
+
   // Landscape: image sits in the left panel and should stay landscape-oriented in adjust modal.
   // Portrait: split-screen card, image section is the top flex:1 half.
   glow_metric: {
@@ -475,10 +498,44 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
     portrait:  { w: 1.0, h: 1.0 },
   },
 
-  // flex "0 0 40%", full height landscape / no image panel in portrait → full canvas fallback
+  // Full-height image RAIL, a sibling of the text panel (it used to be a flex-40%
+  // inset INSIDE that panel, which resolved to only ~23% of the frame — 297px on
+  // 1280 — and was dropped entirely in portrait).
+  // Substantial image PANEL, a sibling of the text panel (it was once a flex-40%
+  // inset inside that panel — only ~23% of the frame — and later a thin rail).
+  // The bulletin rail is dropped whenever an image is present, so the frame
+  // splits between text and image instead of squeezing three columns.
+  //   landscape: 46% of the padded row, full stretch height  → 510 × 626
+  //   portrait:  stacked ABOVE the text, full width, 46% height → 662 × 505
   anchor_narrative: {
-    landscape: { w: 0.40, h: 1.0  }, // 512 × 720
-    portrait:  { w: 1.0,  h: 1.0  }, // no image panel in portrait — full canvas
+    landscape: { w: 0.398, h: 0.87  }, // 510 × 626
+    portrait:  { w: 0.920, h: 0.394 }, // 662 × 505
+  },
+
+  // ── Newscast variants ──
+  // Variants need their OWN entry: normalizeLayoutId() strips the `__vN` suffix
+  // and falls back to the base, which is the wrong shape for both below.
+  // ending_socials__v2 is intentionally absent — it renders no image (its base is
+  // in meta.json `layouts_without_image`).
+
+  // "Split Feed": the image is the FEED panel, not a full-bleed plate — 46% width
+  // full height in landscape, 34% height full width in portrait. (These are the
+  // WITH-image sizes; the slim no-image strip has no image to adjust.)
+  opening__v2: {
+    landscape: { w: 0.46, h: 1.0  },
+    portrait:  { w: 1.0,  h: 0.34 },
+  },
+
+  // "Studio Desk": the plate is technically full-bleed, but the copy band plus
+  // the composition's chrome cover the bottom ~60%, so the only part the viewer
+  // actually SEES is the strip above the band. The adjust modal must preview that
+  // strip, not the whole canvas — otherwise the subject gets framed into a region
+  // the band then hides.
+  //   landscape: 720 − (150 chrome + 40% band) = 282px → h 0.392
+  //   portrait: 1280 − (168 chrome + 44% band) = 549px → h 0.429
+  anchor_narrative__v2: {
+    landscape: { w: 1.0, h: 0.392 }, // 1280 × 282 visible
+    portrait:  { w: 1.0, h: 0.429 }, // 720 × 549 visible
   },
 
   briefing_code_panel: {

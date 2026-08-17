@@ -1,9 +1,14 @@
 /** Nightfall template layout types. */
 import type { SocialsMap } from "../SocialIcons";
 
+// The `__vN` members are visual variants (see backend/templates/nightfall/meta.json
+// `layout_variants`). A variant takes the SAME props as its base layout — switching
+// between them must never require a prop migration.
 export type NightfallLayoutType =
   | "cinematic_title"
+  | "cinematic_title__v2"
   | "glass_narrative"
+  | "glass_narrative__v2"
   | "glow_metric"
   | "glass_code"
   | "kinetic_insight"
@@ -13,7 +18,8 @@ export type NightfallLayoutType =
   | "glass_image"
   | "nightfall_data_visualization"
   | "nightfall_ticker"
-  | "ending_socials";
+  | "ending_socials"
+  | "ending_socials__v2";
 
 export interface NightfallLayoutProps {
   title: string;
