@@ -451,9 +451,9 @@ export async function compileModuleGraphEntry(
     };
     // Crafted/custom template code is compiled from an R2 bundle, so it cannot
     // import repo-local files — the resolver below only maps a few bare
-    // specifiers and returns {} for anything else. Swapping OffthreadVideo here
-    // is therefore the only way to reach that code, and it has the advantage of
-    // fixing already-published bundles without re-publishing them.
+    // specifiers and returns {} for anything else. Swapping both video
+    // primitives here reaches already-published bundles without re-publishing
+    // them, including crafted templates that used Video directly.
     //
     // Why swap it at all: in the Player, OffthreadVideo seeks a hidden <video>
     // and holds a delayRender() until the frame decodes, which freezes the
@@ -462,6 +462,7 @@ export async function compileModuleGraphEntry(
     const remotionRuntime = {
       ...Remotion,
       staticFile: resolveStaticFile,
+      Video: SmartVideo as unknown as typeof Remotion.Video,
       OffthreadVideo: SmartVideo as unknown as typeof Remotion.OffthreadVideo,
     } as typeof Remotion;
     const moduleCache = new Map<string, Record<string, unknown>>();

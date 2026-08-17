@@ -1575,6 +1575,10 @@ export interface StockClip {
   fps: number | null;
   author: string;
   page_url: string;
+  /** Provider keywords, used server-side for relevance ranking. Not rendered. */
+  tags?: string;
+  /** Provider title/alt text (Pexels: derived from the page URL slug). */
+  description?: string;
 }
 
 export const searchStockFootage = (
@@ -2248,5 +2252,62 @@ export const deleteSavedVoice = (id: number) =>
 
 export const generateEmbedToken = (projectId: number) =>
   api.post<{ embed_token: string; preview_url: string }>(`/embed/token/${projectId}`);
+
+/**
+ * Render one PNG per frame through Remotion (server-side) for slide export.
+ *
+ * The endpoint streams NDJSON — one line per slide as it finishes — so `onSlide`
+ * fires progressively and the UI can report which slide is rendering. Uses fetch
+ * rather than the axios instance because axios buffers the whole body in the
+ * browser, which would defeat the streaming.
+ */
+export const renderProjectStills = async (
+  projectId: number,
+  frames: number[],
+  onSlide: (slide: { index: number; total: number; image: string }) => void,
+  signal?: AbortSignal,
+): Promise<void> => {
+  const token = localStorage.getItem("b2v_token");
+  const res = await fetch(`${BACKEND_URL}/api/projects/${projectId}/render-stills`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ frames }),
+    signal,
+  });
+  if (!res.ok || !res.body) {
+    let detail = `Slide render failed (${res.status}).`;
+    try {
+      const j = await res.json();
+      if (j?.detail) detail = String(j.detail);
+    } catch { /* non-JSON error body */ }
+    throw new Error(detail);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    // Lines can split across chunks; keep the trailing partial in the buffer.
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      const msg = JSON.parse(line);
+      if (msg.error) throw new Error(msg.error);
+      onSlide(msg);
+    }
+  }
+  if (buffer.trim()) {
+    const msg = JSON.parse(buffer);
+    if (msg.error) throw new Error(msg.error);
+    onSlide(msg);
+  }
+};
 
 export default api;

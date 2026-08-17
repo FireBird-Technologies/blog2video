@@ -73,6 +73,10 @@ PAID_BOOK_COVER_LIMIT = 30
 # the same numbers but keep independent per-tool counters.
 FREE_TOOL_LIMIT = 10
 PAID_TOOL_LIMIT = 100
+# PDF -> Audio narration is a metered ElevenLabs synthesis, so it gets a single
+# taste on every plan rather than a plan-scaled allowance. Same number for FREE
+# and paid because upgrading genuinely does not lift this one.
+PDF_NARRATION_LIMIT = 1
 
 # Tool key -> (User counter attribute, FREE limit, paid limit). Single source of
 # truth for the quota gate in routers/free_tools.py and the delete-account cap.
@@ -81,7 +85,15 @@ TOOL_QUOTAS: dict[str, tuple[str, int, int]] = {
     "video_script": ("video_scripts_used", FREE_TOOL_LIMIT, PAID_TOOL_LIMIT),
     "youtube_description": ("youtube_descriptions_used", FREE_TOOL_LIMIT, PAID_TOOL_LIMIT),
     "thumbnail_text": ("thumbnail_texts_used", FREE_TOOL_LIMIT, PAID_TOOL_LIMIT),
+    "pdf_narration": ("pdf_narrations_used", PDF_NARRATION_LIMIT, PDF_NARRATION_LIMIT),
 }
+
+# Tools whose allowance is LIFETIME on *every* plan. The ordinary entries above
+# are lifetime only on FREE and refresh each billing period once paid; these
+# never refresh for anyone, so a new period (and a plan upgrade) grants nothing.
+# Both counter-mutating paths below — reset_tool_usage_period and
+# cap_tool_usage_to_free — must skip them. Keys must exist in TOOL_QUOTAS.
+LIFETIME_TOOLS: frozenset[str] = frozenset({"pdf_narration"})
 
 
 def _add_one_month(dt: datetime) -> datetime:
@@ -144,6 +156,8 @@ class User(Base):
     video_scripts_used: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     youtube_descriptions_used: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     thumbnail_texts_used: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    # Lifetime on every plan — see LIFETIME_TOOLS.
+    pdf_narrations_used: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
     # Remembered narration emotion/tone default, auto-selected in the create form next time.
     preferred_voice_emotion: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -354,8 +368,15 @@ class User(Base):
           3/30) must not become fresh free quota (3/5) on the way down.
         * otherwise — only cap counters that exceed the FREE limit; a user below it
           keeps their partial usage (e.g. 2/5 stays 2/5 across delete→reactivate).
+
+        LIFETIME_TOOLS are skipped: their FREE and paid limits are identical, so
+        there is no free-tier quota to claw back — and the ``was_paid`` branch
+        would actively *burn* an unused narration by setting the counter to the
+        limit on a downgrade the user may never have narrated under.
         """
-        for attr, free_limit, _paid_limit in TOOL_QUOTAS.values():
+        for tool, (attr, free_limit, _paid_limit) in TOOL_QUOTAS.items():
+            if tool in LIFETIME_TOOLS:
+                continue
             if was_paid or (getattr(self, attr, 0) or 0) > free_limit:
                 setattr(self, attr, free_limit)
 
@@ -368,10 +389,15 @@ class User(Base):
         Guarding inside this method (not at each call site) keeps that rule in one
         place, since it is invoked from ``reset_billing_period`` plus every
         plan-change/checkout reset in routers/billing.py.
+
+        LIFETIME_TOOLS are exempt on every plan — a per-account cap that a new
+        billing period silently refilled would not be a per-account cap.
         """
         if self.plan == PlanTier.FREE:
             return
-        for attr, *_ in TOOL_QUOTAS.values():
+        for tool, (attr, *_) in TOOL_QUOTAS.items():
+            if tool in LIFETIME_TOOLS:
+                continue
             setattr(self, attr, 0)
 
     def roll_video_period_if_due(self, db: Session) -> bool:

@@ -127,6 +127,8 @@ import { getTemplateConfig } from "../components/remotion/templateConfig";
 import { getImageBoxAspectRatio, normalizeLayoutId, isImageBoxCircular } from "../components/remotion/imageBoxConfig";
 import type { PlayerRef } from "@remotion/player";
 import { exportScenesPptx, exportScenesPdf, exportScenesPng } from "../utils/sceneSlideExport";
+import type { ExportProgress } from "../utils/sceneSlideExport";
+import { getCompositionSchedule } from "../components/remotion/scheduleRegistry";
 import { getSceneExportGlobalFrame, SCENE_EXPORT_TIMELINE_FRACTION } from "../utils/sceneFrameSchedule";
 
 type Tab = ProjectTabId;
@@ -258,6 +260,7 @@ const GENERATION_TIPS = [
   { tab: "Script", text: "Not happy with the narration? Regenerate the whole script from the Script tab with your own instructions." },
   { tab: "Images", text: "Add or remove images per scene from the Images tab — you can also drop in your own logo." },
   { tab: "Settings", text: "Switch the template, colors, and fonts anytime from the Settings tab." },
+  { tab: "Edit Scenes", text: "Want motion instead of a still? Add or swap stock footage for any scene from the Edit Scenes tab." },
   { tab: "Edit Scenes", text: "Edit a scene's narration and regenerate just that voiceover." },
   { tab: "Edit Scenes", text: "Reorder, duplicate, or delete scenes from the Edit Scenes tab to shape the final flow." },
 ] as const;
@@ -273,7 +276,7 @@ function GenerationTips() {
       setTimeout(() => {
         setIdx((i) => (i + 1) % GENERATION_TIPS.length);
         setVisible(true);
-      }, 250);
+      }, 450);
     }, 4500);
     return () => clearInterval(timer);
   }, []);
@@ -1143,6 +1146,12 @@ export default function ProjectView() {
   const [downloading, setDownloading] = useState(false);
   const [downloadingStudio, setDownloadingStudio] = useState(false);
   const [sceneExporting, setSceneExporting] = useState(false);
+  /** Which slide the backend is currently rendering, for the export progress UI. */
+  const [sceneExportProgress, setSceneExportProgress] = useState<{
+    completed: number;
+    total: number;
+    title?: string;
+  } | null>(null);
   const [showSlidesExportMenu, setShowSlidesExportMenu] = useState(false);
   const [slideExportWizard, setSlideExportWizard] = useState<SlideExportWizardState | null>(null);
   const previewPlayerRef = useRef<PlayerRef | null>(null);
@@ -2995,18 +3004,31 @@ export default function ProjectView() {
   const runSlideExportWithFractions = useCallback(
     async (format: "pptx" | "pdf" | "zip", fractions: number[]) => {
       if (!project) return;
-      const exportPlayer = modalPreviewPlayerRef.current ?? previewPlayerRef.current;
+      // Slides are rendered by Remotion on the backend, so this no longer depends
+      // on the preview player being mounted or parked on a particular frame — the
+      // wizard only supplies the per-scene frame fractions.
       setSceneExporting(true);
+      setSceneExportProgress({ completed: 0, total: project.scenes.length });
+      // Server-side rendering means the preview no longer seeks scene-by-scene on
+      // its own, which used to be the de-facto progress indicator. Drive the wizard
+      // to the scene being rendered so the user still watches it advance.
+      const onProgress: ExportProgress = ({ completed, total, title }) => {
+        setSceneExportProgress({ completed, total, title });
+        if (title !== undefined) {
+          setSlideExportWizard((prev) =>
+            prev && prev.stepIndex !== completed ? { ...prev, stepIndex: completed } : prev
+          );
+        }
+      };
       try {
-        const player = exportPlayer;
-        if (!player) { showError("Wait until the preview has finished loading, then try again."); return; }
-        if (format === "pptx") await exportScenesPptx(player, project, fractions);
-        else if (format === "pdf") await exportScenesPdf(player, project, fractions);
-        else await exportScenesPng(player, project, fractions);
+        if (format === "pptx") await exportScenesPptx(project, fractions, onProgress);
+        else if (format === "pdf") await exportScenesPdf(project, fractions, onProgress);
+        else await exportScenesPng(project, fractions, onProgress);
       } catch (err) {
         showError(getErrorMessage(err, "Could not export scenes."));
       } finally {
         setSceneExporting(false);
+        setSceneExportProgress(null);
         setSlideExportWizard(null);
       }
     },
@@ -4200,6 +4222,19 @@ export default function ProjectView() {
     0
   );
 
+  /**
+   * Length of the rendered VIDEO, in seconds.
+   *
+   * Not the same as `totalAudioDuration`: on TransitionSeries templates each
+   * transition overlaps its neighbours, so the composition is shorter than the sum
+   * of the scene durations. Chronicle project 1891 summed to 163s while the Player
+   * reported 2:31 (151s) — this is the number that matches the Player.
+   */
+  // Not memoised: this sits after an early return, so a hook here would break
+  // React's hook ordering. getCompositionSchedule is pure and cheap (arithmetic
+  // over the scene list), so recomputing per render is fine.
+  const totalVideoDuration = getCompositionSchedule(project).totalFrames / 30;
+
   // ─── Generation loader ────────────────────────────────────
   const templateRelayoutRunning =
     templateRelayoutJob?.status === "running" || templateRelayoutJob?.status === "queued";
@@ -5021,8 +5056,8 @@ export default function ProjectView() {
                     <div className={`flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between lg:gap-4${pendingRecordings.size > 0 ? " mt-2" : ""}`}>
                       <p className="text-[11px] text-gray-400 flex-shrink-0">
                         Preview · {project.scenes.length} scenes
-                        {totalAudioDuration > 0 &&
-                          ` · ${Math.round(totalAudioDuration)}s`}
+                        {totalVideoDuration > 0 &&
+                          ` · ${Math.round(totalVideoDuration)}s`}
                       </p>
                       {showInlineReviewPrompt && (
                         <ProjectReviewPrompt
@@ -5355,7 +5390,7 @@ export default function ProjectView() {
                     Make sure you have made all the changes/edits before rendering. Re-rendering of video later will result in deduction of a video count.
                   </span>
                   {playbackSpeedDraft !== 1 && (() => {
-                    const renderedSecs = totalAudioDuration / playbackSpeedDraft;
+                    const renderedSecs = totalVideoDuration / playbackSpeedDraft;
                     const mins = Math.floor(renderedSecs / 60);
                     const secs = Math.round(renderedSecs % 60);
                     const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
@@ -5456,7 +5491,7 @@ export default function ProjectView() {
               This will deduct your video count. Continue only if you have new changes in your video.
             </p>
             {playbackSpeedDraft !== 1 && (() => {
-              const renderedSecs = totalAudioDuration / playbackSpeedDraft;
+              const renderedSecs = totalVideoDuration / playbackSpeedDraft;
               const mins = Math.floor(renderedSecs / 60);
               const secs = Math.round(renderedSecs % 60);
               const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
@@ -6230,7 +6265,9 @@ export default function ProjectView() {
               type="button"
               className="absolute inset-0 bg-black/50 backdrop-blur-[2px] border-0 cursor-default"
               aria-label="Close"
-              onClick={() => { setSlideExportWizard(null); }}
+              // Closing mid-capture unmounts the player being captured.
+              disabled={sceneExporting}
+              onClick={() => { if (!sceneExporting) setSlideExportWizard(null); }}
             />
             <div
               className="relative w-full sm:max-w-2xl bg-white rounded-t-2xl sm:rounded-2xl shadow-xl border border-gray-100 p-5 sm:p-7"
@@ -6274,19 +6311,11 @@ export default function ProjectView() {
                         <p className="mt-1 text-[11px] text-gray-500">
                           Preview at <span className="font-medium text-gray-700">{pct}%</span> of this scene
                         </p>
-                        {sceneExporting && (
-                          <div className="mt-2 inline-flex items-center gap-2 rounded-md border border-purple-200 bg-purple-50 px-2.5 py-1.5">
-                            <div className="w-3.5 h-3.5 rounded-full border-2 border-purple-300 border-t-purple-700 animate-spin" />
-                            <span className="text-[11px] font-medium text-purple-800">
-                              Download in progress...
-                            </span>
-                          </div>
-                        )}
                       </div>
                     </div>
                     {/* Live Remotion player — pixel-perfect, no html2canvas needed.
                         Key includes frame so it remounts (and seeks) on every change. */}
-                    <div className="mt-4 rounded-xl overflow-hidden w-full aspect-video bg-black">
+                    <div className="relative mt-4 rounded-xl overflow-hidden w-full aspect-video bg-black">
                       <VideoPreview
                         key={`modal-preview-${idx}-${pct}`}
                         ref={modalPreviewPlayerRef}
@@ -6302,6 +6331,25 @@ export default function ProjectView() {
                         precompiledTemplateData={currentCustomTemplateCode}
                         pendingVoiceovers={pendingVoiceovers}
                       />
+                      {sceneExporting && (
+                        <div
+                          className="pointer-events-none absolute inset-x-0 bottom-0 z-50 flex items-center justify-center pb-3"
+                          aria-live="polite"
+                        >
+                          {/* A badge, not a cover: the wizard advances through the
+                              scenes as they render, so the slides must stay visible
+                              behind it (an opaque backdrop hid the whole export). */}
+                          <div className="flex items-center gap-2 rounded-lg bg-black/70 px-3 py-2 text-xs font-medium text-white shadow-lg">
+                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                            {sceneExportProgress
+                              ? `Rendering slide ${Math.min(
+                                  sceneExportProgress.completed + 1,
+                                  sceneExportProgress.total
+                                )} of ${sceneExportProgress.total}…`
+                              : "Rendering slides…"}
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <div className="mt-3">
                       <div className="flex items-center justify-between text-[11px] text-gray-500 mb-1">
@@ -6323,7 +6371,12 @@ export default function ProjectView() {
                             return { ...prev, fractions };
                           });
                         }}
-                        className="w-full h-2 accent-purple-600 cursor-pointer"
+                        // Changing this mid-export remounts the preview (the value
+                        // feeds both the VideoPreview key and the Player's
+                        // initialFrame key), which empties the very container the
+                        // capture is reading and yields blank slides.
+                        disabled={sceneExporting}
+                        className="w-full h-2 accent-purple-600 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                       />
                     </div>
                     <div className="mt-3 flex items-center justify-end gap-2">
@@ -6371,8 +6424,9 @@ export default function ProjectView() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => { setSlideExportWizard(null); }}
-                      className="mt-2 w-full py-2 text-xs font-medium text-gray-500 hover:text-gray-800"
+                      onClick={() => { if (!sceneExporting) setSlideExportWizard(null); }}
+                      disabled={sceneExporting}
+                      className="mt-2 w-full py-2 text-xs font-medium text-gray-500 hover:text-gray-800 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       Cancel
                     </button>

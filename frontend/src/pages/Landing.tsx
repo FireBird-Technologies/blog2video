@@ -3,12 +3,13 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { CredentialResponse } from "@react-oauth/google";
 import { googleLogin } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
+import { usePostLoginRedirect } from "../hooks/usePostLoginRedirect";
 import { useScrollReveal } from "../hooks/useScrollReveal";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import FullTemplateShowcase from "../components/FullTemplateShowcase";
 import CoverflowCarousel, { type CoverflowTemplate, type CoverflowOrientation } from "../components/CoverflowCarousel";
 import OrientationToggle from "../components/OrientationToggle";
-import { TEMPLATE_PREVIEWS, TEMPLATE_PREVIEWS_PORTRAIT, TEMPLATE_DESCRIPTIONS } from "../components/templatePreviewRegistry";
+import { TEMPLATE_PREVIEWS, TEMPLATE_PREVIEWS_PORTRAIT, TEMPLATE_DESCRIPTIONS, SHOWCASE_TEMPLATE_IDS } from "../components/templatePreviewRegistry";
 import YourOwnBrandPreview from "../components/templatePreviews/YourOwnBrandPreview";
 import YourOwnBrandPreviewPortrait from "../components/templatePreviews/portrait/YourOwnBrandPreviewPortrait";
 import DesignerTemplateRequestModal from "../components/DesignerTemplateRequestModal";
@@ -18,7 +19,7 @@ import CustomTemplateShowcase from "../components/CustomTemplateShowcase";
 import MCPConnectorShowcase from "../components/MCPConnectorShowcase";
 // import FeaturedUserTemplates from "../components/FeaturedUserTemplates";
 import GoogleAuthButton from "../components/public/GoogleAuthButton";
-import { detectInAppBrowser, isMobileDevice } from "../lib/inAppBrowser";
+import { detectInAppBrowser } from "../lib/inAppBrowser";
 import AccountDeletedModal from "../components/AccountDeletedModal";
 import LandingResourceSection from "../components/public/LandingResourceSection";
 import PlatformShowcaseSection from "../components/PlatformShowcaseSection";
@@ -90,15 +91,13 @@ async function fetchOgData(url: string): Promise<{ image?: string; title?: strin
   }
 }
 
-const CAROUSEL_TEMPLATES: CoverflowTemplate[] = Object.entries(TEMPLATE_PREVIEWS).map(
-  ([id, Preview]) => ({
-    id,
-    Preview,
-    PreviewPortrait: TEMPLATE_PREVIEWS_PORTRAIT[id],
-    name: TEMPLATE_DESCRIPTIONS[id]?.title ?? id,
-    subtitle: TEMPLATE_DESCRIPTIONS[id]?.subtitle ?? "",
-  })
-);
+const CAROUSEL_TEMPLATES: CoverflowTemplate[] = SHOWCASE_TEMPLATE_IDS.map((id) => ({
+  id,
+  Preview: TEMPLATE_PREVIEWS[id],
+  PreviewPortrait: TEMPLATE_PREVIEWS_PORTRAIT[id],
+  name: TEMPLATE_DESCRIPTIONS[id]?.title ?? id,
+  subtitle: TEMPLATE_DESCRIPTIONS[id]?.subtitle ?? "",
+}));
 
 const NAV_LINKS = [
   { href: "#demo", label: "Demo" },
@@ -462,6 +461,7 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
 export default function Landing() {
   const { login, user } = useAuth();
   const navigate = useNavigate();
+  const redirectAfterLogin = usePostLoginRedirect();
   const [searchParams] = useSearchParams();
   const { showError } = useErrorModal();
   const [demos, setDemos] = useState<DemoVideo[]>(INITIAL_DEMOS);
@@ -594,13 +594,6 @@ export default function Landing() {
   const googleBtnRef = useRef<HTMLDivElement>(null);
   const [signingIn, setSigningIn] = useState(false);
   const isInApp = detectInAppBrowser().isInApp;
-  // Phone/tablet by user agent, not by window size — a narrowed desktop window
-  // must not be told to switch to a computer.
-  const isMobile = isMobileDevice();
-  // The in-app browser's "open in Safari to sign in" card is both amber and more
-  // urgent (it blocks sign-in outright), so hide the memory advisory while it's
-  // up rather than stacking two warnings in the same hero.
-  const [inAppInstructionsVisible, setInAppInstructionsVisible] = useState(false);
 
   const handleGenerateClick = () => {
     // Inside an in-app browser the hidden Google (GIS) button silently no-ops,
@@ -634,34 +627,7 @@ export default function Landing() {
       localStorage.removeItem("b2v_ref_code");
       login(res.data.access_token, res.data.user);
 
-      const pendingDownload = localStorage.getItem("b2v_pending_template_download");
-      if (pendingDownload) {
-        localStorage.removeItem("b2v_pending_template_download");
-        let slug: string;
-        try { slug = JSON.parse(pendingDownload); } catch { slug = ""; }
-        if (slug) {
-          const { triggerTemplateDownload } = await import("./FreeTemplatesPage");
-          void triggerTemplateDownload(slug);
-          navigate(`/tools/free-remotion-templates?downloaded=${encodeURIComponent(slug)}`);
-          return;
-        }
-      }
-
-      if (localStorage.getItem("b2v_pending_mcp")) {
-        localStorage.removeItem("b2v_pending_mcp");
-        navigate("/mcp-connector");
-        return;
-      }
-
-      // Resume a collaboration invite the user opened before signing in.
-      const pendingInvite = localStorage.getItem("b2v_pending_invite");
-      if (pendingInvite) {
-        localStorage.removeItem("b2v_pending_invite");
-        navigate(`/invite/${pendingInvite}`, { replace: true });
-        return;
-      }
-
-      navigate("/dashboard");
+      await redirectAfterLogin();
     } catch (err: any) {
       if (err?.response?.status === 403 && err?.response?.data?.detail === "account_deleted") {
         setPendingCredential(response.credential);
@@ -681,18 +647,7 @@ export default function Landing() {
       login(res.data.access_token, res.data.user);
       setAccountDeletedOpen(false);
       setPendingCredential(null);
-      if (localStorage.getItem("b2v_pending_mcp")) {
-        localStorage.removeItem("b2v_pending_mcp");
-        navigate("/mcp-connector");
-        return;
-      }
-      const pendingInvite = localStorage.getItem("b2v_pending_invite");
-      if (pendingInvite) {
-        localStorage.removeItem("b2v_pending_invite");
-        navigate(`/invite/${pendingInvite}`, { replace: true });
-        return;
-      }
-      navigate("/dashboard");
+      await redirectAfterLogin();
     } catch (err: any) {
       showError(getErrorMessage(err, "Failed to reactivate account."));
     } finally {
@@ -836,7 +791,6 @@ export default function Landing() {
               onError={() => showError("Google sign-in failed")}
               text="continue_with"
               width="300"
-              onInstructionsVisibleChange={setInAppInstructionsVisible}
             />
           </div>
 
@@ -864,33 +818,6 @@ export default function Landing() {
             </button>
           </form>
           <p className="text-xs text-gray-400 mt-3">1 video free — no credit card required</p>
-          {/* Editing/preview hold a Remotion runtime that exceeds most phone
-              browsers' memory ceiling, so set expectations before sign-up. */}
-          {isMobile && !inAppInstructionsVisible && (
-            <div className="mx-auto mt-4 max-w-md rounded-xl border border-amber-200 bg-amber-50 p-3 flex items-start gap-2 text-left text-xs text-amber-900">
-              <svg
-                className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                viewBox="0 0 24 24"
-                aria-hidden
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 9v3.75m0 3.5h.007M10.34 3.94l-7.6 13.2A1.5 1.5 0 004.04 19.5h15.92a1.5 1.5 0 001.3-2.36l-7.6-13.2a1.5 1.5 0 00-2.6 0z"
-                />
-              </svg>
-              <p>
-                <span className="font-medium">Optimal experience on a computer.</span>{" "}
-                <span className="text-amber-800">
-                  Video rendering and previews are memory-heavy and may not play reliably
-                  on a phone.
-                </span>
-              </p>
-            </div>
-          )}
         </div>
       </section>
 
@@ -1284,7 +1211,7 @@ export default function Landing() {
               <p className="text-3xl font-bold text-gray-900">${LITE_MONTHLY_PRICE}<span className="text-sm font-normal text-gray-400">/mo</span></p>
               <p className="text-xs text-gray-400 mt-1">10 videos</p>
             </div>
-            <div className="glass-card px-4 sm:px-7 py-6 text-center col-span-2 sm:col-span-1">
+            <div className="glass-card px-4 sm:px-7 py-6 text-center">
               <p className="text-sm font-medium text-gray-900 mb-1">Standard</p>
               <p className="text-3xl font-bold text-gray-900">$27.99<span className="text-sm font-normal text-gray-400">/mo</span></p>
               <p className="text-xs text-gray-400 mt-1">30 videos</p>

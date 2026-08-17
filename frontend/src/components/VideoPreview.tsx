@@ -34,6 +34,7 @@ import { getPlaybackSpeed, getSceneDurationFrames } from "./remotion/playbackSpe
 import { computeChronicleVideoTotalFrames } from "./remotion/chronicle/ChronicleVideoComposition";
 import { computeSakuraVideoTotalFrames } from "./remotion/sakura/SakuraVideoComposition";
 import { planMagazineBoundaries, resolveMagazineLayout } from "./remotion/magazine/MagazineVideoComposition";
+import { getScheduleForScenes } from "./remotion/scheduleRegistry";
 import {
   compileComponentCode,
   compileModuleGraphEntry,
@@ -1709,7 +1710,12 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
       filename: string;
       asset_type: string;
     }, cacheBuster?: string) => {
-      const subdir = asset.asset_type === "image" ? "images" : "audio";
+      const subdir =
+        asset.asset_type === "image"
+          ? "images"
+          : asset.asset_type === "video"
+            ? "videos"
+            : "audio";
       const localPath = `/media/projects/${project.id}/${subdir}/${asset.filename}`;
       
       // In local dev, prefer R2 when available so projects still preview
@@ -1777,7 +1783,10 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
         // track lives in the AAC sibling `audio_variant_filename`. When a scene
         // unmutes, point playback at that sibling — otherwise unmuting is a no-op
         // because the silent file has no audio stream. Mirrors remotion.py.
-        let url = resolveUrl(asset);
+        // Version clip URLs by asset id. Besides refreshing replaced assets,
+        // this avoids reusing an older response cached from a non-CORS media
+        // request now that SmartVideo requires anonymous CORS for slide export.
+        let url = resolveUrl(asset, asset.id != null ? String(asset.id) : undefined);
         if (!muted && asset.audio_variant_filename) {
           const audioAsset = { ...asset, filename: asset.audio_variant_filename };
           if (asset.r2_url) {
@@ -1786,7 +1795,10 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
               asset.r2_url.slice(0, asset.r2_url.lastIndexOf("/") + 1) +
               asset.audio_variant_filename;
           }
-          url = resolveUrl(audioAsset);
+          url = resolveUrl(
+            audioAsset,
+            asset.id != null ? String(asset.id) : undefined,
+          );
         }
         sceneVideoMap[idx] = {
           url,
@@ -2074,40 +2086,6 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
 
   const totalDurationFrames = useMemo(() => {
     const FPS = 30;
-    // Chronicle uses TransitionSeries with scene-minimum enforcement and last-scene
-    // trimming, so its actual rendered length differs from a raw sum. Use its own
-    // calculator to keep the Player duration in sync (no brown tail at the end).
-    if (templateId === "chronicle") {
-      const chronicleScenes = scenes.map((s) => ({
-        id: s.id,
-        order: s.order,
-        title: s.title,
-        narration: s.narration,
-        layout: s.layout,
-        layoutProps: s.layoutProps,
-        durationSeconds: s.durationSeconds,
-        imageUrl: s.imageUrl,
-        voiceoverUrl: s.voiceoverUrl,
-      }));
-      return computeChronicleVideoTotalFrames(chronicleScenes, 1);
-    }
-    if (templateId === "sakura") {
-      // Sakura renders as a TransitionSeries whose neighbouring scenes OVERLAP by the
-      // transition length, so its real length is the raw per-scene sum minus the overlaps.
-      // Use its own calculator so the Player's declared length matches the render.
-      const sakuraScenes = scenes.map((s) => ({
-        id: s.id,
-        order: s.order,
-        title: s.title,
-        narration: s.narration,
-        layout: s.layout,
-        layoutProps: s.layoutProps,
-        durationSeconds: s.durationSeconds,
-        imageUrl: s.imageUrl,
-        voiceoverUrl: s.voiceoverUrl,
-      }));
-      return computeSakuraVideoTotalFrames(sakuraScenes);
-    }
     if (templateId === "magazine") {
       // Magazine renders as a black-bridged TransitionSeries whose real length is NOT the
       // raw per-scene sum (each boundary adds a net black bridge). Use the SAME planner the
@@ -2125,15 +2103,15 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
       );
       return Math.max(totalFrames, FPS * 5);
     }
-    // Use the derived `scenes` (which already applies pending-recording duration
-    // overrides and includes extra_hold_seconds) so the Player's total length
-    // reflects applied recordings before save — not just after loadProject.
-    const sceneFrames = scenes.map((s) =>
-      getSceneDurationFrames(Number(s.durationSeconds) || 5, FPS, 1),
+    // Every other template (TransitionSeries-aware or plain back-to-back) resolves
+    // through the shared schedule registry, so the Player's declared duration, the
+    // export wizard's preview frame and slide export all agree. Uses the derived
+    // `scenes` so pending recordings and muting are reflected before save.
+    return Math.max(
+      getScheduleForScenes(templateId, scenes as never, project).totalFrames,
+      FPS * 5,
     );
-    const sum = sceneFrames.reduce((a, b) => a + b, 0);
-    return Math.max(sum, FPS * 5);
-  }, [project.scenes, project.aspect_ratio, project.accent_color, templateId, scenes]);
+  }, [project, templateId, scenes]);
 
   // `initialFrame` (used by PPT/scene export) is computed from a raw frame sum,
   // but templates with TransitionSeries overlap (FJ Market Brief, Chronicle)
@@ -2232,6 +2210,10 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
       (src) =>
         new Promise<void>((resolve) => {
           const video = document.createElement("video");
+          // Keep the preload fetch mode identical to SmartVideo. If this first
+          // request is made without CORS, Chromium may cache that response and
+          // then reject the visible crossOrigin="anonymous" video using it.
+          video.crossOrigin = "anonymous";
           video.preload = "auto";
           video.muted = true;
           // Required for the buffer to actually fill on iOS Safari.
@@ -2453,6 +2435,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
           {...(holdOnLastFrame ? { moveToBeginningWhenEnded: false } : {})}
           {...(safeInitialFrame !== undefined ? { initialFrame: safeInitialFrame, clickToPlay: false, doubleClickToFullscreen: false } : {})}
           controls={!hideControls}
+          acknowledgeRemotionLicense
           style={{
             width: "100%",
             height: "100%",

@@ -17,11 +17,282 @@ function faq(primary: string, variant: string) {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "where-to-promote-your-writing-2026",
+    title: "Where to Promote Your Writing in 2026: Every Platform, Honestly Assessed",
+    description:
+      "Reddit bans you, LinkedIn buries you, X suppresses your links, and Substack wants a second job out of you. An honest look at every promotion channel left to writers in 2026 — and what to do about it.",
+    category: "Distribution",
+    heroImage: "/blog/blog-cover-where-to-promote-your-writing-2026.png",
+    heroImageAlt:
+      "Reddit bans you, LinkedIn buries you, X suppresses your links, and Substack wants a second job out of you. An honest look at every promotion channel left to writers in 2026 — and what to do about it.",
+    publishedAt: "2026-08-07",
+    readTime: "7 min read",
+    heroEyebrow: "Distribution",
+    heroTitle: "Writers in 2026 have almost nowhere left to post.",
+    heroDescription:
+      "Every platform that used to send readers to written work has either closed the door, drowned it in noise, or quietly penalised the outbound link. Here is the honest state of each one, from someone who has been banned from a few of them.",
+    primaryKeyword: "where to promote your blog",
+    keywordVariant: "where to promote your writing in 2026",
+    relatedPaths: [
+      "/blogs/bloghub-product-hunt-for-blogs",
+      "/blogs/best-ai-tools-for-substack-writers",
+      "/distribution-flywheel",
+      "/for-substack-writers",
+      "/blog-to-shorts",
+    ],
+    sections: [
+      {
+        heading: "Reddit: one link, and an eight-year account is gone",
+        paragraphs: [
+          "Reddit is still where the most engaged niche audiences on the internet live, which is exactly why it is guarded so tightly. Most subreddits treat any link to your own writing as self-promotion regardless of how much you have contributed elsewhere, and enforcement is not proportional.",
+          "I had an eight-year-old account permanently banned for posting a single article. Not a campaign, not a drip of links across ten subreddits — one article. There was no warning and no meaningful appeal. Account age and comment history counted for nothing.",
+          "If you want to use Reddit, treat it as a place to be useful in comments for months before you ever link out, and accept that you may still lose the account. It is not a distribution channel. It is a community you are a guest in.",
+        ],
+      },
+      {
+        heading: "LinkedIn: the door is open, the room is deafening",
+        paragraphs: [
+          "LinkedIn is the rare platform that has not declared war on outbound links, and reach for written posts is genuinely available. That is the good news, and it is real.",
+          "The problem is the noise floor. Everyone is posting now, a large share of it is AI-generated filler in the same three-word-line format, and the feed rewards familiarity — accounts readers already recognise. A small publisher starting from zero is competing for attention against people with five years of accumulated network effects.",
+          "It works, but only as a compounding play. Posting consistently for six months to build recognition is a legitimate strategy. Posting your link once and waiting is not.",
+        ],
+      },
+      {
+        heading: "X: link-suppressed, and charged with everything else",
+        paragraphs: [
+          "X still moves faster than anything else when something catches, but two things make it a poor fit for written work. First, posts carrying external links are demonstrably down-ranked — the platform wants you publishing on X, not routing readers off it. Second, the ambient environment is heavily political, and a piece about databases or design lands in a feed that is arguing about something else entirely.",
+          "The writers who do well on X are the ones who gave up and made X the destination: long-form posts native to the platform, with the blog as an afterthought. That is a real strategy. It is just not blog promotion.",
+        ],
+      },
+      {
+        heading: "Substack: good, if you treat Notes as a second job",
+        paragraphs: [
+          "Substack deserves credit — it is one of the few places built by people who actually like writing, and Notes is a genuine discovery engine rather than a token feature.",
+          "But it has LinkedIn's problem in a smaller room. Notes is an engagement-optimised feed, which means it surfaces what performs rather than what is good, and a publication starting at zero subscribers has very little to bootstrap with. The writers growing on Substack are, almost without exception, the ones spending real hours every week in Notes.",
+          "If you have those hours, Substack is the strongest option on this list. If you were hoping to spend your time writing instead, be honest with yourself about the trade.",
+        ],
+      },
+      {
+        heading: "Facebook: a few living rooms in a large graveyard",
+        paragraphs: [
+          "There are still Facebook groups with real activity, usually tightly-themed and moderated by someone who cares. If your topic has one, it can be worth more than any algorithmic feed, because the members are there deliberately.",
+          "Everything outside those groups is either dead or so noisy that it does not matter. And the same self-promotion rules apply as on Reddit — the difference is that the moderator is more likely to be a person you can actually talk to first.",
+        ],
+      },
+      {
+        heading: "Instagram and TikTok: video-only, and that is not negotiable",
+        paragraphs: [
+          "These are the two largest discovery surfaces left on the consumer internet, and neither one has any interest in a paragraph. Screenshots of text underperform, carousels of quotes plateau quickly, and links in bio convert at rates that make the effort hard to justify on their own.",
+          "The workaround is to stop trying to promote written work on them and start turning the writing itself into video. A post becomes a narrated ninety-second clip; the clip earns the reach that the paragraph never would. That is the entire reason Blog2Video exists — the writing is already done, and the video should not cost you a second production job.",
+        ],
+        ctaPath: "/blog-to-shorts",
+        ctaLabel: "Turn a post into shorts",
+      },
+      {
+        heading: "So where does that leave a writer?",
+        paragraphs: [
+          "Look at the pattern across all six. Every one of them is optimised for something other than sending readers to a piece of writing — engagement, session time, on-platform publishing, ad inventory. Written work is at best tolerated and at worst actively penalised. There is no platform whose actual job is helping a good publication get found.",
+          "That is the gap I started building BlogHub for. It works the way Product Hunt works, but for publications: you list your blog or newsletter, you get a profile page structured for both search engines and AI answer engines, you get real backlinks to the publication and to individual posts, and you rise through community upvotes instead of paid placement or accumulated follower counts.",
+          "The honest caveat is the same one I gave last time: BlogHub is in beta, and it is a discovery surface rather than a traffic firehose. But it is the only thing on this page whose incentives point the same direction as yours.",
+        ],
+        ctaPath: "https://bloghub.app",
+        ctaLabel: "List your publication on BlogHub",
+      },
+    ],
+    faq: [
+      {
+        question: "Where should I promote my blog in 2026?",
+        answer:
+          "There is no single answer, which is the problem. LinkedIn and Substack Notes both work but only as consistent, months-long habits. Reddit and Facebook work only inside communities where you have already contributed. Instagram and TikTok require converting the writing into video first. BlogHub is purpose-built for publication discovery and is worth listing on because it costs nothing but the listing.",
+      },
+      {
+        question: "Why did Reddit ban my account for posting my own article?",
+        answer:
+          "Most subreddits enforce a self-promotion ratio, and many treat any link to a domain you own as spam regardless of context or account history. Enforcement is often automated and permanent — an eight-year-old account with a long comment history can be removed for a single post. If you use Reddit, participate in comments for a long time before linking, and never rely on it as a primary channel.",
+      },
+      {
+        question: "Does X really suppress posts with external links?",
+        answer:
+          "Posts containing outbound links consistently see lower reach than native posts, because the platform's incentive is to keep readers on X. The practical workaround is to publish the substance natively on X and treat the blog as secondary — which works, but is a different strategy from promoting a blog.",
+      },
+      {
+        question: "How do I promote written content on Instagram and TikTok?",
+        answer:
+          "Convert it. Neither platform distributes text well, so the realistic path is turning a post into a short narrated video and letting that earn the reach. Tools like Blog2Video generate the video from the existing article, so you are not producing a second piece of content from scratch.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Where to Promote Your Writing in 2026: Every Platform, Honestly Assessed",
+        angle:
+          "Target writers searching for where to promote a blog, how to get readers for a new blog, and Reddit self-promotion bans — lead with the honest platform-by-platform assessment and close on BlogHub as the structural answer.",
+      },
+      {
+        channel: "substack",
+        title: "I got an 8-year-old Reddit account banned for posting one article",
+        angle:
+          "Open with the ban as a concrete story, widen into the pattern across every platform, and land on why discovery had to be built rather than found.",
+      },
+      {
+        channel: "video",
+        title: "Six platforms, six reasons your writing goes unread",
+        angle:
+          "One scene per platform with the verdict on screen, under two minutes, ending on the two things that actually work.",
+      },
+      {
+        channel: "twitter",
+        title: "The honest state of blog promotion in 2026",
+        angle:
+          "Thread with one platform per post and the verdict stated plainly — deliberately native to the platform, since links are down-ranked.",
+      },
+    ],
+  },
+  {
+    slug: "blog2video-august-2026-update",
+    title: "Blog2Video August 2026 Update: Lite Plan, Stock Footage, and Four More Things",
+    description:
+      "Five things just shipped on Blog2Video — a $19.99 Lite plan, stock footage inside your scenes, a rebuilt image adjust window, voiceover recording with the scene playing beside you, and much lower memory use on mobile.",
+    category: "Product Update",
+    heroImage: "/blog/blog-cover-blog2video-august-2026-update.png",
+    heroImageAlt:
+      "Five things just shipped on Blog2Video — a $19.99 Lite plan, stock footage inside your scenes, a rebuilt image adjust window, voiceover recording with the scene playing beside you, and much lower memory use on mobile.",
+    publishedAt: "2026-08-04",
+    readTime: "5 min read",
+    heroEyebrow: "Product Update - August 2026",
+    heroTitle: "Five new things just landed on Blog2Video.",
+    heroDescription:
+      "A new Lite plan at $19.99, stock footage you can drop straight into any scene, an image adjust window that finally shows the whole photo, voiceover recording in time with the visuals, and a far lighter experience on mobile.",
+    primaryKeyword: "blog2video update",
+    keywordVariant: "blog2video new features august 2026",
+    relatedPaths: [
+      "/pricing",
+      "/blog-to-video",
+      "/custom-branded-video-templates",
+      "/blogs/blog2video-just-shipped-june-2026",
+      "/blogs/whats-new-in-blog2video-six-features",
+    ],
+    sections: [
+      {
+        heading: "1. The new Lite plan — $19.99 a month",
+        paragraphs: [
+          "There has been a gap between the per-video option and the Standard plan for a while. Some people do not need thirty videos a month. They need a handful, reliably, without thinking about credits every time.",
+          "Lite fills that gap: 10 videos every month, 2 custom video templates built from your own site, and 300 AI edit credits for image regeneration and voiceover edits — for $19.99 a month, or $15.99 a month billed annually.",
+          "It is the easy way in. If you outgrow it, Standard and Pro are one click away, and nothing you have already made goes anywhere.",
+        ],
+        bullets: [
+          "10 videos per month",
+          "2 custom video templates in your own brand look",
+          "300 AI edit credits per month",
+          "$19.99/month, or $15.99/month billed annually ($191.88/year)",
+        ],
+        ctaPath: "/pricing",
+        ctaLabel: "See the Lite plan",
+      },
+      {
+        heading: "2. Stock footage, right inside your scenes",
+        paragraphs: [
+          "Until now a scene was type, charts, and images. Now it can hold real footage. Search for a clip from inside the editor and drop it straight into any scene.",
+          "The footage sits behind your text and motion the same way a generated image would — same framing controls, same scene timing, no round trip through an external editor and no re-render of anything else.",
+          "That is the difference between a video that illustrates your post and a video that has something behind it. A market breakdown gets a trading floor. A travel piece gets the road. Stock footage is wired into the built-in templates and the custom template flow, so it works wherever you already are.",
+        ],
+      },
+      {
+        heading: "3. The image adjust window got a lot better",
+        paragraphs: [
+          "The old crop window had one real problem: it showed you the crop, not the photo. You were adjusting a frame while half-blind to what sat outside it.",
+          "The rebuilt window shows the entire picture, with the crop region drawn on top of it. Drag it where you want it, zoom in, and save. What you see is what renders — and because framing is stored per orientation, a landscape adjustment does not fight with the portrait cut of the same asset.",
+          "Small change to describe. Large change if you have ever lost a subject's head to an automatic crop.",
+        ],
+      },
+      {
+        heading: "4. Record your voiceover with the scene playing beside you",
+        paragraphs: [
+          "Recording your own narration used to be a guessing game about timing. You would record, attach, play it back, discover you were two seconds long, and go again.",
+          "Now the scene plays right beside the recorder while you speak. You watch the visuals move and narrate to them, so every word lands in time with what is on screen. No stopwatch, no third-party editor, no re-cutting your own audio to fit.",
+          "It works per scene, so you can record one line in your own voice and leave the rest to the AI voice — or do the whole thing yourself.",
+        ],
+      },
+      {
+        heading: "5. Much less memory on mobile",
+        paragraphs: [
+          "The editor was heavy on phones. Previews would hold on to memory, and long sessions on a small screen ended in reloads.",
+          "We went through the mobile preview path and cut memory use substantially: lighter previews, far fewer reloads, and a much smoother ride on a small screen. If you have been editing on a laptop purely because the phone gave up halfway, it is worth trying again.",
+        ],
+      },
+      {
+        heading: "Try it",
+        paragraphs: [
+          "All five are live now at blog2video.app. Go make something great.",
+          "Made with love, by Firebird Technologies.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video",
+      },
+    ],
+    faq: [
+      {
+        question: "What do you get on the Lite plan?",
+        answer:
+          "10 videos per month, 2 custom video templates, and 300 AI edit credits per month, plus the standard subscription features. It costs $19.99 per month, or $15.99 per month if you pay annually ($191.88 per year).",
+      },
+      {
+        question: "How does stock footage work in a scene?",
+        answer:
+          "Search for a clip inside the editor and drop it into any scene. It behaves like any other scene asset — same framing controls and scene timing — so you do not need an external video editor or a full re-render of the project.",
+      },
+      {
+        question: "What changed in the image adjust window?",
+        answer:
+          "It now shows the entire image with the crop region drawn on top, instead of only the cropped area. You can drag the crop where you want it, zoom in, and save, and framing is stored per orientation so landscape and portrait versions do not overwrite each other.",
+      },
+      {
+        question: "Can I record my own voiceover while watching the scene?",
+        answer:
+          "Yes. The scene plays beside the recorder while you speak, so your narration lines up with the visuals. You can do this per scene and mix your own recordings with AI voiceover in the same video.",
+      },
+      {
+        question: "Is Blog2Video usable on a phone now?",
+        answer:
+          "It is much better. The mobile preview path was reworked to use significantly less memory, which means lighter previews and far fewer reloads during a long editing session on a small screen.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Blog2Video August 2026 Update: Lite Plan, Stock Footage, and Four More Things",
+        angle:
+          "Product update post covering the Lite plan, in-scene stock footage, the rebuilt image adjust window, voiceover recording with scene playback, and mobile memory improvements.",
+      },
+      {
+        channel: "video",
+        title: "Blog2Video latest updates August 2026",
+        angle:
+          "Ride through all five updates in order: the Lite pricing card, dropping a stock clip into a scene, dragging the crop across a full photo, recording a voiceover beside the playing scene, and the memory meter dropping on mobile.",
+      },
+      {
+        channel: "substack",
+        title: "What we shipped in August: a cheaper way in, and real footage in your scenes",
+        angle:
+          "Written-first creators get the practical read — what the Lite plan costs, and what changes when a scene can hold footage instead of only stills.",
+      },
+      {
+        channel: "twitter",
+        title: "Five new things on Blog2Video",
+        angle:
+          "One post per feature with a clip from the release video, closing on the Lite plan price as the entry point.",
+      },
+    ],
+  },
+  {
     slug: "best-ai-tools-for-substack-writers",
     title: "Top 5 AI Tools for Substack Writers in 2026",
     description:
       "Most \"best AI tools\" lists are just writing assistants with different logos. Substack's real bottlenecks in 2026 are video and discovery. Here are the five tools worth paying for, and what each one is actually for.",
     category: "Comparison",
+    heroImage: "/blog/blog-cover-best-ai-tools-for-substack-writers.png",
+    heroImageAlt:
+      "Most \"best AI tools\" lists are just writing assistants with different logos. Substack's real bottlenecks in 2026 are video and discovery. Here are the five tools worth paying for, and what each one is actually for.",
     publishedAt: "2026-07-31",
     readTime: "9 min read",
     heroEyebrow: "Tool stack",
@@ -181,6 +452,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Everyone can prompt ChatGPT to pump out paragraphs, so blogging is over. That is the 2026 consensus. Here is why authentic writing has never been more valuable, and the two products we are building on that conviction.",
     category: "Opinion",
+    heroImage: "/blog/blog-cover-blogging-is-not-dead-authentic-writing-2026.png",
+    heroImageAlt:
+      "Everyone can prompt ChatGPT to pump out paragraphs, so blogging is over. That is the 2026 consensus. Here is why authentic writing has never been more valuable, and the two products we are building on that conviction.",
     publishedAt: "2026-07-31",
     readTime: "6 min read",
     heroEyebrow: "Opinion",
@@ -5391,6 +5665,8 @@ export const blogPosts: BlogPost[] = [
     description:
       "Learn how to make a PDF into a video using 5 AI tools tested in 2026 — Synthesia, Visla, X-Pilot, Vidnoz, and Blog2Video. Step-by-step instructions included.",
     category: "How-to",
+    // Duplicate intent with the canonical PDF-to-video how-to; consolidate signals there.
+    canonicalPath: "/blogs/how-to-convert-pdf-into-video",
     heroImage: "/blog/blog-cover-how-to-make-a-pdf-into-a-video.png",
     heroImageAlt:
       "Step-by-step workflow turning a PDF into a publishable MP4 video.",
@@ -9320,7 +9596,7 @@ export const blogPosts: BlogPost[] = [
     heroDescription:
       "When the source document is dense, the best video does not try to show every page. It pulls out the main points, builds a clearer sequence, and turns the PDF into something people will actually watch.",
     primaryKeyword: "create summary videos from pdfs",
-    keywordVariant: "pdf to video",
+    keywordVariant: "pdf summary video",
     relatedPaths: ["/pdf-to-video", "/for-educators", "/article-to-video"],
     sections: [
       {
@@ -12010,6 +12286,8 @@ export const blogPosts: BlogPost[] = [
     description:
       "A step-by-step PDF-to-video workflow for turning whitepapers, lesson notes, research summaries, and guides into narrated explainer videos.",
     category: "How-to",
+    // Duplicate intent with the canonical PDF-to-video how-to; consolidate signals there.
+    canonicalPath: "/blogs/how-to-convert-pdf-into-video",
     heroImage: "/blog/blog-cover-pdf-educators.png",
     heroImageAlt:
       "Editorial illustration of a PDF document being converted into a structured narrated explainer video.",
@@ -14579,6 +14857,7 @@ export const blogPosts: BlogPost[] = [
     keywordVariant: "blog discovery platform",
     relatedPaths: [
       "/blog-to-video",
+      "/blogs/where-to-promote-your-writing-2026",
       "/blogs/whats-new-in-blog2video-six-features",
       "/blogs/ai-linkedin-carousel-generator-from-existing-content",
     ],

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, type CSSProperties } from "react";
 import { PUBLICATIONS, type Publication } from "./publicationData";
+import { brand } from "../brand/brand";
 
 // ─── Platform data ────────────────────────────────────────────────────────────
 
@@ -199,7 +200,13 @@ function useAutoSlide(count: number, holdMs: number, started: boolean) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function PlatformShowcaseSection() {
+/**
+ * `wordmark` overrides the ambient brand. Needed because PdfLanding is also
+ * reachable at /pdf2video on the blog2video domain, where the global brand
+ * resolves to blog2video and this heading would otherwise contradict the
+ * pdf2video nav sitting right above it.
+ */
+export default function PlatformShowcaseSection({ wordmark }: { wordmark?: string } = {}) {
   const sectionRef = useRef<HTMLDivElement>(null);
   const [started, setStarted]           = useState(false);
   const [tickerRunning, setTickerRunning] = useState(false);
@@ -227,7 +234,7 @@ export default function PlatformShowcaseSection() {
       {/* ── Header ── */}
       <div className="max-w-5xl mx-auto px-6 mb-8 text-center">
         <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-2">
-          Top writers already use blog2video
+          Top writers already use {wordmark ?? brand.wordmark}
         </h2>
         <p className="text-sm text-gray-500 max-w-xl mx-auto">
           From Substack to Medium — writers across every major platform are turning their articles into videos automatically.

@@ -215,6 +215,8 @@ interface Props {
   demoMode?: BlogUrlFormDemoMode;
   /** Pre-select a genre filter when step 2 opens (e.g. GENRE_CRAFTED to show Designer Templates). */
   initialGenre?: string;
+  /** Open the form on a specific source tab. Used by document landing pages that deep-link to upload. */
+  initialMode?: "url" | "upload" | "bulk";
 }
 
 const MAX_UPLOAD_FILES = 5;
@@ -749,7 +751,7 @@ function getFileExtension(s: string): string | null {
   }
 }
 
-export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChange, loading, asModal, onClose, onDismissFlow, demoMode, initialGenre }: Props) {
+export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChange, loading, asModal, onClose, onDismissFlow, demoMode, initialGenre, initialMode }: Props) {
   const { user } = useAuth();
   const { showError } = useErrorModal();
   const navigate = useNavigate();
@@ -766,8 +768,13 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
     if (demoMode?.step) setStep(demoMode.step);
   }, [demoMode?.step]);
 
-  // Step 1 — input
-  const [mode, setMode] = useState<"url" | "upload" | "bulk">("url");
+  // Step 1 — input. Dashboard remounts this form on every open (blogFormMountKey),
+  // so seeding state from the prop is enough — no effect needed to resync.
+  // "bulk" is ignored unless the bulk tab is actually rendered, otherwise the
+  // form would open on a panel with no way back to it.
+  const [mode, setMode] = useState<"url" | "upload" | "bulk">(
+    initialMode && (initialMode !== "bulk" || onSubmitBulk) ? initialMode : "url"
+  );
   const [urls, setUrls] = useState<string[]>([""]);
   const [name, setName] = useState("");
   const [docFiles, setDocFiles] = useState<File[]>([]);

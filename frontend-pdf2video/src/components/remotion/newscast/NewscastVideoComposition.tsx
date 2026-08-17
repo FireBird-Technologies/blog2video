@@ -1,0 +1,475 @@
+import React from "react";
+import "../../../fonts/newspaper-defaults";
+import { AbsoluteFill, Audio, Sequence, useCurrentFrame, useVideoConfig } from "remotion";
+import { NEWSCAST_LAYOUT_REGISTRY } from "./layouts";
+import type { NewscastLayoutProps, NewscastLayoutType } from "./layouts/types";
+import { LogoOverlay } from "../LogoOverlay";
+import { BackgroundMusic } from "../BackgroundMusic";
+import { CaptionTrack } from "../CaptionTrack";
+import { NewsCastBackground } from "./NewsCastBackground";
+import { NewsCastChrome } from "./NewsCastChrome";
+import { NewscastSceneZTransition } from "./NewscastSceneZTransition";
+import { NEWSCAST_BACKGROUND_VARIANT } from "./backgroundVariant";
+import { SceneDurationInFramesContext } from "../SceneDurationContext";
+import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
+
+const LEGACY_TO_NEWCAST_LAYOUT_ID: Record<string, NewscastLayoutType> = {
+  opening: "opening",
+  anchor_narrative: "anchor_narrative",
+  live_metrics_board: "live_metrics_board",
+  data_visualization: "data_visualization",
+  briefing_code_panel: "briefing_code_panel",
+  headline_insight: "headline_insight",
+  story_stack: "story_stack",
+  side_by_side_brief: "side_by_side_brief",
+  segment_break: "segment_break",
+  field_image_focus: "field_image_focus",
+  cinematic_title: "opening",
+  glass_narrative: "anchor_narrative",
+  glow_metric: "live_metrics_board",
+  glass_code: "briefing_code_panel",
+  kinetic_insight: "headline_insight",
+  kinetix_insight: "headline_insight",
+  glass_stack: "story_stack",
+  split_glass: "side_by_side_brief",
+  chapter_break: "segment_break",
+  glass_image: "field_image_focus",
+  newscast_cinematic_title: "opening",
+  newscast_glass_narrative: "anchor_narrative",
+  newscast_glow_metric: "live_metrics_board",
+  newscast_glass_code: "briefing_code_panel",
+  newscast_kinetic_insight: "headline_insight",
+  newscast_glass_stack: "story_stack",
+  newscast_split_glass: "side_by_side_brief",
+  newscast_chapter_break: "segment_break",
+  newscast_glass_image: "field_image_focus",
+  ending_socials: "ending_socials",
+};
+
+const normalizeNewscastLayoutId = (layout: string): NewscastLayoutType =>
+  LEGACY_TO_NEWCAST_LAYOUT_ID[layout] ?? "anchor_narrative";
+
+const NEWCAST_LAYOUT_TO_LEGACY_KEY: Record<NewscastLayoutType, string> = {
+  opening: "cinematic_title",
+  anchor_narrative: "glass_narrative",
+  live_metrics_board: "glow_metric",
+  data_visualization: "data_visualization",
+  briefing_code_panel: "glass_code",
+  headline_insight: "kinetic_insight",
+  story_stack: "glass_stack",
+  side_by_side_brief: "split_glass",
+  segment_break: "chapter_break",
+  field_image_focus: "glass_image",
+  ending_socials: "ending_socials",
+};
+
+const toLegacyNewscastLayoutId = (layout: NewscastLayoutType): string =>
+  NEWCAST_LAYOUT_TO_LEGACY_KEY[layout];
+
+const normalizeNewscastDataVizProps = (
+  lp: Partial<NewscastLayoutProps>,
+): Partial<NewscastLayoutProps> => {
+  const out: Record<string, unknown> = { ...lp };
+
+  if (typeof out.chartType === "string") {
+    out.chartType = String(out.chartType).trim().toLowerCase();
+  }
+
+  const lineChart = out.lineChart as
+    | {
+        labels?: unknown[];
+        datasets?: Array<{ label?: unknown; values?: unknown[] | string }>;
+      }
+    | undefined;
+  if (lineChart && typeof lineChart === "object") {
+    if (!out.lineChartLabels && Array.isArray(lineChart.labels)) {
+      out.lineChartLabels = lineChart.labels.map((v) => String(v ?? ""));
+    }
+    if (!out.lineChartDatasets && Array.isArray(lineChart.datasets)) {
+      out.lineChartDatasets = lineChart.datasets.map((dataset) => ({
+        label: String(dataset?.label ?? ""),
+        valuesStr: Array.isArray(dataset?.values)
+          ? dataset.values.map((v) => String(v ?? "")).join(",")
+          : String(dataset?.values ?? ""),
+      }));
+    }
+  }
+
+  const barChart = out.barChart as { labels?: unknown[]; values?: unknown[] } | undefined;
+  if (!out.barChartRows && barChart && typeof barChart === "object") {
+    const labels = Array.isArray(barChart.labels) ? barChart.labels : [];
+    const values = Array.isArray(barChart.values) ? barChart.values : [];
+    out.barChartRows = labels.map((label, index) => ({
+      label: String(label ?? ""),
+      value: String(values[index] ?? ""),
+    }));
+  }
+
+  const histogram = out.histogram as { labels?: unknown[]; values?: unknown[] } | undefined;
+  if (!out.histogramRows && histogram && typeof histogram === "object") {
+    const labels = Array.isArray(histogram.labels) ? histogram.labels : [];
+    const values = Array.isArray(histogram.values) ? histogram.values : [];
+    out.histogramRows = labels.map((label, index) => ({
+      label: String(label ?? ""),
+      value: String(values[index] ?? ""),
+    }));
+  }
+
+  const legacyChart = out.chart as
+    | {
+        type?: string;
+        labels?: unknown[];
+        datasets?: Array<{ label?: unknown; values?: unknown[] | string }>;
+        rows?: Array<{ label?: unknown; value?: unknown }>;
+      }
+    | undefined;
+  if (legacyChart && typeof legacyChart === "object") {
+    if (!out.chartType && legacyChart.type) out.chartType = String(legacyChart.type);
+    if (!out.lineChartLabels && Array.isArray(legacyChart.labels)) {
+      out.lineChartLabels = legacyChart.labels.map((v) => String(v ?? ""));
+    }
+    if (!out.lineChartDatasets && Array.isArray(legacyChart.datasets)) {
+      out.lineChartDatasets = legacyChart.datasets.map((dataset) => ({
+        label: String(dataset?.label ?? ""),
+        valuesStr: Array.isArray(dataset?.values)
+          ? dataset.values.map((v) => String(v ?? "")).join(",")
+          : String(dataset?.values ?? ""),
+      }));
+    }
+    if (!out.barChartRows && Array.isArray(legacyChart.rows)) {
+      out.barChartRows = legacyChart.rows.map((row) => ({
+        label: String(row?.label ?? ""),
+        value: String(row?.value ?? ""),
+      }));
+    }
+  }
+
+  const legacyTable = out.table as
+    | { headers?: unknown[]; rows?: unknown[][] }
+    | undefined;
+  if (!out.chartTable && legacyTable && typeof legacyTable === "object") {
+    out.chartTable = {
+      headers: Array.isArray(legacyTable.headers)
+        ? legacyTable.headers.map((h) => String(h ?? ""))
+        : [],
+      rows: Array.isArray(legacyTable.rows)
+        ? legacyTable.rows.map((row) =>
+            Array.isArray(row) ? row.map((cell) => (cell == null ? "" : (cell as string | number))) : [],
+          )
+        : [],
+    };
+  }
+
+  return out as Partial<NewscastLayoutProps>;
+};
+
+/** Per-sequence body: wires global `rotationFrame` for continuous background motion across scenes. */
+const NewscastSequenceInner: React.FC<{
+  startFrame: number;
+  durationInFrames: number;
+  sceneIndex: number;
+  sceneCount: number;
+  isHero: boolean;
+  layoutType: string;
+  layoutProps: NewscastLayoutProps;
+  LayoutComponent: React.ComponentType<NewscastLayoutProps>;
+  voiceoverUrl?: string;
+  playbackSpeed: number;
+  captionsEnabled?: boolean;
+  captionText?: string;
+  captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: number;
+  captionOffset?: number;
+  aspectRatio?: string;
+  fontFamily?: string;
+  speechDurationFrames?: number;
+}> = ({
+  startFrame,
+  durationInFrames,
+  sceneIndex,
+  sceneCount,
+  isHero,
+  layoutType,
+  layoutProps,
+  LayoutComponent,
+  voiceoverUrl,
+  playbackSpeed,
+  captionsEnabled,
+  captionText,
+  captionPosition,
+  captionFontFamily,
+  captionFontSize,
+  captionOffset,
+  aspectRatio,
+  fontFamily,
+  speechDurationFrames,
+}) => {
+  const localFrame = useCurrentFrame();
+  const { width, height } = useVideoConfig();
+  const portraitScale = 1;
+  const portraitTranslateY = height > width ? -((portraitScale - 1) * height * 0.5) : 0;
+  const rotationFrame = startFrame + localFrame;
+
+  return (
+    <AbsoluteFill>
+      <NewscastSceneZTransition
+        durationInFrames={durationInFrames}
+        sceneIndex={sceneIndex}
+        sceneCount={sceneCount}
+        layoutType={layoutType}
+      >
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            transform: `translateY(${portraitTranslateY}px)`,
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              transform: `scale(${portraitScale})`,
+              transformOrigin: "50% 50%",
+            }}
+          >
+            <div>
+              <NewsCastBackground
+                variant={NEWSCAST_BACKGROUND_VARIANT}
+                globeOpacity={0.44}
+                rotationFrame={rotationFrame}
+                sceneFrame={localFrame}
+                sceneDurationInFrames={durationInFrames}
+                sceneLayoutType={layoutType}
+                solidBackground
+              />
+            </div>
+            {!isHero ? (
+              <NewsCastChrome
+                tickerItems={layoutProps.tickerItems}
+                lowerThirdTag={layoutProps.lowerThirdTag}
+                lowerThirdHeadline={layoutProps.lowerThirdHeadline}
+                lowerThirdSub={layoutProps.lowerThirdSub}
+                showLowerThird={layoutType !== "data_visualization"}
+                aspectRatio={layoutProps.aspectRatio}
+                accentColor={layoutProps.accentColor}
+                textColor={layoutProps.textColor}
+                descriptionFontSize={layoutProps.descriptionFontSize}
+                fontFamily={layoutProps.fontFamily}
+              />
+            ) : null}
+            <SceneDurationInFramesContext.Provider value={durationInFrames}>
+              <LayoutComponent {...layoutProps} />
+            </SceneDurationInFramesContext.Provider>
+          </div>
+        </div>
+      </NewscastSceneZTransition>
+      {voiceoverUrl ? <Audio src={voiceoverUrl} playbackRate={playbackSpeed} /> : null}
+      {captionsEnabled && captionText && (
+        <CaptionTrack
+          text={captionText}
+          position={captionPosition || "bottom_center"}
+          aspectRatio={aspectRatio || "landscape"}
+          fontFamily={captionFontFamily || fontFamily || undefined}
+          fontSize={captionFontSize || undefined}
+          offset={captionOffset ?? 0}
+          speechDurationFrames={speechDurationFrames}
+        />
+      )}
+    </AbsoluteFill>
+  );
+};
+
+export interface NewscastSceneInput {
+  id: number;
+  order: number;
+  title: string;
+  narration: string;
+  /** Spoken narration text — used for captions (may differ from on-screen narration). */
+  narrationText?: string;
+  layout: string;
+  layoutProps: Record<string, unknown>;
+  /** When present (e.g. hybrid descriptors), typography may live here instead of layoutProps. */
+  layoutConfig?: { titleFontSize?: number; descriptionFontSize?: number };
+  durationSeconds: number;
+  /** Spoken-audio length in seconds — for caption timing. */
+  speechDurationSeconds?: number;
+  imageUrl?: string;
+  voiceoverUrl?: string;
+  /** Stock-footage clip URL. Mutually exclusive with `imageUrl`. */
+  videoUrl?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  /** Normalised clip length; converted to frames for <Loop>. */
+  videoDurationSeconds?: number;
+  /** Start offset into the clip, in seconds (the adjust-modal trim). */
+  videoStartSeconds?: number;
+}
+
+export interface NewscastVideoCompositionProps {
+  scenes: NewscastSceneInput[];
+  accentColor: string;
+  bgColor: string;
+  textColor: string;
+  logo?: string | null;
+  logoPosition?: string;
+  logoOpacity?: number;
+  logoSize?: number;
+  bgmUrl?: string | null;
+  bgmVolume?: number;
+  aspectRatio?: string;
+  fontFamily?: string;
+  playbackSpeed?: number;
+  captionsEnabled?: boolean;
+  captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: number;
+  captionOffset?: number;
+}
+
+export const NewscastVideoComposition: React.FC<NewscastVideoCompositionProps> = ({
+  scenes,
+  accentColor,
+  bgColor,
+  textColor,
+  logo,
+  logoPosition,
+  logoOpacity,
+  logoSize,
+  bgmUrl,
+  bgmVolume,
+  aspectRatio,
+  fontFamily,
+  playbackSpeed,
+  captionsEnabled,
+  captionPosition,
+  captionFontFamily,
+  captionFontSize,
+  captionOffset,
+}) => {
+  const FPS = 30;
+  const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
+  const sceneFrameOffsets = React.useMemo(() => {
+    const offsets = new Array<number>(scenes.length);
+    let acc = 0;
+    for (let i = 0; i < scenes.length; i += 1) {
+      offsets[i] = acc;
+      acc += getSceneDurationFrames(scenes[i].durationSeconds, FPS, resolvedPlaybackSpeed);
+    }
+    return offsets;
+  }, [scenes, resolvedPlaybackSpeed]);
+
+  return (
+    <AbsoluteFill style={{ backgroundColor: bgColor || "#FAFAF8", fontFamily }}>
+      {scenes.map((scene, index) => {
+        const normalizedLayout = normalizeNewscastLayoutId(scene.layout);
+        const legacyLayout = toLegacyNewscastLayoutId(normalizedLayout);
+        const startFrame = sceneFrameOffsets[index] ?? 0;
+
+        const durationFrames = getSceneDurationFrames(
+          scene.durationSeconds,
+          FPS,
+          resolvedPlaybackSpeed,
+        );
+
+        const LayoutComponent =
+          NEWSCAST_LAYOUT_REGISTRY[normalizedLayout as NewscastLayoutType] ||
+          NEWSCAST_LAYOUT_REGISTRY.anchor_narrative;
+
+        const base = (scene.layoutProps ?? {}) as Partial<NewscastLayoutProps>;
+        const normalizedBase =
+          normalizedLayout === "data_visualization"
+            ? normalizeNewscastDataVizProps(base)
+            : base;
+        const lc = scene.layoutConfig;
+        const lp = scene.layoutProps as Record<string, unknown> | undefined;
+        const focusX = Number(lp?.imageFocusX ?? 50);
+        const focusY = Number(lp?.imageFocusY ?? 50);
+        const imageZoom = Math.max(0.1, Number(lp?.imageZoom ?? 1));
+        const imageObjectPosition = `${Math.max(0, Math.min(100, focusX))}% ${Math.max(0, Math.min(100, focusY))}%`;
+        const layoutProps: NewscastLayoutProps = {
+          ...normalizedBase,
+          titleFontSize: normalizedBase.titleFontSize ?? lc?.titleFontSize,
+          descriptionFontSize: normalizedBase.descriptionFontSize ?? lc?.descriptionFontSize,
+          title: scene.title,
+          narration: scene.narration,
+          imageUrl:
+            scene.imageUrl ??
+            (typeof lp?.imageUrl === "string" ? lp.imageUrl : undefined),
+          videoUrl: scene.videoUrl,
+          videoMuted: scene.videoMuted ?? true,
+          videoVolume: scene.videoVolume ?? 0.35,
+          // Clip length in frames for <Loop>; undefined = play once.
+          videoDurationInFrames: scene.videoDurationSeconds
+            ? Math.max(1, Math.round(scene.videoDurationSeconds * FPS))
+            : undefined,
+          videoStartInFrames: scene.videoStartSeconds
+            ? Math.max(0, Math.round(scene.videoStartSeconds * FPS))
+            : undefined,
+          imageObjectPosition,
+          imageZoom,
+          accentColor: accentColor || "#FF3B30",
+          bgColor: bgColor || "#FAFAF8",
+          textColor: textColor || "#111111",
+          aspectRatio: (aspectRatio as "landscape" | "portrait") || "landscape",
+          fontFamily,
+          globeRotationFrameOffset: startFrame,
+        };
+
+        const layoutType = legacyLayout;
+        const isHero = normalizedLayout === "opening";
+
+        return (
+          <Sequence
+            key={`${scene.id}-${index}`}
+            from={startFrame}
+            durationInFrames={durationFrames}
+            name={scene.title}
+          >
+            <NewscastSequenceInner
+              startFrame={startFrame}
+              durationInFrames={durationFrames}
+              sceneIndex={index}
+              sceneCount={scenes.length}
+              isHero={isHero}
+              layoutType={layoutType}
+              layoutProps={layoutProps}
+              LayoutComponent={LayoutComponent}
+              voiceoverUrl={scene.voiceoverUrl}
+              playbackSpeed={resolvedPlaybackSpeed}
+              captionsEnabled={captionsEnabled}
+              captionText={scene.narrationText || scene.narration}
+              captionPosition={captionPosition}
+              captionFontFamily={captionFontFamily}
+              captionFontSize={captionFontSize}
+              captionOffset={captionOffset}
+              aspectRatio={aspectRatio}
+              fontFamily={fontFamily}
+              speechDurationFrames={
+                scene.speechDurationSeconds
+                  ? getSceneDurationFrames(scene.speechDurationSeconds, FPS, resolvedPlaybackSpeed)
+                  : undefined
+              }
+            />
+          </Sequence>
+        );
+      })}
+
+      {logo && (
+        <LogoOverlay
+          src={logo}
+          position={logoPosition || "bottom_right"}
+          maxOpacity={logoOpacity ?? 0.9}
+          size={logoSize ?? 100}
+          aspectRatio={aspectRatio || "landscape"}
+        />
+      )}
+    
+      {bgmUrl && (
+        <BackgroundMusic src={bgmUrl} volume={bgmVolume ?? 0.10} scenes={scenes} />
+      )}
+    </AbsoluteFill>
+  );
+};
+

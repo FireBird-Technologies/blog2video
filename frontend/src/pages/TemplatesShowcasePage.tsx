@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { TEMPLATE_PREVIEWS, TEMPLATE_PREVIEWS_PORTRAIT, TEMPLATE_DESCRIPTIONS } from "../components/templatePreviewRegistry";
+import { TEMPLATE_PREVIEWS, TEMPLATE_PREVIEWS_PORTRAIT, TEMPLATE_DESCRIPTIONS, SHOWCASE_TEMPLATE_IDS } from "../components/templatePreviewRegistry";
 import CoverflowCarousel, { type CoverflowTemplate, type CoverflowOrientation } from "../components/CoverflowCarousel";
 import OrientationToggle from "../components/OrientationToggle";
 import YourOwnBrandPreview from "../components/templatePreviews/YourOwnBrandPreview";
@@ -10,15 +10,13 @@ import { useAuth } from "../hooks/useAuth";
 import PublicFooter from "../components/public/PublicFooter";
 import PublicHeader from "../components/public/PublicHeader";
 
-const CAROUSEL_TEMPLATES: CoverflowTemplate[] = Object.entries(TEMPLATE_PREVIEWS).map(
-  ([id, Preview]) => ({
-    id,
-    Preview,
-    PreviewPortrait: TEMPLATE_PREVIEWS_PORTRAIT[id],
-    name: TEMPLATE_DESCRIPTIONS[id]?.title ?? id,
-    subtitle: TEMPLATE_DESCRIPTIONS[id]?.subtitle ?? "",
-  })
-);
+const CAROUSEL_TEMPLATES: CoverflowTemplate[] = SHOWCASE_TEMPLATE_IDS.map((id) => ({
+  id,
+  Preview: TEMPLATE_PREVIEWS[id],
+  PreviewPortrait: TEMPLATE_PREVIEWS_PORTRAIT[id],
+  name: TEMPLATE_DESCRIPTIONS[id]?.title ?? id,
+  subtitle: TEMPLATE_DESCRIPTIONS[id]?.subtitle ?? "",
+}));
 
 export default function TemplatesShowcasePage() {
   const { user } = useAuth();

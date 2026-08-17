@@ -1,0 +1,178 @@
+/* Self-hosted UI fonts.
+ *
+ * These were five render-blocking <link>s to fonts.googleapis.com in
+ * index.html, which caused a visible flash: the Google CSS uses
+ * `font-display: swap`, so the browser painted the prerendered markup in
+ * fallback Times and swapped to the real face ~500ms later. Bundling them here
+ * means they are same-origin, versioned, and fetched alongside this stylesheet
+ * instead of after two extra cross-origin round trips.
+ *
+ * Only the weights actually used are imported — adding a weight costs a real
+ * network request, so keep this list tight.
+ */
+@import "@fontsource/plus-jakarta-sans/400.css";
+@import "@fontsource/plus-jakarta-sans/500.css";
+@import "@fontsource/plus-jakarta-sans/600.css";
+@import "@fontsource/plus-jakarta-sans/700.css";
+@import "@fontsource/plus-jakarta-sans/800.css";
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
+@import "@fontsource/fira-code/400.css";
+@import "@fontsource/fira-code/500.css";
+@import "@fontsource/patrick-hand/400.css";
+@import "@fontsource/roboto-slab/400.css";
+@import "@fontsource/roboto-slab/700.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* Reveals #root, which index.html hides inline to avoid a flash of unstyled
+     prerendered markup.
+
+     Gated on .fonts-ready (set by the inline script in index.html) rather than
+     applying as soon as this stylesheet loads. The Google Fonts links use
+     `display=swap`, so the browser paints fallback Times immediately and swaps
+     when the webfont arrives ~500ms later — revealing on CSS alone therefore
+     still flashes serif text. Waiting for the font removes that.
+
+     index.html's <noscript> covers the JS-disabled case; the inline script's
+     timeout covers a font CDN that never responds. */
+  html.fonts-ready #root {
+    visibility: visible;
+  }
+
+  body {
+    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  }
+
+  /* Guard against horizontal overflow inflating the layout viewport on small
+     screens. Without this, any element wider than the viewport widens the page,
+     which pushes position:fixed overlays (modals) off-center to the right.
+     `clip` (not `hidden`) avoids creating a scroll container, so it doesn't
+     break position:sticky descendants. */
+  html,
+  body {
+    overflow-x: clip;
+  }
+}
+
+@layer components {
+  /* ─── True transparent glass card ─── */
+  .glass-card {
+    background: rgba(255, 255, 255, 0.55);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.70);
+    border-radius: 1rem;
+    box-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.06),
+      0 1px 2px rgba(0, 0, 0, 0.04),
+      inset 0 1px 0 rgba(255, 255, 255, 0.90);
+  }
+
+  /* ─── Dark glass — hero / dark section context ─── */
+  .glass-dark {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow:
+      0 4px 32px rgba(0, 0, 0, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    @apply rounded-3xl backdrop-blur-2xl;
+  }
+   
+  /* ─── Legacy glass util (kept for other pages) ─── */
+  .glass {
+    @apply bg-white/60 backdrop-blur-xl border border-white/20 shadow-[0_1px_3px_rgba(0,0,0,0.04)];
+  }
+}
+
+/* ─── Scroll reveal animations ─────────────────────────── */
+
+.reveal {
+  opacity: 0;
+  transform: translateY(32px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Stagger children inside a reveal-group */
+.reveal-group > .reveal:nth-child(1) { transition-delay: 0ms; }
+.reveal-group > .reveal:nth-child(2) { transition-delay: 80ms; }
+.reveal-group > .reveal:nth-child(3) { transition-delay: 160ms; }
+.reveal-group > .reveal:nth-child(4) { transition-delay: 240ms; }
+.reveal-group > .reveal:nth-child(5) { transition-delay: 320ms; }
+.reveal-group > .reveal:nth-child(6) { transition-delay: 400ms; }
+
+/* Scale variant */
+.reveal-scale {
+  opacity: 0;
+  transform: scale(0.95);
+  transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.reveal-scale.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Hero fade-down (instant on load) */
+@keyframes hero-fade-down {
+  from { opacity: 0; transform: translateY(-20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.hero-animate > * {
+  animation: hero-fade-down 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.hero-animate > *:nth-child(1) { animation-delay: 0ms; }
+.hero-animate > *:nth-child(2) { animation-delay: 100ms; }
+.hero-animate > *:nth-child(3) { animation-delay: 200ms; }
+.hero-animate > *:nth-child(4) { animation-delay: 300ms; }
+.hero-animate > *:nth-child(5) { animation-delay: 400ms; }
+.hero-animate > *:nth-child(6) { animation-delay: 500ms; }
+
+/* ─── Platform showcase testimonial marquee (3× loop segment) ─────────────── */
+@keyframes ticker-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-33.333%); }
+}
+@keyframes ticker-scroll-rtl {
+  0%   { transform: translateX(-33.333%); }
+  100% { transform: translateX(0); }
+}
+
+/* ─── Thin scrollbar, no end arrows ─────────────────────────── */
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #b6bac0 transparent;
+}
+
+/* WebKit (Chrome, Edge, Safari) */
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+*::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: #a8adb3;
+  border-radius: 3px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #b1b7c0;
+}
