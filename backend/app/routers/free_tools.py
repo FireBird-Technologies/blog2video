@@ -5,10 +5,12 @@ Each endpoint requires a valid JWT (Depends(get_current_user)) so anonymous
 callers get a 401 — this is the server-side backstop behind the frontend login
 gate. The generators are stateless single-shot DSPy calls (no Project row).
 """
+import io
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -20,7 +22,13 @@ from app.dspy_modules.free_tool_gen import (
     VideoScriptGenerator,
     YouTubeDescriptionGenerator,
 )
-from app.models.user import TOOL_QUOTAS, PlanTier, User
+from app.dspy_modules.pdf_tool_gen import (
+    DocumentSummarizer,
+    DocumentToStoryboard,
+    DocumentToVideoScript,
+)
+from app.models.user import LIFETIME_TOOLS, TOOL_QUOTAS, PlanTier, User
+from app.services.doc_extractor import extract_text_from_upload
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +51,15 @@ def _check_quota(user: User, tool: str, db: Session) -> tuple[int, int]:
     used = user.tool_used(tool)
     limit = user.tool_limit(tool)
     if used >= limit:
-        if user.plan == PlanTier.FREE:
+        if tool in LIFETIME_TOOLS:
+            # Neither upgrading nor waiting for the next period lifts this cap,
+            # so the copy must not imply either. Saying so plainly beats an
+            # upsell the user would rightly feel misled by.
+            detail = (
+                f"You've already used your {limit} free narration. This tool is "
+                "limited to one synthesis per account."
+            )
+        elif user.plan == PlanTier.FREE:
             detail = (
                 f"You've used all {limit} free generations for this tool. "
                 "Upgrade to Standard or Pro for a much higher monthly allowance."
@@ -275,3 +291,238 @@ async def generate_book_cover(
         "covers_used": used,
         "covers_limit": limit,
     }
+
+
+# ─── pdf2vid.com document tools ──────────────────────────────────────────────
+# Same auth + quota contract as the generators above. The difference is the
+# input: these operate on a document the user uploaded, so every one of them
+# starts from extracted text rather than a topic string.
+#
+# Extraction is a separate endpoint from generation on purpose. It is cheap and
+# unmetered, it is the step most likely to fail (scans, DRM, odd encodings), and
+# separating it means a user whose PDF will not parse finds out immediately
+# rather than after spending a generation.
+
+# Upload ceiling for the extraction endpoint. Generous enough for a long report,
+# small enough that a mis-drop does not tie up a worker.
+_MAX_UPLOAD_BYTES = 25 * 1024 * 1024
+_ALLOWED_DOC_EXTENSIONS = (".pdf", ".docx", ".pptx", ".txt", ".md", ".markdown", ".vtt")
+
+# Narration is synthesized in a single call, so it has to fit in one request.
+_MAX_NARRATION_CHARS = 5000
+
+
+class ExtractedDocument(BaseModel):
+    text: str
+    characters: int
+    words: int
+
+
+class PdfSummaryRequest(BaseModel):
+    document: str = Field(..., min_length=200, max_length=200_000)
+    length: str = "standard"
+
+
+class PdfSummaryResponse(BaseModel):
+    summary: str
+    key_points: list[str]
+    key_terms: list[str]
+    truncated: bool
+
+
+class PdfScriptRequest(BaseModel):
+    document: str = Field(..., min_length=200, max_length=200_000)
+    length: str = "standard"
+    max_words_per_scene: int = Field(90, ge=30, le=200)
+
+
+class ScriptScene(BaseModel):
+    title: str
+    narration: str
+
+
+class PdfScriptResponse(BaseModel):
+    video_title: str
+    scenes: list[ScriptScene]
+    truncated: bool
+
+
+class PdfStoryboardRequest(BaseModel):
+    document: str = Field(..., min_length=200, max_length=200_000)
+    slide_count: int = Field(10, ge=3, le=30)
+
+
+class StoryboardSlide(BaseModel):
+    headline: str
+    on_screen: str
+    narration: str
+
+
+class PdfStoryboardResponse(BaseModel):
+    deck_title: str
+    slides: list[StoryboardSlide]
+    truncated: bool
+
+
+class PdfNarrationRequest(BaseModel):
+    text: str = Field(..., min_length=20, max_length=_MAX_NARRATION_CHARS)
+    voice_gender: str | None = "female"
+    voice_accent: str | None = None
+
+
+@router.post("/extract-document", response_model=ExtractedDocument)
+async def extract_document(
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+):
+    """Extract text from an uploaded document. Auth-gated, unmetered.
+
+    Reuses the same extractor the main pipeline runs
+    (services/doc_extractor), so what the tools see is exactly what a real
+    project would see — including its table handling, which a browser-side
+    parser cannot match.
+    """
+    filename = file.filename or "document"
+    if not filename.lower().endswith(_ALLOWED_DOC_EXTENSIONS):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type. Use one of: {', '.join(_ALLOWED_DOC_EXTENSIONS)}.",
+        )
+
+    # UploadFile.size is populated by Starlette for buffered uploads; fall back
+    # to measuring the body when it is absent rather than trusting a null.
+    size = file.size
+    if size is None:
+        size = len(await file.read())
+        await file.seek(0)
+    if size > _MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"'{filename}' is larger than {_MAX_UPLOAD_BYTES // (1024 * 1024)} MB.",
+        )
+
+    # Parsing is synchronous and CPU-bound — keep it off the event loop.
+    text = await run_in_threadpool(extract_text_from_upload, file)
+
+    stripped = (text or "").strip()
+    if len(stripped) < 200:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Not enough text to work with. If this is a scanned PDF it has no "
+                "text layer, so it needs OCR before these tools can read it."
+            ),
+        )
+    return {
+        "text": stripped,
+        "characters": len(stripped),
+        "words": len(stripped.split()),
+    }
+
+
+@router.post("/pdf-summary", response_model=PdfSummaryResponse)
+async def generate_pdf_summary(
+    payload: PdfSummaryRequest,
+    user: User = Depends(get_current_user),
+):
+    try:
+        result = await DocumentSummarizer().generate(
+            document=payload.document, length=payload.length
+        )
+    except Exception:
+        logger.exception("pdf-tools summary generation failed")
+        raise HTTPException(status_code=502, detail=_GENERIC_FAIL)
+    if not result.get("summary"):
+        raise HTTPException(status_code=502, detail=_GENERIC_FAIL)
+    return result
+
+
+@router.post("/pdf-video-script", response_model=PdfScriptResponse)
+async def generate_pdf_video_script(
+    payload: PdfScriptRequest,
+    user: User = Depends(get_current_user),
+):
+    try:
+        result = await DocumentToVideoScript().generate(
+            document=payload.document,
+            length=payload.length,
+            max_words_per_scene=payload.max_words_per_scene,
+        )
+    except Exception:
+        logger.exception("pdf-tools video-script generation failed")
+        raise HTTPException(status_code=502, detail=_GENERIC_FAIL)
+    if not result.get("scenes"):
+        raise HTTPException(status_code=502, detail=_GENERIC_FAIL)
+    return result
+
+
+@router.post("/pdf-storyboard", response_model=PdfStoryboardResponse)
+async def generate_pdf_storyboard(
+    payload: PdfStoryboardRequest,
+    user: User = Depends(get_current_user),
+):
+    try:
+        result = await DocumentToStoryboard().generate(
+            document=payload.document, slide_count=payload.slide_count
+        )
+    except Exception:
+        logger.exception("pdf-tools storyboard generation failed")
+        raise HTTPException(status_code=502, detail=_GENERIC_FAIL)
+    if not result.get("slides"):
+        raise HTTPException(status_code=502, detail=_GENERIC_FAIL)
+    return result
+
+
+@router.post("/pdf-narration")
+def generate_pdf_narration(
+    payload: PdfNarrationRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> StreamingResponse:
+    """Synthesize narration for a document excerpt and return it as an mp3.
+
+    Unlike /api/voice/preview this is available on FREE (with a small lifetime
+    allowance) and reads the user's own text rather than a fixed sample. It is
+    the half of the pdf-to-audio tool a browser cannot do: the Web Speech API
+    can play audio but exposes no way to capture it to a file.
+
+    Every plan gets exactly one synthesis, for the lifetime of the account —
+    this is a metered ElevenLabs call, not a local generation. Because the
+    response body is the mp3 itself, the usage counts ride back on the
+    ``x-tool-used`` / ``x-tool-limit`` headers rather than in JSON.
+    """
+    from app.services.voiceover import synthesize_voice_preview
+
+    _used, limit = _check_quota(user, "pdf_narration", db)
+
+    try:
+        audio = synthesize_voice_preview(
+            gender=payload.voice_gender or "female",
+            accent=payload.voice_accent,
+            custom_voice_id=None,
+            voice_emotion=None,
+            video_style=None,
+            text=payload.text.strip(),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception:
+        logger.exception("pdf-tools narration synthesis failed")
+        raise HTTPException(status_code=502, detail=_GENERIC_FAIL)
+    if not audio:
+        raise HTTPException(status_code=502, detail=_GENERIC_FAIL)
+
+    # Charged only here, past every failure path: a provider outage must not
+    # cost the user the one narration they are ever allowed.
+    used = _charge(user, "pdf_narration", db)
+
+    return StreamingResponse(
+        io.BytesIO(audio),
+        media_type="audio/mpeg",
+        headers={
+            "Cache-Control": "no-store",
+            "Content-Disposition": 'attachment; filename="narration.mp3"',
+            "x-tool-used": str(used),
+            "x-tool-limit": str(limit),
+        },
+    )

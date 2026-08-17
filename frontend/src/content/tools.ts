@@ -394,10 +394,119 @@ export const tools: ToolDefinition[] = [
       },
     ],
     relatedPaths: [
+      "/tools/seo-title-checker",
       "/tools/markdown-to-medium-substack-formatter",
       "/tools/quote-card-generator",
       "/blog-to-youtube-video",
       "/blogs/blog-to-youtube-strategy-for-written-first-creators",
+    ],
+  },
+  {
+    slug: "seo-title-checker",
+    path: "/tools/seo-title-checker",
+    title: "Free SEO Title Checker — Pixel Length & Preview",
+    description:
+      "Free SEO title checker: count characters, measure pixel width against Google's ~600px limit, check keyword placement, and preview your title tag in desktop and mobile search results.",
+    eyebrow: "Analyzer",
+    heroTitle:
+      "Free SEO title checker for character count, pixel width, and a live Google preview.",
+    heroDescription:
+      "Paste a title tag to see its character count, its real pixel width against Google's ~600px desktop limit, whether your keyword is front-loaded, and exactly where the title gets truncated in desktop and mobile results.",
+    category: "analyzer",
+    icon: "TC",
+    primaryKeyword: "seo title checker",
+    keywordVariant: "title tag checker",
+    badges: ["Character + pixel count", "Desktop & mobile preview", "Keyword placement"],
+    proofPoints: [
+      "Measures real pixel width in Arial instead of guessing from character count alone.",
+      "Shows the exact truncation point in a desktop and mobile search preview.",
+      "Checks keyword presence, front-loading, and repetition without a signup.",
+    ],
+    sections: [
+      {
+        title: "What this SEO title checker measures",
+        body: [
+          "The checker runs six rules-based checks against your title tag and meta description, then renders the result as a Google snippet so you can see the outcome rather than infer it from a number.",
+          "Nothing is hidden behind a proprietary score. Every check states what it found and why it matters, so you can decide when a rule is worth breaking.",
+        ],
+        bullets: [
+          "Character count against the 50–60 guideline.",
+          "Pixel width against Google's ~600px desktop truncation point.",
+          "Whether your target keyword appears in the title at all.",
+          "How early the keyword sits, since anything after the cut-off is invisible.",
+          "Meta description length in both characters and pixels.",
+          "Formatting problems: all-caps titles, keyword repetition, separator pile-up.",
+        ],
+      },
+      {
+        title: "Why pixel width matters more than character count",
+        body: [
+          "Almost every guide repeats the same rule: keep your SEO title between 50 and 60 characters. That rule is a proxy, not the actual limit. Google truncates on rendered width, roughly 600 pixels in a 20px Arial-like font on desktop, and characters are not equal widths.",
+          "A title made of wide characters — capitals, and letters like W, M, and G — can be cut off at 54 characters. A title of narrow ones, heavy on i, l, t, and f, can survive past 65. This is why a title that passes a character counter still shows an ellipsis in the live SERP.",
+          "The checker measures your actual string rather than counting it, which is why the preview and the character count sometimes disagree. When they do, trust the preview.",
+        ],
+      },
+      {
+        title: "Where to put your keyword",
+        body: [
+          "Put the primary keyword near the front of the title. This is partly about relevance and mostly about survival: if the title is truncated, everything after the cut-off disappears from the result, and a keyword that only appears at character 58 may never be seen.",
+          "Front-loading also matches how people scan a results page. Readers read the first two or three words of each blue link and skip the rest, so the opening words do nearly all of the click-through work.",
+          "One mention is enough. Repeating the keyword twice reads as stuffing to both readers and Google, and is one of the more common triggers for Google rewriting your title.",
+        ],
+      },
+      {
+        title: "SEO title, title tag, H1, and headline are not the same thing",
+        body: [
+          "The SEO title — the title tag — is the clickable blue line in search results and the text in the browser tab. The H1 is the heading on the page itself. The headline is the editorial framing of the article, which may match either, both, or neither.",
+          "They serve different jobs. A title tag is written for a search results page, where it competes with nine other blue links and gets truncated at ~600px. An H1 is read after the click, with the whole page as context, and has no length limit.",
+          "This is why the two are worth writing separately. A good title tag is specific, front-loaded, and short; a good H1 can be longer and more expressive. If you want to score the editorial strength of a headline rather than the mechanics of a title tag, use the headline analyzer instead.",
+        ],
+      },
+      {
+        title: "Why Google rewrites titles anyway",
+        body: [
+          "Google rewrites a substantial share of title tags, and no checker can prevent that. Rewrites usually happen for a small set of reasons: the title is truncated or padded with boilerplate, it is stuffed with repeated keywords, it is half brand name, or it does not match what the page actually answers.",
+          "Passing every check here does not guarantee your title is shown verbatim. It removes the mechanical reasons for a rewrite, which is the part you control.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "What is an SEO title?",
+        answer:
+          "An SEO title, also called a title tag, is the HTML element that defines the clickable headline shown for your page in search results and in the browser tab. It is set in the page's <title> tag and is separate from the H1 heading shown on the page itself.",
+      },
+      {
+        question: "How long should an SEO title be?",
+        answer:
+          "Aim for 50 to 60 characters, which is roughly 600 pixels on desktop. The real limit is pixel width rather than character count, so a title full of wide characters can be truncated below 60 characters while a narrow one can exceed it. This checker measures both.",
+      },
+      {
+        question: "What is the difference between an SEO title and an H1?",
+        answer:
+          "The SEO title is what appears in search results and the browser tab; the H1 is the main heading readers see on the page. They can differ, and often should: the title tag is written to earn a click within a ~600px limit, while the H1 is read after the click and has no length constraint.",
+      },
+      {
+        question: "Why does Google show a different title than the one I set?",
+        answer:
+          "Google rewrites titles it judges to be truncated, keyword-stuffed, dominated by a brand name, or a poor match for the query. Fixing length, removing repeated keywords, and making the title describe what the page actually answers removes the mechanical causes, though rewrites can still happen.",
+      },
+      {
+        question: "Does the SEO title affect rankings?",
+        answer:
+          "It is a relevance signal, but its larger effect is on click-through rate. A title that is truncated, vague, or missing the keyword loses clicks even when the page ranks well, and click behaviour on a result feeds back into how it performs.",
+      },
+      {
+        question: "Is this SEO title checker free?",
+        answer:
+          "Yes. It runs entirely in your browser with no signup, no limits, and nothing sent to a server — the pixel measurement happens locally using your own browser's text rendering.",
+      },
+    ],
+    relatedPaths: [
+      "/tools/headline-analyzer",
+      "/tools/youtube-description-generator",
+      "/video-seo-checklist",
+      "/tools/markdown-to-medium-substack-formatter",
     ],
   },
   {

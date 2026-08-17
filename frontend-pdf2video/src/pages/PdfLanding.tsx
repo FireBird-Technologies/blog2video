@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import type { CredentialResponse } from "@react-oauth/google";
 import { useScrollReveal } from "../hooks/useScrollReveal";
+import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import { googleLogin } from "../api/client";
 import Seo from "../components/seo/Seo";
@@ -26,7 +27,7 @@ import {
 } from "../components/templatePreviewRegistry";
 import YourOwnBrandPreview from "../components/templatePreviews/YourOwnBrandPreview";
 import YourOwnBrandPreviewPortrait from "../components/templatePreviews/portrait/YourOwnBrandPreviewPortrait";
-import { detectInAppBrowser, isMobileDevice } from "../lib/inAppBrowser";
+import { detectInAppBrowser } from "../lib/inAppBrowser";
 import {
   LITE_MONTHLY_PRICE,
   STANDARD_MONTHLY_PRICE,
@@ -203,6 +204,10 @@ const FAQS = [
 export default function PdfLanding() {
   const [searchParams] = useSearchParams();
   const { showError } = useErrorModal();
+  // A session CAN exist on this domain now: the /tools widgets sign in locally
+  // (see components/tools/LoginGate.tsx) instead of handing off. Without this the
+  // header kept offering "Sign in" to someone already signed in.
+  const { user, token, logout } = useAuth();
 
   const [navOpen, setNavOpen] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
@@ -214,7 +219,6 @@ export default function PdfLanding() {
   const [templatesOrientation, setTemplatesOrientation] =
     useState<CoverflowOrientation>("landscape");
   const [typedPlaceholder, setTypedPlaceholder] = useState("");
-  const [inAppInstructionsVisible, setInAppInstructionsVisible] = useState(false);
 
   /**
    * The hero's off-screen GIS button, clicked programmatically by the CTAs.
@@ -226,9 +230,6 @@ export default function PdfLanding() {
   /** The visible "continue with Google" button rendered by `authButton()`. */
   const authButtonRef = useRef<HTMLDivElement>(null);
   const isInApp = detectInAppBrowser().isInApp;
-  // Phone/tablet by user agent, not by window size — a narrowed desktop window
-  // must not be told to switch to a computer.
-  const isMobile = isMobileDevice();
   // Required, not decorative: shared sections (e.g. VoiceShowcaseSection) mark
   // content with `.reveal`, which is opacity:0 until this observer adds
   // `.visible`. Without the hook those sections render as blank space.
@@ -402,11 +403,34 @@ export default function PdfLanding() {
         }}
       >
         <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
+          {/* Mirrors components/public/PublicHeader.tsx: signed in, the logo opens
+              the app with the JWT attached and a Dashboard link sits beside it.
+              Already on the landing page, so signed out the logo stays inert
+              rather than linking to itself. */}
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
-              {PDF_LOGO_TEXT}
-            </div>
-            <span className="text-xl font-semibold text-gray-900">{PDF_SITE_NAME}</span>
+            {user && token ? (
+              <a href={buildBlog2VideoHandoffUrl(token)} className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
+                  {PDF_LOGO_TEXT}
+                </div>
+                <span className="text-xl font-semibold text-gray-900">{PDF_SITE_NAME}</span>
+              </a>
+            ) : (
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
+                  {PDF_LOGO_TEXT}
+                </div>
+                <span className="text-xl font-semibold text-gray-900">{PDF_SITE_NAME}</span>
+              </div>
+            )}
+            {user && token ? (
+              <a
+                href={buildBlog2VideoHandoffUrl(token)}
+                className="rounded-lg px-1 py-1 pt-3 text-sm font-medium text-gray-400 transition-colors hover:bg-gray-50 hover:text-purple-700"
+              >
+                Dashboard
+              </a>
+            ) : null}
           </div>
 
           <div className="hidden md:flex items-center gap-6">
@@ -429,14 +453,39 @@ export default function PdfLanding() {
                 </Link>
               )
             )}
-            {/* No local session on this deployment — always sign in, which
-                hands off to blog2video.app/dashboard. */}
-            <button
-              onClick={handleGenerateClick}
-              className="rounded-full bg-purple-600 px-5 py-2 text-sm font-medium text-white transition hover:bg-purple-700"
-            >
-              Sign in
-            </button>
+            {/* A /tools sign-in leaves a real session on this domain, so show who
+                is signed in and a way out — the same account corner PublicHeader
+                and blog2video's app navbar use. The route into the app lives on
+                the logo/Dashboard pair above. */}
+            {user ? (
+              <div className="flex items-center gap-3">
+                {user.picture ? (
+                  <img
+                    src={user.picture}
+                    alt={user.name}
+                    referrerPolicy="no-referrer"
+                    className="h-7 w-7 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-xs font-medium text-gray-500">
+                    {(user.name?.trim() || user.email || "?").charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <button
+                  onClick={logout}
+                  className="text-xs text-gray-400 transition-colors hover:text-gray-900"
+                >
+                  Sign out
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleGenerateClick}
+                className="rounded-full bg-purple-600 px-5 py-2 text-sm font-medium text-white transition hover:bg-purple-700"
+              >
+                Sign in
+              </button>
+            )}
           </div>
 
           <button
@@ -478,6 +527,35 @@ export default function PdfLanding() {
                 </Link>
               )
             )}
+
+            {/* The header's account corner is desktop-only, so repeat it here. */}
+            {user ? (
+              <div className="mt-1 flex items-center justify-between border-t border-gray-100 pt-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-gray-900">
+                    {user.name || "Signed in"}
+                  </p>
+                  <p className="truncate text-xs text-gray-500">{user.email}</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setNavOpen(false);
+                    logout();
+                  }}
+                  className="ml-3 flex-shrink-0 text-xs text-gray-400 transition-colors hover:text-gray-900"
+                >
+                  Sign out
+                </button>
+              </div>
+            ) : null}
+            {user && token ? (
+              <a
+                href={buildBlog2VideoHandoffUrl(token)}
+                className="rounded-lg border border-gray-200 px-4 py-2.5 text-center text-sm font-medium text-gray-700"
+              >
+                Dashboard
+              </a>
+            ) : null}
           </div>
         )}
       </nav>
@@ -529,7 +607,6 @@ export default function PdfLanding() {
               onError={() => showError("Google sign-in failed")}
               text="continue_with"
               width="300"
-              onInstructionsVisibleChange={setInAppInstructionsVisible}
             />
           </div>
 
@@ -576,34 +653,6 @@ export default function PdfLanding() {
           <p className="text-xs text-gray-400 mt-3">
             1 video free — no credit card required
           </p>
-
-          {/* Editing/preview hold a Remotion runtime that exceeds most phone
-              browsers' memory ceiling, so set expectations before sign-up. */}
-          {isMobile && !inAppInstructionsVisible && (
-            <div className="mx-auto mt-4 max-w-md rounded-xl border border-amber-200 bg-amber-50 p-3 flex items-start gap-2 text-left text-xs text-amber-900">
-              <svg
-                className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                viewBox="0 0 24 24"
-                aria-hidden
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 9v3.75m0 3.5h.007M10.34 3.94l-7.6 13.2A1.5 1.5 0 004.04 19.5h15.92a1.5 1.5 0 001.3-2.36l-7.6-13.2a1.5 1.5 0 00-2.6 0z"
-                />
-              </svg>
-              <p>
-                <span className="font-medium">Optimal experience on a computer.</span>{" "}
-                <span className="text-amber-800">
-                  Video rendering and previews are memory-heavy and may not play reliably
-                  on a phone.
-                </span>
-              </p>
-            </div>
-          )}
         </div>
       </section>
 
