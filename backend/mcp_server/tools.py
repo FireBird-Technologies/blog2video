@@ -125,12 +125,15 @@ def get_tool_definitions() -> list[Tool]:
         Tool(
             name="setup_video",
             description=(
-                "Renders the template + voice + settings picker panel.\n\n"
+                "Combined template + voice + settings picker panel — the whole Manual "
+                "setup in ONE widget.\n\n"
+                "`start_video` decides whether to use this or the step-by-step chain "
+                "(`list_templates` → `list_voices` → `show_settings`), because the two "
+                "render differently across hosts. **Call this when `start_video` tells "
+                "you to, and follow whichever tool it names.** Do not choose between them "
+                "yourself.\n\n"
                 "Do NOT call this as the FIRST response to a user's request for a video — "
                 "`start_video` is the entry point and asks Auto or Manual first.\n\n"
-                "DO call this immediately when `start_video` tells you to (the user chose "
-                "Manual), or when the user wants to reopen the panel to change their "
-                "choices. Pass the same blog_url start_video was given.\n\n"
                 "blog_url is MANDATORY and MUST be the actual http(s) URL the user "
                 "provided. If the user has not given a URL yet, ASK them for it first "
                 "in one short sentence — do NOT call this tool with an empty or fake "
@@ -157,8 +160,8 @@ def get_tool_definitions() -> list[Tool]:
             },
             annotations=ToolAnnotations(readOnlyHint=True),
             **{"_meta": {
-                "ui": {"resourceUri": "ui://blog2video/setup_gallery_v3"},
-                "openai/outputTemplate": "ui://blog2video/setup_gallery_v3",
+                "ui": {"resourceUri": "ui://blog2video/setup_gallery_v8"},
+                "openai/outputTemplate": "ui://blog2video/setup_gallery_v8",
                 "openai/widgetAccessible": True,
             }},
         ),
@@ -166,36 +169,85 @@ def get_tool_definitions() -> list[Tool]:
             name="list_templates",
             description=(
                 "Use this when the user wants to see, browse, or pick a video template "
-                "(without immediately creating a video). Shows a visual gallery of all 12 "
-                "templates with real preview images. Do NOT use web search or your own "
+                "(without immediately creating a video). Shows a visual gallery of every "
+                "template with real preview images. Do NOT use web search or your own "
                 "knowledge to describe templates — call this tool. "
                 "Each template has an `id` used in create_project / change_template.\n\n"
                 "This tool renders an interactive widget. Do NOT describe, enumerate, or "
                 "summarize the templates in your text reply — the widget IS the "
                 "user-facing output. Reply with at most one short sentence.\n\n"
-                "After this, call `list_voices` so the user can also pick a voice."
+                "WAIT for the user to actually pick a template (they click a card, which "
+                "sends a message like `use nightfall`). Only THEN call `list_voices` so "
+                "they can also pick a voice. Do not call `list_voices` in the same turn."
             ),
             inputSchema={"type": "object", "properties": {}},
             annotations=ToolAnnotations(readOnlyHint=True),
             **{"_meta": {
-                "ui": {"resourceUri": "ui://blog2video/template_gallery_v2"},
-                "openai/outputTemplate": "ui://blog2video/template_gallery_v2",
+                "ui": {"resourceUri": "ui://blog2video/template_gallery_v4"},
+                "openai/outputTemplate": "ui://blog2video/template_gallery_v4",
                 "openai/widgetAccessible": True,
             }},
         ),
         Tool(
             name="list_voices",
             description=(
-                "Use this when the user wants to see or pick a voice. Shows an interactive "
-                "gallery of all available voices with audio previews. Do NOT ask the user "
-                "about voice gender or accent in text — call this tool so they can hear and "
-                "click to select a voice."
+                "Use this whenever the user wants to see, browse, list or pick a voice, "
+                "voiceover or narrator — this is the DEFAULT tool for any voice listing "
+                "request. Shows an interactive gallery of all available voices with audio "
+                "previews. Do NOT use `get_voices_json` for a user-facing request (it is "
+                "for automation only), and do NOT ask the user about voice gender or accent "
+                "in text — call this tool so they can hear and click to select a voice.\n\n"
+                "This tool renders an interactive widget. Do NOT describe, enumerate, or "
+                "summarize the voices in your text reply, and do NOT render them as a "
+                "markdown table — the widget IS the user-facing output. Reply with at most "
+                "one short sentence.\n\n"
+                "In the Manual video flow: WAIT for the user to actually pick a voice "
+                "(they click a card, which sends a message like `use voice Rachel (id)`). "
+                "Only THEN call `show_settings` — the final step, which creates the "
+                "project itself."
             ),
             inputSchema={"type": "object", "properties": {}},
             annotations=ToolAnnotations(readOnlyHint=True),
             **{"_meta": {
-                "ui": {"resourceUri": "ui://blog2video/voice_gallery"},
-                "openai/outputTemplate": "ui://blog2video/voice_gallery",
+                "ui": {"resourceUri": "ui://blog2video/voice_gallery_v2"},
+                "openai/outputTemplate": "ui://blog2video/voice_gallery_v2",
+                "openai/widgetAccessible": True,
+            }},
+        ),
+        Tool(
+            name="show_settings",
+            description=(
+                "Final step of the Manual flow. Shows an interactive panel with the "
+                "remaining video settings — length, style, stock footage, background "
+                "music, aspect ratio, playback speed, captions and colours — plus the "
+                "Create Video button.\n\n"
+                "Call this AFTER the user has picked a template (`list_templates`) and a "
+                "voice (`list_voices`). Every setting is optional and pre-set to a sensible "
+                "default, so the user can simply click Create Video.\n\n"
+                "Do not ask about length, music, captions or colours in text — the widget "
+                "collects them. Reply with at most one short sentence.\n\n"
+                "When the user clicks Create Video the widget sends a message like "
+                "`create the video — medium length, captions on, music: moment_of_peace` "
+                "(or just `create the video` if they changed nothing). On receiving it, "
+                "call `create_project` IMMEDIATELY.\n\n"
+                "Reading that message: it lists ONLY the settings the user changed — "
+                "everything it does not mention keeps its default, so do not invent values "
+                "for the rest. Phrases map onto create_project parameters (`medium length` "
+                "→ video_length='medium', `captions on` → captions_enabled=true, "
+                "`1.25× speed` → playback_speed=1.25). Values after `music:` and any "
+                "`#rrggbb` colour are LITERAL parameter values — pass them exactly as "
+                "written, do not translate them.\n\n"
+                "You MUST also pass the `template` the user picked in `list_templates` and "
+                "the `custom_voice_id` they picked in `list_voices` — both were announced "
+                "earlier in this conversation as `use <template_id>` and "
+                "`use voice <Name> (<voice_id>)`. Do not ask the user to confirm again. "
+                "AFTER create_project returns, immediately call `generate_video`."
+            ),
+            inputSchema={"type": "object", "properties": {}},
+            annotations=ToolAnnotations(readOnlyHint=True),
+            **{"_meta": {
+                "ui": {"resourceUri": "ui://blog2video/settings_panel_v3"},
+                "openai/outputTemplate": "ui://blog2video/settings_panel_v3",
                 "openai/widgetAccessible": True,
             }},
         ),
@@ -203,8 +255,11 @@ def get_tool_definitions() -> list[Tool]:
             name="get_templates_json",
             description=(
                 "Return all built-in video templates as plain JSON (NOT a widget): a list of "
-                "{id, name, genres}. For automation contexts (e.g. n8n) that need machine-readable "
-                "options to build a dropdown. For the interactive claude.ai gallery use list_templates."
+                "{id, name, genres}. ONLY for automation contexts (e.g. n8n) that need machine-readable "
+                "options to build a dropdown.\n\n"
+                "Do NOT use this when a human asks to see, list or pick a template — that is "
+                "`list_templates`, which shows the interactive gallery. Using this tool for a "
+                "user-facing request produces a bare markdown table instead of the widget."
             ),
             inputSchema={"type": "object", "properties": {}},
             annotations=ToolAnnotations(readOnlyHint=True),
@@ -213,8 +268,13 @@ def get_tool_definitions() -> list[Tool]:
             name="get_voices_json",
             description=(
                 "Return available narration voices as plain JSON (NOT a widget): a list of "
-                "{voice_id, name, description}. For automation contexts (e.g. n8n). Pass the chosen "
-                "voice_id as custom_voice_id to create_video. For the claude.ai gallery use list_voices."
+                "{voice_id, name, description}. ONLY for automation contexts (e.g. n8n) that need "
+                "machine-readable options to build a dropdown. Pass the chosen voice_id as "
+                "custom_voice_id to create_video.\n\n"
+                "Do NOT use this when a human asks to see, list or pick a voice — that is "
+                "`list_voices`, which shows an interactive gallery with audio previews. "
+                "Using this tool for a user-facing request produces a bare markdown table "
+                "instead of the widget."
             ),
             inputSchema={"type": "object", "properties": {}},
             annotations=ToolAnnotations(readOnlyHint=True),
@@ -300,50 +360,65 @@ def get_tool_definitions() -> list[Tool]:
                 "openai/widgetAccessible": True,
             }},
         ),
-        Tool(
-            name="create_video",
-            description=(
-                "INTERNAL / programmatic. For a user asking for a video, call "
-                "`start_video`. Use create_video only when the user has already named an "
-                "explicit template AND voice in text, or another tool routed here.\n\n"
-                "One call to make a video: creates a project from a blog URL and runs the "
-                "generation pipeline (scrape → script → scenes), waiting until the scenes are "
-                "ready (~1–5 min). Bypasses the template/voice gallery widgets — pass the "
-                "choices directly as arguments.\n\n"
-                "Voice: to narrate with one specific voice pass `custom_voice_id` (an id from "
-                "`list_voices` / the user's saved voices); `voice_gender`/`voice_accent` are "
-                "OPTIONAL (default female/american) and only used when no custom_voice_id is "
-                "given (or as a fallback if that voice id is invalid).\n\n"
-                "Set `render: true` to also produce a downloadable MP4 (slower, ~+3–8 min). "
-                "After this returns, call `get_preview_url` with the project id to get a "
-                "shareable watch link."
-            ),
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "blog_url": {"type": "string", "format": "uri", "minLength": 8, "description": "REQUIRED. The http(s) URL of the blog/article to convert."},
-                    "name": {"type": "string"},
-                    "template": {"type": "string", "default": "default", "description": "Template id (from list_templates), e.g. 'nightfall'. Defaults to 'default'."},
-                    "custom_voice_id": {"type": "string", "description": "Preferred voice input: a specific voice id (ElevenLabs / saved voice_id from list_voices). Overrides voice_gender/voice_accent."},
-                    "voice_gender": {"type": "string", "enum": ["male", "female"], "default": "female", "description": "Optional. Used only when custom_voice_id is not given (and as a fallback)."},
-                    "voice_accent": {"type": "string", "enum": ["american", "british"], "default": "american", "description": "Optional. Ignored when custom_voice_id is set."},
-                    "video_style": {"type": "string", "enum": ["auto", "explainer", "promotional", "storytelling"], "default": "auto"},
-                    "video_length": {"type": "string", "enum": ["auto", "short", "medium", "detailed", "more_detailed"], "default": "auto"},
-                    "aspect_ratio": {"type": "string", "enum": ["landscape", "portrait"], "default": "landscape"},
-                    "playback_speed": {"type": "number", "minimum": 0.5, "maximum": 2.5},
-                    "accent_color": {"type": "string", "description": "Hex color, e.g. #818CF8. OMIT to inherit the template's own palette — only pass this if the user asked for a specific colour."},
-                    "bg_color": {"type": "string", "description": "Hex background colour. Omit to inherit the template's palette."},
-                    "text_color": {"type": "string", "description": "Hex text colour. Omit to inherit the template's palette."},
-                    "stock_footage_enabled": {"type": "boolean", "default": False, "description": "Add stock video b-roll to image-capable scenes. Available on every plan. Pass true unless the user asked for no footage."},
-                    "render": {"type": "boolean", "default": False, "description": "If true, also render a downloadable MP4 before returning (slower)."},
-                    **_MEDIA_SETTINGS_PROPERTIES,
-                },
-                "required": ["blog_url"],
-            },
-            **{"_meta": {
-                "openai/widgetAccessible": True,
-            }},
-        ),
+        # ── create_video: COMMENTED OUT (manifest-size experiment) ──────────
+        # ChatGPT drops a connector's tool manifest as a conversation grows
+        # (context compression) — a documented OpenAI regression. Our manifest
+        # was ~35k chars / ~8.8k tokens across 34 tools; create_video alone was
+        # 4,464 chars (13%), the single heaviest entry, and NOTHING routes to
+        # it: start_video goes to auto_video or setup_video, no widget calls it,
+        # and it never fired in a full day of real traffic.
+        #
+        # The handler (_create_video) is deliberately KEPT in handlers.py — only
+        # the tool definition and its dispatch entry are disabled, so restoring
+        # this is just uncommenting both.
+        #
+        # Trade-off: the one-shot phrasing "make a video from <url> using
+        # newscast with Daniel" no longer has a dedicated tool; start_video ->
+        # setup_video (panel) covers the same ground in one extra step.
+        # Tool(
+        # name="create_video",
+        # description=(
+        # "INTERNAL / programmatic. For a user asking for a video, call "
+        # "`start_video`. Use create_video only when the user has already named an "
+        # "explicit template AND voice in text, or another tool routed here.\n\n"
+        # "One call to make a video: creates a project from a blog URL and runs the "
+        # "generation pipeline (scrape → script → scenes), waiting until the scenes are "
+        # "ready (~1–5 min). Bypasses the template/voice gallery widgets — pass the "
+        # "choices directly as arguments.\n\n"
+        # "Voice: to narrate with one specific voice pass `custom_voice_id` (an id from "
+        # "`list_voices` / the user's saved voices); `voice_gender`/`voice_accent` are "
+        # "OPTIONAL (default female/american) and only used when no custom_voice_id is "
+        # "given (or as a fallback if that voice id is invalid).\n\n"
+        # "Set `render: true` to also produce a downloadable MP4 (slower, ~+3–8 min). "
+        # "After this returns, call `get_preview_url` with the project id to get a "
+        # "shareable watch link."
+        # ),
+        # inputSchema={
+        # "type": "object",
+        # "properties": {
+        # "blog_url": {"type": "string", "format": "uri", "minLength": 8, "description": "REQUIRED. The http(s) URL of the blog/article to convert."},
+        # "name": {"type": "string"},
+        # "template": {"type": "string", "default": "default", "description": "Template id (from list_templates), e.g. 'nightfall'. Defaults to 'default'."},
+        # "custom_voice_id": {"type": "string", "description": "Preferred voice input: a specific voice id (ElevenLabs / saved voice_id from list_voices). Overrides voice_gender/voice_accent."},
+        # "voice_gender": {"type": "string", "enum": ["male", "female"], "default": "female", "description": "Optional. Used only when custom_voice_id is not given (and as a fallback)."},
+        # "voice_accent": {"type": "string", "enum": ["american", "british"], "default": "american", "description": "Optional. Ignored when custom_voice_id is set."},
+        # "video_style": {"type": "string", "enum": ["auto", "explainer", "promotional", "storytelling"], "default": "auto"},
+        # "video_length": {"type": "string", "enum": ["auto", "short", "medium", "detailed", "more_detailed"], "default": "auto"},
+        # "aspect_ratio": {"type": "string", "enum": ["landscape", "portrait"], "default": "landscape"},
+        # "playback_speed": {"type": "number", "minimum": 0.5, "maximum": 2.5},
+        # "accent_color": {"type": "string", "description": "Hex color, e.g. #818CF8. OMIT to inherit the template's own palette — only pass this if the user asked for a specific colour."},
+        # "bg_color": {"type": "string", "description": "Hex background colour. Omit to inherit the template's palette."},
+        # "text_color": {"type": "string", "description": "Hex text colour. Omit to inherit the template's palette."},
+        # "stock_footage_enabled": {"type": "boolean", "default": False, "description": "Add stock video b-roll to image-capable scenes. Available on every plan. Pass true unless the user asked for no footage."},
+        # "render": {"type": "boolean", "default": False, "description": "If true, also render a downloadable MP4 before returning (slower)."},
+        # **_MEDIA_SETTINGS_PROPERTIES,
+        # },
+        # "required": ["blog_url"],
+        # },
+        # **{"_meta": {
+        # "openai/widgetAccessible": True,
+        # }},
+        # ),
         Tool(
             name="get_preview_url",
             description=(
@@ -490,28 +565,123 @@ def get_tool_definitions() -> list[Tool]:
         Tool(
             name="update_project_settings",
             description=(
-                "Update one or more project-level settings: voice (gender/accent), "
-                "playback speed, video length, colors, font, language. Pass only "
-                "the fields you want to change. Common asks: 'switch to british "
-                "voice', 'make accent color #FF0000', 'speed up to 1.25x'."
+                "Update project-level settings on an EXISTING project: captions "
+                "(on/off, position, font, size, offset), background music and volume, "
+                "playback speed, video length, colors, font, language, aspect ratio. "
+                "Pass only the fields you want to change. Common asks: 'turn captions "
+                "on', 'use the oswald caption font', 'add calm background music', "
+                "'make accent color #FF0000', 'speed up to 1.25x'.\n\n"
+                "These are the same settings the web app's Settings tab saves, so "
+                "anything editable there can be changed here.\n\n"
+                "Do NOT pass these here — they are not settings writes:\n"
+                "- narration VOICE (gender/accent/specific voice) → use `change_voice`; "
+                "it re-records every voiceover and costs one video credit\n"
+                "- the video's LANGUAGE → use `change_language`; it counts as a new "
+                "video and costs one credit\n"
+                "- `video_style` → fixed when the project is created; tell the user it "
+                "cannot be changed afterwards\n"
+                "For the first two, confirm the credit cost with the user, then call "
+                "that tool — not this one."
             ),
             inputSchema={
                 "type": "object",
                 "properties": {
                     "project_id": {"type": "integer"},
-                    "voice_gender": {"type": "string", "enum": ["male", "female"]},
-                    "voice_accent": {"type": "string", "enum": ["american", "british"]},
                     "playback_speed": {"type": "number", "minimum": 0.5, "maximum": 2.5},
                     "video_length": {"type": "string", "enum": ["auto", "short", "medium", "detailed", "more_detailed"]},
                     "font_family": {"type": "string"},
                     "content_language": {"type": "string", "description": "ISO 639-1 code, e.g. 'en', 'es', 'fr'"},
-                    "video_style": {"type": "string", "enum": ["auto", "explainer", "promotional", "storytelling"]},
                     "accent_color": {"type": "string", "description": "Hex, e.g. #FF0000"},
                     "bg_color": {"type": "string"},
                     "text_color": {"type": "string"},
                     "aspect_ratio": {"type": "string", "enum": ["landscape", "portrait"]},
+                    # Captions + background music. Spread from the same dict
+                    # create_project/create_video use so the three tools cannot
+                    # drift — ProjectUpdate accepts every one of these and the web
+                    # Settings tab already PATCHes them to the same endpoint.
+                    **_MEDIA_SETTINGS_PROPERTIES,
                 },
+                # Reject anything not listed above rather than accepting it and
+                # silently dropping it server-side (ProjectUpdate ignores unknown
+                # keys). voice_gender/voice_accent/video_style used to be
+                # advertised here and were discarded on every call.
+                "additionalProperties": False,
                 "required": ["project_id"],
+            },
+        ),
+        Tool(
+            name="change_voice",
+            description=(
+                "Change the narration VOICE of an existing project and re-record every "
+                "scene's voiceover in that voice. The narration wording is unchanged — "
+                "only the speaker.\n\n"
+                "Use for: 'switch to a male voice', 'use a british narrator', 'narrate "
+                "this with <voice name>'. This is NOT part of `update_project_settings` — "
+                "the voiceovers must actually be re-synthesised.\n\n"
+                "⚠️ COSTS ONE VIDEO CREDIT and takes a few minutes (it regenerates every "
+                "scene). Tell the user the cost and get their agreement BEFORE calling. "
+                "Never call it twice for the same request.\n\n"
+                "ALWAYS call `list_voices` FIRST so the user can hear the options and "
+                "click one — exactly like the web app, where Change voice opens a voice "
+                "picker. Then pass the `voice_id` they chose as `custom_voice_id`. Do "
+                "NOT invent a voice or pick one on the user's behalf.\n\n"
+                "Blocks until the re-recording finishes."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "project_id": {"type": "integer"},
+                    # The voice_id is what actually drives TTS. The web app's own
+                    # comment: "gender/accent are display-only metadata; the
+                    # voice_id drives generation." So there is no meaningful
+                    # gender/accent-only request — the user picks a named voice.
+                    "custom_voice_id": {"type": "string", "description": "REQUIRED. The voice_id the user picked in `list_voices` (or one of their saved voices). This is what drives the new narration."},
+                    "voice_emotion": {"type": "string", "description": "Optional delivery style, e.g. 'excited', 'calm'."},
+                },
+                "additionalProperties": False,
+                "required": ["project_id", "custom_voice_id"],
+            },
+        ),
+        Tool(
+            name="delete_voiceover",
+            description=(
+                "Remove the project's voiceover and make the video MUTE. Every scene's "
+                "narration audio is stripped; the on-screen text and visuals are "
+                "untouched.\n\n"
+                "Use for: 'remove the voiceover', 'make it silent', 'I want it without "
+                "narration'.\n\n"
+                "Unlike `change_voice`, this is FREE — it does not use a video credit. "
+                "It does not clear an existing render either, so re-render afterwards to "
+                "get a muted MP4.\n\n"
+                "To give the video a DIFFERENT voice rather than no voice, use "
+                "`change_voice`. Blocks until the audio has been stripped."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {"project_id": {"type": "integer"}},
+                "additionalProperties": False,
+                "required": ["project_id"],
+            },
+        ),
+        Tool(
+            name="change_language",
+            description=(
+                "Translate an existing project into another language — on-screen text, "
+                "narration and voiceovers are all regenerated.\n\n"
+                "Use for: 'translate this to spanish', 'make a french version'.\n\n"
+                "⚠️ COUNTS AS A NEW VIDEO and costs one video credit, and takes a few "
+                "minutes. Tell the user the cost and get their agreement BEFORE calling. "
+                "Never call it twice for the same request.\n\n"
+                "Blocks until the translation finishes."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "project_id": {"type": "integer"},
+                    "content_language": {"type": "string", "description": "REQUIRED. ISO 639-1 code for the target language, e.g. 'es', 'fr', 'de'."},
+                },
+                "additionalProperties": False,
+                "required": ["project_id", "content_language"],
             },
         ),
         Tool(
@@ -581,6 +751,37 @@ def get_tool_definitions() -> list[Tool]:
         ),
 
         # ─── Custom-template creation flow ──────────────────────────
+        Tool(
+            name="create_template_from_url",
+            description=(
+                "THE tool to call when a user wants to create a custom template from a "
+                "website — 'make a template from <url>', 'build a template like <site>'.\n\n"
+                "Does the WHOLE flow in ONE call: scrapes the site, extracts the brand "
+                "theme (colours, fonts, logos), saves the template, and starts code "
+                "generation. Do NOT call `extract_template_theme` / "
+                "`create_custom_template` / `start_template_code_generation` separately — "
+                "this replaces all three.\n\n"
+                "⚠️ Code generation takes 5–8 minutes and uses 1 of the user's 20 daily AI "
+                "generation credits. Mention the cost when you report back.\n\n"
+                "Returns as soon as generation has STARTED, with a template_id. Then poll "
+                "`check_template_code_generation_status` with that id every ~15s until it "
+                "reports ready. Do not call this tool twice for the same site — each call "
+                "spends a credit.\n\n"
+                "If the site cannot be scraped, this returns a message saying so and "
+                "creates nothing (no credit spent). Only then fall back to "
+                "`create_custom_template` with a theme the user describes."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string", "format": "uri", "minLength": 8, "description": "REQUIRED. The http(s) URL of the site to build the template from."},
+                    "name": {"type": "string", "description": "Optional template name. Defaults to the name derived from the site."},
+                },
+                "additionalProperties": False,
+                "required": ["url"],
+            },
+            **{"_meta": {"openai/widgetAccessible": True}},
+        ),
         Tool(
             name="extract_template_theme",
             description=(

@@ -33,6 +33,10 @@ type Template = {
   name?: string;
   genres?: string[];
   preview_url?: string;
+  /** True for the user's own templates (id is "custom_<n>"). Rendered in a
+   *  separate "Your templates" section — they have no bundled .webp preview. */
+  custom?: boolean;
+  colors?: { accent?: string; bg?: string; text?: string };
 };
 
 const grid = document.getElementById("grid") as HTMLElement;
@@ -54,7 +58,19 @@ function render(templates: Template[]): void {
   status.textContent = "";
   grid.replaceChildren();
 
-  for (const t of templates) {
+  // Built-ins first, then the user's own templates under a heading. Custom ones
+  // arrive with id "custom_<n>" and no bundled .webp, so they fall through to
+  // the initials placeholder below unless the backend rendered a thumbnail.
+  const builtIns = templates.filter((t) => !t.custom);
+  const customs = templates.filter((t) => t.custom);
+
+  for (const t of [...builtIns, ...customs]) {
+    if (t === customs[0]) {
+      const heading = document.createElement("div");
+      heading.className = "section-label";
+      heading.textContent = "Your templates";
+      grid.appendChild(heading);
+    }
     const card = document.createElement("button");
     card.className = "card";
     card.type = "button";

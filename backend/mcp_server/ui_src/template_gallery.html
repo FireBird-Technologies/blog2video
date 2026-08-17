@@ -35,6 +35,17 @@
         grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
         gap: 12px;
       }
+      /* "Your templates" divider — spans the whole grid row so the custom
+         templates start on a fresh line rather than flowing after a card. */
+      .section-label {
+        grid-column: 1 / -1;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--muted);
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        margin: 6px 0 -4px;
+      }
       .card {
         display: flex;
         flex-direction: column;

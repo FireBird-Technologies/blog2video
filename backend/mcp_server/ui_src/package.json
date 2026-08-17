@@ -4,7 +4,11 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "build": "vite build"
+    "build": "B2V_VIEW=template_gallery vite build && B2V_VIEW=voice_gallery vite build && B2V_VIEW=settings_panel vite build",
+    "build:template_gallery": "B2V_VIEW=template_gallery vite build",
+    "build:voice_gallery": "B2V_VIEW=voice_gallery vite build",
+    "build:settings_panel": "B2V_VIEW=settings_panel vite build",
+    "build:setup_gallery": "B2V_VIEW=setup_gallery vite build"
   },
   "dependencies": {
     "@modelcontextprotocol/ext-apps": "^1.7.5",

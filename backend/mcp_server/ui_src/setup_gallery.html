@@ -1,0 +1,1097 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blog2Video — Set up your video</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      background: #0a0a0a;
+      color: #e8e8e8;
+      padding: 14px;
+      padding-bottom: 78px;
+      min-height: 100vh;
+    }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #555;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      margin: 6px 0 10px;
+    }
+    .section-label:not(:first-child) { margin-top: 22px; }
+
+    /* Templates grid */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    .card {
+      background: #141414;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1.5px solid #222;
+      cursor: pointer;
+      transition: border-color .15s, transform .1s, box-shadow .15s;
+      user-select: none;
+    }
+    .card:hover { border-color: #444; transform: translateY(-1px); }
+    .card.selected { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,.35); }
+    .card img {
+      width: 100%; aspect-ratio: 16 / 9; object-fit: cover;
+      display: block; background: #1a1a1a;
+    }
+    /* Shown for the templates with no bundled preview (magazine, sakura,
+       stickman_2, stickman_football) instead of a broken-image icon. */
+    .thumb-placeholder {
+      width: 100%; aspect-ratio: 16 / 9; display: flex;
+      align-items: center; justify-content: center;
+      background: #1a1a1a; color: #666;
+      font-size: 20px; font-weight: 600; letter-spacing: .05em;
+    }
+    .card .info { padding: 8px 10px 10px; }
+    .card .info h3 {
+      font-size: 12px; font-weight: 600; color: #ddd; margin-bottom: 2px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .card .genres {
+      font-size: 10px; color: #555;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    /* Voices list — scrollable so the Create bar stays visible no matter how
+       many voices the user has saved. */
+    .vgrid {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;
+      max-height: 280px; overflow-y: auto;
+      padding-right: 4px;
+    }
+    .vcard {
+      background: #141414; border-radius: 8px; border: 1.5px solid #222;
+      padding: 10px 12px; cursor: pointer;
+      transition: border-color .15s, box-shadow .15s;
+      display: flex; align-items: center; gap: 10px; user-select: none;
+    }
+    .vcard:hover { border-color: #444; }
+    .vcard.selected { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,.3); }
+    .avatar {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: #1e1e1e; border: 1px solid #333;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; flex-shrink: 0;
+    }
+    .vinfo { flex: 1; min-width: 0; }
+    .vname {
+      font-size: 12px; font-weight: 600; color: #ddd;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .vmeta { font-size: 10px; color: #555; margin-top: 2px; }
+    .play-btn {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: #1e1e1e; border: 1px solid #333; color: #888;
+      font-size: 10px; cursor: pointer; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .15s, color .15s, border-color .15s;
+    }
+    .play-btn:hover { background: #252525; color: #ddd; border-color: #555; }
+    .play-btn.playing { background: #1e3a5f; color: #3b82f6; border-color: #3b82f6; }
+
+    /* Sticky create bar — `sticky` works inside iframe-auto-resized hosts
+       like ChatGPT where `fixed` gets pushed off-screen. */
+    #bar {
+      position: sticky; bottom: 0; left: 0; right: 0;
+      margin-top: 16px;
+      background: #0d1117; border-top: 1.5px solid #222;
+      padding: 10px 14px; display: flex; align-items: center; gap: 12px; z-index: 100;
+    }
+    #bar .status { flex: 1; font-size: 12px; color: #888; }
+    #bar .status strong { color: #fff; }
+    #create {
+      background: #2563eb; color: #fff; border: none; border-radius: 6px;
+      padding: 9px 18px; font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: background .15s, opacity .15s;
+    }
+    #create:disabled { opacity: .4; cursor: not-allowed; }
+    #create:not(:disabled):hover { background: #1d4ed8; }
+
+    .empty { color: #555; font-size: 12px; padding: 14px 0; }
+
+    /* Settings — every control is pre-set to its backend default, so a user who
+       ignores this whole section gets exactly the defaults. */
+    .hint {
+      font-weight: 400; text-transform: none; letter-spacing: 0; color: #444;
+    }
+    #settings {
+      background: #111; border: 1.5px solid #1e1e1e; border-radius: 8px;
+      padding: 2px 12px;
+    }
+    #settings.locked { opacity: .5; pointer-events: none; }
+    /* Auto/Manual toggle. In Auto the pickers below are dimmed and inert —
+       same .locked treatment the settings block already uses while creating. */
+    #mode-bar { display: flex; gap: 8px; margin-bottom: 18px; }
+    .mode-btn {
+      flex: 1; padding: 10px 12px; border-radius: 10px; cursor: pointer;
+      font: inherit; font-size: 13px; font-weight: 600; text-align: left;
+      background: #141414; color: #888; border: 1px solid #2a2a2a;
+    }
+    .mode-btn:hover { border-color: #444; }
+    .mode-btn[aria-pressed="true"] {
+      background: #10233f; color: #e8e8e8; border-color: #3b82f6;
+    }
+    .mode-hint { font-weight: 400; font-size: 11px; color: #777; }
+    .mode-btn[aria-pressed="true"] .mode-hint { color: #9bb8e0; }
+    /* Dimmed pickers in Auto mode. */
+    .auto-locked { opacity: .35; pointer-events: none; }
+    /* "Your templates" divider — spans the whole grid row so custom templates
+       start on a fresh line instead of flowing after a built-in card. */
+    .custom-divider {
+      grid-column: 1 / -1;
+      font-size: 10px; font-weight: 600; color: #555;
+      letter-spacing: .1em; text-transform: uppercase;
+      margin: 8px 0 -2px;
+    }
+    .srow {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 0; border-bottom: 1px solid #191919;
+    }
+    .srow:last-child { border-bottom: none; }
+    .srow > label:first-child { flex: 1; font-size: 12px; color: #bbb; }
+    .srow select, .srow input[type=range] {
+      background: #171717; color: #ddd; border: 1px solid #2a2a2a;
+      border-radius: 6px; font-size: 12px; padding: 5px 8px; min-width: 150px;
+    }
+    .srow input[type=range] { padding: 0; min-width: 110px; }
+    .srow select:disabled { color: #555; }
+    .rangeval { font-size: 11px; color: #666; width: 46px; text-align: right; }
+    .switch input {
+      appearance: none; -webkit-appearance: none;
+      width: 36px; height: 20px; background: #2a2a2a; border-radius: 10px;
+      position: relative; cursor: pointer; transition: background .15s;
+    }
+    .switch input::after {
+      content: ""; position: absolute; top: 2px; left: 2px;
+      width: 16px; height: 16px; border-radius: 50%; background: #777;
+      transition: transform .15s, background .15s;
+    }
+    .switch input:checked { background: #1e3a5f; }
+    .switch input:checked::after { transform: translateX(16px); background: #3b82f6; }
+    .bgmwrap, .colorwrap { display: flex; align-items: center; gap: 8px; }
+    .colorwrap input[type=color] {
+      width: 34px; height: 26px; padding: 0; background: #171717;
+      border: 1px solid #2a2a2a; border-radius: 6px; cursor: pointer;
+    }
+    .clearcol {
+      background: none; border: 1px solid #2a2a2a; color: #666;
+      border-radius: 6px; font-size: 10px; padding: 4px 8px; cursor: pointer;
+    }
+    .clearcol:hover { color: #aaa; border-color: #444; }
+    #more { margin: 2px 0 6px; }
+    #more > summary {
+      font-size: 11px; color: #666; cursor: pointer; padding: 10px 0;
+      list-style: none; user-select: none;
+    }
+    #more > summary::-webkit-details-marker { display: none; }
+    #more > summary::after { content: " ▾"; }
+    #more[open] > summary::after { content: " ▴"; }
+    option.paid-locked { color: #555; }
+  </style>
+</head>
+<body>
+  <!-- Auto/Manual lives HERE rather than as a chat question because ChatGPT
+       drops the connector on follow-up turns — asking in chat means the answer
+       often never reaches the server. A toggle costs no extra turn. -->
+  <div id="mode-bar">
+    <button type="button" class="mode-btn" data-mode="manual" aria-pressed="true">
+      🎛 Manual <span class="mode-hint">— you choose</span>
+    </button>
+    <button type="button" class="mode-btn" data-mode="auto" aria-pressed="false">
+      ⚡ Auto <span class="mode-hint">— I pick everything</span>
+    </button>
+  </div>
+
+  <div class="section-label">1 · Choose a template</div>
+  <div id="templates" class="grid"><p class="empty">Loading templates…</p></div>
+
+  <div class="section-label">2 · Choose a voice</div>
+  <div id="voices" class="vgrid"><p class="empty">Loading voices…</p></div>
+
+  <div class="section-label">3 · Settings <span class="hint">(optional — defaults are already set)</span></div>
+  <div id="settings">
+    <div class="srow">
+      <label for="s-length">Video length</label>
+      <select id="s-length" data-key="video_length">
+        <option value="auto" selected>Auto (recommended)</option>
+        <option value="short">Short · 4–5 scenes</option>
+        <option value="medium">Medium · 12–15 scenes</option>
+        <option value="detailed" data-paid="1">Detailed · 23–30 scenes</option>
+        <option value="more_detailed" data-paid="1">More detailed · 35–40 scenes</option>
+      </select>
+    </div>
+    <div class="srow">
+      <label for="s-style">Video style</label>
+      <select id="s-style" data-key="video_style">
+        <option value="auto" selected>Auto (recommended)</option>
+        <option value="explainer">Explainer</option>
+        <option value="promotional">Promotional</option>
+        <option value="storytelling">Storytelling</option>
+      </select>
+    </div>
+    <div class="srow">
+      <label for="s-stock">Stock footage</label>
+      <label class="switch"><input type="checkbox" id="s-stock" data-key="stock_footage_enabled" checked></label>
+    </div>
+    <div class="srow">
+      <label for="s-bgm">Background music</label>
+      <div class="bgmwrap">
+        <select id="s-bgm" data-key="bgm_track_id">
+          <option value="" selected>None</option>
+        </select>
+        <button type="button" id="bgm-play" class="play-btn" title="Preview">▶</button>
+      </div>
+    </div>
+    <div class="srow" id="bgm-vol-row" hidden>
+      <label for="s-bgmvol">Music volume</label>
+      <input type="range" id="s-bgmvol" data-key="bgm_volume" min="0" max="0.4" step="0.01" value="0.10">
+      <span class="rangeval" id="s-bgmvol-val">10%</span>
+    </div>
+
+    <details id="more">
+      <summary>More settings</summary>
+      <div class="srow">
+        <label for="s-aspect">Aspect ratio</label>
+        <select id="s-aspect" data-key="aspect_ratio">
+          <option value="landscape" selected>Landscape 16:9</option>
+          <option value="portrait">Portrait 9:16</option>
+        </select>
+      </div>
+      <div class="srow">
+        <label for="s-speed">Playback speed</label>
+        <input type="range" id="s-speed" data-key="playback_speed" min="0.5" max="2.5" step="0.05" value="1.0">
+        <span class="rangeval" id="s-speed-val">1.00×</span>
+      </div>
+      <div class="srow">
+        <label for="s-cap">Captions</label>
+        <label class="switch"><input type="checkbox" id="s-cap" data-key="captions_enabled"></label>
+      </div>
+      <div id="capgroup" hidden>
+        <div class="srow">
+          <label for="s-cappos">Caption position</label>
+          <select id="s-cappos" data-key="caption_position">
+            <option value="bottom_center" selected>Bottom</option>
+            <option value="top_center">Top</option>
+          </select>
+        </div>
+        <div class="srow">
+          <label for="s-capfont">Caption font</label>
+          <select id="s-capfont" data-key="caption_font_family">
+            <option value="inter" selected>Inter</option>
+            <option value="poppins">Poppins</option>
+            <option value="montserrat">Montserrat</option>
+            <option value="roboto_slab">Roboto Slab</option>
+            <option value="oswald">Oswald</option>
+            <option value="lora">Lora</option>
+            <option value="patrick_hand">Patrick Hand</option>
+            <option value="arimo">Arimo</option>
+            <option value="archivo_black">Archivo Black</option>
+            <option value="merriweather">Merriweather</option>
+            <option value="playfair_display">Playfair Display</option>
+            <option value="fira_code">Fira Code</option>
+          </select>
+        </div>
+        <div class="srow">
+          <label for="s-capsize">Caption size</label>
+          <input type="range" id="s-capsize" data-key="caption_font_size" min="12" max="64" step="1" value="36">
+          <span class="rangeval" id="s-capsize-val">36px</span>
+        </div>
+        <div class="srow">
+          <label for="s-capoff">Caption offset</label>
+          <input type="range" id="s-capoff" data-key="caption_offset" min="-100" max="100" step="5" value="0">
+          <span class="rangeval" id="s-capoff-val">0</span>
+        </div>
+      </div>
+      <div class="srow">
+        <label for="s-accent">Accent colour</label>
+        <div class="colorwrap">
+          <input type="color" id="s-accent" data-key="accent_color" value="#7c3aed">
+          <button type="button" class="clearcol" data-for="s-accent">Template default</button>
+        </div>
+      </div>
+      <div class="srow">
+        <label for="s-bg">Background colour</label>
+        <div class="colorwrap">
+          <input type="color" id="s-bg" data-key="bg_color" value="#ffffff">
+          <button type="button" class="clearcol" data-for="s-bg">Template default</button>
+        </div>
+      </div>
+      <div class="srow">
+        <label for="s-text">Text colour</label>
+        <div class="colorwrap">
+          <input type="color" id="s-text" data-key="text_color" value="#000000">
+          <button type="button" class="clearcol" data-for="s-text">Template default</button>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <div id="bar">
+    <div class="status" id="status">Select a template and a voice to continue.</div>
+    <button id="create" disabled>Create Video</button>
+  </div>
+
+  <!-- type=module so Vite processes import.meta.glob below and inlines the
+       preview images. vite-plugin-singlefile still emits one self-contained
+       file. NOTE: module scripts are deferred and their top-level scope is not
+       global, which is fine here — every handler is wired via addEventListener
+       inside this same script rather than from inline on* attributes. -->
+  <script type="module">
+    // Template previews are BUNDLED, not fetched. import.meta.glob with
+    // eager+url makes vite-plugin-singlefile inline each .webp as a data: URI,
+    // so the panel needs no network and no CSP resourceDomains allowance for
+    // images. Mirrors what template_gallery_app.ts does for the Claude gallery.
+    //
+    // Only 11 of the 15 templates have artwork; magazine, sakura, stickman_2 and
+    // stickman_football have none in the repo OR on R2. Those fall through to
+    // the initials placeholder below rather than rendering a broken image.
+    var PREVIEW_MODULES = import.meta.glob("./src/previews/*.webp", { eager: true, query: "?url", import: "default" });
+    function previewUrl(id) {
+      return PREVIEW_MODULES["./src/previews/" + id + ".webp"] || "";
+    }
+    var GENDER_EMOJI = { male: "👨", female: "👩" };
+
+    var data = { templates: [], voices: [], bgm_tracks: [], is_paid: false, blog_url: "" };
+    // ChatGPT (OpenAI Apps SDK) delivers data via window.openai.toolOutput
+    // Apply the injected-HTML data first (Claude / direct browser; also
+    // ChatGPT's first render on a fresh connector). ChatGPT may cache this
+    // resource HTML at the connector level, so the values here can go stale.
+    if (window.__B2V_SETUP__) {
+      data = Object.assign(data, window.__B2V_SETUP__);
+    }
+    // Then overlay the fresh tool-call output. setup_video returns the
+    // current templates+voices as structuredContent, which ChatGPT exposes
+    // here. This wins over the cached __B2V_SETUP__ so the widget always
+    // re-renders with the freshest voices on every setup_video invocation.
+    if (window.openai && window.openai.toolOutput) {
+      data = Object.assign(data, window.openai.toolOutput);
+    }
+
+    // true = "⚡ Auto": ignore the pickers and let the backend choose, exactly
+    // as the auto_video tool does. Default false (Manual) so the panel behaves
+    // as before unless the user opts in.
+    var autoMode = false;
+    var selTemplate = null;   // template id
+    var selVoice = null;      // voice object
+    var curAudio = null, curPlayBtn = null;
+
+    // Pipeline state machine — drives btnEl behaviour across the full
+    // create → generate → render → download flow.
+    //   idle             → click runs create_project + generation poller
+    //   generating       → button disabled while we poll check_generation_status
+    //   ready_to_render  → generation done; click runs render_video + render poller
+    //   rendering        → button disabled while we poll check_render_status
+    //   rendered         → click opens the final MP4 URL in a new tab
+    var phase = "idle";
+    var pid = null;            // project id, set after create_project succeeds
+    var videoUrl = null;       // final MP4 URL, set after render completes
+    var watchUrl = null;       // shareable /preview/<token> link, set once generated
+
+    function cap(s){ return s ? s.charAt(0).toUpperCase()+s.slice(1) : ""; }
+
+    // ─── Settings ────────────────────────────────────────────────────────
+    // Mirrors ProjectCreate (app/schemas/schemas.py). Every control starts at
+    // its default, and a control still AT its default is omitted from the args
+    // entirely — that is what "skip this setting" means.
+    var DEFAULTS = {
+      video_length: "auto", video_style: "auto", stock_footage_enabled: true,
+      bgm_track_id: "", bgm_volume: 0.10, aspect_ratio: "landscape",
+      playback_speed: 1.0, captions_enabled: false, caption_position: "bottom_center",
+      caption_font_family: "inter", caption_font_size: "36", caption_offset: 0
+    };
+    // stock_footage_enabled is checked by default here (matching auto_video's
+    // behaviour) even though ProjectCreate defaults it to FALSE — so it must be
+    // transmitted explicitly rather than omitted as "already the default".
+    var ALWAYS_SEND = { stock_footage_enabled: 1 };
+    // <input type=color> cannot express "unset" — it always reports a value, so
+    // an untouched picker would send #000000 and override the template palette.
+    // A colour is only sent once the user actually edits it.
+    var colorDirty = {};
+    var bgmAudio = null;
+
+    function collectSettings() {
+      var out = {};
+      var els = document.querySelectorAll("#settings [data-key]");
+      Array.prototype.forEach.call(els, function (el) {
+        var key = el.dataset.key, v;
+        if (el.type === "checkbox") v = el.checked;
+        else if (el.type === "range") v = parseFloat(el.value);
+        else if (el.type === "color") { if (!colorDirty[el.id]) return; v = el.value; }
+        else v = el.value;
+
+        if (key === "caption_offset") v = Math.round(v);
+        if (key === "caption_font_size") v = String(Math.round(v));  // schema wants a string
+        if (v === "" || v === null || typeof v === "undefined") return;
+        if (!ALWAYS_SEND[key] && el.type !== "color" && v === DEFAULTS[key]) return;
+        out[key] = v;
+      });
+      // Volume is meaningless without a track.
+      if (!out.bgm_track_id) delete out.bgm_volume;
+      // Caption sub-settings are meaningless when captions are off.
+      if (!document.getElementById("s-cap").checked) {
+        ["caption_position", "caption_font_family", "caption_font_size", "caption_offset"]
+          .forEach(function (k) { delete out[k]; });
+      }
+      return out;
+    }
+
+    function stopBgm() {
+      if (bgmAudio) { bgmAudio.pause(); bgmAudio = null; }
+      document.getElementById("bgm-play").classList.remove("playing");
+      document.getElementById("bgm-play").textContent = "▶";
+    }
+
+    function renderBgm() {
+      var sel = document.getElementById("s-bgm");
+      (data.bgm_tracks || []).forEach(function (t) {
+        var o = document.createElement("option");
+        o.value = t.track_id;
+        o.textContent = t.display_name + (t.mood ? " · " + t.mood : "");
+        o.dataset.url = t.r2_url || "";
+        sel.appendChild(o);
+      });
+    }
+
+    function applyPlanGate() {
+      // Fail closed: paid-only lengths stay disabled unless we know the plan is
+      // paid. The backend rejects them with 403 regardless, so this only avoids
+      // letting the user pick something that then fails.
+      if (data.is_paid) return;
+      var opts = document.querySelectorAll('#s-length option[data-paid]');
+      Array.prototype.forEach.call(opts, function (o) {
+        o.disabled = true;
+        o.classList.add("paid-locked");
+        o.textContent += " · Pro";
+      });
+    }
+
+    // Generation is done → the video is watchable immediately via a shareable
+    // /preview/<token> link. get_preview_url is widgetAccessible and takes only
+    // project_id, so the widget can mint it without a model turn.
+    //
+    // Rendering an MP4 is a separate 3-8 minute paid step, so it is demoted to
+    // a secondary link rather than being the only way to see your video.
+    async function showPreviewLink(pid, btnEl) {
+      var url = null;
+      try {
+        var res = await window.openai.callTool("get_preview_url", { project_id: pid });
+        // The handler returns markdown; pull the first /preview/ URL out of it.
+        if (res && Array.isArray(res.content)) {
+          for (var i = 0; i < res.content.length; i++) {
+            var txt = (res.content[i] || {}).text || "";
+            var m = txt.match(/https?:\/\/\S*\/preview\/[A-Za-z0-9_-]+/);
+            if (m) { url = m[0]; break; }
+          }
+        }
+      } catch (e) {
+        console.warn("get_preview_url failed:", e);
+      }
+
+      var status = document.getElementById("status");
+      if (url) {
+        videoUrl = null;                 // not the MP4 — that's the render path
+        watchUrl = url;
+        phase = "ready_to_render";
+        btnEl.disabled = false;
+        btnEl.textContent = "▶ Watch video";
+        status.innerHTML =
+          '✅ Video ready — <a href="' + url + '" target="_blank" rel="noopener noreferrer" '
+          + 'style="color:#60a5fa;text-decoration:underline;">open preview</a>'
+          + ' &nbsp;·&nbsp; <a href="#" id="render-link" style="color:#888;">render MP4 (3–8 min)</a>';
+        var rl = document.getElementById("render-link");
+        if (rl) rl.addEventListener("click", function (e) {
+          e.preventDefault();
+          startRenderFlow(btnEl);
+        });
+      } else {
+        // No link (token mint failed) — fall back to the old behaviour so the
+        // user is never stranded with a dead button.
+        btnEl.disabled = false;
+        btnEl.textContent = "Render Video";
+      }
+    }
+
+    function lockSettings() {
+      document.getElementById("settings").classList.add("locked");
+      stopBgm();
+    }
+
+    function wireSettings() {
+      // Live value readouts for the range inputs.
+      var fmt = {
+        "s-speed": function (v) { return (+v).toFixed(2) + "×"; },
+        "s-bgmvol": function (v) { return Math.round(v * 100) + "%"; },
+        "s-capsize": function (v) { return Math.round(v) + "px"; },
+        "s-capoff": function (v) { return String(Math.round(v)); }
+      };
+      Object.keys(fmt).forEach(function (id) {
+        var el = document.getElementById(id), out = document.getElementById(id + "-val");
+        if (!el || !out) return;
+        el.addEventListener("input", function () { out.textContent = fmt[id](el.value); });
+        out.textContent = fmt[id](el.value);
+      });
+
+      // Progressive disclosure — hide sub-settings until their parent is on.
+      document.getElementById("s-cap").addEventListener("change", function () {
+        document.getElementById("capgroup").hidden = !this.checked;
+      });
+      document.getElementById("s-bgm").addEventListener("change", function () {
+        document.getElementById("bgm-vol-row").hidden = !this.value;
+        stopBgm();
+      });
+
+      // BGM preview.
+      var bgmBtn = document.getElementById("bgm-play");
+      bgmBtn.addEventListener("click", function () {
+        if (bgmAudio) { stopBgm(); return; }
+        var sel = document.getElementById("s-bgm");
+        var opt = sel.options[sel.selectedIndex];
+        var url = opt && opt.dataset.url;
+        if (!url) return;
+        // Voice previews and music share one "currently playing" slot.
+        if (curAudio) { curAudio.pause(); curAudio = null; }
+        if (curPlayBtn) { curPlayBtn.classList.remove("playing"); curPlayBtn.textContent = "▶"; curPlayBtn = null; }
+        bgmAudio = new Audio(url);
+        bgmAudio.addEventListener("ended", stopBgm);
+        bgmAudio.play().then(function () {
+          bgmBtn.classList.add("playing");
+          bgmBtn.textContent = "❚❚";
+        }).catch(function () { stopBgm(); });
+      });
+
+      // Colour dirty-tracking.
+      ["s-accent", "s-bg", "s-text"].forEach(function (id) {
+        var input = document.getElementById(id);
+        var btn = document.querySelector('.clearcol[data-for="' + id + '"]');
+        input.addEventListener("input", function () {
+          colorDirty[id] = true;
+          btn.textContent = "Reset";
+          updateBar();
+        });
+        btn.addEventListener("click", function () {
+          colorDirty[id] = false;
+          btn.textContent = "Template default";
+          updateBar();
+        });
+      });
+
+      // Keep the "N settings changed" chip live.
+      document.getElementById("settings").addEventListener("change", updateBar);
+      document.getElementById("settings").addEventListener("input", updateBar);
+    }
+
+    function renderTemplates() {
+      var box = document.getElementById("templates");
+      if (!data.templates || !data.templates.length) { box.innerHTML = '<p class="empty">No templates.</p>'; return; }
+      box.innerHTML = "";
+      // Built-ins first, then the user's own templates. Custom ones arrive with
+      // id "custom_<n>" and no bundled .webp, so they fall through to the
+      // initials placeholder unless the backend rendered a thumbnail.
+      var ordered = data.templates.filter(function(t){ return !t.custom; })
+                      .concat(data.templates.filter(function(t){ return t.custom; }));
+      var firstCustomSeen = false;
+      ordered.forEach(function(t){
+        if (t.custom && !firstCustomSeen) {
+          firstCustomSeen = true;
+          var hd = document.createElement("div");
+          hd.className = "custom-divider";
+          hd.textContent = "Your templates";
+          box.appendChild(hd);
+        }
+        var id = t.id || t.template || "?";
+        var name = t.name || id;
+        var genres = (t.genres || []).join(" · ");
+        var card = document.createElement("div");
+        card.className = "card";
+        card.dataset.id = id;
+        // Bundled preview when we have one; otherwise a two-letter initials
+        // chip. Previously this always pointed at R2 and the four templates
+        // without artwork rendered as broken-image alt text.
+        var src = previewUrl(id) || t.preview_url || "";
+        var initials = (name || id).slice(0, 2).toUpperCase();
+        card.innerHTML =
+          (src
+            ? '<img src="'+src+'" alt="'+name+'" loading="lazy">'
+            : '<div class="thumb-placeholder">'+initials+'</div>') +
+          '<div class="info"><h3>'+name+'</h3><div class="genres">'+(genres||"&nbsp;")+'</div></div>';
+        // A bundled URI cannot 404, but t.preview_url still can — swap to the
+        // placeholder rather than leaving a broken image.
+        var imgEl = card.querySelector("img");
+        if (imgEl) {
+          imgEl.addEventListener("error", function () {
+            var ph = document.createElement("div");
+            ph.className = "thumb-placeholder";
+            ph.textContent = initials;
+            imgEl.replaceWith(ph);
+          });
+        }
+        card.addEventListener("click", function(){
+          if (selTemplate) {
+            var prev = box.querySelector('.card[data-id="'+selTemplate+'"]');
+            if (prev) prev.classList.remove("selected");
+          }
+          selTemplate = id;
+          card.classList.add("selected");
+          updateBar();
+        });
+        box.appendChild(card);
+      });
+    }
+
+    function renderVoices() {
+      var box = document.getElementById("voices");
+      if (!data.voices || !data.voices.length) {
+        box.innerHTML = '<p class="empty">No saved voices yet. Add some at ' +
+                        '<a href="https://blog2video.app" target="_blank" style="color:#3b82f6;text-decoration:underline;">blog2video.app</a> ' +
+                        'and reload this chat.</p>';
+        return;
+      }
+      box.innerHTML = "";
+      data.voices.forEach(function(v){
+        var labels = v.labels || {};
+        var gender = labels.gender || v.gender || "";
+        var accent = labels.accent || v.accent || "";
+        var name = v.name || v.voice_id || "Voice";
+        var emoji = GENDER_EMOJI[gender] || "🎙";
+        var card = document.createElement("div");
+        card.className = "vcard";
+        card.innerHTML =
+          '<div class="avatar">'+emoji+'</div>' +
+          '<div class="vinfo"><div class="vname">'+name+'</div>' +
+          '<div class="vmeta">'+cap(gender)+(accent?" · "+cap(accent):"")+'</div></div>' +
+          (v.preview_url ? '<button class="play-btn" title="Preview">▶</button>' : '');
+        card.addEventListener("click", function(e){
+          if (e.target.closest(".play-btn")) return;
+          var prev = box.querySelector(".vcard.selected");
+          if (prev) prev.classList.remove("selected");
+          selVoice = { voice_id: v.voice_id, name: name, gender: gender, accent: accent };
+          card.classList.add("selected");
+          updateBar();
+        });
+        var pb = card.querySelector(".play-btn");
+        if (pb) pb.addEventListener("click", function(e){ e.stopPropagation(); togglePlay(pb, v.preview_url); });
+        box.appendChild(card);
+      });
+    }
+
+    function togglePlay(btn, url) {
+      stopBgm();   // voice previews and background music share one audio slot
+      if (curAudio) {
+        curAudio.pause(); curAudio = null;
+        if (curPlayBtn) { curPlayBtn.textContent="▶"; curPlayBtn.classList.remove("playing"); }
+        if (curPlayBtn === btn) { curPlayBtn = null; return; }
+      }
+      var a = new Audio(url); a.play().catch(function(){});
+      a.addEventListener("ended", function(){ btn.textContent="▶"; btn.classList.remove("playing"); curAudio=null; curPlayBtn=null; });
+      curAudio = a; curPlayBtn = btn; btn.textContent="■"; btn.classList.add("playing");
+    }
+
+    function updateBar() {
+      var status = document.getElementById("status");
+      var btn = document.getElementById("create");
+
+      // Auto needs no selections — the backend picks the template and uses the
+      // account's default voice, so the Create button is live immediately.
+      if (autoMode) {
+        status.innerHTML = "<strong>Auto</strong> &nbsp;·&nbsp; I'll pick the template, "
+                         + "voice and settings for you.";
+        if (phase === "idle") btn.disabled = false;
+        return;
+      }
+
+      var parts = [];
+      parts.push(selTemplate ? "Template: <strong>"+selTemplate+"</strong>" : "Template: —");
+      parts.push(selVoice ? "Voice: <strong>"+selVoice.name+"</strong>" : "Voice: —");
+      // stock_footage_enabled is always transmitted, so it doesn't count as a
+      // user-made change for this chip.
+      var changed = collectSettings();
+      delete changed.stock_footage_enabled;
+      var n = Object.keys(changed).length;
+      if (n) parts.push("<strong>"+n+"</strong> setting"+(n>1?"s":"")+" changed");
+      status.innerHTML = parts.join(" &nbsp;·&nbsp; ");
+      // Settings are NEVER required — only template and voice gate Create.
+      btn.disabled = !(selTemplate && selVoice);
+    }
+
+    function parseRenderStatus(res) {
+      // Prefer structuredContent if surfaced; otherwise regex the markdown.
+      try {
+        if (res && res.structuredContent && typeof res.structuredContent === "object") {
+          return {
+            done: !!res.structuredContent.done,
+            error: res.structuredContent.error,
+            url: res.structuredContent.r2_video_url,
+            progress: res.structuredContent.progress,
+          };
+        }
+      } catch (e) { /* ignore */ }
+      try {
+        if (res && Array.isArray(res.content)) {
+          for (var i = 0; i < res.content.length; i++) {
+            var c = res.content[i];
+            if (!c || typeof c.text !== "string") continue;
+            var t = c.text;
+            var um = t.match(/https?:\/\/[^\s)]+\.mp4[^\s)]*/i)
+                  || t.match(/r2_video_url[^"'\s:]*["':\s]+([^\s"',)]+)/i);
+            if (um) return { done: true, url: um[1] || um[0] };
+            if (/Render failed/i.test(t)) {
+              var em = t.match(/Render failed[^:]*:\s*(.+)$/im);
+              return { done: true, error: em ? em[1].trim() : "render failed" };
+            }
+            var pm = t.match(/(\d{1,3})\s*%/);
+            if (pm) return { done: false, progress: parseInt(pm[1], 10) };
+          }
+        }
+      } catch (e) { /* ignore */ }
+      return { done: false };
+    }
+
+    async function startRenderFlow(btnEl) {
+      if (!pid) return;
+      btnEl.disabled = true;
+      btnEl.style.background = "";          // back to default blue
+      btnEl.textContent = "Rendering · starting…";
+      phase = "rendering";
+
+      // Fire-and-forget render kickoff (same pattern as generate_video).
+      try {
+        window.openai.callTool("render_video", { project_id: pid });
+      } catch (e) { console.warn("render kickoff failed:", e); }
+
+      var renderAttempts = 0;
+      var MAX_RENDER_ATTEMPTS = 96;   // 96 × 5s = 8 min
+      var renderHandle = setInterval(async function () {
+        renderAttempts++;
+        if (renderAttempts > MAX_RENDER_ATTEMPTS) {
+          clearInterval(renderHandle);
+          btnEl.disabled = false;
+          btnEl.textContent = "Still rendering — check chat";
+          phase = "ready_to_render";  // let them retry
+          return;
+        }
+        try {
+          var statusRes = await window.openai.callTool("check_render_status", { project_id: pid });
+          var r = parseRenderStatus(statusRes);
+          if (r.done && r.url) {
+            clearInterval(renderHandle);
+            videoUrl = r.url;
+            btnEl.disabled = false;
+            btnEl.textContent = "▶ Watch / Download";
+            phase = "rendered";
+            if (typeof window.openai.sendFollowUpMessage === "function") {
+              window.openai.sendFollowUpMessage({
+                prompt: "[Blog2Video widget] The MP4 render for project " + pid +
+                        " just finished. URL: " + r.url +
+                        "\n\nShow this video link to the user (embedded preview if your UI supports it) and ask if they'd like any edits or to render at a different aspect ratio."
+              });
+            }
+          } else if (r.done && r.error) {
+            clearInterval(renderHandle);
+            btnEl.disabled = false;
+            btnEl.textContent = "Failed ✗ — Retry";
+            btnEl.style.background = "#dc2626";
+            phase = "ready_to_render";  // retry brings them back here
+          } else if (typeof r.progress === "number") {
+            btnEl.textContent = "Rendering · " + r.progress + "%";
+          }
+        } catch (e) {
+          console.warn("render poll failed:", e);
+        }
+      }, 5000);
+    }
+
+    document.getElementById("create").addEventListener("click", async function(){
+      var btnEl = this;
+
+      // Phase dispatch — the click means different things at different stages.
+      // Once generated we have a free preview link, so the button opens that;
+      // rendering an MP4 is the secondary link in the status bar.
+      if (phase === "ready_to_render" && watchUrl) {
+        window.open(watchUrl, "_blank", "noopener,noreferrer");
+        return;
+      }
+      if (phase === "ready_to_render") { await startRenderFlow(btnEl); return; }
+      if (phase === "rendered" && videoUrl) {
+        window.open(videoUrl, "_blank", "noopener,noreferrer");
+        return;
+      }
+      if (phase === "generating" || phase === "rendering") return;
+
+      // phase === "idle" or "failed" → run the create + generate flow.
+      // Auto needs no picks; Manual requires both.
+      if (!autoMode && !(selTemplate && selVoice)) return;
+
+      // Re-read toolOutput HERE, not just at script load. ChatGPT preloads this
+      // widget at connect time — before any tool has run — so the injected
+      // __B2V_SETUP__ carries blog_url:"" and the initial read of
+      // window.openai.toolOutput finds nothing. By the time Create is clicked
+      // setup_video HAS run, so toolOutput now holds the real blog_url.
+      // Without this the call goes out with an empty blog_url.
+      if (window.openai && window.openai.toolOutput) {
+        data = Object.assign(data, window.openai.toolOutput);
+      }
+
+      var args;
+      if (autoMode) {
+        // Mirror handlers._auto_video exactly: no template (the backend picks
+        // one from the source site), no custom_voice_id (a specific saved voice
+        // can 404 per-scene — the account default always resolves), no colours
+        // so the chosen template's own palette wins, stock footage on.
+        args = {
+          blog_url: data.blog_url || "",
+          stock_footage_enabled: true
+        };
+      } else {
+        args = Object.assign({
+          blog_url: data.blog_url || "",
+          template: selTemplate,
+          voice_gender: selVoice.gender || "female",
+          voice_accent: selVoice.accent || "american"
+        }, collectSettings());
+        // The backend field is custom_voice_id — `voice_id` was silently dropped
+        // by ProjectCreate. Omit entirely when blank so no empty string is sent.
+        if (selVoice.voice_id) args.custom_voice_id = selVoice.voice_id;
+      }
+
+      btnEl.disabled = true;
+      btnEl.textContent = "Creating…";
+      phase = "generating";
+      // The project exists from here on; editing settings would silently do
+      // nothing, which reads as a bug.
+      lockSettings();
+
+      function extractProjectId(result) {
+        // Try common shapes the MCP tool result might come back as.
+        try {
+          if (!result) return null;
+          if (typeof result === "object" && result.project_id) return result.project_id;
+          if (result.structuredContent && result.structuredContent.project_id) return result.structuredContent.project_id;
+          if (Array.isArray(result.content)) {
+            for (var i = 0; i < result.content.length; i++) {
+              var c = result.content[i];
+              if (c && typeof c.text === "string") {
+                // Match: "project #789", "project_id 789", "project id: 789", "**project #789**"
+                var m = c.text.match(/project[_ ]?#?\s*([0-9]+)/i) ||
+                        c.text.match(/project[_ ]?id["':\s]*([0-9]+)/i);
+                if (m) return parseInt(m[1], 10);
+              }
+            }
+          }
+        } catch (e) { /* ignore */ }
+        return null;
+      }
+
+      function looksLikeError(result) {
+        try {
+          if (!result) return false;
+          if (result.isError) return true;
+          if (Array.isArray(result.content)) {
+            for (var i = 0; i < result.content.length; i++) {
+              var c = result.content[i];
+              if (c && typeof c.text === "string" && /^❌|cannot create|missing|error/i.test(c.text)) return true;
+            }
+          }
+        } catch (e) { /* ignore */ }
+        return false;
+      }
+
+      // ChatGPT (OpenAI Apps SDK)
+      if (window.openai && typeof window.openai.callTool === "function") {
+        try {
+          var result = await window.openai.callTool("create_project", args);
+          if (looksLikeError(result)) {
+            btnEl.disabled = false;
+            btnEl.textContent = "Retry — backend rejected";
+            phase = "idle";
+            console.warn("create_project returned error:", result);
+            if (typeof window.openai.sendFollowUpMessage === "function") {
+              window.openai.sendFollowUpMessage({
+                prompt: "The create_project tool returned an error. Read the error message, fix the issue (often: ask me for the blog_url and re-call setup_video with it), then retry."
+              });
+            }
+            return;
+          }
+          pid = extractProjectId(result);
+          btnEl.textContent = pid ? ("Created · #" + pid + " · starting…") : "Created ✓";
+
+          // Widget-side polling so the button auto-updates from
+          // "generating…" → "Generated ✓" without depending on the model.
+          if (pid) {
+            // Kick off generation server-side. Fire-and-forget: generate_video
+            // blocks on the server until done, but we don't await it here
+            // because we manage UI updates via the status poller below.
+            try {
+              window.openai.callTool("generate_video", { project_id: pid });
+            } catch (e) {
+              console.warn("generate_video kick-off failed:", e);
+            }
+
+            // Surface the project as a tool card in the chat so the model
+            // has durable context for follow-ups like "render the video"
+            // even if sendFollowUpMessage below is dropped or skipped.
+            try {
+              window.openai.callTool("get_project", { project_id: pid });
+            } catch (e) {
+              console.warn("get_project surface failed:", e);
+            }
+
+            function parseGenStatus(res) {
+              // Prefer structuredContent if the server provides it.
+              try {
+                if (res && res.structuredContent && typeof res.structuredContent === "object") {
+                  return {
+                    status: res.structuredContent.status || "",
+                    step: res.structuredContent.step,
+                    error: res.structuredContent.error,
+                  };
+                }
+              } catch (e) { /* ignore */ }
+              // Fallback: scan the markdown text emitted by
+              // _humanize_generation_progress() in handlers.py.
+              try {
+                if (res && Array.isArray(res.content)) {
+                  for (var i = 0; i < res.content.length; i++) {
+                    var c = res.content[i];
+                    if (!c || typeof c.text !== "string") continue;
+                    var t = c.text;
+                    if (/Generation complete|status['":\s]*generated/i.test(t)) return { status: "generated" };
+                    if (/Generation failed|status['":\s]*(failed|error)/i.test(t)) return { status: "failed", error: t };
+                    var m = t.match(/Step\s+(\d+)\s*\/\s*4/i);
+                    if (m) return { status: "running", step: parseInt(m[1], 10) };
+                    if (/Queued/i.test(t)) return { status: "queued" };
+                  }
+                }
+              } catch (e) { /* ignore */ }
+              return { status: "" };
+            }
+
+            var attempts = 0;
+            var MAX_ATTEMPTS = 120; // 120 × 5s = 10 min ceiling
+            var pollHandle = setInterval(async function () {
+              attempts++;
+              if (attempts > MAX_ATTEMPTS) {
+                clearInterval(pollHandle);
+                btnEl.disabled = false;
+                btnEl.textContent = "Still generating — check chat";
+                phase = "idle";
+                return;
+              }
+              try {
+                var statusRes = await window.openai.callTool("check_generation_status", { project_id: pid });
+                var s = parseGenStatus(statusRes);
+                if (s.status === "generated" || s.status === "done") {
+                  clearInterval(pollHandle);
+                  btnEl.disabled = false;
+                  btnEl.style.background = "";       // default blue
+                  phase = "ready_to_render";
+                  // The video is watchable NOW. Offer the shareable preview
+                  // link as the primary action — it is free and instant —
+                  // rather than pushing every user into a 3-8 minute paid MP4
+                  // render just to see what they made. Rendering stays
+                  // available as a secondary link below.
+                  btnEl.textContent = "Fetching preview…";
+                  btnEl.disabled = true;
+                  showPreviewLink(pid, btnEl);
+                } else if (s.status === "failed" || s.status === "error" || s.error) {
+                  clearInterval(pollHandle);
+                  btnEl.disabled = false;
+                  btnEl.textContent = "Failed ✗ — Retry";
+                  btnEl.style.background = "#dc2626";
+                  phase = "idle";                    // retry restarts the whole pipeline
+                } else if (typeof s.step === "number" && s.step > 0) {
+                  btnEl.textContent = "Created · #" + pid + " · step " + s.step + "/4…";
+                }
+              } catch (e) {
+                // transient — keep polling until MAX_ATTEMPTS
+                console.warn("poll failed:", e);
+              }
+            }, 5000);
+          }
+
+          // Strategy: do NOT call generate_video from the widget. callTool
+          // results never surface in the chat (they go back to this JS),
+          // so the model wouldn't know what happened. Instead, send ONE
+          // strong follow-up that makes the model call generate_video and
+          // get_project itself — those calls land in the conversation,
+          // so the assistant can describe the result to the user.
+          if (typeof window.openai.sendFollowUpMessage === "function") {
+            var followUp = pid
+              ? (
+                  "[Blog2Video widget] Project created.\n\n" +
+                  "```\nproject_id: " + pid + "\ntemplate: " + args.template +
+                  "\nvoice: " + (autoMode ? "auto (account default)" : selVoice.name) + "\n```\n\n" +
+                  "Do the following IN ORDER, calling each tool yourself so the user sees progress in chat:\n" +
+                  "1. `generate_video(project_id=" + pid + ")` — blocks until generation finishes.\n" +
+                  "2. `get_project(project_id=" + pid + ")` — summarise title, scene count, status.\n" +
+                  "3. Ask the user if they want to render. On yes, `render_video(project_id=" + pid + ")` " +
+                  "then poll `check_render_status` until done; share the URL.\n\n" +
+                  "Do not respond in text without calling tools. The project already exists; remember " +
+                  "project_id=" + pid + " for the remainder of this conversation."
+                )
+              : (
+                  "[Blog2Video widget] A new project was just created for template '" +
+                  (args.template || 'auto-picked') + "' / voice '" + (autoMode ? 'auto' : selVoice.name) + "', but the widget " +
+                  "couldn't extract the project_id. Call `list_projects`, identify the " +
+                  "most recent one, then call `generate_video` on it, then `get_project`."
+                );
+            window.openai.sendFollowUpMessage({ prompt: followUp });
+          }
+        } catch (err) {
+          btnEl.disabled = false;
+          btnEl.textContent = "Retry — error";
+          phase = "idle";
+          console.error("create_project failed:", err);
+        }
+      } else {
+        // Claude / MCP-UI host — postMessage handshake (host responds out-of-band)
+        window.parent.postMessage({ type: "tool", payload: { toolName: "create_project", params: args } }, "*");
+        btnEl.textContent = "Sent ✓";
+      }
+    });
+
+    function wireModeToggle() {
+      var bar = document.getElementById("mode-bar");
+      if (!bar) return;
+      var btns = bar.querySelectorAll(".mode-btn");
+      Array.prototype.forEach.call(btns, function (b) {
+        b.addEventListener("click", function () {
+          if (phase !== "idle") return;   // never switch mid-create
+          autoMode = b.dataset.mode === "auto";
+          Array.prototype.forEach.call(btns, function (o) {
+            o.setAttribute("aria-pressed", String(o === b));
+          });
+          // Dim the pickers in Auto: they are ignored, so leaving them live
+          // would imply the choice still matters.
+          ["templates", "voices", "settings"].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.classList.toggle("auto-locked", autoMode);
+          });
+          stopBgm();
+          updateBar();
+        });
+      });
+    }
+
+    renderTemplates();
+    renderVoices();
+    renderBgm();
+    applyPlanGate();
+    wireSettings();
+    wireModeToggle();
+    updateBar();
+  </script>
+</body>
+</html>

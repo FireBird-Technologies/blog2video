@@ -30,6 +30,10 @@ from app.auth import decode_access_token
 from app.config import settings
 from mcp_server.client import Blog2VideoClient
 from mcp_server.handlers import dispatch
+# Handlers own this ContextVar (mcp_server.handlers cannot import THIS module —
+# it would be circular), but only this layer sees the ASGI scope, so the transport
+# sets it and current_client_name() reads it.
+from mcp_server.handlers import _CLIENT_UA as _handler_client_ua
 from mcp_server.tools import get_tool_definitions
 
 
@@ -186,8 +190,24 @@ async def _call_tool(name: str, arguments: dict):
 # per-result _meta and this resource read can never drift apart.
 from mcp_server.handlers import SETUP_RESOURCE_URI as _SETUP_URI
 
-_GALLERY_URI = "ui://blog2video/template_gallery_v2"
-_VOICES_URI  = "ui://blog2video/voice_gallery"
+_GALLERY_URI = "ui://blog2video/template_gallery_v4"
+# _v2: the original bundle predated MCP Apps — it never called app.connect(), so
+# claude.ai kept its iframe hidden. Rebuilt from ui_src/src/voice_gallery_app.ts;
+# the URI must change or existing connectors keep serving the cached broken HTML.
+_VOICES_URI  = "ui://blog2video/voice_gallery_v2"
+# Third step of the Manual chain (templates → voices → settings). Built from
+# ui_src/src/settings_panel_app.ts, so it performs the app.connect() handshake
+# the hand-written setup_gallery.html never did.
+# _v2: the v1 bundle called app.callServerTool("create_project") itself, which
+# claude.ai silently drops (no consent prompt, no dispatch). Rebuilt to announce
+# the settings via app.sendMessage so the MODEL creates the project. claude.ai
+# caches widget HTML per URI and never re-reads it, so the URI must change or
+# existing connectors keep serving the cached broken bundle.
+# _v3: the Create Video message is now a readable sentence ("create the video —
+# medium length, music: moment_of_peace") instead of raw JSON, which the user saw
+# in the composer. claude.ai caches widget HTML per URI and never re-reads it, so
+# the URI must change or connectors keep serving the cached v2 bundle.
+_SETTINGS_URI = "ui://blog2video/settings_panel_v3"
 _GALLERY_MIME = "text/html;profile=mcp-app"
 
 
@@ -200,30 +220,88 @@ async def _fetch_templates() -> list[dict]:
             resp = await client.get(f"{base}/api/templates")
             if resp.status_code == 200:
                 raw = resp.json()
-                return [
+                builtins = [
                     {
                         "id": t.get("id", "?"),
                         "name": t.get("name") or t.get("id", "?"),
                         "genres": t.get("genres") or [],
+                        "custom": False,
                     }
                     for t in raw
                 ]
+                return builtins + await _fetch_custom_templates()
     except Exception as exc:
         logger.warning("setup_gallery: failed to fetch templates: %s", exc)
     return []
 
 
-async def _fetch_voices() -> list[dict]:
-    """Cold-path voice fallback. Returns [] by design.
+async def _fetch_custom_templates() -> list[dict]:
+    """The caller's FINISHED custom templates, for cold widget reads.
 
-    Normal flow: _setup_video / _list_voices warm _VOICE_CACHE with the
-    user's saved voices via the JWT-authenticated client. This function
-    is only reached when the cache is empty (e.g. resource read before
-    any tool call). We do NOT fall back to the public prebuilt catalog
-    because that would leak voices the user has not saved — matches the
-    saved-only semantics in handlers._fetch_user_voices().
+    /api/templates is public and returns built-ins only, so without this a user
+    could not see their own templates in the ChatGPT setup panel. Custom
+    templates are per-user, so this needs the request JWT — same pattern as
+    _fetch_voices, including the worker-thread offload (the client is
+    synchronous and calls back into this process).
     """
-    return []
+    token = _REQUEST_TOKEN.get()
+    if not token:
+        return []  # stdio / no request context
+
+    import anyio
+
+    from mcp_server.handlers import _usable_custom_templates
+
+    def _run() -> list[dict]:
+        return _usable_custom_templates(
+            Blog2VideoClient(jwt_token=token, base_url=settings.BACKEND_URL)
+        )
+
+    try:
+        return await anyio.to_thread.run_sync(_run)
+    except Exception as exc:  # noqa: BLE001 - never fail the resource read
+        logger.warning("_fetch_custom_templates: failed: %s", exc)
+        return []
+
+
+async def _fetch_voices() -> list[dict]:
+    """Cold-path voices: the caller's OWN saved voices, via their request JWT.
+
+    Reached when _VOICE_CACHE is empty — i.e. a resource read that happens
+    before any tool call warms it. ChatGPT preloads every widget at connect
+    time, so this is its NORMAL path, and returning [] left the setup panel
+    showing "No saved voices yet" with the Create button unusable. (Claude
+    reads resources after a tool has run, so it never hit this.)
+
+    Still NO public prebuilt-catalog fallback — that would expose voices the
+    user has not saved. This authenticates as the caller, so it returns exactly
+    what list_voices would.
+
+    The JWT is available here: _mcp_endpoint sets _REQUEST_TOKEN around the
+    whole transport dispatch, and resources/read runs inside that scope.
+
+    MUST stay off the event loop: _fetch_user_voices is synchronous and calls
+    back into THIS FastAPI process over HTTP. Running it inline deadlocks —
+    the same reason _call_tool dispatches into a worker thread.
+    """
+    token = _REQUEST_TOKEN.get()
+    if not token:
+        return []  # stdio server / no request context — behave as before
+
+    import anyio
+
+    from mcp_server.handlers import _fetch_user_voices
+
+    def _run() -> list[dict]:
+        return _fetch_user_voices(
+            Blog2VideoClient(jwt_token=token, base_url=settings.BACKEND_URL)
+        )
+
+    try:
+        return await anyio.to_thread.run_sync(_run)
+    except Exception as exc:  # noqa: BLE001 - a cold read must never fail the widget
+        logger.warning("_fetch_voices: cold fetch failed: %s", exc)
+        return []
 
 
 # CSP for the widget sandboxes. Per SEP-1865 an omitted `resourceDomains` means
@@ -247,21 +325,63 @@ async def _list_resources():
             name="Blog2Video Template Gallery",
             mimeType=_GALLERY_MIME,
             description="Interactive 12-card template gallery.",
-            _meta={"ui": {"csp": _WIDGET_CSP}},
+            _meta={
+                "ui": {"csp": _WIDGET_CSP},
+                "openai/widgetDescription": (
+                    "A visual gallery of every video template, each card showing a real "
+                    "preview image. The user clicks a card to select one. It is the "
+                    "complete user-facing output — do not enumerate the templates in text."
+                ),
+            },
         ),
         Resource(
             uri=AnyUrl(_VOICES_URI),
             name="Blog2Video Voice Gallery",
             mimeType=_GALLERY_MIME,
             description="Interactive voice selector with audio previews.",
-            _meta={"ui": {"csp": _WIDGET_CSP}},
+            _meta={
+                "ui": {"csp": _WIDGET_CSP},
+                "openai/widgetDescription": (
+                    "A gallery of narration voices with audio previews. The user clicks a "
+                    "card to hear and select a voice. It is the complete user-facing "
+                    "output — do not enumerate the voices in text."
+                ),
+            },
         ),
         Resource(
             uri=AnyUrl(_SETUP_URI),
             name="Blog2Video Setup Panel",
             mimeType=_GALLERY_MIME,
             description="Combined template + voice selection panel for creating a video.",
-            _meta={"ui": {"csp": _WIDGET_CSP}},
+            # openai/widgetDescription is surfaced to the MODEL when the widget
+            # loads, expressly to reduce "redundant assistant narration" (Apps
+            # SDK reference). Without it the host synthesises its own note
+            # telling the model not to restate the widget — which has been seen
+            # leaking into the transcript as visible text.
+            _meta={
+                "ui": {"csp": _WIDGET_CSP},
+                "openai/widgetDescription": (
+                    "An interactive panel where the user selects a video template, a "
+                    "narration voice, background music and settings, then clicks Create "
+                    "Video. It is the complete user-facing output — do not restate its "
+                    "contents or instructions."
+                ),
+            },
+        ),
+        Resource(
+            uri=AnyUrl(_SETTINGS_URI),
+            name="Blog2Video Settings Panel",
+            mimeType=_GALLERY_MIME,
+            description="Video settings (length, style, music, captions, colours) plus Create Video.",
+            _meta={
+                "ui": {"csp": _WIDGET_CSP},
+                "openai/widgetDescription": (
+                    "An interactive panel where the user adjusts video settings — length, "
+                    "style, stock footage, background music, aspect ratio, captions and "
+                    "colours — then clicks Create Video. It is the complete user-facing "
+                    "output — do not restate its contents or list the settings in text."
+                ),
+            },
         ),
     ]
 
@@ -275,7 +395,11 @@ async def _read_resource(uri):
 
     uri_str = str(uri)
 
-    if uri_str == _GALLERY_URI:
+    # Superseded URIs are served the CURRENT bundle — see the setup branch below
+    # for why (cached tool lists keep requesting the old version).
+    if uri_str in (_GALLERY_URI, "ui://blog2video/template_gallery_v3",
+                   "ui://blog2video/template_gallery_v2",
+                   "ui://blog2video/template_gallery"):
         # The widget's primary data channel is the tool result's
         # structuredContent, delivered by the host via ontoolresult. This
         # injection is only a fallback for hosts that read the resource before
@@ -289,7 +413,7 @@ async def _read_resource(uri):
         html = html.replace("</head>", f"{injection}</head>", 1)
         return [ReadResourceContents(content=html, mime_type=_GALLERY_MIME)]
 
-    if uri_str == _VOICES_URI:
+    if uri_str in (_VOICES_URI, "ui://blog2video/voice_gallery"):
         from mcp_server.handlers import _VOICE_CACHE
         voices_json = json.dumps(_VOICE_CACHE, ensure_ascii=False)
         html = load_html("voice_gallery")
@@ -297,7 +421,16 @@ async def _read_resource(uri):
         html = html.replace("</head>", f"{injection}</head>", 1)
         return [ReadResourceContents(content=html, mime_type=_GALLERY_MIME)]
 
-    if uri_str == _SETUP_URI:
+    # Accept superseded setup URIs as well as the current one. Hosts cache the
+    # tool list (and with it the resourceUri) and keep requesting the OLD version
+    # until the connector is re-added — a bump alone makes every fetch fail with
+    # "Unknown resource", which ChatGPT surfaces as "Failed to fetch template".
+    # Serving the current bundle for old URIs makes a bump non-breaking.
+    if uri_str in (_SETUP_URI, "ui://blog2video/setup_gallery_v7",
+                   "ui://blog2video/setup_gallery_v6",
+                   "ui://blog2video/setup_gallery_v5",
+                   "ui://blog2video/setup_gallery_v4",
+                   "ui://blog2video/setup_gallery_v3"):
         import mcp_server.handlers as h
         templates = await _fetch_templates()
         voices = h._VOICE_CACHE or await _fetch_voices()
@@ -307,15 +440,46 @@ async def _read_resource(uri):
         # fires before the user can interact, and carries fresher data.
         # bgm_tracks has no unauthenticated fetch (the endpoint needs a JWT), and
         # is_paid fails closed so paid-only lengths stay hidden when unknown.
+        # Prefer THIS user's stashed URL over the process-wide last-seen one.
+        # The shared global is wrong whenever two users overlap, and empty on a
+        # cold read — which is ChatGPT's normal path, since it preloads widgets
+        # before any tool runs. An empty blog_url makes the Create button send
+        # blog_url:"" and the call fail.
+        blog_url = h._SETUP_BLOG_URL
+        token = _REQUEST_TOKEN.get()
+        if token:
+            import anyio
+
+            try:
+                blog_url = await anyio.to_thread.run_sync(
+                    lambda: h._recall_setup_url(
+                        Blog2VideoClient(jwt_token=token, base_url=settings.BACKEND_URL)
+                    )
+                ) or blog_url
+            except Exception as exc:  # noqa: BLE001 - never fail the resource read
+                logger.warning("_read_resource: blog_url recall failed: %s", exc)
+
         setup = {
             "templates": templates,
             "voices": voices,
             "bgm_tracks": h._BGM_CACHE,
             "is_paid": False,
-            "blog_url": h._SETUP_BLOG_URL,
+            "blog_url": blog_url,
         }
         html = load_html("setup_gallery")
         injection = f"<script>window.__B2V_SETUP__={json.dumps(setup, ensure_ascii=False)};</script>"
+        html = html.replace("</head>", f"{injection}</head>", 1)
+        return [ReadResourceContents(content=html, mime_type=_GALLERY_MIME)]
+
+    if uri_str == _SETTINGS_URI:
+        import mcp_server.handlers as h
+        # Cold-read fallback only — the tool-call path (structuredContent) always
+        # fires before the user can interact and carries fresher data. bgm_tracks
+        # has no unauthenticated fetch (the endpoint needs a JWT), and is_paid
+        # fails closed so paid-only lengths stay hidden when unknown.
+        settings = {"bgm_tracks": h._BGM_CACHE, "is_paid": False}
+        html = load_html("settings_panel")
+        injection = f"<script>window.__B2V_SETTINGS__={json.dumps(settings, ensure_ascii=False)};</script>"
         html = html.replace("</head>", f"{injection}</head>", 1)
         return [ReadResourceContents(content=html, mime_type=_GALLERY_MIME)]
 
@@ -346,6 +510,20 @@ streamable_session_manager = StreamableHTTPSessionManager(
     app=mcp_server,
     stateless=True,
 )
+
+
+def _extract_user_agent_from_scope(scope) -> str:
+    """Pull the User-Agent header, or "" when absent.
+
+    Confirmed distinct per host in live traffic: ChatGPT sends
+    "openai-mcp/1.0.0"; claude.ai sends its HTTP client string
+    ("Python/3.12 aiohttp/…"). Only ever used to answer "is this ChatGPT?", so an
+    unrecognised value simply falls through to the default flow.
+    """
+    for name, value in scope.get("headers", []):
+        if name.decode("latin-1").lower() == "user-agent":
+            return value.decode("latin-1")
+    return ""
 
 
 def _extract_token_from_scope(scope) -> str | None:
@@ -402,6 +580,11 @@ async def _mcp_endpoint(request) -> None:
         return JSONResponse({"detail": "Missing or invalid bearer token"}, status_code=401)
 
     token_var = _REQUEST_TOKEN.set(token)
+    # Stash the User-Agent for handlers.current_client_name(). This is the only
+    # layer that still has the ASGI scope, and it is the FALLBACK identity source
+    # — the spec's per-request _meta clientInfo is preferred. Needed because the
+    # stateless session manager never populates session.client_params.
+    ua_var = _handler_client_ua.set(_extract_user_agent_from_scope(request.scope))
     try:
         if method == "GET":
             # Legacy SSE transport
@@ -420,6 +603,7 @@ async def _mcp_endpoint(request) -> None:
             )
     finally:
         _REQUEST_TOKEN.reset(token_var)
+        _handler_client_ua.reset(ua_var)
 
     # The MCP transports write the HTTP response directly via the ASGI `send`
     # callable. Starlette's Route then calls `await response(scope, receive, send)`

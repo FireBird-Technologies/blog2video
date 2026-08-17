@@ -9,6 +9,7 @@ Handler outputs are deliberately **markdown** (not JSON) so claude.ai's chat
 renders rich tables, links, and embedded video previews directly in the chat
 bubble. See plan: /Users/humeraraheel/.claude/plans/how-would-you-make-mellow-dolphin.md
 """
+import contextvars
 import json
 import logging
 import time
@@ -67,7 +68,11 @@ _BGM_CACHE: list[dict] = []
 # mcp_transport imports this, and tools.py's setup_video _meta must match it.
 # claude.ai caches widget HTML per URI and never re-reads it, so shipping a
 # changed bundle requires bumping the version suffix here AND in tools.py.
-SETUP_RESOURCE_URI = "ui://blog2video/setup_gallery_v3"
+# _v4: the bundle is now Vite-built so its template previews inline as data URIs
+# instead of being fetched from R2, and templates with no artwork render an
+# initials chip rather than a broken image. Hosts cache widget HTML per URI and
+# never re-read it, so the suffix must change or connectors keep serving v3.
+SETUP_RESOURCE_URI = "ui://blog2video/setup_gallery_v8"
 
 # Fallback template for auto_video when the LLM picker can't run (scrape or LLM
 # failure). Set AUTO_TEMPLATE_PICK = False to skip the picker entirely and always
@@ -293,7 +298,13 @@ def dispatch(
         _arg_preview = _json.dumps(arguments, ensure_ascii=False)[:300]
     except Exception:
         _arg_preview = str(arguments)[:300]
-    logger.info("MCP_CALL tool=%s args=%s", name, _arg_preview)
+    # host= is the clientInfo.name from the initialize handshake ("" when unknown).
+    # Without it there is no way to tell from the logs WHICH Manual flow a user
+    # was routed to — see _is_chatgpt_host.
+    logger.info(
+        "MCP_CALL tool=%s host=%s args=%s",
+        name, current_client_name() or "?", _arg_preview,
+    )
     try:
         # Pipeline tools
         if name == "start_video":
@@ -302,8 +313,11 @@ def dispatch(
             return _setup_video(arguments, client)
         if name == "create_project":
             return _create_project(arguments, client)
-        if name == "create_video":
-            return _create_video(arguments, client)
+        # create_video: COMMENTED OUT alongside its tool definition in tools.py
+        # (manifest-size experiment — it was 13% of the manifest and nothing
+        # routed to it). _create_video below is kept; uncomment both to restore.
+        # if name == "create_video":
+        #     return _create_video(arguments, client)
         if name == "auto_video":
             return _auto_video(arguments, client)
         if name == "get_preview_url":
@@ -326,6 +340,8 @@ def dispatch(
             return _list_templates(client)
         if name == "list_voices":
             return _list_voices(client)
+        if name == "show_settings":
+            return _show_settings(client)
         if name == "get_templates_json":
             return _get_templates_json(client)
         if name == "get_voices_json":
@@ -342,6 +358,12 @@ def dispatch(
             return _check_template_change_status(arguments, client)
         if name == "update_project_settings":
             return _update_project_settings(arguments, client)
+        if name == "change_voice":
+            return _change_voice(arguments, client)
+        if name == "change_language":
+            return _change_language(arguments, client)
+        if name == "delete_voiceover":
+            return _delete_voiceover(arguments, client)
         if name == "regenerate_scene":
             return _regenerate_scene(arguments, client)
         if name == "reorder_scenes":
@@ -350,6 +372,8 @@ def dispatch(
             return _swap_scene_images(arguments, client)
 
         # Custom-template creation flow
+        if name == "create_template_from_url":
+            return _create_template_from_url(arguments, client)
         if name == "extract_template_theme":
             return _extract_template_theme(arguments, client)
         if name == "create_custom_template":
@@ -402,10 +426,69 @@ def _recall_setup_url(client: Blog2VideoClient) -> str:
     return _SETUP_BLOG_URL
 
 
-# The Auto/Manual question. This transport has no MCP elicitation support
-# (mcp_transport._call_tool dispatches into a worker thread with no session
-# handle), so the question is returned as markdown for the model to relay and
-# the answer arrives as a second start_video call carrying `mode`.
+# User-Agent of the current request, set by mcp_transport._mcp_endpoint (which
+# has the ASGI scope) and read by current_client_name() as a fallback. Lives here
+# rather than in mcp_transport because that module imports THIS one — the reverse
+# would be circular. Same pattern as mcp_transport._REQUEST_TOKEN.
+_CLIENT_UA: contextvars.ContextVar[str] = contextvars.ContextVar("mcp_client_ua", default="")
+
+# The spec's per-request client identity (Streamable HTTP → Request Metadata).
+# Sent on EVERY request precisely because a session may not exist.
+_CLIENT_INFO_META_KEY = "io.modelcontextprotocol/clientInfo"
+
+
+def current_client_name() -> str:
+    """Lowercased name of the calling MCP host ("openai-mcp", "claude-ai"…), or "".
+
+    Deliberately does NOT read session.client_params: the hosted transport runs
+    `StreamableHTTPSessionManager(stateless=True)`, which marks each throwaway
+    session Initialized WITHOUT processing an `initialize` request, so
+    `client_params` is permanently None. Two per-request sources instead:
+
+      1. `_meta["io.modelcontextprotocol/clientInfo"]` — the spec field, present
+         on every request. Confirmed in ChatGPT's raw bodies against this server.
+      2. The `User-Agent` header — confirmed distinct in live traffic
+         ("openai-mcp/1.0.0" vs Claude's "Python/… aiohttp/…").
+
+    Never raises: with no active request (stdio server, unit tests) every lookup
+    fails and we return "", which callers treat as "unknown host" and fall
+    through to the default flow.
+    """
+    # Source 1 — the spec's per-request _meta.
+    try:
+        from mcp.server.lowlevel.server import request_ctx
+
+        meta = request_ctx.get().meta
+        # The key contains dots and a slash, so it lands in pydantic's extras
+        # rather than becoming a real field (RequestParams.Meta is extra="allow").
+        info = (getattr(meta, "model_extra", None) or {}).get(_CLIENT_INFO_META_KEY)
+        name = (info or {}).get("name") if isinstance(info, dict) else None
+        if name:
+            return str(name).lower()
+    except Exception:  # noqa: BLE001 - host detection must never break a tool call
+        pass
+
+    # Source 2 — User-Agent, stashed by the transport.
+    try:
+        return (_CLIENT_UA.get() or "").lower()
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def _is_chatgpt_host() -> bool:
+    """True when the caller is ChatGPT / the OpenAI Apps SDK.
+
+    ChatGPT reports clientInfo.name == "openai-mcp". Substring matching so a
+    rename (e.g. "chatgpt-connector") keeps working. Anything unrecognised is
+    NOT ChatGPT and gets the standards-based widget chain.
+    """
+    name = current_client_name()
+    return "openai" in name or "chatgpt" in name
+
+
+# The Auto/Manual question. This transport has no MCP elicitation support, so the
+# question is returned as markdown for the model to relay and the answer arrives
+# as a second start_video call carrying `mode`.
 _MODE_QUESTION = (
     "How would you like to make this video?\n\n"
     "**⚡ Auto** — I pick the template, voice and settings and build it now. No questions.\n\n"
@@ -438,16 +521,56 @@ def _start_video(args: dict, client: Blog2VideoClient):
     if mode == "auto":
         return _auto_video(args, client)
     if mode == "manual":
-        # Hand off rather than calling _setup_video inline. claude.ai decides
+        # Hand off rather than calling the next handler inline. claude.ai decides
         # whether to render a widget from the TOOL definition's _meta.ui, not
         # from the result's — so a result returned under start_video's name (no
-        # resourceUri) renders no panel, however it is annotated. setup_video
-        # carries the binding at tool level, so the model must call it by name.
+        # resourceUri) renders no panel, however it is annotated. The gallery
+        # tools carry the binding at tool level, so the model must call them by
+        # name.
+        #
+        # Manual is a CHAIN of single-purpose widgets (templates → voices →
+        # settings) rather than the combined setup_video panel: setup_gallery.html
+        # is hand-written and never performs the MCP Apps `ui/initialize`
+        # handshake, so claude.ai keeps its iframe permanently hidden. The three
+        # chain widgets are built from ui_src/ and call app.connect().
+        # blog_url is stashed here because list_templates/list_voices/show_settings
+        # take no arguments — _create_project backfills it via _recall_setup_url.
         _remember_setup_url(client, blog_url)
+
+        # Host-specific routing. The widget chain advances by having each widget
+        # app.sendMessage() its selection and letting the model act on it. On
+        # ChatGPT that message is POSTED but does not trigger the tool-calling
+        # pipeline (documented OpenAI bug), so the chain renders yet stalls at
+        # every step until the user manually types "next".
+        #
+        # setup_gallery.html has the opposite profile: no ui/initialize handshake
+        # (so Claude never renders it) but its Create button uses
+        # window.openai.callTool directly — zero sendMessage calls — which is
+        # ChatGPT's native, working path. Send each host to the flow that works.
+        #
+        # Revert this branch once OpenAI fixes ui/message; the chain is the
+        # better UX and the only one that stays in sync with the Vite build.
+        # NOTE the phrasing below: this tool renders NOTHING. The panel/gallery
+        # only appears when the NEXT tool actually runs. Earlier wording here
+        # said "Opening the setup panel.", which the model relayed as "use the
+        # panel above" even on turns where it never made the follow-up call —
+        # so the user was told to use a widget that was never rendered. State
+        # the required action, never a completed outcome.
+        if _is_chatgpt_host():
+            return _md(
+                f'<!-- NOT DONE YET. You MUST now call `setup_video` with blog_url="{blog_url}". '
+                "This tool rendered nothing. Do NOT tell the user to use a panel, and do "
+                "NOT describe any UI, until `setup_video` has returned — only then does a "
+                "panel exist. If you cannot call it, say so plainly instead of describing "
+                "a panel. -->"
+            )
+
         return _md(
-            "Opening the setup panel.\n\n"
-            f'<!-- Call `setup_video` NOW with blog_url="{blog_url}". Say nothing '
-            "else first — the widget is the user-facing output. -->"
+            "<!-- NOT DONE YET. You MUST now call `list_templates`. This tool rendered "
+            "nothing. Do NOT tell the user to pick from a gallery, and do NOT describe "
+            "any UI, until `list_templates` has returned. If you cannot call it, say so "
+            "plainly instead of describing a gallery. After the user picks a template "
+            "call `list_voices`, then `show_settings`. -->"
         )
     if mode:
         return _err(
@@ -457,6 +580,27 @@ def _start_video(args: dict, client: Blog2VideoClient):
     # Step 1 — ask. Stash the URL so the manual branch can backfill it even if
     # the model drops it from the follow-up call.
     _remember_setup_url(client, blog_url)
+
+    # ChatGPT loses the connector on FOLLOW-UP turns (GPT-5.6 regression): the
+    # first message of a conversation reliably reaches us, the user's answer to
+    # this question often does not — nothing arrives at the server at all, so no
+    # server-side change can rescue it and the user has to type "@b2v manual".
+    #
+    # So skip the question entirely for that host and open the panel on the turn
+    # that DOES work. The Auto/Manual choice is not lost — it moves into the
+    # panel as a toggle (see setup_gallery.html), which costs no extra turn.
+    #
+    # Claude keeps the two-step fork: it has no such regression, and the question
+    # reads better in chat than as a widget control.
+    if _is_chatgpt_host():
+        return _md(
+            f'<!-- NOT DONE YET. You MUST now call `setup_video` with blog_url="{blog_url}". '
+            "Do NOT ask the user to choose Auto or Manual first — the panel has that "
+            "toggle built in. This tool rendered nothing; do NOT describe any UI until "
+            "`setup_video` has returned. If the user ALREADY said they want it fully "
+            "automatic, call `start_video` again with mode=\"auto\" instead. -->"
+        )
+
     return _md(
         _MODE_QUESTION
         + "\n\n<!-- Relay the question above to the user in one short line and STOP. "
@@ -516,9 +660,15 @@ def _setup_video(args: dict, client: Blog2VideoClient):
                 "id": t.get("id", "?"),
                 "name": t.get("name") or t.get("id", "?"),
                 "genres": t.get("genres") or [],
+                "preview_url": TEMPLATE_PREVIEW_URLS.get(t.get("id", ""), ""),
+                "custom": False,
             }
             for t in raw
         ]
+        # /api/templates is built-ins only. Append the user's finished custom
+        # templates so this panel matches the list_templates gallery — without
+        # this, someone who built a template cannot pick it here.
+        templates.extend(_usable_custom_templates(client))
     except Exception as exc:
         logger.warning("_setup_video: list_templates failed: %s", exc)
 
@@ -526,10 +676,14 @@ def _setup_video(args: dict, client: Blog2VideoClient):
     _TEMPLATE_GALLERY_SHOWN_AT = now
     _VOICE_GALLERY_SHOWN_AT = now
 
+    # Model-facing status line ONLY — never user-facing prose. Per MCP Apps
+    # (SEP-1865) `content` is model context while `structuredContent` is the UI
+    # channel, so a ready-to-send second-person message here gets relayed
+    # verbatim and duplicates what the widget already says. Same reason
+    # _list_templates returns one factual line; see its docstring.
     text = (
-        "Pick a **template** and a **voice** in the panel above, adjust any settings you "
-        "want (they're all pre-set to sensible defaults — skip what you don't care "
-        "about), then click **Create Video**. I'll start generating as soon as you do."
+        f"Setup panel shown ({len(templates)} templates, {len(_VOICE_CACHE)} voices). "
+        "The user picks template, voice and settings, then clicks Create Video."
     )
     # The _meta below attaches the widget to THIS RESULT rather than to the tool.
     # start_video delegates here and carries no tool-level outputTemplate, so
@@ -869,11 +1023,21 @@ def _generate_video(args: dict, client: Blog2VideoClient) -> list[TextContent]:
 
     project = client.get_project(project_id)
     scenes = project.get("scenes", [])
+    # Hand over the SHAREABLE watch link, not the editor link — the latter only
+    # works for a viewer logged in as the owner (see _watch_url's docstring).
+    # _watch_url returns None if the token cannot be minted, so this degrades to
+    # the editor link rather than failing. Mirrors _create_video.
+    watch = _watch_url(project_id, client)
+    link = (
+        f"[▶ Watch the video]({watch})\n\n`{watch}`\n\n"
+        if watch else
+        f"[▶ Open in editor]({_project_url(project_id)})\n\n"
+    )
     md = (
         f"✅ **Video generated!** Project #{project_id} has {len(scenes)} scenes ready.\n\n"
-        f"[▶ View your project on Blog2Video]({_project_url(project_id)})\n\n"
-        f"Would you like to **render it as an MP4** for download? "
-        f"Say *yes, render it* if you want a downloadable video (takes 3–8 min)."
+        + link
+        + "Would you like to **render it as an MP4** for download? "
+          "Say *yes, render it* if you want a downloadable video (takes 3–8 min)."
     )
     return _md(md)
 
@@ -887,11 +1051,21 @@ def _check_generation_status(args: dict, client: Blog2VideoClient) -> list[TextC
         # Fetch the full project for the scene table
         project = client.get_project(project_id)
         scenes = project.get("scenes", [])
+        # Same shareable-link treatment as _generate_video: when the model polls
+        # instead of blocking, this is where the user finds out the video is
+        # ready, so it must carry a way to actually watch it.
+        watch = _watch_url(project_id, client)
+        link = (
+            f"[▶ Watch the video]({watch})\n\n`{watch}`\n\n"
+            if watch else
+            f"[▶ Open in editor]({_project_url(project_id)})\n\n"
+        )
         md = (
             f"{line} — project #{project_id} now has {len(scenes)} scenes.\n\n"
-            f"### Scenes\n{_scene_table(scenes)}\n\n"
-            f"Next: edit any scene (e.g. *shorten scene 2*), change the template "
-            f"(e.g. *use bloomberg*), or say *render the video*."
+            + link
+            + f"### Scenes\n{_scene_table(scenes)}\n\n"
+            + "Next: edit any scene (e.g. *shorten scene 2*), change the template "
+              "(e.g. *use bloomberg*), or say *render the video*."
         )
         return _md(md)
 
@@ -1087,6 +1261,49 @@ def _list_templates_markdown(templates: list[dict]) -> str:
 
 
 
+def _custom_template_is_usable(t: dict) -> bool:
+    """True when a custom template's code generation finished successfully.
+
+    Same rule _list_custom_templates renders in its "Code ready?" column: code
+    present and not marked failed. A half-generated template must never appear
+    as selectable in a picker.
+    """
+    if t.get("generation_failed"):
+        return False
+    return bool(t.get("intro_code") or t.get("content_codes"))
+
+
+def _usable_custom_templates(client: Blog2VideoClient) -> list[dict]:
+    """This user's FINISHED custom templates, shaped like built-in catalog rows.
+
+    `id` is the "custom_<id>" form create_project expects (see
+    template_service.is_custom_template), so a picked card needs no translation.
+    Never raises: custom templates are an enhancement to the gallery, so a
+    failure here must not take the built-ins down with it.
+    """
+    try:
+        raw = client.list_custom_templates() or []
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_usable_custom_templates: fetch failed: %s", exc)
+        return []
+    out: list[dict] = []
+    for t in raw:
+        if not _custom_template_is_usable(t):
+            continue
+        tid = t.get("id")
+        out.append({
+            "id": f"custom_{tid}",
+            "name": t.get("name") or f"Custom #{tid}",
+            "genres": [],
+            # Field names per the custom-template serializer: preview_image_url
+            # (the rendered thumbnail) and preview_colors.
+            "preview_url": t.get("preview_image_url") or "",
+            "custom": True,
+            "colors": t.get("preview_colors") or _extract_preview_colors(t) or {},
+        })
+    return out
+
+
 def _list_templates(client: Blog2VideoClient):
     """Open the template gallery widget.
 
@@ -1095,6 +1312,10 @@ def _list_templates(client: Blog2VideoClient):
     carries only a one-line summary. Putting the 12 image rows in `content`
     (as this used to) drops the whole catalog into Claude's context, and Claude
     then paraphrases it in prose instead of letting the widget speak.
+
+    Shows built-ins AND the user's finished custom templates: /api/templates
+    returns only the built-ins, so before this a user could not see or pick a
+    template they had made.
     """
     global _TEMPLATE_GALLERY_SHOWN_AT, _TEMPLATE_CACHE
     templates = [
@@ -1103,17 +1324,22 @@ def _list_templates(client: Blog2VideoClient):
             "name": t.get("name") or t.get("id", "?"),
             "genres": t.get("genres") or [],
             "preview_url": TEMPLATE_PREVIEW_URLS.get(t.get("id", ""), ""),
+            "custom": False,
         }
         for t in (client.list_templates() or [])
     ]
+    custom = _usable_custom_templates(client)
+    templates.extend(custom)
+
     _TEMPLATE_CACHE = templates
     _TEMPLATE_GALLERY_SHOWN_AT = time.time()
 
+    extra = f" + {len(custom)} custom" if custom else ""
     return CallToolResult(
         content=[TextContent(
             type="text",
-            text=f"Template gallery shown ({len(templates)} templates). "
-                 "Click a card to select one.",
+            text=f"Template gallery shown ({len(templates) - len(custom)} built-in"
+                 f"{extra}). Click a card to select one.",
         )],
         structuredContent={"templates": templates},
         isError=False,
@@ -1257,6 +1483,41 @@ def _list_voices(client: Blog2VideoClient):
     )
 
 
+def _show_settings(client: Blog2VideoClient):
+    """Open the settings panel — final step of the Manual chain.
+
+    Same structuredContent contract as _list_templates / _list_voices: the
+    widget reads the data, the model sees one factual line. The panel calls
+    create_project itself (app.callServerTool) when the user clicks Create
+    Video, so this handler only has to supply the catalog and the plan gate.
+    """
+    global _BGM_CACHE
+    try:
+        _BGM_CACHE = client.list_bgm_tracks() or []
+    except Exception as exc:  # noqa: BLE001 - music is optional, never block setup
+        logger.warning("_show_settings: list_bgm_tracks failed: %s", exc)
+
+    # Gate the paid-only video lengths in the widget. Fail CLOSED: an unknown
+    # plan hides the paid options rather than letting the user pick one that
+    # then 403s in _normalize_video_length. The backend check is authoritative.
+    is_paid = False
+    try:
+        plan = ((client.get_me() or {}).get("plan") or "free").strip().lower()
+        is_paid = plan in ("lite", "standard", "pro")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_show_settings: get_me failed, assuming free plan: %s", exc)
+
+    return CallToolResult(
+        content=[TextContent(
+            type="text",
+            text=f"Settings panel shown ({len(_BGM_CACHE)} music tracks). "
+                 "The user adjusts settings and clicks Create Video.",
+        )],
+        structuredContent={"bgm_tracks": _BGM_CACHE, "is_paid": is_paid},
+        isError=False,
+    )
+
+
 def _get_templates_json(client: Blog2VideoClient) -> list[TextContent]:
     """Plain-JSON template list for automation contexts (e.g. n8n) — no widget."""
     templates = client.list_templates() or []
@@ -1362,6 +1623,135 @@ def _check_template_change_status(args: dict, client: Blog2VideoClient) -> list[
     return _md(f"⏳ Template change in progress{extra}. I'll check again in ~10s.")
 
 
+def _change_voice(args: dict, client: Blog2VideoClient) -> list[TextContent]:
+    """Re-record every scene's voiceover in a new voice. Costs one video credit.
+
+    Deliberately NOT part of update_project_settings: ProjectUpdate has no voice
+    columns, and a settings write would not re-synthesise the narration. Blocks
+    until the background job finishes so the user gets one finished answer.
+    """
+    project_id = int(args["project_id"])
+    voice_id = (args.get("custom_voice_id") or "").strip()
+
+    # The voice_id drives TTS — gender/accent are display-only metadata (the web
+    # app says so in its own comment). So a voice change is meaningless without
+    # an id, and the user must pick one from the gallery rather than have the
+    # model guess. Same gate create_project uses, on the same timestamp.
+    if not voice_id:
+        return _md(
+            "❌ Cannot change the voice — no `custom_voice_id` given.\n\n"
+            "Call `list_voices` NOW so the user can hear the options and pick one, "
+            "then call `change_voice` again with the `voice_id` they chose."
+        )
+    if time.time() - _VOICE_GALLERY_SHOWN_AT > 1800:
+        return _md(
+            "❌ Cannot change the voice yet — the voice gallery has not been shown.\n\n"
+            "Call `list_voices` NOW so the user can hear the options and click one. "
+            "Do NOT pick a voice on their behalf."
+        )
+
+    fields = {k: v for k, v in args.items() if k != "project_id" and v is not None}
+    client.change_voice(project_id, **fields)
+
+    final = poll_until(
+        check_fn=lambda: client.get_voice_change_status(project_id),
+        is_done=lambda s: bool(s.get("done")),
+        is_error=lambda s: (bool(s.get("error")), s.get("error") or "unknown error"),
+        interval=DEFAULT_POLL_INTERVAL,
+        timeout=DEFAULT_POLL_TIMEOUT_GENERATE,
+        label="Voice change",
+    )
+    if final.get("error"):
+        return _md(f"❌ Voice change failed: {final['error']}")
+
+    project = client.get_project(project_id) or {}
+    voice = project.get("custom_voice_id") or (
+        f"{project.get('voice_gender', 'female')} · {project.get('voice_accent', 'american')}"
+    )
+    watch = _watch_url(project_id, client)
+    link = (
+        f"[▶ Watch the video]({watch})\n\n`{watch}`\n\n"
+        if watch else
+        f"[▶ Open in editor]({_project_url(project_id)})\n\n"
+    )
+    return _md(
+        f"✅ **Voice changed** for project #{project_id} — every scene re-recorded with "
+        f"**{voice}**.\n\n" + link + "_Re-render to get an updated MP4 (`render_video`)._"
+    )
+
+
+def _delete_voiceover(args: dict, client: Blog2VideoClient) -> list[TextContent]:
+    """Strip the narration audio, making the video mute. Costs NO credit.
+
+    Runs as a ProjectVoiceChangeJob tagged "_op: delete", so progress comes from
+    the SHARED /voice-change-status endpoint. No gallery gate and no credit
+    warning here — unlike change_voice this is free and needs no voice picked.
+    """
+    project_id = int(args["project_id"])
+    resp = client.delete_voiceover(project_id) or {}
+
+    # The endpoint short-circuits with started=False when the project is already
+    # muted — there is no job to poll in that case.
+    if resp.get("started") is False:
+        return _md(f"ℹ️ Project #{project_id} already has no voiceover — nothing to remove.")
+
+    final = poll_until(
+        check_fn=lambda: client.get_voice_change_status(project_id),
+        is_done=lambda s: bool(s.get("done")),
+        is_error=lambda s: (bool(s.get("error")), s.get("error") or "unknown error"),
+        interval=DEFAULT_POLL_INTERVAL,
+        timeout=DEFAULT_POLL_TIMEOUT_GENERATE,
+        label="Voiceover removal",
+    )
+    if final.get("error"):
+        return _md(f"❌ Could not remove the voiceover: {final['error']}")
+
+    watch = _watch_url(project_id, client)
+    link = (
+        f"[▶ Watch the video]({watch})\n\n`{watch}`\n\n"
+        if watch else
+        f"[▶ Open in editor]({_project_url(project_id)})\n\n"
+    )
+    return _md(
+        f"🔇 **Voiceover removed** from project #{project_id} — the video is now mute.\n\n"
+        + link
+        + "_The existing MP4 still has audio; re-render (`render_video`) to get the muted version._"
+    )
+
+
+def _change_language(args: dict, client: Blog2VideoClient) -> list[TextContent]:
+    """Translate the project (text + narration + voiceovers). Costs one credit."""
+    project_id = int(args["project_id"])
+    language = (args.get("content_language") or "").strip()
+    if not language:
+        return _md("❌ `content_language` is required — pass an ISO 639-1 code, e.g. 'es'.")
+
+    client.change_language(project_id, language)
+
+    final = poll_until(
+        check_fn=lambda: client.get_language_change_status(project_id),
+        is_done=lambda s: bool(s.get("done")),
+        is_error=lambda s: (bool(s.get("error")), s.get("error") or "unknown error"),
+        interval=DEFAULT_POLL_INTERVAL,
+        timeout=DEFAULT_POLL_TIMEOUT_GENERATE,
+        label="Language change",
+    )
+    if final.get("error"):
+        return _md(f"❌ Language change failed: {final['error']}")
+
+    watch = _watch_url(project_id, client)
+    link = (
+        f"[▶ Watch the video]({watch})\n\n`{watch}`\n\n"
+        if watch else
+        f"[▶ Open in editor]({_project_url(project_id)})\n\n"
+    )
+    return _md(
+        f"✅ **Translated** project #{project_id} to `{language}` — on-screen text, "
+        f"narration and voiceovers regenerated.\n\n" + link
+        + "_Re-render to get an updated MP4 (`render_video`)._"
+    )
+
+
 def _update_project_settings(args: dict, client: Blog2VideoClient) -> list[TextContent]:
     project_id = int(args["project_id"])
     fields = {
@@ -1381,13 +1771,35 @@ def _update_project_settings(args: dict, client: Blog2VideoClient) -> list[TextC
 
     after = client.update_project_settings(project_id, **fields)
 
+    # Report what the BACKEND stored, not what was asked for. The endpoint
+    # coerces and clamps (caption_font_size → str, bgm_volume → 0..1) and drops
+    # any field ProjectUpdate does not define, so echoing the request would
+    # confirm changes that never happened. Fall back to the requested value only
+    # when the response omits the key entirely.
     rows = [f"✏️ Updated project #{project_id}:\n"]
-    for k, new_v in fields.items():
+    ignored: list[str] = []
+    for k, req_v in fields.items():
+        if isinstance(after, dict) and k in after:
+            new_v = after[k]
+        else:
+            new_v = req_v
         old_v = before.get(k)
-        if old_v is not None and str(old_v) != str(new_v):
+        if isinstance(after, dict) and k in after and str(after[k]) != str(req_v):
+            # Stored value differs from what was asked — clamped, coerced, or refused.
+            if str(old_v) == str(after[k]):
+                ignored.append(k)
+                continue
+            rows.append(f"- **{k}** → `{new_v}` (requested `{req_v}`)")
+        elif old_v is not None and str(old_v) != str(new_v):
             rows.append(f"- **{k}** → `{new_v}` (was `{old_v}`)")
         else:
             rows.append(f"- **{k}** → `{new_v}`")
+
+    if ignored:
+        rows.append(
+            f"\n⚠️ Not applied: {', '.join(f'`{k}`' for k in ignored)} — "
+            "this project setting cannot be changed here."
+        )
     rows.append("\n_Re-render to apply (`render_video`)._")
     return _md("\n".join(rows))
 
@@ -1570,6 +1982,105 @@ def _start_template_code_generation(args: dict, client: Blog2VideoClient) -> lis
     )
 
 
+def _create_template_from_url(args: dict, client: Blog2VideoClient) -> list[TextContent]:
+    """One-shot custom template: extract theme → save → start code generation.
+
+    Collapses extract_template_theme + create_custom_template +
+    start_template_code_generation into a single call. Those three still exist
+    as separate tools for the manual path (a site that cannot be scraped, where
+    the user describes the theme instead).
+
+    Returns as soon as generation has STARTED — the same shape as auto_video —
+    rather than blocking for the ~5-8 minutes codegen takes, which would risk
+    the host's tool timeout.
+
+    Aborts BEFORE create_custom_template when extraction fails, so a
+    non-scrapable site costs no AI credit.
+    """
+    url = str(args.get("url") or "").strip()
+    if not url.startswith(("http://", "https://")):
+        return _err("`url` is required and must be a valid http(s) URL.")
+
+    result = client.extract_template_theme(url) or {}
+    if not result.get("extractable", True):
+        reason = result.get("reason") or "Site couldn't be scraped automatically."
+        return _md(
+            f"❌ Couldn't extract a theme from `{url}`.\n\n"
+            f"_Reason:_ {reason}\n\n"
+            f"Nothing was created and no credit was used. You can describe the "
+            f"colours and fonts yourself and I'll save a template from that — "
+            f"just tell me what you want."
+        )
+
+    theme = result.get("theme") or {}
+    if not theme:
+        return _md(
+            f"❌ No theme could be read from `{url}`. Nothing was created and no "
+            f"credit was used. Describe the colours and fonts you want instead."
+        )
+
+    name = str(args.get("name") or result.get("template_name") or "").strip() or "My Template"
+
+    template = client.create_custom_template(
+        name=name,
+        theme=theme,
+        source_url=url,
+        logo_urls=result.get("logo_urls"),
+        og_image=result.get("og_image"),
+        screenshot_url=result.get("screenshot_url"),
+        reason=result.get("reason"),
+    ) or {}
+    tid = template.get("id")
+    if not tid:
+        return _err("Template was created but the backend returned no id.")
+
+    client.start_template_code_generation(int(tid))
+
+    return _md(
+        f"🎨 Extracted the theme from `{url}` and saved it as "
+        f"**custom template #{tid} — {_escape_cell(name, 60)}**.\n\n"
+        f"{_theme_summary_card(theme, name=name)}\n\n"
+        f"🛠 Code generation has started. It usually takes 5–8 minutes (longer if a "
+        f"scene needs a retry) and uses 1 of your 20 daily AI generation credits.\n\n"
+        f"I'll check progress with `check_template_code_generation_status` "
+        f"(`template_id={tid}`) in ~15s.\n\n"
+        f"[↗ Open in template editor]({_template_editor_url(tid)})"
+    )
+
+
+def _template_code_exists(template_id: int, client: Blog2VideoClient) -> bool:
+    """True when the template already has generated code, whatever the status
+    endpoint claims.
+
+    Second opinion for _check_template_code_generation_status. Never raises: a
+    failed lookup returns False, so the caller falls through to its normal
+    "still generating" reply rather than erroring.
+    """
+    try:
+        tpl = client.get_custom_template(template_id) or {}
+    except Exception as exc:  # noqa: BLE001 - cross-check must never break the tool
+        logger.warning(
+            "_template_code_exists: lookup failed for %s: %s", template_id, exc
+        )
+        return False
+    if tpl.get("is_regenerating"):
+        return False  # a NEW generation really is running; report progress
+    return bool(tpl.get("intro_code"))
+
+
+def _template_ready_message(template_id: int) -> list[TextContent]:
+    """The 'code generation finished' reply. Shared by the two branches that can
+    conclude a template is ready — the status endpoint saying so, and the
+    cross-check below discovering the code already exists."""
+    return _md(
+        f"✅ Template **#{template_id}** is ready to use.\n\n"
+        f"You can now make a video with it — say something like "
+        f"_create a project from <blog URL> using template custom_{template_id}_, "
+        f"or browse other templates with `list_templates` / `list_custom_templates`.\n\n"
+        f"[↗ Open in template editor]({_template_editor_url(template_id)})"
+    )
+
+
 def _check_template_code_generation_status(args: dict, client: Blog2VideoClient) -> list[TextContent]:
     template_id = int(args["template_id"])
     status = client.get_template_code_generation_status(template_id)
@@ -1579,14 +2090,7 @@ def _check_template_code_generation_status(args: dict, client: Blog2VideoClient)
     running = bool(status.get("running"))
 
     if state in ("complete", "completed", "done", "success") and not err:
-        editor_url = _template_editor_url(template_id)
-        return _md(
-            f"✅ Template **#{template_id}** is ready to use.\n\n"
-            f"You can now make a video with it — say something like "
-            f"_create a project from <blog URL> using template custom_{template_id}_, "
-            f"or browse other templates with `list_templates` / `list_custom_templates`.\n\n"
-            f"[↗ Open in template editor]({editor_url})"
-        )
+        return _template_ready_message(template_id)
 
     if state in ("failed", "error") or err:
         return _md(
@@ -1596,10 +2100,20 @@ def _check_template_code_generation_status(args: dict, client: Blog2VideoClient)
             f"theme and try again."
         )
 
+    # Not terminal — but do NOT trust that alone. /generation-status reads an
+    # in-memory progress dict BEFORE the DB, so a stale entry keeps reporting
+    # "generating" long after codegen finished. That is exactly what happened to
+    # template 122: the code was written and the web app showed it ready, while
+    # MCP polled 11 times and reported a stall. The web app dodges this by
+    # reading the template's code directly — do the same here.
+    if _template_code_exists(template_id, client):
+        return _template_ready_message(template_id)
+
     if running or state in ("generating", "running"):
         step_md = f" — **{_escape_cell(step, 60)}**" if step else ""
         return _md(
             f"⏳ Generating code for template #{template_id}{step_md}. "
+            f"This usually takes 5–8 minutes, and longer if a scene needs a retry. "
             f"I'll check again in ~15s."
         )
 
