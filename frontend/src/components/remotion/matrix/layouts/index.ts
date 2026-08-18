@@ -10,6 +10,9 @@ import { Awakening } from "./Awakening";
 import { MatrixDataChart } from "./MatrixDataChart";
 import { MatrixTicker } from "./MatrixTicker";
 import { EndingSocials } from "./EndingSocials";
+import { MatrixTitleV2 } from "./MatrixTitleV2";
+import { TerminalTextV2 } from "./TerminalTextV2";
+import { EndingSocialsV2 } from "./EndingSocialsV2";
 import type { MatrixLayoutType, MatrixLayoutProps } from "../types";
 
 export type { MatrixLayoutType, MatrixLayoutProps };
@@ -30,4 +33,9 @@ export const MATRIX_LAYOUT_REGISTRY: Record<
   matrix_data: MatrixDataChart,
   matrix_ticker: MatrixTicker,
   ending_socials: EndingSocials,
+
+  // ── Visual variants — same props as their base, different composition ──
+  matrix_title__v2: MatrixTitleV2,
+  terminal_text__v2: TerminalTextV2,
+  ending_socials__v2: EndingSocialsV2,
 };

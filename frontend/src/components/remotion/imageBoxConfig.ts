@@ -276,11 +276,22 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
     landscape: { w: 0.38, h: 0.333 }, // 730 × 360
     portrait:  { w: 0.70, h: 0.115 }, // 756 × 220
   },
+  // "Marquee": the plate is a TALL 3:4 column beside the bill, not the base's wide
+  // inset card — so it needs its own entry rather than inheriting a 2:1 box.
+  impact_title__v2: {
+    landscape: { w: 0.336, h: 0.796 }, // ~645 × 860 (3:4)
+    portrait:  { w: 0.820, h: 0.259 }, // ~886 × 498 (16:9)
+  },
 
   // flex "0 0 38%", height 400 px landscape / width 80%, height 240 px portrait
   statement: {
     landscape: { w: 0.38, h: 0.370 }, // 730 × 400
     portrait:  { w: 0.80, h: 0.125 }, // 864 × 240
+  },
+  // "Pull Quote": a tall 3:4 plate on the facing side of the quote column.
+  statement__v2: {
+    landscape: { w: 0.302, h: 0.717 }, // ~580 × 774 (3:4)
+    portrait:  { w: 0.840, h: 0.266 }, // ~907 × 510 (16:9)
   },
 
   // flex "0 0 35%", height 350 px landscape / width 70%, height 200 px portrait
@@ -335,6 +346,12 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
     landscape: { w: 0.38, h: 0.333 }, // 730 × 360
     portrait:  { w: 0.70, h: 0.115 }, // 756 × 220
   },
+  // "Boot Sequence": the image sits in a 4:3 terminal pane beside the console,
+  // not the base's wide inset slot.
+  matrix_title__v2: {
+    landscape: { w: 0.370, h: 0.493 }, // ~710 × 532 (4:3)
+    portrait:  { w: 0.860, h: 0.272 }, // ~929 × 522 (16:9)
+  },
 
   // width 35%, height auto (approx 300 px) landscape / width 60%, height auto portrait
   data_stream: {
@@ -346,6 +363,12 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
   terminal_text: {
     landscape: { w: 0.38, h: 0.370 }, // ~730 × 400
     portrait:  { w: 0.80, h: 0.125 }, // 864 × 240
+  },
+  // "Split Feed": the media takes the full-width LOWER PANE — a wide strip rather
+  // than the base's column-beside-text box.
+  terminal_text__v2: {
+    landscape: { w: 0.860, h: 0.300 }, // ~1651 × 324 (wide strip)
+    portrait:  { w: 0.840, h: 0.260 }, // ~907 × 499
   },
 
   glitch_punch: {

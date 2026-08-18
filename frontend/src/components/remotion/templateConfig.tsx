@@ -151,7 +151,9 @@ const GRIDCRAFT_LAYOUTS = new Set([
 
 const SPOTLIGHT_LAYOUTS = new Set([
   "impact_title",
+  "impact_title__v2",
   "statement",
+  "statement__v2",
   "word_punch",
   "cascade_list",
   "stat_stage",
@@ -162,11 +164,14 @@ const SPOTLIGHT_LAYOUTS = new Set([
   "spotlight_table",
   "closer",
   "ending_socials",
+  "ending_socials__v2",
 ]);
 
 const MATRIX_LAYOUTS = new Set([
   "matrix_title",
+  "matrix_title__v2",
   "terminal_text",
+  "terminal_text__v2",
   "glitch_punch",
   "data_stream",
   "cipher_metric",
@@ -177,6 +182,7 @@ const MATRIX_LAYOUTS = new Set([
   "matrix_data",
   "matrix_ticker",
   "ending_socials",
+  "ending_socials__v2",
 ]);
 
 const MOSAIC_LAYOUTS = new Set([

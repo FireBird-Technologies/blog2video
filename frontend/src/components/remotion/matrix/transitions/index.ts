@@ -25,8 +25,15 @@ import { rainWall, decodeWipe, neonWhip, derez } from "./presentations";
  * real useVideoConfig() dimensions.
  */
 
-export const HERO_LAYOUTS_FROM = new Set<MatrixLayoutType>(["matrix_title"]);
-export const HERO_LAYOUTS_TO = new Set<MatrixLayoutType>(["awakening", "ending_socials"]);
+// Variants occupy the same structural slots as their bases, so they belong in these
+// sets too — otherwise a `__v2` opener/closer silently loses its hero transition.
+// `Set.has` accepts any union member, so TypeScript would NOT catch the omission.
+export const HERO_LAYOUTS_FROM = new Set<MatrixLayoutType>(["matrix_title", "matrix_title__v2"]);
+export const HERO_LAYOUTS_TO = new Set<MatrixLayoutType>([
+  "awakening",
+  "ending_socials",
+  "ending_socials__v2",
+]);
 
 export interface MatrixTransitionChoice {
   presentation: TransitionPresentation<Record<string, unknown>>;

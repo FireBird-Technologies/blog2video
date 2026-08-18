@@ -1262,6 +1262,45 @@
           "description": "Small-caps running-head label in the top-right page corner, e.g. 'ANALYSIS'"
         }
       ]
+    },
+    "magazine_cover__v2": {
+      "label": "Magazine Cover — Newsstand",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 62
+        },
+        "descriptionFontSize": {
+          "portrait": 16,
+          "landscape": 19
+        }
+      }
+    },
+    "feature__v2": {
+      "label": "Feature — Sidebar",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 86,
+          "landscape": 62
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 28
+        }
+      }
+    },
+    "ending_socials__v2": {
+      "label": "Closing Page — Colophon",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 64,
+          "landscape": 46
+        },
+        "descriptionFontSize": {
+          "portrait": 30,
+          "landscape": 20
+        }
+      }
     }
   },
   "layouts_without_image": [

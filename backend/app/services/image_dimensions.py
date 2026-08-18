@@ -46,6 +46,17 @@ LAYOUT_IMAGE_ASPECT: dict[tuple[str, str], dict[str, str]] = {
     ("matrix", "glitch_punch"): {"landscape": "3:2", "portrait": "2:3"},
     ("matrix", "awakening"): {"landscape": "3:2", "portrait": "2:3"},
     ("matrix", "fork_choice"): {"landscape": "3:2", "portrait": "2:3"},
+    # ── matrix / spotlight variant slots that differ in SHAPE from their base ──
+    # matrix_title__v2 "Boot Sequence": a 4:3 terminal pane beside the console,
+    # not the base's wide inset card.
+    ("matrix", "matrix_title__v2"): {"landscape": "4:3", "portrait": "16:9"},
+    # terminal_text__v2 "Split Feed": the media is the full-width LOWER PANE — a
+    # wide strip (~5:1 landscape), so a 3:2 source would be badly cropped.
+    ("matrix", "terminal_text__v2"): {"landscape": "16:9", "portrait": "16:9"},
+    # spotlight impact_title__v2 "Marquee" and statement__v2 "Pull Quote" both put
+    # the image in a TALL 3:4 plate beside the copy (the bases use wide cards).
+    ("spotlight", "impact_title__v2"): {"landscape": "3:4", "portrait": "16:9"},
+    ("spotlight", "statement__v2"): {"landscape": "3:4", "portrait": "16:9"},
     # Mosaic: mosaic_text uses 46% width for image panel (vertical orientation)
     ("mosaic", "mosaic_text"): {"landscape": "9:16", "portrait": "9:16"},
     # Chronicle: page-shaped and banner image slots
