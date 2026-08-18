@@ -48,6 +48,31 @@ export const VIDEO_STYLES = VIDEO_STYLE_OPTIONS;
 const DEFAULT_VIDEO_STYLE: VideoStyleId = "auto";
 const CRAFTED_TEMPLATE_MENU_THUMBNAIL_FRAME = 128; // ~85% of 5s * 30fps first scene
 
+/**
+ * Mobile shows one 2x2 screenful of the template grid at a time instead of a
+ * nested scroll area — the modal shell already scrolls, and two stacked scroll
+ * regions are hard to drive with a thumb. Desktop keeps the scrolling 3-col grid.
+ */
+const MOBILE_TEMPLATE_PAGE_SIZE = 4;
+
+/**
+ * Slices the template list down to the current mobile page. Page 0 spends one of
+ * its 4 slots on the pinned "Craft your template" tile (rendered outside the map),
+ * so it shows 3 templates; every later page shows a full 4. `page` is clamped here
+ * so an async load that shrinks the list can't strand the user past the end.
+ */
+function mobileTemplatePage<T>(items: T[], page: number, isMobile: boolean) {
+  if (!isMobile) {
+    return { visibleItems: items, pageCount: 1, safePage: 0 };
+  }
+  const pageCount = Math.max(1, Math.ceil((items.length + 1) / MOBILE_TEMPLATE_PAGE_SIZE));
+  const safePage = Math.min(Math.max(0, page), pageCount - 1);
+  // Page 0 is offset by the Craft tile; later pages shift back by that one slot.
+  const start = safePage === 0 ? 0 : safePage * MOBILE_TEMPLATE_PAGE_SIZE - 1;
+  const size = safePage === 0 ? MOBILE_TEMPLATE_PAGE_SIZE - 1 : MOBILE_TEMPLATE_PAGE_SIZE;
+  return { visibleItems: items.slice(start, start + size), pageCount, safePage };
+}
+
 /** Source-bucket sentinel values for the genre dropdown (not real template genres). */
 const GENRE_CUSTOM = "__custom__";
 export const GENRE_CRAFTED = "__crafted__";
@@ -917,6 +942,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
   /** Genre dropdown filter — populated dynamically from all templates' meta.genres. "" = show all. */
   const [genre, setGenre] = useState<string>(initialGenre ?? "");
   const [genreDropdownOpen, setGenreDropdownOpen] = useState(false);
+  /** Current page of the mobile-only paginated template grid. Ignored on desktop. */
+  const [templatePage, setTemplatePage] = useState(0);
   const [template, setTemplate] = useState("default");
   // Stock footage at generation time: available on every plan and every
   // template (builtin, custom, crafted). Free users get a clip on a single
@@ -2493,6 +2520,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
     return Array.from(set).sort();
   }, [templates]);
 
+  // Switching genre swaps the whole list underneath the pager — page 6 of the old
+  // list is usually past the end of the new one, so go back to the first page.
+  useEffect(() => {
+    setTemplatePage(0);
+  }, [genre, isMobile]);
+
   const {
     suggestedTemplates,
     customTemplatesForStyle,
@@ -2513,6 +2546,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
     ...customTemplatesForStyle.map((ct) => ({ type: "custom" as const, id: `custom_${ct.id}`, data: ct })),
     ...craftedTemplatesForStyle.map((ct) => ({ type: "crafted" as const, id: ct.id, data: ct })),
   ];
+
+  const {
+    visibleItems: visibleTemplateItems,
+    pageCount: templatePageCount,
+    safePage: safeTemplatePage,
+  } = mobileTemplatePage(styleTemplateItems, templatePage, isMobile);
 
   const SelectedPreviewComp = TEMPLATE_PREVIEWS[template];
   const selectedDesc = TEMPLATE_DESCRIPTIONS[template];
@@ -2716,23 +2755,27 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
         <p className="text-[10px] text-gray-500 mb-1.5 font-medium">
           {genreTemplateListCaption(genre)}
         </p>
-        <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[260px] sm:max-h-[220px] overflow-y-auto bg-gray-50/40">
+        {/* Mobile paginates to one 2x2 page so the grid needs no scrollbar of its
+            own; desktop keeps the capped scroll area. */}
+        <div className="border border-gray-200/60 rounded-xl p-2.5 sm:max-h-[220px] overflow-visible sm:overflow-y-auto bg-gray-50/40">
           <>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              <CraftYourTemplateCard
-                variant="default"
-                isPro={isPro}
-                onClick={() => {
-                  setShowGetMoreTemplates(true);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
+              {(!isMobile || safeTemplatePage === 0) && (
+                <CraftYourTemplateCard
+                  variant="default"
+                  isPro={isPro}
+                  onClick={() => {
                     setShowGetMoreTemplates(true);
-                  }
-                }}
-              />
-              {styleTemplateItems.map((item) => {
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setShowGetMoreTemplates(true);
+                    }
+                  }}
+                />
+              )}
+              {visibleTemplateItems.map((item) => {
                 if (item.type === "custom" || item.type === "crafted") {
                   const ct = item.data;
                   const customId = item.id;
@@ -2847,7 +2890,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
                   </div>
                 );
               })}
-              {customTemplatesLoading && (
+              {/* Loading tiles live in the grid, so on mobile they'd push the page
+                  past 4 tiles — show them on the first page only. */}
+              {customTemplatesLoading && (!isMobile || safeTemplatePage === 0) && (
                 <div
                   className="rounded-lg border border-dashed border-gray-200/80 bg-white/70 flex flex-col items-center justify-center gap-2 min-h-[88px] px-2 py-3 text-center"
                   role="status"
@@ -2859,7 +2904,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
                   </p>
                 </div>
               )}
-              {craftedTemplatesLoading && (
+              {craftedTemplatesLoading && (!isMobile || safeTemplatePage === 0) && (
                 <div
                   className="rounded-lg border border-dashed border-gray-200/80 bg-white/70 flex flex-col items-center justify-center gap-2 min-h-[88px] px-2 py-3 text-center"
                   role="status"
@@ -2876,6 +2921,35 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
               <p className="text-xs text-gray-500 py-3 text-center">
                 No templates for this genre. Pick another genre above or add a custom template.
               </p>
+            )}
+            {isMobile && templatePageCount > 1 && (
+              <div className="flex items-center justify-center gap-4 pt-2.5 mt-0.5 border-t border-gray-200/60">
+                <button
+                  type="button"
+                  aria-label="Previous templates"
+                  disabled={safeTemplatePage === 0}
+                  onClick={() => setTemplatePage((p) => Math.max(0, p - 1))}
+                  className="w-7 h-7 rounded-full flex items-center justify-center border border-gray-200 bg-white text-gray-600 disabled:opacity-35 disabled:cursor-not-allowed active:bg-gray-50"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <span className="text-[11px] font-medium text-gray-500 tabular-nums" aria-live="polite">
+                  {safeTemplatePage + 1} / {templatePageCount}
+                </span>
+                <button
+                  type="button"
+                  aria-label="More templates"
+                  disabled={safeTemplatePage >= templatePageCount - 1}
+                  onClick={() => setTemplatePage((p) => Math.min(templatePageCount - 1, p + 1))}
+                  className="w-7 h-7 rounded-full flex items-center justify-center border border-gray-200 bg-white text-gray-600 disabled:opacity-35 disabled:cursor-not-allowed active:bg-gray-50"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
             )}
           </>
         </div>
@@ -3202,6 +3276,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
       ...craftedTemplatesForStyle.map((ct) => ({ type: "crafted" as const, id: ct.id, data: ct })),
     ];
 
+    const {
+      visibleItems: visibleTemplateItems,
+      pageCount: templatePageCount,
+      safePage: safeTemplatePage,
+    } = mobileTemplatePage(styleTemplateItems, templatePage, isMobile);
+
     return (
       <div className="space-y-5">
         {/* Bulk logo picker (step 2) */}
@@ -3474,26 +3554,28 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
           {genreTemplateListCaption(genre)}
         </p>
         {/* Template thumbnails — filtered by genre; video style below is orthogonal.
-            Height matches the single-link grid: 2 columns make the cards taller,
-            so mobile needs the extra room. */}
-        <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[260px] sm:max-h-[220px] overflow-y-auto bg-gray-50/40">
+            Matches the single-link grid: mobile paginates to one 2x2 page so the
+            grid needs no scrollbar of its own, desktop keeps the capped scroll. */}
+        <div className="border border-gray-200/60 rounded-xl p-2.5 sm:max-h-[220px] overflow-visible sm:overflow-y-auto bg-gray-50/40">
           <>
             {/* Same responsive columns as the single-link template grid. */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              <CraftYourTemplateCard
-                variant="compact"
-                isPro={isPro}
-                onClick={() => {
-                  setShowGetMoreTemplates(true);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
+              {(!isMobile || safeTemplatePage === 0) && (
+                <CraftYourTemplateCard
+                  variant="compact"
+                  isPro={isPro}
+                  onClick={() => {
                     setShowGetMoreTemplates(true);
-                  }
-                }}
-              />
-              {styleTemplateItems.map((item) => {
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setShowGetMoreTemplates(true);
+                    }
+                  }}
+                />
+              )}
+              {visibleTemplateItems.map((item) => {
                 if (item.type === "custom" || item.type === "crafted") {
                   const ct = item.data;
                   const customId = item.id;
@@ -3606,7 +3688,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
                   </div>
                 );
               })}
-              {customTemplatesLoading && (
+              {/* Loading tiles live in the grid, so on mobile they'd push the page
+                  past 4 tiles — show them on the first page only. */}
+              {customTemplatesLoading && (!isMobile || safeTemplatePage === 0) && (
                 <div
                   className="rounded-lg border border-dashed border-gray-200/80 bg-white/70 flex flex-col items-center justify-center gap-2 min-h-[88px] px-2 py-3 text-center"
                   role="status"
@@ -3618,7 +3702,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
                   </p>
                 </div>
               )}
-              {craftedTemplatesLoading && (
+              {craftedTemplatesLoading && (!isMobile || safeTemplatePage === 0) && (
                 <div
                   className="rounded-lg border border-dashed border-gray-200/80 bg-white/70 flex flex-col items-center justify-center gap-2 min-h-[88px] px-2 py-3 text-center"
                   role="status"
@@ -3635,6 +3719,35 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
               <p className="text-xs text-gray-500 py-3 text-center">
                 No templates for this genre. Pick another genre above or add a custom template.
               </p>
+            )}
+            {isMobile && templatePageCount > 1 && (
+              <div className="flex items-center justify-center gap-4 pt-2.5 mt-0.5 border-t border-gray-200/60">
+                <button
+                  type="button"
+                  aria-label="Previous templates"
+                  disabled={safeTemplatePage === 0}
+                  onClick={() => setTemplatePage((p) => Math.max(0, p - 1))}
+                  className="w-7 h-7 rounded-full flex items-center justify-center border border-gray-200 bg-white text-gray-600 disabled:opacity-35 disabled:cursor-not-allowed active:bg-gray-50"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <span className="text-[11px] font-medium text-gray-500 tabular-nums" aria-live="polite">
+                  {safeTemplatePage + 1} / {templatePageCount}
+                </span>
+                <button
+                  type="button"
+                  aria-label="More templates"
+                  disabled={safeTemplatePage >= templatePageCount - 1}
+                  onClick={() => setTemplatePage((p) => Math.min(templatePageCount - 1, p + 1))}
+                  className="w-7 h-7 rounded-full flex items-center justify-center border border-gray-200 bg-white text-gray-600 disabled:opacity-35 disabled:cursor-not-allowed active:bg-gray-50"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
             )}
           </>
         </div>
