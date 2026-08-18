@@ -1,7 +1,9 @@
 import type { SocialsMap, SocialsRow } from "../SocialIcons";
 
 export type Stickman2LayoutType =
-  | "chalk_title" | "night_walk" | "shooting_star" | "constellation_stats" | "moonphase_chart" | "shadow_comparison" | "signal_fire_scene" | "neon_countdown" | "lantern_dialogue" | "data_visualisation" | "ending_socials" | "ticker_table";
+  | "chalk_title" | "night_walk" | "shooting_star" | "constellation_stats" | "moonphase_chart" | "shadow_comparison" | "signal_fire_scene" | "neon_countdown" | "lantern_dialogue" | "data_visualisation" | "ending_socials" | "ticker_table"
+  // Visual variants — same props as their base, different composition.
+  | "chalk_title__v2" | "night_walk__v2" | "ending_socials__v2";
 
 export interface SceneLayoutProps {
   title: string;

@@ -316,7 +316,9 @@ const ECONOMIST_LAYOUTS = new Set([
 ]);
 const STICKMAN_2_LAYOUTS = new Set([
   "chalk_title",
+  "chalk_title__v2",
   "night_walk",
+  "night_walk__v2",
   "shooting_star",
   "constellation_stats",
   "moonphase_chart",
@@ -327,10 +329,12 @@ const STICKMAN_2_LAYOUTS = new Set([
   "data_visualisation",
   "ticker_table",
   "ending_socials",
+  "ending_socials__v2",
 ]);
 
 const MAGAZINE_LAYOUTS = new Set([
   "magazine_cover",
+  "magazine_cover__v2",
   "editorial_quote",
   "by_the_numbers",
   "interview_qa",
@@ -338,9 +342,11 @@ const MAGAZINE_LAYOUTS = new Set([
   "timeline_journey",
   "text_narration",
   "ending_socials",
+  "ending_socials__v2",
   "magazine_ticker",
   "colorblock",
   "feature",
+  "feature__v2",
   "comparison",
 ]);
 

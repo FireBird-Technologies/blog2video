@@ -23,8 +23,11 @@ import {
   alternatingQuoteSwing,
 } from "./presentations";
 
-export const HERO_LAYOUTS_FROM = new Set<MagazineLayoutType>(["magazine_cover"]);
-export const HERO_LAYOUTS_TO = new Set<MagazineLayoutType>(["ending_socials"]);
+// Variants occupy the same structural slots as their bases, so they belong in these
+// sets too — otherwise the cover-exit page turn and the ending-entry page slide
+// silently stop firing for them.
+export const HERO_LAYOUTS_FROM = new Set<MagazineLayoutType>(["magazine_cover", "magazine_cover__v2"]);
+export const HERO_LAYOUTS_TO = new Set<MagazineLayoutType>(["ending_socials", "ending_socials__v2"]);
 
 // Data scenes (charts / stats / table). Any boundary touching one plays the
 // zoom-blur dive: the outgoing page zooms in + softly blurs, then the incoming
@@ -288,9 +291,13 @@ export const pickMagazineTransition = (
   // colorblock and feature carry their own internal reveal (sequential blocks /
   // word-by-word written body); play an instant cut on either side so no
   // cross-page transition competes with it.
+  // `feature__v2` is included for the same reason as `feature`: its ink-wipe headline
+  // and staggered sidebar are a self-contained reveal, and swinging that heavy page in
+  // 3D re-rasterizes it every frame ([[magazine-preview-paint-cost]]).
   if (
     fromLayout === "colorblock" || toLayout === "colorblock" ||
-    fromLayout === "feature" || toLayout === "feature"
+    fromLayout === "feature" || toLayout === "feature" ||
+    fromLayout === "feature__v2" || toLayout === "feature__v2"
   ) {
     return { presentation: cast(fade()), frames: 1 };
   }

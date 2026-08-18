@@ -850,5 +850,27 @@
     "data_visualisation",
     "ending_socials",
     "ticker_table"
-  ]
+  ],
+  "layout_variants": {
+    "chalk_title": [
+      "chalk_title",
+      "chalk_title__v2"
+    ],
+    "night_walk": [
+      "night_walk",
+      "night_walk__v2"
+    ],
+    "ending_socials": [
+      "ending_socials",
+      "ending_socials__v2"
+    ]
+  },
+  "layout_variant_labels": {
+    "chalk_title": "Classic",
+    "chalk_title__v2": "Stargazer",
+    "night_walk": "Classic",
+    "night_walk__v2": "Lamppost",
+    "ending_socials": "Classic",
+    "ending_socials__v2": "Signpost"
+  }
 }

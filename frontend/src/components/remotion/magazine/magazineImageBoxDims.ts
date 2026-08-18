@@ -62,6 +62,28 @@ function featureBox(isPortrait: boolean) {
   return asFrac((innerW - gap) / 2, innerH - kickerBand, canvasW, canvasH);
 }
 
+/**
+ * MagPlate on the "Sidebar" feature variant — FeatureV2.tsx.
+ *
+ * Differs from `featureBox` because the variant reshapes the slot: the body runs as a
+ * single column on ~62% of the spread with the plate ABOVE it, and the facing leaf is
+ * the marginal sidebar. So the plate is 62%-wide (landscape) rather than a half-leaf
+ * filling the full column height.
+ *
+ * Keep in lockstep with FeatureV2's JSX: the plate is `height: "30%"` of the flex
+ * column, and the body column is `calc(62% - g/2)`.
+ */
+function featureV2Box(isPortrait: boolean) {
+  const { canvasW, canvasH, innerW, innerH } = sheetContent(isPortrait);
+  if (isPortrait) {
+    // Portrait has no facing leaf — full content width, plate at 30% of the band.
+    return asFrac(innerW, innerH * 0.3, canvasW, canvasH);
+  }
+  const gap = GUTTER_W.landscape;
+  const colW = innerW * 0.62 - gap / 2;
+  return asFrac(colW, innerH * 0.3, canvasW, canvasH);
+}
+
 /** Hero image panel on the colorblock spread (singlePage, 50/50 or 35/65 split). */
 function colorblockBox(isPortrait: boolean) {
   const { canvasW, canvasH, innerW, innerH } = sheetContent(isPortrait);
@@ -99,6 +121,15 @@ export function buildMagazineImageBoxDims(): Record<string, ImageBoxDims> {
     feature: {
       landscape: featureBox(false),
       portrait: featureBox(true),
+    },
+    // The "Sidebar" variant reshapes its image slot, so it needs its OWN exact key —
+    // normalizeLayoutId would otherwise strip `__v2` and hand it `feature`'s box,
+    // which is the wrong shape. `magazine_cover__v2` and `ending_socials__v2` are
+    // deliberately absent: the former keeps the base card geometry exactly, and the
+    // latter has no image.
+    feature__v2: {
+      landscape: featureV2Box(false),
+      portrait: featureV2Box(true),
     },
     colorblock: {
       landscape: colorblockBox(false),

@@ -10,6 +10,9 @@ import { LanternDialogue } from "./LanternDialogue";
 import { Stickman2DataViz } from "./Stickman2DataViz";
 import { EndingSocials } from "./EndingSocials";
 import { Stickman2TickerTable } from "./Stickman2TickerTable";
+import { ChalkTitleV2 } from "./ChalkTitleV2";
+import { NightWalkV2 } from "./NightWalkV2";
+import { EndingSocialsV2 } from "./EndingSocialsV2";
 import type { Stickman2LayoutType, SceneLayoutProps } from "../types";
 
 export type { Stickman2LayoutType, SceneLayoutProps };
@@ -27,4 +30,9 @@ export const STICKMAN_2_LAYOUT_REGISTRY: Record<Stickman2LayoutType, React.FC<Sc
   data_visualisation: Stickman2DataViz,
   ending_socials: EndingSocials,
   ticker_table: Stickman2TickerTable,
+
+  // ── Visual variants — same props as their base, different composition ──
+  chalk_title__v2: ChalkTitleV2,
+  night_walk__v2: NightWalkV2,
+  ending_socials__v2: EndingSocialsV2,
 };

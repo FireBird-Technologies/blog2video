@@ -237,6 +237,14 @@ const EXIT_ANIM_BY_LAYOUT: Record<MagazineLayoutType, SceneExitVariant> = {
   colorblock: "spread_close",
   feature: "corner_peel",
   comparison: "flip_up",
+
+  // ── Visual variants — deliberately different exits from their bases so each
+  // variant reads as its own shot rather than a restyle of the same one. ──
+  magazine_cover__v2: "page_slide", // suits the lateral newsstand-rack move
+  feature__v2: "riffle_left",       // the sidebar spread rifles rather than peels
+  // Bookends the cover variant: same rack, so the same lateral language rather than a
+  // spread mechanic (this scene renders a standalone booklet, not a MagazinePage).
+  ending_socials__v2: "page_slide",
 };
 export const exitAnimFor = (layout: MagazineLayoutType): SceneExitVariant =>
   EXIT_ANIM_BY_LAYOUT[layout] ?? "lift";
@@ -806,6 +814,13 @@ const CAMERA_SIGNATURES: Record<MagazineLayoutType, MagazineCameraMove[]> = {
   colorblock: ["pinned"], // static head-on hold — orbit_sweep's big 3D arc jerked on CPU
   feature: ["pinned"], // static full-bleed read — CPU rasterizes once, no per-frame repaint
   comparison: ["dutch_roll"], // enters hard-rolled (Dutch) → levels out
+
+  // ── Visual variants ──
+  magazine_cover__v2: ["tracking_pan"], // matches the rack's own lateral slide
+  // Stays PINNED like its base: the sidebar spread self-animates (ink wipe, staggered
+  // marginalia), and layering a moving camera over that jitters on CPU.
+  feature__v2: ["pinned"],
+  ending_socials__v2: ["dolly_out"], // pull back to reveal the colophon spread
 };
 
 /** The default cinematic move for a scene, varied by its folio so repeats of a

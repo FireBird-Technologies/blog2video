@@ -1,7 +1,9 @@
 import type { SocialsMap, SocialsRow } from "../SocialIcons";
 
 export type MagazineLayoutType =
-  | "magazine_cover" | "editorial_quote" | "by_the_numbers" | "interview_qa" | "magazine_data_visualization" | "timeline_journey" | "text_narration" | "ending_socials" | "magazine_ticker" | "colorblock" | "feature" | "comparison";
+  | "magazine_cover" | "editorial_quote" | "by_the_numbers" | "interview_qa" | "magazine_data_visualization" | "timeline_journey" | "text_narration" | "ending_socials" | "magazine_ticker" | "colorblock" | "feature" | "comparison"
+  // Visual variants — same props as their base, different composition.
+  | "magazine_cover__v2" | "feature__v2" | "ending_socials__v2";
 
 // Cinematic camera move applied to a scene's 3D spread. Each maps to a frame-
 // driven path in useMagazineCamera (magazineStyle.tsx). A scene can override its
