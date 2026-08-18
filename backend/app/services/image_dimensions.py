@@ -57,6 +57,24 @@ LAYOUT_IMAGE_ASPECT: dict[tuple[str, str], dict[str, str]] = {
     # the image in a TALL 3:4 plate beside the copy (the bases use wide cards).
     ("spotlight", "impact_title__v2"): {"landscape": "3:4", "portrait": "16:9"},
     ("spotlight", "statement__v2"): {"landscape": "3:4", "portrait": "16:9"},
+    # ── sakura / gridcraft variant slots that differ in SHAPE from their base ──
+    # sakura_section__v2 "Folding Screen": the image bleeds across two of three
+    # leaves. The screen folds along the long axis, so the slot is a wide block
+    # beside the copy in landscape (~1039×842) and a full-width band below it in
+    # portrait (~950×1032) — near-square either way, not the base's narrow card.
+    ("sakura", "sakura_section__v2"): {"landscape": "3:2", "portrait": "1:1"},
+    # sakura_intro__v2 "Hanging Scroll": the image is the painting mounted inside
+    # the scroll — a ~16:9 panel landscape, near-square portrait. The base intro is
+    # full-bleed, so this variant does NOT inherit its framing.
+    ("sakura", "sakura_intro__v2"): {"landscape": "16:9", "portrait": "1:1"},
+    # editorial_body__v2 "Overlap": the image is the FULL-BLEED ground behind an
+    # overlapping copy panel, so it wants the canvas aspect — not the base's
+    # half-card. Half the frame sits under a scrim + panel, so prefer a source
+    # whose subject reads off-centre.
+    ("gridcraft", "editorial_body__v2"): {"landscape": "16:9", "portrait": "9:16"},
+    # bento_hero__v2 "Sidebar Rail": the image is the full-width LOWER BAND under
+    # the title — a wide ~3:1 strip in landscape, near-square in portrait.
+    ("gridcraft", "bento_hero__v2"): {"landscape": "16:9", "portrait": "1:1"},
     # Mosaic: mosaic_text uses 46% width for image panel (vertical orientation)
     ("mosaic", "mosaic_text"): {"landscape": "9:16", "portrait": "9:16"},
     # Chronicle: page-shaped and banner image slots

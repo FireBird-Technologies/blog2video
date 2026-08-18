@@ -147,6 +147,12 @@ const GRIDCRAFT_LAYOUTS = new Set([
   "data_visualisation",
   "ticker_table",
   "ending_socials",
+  // Visual variants. VideoPreview coerces any layout id absent from this Set to the
+  // template's fallbackLayout, so a variant missing here silently renders the wrong
+  // scene with no compile error.
+  "bento_hero__v2",
+  "editorial_body__v2",
+  "ending_socials__v2",
 ]);
 
 const SPOTLIGHT_LAYOUTS = new Set([
@@ -385,6 +391,11 @@ const SAKURA_LAYOUTS = new Set([
   "ending_socials",
   "sakura_data_visualization",
   "sakura_ticker",
+  // Visual variants — see the note on GRIDCRAFT_LAYOUTS above. The ending variant
+  // hangs off the canonical "ending_socials" id, not the sakura_-prefixed alias.
+  "sakura_intro__v2",
+  "sakura_section__v2",
+  "ending_socials__v2",
 ]);
 
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {

@@ -237,6 +237,24 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
     portrait:  { w: 0.90, h: 0.40  }, // ~972 × 768
   },
 
+  // ── Gridcraft visual variants ──
+  // "Sidebar Rail": the image is the LOWER BAND of the right field — it spans the
+  // 90%×80% container minus the rail and its gutter, with the title/tagline
+  // stacked above it. ~3:1 landscape, ~square portrait.
+  // See BentoHeroV2.tsx.
+  bento_hero__v2: {
+    landscape: { w: 0.825, h: 0.496 }, // ~1584 × 536
+    portrait:  { w: 0.804, h: 0.448 }, // ~868 × 860
+  },
+
+  // "Overlap": the image is the FULL-BLEED ground of the frame, with the copy
+  // panel sitting over one side of it — not the base's half-card, and not a cell.
+  // See EditorialBodyV2.tsx.
+  editorial_body__v2: {
+    landscape: { w: 1.0, h: 1.0 },
+    portrait:  { w: 1.0, h: 1.0 },
+  },
+
   // flex "0 0 38%", height 320 px landscape / width 100%, height 180 px portrait
   kpi_grid: {
     landscape: { w: 0.38, h: 0.296 }, // 730 × 320
@@ -877,6 +895,27 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
   sakura_list_scene: {
     landscape: { w: 0.360, h: 1.0 },
     portrait:  { w: 0.852, h: 0.30 },
+  },
+
+  // ── Sakura visual variants ──
+  // "Hanging Scroll": the image is the PAINTING MOUNTED INSIDE the scroll (a
+  // kakejiku is a picture on silk with an inscription below), spanning the paper's
+  // inner measure. NOT a full-bleed backdrop — behind the opaque washi panel an
+  // image is only visible in the margins, which is why it read as missing.
+  // See SakuraIntroV2.tsx (artH).
+  sakura_intro__v2: {
+    landscape: { w: 0.365, h: 0.360 }, // ~700 × 389
+    portrait:  { w: 0.604, h: 0.340 }, // ~652 × 653
+  },
+
+  // "Folding Screen": the image bleeds across leaves 2–3 of a three-leaf screen.
+  // The screen folds along the frame's LONG axis, so the slot differs by
+  // orientation: a wide block beside the copy leaf in landscape, a full-width band
+  // BELOW it in portrait. Not the base's 620×700 column, hence its own entry.
+  // See SakuraSectionV2.tsx (artLeafW / artLeafH).
+  sakura_section__v2: {
+    landscape: { w: 0.541, h: 0.780 }, // ~1039 × 842
+    portrait:  { w: 0.880, h: 0.538 }, // ~950 × 1032
   },
 
   // Circular vignette behind the number: 560 landscape / 420 portrait.

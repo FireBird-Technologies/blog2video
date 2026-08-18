@@ -813,6 +813,45 @@
           "type": "string"
         }
       ]
+    },
+    "sakura_intro__v2": {
+      "label": "Sakura Intro — Scroll",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 84,
+          "landscape": 72
+        },
+        "descriptionFontSize": {
+          "portrait": 43,
+          "landscape": 27
+        }
+      }
+    },
+    "sakura_section__v2": {
+      "label": "Content Section — Screen",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 60,
+          "landscape": 55
+        },
+        "descriptionFontSize": {
+          "portrait": 35,
+          "landscape": 29
+        }
+      }
+    },
+    "ending_socials__v2": {
+      "label": "Outro / Socials — Hanko",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 63,
+          "landscape": 66
+        },
+        "descriptionFontSize": {
+          "portrait": 42,
+          "landscape": 38
+        }
+      }
     }
   },
   "layouts_without_image": [
@@ -821,5 +860,27 @@
     "ending_socials",
     "sakura_data_visualization",
     "sakura_ticker"
-  ]
+  ],
+  "layout_variants": {
+    "sakura_intro": [
+      "sakura_intro",
+      "sakura_intro__v2"
+    ],
+    "sakura_section": [
+      "sakura_section",
+      "sakura_section__v2"
+    ],
+    "ending_socials": [
+      "ending_socials",
+      "ending_socials__v2"
+    ]
+  },
+  "layout_variant_labels": {
+    "sakura_intro": "Classic",
+    "sakura_intro__v2": "Scroll",
+    "sakura_section": "Classic",
+    "sakura_section__v2": "Screen",
+    "ending_socials": "Classic",
+    "ending_socials__v2": "Hanko"
+  }
 }
