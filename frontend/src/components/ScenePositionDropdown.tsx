@@ -24,7 +24,7 @@ function positionLabel(position: number, activeCount: number): string {
 
 /**
  * Custom (non-native) dropdown for choosing where a new scene is inserted.
- * Mirrors BgmTrackDropdown's trigger + portal menu pattern (viewport-aware
+ * Uses the trigger + portal menu pattern shared with CustomSelect (viewport-aware
  * positioning, outside-click close) so it renders consistently inside the modal.
  */
 export function ScenePositionDropdown({

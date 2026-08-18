@@ -102,7 +102,7 @@ import VerifyScriptModal from "../components/VerifyScriptModal";
 import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge, PopularTemplateBadge } from "../components/templatePreviewRegistry";
 import ProjectTemplateSettingsCard, { TemplateAssignPreview } from "../components/ProjectTemplateSettingsCard";
 import ProjectVoiceLanguageSettingsCard from "../components/ProjectVoiceLanguageSettingsCard";
-import { BgmTrackDropdown } from "../components/BgmTrackDropdown";
+import BgmTrackPicker from "../components/BgmTrackPicker";
 import VoiceOperationModal from "../components/VoiceOperationModal";
 import LanguageChangeTracker, {
   type LanguageChangeProgress,
@@ -805,8 +805,8 @@ export default function ProjectView() {
   const [bgmVolumeDraft, setBgmVolumeDraft] = useState<number>(0.10);
   const [lastNonZeroProjectBgm, setLastNonZeroProjectBgm] = useState<number>(0.10);
   const [savingBgm, setSavingBgm] = useState(false);
-  const [bgmPlayingId, setBgmPlayingId] = useState<string | null>(null);
-  const bgmAudioRef = useRef<HTMLAudioElement | null>(null);
+  // Project-level music preview lives inside <BgmTrackPicker>, which owns its own
+  // audio element and stops it on unmount. Per-scene rows keep their own preview.
   const savingPlaybackSpeedRef = useRef(false);
   const pendingPlaybackSpeedRef = useRef<number | null>(null);
   const fontDropdownRef = useRef<HTMLDivElement>(null);
@@ -8838,19 +8838,23 @@ export default function ProjectView() {
                       </div>
                       <span className="text-[11px] text-gray-400">Project default — fine-tune per scene below</span>
                     </div>
-                    <div className="flex flex-col sm:flex-row sm:items-end gap-3">
-                      <div className="flex-1">
+                    <div className="flex flex-col gap-3">
+                      <div>
                         <label className="text-[11px] text-gray-500 mb-1 block">Track</label>
-                        <BgmTrackDropdown
+                        {/* Same picker as the create wizard — searchable, filterable by
+                            mood, and auditionable in place. It used to be a bare dropdown
+                            with no preview, so a track could only be heard by selecting it. */}
+                        <BgmTrackPicker
                           tracks={bgmTracks}
                           value={bgmTrackDraft}
-                          onChange={setBgmTrackDraft}
-                          triggerSize="md"
-                          disabled={anyJobRunning}
+                          onChange={(id) => { if (!anyJobRunning) setBgmTrackDraft(id); }}
+                          volume={bgmVolumeDraft}
+                          compact
+                          className={anyJobRunning ? "opacity-50 pointer-events-none" : ""}
                         />
                       </div>
                       {bgmTrackDraft && (
-                        <div className="flex-1">
+                        <div>
                           <div className="flex items-center justify-between mb-1">
                             <span className="text-[11px] font-medium text-gray-600">Volume</span>
                             <span className="text-[11px] text-gray-400 tabular-nums">{Math.round(bgmVolumeDraft * 100)}%</span>
@@ -8858,43 +8862,11 @@ export default function ProjectView() {
                           <div className="flex items-center gap-2">
                             <button
                               type="button"
-                              onClick={() => {
-                                const track = bgmTracks.find((t) => t.track_id === bgmTrackDraft);
-                                if (!track) return;
-                                if (bgmPlayingId === track.track_id) {
-                                  bgmAudioRef.current?.pause();
-                                  setBgmPlayingId(null);
-                                  activeBgmPreviewStop = null;
-                                } else {
-                                  activeBgmPreviewStop?.(); // stop any other preview (scene rows)
-                                  bgmAudioRef.current?.pause();
-                                  const audio = new Audio(track.r2_url);
-                                  audio.loop = true;
-                                  audio.volume = Math.max(0, Math.min(1, bgmVolumeDraft));
-                                  audio.onended = () => setBgmPlayingId(null);
-                                  audio.play().catch(() => {});
-                                  bgmAudioRef.current = audio;
-                                  setBgmPlayingId(track.track_id);
-                                  activeBgmPreviewStop = () => { audio.pause(); setBgmPlayingId(null); };
-                                }
-                              }}
-                              className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 bg-purple-50 text-purple-600 hover:bg-purple-100"
-                              title="Preview track"
-                            >
-                              {bgmPlayingId === bgmTrackDraft ? (
-                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1" /><rect x="14" y="4" width="4" height="16" rx="1" /></svg>
-                              ) : (
-                                <svg className="w-3 h-3 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
-                              )}
-                            </button>
-                            <button
-                              type="button"
                               disabled={anyJobRunning}
                               onClick={() => {
                                 const v = bgmVolumeDraft === 0 ? (lastNonZeroProjectBgm || 0.10) : 0;
                                 if (bgmVolumeDraft > 0) setLastNonZeroProjectBgm(bgmVolumeDraft);
                                 setBgmVolumeDraft(v);
-                                if (bgmAudioRef.current) bgmAudioRef.current.volume = Math.max(0, Math.min(1, v));
                               }}
                               className={`flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-[11px] font-medium flex-shrink-0 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${bgmVolumeDraft === 0 ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
                               title={bgmVolumeDraft === 0 ? "Unmute music for all scenes" : "Mute music for all scenes"}
@@ -8913,11 +8885,7 @@ export default function ProjectView() {
                               step={1}
                               disabled={anyJobRunning}
                               value={Math.round(bgmVolumeDraft * 100)}
-                              onChange={(e) => {
-                                const v = Number(e.target.value) / 100;
-                                setBgmVolumeDraft(v);
-                                if (bgmAudioRef.current) bgmAudioRef.current.volume = Math.max(0, Math.min(1, v));
-                              }}
+                              onChange={(e) => setBgmVolumeDraft(Number(e.target.value) / 100)}
                               className="flex-1 accent-purple-600 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                             />
                           </div>
@@ -8940,7 +8908,7 @@ export default function ProjectView() {
                             setSavingBgm(false);
                           }
                         }}
-                        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300 text-white text-xs font-semibold rounded-xl transition-colors flex-shrink-0"
+                        className="self-end px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300 text-white text-xs font-semibold rounded-xl transition-colors flex-shrink-0"
                       >
                         {savingBgm ? "Saving…" : "Save music"}
                       </button>

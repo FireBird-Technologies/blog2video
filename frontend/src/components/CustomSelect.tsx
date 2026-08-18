@@ -21,7 +21,7 @@ const MENU_GAP = 8;
 /**
  * Plain custom (non-native) dropdown — a trigger button plus a portal-rendered
  * listbox with viewport-aware positioning and outside-click close. Mirrors the
- * pattern used by BgmTrackDropdown / ScenePositionDropdown so selects render
+ * pattern used by ScenePositionDropdown so selects render
  * consistently inside scrollable modals.
  */
 export function CustomSelect({

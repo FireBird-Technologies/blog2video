@@ -16,7 +16,7 @@ import { SUPPORTED_CONTENT_LANGUAGES, getLanguageName } from "../constants/langu
 // absolutely-positioned child: `.glass-card` sets `backdrop-filter: blur(20px)`, and any
 // non-`none` backdrop-filter creates a stacking context — which traps the menu's z-index
 // inside its own card so it paints *behind* the sibling cards that follow it in the DOM.
-// Same approach as BgmTrackDropdown, which lives in this very Settings tab.
+// Same approach as CustomSelect / ScenePositionDropdown.
 const MENU_MAX_HEIGHT = 296; // ~12 rows
 const MENU_GAP = 8;
 

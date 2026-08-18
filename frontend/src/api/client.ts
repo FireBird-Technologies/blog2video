@@ -1053,6 +1053,12 @@ export interface BgmTrack {
   display_name: string;
   mood: string;
   r2_url: string;
+  /**
+   * Optional so a frontend deploy that outruns the backend degrades to the old
+   * name-and-mood rows instead of rendering "undefined".
+   */
+  duration_seconds?: number;
+  description?: string;
 }
 
 export const getBgmTracks = () => api.get<BgmTrack[]>("/background-music/tracks");
