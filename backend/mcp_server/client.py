@@ -128,6 +128,14 @@ class Blog2VideoClient:
     def list_voices(self) -> list:
         return self._get("/api/voices/prebuilt")
 
+    def list_bgm_tracks(self) -> list:
+        """Background-music catalog with R2 preview URLs.
+
+        GET /api/background-music/tracks (auth required) ->
+        [{track_id, display_name, mood, r2_url}, ...]
+        """
+        return self._get("/api/background-music/tracks")
+
     def get_me(self) -> dict:
         """Current user record — {id, email, plan, ...}.
 
@@ -167,6 +175,37 @@ class Blog2VideoClient:
     def update_project_settings(self, project_id: int, **fields) -> dict:
         """PATCH /api/projects/{id}/update-project."""
         return self._patch(f"/api/projects/{project_id}/update-project", json=fields)
+
+    # Voice and language are NOT settings writes — each re-synthesises every
+    # scene's voiceover in the background and costs one video credit. Same
+    # endpoints the web app's Settings tab uses.
+
+    def change_voice(self, project_id: int, **fields) -> dict:
+        """POST /api/projects/{id}/change-voice (ProjectVoiceChange body)."""
+        return self._post(f"/api/projects/{project_id}/change-voice", json=fields)
+
+    def get_voice_change_status(self, project_id: int) -> dict:
+        """GET /api/projects/{id}/voice-change-status.
+
+        Shared by change_voice AND delete_voiceover — the delete runs as a
+        ProjectVoiceChangeJob tagged "_op: delete" and reports on this endpoint.
+        """
+        return self._get(f"/api/projects/{project_id}/voice-change-status")
+
+    def delete_voiceover(self, project_id: int) -> dict:
+        """POST /api/projects/{id}/delete-voiceover (no body). Costs no credit."""
+        return self._post(f"/api/projects/{project_id}/delete-voiceover")
+
+    def change_language(self, project_id: int, content_language: str) -> dict:
+        """POST /api/projects/{id}/change-language (ProjectLanguageChange body)."""
+        return self._post(
+            f"/api/projects/{project_id}/change-language",
+            json={"content_language": content_language},
+        )
+
+    def get_language_change_status(self, project_id: int) -> dict:
+        """GET /api/projects/{id}/language-change-status."""
+        return self._get(f"/api/projects/{project_id}/language-change-status")
 
     def regenerate_scene(
         self,
