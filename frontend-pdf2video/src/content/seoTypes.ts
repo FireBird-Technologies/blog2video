@@ -48,6 +48,12 @@ export interface MarketingPage {
   badges: string[];
   proofPoints: string[];
   workflowSteps: string[];
+  /**
+   * Heading above the workflow steps. Optional because most pages want the
+   * generic default; keyword-led pages (e.g. /pdf-to-video) override it so the
+   * H2 carries the search term instead of saying "this page".
+   */
+  workflowTitle?: string;
   sections: ContentSection[];
   recommendedTemplate: string;
   recommendedTemplateReason: string;

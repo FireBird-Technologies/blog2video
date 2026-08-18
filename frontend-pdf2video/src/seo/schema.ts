@@ -17,6 +17,25 @@ import type {
   ToolDefinition,
 } from "../content/seoTypes";
 
+/**
+ * The product's price range as one reusable Offer.
+ *
+ * Kept as AggregateOffer because PDF2Video is freemium, not free: the entry
+ * price is genuinely $0 (1 video, lifetime, no card) and the ceiling is the Pro
+ * plan. Search engines surface the low end as a "Free" annotation in the SERP —
+ * which several competitors on the pdf-to-video results carry and we did not —
+ * while the range keeps the claim truthful.
+ *
+ * Mirrors pricingContent.ts. If prices move there, move them here.
+ */
+const freemiumOffer = {
+  "@type": "AggregateOffer",
+  priceCurrency: "USD",
+  lowPrice: "0",
+  highPrice: "59.99",
+  offerCount: "5",
+};
+
 function breadcrumbList(items: Array<{ name: string; path: string }>) {
   return {
     "@context": "https://schema.org",
@@ -97,6 +116,7 @@ export function homepageSchema() {
       sameAs: brandSameAs,
       description:
         "Turn PDFs, reports, whitepapers, and decks into structured narrated videos.",
+      offers: freemiumOffer,
       brand: { "@id": organizationId },
       publisher: { "@id": organizationId },
     },
@@ -221,6 +241,7 @@ export function toolsHubSchema() {
 }
 
 export function marketingPageSchema(page: MarketingPage) {
+  const pageUrl = `${siteUrl}${page.path}`;
   const schemas: Record<string, unknown>[] = [
     {
       "@context": "https://schema.org",
@@ -228,9 +249,15 @@ export function marketingPageSchema(page: MarketingPage) {
       name: page.title,
       applicationCategory: "BusinessApplication",
       operatingSystem: "Web",
-      url: `${siteUrl}${page.path}`,
+      url: pageUrl,
       image: defaultOgImage,
       description: page.description,
+      // Freemium, stated as a range rather than a flat "price: 0": there is a
+      // genuine free tier (1 video, lifetime, no card — see pricingContent.ts
+      // FREE_FEATURES_INCLUDED), and paid usage runs from $2.80/video up to the
+      // $59.99/mo Pro plan. AggregateOffer is the honest shape for that; a bare
+      // price:0 would claim the whole product is free, which it is not.
+      offers: freemiumOffer,
       brand: {
         "@type": "Organization",
         name: organizationName,
@@ -246,8 +273,27 @@ export function marketingPageSchema(page: MarketingPage) {
     ]),
   ];
 
+  // Pages that spell out a real, page-specific procedure get HowTo markup.
+  // Pages still on the shared `workflowBase` boilerplate do not — identical
+  // steps repeated across dozens of URLs is not a procedure worth marking up.
+  if (page.workflowTitle && page.workflowSteps.length) {
+    schemas.push({
+      "@context": "https://schema.org",
+      "@type": "HowTo",
+      name: page.workflowTitle,
+      description: page.description,
+      image: defaultOgImage,
+      mainEntityOfPage: pageUrl,
+      step: page.workflowSteps.map((step, index) => ({
+        "@type": "HowToStep",
+        position: index + 1,
+        text: step,
+      })),
+    });
+  }
+
   const faq = faqSchema(page.faq, {
-    pageUrl: `${siteUrl}${page.path}`,
+    pageUrl,
     name: `FAQ — ${page.heroTitle}`,
   });
   if (faq) schemas.push(faq);
