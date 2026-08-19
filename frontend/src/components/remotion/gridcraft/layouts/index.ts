@@ -10,9 +10,6 @@ import { BentoSteps } from "./BentoSteps";
 import { GridcraftDataViz } from "./GridcraftDataViz";
 import { EndingSocials } from "./EndingSocials";
 import { GridcraftTickerTable } from "./GridcraftTickerTable";
-import { BentoHeroV2 } from "./BentoHeroV2";
-import { EditorialBodyV2 } from "./EditorialBodyV2";
-import { EndingSocialsV2 } from "./EndingSocialsV2";
 import { GridcraftLayoutType } from "../types";
 
 /**
@@ -40,9 +37,6 @@ export const GRIDCRAFT_LAYOUT_REGISTRY: Record<
   ticker_table: GridcraftTickerTable,
 
   // Visual variants — same props as their base, different composition.
-  bento_hero__v2: BentoHeroV2,
-  editorial_body__v2: EditorialBodyV2,
-  ending_socials__v2: EndingSocialsV2,
 
   // Backward compatibility alias if needed
   intro: BentoHero,

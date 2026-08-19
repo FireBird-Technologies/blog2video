@@ -8,9 +8,6 @@ import { SakuraTextNarration } from "./SakuraTextNarration";
 import { SakuraEndingSocials } from "./SakuraEndingSocials";
 import { SakuraDataChart } from "./SakuraDataChart";
 import { SakuraTable } from "./SakuraTable";
-import { SakuraIntroV2 } from "./SakuraIntroV2";
-import { SakuraSectionV2 } from "./SakuraSectionV2";
-import { SakuraEndingSocialsV2 } from "./SakuraEndingSocialsV2";
 import type { SakuraLayoutType, SceneLayoutProps } from "../types";
 
 export type { SakuraLayoutType, SceneLayoutProps };
@@ -32,7 +29,4 @@ export const SAKURA_LAYOUT_REGISTRY: Record<SakuraLayoutType, React.FC<SceneLayo
   sakura_ticker: SakuraTable,
   // Visual variants. Note the ending variant hangs off the canonical
   // "ending_socials" id above, not the legacy "sakura_ending_socials" alias.
-  sakura_intro__v2: SakuraIntroV2,
-  sakura_section__v2: SakuraSectionV2,
-  ending_socials__v2: SakuraEndingSocialsV2,
 };

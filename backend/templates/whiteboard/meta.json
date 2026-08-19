@@ -43,34 +43,6 @@
     "ending_socials",
     "ticker_table"
   ],
-  "layout_variants": {
-    "drawn_title": [
-      "drawn_title",
-      "drawn_title__v2"
-    ],
-    "marker_story": [
-      "marker_story",
-      "marker_story__v2"
-    ],
-    "stick_figure_scene": [
-      "stick_figure_scene",
-      "stick_figure_scene__v2"
-    ],
-    "ending_socials": [
-      "ending_socials",
-      "ending_socials__v2"
-    ]
-  },
-  "layout_variant_labels": {
-    "drawn_title": "Classic",
-    "drawn_title__v2": "Big Reveal",
-    "marker_story": "Classic",
-    "marker_story__v2": "Photo Panel",
-    "stick_figure_scene": "Classic",
-    "stick_figure_scene__v2": "Circus Juggler",
-    "ending_socials": "Classic",
-    "ending_socials__v2": "Signpost"
-  },
   "layout_prop_schema": {
     "drawn_title": {
       "label": "Drawn Title",

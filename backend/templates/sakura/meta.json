@@ -860,27 +860,5 @@
     "ending_socials",
     "sakura_data_visualization",
     "sakura_ticker"
-  ],
-  "layout_variants": {
-    "sakura_intro": [
-      "sakura_intro",
-      "sakura_intro__v2"
-    ],
-    "sakura_section": [
-      "sakura_section",
-      "sakura_section__v2"
-    ],
-    "ending_socials": [
-      "ending_socials",
-      "ending_socials__v2"
-    ]
-  },
-  "layout_variant_labels": {
-    "sakura_intro": "Classic",
-    "sakura_intro__v2": "Scroll",
-    "sakura_section": "Classic",
-    "sakura_section__v2": "Screen",
-    "ending_socials": "Classic",
-    "ending_socials__v2": "Hanko"
-  }
+  ]
 }

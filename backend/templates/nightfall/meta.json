@@ -30,28 +30,6 @@
     "nightfall_ticker",
     "ending_socials"
   ],
-  "layout_variants": {
-    "cinematic_title": [
-      "cinematic_title",
-      "cinematic_title__v2"
-    ],
-    "glass_narrative": [
-      "glass_narrative",
-      "glass_narrative__v2"
-    ],
-    "ending_socials": [
-      "ending_socials",
-      "ending_socials__v2"
-    ]
-  },
-  "layout_variant_labels": {
-    "cinematic_title": "Classic",
-    "cinematic_title__v2": "Aperture",
-    "glass_narrative": "Classic",
-    "glass_narrative__v2": "Editorial Stack",
-    "ending_socials": "Classic",
-    "ending_socials__v2": "Constellation"
-  },
   "layout_prop_schema": {
     "cinematic_title": {
       "label": "Cinematic Title",

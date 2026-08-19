@@ -118,9 +118,7 @@ const DEFAULT_LAYOUTS = new Set([
 // resolves — a variant missing here renders as the fallback layout on first paint.
 const NIGHTFALL_LAYOUTS = new Set([
   "cinematic_title",
-  "cinematic_title__v2",
   "glass_narrative",
-  "glass_narrative__v2",
   "glow_metric",
   "glass_code",
   "kinetic_insight",
@@ -131,7 +129,6 @@ const NIGHTFALL_LAYOUTS = new Set([
   "nightfall_data_visualization",
   "nightfall_ticker",
   "ending_socials",
-  "ending_socials__v2",
 ]);
 
 const GRIDCRAFT_LAYOUTS = new Set([
@@ -150,9 +147,6 @@ const GRIDCRAFT_LAYOUTS = new Set([
   // Visual variants. VideoPreview coerces any layout id absent from this Set to the
   // template's fallbackLayout, so a variant missing here silently renders the wrong
   // scene with no compile error.
-  "bento_hero__v2",
-  "editorial_body__v2",
-  "ending_socials__v2",
 ]);
 
 const SPOTLIGHT_LAYOUTS = new Set([
@@ -175,9 +169,7 @@ const SPOTLIGHT_LAYOUTS = new Set([
 
 const MATRIX_LAYOUTS = new Set([
   "matrix_title",
-  "matrix_title__v2",
   "terminal_text",
-  "terminal_text__v2",
   "glitch_punch",
   "data_stream",
   "cipher_metric",
@@ -188,7 +180,6 @@ const MATRIX_LAYOUTS = new Set([
   "matrix_data",
   "matrix_ticker",
   "ending_socials",
-  "ending_socials__v2",
 ]);
 
 const MOSAIC_LAYOUTS = new Set([
@@ -209,11 +200,8 @@ const MOSAIC_LAYOUTS = new Set([
 // resolves; omitting variants here makes the first paint flash the fallback layout.
 const WHITEBOARD_LAYOUTS = new Set([
   "drawn_title",
-  "drawn_title__v2",
   "marker_story",
-  "marker_story__v2",
   "stick_figure_scene",
-  "stick_figure_scene__v2",
   "stats_figures",
   "stats_chart",
   "comparison",
@@ -223,7 +211,6 @@ const WHITEBOARD_LAYOUTS = new Set([
   "data_visualisation",
   "ticker_table",
   "ending_socials",
-  "ending_socials__v2",
 ]);
 
 // Includes the `__vN` visual variants (see backend/templates/newspaper/meta.json
@@ -328,9 +315,7 @@ const ECONOMIST_LAYOUTS = new Set([
 ]);
 const STICKMAN_2_LAYOUTS = new Set([
   "chalk_title",
-  "chalk_title__v2",
   "night_walk",
-  "night_walk__v2",
   "shooting_star",
   "constellation_stats",
   "moonphase_chart",
@@ -341,12 +326,10 @@ const STICKMAN_2_LAYOUTS = new Set([
   "data_visualisation",
   "ticker_table",
   "ending_socials",
-  "ending_socials__v2",
 ]);
 
 const MAGAZINE_LAYOUTS = new Set([
   "magazine_cover",
-  "magazine_cover__v2",
   "editorial_quote",
   "by_the_numbers",
   "interview_qa",
@@ -354,11 +337,9 @@ const MAGAZINE_LAYOUTS = new Set([
   "timeline_journey",
   "text_narration",
   "ending_socials",
-  "ending_socials__v2",
   "magazine_ticker",
   "colorblock",
   "feature",
-  "feature__v2",
   "comparison",
 ]);
 
@@ -393,9 +374,6 @@ const SAKURA_LAYOUTS = new Set([
   "sakura_ticker",
   // Visual variants — see the note on GRIDCRAFT_LAYOUTS above. The ending variant
   // hangs off the canonical "ending_socials" id, not the sakura_-prefixed alias.
-  "sakura_intro__v2",
-  "sakura_section__v2",
-  "ending_socials__v2",
 ]);
 
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {

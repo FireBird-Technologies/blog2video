@@ -1310,27 +1310,5 @@
     "ending_socials",
     "magazine_ticker",
     "comparison"
-  ],
-  "layout_variants": {
-    "magazine_cover": [
-      "magazine_cover",
-      "magazine_cover__v2"
-    ],
-    "feature": [
-      "feature",
-      "feature__v2"
-    ],
-    "ending_socials": [
-      "ending_socials",
-      "ending_socials__v2"
-    ]
-  },
-  "layout_variant_labels": {
-    "magazine_cover": "Classic",
-    "magazine_cover__v2": "Newsstand",
-    "feature": "Classic",
-    "feature__v2": "Sidebar",
-    "ending_socials": "Classic",
-    "ending_socials__v2": "Colophon"
-  }
+  ]
 }

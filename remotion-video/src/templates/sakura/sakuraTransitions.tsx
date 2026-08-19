@@ -806,14 +806,13 @@ export interface SakuraTransitionChoice {
 // The hero (leaving the intro) exits with the signature petal_curtain — the flower
 // curtain sweeps in as the intro hands off. Entering the ending still hands off with
 // a clean petal-FREE fade.
-const HERO_LAYOUTS_FROM = new Set<string>(["sakura_intro", "sakura_intro__v2"]);
+const HERO_LAYOUTS_FROM = new Set<string>(["sakura_intro"]);
 // Accept both the Sakura-prefixed id and the canonical "ending_socials" id the
 // backend emits for the appended ending scene, so the clean petal-free fade fires
 // either way.
 const HERO_LAYOUTS_TO = new Set<string>([
   "sakura_ending_socials",
   "ending_socials",
-  "ending_socials__v2",
 ]);
 
 // Flower-transition pool, cycled by boundary index. Ordered so adjacent picks

@@ -150,24 +150,7 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
   // Variants need their OWN entry: normalizeLayoutId() strips the `__vN` suffix
   // and falls back to the base, which is the wrong shape for all three below.
 
-  // "Aperture": the visual is masked into an OVAL — see RING_W / RING_H in
-  // CinematicTitleV2, where RING_W = round(RING_H * 1.45). Box matches that 1.45:1
-  // ratio (638 × 440 landscape, 667 × 460 portrait) and `circular` rounds the
-  // preview to an ellipse, since borderRadius:50% on a non-square box is exactly
-  // what the layout itself does. Keep these two in sync: widening the ring in the
-  // layout without updating this makes the adjust modal frame the wrong crop.
-  cinematic_title__v2: {
-    landscape: { w: 0.332, h: 0.407 }, // 638 × 440 on 1920×1080
-    portrait:  { w: 0.618, h: 0.240 }, // 667 × 460 on 1080×1920
-    circular: true,
-  },
 
-  // "Editorial Stack": tall plate bled off the top/left edges, diagonally cut.
-  // Landscape 56% width full height; portrait 52% height full width.
-  glass_narrative__v2: {
-    landscape: { w: 0.56, h: 1.0  },
-    portrait:  { w: 1.0,  h: 0.52 },
-  },
 
   // Landscape: image sits in the left panel and should stay landscape-oriented in adjust modal.
   // Portrait: split-screen card, image section is the top flex:1 half.
@@ -237,23 +220,7 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
     portrait:  { w: 0.90, h: 0.40  }, // ~972 × 768
   },
 
-  // ── Gridcraft visual variants ──
-  // "Sidebar Rail": the image is the LOWER BAND of the right field — it spans the
-  // 90%×80% container minus the rail and its gutter, with the title/tagline
-  // stacked above it. ~3:1 landscape, ~square portrait.
-  // See BentoHeroV2.tsx.
-  bento_hero__v2: {
-    landscape: { w: 0.825, h: 0.496 }, // ~1584 × 536
-    portrait:  { w: 0.804, h: 0.448 }, // ~868 × 860
-  },
 
-  // "Overlap": the image is the FULL-BLEED ground of the frame, with the copy
-  // panel sitting over one side of it — not the base's half-card, and not a cell.
-  // See EditorialBodyV2.tsx.
-  editorial_body__v2: {
-    landscape: { w: 1.0, h: 1.0 },
-    portrait:  { w: 1.0, h: 1.0 },
-  },
 
   // flex "0 0 38%", height 320 px landscape / width 100%, height 180 px portrait
   kpi_grid: {
@@ -364,12 +331,6 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
     landscape: { w: 0.38, h: 0.333 }, // 730 × 360
     portrait:  { w: 0.70, h: 0.115 }, // 756 × 220
   },
-  // "Boot Sequence": the image sits in a 4:3 terminal pane beside the console,
-  // not the base's wide inset slot.
-  matrix_title__v2: {
-    landscape: { w: 0.370, h: 0.493 }, // ~710 × 532 (4:3)
-    portrait:  { w: 0.860, h: 0.272 }, // ~929 × 522 (16:9)
-  },
 
   // width 35%, height auto (approx 300 px) landscape / width 60%, height auto portrait
   data_stream: {
@@ -381,12 +342,6 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
   terminal_text: {
     landscape: { w: 0.38, h: 0.370 }, // ~730 × 400
     portrait:  { w: 0.80, h: 0.125 }, // 864 × 240
-  },
-  // "Split Feed": the media takes the full-width LOWER PANE — a wide strip rather
-  // than the base's column-beside-text box.
-  terminal_text__v2: {
-    landscape: { w: 0.860, h: 0.300 }, // ~1651 × 324 (wide strip)
-    portrait:  { w: 0.840, h: 0.260 }, // ~907 × 499
   },
 
   glitch_punch: {
@@ -686,14 +641,6 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
     portrait:  { w: 1.0,  h: 0.391 }, // 720 × 500
   },
 
-  // The v2 variant reshapes the slot entirely: instead of an inset rounded card
-  // in a flex row, the photo is a full-bleed panel pinned to the left half
-  // (landscape) or bannered across the top (portrait). Needs its own entry —
-  // falling back to the base above would report the wrong crop box.
-  marker_story__v2: {
-    landscape: { w: 0.52, h: 1.0 },  // 666 × 720 on 1280×720
-    portrait:  { w: 1.0,  h: 0.34 }, // 720 × 435
-  },
 
   // ─────────────────────────────────────────────────────────────────────────
   // CHRONICLE template  (canvas 1920 × 1080)
@@ -897,26 +844,7 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
     portrait:  { w: 0.852, h: 0.30 },
   },
 
-  // ── Sakura visual variants ──
-  // "Hanging Scroll": the image is the PAINTING MOUNTED INSIDE the scroll (a
-  // kakejiku is a picture on silk with an inscription below), spanning the paper's
-  // inner measure. NOT a full-bleed backdrop — behind the opaque washi panel an
-  // image is only visible in the margins, which is why it read as missing.
-  // See SakuraIntroV2.tsx (artH).
-  sakura_intro__v2: {
-    landscape: { w: 0.365, h: 0.360 }, // ~700 × 389
-    portrait:  { w: 0.604, h: 0.340 }, // ~652 × 653
-  },
 
-  // "Folding Screen": the image bleeds across leaves 2–3 of a three-leaf screen.
-  // The screen folds along the frame's LONG axis, so the slot differs by
-  // orientation: a wide block beside the copy leaf in landscape, a full-width band
-  // BELOW it in portrait. Not the base's 620×700 column, hence its own entry.
-  // See SakuraSectionV2.tsx (artLeafW / artLeafH).
-  sakura_section__v2: {
-    landscape: { w: 0.541, h: 0.780 }, // ~1039 × 842
-    portrait:  { w: 0.880, h: 0.538 }, // ~950 × 1032
-  },
 
   // Circular vignette behind the number: 560 landscape / 420 portrait.
   // See SakuraStatHighlight.tsx (vignetteSize).

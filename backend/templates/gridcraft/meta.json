@@ -918,27 +918,5 @@
     "data_visualisation",
     "ending_socials",
     "ticker_table"
-  ],
-  "layout_variants": {
-    "bento_hero": [
-      "bento_hero",
-      "bento_hero__v2"
-    ],
-    "editorial_body": [
-      "editorial_body",
-      "editorial_body__v2"
-    ],
-    "ending_socials": [
-      "ending_socials",
-      "ending_socials__v2"
-    ]
-  },
-  "layout_variant_labels": {
-    "bento_hero": "Classic",
-    "bento_hero__v2": "Rail",
-    "editorial_body": "Classic",
-    "editorial_body__v2": "Column",
-    "ending_socials": "Classic",
-    "ending_socials__v2": "Card"
-  }
+  ]
 }

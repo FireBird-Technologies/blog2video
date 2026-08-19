@@ -20,11 +20,6 @@ LAYOUT_IMAGE_ASPECT: dict[tuple[str, str], dict[str, str]] = {
     ("newscast", "anchor_narrative"): {"landscape": "4:5", "portrait": "4:3"},
     # Variant image slots that differ in SHAPE from their base need an explicit
     # entry — the exact key wins over the base fallback below.
-    # cinematic_title__v2 "Aperture": circular crop → square source.
-    ("nightfall", "cinematic_title__v2"): {"landscape": "1:1", "portrait": "1:1"},
-    # glass_narrative__v2 "Editorial Stack": tall bled plate, not the base's
-    # 3:2 inset card. 56%×100% landscape ≈ 0.56 → 9:16; portrait band is wide.
-    ("nightfall", "glass_narrative__v2"): {"landscape": "9:16", "portrait": "16:9"},
     # newscast opening__v2 "Split Feed": the image is a 46%-wide full-height feed
     # panel (base `opening` is full-bleed), so it wants a tall source.
     ("newscast", "opening__v2"): {"landscape": "9:16", "portrait": "16:9"},
@@ -46,35 +41,11 @@ LAYOUT_IMAGE_ASPECT: dict[tuple[str, str], dict[str, str]] = {
     ("matrix", "glitch_punch"): {"landscape": "3:2", "portrait": "2:3"},
     ("matrix", "awakening"): {"landscape": "3:2", "portrait": "2:3"},
     ("matrix", "fork_choice"): {"landscape": "3:2", "portrait": "2:3"},
-    # ── matrix / spotlight variant slots that differ in SHAPE from their base ──
-    # matrix_title__v2 "Boot Sequence": a 4:3 terminal pane beside the console,
-    # not the base's wide inset card.
-    ("matrix", "matrix_title__v2"): {"landscape": "4:3", "portrait": "16:9"},
-    # terminal_text__v2 "Split Feed": the media is the full-width LOWER PANE — a
-    # wide strip (~5:1 landscape), so a 3:2 source would be badly cropped.
-    ("matrix", "terminal_text__v2"): {"landscape": "16:9", "portrait": "16:9"},
+    # ── spotlight variant slots that differ in SHAPE from their base ──
     # spotlight impact_title__v2 "Marquee" and statement__v2 "Pull Quote" both put
     # the image in a TALL 3:4 plate beside the copy (the bases use wide cards).
     ("spotlight", "impact_title__v2"): {"landscape": "3:4", "portrait": "16:9"},
     ("spotlight", "statement__v2"): {"landscape": "3:4", "portrait": "16:9"},
-    # ── sakura / gridcraft variant slots that differ in SHAPE from their base ──
-    # sakura_section__v2 "Folding Screen": the image bleeds across two of three
-    # leaves. The screen folds along the long axis, so the slot is a wide block
-    # beside the copy in landscape (~1039×842) and a full-width band below it in
-    # portrait (~950×1032) — near-square either way, not the base's narrow card.
-    ("sakura", "sakura_section__v2"): {"landscape": "3:2", "portrait": "1:1"},
-    # sakura_intro__v2 "Hanging Scroll": the image is the painting mounted inside
-    # the scroll — a ~16:9 panel landscape, near-square portrait. The base intro is
-    # full-bleed, so this variant does NOT inherit its framing.
-    ("sakura", "sakura_intro__v2"): {"landscape": "16:9", "portrait": "1:1"},
-    # editorial_body__v2 "Overlap": the image is the FULL-BLEED ground behind an
-    # overlapping copy panel, so it wants the canvas aspect — not the base's
-    # half-card. Half the frame sits under a scrim + panel, so prefer a source
-    # whose subject reads off-centre.
-    ("gridcraft", "editorial_body__v2"): {"landscape": "16:9", "portrait": "9:16"},
-    # bento_hero__v2 "Sidebar Rail": the image is the full-width LOWER BAND under
-    # the title — a wide ~3:1 strip in landscape, near-square in portrait.
-    ("gridcraft", "bento_hero__v2"): {"landscape": "16:9", "portrait": "1:1"},
     # Mosaic: mosaic_text uses 46% width for image panel (vertical orientation)
     ("mosaic", "mosaic_text"): {"landscape": "9:16", "portrait": "9:16"},
     # Chronicle: page-shaped and banner image slots

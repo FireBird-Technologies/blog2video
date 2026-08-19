@@ -821,27 +821,5 @@
     "Intercepted transmission rapid-fire phrases",
     "Optional image support in all layouts",
     "Responsive layouts (portrait/landscape)"
-  ],
-  "layout_variants": {
-    "matrix_title": [
-      "matrix_title",
-      "matrix_title__v2"
-    ],
-    "terminal_text": [
-      "terminal_text",
-      "terminal_text__v2"
-    ],
-    "ending_socials": [
-      "ending_socials",
-      "ending_socials__v2"
-    ]
-  },
-  "layout_variant_labels": {
-    "matrix_title": "Classic",
-    "matrix_title__v2": "Boot",
-    "terminal_text": "Classic",
-    "terminal_text__v2": "Split Feed",
-    "ending_socials": "Classic",
-    "ending_socials__v2": "Uplink"
-  }
+  ]
 }
