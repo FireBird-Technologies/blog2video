@@ -520,11 +520,11 @@
       "defaults": {
         "titleFontSize": {
           "portrait": 72,
-          "landscape": 37
+          "landscape": 33
         },
         "descriptionFontSize": {
           "portrait": 30,
-          "landscape": 19
+          "landscape": 17
         },
         "leftThought": "Wait, did you know?",
         "rightThought": "Tell me more!",
@@ -734,11 +734,11 @@
       "defaults": {
         "titleFontSize": {
           "portrait": 88,
-          "landscape": 69
+          "landscape": 58
         },
         "descriptionFontSize": {
           "portrait": 44,
-          "landscape": 31
+          "landscape": 26
         },
         "hideImage": true,
         "socials": [

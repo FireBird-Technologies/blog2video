@@ -553,6 +553,8 @@ export interface TemplateMeta {
   description: string;
   /** When true, show a highlighted "New" tag on the template picker (step 2). */
   new_template?: boolean;
+  /** When true, show a sky "New Scenes" tag — existing template, new scene layouts. */
+  new_scenes?: boolean;
   /** When true, show an amber "Popular" tag on the template picker. */
   popular_template?: boolean;
   styles?: string[];  // DEPRECATED — was video_style filter; now replaced by `genres`. Kept for back-compat readers.

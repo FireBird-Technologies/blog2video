@@ -695,6 +695,21 @@ def rebuild_workspace(
 # ─── Write project files to workspace ────────────────────────
 
 
+def _clip_ingest_sort_key(filename: str) -> tuple[int, str]:
+    """Sort key for stock-clip assets, ordering by when the clip was ingested.
+
+    Clips are named ``scene_<scene_id>_<unix_ts>.<ext>``. The timestamp is what
+    separates a clip fetched for the current run from one left over by a previous
+    one; the scene id does not (ids only ever climb, so a stale clip for an old
+    scene can still sort ahead of a fresh one). Filenames that don't match the
+    pattern sort oldest, keeping them behind anything we can date.
+    """
+    match = re.match(r"^scene_\d+_(\d+)\.", filename)
+    if not match:
+        return (0, filename)
+    return (int(match.group(1)), filename)
+
+
 def write_remotion_data(
     project: Project,
     scenes: list[Scene],
@@ -872,6 +887,16 @@ def write_remotion_data(
             # Deterministic order so repeated runs land the same way. Assets are
             # named scene_<id>_<ts>, so this keeps original capture order.
             spare_videos.sort()
+            if redistribute_images:
+                # Full descriptor rebuild (script regeneration / template change):
+                # the scenes are NEW content, and the stock stage has already
+                # fetched clips matching that new copy. Plain filename order puts
+                # the previous run's clips first (lower scene ids sort first), so
+                # those stale clips would take every open slot and strand the
+                # freshly-fetched ones. Order by ingest timestamp, newest first,
+                # so the new clips win and leftovers from prior runs only fill
+                # whatever is still empty.
+                spare_videos.sort(key=_clip_ingest_sort_key, reverse=True)
             open_slots = [
                 i
                 for i in range(len(scenes))

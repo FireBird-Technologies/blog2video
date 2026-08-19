@@ -147,7 +147,7 @@ export const ArticleLeadV2: React.FC<BlogLayoutProps & { imageUrl?: string }> = 
           <div
             style={{
               fontFamily: fontFamily ?? B_FONT,
-              fontSize: titleFontSize ?? (p ? 50 : 50),
+              fontSize: titleFontSize ?? (p ? 65 : 61),
               fontWeight: 900,
               letterSpacing: "-0.02em",
               textTransform: "uppercase",
