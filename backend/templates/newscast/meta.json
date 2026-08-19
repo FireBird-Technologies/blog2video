@@ -2,7 +2,8 @@
   "id": "newscast",
   "name": "Newscast",
   "new_template": false,
-  "popular_template": true,
+  "new_scenes": true,
+  "popular_template": false,
   "description": "Breaking-news themed template with a featured breaking hero, headline lead, live ticker, editorial pull quotes, claim vs facts panels, and a newsroom-style timeline. Every scene layout supports an optional full-bleed background image via layoutProps.imageUrl (editorial plate behind NEWSCAST chrome).",
   "genres": [
     "Politics",
@@ -39,6 +40,28 @@
     "newscast_split_glass": "side_by_side_brief",
     "newscast_chapter_break": "segment_break",
     "newscast_glass_image": "field_image_focus"
+  },
+  "layout_variants": {
+    "opening": [
+      "opening",
+      "opening__v2"
+    ],
+    "anchor_narrative": [
+      "anchor_narrative",
+      "anchor_narrative__v2"
+    ],
+    "ending_socials": [
+      "ending_socials",
+      "ending_socials__v2"
+    ]
+  },
+  "layout_variant_labels": {
+    "opening": "Classic",
+    "opening__v2": "Split Feed",
+    "anchor_narrative": "Classic",
+    "anchor_narrative__v2": "Studio Desk",
+    "ending_socials": "Classic",
+    "ending_socials__v2": "Sign-off Wall"
   },
   "layout_prop_schema": {
     "breaking_hero": {
@@ -465,11 +488,11 @@
         "lowerThirdHeadline": "Correspondent Report",
         "lowerThirdSub": "Reporting live from the broadcast desk",
         "titleFontSize": {
-          "portrait": 94,
+          "portrait": 77,
           "landscape": 72
         },
         "descriptionFontSize": {
-          "portrait": 23,
+          "portrait": 35,
           "landscape": 18
         }
       },
@@ -1374,6 +1397,45 @@
           "placeholder": "https://yourwebsite.com"
         }
       ]
+    },
+    "opening__v2": {
+      "label": "Newscast Opening — Split Feed",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 78,
+          "landscape": 66
+        },
+        "descriptionFontSize": {
+          "portrait": 30,
+          "landscape": 19
+        }
+      }
+    },
+    "anchor_narrative__v2": {
+      "label": "Anchor Narrative — Studio Desk",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 64,
+          "landscape": 57
+        },
+        "descriptionFontSize": {
+          "portrait": 30,
+          "landscape": 22
+        }
+      }
+    },
+    "ending_socials__v2": {
+      "label": "Ending / Follow along — Sign-off Wall",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 69,
+          "landscape": 52
+        },
+        "descriptionFontSize": {
+          "portrait": 32,
+          "landscape": 18
+        }
+      }
     }
   },
   "layouts_without_image": [

@@ -90,7 +90,7 @@ const swayRotation = interpolate(heavyBob, [-7, 7], [-4, 4]);
       >
         {/* Title Section */}
         <div style={{
-            fontSize: titleFontSize ?? (p ? 80 : 64),
+            fontSize: titleFontSize ?? (p ? 88 : 58),
             fontWeight: 700,
             color: textColor || "#111111",
             fontFamily: markerFont,
@@ -271,7 +271,7 @@ const swayRotation = interpolate(heavyBob, [-7, 7], [-4, 4]);
         {subtext ? (
           <div style={{
               marginTop: 30,
-              fontSize: descriptionFontSize ?? (p ? 36 : 28),
+              fontSize: descriptionFontSize ?? (p ? 44 : 26),
               color: `${textColor || "#111111"}CC`,
               fontFamily: markerFont,
               opacity: entrance,

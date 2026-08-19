@@ -99,7 +99,7 @@ import VideoPreview, { type CaptionSettings } from "../components/VideoPreview";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import RegenerateScriptModal from "../components/RegenerateScriptModal";
 import VerifyScriptModal from "../components/VerifyScriptModal";
-import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge, PopularTemplateBadge } from "../components/templatePreviewRegistry";
+import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge, NewScenesTemplateBadge, PopularTemplateBadge } from "../components/templatePreviewRegistry";
 import ProjectTemplateSettingsCard, { TemplateAssignPreview } from "../components/ProjectTemplateSettingsCard";
 import ProjectVoiceLanguageSettingsCard from "../components/ProjectVoiceLanguageSettingsCard";
 import { BgmTrackDropdown } from "../components/BgmTrackDropdown";
@@ -5825,13 +5825,14 @@ export default function ProjectView() {
                       templateMetas.length > 0 ? (
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                           {[...templateMetas].sort((a, b) => {
-                            const rank = (t: typeof a) => (t.new_template ? 0 : t.popular_template ? 1 : 2);
+                            const rank = (t: typeof a) => (t.new_template ? 0 : t.new_scenes ? 1 : t.popular_template ? 2 : 3);
                             return rank(a) - rank(b);
                           }).map((t) => {
                             const PreviewComp = TEMPLATE_PREVIEWS[t.id];
                             const desc = TEMPLATE_DESCRIPTIONS[t.id];
                             const isSel = templateChangeDraft === t.id;
                             const isNew = t.new_template === true;
+                            const isNewScenes = t.new_scenes === true;
                             const isPopular = t.popular_template === true;
                             return (
                               <button
@@ -5843,6 +5844,8 @@ export default function ProjectView() {
                                     ? "ring-2 ring-purple-500 ring-offset-1 ring-offset-gray-50"
                                     : isNew
                                     ? "ring-1 ring-purple-400/60 hover:ring-purple-500"
+                                    : isNewScenes
+                                    ? "ring-1 ring-sky-400/60 hover:ring-sky-500"
                                     : isPopular
                                     ? "ring-1 ring-amber-400/60 hover:ring-amber-500"
                                     : "ring-1 ring-gray-200/60 hover:ring-purple-300/60"
@@ -5861,7 +5864,12 @@ export default function ProjectView() {
                                       <NewTemplateBadge />
                                     </div>
                                   )}
-                                  {!isNew && isPopular && (
+                                  {!isNew && isNewScenes && (
+                                    <div className="absolute top-0 left-0.5 z-[1]">
+                                      <NewScenesTemplateBadge />
+                                    </div>
+                                  )}
+                                  {!isNew && !isNewScenes && isPopular && (
                                     <div className="absolute top-0.5 left-0.5 z-[1]">
                                       <PopularTemplateBadge />
                                     </div>

@@ -3,6 +3,7 @@ import type { SocialsMap } from "../SocialIcons";
 /** Gridcraft template layout types (frontend mirror). */
 export type GridcraftLayoutType =
   | "bento_hero"
+  // Visual variants — same props as their base, different composition.
   | "bento_features"
   | "bento_highlight"
   | "editorial_body"
@@ -13,7 +14,11 @@ export type GridcraftLayoutType =
   | "bento_steps"
   | "data_visualisation"
   | "ending_socials"
-  | "ticker_table";
+  | "ticker_table"
+  // Backward-compat alias routed to BentoHero in GRIDCRAFT_LAYOUT_REGISTRY. It is a
+  // union member so the registry can be an EXHAUSTIVE Record (see layouts/index.ts):
+  // without it, closing the Record would reject the alias key.
+  | "intro";
 
 export interface DataPoint {
   label: string;

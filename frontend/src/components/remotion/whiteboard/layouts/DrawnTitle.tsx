@@ -142,7 +142,12 @@ export const DrawnTitle: React.FC<WhiteboardLayoutProps> = ({
           alignItems: "center",
           justifyContent: p ? "flex-start" : "center",
           textAlign: "center",
-          padding: p ? "18% 10% 0 10%" : "0 14%",
+          // Landscape stays centred, but the extra bottom padding lifts the
+          // block off dead centre so it clears the walking figure below.
+          // Side padding kept tight so long titles and narration have room:
+          // at 14% the inner box was only 922px of a 1280 frame, and the
+          // narration's own 76% cap cut that to 700px — barely half the width.
+          padding: p ? "15% 6% 0 6%" : "0 9% 10% 9%",
           zIndex: 10,
         }}
       >
@@ -163,7 +168,7 @@ export const DrawnTitle: React.FC<WhiteboardLayoutProps> = ({
         {/* Animated Underline */}
         <svg
           style={{ 
-            width: p ? 380 : 720, 
+            width: p ? 440 : 860, 
             maxWidth: "90%", 
             height: 14, 
             marginTop: p ? 30 : 20, 
@@ -207,7 +212,7 @@ export const DrawnTitle: React.FC<WhiteboardLayoutProps> = ({
             color: textColor,
             fontSize: descriptionFontSize ?? (p ? 37 : 27),
             fontWeight: 500,
-            maxWidth: p ? "100%" : "76%",
+            maxWidth: p ? "100%" : "92%",
             lineHeight: 1.45,
             filter: "url(#ink)",
           }}

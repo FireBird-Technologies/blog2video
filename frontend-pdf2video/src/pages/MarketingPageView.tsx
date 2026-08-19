@@ -112,7 +112,9 @@ export default function MarketingPageView() {
               <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-purple-600">
                 Workflow
               </p>
-              <h2 className="text-3xl font-semibold text-gray-900">How this page turns into a practical workflow</h2>
+              <h2 className="text-3xl font-semibold text-gray-900">
+                {page.workflowTitle ?? "How this page turns into a practical workflow"}
+              </h2>
             </div>
             <div className="mt-10 grid gap-4 md:grid-cols-2">
               {page.workflowSteps.map((step, index) => (

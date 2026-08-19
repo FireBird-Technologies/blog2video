@@ -6906,7 +6906,7 @@ export const blogPosts: BlogPost[] = [
       "How we retold the 3,000-year-old Greek myth of Persephone and Demeter — abduction, famine, and the birth of the seasons — with stick figures in a single React/Remotion composition, in under 2 minutes.",
     primaryKeyword: "persephone myth animation",
     keywordVariant: "stick figure animation with remotion",
-    relatedPaths: ["/templates/stickman_2", "/templates/stickman_football", "/tools/free-remotion-templates"],
+    relatedPaths: ["/templates/stickman_2", "/tools/free-remotion-templates"],
     sections: [
       {
         heading: "Overview",

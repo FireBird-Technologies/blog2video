@@ -1,7 +1,7 @@
 {
   "id": "sakura",
   "name": "Sakura",
-  "new_template": true,
+  "new_template": false,
   "description": "A deeply characterful Japanese-aesthetic template featuring washi paper textures, Seigaiha wave patterns, Kamon crests, and falling cherry blossom petals. Ideal for converting written content into narrated, branded videos.",
   "genres": [
     "blog",

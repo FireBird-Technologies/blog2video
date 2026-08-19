@@ -102,9 +102,14 @@ export interface NewscastLayoutProps extends BlogLayoutProps {
   subtitle?: string;
 }
 
+// The `__vN` members are visual variants (see backend/templates/newscast/meta.json
+// `layout_variants`). A variant takes the SAME props as its base layout — switching
+// between them must never require a prop migration.
 export type NewscastLayoutType =
   | "opening"
+  | "opening__v2"
   | "anchor_narrative"
+  | "anchor_narrative__v2"
   | "live_metrics_board"
   | "data_visualization"
   | "briefing_code_panel"
@@ -113,5 +118,6 @@ export type NewscastLayoutType =
   | "side_by_side_brief"
   | "segment_break"
   | "field_image_focus"
-  | "ending_socials";
+  | "ending_socials"
+  | "ending_socials__v2";
 

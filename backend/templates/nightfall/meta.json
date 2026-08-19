@@ -459,13 +459,37 @@
         "chartType": "line",
         "chartSummary": "The signal emerges clearly from the noise.",
         "chartTable": {
-          "headers": ["Week", "Requests", "Errors"],
+          "headers": [
+            "Week",
+            "Requests",
+            "Errors"
+          ],
           "rows": [
-            ["W-04", "298", "12"],
-            ["W-03", "308", "9"],
-            ["W-02", "315", "7"],
-            ["W-01", "324", "5"],
-            ["W-00", "318", "6"]
+            [
+              "W-04",
+              "298",
+              "12"
+            ],
+            [
+              "W-03",
+              "308",
+              "9"
+            ],
+            [
+              "W-02",
+              "315",
+              "7"
+            ],
+            [
+              "W-01",
+              "324",
+              "5"
+            ],
+            [
+              "W-00",
+              "318",
+              "6"
+            ]
           ]
         },
         "chartYAxisTicks": [],
@@ -503,10 +527,22 @@
           "label": "Chart Type",
           "type": "select",
           "options": [
-            { "label": "Auto (infer from data)", "value": "auto" },
-            { "label": "Line", "value": "line" },
-            { "label": "Bar", "value": "bar" },
-            { "label": "Histogram", "value": "histogram" }
+            {
+              "label": "Auto (infer from data)",
+              "value": "auto"
+            },
+            {
+              "label": "Line",
+              "value": "line"
+            },
+            {
+              "label": "Bar",
+              "value": "bar"
+            },
+            {
+              "label": "Histogram",
+              "value": "histogram"
+            }
           ]
         },
         {
@@ -561,13 +597,55 @@
         "tickerFootnote": "Source: system telemetry",
         "tickerHighlightCol": 5,
         "tickerTable": {
-          "headers": ["Node", "Requests", "Errors", "P50", "P99", "% Err"],
+          "headers": [
+            "Node",
+            "Requests",
+            "Errors",
+            "P50",
+            "P99",
+            "% Err"
+          ],
           "rows": [
-            ["Alpha", "12,400", "24", "18ms", "120ms", "+0.2%"],
-            ["Bravo", "84,200", "112", "22ms", "180ms", "-0.1%"],
-            ["Charlie", "31,000", "8", "4ms", "40ms", "+0.0%"],
-            ["Delta", "9,800", "56", "45ms", "320ms", "+0.6%"],
-            ["Echo", "44,100", "18", "12ms", "95ms", "-0.04%"]
+            [
+              "Alpha",
+              "12,400",
+              "24",
+              "18ms",
+              "120ms",
+              "+0.2%"
+            ],
+            [
+              "Bravo",
+              "84,200",
+              "112",
+              "22ms",
+              "180ms",
+              "-0.1%"
+            ],
+            [
+              "Charlie",
+              "31,000",
+              "8",
+              "4ms",
+              "40ms",
+              "+0.0%"
+            ],
+            [
+              "Delta",
+              "9,800",
+              "56",
+              "45ms",
+              "320ms",
+              "+0.6%"
+            ],
+            [
+              "Echo",
+              "44,100",
+              "18",
+              "12ms",
+              "95ms",
+              "-0.04%"
+            ]
           ]
         }
       },
