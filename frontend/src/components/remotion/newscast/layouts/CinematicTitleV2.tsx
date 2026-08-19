@@ -399,7 +399,7 @@ export const CinematicTitleV2: React.FC<NewscastLayoutProps> = ({
           <div
             style={{
               fontFamily: newscastFont(fontFamily, "body"),
-              fontSize: descriptionFontSize ?? (p ? 24 : 19),
+              fontSize: descriptionFontSize ?? (p ? 30 : 19),
               fontWeight: 400,
               lineHeight: 1.62,
               color: STEEL,

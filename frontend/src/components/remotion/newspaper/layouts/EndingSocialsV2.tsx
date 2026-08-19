@@ -172,12 +172,17 @@ export const EndingSocialsV2: React.FC<BlogLayoutProps & { narration?: string }>
         {/* ── BODY: standing editorial left, directory right ── */}
         <div
           style={{
-            flex: 1,
+            /* Landscape keeps the two rails stretched to the page foot. Portrait
+               stacks and must only be as tall as its text, so the socials band
+               below rides down with it instead of being pinned to the bottom. */
+            flex: p ? "0 0 auto" : 1,
             minHeight: 0,
             marginTop: p ? 26 : 24,
             display: "flex",
             flexDirection: p ? "column" : "row",
-            gap: p ? 24 : 46,
+            /* Portrait stacks sign-off over CTA rail, so this gap is what drops
+               the CTAs (and the socials band under them) clear of the text. */
+            gap: p ? 64 : 46,
             alignItems: "stretch",
           }}
         >
@@ -341,7 +346,10 @@ export const EndingSocialsV2: React.FC<BlogLayoutProps & { narration?: string }>
         <div
           style={{
             flexShrink: 0,
-            marginTop: p ? 18 : 16,
+            /* Portrait: the band follows the text rather than sitting at the page
+               foot, so it needs a real gap above it — otherwise it reads as part
+               of the sign-off instead of a separate directory. */
+            marginTop: p ? 44 : 16,
             opacity: dirOp,
             transform: "translateZ(25px)",
           }}
@@ -350,9 +358,12 @@ export const EndingSocialsV2: React.FC<BlogLayoutProps & { narration?: string }>
           <div
             style={{
               display: "flex",
+              /* Portrait stacks the label over centred icons; landscape keeps the
+                 label ranged left with the directory filling the rest of the rule. */
+              flexDirection: p ? "column" : "row",
               alignItems: "center",
-              justifyContent: "space-between",
-              gap: p ? 14 : 26,
+              justifyContent: p ? "center" : "space-between",
+              gap: p ? 10 : 26,
               paddingTop: p ? 12 : 10,
             }}
           >
@@ -367,13 +378,14 @@ export const EndingSocialsV2: React.FC<BlogLayoutProps & { narration?: string }>
                 opacity: 0.5,
                 whiteSpace: "nowrap",
                 flexShrink: 0,
+                textAlign: p ? "center" : "left",
               }}
             >
               Find us
             </span>
             {/* SocialIcons sizes each item as a share of ITS container, so this
                 needs to be the wide element or the icons wrap one per row. */}
-            <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ flex: p ? "0 0 auto" : 1, width: p ? "100%" : undefined, minWidth: 0 }}>
               <SocialIcons
                 socials={socials}
                 accentColor={accent}

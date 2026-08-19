@@ -487,11 +487,11 @@
         "lowerThirdHeadline": "Correspondent Report",
         "lowerThirdSub": "Reporting live from the broadcast desk",
         "titleFontSize": {
-          "portrait": 94,
+          "portrait": 77,
           "landscape": 72
         },
         "descriptionFontSize": {
-          "portrait": 23,
+          "portrait": 35,
           "landscape": 18
         }
       },
@@ -1405,7 +1405,7 @@
           "landscape": 66
         },
         "descriptionFontSize": {
-          "portrait": 24,
+          "portrait": 30,
           "landscape": 19
         }
       }
@@ -1414,11 +1414,11 @@
       "label": "Anchor Narrative — Studio Desk",
       "defaults": {
         "titleFontSize": {
-          "portrait": 56,
+          "portrait": 64,
           "landscape": 57
         },
         "descriptionFontSize": {
-          "portrait": 24,
+          "portrait": 30,
           "landscape": 22
         }
       }
@@ -1427,11 +1427,11 @@
       "label": "Ending / Follow along — Sign-off Wall",
       "defaults": {
         "titleFontSize": {
-          "portrait": 60,
+          "portrait": 69,
           "landscape": 52
         },
         "descriptionFontSize": {
-          "portrait": 22,
+          "portrait": 32,
           "landscape": 18
         }
       }

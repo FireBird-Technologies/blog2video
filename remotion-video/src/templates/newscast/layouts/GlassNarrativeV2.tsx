@@ -298,7 +298,7 @@ export const GlassNarrativeV2: React.FC<NewscastLayoutProps> = ({
             style={{
               margin: 0,
               fontFamily: newscastFont(fontFamily, "title"),
-              fontSize: titleFontSize ?? (p ? 56 : 57),
+              fontSize: titleFontSize ?? (p ? 64 : 57),
               fontWeight: HEADLINE_WEIGHT,
               color: "white",
               textTransform: "uppercase",
@@ -328,7 +328,7 @@ export const GlassNarrativeV2: React.FC<NewscastLayoutProps> = ({
             <div
               style={{
                 fontFamily: newscastFont(fontFamily, "body"),
-                fontSize: descriptionFontSize ?? (p ? 24 : 22),
+                fontSize: descriptionFontSize ?? (p ? 30 : 22),
                 fontWeight: 400,
                 color: "rgba(232,238,248,0.95)",
                 lineHeight: 1.6,

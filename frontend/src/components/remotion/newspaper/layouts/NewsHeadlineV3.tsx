@@ -116,7 +116,7 @@ export const NewsHeadlineV3: React.FC<
         : [];
 
   const words = title.split(" ");
-  const actualDescriptionFontSize = descriptionFontSize ?? (p ? 25 : 26);
+  const actualDescriptionFontSize = descriptionFontSize ?? (p ? 31 : 26);
   const hasVisual = Boolean(imageUrl || videoUrl);
 
   // A narrow measure is what makes it read as a column. Without a cutout beside
@@ -181,12 +181,24 @@ export const NewsHeadlineV3: React.FC<
           style={{
             width: columnWidth,
             flexShrink: 0,
+            /* Portrait with no cutout: take the full page height so the deck
+               below can absorb the slack and settle at mid-height, while the
+               kicker, headline and byline stay ranged at top and bottom. */
+            flexGrow: p && !hasVisual ? 1 : 0,
+            minHeight: 0,
             display: "flex",
             flexDirection: "column",
+            /* Portrait centres the column's contents; landscape keeps the ranged-
+               left column set that makes it read as a newspaper column. */
+            alignItems: p ? "center" : "stretch",
+            textAlign: p ? "center" : "left",
             transform: "translateZ(40px)",
           }}
         >
           {/* KICKER: heavy rule, section label, thin rule — the column's masthead */}
+          {/* The explicit width carries the reveal animation and survives the
+              portrait `alignItems: center` above (which only shrinks auto-width
+              children), so the rules still span the full column. */}
           <div style={{ width: `${kickerW}%`, flexShrink: 0 }}>
             <div style={{ height: p ? 9 : 7, background: textColor, width: "100%" }} />
             <div
@@ -288,14 +300,33 @@ export const NewsHeadlineV3: React.FC<
 
           {/* DECK — hairline above, italic serif, the way a standfirst sets */}
           {narration && (
-            <div style={{ opacity: deckOp, marginTop: p ? 22 : 20, flexShrink: 0 }}>
+            <div
+              style={{
+                opacity: deckOp,
+                marginTop: p ? 22 : 20,
+                /* Portrait with no cutout: the deck takes the column's slack and
+                   centres itself in it, so the narration lands mid-page while the
+                   headline above stays put. Elsewhere it sits right under the
+                   headline as before. */
+                flex: p && !hasVisual ? "1 1 0" : "0 0 auto",
+                minHeight: 0,
+                alignSelf: p ? "stretch" : undefined,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: p && !hasVisual ? "center" : "flex-start",
+              }}
+            >
               <div
                 style={{
                   width: p ? 120 : 150,
                   height: 2,
+                  flexShrink: 0,
                   background: textColor,
                   opacity: 0.45,
                   marginBottom: p ? 16 : 14,
+                  // Centre the standfirst rule under the centred portrait column.
+                  marginLeft: p ? "auto" : undefined,
+                  marginRight: p ? "auto" : undefined,
                 }}
               />
               <div

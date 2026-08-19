@@ -123,7 +123,7 @@ export const EndingSocialsV2: React.FC<NewscastLayoutProps> = ({
             <div
               style={{
                 fontFamily: newscastFont(fontFamily, "title"),
-                fontSize: titleFontSize ?? (p ? 60 : 52),
+                fontSize: titleFontSize ?? (p ? 69 : 52),
                 fontWeight: 800,
                 color: "#fff",
                 textTransform: "uppercase",
@@ -172,7 +172,7 @@ export const EndingSocialsV2: React.FC<NewscastLayoutProps> = ({
                 style={{
                   marginTop: p ? 16 : 18,
                   fontFamily: newscastFont(fontFamily, "body"),
-                  fontSize: descriptionFontSize ?? (p ? 22 : 18),
+                  fontSize: descriptionFontSize ?? (p ? 32 : 18),
                   color: STEEL,
                   lineHeight: 1.5,
                   maxWidth: p ? "100%" : 640,

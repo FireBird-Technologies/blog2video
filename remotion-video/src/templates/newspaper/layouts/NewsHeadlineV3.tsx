@@ -116,7 +116,7 @@ export const NewsHeadlineV3: React.FC<
         : [];
 
   const words = title.split(" ");
-  const actualDescriptionFontSize = descriptionFontSize ?? (p ? 25 : 26);
+  const actualDescriptionFontSize = descriptionFontSize ?? (p ? 31 : 26);
   const hasVisual = Boolean(imageUrl || videoUrl);
 
   // A narrow measure is what makes it read as a column. Without a cutout beside
