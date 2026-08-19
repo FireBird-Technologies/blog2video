@@ -813,6 +813,45 @@
           "type": "string"
         }
       ]
+    },
+    "sakura_intro__v2": {
+      "label": "Sakura Intro — Scroll",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 84,
+          "landscape": 72
+        },
+        "descriptionFontSize": {
+          "portrait": 43,
+          "landscape": 27
+        }
+      }
+    },
+    "sakura_section__v2": {
+      "label": "Content Section — Screen",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 60,
+          "landscape": 55
+        },
+        "descriptionFontSize": {
+          "portrait": 35,
+          "landscape": 29
+        }
+      }
+    },
+    "ending_socials__v2": {
+      "label": "Outro / Socials — Hanko",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 63,
+          "landscape": 66
+        },
+        "descriptionFontSize": {
+          "portrait": 42,
+          "landscape": 38
+        }
+      }
     }
   },
   "layouts_without_image": [

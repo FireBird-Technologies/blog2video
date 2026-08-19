@@ -840,6 +840,45 @@
           "type": "string"
         }
       ]
+    },
+    "chalk_title__v2": {
+      "label": "Chalk Title — Stargazer",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 93,
+          "landscape": 84
+        },
+        "descriptionFontSize": {
+          "portrait": 50,
+          "landscape": 45
+        }
+      }
+    },
+    "night_walk__v2": {
+      "label": "Night Walk — Lamppost",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 101,
+          "landscape": 96
+        },
+        "descriptionFontSize": {
+          "portrait": 50,
+          "landscape": 42
+        }
+      }
+    },
+    "ending_socials__v2": {
+      "label": "Night Sign-Off — Signpost",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 75,
+          "landscape": 62
+        },
+        "descriptionFontSize": {
+          "portrait": 41,
+          "landscape": 28
+        }
+      }
     }
   },
   "layouts_without_image": [

@@ -29,8 +29,17 @@ import {
  * real useVideoConfig() dimensions.
  */
 
-export const HERO_LAYOUTS_FROM = new Set<SpotlightLayoutType>(["impact_title"]);
-export const HERO_LAYOUTS_TO = new Set<SpotlightLayoutType>(["ending_socials"]);
+// Variants occupy the same structural slots as their bases, so they belong in these
+// sets too — otherwise a `__v2` opener/closer silently loses its hero transition.
+// `Set.has` accepts any union member, so TypeScript would NOT catch the omission.
+export const HERO_LAYOUTS_FROM = new Set<SpotlightLayoutType>([
+  "impact_title",
+  "impact_title__v2",
+]);
+export const HERO_LAYOUTS_TO = new Set<SpotlightLayoutType>([
+  "ending_socials",
+  "ending_socials__v2",
+]);
 
 export interface SpotlightTransitionChoice {
   presentation: TransitionPresentation<Record<string, unknown>>;

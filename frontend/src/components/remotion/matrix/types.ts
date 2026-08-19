@@ -3,6 +3,7 @@ import type { SocialsMap } from "../SocialIcons";
 
 export type MatrixLayoutType =
   | "matrix_title"
+  // Visual variants — same props as their base, different composition.
   | "terminal_text"
   | "glitch_punch"
   | "data_stream"

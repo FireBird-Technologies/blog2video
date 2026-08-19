@@ -26,7 +26,11 @@ def _is_hero_like(layout_id: str, hero_layout: str = "") -> bool:
     # The template's declared hero layout (from meta.json `hero_layout`) is
     # authoritative — e.g. `kickoff_title` — even when its ID matches none of the
     # generic prefixes below.
-    if hero_layout and lid == (hero_layout or "").lower().strip():
+    # Compare on the BASE layout so a visual variant of the hero
+    # (`news_headline__v2`) is still recognized as hero-like and stripped from
+    # non-zero slots. Variants are never offered to the planner, so this is
+    # defense in depth against one leaking in via a stored preferred_layout.
+    if hero_layout and lid.partition("__")[0] == (hero_layout or "").lower().strip():
         return True
     return any(lid.startswith(p) for p in _HERO_LIKE_PREFIXES)
 

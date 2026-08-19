@@ -29,7 +29,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
   const items = stats.slice(0, 4);
 
   // Resolve description font size once for consistency
-  const resolvedDescriptionFontSize = descriptionFontSize ?? (p ? 36 : 22);
+  const resolvedDescriptionFontSize = descriptionFontSize ?? (p ? 25 : 22);
 
   // --- Exit Logic (Modified for left slide transition) ---
   const EXIT_START = durationInFrames - 25;
@@ -132,7 +132,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
             <div
               style={{
                 fontFamily: fontFamily ?? H_FONT,
-                fontSize: titleFontSize ?? (p ? 78 : 69),
+                fontSize: titleFontSize ?? (p ? 56 : 60),
                 fontWeight: 800,
                 color: textColor,
                 lineHeight: 1.1,

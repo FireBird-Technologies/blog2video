@@ -26,7 +26,10 @@ import { rainWall, decodeWipe, neonWhip, derez } from "./presentations";
  */
 
 export const HERO_LAYOUTS_FROM = new Set<MatrixLayoutType>(["matrix_title"]);
-export const HERO_LAYOUTS_TO = new Set<MatrixLayoutType>(["awakening", "ending_socials"]);
+export const HERO_LAYOUTS_TO = new Set<MatrixLayoutType>([
+  "awakening",
+  "ending_socials",
+]);
 
 export interface MatrixTransitionChoice {
   presentation: TransitionPresentation<Record<string, unknown>>;

@@ -1,15 +1,18 @@
 import type { NewscastLayoutProps, NewscastLayoutType } from "./types";
 import { ChapterBreak } from "./ChapterBreak";
 import { CinematicTitle } from "./CinematicTitle";
+import { CinematicTitleV2 } from "./CinematicTitleV2";
 import { GlassCode } from "./GlassCode";
 import { GlassImage } from "./GlassImage";
 import { GlassNarrative } from "./GlassNarrative";
+import { GlassNarrativeV2 } from "./GlassNarrativeV2";
 import { GlassStack } from "./GlassStack";
 import { GlowMetric } from "./GlowMetric";
 import { DataVisualization } from "./DataVisualization";
 import { KineticInsight } from "./KineticInsight";
 import { SplitGlass } from "./SplitGlass";
 import { EndingSocials } from "./EndingSocials";
+import { EndingSocialsV2 } from "./EndingSocialsV2";
 
 import type React from "react";
 
@@ -20,7 +23,9 @@ export const NEWSCAST_LAYOUT_REGISTRY: Record<
   React.FC<NewscastLayoutProps>
 > = {
   opening: CinematicTitle,
+  opening__v2: CinematicTitleV2,
   anchor_narrative: GlassNarrative,
+  anchor_narrative__v2: GlassNarrativeV2,
   live_metrics_board: GlowMetric,
   data_visualization: DataVisualization,
   briefing_code_panel: GlassCode,
@@ -30,5 +35,6 @@ export const NEWSCAST_LAYOUT_REGISTRY: Record<
   segment_break: ChapterBreak,
   field_image_focus: GlassImage,
   ending_socials: EndingSocials,
+  ending_socials__v2: EndingSocialsV2,
 };
 

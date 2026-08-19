@@ -46,11 +46,20 @@ const LAYOUT_ID_ALIASES: Record<string, string> = {
 };
 
 /**
- * Normalize a raw layout ID (which may be a legacy alias) to the canonical key
- * used in LAYOUT_IMAGE_BOX_DIMS.  Returns the input unchanged if no alias matches.
+ * Normalize a raw layout ID (which may be a legacy alias, or a `__vN` visual
+ * variant) to the canonical key used in LAYOUT_IMAGE_BOX_DIMS.  Returns the input
+ * unchanged if nothing matches.
+ *
+ * Variants share their base layout's image box unless they declare their own
+ * LAYOUT_IMAGE_BOX_DIMS entry — an exact entry is checked first, so a variant
+ * that reshapes its image slot just adds one under its full ID.
  */
 export function normalizeLayoutId(layoutId: string): string {
-  return LAYOUT_ID_ALIASES[layoutId] ?? layoutId;
+  const aliased = LAYOUT_ID_ALIASES[layoutId];
+  if (aliased) return aliased;
+  if (layoutId in LAYOUT_IMAGE_BOX_DIMS) return layoutId;
+  const sep = layoutId.indexOf("__");
+  return sep === -1 ? layoutId : layoutId.slice(0, sep);
 }
 
 export interface ImageBoxDims {
@@ -137,6 +146,12 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
     portrait:  { w: 0.751, h: 0.208 }, // ~811 × 400 on 1080×1920
   },
 
+  // ── Nightfall variants ──
+  // Variants need their OWN entry: normalizeLayoutId() strips the `__vN` suffix
+  // and falls back to the base, which is the wrong shape for all three below.
+
+
+
   // Landscape: image sits in the left panel and should stay landscape-oriented in adjust modal.
   // Portrait: split-screen card, image section is the top flex:1 half.
   glow_metric: {
@@ -205,6 +220,8 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
     portrait:  { w: 0.90, h: 0.40  }, // ~972 × 768
   },
 
+
+
   // flex "0 0 38%", height 320 px landscape / width 100%, height 180 px portrait
   kpi_grid: {
     landscape: { w: 0.38, h: 0.296 }, // 730 × 320
@@ -244,11 +261,22 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
     landscape: { w: 0.38, h: 0.333 }, // 730 × 360
     portrait:  { w: 0.70, h: 0.115 }, // 756 × 220
   },
+  // "Marquee": the plate is a TALL 3:4 column beside the bill, not the base's wide
+  // inset card — so it needs its own entry rather than inheriting a 2:1 box.
+  impact_title__v2: {
+    landscape: { w: 0.336, h: 0.796 }, // ~645 × 860 (3:4)
+    portrait:  { w: 0.820, h: 0.259 }, // ~886 × 498 (16:9)
+  },
 
   // flex "0 0 38%", height 400 px landscape / width 80%, height 240 px portrait
   statement: {
     landscape: { w: 0.38, h: 0.370 }, // 730 × 400
     portrait:  { w: 0.80, h: 0.125 }, // 864 × 240
+  },
+  // "Pull Quote": a tall 3:4 plate on the facing side of the quote column.
+  statement__v2: {
+    landscape: { w: 0.302, h: 0.717 }, // ~580 × 774 (3:4)
+    portrait:  { w: 0.840, h: 0.266 }, // ~907 × 510 (16:9)
   },
 
   // flex "0 0 35%", height 350 px landscape / width 70%, height 200 px portrait
@@ -466,10 +494,44 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
     portrait:  { w: 1.0, h: 1.0 },
   },
 
-  // flex "0 0 40%", full height landscape / no image panel in portrait → full canvas fallback
+  // Full-height image RAIL, a sibling of the text panel (it used to be a flex-40%
+  // inset INSIDE that panel, which resolved to only ~23% of the frame — 297px on
+  // 1280 — and was dropped entirely in portrait).
+  // Substantial image PANEL, a sibling of the text panel (it was once a flex-40%
+  // inset inside that panel — only ~23% of the frame — and later a thin rail).
+  // The bulletin rail is dropped whenever an image is present, so the frame
+  // splits between text and image instead of squeezing three columns.
+  //   landscape: 46% of the padded row, full stretch height  → 510 × 626
+  //   portrait:  stacked ABOVE the text, full width, 46% height → 662 × 505
   anchor_narrative: {
-    landscape: { w: 0.40, h: 1.0  }, // 512 × 720
-    portrait:  { w: 1.0,  h: 1.0  }, // no image panel in portrait — full canvas
+    landscape: { w: 0.398, h: 0.87  }, // 510 × 626
+    portrait:  { w: 0.920, h: 0.394 }, // 662 × 505
+  },
+
+  // ── Newscast variants ──
+  // Variants need their OWN entry: normalizeLayoutId() strips the `__vN` suffix
+  // and falls back to the base, which is the wrong shape for both below.
+  // ending_socials__v2 is intentionally absent — it renders no image (its base is
+  // in meta.json `layouts_without_image`).
+
+  // "Split Feed": the image is the FEED panel, not a full-bleed plate — 46% width
+  // full height in landscape, 34% height full width in portrait. (These are the
+  // WITH-image sizes; the slim no-image strip has no image to adjust.)
+  opening__v2: {
+    landscape: { w: 0.46, h: 1.0  },
+    portrait:  { w: 1.0,  h: 0.34 },
+  },
+
+  // "Studio Desk": the plate is technically full-bleed, but the copy band plus
+  // the composition's chrome cover the bottom ~60%, so the only part the viewer
+  // actually SEES is the strip above the band. The adjust modal must preview that
+  // strip, not the whole canvas — otherwise the subject gets framed into a region
+  // the band then hides.
+  //   landscape: 720 − (150 chrome + 40% band) = 282px → h 0.392
+  //   portrait: 1280 − (168 chrome + 44% band) = 549px → h 0.429
+  anchor_narrative__v2: {
+    landscape: { w: 1.0, h: 0.392 }, // 1280 × 282 visible
+    portrait:  { w: 1.0, h: 0.429 }, // 720 × 549 visible
   },
 
   briefing_code_panel: {
@@ -486,16 +548,60 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
   // NEWSPAPER template  (canvas 1280 × 720)
   // ─────────────────────────────────────────────────────────────────────────
 
-  // Polaroid-style card: absolute positioned 40% × 50% landscape / 80% × 35% portrait
+  // ── NEWSPAPER: news_headline / article_lead and their style variants ──
+  //
+  // Every value below is MEASURED, not derived: each layout was rendered in a
+  // real browser at its true canvas (1280×720 / 720×1280) and the painted image
+  // card was read off with getBoundingClientRect, so these match what the
+  // adjust-modal preview has to mirror. Layouts whose image sits in a flex slot
+  // depend on how much room the copy takes, so they were measured with a
+  // representative ~180-character narration.
+  //
+  // Variants need their OWN entry: normalizeLayoutId() strips the `__vN` suffix
+  // and falls back to the base, which is the wrong shape for all four here.
+  // pull_quote__v2 / ending_socials__v2 are intentionally absent — they render
+  // no image (both bases are in meta.json `layouts_without_image`).
+
+  // Polaroid-style card, tilted, pinned right (landscape) / centred (portrait).
   news_headline: {
-    landscape: { w: 0.40, h: 0.5   }, // 512 × 360
-    portrait:  { w: 0.80, h: 0.35  }, // 576 × 448
+    landscape: { w: 0.435, h: 0.594 }, // measured 557 × 428
+    portrait:  { w: 0.841, h: 0.381 }, // measured 606 × 487
   },
 
-  // Tilted photo card: 38% × 60% landscape / 88% × 38% portrait
+  // Tilted photo card beside the lead column.
   article_lead: {
-    landscape: { w: 0.38, h: 0.6   }, // 486 × 432
-    portrait:  { w: 0.88, h: 0.38  }, // 634 × 486
+    landscape: { w: 0.368, h: 0.593 }, // measured 471 × 427
+    portrait:  { w: 0.844, h: 0.367 }, // measured 607 × 469
+  },
+
+  // NewsHeadlineV2 — "Broadsheet": below-the-fold card under the masthead.
+  // Wide and short in landscape; nearly square and much taller in portrait,
+  // where it takes the whole lower half of the page.
+  news_headline__v2: {
+    landscape: { w: 0.521, h: 0.344 }, // measured 667 × 248
+    portrait:  { w: 0.791, h: 0.480 }, // measured 570 × 614
+  },
+
+  // NewsHeadlineV3 — "Stacked Deck": pasted cutout beside the column. Nearly
+  // full content height in landscape, so the box is tall rather than wide.
+  news_headline__v3: {
+    landscape: { w: 0.407, h: 0.783 }, // measured 521 × 564
+    portrait:  { w: 0.900, h: 0.539 }, // measured 648 × 691
+  },
+
+  // ArticleLeadV2 — "Two Column": a wide strip spanning the full measure under
+  // the head, so the landscape box is a letterbox.
+  article_lead__v2: {
+    landscape: { w: 0.840, h: 0.312 }, // measured 1075 × 225
+    portrait:  { w: 0.840, h: 0.288 }, // measured 605 × 368
+  },
+
+  // ArticleLeadV3 — "Sidebar Stat": narrow picture rail down the side in
+  // landscape; a band under the copy in portrait, whose height varies with
+  // narration length (see portraitImageMaxHeight) — this is the mid case.
+  article_lead__v3: {
+    landscape: { w: 0.304, h: 0.639 }, // measured 389 × 460
+    portrait:  { w: 0.878, h: 0.374 }, // measured 632 × 479
   },
 
   // Portrait-oriented card (aspect-ratio 3/4): flex 0.8 landscape / width 100%, height 300 px portrait
@@ -534,6 +640,7 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
     landscape: { w: 0.309, h: 0.88 }, // ~396 × 634 on 1280×720
     portrait:  { w: 1.0,  h: 0.391 }, // 720 × 500
   },
+
 
   // ─────────────────────────────────────────────────────────────────────────
   // CHRONICLE template  (canvas 1920 × 1080)
@@ -736,6 +843,8 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
     landscape: { w: 0.360, h: 1.0 },
     portrait:  { w: 0.852, h: 0.30 },
   },
+
+
 
   // Circular vignette behind the number: 560 landscape / 420 portrait.
   // See SakuraStatHighlight.tsx (vignetteSize).

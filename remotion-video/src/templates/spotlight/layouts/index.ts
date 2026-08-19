@@ -10,6 +10,9 @@ import { SpotlightDataChart } from "./SpotlightDataChart";
 import { SpotlightTable } from "./SpotlightTable";
 import { Closer } from "./Closer";
 import { EndingSocials } from "./EndingSocials";
+import { ImpactTitleV2 } from "./ImpactTitleV2";
+import { StatementV2 } from "./StatementV2";
+import { EndingSocialsV2 } from "./EndingSocialsV2";
 import type { SpotlightLayoutType, SpotlightLayoutProps } from "../types";
 
 export type { SpotlightLayoutType, SpotlightLayoutProps };
@@ -30,4 +33,9 @@ export const SPOTLIGHT_LAYOUT_REGISTRY: Record<
   spotlight_table: SpotlightTable,
   closer: Closer,
   ending_socials: EndingSocials,
+
+  // ── Visual variants — same props as their base, different composition ──
+  impact_title__v2: ImpactTitleV2,
+  statement__v2: StatementV2,
+  ending_socials__v2: EndingSocialsV2,
 };

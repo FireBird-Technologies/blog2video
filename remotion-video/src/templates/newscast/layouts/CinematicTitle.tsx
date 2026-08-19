@@ -473,7 +473,7 @@ export const CinematicTitle: React.FC<NewscastLayoutProps> = ({
           <h1
             style={{
               fontFamily: newscastFont(fontFamily, "title"),
-              fontSize: titleFontSize ?? (p ? 94 : 72),
+              fontSize: titleFontSize ?? (p ? 77 : 72),
               fontWeight: HEADLINE_WEIGHT,
               textTransform: "uppercase",
               letterSpacing: 1,
@@ -511,7 +511,7 @@ export const CinematicTitle: React.FC<NewscastLayoutProps> = ({
             <div
               style={{
                 fontFamily: newscastFont(fontFamily, "body"),
-                fontSize: descriptionFontSize ?? (p ? 23 : 18),
+                fontSize: descriptionFontSize ?? (p ? 35 : 18),
                 fontWeight: 400,
                 lineHeight: 1.65,
                 color: STEEL,

@@ -766,6 +766,45 @@
           "placeholder": "https://yourwebsite.com"
         }
       ]
+    },
+    "matrix_title__v2": {
+      "label": "Matrix Title — Boot",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 128,
+          "landscape": 87
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 45
+        }
+      }
+    },
+    "terminal_text__v2": {
+      "label": "Terminal Text — Split Feed",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 96,
+          "landscape": 96
+        },
+        "descriptionFontSize": {
+          "portrait": 46,
+          "landscape": 36
+        }
+      }
+    },
+    "ending_socials__v2": {
+      "label": "Ending / Follow along — Uplink",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 98,
+          "landscape": 83
+        },
+        "descriptionFontSize": {
+          "portrait": 48,
+          "landscape": 42
+        }
+      }
     }
   },
   "layouts_without_image": [

@@ -4,6 +4,34 @@ import React from "react";
 const VINTAGE_NEWS_BG = "/vintage-news.avif";
 
 /**
+ * The warm paper wash that gives every newspaper scene its aged, slightly
+ * yellow cast. This is Layer 2 of NewsBackground — pulled out as its own
+ * component because several layouts paint an EXTRA vintage texture on top of
+ * <NewsBackground>, which would otherwise bury the tint under a grayscale
+ * image and leave those scenes looking cold next to the rest of the template.
+ * Those layouts re-apply this above their texture.
+ */
+export const NEWS_PAPER_WASH =
+  "linear-gradient(135deg, rgba(235, 225, 210, 0.42) 0%, rgba(245, 238, 225, 0.38) 50%, rgba(225, 215, 195, 0.42) 100%)";
+
+export const NewsPaperWash: React.FC<{ opacity?: number; zIndex?: number }> = ({
+  opacity = 1,
+  zIndex,
+}) => (
+  <div
+    aria-hidden
+    style={{
+      position: "absolute",
+      inset: 0,
+      background: NEWS_PAPER_WASH,
+      opacity,
+      zIndex,
+      pointerEvents: "none",
+    }}
+  />
+);
+
+/**
  * Editorial paper background for all newspaper components.
  * - Warm white base
  * - Vintage newspaper image (low opacity) + stronger overlay for subdued look
@@ -37,8 +65,7 @@ export const NewsBackground: React.FC<{ bgColor?: string }> = ({
       style={{
         position: "absolute",
         inset: 0,
-        background:
-          "linear-gradient(135deg, rgba(235, 225, 210, 0.42) 0%, rgba(245, 238, 225, 0.38) 50%, rgba(225, 215, 195, 0.42) 100%)",
+        background: NEWS_PAPER_WASH,
         pointerEvents: "none",
       }}
     />

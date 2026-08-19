@@ -18,6 +18,12 @@ import {
   type LayoutPropSchema,
   type LayoutPropFieldType,
 } from "../api/client";
+import {
+  baseLayoutId,
+  variantsFor,
+  variantLabel,
+  isSameLayoutFamily,
+} from "../utils/layoutVariants";
 import { StockFootageModal, STOCK_FOOTAGE_CREDIT_COST } from "./StockFootageModal";
 import { ImageAdjustStage } from "./ImageAdjustStage";
 import { useAuth } from "../hooks/useAuth";
@@ -355,10 +361,18 @@ const LEGACY_NEWSCAST_LAYOUT_ID_ALIASES: Record<string, string> = {
 const TICKER_TABLE_MAX_COLS = 6;
 const TICKER_TABLE_MAX_ROWS = 20;
 
-function normalizeLegacyNewscastLayoutId(template: string, layoutId: string): string {
+/**
+ * Canonicalize a layout ID for per-layout metadata lookups (field defs, font
+ * defaults): resolves legacy newscast aliases, and collapses a `__vN` visual
+ * variant to its base layout. Variants share their base's prop schema, so
+ * `news_headline__v2` must find `news_headline`'s fields — without this the
+ * lookups return nothing and the save path would treat every prop as unknown.
+ */
+function normalizeLayoutIdForLookup(template: string, layoutId: string): string {
   const normalizedTemplate = (template || "").toLowerCase();
-  if (normalizedTemplate !== "newscast" && normalizedTemplate !== "newsreport") return layoutId;
-  return LEGACY_NEWSCAST_LAYOUT_ID_ALIASES[layoutId] ?? layoutId;
+  const canonical = baseLayoutId(layoutId) || layoutId;
+  if (normalizedTemplate !== "newscast" && normalizedTemplate !== "newsreport") return canonical;
+  return LEGACY_NEWSCAST_LAYOUT_ID_ALIASES[canonical] ?? canonical;
 }
 
 export function getDefaultFontSizes(
@@ -369,7 +383,7 @@ export function getDefaultFontSizes(
   const p = aspectRatio === "portrait";
   const raw = (template || "default").toLowerCase();
   const t = raw.startsWith("custom_") ? "custom" : raw;
-  const layout = layoutId ? normalizeLegacyNewscastLayoutId(t, layoutId) : "text_narration";
+  const layout = layoutId ? normalizeLayoutIdForLookup(t, layoutId) : "text_narration";
   const defs = LAYOUT_FONT_DEFAULTS[t]?.[layout] ?? LAYOUT_FONT_DEFAULTS.default?.text_narration ?? { title: [34, 44], desc: [20, 23] };
   const titleVal = defs.title;
   const descVal = defs.desc;
@@ -388,7 +402,12 @@ export function getDefaultFontSizesFromSchema(
 ): { title: number; desc: number } | null {
   if (!layoutId || !layoutPropSchema) return null;
   const canonicalLayoutId = LEGACY_NEWSCAST_LAYOUT_ID_ALIASES[layoutId] ?? layoutId;
-  const schema = layoutPropSchema[canonicalLayoutId];
+  // Mirrors backend/app/services/remotion.py: an EXACT entry wins (a variant that
+  // declares its own typography defaults), otherwise fall back to the BASE
+  // layout's entry. Without the fallback a variant with no entry of its own
+  // silently drops to the hardcoded table instead of its base's meta defaults.
+  const baseId = LEGACY_NEWSCAST_LAYOUT_ID_ALIASES[baseLayoutId(layoutId)] ?? baseLayoutId(layoutId);
+  const schema = layoutPropSchema[canonicalLayoutId] ?? layoutPropSchema[baseId];
   const defaults = schema?.defaults;
   if (!defaults) return null;
   const isPortrait = aspectRatio === "portrait";
@@ -2205,7 +2224,7 @@ function getLayoutFields(template: string, layoutId: string | null): FieldDef[] 
   if (!layoutId) return undefined;
   const t = (template || "default").toLowerCase();
   const normalizedTemplate = t === "newsreport" ? "newscast" : t;
-  const canonicalLayoutId = normalizeLegacyNewscastLayoutId(t, layoutId);
+  const canonicalLayoutId = normalizeLayoutIdForLookup(t, layoutId);
   return LAYOUT_TEXT_FIELDS_OVERRIDE[normalizedTemplate]?.[canonicalLayoutId] ?? LAYOUT_TEXT_FIELDS[canonicalLayoutId];
 }
 
@@ -2374,7 +2393,14 @@ function pickLayoutPropSchemaFieldDefs(
   if (!schemaMap || !layoutId) return undefined;
   let defs = layoutPropSchemaToFieldDefs(schemaMap[layoutId]);
   if (defs?.length) return defs;
-  const lower = layoutId.toLowerCase();
+  // A `__vN` visual variant shares its base layout's schema entry, so fall back
+  // to the base. Exact match above still wins if a variant declares its own.
+  const base = baseLayoutId(layoutId);
+  if (base && base !== layoutId) {
+    defs = layoutPropSchemaToFieldDefs(schemaMap[base]);
+    if (defs?.length) return defs;
+  }
+  const lower = (base || layoutId).toLowerCase();
   const altKey = Object.keys(schemaMap).find((k) => k.toLowerCase() === lower);
   return altKey ? layoutPropSchemaToFieldDefs(schemaMap[altKey]) : undefined;
 }
@@ -3023,6 +3049,16 @@ export default function SceneEditModal({
       ? selectedLayout
       : null;
   const currentLayoutId = pendingLayout ?? savedLayoutId;
+  // Layout IDENTITY for behaviour checks ("is this the ending scene?", "is this
+  // the chart layout?"). A `__vN` visual variant is the same scene as its base,
+  // so those checks must compare the BASE — otherwise a variant loses the
+  // dedicated editors its base gets (CTA/socials block, chart editor, …) and
+  // falls back to raw JSON textareas.
+  const currentBaseLayoutId = baseLayoutId(currentLayoutId);
+  // Style options for the layout family this scene is currently on, base first.
+  // Empty (or single-entry) when the template declares no variants for it, which
+  // is what hides the Scene style strip.
+  const sceneStyleVariants = variantsFor(layouts, currentLayoutId);
   const currentLayoutLabel = currentLayoutId
     ? getSceneLayoutLabel(
         project.template,
@@ -3040,12 +3076,16 @@ export default function SceneEditModal({
       )
     : "Current layout";
 
+  // Keyed by BASE layout, so every membership test resolves the layout first —
+  // `pull_quote__v2` inherits `pull_quote`'s no-image status.
   const layoutsWithoutImage = new Set<string>(layouts?.layouts_without_image ?? []);
+  const layoutSupportsImage = (layoutId: string | null) =>
+    !layoutId || !layoutsWithoutImage.has(baseLayoutId(layoutId));
   // `supportsImage` follows the EFFECTIVE layout so switching into an image-less
   // layout hides the image controls before saving.
-  const supportsImage = !currentLayoutId || !layoutsWithoutImage.has(currentLayoutId);
+  const supportsImage = layoutSupportsImage(currentLayoutId);
   // Per the scene's SAVED layout — for the "Keep current" dropdown row's note.
-  const savedSupportsImage = !savedLayoutId || !layoutsWithoutImage.has(savedLayoutId);
+  const savedSupportsImage = layoutSupportsImage(savedLayoutId);
   // Offered on any image-capable layout, for every template (builtin, custom,
   // and crafted). The backend still rejects scenes/layouts that can't render
   // a clip (e.g. dataviz scenes), see upload_stock_footage in app/routers/projects.py.
@@ -3185,7 +3225,7 @@ export default function SceneEditModal({
   };
   // Custom templates: detect outro by sceneTypeOverride, ctaProps presence, or position (last scene)
   const isCustomOutro = isCustomTemplate && (() => {
-    if (currentLayoutId === "outro") return true;
+    if (currentBaseLayoutId === "outro") return true;
     // Check if ctaProps exists in remotion_code
     try {
       if (scene.remotion_code) {
@@ -3197,7 +3237,7 @@ export default function SceneEditModal({
     const sorted = [...project.scenes].sort((a, b) => a.order - b.order);
     return sorted.length > 1 && sorted[sorted.length - 1].id === scene.id;
   })();
-  const isEndingScene = currentLayoutId === "ending_socials" || isCustomOutro;
+  const isEndingScene = currentBaseLayoutId === "ending_socials" || isCustomOutro;
   const [craftedFrontendFiles, setCraftedFrontendFiles] = useState<Record<string, string> | null>(null);
   // Per-layout SceneEditModal field overrides loaded from the crafted
   // template's bundled `frontend/layoutFields.ts`. Compiled at runtime;
@@ -3951,6 +3991,14 @@ export default function SceneEditModal({
             // Apply layout switch: update desc.layout when user picked a concrete layout
             if (selectedLayout && selectedLayout !== "__keep__" && selectedLayout !== "__auto__") {
               desc.layout = selectedLayout;
+              // Switching between visual VARIANTS of one layout (Classic ↔
+              // Broadsheet) keeps every prop: variants share the base layout's
+              // schema, so there is nothing to prune and nothing to reseed.
+              // Pruning here would be actively destructive — the field lookup for
+              // a variant resolves through its base, and any miss would delete
+              // every layoutProp the user has written.
+              const isVariantSwitch = isSameLayoutFamily(selectedLayout, savedLayoutId);
+              if (!isVariantSwitch) {
               // The saved descriptor must carry ONLY the new layout's props. The
               // merge above re-introduced the previous layout's content keys from
               // the stale desc.layoutProps (heading/body/issueLabel/…) — drop any
@@ -3990,6 +4038,7 @@ export default function SceneEditModal({
                 } else if (f.key in seedDefaults) {
                   lpRec[f.key] = seedDefaults[f.key];
                 }
+              }
               }
             }
             // data_visualization: convert editable chart form back to stored shapes
@@ -4336,6 +4385,18 @@ export default function SceneEditModal({
         setLoading(false);
       }
     }
+  };
+
+  /**
+   * Switch to a sibling VISUAL VARIANT of the current layout (the Scene style
+   * strip). Deliberately NOT `applySelectedLayout`: that one prunes layoutProps
+   * to the target layout's field list and reseeds the empties, which is exactly
+   * what must not happen here. Variants share their base layout's prop schema,
+   * so there is nothing to prune — every prop carries over untouched. The save
+   * path skips its own prune for the same reason (see `isVariantSwitch`).
+   */
+  const applyVariant = (variantId: string) => {
+    setSelectedLayout(variantId);
   };
 
   /**
@@ -4964,7 +5025,7 @@ export default function SceneEditModal({
                 let layoutFields = (rawLayoutFields ?? []).filter((f) => !isHiddenLayoutPropKey(f.key));
                 __layoutHasTables = fieldsHaveTable(layoutFields);
 
-                if (isNewscastTemplate && currentLayoutId === "data_visualization") {
+                if (isNewscastTemplate && currentBaseLayoutId === "data_visualization") {
                   const chartTable = normalizeChartTableValue((editableLayoutProps as Record<string, unknown>).chartTable);
                   const mode = inferDataVizTableMode(editableLayoutProps as Record<string, unknown>);
                   const numericSeriesCount = Math.max(1, getNumericColumnIndexes(chartTable).length || 1);
@@ -4985,11 +5046,11 @@ export default function SceneEditModal({
                 const knownKeys = new Set(layoutFields.map((f) => f.key));
                 const suppressExtraKeysForDataViz =
                   (isNewscastTemplate || isNightfallTemplate || isDefaultTemplate) &&
-                  currentLayoutId === "data_visualization";
+                  currentBaseLayoutId === "data_visualization";
                 const suppressExtraKeysForBloombergChart =
-                  isBloombergTemplate && currentLayoutId === "terminal_chart";
+                  isBloombergTemplate && currentBaseLayoutId === "terminal_chart";
                 const suppressExtraKeysForBloombergDataViz =
-                  isBloombergTemplate && currentLayoutId === "terminal_dataviz";
+                  isBloombergTemplate && currentBaseLayoutId === "terminal_dataviz";
                 // Built-in data-viz chart + ticker layouts (newspaper, whiteboard,
                 // gridcraft, stickman_2, blackswan, matrix, spotlight, chronicle, …)
                 // fully define their editable fields from meta.json's
@@ -5250,7 +5311,7 @@ export default function SceneEditModal({
                           histogramChartTable: "histogram",
                         };
                         const isSeparateDataVizTableEditor =
-                          (isNightfallTemplate || isDefaultTemplate) && currentLayoutId === "data_visualization";
+                          (isNightfallTemplate || isDefaultTemplate) && currentBaseLayoutId === "data_visualization";
                         const primaryChartType = String(
                           (editableLayoutProps as Record<string, unknown>).__dataVizPrimaryChartType ?? "",
                         ).toLowerCase();
@@ -5324,30 +5385,30 @@ export default function SceneEditModal({
                         const sel = String(editableLayoutProps[field.key] ?? defaultVal);
                         const isLaDucChartTypeField =
                           isLaDucTemplate &&
-                          currentLayoutId === "market_annotation" &&
+                          currentBaseLayoutId === "market_annotation" &&
                           field.key === "chartType";
                         const isFjBriefChartTypeField =
                           isFjBriefTemplate &&
-                          currentLayoutId === "market_annotation" &&
+                          currentBaseLayoutId === "market_annotation" &&
                           field.key === "chartType";
                         const isFJResearchChartTypeField =
                           normalizedTemplateId === "fj_research" &&
-                          currentLayoutId === "market_annotation" &&
+                          currentBaseLayoutId === "market_annotation" &&
                           field.key === "chartType";
                         const isBloombergChartTypeField =
                           isBloombergTemplate &&
-                          currentLayoutId === "terminal_dataviz" &&
+                          currentBaseLayoutId === "terminal_dataviz" &&
                           field.key === "chartType";
                         const isNewscastChartTypeField =
                           isNewscastTemplate &&
-                          currentLayoutId === "data_visualization" &&
+                          currentBaseLayoutId === "data_visualization" &&
                           field.key === "chartType";
                         const isBuiltinChartTypeField =
                           field.key === "chartType" &&
                           isBuiltinDataVizChartLayout(normalizedTemplateId, currentLayoutId);
                         const isCustomChartTypeField =
                           isCustomTemplate &&
-                          currentLayoutId === "custom_chart" &&
+                          currentBaseLayoutId === "custom_chart" &&
                           field.key === "chartType";
                         return (
                           <div key={field.key}>
@@ -6179,7 +6240,7 @@ export default function SceneEditModal({
               >
               <div>
                 <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                  {currentLayoutId === "magazine_cover" ? "Cover Line" : "Title"}
+                  {currentBaseLayoutId === "magazine_cover" ? "Cover Line" : "Title"}
                 </h4>
                 <input
                   type="text"
@@ -7040,6 +7101,39 @@ export default function SceneEditModal({
                   </div>
                 </div>
 
+                {/* Scene style — visual variants of the CURRENT layout. Switching
+                    only swaps the layout ID; every layoutProp is preserved, because
+                    variants share their base layout's prop schema. Hidden entirely
+                    for layouts that declare no variants. */}
+                {sceneStyleVariants.length > 1 && (
+                  <div className="px-4 py-3 border-b border-gray-100">
+                    <p className="text-sm font-medium text-gray-800">Scene style</p>
+                    <p className="mt-0.5 text-xs text-gray-500">
+                      Pick a different look for this scene. Your text and images stay as they are.
+                    </p>
+                    <div className="mt-2.5 flex flex-wrap gap-2">
+                      {sceneStyleVariants.map((variantId, i) => {
+                        const isActive = variantId === currentLayoutId;
+                        return (
+                          <button
+                            key={variantId}
+                            type="button"
+                            onClick={() => applyVariant(variantId)}
+                            aria-pressed={isActive}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                              isActive
+                                ? "bg-purple-50 border-purple-300 text-purple-700"
+                                : "bg-white border-gray-200 text-gray-600 hover:border-purple-200 hover:bg-purple-50/50"
+                            }`}
+                          >
+                            {variantLabel(layouts, variantId, i)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* Scene layout — labeled, inline, no mystery "Advanced". */}
                 <div ref={layoutRef} className="relative px-4 py-3">
                   <div className="flex items-center justify-between gap-3">
@@ -7101,10 +7195,18 @@ export default function SceneEditModal({
                         Auto (Let AI choose)
                       </button>
                     )}
-                    {layouts?.layouts
-                      .filter((id) => id !== savedLayoutId)
+                    {/* Every layout INCLUDING each visual variant, so the list
+                        shows e.g. "News Headline — Broadsheet" alongside
+                        "News Headline — Classic" and they can be compared and
+                        picked directly. `layouts` is the renderable set (variants
+                        included); `selectable_layouts` is the base-only subset.
+                        Only the exact saved layout is filtered out — filtering by
+                        FAMILY would hide the current layout's sibling variants,
+                        which are precisely what we want to offer here. */}
+                    {(layouts?.layouts ?? layouts?.selectable_layouts)
+                      ?.filter((id) => id !== savedLayoutId)
                       .map((layoutId) => {
-                        const supportsImageForLayout = !layoutsWithoutImage.has(layoutId);
+                        const supportsImageForLayout = layoutSupportsImage(layoutId);
                         return (
                           <button
                             key={layoutId}

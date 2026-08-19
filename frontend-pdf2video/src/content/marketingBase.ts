@@ -349,45 +349,6 @@ export const templateProfiles: TemplateProfile[] = [
     ],
   },
   {
-    slug: "stickman_football",
-    name: "Stickmen Football Match",
-    description:
-      "A playful hand-drawn football template with animated stickman players, a match-day pitch, and chalkboard-style charts and tickers.",
-    bestFor: "Sports recaps, match analysis, fan content, and any energetic, lighthearted explainer.",
-    differentiator:
-      "Brings your content to life with animated stickman footballers dribbling, passing, and scoring — a hand-drawn match-day world that no stock-footage tool can replicate.",
-    styleFit: "Best for sports storytelling, playful explainers, and content that should feel fun and kinetic.",
-    previewSceneKey: "preview-stickman-football",
-    layouts: [
-      "kickoff_title",
-      "passing_play",
-      "ball_control",
-      "freekick_setup",
-      "corner_kick",
-      "goal_moment",
-      "injury_break",
-      "match_stats",
-      "football_data_viz",
-      "football_ticker",
-      "text_narration",
-      "ending_socials",
-    ],
-    longDescription:
-      "Stickman Football turns written content into an animated match-day broadcast played out by hand-drawn stickman footballers. Players run on, trap long balls, dribble, set up free kicks, and celebrate goals across a green pitch, while chalkboard-style data visualizations, match-stat cards, and league tickers carry the numbers. Layouts like Kickoff Title, Passing Play, Goal Moment, Match Stats, and Football Data Viz make sports recaps, tactical breakdowns, and fan explainers feel energetic and alive without any footage, presenters, or production crew.",
-    idealFor: [
-      "Match recaps and weekend round-ups",
-      "Tactical breakdowns and player analysis",
-      "Sports newsletters and fan-channel content",
-      "League standings and stat-driven updates",
-      "Playful explainers that need a fun, kinetic tone",
-    ],
-    exampleTopics: [
-      "Five takeaways from the weekend's biggest match",
-      "How the underdogs pulled off the upset",
-      "The numbers behind this season's title race",
-    ],
-  },
-  {
     slug: "stickman_2",
     name: "Stickmen 2: Night Edition",
     description:

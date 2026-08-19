@@ -610,7 +610,9 @@ export default function SceneEditor({
                         className="w-full px-3 py-2 text-sm border border-purple-200 bg-purple-50 text-purple-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                       >
                         <option value="">Auto (Let AI choose)</option>
-                        {layouts.layouts.map((layoutId) => (
+                        {/* Base layouts only — `layouts` also carries `__vN` visual
+                            variants, which are switched via the scene style strip. */}
+                        {(layouts.selectable_layouts ?? layouts.layouts).map((layoutId) => (
                           <option key={layoutId} value={layoutId}>
                             {layouts.layout_names[layoutId] || layoutId}
                           </option>
