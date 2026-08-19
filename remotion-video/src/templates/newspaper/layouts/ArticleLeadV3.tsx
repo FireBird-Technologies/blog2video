@@ -111,7 +111,7 @@ export const ArticleLeadV3: React.FC<BlogLayoutProps & { imageUrl?: string }> = 
   const imageScale = interpolate(frame, [26, 48], [0.92, 1], { extrapolateRight: "clamp" });
   const hasVisual = Boolean(imageUrl || videoUrl);
 
-  const narrationSize = descriptionFontSize ?? (p ? 31 : 29);
+  const narrationSize = descriptionFontSize ?? (p ? 38 : 29);
   const statsValueSize = narrationSize + (p ? 40 : 52);
   const statsLabelSize = Math.max(12, narrationSize - 14);
 
@@ -193,7 +193,7 @@ export const ArticleLeadV3: React.FC<BlogLayoutProps & { imageUrl?: string }> = 
           <div
             style={{
               fontFamily: fontFamily ?? B_FONT,
-              fontSize: titleFontSize ?? (p ? 50 : 50),
+              fontSize: titleFontSize ?? (p ? 65 : 50),
               fontWeight: 900,
               letterSpacing: "-0.02em",
               textTransform: "uppercase",

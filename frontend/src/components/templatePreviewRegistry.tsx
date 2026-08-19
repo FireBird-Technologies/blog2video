@@ -180,6 +180,20 @@ export function NewTemplateBadge({ className = "" }: { className?: string }) {
   );
 }
 
+/**
+ * Sky "New Scenes" chip for templates marked new_scenes: true — the template
+ * itself isn't new, but it has gained new scene layouts/variants.
+ */
+export function NewScenesTemplateBadge({ className = "" }: { className?: string }) {
+  return (
+    <span
+      className={`pointer-events-none px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide text-white bg-purple-600 shadow-[0_0_8px_rgba(14,165,233,0.45)] ${className}`}
+    >
+      New Scenes
+    </span>
+  );
+}
+
 /** Amber "Popular" chip for templates marked popular_template: true */
 export function PopularTemplateBadge({ className = "" }: { className?: string }) {
   return (

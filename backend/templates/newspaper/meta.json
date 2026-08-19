@@ -2,7 +2,8 @@
   "id": "newspaper",
   "name": "Newspaper",
   "new_template": false,
-  "popular_template": true,
+  "new_scenes": true,
+  "popular_template": false,
   "description": "Editorial news-style template with headline cards, article lead, pull quotes, data snapshots, fact-check panels, and timelines.",
   "genres": [
     "Politics",
@@ -187,12 +188,12 @@
       "label": "Article Lead — Two Column",
       "defaults": {
         "titleFontSize": {
-          "portrait": 50,
-          "landscape": 50
+          "portrait": 65,
+          "landscape": 61
         },
         "descriptionFontSize": {
-          "portrait": 31,
-          "landscape": 30
+          "portrait": 37,
+          "landscape": 29
         }
       }
     },
@@ -200,11 +201,11 @@
       "label": "Article Lead — Sidebar Stat",
       "defaults": {
         "titleFontSize": {
-          "portrait": 50,
+          "portrait": 65,
           "landscape": 50
         },
         "descriptionFontSize": {
-          "portrait": 31,
+          "portrait": 38,
           "landscape": 29
         }
       }

@@ -16,7 +16,7 @@ import {
 import { VIDEO_STYLE_OPTIONS, normalizeVideoStyle, type VideoStyleId } from "../constants/videoStyles";
 import { SUPPORTED_CONTENT_LANGUAGES, getLanguageOptionLabel } from "../constants/languages";
 import UpgradePlanModal from "./UpgradePlanModal";
-import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge, PopularTemplateBadge, CustomTemplateBadge } from "./templatePreviewRegistry";
+import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge, NewScenesTemplateBadge, PopularTemplateBadge, CustomTemplateBadge } from "./templatePreviewRegistry";
 import CustomPreview from "./templatePreviews/CustomPreview";
 import CustomPreviewLandscape from "./templatePreviews/CustomPreviewLandscape";
 import CraftedTemplatePreviewSmart from "./templatePreviews/CraftedTemplatePreviewSmart";
@@ -90,7 +90,7 @@ function templateBucketsForGenre(
   }
   if (genreFilter === GENRE_NEW) {
     return {
-      suggestedTemplates: sourceList.filter((t) => t.new_template === true),
+      suggestedTemplates: sourceList.filter((t) => t.new_template === true || t.new_scenes === true),
       customTemplatesForStyle: [],
       craftedTemplatesForStyle: [],
     };
@@ -2500,7 +2500,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
   } = templateBucketsForGenre(genre, templates, readyCustomTemplates, readyCraftedTemplates);
 
   const sortedSuggestedTemplates = [...suggestedTemplates].sort((a, b) => {
-    const rank = (t: TemplateMeta) => (t.new_template ? 0 : t.popular_template ? 1 : 2);
+    const rank = (t: TemplateMeta) => (t.new_template ? 0 : t.new_scenes ? 1 : t.popular_template ? 2 : 3);
     return rank(a) - rank(b);
   });
 
@@ -2796,6 +2796,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
                 const desc = TEMPLATE_DESCRIPTIONS[t.id];
                 const isSelected = template === t.id;
                 const isNewTemplate = t.new_template === true;
+                const isNewScenes = t.new_scenes === true;
                 const isPopularTemplate = t.popular_template === true;
                 return (
                   <div
@@ -2806,6 +2807,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
                         ? "border-2 border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
                         : isNewTemplate
                         ? "border border-purple-500 shadow-[0_0_0_2px_rgba(124,58,237,0.2)] hover:border-purple-600"
+                        : isNewScenes
+                        ? "border border-sky-500 shadow-[0_0_0_2px_rgba(14,165,233,0.2)] hover:border-sky-600"
                         : isPopularTemplate
                         ? "border border-amber-400/60 shadow-[0_0_0_2px_rgba(245,158,11,0.15)] hover:border-amber-500"
                         : "border-2 border-gray-200/60 hover:border-purple-300/60"
@@ -2833,7 +2836,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
                           <NewTemplateBadge />
                         </div>
                       )}
-                      {!isNewTemplate && isPopularTemplate && (
+                      {!isNewTemplate && isNewScenes && (
+                        <div className="absolute top-0 left-0.5 z-[1]">
+                          <NewScenesTemplateBadge />
+                        </div>
+                      )}
+                      {!isNewTemplate && !isNewScenes && isPopularTemplate && (
                         <div className="absolute top-0.5 left-0.5 z-[1]">
                           <PopularTemplateBadge />
                         </div>
@@ -3189,7 +3197,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
       craftedTemplatesForStyle,
     } = templateBucketsForGenre(genre, templates, readyCustomTemplates, readyCraftedTemplates);
     const sortedBulkSuggestedTemplates = [...suggestedTemplates].sort((a, b) => {
-      const rank = (t: TemplateMeta) => (t.new_template ? 0 : t.popular_template ? 1 : 2);
+      const rank = (t: TemplateMeta) => (t.new_template ? 0 : t.new_scenes ? 1 : t.popular_template ? 2 : 3);
       return rank(a) - rank(b);
     });
     const styleTemplateItems: Array<
@@ -3557,6 +3565,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
                 const desc = TEMPLATE_DESCRIPTIONS[t.id];
                 const isSelected = tpl === t.id;
                 const isNewTemplate = t.new_template === true;
+                const isNewScenes = t.new_scenes === true;
                 const isPopularTemplate = t.popular_template === true;
                 return (
                   <div
@@ -3567,6 +3576,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
                         ? "border-2 border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
                         : isNewTemplate
                         ? "border border-purple-500 shadow-[0_0_0_2px_rgba(124,58,237,0.2)] hover:border-purple-600"
+                        : isNewScenes
+                        ? "border border-sky-500 shadow-[0_0_0_2px_rgba(14,165,233,0.2)] hover:border-sky-600"
                         : isPopularTemplate
                         ? "border border-amber-400/60 shadow-[0_0_0_2px_rgba(245,158,11,0.15)] hover:border-amber-500"
                         : "border-2 border-gray-200/60 hover:border-purple-300/60"
@@ -3592,7 +3603,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
                           <NewTemplateBadge />
                         </div>
                       )}
-                      {!isNewTemplate && isPopularTemplate && (
+                      {!isNewTemplate && isNewScenes && (
+                        <div className="absolute top-0 left-0.5 z-[1]">
+                          <NewScenesTemplateBadge />
+                        </div>
+                      )}
+                      {!isNewTemplate && !isNewScenes && isPopularTemplate && (
                         <div className="absolute top-0.5 left-0.5 z-[1]">
                           <PopularTemplateBadge />
                         </div>
