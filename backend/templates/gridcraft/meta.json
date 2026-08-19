@@ -871,45 +871,6 @@
           "type": "string"
         }
       ]
-    },
-    "bento_hero__v2": {
-      "label": "Bento Hero — Rail",
-      "defaults": {
-        "titleFontSize": {
-          "portrait": 88,
-          "landscape": 85
-        },
-        "descriptionFontSize": {
-          "portrait": 41,
-          "landscape": 37
-        }
-      }
-    },
-    "editorial_body__v2": {
-      "label": "Editorial Body — Column",
-      "defaults": {
-        "titleFontSize": {
-          "portrait": 65,
-          "landscape": 64
-        },
-        "descriptionFontSize": {
-          "portrait": 37,
-          "landscape": 38
-        }
-      }
-    },
-    "ending_socials__v2": {
-      "label": "Ending / Follow along — Card",
-      "defaults": {
-        "titleFontSize": {
-          "portrait": 50,
-          "landscape": 64
-        },
-        "descriptionFontSize": {
-          "portrait": 26,
-          "landscape": 30
-        }
-      }
     }
   },
   "layouts_without_image": [

@@ -81,19 +81,6 @@
         }
       ]
     },
-    "drawn_title__v2": {
-      "label": "Drawn Title — Big Reveal",
-      "defaults": {
-        "titleFontSize": {
-          "portrait": 81,
-          "landscape": 61
-        },
-        "descriptionFontSize": {
-          "portrait": 37,
-          "landscape": 27
-        }
-      }
-    },
     "marker_story": {
       "label": "Marker Story",
       "scene_defaults": {
@@ -131,19 +118,6 @@
         }
       ]
     },
-    "marker_story__v2": {
-      "label": "Marker Story — Photo Panel",
-      "defaults": {
-        "titleFontSize": {
-          "portrait": 70,
-          "landscape": 63
-        },
-        "descriptionFontSize": {
-          "portrait": 36,
-          "landscape": 28
-        }
-      }
-    },
     "stick_figure_scene": {
       "label": "Stick Figure Scene",
       "scene_defaults": {
@@ -180,19 +154,6 @@
           "step": 1
         }
       ]
-    },
-    "stick_figure_scene__v2": {
-      "label": "Stick Figure — Circus Juggler",
-      "defaults": {
-        "titleFontSize": {
-          "portrait": 73,
-          "landscape": 62
-        },
-        "descriptionFontSize": {
-          "portrait": 31,
-          "landscape": 28
-        }
-      }
     },
     "stats_figures": {
       "label": "Stats Figures",
@@ -842,19 +803,6 @@
           "placeholder": "https://yourwebsite.com"
         }
       ]
-    },
-    "ending_socials__v2": {
-      "label": "Ending — Signpost",
-      "defaults": {
-        "titleFontSize": {
-          "portrait": 74,
-          "landscape": 61
-        },
-        "descriptionFontSize": {
-          "portrait": 35,
-          "landscape": 24
-        }
-      }
     },
     "ticker_table": {
       "label": "Data Table",

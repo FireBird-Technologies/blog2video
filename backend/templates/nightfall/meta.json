@@ -808,45 +808,6 @@
           "placeholder": "https://yourwebsite.com"
         }
       ]
-    },
-    "cinematic_title__v2": {
-      "label": "Cinematic Title — Aperture",
-      "defaults": {
-        "titleFontSize": {
-          "portrait": 92,
-          "landscape": 86
-        },
-        "descriptionFontSize": {
-          "portrait": 38,
-          "landscape": 33
-        }
-      }
-    },
-    "glass_narrative__v2": {
-      "label": "Glass Narrative — Editorial Stack",
-      "defaults": {
-        "titleFontSize": {
-          "portrait": 58,
-          "landscape": 62
-        },
-        "descriptionFontSize": {
-          "portrait": 34,
-          "landscape": 31
-        }
-      }
-    },
-    "ending_socials__v2": {
-      "label": "Ending / Follow along — Constellation",
-      "defaults": {
-        "titleFontSize": {
-          "portrait": 82,
-          "landscape": 76
-        },
-        "descriptionFontSize": {
-          "portrait": 32,
-          "landscape": 30
-        }
-      }
     }
   },
   "layouts_without_image": [
