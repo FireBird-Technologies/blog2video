@@ -23,15 +23,16 @@ import { resolveCtas } from "../../shared/resolveCtas";
  *
  * Base pops the sign-off elements in as a stacked column. This one stages the close
  * as a CURTAIN CALL: a rule draws across the full width like a stage edge, the title
- * rises above it as the billing, and the CTA sits centred in a PulseRing — the last
- * light left on — with the socials as a marquee row beneath the rule.
+ * rises above it as the billing, and the CTAs sit centred against a PulseRing — the
+ * last lights left on — with the socials as a marquee row beneath the rule.
  *
  * The beam converges to centre rather than sweeping, so the scene closes inward
- * instead of moving on. A single FlashPop fires as the CTA lands.
+ * instead of moving on. A single FlashPop fires as the CTAs land.
  *
- * The CTA/socials resolution (`resolveCtas`, the `showWebsiteButton` + link filter,
- * `SocialIcons`) is reused UNCHANGED from the base — it is the one part of this
- * scene with real behavioural surface and must not be re-derived.
+ * The CTA/socials behaviour (`resolveCtas`, the `showWebsiteButton` + link filter,
+ * the 1-3 card row and its width rules, `SocialIcons`) matches the base layout —
+ * it is the one part of this scene with real behavioural surface and must not be
+ * re-derived. Only the dressing (accent pill, spring, staging) differs.
  *
  * Seeds 59/61 are fresh.
  */
@@ -66,7 +67,7 @@ export const EndingSocialsV2: React.FC<SpotlightLayoutProps> = ({
     (c) => c.showWebsiteButton && c.websiteLink.length > 0,
   );
   const hasAnyCard = cards.length > 0;
-  const primary = cards[0];
+  const cardCount = cards.length;
 
   // ── Timing ────────────────────────────────────────────────────────────────
   const TITLE_AT = 6;
@@ -89,15 +90,6 @@ export const EndingSocialsV2: React.FC<SpotlightLayoutProps> = ({
     extrapolateRight: "clamp",
   });
   const subOpacity = interpolate(frame, [TITLE_AT + 14, TITLE_AT + 30], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-  const ctaSpring = spring({
-    frame: frame - CTA_AT,
-    fps,
-    config: { damping: 15, stiffness: 215, mass: 1.1 },
-  });
-  const ctaOpacity = interpolate(frame, [CTA_AT, CTA_AT + 10], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -206,53 +198,88 @@ export const EndingSocialsV2: React.FC<SpotlightLayoutProps> = ({
           }}
         />
 
-        {/* ── The CTA: the last light left on ── */}
+        {/* ── The CTAs: the last lights left on ──
+               1-3 columns, mirroring the base layout's card row. The PulseRing
+               stays a single frame-centred ambient beat behind the whole row. */}
         {hasAnyCard ? (
           <div
             style={{
               position: "relative",
               marginTop: p ? 34 : 30,
               display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              opacity: ctaOpacity,
-              transform: `scale(${0.9 + ctaSpring * 0.1})`,
+              flexDirection: "row",
+              flexWrap: "wrap",
+              justifyContent: "center",
+              alignItems: "flex-start",
+              gap: p ? 18 : 32,
+              width: "100%",
             }}
           >
-            <PulseRing accentColor={accent} periodFrames={70} />
-            <div
-              style={{
-                fontFamily: displayFont,
-                fontWeight: 900,
-                fontSize: ctaPx,
-                letterSpacing: "0.02em",
-                textTransform: "uppercase",
-                color: text,
-                background: accent,
-                padding: p ? "14px 30px" : "12px 28px",
-                textAlign: "center",
-                maxWidth: "100%",
-                overflowWrap: "anywhere",
-              }}
-            >
-              {primary?.ctaButtonText.trim() || "Get started"}
-            </div>
-            <div
-              style={{
-                marginTop: p ? 12 : 10,
-                fontFamily: bodyFont,
-                fontWeight: 300,
-                fontSize: p ? 22 : 18,
-                letterSpacing: "0.12em",
-                color: text,
-                opacity: 0.8,
-                textAlign: "center",
-                wordBreak: "break-word",
-                maxWidth: "100%",
-              }}
-            >
-              {primary?.websiteLink}
-            </div>
+            {/* The ring only reads as a halo when it sits behind a single centred
+                CTA; with a row of cards it would circle empty space. */}
+            {cardCount === 1 ? <PulseRing accentColor={accent} periodFrames={70} /> : null}
+            {cards.map((card, idx) => {
+              // Each card lands after the one before it.
+              const cardAt = CTA_AT + idx * 6;
+              const cardSpring = spring({
+                frame: frame - cardAt,
+                fps,
+                config: { damping: 15, stiffness: 215, mass: 1.1 },
+              });
+              const cardOpacity = interpolate(frame, [cardAt, cardAt + 10], [0, 1], {
+                extrapolateLeft: "clamp",
+                extrapolateRight: "clamp",
+              });
+              return (
+                <div
+                  key={idx}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    flex: cardCount === 1 ? "0 1 auto" : "1 1 0",
+                    minWidth: 220,
+                    maxWidth: cardCount === 1 ? "100%" : cardCount === 2 ? "46%" : "32%",
+                    opacity: cardOpacity,
+                    transform: `scale(${0.9 + cardSpring * 0.1})`,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontFamily: displayFont,
+                      fontWeight: 900,
+                      fontSize: cardCount === 1 ? ctaPx : Math.max(20, ctaPx - 6),
+                      letterSpacing: "0.02em",
+                      textTransform: "uppercase",
+                      color: text,
+                      background: accent,
+                      padding: p ? "14px 30px" : "12px 28px",
+                      textAlign: "center",
+                      maxWidth: "100%",
+                      overflowWrap: "anywhere",
+                    }}
+                  >
+                    {card.ctaButtonText.trim() || "Get started"}
+                  </div>
+                  <div
+                    style={{
+                      marginTop: p ? 12 : 10,
+                      fontFamily: bodyFont,
+                      fontWeight: 300,
+                      fontSize: cardCount === 1 ? (p ? 22 : 18) : (p ? 18 : 15),
+                      letterSpacing: "0.12em",
+                      color: text,
+                      opacity: 0.8,
+                      textAlign: "center",
+                      wordBreak: "break-word",
+                      maxWidth: "100%",
+                    }}
+                  >
+                    {card.websiteLink}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         ) : null}
 
