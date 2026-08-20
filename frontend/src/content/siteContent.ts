@@ -8,7 +8,6 @@ import { defaultCta, templateProfiles, visibleTemplateProfiles } from "./marketi
 import { programmaticPages } from "./programmaticPages";
 import { resourcePages } from "./resourcePages";
 import type { BlogPost, MarketingPage } from "./seoTypes";
-import { getSubstackDirectoryPage, substackDirectoryPaths } from "./substackDirectory";
 import { templatePages } from "./templatePages";
 import { getTool, getToolByPath, tools, toolsHub } from "./tools";
 import { useCasePages } from "./useCasePages";
@@ -221,9 +220,6 @@ export function getDisplayTitle(path: string): string {
     if (post) return post.title;
   }
 
-  const substackDirectoryPage = getSubstackDirectoryPage(path);
-  if (substackDirectoryPage) return substackDirectoryPage.title;
-
   return "Blog2Video";
 }
 
@@ -237,7 +233,6 @@ export function getPublicPaths(): string[] {
     toolsHub.path,
     ...marketingPages.map((page) => page.path),
     ...tools.map((tool) => tool.path),
-    ...substackDirectoryPaths,
     ...blogPosts.map((post) => `/blogs/${post.slug}`),
     ...helpPosts.map((post) => `/help/${post.slug}`),
   ];
@@ -278,11 +273,6 @@ export function getPublicLinkDetails(path: string) {
   if (path.startsWith("/help/")) {
     const post = getHelpPost(path.replace("/help/", ""));
     if (post) return { path, label: post.title, description: post.description };
-  }
-
-  const substackDirectoryPage = getSubstackDirectoryPage(path);
-  if (substackDirectoryPage) {
-    return { path, label: substackDirectoryPage.title, description: substackDirectoryPage.description };
   }
 
   return null;

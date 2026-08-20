@@ -5,15 +5,12 @@ import {
   siteName,
   siteUrl,
 } from "../content/siteContent";
-import { pricingLabels } from "../content/substackDirectory";
 import { tools, toolsHub } from "../content/tools";
 import type {
   BlogPost,
   FaqItem,
   HelpPost,
   MarketingPage,
-  SubstackNiche,
-  SubstackPublication,
   ToolDefinition,
 } from "../content/seoTypes";
 
@@ -287,85 +284,6 @@ export function toolPageSchema(tool: ToolDefinition) {
     name: `FAQ — ${tool.title}`,
   });
   if (faq) schemas.push(faq);
-
-  return schemas;
-}
-
-export function substackDirectoryNicheSchema(
-  niche: SubstackNiche,
-  publications: SubstackPublication[],
-  path: string,
-  faq: FaqItem[],
-  pricing?: "free" | "paid" | "freemium"
-) {
-  const name = pricing ? `${pricingLabels[pricing]} ${niche.title}` : niche.title;
-  const schemas: Record<string, unknown>[] = [
-    {
-      "@context": "https://schema.org",
-      "@type": "CollectionPage",
-      name,
-      url: `${siteUrl}${path}`,
-      description: niche.description,
-    },
-    {
-      "@context": "https://schema.org",
-      "@type": "ItemList",
-      name: `${name} publication list`,
-      itemListElement: publications.map((publication, index) => ({
-        "@type": "ListItem",
-        position: index + 1,
-        name: publication.name,
-        url: `${siteUrl}/tools/substack-directory/publication/${publication.slug}`,
-      })),
-    },
-    breadcrumbList([
-      { name: "Home", path: "/" },
-      { name: "Tools", path: toolsHub.path },
-      { name: "Substack Directory", path: "/tools/substack-directory" },
-      { name, path },
-    ]),
-  ];
-
-  const faqPage = faqSchema(faq, {
-    pageUrl: `${siteUrl}${path}`,
-    name: `FAQ — ${name}`,
-  });
-  if (faqPage) schemas.push(faqPage);
-
-  return schemas;
-}
-
-export function substackDirectoryPublicationSchema(
-  publication: SubstackPublication,
-  path: string,
-  faq: FaqItem[]
-) {
-  const schemas: Record<string, unknown>[] = [
-    {
-      "@context": "https://schema.org",
-      "@type": "ProfilePage",
-      name: `${publication.name} on Substack`,
-      url: `${siteUrl}${path}`,
-      description: publication.description,
-      mainEntity: {
-        "@type": "CreativeWork",
-        name: publication.name,
-        description: publication.tagline,
-      },
-    },
-    breadcrumbList([
-      { name: "Home", path: "/" },
-      { name: "Tools", path: toolsHub.path },
-      { name: "Substack Directory", path: "/tools/substack-directory" },
-      { name: publication.name, path },
-    ]),
-  ];
-
-  const faqPage = faqSchema(faq, {
-    pageUrl: `${siteUrl}${path}`,
-    name: `FAQ — ${publication.name}`,
-  });
-  if (faqPage) schemas.push(faqPage);
 
   return schemas;
 }
