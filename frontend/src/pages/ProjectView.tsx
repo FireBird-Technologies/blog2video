@@ -122,6 +122,7 @@ import { normalizeVideoStyle } from "../constants/videoStyles";
 import { getPendingUpload } from "../stores/pendingUpload";
 import { FONT_REGISTRY, resolveFontFamily } from "../fonts/registry";
 import { getSceneLayoutLabel } from "../utils/layoutLabels";
+import { baseLayoutId } from "../utils/layoutVariants";
 import { resolveCustomImageBoxAr } from "../utils/customImageBoxAr";
 import { getTemplateConfig } from "../components/remotion/templateConfig";
 import { getImageBoxAspectRatio, normalizeLayoutId, isImageBoxCircular } from "../components/remotion/imageBoxConfig";
@@ -7004,7 +7005,11 @@ export default function ProjectView() {
                                       return scene.remotion_code ? JSON.parse(scene.remotion_code).layout : null;
                                     } catch { return null; }
                                   })();
-                                  const sceneSupportsImage = !sceneLayout || !layoutsWithoutImage.has(sceneLayout);
+                                  // `layoutsWithoutImage` is keyed by BASE layout, so a `__vN`
+                                  // variant (e.g. `ending_socials__v2`) must be resolved first —
+                                  // otherwise it misses the set and the image section shows on a
+                                  // layout that can't render one. Matches SceneEditModal.
+                                  const sceneSupportsImage = !sceneLayout || !layoutsWithoutImage.has(baseLayoutId(sceneLayout));
                                   const isCustomTpl = (project.template || "").startsWith("custom_");
                                   const ctId = isCustomTpl ? parseInt((project.template || "").replace("custom_", ""), 10) : NaN;
                                   const ctOgImage = isCustomTpl

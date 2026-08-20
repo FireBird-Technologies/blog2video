@@ -17278,4 +17278,265 @@ export const blogPosts: BlogPost[] = [
       },
     ],
   },
+  {
+    slug: "ai-video-generators-that-are-not-slop",
+    title: "AI Video Generators That Are Not Slop",
+    description:
+      "Slop is not a look, it is a production method. Two things separate the AI video generators that produce it from the ones that do not: programmatic rendering, and templates a human actually designed.",
+    category: "Comparison",
+    heroImage: "/blog/blog-cover-best-templates-explainers.png",
+    heroImageAlt:
+      "Editorial illustration contrasting generated AI footage with a video compiled programmatically from real source content inside a designed template.",
+    publishedAt: "2026-08-19",
+    readTime: "8 min read",
+    heroEyebrow: "Comparison",
+    heroTitle: "Most AI video generators make slop. Two things separate the ones that do not.",
+    heroDescription:
+      "It is not the model, the voice, or the resolution. It is whether the video is compiled from your actual content, and whether a human designed the template that content lands in.",
+    primaryKeyword: "ai video generator",
+    keywordVariant: "ai slop",
+    relatedPaths: [
+      "/blogs/ai-videos-are-slop-unless-they-are-relevant",
+      "/ai-video-generator-for-bloggers",
+      "/custom-branded-video-templates",
+      "/blog-to-video",
+    ],
+    sections: [
+      {
+        heading: "Slop is a production method, not an aesthetic",
+        paragraphs: [
+          "People usually describe slop by how it looks. The drifting camera over a city that does not exist. The stock photograph with a slow zoom on it. The face that is almost right. But the look is downstream of something more basic, and naming that is the only way to tell tools apart before you pay for one.",
+          "Slop is what you get when a video is generated about your content instead of from it. A prompt-to-video model takes a sentence and returns pixels. There is no fact anywhere in that pipeline. It has never seen your chart, so it cannot show your chart. It produces something adjacent and hopes the viewer does not check.",
+          "Viewers do check, and they detect it faster than most founders expect. What they register is not really 'a machine made this'. It is 'this does not know anything'. Filler reads as filler regardless of the render quality, which is why bumping the model to a better one does not fix it.",
+        ],
+      },
+      {
+        heading: "Difference one: the video is compiled, not dreamt",
+        paragraphs: [
+          "Programmatic video means the video is a program. Layouts are components with real parameters, your content is the data passed into them, and rendering is deterministic. The same input produces the same frames every time, because nothing is being sampled.",
+          "The consequence matters more than the mechanism. Nothing on screen arrives by accident. The headline on the title card is your headline because it was passed in as a string. The 41% is 41% because it was pulled out of your post, not because a model guessed a plausible-looking number. If a figure is wrong, that is a bug with a cause, not a roll of the dice.",
+          "It also changes what editing means. Fix a typo and only that word re-renders. Change one scene and the other eleven are untouched, frame for frame. A diffusion pipeline has to redraw everything and gives you a different video each time, which is why so many AI tools offer regeneration instead of editing.",
+        ],
+        bullets: [
+          "Deterministic renders — the same source produces the same video, so review actually means something.",
+          "Content-bound elements — every number, quote, and heading traces back to your source.",
+          "Scene-level edits — change one beat without losing the rest of the video.",
+          "Brand consistency — fifty videos from one template look like fifty videos from one publication.",
+        ],
+      },
+      {
+        heading: "Difference two: a human designed the template",
+        paragraphs: [
+          "Determinism on its own buys you accuracy, not taste. It is entirely possible to render precisely correct information into something nobody wants to watch. Taste has to enter the system somewhere, and the honest answer is that it enters through a designer, months before you ever open the tool.",
+          "That is what a human-designed template is: a type scale someone argued about, timings someone tuned by watching the same eight seconds forty times, easing curves, how a chart enters and what it does while the narrator explains it. Those decisions are made once and then applied by machine thousands of times. That is the actual leverage in this category, and it has almost nothing to do with the model.",
+          "The alternative — asking a model to decide layout, colour, and pacing per scene — produces the statistical average of every video it has ever seen. The average of everything is precisely what slop looks like. Nobody designed it, so it is nobody's design.",
+        ],
+      },
+      {
+        heading: "So what is the AI actually doing?",
+        paragraphs: [
+          "A fair question, given that I have just spent two sections arguing against generation. The AI in a non-slop pipeline does bounded jobs, each of which has a checkable output.",
+          "It reads the source and pulls out structure. It decides where scenes begin and end. It rewrites written prose into something that survives being read aloud, because a sentence with two subordinate clauses reads fine and collapses when spoken. It picks which of the designed layouts fits a given beat. It synthesises the voice, which is the one part of this that has quietly become excellent.",
+          "None of those steps produce pixels. The pixels come from the template. That division is the whole design: the model decides what goes where, the code decides that it is drawn correctly, and a person decided what correct looks like long before your file arrived.",
+        ],
+      },
+      {
+        heading: "How to tell in thirty seconds",
+        paragraphs: [
+          "You do not need a trial account to sort most of this category. Open any tool's sample gallery and run through the list below. It takes less time than reading the pricing page.",
+        ],
+        bullets: [
+          "Does a specific number, name, or quote from the source appear on screen, correctly? If every sample is generic, the tool cannot carry specifics.",
+          "Is there footage of something that never happened — people walking through an office, a drone shot of a city — attached to an article about something else entirely?",
+          "Can you edit one scene, or only regenerate the whole video? Regeneration-only is a tell that nothing is compiled.",
+          "Do two videos from the same brand look related, or did each one get a different personality?",
+          "Does the narration say things only your source could say, or things any article in the niche could say?",
+        ],
+      },
+      {
+        heading: "Two places we build it this way",
+        paragraphs: [
+          "Blog2Video is the version for written publishing. You give it a URL, a post, or a newsletter issue, and it follows your structure — your headings, your argument, your examples — into a template built by a designer rather than sampled by a model.",
+          "PDF2Vid is the same engine pointed at documents, where the stakes on accuracy are higher and the source is denser: reports, decks, whitepapers, research papers, lecture notes. A document has ground truth in it that a reader can go and verify, which makes it the least forgiving input in the category and the best test of whether a tool is actually reading your file.",
+          "Same principle, two different shapes of source material. If your content arrives as a document rather than a post, start there instead.",
+        ],
+        ctaPath: "https://pdf2vid.com",
+        ctaLabel: "See the document version at PDF2Vid",
+      },
+      {
+        heading: "Start with something you already wrote",
+        paragraphs: [
+          "The reason this whole argument holds together is that the input is already good. A published post has been through your judgement about what matters, what to cut, and what a reader will actually care about. None of that has to be regenerated, and regenerating it is how it gets flattened.",
+          "Take one post you are proud of, run it through, and watch the result with the checklist above open. That is a more useful evaluation of any tool in this category than a feature comparison table.",
+        ],
+        ctaPath: "/",
+        ctaLabel: "Try Blog2Video free",
+      },
+    ],
+    faq: [
+      {
+        question: "What is AI slop, exactly?",
+        answer:
+          "Content generated about a subject rather than from a source, with nothing verifiable underneath it. In video that usually means synthesised footage and vague narration that could belong to any article in the niche. The giveaway is not that it looks artificial, it is that it contains no specifics.",
+      },
+      {
+        question: "What does programmatic video mean?",
+        answer:
+          "The video is produced by code rather than sampled by a model. Layouts are components, your content is the data passed into them, and rendering is deterministic — the same input yields the same frames. It is why a number on screen can be traced back to the line it came from.",
+      },
+      {
+        question: "Is an AI video generator with human-designed templates still an AI tool?",
+        answer:
+          "Yes. AI does the reading, segmenting, script rewriting, layout matching, and voice. What it does not do is invent the visual design, which was made by a person once and is then applied consistently. That split is what keeps the output from averaging out into slop.",
+      },
+      {
+        question: "Which should I use for a PDF or a report?",
+        answer:
+          "PDF2Vid, which is built for document sources — reports, decks, whitepapers, papers. Blog2Video is the right one for posts, articles, and newsletter issues. Both render programmatically into designed templates, so the difference is the shape of what you are starting from.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "AI Video Generators That Are Not Slop",
+        angle:
+          "Category-defining explainer for the sceptical buyer, built on the programmatic-rendering and designed-template distinction.",
+      },
+      {
+        channel: "substack",
+        title: "Slop is a production method, not a look",
+        angle: "Essay version for a writer audience, leading with the definition rather than the product.",
+      },
+      {
+        channel: "video",
+        title: "How to spot AI slop in 30 seconds",
+        angle: "Run the five-point checklist over real sample galleries on screen.",
+      },
+      {
+        channel: "twitter",
+        title: "AI video slop is a production method, not an aesthetic",
+        angle: "Thread on the two differences, ending with the thirty-second checklist.",
+      },
+    ],
+  },
+  {
+    slug: "substack-video-70-percent-more-subscribers",
+    title: "Adding Video to a Substack Grew New Subscribers by 70%",
+    description:
+      "Two weeks of data from roughly 200 volunteer Substack writers who started publishing video alongside their posts: 4x total audience, 70% more new subscribers, and a 20% lift in open rate.",
+    category: "Strategy",
+    heroImage: "/blog/blog-cover-how-to-grow-your-substack-newsletter.png",
+    heroImageAlt:
+      "Editorial illustration of a Substack publication growing after its posts were turned into videos and distributed across YouTube, Instagram, TikTok, and LinkedIn.",
+    publishedAt: "2026-08-19",
+    readTime: "6 min read",
+    heroEyebrow: "Growth",
+    heroTitle: "Substack writers who added video grew new subscribers by 70%",
+    heroDescription:
+      "We asked around 200 volunteers who had been publishing video alongside their posts for two weeks what changed. The numbers were larger than I expected, and they came from distribution rather than from the videos themselves.",
+    primaryKeyword: "how to grow your substack",
+    keywordVariant: "substack video",
+    relatedPaths: [
+      "/for-substack-writers",
+      "/blogs/how-to-grow-your-substack-newsletter",
+      "/blogs/newsletter-substack-algorithm",
+      "/blog-to-shorts",
+    ],
+    sections: [
+      {
+        heading: "What we asked, and who we asked",
+        paragraphs: [
+          "Roughly 200 Substack writers using Blog2Video volunteered to report back after two weeks of turning their posts into videos. Two weeks is short and the group volunteered rather than being sampled, so treat this as a strong signal rather than a controlled study. I will come back to what that caveat costs at the end.",
+          "The instruction was simple: keep publishing the way you already do, but turn each issue into a video as well, and put that video where video already gets distributed.",
+        ],
+      },
+      {
+        heading: "1. Total audience went up about 4x",
+        paragraphs: [
+          "This is the number that surprised me least once I looked at where it came from. The writers who saw it were the ones who published the videos off Substack — YouTube, Instagram, TikTok, and LinkedIn — rather than only embedding them in the email.",
+          "That makes sense mechanically. A newsletter reaches the people who already subscribed. A video on YouTube or TikTok is shown to people who have never heard of you, by a system whose entire job is finding them. You did not make your writing four times better; you made it visible in four places that were previously closed to you because they do not distribute text.",
+        ],
+        bullets: [
+          "The lift came from off-platform publishing, not from the video existing.",
+          "YouTube and TikTok surface content to non-subscribers; email does not.",
+          "One issue became four uploads plus the original post.",
+        ],
+      },
+      {
+        heading: "2. New subscribers went up 70%",
+        paragraphs: [
+          "This is the headline. If you were adding 100 subscribers a week before, the writers in this group were adding about 170 after two weeks of publishing video alongside their posts.",
+          "The mechanism is the same as above, one step further along. Video reached people outside the subscriber list, and a share of those people followed the link back and subscribed. Nothing about the writing changed. The funnel simply got a wider mouth.",
+          "Seventy percent is a large number for a change that does not touch the product you are actually selling, which is your writing. It is the closest thing to a free lunch I have seen in newsletter growth, and the cost is that you now publish in two formats instead of one.",
+        ],
+      },
+      {
+        heading: "3. Open rate improved by about 20%",
+        paragraphs: [
+          "Writers reported roughly a 20% lift in open rate, and said people seemed to spend longer with the emails themselves. Time-on-email is notoriously hard to measure, so I would weight that part lightly.",
+          "The open rate part is easier to believe. If a reader has seen your face, your voice, or your visual style on another platform before your email lands, the subject line is arriving from someone recognisable rather than from a name in a list. Recognition is most of what an open rate measures.",
+        ],
+      },
+      {
+        heading: "The honest caveats",
+        paragraphs: [
+          "These are self-reported figures from volunteers who agreed to try something new, over two weeks. That selects for engaged writers who were already inclined to put effort in, and two weeks is short enough that novelty and seasonality are both live explanations for part of the effect.",
+          "What I am confident about is the direction and the mechanism, because the mechanism is boring and well understood: platforms that distribute video will show your work to strangers, and platforms that distribute email will not. Everything above follows from that. Whether your own numbers land at 70% or 25% depends on your niche and how consistently you publish.",
+        ],
+      },
+      {
+        heading: "How to run this yourself",
+        paragraphs: [
+          "The version the group ran is not complicated. Take the issue you just published, turn it into a video that follows the same structure, and upload it to YouTube, Instagram, TikTok, and LinkedIn with a link back to the post. Then embed it at the top of the email as well.",
+          "The reason this is now a few minutes rather than an afternoon is that the video is built from the post you already wrote — your headings, your argument, your examples — instead of being generated from a prompt. If you want the reasoning behind why that distinction matters for whether anyone watches, it is the subject of a separate piece on this blog.",
+        ],
+        ctaPath: "/",
+        ctaLabel: "Turn your next issue into a video",
+      },
+    ],
+    faq: [
+      {
+        question: "Where did these numbers come from?",
+        answer:
+          "Around 200 volunteer Substack writers using Blog2Video, self-reporting after two weeks of publishing video alongside their posts. It is a volunteer group over a short window, not a controlled study, so read it as a strong directional signal.",
+      },
+      {
+        question: "Do I have to post the videos off Substack to see the effect?",
+        answer:
+          "That is where the growth came from. The 4x audience and 70% subscriber figures belong to writers who published to YouTube, Instagram, TikTok, and LinkedIn. Embedding the video in the email alone helps engagement but does not reach anyone new.",
+      },
+      {
+        question: "Do I need to be on camera?",
+        answer:
+          "No. The videos in this group were built from the written posts — structure, headings, and examples rendered into designed templates with a synthesised narrator. No filming was involved.",
+      },
+      {
+        question: "How long does making the video take?",
+        answer:
+          "Minutes per issue, because the post supplies the script and the structure. The work that used to make this an afternoon job — scripting, layout, timing — is what the pipeline handles.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Adding Video to a Substack Grew New Subscribers by 70%",
+        angle: "Data post with the three headline numbers and an honest methodology caveat.",
+      },
+      {
+        channel: "substack",
+        title: "I asked 200 Substack writers what video did to their growth",
+        angle: "Lead with the 70% figure, keep the caveats prominent for a sceptical writer audience.",
+      },
+      {
+        channel: "video",
+        title: "70% more subscribers in two weeks",
+        angle: "Walk through the three numbers and the distribution mechanism behind them.",
+      },
+      {
+        channel: "twitter",
+        title: "200 Substack writers added video for two weeks. Here is what happened.",
+        angle: "Thread: 4x audience, 70% more subs, 20% better open rate, plus the caveats.",
+      },
+    ],
+  },
 ];
