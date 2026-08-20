@@ -98,8 +98,23 @@ export const blogPosts: BlogPost[] = [
         ctaPath: "https://bloghub.app",
         ctaLabel: "List your publication on BlogHub",
       },
+      {
+        heading: "The one channel on this list that works while you sleep",
+        paragraphs: [
+          "Every platform above has the same hidden cost: it only pays while you are actively feeding it. Stop posting on LinkedIn and the reach stops. Stop showing up in Notes and the subscribers stop. That is not a criticism of those channels so much as a description of what a feed is.",
+          "Directory listings are the exception, which is why they keep quietly outperforming their reputation. You submit a publication once and the page keeps being crawled, browsed, and linked from for as long as it is up. The catch is that most directories are dead, paywalled, or strip the link with a nofollow attribute — which is exactly why the eighty-site submission lists have such a bad name.",
+          "If you want the long version of which ones survive that filter and how to submit so the listing actually converts, we wrote both up on BlogHub: an honest five-place shortlist, and a full accounting of what a BlogHub listing itself gives you — free listing, followed links, a ranked page for your subject, and a weekly email that goes out to every subscriber even when your listing has no votes yet.",
+        ],
+        ctaPath: "https://bloghub.app/blogs/article-submission-sites",
+        ctaLabel: "5 places to submit your article",
+      },
     ],
     faq: [
+      {
+        question: "Are blog and newsletter directories still worth submitting to?",
+        answer:
+          "Yes, but only a handful of them. Mass submission to eighty article directories stopped working after Google's Panda update and can now hurt you. A small number of curated, genuinely browsed directories still deliver the one thing feeds never do: a permanent, indexable, followed link that keeps working after you stop promoting. BlogHub's write-up on why it is the best free blog directory covers what to look for in any of them.",
+      },
       {
         question: "Where should I promote my blog in 2026?",
         answer:
@@ -14906,6 +14921,16 @@ export const blogPosts: BlogPost[] = [
         ],
         ctaPath: "https://bloghub.app",
         ctaLabel: "List your publication on BlogHub",
+      },
+      {
+        heading: "How it compares to the rest of the directory landscape",
+        paragraphs: [
+          "The fair question to ask about any directory is what separates it from the eighty-link submission lists that gave the whole channel its bad reputation. There are four tests worth applying, and they are the ones we designed against: is the listing free with no expiry or upgrade gate, is the outbound link followed rather than nofollowed, does a real reader ever browse the category page, and is there a route to distribution that does not require you to already be popular.",
+          "That last test is the one almost nothing passes. On every upvote-driven platform the ranking is the distribution, so a slow start is a dead start. BlogHub sends subscribers a weekly digest of the top five publications and a second weekly digest of the five with the fewest votes — so a listing can reach the whole subscriber list precisely because it has not caught on yet.",
+          "We wrote both sides of this up in full over on BlogHub: the detailed case for the directory itself, and a wider shortlist of the five places still worth submitting an article, blog, or newsletter to in 2026.",
+        ],
+        ctaPath: "https://bloghub.app/blogs/why-bloghub-is-the-best-blog-directory",
+        ctaLabel: "Why BlogHub is the best free blog directory",
       },
     ],
     faq: [
