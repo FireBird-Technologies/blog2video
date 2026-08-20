@@ -1132,10 +1132,26 @@ def _image_capable_scenes(project: Project, db: Session) -> list[Scene]:
     Called at the SCRIPTED stage, where scenes exist with a ``preferred_layout``
     but no ``remotion_code`` yet (final layouts are resolved in step 3). So the
     image-capability test keys off preferred_layout, not the descriptor.
-    """
-    from app.services.template_service import get_layouts_without_image
 
-    template = (getattr(project, "template", "") or "").strip().lower()
+    A scene is treated as image-capable only when its layout is KNOWN and not in
+    ``layouts_without_image``. An unresolved/blank layout is excluded rather than
+    included: on script regeneration the layouts are re-planned from scratch, and
+    for custom templates ``_sanitize_script_layouts`` returns early (no fill-in),
+    so a slot can legitimately still be blank here. Treating blank as capable is
+    what made regeneration fetch a clip for every scene, image-capable or not —
+    the descriptor-stage fill (``_fill_missing_stock_clips_after_scene_gen``)
+    picks up any scene that resolves to a real image-capable layout later.
+    """
+    from app.services.template_service import (
+        get_layouts_without_image,
+        validate_template_id,
+    )
+
+    template = validate_template_id(
+        (getattr(project, "template", "") or "").strip() or "default",
+        db=db,
+        user_id=project.user_id,
+    )
     no_image = get_layouts_without_image(template)
     scenes = (
         db.query(Scene)
@@ -1145,8 +1161,11 @@ def _image_capable_scenes(project: Project, db: Session) -> list[Scene]:
     )
     out = []
     for s in scenes:
-        layout = (s.preferred_layout or "").strip()
-        if layout and layout in no_image:
+        # preferred_layout is always a BASE layout id (step 3 writes it through
+        # resolve_base_layout); the variant lives in remotion_code. So a plain
+        # membership test against layouts_without_image is correct here.
+        layout = _normalize_layout_id(s.preferred_layout)
+        if not layout or layout in no_image:
             continue
         out.append(s)
     return out
@@ -1612,19 +1631,53 @@ async def _fill_missing_stock_clips_after_scene_gen(
     db: Session,
     template_id: str,
 ) -> int:
-    """Assign clips to image-capable final layouts that missed the script-stage gate.
+    """Reconcile clips against the FINAL layouts resolved during scene generation.
 
-    Economist (and similar) may script a data layout (skipped by the gate) and then
-    resolve to ``leader_article`` during scene generation — those scenes need a clip here.
+    This is a RECONCILER, not the primary assigner. The main pass is
+    :func:`_prepare_stock_footage_candidates`, which runs concurrently with
+    descriptor generation and walks image-capable scenes one at a time; the
+    descriptor rebuild then carries its ``assignedVideo`` values across. On a
+    healthy run this function therefore assigns ZERO clips — a non-zero count
+    means the rebuild dropped clips and they are being paid for twice.
+
+    It still earns its place for the genuine edge cases: a scene the main pass
+    skipped (search miss / timeout), and layout churn — the script-stage gate
+    (:func:`_image_capable_scenes`) keys off the *scripted* ``preferred_layout``,
+    but scene generation can resolve a scene to a different layout and then
+    overwrite ``preferred_layout`` with it. So the fetch decision is made against
+    a layout that may no longer be the one being rendered. Both directions have
+    to be repaired here:
+
+    * no-image → image-capable: economist may script ``chart_line`` (skipped by the
+      gate) and resolve to ``leader_article`` — that scene needs a clip now.
+    * image-capable → no-image: a scene scripted as ``leader_article`` that resolves
+      to ``key_indicators`` is carrying a clip its layout cannot display. Left in
+      place the clip is dead weight — paid for, invisible, and still occupying a
+      slot against the free-plan cap. Drop it.
     """
-    from app.services.template_service import get_layouts_without_image
+    from app.routers.projects import _clear_video_assignment
+    from app.services.template_service import (
+        get_layouts_without_image,
+        resolve_base_layout,
+    )
 
     if not getattr(project, "stock_footage_enabled", False):
         return 0
 
     no_image = get_layouts_without_image(template_id)
+
+    def _is_no_image(descriptor: dict) -> bool | None:
+        """True/False for a known layout, None when the layout can't be resolved."""
+        layout = _normalize_layout_id(_descriptor_layout_name(template_id, descriptor))
+        if not layout:
+            return None
+        # Descriptors carry the resolved VARIANT id (`ending_socials__v2`);
+        # no_image is keyed by base layout, so collapse before testing.
+        return resolve_base_layout(template_id, layout) in no_image or layout in no_image
+
     needing: list[Scene] = []
     existing_clips = 0
+    dropped = 0
     for scene in scenes:
         if not scene.remotion_code:
             continue
@@ -1636,14 +1689,28 @@ async def _fill_missing_stock_clips_after_scene_gen(
         if lp.get("hideImage"):
             continue
         if lp.get("assignedVideo"):
+            # Only keep the clip if the FINAL layout can actually show it. An
+            # unresolvable layout (None) is left alone — never destroy an
+            # assignment on a guess.
+            if _is_no_image(descriptor) is True:
+                _clear_video_assignment(lp)
+                descriptor["layoutProps"] = lp
+                scene.remotion_code = json.dumps(descriptor)
+                dropped += 1
+                continue
             existing_clips += 1
             continue
         if lp.get("stockFootageImageFallback") and lp.get("assignedImage"):
             continue
-        layout = _descriptor_layout_name(template_id, descriptor) or ""
-        if not layout or layout in no_image:
+        if _is_no_image(descriptor) is not False:
             continue
         needing.append(scene)
+
+    if dropped:
+        logger.info(
+            "[PIPELINE] project=%s: dropped %s stock clip(s) whose final layout cannot display them",
+            project.id, dropped,
+        )
 
     cap = _stock_footage_scene_cap(project, db)
     if cap is not None:
@@ -1662,6 +1729,17 @@ async def _fill_missing_stock_clips_after_scene_gen(
     assigned = 0
     used_generics: set[str] = set()
     used_clip_ids: set[str] = set()
+
+    # One batched LLM pass before the assign loop, mirroring
+    # _prepare_stock_footage_candidates: its latency then sits OUTSIDE each
+    # scene's STOCK_CLIP_ASSIGN_TIMEOUT_SECONDS. Without it the few scenes this
+    # reconciler handles would fall back to keyword-only queries and get
+    # noticeably worse clips than the main path.
+    llm_queries = await _build_llm_stock_queries(project, needing, db)
+    refreshed = _reload_project(db, project.id)
+    if refreshed is not None:
+        project = refreshed
+
     for scene in needing:
         if await _try_assign_stock_clip_to_scene(
             project,
@@ -1671,6 +1749,7 @@ async def _fill_missing_stock_clips_after_scene_gen(
             loop=loop,
             used_generics=used_generics,
             used_clip_ids=used_clip_ids,
+            llm_query=llm_queries.get(scene.id),
         ):
             assigned += 1
 
@@ -2729,6 +2808,11 @@ async def _generate_scenes(
     # Re-load scenes to pick up voiceover changes from per-thread DB sessions.
     # expire_all is now redundant (db.close already cleared the identity map),
     # but kept as a no-op safeguard in case future code re-fetches before this.
+    # This freshness also carries the stock task's `assignedVideo` writes: it
+    # commits on its OWN session (sf_db) and asyncio.gather has already joined,
+    # so the rows are committed — but only a post-close/expire read sees them.
+    # The descriptor loop below reads scene.remotion_code to carry clips across
+    # the rebuild, so a stale load here would silently orphan every clip.
     db.expire_all()
     scenes = project.scenes
 
@@ -2828,12 +2912,21 @@ async def _generate_scenes(
             }
 
         has_layout_config = "layoutConfig" in descriptor
-        if preserve_image_assignments and scene.remotion_code:
+        # NOTE on the two conditions below: `preserve_image_assignments` governs
+        # USER image choices (assignedImage / hideImage) — a regenerated script
+        # legitimately re-picks stills, so those are dropped when it's False.
+        # A stock CLIP is different: it was fetched moments ago by THIS run's
+        # _stock_footage_task, so it is this run's own output, not a stale user
+        # choice. Dropping it here orphaned the downloaded asset (R2 object +
+        # Asset row) and made _fill_missing_stock_clips_after_scene_gen re-fetch
+        # every scene — the "more videos than scenes" bug. Clips therefore carry
+        # unconditionally; images stay gated.
+        if scene.remotion_code:
             try:
                 old_desc = json.loads(scene.remotion_code)
                 old_lp = old_desc.get("layoutProps") or {}
-                old_assigned = old_lp.get("assignedImage")
-                old_hide = old_lp.get("hideImage")
+                old_assigned = old_lp.get("assignedImage") if preserve_image_assignments else None
+                old_hide = old_lp.get("hideImage") if preserve_image_assignments else None
                 # A stock clip occupies the same visual slot as a still and is
                 # chosen BEFORE this stage (the generation-time review gate), so
                 # it must survive the descriptor rebuild too. Without this the
@@ -2908,11 +3001,13 @@ async def _generate_scenes(
     db.commit()
     logger.info("[PIPELINE] All %s scene descriptors committed to DB", len(scenes))
 
-    # Re-apply clips the project already owns, BEFORE the fill step below — that
+    # Re-apply clips the project already owns, BEFORE the reconcile below — that
     # step skips scenes which already carry `assignedVideo`, so restoring first is
     # what stops a re-fetch. Runs regardless of `preserve_image_assignments`.
-    # Scenes that resolved to an image-capable layout after the script-stage gate
-    # (e.g. economist chart_line → leader_article fallback) still need a clip.
+    # Reconciles BOTH directions against the layouts scene generation actually
+    # resolved: a scene that became image-capable (economist chart_line →
+    # leader_article) gets a clip, and a scene that became no-image
+    # (leader_article → key_indicators) has its unusable clip dropped.
     if getattr(project, "stock_footage_enabled", False):
         try:
             await _fill_missing_stock_clips_after_scene_gen(project, scenes, db, template_id)
