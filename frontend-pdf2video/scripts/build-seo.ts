@@ -64,6 +64,16 @@ function escapeHtml(value: string) {
     .replaceAll('"', "&quot;");
 }
 
+// A section CTA is a real in-content link — internal ones feed the crawlable
+// internal-link graph, external ones are followed links we intend to pass equity.
+// The React view renders these as anchors (react-router `Link` emits a plain <a>
+// for cross-origin URLs), so the prerendered HTML has to emit them too or the
+// link only exists for crawlers that execute JS.
+function renderSectionCtaHtml(ctaPath?: string, ctaLabel?: string): string {
+  if (!ctaPath) return "";
+  return `<p><a href="${escapeHtml(ctaPath)}">${escapeHtml(ctaLabel || "Try PDF2Video free")}</a></p>`;
+}
+
 function renderBlogPostHtml(post: BlogPost): string {
   const heroImg = post.heroImage
     ? `<img src="${post.heroImage}" alt="${escapeHtml(post.heroImageAlt ?? "")}" />`
@@ -74,7 +84,8 @@ function renderBlogPostHtml(post: BlogPost): string {
       const bullets = s.bullets?.length
         ? `<ul>${s.bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join("")}</ul>`
         : "";
-      return `<section><h2>${escapeHtml(s.heading)}</h2>${paras}${bullets}</section>`;
+      const cta = renderSectionCtaHtml(s.ctaPath, s.ctaLabel);
+      return `<section><h2>${escapeHtml(s.heading)}</h2>${paras}${bullets}${cta}</section>`;
     })
     .join("");
   const faqHtml = post.faq.length

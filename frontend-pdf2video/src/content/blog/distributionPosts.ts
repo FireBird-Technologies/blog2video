@@ -734,4 +734,128 @@ export const distributionPosts: BlogPost[] = [
       },
     ],
   },
+  {
+    slug: "the-ai-video-generators-that-are-not-slop",
+    title: "The AI Video Generators That Are Not Slop (Documents Expose the Rest)",
+    description:
+      "A document has ground truth in it, which makes it the least forgiving input in this category. Here is the test that sorts the tools that render your file from the ones that generate around it.",
+    category: "Craft",
+    heroImage: "/blog/blog-cover-pdf-to-video-ai-what-it-does-and-what-it-fakes.png",
+    heroImageAlt:
+      "A document has ground truth in it, which makes it the least forgiving input in this category. The test that sorts the tools that render your file from the ones that generate around it.",
+    publishedAt: "2026-08-19",
+    readTime: "7 min read",
+    heroEyebrow: "Evaluation",
+    heroTitle: "Documents are where AI video slop stops being deniable",
+    heroDescription:
+      "With a prompt as the input there is nothing to check the output against. With a report as the input there is — every figure, every citation, every chart. That is why documents are the honest test.",
+    primaryKeyword: "ai video maker",
+    keywordVariant: "ai slop",
+    relatedPaths: [
+      "/pdf-to-video",
+      "/ai-scene-editor",
+      "/blogs/pdf-to-video-ai-what-it-does-and-what-it-fakes",
+      "/blogs/what-goes-on-the-slide-and-what-goes-in-the-voiceover",
+    ],
+    sections: [
+      {
+        heading: "A document is the least forgiving input there is",
+        paragraphs: [
+          "Most complaints about AI video are aesthetic — the plastic faces, the drifting drone shot, the stock image with a slow zoom. Those are symptoms. The underlying condition is that a prompt-driven pipeline has no source of truth, so nothing it outputs can be wrong in a way anyone can point at.",
+          "Feed it a document and that protection disappears. Your annual report says 14.2%. Your paper cites a specific study. Your deck has a waterfall chart with labelled segments. A viewer can open the file and check. Anything the tool invented is now falsifiable, which is exactly why documents are the input that sorts this category.",
+        ],
+      },
+      {
+        heading: "The invention test",
+        paragraphs: [
+          "There is one question worth asking about any tool in this space, and it is not about the model, the voice, or the export resolution. It is this: does anything appear on screen that did not come out of my file?",
+          "A tool that passes shows you your chart, your number, your section heading, your diagram. A tool that fails shows you a generated approximation of a chart, or footage of a laboratory over a paragraph about clinical results, or a stylised city skyline above a supply chain figure. The second kind is not a weaker version of the first. It is a different product doing a different job, and the job is decoration.",
+          "This matters more than it sounds, because decoration in a document video is not neutral. It implies evidence that does not exist. A generic laboratory shot over your results section is a visual claim you did not make and cannot support.",
+        ],
+        bullets: [
+          "Every figure on screen should be traceable to a page in the source.",
+          "Charts should be your charts, not redrawn approximations of them.",
+          "Generated footage attached to a factual claim is a liability, not production value.",
+          "If the tool cannot show you where an element came from, assume it came from nowhere.",
+        ],
+      },
+      {
+        heading: "Programmatic rendering is what makes passing possible",
+        paragraphs: [
+          "A tool can only put your chart on screen if it extracted your chart and had somewhere structured to put it. That is what programmatic video means in practice: layouts are components with defined slots, the content pulled out of your document is the data filling those slots, and the render is deterministic. Same file in, same frames out.",
+          "Determinism is not a technical nicety here. It is the difference between reviewing a video and gambling on one. If you proofread a render and approve it, that approval still holds after you fix a typo and re-render, because only the changed element changes. A sampled pipeline gives you a new video every time, which means every regeneration invalidates the review you just did.",
+          "It also means an error has a cause. A number in the wrong place traces back to an extraction that misread a column, and that is fixable. A number that a model simply produced traces back to nothing.",
+        ],
+      },
+      {
+        heading: "Accuracy is not the same as watchable",
+        paragraphs: [
+          "You can render perfectly correct information into something nobody finishes. Deterministic output guarantees fidelity, not attention, and a stack of accurate slides read aloud is its own kind of unwatchable.",
+          "The part that closes that gap is a template a person designed: the type scale, how long a figure holds before the narrator moves on, what a chart does while it is being explained, the restraint to leave a slide nearly empty when the voiceover is carrying the weight. Those decisions get made once, by someone watching the same eight seconds forty times, and are then applied by machine across every document you put through.",
+          "Handing those decisions to a model instead produces the average of every video it has been trained on. The average of everything is precisely what people mean by slop — not badly made, but made by nobody in particular.",
+        ],
+      },
+      {
+        heading: "What to ask before you commit a document to a tool",
+        paragraphs: [
+          "Most of this is answerable from a sample gallery and a free tier, before any procurement conversation starts.",
+        ],
+        bullets: [
+          "Show me a sample where a real figure from the source document appears on screen, correctly.",
+          "Can I read the narration script before rendering? The rewrite step is where a hedge quietly becomes a claim.",
+          "Can I edit one scene, or only regenerate the whole video?",
+          "Are the templates fixed designs, or is a model choosing the layout each time?",
+          "Do two documents run through the same template come out looking like the same publisher?",
+        ],
+      },
+      {
+        heading: "Where this is built, for documents and for posts",
+        paragraphs: [
+          "PDF2Vid is the document side of this: reports, decks, whitepapers, research papers, lecture notes, technical documentation. Your file is parsed, its real content is bound into designed layouts, and the render is deterministic — which is the only way the invention test above can be passed rather than approximated.",
+          "The same engine points at written publishing over at Blog2Video, for posts, articles, and newsletter issues, where the source is a URL rather than a file. If your content lives as writing on the web rather than as a document, that is the one to start with — and it carries a longer version of the argument for why programmatic rendering and human-designed templates are the two things that separate this category.",
+        ],
+        ctaPath: "https://blog2video.app",
+        ctaLabel: "Read the post-and-newsletter version at Blog2Video",
+      },
+    ],
+    faq: [
+      {
+        question: "What makes an AI video generator 'slop'?",
+        answer:
+          "Generating imagery and narration around a topic rather than rendering the source you supplied. With a document as input it is easy to spot: nothing on screen traces back to a page in your file.",
+      },
+      {
+        question: "Why do documents expose this more than prompts do?",
+        answer:
+          "Because a document contains checkable facts. A prompt-generated video cannot be wrong about anything, since there is nothing to compare it to. A video made from your annual report can be wrong about 14.2%, and a reader can find out.",
+      },
+      {
+        question: "Does deterministic rendering mean the video is not AI-made?",
+        answer:
+          "No. AI still handles extraction, scene segmentation, rewriting prose into spoken narration, layout matching, and voice. What it does not do is draw the frames or invent the design, which is where the failure modes people call slop actually live.",
+      },
+      {
+        question: "I have blog posts rather than PDFs. Which tool applies?",
+        answer:
+          "Blog2Video, which takes a URL or a post as the source. PDF2Vid is the right one when the content arrives as a file — a report, a deck, a paper, a set of notes.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "The AI Video Generators That Are Not Slop",
+        angle: "Evaluation piece for a buyer comparing the category with a real document in hand.",
+      },
+      {
+        channel: "medium",
+        title: "Documents are where AI video slop stops being deniable",
+        angle: "Argument-led version for a marketing and comms audience.",
+      },
+      {
+        channel: "substack",
+        title: "The invention test",
+        angle: "Short essay on the single question that sorts document-to-video tools.",
+      },
+    ],
+  },
 ];
