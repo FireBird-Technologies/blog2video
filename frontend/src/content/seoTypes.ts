@@ -162,30 +162,3 @@ export interface ToolDefinition {
   faq: FaqItem[];
   relatedPaths: string[];
 }
-
-export type DirectoryPricingModel = "free" | "paid" | "freemium";
-
-export interface SubstackPublication {
-  slug: string;
-  name: string;
-  tagline: string;
-  description: string;
-  audience: string;
-  pricingModel: DirectoryPricingModel;
-  cadence: string;
-  tone: string;
-  bestFor: string[];
-  topics: string[];
-  differentiator: string;
-}
-
-export interface SubstackNiche {
-  slug: string;
-  name: string;
-  title: string;
-  description: string;
-  audience: string;
-  angle: string;
-  publicationSlugs: string[];
-  relatedNicheSlugs: string[];
-}
