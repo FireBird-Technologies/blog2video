@@ -4,10 +4,10 @@ export const toolsHub = {
   path: "/tools",
   title: "Free Creator And SEO Tools for Medium, Substack, and Content Teams",
   description:
-    "Free calculators, analyzers, formatters, generators, and directory pages for Medium, Substack, headlines, and content repurposing workflows.",
+    "Free calculators, analyzers, formatters, and generators for Medium, Substack, headlines, and content repurposing workflows.",
   heroTitle: "Free tools for creators who publish from writing first.",
   heroDescription:
-    "Estimate revenue, clean up markdown, score headlines, generate shareable quote cards, and browse curated Substack niches without leaving the site.",
+    "Estimate revenue, clean up markdown, score headlines, and generate shareable quote cards without leaving the site.",
 };
 
 export const tools: ToolDefinition[] = [
@@ -269,7 +269,6 @@ export const tools: ToolDefinition[] = [
       },
     ],
     relatedPaths: [
-      "/tools/substack-directory",
       "/tools/headline-analyzer",
       "/for-substack-writers",
       "/blogs/substack-newsletter-to-video-workflow",
@@ -332,24 +331,49 @@ export const tools: ToolDefinition[] = [
   {
     slug: "headline-analyzer",
     path: "/tools/headline-analyzer",
-    title: "Headline & Title Analyzer",
+    title: "Free Blog Title Checker & Headline Analyzer",
     description:
-      "Score headlines and titles for clarity, specificity, length, curiosity, audience fit, and platform match — including a dedicated YouTube title mode for thumbnail and search-friendly titles.",
-    eyebrow: "Analyzer",
-    heroTitle: "Score your title or headline and get rewrite suggestions you can actually use.",
+      "Free blog title checker: score any blog title or headline for clarity, specificity, length, curiosity, and audience fit, then get rewrite suggestions. No signup. Includes a YouTube title checker mode.",
+    eyebrow: "Free tool",
+    heroTitle:
+      "Free blog title checker and headline analyzer — score any title, then fix it.",
     heroDescription:
-      "See where a title is strong, where it is vague, and how to improve it for blogs, Medium, Substack, or YouTube — including a YouTube title checker mode — without relying on black-box scoring.",
+      "Paste a blog title, headline, or video title to see where it is strong, where it is vague, and exactly how to improve it for blogs, Medium, Substack, or YouTube — with a transparent score instead of a black-box number, and no signup.",
     category: "analyzer",
     icon: "HA",
-    primaryKeyword: "title analyzer",
-    keywordVariant: "youtube title checker",
-    badges: ["Deterministic scoring", "Rewrite suggestions", "YouTube title mode"],
+    primaryKeyword: "blog title checker",
+    keywordVariant: "headline analyzer",
+    badges: ["Free, no signup", "Deterministic scoring", "Rewrite suggestions", "YouTube title mode"],
     proofPoints: [
       "The score is broken into transparent factors instead of hidden behind a single number.",
       "Platform modes help the feedback match blog, newsletter, Medium, or YouTube title goals.",
       "Rewrite suggestions are based on the signals the analyzer found, not generic filler.",
     ],
     sections: [
+      {
+        title: "Using it as a blog title checker",
+        body: [
+          "Paste your blog title into the field above and the checker scores it immediately — no account, no email, no credit limit. You get a breakdown by factor rather than a single number, so you can see whether the problem is length, vagueness, a missing audience signal, or a missing reason to click.",
+          "Most blog titles fail for one of a small number of reasons, and the checker is built around them. A title is too long and gets truncated in search. It is abstract where it should be concrete. It describes the topic but never says who the post is for. It states a fact but gives the reader no reason to open it. Or it front-loads filler instead of the words someone would actually search.",
+          "The fix is usually smaller than writers expect. Adding a number, naming the audience, or moving the keyword four words earlier will often move a title from mediocre to strong without rewriting it from scratch — which is why the tool returns suggestions tied to what it found rather than a generic list of power words.",
+        ],
+        bullets: [
+          "Length, measured against where blog titles get truncated in search results.",
+          "Specificity — whether the title makes a concrete claim or gestures at a topic.",
+          "Keyword placement, since anything after the truncation point is invisible.",
+          "Curiosity and benefit: does the reader get a reason to click?",
+          "Audience framing — whether the title names who the post is for.",
+          "Clarity, including jargon, hedging, and stacked qualifiers.",
+        ],
+      },
+      {
+        title: "What separates a blog title that ranks from one that gets clicked",
+        body: [
+          "These are related but not the same goal, and a checker that collapses them into one score hides the tradeoff. A title that ranks contains the words people search and survives truncation. A title that gets clicked gives the reader a reason to choose it over the nine other results on the page.",
+          "The strongest blog titles do both, and they do it in a specific order: the searchable phrase near the front, the reason to click immediately after. \"Blog title checker\" followed by what the reader gets beats a clever phrase that buries the topic, because the clever phrase never enters the result set in the first place.",
+          "Scores are diagnostic, not predictive. No analyzer — this one included — can tell you a post will rank. What it can tell you is whether the title has a mechanical problem you would rather find before publishing than after.",
+        ],
+      },
       {
         title: "What gets scored",
         body: [
@@ -373,6 +397,21 @@ export const tools: ToolDefinition[] = [
     ],
     faq: [
       {
+        question: "Is this blog title checker free?",
+        answer:
+          "Yes. It runs in full with no account, no email, and no usage cap. There is nothing gated behind a signup.",
+      },
+      {
+        question: "What is a good blog title score?",
+        answer:
+          "Treat anything above 70 as strong and anything below 50 as needing a rewrite. But the factor breakdown matters more than the total: a title scoring 65 with one fixable weakness is better than a 75 that is vague across the board.",
+      },
+      {
+        question: "How long should a blog title be?",
+        answer:
+          "Roughly 50–60 characters keeps a title from being truncated in search results. The checker flags titles that run past the cut-off and shows you which words would disappear, so you can move the important ones earlier.",
+      },
+      {
         question: "Is this analyzer AI-generated?",
         answer:
           "No. The scoring is deterministic and rules-based so you can understand what the tool is rewarding or penalizing.",
@@ -395,6 +434,9 @@ export const tools: ToolDefinition[] = [
     ],
     relatedPaths: [
       "/tools/seo-title-checker",
+      "/blogs/blog-title-checker",
+      "/blogs/youtube-title-score-checker",
+      "/blogs/headline-score",
       "/tools/markdown-to-medium-substack-formatter",
       "/tools/quote-card-generator",
       "/blog-to-youtube-video",

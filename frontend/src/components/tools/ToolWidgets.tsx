@@ -4,15 +4,6 @@ import StockVisualizer from "./StockVisualizer";
 import SubstackValuationTool from "./SubstackValuationTool";
 import { Link } from "react-router-dom";
 import type { CredentialResponse } from "@react-oauth/google";
-import type { DirectoryPricingModel } from "../../content/seoTypes";
-import {
-  getSubstackDirectoryNichePath,
-  getSubstackDirectoryPricingPath,
-  getSubstackPublicationPath,
-  pricingLabels,
-  substackNiches,
-  substackPublications,
-} from "../../content/substackDirectory";
 import { useAuth } from "../../hooks/useAuth";
 import { isPaidPlan } from "../../lib/plan";
 import GoogleAuthButton from "../public/GoogleAuthButton";
@@ -1534,127 +1525,6 @@ function QuoteCardGenerator() {
   );
 }
 
-function SubstackDirectoryExplorer() {
-  const [query, setQuery] = useState("");
-  const [pricing, setPricing] = useState<DirectoryPricingModel | "all">("all");
-
-  const nicheMatches = useMemo(() => {
-    return substackNiches
-      .filter((niche) => {
-        const matchesQuery = !query
-          ? true
-          : `${niche.name} ${niche.description} ${niche.angle}`.toLowerCase().includes(query.toLowerCase());
-        if (!matchesQuery) return false;
-        if (pricing === "all") return true;
-        return niche.publicationSlugs.some((slug) => {
-          const publication = substackPublications.find((entry) => entry.slug === slug);
-          return publication?.pricingModel === pricing;
-        });
-      })
-      .slice(0, 12);
-  }, [pricing, query]);
-
-  const publicationMatches = useMemo(() => {
-    return substackPublications
-      .filter((publication) => {
-        const matchesQuery = !query
-          ? true
-          : `${publication.name} ${publication.tagline} ${publication.topics.join(" ")}`.toLowerCase().includes(query.toLowerCase());
-        const matchesPricing = pricing === "all" ? true : publication.pricingModel === pricing;
-        return matchesQuery && matchesPricing;
-      })
-      .slice(0, 8);
-  }, [pricing, query]);
-
-  return (
-    <div className="space-y-6">
-      <div className="grid gap-4 rounded-3xl border border-gray-200 bg-gray-50/70 p-6 md:grid-cols-[1fr_auto] md:items-end">
-        <Field label="Search niches or publications">
-          <input
-            type="text"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="AI, politics, growth, creators..."
-            className={inputClassName()}
-          />
-        </Field>
-        <Field label="Pricing model">
-          <select
-            className={inputClassName()}
-            value={pricing}
-            onChange={(event) => setPricing(event.target.value as DirectoryPricingModel | "all")}
-          >
-            <option value="all">All pricing models</option>
-            <option value="free">Free</option>
-            <option value="paid">Paid</option>
-            <option value="freemium">Freemium</option>
-          </select>
-        </Field>
-      </div>
-
-      <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
-        <div>
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-xl font-semibold text-gray-900">Niche pages</h3>
-            <Link to={getSubstackDirectoryNichePath("ai")} className="text-sm font-medium text-purple-700 hover:text-purple-800">
-              Explore a sample niche
-            </Link>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            {nicheMatches.map((niche) => (
-              <div
-                key={niche.slug}
-                className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-              >
-                <Link to={getSubstackDirectoryNichePath(niche.slug)} className="block">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-purple-600">{niche.name}</p>
-                  <h4 className="mt-2 text-lg font-semibold text-gray-900">{niche.title}</h4>
-                  <p className="mt-3 text-sm leading-relaxed text-gray-600">{niche.description}</p>
-                </Link>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {(["free", "paid", "freemium"] as DirectoryPricingModel[]).map((mode) => (
-                    <Link
-                      key={mode}
-                      to={getSubstackDirectoryPricingPath(niche.slug, mode)}
-                      className="rounded-full border border-gray-200 px-3 py-1 text-xs font-medium text-gray-500 hover:border-gray-300 hover:text-gray-900"
-                    >
-                      {pricingLabels[mode]}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <h3 className="mb-4 text-xl font-semibold text-gray-900">Publication profiles</h3>
-          <div className="space-y-4">
-            {publicationMatches.map((publication) => (
-              <Link
-                key={publication.slug}
-                to={getSubstackPublicationPath(publication.slug)}
-                className="block rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h4 className="text-lg font-semibold text-gray-900">{publication.name}</h4>
-                    <p className="mt-1 text-sm text-gray-500">{publication.tagline}</p>
-                  </div>
-                  <span className="rounded-full border border-purple-100 bg-purple-50 px-3 py-1 text-xs font-medium text-purple-700">
-                    {pricingLabels[publication.pricingModel]}
-                  </span>
-                </div>
-                <p className="mt-3 text-sm leading-relaxed text-gray-600">{publication.description}</p>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Login gate (hard) ───────────────────────────────────────────────────────
 // The tool's SEO content (hero, sections, FAQ) always renders via ToolPage, so
 // pages stay crawlable. The interactive widget itself is gated: anonymous
@@ -2445,8 +2315,6 @@ export function ToolWidget({ slug }: ToolWidgetProps) {
       return <SeoTitleChecker />;
     case "quote-card-generator":
       return <QuoteCardGenerator />;
-    case "substack-directory":
-      return <SubstackDirectoryExplorer />;
     case "stock-visualizer":
       return <StockVisualizer />;
     case "video-script-generator":

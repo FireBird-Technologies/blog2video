@@ -23,6 +23,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Python 3.11
+        id: setup-python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -31,16 +32,35 @@ jobs:
       # cache hit (requirements unchanged) the venv — including the slow
       # git-built litellm — is restored in seconds and the install step is
       # skipped. Only a change to requirements.txt triggers a fresh build.
+      #
+      # The key MUST pin the exact Python patch version, not just "3.11". A venv
+      # stores an absolute interpreter path in every console script's shebang, so
+      # a venv built under 3.11.9 and restored onto a runner with 3.11.13 leaves
+      # `.venv/bin/pytest` pointing at an interpreter that no longer exists. The
+      # script is present but unrunnable, and bash reports the confusing
+      # "cannot execute: required file not found" with exit 127.
       - name: Cache virtualenv
         id: cache-venv
         uses: actions/cache@v4
         with:
           path: backend/.venv
-          key: venv-${{ runner.os }}-py3.11-${{ hashFiles('backend/requirements.txt') }}
+          key: venv-${{ runner.os }}-py${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('backend/requirements.txt') }}
 
-      - name: Create venv + install dependencies (on cache miss)
-        if: steps.cache-venv.outputs.cache-hit != 'true'
+      # Belt and braces: even with the patch version in the key, a cache entry can
+      # be subtly unusable (partial upload, a runner image change under the same
+      # patch version). Verify the restored venv can actually execute before
+      # trusting it, and fall back to a rebuild instead of failing three steps
+      # later with an opaque 127.
+      - name: Verify restored venv is usable
+        id: venv-check
+        if: steps.cache-venv.outputs.cache-hit == 'true'
+        continue-on-error: true
+        run: .venv/bin/python -c "import sys; print(sys.version)"
+
+      - name: Create venv + install dependencies (on cache miss or unusable cache)
+        if: steps.cache-venv.outputs.cache-hit != 'true' || steps.venv-check.outcome == 'failure'
         run: |
+          rm -rf .venv
           python -m venv .venv
           .venv/bin/python -m pip install --upgrade pip
           .venv/bin/pip install -r requirements.txt

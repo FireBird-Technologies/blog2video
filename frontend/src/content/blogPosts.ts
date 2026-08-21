@@ -98,8 +98,23 @@ export const blogPosts: BlogPost[] = [
         ctaPath: "https://bloghub.app",
         ctaLabel: "List your publication on BlogHub",
       },
+      {
+        heading: "The one channel on this list that works while you sleep",
+        paragraphs: [
+          "Every platform above has the same hidden cost: it only pays while you are actively feeding it. Stop posting on LinkedIn and the reach stops. Stop showing up in Notes and the subscribers stop. That is not a criticism of those channels so much as a description of what a feed is.",
+          "Directory listings are the exception, which is why they keep quietly outperforming their reputation. You submit a publication once and the page keeps being crawled, browsed, and linked from for as long as it is up. The catch is that most directories are dead, paywalled, or strip the link with a nofollow attribute — which is exactly why the eighty-site submission lists have such a bad name.",
+          "If you want the long version of which ones survive that filter and how to submit so the listing actually converts, we wrote both up on BlogHub: an honest five-place shortlist, and a full accounting of what a BlogHub listing itself gives you — free listing, followed links, a ranked page for your subject, and a weekly email that goes out to every subscriber even when your listing has no votes yet.",
+        ],
+        ctaPath: "https://bloghub.app/blogs/article-submission-sites",
+        ctaLabel: "5 places to submit your article",
+      },
     ],
     faq: [
+      {
+        question: "Are blog and newsletter directories still worth submitting to?",
+        answer:
+          "Yes, but only a handful of them. Mass submission to eighty article directories stopped working after Google's Panda update and can now hurt you. A small number of curated, genuinely browsed directories still deliver the one thing feeds never do: a permanent, indexable, followed link that keeps working after you stop promoting. BlogHub's write-up on why it is the best free blog directory covers what to look for in any of them.",
+      },
       {
         question: "Where should I promote my blog in 2026?",
         answer:
@@ -4828,19 +4843,19 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: "blog-title-checker",
-    title: "5 Best Blog Title Checker Tools for SEO Rankings in 2026",
+    title: "6 Best Blog Title Checker Tools for SEO Rankings in 2026",
     description:
-      "The best free blog title checker tools compared — CoSchedule, WPBeginner, Capitalize My Title, Ideqo, and AIOSEO. Learn what separates a good title from one that ranks and gets clicked.",
+      "The best free blog title checker tools compared — Blog2Video, CoSchedule, WPBeginner, Capitalize My Title, Ideqo, and AIOSEO. Learn what separates a good title from one that ranks and gets clicked.",
     category: "SEO basics",
     heroImage: "/blog/blog-cover-blog-title-checker.png",
     heroImageAlt:
       "Blog title checker tools scoring headlines for SEO, emotion, and click-through potential.",
     publishedAt: "2026-07-14",
-    readTime: "5 min read",
+    readTime: "6 min read",
     heroEyebrow: "SEO basics",
-    heroTitle: "5 Best Blog Title Checker Tools for SEO Rankings in 2026",
+    heroTitle: "6 Best Blog Title Checker Tools for SEO Rankings in 2026",
     heroDescription:
-      "The best free blog title checker tools compared — CoSchedule, WPBeginner, Capitalize My Title, Ideqo, and AIOSEO. Learn what separates a good title from one that ranks and gets clicked.",
+      "The best free blog title checker tools compared — Blog2Video, CoSchedule, WPBeginner, Capitalize My Title, Ideqo, and AIOSEO. Learn what separates a good title from one that ranks and gets clicked.",
     primaryKeyword: "blog title checker",
     keywordVariant: "headline analyzer for blog titles",
     relatedPaths: ["/tools/headline-analyzer", "/blogs/headline-score", "/blogs/youtube-title-score-checker"],
@@ -4848,10 +4863,12 @@ export const blogPosts: BlogPost[] = [
       {
         heading: "Overview",
         paragraphs: [
-          "TL;DR: The five best blog title checker tools for SEO in 2026 — CoSchedule, WPBeginner, Capitalize My Title, Ideqo, and AIOSEO — compared on the feedback that actually separates a title that ranks and gets clicked from one that doesn't.",
+          "TL;DR: The six best blog title checker tools for SEO in 2026 — Blog2Video, CoSchedule, WPBeginner, Capitalize My Title, Ideqo, and AIOSEO — compared on the feedback that actually separates a title that ranks and gets clicked from one that doesn't.",
           "A blog post can be well-written, thoroughly researched, and technically optimized — and still fail to get clicks because the title doesn't connect. The title is the only part of your post that most people ever see. It determines whether they click in search results, in your newsletter, and on social media.",
-          "Blog title checker tools give you a quantified score and specific feedback on what your title is doing well and what it's missing. Here are the five best tools for checking and improving blog titles in 2026.",
+          "Blog title checker tools give you a quantified score and specific feedback on what your title is doing well and what it's missing. Here are the six best tools for checking and improving blog titles in 2026.",
         ],
+        ctaPath: "/tools/headline-analyzer",
+        ctaLabel: "Check your blog title free — no signup",
       },
       {
         heading: "What Does a Blog Title Checker Look For?",
@@ -4867,7 +4884,19 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       {
-        heading: "1. CoSchedule Blog Title Analyzer",
+        heading: "1. Blog2Video Blog Title Checker",
+        paragraphs: [
+          "Best for a transparent score with no signup — and yes, this is our tool",
+          "Full disclosure: we built this one. It is first on the list because it is the only checker here that shows you the whole scoring breakdown without an account, an email, or a usage cap — and because we think the factor-by-factor output is more useful than a single number you can't interrogate.",
+          "It scores a title on length, specificity, keyword placement, curiosity, benefit, audience framing, and clarity, then returns rewrite suggestions tied to the specific weaknesses it found rather than a generic list of power words. Where a title runs past the search truncation point, it shows you which words would disappear so you can move the important ones earlier.",
+          "There is also a YouTube mode that re-weights the score for video titles, which matters if you publish the same piece in both formats. If a tool on this list scores better for your workflow, use that one — but start here, because it costs nothing to check.",
+          "Free tier: Fully free, no account required Best for: Writers who want to see why a title scored what it did, not just the number",
+        ],
+        ctaPath: "/tools/headline-analyzer",
+        ctaLabel: "Score your blog title free",
+      },
+      {
+        heading: "2. CoSchedule Blog Title Analyzer",
         paragraphs: [
           "Best all-around free blog title checker",
           "CoSchedule is the most used title checker for bloggers. It scores across word balance, sentiment, character length, reading grade level, and skimmability. The results are detailed — you can see exactly which word categories are over- or under-represented.",
@@ -4876,7 +4905,7 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       {
-        heading: "2. WPBeginner Headline Analyzer",
+        heading: "3. WPBeginner Headline Analyzer",
         paragraphs: [
           "Best for: WordPress bloggers who want a dead-simple, fast checker",
           "WPBeginner's headline analyzer is the most straightforward tool on this list. You enter your title, get a score, and get a breakdown of what to improve. There's no account required, no friction, and no upsells.",
@@ -4885,7 +4914,7 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       {
-        heading: "3. Capitalize My Title Headline Analyzer",
+        heading: "4. Capitalize My Title Headline Analyzer",
         paragraphs: [
           "Best for: SEO-focused title optimization with 50+ data points",
           "Capitalize My Title's analyzer covers SEO keyword density, emotional words, power words, readability, and sentiment — over 50 data points total. The SEO scoring is more detailed than CoSchedule's, making it a better choice if you're optimizing specifically for search rankings rather than emotional resonance alone.",
@@ -4894,7 +4923,7 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       {
-        heading: "4. Ideqo Title Analyzer",
+        heading: "5. Ideqo Title Analyzer",
         paragraphs: [
           "Best for: Getting AI-rewritten alternatives after scoring",
           "Ideqo is the most AI-forward option. After scoring your title on clarity, specificity, emotional pull, curiosity, benefit, and audience fit, it generates rewritten alternatives with scores attached to each. You're not just getting feedback — you're getting replacements ready to use.",
@@ -4903,7 +4932,7 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       {
-        heading: "5. AIOSEO Headline Analyzer",
+        heading: "6. AIOSEO Headline Analyzer",
         paragraphs: [
           "Best for: WordPress users who want scoring inside the editor",
           "AIOSEO integrates directly into WordPress, which means you get real-time title scoring while you're writing your post — no opening a separate tab. It provides scores on word balance, sentiment, and character count with inline suggestions for improvement.",
@@ -4916,6 +4945,7 @@ export const blogPosts: BlogPost[] = [
         paragraphs: [
         ],
         bullets: [
+          "Blog2Video — Free: ✓ · No Login: ✓✓ · In-Editor: — · AI Rewrites: ✓ · SEO Scoring: ✓✓",
           "CoSchedule — Free: ✓ · No Login: Account needed · In-Editor: — · AI Rewrites: — · SEO Scoring: ✓",
           "WPBeginner — Free: ✓ · No Login: ✓✓ · In-Editor: — · AI Rewrites: — · SEO Scoring: ✓",
           "Capitalize My Title — Free: ✓ · No Login: ✓ · In-Editor: — · AI Rewrites: — · SEO Scoring: ✓✓",
@@ -4930,8 +4960,8 @@ export const blogPosts: BlogPost[] = [
           "Blog2Video turns your blog post into a professional video automatically. You paste the URL, choose a visual template, and get a narrated video ready to publish on YouTube, LinkedIn, or embedded in the post itself. The video uses the same content as the post, so you get a second distribution channel from the same writing without filming anything.",
           "Export options include MP4, PowerPoint, PDF, and PNG — so the blog post also becomes a LinkedIn carousel, a slide deck, and a shareable video simultaneously.",
         ],
-        ctaPath: "/tools/headline-analyzer",
-        ctaLabel: "Try the free headline analyzer",
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Turn your post into a video free",
       },
     ],
     faq: [
@@ -5331,9 +5361,9 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: "headline-score",
-    title: "5 Free Headline Score Checkers That Actually Improve Your CTR (2026)",
+    title: "6 Free Headline Score Checkers That Actually Improve Your CTR (2026)",
     description:
-      "The best free headline score tools analyzed — CoSchedule, Capitalize My Title, AIOSEO, Ideqo, and AMI. Find out which headline analyzer gives the most actionable feedback.",
+      "The best free headline score tools analyzed — Blog2Video, CoSchedule, Capitalize My Title, AIOSEO, Ideqo, and AMI. Find out which headline analyzer gives the most actionable feedback.",
     category: "SEO basics",
     heroImage: "/blog/blog-cover-headline-score.png",
     heroImageAlt:
@@ -5341,9 +5371,9 @@ export const blogPosts: BlogPost[] = [
     publishedAt: "2026-07-14",
     readTime: "5 min read",
     heroEyebrow: "SEO basics",
-    heroTitle: "5 Free Headline Score Checkers That Actually Improve Your CTR (2026)",
+    heroTitle: "6 Free Headline Score Checkers That Actually Improve Your CTR (2026)",
     heroDescription:
-      "The best free headline score tools analyzed — CoSchedule, Capitalize My Title, AIOSEO, Ideqo, and AMI. Find out which headline analyzer gives the most actionable feedback.",
+      "The best free headline score tools analyzed — Blog2Video, CoSchedule, Capitalize My Title, AIOSEO, Ideqo, and AMI. Find out which headline analyzer gives the most actionable feedback.",
     primaryKeyword: "headline score",
     keywordVariant: "headline score checker free",
     relatedPaths: ["/tools/headline-analyzer", "/blogs/blog-title-checker", "/blogs/youtube-title-score-checker"],
@@ -5370,7 +5400,18 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       {
-        heading: "1. CoSchedule Headline Analyzer",
+        heading: "1. Blog2Video Headline Score Checker",
+        paragraphs: [
+          "Full disclosure: we built this one. It is first because it is the only scorer on this list that shows the full factor breakdown with no account and no cap, and because it tells you which weakness cost you the points rather than handing back a number and a word-count chart.",
+          "It scores length, specificity, keyword placement, curiosity, benefit, audience framing, and clarity, then generates rewrite suggestions derived from the weaknesses it actually found. Where the headline runs past the search truncation point, it shows which words disappear so you can reorder rather than rewrite.",
+          "A platform switch re-weights the score for blog, Medium, Substack, or YouTube conventions, which matters because a headline that scores well for an inbox often scores badly on a results page.",
+          "Free tier: Fully free, no account required Best for: Writers who want an interrogable score instead of a black-box one",
+        ],
+        ctaPath: "/tools/headline-analyzer",
+        ctaLabel: "Get your headline score free",
+      },
+      {
+        heading: "2. CoSchedule Headline Analyzer",
         paragraphs: [
           "Best overall free headline scorer",
           "CoSchedule's Headline Analyzer is the most widely used free tool in this category. It scores on a 0–100 scale and breaks results down into word balance, sentiment, length, skimmability, and a reading grade level check.",
@@ -5379,7 +5420,7 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       {
-        heading: "2. Capitalize My Title Headline Analyzer",
+        heading: "3. Capitalize My Title Headline Analyzer",
         paragraphs: [
           "Best for: SEO + sentiment analysis in one place",
           "This free tool scores headlines using over 50 data points, covering SEO keyword density, emotional word count, power words, readability, and sentiment. It's faster than CoSchedule and gives more SEO-specific feedback.",
@@ -5388,7 +5429,7 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       {
-        heading: "3. AIOSEO Headline Analyzer",
+        heading: "4. AIOSEO Headline Analyzer",
         paragraphs: [
           "Best for: WordPress users",
           "AIOSEO's analyzer integrates directly with the WordPress editor, which means you get real-time headline scoring while you're writing your post — no copy-pasting into a separate tool. It provides scores on word balance, sentiment, and character count, plus suggestions for improvement without leaving the editor.",
@@ -5397,7 +5438,7 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       {
-        heading: "4. Ideqo Headline Analyzer",
+        heading: "5. Ideqo Headline Analyzer",
         paragraphs: [
           "Best for: AI-powered rewrites + scoring",
           "Ideqo goes a step further than pure scoring — after it scores your headline, it generates rewritten alternatives optimized for the dimensions where you scored lowest. That means you're not just getting feedback; you're getting replacement options ready to use.",
@@ -5406,7 +5447,7 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       {
-        heading: "5. AMI Emotional Marketing Value Headline Analyzer",
+        heading: "6. AMI Emotional Marketing Value Headline Analyzer",
         paragraphs: [
           "Best for: Checking emotional resonance specifically",
           "The Advanced Marketing Institute's EMV (Emotional Marketing Value) analyzer focuses exclusively on emotional impact. It scores your headline's intellectual, empathetic, and spiritual word appeal — which maps closely to how compelling a title feels rather than how search-optimized it is.",
@@ -5419,6 +5460,7 @@ export const blogPosts: BlogPost[] = [
         paragraphs: [
         ],
         bullets: [
+          "Blog2Video — Free: ✓✓ · Rewrites: ✓ · WordPress: — · SEO Focus: ✓✓ · Emotional Score: ✓",
           "CoSchedule — Free: ✓ · Rewrites: — · WordPress: — · SEO Focus: ✓ · Emotional Score: ✓",
           "Capitalize My Title — Free: ✓ · Rewrites: — · WordPress: — · SEO Focus: ✓✓ · Emotional Score: ✓",
           "AIOSEO — Free: ✓ · Rewrites: — · WordPress: ✓ · SEO Focus: ✓ · Emotional Score: ✓",
@@ -5462,9 +5504,9 @@ export const blogPosts: BlogPost[] = [
     distributionPlan: [
       {
         channel: "site",
-        title: "5 Free Headline Score Checkers That Actually Improve Your CTR (2026)",
+        title: "6 Free Headline Score Checkers That Actually Improve Your CTR (2026)",
         angle:
-          "The best free headline score tools analyzed — CoSchedule, Capitalize My Title, AIOSEO, Ideqo, and AMI. Find out which headline analyzer gives the most actionable feedback.",
+          "The best free headline score tools analyzed — Blog2Video, CoSchedule, Capitalize My Title, AIOSEO, Ideqo, and AMI. Find out which headline analyzer gives the most actionable feedback.",
       },
       {
         channel: "video",
@@ -7347,9 +7389,9 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: "youtube-title-score-checker",
-    title: "5 Best YouTube Title Score Checkers to Maximize Your CTR in 2026",
+    title: "6 Best YouTube Title Score Checkers to Maximize Your CTR in 2026",
     description:
-      "The best free YouTube title score checkers compared — TubeBuddy, Titles.video, Post Bridge, CoSchedule, and PrePublish.ai. Find out which analyzer gives the most actionable CTR feedback.",
+      "The best free YouTube title score checkers compared — Blog2Video, TubeBuddy, Titles.video, Post Bridge, CoSchedule, and PrePublish.ai. Find out which analyzer gives the most actionable CTR feedback.",
     category: "SEO basics",
     heroImage: "/blog/blog-cover-youtube-title-score-checker.png",
     heroImageAlt:
@@ -7357,9 +7399,9 @@ export const blogPosts: BlogPost[] = [
     publishedAt: "2026-07-14",
     readTime: "5 min read",
     heroEyebrow: "SEO basics",
-    heroTitle: "5 Best YouTube Title Score Checkers to Maximize Your CTR in 2026",
+    heroTitle: "6 Best YouTube Title Score Checkers to Maximize Your CTR in 2026",
     heroDescription:
-      "The best free YouTube title score checkers compared — TubeBuddy, Titles.video, Post Bridge, CoSchedule, and PrePublish.ai. Find out which analyzer gives the most actionable CTR feedback.",
+      "The best free YouTube title score checkers compared — Blog2Video, TubeBuddy, Titles.video, Post Bridge, CoSchedule, and PrePublish.ai. Find out which analyzer gives the most actionable CTR feedback.",
     primaryKeyword: "youtube title score checker",
     keywordVariant: "youtube title analyzer free",
     relatedPaths: ["/tools/headline-analyzer", "/youtube-seo-checklist", "/blogs/headline-score"],
@@ -7387,7 +7429,18 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       {
-        heading: "1. Titles.video — Best Overall YouTube Title Analyzer",
+        heading: "1. Blog2Video YouTube Title Checker — Best Free Score With No Signup",
+        paragraphs: [
+          "Full disclosure: this is our tool. It leads the list because it is the only checker here that gives you the complete scoring breakdown without an account, a trial, or a browser extension — and because the YouTube mode is built around the two things that actually decide CTR on a results page.",
+          "Switch the analyzer to YouTube mode and it re-weights scoring for video: whether your keyword is front-loaded, whether the title survives YouTube's roughly 60-character truncation in search and suggested results, and whether there is a real curiosity gap rather than a description of the contents. It flags the exact words that would be cut off, which is usually the fastest fix available.",
+          "It also scores blog and newsletter titles from the same interface, so a post you publish in both formats can be checked once for each context instead of running two tools.",
+          "Free tier: Fully free, no account required Best for: Creators who want to see which factor cost them points, not just a number",
+        ],
+        ctaPath: "/tools/headline-analyzer",
+        ctaLabel: "Score your YouTube title free",
+      },
+      {
+        heading: "2. Titles.video — Best Overall YouTube Title Analyzer",
         paragraphs: [
           "Best for: Creators who want scoring + AI-generated alternatives in one place",
           "Titles.video scores each title on a 0–100 scale across keyword relevance, emotional triggers, length, and curiosity gap. But the most useful feature is what it does after scoring: it generates five alternative titles based on your video content, each with its own score and a full SEO breakdown.",
@@ -7396,7 +7449,7 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       {
-        heading: "2. TubeBuddy Title Analyzer — Best Full YouTube Optimization Suite",
+        heading: "3. TubeBuddy Title Analyzer — Best Full YouTube Optimization Suite",
         paragraphs: [
           "Best for: Serious YouTube creators who want channel-wide optimization",
           "TubeBuddy is the most comprehensive YouTube optimization suite available. Its Title Generator suggests variations based on your topic and target keywords, and the Title Scorer evaluates across searchability, clickability, and character count.",
@@ -7405,7 +7458,7 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       {
-        heading: "3. Post Bridge YouTube Title Checker — Best for Thumbnail Preview + Score",
+        heading: "4. Post Bridge YouTube Title Checker — Best for Thumbnail Preview + Score",
         paragraphs: [
           "Best for: Creators who want to see exactly how their title looks in the feed",
           "Post Bridge scores titles based on length, mobile optimization, and best practices (80+ is excellent, 60–79 is good, below 60 needs improvement). The distinctive feature is thumbnail preview — you can upload your actual thumbnail and see a realistic preview of how your video will appear on YouTube desktop and mobile feeds before publishing.",
@@ -7414,7 +7467,7 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       {
-        heading: "4. CoSchedule YouTube Title Analyzer — Best Free Option for Multi-Platform Creators",
+        heading: "5. CoSchedule YouTube Title Analyzer — Best Free Option for Multi-Platform Creators",
         paragraphs: [
           "Best for: Creators who publish across YouTube, LinkedIn, podcasts, and blogs",
           "CoSchedule's analyzer supports YouTube titles alongside blog headlines, email subjects, and podcast titles. You can score and test titles across every channel in one tool.",
@@ -7423,7 +7476,7 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       {
-        heading: "5. PrePublish.ai YouTube Title Analyzer — Best for Hook-Aware Scoring",
+        heading: "6. PrePublish.ai YouTube Title Analyzer — Best for Hook-Aware Scoring",
         paragraphs: [
           "Best for: Creators who care about the relationship between title and video hook",
           "PrePublish.ai goes beyond the title itself — if your captions are available, it also scores the first 30 seconds of your video (the hook) and evaluates whether the title and hook are aligned. A great title that sets up a weak hook is still a CTR problem, just delayed.",
@@ -7436,6 +7489,7 @@ export const blogPosts: BlogPost[] = [
         paragraphs: [
         ],
         bullets: [
+          "Blog2Video — Free: ✓✓ · Alternatives: ✓ · Thumbnail Preview: — · Multi-Platform: ✓✓ · Hook Analysis: ✓",
           "Titles.video — Free: ✓ · Alternatives: ✓✓ · Thumbnail Preview: — · Multi-Platform: — · Hook Analysis: —",
           "TubeBuddy — Free: Limited · Alternatives: ✓ · Thumbnail Preview: — · Multi-Platform: — · Hook Analysis: —",
           "Post Bridge — Free: ✓ · Alternatives: — · Thumbnail Preview: ✓✓ · Multi-Platform: — · Hook Analysis: —",
@@ -7484,9 +7538,9 @@ export const blogPosts: BlogPost[] = [
     distributionPlan: [
       {
         channel: "site",
-        title: "5 Best YouTube Title Score Checkers to Maximize Your CTR in 2026",
+        title: "6 Best YouTube Title Score Checkers to Maximize Your CTR in 2026",
         angle:
-          "The best free YouTube title score checkers compared — TubeBuddy, Titles.video, Post Bridge, CoSchedule, and PrePublish.ai. Find out which analyzer gives the most actionable CTR feedback.",
+          "The best free YouTube title score checkers compared — Blog2Video, TubeBuddy, Titles.video, Post Bridge, CoSchedule, and PrePublish.ai. Find out which analyzer gives the most actionable CTR feedback.",
       },
       {
         channel: "video",
@@ -14906,6 +14960,16 @@ export const blogPosts: BlogPost[] = [
         ],
         ctaPath: "https://bloghub.app",
         ctaLabel: "List your publication on BlogHub",
+      },
+      {
+        heading: "How it compares to the rest of the directory landscape",
+        paragraphs: [
+          "The fair question to ask about any directory is what separates it from the eighty-link submission lists that gave the whole channel its bad reputation. There are four tests worth applying, and they are the ones we designed against: is the listing free with no expiry or upgrade gate, is the outbound link followed rather than nofollowed, does a real reader ever browse the category page, and is there a route to distribution that does not require you to already be popular.",
+          "That last test is the one almost nothing passes. On every upvote-driven platform the ranking is the distribution, so a slow start is a dead start. BlogHub sends subscribers a weekly digest of the top five publications and a second weekly digest of the five with the fewest votes — so a listing can reach the whole subscriber list precisely because it has not caught on yet.",
+          "We wrote both sides of this up in full over on BlogHub: the detailed case for the directory itself, and a wider shortlist of the five places still worth submitting an article, blog, or newsletter to in 2026.",
+        ],
+        ctaPath: "https://bloghub.app/blogs/why-bloghub-is-the-best-blog-directory",
+        ctaLabel: "Why BlogHub is the best free blog directory",
       },
     ],
     faq: [
