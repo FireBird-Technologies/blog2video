@@ -903,6 +903,7 @@ def write_remotion_data(
                 if i not in video_scene_indices
                 and scene_base_layouts[i] not in no_image_layouts
                 and not scene_layout_props[i].get("hideImage")
+                and not scene_layout_props[i].get("assignedImage")
             ]
             for idx, filename in zip(open_slots, spare_videos):
                 lp = scene_layout_props[idx]

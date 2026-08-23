@@ -4121,9 +4121,10 @@ export default function ProjectView() {
   const handleKeepGeneratedSceneImage = (sceneId: number) => {
     if (!generatedImageBase64) return;
     const dataUrl = `data:image/png;base64,${generatedImageBase64}`;
-    // When the Scene Edit modal for this scene is still open, keeping only STAGES the
-    // image into its form (persisted when the user hits Save). When the modal has been
-    // closed, keep saves the image to the scene directly.
+    // Keeping an image always saves it to the scene immediately — the tick is the
+    // confirm action, not a staging step. When the Scene Edit modal for this scene is
+    // still open, we also drop the file into its preview (already-saved) so the modal
+    // doesn't re-upload it again when the user later hits Save.
     const stageIntoOpenModal =
       sceneEditModal?.id === sceneId ? stageEditModalImageRef.current : null;
     // Close preview modal immediately so the spinner shows in the scene row
@@ -4135,14 +4136,11 @@ export default function ProjectView() {
     fetch(dataUrl)
       .then((r) => r.blob())
       .then((blob) => new File([blob], "generated.png", { type: "image/png" }))
-      .then((file) => {
-        if (stageIntoOpenModal) {
-          stageIntoOpenModal(file);
-          return;
-        }
-        return handleAddSceneImage(sceneId, file)
-          .catch(() => setGenerateImageError("Failed to use generated image"));
-      })
+      .then((file) =>
+        handleAddSceneImage(sceneId, file).then(() => {
+          if (stageIntoOpenModal) stageIntoOpenModal(file);
+        }),
+      )
       .catch(() => setGenerateImageError("Failed to use generated image"));
   };
 

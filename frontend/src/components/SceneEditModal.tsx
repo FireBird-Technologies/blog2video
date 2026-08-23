@@ -2824,6 +2824,9 @@ export default function SceneEditModal({
   const endingCtaButtonText = ctas[0]?.ctaButtonText ?? "";
   const [selectedLayout, setSelectedLayout] = useState("");
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  // True when selectedImageFile was already saved to the scene by the parent (kept AI
+  // image, saved on tick) — Save should show it but not re-upload the same file.
+  const selectedImageAlreadySavedRef = useRef(false);
   const [imageSourceChooserOpen, setImageSourceChooserOpen] = useState(false);
   const [scrapedImagesModalOpen, setScrapedImagesModalOpen] = useState(false);
   // Which asset kind the existing-media picker offers ("video" = reuse a clip,
