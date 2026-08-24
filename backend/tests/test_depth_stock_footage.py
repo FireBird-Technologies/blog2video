@@ -1413,7 +1413,7 @@ def test_descriptor_rebuild_image_beats_clip():
     Exercises the carry-over block of _generate_scenes by running the real
     source of that block, so the branch order cannot silently regress.
     """
-    import inspect, re
+    import inspect
     from app.routers import pipeline as pipeline_mod
 
     src = inspect.getsource(pipeline_mod._generate_scenes)
