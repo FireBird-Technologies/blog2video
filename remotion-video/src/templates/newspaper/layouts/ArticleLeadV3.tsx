@@ -9,6 +9,7 @@ import {
   staticFile,
 } from "remotion";
 import { NewsBackground, NewsPaperWash } from "../NewsBackground";
+import { useFitText } from "../components/useFitText";
 import type { BlogLayoutProps } from "../types";
 
 const H_FONT = "'Source Serif 4', Georgia, 'Times New Roman', serif";
@@ -35,6 +36,8 @@ export const ArticleLeadV3: React.FC<BlogLayoutProps & { imageUrl?: string }> = 
   aspectRatio = "landscape",
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   stats,
   imageUrl,
   imageObjectPosition,
@@ -47,7 +50,7 @@ export const ArticleLeadV3: React.FC<BlogLayoutProps & { imageUrl?: string }> = 
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
-  const { durationInFrames } = useVideoConfig();
+  const { durationInFrames, height: videoHeight } = useVideoConfig();
   const p = aspectRatio === "portrait";
 
   const fadeIn = interpolate(frame, [0, 18], [0, 1], { extrapolateRight: "clamp" });
@@ -111,7 +114,45 @@ export const ArticleLeadV3: React.FC<BlogLayoutProps & { imageUrl?: string }> = 
   const imageScale = interpolate(frame, [26, 48], [0.92, 1], { extrapolateRight: "clamp" });
   const hasVisual = Boolean(imageUrl || videoUrl);
 
-  const narrationSize = descriptionFontSize ?? (p ? 38 : 29);
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input. The narration box has
+     overflow:hidden inside a flex column with no other height cap, so long
+     copy is silently clipped rather than overflowing visibly. The visible
+     text is only a partial typewriter slice at most frames, so a hidden
+     mirror carrying the FULL narration (same font/width/drop-cap) is
+     measured instead, same pattern as ArticleLead.tsx. The title sits in a
+     fixed-percentage header band above the body, so it gets its own budget
+     off the frame height rather than sharing the body's. */
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const narrationBoxRef = React.useRef<HTMLDivElement>(null);
+  const narrationMirrorRef = React.useRef<HTMLDivElement>(null);
+
+  const titleTargetPx = titleFontSize ?? (p ? 65 : 50);
+  const titleBudgetPx = Math.round(videoHeight * (p ? 0.16 : 0.15));
+  const { px: titlePx } = useFitText(
+    titleRef,
+    titleTargetPx,
+    titleFontSizeIsUserSet ? titleTargetPx : Math.round(titleTargetPx * 0.42),
+    [title, titleTargetPx, titleFontSizeIsUserSet, titleBudgetPx],
+    titleBudgetPx,
+  );
+
+  const narrationTargetPx = descriptionFontSize ?? (p ? 38 : 29);
+  const [narrationBudgetPx, setNarrationBudgetPx] = React.useState(0);
+  React.useLayoutEffect(() => {
+    const el = narrationBoxRef.current;
+    if (!el) return;
+    const next = Math.max(1, el.offsetHeight);
+    setNarrationBudgetPx((prev) => (Math.abs(prev - next) <= 1 ? prev : next));
+  }, [titlePx, title, narration, p, hasVisual]);
+  const { px: narrationSize } = useFitText(
+    narrationMirrorRef,
+    narrationTargetPx,
+    descriptionFontSizeIsUserSet ? narrationTargetPx : p ? 18 : 15,
+    [narration, narrationTargetPx, descriptionFontSizeIsUserSet, narrationBudgetPx, p, hasVisual],
+    narrationBudgetPx,
+  );
+
   const statsValueSize = narrationSize + (p ? 40 : 52);
   const statsLabelSize = Math.max(12, narrationSize - 14);
 
@@ -191,9 +232,10 @@ export const ArticleLeadV3: React.FC<BlogLayoutProps & { imageUrl?: string }> = 
             }}
           />
           <div
+            ref={titleRef}
             style={{
               fontFamily: fontFamily ?? B_FONT,
-              fontSize: titleFontSize ?? (p ? 65 : 50),
+              fontSize: titlePx,
               fontWeight: 900,
               letterSpacing: "-0.02em",
               textTransform: "uppercase",
@@ -237,6 +279,7 @@ export const ArticleLeadV3: React.FC<BlogLayoutProps & { imageUrl?: string }> = 
             }}
           >
             <div
+              ref={narrationBoxRef}
               style={{
                 // Portrait stacks text over picture, so the paragraph sizes to
                 // its content and the stat band sits directly beneath it rather
@@ -244,6 +287,7 @@ export const ArticleLeadV3: React.FC<BlogLayoutProps & { imageUrl?: string }> = 
                 flex: p ? "0 1 auto" : 1,
                 minHeight: 0,
                 overflow: "hidden",
+                position: "relative",
                 fontFamily: fontFamily ?? B_FONT,
                 fontSize: narrationSize,
                 fontWeight: 500,
@@ -251,6 +295,40 @@ export const ArticleLeadV3: React.FC<BlogLayoutProps & { imageUrl?: string }> = 
                 lineHeight: 1.45,
               }}
             >
+              {/* Measurement mirror: full text, laid out identically, never
+                  painted. The visible text is only a partial typewriter slice
+                  at most frames, so it can't be measured directly. */}
+              <div
+                ref={narrationMirrorRef}
+                aria-hidden
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  visibility: "hidden",
+                  pointerEvents: "none",
+                  fontFamily: fontFamily ?? B_FONT,
+                  fontSize: narrationSize,
+                  fontWeight: 500,
+                  lineHeight: 1.45,
+                }}
+              >
+                <span
+                  style={{
+                    float: "left",
+                    fontFamily: fontFamily ?? H_FONT,
+                    fontSize: p ? 124 : 106,
+                    fontWeight: 800,
+                    lineHeight: 0.7,
+                    marginRight: 14,
+                    marginTop: 6,
+                    display: "inline-block",
+                  }}
+                >
+                  {dropChar}
+                </span>
+                <span>{narration.length > 1 ? narration.slice(1) : ""}</span>
+              </div>
+
               <span
                 style={{
                   float: "left",

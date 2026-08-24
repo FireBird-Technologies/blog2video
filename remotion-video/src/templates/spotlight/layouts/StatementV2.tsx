@@ -1,4 +1,5 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import React from "react";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
 import {
   AccentBars,
@@ -14,6 +15,7 @@ import {
 import type { SpotlightLayoutProps } from "../types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
 import { ZoomCropVideo } from "../components/ZoomCropVideo";
+import { useFitText } from "../components/useFitText";
 
 function normalizeToken(word: string): string {
   return word.toLowerCase().replace(/[.,!?:;]/g, "");
@@ -57,6 +59,7 @@ export const StatementV2: React.FC<SpotlightLayoutProps> = ({
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const fps = 30;
   const p = aspectRatio === "portrait";
   const accent = accentColor || "#EF4444";
@@ -100,8 +103,34 @@ export const StatementV2: React.FC<SpotlightLayoutProps> = ({
     extrapolateRight: "clamp",
   });
 
-  const quotePx = titleFontSize ?? (p ? 66 : 72);
-  const attrPx = descriptionFontSize ?? (p ? 24 : 20);
+  /* ── Auto-fit ──────────────────────────────────────────────
+     The quote (title/narration) is unbounded user input rendered at huge
+     display sizes with no height cap; long copy would overflow the quote
+     column. Each line is fully rendered in the DOM from frame 0 — clipPath
+     only crops it visually for the wipe reveal, it doesn't change measured
+     height — so the quote block is safe to ref directly. Attribution is a
+     short, single-line field (the scene title), fit against a small budget
+     for consistency rather than because it typically needs to shrink. */
+  const quoteRef = React.useRef<HTMLDivElement>(null);
+  const attrRef = React.useRef<HTMLDivElement>(null);
+  const quoteTargetPx = titleFontSize ?? (p ? 66 : 72);
+  const attrTargetPx = descriptionFontSize ?? (p ? 24 : 20);
+  const quoteBudgetPx = Math.round(height * (p ? 0.42 : 0.5));
+  const { px: quotePx } = useFitText(
+    quoteRef,
+    quoteTargetPx,
+    p ? 28 : 32,
+    [quote, quoteTargetPx, quoteBudgetPx],
+    quoteBudgetPx,
+  );
+  const attrBudgetPx = Math.round(height * 0.08);
+  const { px: attrPx } = useFitText(
+    attrRef,
+    attrTargetPx,
+    p ? 14 : 12,
+    [title, attrTargetPx, attrBudgetPx, quotePx],
+    attrBudgetPx,
+  );
 
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor || "#000000", overflow: "hidden" }}>
@@ -184,6 +213,7 @@ export const StatementV2: React.FC<SpotlightLayoutProps> = ({
           />
 
           <div style={{ minWidth: 0, flex: 1 }}>
+            <div ref={quoteRef}>
             {lines.map((lineWords, li) => {
               const at = LINE_START + li * LINE_EVERY;
               // Horizontal mask wipe — the variant's reveal grammar.
@@ -224,6 +254,7 @@ export const StatementV2: React.FC<SpotlightLayoutProps> = ({
                 </div>
               );
             })}
+            </div>
 
             {/* Attribution rule + the scene title as the source line. */}
             <div
@@ -237,6 +268,7 @@ export const StatementV2: React.FC<SpotlightLayoutProps> = ({
             >
               <div style={{ height: 2, width: p ? 40 : 54, background: accent, flexShrink: 0 }} />
               <div
+                ref={attrRef}
                 style={{
                   fontFamily: bodyFontFamily,
                   fontWeight: 300,
@@ -245,6 +277,7 @@ export const StatementV2: React.FC<SpotlightLayoutProps> = ({
                   textTransform: "uppercase",
                   color: text,
                   opacity: 0.75,
+                  flex: 1,
                   minWidth: 0,
                   overflowWrap: "anywhere",
                 }}

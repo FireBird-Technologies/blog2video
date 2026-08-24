@@ -44,10 +44,13 @@ export const Closer: React.FC<SpotlightLayoutProps> = ({
 
   /* ── Auto-fit ──────────────────────────────────────────────
      Statement text and CTA line are unbounded user input stacked in one
-     column with no height cap. Fit the statement to its own budget first, then
-     the CTA to what's left; if the CTA bottoms out at its floor and still
-     overflows, give back that much from the statement's budget (same cascade
-     as newspaper's NewsHeadline). */
+     column with no height cap. Each fits against its own fixed, independent
+     budget. No give-back cross-talk: a useLayoutEffect+setState chain
+     reacting to another useFitText's overflow output creates a multi-render
+     convergence that Remotion's per-frame headless capture can settle at
+     different points on different frames (confirmed via a real render —
+     frame-to-frame scene-change score hit 1.0, i.e. maximum, twice in the
+     first ten frames, in the equivalent newscast/newspaper opening scenes). */
   const statementRef = React.useRef<HTMLDivElement>(null);
   const ctaRef = React.useRef<HTMLDivElement>(null);
   const statementTargetPx = titleFontSize ?? (p ? 55 : 42);
@@ -57,31 +60,22 @@ export const Closer: React.FC<SpotlightLayoutProps> = ({
 
   const stackBudgetPx = Math.round(height * (hasImageForFit && !p ? 0.55 : p ? 0.55 : 0.65));
   const statementBudgetPx = Math.round(stackBudgetPx * 0.62);
-  const [ctaGiveBackPx, setCtaGiveBackPx] = React.useState(0);
-  React.useLayoutEffect(() => {
-    setCtaGiveBackPx(0);
-  }, [displayTextForFit, displayCtaForFit, statementTargetPx, ctaTargetPx, stackBudgetPx]);
 
   const { px: statementPx } = useFitText(
     statementRef,
     statementTargetPx,
     p ? 24 : 20,
-    [displayTextForFit, statementTargetPx, statementBudgetPx, ctaGiveBackPx],
-    Math.max(1, statementBudgetPx - ctaGiveBackPx),
+    [displayTextForFit, statementTargetPx, statementBudgetPx],
+    statementBudgetPx,
   );
   const ctaBudgetPx = Math.max(1, stackBudgetPx - statementBudgetPx);
-  const { px: ctaPx, overflowPx: ctaOverflowPx } = useFitText(
+  const { px: ctaPx } = useFitText(
     ctaRef,
     ctaTargetPx,
     p ? 20 : 18,
     [displayCtaForFit, ctaTargetPx, ctaBudgetPx, statementPx],
     ctaBudgetPx,
   );
-  React.useLayoutEffect(() => {
-    if (ctaOverflowPx > 0) {
-      setCtaGiveBackPx((prev) => Math.min(statementBudgetPx * 0.7, prev + ctaOverflowPx));
-    }
-  }, [ctaOverflowPx, statementBudgetPx]);
 
   const blurSpring = spring({
     frame,

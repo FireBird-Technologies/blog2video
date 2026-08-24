@@ -41,12 +41,7 @@ const StepTile: React.FC<{
   const actualTitleFontSize = titleFontSize ?? (p ? 36 : 42);
   const actualDescriptionFontSize = descriptionFontSize ?? (p ? 22 : 22);
 
-  const [labelGiveBackPx, setLabelGiveBackPx] = React.useState(0);
-  React.useLayoutEffect(() => {
-    setLabelGiveBackPx(0);
-  }, [label, description, actualTitleFontSize, actualDescriptionFontSize, budgetPx]);
-
-  const labelBudgetPx = Math.max(1, budgetPx * (description ? 0.45 : 1) - labelGiveBackPx);
+  const labelBudgetPx = Math.max(1, budgetPx * (description ? 0.45 : 1));
   const { px: labelPx } = useFitText(
     labelRef,
     actualTitleFontSize,
@@ -55,18 +50,13 @@ const StepTile: React.FC<{
     labelBudgetPx,
   );
   const descBudgetPx = Math.max(1, budgetPx - labelBudgetPx);
-  const { px: descPx, overflowPx: descOverflowPx } = useFitText(
+  const { px: descPx } = useFitText(
     descRef,
     actualDescriptionFontSize,
     descriptionFontSizeIsUserSet ? actualDescriptionFontSize : p ? 13 : 14,
     [description, actualDescriptionFontSize, descriptionFontSizeIsUserSet, descBudgetPx, labelPx],
     descBudgetPx,
   );
-  React.useLayoutEffect(() => {
-    if (titleFontSizeIsUserSet || descOverflowPx <= 0) return;
-    setLabelGiveBackPx((prev) => Math.min(labelBudgetPx * 0.7, prev + descOverflowPx));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [descOverflowPx, titleFontSizeIsUserSet]);
 
   return (
     <div style={style}>

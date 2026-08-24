@@ -47,9 +47,14 @@ export const PullQuote: React.FC<GridcraftLayoutProps> = ({
 
   /* ── Auto-fit ──────────────────────────────────────────────
      The card is `width:90%; height:80%` with `justifyContent:"center"`, so the
-     quote and attribution have no natural clientHeight budget. Fit the quote
-     to a fixed fraction of the frame first; the attribution fits the
-     remainder, with give-back cascading like NewsHeadline. */
+     quote and attribution have no natural clientHeight budget. Each fits
+     against its own fixed, independent fraction of the frame. No give-back
+     cross-talk between the two: a useLayoutEffect+setState chain reacting to
+     another useFitText's overflow output creates a multi-render convergence
+     that Remotion's per-frame headless capture can settle at different
+     points on different frames (confirmed via a real render — frame-to-frame
+     scene-change score hit 1.0, i.e. maximum, twice in the first ten frames,
+     in the equivalent newscast/newspaper opening scenes). */
   const quoteRef = React.useRef<HTMLDivElement>(null);
   const attributionRef = React.useRef<HTMLDivElement>(null);
   const actualQuoteFontSize = titleFontSize ?? (p ? 49 : 50);
@@ -57,30 +62,20 @@ export const PullQuote: React.FC<GridcraftLayoutProps> = ({
   const quoteBudgetPx = Math.max(1, videoHeight * (p ? 0.34 : 0.36));
   const attributionBudgetPx = Math.max(1, videoHeight * 0.08);
 
-  const [quoteGiveBackPx, setQuoteGiveBackPx] = React.useState(0);
-  React.useLayoutEffect(() => {
-    setQuoteGiveBackPx(0);
-  }, [text, source, actualQuoteFontSize, actualAttributionFontSize, quoteBudgetPx, hasImage, p]);
-
   const { px: quotePx } = useFitText(
     quoteRef,
     actualQuoteFontSize,
     titleFontSizeIsUserSet ? actualQuoteFontSize : p ? 24 : 22,
-    [text, actualQuoteFontSize, titleFontSizeIsUserSet, quoteBudgetPx, quoteGiveBackPx, hasImage, p],
-    Math.max(1, quoteBudgetPx - quoteGiveBackPx),
+    [text, actualQuoteFontSize, titleFontSizeIsUserSet, quoteBudgetPx, hasImage, p],
+    quoteBudgetPx,
   );
-  const { px: attributionPx, overflowPx: attributionOverflowPx } = useFitText(
+  const { px: attributionPx } = useFitText(
     attributionRef,
     actualAttributionFontSize,
     descriptionFontSizeIsUserSet ? actualAttributionFontSize : p ? 14 : 13,
     [source, actualAttributionFontSize, descriptionFontSizeIsUserSet, attributionBudgetPx, quotePx, hasImage, p],
     attributionBudgetPx,
   );
-  React.useLayoutEffect(() => {
-    if (titleFontSizeIsUserSet || attributionOverflowPx <= 0) return;
-    setQuoteGiveBackPx((prev) => Math.min(quoteBudgetPx * 0.5, prev + attributionOverflowPx));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [attributionOverflowPx, titleFontSizeIsUserSet]);
 
   const imageOpacity = interpolate(frame, [5, 25], [0, 1], { extrapolateRight: "clamp" });
   const imageScale = spring({ frame: Math.max(0, frame - 5), fps, config: { damping: 14 } });

@@ -55,12 +55,8 @@ const FeatureCard: React.FC<{
 
   // Reserve room for the icon + padding; split the rest between label/desc.
   const usable = Math.max(1, cellHeightPx - (icon ? 60 : 0) - 48);
-  const [labelGiveBackPx, setLabelGiveBackPx] = React.useState(0);
-  React.useLayoutEffect(() => {
-    setLabelGiveBackPx(0);
-  }, [label, description, actualTitleFontSize, actualDescriptionFontSize, usable]);
 
-  const labelBudgetPx = Math.max(1, usable * (description ? 0.45 : 1) - labelGiveBackPx);
+  const labelBudgetPx = Math.max(1, usable * (description ? 0.45 : 1));
   const { px: labelPx } = useFitText(
     labelRef,
     actualTitleFontSize,
@@ -70,19 +66,13 @@ const FeatureCard: React.FC<{
   );
 
   const descBudgetPx = Math.max(1, usable - labelBudgetPx);
-  const { px: descPx, overflowPx: descOverflowPx } = useFitText(
+  const { px: descPx } = useFitText(
     descRef,
     actualDescriptionFontSize,
     descriptionFontSizeIsUserSet ? actualDescriptionFontSize : p ? 14 : 15,
     [description, actualDescriptionFontSize, descriptionFontSizeIsUserSet, descBudgetPx, labelPx],
     descBudgetPx,
   );
-
-  React.useLayoutEffect(() => {
-    if (titleFontSizeIsUserSet || descOverflowPx <= 0) return;
-    setLabelGiveBackPx((prev) => Math.min(labelBudgetPx * 0.7, prev + descOverflowPx));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [descOverflowPx, titleFontSizeIsUserSet]);
 
   return (
     <div style={style}>

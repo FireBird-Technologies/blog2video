@@ -44,12 +44,17 @@ export const BulletList: React.FC<SceneLayoutProps & { imageUrl?: string }> = (p
      Title and bullet copy are unbounded user input; the content column is
      vertically centred with no height limit of its own, so a long title or
      many/long bullets just grow past the frame and get clipped by the
-     AbsoluteFill's overflow:hidden. Fit the title to its own budget first,
-     then the whole bullet list (all points share one descriptionFontSize,
-     so they're measured as one block) to what remains; a residual overflow
-     at the list's floor shrinks the title further (NewsHeadline's cascade).
-     A size the user explicitly picked is honored exactly (minPx === targetPx
-     makes the hook a no-op). */
+     AbsoluteFill's overflow:hidden. Title and list each fit against their
+     own fixed, independent budget. A size the user explicitly picked is
+     honored exactly (minPx === targetPx makes the hook a no-op).
+
+     No give-back cross-talk between the two: a useLayoutEffect+setState
+     chain reacting to another useFitText's overflow output creates a
+     multi-render convergence that Remotion's per-frame headless capture can
+     settle at different points on different frames (confirmed via a real
+     render — frame-to-frame scene-change score hit 1.0, i.e. maximum, twice
+     in the first ten frames, in the equivalent newscast/newspaper opening
+     scenes). */
   const titleRef = React.useRef<HTMLHeadingElement>(null);
   const listRef = React.useRef<HTMLDivElement>(null);
 
@@ -57,34 +62,23 @@ export const BulletList: React.FC<SceneLayoutProps & { imageUrl?: string }> = (p
   const actualDescriptionFontSize = descriptionFontSize ?? (p ? 37 : 29);
 
   const titleBudgetPx = Math.round(height * (p ? 0.24 : 0.28));
-  const [titleGiveBackPx, setTitleGiveBackPx] = React.useState(0);
-  React.useLayoutEffect(() => {
-    setTitleGiveBackPx(0);
-  }, [title, points, actualTitleFontSize, actualDescriptionFontSize, titleBudgetPx, p]);
 
   const { px: titlePx } = useFitText(
     titleRef,
     actualTitleFontSize,
     titleFontSizeIsUserSet ? actualTitleFontSize : p ? 28 : 24,
-    [title, actualTitleFontSize, titleFontSizeIsUserSet, titleBudgetPx, titleGiveBackPx, p],
-    Math.max(1, titleBudgetPx - titleGiveBackPx),
+    [title, actualTitleFontSize, titleFontSizeIsUserSet, titleBudgetPx, p],
+    titleBudgetPx,
   );
 
   const listBudgetPx = Math.round(height * (p ? 0.62 : 0.6));
-  const { px: descPx, overflowPx: listOverflowPx } = useFitText(
+  const { px: descPx } = useFitText(
     listRef,
     actualDescriptionFontSize,
     descriptionFontSizeIsUserSet ? actualDescriptionFontSize : p ? 16 : 14,
     [points, actualDescriptionFontSize, descriptionFontSizeIsUserSet, titlePx, listBudgetPx, p],
     listBudgetPx,
   );
-
-  React.useLayoutEffect(() => {
-    if (titleFontSizeIsUserSet) return;
-    if (listOverflowPx > 0) {
-      setTitleGiveBackPx((prev) => prev + listOverflowPx);
-    }
-  }, [listOverflowPx, titleFontSizeIsUserSet]);
 
   // Scale the bullet-number badge and the key-line proportionally to the
   // fitted body size so they don't dwarf shrunken copy.

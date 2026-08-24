@@ -204,20 +204,12 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
     return Math.max(1, inner * (p ? 0.4 : 0.45));
   }, [videoHeight, p]);
 
-  const [titleGiveBackPx, setTitleGiveBackPx] = React.useState(0);
-
-  // Drop accumulated give-back when the copy or geometry changes, so a previous
-  // scene's squeeze never carries into a fresh measurement.
-  React.useLayoutEffect(() => {
-    setTitleGiveBackPx(0);
-  }, [title, narration, actualTitleFontSize, narrationSize, titleBudgetPx, p, hasVisual]);
-
   const { px: titlePx } = useFitText(
     titleRef,
     actualTitleFontSize,
     titleFontSizeIsUserSet ? actualTitleFontSize : p ? 36 : 30,
-    [title, actualTitleFontSize, titleFontSizeIsUserSet, titleBudgetPx, titleGiveBackPx, p],
-    Math.max(1, titleBudgetPx - titleGiveBackPx),
+    [title, actualTitleFontSize, titleFontSizeIsUserSet, titleBudgetPx, p],
+    titleBudgetPx,
   );
 
   /* The narration sits in a row (landscape) / column whose children are not
@@ -243,26 +235,15 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
     }
     const next = Math.max(1, Math.round(layer.offsetHeight - padBottom - top));
     setNarrationBudgetPx((prev) => (Math.abs(prev - next) <= 1 ? prev : next));
-  }, [titlePx, titleGiveBackPx, title, narration, narrationSize, p, hasVisual]);
+  }, [titlePx, title, narration, narrationSize, p, hasVisual]);
 
-  const { px: narrationPx, overflowPx: narrationOverflowPx } = useFitText(
+  const { px: narrationPx } = useFitText(
     narrationRef,
     narrationSize,
     descriptionFontSizeIsUserSet ? narrationSize : p ? 18 : 15,
     [narration, narrationSize, descriptionFontSizeIsUserSet, titlePx, narrationBudgetPx, p, hasVisual],
     narrationBudgetPx,
   );
-
-  /* Feed the narration's residual overflow back into the title budget. The
-     narration is already at its floor here, so the overflow is exactly the
-     height the headline has to surrender; hand back that much (capped, so the
-     headline never vanishes) and let the fitters re-converge. */
-  React.useLayoutEffect(() => {
-    if (titleFontSizeIsUserSet || narrationOverflowPx <= 0) return;
-    setTitleGiveBackPx((prev) =>
-      Math.min(titleBudgetPx * 0.7, prev + narrationOverflowPx),
-    );
-  }, [narrationOverflowPx, titleFontSizeIsUserSet, titleBudgetPx]);
 
   // Keep the drop cap proportional to the fitted body so it never dwarfs
   // shrunken copy (it is ~3.7x the body size at the default sizes).

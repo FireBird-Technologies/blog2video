@@ -9,6 +9,7 @@ import {
   staticFile,
 } from "remotion";
 import { NewsBackground, NewsPaperWash } from "../NewsBackground";
+import { useFitText, useAvailableHeight } from "../components/useFitText";
 import type { BlogLayoutProps } from "../types";
 
 const H_FONT = "'Source Serif 4', Georgia, 'Times New Roman', serif";
@@ -30,6 +31,8 @@ export const ArticleLeadV2: React.FC<BlogLayoutProps & { imageUrl?: string }> = 
   aspectRatio = "landscape",
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   stats,
   imageUrl,
   imageObjectPosition,
@@ -42,7 +45,7 @@ export const ArticleLeadV2: React.FC<BlogLayoutProps & { imageUrl?: string }> = 
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
-  const { durationInFrames } = useVideoConfig();
+  const { durationInFrames, height: videoHeight } = useVideoConfig();
   const p = aspectRatio === "portrait";
 
   const fadeIn = interpolate(frame, [0, 18], [0, 1], { extrapolateRight: "clamp" });
@@ -83,18 +86,82 @@ export const ArticleLeadV2: React.FC<BlogLayoutProps & { imageUrl?: string }> = 
   const imageOp = interpolate(frame, [28, 48], [0, 1], { extrapolateRight: "clamp" });
   const hasVisual = Boolean(imageUrl || videoUrl);
 
-  // A taller image leaves less room for the body, and the column box clips what
-  // doesn't fit — so long copy steps down to stay readable end-to-end. Only when
-  // the size is not explicitly set by the user.
   const baseNarrationSize = p ? 35 : 29;
-  const narrationLen = narration.length;
-  const fitScale =
-    !hasVisual ? 1
-      : narrationLen > 320 ? 0.72
-      : narrationLen > 240 ? 0.82
-      : narrationLen > 170 ? 0.9
-      : 1;
-  const narrationSize = descriptionFontSize ?? Math.round(baseNarrationSize * fitScale);
+  const narrationTargetSize = descriptionFontSize ?? baseNarrationSize;
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     The column count for the narration body. Landscape runs 2 CSS columns;
+     portrait collapses to 1. */
+  const columnCount = p ? 1 : 2;
+
+  /* Title: a plain direct-ref budget fit against the header's own share of the
+     frame — no give-back needed here (unlike ArticleLead), because the header
+     and the two-column body are separate flexShrink:0 / flex:1 siblings, so an
+     oversized title simply eats into contentLayer's flex layout and pushes the
+     body budget down; useAvailableHeight for the body is measured AFTER the
+     title is fitted (it depends on titlePx), so the body always sees the true
+     remaining space regardless of how large the title got. */
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const contentLayerRef = React.useRef<HTMLDivElement>(null);
+  const columnBoxRef = React.useRef<HTMLDivElement>(null);
+  const mirrorRef = React.useRef<HTMLDivElement>(null);
+
+  const actualTitleFontSize = titleFontSize ?? (p ? 65 : 61);
+
+  const titleBudgetPx = React.useMemo(() => {
+    // Header may claim at most this much of the frame's inner height; the rest
+    // (image strip, if any, plus margin) is reserved for the two-column body.
+    return Math.max(1, videoHeight * (p ? 0.3 : 0.32));
+  }, [videoHeight, p]);
+
+  const { px: titlePx } = useFitText(
+    titleRef,
+    actualTitleFontSize,
+    titleFontSizeIsUserSet ? actualTitleFontSize : p ? 32 : 28,
+    [title, actualTitleFontSize, titleFontSizeIsUserSet, titleBudgetPx, p],
+    titleBudgetPx,
+  );
+
+  /* The column box's real pixel height, from untransformed layout geometry
+     (offsetTop/offsetHeight) rather than getBoundingClientRect — this scene has
+     no camera transform, but the pattern is kept consistent with the rest of
+     the template family. */
+  const perColumnBudgetPx = useAvailableHeight(columnBoxRef, contentLayerRef, [
+    title, titlePx, hasVisual, narration, narrationTargetSize, p,
+  ]);
+
+  /* The visible box clips overflow into a phantom Nth column instead of
+     growing, so its own clientHeight/scrollHeight can never report true
+     overflow. Measure a hidden SINGLE-COLUMN mirror of the FULL narration
+     (not the partial typewriter slice) instead, at the width one real column
+     actually has, and treat "columnCount stacked columns of perColumnBudgetPx"
+     as one tall single-column budget of perColumnBudgetPx * columnCount — the
+     same total area, just unfolded into one column so useFitText's ordinary
+     scrollHeight probe works unmodified. */
+  const columnFitBudgetPx = Math.max(1, perColumnBudgetPx * columnCount);
+
+  /* The mirror must be exactly ONE column wide (not the full box width),
+     since it stands in for a single unfolded column — a full-width mirror
+     would wrap the text too generously and under-report the true height.
+     Derived from the box's real clientWidth so it tracks column count,
+     gap and any responsive padding automatically. */
+  const [columnWidthPx, setColumnWidthPx] = React.useState(0);
+  React.useLayoutEffect(() => {
+    const box = columnBoxRef.current;
+    if (!box) return;
+    const boxWidth = box.clientWidth;
+    const next = Math.max(1, Math.round((boxWidth - 44 * (columnCount - 1)) / columnCount));
+    setColumnWidthPx((prev) => (Math.abs(prev - next) <= 1 ? prev : next));
+  }, [columnCount, p, hasVisual, title, titlePx]);
+
+  const { px: narrationSize } = useFitText(
+    mirrorRef,
+    narrationTargetSize,
+    descriptionFontSizeIsUserSet ? narrationTargetSize : p ? 18 : 15,
+    [narration, narrationTargetSize, descriptionFontSizeIsUserSet, columnFitBudgetPx, columnWidthPx, columnCount, p],
+    columnFitBudgetPx,
+  );
+
   const baseForStats = narrationSize;
   const statsValueSize = baseForStats + 34;
   const statsLabelSize = Math.max(12, baseForStats - 15);
@@ -131,6 +198,7 @@ export const ArticleLeadV2: React.FC<BlogLayoutProps & { imageUrl?: string }> = 
       <NewsPaperWash zIndex={3} />
 
       <div
+        ref={contentLayerRef}
         style={{
           position: "absolute",
           inset: 0,
@@ -145,9 +213,10 @@ export const ArticleLeadV2: React.FC<BlogLayoutProps & { imageUrl?: string }> = 
         <div style={{ flexShrink: 0 }}>
           <div style={{ height: p ? 10 : 7, background: textColor, width: `${ruleW}%`, marginBottom: 18 }} />
           <div
+            ref={titleRef}
             style={{
               fontFamily: fontFamily ?? B_FONT,
-              fontSize: titleFontSize ?? (p ? 65 : 61),
+              fontSize: titlePx,
               fontWeight: 900,
               letterSpacing: "-0.02em",
               textTransform: "uppercase",
@@ -219,66 +288,109 @@ export const ArticleLeadV2: React.FC<BlogLayoutProps & { imageUrl?: string }> = 
             alignItems: "stretch",
           }}
         >
-          <div
-            style={{
-              flex: p ? "0 1 auto" : "1 1 0",
-              minWidth: 0,
-              minHeight: 0,
-              // columnFill:auto needs a definite height to know where column one
-              // ends and column two begins; without it the column box grows and
-              // everything stays in the first column.
-              height: "100%",
-              overflow: "hidden",
-              // The column rule: the visual signature of this variant.
-              columnCount: p ? 1 : 2,
-              columnGap: 44,
-              // `auto` fills column ONE to the bottom before starting column two.
-              // The default (`balance`) spreads the text evenly across both, so
-              // during the typewriter reveal it would start mid-second-column and
-              // reflow on every frame instead of writing left to right.
-              columnFill: "auto",
-              columnRule: `2px solid ${textColor}`,
-              fontFamily: fontFamily ?? B_FONT,
-              fontSize: narrationSize,
-              fontWeight: 500,
-              color: textColor,
-              lineHeight: 1.45,
-              textAlign: "justify",
-            }}
-          >
-            <span
+          <div style={{ flex: p ? "0 1 auto" : "1 1 0", minWidth: 0, minHeight: 0, height: "100%", position: "relative" }}>
+            {/* Hidden measurement mirror: the FULL narration (not the partial
+                typewriter slice), laid out as a SINGLE column at the width one
+                real column actually has, so its scrollHeight is a true content
+                height unaffected by column-clipping or the reveal animation.
+                `visibility:hidden` (not display:none, which reports 0 height)
+                per this codebase's established mirror convention. */}
+            <div
+              ref={mirrorRef}
+              aria-hidden
               style={{
-                float: "left",
-                fontFamily: fontFamily ?? H_FONT,
-                fontSize: p ? 120 : 104,
-                fontWeight: 800,
-                lineHeight: 0.7,
-                marginRight: 14,
-                marginTop: 6,
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: columnWidthPx || "100%",
+                visibility: "hidden",
+                pointerEvents: "none",
+                fontFamily: fontFamily ?? B_FONT,
+                fontSize: narrationSize,
+                fontWeight: 500,
                 color: textColor,
-                opacity: dropCapOp,
-                transform: `translateY(${dropCapY}px)`,
-                display: "inline-block",
+                lineHeight: 1.45,
+                textAlign: "justify",
               }}
             >
-              {dropChar}
-            </span>
-            <span style={{ textShadow: `0 0 2px ${bgColor}` }}>
-              {visText.length > 1 ? visText.slice(1) : ""}
-              {showCursor && visChars > 0 && (
-                <span
-                  style={{
-                    display: "inline-block",
-                    width: 4,
-                    height: "0.9em",
-                    background: textColor,
-                    opacity: 0.6,
-                    marginLeft: 2,
-                    verticalAlign: "middle",
-                  }}
-                />
-              )}
-            </span>
+              <span
+                style={{
+                  float: "left",
+                  fontFamily: fontFamily ?? H_FONT,
+                  fontSize: p ? 120 : 104,
+                  fontWeight: 800,
+                  lineHeight: 0.7,
+                  marginRight: 14,
+                  marginTop: 6,
+                  display: "inline-block",
+                }}
+              >
+                {dropChar}
+              </span>
+              <span>{narration.length > 1 ? narration.slice(1) : ""}</span>
+            </div>
+
+            <div
+              ref={columnBoxRef}
+              style={{
+                width: "100%",
+                minHeight: 0,
+                // columnFill:auto needs a definite height to know where column one
+                // ends and column two begins; without it the column box grows and
+                // everything stays in the first column.
+                height: "100%",
+                overflow: "hidden",
+                // The column rule: the visual signature of this variant.
+                columnCount,
+                columnGap: 44,
+                // `auto` fills column ONE to the bottom before starting column two.
+                // The default (`balance`) spreads the text evenly across both, so
+                // during the typewriter reveal it would start mid-second-column and
+                // reflow on every frame instead of writing left to right.
+                columnFill: "auto",
+                columnRule: `2px solid ${textColor}`,
+                fontFamily: fontFamily ?? B_FONT,
+                fontSize: narrationSize,
+                fontWeight: 500,
+                color: textColor,
+                lineHeight: 1.45,
+                textAlign: "justify",
+              }}
+            >
+              <span
+                style={{
+                  float: "left",
+                  fontFamily: fontFamily ?? H_FONT,
+                  fontSize: p ? 120 : 104,
+                  fontWeight: 800,
+                  lineHeight: 0.7,
+                  marginRight: 14,
+                  marginTop: 6,
+                  color: textColor,
+                  opacity: dropCapOp,
+                  transform: `translateY(${dropCapY}px)`,
+                  display: "inline-block",
+                }}
+              >
+                {dropChar}
+              </span>
+              <span style={{ textShadow: `0 0 2px ${bgColor}` }}>
+                {visText.length > 1 ? visText.slice(1) : ""}
+                {showCursor && visChars > 0 && (
+                  <span
+                    style={{
+                      display: "inline-block",
+                      width: 4,
+                      height: "0.9em",
+                      background: textColor,
+                      opacity: 0.6,
+                      marginLeft: 2,
+                      verticalAlign: "middle",
+                    }}
+                  />
+                )}
+              </span>
+            </div>
           </div>
 
           {/* PULL STAT — boxed rail beside the columns */}

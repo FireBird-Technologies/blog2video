@@ -9,6 +9,7 @@ import {
   staticFile,
 } from "remotion";
 import { NewsBackground, NewsPaperWash } from "../NewsBackground";
+import { useFitText } from "../components/useFitText";
 import type { BlogLayoutProps } from "../types";
 
 const H_FONT = "'Source Serif 4', Georgia, 'Times New Roman', serif";
@@ -46,6 +47,8 @@ export const NewsHeadlineV3: React.FC<
   aspectRatio = "landscape",
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   stats,
   category,
   imageUrl,
@@ -60,7 +63,7 @@ export const NewsHeadlineV3: React.FC<
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
-  const { durationInFrames } = useVideoConfig();
+  const { durationInFrames, height: videoHeight } = useVideoConfig();
   const p = aspectRatio === "portrait";
 
   const fadeIn = interpolate(frame, [0, 16], [0, 1], { extrapolateRight: "clamp" });
@@ -116,12 +119,48 @@ export const NewsHeadlineV3: React.FC<
         : [];
 
   const words = title.split(" ");
-  const actualDescriptionFontSize = descriptionFontSize ?? (p ? 31 : 26);
   const hasVisual = Boolean(imageUrl || videoUrl);
 
   // A narrow measure is what makes it read as a column. Without a cutout beside
   // it the column widens, but never to full bleed — the white space is the point.
   const columnWidth = p ? "100%" : hasVisual ? "52%" : "66%";
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Headline and deck are unbounded user input stacked in the column with no
+     height cap beyond the page itself (only portrait-no-image is flexGrow:1
+     against a real bound; elsewhere the column shrink-wraps and can push past
+     the frame). Reserve a fixed share of the page height for the two text
+     blocks, split between them.
+
+     Title and narration each fit against their own fixed, independent
+     budget. No give-back cross-talk: a useLayoutEffect+setState chain
+     reacting to another useFitText's overflow output creates a multi-render
+     convergence that Remotion's per-frame headless capture can settle at
+     different points on different frames (confirmed via a real render —
+     frame-to-frame scene-change score hit 1.0, i.e. maximum, twice in the
+     first ten frames, in the equivalent newspaper opening scene). */
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const narrationRef = React.useRef<HTMLDivElement>(null);
+  const titleTargetPx = titleFontSize ?? (p ? 54 : 50);
+  const narrationTargetPx = descriptionFontSize ?? (p ? 31 : 26);
+  const stackBudgetPx = Math.round(videoHeight * (hasVisual ? (p ? 0.32 : 0.62) : p ? 0.6 : 0.62));
+  const titleBudgetPx = Math.round(stackBudgetPx * (narration ? 0.6 : 1));
+
+  const { px: titlePx } = useFitText(
+    titleRef,
+    titleTargetPx,
+    titleFontSizeIsUserSet ? titleTargetPx : Math.round(titleTargetPx * 0.42),
+    [title, titleTargetPx, titleFontSizeIsUserSet, titleBudgetPx],
+    titleBudgetPx,
+  );
+  const narrationBudgetPx = Math.max(1, stackBudgetPx - titleBudgetPx);
+  const { px: actualDescriptionFontSize } = useFitText(
+    narrationRef,
+    narrationTargetPx,
+    descriptionFontSizeIsUserSet ? narrationTargetPx : p ? 16 : 14,
+    [narration, narrationTargetPx, descriptionFontSizeIsUserSet, narrationBudgetPx, titlePx],
+    narrationBudgetPx,
+  );
 
   return (
     <AbsoluteFill
@@ -246,14 +285,16 @@ export const NewsHeadlineV3: React.FC<
 
           {/* HEADLINE — stacked, tight, ranged left like a real column head */}
           <div
+            ref={titleRef}
             style={{
               fontFamily: fontFamily ?? H_FONT,
-              fontSize: titleFontSize ?? (p ? 54 : 50),
+              fontSize: titlePx,
               fontWeight: 800,
               lineHeight: 1.0,
               letterSpacing: "-0.022em",
               color: textColor,
               marginTop: p ? 26 : 22,
+              width: "100%",
               flexShrink: 0,
             }}
           >
@@ -330,6 +371,7 @@ export const NewsHeadlineV3: React.FC<
                 }}
               />
               <div
+                ref={narrationRef}
                 style={{
                   // Body copy is B_FONT across this family (base and V2 both
                   // set the narration in the sans face) — the serif here made

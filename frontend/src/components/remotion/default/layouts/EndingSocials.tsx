@@ -41,10 +41,17 @@ export const EndingSocials: React.FC<SceneLayoutProps> = ({
      wrapper fontSize. Measure a hidden plain-text mirror instead (JSX below).
      The column holding them has no height limit of its own, so long copy
      would grow past the frame and get clipped by the AbsoluteFill's
-     overflow:hidden. Fit the title to its own budget first, then narration to
-     what's left; a residual overflow at narration's floor shrinks the title
-     further (NewsHeadline's cascade). A size the user explicitly picked is
-     honored exactly (minPx === targetPx no-ops). */
+     overflow:hidden. Title and narration each fit against their own fixed,
+     independent budget. A size the user explicitly picked is honored exactly
+     (minPx === targetPx no-ops).
+
+     No give-back cross-talk between the two: a useLayoutEffect+setState
+     chain reacting to another useFitText's overflow output creates a
+     multi-render convergence that Remotion's per-frame headless capture can
+     settle at different points on different frames (confirmed via a real
+     render — frame-to-frame scene-change score hit 1.0, i.e. maximum, twice
+     in the first ten frames, in the equivalent newscast/newspaper opening
+     scenes). */
   const titleRef = React.useRef<HTMLDivElement>(null);
   const narrationRef = React.useRef<HTMLDivElement>(null);
 
@@ -52,34 +59,23 @@ export const EndingSocials: React.FC<SceneLayoutProps> = ({
   const actualDescriptionFontSize = descriptionFontSize ?? (p ? 44 : 36);
 
   const titleBudgetPx = Math.round(height * (p ? 0.16 : 0.18));
-  const [titleGiveBackPx, setTitleGiveBackPx] = React.useState(0);
-  React.useLayoutEffect(() => {
-    setTitleGiveBackPx(0);
-  }, [title, narration, actualTitleFontSize, actualDescriptionFontSize, titleBudgetPx, p]);
 
   const { px: titlePx } = useFitText(
     titleRef,
     actualTitleFontSize,
     titleFontSizeIsUserSet ? actualTitleFontSize : p ? 38 : 32,
-    [title, actualTitleFontSize, titleFontSizeIsUserSet, titleBudgetPx, titleGiveBackPx, p],
-    Math.max(1, titleBudgetPx - titleGiveBackPx),
+    [title, actualTitleFontSize, titleFontSizeIsUserSet, titleBudgetPx, p],
+    titleBudgetPx,
   );
 
   const narrationBudgetPx = Math.round(height * (p ? 0.16 : 0.18));
-  const { px: narrationPx, overflowPx: narrationOverflowPx } = useFitText(
+  const { px: narrationPx } = useFitText(
     narrationRef,
     actualDescriptionFontSize,
     descriptionFontSizeIsUserSet ? actualDescriptionFontSize : p ? 20 : 16,
     [narration, actualDescriptionFontSize, descriptionFontSizeIsUserSet, titlePx, narrationBudgetPx, p],
     narrationBudgetPx,
   );
-
-  React.useLayoutEffect(() => {
-    if (titleFontSizeIsUserSet) return;
-    if (narrationOverflowPx > 0) {
-      setTitleGiveBackPx((prev) => prev + narrationOverflowPx);
-    }
-  }, [narrationOverflowPx, titleFontSizeIsUserSet]);
 
   // --- CONFIGURATION ---
   const vanishDurationFrames = 30;

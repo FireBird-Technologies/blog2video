@@ -249,44 +249,28 @@ export const NewsHeadline: React.FC<
     return Math.max(1, inner * (portraitNoImage ? 0.42 : p ? 0.5 : 0.55));
   }, [videoHeight, p, portraitNoImage]);
 
-  /* Stage 3 (fed back below) — when the narration bottoms out at its floor and
-     STILL overflows, the headline has to give up more room than its own share.
-     Tighten the title's budget by exactly the height the narration is short by. */
-  const [titleGiveBackPx, setTitleGiveBackPx] = React.useState(0);
-
-  // Drop any accumulated give-back when the copy or geometry changes, so a
-  // previous scene's squeeze never carries over into a fresh measurement.
-  React.useLayoutEffect(() => {
-    setTitleGiveBackPx(0);
-  }, [title, narration, actualTitleFontSize, actualDescriptionFontSize, titleBudgetPx, p, portraitNoImage, hasVisual]);
-
   const { px: titlePx } = useFitText(
     titleRef,
     actualTitleFontSize,
     titleFontSizeIsUserSet ? actualTitleFontSize : p ? 34 : 30,
-    [title, actualTitleFontSize, titleFontSizeIsUserSet, titleBudgetPx, titleGiveBackPx, p],
-    Math.max(1, titleBudgetPx - titleGiveBackPx),
+    [title, actualTitleFontSize, titleFontSizeIsUserSet, titleBudgetPx, p],
+    titleBudgetPx,
   );
 
   /* Stage 2 — the narration fits whatever the (now-sized) headline leaves.
-     Keyed on titlePx so it re-measures after the headline settles. */
-  const { px: narrationPx, overflowPx: narrationOverflowPx } = useFitText(
+     Keyed on titlePx so it re-measures after the headline settles. No
+     give-back from narration back into the title budget: a
+     useLayoutEffect+setState chain reacting to another useFitText's overflow
+     output creates a multi-render convergence that Remotion's per-frame
+     headless capture can settle at different points on different frames
+     (confirmed via a real render — frame-to-frame scene-change score hit
+     1.0, i.e. maximum, twice in the first ten frames, in this scene). */
+  const { px: narrationPx } = useFitText(
     narrationRef,
     actualDescriptionFontSize,
     descriptionFontSizeIsUserSet ? actualDescriptionFontSize : p ? 18 : 14,
     [narration, actualDescriptionFontSize, descriptionFontSizeIsUserSet, titlePx, p, portraitNoImage, hasVisual],
   );
-
-  /* Feed the narration's residual overflow back into the title budget, once.
-     Guarded by `> 0` and by only ever increasing, so this settles instead of
-     oscillating: each pass either frees enough room or stops at the title floor
-     (at which point the narration simply clips, as designed). */
-  React.useLayoutEffect(() => {
-    if (titleFontSizeIsUserSet) return;
-    if (narrationOverflowPx > 0) {
-      setTitleGiveBackPx((prev) => prev + narrationOverflowPx);
-    }
-  }, [narrationOverflowPx, titleFontSizeIsUserSet]);
 
   return (
     <AbsoluteFill style={{ overflow: "hidden", fontFamily: fontFamily ?? B_FONT }}>

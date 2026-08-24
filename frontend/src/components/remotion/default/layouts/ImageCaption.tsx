@@ -37,11 +37,18 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
      Title and narration are unbounded user input. The text column is a plain
      centred flex block with no height limit of its own (it shares the frame
      with the image, when present), so long copy just grows past the frame
-     and is clipped by the AbsoluteFill's overflow:hidden. Fit the title to
-     its own budget first, then narration to what's left; a residual overflow
-     at narration's floor shrinks the title further (NewsHeadline's cascade).
-     A size the user explicitly picked is honored exactly (minPx === targetPx
-     makes the hook a no-op). */
+     and is clipped by the AbsoluteFill's overflow:hidden. Title and
+     narration each fit against their own fixed, independent budget. A size
+     the user explicitly picked is honored exactly (minPx === targetPx makes
+     the hook a no-op).
+
+     No give-back cross-talk between the two: a useLayoutEffect+setState
+     chain reacting to another useFitText's overflow output creates a
+     multi-render convergence that Remotion's per-frame headless capture can
+     settle at different points on different frames (confirmed via a real
+     render — frame-to-frame scene-change score hit 1.0, i.e. maximum, twice
+     in the first ten frames, in the equivalent newscast/newspaper opening
+     scenes). */
   const titleRef = React.useRef<HTMLHeadingElement>(null);
   const narrationRef = React.useRef<HTMLParagraphElement>(null);
 
@@ -49,34 +56,23 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
   const actualDescriptionFontSize = descriptionFontSize ?? (p ? 37 : 32);
 
   const titleBudgetPx = Math.round(videoHeight * (hasImage ? 0.2 : 0.24));
-  const [titleGiveBackPx, setTitleGiveBackPx] = React.useState(0);
-  React.useLayoutEffect(() => {
-    setTitleGiveBackPx(0);
-  }, [title, narration, actualTitleFontSize, actualDescriptionFontSize, titleBudgetPx, hasImage]);
 
   const { px: titlePx } = useFitText(
     titleRef,
     actualTitleFontSize,
     titleFontSizeIsUserSet ? actualTitleFontSize : p ? 26 : 24,
-    [title, actualTitleFontSize, titleFontSizeIsUserSet, titleBudgetPx, titleGiveBackPx, hasImage],
-    Math.max(1, titleBudgetPx - titleGiveBackPx),
+    [title, actualTitleFontSize, titleFontSizeIsUserSet, titleBudgetPx, hasImage],
+    titleBudgetPx,
   );
 
   const narrationBudgetPx = Math.round(videoHeight * (hasImage ? 0.28 : 0.4));
-  const { px: narrationPx, overflowPx: narrationOverflowPx } = useFitText(
+  const { px: narrationPx } = useFitText(
     narrationRef,
     actualDescriptionFontSize,
     descriptionFontSizeIsUserSet ? actualDescriptionFontSize : p ? 16 : 14,
     [narration, actualDescriptionFontSize, descriptionFontSizeIsUserSet, titlePx, narrationBudgetPx, hasImage],
     narrationBudgetPx,
   );
-
-  React.useLayoutEffect(() => {
-    if (titleFontSizeIsUserSet) return;
-    if (narrationOverflowPx > 0) {
-      setTitleGiveBackPx((prev) => prev + narrationOverflowPx);
-    }
-  }, [narrationOverflowPx, titleFontSizeIsUserSet]);
 
   // --- Initial animations (spring in) ---
 

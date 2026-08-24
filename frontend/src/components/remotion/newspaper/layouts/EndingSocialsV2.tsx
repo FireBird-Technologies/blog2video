@@ -7,6 +7,7 @@ import {
   useVideoConfig,
 } from "remotion";
 import { NewsBackground, NewsPaperWash } from "../NewsBackground";
+import { useFitText } from "../components/useFitText";
 import type { BlogLayoutProps } from "../types";
 import { SocialIcons } from "../../SocialIcons";
 import { resolveCtas } from "../../../../utils/resolveCtas";
@@ -45,9 +46,11 @@ export const EndingSocialsV2: React.FC<BlogLayoutProps & { narration?: string }>
   fontFamily,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
 }) => {
   const frame = useCurrentFrame();
-  const { durationInFrames } = useVideoConfig();
+  const { durationInFrames, height: videoHeight } = useVideoConfig();
   const p = aspectRatio === "portrait";
 
   const H_FONT = fontFamily ?? H_FONT_DEFAULT;
@@ -83,6 +86,43 @@ export const EndingSocialsV2: React.FC<BlogLayoutProps & { narration?: string }>
     extrapolateRight: "clamp",
   });
   const bgDriftX = interpolate(frame, [0, durationInFrames], [0, 18]);
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     The sign-off (title + subtext) is unbounded user input. In landscape the
+     left column sits in a flex:1 row with a real budget; in portrait it's
+     flex:"0 0 auto", shrink-wrapping to its own content with no height cap,
+     so long copy can push past the page. Reserve a fixed share of the page
+     for the two text blocks, split between them.
+
+     Title and subtext each fit against their own fixed, independent budget.
+     No give-back cross-talk between the two: a useLayoutEffect+setState
+     chain reacting to another useFitText's overflow output creates a
+     multi-render convergence that Remotion's per-frame headless capture can
+     settle at different points on different frames (confirmed via a real
+     render — frame-to-frame scene-change score hit 1.0, i.e. maximum, twice
+     in the first ten frames, in the equivalent newspaper opening scene). */
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const subtextRef = React.useRef<HTMLDivElement>(null);
+  const titleTargetPx = titleFontSize ?? (p ? 63 : 50);
+  const subTargetPx = descriptionFontSize ?? (p ? 33 : 25);
+  const stackBudgetPx = Math.round(videoHeight * (p ? 0.34 : 0.52));
+  const titleBudgetPx = Math.round(stackBudgetPx * (subtext ? 0.62 : 1));
+
+  const { px: titlePx } = useFitText(
+    titleRef,
+    titleTargetPx,
+    titleFontSizeIsUserSet ? titleTargetPx : Math.round(titleTargetPx * 0.42),
+    [title, titleTargetPx, titleFontSizeIsUserSet, titleBudgetPx],
+    titleBudgetPx,
+  );
+  const subBudgetPx = Math.max(1, stackBudgetPx - titleBudgetPx);
+  const { px: subPx } = useFitText(
+    subtextRef,
+    subTargetPx,
+    descriptionFontSizeIsUserSet ? subTargetPx : p ? 16 : 14,
+    [subtext, subTargetPx, descriptionFontSizeIsUserSet, subBudgetPx, titlePx],
+    subBudgetPx,
+  );
 
   const plateW = interpolate(frame, [2, 22], [0, 100], { extrapolateRight: "clamp" });
   const titleOp = interpolate(frame, [12, 30], [0, 1], { extrapolateRight: "clamp" });
@@ -197,9 +237,10 @@ export const EndingSocialsV2: React.FC<BlogLayoutProps & { narration?: string }>
             }}
           >
             <div
+              ref={titleRef}
               style={{
                 fontFamily: H_FONT,
-                fontSize: titleFontSize ?? (p ? 63 : 50),
+                fontSize: titlePx,
                 fontWeight: 800,
                 lineHeight: 1.0,
                 letterSpacing: "-0.02em",
@@ -214,9 +255,10 @@ export const EndingSocialsV2: React.FC<BlogLayoutProps & { narration?: string }>
 
             {subtext && (
               <div
+                ref={subtextRef}
                 style={{
                   fontFamily: H_FONT,
-                  fontSize: descriptionFontSize ?? (p ? 33 : 25),
+                  fontSize: subPx,
                   fontStyle: "italic",
                   lineHeight: 1.42,
                   color: textCol,

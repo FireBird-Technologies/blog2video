@@ -40,12 +40,7 @@ const CompareColumn: React.FC<{
   const actualTitleFontSize = titleFontSize ?? (p ? 44 : 49);
   const actualDescriptionFontSize = descriptionFontSize ?? (p ? 26 : 35);
 
-  const [titleGiveBackPx, setTitleGiveBackPx] = React.useState(0);
-  React.useLayoutEffect(() => {
-    setTitleGiveBackPx(0);
-  }, [itemTitle, description, actualTitleFontSize, actualDescriptionFontSize, budgetPx]);
-
-  const titleBudgetPx = Math.max(1, budgetPx * 0.4 - titleGiveBackPx);
+  const titleBudgetPx = Math.max(1, budgetPx * 0.4);
   const { px: titlePx } = useFitText(
     titleRef,
     actualTitleFontSize,
@@ -54,18 +49,13 @@ const CompareColumn: React.FC<{
     titleBudgetPx,
   );
   const descBudgetPx = Math.max(1, budgetPx * 0.6);
-  const { px: descPx, overflowPx: descOverflowPx } = useFitText(
+  const { px: descPx } = useFitText(
     descRef,
     actualDescriptionFontSize,
     descriptionFontSizeIsUserSet ? actualDescriptionFontSize : p ? 14 : 15,
     [description, actualDescriptionFontSize, descriptionFontSizeIsUserSet, descBudgetPx, titlePx],
     descBudgetPx,
   );
-  React.useLayoutEffect(() => {
-    if (titleFontSizeIsUserSet || descOverflowPx <= 0) return;
-    setTitleGiveBackPx((prev) => Math.min(titleBudgetPx * 0.6, prev + descOverflowPx));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [descOverflowPx, titleFontSizeIsUserSet]);
 
   return (
     <div style={style}>
