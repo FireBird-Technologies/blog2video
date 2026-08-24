@@ -1,7 +1,14 @@
 /** Types for AI-generated template compositions. */
 
 export interface GeneratedSceneProps {
+  /** The scene's short title (Scene.title) — a label, not a sentence.
+   *  Distinct from displayText: use it for an eyebrow, a section heading or a
+   *  chapter marker. Optional, so scenes written before it existed still type. */
+  sceneTitle?: string;
+  /** The on-screen copy (Scene.display_text). NOT the voiceover. */
   displayText: string;
+  /** The voiceover script (Scene.narration_text) — usually a paragraph, and
+   *  usually NOT what you put on screen as a headline. */
   narrationText: string;
   imageUrl?: string;
   imageObjectPosition?: string;
@@ -47,6 +54,13 @@ export interface GeneratedSceneProps {
   descriptionFontSize?: number;
   headingFont?: string;
   bodyFont?: string;
+  /**
+   * Free-form per-layout props this layout declared in its prop schema and the
+   * user edited in the scene editor. Read defensively with a literal fallback:
+   *   const chapterNumber = props.layoutProps?.chapterNumber ?? "01";
+   * Standard props above are NOT duplicated here.
+   */
+  layoutProps?: Record<string, unknown>;
 }
 
 export interface GeneratedVideoData {

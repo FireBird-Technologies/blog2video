@@ -26,6 +26,29 @@ class CustomTemplate(Base):
     content_archetype_ids: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON array of archetype IDs matching content_codes order
     image_box_aspect_ratios: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON: {"intro": {"landscape": "W / H", "portrait": "W / H"}, "content": [{"landscape": ..., "portrait": ...}, ...], "outro": {...}}
 
+    # JSON array of human-readable warnings from the last generation — e.g. a
+    # scene that fell back to the deterministic stub after exhausting its repair
+    # attempts. Surfaced in the UI so a degraded scene is visible, not silent.
+    generation_warnings: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # JSON Design Blueprint (P2): the per-brand template design — layouts with
+    # authored geometry, persistent structure, type system, safe-area policy and
+    # per-layout image capability. NULL for templates generated before the
+    # blueprint path existed, which fall back to the legacy behaviour.
+    design_blueprint: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # JSON per-layout editable props (P3), shaped {"intro": [...],
+    # "content": [[...], ...], "outro": [...]} — same indexing convention as
+    # image_box_aspect_ratios. Feeds meta.layout_prop_schema, which the scene
+    # editor's existing generic field renderer already consumes.
+    layout_prop_schemas: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # The shared visual design system this template's scenes were generated
+    # against. Cached so a single-scene AI edit reuses it instead of
+    # regenerating — regenerating would drift the styling and leave the edited
+    # scene subtly out of step with its siblings.
+    design_system: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     # Set to True when background code generation permanently fails
     generation_failed: Mapped[bool] = mapped_column(default=False)
 

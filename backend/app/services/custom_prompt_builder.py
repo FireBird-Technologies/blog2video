@@ -284,6 +284,8 @@ def build_custom_meta(
     name: str,
     content_codes_count: int = 0,
     content_archetype_ids: list | None = None,
+    design_blueprint: dict | None = None,
+    layout_prop_schemas: dict | None = None,
 ) -> dict[str, Any]:
     """
     Generate a meta.json equivalent for a custom template.
@@ -329,7 +331,31 @@ def build_custom_meta(
         layout_names["outro"] = "Outro Scene"
 
         valid_layouts = variant_layouts
+        # Per-layout image capability (P2).
+        #
+        # This list is the SINGLE mechanism the whole product already uses to
+        # express "this layout takes no image": get_layouts_without_image() feeds
+        # image generation, stock-clip assignment, the pipeline's image
+        # selection, render data, and the three SceneEditModal surfaces (image
+        # controls, the layout dropdown note, and the expanded scene row). It was
+        # hardcoded to the data-viz scenes; driving it from the blueprint gives
+        # custom templates the same behaviour built-in and crafted templates have.
         no_image_layouts: list[str] = ["custom_chart", "custom_table"]
+        if design_blueprint:
+            _layouts = design_blueprint.get("layouts") or []
+            _content = [l for l in _layouts if l.get("role") not in ("intro", "outro")]
+            for _i, _lay in enumerate(_content):
+                if _i < content_codes_count and not _lay.get("supports_image", True):
+                    no_image_layouts.append(f"content_{_i}")
+            for _role in ("intro", "outro"):
+                _lay = next((l for l in _layouts if l.get("role") == _role), None)
+                if _lay is not None and not _lay.get("supports_image", True):
+                    no_image_layouts.append(_role)
+        # The outro is always an ending/CTA scene: GeneratedCtaOverlay REPLACES
+        # the scene visual at render time, and built-ins likewise list
+        # ending_socials in layouts_without_image.
+        if "outro" not in no_image_layouts:
+            no_image_layouts.append("outro")
     else:
         valid_layouts = list(CUSTOM_ARRANGEMENTS)
         layout_names = {}
@@ -346,12 +372,55 @@ def build_custom_meta(
             "text": colors.get("text", "#1A1A2E"),
         },
         "composition_id": "GeneratedVideo",
-        "hero_layout": HERO_ARRANGEMENT,
-        "fallback_layout": FALLBACK_ARRANGEMENT,
+        # Hero/fallback must be MEMBERS of this meta's own valid_layouts.
+        #
+        # They were hardcoded to the arrangement constants ("full-center" /
+        # "top-bottom") even in the generated branch, where valid_layouts is
+        # intro / content_0..N / outro. Callers that clamp against valid_layouts
+        # (notably _sanitize_script_layouts' `hero_layout in valid` check) then
+        # silently skipped the hero rule, so scene 0 was never pinned to `intro`.
+        "hero_layout": "intro" if content_codes_count > 0 else HERO_ARRANGEMENT,
+        "fallback_layout": (
+            "content_0" if content_codes_count > 0 else FALLBACK_ARRANGEMENT
+        ),
         # valid_layouts is used by SceneEditModal's layout dropdown
         "valid_layouts": valid_layouts,
         "layouts_without_image": no_image_layouts,
     }
     if layout_names:
         meta["layout_names"] = layout_names
+
+    # Per-layout editable props (P3).
+    #
+    # SceneEditModal already has a complete generic renderer for this shape and
+    # reads it for built-in and crafted templates; it was never populated for
+    # custom templates because build_custom_meta simply did not emit the key.
+    # Emitting it here makes custom-template scenes editable with no frontend
+    # change. Omitted entirely when there are no schemas, so templates generated
+    # before P3 fall through to the existing structured-content fields exactly
+    # as they do today.
+    if layout_prop_schemas and content_codes_count > 0:
+        from app.services.code_generator import build_layout_prop_schema
+
+        schema: dict[str, Any] = {}
+        intro_fields = layout_prop_schemas.get("intro") or []
+        if intro_fields:
+            schema["intro"] = build_layout_prop_schema(
+                intro_fields, layout_names.get("intro", "Intro Scene")
+            )
+        outro_fields = layout_prop_schemas.get("outro") or []
+        if outro_fields:
+            schema["outro"] = build_layout_prop_schema(
+                outro_fields, layout_names.get("outro", "Outro Scene")
+            )
+        for i, fields in enumerate(layout_prop_schemas.get("content") or []):
+            if not fields or i >= content_codes_count:
+                continue
+            key = f"content_{i}"
+            schema[key] = build_layout_prop_schema(
+                fields, layout_names.get(key, f"Content Style {i + 1}")
+            )
+        if schema:
+            meta["layout_prop_schema"] = schema
+
     return meta

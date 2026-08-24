@@ -202,3 +202,126 @@ export function countUpString(
     : Math.round(cur).toLocaleString();
   return `${parsed.prefix}${body}${parsed.suffix}`;
 }
+
+// ─── Camera / depth ───────────────────────────────────────────
+//
+// Generated scenes were strictly flat 2D: the kit had no 3D primitive at all,
+// while the hand-built templates (bloomberg, newscast, fj_research) lean on
+// perspective and camera moves for much of their polish. These are the same
+// techniques, packaged so a generated scene gets them without re-deriving the
+// math — and so the perspective values stay in a range that cannot distort text
+// or push content out of frame.
+//
+// All frame-driven, so renders stay deterministic.
+
+export type CameraStyle = {
+  /** Apply to the OUTER wrapper — establishes the 3D viewing volume. */
+  perspective: string;
+  transformStyle: "preserve-3d";
+};
+
+export type CameraTransform = {
+  transform: string;
+  transformStyle: "preserve-3d";
+};
+
+/**
+ * The 3D stage. Put this on the element that WRAPS the moving layers; children
+ * then share one viewing volume, which is what makes their motion read as depth
+ * rather than as independent scaling.
+ *
+ * Larger depth = weaker perspective. 1400-2000 is the usable band: below ~900
+ * the distortion becomes obvious on wide text.
+ */
+export function cameraStage(depth = 1600): CameraStyle {
+  return {
+    perspective: `${Math.max(900, Math.min(2600, depth))}px`,
+    transformStyle: "preserve-3d",
+  };
+}
+
+/**
+ * A slow, continuous camera push with a settling tilt — the move that makes a
+ * static composition feel filmed. Runs across the WHOLE scene rather than as an
+ * entrance beat, so the shot never freezes.
+ *
+ * `intensity` 0..1 scales the whole move; keep it low (0.3-0.6) behind text.
+ */
+export function cameraPush(
+  frame: number,
+  durationInFrames: number,
+  intensity = 0.5,
+): CameraTransform {
+  const k = clamp01(intensity);
+  const span = Math.max(1, durationInFrames);
+  const t = clamp01(frame / span);
+  // Continuous push, plus a tilt that settles out over the first ~40 frames so
+  // the scene arrives with motion and then steadies.
+  const scale = 1 + 0.06 * k * t;
+  const rotX = interpolate(frame, [0, 40], [2.4 * k, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const translateZ = 40 * k * t;
+  return {
+    transform: `scale(${scale.toFixed(4)}) rotateX(${rotX.toFixed(3)}deg) translateZ(${translateZ.toFixed(2)}px)`,
+    transformStyle: "preserve-3d",
+  };
+}
+
+/**
+ * A layer that drifts at its own rate inside a cameraStage. Give the backdrop a
+ * NEGATIVE depth and the foreground a positive one so they separate — opposing
+ * directions at different speeds is what reads as parallax.
+ */
+export function parallaxLayer(
+  frame: number,
+  durationInFrames: number,
+  depth = 1,
+  intensity = 0.5,
+): CameraTransform {
+  const k = clamp01(intensity);
+  const span = Math.max(1, durationInFrames);
+  const t = frame / span;
+  const x = -26 * depth * k * t;
+  const y = -14 * depth * k * t;
+  const z = 30 * depth * k;
+  return {
+    transform: `translate3d(${x.toFixed(2)}px, ${y.toFixed(2)}px, ${z.toFixed(2)}px)`,
+    transformStyle: "preserve-3d",
+  };
+}
+
+/**
+ * A panel that rises with a forward tilt that settles — the newscast glass-panel
+ * move, generalised. Use for cards and surfaces entering the frame.
+ */
+export function panelTilt(
+  frame: number,
+  delayFrames = 0,
+  intensity = 0.5,
+): CameraTransform & { opacity: number } {
+  const k = clamp01(intensity);
+  const f = frame - delayFrames;
+  const y = interpolate(f, [0, 12, 26, 38], [70 * k, -10 * k, 5 * k, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const rotX = interpolate(f, [0, 14, 30], [13 * k, -2.6 * k, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const scale = interpolate(f, [0, 10, 24], [1 - 0.06 * k, 1 + 0.02 * k, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const opacity = interpolate(f, [0, 10], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  return {
+    transform: `translateY(${y.toFixed(2)}px) rotateX(${rotX.toFixed(3)}deg) scale(${scale.toFixed(4)})`,
+    transformStyle: "preserve-3d",
+    opacity,
+  };
+}

@@ -26,25 +26,25 @@ import { BackgroundMusic } from "../components/remotion/BackgroundMusic";
 import { SmartVideo } from "../components/remotion/SmartVideo";
 import * as Kit from "../components/remotion/generated/kit";
 
-// Craft-kit exports injected into JIT-compiled AI scene code, mirroring the
-// import list in the backend's _wrap_generated_code so preview === render.
-const KIT_EXPORTS = [
-  "SceneFrame", "useKit", "CountUpValue", "StatCard", "StatGrid", "MetricRow",
-  "RevealText", "HighlightPhrase", "FitText", "CodeBlock", "KenBurnsImage", "Decor", "CustomChart",
-  "CustomTable", "cardStyle", "derivePalette", "withAlpha", "staggerEntrance",
-  "headlinePop", "panelRise", "masterOpacity", "countUpString", "drawProgress", "seededRand",
-  // Layout skeletons (intra-video structural variety)
-  "CenteredFocal", "AsymmetricSplit", "FullBleedHero", "OffsetCardStack", "SideRail",
-  // Intro scaffold (bookend richness)
-  "IntroStage",
-  // Signature artifacts — the brand's recurring animated motif
-  "SignatureArtifact", "CornerFrame", "StreakField", "KineticTicker",
-  "BigGlyphBackdrop", "PulseRing", "AccentSweep",
-  "DiagonalShards", "HalftoneField", "StarburstBadge", "LightDust", "OrbitRings",
-] as const;
+// Craft-kit exports injected into JIT-compiled AI scene code.
+//
+// Generated from the canonical kit/index.ts by scripts/sync-generated-kit.mjs
+// and shared with the backend's _wrap_generated_code, so the preview and the
+// render inject exactly the same set. This used to be a hand-maintained array
+// duplicated on both sides, which had already drifted in production —
+// `CustomTable` was listed here but missing from the backend, so a scene using
+// it previewed fine and then failed to render.
+import { KIT_EXPORT_NAMES } from "../components/remotion/generated/kit/exportManifest.generated";
+
+const KIT_EXPORTS = KIT_EXPORT_NAMES;
 
 export interface SceneProps {
+  /** The scene's short title (Scene.title) — a label, not a sentence. */
+  sceneTitle?: string;
+  /** The on-screen copy (Scene.display_text). NOT the voiceover. */
   displayText: string;
+  /** The voiceover script (Scene.narration_text) — usually a paragraph, and
+   *  usually NOT what belongs on screen as a headline. */
   narrationText: string;
   imageUrl?: string;
   imageObjectPosition?: string;
@@ -86,6 +86,9 @@ export interface SceneProps {
   descriptionFontSize?: number;
   headingFont?: string;
   bodyFont?: string;
+  /** Free-form per-layout props declared by this layout's prop schema (P3).
+   *  Read defensively: props.layoutProps?.chapterNumber ?? "01". */
+  layoutProps?: Record<string, unknown>;
 }
 
 export type CompileResult =

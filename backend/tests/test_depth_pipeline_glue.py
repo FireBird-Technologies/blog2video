@@ -87,8 +87,13 @@ def test_validate__empty_code_invalid():
 
 
 def test_validate__unbalanced_braces_invalid():
+    # Rejected either by the esbuild parse gate (which runs first and reports the
+    # real syntax error with a line/column) or by the brace-balance heuristic
+    # behind it. The guarantee under test is that unbalanced braces never pass —
+    # not which of the two gates catches them.
     ok, err = validate_component_code("const SceneComponent = () => { <div/> ")
-    assert ok is False and "Unbalanced braces" in err
+    assert ok is False
+    assert "Unbalanced braces" in err or "Syntax error" in err
 
 
 def test_validate__missing_scene_component_invalid():

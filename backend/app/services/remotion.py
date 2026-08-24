@@ -53,6 +53,25 @@ _MAX_PLAYBACK_SPEED = 2.5
 _workspace_locks: dict[int, threading.Lock] = {}
 
 
+def _custom_layout_id(template_id: str, descriptor: dict) -> str | None:
+    """The real layout id (intro / content_N / outro) for a custom-template scene.
+
+    Mirrors pipeline._descriptor_layout_name. Returns None for non-custom
+    templates and for legacy descriptors that carry no scene type, so callers
+    fall back to their existing behaviour.
+    """
+    if not is_custom_template(template_id) or not isinstance(descriptor, dict):
+        return None
+    scene_type = descriptor.get("sceneTypeOverride") or descriptor.get("sceneType")
+    if scene_type in ("intro", "outro"):
+        return scene_type
+    if scene_type == "content":
+        idx = descriptor.get("contentVariantIndex")
+        if isinstance(idx, int) and idx >= 0:
+            return f"content_{idx}"
+    return None
+
+
 def _clamp_focus_value(value: object | None) -> float:
     try:
         num = float(value)
@@ -297,6 +316,49 @@ def provision_workspace(project_id: int, template_id: str | None = None) -> str:
         return workspace
 
 
+def _safe_scene_code(code: str, scene_type: str, label: str) -> str:
+    """Last-line-of-defence gate before generated code is written to a render
+    workspace (§R Layer 4).
+
+    Until now this function wrote whatever was in the DB, unchecked. That made a
+    single bad row catastrophic and PERMANENT: a scene with a syntax error fails
+    at esbuild BUNDLE time, so the module never compiles, no React error
+    boundary can contain it (see SceneErrorBoundary's own note), and EVERY
+    render of that template blanks until someone regenerates it.
+
+    Generation-time validation should prevent that, but this path is also
+    reached by rows that predate the current validator, partial migrations,
+    version rollbacks and manual DB edits. Substituting the deterministic stub
+    for one bad scene turns an unrenderable whole video into a single
+    simplified scene.
+
+    Deliberately cheap: it should never fire when generation is healthy.
+    """
+    try:
+        from app.services.code_validator import validate_component_code
+
+        valid, err = validate_component_code(code, scene_type=scene_type)
+        if valid:
+            return code
+
+        logger.error(
+            "[RENDER-GUARD] %s failed validation at write time — substituting fallback scene: %s",
+            label,
+            err,
+        )
+    except Exception:  # noqa: BLE001 - a guard must never break the render path
+        logger.exception("[RENDER-GUARD] validation raised for %s; using code as-is", label)
+        return code
+
+    try:
+        from app.services.code_generator import _build_stub_scene_code
+
+        return _build_stub_scene_code(scene_type, None)
+    except Exception:  # noqa: BLE001
+        logger.exception("[RENDER-GUARD] could not build fallback for %s; using code as-is", label)
+        return code
+
+
 def _write_generated_scene_files(workspace: str, template_id: str) -> None:
     """
     Overwrite the placeholder generated scene files in the workspace with
@@ -328,7 +390,7 @@ def _write_generated_scene_files(workspace: str, template_id: str) -> None:
     # Write intro
     intro_code = custom_data.get("intro_code")
     if intro_code:
-        wrapped = _wrap_generated_code(intro_code)
+        wrapped = _wrap_generated_code(_safe_scene_code(intro_code, "intro", "SceneIntro"))
         filepath = os.path.join(generated_dir, "SceneIntro.tsx")
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(wrapped)
@@ -337,7 +399,7 @@ def _write_generated_scene_files(workspace: str, template_id: str) -> None:
     # Write outro
     outro_code = custom_data.get("outro_code")
     if outro_code:
-        wrapped = _wrap_generated_code(outro_code)
+        wrapped = _wrap_generated_code(_safe_scene_code(outro_code, "outro", "SceneOutro"))
         filepath = os.path.join(generated_dir, "SceneOutro.tsx")
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(wrapped)
@@ -349,22 +411,11 @@ def _write_generated_scene_files(workspace: str, template_id: str) -> None:
     for i, code in enumerate(content_codes):
         if not code:
             continue
-        wrapped = _wrap_generated_code(code)
+        wrapped = _wrap_generated_code(_safe_scene_code(code, "content", f"SceneContent{i}"))
         filepath = os.path.join(generated_dir, f"SceneContent{i}.tsx")
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(wrapped)
         logger.info("Wrote SceneContent%d.tsx (%d bytes)", i, len(wrapped))
-        # TEMP DEBUG (remove after): persist raw + wrapped variants to a stable
-        # dir that render cleanup never touches, so a broken variant can be read.
-        try:
-            _dbg = "/tmp/b2v-scene-debug"
-            os.makedirs(_dbg, exist_ok=True)
-            with open(os.path.join(_dbg, f"raw_SceneContent{i}.tsx"), "w", encoding="utf-8") as _f:
-                _f.write(code)
-            with open(os.path.join(_dbg, f"wrapped_SceneContent{i}.tsx"), "w", encoding="utf-8") as _f:
-                _f.write(wrapped)
-        except Exception:
-            pass
 
     # Write SceneContent.tsx that re-exports Content0 (backward compat for GeneratedVideo stub)
     if num_content > 0:
@@ -547,6 +598,62 @@ def _resolve_crafted_logo_public_path(crafted_data: dict) -> str | None:
     return None
 
 
+# ─── Craft-kit injection set ─────────────────────────────────────
+# Generated from the canonical kit/index.ts by scripts/sync-generated-kit.mjs
+# and shared with the frontend preview compiler, so preview and render inject
+# exactly the same names. This list used to be hardcoded here AND in
+# frontend/src/utils/compileComponent.ts, and the two had already drifted:
+# `CustomTable` was injected in the preview but not at render, so a scene using
+# it previewed fine and failed the real render.
+_KIT_EXPORTS_CACHE: list[str] | None = None
+
+# Fallback used only if the manifest cannot be read (e.g. an image that does not
+# ship remotion-video sources). Intentionally the pre-manifest list, minus
+# nothing — a stale-but-working set beats an empty one.
+_KIT_EXPORTS_FALLBACK = [
+    "SceneFrame", "useKit", "CountUpValue", "StatCard", "StatGrid", "MetricRow",
+    "RevealText", "HighlightPhrase", "FitText", "CodeBlock", "KenBurnsImage",
+    "Decor", "CenteredFocal", "AsymmetricSplit", "FullBleedHero",
+    "OffsetCardStack", "SideRail", "IntroStage", "CustomChart", "CustomTable",
+    "SignatureArtifact", "CornerFrame", "StreakField", "KineticTicker",
+    "BigGlyphBackdrop", "PulseRing", "AccentSweep", "DiagonalShards",
+    "HalftoneField", "StarburstBadge", "LightDust", "OrbitRings", "cardStyle",
+    "derivePalette", "withAlpha", "staggerEntrance", "headlinePop", "panelRise",
+    "masterOpacity", "countUpString", "drawProgress", "seededRand",
+]
+
+
+def _kit_export_names() -> list[str]:
+    """Read the generated kit export manifest (cached for the process)."""
+    global _KIT_EXPORTS_CACHE
+    if _KIT_EXPORTS_CACHE is not None:
+        return _KIT_EXPORTS_CACHE
+
+    manifest = os.path.join(
+        settings.REMOTION_PROJECT_PATH,
+        "src", "templates", "generated", "kit", "exportManifest.generated.ts",
+    )
+    try:
+        with open(manifest, encoding="utf-8") as f:
+            names = re.findall(r'"([A-Za-z_$][\w$]*)"', f.read())
+        if names:
+            _KIT_EXPORTS_CACHE = names
+            return names
+        logger.warning("Kit export manifest at %s parsed to zero names; using fallback", manifest)
+    except OSError:
+        logger.warning("Kit export manifest not found at %s; using fallback list", manifest)
+
+    _KIT_EXPORTS_CACHE = list(_KIT_EXPORTS_FALLBACK)
+    return _KIT_EXPORTS_CACHE
+
+
+def _kit_import_block() -> str:
+    """Render the `import { ... } from "./kit";` statement for the wrapper."""
+    names = _kit_export_names()
+    body = "\n".join(f"  {n}," for n in names)
+    return f'import {{\n{body}\n}} from "./kit";'
+
+
 def _wrap_generated_code(raw_code: str) -> str:
     """
     Wrap AI-generated component code in a proper .tsx module.
@@ -554,8 +661,9 @@ def _wrap_generated_code(raw_code: str) -> str:
     The raw code looks like:
         const SceneComponent = (props) => { ... };
 
-    We add Remotion imports, type import, and a default export.
+    We add Remotion imports, the kit imports, type import, and a default export.
     """
+    kit_imports = _kit_import_block()
     return f'''// Auto-generated by Blog2Video AI — DO NOT EDIT MANUALLY
 import React from "react";
 import {{
@@ -573,49 +681,8 @@ import type {{ GeneratedSceneProps }} from "./types";
 
 // Craft kit — OPTIONAL, brand-themed building blocks the generated scene may
 // compose when the content fits (never forced). See generated/kit/.
-import {{
-  SceneFrame,
-  useKit,
-  CountUpValue,
-  StatCard,
-  StatGrid,
-  MetricRow,
-  RevealText,
-  HighlightPhrase,
-  FitText,
-  CodeBlock,
-  KenBurnsImage,
-  Decor,
-  CenteredFocal,
-  AsymmetricSplit,
-  FullBleedHero,
-  OffsetCardStack,
-  SideRail,
-  IntroStage,
-  CustomChart,
-  SignatureArtifact,
-  CornerFrame,
-  StreakField,
-  KineticTicker,
-  BigGlyphBackdrop,
-  PulseRing,
-  AccentSweep,
-  DiagonalShards,
-  HalftoneField,
-  StarburstBadge,
-  LightDust,
-  OrbitRings,
-  cardStyle,
-  derivePalette,
-  withAlpha,
-  staggerEntrance,
-  headlinePop,
-  panelRise,
-  masterOpacity,
-  countUpString,
-  drawProgress,
-  seededRand,
-}} from "./kit";
+// Import list generated from kit/exportManifest.generated.ts — see _kit_import_block().
+{kit_imports}
 
 // Safe wrapper — ensures inputRange is strictly monotonic even when dynamic values resolve equal
 const interpolate: typeof _interpolate = (frame, inputRange, outputRange, options?) => {{
@@ -817,7 +884,16 @@ def write_remotion_data(
         if scene.remotion_code:
             try:
                 desc = json.loads(scene.remotion_code)
-                if "layoutConfig" in desc:
+                # For a GENERATED custom template the policy metadata below
+                # (layouts_without_image, layout_prop_schema) is keyed by the real
+                # layout ids — intro / content_N / outro. Reading
+                # layoutConfig.arrangement gave a legacy arrangement name instead,
+                # so `layout in no_image_layouts` could never match and the OUTRO
+                # was handed an image/clip despite meta listing it as image-free.
+                _resolved = _custom_layout_id(template_id, desc)
+                if _resolved:
+                    layout = _resolved
+                elif "layoutConfig" in desc:
                     layout = desc["layoutConfig"].get("arrangement", fallback)
                 else:
                     layout = desc.get("layout", fallback)
@@ -831,6 +907,17 @@ def write_remotion_data(
         scene_layouts.append(layout)
         scene_base_layouts.append(resolve_base_layout(template_id, layout))
         scene_layout_props.append(lp)
+
+    # The closing scene of a custom template never takes an image or a clip: the
+    # CTA + socials row is composited OVER it at render time, and the blueprint
+    # forces supports_image=False on the outro layout. Pin it here rather than
+    # relying only on the layout lookup above, because a legacy descriptor (one
+    # written before scene types were stored) resolves to an arrangement name and
+    # would slip past the no_image_layouts check.
+    if is_custom_template(template_id) and len(scenes) > 1:
+        _last = len(scenes) - 1
+        if scene_base_layouts[_last] not in no_image_layouts:
+            scene_base_layouts[_last] = "outro"
 
     # Track which scene descriptors were modified (need serialization at end)
     dirty: set[int] = set()
@@ -1285,8 +1372,14 @@ def write_remotion_data(
             "id": scene.id,
             "order": scene.order,
             "title": scene.title,
+            # `narration` is the LEGACY on-screen field (display_text falling back
+            # to narration_text) that built-in templates still read. Keep it.
             "narration": on_screen_text,
-            "displayText": on_screen_text,
+            # `displayText` is the UNMIXED display_text. It used to carry
+            # on_screen_text too, so a scene with no display_text shipped its
+            # VOICEOVER SCRIPT as the on-screen headline — the generated
+            # components read displayText, so that is what viewers saw.
+            "displayText": display_text_val or "",
             "narrationText": scene.narration_text or "",
             "visualDescription": scene.visual_description,
             "durationSeconds": round(effective_duration, 1),
@@ -1471,9 +1564,18 @@ def write_remotion_data(
             if bg2 and not project.bg_color:
                 data["brandColors"]["bg2"] = bg2
                 data["bg2Color"] = bg2
-            # Transition family from the theme's motion personality (optional).
+            # Transition family — the BLUEPRINT's choice first, theme second.
+            #
+            # `blueprint["transition_family"]` was written by validate_blueprint and
+            # read by nothing, so every custom template fell back to
+            # theme.motion.transitionFamily — which theme_extractor derives from a
+            # THREE-bucket energy map. Every brand in a bucket therefore shared one
+            # transition set, and a template whose blueprint had picked a distinct
+            # family never got it.
             motion = custom_data["theme"].get("motion") or {}
-            tfam = motion.get("transitionFamily")
+            _bp = custom_data.get("design_blueprint") or {}
+            bp_tfam = _bp.get("transition_family") if isinstance(_bp, dict) else None
+            tfam = bp_tfam if isinstance(bp_tfam, list) and bp_tfam else motion.get("transitionFamily")
             if isinstance(tfam, list) and tfam:
                 data["transitionFamily"] = tfam
             # Tag each scene with a sceneType for GeneratedVideo (custom only).
@@ -1488,8 +1590,25 @@ def write_remotion_data(
             # over template theme fonts. Components use these as props, not hardcoded.
             theme_fonts = custom_data["theme"].get("fonts", {})
             resolved_font = getattr(project, "font_family", None)
-            data["headingFont"] = resolved_font or theme_fonts.get("heading")
-            data["bodyFont"] = resolved_font or theme_fonts.get("body")
+            # The BLUEPRINT's era typefaces outrank the theme's font names.
+            #
+            # theme.fonts holds whatever the extractor decided the brand's site
+            # used — free-form strings with no allow-list, so routinely names a
+            # face that was never bundled ("Cormorant Garamond"). At render time
+            # resolveFontFamily() returns null for those, the raw string is used
+            # as a CSS family nothing loaded, and the video silently falls back to
+            # the system sans. That is why brands with very different identities
+            # all came out looking typographically identical.
+            #
+            # The blueprint's ids are validated against the font registry, so they
+            # always resolve. A user's explicit project override still wins.
+            _bp_ident = (_bp.get("identity") or {}) if isinstance(_bp, dict) else {}
+            data["headingFont"] = (
+                resolved_font or _bp_ident.get("heading_font") or theme_fonts.get("heading")
+            )
+            data["bodyFont"] = (
+                resolved_font or _bp_ident.get("body_font") or theme_fonts.get("body")
+            )
 
             # Assign scene types first
             for idx, sd in enumerate(scene_data):
@@ -1608,9 +1727,21 @@ def write_remotion_data(
                 except (json.JSONDecodeError, TypeError):
                     desc = {}
 
+                # Persist the scene type for EVERY scene, not just content ones.
+                #
+                # This was gated on `contentVariantIndex is not None`, which is
+                # only true for content scenes — so intro and outro descriptors
+                # carried no scene-type marker at all. Every frontend surface
+                # that resolves a custom scene's layout keys off
+                # sceneTypeOverride, so both fell through to null and:
+                #   * SceneEditModal showed "Current layout" instead of
+                #     Intro/Outro, and still offered them as switch targets;
+                #   * ProjectView's `!sceneLayout` short-circuit made
+                #     sceneSupportsImage true, so the outro rendered an image
+                #     picker despite meta listing it in layouts_without_image.
+                desc["sceneTypeOverride"] = sd.get("sceneType", "content")
                 if sd.get("contentVariantIndex") is not None:
                     desc["contentVariantIndex"] = sd["contentVariantIndex"]
-                    desc["sceneTypeOverride"] = sd.get("sceneType", "content")
                     if sd.get("contentArchetype"):
                         desc["contentArchetype"] = sd["contentArchetype"]
 

@@ -20,6 +20,7 @@ import {
 } from "../api/client";
 import {
   baseLayoutId,
+  customSceneLayoutId,
   variantsFor,
   variantLabel,
   isSameLayoutFamily,
@@ -2856,6 +2857,7 @@ export default function SceneEditModal({
   const [imageAdjustStartSeconds, setImageAdjustStartSeconds] = useState(0);
   const [savingImageFraming, setSavingImageFraming] = useState(false);
   const [layouts, setLayouts] = useState<LayoutInfo | null>(null);
+  const [layoutsLoading, setLayoutsLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [removingAssetId, setRemovingAssetId] = useState<number | null>(null);
   const [layoutOpen, setLayoutOpen] = useState(false);
@@ -3022,18 +3024,22 @@ export default function SceneEditModal({
   const savedLayoutId = (() => {
     // Dedicated/converted data-viz scenes route by scene type, not descriptor layout.
     if (dataVizKind) return dataVizKind === "chart" ? "custom_chart" : "custom_table";
+    // Custom templates route by scene type + content variant, and their
+    // intro/outro descriptors may carry no marker at all (older projects), so
+    // the shared resolver's positional fallback is what keeps them from
+    // resolving to null and rendering as "Current layout".
+    if (isCustomTemplate) {
+      const order = project.scenes?.findIndex((s) => s.id === scene.id) ?? -1;
+      return customSceneLayoutId(
+        scene.remotion_code,
+        order >= 0 ? order : undefined,
+        project.scenes?.length,
+      );
+    }
+    // Crafted + built-in templates map by explicit layout id.
     try {
       if (scene.remotion_code) {
         const desc = JSON.parse(scene.remotion_code);
-        // Only custom templates use sceneType/content variant routing.
-        // Crafted + built-in templates should map by explicit layout id.
-        if (isCustomTemplate && desc.sceneTypeOverride) {
-          if (desc.sceneTypeOverride === "content" && typeof desc.contentVariantIndex === "number") {
-            return `content_${desc.contentVariantIndex}`;
-          }
-          return desc.sceneTypeOverride; // "intro" or "outro"
-        }
-        // Custom templates store arrangement in layoutConfig
         if (desc.layoutConfig?.arrangement) return desc.layoutConfig.arrangement;
         return desc.layout || null;
       }
@@ -3079,8 +3085,11 @@ export default function SceneEditModal({
   // Keyed by BASE layout, so every membership test resolves the layout first —
   // `pull_quote__v2` inherits `pull_quote`'s no-image status.
   const layoutsWithoutImage = new Set<string>(layouts?.layouts_without_image ?? []);
+  // While the layouts request is still in flight the set is empty, which would
+  // report EVERY layout as image-capable and flash the image controls onto an
+  // image-free scene. Treat "unknown" as not-yet-supported instead of supported.
   const layoutSupportsImage = (layoutId: string | null) =>
-    !layoutId || !layoutsWithoutImage.has(baseLayoutId(layoutId));
+    layoutsLoading ? false : !layoutId || !layoutsWithoutImage.has(baseLayoutId(layoutId));
   // `supportsImage` follows the EFFECTIVE layout so switching into an image-less
   // layout hides the image controls before saving.
   const supportsImage = layoutSupportsImage(currentLayoutId);
@@ -3090,6 +3099,20 @@ export default function SceneEditModal({
   // and crafted). The backend still rejects scenes/layouts that can't render
   // a clip (e.g. dataviz scenes), see upload_stock_footage in app/routers/projects.py.
   const stockFootageSupported = supportsImage;
+
+  // Per-layout editable props this custom-template layout declared at
+  // generation time (P3). When present, the scene saves them to layoutProps
+  // like built-in and crafted templates instead of falling back to the fixed
+  // structured-content fields.
+  const customLayoutPropFields = isCustomTemplate
+    ? pickLayoutPropSchemaFieldDefs(
+        layouts?.layout_prop_schema as unknown as
+          | Record<string, LayoutPropSchema>
+          | undefined,
+        currentLayoutId,
+      )
+    : undefined;
+  const customLayoutHasPropSchema = !!customLayoutPropFields?.length;
 
   /**
    * This scene's image box as a CSS aspect string, passed to the stock picker so
@@ -3788,12 +3811,21 @@ export default function SceneEditModal({
   }, [open, isCraftedTemplate, project.template, craftedTemplates]);
 
   // Fetch layouts when modal opens (needed for manual mode: image support check and layout names)
+  //
+  // `layoutsLoading` exists because this is async with no cached value: until it
+  // resolves, `layouts` is null, so the dropdown renders an EMPTY option list,
+  // every label falls back to a raw id ("content_0"), and `layouts_without_image`
+  // reads as [] — which briefly shows image controls on image-free layouts.
+  // Callers use the flag to render a loading row and to hold back the image
+  // controls rather than defaulting them to "supported".
   useEffect(() => {
     if (isDemo) return;
     if (open && !layouts) {
+      setLayoutsLoading(true);
       getValidLayouts(project.id)
         .then((res) => setLayouts(res.data))
-        .catch(() => showError("Failed to load layouts"));
+        .catch(() => showError("Failed to load layouts"))
+        .finally(() => setLayoutsLoading(false));
     }
   }, [open, project.id, layouts, isDemo]);
 
@@ -3922,6 +3954,24 @@ export default function SceneEditModal({
           }
           // Custom templates use layoutConfig — skip layoutProps editing
           if (isCustomTemplate) {
+            // When this layout declared its own editable props (P3), persist
+            // them to layoutProps — the same location built-in and crafted
+            // templates use, and what GeneratedVideo passes to the component.
+            // Spreading the previous value first preserves keys written
+            // elsewhere (notably imageBoxAspectRatio, stamped at render time).
+            if (customLayoutHasPropSchema) {
+              const prevLp = (desc.layoutProps as Record<string, unknown>) || {};
+              const schemaKeys = new Set(
+                (customLayoutPropFields ?? []).map((f) => f.key),
+              );
+              const editedSchemaProps: Record<string, unknown> = {};
+              for (const [k, v] of Object.entries(
+                editableLayoutProps as Record<string, unknown>,
+              )) {
+                if (schemaKeys.has(k)) editedSchemaProps[k] = v;
+              }
+              desc.layoutProps = { ...prevLp, ...editedSchemaProps };
+            }
             // Exception: dedicated data-viz scenes persist their edited chart data
             // into layoutProps (the location GeneratedVideo's kit scenes read).
             if (dataVizKind) {
@@ -7203,6 +7253,11 @@ export default function SceneEditModal({
                         Only the exact saved layout is filtered out — filtering by
                         FAMILY would hide the current layout's sibling variants,
                         which are precisely what we want to offer here. */}
+                    {layoutsLoading && (
+                      <div className="px-3 py-2.5 text-xs text-gray-400 italic">
+                        Loading layouts…
+                      </div>
+                    )}
                     {(layouts?.layouts ?? layouts?.selectable_layouts)
                       ?.filter((id) => id !== savedLayoutId)
                       .map((layoutId) => {

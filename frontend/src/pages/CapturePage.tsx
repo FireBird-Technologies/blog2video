@@ -215,8 +215,94 @@ function CraftedCapture({ srcUrl, name }: { srcUrl: string; name: string }) {
   );
 }
 
+type SceneJob = {
+  code: string;
+  theme: unknown;
+  scene_type?: string;
+  scene_index?: number;
+  total_scenes?: number;
+  logo_urls?: string[];
+};
+
+/**
+ * Renders ONE generated scene for visual verification.
+ *
+ * `/_capture?scene=1&job=<id>&secret=<CAPTURE_SECRET>`
+ *
+ * The scene's code is 200-400 lines, far too large for a query string, so it is
+ * fetched by job id from a short-lived server-side store.
+ *
+ * It reuses CustomPreviewLandscape with a single scene rather than
+ * reimplementing the composition, so the frame the vision model inspects is
+ * pixel-identical to what the real preview renders — a bespoke harness here
+ * would risk verifying something users never see.
+ *
+ * Content scenes deliberately receive NO imageUrl (matching CustomPreview), so
+ * the !hasImage branch renders. That is the branch most often reported broken.
+ */
+const SceneCapture: FC<{ job: string; secret: string }> = ({ job, secret }) => {
+  const [data, setData] = useState<SceneJob | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    // The shot server injects the payload before navigation, which avoids a
+    // round trip AND the job store's process affinity (it lives in one uvicorn
+    // worker, so a fetch can land on a different one). Fall back to fetching
+    // when nothing was injected, so the route stays usable by hand.
+    const injected = (window as unknown as { __sceneCaptureJob?: SceneJob }).__sceneCaptureJob;
+    if (injected?.code) {
+      setData(injected);
+      return;
+    }
+    fetch(`${BACKEND_URL}/api/custom-templates/internal/scene-capture-job/${job}`, {
+      headers: { "X-Capture-Secret": secret },
+    })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`job ${r.status}`))))
+      .then((d: SceneJob) => {
+        if (!cancelled) setData(d);
+      })
+      .catch((e: Error) => {
+        if (!cancelled) setError(e.message);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [job, secret]);
+
+  useCaptureReady(data ? job : null);
+
+  if (error) return <div style={{ padding: 24, color: "#fff" }}>Scene capture error: {error}</div>;
+  if (!data) return <div style={{ padding: 24, color: "#888" }}>Loading…</div>;
+
+  const AnyPreview = CustomPreviewLandscape as unknown as FC<Record<string, unknown>>;
+  return (
+    <div
+      id="capture-root"
+      style={{ width: 1920, height: 1080, overflow: "hidden", position: "relative", background: "#000" }}
+    >
+      <CaptureContext.Provider value={true}>
+        <AnyPreview
+          theme={data.theme}
+          name="Preview"
+          // A single scene in the intro slot: CustomPreview renders slot-by-slot,
+          // so one code string means one composed frame.
+          introCode={data.code}
+          contentCodes={undefined}
+          outroCode={undefined}
+          logoUrls={data.logo_urls ?? []}
+          previewImageUrl={null}
+          thumbnailFrame={110}
+          thumbnailMode={true}
+        />
+      </CaptureContext.Provider>
+    </div>
+  );
+};
+
 export default function CapturePage() {
   const [params] = useSearchParams();
+  const sceneJob = params.get("scene") === "1" ? params.get("job") : null;
   const customId = params.get("custom");
   const craftedSrc = params.get("craftedSrc");
   const craftedName = params.get("name") ?? "Template";
@@ -230,7 +316,9 @@ export default function CapturePage() {
           and each preview's scene-nav dot pill, which would otherwise be baked
           into the screenshot. */}
       <style>{HIDE_CHROME_CSS}</style>
-      {customId ? (
+      {sceneJob ? (
+        <SceneCapture job={sceneJob} secret={secret} />
+      ) : customId ? (
         <CustomCapture customId={customId} secret={secret} />
       ) : craftedSrc ? (
         <CraftedCapture srcUrl={craftedSrc} name={craftedName} />

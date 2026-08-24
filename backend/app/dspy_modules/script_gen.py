@@ -171,12 +171,18 @@ class BlogToScript(dspy.Signature):
       listed there when inviting followers; if it says NONE, do not name Facebook, Instagram, YouTube, etc.
     - Follow the "Best for" / "When to Use" hints when deciding per scene.
     - Hero/opening scenes should use the template's hero layout (e.g. hero_image, news_headline).
-    - For CUSTOM templates (universal layout engine):
-    - layout_catalog describes ARRANGEMENTS (e.g. full-center, split-left, grid-2x2).
-    - Suggest one arrangement name per scene.
+    - For CUSTOM templates:
+    - When layout_catalog contains a "Layout catalog (AUTHORITATIVE ...)" section,
+      use ONLY the ids listed there (intro, content_0 ... content_N, outro). They
+      are the template's real generated scenes. Ignore any arrangement names
+      (full-center, split-left, grid-3, stacked) appearing earlier in the prompt —
+      those are a legacy vocabulary and will be discarded.
+    - Older custom templates without that section still use arrangement names.
+    - Suggest one layout id (or arrangement name) per scene.
     - For each scene object in scenes_json, include a "preferred_layout" field (string):
     - BUILT-IN: layout ID from the template's layout catalog.
-    - CUSTOM: arrangement name from the layout_catalog list.
+    - CUSTOM: an id from the AUTHORITATIVE catalog when present, else an
+      arrangement name from the layout_catalog list.
     - If unsure, leave preferred_layout as empty string "" for that scene.
 
     ═══ USER INSTRUCTION RULES (when present) ═══

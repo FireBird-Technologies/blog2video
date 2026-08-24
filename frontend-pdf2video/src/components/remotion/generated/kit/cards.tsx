@@ -33,7 +33,16 @@ export type SurfaceVariant =
   | "flat-hairline"
   | "embossed"
   | "soft"
-  | "flat";
+  | "flat"
+  // P1 additions. `inkwell` in particular replaces something the scene prompt
+  // used to describe only in prose — an inverted dark panel — which every scene
+  // then hand-rolled slightly differently.
+  | "paper" // editorial: warm stock with a faint inner shadow
+  | "inkwell" // inverted dark panel for per-scene contrast
+  | "tape" // scrapbook/lifestyle: offset shadow, slight rotation
+  | "ledger" // finance/data: ruled lines
+  | "chip" // compact pill with an accent edge
+  | "cutout"; // bold: hard offset shadow, no blur
 
 export function cardStyle(
   palette: KitPalette,
@@ -81,6 +90,64 @@ export function cardStyle(
       border: "none",
       borderRadius: Math.max(radius, 24),
       boxShadow: "0 12px 34px rgba(0,0,0,0.12)",
+    };
+  }
+  if (variant === "paper") {
+    // Editorial: warm off-white stock, squared corners, faint inner shadow so
+    // it reads as a physical page rather than a UI card.
+    return {
+      background: palette.isDark ? palette.panel : withAlpha("#FFFDF7", 0.96),
+      border: `1px solid ${withAlpha(palette.text, 0.12)}`,
+      borderRadius: 2,
+      boxShadow: `inset 0 0 40px ${withAlpha(palette.text, 0.05)}`,
+    };
+  }
+  if (variant === "inkwell") {
+    // Inverted panel: the per-scene contrast move the prompt used to describe in
+    // prose. Always a SOLID fill, so it stays valid even for brands restricted
+    // to solid backgrounds.
+    return {
+      background: palette.isDark ? withAlpha("#000000", 0.55) : palette.text,
+      border: `1px solid ${withAlpha(palette.accent, 0.35)}`,
+      borderRadius: radius,
+      color: palette.isDark ? palette.text : palette.bg,
+    };
+  }
+  if (variant === "tape") {
+    // Scrapbook: hard offset shadow + a fixed micro-rotation (deterministic —
+    // never Math.random, which would flicker between frames).
+    return {
+      background: palette.panel,
+      border: `1px solid ${withAlpha(palette.text, 0.1)}`,
+      borderRadius: 3,
+      boxShadow: `6px 6px 0 ${withAlpha(palette.text, 0.12)}`,
+      transform: "rotate(-0.7deg)",
+    };
+  }
+  if (variant === "ledger") {
+    // Finance: ruled horizontal lines behind the content.
+    return {
+      background: `repeating-linear-gradient(${palette.panel}, ${palette.panel} 34px, ${withAlpha(palette.text, 0.07)} 34px, ${withAlpha(palette.text, 0.07)} 35px)`,
+      border: `1px solid ${palette.border}`,
+      borderRadius: 4,
+    };
+  }
+  if (variant === "chip") {
+    // Compact pill with a leading accent edge.
+    return {
+      background: withAlpha(palette.accent, 0.1),
+      border: `1px solid ${withAlpha(palette.accent, 0.4)}`,
+      borderLeft: `3px solid ${palette.accent}`,
+      borderRadius: 999,
+    };
+  }
+  if (variant === "cutout") {
+    // Bold/editorial: knockout with a hard, unblurred offset.
+    return {
+      background: palette.bg,
+      border: `2px solid ${palette.text}`,
+      borderRadius: 0,
+      boxShadow: `8px 8px 0 ${palette.accent}`,
     };
   }
   return {

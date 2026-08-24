@@ -60,6 +60,7 @@ from app.services.project_cleanup import (
 )
 from app.services.template_service import (
     validate_template_id,
+    apply_blueprint_to_theme,
     get_preview_colors,
     get_valid_layouts,
     get_hero_layout,
@@ -200,7 +201,16 @@ def _inject_custom_theme(project: Project, db: Session | None = None) -> Project
     """Attach custom_theme to a project so ProjectOut serialization includes it."""
     if is_custom_template(project.template) or is_crafted_template(project.template):
         data = _load_custom_template_data(project.template, db=db, user_id=project.user_id)
-        project.custom_theme = data["theme"] if data else None
+        theme = data["theme"] if data else None
+        # Surface the BLUEPRINT's transition family through the theme.
+        #
+        # The renderer resolves blueprint-first (remotion.py), but the player reads
+        # `project.custom_theme.motion.transitionFamily` client-side. Reconciling
+        # here — the single serialization point for custom_theme — keeps preview
+        # and export on the same transitions instead of silently disagreeing.
+        if theme and data:
+            theme = apply_blueprint_to_theme(theme, data.get("design_blueprint"))
+        project.custom_theme = theme
         project.custom_image_box_aspect_ratios = (
             data.get("image_box_aspect_ratios") if data else None
         )

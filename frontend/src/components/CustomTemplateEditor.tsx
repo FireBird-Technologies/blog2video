@@ -14,9 +14,15 @@ interface Props {
   onCancel: () => void;
   /** Update the parent's template in-place (e.g. after a rating) WITHOUT closing the modal. */
   onTemplatePatch?: (template: CustomTemplateItem) => void;
+  /**
+   * Switch from this modal to the per-scene editor. Omitted when the template
+   * has no generated scenes to edit (no intro_code), which is why the entry
+   * point is a prop rather than something this component decides for itself.
+   */
+  onEditScenes?: () => void;
 }
 
-export default function CustomTemplateEditor({ template, onSaved, onCancel, onTemplatePatch }: Props) {
+export default function CustomTemplateEditor({ template, onSaved, onCancel, onTemplatePatch, onEditScenes }: Props) {
   const [name, setName] = useState(template.name);
   const [accentColor, setAccentColor] = useState(template.theme.colors.accent);
   const [useGradient, setUseGradient] = useState(template.theme.colors.bg2 != null);
@@ -31,6 +37,24 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel, onTe
   );
   const [ratingSaving, setRatingSaving] = useState(false);
   const gradientRef = useRef<HTMLDivElement>(null);
+
+  // Switching to the scene editor unmounts this modal, so any unsaved name /
+  // colour edits would be silently dropped. Confirm first rather than losing
+  // them — the two editors write different fields, so there is nothing to merge.
+  const isDirty =
+    name !== template.name ||
+    accentColor !== template.theme.colors.accent ||
+    useGradient !== (template.theme.colors.bg2 != null);
+
+  const handleEditScenes = () => {
+    if (
+      isDirty &&
+      !window.confirm("You have unsaved changes to this template. Discard them and edit scenes?")
+    ) {
+      return;
+    }
+    onEditScenes?.();
+  };
 
   const handleRate = async (rating: 1 | 2 | 3 | 4 | 5, comment?: string) => {
     const prevRating = myRating;
@@ -71,6 +95,13 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel, onTe
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  // Auto-dismiss the error banner after 3s, matching TemplateSceneEditor.
+  useEffect(() => {
+    if (!error) return;
+    const t = setTimeout(() => setError(null), 3000);
+    return () => clearTimeout(t);
+  }, [error]);
+
   const theme = template.theme;
 
   const handleSave = async () => {
@@ -100,7 +131,7 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel, onTe
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCancel} />
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-100">
           <h2 className="text-lg font-semibold text-gray-900">Edit Template</h2>
           <button onClick={onCancel} className="text-gray-400 hover:text-gray-600 transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -109,7 +140,7 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel, onTe
           </button>
         </div>
 
-        <div className="px-6 py-5 space-y-5">
+        <div className="px-4 sm:px-6 py-5 space-y-5">
           {error && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
               {error}
@@ -121,28 +152,48 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel, onTe
             <CustomPreview theme={theme} name={name || undefined} introCode={template.intro_code || undefined} outroCode={template.outro_code || undefined} contentCodes={template.content_codes || undefined} contentArchetypeIds={template.content_archetype_ids || undefined} previewImageUrl={template.preview_image_url} logoUrls={template.logo_urls} ogImage={template.og_image} onLiveSceneChange={setLiveScene} />
           </div>
 
-          {/* Scene name — a single centered pill showing the scene currently on
-              screen in the preview; it smoothly swaps as the scene changes. */}
-          {sceneLabels.length > 1 && (() => {
+          {/* Scene counter + layout pill on the left, switch to the per-scene
+              editor on the right — the two ends of one row under the preview.
+              `flex-wrap` lets the switch drop to its own line on a narrow modal
+              instead of crushing the counter; each item is nowrap so they break
+              BETWEEN items rather than inside "4 / 10" or the label. */}
+          {(sceneLabels.length > 1 || onEditScenes) && (() => {
             const total = sceneLabels.length;
             const current = Math.min(liveScene, total - 1);
             return (
-              <div className="flex items-center justify-center gap-2">
-                <span className="text-[11px] font-medium text-gray-400 tabular-nums">
-                  {current + 1} / {total}
-                </span>
-                <style>{`@keyframes scenePillIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}`}</style>
-                <span
-                  key={current}
-                  className="text-[11px] font-semibold rounded-full px-3 py-1 whitespace-nowrap"
-                  style={{
-                    color: "#fff",
-                    background: accentColor,
-                    animation: "scenePillIn 0.3s ease-out",
-                  }}
-                >
-                  {sceneLabels[current]}
-                </span>
+              <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  {total > 1 && (
+                    <>
+                      <span className="text-[13px] font-medium text-gray-400 tabular-nums whitespace-nowrap">
+                        {current + 1} / {total}
+                      </span>
+                      <style>{`@keyframes scenePillIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}`}</style>
+                      <span
+                        key={current}
+                        className="text-[13px] font-semibold rounded-full px-3 py-1 whitespace-nowrap overflow-hidden text-ellipsis"
+                        style={{
+                          color: "#fff",
+                          background: accentColor,
+                          animation: "scenePillIn 0.3s ease-out",
+                        }}
+                      >
+                        {sceneLabels[current]}
+                      </span>
+                    </>
+                  )}
+                </div>
+                {onEditScenes && (
+                  <button
+                    onClick={handleEditScenes}
+                    className="inline-flex items-center gap-1 text-[12px] font-medium text-violet-700 hover:text-violet-900 hover:underline transition-colors whitespace-nowrap"
+                  >
+                    Switch to individual scenes editing
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                )}
               </div>
             );
           })()}

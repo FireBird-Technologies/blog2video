@@ -1976,6 +1976,10 @@ export interface CustomTemplateItem {
   logo_urls?: string[];
   og_image?: string;
   generation_failed: boolean;
+  /** Scenes that fell back to the simplified stub design during generation. */
+  generation_warnings?: string[];
+  /** The per-brand design this template was generated from (P2), when present. */
+  design_blueprint?: Record<string, unknown> | null;
   is_regenerating: boolean;
   my_rating?: number | null;
   my_rating_comment?: string | null;
@@ -2140,6 +2144,60 @@ export const submitTemplateRating = (
   templateId: number,
   data: { rating: 1 | 2 | 3 | 4 | 5; suggestion?: string }
 ) => api.post<TemplateRating>(`/custom-templates/${templateId}/rating`, data);
+
+// ─── Per-scene AI editing (P4) ────────────────────────────────
+//
+// A scene key is "intro" | "outro" | "content_<n>". Editing produces a DRAFT
+// that can be previewed side by side with the published scene before it is
+// applied, so a bad edit never lands on the live template. Editing does NOT
+// consume a custom-template slot — it costs roughly a ninth of a regeneration.
+
+export interface SceneEditStatus {
+  status: "queued" | "generating" | "complete" | "error" | "unknown";
+  step: string;
+  running: boolean;
+  error: string | null;
+  draft_version_id: number | null;
+}
+
+export interface SceneDraft {
+  version_id: number;
+  scene_key: string;
+  label: string;
+  code: string;
+  aspect_ratio?: { landscape: string; portrait: string } | null;
+  prop_schema: LayoutPropField[];
+  created_at: string;
+}
+
+/** Fire-and-poll: returns 202 with an edit_id to pass to getSceneEditStatus. */
+export const aiEditScene = (
+  templateId: number,
+  sceneKey: string,
+  data: { prompt: string; keep_geometry?: boolean }
+) =>
+  api.post<{ edit_id: string; template_id: number; scene_key: string }>(
+    `/custom-templates/${templateId}/scenes/${sceneKey}/ai-edit`,
+    data
+  );
+
+export const getSceneEditStatus = (templateId: number, sceneKey: string, editId: string) =>
+  api.get<SceneEditStatus>(
+    `/custom-templates/${templateId}/scenes/${sceneKey}/ai-edit/status?edit_id=${encodeURIComponent(editId)}`
+  );
+
+export const getSceneDraft = (templateId: number, sceneKey: string) =>
+  api.get<SceneDraft>(`/custom-templates/${templateId}/scenes/${sceneKey}/draft`);
+
+export const applySceneDraft = (templateId: number, sceneKey: string) =>
+  api.post<CustomTemplateItem>(
+    `/custom-templates/${templateId}/scenes/${sceneKey}/draft/apply`
+  );
+
+export const discardSceneDraft = (templateId: number, sceneKey: string) =>
+  api.post<{ detail: string }>(
+    `/custom-templates/${templateId}/scenes/${sceneKey}/draft/discard`
+  );
 
 // ─── ElevenLabs voices (default / available) ─────────────────
 

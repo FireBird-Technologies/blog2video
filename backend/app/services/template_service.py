@@ -146,6 +146,9 @@ def _build_template_result(tpl) -> dict[str, Any]:
         "content_codes": content_codes,
         "content_archetype_ids": json.loads(tpl.content_archetype_ids) if getattr(tpl, "content_archetype_ids", None) else [],
         "image_box_aspect_ratios": json.loads(tpl.image_box_aspect_ratios) if getattr(tpl, "image_box_aspect_ratios", None) else None,
+        # P2 design blueprint — drives per-layout image capability in meta.
+        "design_blueprint": json.loads(tpl.design_blueprint) if getattr(tpl, "design_blueprint", None) else None,
+        "layout_prop_schemas": json.loads(tpl.layout_prop_schemas) if getattr(tpl, "layout_prop_schemas", None) else None,
         "brand_kit": brand_kit_data,
         "og_image": og_image,
     }
@@ -186,6 +189,46 @@ def _build_crafted_template_result(package: dict[str, Any]) -> dict[str, Any]:
         "public_r2_relpaths": package.get("public_r2_relpaths") or [],
         "crafted_r2_prefix": package.get("crafted_r2_prefix") or "",
     }
+
+
+def apply_blueprint_to_theme(theme: dict | None, design_blueprint: dict | None) -> dict | None:
+    """Fold the blueprint's design decisions into the theme dict.
+
+    THREE surfaces render a custom template — the Remotion export, the project
+    player, and the template preview — and each reads the theme, not the
+    blueprint. Without this they disagree on the two most visible properties a
+    template has:
+
+      * `motion.transitionFamily` — the blueprint's own choice was written and
+        never read, so every template fell back to a 3-bucket energy preset and
+        each cut used the same transition;
+      * `fonts.heading` / `fonts.body` — theme fonts are free-form names the
+        extractor guessed, often not bundled, which render as the system default.
+        The blueprint's ids are registry-validated.
+
+    Kept here rather than in a router so all three surfaces share ONE
+    implementation; duplicating it is how they drifted in the first place.
+    Returns a new dict — never mutates the caller's theme.
+    """
+    if not theme or not isinstance(design_blueprint, dict):
+        return theme
+
+    out = theme
+    tfam = design_blueprint.get("transition_family")
+    if isinstance(tfam, list) and tfam:
+        motion = dict(out.get("motion") or {})
+        motion["transitionFamily"] = tfam
+        out = {**out, "motion": motion}
+
+    ident = design_blueprint.get("identity") or {}
+    if isinstance(ident, dict) and (ident.get("heading_font") or ident.get("body_font")):
+        fonts = dict(out.get("fonts") or {})
+        if ident.get("heading_font"):
+            fonts["heading"] = ident["heading_font"]
+        if ident.get("body_font"):
+            fonts["body"] = ident["body_font"]
+        out = {**out, "fonts": fonts}
+    return out
 
 
 def _load_custom_template_data(
@@ -270,6 +313,8 @@ def _get_custom_meta(template_id: str, db: Session | None = None, user_id: int |
         data["name"],
         content_codes_count=len(content_codes),
         content_archetype_ids=data.get("content_archetype_ids"),
+        design_blueprint=data.get("design_blueprint"),
+        layout_prop_schemas=data.get("layout_prop_schemas"),
     )
 
 
@@ -365,7 +410,23 @@ def get_layout_prompt(template_id: str, db: Session | None = None, user_id: int 
 
     if is_custom_template(template_id):
         # Custom templates do not have layout_prompt.md files on disk; use their full prompt.
-        return _get_custom_prompt(template_id, db=db, user_id=user_id)
+        #
+        # But that prompt is `generated_prompt`, STORED AT TEMPLATE-CREATION TIME —
+        # before any scene code exists — so it describes the legacy arrangement
+        # vocabulary (full-center, split-left, grid-3, ...). Meanwhile the
+        # template's real layouts, once code has been generated, are
+        # intro / content_0..N / outro, and those are what get_valid_layouts()
+        # and the renderer actually use.
+        #
+        # Feeding the script LLM the stale catalog made it pick arrangement names
+        # for every scene — names nothing downstream consumes — which is why
+        # project scene lists showed "split-left" and "grid-3" instead of the
+        # template's own layouts. Append the authoritative catalog so the LLM
+        # picks real ids. (Regenerating generated_prompt is not an option: it is
+        # also consumed by the DSPy scene generator for narration/visual hints.)
+        base = _get_custom_prompt(template_id, db=db, user_id=user_id)
+        catalog = _custom_layout_catalog(template_id)
+        return f"{base}\n\n{catalog}" if catalog else base
 
     layout_path = _TEMPLATES_DIR / template_id / "layout_prompt.md"
     if layout_path.exists():
@@ -374,6 +435,41 @@ def get_layout_prompt(template_id: str, db: Session | None = None, user_id: int 
 
     # Fallback: use full prompt.md
     return _load_prompt(template_id, db=db, user_id=user_id)
+
+
+def _custom_layout_catalog(template_id: str) -> str:
+    """The authoritative layout catalog for a generated custom template.
+
+    Returns "" for legacy theme-only templates (no generated scene code), whose
+    stored prompt's arrangement vocabulary is still the correct one for them.
+    """
+    meta = _load_meta(template_id)
+    if not meta:
+        return ""
+    layouts = [x for x in (meta.get("valid_layouts") or []) if isinstance(x, str)]
+    # Arrangement-based metas are the legacy shape — leave those alone.
+    if not any(x == "intro" or x.startswith("content_") for x in layouts):
+        return ""
+    studio_only = set(meta.get("studio_only_layouts") or [])
+    names = meta.get("layout_names") or {}
+    rows = [
+        f"- `{lid}` — {names.get(lid, lid.replace('_', ' ').title())}"
+        for lid in layouts
+        if lid not in studio_only
+    ]
+    if not rows:
+        return ""
+    return (
+        "## Layout catalog (AUTHORITATIVE — overrides any arrangement list above)\n\n"
+        "This template's scenes were generated as code. Its real layouts are the ids\n"
+        "below. Use ONE of these exact ids as each scene's layout. Arrangement names\n"
+        "such as `full-center`, `split-left`, `grid-3` or `stacked` belong to an older\n"
+        "vocabulary, are NOT valid here, and will be discarded.\n\n"
+        + "\n".join(rows)
+        + "\n\n- `intro` is the opening scene and `outro` the closing scene; use each once.\n"
+        "- Spread the `content_*` layouts across the remaining scenes and avoid\n"
+        "  repeating the same one in consecutive scenes.\n"
+    )
 
 
 def get_valid_layouts(template_id: str) -> set[str]:

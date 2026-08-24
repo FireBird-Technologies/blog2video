@@ -256,7 +256,24 @@ def _bind_dataviz_layout_props(scene, descriptor: dict) -> bool:
 def _descriptor_layout_name(template_id: str, descriptor: dict) -> str | None:
     """Extract effective layout from descriptor payload."""
     if is_custom_template(template_id):
-        cfg = descriptor.get("layoutConfig") if isinstance(descriptor, dict) else None
+        if not isinstance(descriptor, dict):
+            return None
+        # A GENERATED custom template's real layouts are intro / content_N / outro,
+        # and that is what the renderer dispatches on (sceneType +
+        # contentVariantIndex) and what SceneEditModal's dropdown lists. Prefer
+        # them over layoutConfig.arrangement, which is a legacy arrangement name
+        # ("full-center", "split-left") that nothing downstream consumes — using
+        # it here re-stamped preferred_layout with a name outside the template's
+        # own valid_layouts, which is why project scene lists showed arrangement
+        # names and why the outro was never recognised as image-free.
+        scene_type = descriptor.get("sceneTypeOverride") or descriptor.get("sceneType")
+        if isinstance(scene_type, str) and scene_type in ("intro", "outro"):
+            return scene_type
+        if scene_type == "content":
+            idx = descriptor.get("contentVariantIndex")
+            if isinstance(idx, int) and idx >= 0:
+                return f"content_{idx}"
+        cfg = descriptor.get("layoutConfig")
         if isinstance(cfg, dict):
             name = cfg.get("arrangement")
             return name if isinstance(name, str) else None
@@ -314,9 +331,13 @@ def _sanitize_script_layouts(
     """
     if not scenes_raw:
         return scenes_raw
-    if is_custom_template(template_id):
-        return scenes_raw
 
+    # Custom templates used to return here unsanitised, so whatever the script LLM
+    # produced was stored verbatim — including names outside ANY vocabulary (a
+    # hallucinated "comparison" was observed in production). They now go through
+    # the same clamp as everything else; `valid` for a generated custom template
+    # is intro / content_0..N / outro, and `supports_ending` below is naturally
+    # False for them since they have no `ending_socials` layout.
     valid = {x for x in get_valid_layouts(template_id) if isinstance(x, str) and x.strip()}
     if not valid:
         return scenes_raw
@@ -326,7 +347,16 @@ def _sanitize_script_layouts(
     if fallback_layout not in valid:
         fallback_layout = next(iter(valid))
 
-    supports_ending = "ending_socials" in valid and include_ending_socials
+    # The closing layout. Built-ins call it `ending_socials`; a generated custom
+    # template calls it `outro`. Without this the custom closing scene fell
+    # through to the generic diverse-pick and became a content layout, so the
+    # video ended on an ordinary scene instead of the CTA/socials treatment.
+    ending_layout = (
+        "ending_socials"
+        if "ending_socials" in valid
+        else ("outro" if "outro" in valid else "")
+    )
+    supports_ending = bool(ending_layout) and include_ending_socials
     last_idx = len(scenes_raw) - 1
     usage: dict[str, int] = {}
     prev_layout: str | None = None
@@ -350,10 +380,10 @@ def _sanitize_script_layouts(
         if i == 0 and hero_layout in valid:
             desired = hero_layout
         elif supports_ending and i == last_idx:
-            desired = "ending_socials"
+            desired = ending_layout
         elif desired not in valid:
             desired = ""
-        elif desired == "ending_socials":
+        elif desired == ending_layout:
             # ending_socials is reserved for final scene only.
             desired = ""
         elif hero_layout and desired == hero_layout:
@@ -368,7 +398,7 @@ def _sanitize_script_layouts(
             if prev_layout:
                 excludes.add(prev_layout)
             if supports_ending:
-                excludes.add("ending_socials")
+                excludes.add(ending_layout)
             # Hero/cover layout is scene-0-only — never let the fallback re-pick it.
             if i != 0 and hero_layout:
                 excludes.add(hero_layout)
@@ -379,7 +409,7 @@ def _sanitize_script_layouts(
         # chartable tables legitimately produce two consecutive market_annotation scenes.
         is_data_bound = isinstance(scene.get("data_table_index"), int)
         if prev_layout and desired == prev_layout and i != 0 and not (supports_ending and i == last_idx) and not is_data_bound:
-            alt = _pick_diverse({prev_layout, "ending_socials"} if supports_ending else {prev_layout})
+            alt = _pick_diverse({prev_layout, ending_layout} if supports_ending else {prev_layout})
             desired = alt or desired
 
         scene["preferred_layout"] = desired
@@ -2419,10 +2449,15 @@ async def _generate_script(
             cta = (scene_data.get("cta_button_text") or "").strip()
             if cta:
                 vd = prepend_b2v_cta_to_visual(cta, vd)
-            # Custom templates don't have an ending_socials layout — clear it so
-            # archetype matching assigns the outro slot during scene generation.
+            # Custom templates have no `ending_socials` layout — their closing
+            # scene is `outro`. This used to clear the value to None and rely on
+            # archetype matching, but nothing downstream reads preferred_layout
+            # for custom templates, so the intent was lost and the scene ended up
+            # re-stamped with an arrangement name. Naming `outro` explicitly keeps
+            # it in the template's own vocabulary and lets the layouts_without_image
+            # policy (which lists `outro`) actually match.
             if is_custom:
-                preferred = None
+                preferred = "outro"
         elif (
             (
                 scene_data.get("preferred_layout") in {

@@ -19,6 +19,27 @@ from app.dspy_modules import ensure_dspy_configured, get_theme_lm  # Haiku — c
 
 logger = logging.getLogger(__name__)
 
+# The canonical content-type taxonomy.
+#
+# SINGLE SOURCE OF TRUTH — do not duplicate this list. A blueprint layout's
+# `best_for` must draw from it, because match_scenes_to_archetypes() keys the
+# scene->variant mapping on these exact strings. When the two drift, matching
+# silently degrades to round-robin and the only symptom is a debug log line, so
+# app.dspy_modules.blueprint imports this constant to validate against.
+#
+# "dataviz" is deliberately absent: charts and tables are rendered by dedicated
+# kit scenes, never by a generated content archetype.
+CONTENT_TYPES: frozenset[str] = frozenset({
+    "plain",
+    "bullets",
+    "steps",
+    "metrics",
+    "code",
+    "quote",
+    "comparison",
+    "timeline",
+})
+
 
 class BatchContentExtractor(dspy.Signature):
     """Extract structured content from multiple scene narrations in one pass.

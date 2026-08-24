@@ -1,11 +1,25 @@
 /** Types for AI-generated template compositions. */
 
 export interface GeneratedSceneProps {
+  /** The scene's short title (Scene.title) — a label, not a sentence.
+   *  Distinct from displayText: use it for an eyebrow, a section heading or a
+   *  chapter marker. Optional, so scenes written before it existed still type. */
+  sceneTitle?: string;
+  /** The on-screen copy (Scene.display_text). NOT the voiceover. */
   displayText: string;
+  /** The voiceover script (Scene.narration_text) — usually a paragraph, and
+   *  usually NOT what you put on screen as a headline. */
   narrationText: string;
   imageUrl?: string;
   imageObjectPosition?: string;
   imageZoom?: number;
+  /** True when a stock-footage clip is filling this scene's visual slot.
+   *  GeneratedVideo renders the clip itself (not the component) — the
+   *  component must leave that slot's area empty/transparent rather than
+   *  treating the scene as if it has no visual at all (never collapse to a
+   *  full-width text layout when hasVideo is true). imageUrl is undefined
+   *  in this case — NEVER a video URL. */
+  hasVideo?: boolean;
   sceneIndex: number;
   totalScenes: number;
   logoUrl?: string;
@@ -40,6 +54,13 @@ export interface GeneratedSceneProps {
   descriptionFontSize?: number;
   headingFont?: string;
   bodyFont?: string;
+  /**
+   * Free-form per-layout props this layout declared in its prop schema and the
+   * user edited in the scene editor. Read defensively with a literal fallback:
+   *   const chapterNumber = props.layoutProps?.chapterNumber ?? "01";
+   * Standard props above are NOT duplicated here.
+   */
+  layoutProps?: Record<string, unknown>;
 }
 
 export interface GeneratedVideoData {
@@ -63,6 +84,11 @@ export interface GeneratedVideoData {
   bodyFont?: string | null;
   bgmFile?: string | null;
   bgmVolume?: number;
+  captionsEnabled?: boolean;
+  captionPosition?: string;
+  captionFontFamily?: string;
+  captionFontSize?: string;
+  captionOffset?: number;
   scenes: GeneratedSceneData[];
   /** Brand colors derived from template theme */
   brandColors?: {
@@ -99,10 +125,18 @@ export interface GeneratedSceneData {
   /** Full voiceover narration script */
   narrationText?: string;
   durationSeconds: number;
+  /** Spoken-audio length in seconds (scene duration minus trailing pad) — for caption timing. */
+  speechDurationSeconds?: number;
   voiceoverFile: string | null;
   images: string[];
   /** External image URL (og_image from brand kit) — used when no local image is assigned */
   ogImageUrl?: string;
+  /** Stock-footage clip filename (public/ relative), mirroring builtin templates. */
+  video?: string;
+  videoMuted?: boolean;
+  videoVolume?: number;
+  videoDurationSeconds?: number;
+  videoStartSeconds?: number;
   sceneType?: "intro" | "content" | "outro" | "dataviz_chart" | "dataviz_table";
   /** Index into content variant array (0-based, cycles) */
   contentVariantIndex?: number;

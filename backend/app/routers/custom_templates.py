@@ -24,6 +24,7 @@ from app.models.template_rating import TemplateRating
 from app.models.project import Project
 from app.schemas.schemas import TemplateRatingSubmit, TemplateRatingOut
 from app.services.custom_prompt_builder import build_custom_prompt
+from app.services.template_service import apply_blueprint_to_theme
 
 logger = logging.getLogger(__name__)
 
@@ -237,6 +238,12 @@ def _serialize_template(
     and optional feedback for this template (or None).
     """
     theme = json.loads(tpl.theme) if isinstance(tpl.theme, str) else tpl.theme
+    # The template PREVIEW reads transitions and fonts off the theme, so the
+    # blueprint's choices have to be folded in here too — otherwise the preview
+    # shows the 3-bucket energy default (one transition repeated on every cut)
+    # while the exported video uses the blueprint's family.
+    _tpl_bp = json.loads(tpl.design_blueprint) if tpl.design_blueprint else None
+    theme = apply_blueprint_to_theme(theme, _tpl_bp)
     colors = theme.get("colors", {})
 
     # Pull logo_urls and og_image from linked BrandKit (if any)
@@ -282,6 +289,17 @@ def _serialize_template(
         "logo_urls": logo_urls,
         "og_image": og_image,
         "generation_failed": bool(tpl.generation_failed),
+        # Scenes that fell back to the stub design (§R Layer 3) — surfaced so a
+        # degraded scene is visible in the UI rather than only in the video.
+        "generation_warnings": (
+            json.loads(tpl.generation_warnings) if tpl.generation_warnings else []
+        ),
+        "design_blueprint": (
+            json.loads(tpl.design_blueprint) if tpl.design_blueprint else None
+        ),
+        "layout_prop_schemas": (
+            json.loads(tpl.layout_prop_schemas) if tpl.layout_prop_schemas else None
+        ),
         "is_regenerating": bool(tpl.is_regenerating),
         "my_rating": my_rating,
         "my_rating_comment": my_rating_comment,
@@ -605,6 +623,52 @@ def list_custom_templates(
 # so a backfill can run across every user's templates.
 
 
+# ─── Scene-capture jobs (visual verification) ────────────────────────────────
+#
+# A scene's code is 200-400 lines, far too large for a query string, so the
+# capture page fetches it by job id. These are EPHEMERAL — seconds old, consumed
+# once, never needed again — so they live in a process-local TTL dict rather than
+# the DB, where a row per scene attempt would be pointless churn.
+#
+# CAVEAT: this makes the visual check single-process-affine. Under multiple
+# uvicorn workers the shot server may hit a different process than the one that
+# stored the job, and the check will fail open (returning None) rather than
+# misbehave. Promote to Redis if the deployment goes multi-worker.
+_SCENE_CAPTURE_JOBS: dict[str, tuple[float, dict]] = {}
+_SCENE_JOB_TTL_S = 120.0
+_SCENE_JOB_MAX = 64
+
+
+def put_scene_capture_job(job_id: str, payload: dict) -> None:
+    """Store a scene payload for the capture page to fetch."""
+    now = time.time()
+    # Evict expired entries, then oldest-first if still over the cap, so a
+    # crashed shot server cannot leak memory.
+    for k in [k for k, (ts, _) in _SCENE_CAPTURE_JOBS.items() if now - ts > _SCENE_JOB_TTL_S]:
+        _SCENE_CAPTURE_JOBS.pop(k, None)
+    while len(_SCENE_CAPTURE_JOBS) >= _SCENE_JOB_MAX:
+        oldest = min(_SCENE_CAPTURE_JOBS, key=lambda k: _SCENE_CAPTURE_JOBS[k][0])
+        _SCENE_CAPTURE_JOBS.pop(oldest, None)
+    _SCENE_CAPTURE_JOBS[job_id] = (now, payload)
+
+
+@router.get("/internal/scene-capture-job/{job_id}")
+def get_scene_capture_job(
+    job_id: str,
+    x_capture_secret: str | None = Header(default=None),
+):
+    """The scene payload for `/_capture?scene=1&job=<id>`."""
+    _verify_capture_secret(x_capture_secret)
+    entry = _SCENE_CAPTURE_JOBS.get(job_id)
+    if not entry:
+        raise HTTPException(status_code=404, detail="No such scene-capture job")
+    ts, payload = entry
+    if time.time() - ts > _SCENE_JOB_TTL_S:
+        _SCENE_CAPTURE_JOBS.pop(job_id, None)
+        raise HTTPException(status_code=404, detail="Scene-capture job expired")
+    return payload
+
+
 @router.get("/internal/ids")
 def list_template_ids_for_capture(
     only_missing: bool = Query(False, description="Only templates without a preview image"),
@@ -785,6 +849,44 @@ def delete_custom_template(
     return {"detail": "Custom template deleted"}
 
 
+def _persist_generated_variants(tpl: "CustomTemplate", variants: dict) -> None:
+    """Write a generate_component_code() result onto a CustomTemplate row.
+
+    Extracted from the two byte-identical blocks that used to live in
+    _run_codegen_background and _run_regen_background — they had to be kept in
+    lockstep by hand, and every new field doubled the chance of drift.
+    Caller commits.
+    """
+    _default_ar = {"landscape": "16 / 9", "portrait": "9 / 16"}
+
+    tpl.component_code = None
+    tpl.intro_code = variants["intro_code"]
+    tpl.outro_code = variants["outro_code"]
+    tpl.content_codes = (
+        json.dumps(variants["content_codes"]) if variants.get("content_codes") else None
+    )
+    tpl.content_archetype_ids = json.dumps(variants.get("archetype_ids", []))
+    tpl.image_box_aspect_ratios = json.dumps({
+        "intro": variants.get("intro_aspect_ratio") or _default_ar,
+        "content": variants.get("content_aspect_ratios") or [],
+        "outro": variants.get("outro_aspect_ratio") or _default_ar,
+    })
+    # Scenes that fell back to the deterministic stub (§R Layer 3). Cleared on a
+    # clean run so a previously-warned template stops warning once regenerated.
+    warnings = variants.get("generation_warnings") or []
+    tpl.generation_warnings = json.dumps(warnings) if warnings else None
+    # The design law this template was built from (P2). NULL when the blueprint
+    # path is disabled, which keeps legacy behaviour intact.
+    bp = variants.get("design_blueprint")
+    tpl.design_blueprint = json.dumps(bp, ensure_ascii=False) if bp else None
+    # Per-layout editable props (P3).
+    schemas = variants.get("layout_prop_schemas")
+    tpl.layout_prop_schemas = json.dumps(schemas, ensure_ascii=False) if schemas else None
+    tpl.design_system = variants.get("design_system") or None
+    if warnings:
+        print(f"[F7-DEBUG] [CODEGEN] {len(warnings)} generation warning(s): {warnings}")
+
+
 def _save_version(tpl: "CustomTemplate", label: str, db: "Session") -> int:
     """Snapshot the current code fields as a new TemplateVersion. Returns version id."""
     from app.models.template_version import TemplateVersion
@@ -795,6 +897,11 @@ def _save_version(tpl: "CustomTemplate", label: str, db: "Session") -> int:
         intro_code=tpl.intro_code,
         outro_code=tpl.outro_code,
         content_codes=tpl.content_codes,
+        # Metadata that must travel WITH the code — see rollback_to_version.
+        content_archetype_ids=tpl.content_archetype_ids,
+        image_box_aspect_ratios=tpl.image_box_aspect_ratios,
+        design_blueprint=tpl.design_blueprint,
+        layout_prop_schemas=tpl.layout_prop_schemas,
         label=label,
     )
     db.add(version)
@@ -860,17 +967,7 @@ def _run_codegen_background(template_id: int, user_id: int) -> None:
                 .first()
             )
 
-            tpl.component_code = None
-            tpl.intro_code = variants["intro_code"]
-            tpl.outro_code = variants["outro_code"]
-            tpl.content_codes = json.dumps(variants["content_codes"]) if variants.get("content_codes") else None
-            tpl.content_archetype_ids = json.dumps(variants.get("archetype_ids", []))
-            _default_ar = {"landscape": "16 / 9", "portrait": "9 / 16"}
-            tpl.image_box_aspect_ratios = json.dumps({
-                "intro": variants.get("intro_aspect_ratio") or _default_ar,
-                "content": variants.get("content_aspect_ratios") or [],
-                "outro": variants.get("outro_aspect_ratio") or _default_ar,
-            })
+            _persist_generated_variants(tpl, variants)
             print(f"[F7-DEBUG] [CODEGEN] Stored {len(variants.get('content_codes', []))} content archetypes: {variants.get('archetype_ids', [])}")
 
             _codegen_progress[template_id]["step"] = "saving"
@@ -1151,17 +1248,7 @@ def _run_regen_background(template_id: int, user_id: int) -> None:
                 .first()
             )
 
-            tpl.component_code = None
-            tpl.intro_code = variants["intro_code"]
-            tpl.outro_code = variants["outro_code"]
-            tpl.content_codes = json.dumps(variants["content_codes"]) if variants.get("content_codes") else None
-            tpl.content_archetype_ids = json.dumps(variants.get("archetype_ids", []))
-            _default_ar = {"landscape": "16 / 9", "portrait": "9 / 16"}
-            tpl.image_box_aspect_ratios = json.dumps({
-                "intro": variants.get("intro_aspect_ratio") or _default_ar,
-                "content": variants.get("content_aspect_ratios") or [],
-                "outro": variants.get("outro_aspect_ratio") or _default_ar,
-            })
+            _persist_generated_variants(tpl, variants)
 
             _codegen_progress[template_id]["step"] = "saving"
             _save_version(tpl, "Regenerated", db)
@@ -1275,9 +1362,15 @@ def list_versions(
 
     tpl = _get_user_template(template_id, user.id, db)
 
+    # Exclude pending scene-edit drafts: they hold a SINGLE scene's code, so
+    # offering them as restorable versions would let a rollback wipe the other
+    # scenes. Drafts are reached through the per-scene draft endpoints instead.
     versions = (
         db.query(TemplateVersion)
-        .filter(TemplateVersion.template_id == tpl.id)
+        .filter(
+            TemplateVersion.template_id == tpl.id,
+            TemplateVersion.is_draft.is_(False),
+        )
         .order_by(TemplateVersion.created_at.desc())
         .all()
     )
@@ -1319,6 +1412,14 @@ def rollback_to_version(
     )
     if not version:
         raise HTTPException(status_code=404, detail="Version not found")
+    # A scene-edit draft holds only ONE scene's code, so restoring it wholesale
+    # would blank the others. Drafts are applied via the per-scene apply
+    # endpoint; they are never a rollback target.
+    if version.is_draft or version.kind == "scene_edit":
+        raise HTTPException(
+            status_code=400,
+            detail="This is a single-scene draft, not a full version. Apply it from the scene editor.",
+        )
 
     # Snapshot current state before rollback (so users can undo the rollback)
     if tpl.intro_code:
@@ -1329,6 +1430,25 @@ def rollback_to_version(
     tpl.intro_code = version.intro_code
     tpl.outro_code = version.outro_code
     tpl.content_codes = version.content_codes
+
+    # Restore the metadata that describes that code. Without this, a rollback
+    # left content_archetype_ids / image_box_aspect_ratios pointing at a
+    # DIFFERENT generation: content scenes matched to the wrong variants and the
+    # image-adjust modal showed the wrong aspect ratio.
+    #
+    # NULL-guarded on purpose: versions created before these columns existed
+    # have NULL here, and blindly assigning would ERASE the template's current
+    # metadata. Skipping leaves it in place, which is the safe direction.
+    for _field in (
+        "content_archetype_ids",
+        "image_box_aspect_ratios",
+        "design_blueprint",
+        "layout_prop_schemas",
+    ):
+        _value = getattr(version, _field, None)
+        if _value is not None:
+            setattr(tpl, _field, _value)
+
     tpl.current_version_id = version.id
 
     db.commit()
@@ -1336,3 +1456,367 @@ def rollback_to_version(
 
 
     return _serialize_template(tpl)
+
+
+# ─── Per-scene AI editing (P4) ────────────────────────────────
+#
+# State model: draft-on-the-version-table. The PUBLISHED scene lives on
+# CustomTemplate; a DRAFT is a TemplateVersion row with kind="scene_edit",
+# is_draft=True and scene_role set. That gives history, preview and
+# finalize/discard from one table and reuses _save_version.
+#
+# Preview needs no new render infrastructure: the frontend compiles the draft
+# with compileComponentCode, the same JIT path the template gallery already uses.
+
+# edit_id -> progress. Same in-memory pattern (and same restart caveat) as
+# _codegen_progress above.
+_scene_edit_progress: dict[str, dict] = {}
+
+# (user_id, template_id) -> [timestamps]. A scene edit is ~1/9th the cost of a
+# regeneration, so it does NOT consume a template slot; this keeps that from
+# being abusable.
+_scene_edit_counts: dict[tuple[int, int], list[float]] = {}
+SCENE_EDITS_PER_TEMPLATE_PER_DAY = 30
+
+
+def _check_scene_edit_quota(user_id: int, template_id: int) -> None:
+    key = (user_id, template_id)
+    now = time.time()
+    recent = [t for t in _scene_edit_counts.get(key, []) if now - t < 86400]
+    if len(recent) >= SCENE_EDITS_PER_TEMPLATE_PER_DAY:
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                f"Scene-edit limit reached for this template "
+                f"({SCENE_EDITS_PER_TEMPLATE_PER_DAY}/day). Try again tomorrow."
+            ),
+        )
+    recent.append(now)
+    _scene_edit_counts[key] = recent
+
+
+class SceneAiEditRequest(BaseModel):
+    prompt: str = Field(..., min_length=3, max_length=2000)
+    keep_geometry: bool = False
+
+
+def _content_code_count(tpl: "CustomTemplate") -> int:
+    try:
+        return len(json.loads(tpl.content_codes) or []) if tpl.content_codes else 0
+    except (json.JSONDecodeError, TypeError):
+        return 0
+
+
+def _run_scene_edit_background(
+    edit_id: str, template_id: int, user_id: int, scene_key: str,
+    prompt: str, keep_geometry: bool,
+) -> None:
+    """Regenerate one scene and store the result as a DRAFT version."""
+    import asyncio as _asyncio
+
+    from app.models.template_version import TemplateVersion
+    from app.services.code_generator import regenerate_single_scene
+
+    loop = _asyncio.new_event_loop()
+    _asyncio.set_event_loop(loop)
+    try:
+        _scene_edit_progress[edit_id] = {
+            "status": "generating", "step": "editing", "running": True,
+            "error": None, "draft_version_id": None,
+        }
+
+        # Load and detach before the long LLM call so the connection is not held
+        # open across it (same reason as _run_codegen_background).
+        _db = SessionLocal()
+        try:
+            tpl = (
+                _db.query(CustomTemplate)
+                .options(joinedload(CustomTemplate.brand_kit))
+                .filter(CustomTemplate.id == template_id, CustomTemplate.user_id == user_id)
+                .first()
+            )
+            if not tpl:
+                _scene_edit_progress[edit_id] = {
+                    "status": "error", "step": "init", "running": False,
+                    "error": "Template not found", "draft_version_id": None,
+                }
+                return
+            _db.expunge_all()
+        finally:
+            _db.close()
+
+        result = loop.run_until_complete(
+            regenerate_single_scene(tpl, scene_key, prompt, keep_geometry)
+        )
+
+        db = SessionLocal()
+        try:
+            # One draft per (template, scene): supersede any earlier one so the
+            # user is never choosing between stale drafts.
+            db.query(TemplateVersion).filter(
+                TemplateVersion.template_id == template_id,
+                TemplateVersion.kind == "scene_edit",
+                TemplateVersion.is_draft.is_(True),
+                TemplateVersion.scene_role == scene_key,
+            ).delete(synchronize_session=False)
+
+            draft = TemplateVersion(
+                template_id=template_id,
+                kind="scene_edit",
+                scene_role=scene_key,
+                is_draft=True,
+                label=f"Draft: {prompt[:80]}",
+                # Only the edited scene's code is stored; apply routes it to the
+                # right field using scene_role.
+                intro_code=result["code"] if result["role"] == "intro" else None,
+                outro_code=result["code"] if result["role"] == "outro" else None,
+                content_codes=(
+                    json.dumps({
+                        "index": result["content_index"],
+                        "code": result["code"],
+                        "aspect_ratio": result["aspect_ratio"],
+                        "prop_schema": result["prop_schema"],
+                    })
+                    if result["role"] == "content"
+                    else json.dumps({
+                        "aspect_ratio": result["aspect_ratio"],
+                        "prop_schema": result["prop_schema"],
+                    })
+                ),
+            )
+            db.add(draft)
+            db.commit()
+            db.refresh(draft)
+
+            _scene_edit_progress[edit_id] = {
+                "status": "complete", "step": "done", "running": False,
+                "error": None, "draft_version_id": draft.id,
+            }
+        finally:
+            db.close()
+
+    except Exception as e:
+        logger.exception("Scene edit failed for template %s scene %s", template_id, scene_key)
+        _scene_edit_progress[edit_id] = {
+            "status": "error", "step": "failed", "running": False,
+            "error": str(e), "draft_version_id": None,
+        }
+    finally:
+        loop.close()
+
+
+@router.post("/{template_id}/scenes/{scene_key}/ai-edit", status_code=202)
+def ai_edit_scene(
+    template_id: int,
+    scene_key: str,
+    body: SceneAiEditRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Start an AI edit of ONE scene. Returns 202 + an edit_id to poll.
+
+    Deliberately does NOT charge a custom-template slot: a scene edit costs
+    roughly a ninth of a regeneration and is not a new template. It is bounded
+    by the daily AI limit plus a per-template edit cap.
+    """
+    from app.services.code_generator import parse_scene_key
+
+    tpl = _get_user_template(template_id, user.id, db)
+    if not tpl.intro_code:
+        raise HTTPException(status_code=400, detail="Template has no generated code to edit")
+    if tpl.is_regenerating or (_codegen_progress.get(template_id) or {}).get("running"):
+        raise HTTPException(
+            status_code=409, detail="This template is being regenerated — try again shortly."
+        )
+
+    try:
+        parse_scene_key(scene_key, _content_code_count(tpl))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    _check_ai_rate_limit(user.id)
+    _check_scene_edit_quota(user.id, template_id)
+
+    edit_id = f"{template_id}:{scene_key}:{time.time_ns()}"
+    _scene_edit_progress[edit_id] = {
+        "status": "queued", "step": "queued", "running": True,
+        "error": None, "draft_version_id": None,
+    }
+    threading.Thread(
+        target=_run_scene_edit_background,
+        args=(edit_id, template_id, user.id, scene_key, body.prompt, body.keep_geometry),
+        daemon=True,
+    ).start()
+
+    return {"edit_id": edit_id, "template_id": template_id, "scene_key": scene_key}
+
+
+@router.get("/{template_id}/scenes/{scene_key}/ai-edit/status")
+def get_scene_edit_status(
+    template_id: int,
+    scene_key: str,
+    edit_id: str = Query(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Poll a scene edit. Same shape as get_generation_status."""
+    _get_user_template(template_id, user.id, db)
+    progress = _scene_edit_progress.get(edit_id)
+    if not progress:
+        # Lost to a restart, or already consumed — fall back to whether a draft
+        # exists rather than reporting a spurious failure.
+        from app.models.template_version import TemplateVersion
+
+        draft = (
+            db.query(TemplateVersion)
+            .filter(
+                TemplateVersion.template_id == template_id,
+                TemplateVersion.kind == "scene_edit",
+                TemplateVersion.is_draft.is_(True),
+                TemplateVersion.scene_role == scene_key,
+            )
+            .first()
+        )
+        if draft:
+            return {
+                "status": "complete", "step": "done", "running": False,
+                "error": None, "draft_version_id": draft.id,
+            }
+        return {
+            "status": "unknown", "step": "unknown", "running": False,
+            "error": None, "draft_version_id": None,
+        }
+    return progress
+
+
+def _draft_payload(draft) -> dict:
+    """Unpack a scene-edit draft row into code + metadata."""
+    meta: dict = {}
+    if draft.content_codes:
+        try:
+            meta = json.loads(draft.content_codes) or {}
+        except (json.JSONDecodeError, TypeError):
+            meta = {}
+    code = draft.intro_code or draft.outro_code or meta.get("code") or ""
+    return {
+        "version_id": draft.id,
+        "scene_key": draft.scene_role,
+        "label": draft.label,
+        "code": code,
+        "aspect_ratio": meta.get("aspect_ratio"),
+        "prop_schema": meta.get("prop_schema") or [],
+        "created_at": _utc_iso(draft.created_at),
+    }
+
+
+def _get_draft_or_404(db: Session, template_id: int, scene_key: str):
+    from app.models.template_version import TemplateVersion
+
+    draft = (
+        db.query(TemplateVersion)
+        .filter(
+            TemplateVersion.template_id == template_id,
+            TemplateVersion.kind == "scene_edit",
+            TemplateVersion.is_draft.is_(True),
+            TemplateVersion.scene_role == scene_key,
+        )
+        .order_by(TemplateVersion.created_at.desc())
+        .first()
+    )
+    if not draft:
+        raise HTTPException(status_code=404, detail="No draft for this scene")
+    return draft
+
+
+@router.get("/{template_id}/scenes/{scene_key}/draft")
+def get_scene_draft(
+    template_id: int,
+    scene_key: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """The pending draft for a scene, for side-by-side preview before applying."""
+    _get_user_template(template_id, user.id, db)
+    return _draft_payload(_get_draft_or_404(db, template_id, scene_key))
+
+
+@router.post("/{template_id}/scenes/{scene_key}/draft/apply")
+def apply_scene_draft(
+    template_id: int,
+    scene_key: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Publish a draft: snapshot the current state, then write the scene."""
+    from app.services.code_generator import parse_scene_key
+
+    tpl = _get_user_template(template_id, user.id, db)
+    draft = _get_draft_or_404(db, template_id, scene_key)
+    payload = _draft_payload(draft)
+    if not payload["code"]:
+        raise HTTPException(status_code=422, detail="Draft has no code")
+
+    role, index = parse_scene_key(scene_key, _content_code_count(tpl))
+
+    # Undo point for the apply itself.
+    _save_version(tpl, f"Before AI edit: {scene_key}", db)
+
+    if role == "intro":
+        tpl.intro_code = payload["code"]
+    elif role == "outro":
+        tpl.outro_code = payload["code"]
+    else:
+        codes = json.loads(tpl.content_codes) if tpl.content_codes else []
+        codes[index] = payload["code"]
+        tpl.content_codes = json.dumps(codes)
+
+    # Keep the per-scene metadata consistent with the code it describes.
+    if payload["aspect_ratio"]:
+        ars = json.loads(tpl.image_box_aspect_ratios) if tpl.image_box_aspect_ratios else {}
+        if role == "content":
+            content_ars = list(ars.get("content") or [])
+            while len(content_ars) <= index:
+                content_ars.append({"landscape": "16 / 9", "portrait": "9 / 16"})
+            content_ars[index] = payload["aspect_ratio"]
+            ars["content"] = content_ars
+        else:
+            ars[role] = payload["aspect_ratio"]
+        tpl.image_box_aspect_ratios = json.dumps(ars)
+
+    schemas = json.loads(tpl.layout_prop_schemas) if tpl.layout_prop_schemas else {}
+    if role == "content":
+        content_schemas = list(schemas.get("content") or [])
+        while len(content_schemas) <= index:
+            content_schemas.append([])
+        content_schemas[index] = payload["prop_schema"]
+        schemas["content"] = content_schemas
+    else:
+        schemas[role] = payload["prop_schema"]
+    tpl.layout_prop_schemas = json.dumps(schemas)
+
+    draft.is_draft = False
+    draft.label = f"AI edit: {scene_key}"
+    db.commit()
+    db.refresh(tpl)
+
+    try:
+        _render_and_store_thumbnail(template_id, user.id)
+    except Exception:
+        pass
+
+    return _serialize_template(tpl)
+
+
+@router.post("/{template_id}/scenes/{scene_key}/draft/discard")
+def discard_scene_draft(
+    template_id: int,
+    scene_key: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Throw away a pending draft, leaving the published scene untouched."""
+    _get_user_template(template_id, user.id, db)
+    draft = _get_draft_or_404(db, template_id, scene_key)
+    db.delete(draft)
+    db.commit()
+    return {"detail": "Draft discarded"}

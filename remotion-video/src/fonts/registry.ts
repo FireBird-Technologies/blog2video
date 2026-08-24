@@ -34,6 +34,27 @@ import "@fontsource/fira-code/400.css";
 import "@fontsource/fira-code/600.css";
 import "@fontsource/fira-code/700.css";
 import "@fontsource/righteous/400.css";
+// ── Era faces ──────────────────────────────────────────────────────────────
+// These packages were already installed but never registered, so nothing could
+// select them: `resolveFontFamily` returned null and the render fell back to the
+// system sans. That is why every custom template looked typographically alike.
+// Weights are per-package — im-fell-english and pirata-one ship 400 only.
+import "@fontsource/im-fell-english/400.css";
+import "@fontsource/pirata-one/400.css";
+import "@fontsource/cinzel-decorative/400.css";
+import "@fontsource/cinzel-decorative/700.css";
+import "@fontsource/cinzel-decorative/900.css";
+import "@fontsource/dm-sans/400.css";
+import "@fontsource/dm-sans/500.css";
+import "@fontsource/dm-sans/700.css";
+import "@fontsource/source-sans-3/400.css";
+import "@fontsource/source-sans-3/600.css";
+import "@fontsource/source-sans-3/700.css";
+import "@fontsource/source-serif-4/400.css";
+import "@fontsource/source-serif-4/600.css";
+import "@fontsource/source-serif-4/700.css";
+import "@fontsource/shippori-mincho/400.css";
+import "@fontsource/shippori-mincho/700.css";
 
 export type FontId =
   | "inter"
@@ -47,7 +68,17 @@ export type FontId =
   | "playfair_display"
   | "oswald"
   | "lora"
-  | "fira_code";
+  | "fira_code"
+  // righteous was imported above but never given an id, so it was unusable.
+  | "righteous"
+  // Era faces — see the import block for why these were previously dead.
+  | "im_fell_english"
+  | "pirata_one"
+  | "cinzel_decorative"
+  | "dm_sans"
+  | "source_sans_3"
+  | "source_serif_4"
+  | "shippori_mincho";
 
 export interface FontOption {
   id: FontId;
@@ -115,6 +146,46 @@ export const FONT_REGISTRY: Record<FontId, FontOption> = {
     id: "fira_code",
     label: "Fira Code",
     cssFamily: "'Fira Code', 'Courier New', monospace",
+  },
+  righteous: {
+    id: "righteous",
+    label: "Righteous",
+    cssFamily: "Righteous, 'Arial Black', sans-serif",
+  },
+  im_fell_english: {
+    id: "im_fell_english",
+    label: "IM Fell English",
+    cssFamily: "'IM Fell English', 'Times New Roman', serif",
+  },
+  pirata_one: {
+    id: "pirata_one",
+    label: "Pirata One",
+    cssFamily: "'Pirata One', 'Times New Roman', serif",
+  },
+  cinzel_decorative: {
+    id: "cinzel_decorative",
+    label: "Cinzel Decorative",
+    cssFamily: "'Cinzel Decorative', 'Times New Roman', serif",
+  },
+  dm_sans: {
+    id: "dm_sans",
+    label: "DM Sans",
+    cssFamily: "'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif",
+  },
+  source_sans_3: {
+    id: "source_sans_3",
+    label: "Source Sans 3",
+    cssFamily: "'Source Sans 3', system-ui, -apple-system, 'Segoe UI', sans-serif",
+  },
+  source_serif_4: {
+    id: "source_serif_4",
+    label: "Source Serif 4",
+    cssFamily: "'Source Serif 4', 'Times New Roman', serif",
+  },
+  shippori_mincho: {
+    id: "shippori_mincho",
+    label: "Shippori Mincho",
+    cssFamily: "'Shippori Mincho', 'Times New Roman', serif",
   },
 };
 

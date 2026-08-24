@@ -122,7 +122,7 @@ import { normalizeVideoStyle } from "../constants/videoStyles";
 import { getPendingUpload } from "../stores/pendingUpload";
 import { FONT_REGISTRY, resolveFontFamily } from "../fonts/registry";
 import { getSceneLayoutLabel } from "../utils/layoutLabels";
-import { baseLayoutId } from "../utils/layoutVariants";
+import { baseLayoutId, customSceneLayoutId } from "../utils/layoutVariants";
 import { resolveCustomImageBoxAr } from "../utils/customImageBoxAr";
 import { getTemplateConfig } from "../components/remotion/templateConfig";
 import { getImageBoxAspectRatio, normalizeLayoutId, isImageBoxCircular } from "../components/remotion/imageBoxConfig";
@@ -7000,11 +7000,18 @@ export default function ProjectView() {
 
                                 {/* Scene images — same add/remove as manual edit in modal */}
                                 {(() => {
-                                  const sceneLayout = (() => {
-                                    try {
-                                      return scene.remotion_code ? JSON.parse(scene.remotion_code).layout : null;
-                                    } catch { return null; }
-                                  })();
+                                  // Read the layout through the shared resolver, which understands
+                                  // the custom-template scene-type markers and falls back
+                                  // positionally. This used to read `descriptor.layout` only — a
+                                  // key custom templates never write — so `sceneLayout` was null
+                                  // for every custom scene, `!sceneLayout` short-circuited
+                                  // `sceneSupportsImage` to true, and the OUTRO rendered an image
+                                  // picker even though meta lists it in layouts_without_image.
+                                  const sceneLayout = customSceneLayoutId(
+                                    scene.remotion_code,
+                                    idx,
+                                    project.scenes.length,
+                                  );
                                   // `layoutsWithoutImage` is keyed by BASE layout, so a `__vN`
                                   // variant (e.g. `ending_socials__v2`) must be resolved first —
                                   // otherwise it misses the set and the image section shows on a
@@ -7075,7 +7082,9 @@ export default function ProjectView() {
                                       <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
                                         {sceneClip
                                           ? "Stock footage"
-                                          : `Images (${sceneSupportsImage ? (sceneImageAssetsMap[idx] || []).length : 0})`}
+                                          : sceneSupportsImage
+                                            ? `Images (${(sceneImageAssetsMap[idx] || []).length})`
+                                            : "Images — not supported"}
                                       </h4>
                                       {sceneSupportsImage ? (
                                         <>

@@ -23,6 +23,24 @@ class TemplateVersion(Base):
     outro_code: Mapped[str | None] = mapped_column(Text, nullable=True)
     content_codes: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON list of code strings
 
+    # Metadata that MUST travel with the code. Before these columns existed,
+    # rollback_to_version restored intro/outro/content code but left
+    # content_archetype_ids and image_box_aspect_ratios describing a DIFFERENT
+    # generation — so after a rollback, content-scene matching mapped content
+    # types to the wrong variants and the image-adjust modal showed the wrong
+    # aspect ratio.
+    content_archetype_ids: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_box_aspect_ratios: Mapped[str | None] = mapped_column(Text, nullable=True)
+    design_blueprint: Mapped[str | None] = mapped_column(Text, nullable=True)
+    layout_prop_schemas: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Single-scene snapshots (P4). kind="scene_edit" + scene_role identifies a
+    # draft produced by an AI edit of ONE scene; "full" is a whole-template
+    # snapshot. is_draft marks a version that is not yet applied.
+    kind: Mapped[str] = mapped_column(String(32), default="full")
+    scene_role: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    is_draft: Mapped[bool] = mapped_column(default=False)
+
     # Human-readable label: "Initial generation", "Regenerated", "After edits", etc.
     label: Mapped[str] = mapped_column(String(255), default="Generated")
 

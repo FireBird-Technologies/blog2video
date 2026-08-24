@@ -27,7 +27,18 @@ export type DecorSystem =
   | "mesh" // tech/SaaS: soft blurred colour mesh
   | "ticker" // fintech: baseline tick marks
   | "concentric" // editorial/luxury: concentric rings
-  | "wash"; // luxury/lifestyle: large soft diagonal accent wash
+  | "wash" // luxury/lifestyle: large soft diagonal accent wash
+  // P1 additions — widen the identity ceiling. Every brand previously drew from
+  // one of six buckets offering 3 decor options each, so two same-bucket brands
+  // collided constantly. These give the signature engine (and the blueprint)
+  // materially more room without changing any consumer.
+  | "halftone" // print/editorial: dot screen, density varies across the frame
+  | "topography" // outdoors/industrial: nested contour lines
+  | "scanlines" // tech/retro: fine horizontal lines
+  | "weave" // craft/textile: crosshatch
+  | "noise" // universal: deterministic film grain
+  | "columnRules" // newspaper: vertical column separators
+  | "arcs"; // luxury/wellness: concentric sweeping arcs
 
 export interface DecorProps {
   system?: DecorSystem;
@@ -212,6 +223,127 @@ export const Decor: React.FC<DecorProps> = ({ system = "none", intensity = 0.5, 
               fill="none"
               stroke={withAlpha(c, 0.1 * k)}
               strokeWidth={1}
+            />
+          );
+        })}
+
+      {system === "halftone" &&
+        (() => {
+          const step = 34;
+          const cols = Math.ceil(width / step);
+          const rows = Math.ceil(height / step);
+          return Array.from({ length: cols * rows }).map((_, i) => {
+            const cx = (i % cols) * step + step / 2;
+            const cy = Math.floor(i / cols) * step + step / 2;
+            // Radius falls off toward the lower-right so the screen reads as a
+            // gradient rather than a flat field.
+            const fall = 1 - (cx / width) * 0.5 - (cy / height) * 0.5;
+            const r = Math.max(0, 4.2 * fall * (0.5 + k));
+            if (r <= 0.15) return null;
+            return <circle key={i} cx={cx} cy={cy} r={r} fill={withAlpha(c, 0.16 * k)} />;
+          });
+        })()}
+
+      {system === "topography" &&
+        Array.from({ length: 7 }).map((_, i) => {
+          const yBase = height * (0.16 + i * 0.11);
+          const amp = 26 + seeded(i, 17) * 34;
+          const pts = Array.from({ length: 17 }).map((__, j) => {
+            const x = (j / 16) * width;
+            const y = yBase + Math.sin(j * 0.7 + i * 1.3) * amp;
+            return `${x},${y}`;
+          });
+          return (
+            <polyline
+              key={i}
+              points={pts.join(" ")}
+              fill="none"
+              stroke={withAlpha(c, 0.13 * k)}
+              strokeWidth={1.2}
+            />
+          );
+        })}
+
+      {system === "scanlines" &&
+        Array.from({ length: Math.ceil(height / 6) }).map((_, i) => (
+          <rect
+            key={i}
+            x={0}
+            y={i * 6}
+            width={width}
+            height={1}
+            fill={withAlpha(palette.text, 0.05 * k)}
+          />
+        ))}
+
+      {system === "weave" && (
+        <g>
+          {Array.from({ length: Math.ceil(width / 40) }).map((_, i) => (
+            <line
+              key={`a${i}`}
+              x1={i * 40}
+              y1={0}
+              x2={i * 40 + height}
+              y2={height}
+              stroke={withAlpha(c, 0.07 * k)}
+              strokeWidth={1}
+            />
+          ))}
+          {Array.from({ length: Math.ceil(width / 40) }).map((_, i) => (
+            <line
+              key={`b${i}`}
+              x1={i * 40}
+              y1={0}
+              x2={i * 40 - height}
+              y2={height}
+              stroke={withAlpha(c, 0.07 * k)}
+              strokeWidth={1}
+            />
+          ))}
+        </g>
+      )}
+
+      {system === "noise" &&
+        Array.from({ length: Math.round(420 * (0.4 + k)) }).map((_, i) => (
+          <rect
+            key={i}
+            x={seeded(i, 23) * width}
+            y={seeded(i, 29) * height}
+            width={1.6}
+            height={1.6}
+            fill={withAlpha(palette.text, 0.09 * k)}
+          />
+        ))}
+
+      {system === "columnRules" &&
+        Array.from({ length: 5 }).map((_, i) => {
+          const x = (width / 6) * (i + 1);
+          return (
+            <line
+              key={i}
+              x1={x}
+              y1={height * 0.06}
+              x2={x}
+              y2={height * 0.94}
+              stroke={withAlpha(c, 0.1 * k)}
+              strokeWidth={1}
+            />
+          );
+        })}
+
+      {system === "arcs" &&
+        Array.from({ length: 4 }).map((_, i) => {
+          const r = Math.min(width, height) * (0.35 + i * 0.18);
+          // Anchored off-frame bottom-left so only the sweep is visible.
+          return (
+            <circle
+              key={i}
+              cx={-width * 0.1}
+              cy={height * 1.05}
+              r={r}
+              fill="none"
+              stroke={withAlpha(c, 0.11 * k)}
+              strokeWidth={1.5}
             />
           );
         })}

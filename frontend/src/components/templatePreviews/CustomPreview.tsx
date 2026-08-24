@@ -97,6 +97,8 @@ interface ContinuousCompositionProps {
   sampleProps: Partial<SceneProps>[];
   brandColors: SceneProps["brandColors"];
   transitionFamily?: string[];
+  /** Scenes branch their layout on this, so it must match the canvas. */
+  orientation?: "landscape" | "portrait";
 }
 
 const ContinuousCustomComposition: React.FC<ContinuousCompositionProps> = ({
@@ -105,7 +107,10 @@ const ContinuousCustomComposition: React.FC<ContinuousCompositionProps> = ({
   sampleProps,
   brandColors,
   transitionFamily,
+  orientation = "landscape",
 }) => {
+  const canvasW = orientation === "portrait" ? 1080 : PREVIEW_CANVAS_W;
+  const canvasH = orientation === "portrait" ? 1920 : PREVIEW_CANVAS_H;
   const total = sceneCodes.length;
   return (
     <AbsoluteFill>
@@ -123,7 +128,7 @@ const ContinuousCustomComposition: React.FC<ContinuousCompositionProps> = ({
                   : undefined;
           const Comp = kitComp ?? compiledMap.get(idx);
           const props = {
-            aspectRatio: "landscape" as const,
+            aspectRatio: orientation,
             ...(sampleProps[idx] || {}),
             brandColors,
           } as SceneProps;
@@ -133,7 +138,7 @@ const ContinuousCustomComposition: React.FC<ContinuousCompositionProps> = ({
           // alternation breaks, so an empty AbsoluteFill holds the slot.
           const t = isLast
             ? null
-            : pickGeneratedTransition(idx, transitionFamily, PREVIEW_CANVAS_W, PREVIEW_CANVAS_H, brandColors?.accent);
+            : pickGeneratedTransition(idx, transitionFamily, canvasW, canvasH, brandColors?.accent);
           const sequence = (
             <TransitionSeries.Sequence
               key={`seq-${idx}`}
@@ -173,7 +178,17 @@ const SAMPLE_CHART_TABLE: { headers: string[]; rows: (string | number)[][] } = {
 /** Mirror of the GeneratedTransition default family (remotion-video). The preview
  *  approximates these brand exit flourishes in CSS so transitions are visible
  *  before render — the real video uses the Remotion GeneratedTransition. */
-const DEFAULT_TRANSITION_FAMILY = ["fade", "accent_wash", "rule_sweep", "ink_wash", "whip_blur"] as const;
+const DEFAULT_TRANSITION_FAMILY = [
+  "parallax_push",
+  "accent_bar",
+  "page_fold",
+  "rule_sweep",
+  "ink_bleed",
+  "clock_sweep",
+  "whip_pan",
+  "page_flip",
+  "fade",
+] as const;
 
 /** Map archetype best_for tags to rich sample data so previews look realistic */
 function buildArchetypeSampleData(
@@ -321,6 +336,14 @@ interface CustomPreviewProps {
    * holds no Players (iOS Safari OOMs and reloads the tab otherwise).
    */
   staticThumb?: boolean;
+  /** Preview orientation. Scenes branch their layout on `aspectRatio`, so this
+   *  drives both the canvas size and the prop the components receive. */
+  orientation?: "landscape" | "portrait";
+  /** @deprecated No-op. Its only effect was suppressing a hardcoded Data Chart /
+   *  Data Table pair that this preview no longer appends — the carousel now always
+   *  shows exactly the scenes passed in. Retained so existing callers keep
+   *  compiling; safe to drop from call sites. */
+  scenesOnly?: boolean;
 }
 
 export default function CustomPreview({
@@ -343,6 +366,7 @@ export default function CustomPreview({
   onAllScenesEnded,
   onLiveSceneChange,
   thumbnailMode = false,
+  orientation = "landscape",
   staticThumb = false,
 }: CustomPreviewProps) {
   const [activeScene, setActiveScene] = useState(0);
@@ -363,9 +387,17 @@ export default function CustomPreview({
     onLiveSceneChange?.(continuousScene);
   }, [continuousScene, onLiveSceneChange]);
 
-  // Build ordered carousel: intro → content variants → data chart, data table → outro.
-  // The 2 data-viz scenes mirror what the pipeline always injects into custom videos
-  // at render time, so the template preview matches the final video.
+  // Build ordered carousel: intro → content variants → outro.
+  //
+  // The preview shows EXACTLY the scenes this template generated. It used to also
+  // append a Data Chart and a Data Table, on the premise that "the pipeline always
+  // injects" them — that premise was wrong. `_build_custom_dataviz_scenes` in
+  // pipeline.py only injects the pair when the ARTICLE being rendered contains a
+  // chartable table, and returns [] otherwise. A template has no article, so at
+  // preview time the pair could never be accurate; they were rendered from a
+  // hardcoded SAMPLE_CHART_TABLE and showed users two scenes their template does
+  // not contain. (Data Chart / Data Table remain available per-scene in the editor
+  // — meta still lists custom_chart/custom_table as selectable layouts.)
   const sceneCodes = useMemo<PreviewScene[]>(() => {
     const codes: PreviewScene[] = [];
     if (introCode) codes.push({ kind: "code", code: introCode, label: "Intro" });
@@ -379,12 +411,6 @@ export default function CustomPreview({
         codes.push({ kind: "code", code: c, label: archetypeLabel || `Content ${i + 1}` });
       });
     }
-    // Only show the data-viz pair when there's a real generated template (at least one
-    // code scene) — they sit just before the outro, matching pipeline insertion order.
-    if (codes.length > 0) {
-      codes.push({ kind: "dataviz_chart", label: "Data Chart" });
-      codes.push({ kind: "dataviz_table", label: "Data Table" });
-    }
     // Outro renders the CTA overlay (matching the final video), not the AI outro code.
     if (outroCode) codes.push({ kind: "cta_outro", label: "Outro" });
     return codes;
@@ -392,6 +418,10 @@ export default function CustomPreview({
 
   const hasCode = sceneCodes.length > 0;
   const hasMultipleScenes = sceneCodes.length > 1;
+  // Scenes that render from the kit (the CTA outro and the data-viz pair) need
+  // no Babel compilation, so an empty compiledMap is a legitimate success state
+  // for them — not a compile failure.
+  const needsCompiledScenes = sceneCodes.some((sc) => sc.kind === "code");
   const hasFrontendRuntime = !!(
     frontendFiles &&
     Object.keys(frontendFiles).length > 0 &&
@@ -403,10 +433,19 @@ export default function CustomPreview({
   const fallbackSamples = useMemo(() => buildFallbackSamples(name || ""), [name]);
 
   const sceneSampleProps = useMemo(() => {
-    // The og image is only fed to the intro/hero scene (added per-scene below).
     // Never use previewImageUrl as an image prop — it's the template's own thumbnail
-    // and causes a broken recursive image load. Content scenes get NO imageUrl so they
-    // render their full-width (no-image) branch instead of a split with an empty panel.
+    // and causes a broken recursive image load.
+    //
+    // Content scenes DO get an imageUrl. They used to be given none, on the theory
+    // that a split layout with an empty panel looks worse than a full-width one.
+    // But scenes branch their whole layout on `imageUrl`:
+    //     const hasImage = !!(props.imageUrl && ...)
+    //     const colWidth = showVisualSlot ? canvasW * 0.52 : canvasW * 0.84;
+    // and the real player (VideoPreview) always passes the scene's image. So the
+    // preview was rendering the *other arm* of that conditional — a layout the
+    // finished video never shows. Feed the og image here so scene-by-scene preview
+    // exercises the same branch the render does.
+    const contentImageProps = ogImage ? { imageUrl: ogImage } : {};
     const logoProps = logoUrls && logoUrls.length > 0 ? { logoUrl: logoUrls[0] } : {};
     const brandImageProps = logoUrls && logoUrls.length > 0 ? { brandImages: logoUrls } : ogImage ? { brandImages: [ogImage] } : {};
     const fontProps = { titleFontSize: 88, descriptionFontSize: 44 };
@@ -449,12 +488,22 @@ export default function CustomPreview({
       }
 
       if (sc.label === "Intro") {
-        // Intro/hero is the only scene that gets the og image (matches the render).
         const introImageProps = ogImage ? { imageUrl: ogImage } : {};
-        return { displayText: n, narrationText: `Discover what makes ${n} special.`, ...base, ...introImageProps };
+        return {
+          sceneTitle: n,
+          displayText: n,
+          narrationText: `Discover what makes ${n} special.`,
+          ...base,
+          ...introImageProps,
+        };
       }
       if (sc.label === "Outro") {
-        return { displayText: n, narrationText: `Learn more at ${n}. Thank you for watching.`, ...base };
+        return {
+          sceneTitle: n,
+          displayText: n,
+          narrationText: `Learn more at ${n}. Thank you for watching.`,
+          ...base,
+        };
       }
       // Use archetype-aware sample data when available
       const contentIdx = idx - (introCode ? 1 : 0);
@@ -462,10 +511,10 @@ export default function CustomPreview({
       const bestFor = typeof rawArch === "object" ? rawArch?.best_for : undefined;
       if (bestFor && bestFor.length > 0) {
         const sample = buildArchetypeSampleData(n, bestFor);
-        return { ...sample, ...base };
+        return { sceneTitle: sample.displayText, ...sample, ...base, ...contentImageProps };
       }
       const fallback = fallbackSamples[contentIdx % fallbackSamples.length];
-      return { ...fallback, ...base };
+      return { sceneTitle: fallback.displayText, ...fallback, ...base, ...contentImageProps };
     });
   }, [sceneCodes, name, ogImage, previewImageUrl, logoUrls, introCode, contentArchetypeIds, fallbackSamples, theme.fonts.heading, theme.fonts.body]);
 
@@ -494,7 +543,7 @@ export default function CustomPreview({
       bgColor: theme.colors.bg,
       textColor: theme.colors.text,
       logo: logoUrls?.[0] || undefined,
-      aspectRatio: "landscape",
+      aspectRatio: orientation,
       fontFamily: theme.fonts.body,
       playbackSpeed: 1,
     };
@@ -523,8 +572,9 @@ export default function CustomPreview({
       brandColors,
       transitionFamily: (theme as unknown as { motion?: { transitionFamily?: string[] } })
         .motion?.transitionFamily,
+      orientation,
     }),
-    [sceneCodes, compiledMap, sceneSampleProps, brandColors, theme],
+    [sceneCodes, compiledMap, sceneSampleProps, brandColors, theme, orientation],
   );
 
   // [V3] Log the resolved transition plan once per template (component render, not
@@ -786,7 +836,14 @@ export default function CustomPreview({
   }
 
   // ─── Compile error / timeout ────────────────────────────────
-  if (compileError || (!compiledComposition && !isCompiling && compiledMap.size === 0)) {
+  // Only treat an empty compiledMap as a failure when something actually
+  // required compiling. Previewing the outro alone (kit-rendered) previously
+  // fell in here and, with showLoaderOnEmptyOrError set, rendered a spinner
+  // forever — it looked like an endless load rather than a finished scene.
+  if (
+    compileError ||
+    (needsCompiledScenes && !compiledComposition && !isCompiling && compiledMap.size === 0)
+  ) {
     if (showLoaderOnEmptyOrError) {
       return (
         <div
@@ -848,8 +905,8 @@ export default function CustomPreview({
             compositionProps={compositionSampleProps}
             durationInFrames={30 * 16}
             fps={30}
-            compositionWidth={1920}
-            compositionHeight={1080}
+            compositionWidth={orientation === "portrait" ? 1080 : 1920}
+            compositionHeight={orientation === "portrait" ? 1920 : 1080}
             loop={!thumbnailMode}
             thumbnailMode={thumbnailMode}
             thumbnailFrame={thumbnailFrame}
@@ -877,8 +934,8 @@ export default function CustomPreview({
             compositionProps={continuousCompositionProps}
             durationInFrames={Math.max(1, sceneCodes.length) * PREVIEW_SCENE_FRAMES}
             fps={30}
-            compositionWidth={1920}
-            compositionHeight={1080}
+            compositionWidth={orientation === "portrait" ? 1080 : 1920}
+            compositionHeight={orientation === "portrait" ? 1920 : 1080}
             loop
             onFrameUpdate={(frame) => {
               const idx = Math.min(
@@ -904,6 +961,13 @@ export default function CustomPreview({
     Array.isArray(transitionFamily) && transitionFamily.length > 0
       ? transitionFamily
       : (DEFAULT_TRANSITION_FAMILY as unknown as string[]);
+  // Every one of the 14 GeneratedTransitionFamily names needs a case here.
+  //
+  // This handled only 5 of them, so the other 9 fell to `default:` — a plain
+  // fade. A template whose family was ["parallax_push","accent_bar","page_fold",
+  // "rule_sweep"] therefore previewed as TWO distinct visuals across four cuts,
+  // three of them identical fades, which reads as "all scenes use the same
+  // transition" even though the stored data is correctly varied.
   const transitionStyleFor = (idx: number, active: boolean): React.CSSProperties => {
     switch (familyPool[Math.abs(idx) % familyPool.length]) {
       case "accent_wash":
@@ -918,6 +982,56 @@ export default function CustomPreview({
         return { opacity: 1, clipPath: active ? "inset(0 0 0 0)" : "inset(0 100% 0 0)" };
       case "ink_wash":
         return { opacity: active ? 1 : 0, transform: active ? "scale(1)" : "scale(0.96)" };
+      // ── the nine that used to fall through to a plain fade ──
+      case "parallax_push":
+        // Deep push from behind — the signature "camera moves in" cut.
+        return {
+          opacity: active ? 1 : 0,
+          transform: active ? "scale(1) translateX(0)" : "scale(1.12) translateX(4%)",
+        };
+      case "whip_pan":
+        // Fast horizontal whip, blurred along the direction of travel.
+        return {
+          opacity: active ? 1 : 0,
+          transform: active ? "translateX(0)" : "translateX(14%)",
+          filter: active ? "blur(0px)" : "blur(14px)",
+        };
+      case "accent_bar":
+        // A bar wipes across from the left.
+        return { opacity: 1, clipPath: active ? "inset(0 0 0 0)" : "inset(0 0 0 100%)" };
+      case "page_fold":
+        // Paper folding in — perspective rotation on the vertical axis.
+        return {
+          opacity: active ? 1 : 0,
+          transform: active
+            ? "perspective(1600px) rotateY(0deg)"
+            : "perspective(1600px) rotateY(-26deg)",
+          transformOrigin: "left center",
+        };
+      case "page_flip":
+        // The same idea flipped, so consecutive folds do not look identical.
+        return {
+          opacity: active ? 1 : 0,
+          transform: active
+            ? "perspective(1600px) rotateY(0deg)"
+            : "perspective(1600px) rotateY(26deg)",
+          transformOrigin: "right center",
+        };
+      case "ink_bleed":
+        // Bleeds outward from the centre.
+        return {
+          opacity: active ? 1 : 0,
+          clipPath: active ? "circle(140% at 50% 50%)" : "circle(18% at 50% 50%)",
+        };
+      case "clock_sweep":
+        // Wipes downward like a hand sweeping.
+        return { opacity: 1, clipPath: active ? "inset(0 0 0 0)" : "inset(0 0 100% 0)" };
+      case "cover_wipe":
+        // The incoming scene slides up over the outgoing one.
+        return { opacity: 1, transform: active ? "translateY(0)" : "translateY(100%)" };
+      case "push_slide":
+        // Lateral push, no blur — the plainest directional cut.
+        return { opacity: active ? 1 : 0, transform: active ? "translateX(0)" : "translateX(-100%)" };
       case "fade":
       default:
         return { opacity: active ? 1 : 0 };

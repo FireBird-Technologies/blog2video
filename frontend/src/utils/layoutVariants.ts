@@ -57,3 +57,59 @@ export function isSameLayoutFamily(
   const baseA = baseLayoutId(a);
   return Boolean(baseA) && baseA === baseLayoutId(b);
 }
+
+/**
+ * The layout id of a CUSTOM-template scene, from its stored descriptor.
+ *
+ * Mirrors the canonical backend resolver, `_descriptor_layout_name` in
+ * `backend/app/routers/pipeline.py`, so the editor and the renderer agree on
+ * what a scene is. Two surfaces previously rolled their own weaker versions:
+ *
+ *   * SceneEditModal required `sceneTypeOverride` to be present, and
+ *   * ProjectView read only `descriptor.layout`,
+ *
+ * neither of which a custom intro/outro descriptor carried — so both resolved
+ * to null. That made the modal show "Current layout" instead of Intro/Outro,
+ * and made ProjectView treat the outro as image-capable (a null layout can't be
+ * found in `layouts_without_image`), rendering an image picker on the one scene
+ * that must never have one.
+ *
+ * `sceneIndex`/`totalScenes` enable the POSITIONAL fallback the renderer already
+ * applies (first scene is the intro, last is the outro). It is what makes
+ * projects generated before the scene type was persisted resolve correctly, so
+ * pass them whenever they are known.
+ */
+export function customSceneLayoutId(
+  remotionCode: string | null | undefined,
+  sceneIndex?: number,
+  totalScenes?: number,
+): string | null {
+  let desc: Record<string, unknown> | null = null;
+  if (remotionCode) {
+    try {
+      const parsed: unknown = JSON.parse(remotionCode);
+      if (parsed && typeof parsed === "object") desc = parsed as Record<string, unknown>;
+    } catch {
+      /* a malformed descriptor falls through to the positional rule below */
+    }
+  }
+
+  if (desc) {
+    const sceneType = (desc.sceneTypeOverride ?? desc.sceneType) as string | undefined;
+    if (sceneType === "intro" || sceneType === "outro") return sceneType;
+    if (sceneType === "content") {
+      const idx = desc.contentVariantIndex;
+      if (typeof idx === "number" && idx >= 0) return `content_${idx}`;
+    }
+    const cfg = desc.layoutConfig as { arrangement?: unknown } | undefined;
+    if (cfg && typeof cfg.arrangement === "string") return cfg.arrangement;
+    if (typeof desc.layout === "string") return desc.layout;
+  }
+
+  // Positional fallback — matches remotion.py and VideoPreview.
+  if (typeof sceneIndex === "number" && typeof totalScenes === "number" && totalScenes > 1) {
+    if (sceneIndex === 0) return "intro";
+    if (sceneIndex === totalScenes - 1) return "outro";
+  }
+  return null;
+}

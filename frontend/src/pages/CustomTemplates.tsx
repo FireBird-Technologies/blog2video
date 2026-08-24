@@ -17,6 +17,7 @@ import CustomTemplateCreator from "../components/CustomTemplateCreator";
 import TemplateStarRating from "../components/TemplateStarRating";
 import CustomTemplateLimitModal from "../components/CustomTemplateLimitModal";
 import CustomTemplateEditor from "../components/CustomTemplateEditor";
+import TemplateSceneEditor from "../components/TemplateSceneEditor";
 import CustomPreview from "../components/templatePreviews/CustomPreview";
 import CustomPreviewLandscape from "../components/templatePreviews/CustomPreviewLandscape";
 import CraftedTemplatePreview from "../components/templatePreviews/CraftedTemplatePreview";
@@ -74,6 +75,11 @@ export default function CustomTemplates() {
   const [showCreator, setShowCreator] = useState(false);
   const [creatorKey, setCreatorKey] = useState(0);
   const [editTarget, setEditTarget] = useState<CustomTemplateItem | null>(null);
+  // Per-scene AI editing (P4) — distinct from CustomTemplateEditor, which only
+  // edits the template's name/colour. Reached from inside that editor (its
+  // `onEditScenes`), not from the card: the card previously carried a second
+  // "Edit scenes" button, and one "Edit" entry point is less cluttered.
+  const [sceneEditTarget, setSceneEditTarget] = useState<CustomTemplateItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<CustomTemplateItem | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteImpactCount, setDeleteImpactCount] = useState<number | null>(null);
@@ -746,6 +752,24 @@ export default function CustomTemplates() {
       />
 
       {/* Editor modal */}
+      {sceneEditTarget && (
+        <TemplateSceneEditor
+          template={sceneEditTarget}
+          onClose={() => setSceneEditTarget(null)}
+          onTemplateUpdated={(tpl) => {
+            setTemplates((prev) => prev.map((t) => (t.id === tpl.id ? tpl : t)));
+            setSceneEditTarget(tpl);
+          }}
+          // Round-trip back to the template editor. Carries the CURRENT
+          // sceneEditTarget rather than the original, so scene edits saved in
+          // this modal are reflected in the preview on the way back.
+          onSwitchToTemplate={() => {
+            setSceneEditTarget(null);
+            setEditTarget(sceneEditTarget);
+          }}
+        />
+      )}
+
       {editTarget && (
         <CustomTemplateEditor
           template={editTarget}
@@ -754,6 +778,16 @@ export default function CustomTemplates() {
             setTemplates((prev) => prev.map((t) => (t.id === tpl.id ? { ...t, ...tpl } : t)))
           }
           onCancel={() => setEditTarget(null)}
+          // Only offer the scene editor when there are generated scenes to edit
+          // — this mirrors the `intro_code` guard the card button used to carry.
+          onEditScenes={
+            editTarget.intro_code
+              ? () => {
+                  setEditTarget(null);
+                  setSceneEditTarget(editTarget);
+                }
+              : undefined
+          }
         />
       )}
 

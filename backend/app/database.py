@@ -238,6 +238,10 @@ def _migrate_sqlite(eng) -> None:
             "content_codes": "TEXT",
             "content_archetype_ids": "TEXT",
             "image_box_aspect_ratios": "TEXT",
+            "generation_warnings": "TEXT",
+            "design_blueprint": "TEXT",
+            "layout_prop_schemas": "TEXT",
+            "design_system": "TEXT",
             "generation_failed": "BOOLEAN DEFAULT 0",
             "created_at": "DATETIME",
             "updated_at": "DATETIME",
@@ -351,6 +355,16 @@ def _migrate_sqlite(eng) -> None:
         tv_cols = {c["name"] for c in insp.get_columns("template_versions")}
         tv_migrations = {
             "content_codes": "TEXT",
+            # Metadata that must travel with the code so a rollback restores a
+            # CONSISTENT generation (see rollback_to_version).
+            "content_archetype_ids": "TEXT",
+            "image_box_aspect_ratios": "TEXT",
+            "design_blueprint": "TEXT",
+            "layout_prop_schemas": "TEXT",
+            # Single-scene AI-edit drafts.
+            "kind": "VARCHAR(32) DEFAULT 'full'",
+            "scene_role": "VARCHAR(32)",
+            "is_draft": "BOOLEAN DEFAULT 0",
         }
         with eng.begin() as conn:
             for col_name, col_def in tv_migrations.items():

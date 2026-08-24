@@ -59,6 +59,9 @@ _scene_lm_lock = threading.Lock()
 _scene_type_lm: dspy.LM | None = None
 _scene_type_lm_lock = threading.Lock()
 
+_blueprint_lm: dspy.LM | None = None
+_blueprint_lm_lock = threading.Lock()
+
 
 _IS_PRODUCTION = settings.ENVIRONMENT.lower() == "production"
 
@@ -91,12 +94,39 @@ _SCENE_MODEL = (
     else "openrouter/z-ai/glm-5.2"
 )
 
-# Chain-of-thought for custom-template codegen only (local/dev Z.AI path).
-# Flip to False to get answer-only codegen like every other GLM call site.
-_CODEGEN_THINKING = True
-# Only applied when _CODEGEN_THINKING is True (Z.AI: reasoning_effort is a no-op
-# with thinking disabled). One of: max, xhigh, high, medium, low, minimal, none.
-_CODEGEN_REASONING_EFFORT = "medium"
+# GLM's INTERNAL chain-of-thought for custom-template codegen (local/dev Z.AI).
+#
+# Disabled. Measured against the live Z.AI API: for a trivial component request,
+# thinking consumed 1825 of 1986 completion tokens (92%) at reasoning_effort
+# "low", and 1005 of 1338 at "minimal". Disabled, the same request used 286
+# tokens — all of them content.
+#
+# On the real ~30k-char codegen prompt that overhead exhausted max_tokens before
+# the `code` field was emitted, so the call returned an EMPTY string after
+# ~145-300s. It hit content scenes specifically because their reward penalties
+# push scores under Refine's 0.75 threshold, and Refine retries at escalating
+# temperature (up to 1.0) where GLM's thinking grows repetitive — hence the
+# "consider increasing the temperature ... if the reason is repetition" warning,
+# which is inverted here.
+#
+# DSPy's own ChainOfThought rationale field is untouched: the model still plans
+# its answer, it just does not also burn budget on a second private pass.
+_CODEGEN_THINKING = False
+# A NO-OP while _CODEGEN_THINKING is False (Z.AI ignores reasoning_effort when
+# thinking is disabled). Kept at "low" so that re-enabling thinking starts from
+# the cheapest setting rather than the "medium" that caused the truncations.
+# One of: max, xhigh, high, medium, low, minimal, none.
+_CODEGEN_REASONING_EFFORT = "low"
+
+# Output budget for custom-template codegen. Measured against 378 stored scenes:
+# median code is ~2.6k tokens, p99 ~5.5k. Plus the CoT rationale and the four
+# numeric fields that is ~6k — comfortably inside 12000 now that GLM's internal
+# thinking (which was eating 75-92% of the budget) is off.
+#
+# This is a CEILING, not a reservation: unused budget costs nothing, so a larger
+# number only delays truncation. 12000 was never the real cause of the empty
+# responses — see _CODEGEN_THINKING above.
+_CODEGEN_MAX_TOKENS = 12000
 
 
 def _extract_openrouter_provider(result) -> str | None:
@@ -330,14 +360,14 @@ def get_custom_lm() -> dspy.LM:
             _codegen_lm = _make_anthropic_lm(
                 "anthropic/claude-sonnet-4-6",
                 temperature=0.7,
-                max_tokens=12000,
+                max_tokens=_CODEGEN_MAX_TOKENS,
                 api_key=_custom_anthropic_key(),
             )
         else:
             _codegen_lm = _make_zai_lm(
                 settings.CUSTOM_TEMPLATE_LM,
                 temperature=0.7,
-                max_tokens=12000,
+                max_tokens=_CODEGEN_MAX_TOKENS,
                 thinking=_CODEGEN_THINKING,
                 reasoning_effort=_CODEGEN_REASONING_EFFORT,
             )
@@ -393,6 +423,57 @@ def get_scene_type_lm() -> dspy.LM:
                 reasoning_effort="low",
             )
         return _scene_type_lm
+
+
+def get_blueprint_lm() -> dspy.LM:
+    """Design-blueprint LM (app.dspy_modules.blueprint).
+
+    Runs HOT (temperature=0.9) on purpose. This is the one stage where we
+    actively want divergence between brands — it is designing the template, and
+    a conservative sample is what produced the "every template looks the same"
+    problem in the first place. The risk normally associated with a high
+    temperature does not apply here because the output is a schema that is
+    validated and REPAIRED (unknown vocabulary snaps to real kit values, numbers
+    clamp to safe ranges), and a total failure falls back to the deterministic
+    signature engine. Codegen stays at 0.7 — creative sampling of *code* is a
+    different bet entirely.
+
+    Cache disabled for the same reason as codegen: a regenerate must produce a
+    genuinely different design, not replay the stored completion.
+    """
+    global _blueprint_lm
+    if _blueprint_lm is not None:
+        return _blueprint_lm
+    with _blueprint_lm_lock:
+        if _blueprint_lm is not None:
+            return _blueprint_lm
+        # 12000, not 8000. A compliant blueprint is 8-10 layouts, each carrying two
+        # geometry descriptions capped at 600 chars plus a motion beat — roughly
+        # 2-3k tokens of JSON. On ChainOfThought the rationale is emitted BEFORE
+        # the JSON field, and at temperature 0.9 a low-reasoning model rambles
+        # there, so the budget ran out before `blueprint_json` was ever written.
+        # Observed on template 134: both attempts truncated and the template fell
+        # back to the deterministic blueprint, losing the whole design stage.
+        #
+        # This is a CEILING, not a reservation — unused budget costs nothing, so a
+        # larger number only removes a failure mode.
+        if _IS_PRODUCTION:
+            _blueprint_lm = _make_anthropic_lm(
+                "anthropic/claude-sonnet-4-6",
+                temperature=0.9,
+                max_tokens=12000,
+                api_key=_custom_anthropic_key(),
+            )
+        else:
+            _blueprint_lm = _make_zai_lm(
+                settings.CUSTOM_TEMPLATE_LM,
+                temperature=0.9,
+                max_tokens=12000,
+                thinking=_CODEGEN_THINKING,
+                reasoning_effort="low",
+            )
+        _blueprint_lm.cache = False
+        return _blueprint_lm
 
 
 def get_scene_lm() -> dspy.LM:

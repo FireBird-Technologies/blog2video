@@ -40,8 +40,14 @@ export {
   panelRise,
   parseValue,
   countUpString,
+  cameraStage,
+  cameraPush,
+  parallaxLayer,
+  panelTilt,
   type EntranceStyle,
   type ParsedValue,
+  type CameraStyle,
+  type CameraTransform,
 } from "./motion";
 
 // Theme context
@@ -87,6 +93,27 @@ export { KenBurnsImage, type KenBurnsImageProps } from "./KenBurnsImage";
 
 // Decoration
 export { Decor, type DecorProps, type DecorSystem } from "./Decor";
+
+// Structure — persistent chrome and editorial framing. Distinct from Decor:
+// these are elements the layout is built AROUND, and repeating them across
+// scenes is what makes a set of scenes read as one template.
+export {
+  Masthead,
+  SectionDivider,
+  DropCap,
+  PanelNumber,
+  EditorialRule,
+  Kicker,
+  SafeArea,
+  type MastheadProps,
+  type SectionDividerProps,
+  type DropCapProps,
+  type PanelNumberProps,
+  type EditorialRuleProps,
+  type KickerProps,
+  type SafeAreaProps,
+  type SafeAreaInset,
+} from "./Structure";
 
 // Signature artifacts — the brand's recurring animated motif (fingerprint)
 export {

@@ -557,7 +557,20 @@ export type ArtifactMotion =
   | "spin"
   | "stamp"
   | "dust"
-  | "orbit";
+  | "orbit"
+  // P1 additions. These are new NAMES mapped onto existing artifact components
+  // with distinct parameters, not new components — the visible variety comes
+  // from the pairing (which artifact, at what intensity, with which glyph), and
+  // reusing tested components keeps the render risk at zero. Adding entries
+  // here widens what the signature engine can assign per brand.
+  | "unfold" // corner frame, drawn wide
+  | "typeset" // ticker, editorial cadence
+  | "scanline" // halftone field, tighter
+  | "ripple" // pulse ring, softer
+  | "shatter-in" // diagonal shards, sharper
+  | "stack" // orbit rings, offset
+  | "trace" // corner frame, hairline
+  | "marquee"; // continuous ticker
 
 export const SignatureArtifact: React.FC<{
   motion?: ArtifactMotion | string;
@@ -586,6 +599,26 @@ export const SignatureArtifact: React.FC<{
       return <LightDust intensity={intensity} />;
     case "orbit":
       return <OrbitRings start={start} intensity={intensity} />;
+
+    // ── P1 additions ──────────────────────────────────────────────────────
+    // Distinct pairings of existing artifacts. Each reads differently from its
+    // sibling because of the intensity/parameter shift, while inheriting a
+    // component that is already render-tested.
+    case "unfold":
+      return <CornerFrame start={start} intensity={Math.min(1, intensity * 1.3)} />;
+    case "trace":
+      return <CornerFrame start={start} intensity={intensity * 0.55} />;
+    case "typeset":
+    case "marquee":
+      return <KineticTicker label={label ?? "—"} intensity={intensity} />;
+    case "scanline":
+      return <HalftoneField intensity={Math.min(1, intensity * 1.25)} />;
+    case "ripple":
+      return <PulseRing intensity={intensity * 0.7} />;
+    case "shatter-in":
+      return <DiagonalShards start={start} intensity={Math.min(1, intensity * 1.2)} />;
+    case "stack":
+      return <OrbitRings start={start} intensity={intensity * 0.8} />;
     case "sweep":
       return <AccentSweep start={start} intensity={intensity} />;
     case "bloom":

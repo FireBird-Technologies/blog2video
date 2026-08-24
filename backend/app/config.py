@@ -71,6 +71,21 @@ class Settings(BaseSettings):
     # Custom-template Remotion codegen in local/dev: GLM via OpenRouter (prod still uses Claude).
     CUSTOM_TEMPLATE_LM: str = os.environ.get("CUSTOM_TEMPLATE_LM", "openrouter/z-ai/glm-5.2")
 
+    # Design-blueprint path for custom templates. When enabled, an LLM designs
+    # the template's own layouts / structure / type system / safe-area policy up
+    # front and the scene generator executes that blueprint, instead of every
+    # brand marching through the same five fixed compositions and a house-style
+    # prompt.
+    #
+    # Defaults OFF: this changes how every custom template is generated, so it
+    # ships dark. Generate templates across several brand categories with it on,
+    # compare against current output, then flip the default. Rollback is a
+    # config change rather than a revert.
+    CUSTOM_BLUEPRINT_ENABLED: bool = (
+        os.environ.get("CUSTOM_BLUEPRINT_ENABLED", "false").strip().lower()
+        in ("1", "true", "yes", "on")
+    )
+
     # Google OAuth
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
@@ -118,6 +133,27 @@ class Settings(BaseSettings):
     # capture route can read/write any user's custom template without per-user
     # auth. Empty disables the endpoints.
     CAPTURE_SECRET: str = ""
+
+    # Visual verification of generated scenes: render one scene and ask a vision
+    # model whether it is actually broken (invisible text, clipped elements, an
+    # empty frame) — defects no source-code check can see.
+    #
+    # Ships DARK. It costs a screenshot plus a vision call per suspect scene, so
+    # measure the FAIL rate on real scenes before enabling: if it exceeds ~30%,
+    # the critique prompt is too eager rather than the scenes being that bad.
+    SCENE_VISUAL_CHECK_ENABLED: bool = (
+        os.environ.get("SCENE_VISUAL_CHECK_ENABLED", "false").strip().lower()
+        in ("1", "true", "yes", "on")
+    )
+    # Long-lived puppeteer process (backend/capture/scene-shot-server.mjs) that
+    # holds ONE Chrome and a small page pool. A per-check browser launch would
+    # add ~2-3s to every check, which is the ballooning this must avoid.
+    SCENE_SHOT_SERVER_URL: str = os.environ.get(
+        "SCENE_SHOT_SERVER_URL", "http://127.0.0.1:7861"
+    )
+    # Vision model for the check. Must be a GLM `-v` variant: the codegen model
+    # (glm-5.2) rejects image content outright.
+    SCENE_VISION_MODEL: str = os.environ.get("SCENE_VISION_MODEL", "glm-4.6v")
 
     # Local testing override — set DEFAULT_PLAN=PRO in .env to auto-assign plan on login
     DEFAULT_PLAN: str = ""

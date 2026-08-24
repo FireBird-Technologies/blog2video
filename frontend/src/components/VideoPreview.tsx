@@ -269,7 +269,22 @@ function PreviewSceneVisual({
         ["--img-zoom" as string]: String(imageZoom),
       }}
     >
-      <style>{`[data-scene-wrapper] img:not([data-logo]){object-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}[data-scene-wrapper] [data-content-img]{object-position:var(--img-pos,50% 50%) !important;background-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}${videoUrl ? "[data-scene-wrapper] [data-scenecomp-layer]{background:transparent !important;}[data-scene-wrapper] [data-scenecomp-layer]>div{background:transparent !important;}" : ""}`}</style>
+      {/* Focus/zoom applied to the IMAGE only, and clipped to its own box.
+        *
+        * This used to put `transform:scale(var(--img-zoom))` on BOTH the
+        * `[data-content-img]` container AND the `img` inside it. The generator
+        * contract puts that marker on the container, so the zoom was applied
+        * twice — an effective zoom². Since `transform` neither reflows siblings
+        * nor is clipped by an ancestor without `overflow:hidden`, the scaled
+        * container bled straight over the sibling text column.
+        *
+        * Now: the container only carries position hints (and clips), while the
+        * scale lives on the img alone. `overflow:hidden` means even a large zoom
+        * stays inside the slot the layout gave it.
+        *
+        * KEEP IDENTICAL to GeneratedVideo.tsx — player and export must not
+        * diverge. */}
+      <style>{`[data-scene-wrapper] img:not([data-logo]){object-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}[data-scene-wrapper] [data-content-img]{object-position:var(--img-pos,50% 50%) !important;background-position:var(--img-pos,50% 50%) !important;overflow:hidden !important;}${videoUrl ? "[data-scene-wrapper] [data-scenecomp-layer]{background:transparent !important;}[data-scene-wrapper] [data-scenecomp-layer]>div{background:transparent !important;}" : ""}`}</style>
       <div data-scene-wrapper ref={wrapperRef} style={{ width: "100%", height: "100%", position: "relative" }}>
         {videoUrl && (
           <div style={{ position: "absolute", inset: 0, zIndex: 0 }}>
@@ -468,8 +483,30 @@ const StableCustomComposition: React.FC<any> = ({
         // PreviewClipSlotOverlay renders the clip itself (see below).
         const videoUrl: string | undefined = s.videoUrl;
         const sceneProps: SceneProps = {
-          displayText: s.narration || s.title,
-          narrationText: s.narration || "",
+          // The three text fields are DISTINCT and must stay that way:
+          //   sceneTitle  — the scene's short title  (Scene.title)
+          //   displayText — the on-screen copy       (Scene.display_text)
+          //   narrationText — the voiceover script   (Scene.narration_text)
+          //
+          // This read `s.narration || s.title`, and `s.narration` is
+          // `display_text ?? narration_text` — so a scene with no display_text
+          // put the VOICEOVER SCRIPT on screen as the headline, and the title
+          // was never shown at all. Use display_text directly and fall back to
+          // the title (a short label) rather than to the narration (a paragraph).
+          sceneTitle: s.title || "",
+          displayText: s.displayText || s.narration || "",
+          // The scene's OWN narration, not a second copy of the headline.
+          //
+          // This read `s.narration || ""` — the same value displayText gets — so
+          // both props held the identical string. Any scene rendering both (the
+          // prop contract advertises both) painted the headline twice: once as
+          // the headline, once as a ghosted secondary line. The caption track
+          // below inherited it too, making a third copy.
+          //
+          // `s.narrationText` is already populated from scene.narration_text and
+          // was simply unused. The export path (GeneratedVideo.tsx) always kept
+          // the two distinct, so this was a player-only divergence from render.
+          narrationText: s.narrationText || "",
           imageUrl: videoUrl ? undefined : s.imageUrl,
           hasVideo: !!videoUrl,
           imageObjectPosition: `${Math.max(0, Math.min(100, focusX))}% ${Math.max(0, Math.min(100, focusY))}%`,
@@ -2014,7 +2051,12 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
         id: scene.id,
         order: scene.order,
         title: scene.title,
+        // `narration` is the legacy on-screen field (display_text ?? narration_text)
+        // and many callers still read it. `displayText` is the UNMIXED value, so a
+        // scene with no display_text does not silently render its voiceover script
+        // as the headline.
         narration: onScreenText,
+        displayText: scene.display_text || "",
         narrationText: scene.narration_text || "",
         layout,
         layoutProps,
@@ -2190,8 +2232,11 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
           audio.addEventListener("canplaythrough", done);
           audio.addEventListener("error", done);
           audio.src = src;
-          // Safety timeout — keep generous to avoid starting before media is warm.
-          const timeoutId = window.setTimeout(done, 15000);
+          // Safety timeout. This preload BLOCKS the whole player on every scene's
+          // media, so one cold R2 object used to stall playback for the full
+          // window. `done` resolves rather than rejects, so a slow asset now
+          // degrades to "start and stream it in" instead of holding the player.
+          const timeoutId = window.setTimeout(done, 5000);
           cleanupFns.push(() => {
             window.clearTimeout(timeoutId);
             audio.removeEventListener("loadedmetadata", done);
@@ -2228,8 +2273,11 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
           video.addEventListener("error", done); // don't block on error
           video.src = src;
           video.load();
-          // Clips are larger than voiceover; allow more headroom before giving up.
-          const timeoutId = window.setTimeout(done, 30000);
+          // Clips are larger than voiceover, so keep more headroom than audio —
+          // but not 30s. Blocking every scene's clip behind a half-minute
+          // worst-case is what made a cold load feel broken; `done` resolves, so
+          // exceeding this streams the clip in rather than dropping it.
+          const timeoutId = window.setTimeout(done, 6000);
           cleanupFns.push(() => {
             window.clearTimeout(timeoutId);
             video.removeEventListener("canplaythrough", done);

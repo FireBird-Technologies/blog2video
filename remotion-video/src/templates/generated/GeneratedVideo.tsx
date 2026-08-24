@@ -250,7 +250,22 @@ function SceneVisual({
         ["--img-zoom" as string]: String(imageZoom),
       }}
     >
-      <style>{`[data-scene-wrapper] img:not([data-logo]){object-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}[data-scene-wrapper] [data-content-img]{object-position:var(--img-pos,50% 50%) !important;background-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}${videoUrl ? "[data-scene-wrapper] [data-scenecomp-layer]{background:transparent !important;}[data-scene-wrapper] [data-scenecomp-layer]>div{background:transparent !important;}" : ""}`}</style>
+      {/* Focus/zoom applied to the IMAGE only, and clipped to its own box.
+        *
+        * This used to put `transform:scale(var(--img-zoom))` on BOTH the
+        * `[data-content-img]` container AND the `img` inside it. The generator
+        * contract puts that marker on the container, so the zoom was applied
+        * twice — an effective zoom². Since `transform` neither reflows siblings
+        * nor is clipped by an ancestor without `overflow:hidden`, the scaled
+        * container bled straight over the sibling text column.
+        *
+        * Now: the container only carries position hints (and clips), while the
+        * scale lives on the img alone. `overflow:hidden` means even a large zoom
+        * stays inside the slot the layout gave it.
+        *
+        * KEEP IDENTICAL to VideoPreview.tsx — player and export must not
+        * diverge. */}
+      <style>{`[data-scene-wrapper] img:not([data-logo]){object-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}[data-scene-wrapper] [data-content-img]{object-position:var(--img-pos,50% 50%) !important;background-position:var(--img-pos,50% 50%) !important;overflow:hidden !important;}${videoUrl ? "[data-scene-wrapper] [data-scenecomp-layer]{background:transparent !important;}[data-scene-wrapper] [data-scenecomp-layer]>div{background:transparent !important;}" : ""}`}</style>
       <div data-scene-wrapper ref={wrapperRef} style={{ width: "100%", height: "100%", position: "relative" }}>
         {/* Clip layer paints first (behind). In the precise-slot case this
             doesn't matter — the placeholder it fills is empty and non-
@@ -540,7 +555,13 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           // Spread structured content (bullets, metrics, quotes, etc.) onto scene props
           const sc = (scene.structuredContent || {}) as Record<string, unknown>;
           const sceneProps: GeneratedSceneProps = {
-            displayText: scene.displayText || scene.narration || scene.title,
+            // Keep the three text fields DISTINCT — see GeneratedSceneProps.
+            // displayText fell back to `narration`, which is the on-screen field
+            // mixed with the voiceover, so a scene without display_text rendered
+            // its VOICEOVER SCRIPT as the headline. Fall back to the title (a
+            // short label) instead of to a narration paragraph.
+            sceneTitle: scene.title || "",
+            displayText: scene.displayText || scene.title || "",
             narrationText: scene.narrationText || scene.narration || "",
             // Never pass a video URL as imageUrl: Remotion's <Img> calls
             // cancelRender() on a failed load with no onError handler, which
@@ -578,6 +599,8 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             descriptionFontSize: scene.layoutConfig?.descriptionFontSize as number | undefined,
             headingFont,
             bodyFont,
+            // Per-layout props the layout declared and the user edited (P3).
+            layoutProps: scene.layoutProps,
           };
 
           const visual = scene.ctaProps ? (
