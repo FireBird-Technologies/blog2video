@@ -877,8 +877,8 @@ def _run_project_template_change_job(job_id: int) -> None:
 
         # Re-run visual assignment against the NEW template. The descriptors were
         # rebuilt above with empty layoutProps, so this is what actually fills each
-        # scene's visual slot — clips the project already owns first, then images
-        # (see the clip-first pass in write_remotion_data). Must run AFTER
+        # scene's visual slot — images first, then clips the project already owns
+        # into whatever no image covered (see write_remotion_data). Must run AFTER
         # project.template flips so it uses the target template's layout rules.
         try:
             from app.services.remotion import write_remotion_data

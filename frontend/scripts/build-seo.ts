@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { brand, brandFaviconHref, isPdfBrand } from "../src/brand/brand";
+import { isPdfBrand } from "../src/brand/brand";
 import {
   blogPosts,
   defaultOgImage,
@@ -455,16 +455,18 @@ function sanitizeTemplate(template: string) {
 }
 
 /**
- * index.html hardcodes the blog2video icon. Rewrite it at prerender time so the
- * pdf2video build ships the correct tab icon in the served HTML, rather than
- * flashing the wrong one until the app boots and applyFavicon runs.
+ * Favicon tags are per-brand REAL FILES at fixed paths (/favicon.ico etc), and
+ * each brand's build writes its own artwork to those paths — so both brands
+ * already carry the right markup and there is nothing to rewrite here.
+ *
+ * This deliberately no longer substitutes a `data:` URI. Search engines fetch
+ * the favicon as a separate crawlable URL and cache it independently of the
+ * page; a data URI renders in the browser tab but is invisible to Google and
+ * Bing, which is why the icon never showed up in results. Prerendered pages are
+ * the ones that actually get indexed, so injecting one here defeated the fix.
  */
 function applyBrandFavicon(template: string) {
-  if (!isPdfBrand) return template;
-  return template.replace(
-    /<link\s+rel="icon"[^>]*>/i,
-    `<link rel="icon" type="image/svg+xml" href="${brandFaviconHref(brand)}" />`
-  );
+  return template;
 }
 
 function injectRenderedMarkup(template: string, appHtml: string, head: string) {
