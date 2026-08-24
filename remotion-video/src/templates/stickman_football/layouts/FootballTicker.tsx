@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import type { SceneLayoutProps } from "../types";
 import { FootballPitchBackdrop, FROSTED_CARD_STYLE, estimateWrappedTextHeight } from "./FootballPitchBackdrop";
 
@@ -35,6 +36,8 @@ export const FootballTicker: React.FC<SceneLayoutProps> = (props) => {
     sceneDurationInFrames,
     titleFontSize,
     descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
     fontFamily,
     tickerTable,
     tickerTitle,
@@ -43,7 +46,7 @@ export const FootballTicker: React.FC<SceneLayoutProps> = (props) => {
   } = props;
 
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, height} = useVideoConfig();
   const p = aspectRatio === "portrait";
   const dur = sceneDurationInFrames ?? 150;
 
@@ -52,9 +55,33 @@ export const FootballTicker: React.FC<SceneLayoutProps> = (props) => {
   const accent = accentColor ?? "#2E7D32";
   const text = textColor ?? "#111111";
   const font = fontFamily ?? HAND_FONT;
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input; long copy overflows the card
+     and is clipped by the scene frame. Measure the real available height and
+     shrink to fit. A size the user explicitly picked is honored exactly —
+     minPx === targetPx makes the hook a no-op. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitDescRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 68 : 71);
+  const fitDescTarget = descriptionFontSize ?? (p ? 38 : 36);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.42),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.22 : 0.26)),
+  );
+  const { px: fitDescPx } = useFitText(
+    fitDescRef,
+    fitDescTarget,
+    descriptionFontSizeIsUserSet ? fitDescTarget : Math.round(fitDescTarget * 0.4),
+    [narration, fitDescTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * (p ? 0.30 : 0.34)),
+  );
 
-  const titlePx = titleFontSize ?? (p ? 68 : 71);
-  const descPx = descriptionFontSize ?? (p ? 38 : 36);
+  const titlePx = fitTitlePx;
+  const descPx = fitDescPx;
+
 
   const rawHeaders = (tickerTable?.headers ?? []).slice(0, MAX_COLS);
   const rawRows = (tickerTable?.rows ?? []).slice(0, MAX_ROWS).map((r) => (r ?? []).slice(0, MAX_COLS));
@@ -258,11 +285,11 @@ export const FootballTicker: React.FC<SceneLayoutProps> = (props) => {
         width: "100%",
       }}
     >
-      <div style={{ fontWeight: 700, fontSize: titlePx, color: text, textTransform: "uppercase", letterSpacing: "0.02em" }}>
+      <div ref={fitTitleRef} style={{ fontWeight: 700, fontSize: titlePx, color: text, textTransform: "uppercase", letterSpacing: "0.02em" }}>
         {title}
       </div>
       {tickerTitle && (
-        <div style={{ fontWeight: 600, fontSize: descPx - 2, color: text, opacity: 0.65, marginTop: 4 }}>
+        <div ref={fitDescRef} style={{ fontWeight: 600, fontSize: descPx - 2, color: text, opacity: 0.65, marginTop: 4 }}>
           {tickerTitle}
         </div>
       )}

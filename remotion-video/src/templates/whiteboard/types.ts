@@ -40,6 +40,10 @@ export interface WhiteboardLayoutProps {
   aspectRatio?: string;
   titleFontSize?: number;
   descriptionFontSize?: number;
+  /** Derived at render time; true only when the user explicitly changed it. */
+  titleFontSizeIsUserSet?: boolean;
+  /** Derived at render time; true only when the user explicitly changed it. */
+  descriptionFontSizeIsUserSet?: boolean;
   stats?: WhiteboardStatItem[];
   leftThought?: string;
   rightThought?: string;

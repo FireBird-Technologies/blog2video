@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate, Img } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { StickmanFootballClip } from "../components/StickmanFootballClip";
 import { SceneLayoutProps } from "../types";
 import { Football, GrassGround, PlayerStickman } from "../shared";
@@ -28,6 +29,8 @@ export const FreekickSetup: React.FC<SceneLayoutProps> = (props) => {
     sceneDurationInFrames,
     titleFontSize,
     descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
     fontFamily,
   } = props;
   const p = aspectRatio === "portrait";
@@ -35,7 +38,7 @@ export const FreekickSetup: React.FC<SceneLayoutProps> = (props) => {
   const kickerName = (props as any).kickerName as string | undefined;
   const kickerNumber = (props as any).kickerNumber as string | undefined;
 
-  const { fps } = useVideoConfig();
+  const { fps, height} = useVideoConfig();
   const frame = useCurrentFrame();
   const dur = sceneDurationInFrames ?? 150;
   const tSec = frame / fps;
@@ -179,7 +182,27 @@ export const FreekickSetup: React.FC<SceneLayoutProps> = (props) => {
   const flightCp2x = catchX - (p ? 40 : 48);
   const flightCp2y = catchY - H * 0.03;
 
-  const descPx = descriptionFontSize ?? (p ? 48 : 40);
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input; long copy overflows the card
+     and is clipped by the scene frame. Measure the real available height and
+     shrink to fit. A size the user explicitly picked is honored exactly. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitDescRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 90 : 75);
+  const fitDescTarget = descriptionFontSize ?? (p ? 48 : 40);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef, fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.42),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.22 : 0.26)),
+  );
+  const { px: fitDescPx } = useFitText(
+    fitDescRef, fitDescTarget,
+    descriptionFontSizeIsUserSet ? fitDescTarget : Math.round(fitDescTarget * 0.4),
+    [narration, fitDescTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * (p ? 0.30 : 0.34)),
+  );
+  const descPx = fitDescPx;
   const labelPx = Math.max(18, descPx - 6);
   const labelText = `→ ${shotLabel}`;
   const labelPadX = labelPx * 0.62;
@@ -197,7 +220,7 @@ export const FreekickSetup: React.FC<SceneLayoutProps> = (props) => {
   const labelX = goalCenterX;
   const labelBottomY = goalTop - H * (p ? 0.055 : 0.075);
 
-  const titlePx = titleFontSize ?? (p ? 90 : 75);
+  const titlePx = fitTitlePx;
   const textColTop = p ? H * 0.044 : H * 0.062;
   const textColMaxW = p ? W * 0.88 : W * 0.62;
   const textColGap = Math.max(descPx * 0.5, titlePx * 0.14);
@@ -663,7 +686,7 @@ export const FreekickSetup: React.FC<SceneLayoutProps> = (props) => {
         }}
       >
         <div style={{ transform: `translateX(${interpolate(titleWipe, [0, 1], [-40, 0])}px)`, opacity: titleWipe }}>
-          <div
+          <div ref={fitTitleRef}
             style={{
               fontSize: titlePx,
               fontFamily: font,
@@ -691,7 +714,7 @@ export const FreekickSetup: React.FC<SceneLayoutProps> = (props) => {
         </div>
 
         {narration && (
-          <div
+          <div ref={fitDescRef}
             style={{
               opacity: narrationOpacity,
               fontSize: descPx,

@@ -91,7 +91,10 @@ export const Feature: React.FC<SceneLayoutProps> = (props) => {
   // On the landscape two-column spread, let short copy GROW (up to this ceiling)
   // so it flows across both leaves instead of filling only the left column and
   // leaving the facing page blank. Single-column spreads keep shrink-only fitting.
-  const bodyMaxPx = !p && !hasImage ? Math.round(base * 1.6) : undefined;
+  // Kept modest (1.3x, not 1.6x): a larger ceiling let growth land close enough
+  // to the true overflow boundary that borderline-long copy got clipped by the
+  // key-points band below instead of shrinking to make room for it.
+  const bodyMaxPx = !p && !hasImage ? Math.round(base * 1.3) : undefined;
 
   const bodyRef = React.useRef<HTMLDivElement>(null);
   const bodyPx = useFitText(bodyRef, targetBodyPx, floorPx, bodyCols, [columns, targetBodyPx, p, bodyMaxPx], bodyMaxPx);

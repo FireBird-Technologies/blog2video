@@ -7,6 +7,7 @@ import {
   useVideoConfig,
 } from "remotion";
 import type { ChronicleLayoutProps } from "../types";
+import { useFitText } from "../components/useFitText";
 import {
   CHRONICLE_BODY_FONT,
   CHRONICLE_HEADING_FONT,
@@ -46,6 +47,8 @@ export const BookOpen: React.FC<ChronicleLayoutProps> = ({
   aspectRatio = "landscape",
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
@@ -130,6 +133,32 @@ export const BookOpen: React.FC<ChronicleLayoutProps> = ({
 
   // Strip any "Chapter N:" prefix that an older LLM run baked into the title.
   const cleanTitle = stripChapterPrefix(title);
+
+  /* ── Auto-fit (title page) ────────────────────────────────
+     Title and narration on the illuminated title page are unbounded user
+     input; long copy could overflow the page's ornamental frame. Measure the
+     real available height and shrink to fit. An explicitly chosen size is
+     honored exactly (minPx === targetPx no-ops the hook). QuillText's
+     mode="fade" renders the full text from frame 0 (only opacity/blur
+     animate), so it's safe to ref the wrapper directly. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitNarrationRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 88 : 104);
+  const fitNarrationTarget = descriptionFontSize ?? (p ? 32 : 30);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.4),
+    [cleanTitle, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.22 : 0.26)),
+  );
+  const { px: fitNarrationPx } = useFitText(
+    fitNarrationRef,
+    fitNarrationTarget,
+    descriptionFontSizeIsUserSet ? fitNarrationTarget : Math.round(fitNarrationTarget * 0.5),
+    [narration, fitNarrationTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * (p ? 0.16 : 0.18)),
+  );
 
   // Derive the seal monogram from the actual title so no theme text is hardcoded.
   const monogram = (cleanTitle.match(/[A-Za-z]/)?.[0] ?? "A").toUpperCase();
@@ -725,14 +754,16 @@ export const BookOpen: React.FC<ChronicleLayoutProps> = ({
           const titleColor = burnLevel > 0.38 ? accentColor : textColor;
           return (
             <div
+              ref={fitTitleRef}
               style={{
                 fontFamily: heading,
                 fontWeight: 900,
-                fontSize: titleFontSize ?? (p ? 88 : 104),
+                fontSize: fitTitlePx,
                 color: titleColor,
                 lineHeight: 1.08,
                 letterSpacing: "0.02em",
                 textAlign: "center",
+                width: "100%",
                 maxWidth: "90%",
                 textShadow: `
                   0 0 6px ${innerGlow},
@@ -772,14 +803,16 @@ export const BookOpen: React.FC<ChronicleLayoutProps> = ({
         {/* Subtitle / narration */}
         {narration && (
           <div
+            ref={fitNarrationRef}
             style={{
               fontFamily: body,
               fontStyle: "italic",
-              fontSize: descriptionFontSize ?? (p ? 32 : 30),
+              fontSize: fitNarrationPx,
               color: textColor,
               opacity: 0.85,
               lineHeight: 1.55,
               textAlign: "center",
+              width: "100%",
               maxWidth: "78%",
             }}
           >

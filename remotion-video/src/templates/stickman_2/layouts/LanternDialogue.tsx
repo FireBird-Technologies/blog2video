@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { SceneLayoutProps } from "../types";
 import { Stickman2BackgroundImage } from "../Stickman2BackgroundImage";
 
@@ -22,11 +23,37 @@ export const LanternDialogue: React.FC<SceneLayoutProps> = (props) => {
     sceneDurationInFrames,
     titleFontSize,
     descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
     fontFamily,
   } = props;
 
   const p = aspectRatio === "portrait";
   const { fps, width, height } = useVideoConfig();
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input; long copy overflows the card
+     (and in this template collides with the artwork) instead of resizing.
+     Measure the real available height and shrink to fit. A size the user
+     explicitly picked is honored exactly — minPx === targetPx no-ops the hook. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitDescRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 82 : 73);
+  const fitDescTarget = descriptionFontSize ?? (p ? 42 : 36);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.42),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.22 : 0.26)),
+  );
+  const { px: fitDescPx } = useFitText(
+    fitDescRef,
+    fitDescTarget,
+    descriptionFontSizeIsUserSet ? fitDescTarget : Math.round(fitDescTarget * 0.4),
+    [narration, fitDescTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * (p ? 0.30 : 0.34)),
+  );
   const frame = useCurrentFrame();
   const dur = sceneDurationInFrames ?? 150;
 
@@ -385,7 +412,8 @@ export const LanternDialogue: React.FC<SceneLayoutProps> = (props) => {
 
     // Thought text above the kite — fixed-width box that wraps and clamps to
     // 4 lines (overflow ends with "…"), bottom-anchored just above the kite.
-    const fontSize = descriptionFontSize ?? (p ? 42 : 36);
+    const fontSize = fitDescPx;
+
     const lineHeight = 1.35;
     const tW = p ? 330 : 380;
     const tH = Math.ceil(4 * fontSize * lineHeight) + 8;
@@ -712,14 +740,14 @@ export const LanternDialogue: React.FC<SceneLayoutProps> = (props) => {
 
       {/* Title */}
       {title && (
-        <div
+        <div ref={fitTitleRef}
           style={{
             position: "absolute",
             top: p ? "6%" : "6%",
             left: 0,
             right: 0,
             textAlign: "center",
-            fontSize: titleFontSize ?? (p ? 82 : 73),
+            fontSize: fitTitlePx,
             fontFamily: fontFamily ?? "'Patrick Hand', system-ui, sans-serif",
             color: accentColor,
             fontWeight: 700,
@@ -739,7 +767,7 @@ export const LanternDialogue: React.FC<SceneLayoutProps> = (props) => {
 
       {/* Narration */}
       {narration && (
-        <div
+        <div ref={fitDescRef}
           style={{
             position: "absolute",
             // Portrait: anchored near the bottom. Landscape: vertically centered
@@ -750,7 +778,7 @@ export const LanternDialogue: React.FC<SceneLayoutProps> = (props) => {
             left: 0,
             right: 0,
             textAlign: "center",
-            fontSize: descriptionFontSize ?? (p ? 42 : 36),
+            fontSize: fitDescPx,
             fontFamily: fontFamily ?? "'Patrick Hand', system-ui, sans-serif",
             color: textColor,
             filter: "drop-shadow(0 0 6px rgba(255,255,255,0.4))",

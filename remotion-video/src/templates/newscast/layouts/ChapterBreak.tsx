@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import type { NewscastLayoutProps } from "./types";
 import { NewsCastLayoutImageBackground } from "../NewsCastLayoutImageBackground";
 import {
@@ -40,12 +41,39 @@ export const ChapterBreak: React.FC<NewscastLayoutProps> = ({
   textColor,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
   const portraitScale = getNewscastPortraitTypeScale(width, height);
   const p = height > width;
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and subtitle/narration are unbounded user input; the panel centres
+     in the frame with no fixed-height box, but the frame edge (overflow:hidden
+     on the AbsoluteFill) still clips very long copy. Measure the real
+     available height and shrink to fit. An explicitly chosen size is honored
+     exactly (minPx === targetPx no-ops the hook). */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitSubRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 47 : 36);
+  const fitSubTarget = descriptionFontSize ?? (p ? 18 : 14);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.4),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.24 : 0.3)),
+  );
+  const { px: fitSubPx } = useFitText(
+    fitSubRef,
+    fitSubTarget,
+    descriptionFontSizeIsUserSet ? fitSubTarget : Math.round(fitSubTarget * 0.55),
+    [narration, subtitle, fitSubTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * (p ? 0.22 : 0.26)),
+  );
   const numStr = String(chapterNumber).padStart(2, "0");
   const watermarkNum = resolveNewscastNumberFontPx({
     basePx: 230,
@@ -267,9 +295,10 @@ export const ChapterBreak: React.FC<NewscastLayoutProps> = ({
             }}
           />
           <div
+            ref={fitTitleRef}
             style={{
               fontFamily: newscastFont(fontFamily, "title"),
-              fontSize: titleFontSize ?? (p ? 47 : 36),
+              fontSize: fitTitlePx,
               fontWeight: HEADLINE_WEIGHT,
               letterSpacing: 6,
               textTransform: "uppercase",
@@ -284,9 +313,10 @@ export const ChapterBreak: React.FC<NewscastLayoutProps> = ({
           </div>
           {subStr ? (
             <div
+              ref={fitSubRef}
               style={{
                 fontFamily: newscastFont(fontFamily, "body"),
-                fontSize: descriptionFontSize ?? (p ? 18 : 14),
+                fontSize: fitSubPx,
                 fontWeight: 300,
                 letterSpacing: 3,
                 color: STEEL,

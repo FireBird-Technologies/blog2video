@@ -1,6 +1,8 @@
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import React from "react";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { WhiteboardBackground } from "../WhiteboardBackground";
 import type { WhiteboardLayoutProps } from "../types";
+import { useFitText } from "../components/useFitText";
 
 export const StickFigureScene: React.FC<WhiteboardLayoutProps> = ({
   title,
@@ -11,10 +13,13 @@ export const StickFigureScene: React.FC<WhiteboardLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
+  const { height } = useVideoConfig();
 
   // 1. BOUNCE MATH
   const bounceHeight = 120;
@@ -34,6 +39,35 @@ export const StickFigureScene: React.FC<WhiteboardLayoutProps> = ({
 
   const dash = 500;
   const figOff = dash * (1 - figProgress);
+
+  /* ── Auto-fit (title + narration) ────────────────────────────────
+     Title and narration render the full prop text directly from frame 0
+     (only opacity fades via textOp) — no slice-reveal — so direct ref is
+     safe. Title renders in one of two mutually-exclusive spots (portrait
+     header vs landscape side panel) sharing the same ref/fit; only one is
+     ever mounted at a time. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitNarrationRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 73 : 62);
+  const fitNarrationTarget = descriptionFontSize ?? (p ? 31 : 28);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.4),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.16 : 0.2)),
+  );
+  const { px: fitNarrationPx } = useFitText(
+    fitNarrationRef,
+    fitNarrationTarget,
+    descriptionFontSizeIsUserSet ? fitNarrationTarget : Math.round(fitNarrationTarget * 0.5),
+    [narration, fitNarrationTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    // Landscape: narration sits alone in its own column (title + narration
+    // stacked, nothing else below), so it can use most of the frame height,
+    // not just a slice — the old 22% badly under-budgeted it. Portrait keeps
+    // a smaller share since the figure sits below it in the same column.
+    Math.round(height * (p ? 0.24 : 0.55)),
+  );
 
   return (
     <AbsoluteFill
@@ -75,8 +109,8 @@ export const StickFigureScene: React.FC<WhiteboardLayoutProps> = ({
       >
         {/* Header-style Text for Portrait */}
         {p && (
-          <div style={{ color: textColor, opacity: textOp, textAlign: "center", marginBottom: -20 }}>
-            <div style={{ fontWeight: 700, fontSize: titleFontSize ?? (p ? 73 : 62), filter: "url(#ink)" }}>{title}</div>
+          <div style={{ color: textColor, opacity: textOp, textAlign: "center", marginBottom: -20, width: "100%" }}>
+            <div ref={fitTitleRef} style={{ fontWeight: 700, fontSize: fitTitlePx, filter: "url(#ink)", width: "100%" }}>{title}</div>
             {/* Hand-drawn underline for title in portrait */}
             <svg width="100%" height="20" viewBox="0 0 300 20" style={{ opacity: doodleOp }}>
                 <path d="M50,10 Q150,18 250,10" stroke={accentColor} strokeWidth="4" fill="none" strokeLinecap="round" />
@@ -117,20 +151,25 @@ export const StickFigureScene: React.FC<WhiteboardLayoutProps> = ({
           </g>
         </svg>
 
-        <div style={{ 
-          flex: p ? "none" : 1, 
-          color: textColor, 
-          opacity: textOp, 
+        <div style={{
+          flex: p ? "none" : 1,
+          color: textColor,
+          opacity: textOp,
           textAlign: p ? "center" : "left",
-          maxWidth: p ? "90%" : "auto" 
+          maxWidth: p ? "90%" : "auto",
+          width: p ? "90%" : "auto",
         }}>
-          {!p && <div style={{ fontWeight: 700, fontSize: titleFontSize ?? (p ? 73 : 62), filter: "url(#ink)" }}>{title}</div>}
-          <div style={{ 
-            marginTop: p ? 0 : 18, 
-            fontSize: descriptionFontSize ?? (p ? 31 : 28), 
-            filter: "url(#ink)",
-            lineHeight: 1.4 
-          }}>
+          {!p && <div ref={fitTitleRef} style={{ fontWeight: 700, fontSize: fitTitlePx, filter: "url(#ink)", width: "100%" }}>{title}</div>}
+          <div
+            ref={fitNarrationRef}
+            style={{
+              marginTop: p ? 0 : 18,
+              fontSize: fitNarrationPx,
+              filter: "url(#ink)",
+              lineHeight: 1.4,
+              width: "100%",
+            }}
+          >
             {narration}
           </div>
         </div>

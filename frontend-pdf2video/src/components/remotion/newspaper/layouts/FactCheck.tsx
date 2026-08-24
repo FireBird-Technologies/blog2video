@@ -2,6 +2,7 @@ import React from "react";
 import { NewspaperClip } from "../components/NewspaperClip";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, Img, staticFile } from "remotion";
 import { NewsBackground } from "../NewsBackground";
+import { useFitText, useAvailableHeight } from "../components/useFitText";
 import type { BlogLayoutProps } from "../types";
 
 const H_FONT = "'Source Serif 4', Georgia, 'Times New Roman', serif";
@@ -18,6 +19,8 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
   aspectRatio = "landscape",
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   stats,imageUrl,
   imageObjectPosition,
   imageZoom,
@@ -34,6 +37,49 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
 
   const leftLabel = stats?.[0]?.label ?? "CLAIMED";
   const rightLabel = stats?.[1]?.label ?? "THE FACTS";
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title, the two claim columns and the verdict are all unbounded user input;
+     long copy overflows the card and clips. Fit the headline to its own share,
+     the claims to the body row, and the verdict to what is left at the bottom.
+     An explicitly chosen size is honored exactly (minPx === targetPx no-ops). */
+  const contentRef = React.useRef<HTMLDivElement>(null);
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const claimRef = React.useRef<HTMLDivElement>(null);
+  const verdictRef = React.useRef<HTMLDivElement>(null);
+
+  const titleTarget = titleFontSize ?? (p ? 70 : 64);
+  const claimTarget = descriptionFontSize ?? (p ? 30 : 25);
+
+  const titleBudget = Math.round(height * (p ? 0.24 : 0.28));
+  const { px: titlePx } = useFitText(
+    titleRef,
+    titleTarget,
+    titleFontSizeIsUserSet ? titleTarget : p ? 30 : 26,
+    [title, titleTarget, titleFontSizeIsUserSet, titleBudget, p],
+    titleBudget,
+  );
+
+  // Both claim columns share one size so the two sides stay visually balanced;
+  // measure the longer of the two.
+  const claimAvail = useAvailableHeight(claimRef, contentRef, [title, titlePx, claimTarget, p]);
+  const verdictReserve = Math.round(claimTarget * 1.4 + 40);
+  const { px: claimPx } = useFitText(
+    claimRef,
+    claimTarget,
+    descriptionFontSizeIsUserSet ? claimTarget : p ? 16 : 14,
+    [leftThought, rightThought, claimTarget, descriptionFontSizeIsUserSet, titlePx, claimAvail, p],
+    claimAvail ? Math.max(1, claimAvail - verdictReserve) : undefined,
+  );
+
+  const verdictAvail = useAvailableHeight(verdictRef, contentRef, [title, titlePx, claimPx, narration, p]);
+  const { px: verdictPx } = useFitText(
+    verdictRef,
+    claimTarget,
+    descriptionFontSizeIsUserSet ? claimTarget : p ? 16 : 14,
+    [narration, claimTarget, descriptionFontSizeIsUserSet, claimPx, verdictAvail, p],
+    verdictAvail || undefined,
+  );
 
   // --- Animation Logic ---
   const headerOp = interpolate(frame, [0, 14], [0, 1], { extrapolateRight: "clamp" });
@@ -113,7 +159,7 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
         flexDirection: "column",
         padding: p ? "12% 8%" : "5% 8%",
         zIndex: 10,
-      }}>
+      }} ref={contentRef}>
         
         {/* HEADER */}
         <div style={{ opacity: headerOp, marginBottom: p ? 30 : 40 }}>
@@ -122,7 +168,7 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
               <circle cx="14" cy="14" r="10" stroke={textColor} strokeWidth="3" />
               <line x1="22" y1="22" x2="31" y2="31" stroke={textColor} strokeWidth="3" strokeLinecap="round" />
             </svg>
-            <div style={{ fontFamily: fontFamily ?? H_FONT, fontSize: titleFontSize ?? (p ? 70 : 64), fontWeight: 900, color: textColor, textTransform: "uppercase" }}>
+            <div ref={titleRef} style={{ fontFamily: fontFamily ?? H_FONT, fontSize: titlePx, fontWeight: 900, color: textColor, textTransform: "uppercase" }}>
               {title}
             </div>
           </div>
@@ -148,7 +194,7 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
             <div style={{ display: "inline-block", alignSelf: "flex-start", fontFamily: fontFamily ?? B_FONT, fontSize: p ? 14 : 13, fontWeight: 800, letterSpacing: "0.1em", color: textColor, ...badgeHL(accentColor), padding: "4px 8px", marginBottom: 15 }}>
               {leftLabel}
             </div>
-            <div style={{ fontFamily: fontFamily ?? H_FONT, fontSize: descriptionFontSize ?? (p ? 30 : 25), fontWeight: 500, color: textColor, lineHeight: 1.3, fontStyle: "italic" }}>
+            <div ref={claimRef} style={{ fontFamily: fontFamily ?? H_FONT, fontSize: claimPx, fontWeight: 500, color: textColor, lineHeight: 1.3, fontStyle: "italic" }}>
               "{leftThought}"
             </div>
           </div>
@@ -224,7 +270,7 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
             <div style={{ display: "inline-block", alignSelf: "flex-start", fontFamily: fontFamily ?? B_FONT, fontSize: p ? 14 : 13, fontWeight: 800, letterSpacing: "0.1em", color: textColor, border: `1.5px solid ${textColor}`, padding: "4px 8px", marginBottom: 15 }}>
               {rightLabel}
             </div>
-            <div style={{ fontFamily: fontFamily ?? B_FONT, fontSize: descriptionFontSize ?? (p ? 30 : 25), fontWeight: 500, color: textColor, lineHeight: 1.4 }}>
+            <div style={{ fontFamily: fontFamily ?? B_FONT, fontSize: claimPx, fontWeight: 500, color: textColor, lineHeight: 1.4 }}>
               {rightThought}
             </div>
           </div>
@@ -296,15 +342,15 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
 
         {/* VERDICT (NARRATION) */}
         {narration && (
-          <div style={{ 
-            opacity: verdictOp, 
+          <div ref={verdictRef} style={{
+            opacity: verdictOp,
             marginTop: p ? 20 : 40,
             paddingTop: 20,
             borderTop: `${3}px solid ${accentColor}`,
-            fontFamily: fontFamily ?? B_FONT, 
-            fontSize: descriptionFontSize ?? (p ? 30 : 25),
+            fontFamily: fontFamily ?? B_FONT,
+            fontSize: verdictPx,
             fontWeight: 700,
-            color: textColor 
+            color: textColor
           }}>
             {narration}
           </div>

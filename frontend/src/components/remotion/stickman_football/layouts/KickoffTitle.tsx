@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate, Img } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { StickmanFootballClip } from "../components/StickmanFootballClip";
 import { SceneLayoutProps } from "../types";
 
@@ -22,12 +23,14 @@ export const KickoffTitle: React.FC<SceneLayoutProps> = (props) => {
     sceneDurationInFrames,
     titleFontSize,
     descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
     fontFamily,
   } = props;
   const p = aspectRatio === "portrait";
   const subline = (props as any).subline as string | undefined;
 
-  const { fps } = useVideoConfig();
+  const { fps, height} = useVideoConfig();
   const frame = useCurrentFrame();
   const dur = sceneDurationInFrames ?? 150;
   const tSec = frame / fps;
@@ -266,9 +269,33 @@ export const KickoffTitle: React.FC<SceneLayoutProps> = (props) => {
   const textBlockOpacity = seg(T.impact + 0.1, T.impact + 0.26, easeOut);
 
   const imageOpacity = seg(0, 0.16, easeOut);
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input; long copy overflows the card
+     and is clipped by the scene frame. Measure the real available height and
+     shrink to fit. A size the user explicitly picked is honored exactly —
+     minPx === targetPx makes the hook a no-op. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitDescRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 92 : 76);
+  const fitDescTarget = descriptionFontSize ?? (p ? 52 : 38);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.42),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.22 : 0.26)),
+  );
+  const { px: fitDescPx } = useFitText(
+    fitDescRef,
+    fitDescTarget,
+    descriptionFontSizeIsUserSet ? fitDescTarget : Math.round(fitDescTarget * 0.4),
+    [narration, fitDescTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * (p ? 0.30 : 0.34)),
+  );
 
-  const titlePx = titleFontSize ?? (p ? 92 : 76);
-  const descPx = descriptionFontSize ?? (p ? 52 : 38);
+  const titlePx = fitTitlePx;
+  const descPx = fitDescPx;
+
   const textBlockBottom = H * (p ? 0.55 : 0.56);
   const textMaxW = p ? W * 0.88 : W * 0.74;
 
@@ -717,7 +744,7 @@ export const KickoffTitle: React.FC<SceneLayoutProps> = (props) => {
           }}
         >
           <div style={{ opacity: titleOpacity, display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}>
-            <div
+            <div ref={fitTitleRef}
               style={{
                 fontFamily: font,
                 fontSize: titlePx,
@@ -727,6 +754,7 @@ export const KickoffTitle: React.FC<SceneLayoutProps> = (props) => {
                 letterSpacing: "0.02em",
                 lineHeight: 1.1,
                 textTransform: "uppercase",
+                width: "100%",
                 maxWidth: textMaxW,
                 padding: "0 24px",
                 wordBreak: "break-word",
@@ -770,7 +798,7 @@ export const KickoffTitle: React.FC<SceneLayoutProps> = (props) => {
           )}
 
           {narration && (
-            <div
+            <div ref={fitDescRef}
               style={{
                 opacity: textBlockOpacity * 0.7,
                 fontFamily: font,
@@ -779,6 +807,7 @@ export const KickoffTitle: React.FC<SceneLayoutProps> = (props) => {
                 color: text,
                 textAlign: "center",
                 letterSpacing: "0.03em",
+                width: "100%",
                 maxWidth: textMaxW,
                 padding: "0 24px",
                 wordBreak: "break-word",

@@ -1057,7 +1057,7 @@
         },
         "descriptionFontSize": {
           "portrait": 52,
-          "landscape": 28
+          "landscape": 21
         },
         "sectionLabel": "Feature",
         "issueLabel": "Feature"

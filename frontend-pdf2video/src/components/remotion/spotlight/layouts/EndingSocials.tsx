@@ -1,11 +1,12 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
 import { FlashPop, StarburstBadge, StreakField } from "../components/SpotlightArtifacts";
 import type { SpotlightLayoutProps } from "../types";
 import { SocialIcons } from "../../SocialIcons";
 import { SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY } from "../constants";
 import { resolveCtas } from "../../../../utils/resolveCtas";
+import { useFitText } from "../components/useFitText";
 
 export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
   title,
@@ -24,6 +25,7 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
   descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const p = aspectRatio === "portrait";
 
   const subtext = (narration ?? "").trim();
@@ -38,6 +40,31 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
 
   const resolvedTitleSize = titleFontSize ?? (p ? 74 : 64);
   const resolvedCtaSize = resolvedTitleSize + 30;
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title (top group) and subtext (bottom group) are unbounded user input
+     rendered in absolutely-positioned bands with no height cap — long copy
+     would run past its band into the CTA cards / off-frame. Fit each against
+     its own band's share of the frame. */
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const subtextRef = React.useRef<HTMLDivElement>(null);
+  const subtextTargetPx = descriptionFontSize ?? (p ? 44 : 29);
+  const titleBudgetPx = Math.round(height * (p ? 0.16 : 0.14));
+  const { px: titlePx } = useFitText(
+    titleRef,
+    resolvedTitleSize,
+    p ? 32 : 28,
+    [title, resolvedTitleSize, titleBudgetPx],
+    titleBudgetPx,
+  );
+  const subtextBudgetPx = Math.round(height * (p ? 0.14 : 0.12));
+  const { px: subtextPx } = useFitText(
+    subtextRef,
+    subtextTargetPx,
+    p ? 18 : 15,
+    [subtext, subtextTargetPx, subtextBudgetPx],
+    subtextBudgetPx,
+  );
 
   let currentDelay = 20; 
   const animationDuration = 8; 
@@ -109,8 +136,8 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
         alignItems: "center",
         zIndex: 1,
       }}>
-        <div style={{
-          fontSize: resolvedTitleSize,
+        <div ref={titleRef} style={{
+          fontSize: titlePx,
           fontWeight: 800,
           color: textColor || "#FFFFFF",
           fontFamily: bodyFont,
@@ -207,8 +234,8 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
         zIndex: 1,
       }}>
         {subtext && (
-          <div style={{
-            fontSize: descriptionFontSize ?? (p ? 44 : 29),
+          <div ref={subtextRef} style={{
+            fontSize: subtextPx,
             fontWeight: 500,
             color: `${textColor || "#FFFFFF"}CC`,
             lineHeight: 1.35,

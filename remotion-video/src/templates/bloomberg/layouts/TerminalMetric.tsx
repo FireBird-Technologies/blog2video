@@ -1,4 +1,6 @@
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import React from "react";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY, derivePalette } from "../constants";
 import type { BloombergLayoutProps } from "../types";
 import { BackgroundHistogramGraph } from "./BackgroundHistogramGraph";
@@ -26,6 +28,7 @@ export const TerminalMetric: React.FC<BloombergLayoutProps> = ({
   videoStartInFrames,
 }) => {
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const p = aspectRatio === "portrait";
   const ff = fontFamily || BLOOMBERG_DEFAULT_FONT_FAMILY;
   const amber = textColor || BLOOMBERG_COLORS.amber;
@@ -51,9 +54,28 @@ export const TerminalMetric: React.FC<BloombergLayoutProps> = ({
   const topH = p ? 56 : 48;
   const botH = p ? 44 : 36;
   const pad = p ? 40 : 48;
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const metricMeasureRef = React.useRef<HTMLDivElement>(null);
+  const narrationRef = React.useRef<HTMLDivElement>(null);
+  const metricTarget = tSize * 0.85;
+  const longestMetric = tiles.reduce((longest, tile) => `${tile.value}${tile.suffix || ""}`.length > longest.length ? `${tile.value}${tile.suffix || ""}` : longest, "");
+  const { px: fittedTitleSize } = useFitText(titleRef, tSize * 0.6, p ? 30 : 28, [title, tSize, p], p ? 170 : 140);
+  const { px: fittedMetricSize } = useFitText(metricMeasureRef, metricTarget, p ? 28 : 26, [longestMetric, metricTarget, p], p ? 110 : 120);
+  // Narration owns the open lower portion of this scene. Keep normal copy at
+  // its requested size, but let exceptionally long copy use that full region
+  // and continue shrinking until every line fits instead of clipping at 130px.
+  const narrationBudget = Math.round(height * 0.38);
+  const { px: fittedNarrationSize } = useFitText(
+    narrationRef,
+    dSize,
+    p ? 12 : 11,
+    [narration, dSize, p, height],
+    narrationBudget,
+  );
 
   return (
     <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff, overflow: "hidden" }}>
+      <div ref={metricMeasureRef} style={{ position: "absolute", visibility: "hidden", width: p ? 180 : 260, fontSize: metricTarget, lineHeight: 1.05, overflowWrap: "anywhere" }}>{longestMetric}</div>
       {(videoUrl || imageUrl) && (
         <>
           <div style={{ position: "absolute", inset: 0 }}>
@@ -87,18 +109,23 @@ export const TerminalMetric: React.FC<BloombergLayoutProps> = ({
 
       {/* Main Content Container: Centers Title + Metrics + Narration */}
       <div style={{
+        position: "absolute",
+        top: topH,
+        right: 0,
+        bottom: botH,
+        left: 0,
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
         alignItems: "center",
-        height: "100%",
         padding: `0 ${pad}px`,
-        gap: p ? 30 : 40, // Space between title, tiles, and narration
+        gap: p ? 30 : 32, // Space between title, tiles, and narration
       }}>
         
         {/* Title: Only shown here, above metrics */}
-        <div style={{
-          fontSize: tSize * 0.6,
+        <div ref={titleRef} style={{
+          fontSize: fittedTitleSize,
+          lineHeight: 1.1,
           opacity: titleOpacity,
           letterSpacing: -0.5,
           fontWeight: "bold",
@@ -129,7 +156,7 @@ export const TerminalMetric: React.FC<BloombergLayoutProps> = ({
                 opacity: tileOpacity,
                 transform: `translateY(${tileSlide}px)`,
               }}>
-                <div style={{ color: amber, fontSize: tSize * 0.85, lineHeight: 1 }}>
+                <div style={{ color: amber, fontSize: fittedMetricSize, lineHeight: 1 }}>
                   {tile.value}
                   <span style={{ fontSize: tSize * 0.4, color: muted }}>
                     {tile.suffix}
@@ -144,12 +171,17 @@ export const TerminalMetric: React.FC<BloombergLayoutProps> = ({
         </div>
 
         {/* Narration: Shown below the metrics */}
-        <div style={{
-          color: muted, 
-          fontSize: dSize * 0.7,
+        <div ref={narrationRef} style={{
+          color: muted,
+          fontSize: fittedNarrationSize,
           textAlign: "center",
-          maxWidth: "80%",
+          width: "100%",
+          maxWidth: p ? "88%" : "92%",
           lineHeight: 1.4,
+          maxHeight: narrationBudget,
+          flexShrink: 0,
+          overflow: "hidden",
+          overflowWrap: "anywhere",
           opacity: narrationOpacity,
         }}>
           {narration}

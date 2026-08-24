@@ -34,6 +34,7 @@ import {
   clampProgressAt,
 } from "../../_shared/chartData";
 import { LineChartEndCallouts, lineChartCalloutMargin } from "../../_shared/LineChartEndCallouts";
+import { useFitText } from "../components/useFitText";
 
 /**
  * WhiteboardDataViz — data-visualization scene (line / bar / histogram) driven by
@@ -72,6 +73,8 @@ export const WhiteboardDataViz: React.FC<WhiteboardLayoutProps> = ({
   fontFamily,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   chartSummary = "",
   subtitle = "",
   chartYAxisTicks = [],
@@ -96,6 +99,28 @@ export const WhiteboardDataViz: React.FC<WhiteboardLayoutProps> = ({
 
   const titleSize = titleFontSize ?? (p ? 63 : 48);
   const descSize = descriptionFontSize ?? (p ? 33 : 22);
+
+  /* ── Auto-fit (title + narration) ────────────────────────────────
+     Title and narration are free text rendered directly (only opacity
+     fades, no reveal animation) — direct ref is safe. Chart-internal
+     sizing (ticks, axis labels, value labels, the chart summary panel)
+     is a separate density-tier system and is left untouched. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitNarrationRef = React.useRef<HTMLDivElement>(null);
+  const { px: titleSizeFit } = useFitText(
+    fitTitleRef,
+    titleSize,
+    titleFontSizeIsUserSet ? titleSize : Math.round(titleSize * 0.4),
+    [title, titleSize, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.14 : 0.16)),
+  );
+  const { px: narrationSizeFit } = useFitText(
+    fitNarrationRef,
+    Math.round(descSize * 0.84),
+    descriptionFontSizeIsUserSet ? Math.round(descSize * 0.84) : Math.round(descSize * 0.84 * 0.5),
+    [narration, descSize, descriptionFontSizeIsUserSet, titleSizeFit, p, height],
+    Math.round(height * (p ? 0.1 : 0.12)),
+  );
   const chartTickSize = Math.round(descSize * 0.86);
   const chartAxisLabelSize = Math.round(descSize * 0.72);
   const VALUE_LABEL_FS = Math.round(descSize * 0.6);
@@ -596,16 +621,18 @@ export const WhiteboardDataViz: React.FC<WhiteboardLayoutProps> = ({
 
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", padding: `${padV} ${padH}` }}>
         {/* Title */}
-        <div style={{ opacity: ra, marginBottom: Math.round(height * 0.02) }}>
+        <div style={{ opacity: ra, marginBottom: Math.round(height * 0.02), width: "100%" }}>
           <div
+            ref={fitTitleRef}
             style={{
               fontFamily: font,
               fontWeight: 700,
-              fontSize: titleSize,
+              fontSize: titleSizeFit,
               lineHeight: 1.1,
               color: textColor,
               filter: "url(#dv-ink)",
               transform: "rotate(-0.6deg)",
+              width: "100%",
             }}
           >
             {title}
@@ -689,8 +716,21 @@ export const WhiteboardDataViz: React.FC<WhiteboardLayoutProps> = ({
 
         {/* Narration */}
         {narration && (
-          <div style={{ opacity: Math.min(1, Math.max(0, (frame - 16) / 20)), marginTop: Math.round(height * 0.02) }}>
-            <div style={{ fontFamily: font, fontStyle: "italic", fontSize: descSize * 0.84, color: textColor, opacity: 0.7, lineHeight: 1.45, overflowWrap: "break-word", wordBreak: "break-word" }}>
+          <div style={{ opacity: Math.min(1, Math.max(0, (frame - 16) / 20)), marginTop: Math.round(height * 0.02), width: "100%" }}>
+            <div
+              ref={fitNarrationRef}
+              style={{
+                fontFamily: font,
+                fontStyle: "italic",
+                fontSize: narrationSizeFit,
+                color: textColor,
+                opacity: 0.7,
+                lineHeight: 1.45,
+                overflowWrap: "break-word",
+                wordBreak: "break-word",
+                width: "100%",
+              }}
+            >
               {narration}
             </div>
           </div>

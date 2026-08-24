@@ -1,6 +1,7 @@
 import React from "react";
 import { useVideoConfig, interpolate, spring } from "remotion";
 import { SceneLayoutProps } from "../types";
+import { useFitText } from "../components/useFitText";
 import {
   SAKURA,
   SAKURA_DISPLAY_FONT,
@@ -46,13 +47,29 @@ export const SakuraTwoColumnDetail: React.FC<SceneLayoutProps> = (props) => {
   const crimson = accentColor || SAKURA.crimson;
   const ink = textColor || SAKURA.ink;
 
-  const titlePx = titleFontSize ?? (p ? 44 : 48);
-  const bodyPx = descriptionFontSize ?? (p ? 24 : 22);
+  const titleTargetPx = titleFontSize ?? (p ? 44 : 48);
+  const bodyTargetPx = descriptionFontSize ?? (p ? 24 : 22);
+  const leftTitleRef = React.useRef<HTMLHeadingElement>(null);
+  const rightTitleRef = React.useRef<HTMLHeadingElement>(null);
+  const leftBodyRef = React.useRef<HTMLParagraphElement>(null);
+  const rightBodyRef = React.useRef<HTMLParagraphElement>(null);
+  const titleMin = Math.max(24, Math.round(titleTargetPx * 0.55));
+  const bodyMin = Math.max(18, Math.round(bodyTargetPx * 0.58));
+  const titleBudget = Math.round(height * (p ? 0.22 : 0.3));
+  const bodyBudget = Math.round(height * (p ? 0.34 : 0.46));
+  const { px: leftTitlePx } = useFitText(leftTitleRef, titleTargetPx, titleMin,
+    [leftHeadline, titleTargetPx, titleMin, p, height], titleBudget);
+  const { px: rightTitlePx } = useFitText(rightTitleRef, titleTargetPx, titleMin,
+    [rightHeadline, titleTargetPx, titleMin, p, height], titleBudget);
+  const { px: leftBodyPx } = useFitText(leftBodyRef, bodyTargetPx, bodyMin,
+    [leftBody, bodyTargetPx, bodyMin, leftTitlePx, p, height], bodyBudget);
+  const { px: rightBodyPx } = useFitText(rightBodyRef, bodyTargetPx, bodyMin,
+    [rightBody, bodyTargetPx, bodyMin, rightTitlePx, p, height], bodyBudget);
   // Decorative marks (big faint kanji, the 対 glyph, the "VS" label) scale off
   // the body size so they track the display-text slider with everything else.
-  const markKanjiPx = Math.max(40, Math.round(bodyPx * 3.6));
-  const versusKanjiPx = Math.max(32, Math.round(bodyPx * 2.7));
-  const versusLabelPx = Math.max(12, Math.round(bodyPx * 0.85));
+  const markKanjiPx = Math.max(40, Math.round(bodyTargetPx * 3.6));
+  const versusKanjiPx = Math.max(32, Math.round(bodyTargetPx * 2.7));
+  const versusLabelPx = Math.max(12, Math.round(bodyTargetPx * 0.85));
 
   // Left slides from the left, right slides from the right — they close in
   const leftProgress = interpolate(frame, [4, 24], [0, 1], {
@@ -90,11 +107,17 @@ export const SakuraTwoColumnDetail: React.FC<SceneLayoutProps> = (props) => {
     bodyText: string,
     progress: number,
     dir: number, // -1 left, +1 right
+    headlineRef: React.RefObject<HTMLHeadingElement>,
+    bodyRef: React.RefObject<HTMLParagraphElement>,
+    fittedTitlePx: number,
+    fittedBodyPx: number,
   ) => (
     <div
       style={{
         flex: 1,
         minWidth: 0,
+        minHeight: 0,
+        overflow: "hidden",
         opacity: progress,
         transform: p
           ? `translateY(${(1 - progress) * 40 * dir}px)`
@@ -125,10 +148,11 @@ export const SakuraTwoColumnDetail: React.FC<SceneLayoutProps> = (props) => {
         {kanji}
       </div>
       <h2
+        ref={headlineRef}
         style={{
           fontFamily: fontFamily ?? SAKURA_DISPLAY_FONT,
           fontWeight: 700,
-          fontSize: titlePx,
+          fontSize: fittedTitlePx,
           color: ink,
           lineHeight: 1.15,
           margin: 0,
@@ -150,9 +174,10 @@ export const SakuraTwoColumnDetail: React.FC<SceneLayoutProps> = (props) => {
         )}
       </svg>
       <p
+        ref={bodyRef}
         style={{
           fontFamily: fontFamily ?? SAKURA_BODY_FONT,
-          fontSize: bodyPx,
+          fontSize: fittedBodyPx,
           color: hexToRgba(ink, 0.75),
           lineHeight: 1.7,
           margin: 0,
@@ -257,10 +282,12 @@ export const SakuraTwoColumnDetail: React.FC<SceneLayoutProps> = (props) => {
           gap: p ? 120 : 220,
           padding: p ? "130px 80px" : "110px 120px",
           boxSizing: "border-box",
+          minHeight: 0,
+          overflow: "hidden",
         }}
       >
-        {side(leftKanji, leftHeadline, leftBody, leftProgress, -1)}
-        {side(rightKanji, rightHeadline, rightBody, rightProgress, 1)}
+        {side(leftKanji, leftHeadline, leftBody, leftProgress, -1, leftTitleRef, leftBodyRef, leftTitlePx, leftBodyPx)}
+        {side(rightKanji, rightHeadline, rightBody, rightProgress, 1, rightTitleRef, rightBodyRef, rightTitlePx, rightBodyPx)}
       </div>
     </SakuraScene>
   );

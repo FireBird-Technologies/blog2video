@@ -1,4 +1,5 @@
-import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
+import React from "react";
+import { AbsoluteFill, Img, interpolate, useCurrentFrame, useVideoConfig, spring } from "remotion";
 import { DiagonalShards, FilmGrain, HalftoneField, KineticTicker, StreakField } from "../components/SpotlightArtifacts";
 import {
   SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY,
@@ -6,6 +7,66 @@ import {
 } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
 import { ZoomCropVideo } from "../components/ZoomCropVideo";
+import { useFitText } from "../components/useFitText";
+
+/**
+ * One cascading row. A separate component (not inlined in the parent's .map)
+ * so each item gets its own useFitText call with its own ref — Rules of Hooks
+ * forbid calling a hook a variable number of times inside a loop.
+ */
+const CascadeItem: React.FC<{
+  index: number;
+  item: string;
+  p: boolean;
+  itemBudgetPx: number;
+  numberFontSize: number;
+  textTargetPx: number;
+  accentColor?: string;
+  textColor?: string;
+  displayFontFamily: string;
+  bodyFontFamily: string;
+  style: React.CSSProperties;
+}> = ({ index, item, p, itemBudgetPx, numberFontSize, textTargetPx, accentColor, textColor, displayFontFamily, bodyFontFamily, style }) => {
+  const textRef = React.useRef<HTMLSpanElement>(null);
+  const { px: textPx } = useFitText(
+    textRef,
+    textTargetPx,
+    p ? 14 : 18,
+    [item, textTargetPx, itemBudgetPx],
+    itemBudgetPx,
+  );
+
+  return (
+    <div style={style}>
+      <span
+        style={{
+          fontSize: numberFontSize,
+          fontWeight: 900,
+          color: accentColor,
+          minWidth: p ? 28 : 44,
+          fontFamily: displayFontFamily,
+        }}
+      >
+        {String(index + 1).padStart(2, "0")}
+      </span>
+      <span
+        ref={textRef}
+        style={{
+          fontSize: textPx,
+          fontWeight: 700,
+          color: textColor || "#FFFFFF",
+          fontFamily: bodyFontFamily,
+          letterSpacing: "-0.01em",
+          display: "block",
+          minHeight: 0,
+          overflow: "hidden",
+        }}
+      >
+        {item}
+      </span>
+    </div>
+  );
+};
 
 /**
  * CascadeList — Stacking Items
@@ -32,6 +93,7 @@ export const CascadeList: React.FC<SpotlightLayoutProps> = ({
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const fps = 30;
   const p = aspectRatio === "portrait";
   const displayFontFamily =
@@ -40,6 +102,15 @@ export const CascadeList: React.FC<SpotlightLayoutProps> = ({
 
   const displayItems = items || [title];
   const framesPerItem = 18;
+  const numberFontSize = titleFontSize ?? (p ? 22 : 34);
+  const textTargetPx = descriptionFontSize ?? (p ? 24 : 36);
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Each item shares an equal slice of the stack's ~78%-of-frame vertical
+     budget; a long item would otherwise wrap onto extra lines and push later
+     items (or itself) out of the visible stage. Fit per-item since lengths
+     vary independently. */
+  const stackBudgetPx = Math.round(height * 0.78);
+  const itemBudgetPx = Math.max(1, Math.round(stackBudgetPx / displayItems.length) - (p ? 12 : 20));
   const currentIdx = Math.min(
     Math.floor(frame / framesPerItem),
     displayItems.length - 1
@@ -132,8 +203,18 @@ export const CascadeList: React.FC<SpotlightLayoutProps> = ({
             const dimmed = shown && i < currentIdx;
 
             return (
-              <div
+              <CascadeItem
                 key={i}
+                index={i}
+                item={item}
+                p={p}
+                itemBudgetPx={itemBudgetPx}
+                numberFontSize={numberFontSize}
+                textTargetPx={textTargetPx}
+                accentColor={accentColor}
+                textColor={textColor}
+                displayFontFamily={displayFontFamily}
+                bodyFontFamily={bodyFontFamily}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -143,30 +224,7 @@ export const CascadeList: React.FC<SpotlightLayoutProps> = ({
                     : "translateX(80px)",
                   opacity: shown ? (dimmed ? 0.4 : itemSpring) : 0,
                 }}
-              >
-                <span
-                  style={{
-                    fontSize: titleFontSize ?? (p ? 22 : 34),
-                    fontWeight: 900,
-                    color: accentColor,
-                    minWidth: p ? 28 : 44,
-                    fontFamily: displayFontFamily,
-                  }}
-                >
-                  {String(i + 1).padStart(2, "0")}
-                </span>
-                <span
-                  style={{
-                    fontSize: descriptionFontSize ?? (p ? 24 : 36),
-                    fontWeight: 700,
-                    color: textColor || "#FFFFFF",
-                    fontFamily: bodyFontFamily,
-                    letterSpacing: "-0.01em",
-                  }}
-                >
-                  {item}
-                </span>
-              </div>
+              />
             );
           })}
         </div>

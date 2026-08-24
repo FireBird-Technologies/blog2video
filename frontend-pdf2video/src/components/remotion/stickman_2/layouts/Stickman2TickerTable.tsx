@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import type { SceneLayoutProps } from "../types";
 
 const HAND_FONT = "'Patrick Hand', system-ui, sans-serif";
@@ -44,6 +45,8 @@ export const Stickman2TickerTable: React.FC<SceneLayoutProps> = ({
   aspectRatio = "landscape",
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   tickerTable,
   tickerTitle,
   tickerFootnote,
@@ -54,9 +57,33 @@ export const Stickman2TickerTable: React.FC<SceneLayoutProps> = ({
   const { height } = useVideoConfig();
   const p = aspectRatio === "portrait";
   const font = fontFamily ?? HAND_FONT;
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input; long copy overflows the card
+     (and in this template collides with the artwork) instead of resizing.
+     Measure the real available height and shrink to fit. A size the user
+     explicitly picked is honored exactly — minPx === targetPx no-ops the hook. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitDescRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 76 : 72);
+  const fitDescTarget = descriptionFontSize ?? (p ? 36 : 37);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.42),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.22 : 0.26)),
+  );
+  const { px: fitDescPx } = useFitText(
+    fitDescRef,
+    fitDescTarget,
+    descriptionFontSizeIsUserSet ? fitDescTarget : Math.round(fitDescTarget * 0.4),
+    [tickerFootnote, narration, fitDescTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * (p ? 0.30 : 0.34)),
+  );
 
-  const titleSize = titleFontSize ?? (p ? 76 : 72);
-  const descSize = descriptionFontSize ?? (p ? 36 : 37);
+  const titleSize = fitTitlePx;
+  const descSize = fitDescPx;
+
 
   const rawHeaders = (tickerTable?.headers ?? []).slice(0, MAX_COLS);
   const rawRows = (tickerTable?.rows ?? []).slice(0, MAX_ROWS).map((r) => (r ?? []).slice(0, MAX_COLS));
@@ -244,7 +271,7 @@ export const Stickman2TickerTable: React.FC<SceneLayoutProps> = ({
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0, minHeight: 0 }}>
         {/* Title block */}
         <div style={{ opacity: titleOp, flexShrink: 0, marginBottom: Math.round(height * 0.022), alignSelf: fewCols ? "center" : "stretch", textAlign: fewCols ? "center" : "left", width: tableWidthCap, maxWidth: "100%" }}>
-          <div style={{ fontFamily: font, fontWeight: 700, fontSize: titleSize, lineHeight: 1.1, color: textColor, textShadow: `0 0 20px ${accentColor}55` }}>
+          <div ref={fitTitleRef} style={{ fontFamily: font, fontWeight: 700, fontSize: titleSize, lineHeight: 1.1, color: textColor, textShadow: `0 0 20px ${accentColor}55` }}>
             {title}
           </div>
           {tickerTitle && (
@@ -294,7 +321,7 @@ export const Stickman2TickerTable: React.FC<SceneLayoutProps> = ({
 
         {/* Footnote */}
         {(tickerFootnote || narration) && (
-          <div style={{ opacity: footnoteOp * 0.55, flexShrink: 0, marginTop: Math.round(height * 0.014), fontFamily: font, fontStyle: "italic", fontSize: Math.round(descSize * 0.82), color: textColor, lineHeight: 1.4 }}>
+          <div ref={fitDescRef} style={{ opacity: footnoteOp * 0.55, flexShrink: 0, marginTop: Math.round(height * 0.014), fontFamily: font, fontStyle: "italic", fontSize: Math.round(descSize * 0.82), color: textColor, lineHeight: 1.4 }}>
             {tickerFootnote || narration}
           </div>
         )}

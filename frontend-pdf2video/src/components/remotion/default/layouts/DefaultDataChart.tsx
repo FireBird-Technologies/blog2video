@@ -18,6 +18,7 @@ import {
   YAxis,
 } from "recharts";
 import type { SceneLayoutProps } from "../types";
+import { useFitText } from "../components/useFitText";
 import {
   toNumber,
   formatAxisTick,
@@ -76,6 +77,8 @@ export const DefaultDataChart: React.FC<SceneLayoutProps> = ({
   fontFamily,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   chartSummary = "",
   subtitle = "",
   chartYAxisTicks = [],
@@ -94,11 +97,21 @@ export const DefaultDataChart: React.FC<SceneLayoutProps> = ({
   const ink = textColor || DEFAULT_INK;
   const accent = accentColor || DEFAULT_COLORS.accent;
 
-  const titleSize = titleFontSize ?? (p ? 66 : 52);
-  const descSize = descriptionFontSize ?? (p ? 34 : 26);
-  const chartTickSize = Math.round(descSize * 0.86);
-  const chartAxisLabelSize = Math.round(descSize * 0.72);
-  const VALUE_LABEL_FS = Math.round(descSize * 0.56);
+  const actualTitleFontSize = titleFontSize ?? (p ? 66 : 52);
+  const actualDescriptionFontSize = descriptionFontSize ?? (p ? 34 : 26);
+
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const summaryRef = React.useRef<HTMLDivElement>(null);
+  const narrationRef = React.useRef<HTMLDivElement>(null);
+
+  const titleBudgetPx = Math.round(height * (p ? 0.16 : 0.14));
+  const { px: titleSize } = useFitText(
+    titleRef,
+    actualTitleFontSize,
+    titleFontSizeIsUserSet ? actualTitleFontSize : p ? 30 : 26,
+    [title, actualTitleFontSize, titleFontSizeIsUserSet, titleBudgetPx, p],
+    titleBudgetPx,
+  );
 
   const buildXAxisProps = (
     labels: string[],
@@ -166,6 +179,35 @@ export const DefaultDataChart: React.FC<SceneLayoutProps> = ({
     if (!hasRealChart) return "";
     return buildAutoChartSummary(chartInputs, resolvedChartType);
   }, [chartSummary, hasRealChart, chartInputs, resolvedChartType]);
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Chart summary and narration are unbounded user input; the chart panel
+     takes a fixed share of the row and the rest must fit the leftover space
+     or get clipped by the AbsoluteFill's overflow:hidden. Fit the summary
+     panel to its own column (it's a real `flex:1` child of a `minHeight:0`
+     row, so its clientHeight is a genuine leftover-space measurement), then
+     narration to a small reserved strip at the bottom. Title was already
+     fitted above. A size the user explicitly picked is honored exactly
+     (minPx === targetPx makes the hook a no-op). */
+  const { px: descSize } = useFitText(
+    summaryRef,
+    actualDescriptionFontSize,
+    descriptionFontSizeIsUserSet ? actualDescriptionFontSize : p ? 16 : 13,
+    [summaryText, actualDescriptionFontSize, descriptionFontSizeIsUserSet, titleSize, p],
+  );
+
+  const narrationBudgetPx = Math.round(height * 0.1);
+  const { px: narrationDescSize } = useFitText(
+    narrationRef,
+    Math.round(actualDescriptionFontSize * 0.82),
+    descriptionFontSizeIsUserSet ? Math.round(actualDescriptionFontSize * 0.82) : p ? 13 : 11,
+    [narration, actualDescriptionFontSize, descriptionFontSizeIsUserSet, descSize, narrationBudgetPx, p],
+    narrationBudgetPx,
+  );
+
+  const chartTickSize = Math.round(descSize * 0.86);
+  const chartAxisLabelSize = Math.round(descSize * 0.72);
+  const VALUE_LABEL_FS = Math.round(descSize * 0.56);
 
   const lineDataBounds = useMemo(() => {
     let lo = Infinity;
@@ -571,7 +613,7 @@ export const DefaultDataChart: React.FC<SceneLayoutProps> = ({
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", padding: p ? "14% 7% 6%" : "12% 7% 5%", opacity: fadeOut }}>
         {/* Title */}
         <div style={{ opacity: titleOp, marginBottom: Math.round(height * 0.022), textAlign: "center" }}>
-          <div style={{ fontFamily: bodyFont, fontWeight: 800, fontSize: titleSize, lineHeight: 1.05, color: ink, letterSpacing: "0.01em" }}>
+          <div ref={titleRef} style={{ fontFamily: bodyFont, fontWeight: 800, fontSize: titleSize, lineHeight: 1.05, color: ink, letterSpacing: "0.01em" }}>
             {title}
           </div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, margin: `${Math.round(height * 0.012)}px auto 0` }}>
@@ -627,7 +669,7 @@ export const DefaultDataChart: React.FC<SceneLayoutProps> = ({
           </div>
 
           {/* Summary panel */}
-          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+          <div ref={summaryRef} style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
             <div
               style={{
                 opacity: interpolate(frame, [55, 75], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
@@ -654,8 +696,8 @@ export const DefaultDataChart: React.FC<SceneLayoutProps> = ({
 
         {/* Narration */}
         {narration && (
-          <div style={{ opacity: interpolate(frame, [60, 80], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }), marginTop: Math.round(height * 0.018) }}>
-            <div style={{ fontFamily: bodyFont, fontStyle: "italic", fontSize: descSize * 0.82, color: ink, opacity: 0.55, lineHeight: 1.45, textAlign: "center", overflowWrap: "break-word", wordBreak: "break-word" }}>
+          <div ref={narrationRef} style={{ opacity: interpolate(frame, [60, 80], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }), marginTop: Math.round(height * 0.018) }}>
+            <div style={{ fontFamily: bodyFont, fontStyle: "italic", fontSize: narrationDescSize, color: ink, opacity: 0.55, lineHeight: 1.45, textAlign: "center", overflowWrap: "break-word", wordBreak: "break-word" }}>
               {narration}
             </div>
           </div>

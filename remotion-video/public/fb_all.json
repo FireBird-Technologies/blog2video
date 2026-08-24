@@ -1,0 +1,392 @@
+{
+  "projectName": "fb",
+  "accentColor": "#39FF77",
+  "bgColor": "#0A2A12",
+  "textColor": "#FFFFFF",
+  "scenes": [
+    {
+      "id": 1,
+      "order": 1,
+      "title": "Long Title That Keeps Going Well Past Any Reasonable Headline Length For This Card Layout",
+      "narration": "Lawmakers failed to pass a short-term spending bill before the midnight deadline, triggering a partial shutdown affecting hundreds of thousands of federal workers across every agency. Negotiators had spent the better part of the week trading proposals, but the two sides remained far apart on the question of supplemental funding that had dominated the debate since the summer. Agency heads began notifying staff late Monday that furlough notices would go out.",
+      "layout": "kickoff_title",
+      "layoutProps": {
+        "stats": [
+          {
+            "value": "42%",
+            "label": "Possession"
+          },
+          {
+            "value": "18",
+            "label": "Shots"
+          },
+          {
+            "value": "3.2M",
+            "label": "Fans"
+          },
+          {
+            "value": "12",
+            "label": "Corners"
+          }
+        ],
+        "leftThought": "The home side will hold on for the win without conceding again",
+        "rightThought": "The away side will equalise before the final whistle blows"
+      },
+      "durationSeconds": 9,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 2,
+      "order": 2,
+      "title": "Long Title That Keeps Going Well Past Any Reasonable Headline Length For This Card Layout",
+      "narration": "Lawmakers failed to pass a short-term spending bill before the midnight deadline, triggering a partial shutdown affecting hundreds of thousands of federal workers across every agency. Negotiators had spent the better part of the week trading proposals, but the two sides remained far apart on the question of supplemental funding that had dominated the debate since the summer. Agency heads began notifying staff late Monday that furlough notices would go out.",
+      "layout": "passing_play",
+      "layoutProps": {
+        "stats": [
+          {
+            "value": "42%",
+            "label": "Possession"
+          },
+          {
+            "value": "18",
+            "label": "Shots"
+          },
+          {
+            "value": "3.2M",
+            "label": "Fans"
+          },
+          {
+            "value": "12",
+            "label": "Corners"
+          }
+        ],
+        "leftThought": "The home side will hold on for the win without conceding again",
+        "rightThought": "The away side will equalise before the final whistle blows"
+      },
+      "durationSeconds": 9,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 3,
+      "order": 3,
+      "title": "Long Title That Keeps Going Well Past Any Reasonable Headline Length For This Card Layout",
+      "narration": "Lawmakers failed to pass a short-term spending bill before the midnight deadline, triggering a partial shutdown affecting hundreds of thousands of federal workers across every agency. Negotiators had spent the better part of the week trading proposals, but the two sides remained far apart on the question of supplemental funding that had dominated the debate since the summer. Agency heads began notifying staff late Monday that furlough notices would go out.",
+      "layout": "freekick_setup",
+      "layoutProps": {
+        "stats": [
+          {
+            "value": "42%",
+            "label": "Possession"
+          },
+          {
+            "value": "18",
+            "label": "Shots"
+          },
+          {
+            "value": "3.2M",
+            "label": "Fans"
+          },
+          {
+            "value": "12",
+            "label": "Corners"
+          }
+        ],
+        "leftThought": "The home side will hold on for the win without conceding again",
+        "rightThought": "The away side will equalise before the final whistle blows"
+      },
+      "durationSeconds": 9,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 4,
+      "order": 4,
+      "title": "Long Title That Keeps Going Well Past Any Reasonable Headline Length For This Card Layout",
+      "narration": "Lawmakers failed to pass a short-term spending bill before the midnight deadline, triggering a partial shutdown affecting hundreds of thousands of federal workers across every agency. Negotiators had spent the better part of the week trading proposals, but the two sides remained far apart on the question of supplemental funding that had dominated the debate since the summer. Agency heads began notifying staff late Monday that furlough notices would go out.",
+      "layout": "match_stats",
+      "layoutProps": {
+        "stats": [
+          {
+            "value": "42%",
+            "label": "Possession"
+          },
+          {
+            "value": "18",
+            "label": "Shots"
+          },
+          {
+            "value": "3.2M",
+            "label": "Fans"
+          },
+          {
+            "value": "12",
+            "label": "Corners"
+          }
+        ],
+        "leftThought": "The home side will hold on for the win without conceding again",
+        "rightThought": "The away side will equalise before the final whistle blows"
+      },
+      "durationSeconds": 9,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 5,
+      "order": 5,
+      "title": "Long Title That Keeps Going Well Past Any Reasonable Headline Length For This Card Layout",
+      "narration": "Lawmakers failed to pass a short-term spending bill before the midnight deadline, triggering a partial shutdown affecting hundreds of thousands of federal workers across every agency. Negotiators had spent the better part of the week trading proposals, but the two sides remained far apart on the question of supplemental funding that had dominated the debate since the summer. Agency heads began notifying staff late Monday that furlough notices would go out.",
+      "layout": "injury_break",
+      "layoutProps": {
+        "stats": [
+          {
+            "value": "42%",
+            "label": "Possession"
+          },
+          {
+            "value": "18",
+            "label": "Shots"
+          },
+          {
+            "value": "3.2M",
+            "label": "Fans"
+          },
+          {
+            "value": "12",
+            "label": "Corners"
+          }
+        ],
+        "leftThought": "The home side will hold on for the win without conceding again",
+        "rightThought": "The away side will equalise before the final whistle blows"
+      },
+      "durationSeconds": 9,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 6,
+      "order": 6,
+      "title": "Long Title That Keeps Going Well Past Any Reasonable Headline Length For This Card Layout",
+      "narration": "Lawmakers failed to pass a short-term spending bill before the midnight deadline, triggering a partial shutdown affecting hundreds of thousands of federal workers across every agency. Negotiators had spent the better part of the week trading proposals, but the two sides remained far apart on the question of supplemental funding that had dominated the debate since the summer. Agency heads began notifying staff late Monday that furlough notices would go out.",
+      "layout": "goal_moment",
+      "layoutProps": {
+        "stats": [
+          {
+            "value": "42%",
+            "label": "Possession"
+          },
+          {
+            "value": "18",
+            "label": "Shots"
+          },
+          {
+            "value": "3.2M",
+            "label": "Fans"
+          },
+          {
+            "value": "12",
+            "label": "Corners"
+          }
+        ],
+        "leftThought": "The home side will hold on for the win without conceding again",
+        "rightThought": "The away side will equalise before the final whistle blows"
+      },
+      "durationSeconds": 9,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 7,
+      "order": 7,
+      "title": "Long Title That Keeps Going Well Past Any Reasonable Headline Length For This Card Layout",
+      "narration": "Lawmakers failed to pass a short-term spending bill before the midnight deadline, triggering a partial shutdown affecting hundreds of thousands of federal workers across every agency. Negotiators had spent the better part of the week trading proposals, but the two sides remained far apart on the question of supplemental funding that had dominated the debate since the summer. Agency heads began notifying staff late Monday that furlough notices would go out.",
+      "layout": "ball_control",
+      "layoutProps": {
+        "stats": [
+          {
+            "value": "42%",
+            "label": "Possession"
+          },
+          {
+            "value": "18",
+            "label": "Shots"
+          },
+          {
+            "value": "3.2M",
+            "label": "Fans"
+          },
+          {
+            "value": "12",
+            "label": "Corners"
+          }
+        ],
+        "leftThought": "The home side will hold on for the win without conceding again",
+        "rightThought": "The away side will equalise before the final whistle blows"
+      },
+      "durationSeconds": 9,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 8,
+      "order": 8,
+      "title": "Long Title That Keeps Going Well Past Any Reasonable Headline Length For This Card Layout",
+      "narration": "Lawmakers failed to pass a short-term spending bill before the midnight deadline, triggering a partial shutdown affecting hundreds of thousands of federal workers across every agency. Negotiators had spent the better part of the week trading proposals, but the two sides remained far apart on the question of supplemental funding that had dominated the debate since the summer. Agency heads began notifying staff late Monday that furlough notices would go out.",
+      "layout": "text_narration",
+      "layoutProps": {
+        "stats": [
+          {
+            "value": "42%",
+            "label": "Possession"
+          },
+          {
+            "value": "18",
+            "label": "Shots"
+          },
+          {
+            "value": "3.2M",
+            "label": "Fans"
+          },
+          {
+            "value": "12",
+            "label": "Corners"
+          }
+        ],
+        "leftThought": "The home side will hold on for the win without conceding again",
+        "rightThought": "The away side will equalise before the final whistle blows"
+      },
+      "durationSeconds": 9,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 9,
+      "order": 9,
+      "title": "Long Title That Keeps Going Well Past Any Reasonable Headline Length For This Card Layout",
+      "narration": "Lawmakers failed to pass a short-term spending bill before the midnight deadline, triggering a partial shutdown affecting hundreds of thousands of federal workers across every agency. Negotiators had spent the better part of the week trading proposals, but the two sides remained far apart on the question of supplemental funding that had dominated the debate since the summer. Agency heads began notifying staff late Monday that furlough notices would go out.",
+      "layout": "football_data_viz",
+      "layoutProps": {
+        "stats": [
+          {
+            "value": "42%",
+            "label": "Possession"
+          },
+          {
+            "value": "18",
+            "label": "Shots"
+          },
+          {
+            "value": "3.2M",
+            "label": "Fans"
+          },
+          {
+            "value": "12",
+            "label": "Corners"
+          }
+        ],
+        "leftThought": "The home side will hold on for the win without conceding again",
+        "rightThought": "The away side will equalise before the final whistle blows"
+      },
+      "durationSeconds": 9,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 10,
+      "order": 10,
+      "title": "Long Title That Keeps Going Well Past Any Reasonable Headline Length For This Card Layout",
+      "narration": "Lawmakers failed to pass a short-term spending bill before the midnight deadline, triggering a partial shutdown affecting hundreds of thousands of federal workers across every agency. Negotiators had spent the better part of the week trading proposals, but the two sides remained far apart on the question of supplemental funding that had dominated the debate since the summer. Agency heads began notifying staff late Monday that furlough notices would go out.",
+      "layout": "football_ticker",
+      "layoutProps": {
+        "stats": [
+          {
+            "value": "42%",
+            "label": "Possession"
+          },
+          {
+            "value": "18",
+            "label": "Shots"
+          },
+          {
+            "value": "3.2M",
+            "label": "Fans"
+          },
+          {
+            "value": "12",
+            "label": "Corners"
+          }
+        ],
+        "leftThought": "The home side will hold on for the win without conceding again",
+        "rightThought": "The away side will equalise before the final whistle blows"
+      },
+      "durationSeconds": 9,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 11,
+      "order": 11,
+      "title": "Long Title That Keeps Going Well Past Any Reasonable Headline Length For This Card Layout",
+      "narration": "Lawmakers failed to pass a short-term spending bill before the midnight deadline, triggering a partial shutdown affecting hundreds of thousands of federal workers across every agency. Negotiators had spent the better part of the week trading proposals, but the two sides remained far apart on the question of supplemental funding that had dominated the debate since the summer. Agency heads began notifying staff late Monday that furlough notices would go out.",
+      "layout": "corner_kick",
+      "layoutProps": {
+        "stats": [
+          {
+            "value": "42%",
+            "label": "Possession"
+          },
+          {
+            "value": "18",
+            "label": "Shots"
+          },
+          {
+            "value": "3.2M",
+            "label": "Fans"
+          },
+          {
+            "value": "12",
+            "label": "Corners"
+          }
+        ],
+        "leftThought": "The home side will hold on for the win without conceding again",
+        "rightThought": "The away side will equalise before the final whistle blows"
+      },
+      "durationSeconds": 9,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 12,
+      "order": 12,
+      "title": "Long Title That Keeps Going Well Past Any Reasonable Headline Length For This Card Layout",
+      "narration": "Lawmakers failed to pass a short-term spending bill before the midnight deadline, triggering a partial shutdown affecting hundreds of thousands of federal workers across every agency. Negotiators had spent the better part of the week trading proposals, but the two sides remained far apart on the question of supplemental funding that had dominated the debate since the summer. Agency heads began notifying staff late Monday that furlough notices would go out.",
+      "layout": "ending_socials",
+      "layoutProps": {
+        "stats": [
+          {
+            "value": "42%",
+            "label": "Possession"
+          },
+          {
+            "value": "18",
+            "label": "Shots"
+          },
+          {
+            "value": "3.2M",
+            "label": "Fans"
+          },
+          {
+            "value": "12",
+            "label": "Corners"
+          }
+        ],
+        "leftThought": "The home side will hold on for the win without conceding again",
+        "rightThought": "The away side will equalise before the final whistle blows"
+      },
+      "durationSeconds": 9,
+      "voiceoverFile": null,
+      "images": []
+    }
+  ]
+}

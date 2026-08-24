@@ -1205,7 +1205,18 @@ def write_remotion_data(
                             _resolved_defaults[_k] = _v.get(_ar) or _v.get("landscape")
                         else:
                             _resolved_defaults[_k] = _v
-                    layout_props = {**_resolved_defaults, **layout_props}
+                    # Font sizes are about to be backfilled from the schema, which
+                    # erases the difference between "user picked this size" and
+                    # "nobody touched the slider" (the editor only persists a size
+                    # that DIFFERS from the default). Capture that bit first so
+                    # auto-shrinking layouts can honor a deliberate choice exactly
+                    # while still fitting the default to the available space.
+                    _user_set_flags = {
+                        f"{_k}IsUserSet": True
+                        for _k in ("titleFontSize", "descriptionFontSize")
+                        if _k in layout_props
+                    }
+                    layout_props = {**_resolved_defaults, **layout_props, **_user_set_flags}
             except Exception:
                 pass
 

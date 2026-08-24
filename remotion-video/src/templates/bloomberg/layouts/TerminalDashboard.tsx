@@ -1,4 +1,6 @@
+import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY, derivePalette } from "../constants";
 import type { BloombergLayoutProps } from "../types";
 
@@ -26,6 +28,12 @@ export const TerminalDashboard: React.FC<BloombergLayoutProps> = ({
   const tSize = titleFontSize ?? (p ? 103 : 144);
   const dSize = descriptionFontSize ?? (p ? 54 : 38);
   const labelSize = dSize * 0.4;
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const narrationRef = React.useRef<HTMLDivElement>(null);
+  const titleTarget = tSize * (p ? 0.62 : 0.5);
+  const narrationTarget = dSize;
+  const { px: fittedTitleSize } = useFitText(titleRef, titleTarget, p ? 30 : 32, [title, titleTarget, p], p ? 190 : 150);
+  const { px: fittedNarrationSize } = useFitText(narrationRef, narrationTarget, p ? 22 : 20, [narration, narrationTarget, p], p ? 160 : 120);
 
   const headerOpacity = interpolate(frame, [0, 15], [0, 1], { extrapolateRight: "clamp" });
   const titleOpacity = interpolate(frame, [5, 22], [0, 1], { extrapolateRight: "clamp" });
@@ -80,12 +88,12 @@ export const TerminalDashboard: React.FC<BloombergLayoutProps> = ({
         /* Portrait layout: richer header + vertical tiles */
         <>
           {/* Eyebrow + title (centered) */}
-          <div style={{
+          <div ref={titleRef} style={{
             position: "absolute", top: topH + 20, left: pad, right: pad,
             display: "flex", flexDirection: "column", gap: 14, alignItems: "center",
             opacity: titleOpacity,
           }}>
-            <div style={{ fontSize: tSize * 0.62, lineHeight: 1.1, textAlign: "center" }}>
+            <div style={{ fontSize: fittedTitleSize, lineHeight: 1.1, textAlign: "center" }}>
               <span style={{ backgroundColor: amber, color: bg, display: "inline-block", padding: "3px 14px 6px" }}>{title}</span>
             </div>
             <div style={{
@@ -192,9 +200,9 @@ export const TerminalDashboard: React.FC<BloombergLayoutProps> = ({
       ) : (
         /* Landscape: tile grid */
         <>
-          <div style={{
+          <div ref={titleRef} style={{
             position: "absolute", top: topH + 12, left: pad, right: pad,
-            fontSize: tSize * 0.5, opacity: titleOpacity, letterSpacing: -0.5,
+            fontSize: fittedTitleSize, lineHeight: 1.1, opacity: titleOpacity, letterSpacing: -0.5,
           }}>
             <span style={{ backgroundColor: amber, color: bg, display: "inline-block", padding: "3px 14px 6px" }}>{title}</span>
           </div>
@@ -267,9 +275,10 @@ export const TerminalDashboard: React.FC<BloombergLayoutProps> = ({
       )}
 
       {/* Narration footer */}
-      <div style={{
+      <div ref={narrationRef} style={{
         position: "absolute", bottom: botH + (p ? 14 : 8), left: pad, right: pad,
-        color: amber, fontSize: dSize * 0.65,
+        color: amber, fontSize: fittedNarrationSize, lineHeight: 1.3,
+        maxHeight: p ? 160 : 120, overflow: "hidden", overflowWrap: "anywhere",
       }}>
         {narration}
       </div>

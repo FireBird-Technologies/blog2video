@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import type { NewscastLayoutProps } from "./types";
 import { NewsCastLayoutImageBackground } from "../NewsCastLayoutImageBackground";
 import {
@@ -48,6 +49,8 @@ export const GlowMetric: React.FC<NewscastLayoutProps> = ({
   textColor,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
@@ -58,6 +61,31 @@ export const GlowMetric: React.FC<NewscastLayoutProps> = ({
   const portraitScale = getNewscastPortraitTypeScale(width, height);
   const p = height > width;
   const isNarrow = width < 900;
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input above the metric cards
+     (whose own numbers already fit via resolveNewscastNumberFontPx, left
+     untouched here); long copy was clipped by the card's overflow:hidden.
+     Measure the real available height and shrink to fit. An explicitly
+     chosen size is honored exactly (minPx === targetPx no-ops the hook). */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitDescRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 23 : 18);
+  const fitDescTarget = descriptionFontSize ?? (p ? 18 : 14);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.5),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.14 : 0.17)),
+  );
+  const { px: fitDescPx } = useFitText(
+    fitDescRef,
+    fitDescTarget,
+    descriptionFontSizeIsUserSet ? fitDescTarget : Math.round(fitDescTarget * 0.5),
+    [narration, fitDescTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * (p ? 0.16 : 0.18)),
+  );
 
   const safeTickerItems = (tickerItems?.filter(Boolean) ?? []).slice(0, 4);
   const safeTitle = title ?? "MARKET PULSE";
@@ -124,9 +152,10 @@ export const GlowMetric: React.FC<NewscastLayoutProps> = ({
           >
             <div style={{ marginBottom: 14 }}>
               <div
+                ref={fitTitleRef}
                 style={{
                   fontFamily: newscastFont(fontFamily, "title"),
-                  fontSize: titleFontSize ?? (p ? 23 : 18),
+                  fontSize: fitTitlePx,
                   fontWeight: HEADLINE_WEIGHT,
                   color: "white",
                   letterSpacing: 1,
@@ -138,10 +167,11 @@ export const GlowMetric: React.FC<NewscastLayoutProps> = ({
                 {safeTitle}
               </div>
               <div
+                ref={fitDescRef}
                 style={{
                   marginTop: 6,
                   fontFamily: newscastFont(fontFamily, "body"),
-                  fontSize: descriptionFontSize ?? (p ? 18 : 14),
+                  fontSize: fitDescPx,
                   color: STEEL,
                   lineHeight: 1.5,
                   opacity: 0.95,

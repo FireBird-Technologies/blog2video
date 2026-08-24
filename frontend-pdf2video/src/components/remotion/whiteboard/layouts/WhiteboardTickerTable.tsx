@@ -2,6 +2,7 @@ import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { WhiteboardBackground } from "../WhiteboardBackground";
 import type { WhiteboardLayoutProps } from "../types";
+import { useFitText } from "../components/useFitText";
 
 const HAND_FONT = "'Patrick Hand', system-ui, sans-serif";
 const PAPER_PANEL = "rgba(255,255,255,0.55)";
@@ -35,6 +36,8 @@ export const WhiteboardTickerTable: React.FC<WhiteboardLayoutProps> = ({
   aspectRatio = "landscape",
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   tickerTable,
   tickerTitle,
   tickerFootnote,
@@ -47,6 +50,28 @@ export const WhiteboardTickerTable: React.FC<WhiteboardLayoutProps> = ({
 
   const titleSize = titleFontSize ?? (p ? 62 : 56);
   const descSize = descriptionFontSize ?? (p ? 31 : 26);
+
+  /* ── Auto-fit (title + footnote) ─────────────────────────────────
+     Title renders full text directly from frame 0 (only opacity/
+     translateY animate) — no slice-reveal — so direct ref is safe.
+     Table cell/header text keeps its own density-tier sizing (untouched). */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitFootnoteRef = React.useRef<HTMLDivElement>(null);
+  const footnoteText = tickerFootnote || narration || "";
+  const { px: titleSizeFit } = useFitText(
+    fitTitleRef,
+    titleSize,
+    titleFontSizeIsUserSet ? titleSize : Math.round(titleSize * 0.4),
+    [title, titleSize, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.14 : 0.16)),
+  );
+  const { px: footnoteSizeFit } = useFitText(
+    fitFootnoteRef,
+    Math.round(descSize * 0.82),
+    descriptionFontSizeIsUserSet ? Math.round(descSize * 0.82) : Math.round(descSize * 0.82 * 0.55),
+    [footnoteText, descSize, descriptionFontSizeIsUserSet, titleSizeFit, p, height],
+    Math.round(height * (p ? 0.08 : 0.1)),
+  );
 
   const rawHeaders = (tickerTable?.headers ?? []).slice(0, MAX_COLS);
   const rawRows = (tickerTable?.rows ?? []).slice(0, MAX_ROWS).map((r) => (r ?? []).slice(0, MAX_COLS));
@@ -212,7 +237,7 @@ export const WhiteboardTickerTable: React.FC<WhiteboardLayoutProps> = ({
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0, minHeight: 0 }}>
         {/* Title block */}
         <div style={{ opacity: titleOp, transform: `translateY(${titleY}px)`, flexShrink: 0, marginBottom: Math.round(height * 0.022), alignSelf: "flex-start", textAlign: "left", width: "100%", maxWidth: "100%" }}>
-          <div style={{ fontFamily: fontFamily ?? HAND_FONT, fontWeight: 700, fontSize: titleSize, lineHeight: 1.1, color: textColor }}>
+          <div ref={fitTitleRef} style={{ fontFamily: fontFamily ?? HAND_FONT, fontWeight: 700, fontSize: titleSizeFit, lineHeight: 1.1, color: textColor, width: "100%" }}>
             {title}
           </div>
           {tickerTitle && (
@@ -265,9 +290,22 @@ export const WhiteboardTickerTable: React.FC<WhiteboardLayoutProps> = ({
         </div>
 
         {/* Footnote */}
-        {(tickerFootnote || narration) && (
-          <div style={{ opacity: footnoteOp, flexShrink: 0, marginTop: Math.round(height * 0.014), fontFamily: fontFamily ?? HAND_FONT, fontStyle: "italic", fontSize: Math.round(descSize * 0.82), color: textColor, lineHeight: 1.4 }}>
-            {tickerFootnote || narration}
+        {footnoteText && (
+          <div
+            ref={fitFootnoteRef}
+            style={{
+              opacity: footnoteOp,
+              flexShrink: 0,
+              marginTop: Math.round(height * 0.014),
+              fontFamily: fontFamily ?? HAND_FONT,
+              fontStyle: "italic",
+              fontSize: footnoteSizeFit,
+              color: textColor,
+              lineHeight: 1.4,
+              width: "100%",
+            }}
+          >
+            {footnoteText}
           </div>
         )}
     </div>

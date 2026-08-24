@@ -1,7 +1,8 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { WhiteboardBackground } from "../WhiteboardBackground";
 import type { WhiteboardLayoutProps, WhiteboardStatItem } from "../types";
+import { useFitText } from "../components/useFitText";
 
 const DEFAULT_STATS: WhiteboardStatItem[] = [
   { label: "Option A", value: "85" },
@@ -29,15 +30,43 @@ export const StatsChart: React.FC<WhiteboardLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
   stats: statsProp,
 }) => {
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
+  const { height } = useVideoConfig();
   const stats = statsProp?.length ? statsProp : DEFAULT_STATS;
   const maxItems = Math.min(stats.length, 5);
 
   const titleOp = interpolate(frame, [0, 16], [0, 1], { extrapolateRight: "clamp" });
+
+  /* ── Auto-fit (title + narration) ────────────────────────────────
+     Both render the full prop text directly from frame 0 (only opacity
+     animates via titleOp) — no slice-reveal — so direct ref is safe. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitNarrationRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 72 : 69);
+  const fitNarrationTarget = descriptionFontSize ?? (p ? 31 : 23);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.4),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.16 : 0.18)),
+  );
+  const { px: fitNarrationPx } = useFitText(
+    fitNarrationRef,
+    fitNarrationTarget,
+    descriptionFontSizeIsUserSet ? fitNarrationTarget : Math.round(fitNarrationTarget * 0.5),
+    [narration, fitNarrationTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    // Title + narration share one centred block above the bar chart, with
+    // real headroom before the bars; the old 12-14% badly under-budgeted a
+    // paragraph-length narration.
+    Math.round(height * (p ? 0.22 : 0.26)),
+  );
 
   return (
     <AbsoluteFill style={{ overflow: "hidden", fontFamily: fontFamily ?? "'Patrick Hand', system-ui, sans-serif", letterSpacing: "1.5px" }}>
@@ -100,25 +129,29 @@ export const StatsChart: React.FC<WhiteboardLayoutProps> = ({
         {/* Title block */}
         <div style={{ opacity: titleOp, display: "flex", flexDirection: "column", alignItems: "center", position: "relative" }}>
           <div
+            ref={fitTitleRef}
             style={{
               color: textColor,
               fontWeight: 700,
-              fontSize: titleFontSize ?? (p ? 72 : 69),
+              fontSize: fitTitlePx,
               lineHeight: 1.1,
               marginBottom: 16,
               filter: "url(#ink)",
               maxWidth: 800,
+              width: "100%",
               transform: p ? "rotate(-1deg)" : "none",
             }}
           >
             {title}
           </div>
           <div
+            ref={fitNarrationRef}
             style={{
               color: textColor,
-              fontSize: descriptionFontSize ?? (p ? 31 : 23),
+              fontSize: fitNarrationPx,
               opacity: 0.9,
               maxWidth: p ? "90%" : 640,
+              width: p ? "90%" : 640,
               filter: "url(#ink)",
               fontStyle: p ? "italic" : "normal",
             }}

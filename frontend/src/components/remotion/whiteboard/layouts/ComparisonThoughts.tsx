@@ -1,7 +1,8 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { WhiteboardBackground } from "../WhiteboardBackground";
 import type { WhiteboardLayoutProps } from "../types";
+import { useFitText } from "../components/useFitText";
 
 // Wobbly rounded rect — dimensions passed in so it matches the dynamic bubble size
 function WobblyRect({
@@ -180,12 +181,15 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   leftThought = "Option A",
   rightThought = "Option B",
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
+  const { height } = useVideoConfig();
 
   const drawProgress = interpolate(frame, [0, 34], [0, 1], {
     extrapolateLeft: "clamp",
@@ -196,6 +200,29 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
 
   const bubbleOp = interpolate(frame, [14, 30], [0, 1], { extrapolateRight: "clamp" });
   const titleOp = interpolate(frame, [20, 40], [0, 1], { extrapolateRight: "clamp" });
+
+  /* ── Auto-fit (title + narration) ────────────────────────────────
+     Both render the full prop text directly from frame 0 (only opacity
+     animates via titleOp) — no slice-reveal — so they can be measured
+     directly rather than through a hidden mirror. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitNarrationRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 50 : 57);
+  const fitNarrationTarget = descriptionFontSize ?? (p ? 22 : 29);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.4),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.16 : 0.18)),
+  );
+  const { px: fitNarrationPx } = useFitText(
+    fitNarrationRef,
+    fitNarrationTarget,
+    descriptionFontSizeIsUserSet ? fitNarrationTarget : Math.round(fitNarrationTarget * 0.5),
+    [narration, fitNarrationTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * (p ? 0.14 : 0.16)),
+  );
 
   function Stickman({ isRight, seed }: { isRight: boolean; seed: number }) {
     const frame = useCurrentFrame();
@@ -294,25 +321,29 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
       >
         <div style={{ textAlign: "center", marginBottom: p ? 20 : 22, opacity: titleOp }}>
           <div
+            ref={fitTitleRef}
             style={{
               color: textColor,
               fontWeight: 700,
-              fontSize: titleFontSize ?? (p ? 50 : 57),
+              fontSize: fitTitlePx,
               lineHeight: 1.1,
               filter: "url(#ink)",
+              width: "100%",
             }}
           >
             {title}
           </div>
           {narration && (
             <div
+              ref={fitNarrationRef}
               style={{
                 marginTop: 8,
                 color: textColor,
-                fontSize: descriptionFontSize ?? (p ? 22 : 29),
+                fontSize: fitNarrationPx,
                 opacity: 0.88,
                 filter: "url(#ink)",
                 maxWidth: p ? "92%" : "auto",
+                width: p ? "92%" : "auto",
                 marginInline: "auto"
               }}
             >

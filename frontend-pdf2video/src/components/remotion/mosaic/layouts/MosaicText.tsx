@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { MosaicBackground, bgTilePalette } from "../MosaicBackground";
 import { MosaicImageReveal } from "../MosaicImageReveal";
 import { MosaicTiledText } from "../MosaicTiledText";
@@ -32,7 +33,7 @@ export const MosaicText: React.FC<MosaicLayoutProps> = ({
   mosaicTileGap,
 }) => {
   const frame = useCurrentFrame();
-  const { durationInFrames } = useVideoConfig();
+  const { durationInFrames, height } = useVideoConfig();
   const motion = getSceneTransition(frame, durationInFrames, 18, 14);
   const boxifyHold = 8;
   const breakFrames = 16;
@@ -90,6 +91,9 @@ export const MosaicText: React.FC<MosaicLayoutProps> = ({
       ? narration.replace(highlight, `__HL__${highlight}__HL__`)
       : narration;
   const parts = content.split("__HL__");
+  const textTarget = titleFontSize ?? (p ? 52 : 44);
+  const textRef = React.useRef<HTMLDivElement>(null);
+  const { px: textSize } = useFitText(textRef, textTarget, Math.max(11, Math.round(textTarget * 0.28)), [content, textTarget, p, height, imageUrl, videoUrl], Math.round(height * (p ? 0.38 : 0.48)));
 
   return (
     <AbsoluteFill>
@@ -187,10 +191,10 @@ export const MosaicText: React.FC<MosaicLayoutProps> = ({
             }}
           />
          
-          <div
+          <div ref={textRef}
             style={{
               fontFamily: family,
-              fontSize: titleFontSize ?? (p ? 52 : 44),
+              fontSize: textSize,
               color: textColor || MOSAIC_COLORS.textPrimary,
               lineHeight: 1.5,
             }}

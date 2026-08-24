@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY, derivePalette } from "../constants";
 import type { BloombergChartType, BloombergLayoutProps } from "../types";
+import { useFitText } from "../components/useFitText";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -263,6 +264,12 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
   const useCompact = barCount >= 5 || barMax >= 10_000;
 
   const chartLabel = chartType === "line" ? "LINE CHART" : chartType === "histogram" ? "HISTOGRAM" : "BAR CHART";
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const narrationMeasureRef = React.useRef<HTMLDivElement>(null);
+  const titleTarget = tSize * (p ? 0.44 : 0.42);
+  const narrationTarget = dSize * (p ? 0.62 : 0.68);
+  const { px: fittedTitleSize } = useFitText(titleRef, titleTarget, p ? 28 : 30, [title, titleTarget, p], p ? 150 : 130);
+  const { px: fittedNarrationSize } = useFitText(narrationMeasureRef, narrationTarget, p ? 20 : 18, [narration, narrationTarget, p], p ? 190 : 520);
 
   const chartTitleFont = Math.round(dSize * 0.75);
   // yAxisWidth: tick numbers + optional rotated title
@@ -283,6 +290,7 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff, overflow: "hidden" }}>
+      <div ref={narrationMeasureRef} style={{ position: "absolute", visibility: "hidden", width: p ? "82%" : 266, fontSize: narrationTarget, lineHeight: 1.55, overflowWrap: "anywhere" }}>{narration}</div>
 
       {/* Top bar */}
       <div style={{
@@ -302,9 +310,9 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
         /* ── Portrait ──────────────────────────────────────────────────── */
         <>
           {/* Title */}
-          <div style={{
+          <div ref={titleRef} style={{
             position: "absolute", top: topH + 12, left: pad, right: pad,
-            fontSize: tSize * 0.44, opacity: titleOp, letterSpacing: -0.3, fontWeight: 600,
+            fontSize: fittedTitleSize, lineHeight: 1.1, opacity: titleOp, letterSpacing: -0.3, fontWeight: 600,
           }}>
             <span style={{ backgroundColor: amber, color: bg, display: "inline-block", padding: "3px 14px 6px" }}>{title}</span>
           </div>
@@ -353,7 +361,7 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
             top: titleH + chartHeight + xReserve + 12,
             left: pad, right: pad,
             bottom: botH + 10,
-            color: amber, fontSize: dSize * 0.62, lineHeight: 1.5,
+            color: amber, fontSize: fittedNarrationSize, lineHeight: 1.5,
             overflow: "hidden",
             opacity: panelOp,
           }}>
@@ -364,9 +372,9 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
         /* ── Landscape ─────────────────────────────────────────────────── */
         <>
           {/* Title row */}
-          <div style={{
+          <div ref={titleRef} style={{
             position: "absolute", top: topH + 10, left: pad, right: pad,
-            fontSize: tSize * 0.42, opacity: titleOp, letterSpacing: -0.5,
+            fontSize: fittedTitleSize, lineHeight: 1.1, opacity: titleOp, letterSpacing: -0.5,
           }}>
             <span style={{ backgroundColor: amber, color: bg, display: "inline-block", padding: "3px 14px 6px" }}>{title}</span>
           </div>
@@ -428,7 +436,7 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
               Data Analysis
             </div>
             <div style={{ height: 1, background: `linear-gradient(90deg, ${amber}, ${amber}00)` }} />
-            <div style={{ color: amber, fontSize: dSize * 0.68, lineHeight: 1.55, flex: 1 }}>
+            <div style={{ color: amber, fontSize: fittedNarrationSize, lineHeight: 1.55, flex: 1, overflow: "hidden", overflowWrap: "anywhere" }}>
               {narration}
             </div>
             <div style={{ height: 1, backgroundColor: border }} />

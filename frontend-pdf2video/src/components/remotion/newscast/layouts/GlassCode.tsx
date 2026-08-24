@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import type { NewscastLayoutProps } from "./types";
 import { NewsCastLayoutImageBackground } from "../NewsCastLayoutImageBackground";
 import {
@@ -37,6 +38,8 @@ export const GlassCode: React.FC<NewscastLayoutProps> = ({
   textColor,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
@@ -51,6 +54,34 @@ export const GlassCode: React.FC<NewscastLayoutProps> = ({
   const titlePop = headlinePop(frame, 2);
 
   const safeLines = useMemo(() => codeLines.slice(0, 12), [codeLines]);
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title is unbounded user input; code is capped at 12 lines but each line's
+     length is unbounded, and the panel is centred with no fixed height, so a
+     long title or a tall code block could grow the card past the frame's
+     overflow:hidden edge. Fit the title on its own line, and the whole code
+     block (all lines together, since one fontSize applies to all of them) to
+     its available height. An explicitly chosen size is honored exactly
+     (minPx === targetPx no-ops the hook). */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitCodeRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 23 : 18);
+  const fitCodeTarget = descriptionFontSize ?? (p ? 18 : 14);
+  const codeBlockKey = safeLines.join("\n");
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.5),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.08 : 0.1)),
+  );
+  const { px: fitCodePx } = useFitText(
+    fitCodeRef,
+    fitCodeTarget,
+    descriptionFontSizeIsUserSet ? fitCodeTarget : Math.round(fitCodeTarget * 0.55),
+    [codeBlockKey, fitCodeTarget, descriptionFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.32 : 0.4)),
+  );
   const revealed = Math.max(0, Math.min(safeLines.length, Math.floor((frame + 6) / 7)));
   const RED = accentColor || DEFAULT_NEWSCAST_ACCENT;
   const STEEL = textColor || DEFAULT_NEWSCAST_TEXT;
@@ -82,6 +113,7 @@ export const GlassCode: React.FC<NewscastLayoutProps> = ({
         >
         {title ? (
           <div
+            ref={fitTitleRef}
             style={{
               padding: "12px 18px 0",
               fontFamily: newscastFont(fontFamily, "title"),
@@ -90,7 +122,7 @@ export const GlassCode: React.FC<NewscastLayoutProps> = ({
               letterSpacing: 1,
               color: "white",
               textShadow: shadows.light,
-              fontSize: titleFontSize ?? (p ? 23 : 18),
+              fontSize: fitTitlePx,
               ...headlinePopStyle(titlePop),
             }}
           >
@@ -130,7 +162,7 @@ export const GlassCode: React.FC<NewscastLayoutProps> = ({
         </div>
 
         <div style={{ padding: "16px 18px 18px" }}>
-          <div style={{ fontFamily: newscastFont(fontFamily, "mono"), fontSize: scaleNewscastPx(14, portraitScale), lineHeight: 1.65 }}>
+          <div ref={fitCodeRef} style={{ fontFamily: newscastFont(fontFamily, "mono"), fontSize: scaleNewscastPx(14, portraitScale), lineHeight: 1.65 }}>
             {safeLines.map((line, idx) => {
               const isVisible = idx < revealed;
               const faded = !isVisible ? 0 : 1;
@@ -142,7 +174,7 @@ export const GlassCode: React.FC<NewscastLayoutProps> = ({
                   <div
                     style={{
                       color: /[0-9]/.test(line ?? "") ? "rgba(255,232,160,0.96)" : "rgba(232,238,248,0.92)",
-                      fontSize: descriptionFontSize ?? (p ? 18 : 14),
+                      fontSize: fitCodePx,
                     }}
                   >
                     {line || " "}

@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import type { BlackswanLayoutProps } from "../types";
 import { NeonWater } from "./neonWater";
 import { neonTitleTubeStyle, StarField } from "./scenePrimitives";
@@ -22,11 +23,14 @@ export const SignalSplit: React.FC<BlackswanLayoutProps> = (props) => {
     rightDescription,
     titleFontSize,
     descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
     fontFamily,
     aspectRatio = "landscape",
   } = props;
 
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const p = aspectRatio === "portrait";
   const pal = useMemo(() => blackswanNeonPalette(accentColor), [accentColor]);
   const beforeBorder = rgbaFromHex(pal.deep, 0.16);
@@ -43,9 +47,8 @@ export const SignalSplit: React.FC<BlackswanLayoutProps> = (props) => {
   // Font sizes — all driven by the two sliders
   const headingSize = titleFontSize     ? titleFontSize * 0.55     : (p ? 46 : 42);
   const eyebrowSize = titleFontSize     ? titleFontSize * 0.22     : (p ? 18 : 16);
-  const descSize    = descriptionFontSize ?? (p ? 34 : 31);
-  const narSize     = descriptionFontSize ?? (p ? 34 : 31);
-  const titleSize   = titleFontSize ?? (p ? 91 : 81);
+  const descTarget = descriptionFontSize ?? (p ? 34 : 31);
+  const titleTarget = titleFontSize ?? (p ? 91 : 81);
 
   // Format the title to capitalize the first letter of each word
   const formattedTitle = useMemo(() => {
@@ -55,6 +58,15 @@ export const SignalSplit: React.FC<BlackswanLayoutProps> = (props) => {
       .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join(' ');
   }, [title]);
+  const titleRef = React.useRef<HTMLHeadingElement>(null);
+  const narrationRef = React.useRef<HTMLParagraphElement>(null);
+  const leftDescRef = React.useRef<HTMLParagraphElement>(null);
+  const rightDescRef = React.useRef<HTMLParagraphElement>(null);
+  const { px: titleSize } = useFitText(titleRef, titleTarget, titleFontSizeIsUserSet ? titleTarget : Math.max(15, Math.round(titleTarget * 0.32)), [formattedTitle, titleTarget, titleFontSizeIsUserSet, p, height], Math.round(height * (p ? 0.12 : 0.14)));
+  const descMin = descriptionFontSizeIsUserSet ? descTarget : Math.max(9, Math.round(descTarget * 0.38));
+  const { px: narSize } = useFitText(narrationRef, descTarget, descMin, [narration, descTarget, descMin, titleSize, p, height], Math.round(height * 0.11));
+  const { px: leftDescSize } = useFitText(leftDescRef, descTarget, descMin, [leftDescription, descTarget, descMin, p, height], Math.round(height * (p ? 0.12 : 0.22)));
+  const { px: rightDescSize } = useFitText(rightDescRef, descTarget, descMin, [rightDescription, descTarget, descMin, p, height], Math.round(height * (p ? 0.12 : 0.22)));
 
 
   return (
@@ -128,7 +140,7 @@ export const SignalSplit: React.FC<BlackswanLayoutProps> = (props) => {
         }}
       >
         {/* Title */}
-        <h1
+        <h1 ref={titleRef}
           style={{
             margin: 0,
             fontFamily: fontFamily ?? display,
@@ -160,7 +172,7 @@ export const SignalSplit: React.FC<BlackswanLayoutProps> = (props) => {
 
         {/* Narration */}
         {narration && (
-          <p
+          <p ref={narrationRef}
             style={{
               margin: 0,
               fontFamily: fontFamily ?? display,
@@ -186,10 +198,11 @@ export const SignalSplit: React.FC<BlackswanLayoutProps> = (props) => {
           position: "absolute",
           inset: 0,
           display: "flex",
-          alignItems: "center",
+          alignItems: p ? "center" : "flex-start",
           justifyContent: "center",
-          paddingTop: p ? "40%" : "28%", // Modified: adjust card position for portrait to be below the new title position
-          paddingBottom: p ? "20%" : "18%",
+          boxSizing: "border-box",
+          paddingTop: p ? "40%" : Math.round(height * 0.46),
+          paddingBottom: p ? "20%" : Math.round(height * 0.03),
           paddingLeft: "4%",
           paddingRight: "4%",
         }}
@@ -250,10 +263,10 @@ export const SignalSplit: React.FC<BlackswanLayoutProps> = (props) => {
             <div style={{ height: 1, width: 80, background: beforeRule }} />
 
             {/* Description */}
-            <p
+            <p ref={leftDescRef}
               style={{
                 margin: 0,
-                fontSize: descSize,
+                fontSize: leftDescSize,
                 color: beforeMuted,
                 lineHeight: 1.7,
                 fontFamily: fontFamily ?? mono,
@@ -335,10 +348,10 @@ export const SignalSplit: React.FC<BlackswanLayoutProps> = (props) => {
             />
 
             {/* Description */}
-            <p
+            <p ref={rightDescRef}
               style={{
                 margin: 0,
-                fontSize: descSize,
+                fontSize: rightDescSize,
                 color: rgbaFromHex(accentColor, 0.68),
                 lineHeight: 1.7,
                 fontFamily: fontFamily ?? mono,

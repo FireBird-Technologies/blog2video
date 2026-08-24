@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { EconomistLayoutProps } from "../types";
+import { useFitText } from "../components/useFitText";
 import { ECONOMIST_COLORS, CHROME_INSET } from "../constants";
 import { ECONOMIST_SERIF_FONT, ECONOMIST_SANS_FONT } from "../../../fonts/economist-defaults";
 import { TrendGlyph, ConcentricRings } from "../components/EconomistOrnaments";
@@ -21,6 +22,7 @@ export const KeyIndicators: React.FC<EconomistLayoutProps> = ({
   accentColor = ECONOMIST_COLORS.accent,
   textColor = ECONOMIST_COLORS.ink,
   titleFontSize,
+  titleFontSizeIsUserSet,
   fontFamily,
   aspectRatio = "landscape",
 }) => {
@@ -31,7 +33,23 @@ export const KeyIndicators: React.FC<EconomistLayoutProps> = ({
   const topInset = (isPortrait ? CHROME_INSET.topPortrait : CHROME_INSET.top) + 24;
   const botInset = (isPortrait ? CHROME_INSET.bottomPortrait : CHROME_INSET.bottom) + 22;
   const pad = isPortrait ? { x: 70, t: topInset, b: botInset } : { x: 120, t: topInset, b: botInset };
-  const titleSize = (titleFontSize ?? (isPortrait ? 72 : 56)) as number;
+
+  /* ── Auto-fit (panel title) ───────────────────────────────────────────────
+     Fixed 72/56px title with no existing heuristic, in a header block that's a
+     plain stacked div (not a centering flex ancestor) above the KPI grid — a
+     long custom title would wrap past its one-line budget and crowd the grid.
+     The narration subtitle's size derives from titleSize (unchanged) rather
+     than being fit separately. KPI value/label/delta sizing (digit-count /
+     short-label systems) is untouched — out of scope. */
+  const titleFitRef = React.useRef<HTMLDivElement>(null);
+  const titleFitTarget = (titleFontSize ?? (isPortrait ? 72 : 56)) as number;
+  const { px: titleSize } = useFitText(
+    titleFitRef,
+    titleFitTarget,
+    titleFontSizeIsUserSet ? titleFitTarget : Math.round(titleFitTarget * 0.5),
+    [title, titleFitTarget, titleFontSizeIsUserSet, isPortrait, width],
+    Math.round(titleFitTarget * 1.15),
+  );
 
   const n = Math.max(1, indicators.length);
   const cols = isPortrait ? Math.min(2, n) : Math.min(4, n);
@@ -52,7 +70,7 @@ export const KeyIndicators: React.FC<EconomistLayoutProps> = ({
       {/* Header — tab, title and subtitle rise in with a stagger. */}
       <div style={{ marginTop: isPortrait ? 60 : 0 }}>
         <div style={{ width: 34, height: 6, background: accentColor, marginBottom: 16, ...textRise(frame, 0, 14) }} />
-        <div style={{ fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT, fontWeight: 900, fontSize: titleSize, lineHeight: 1.04, color: textColor, letterSpacing: -titleSize * 0.012, ...textRise(frame, 4) }}>
+        <div ref={titleFitRef} style={{ fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT, fontWeight: 900, fontSize: titleSize, lineHeight: 1.04, color: textColor, letterSpacing: -titleSize * 0.012, ...textRise(frame, 4) }}>
           {title}
         </div>
         {narration && (

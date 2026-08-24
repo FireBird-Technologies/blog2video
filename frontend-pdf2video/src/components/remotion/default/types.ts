@@ -69,6 +69,17 @@ export interface SceneLayoutProps {
   // typography overrides
   titleFontSize?: number;
   descriptionFontSize?: number;
+  /**
+   * True when the size above was explicitly chosen by the user, false/absent
+   * when it was backfilled from meta.json `layout_prop_schema` defaults.
+   *
+   * Auto-fitting layouts use this to honor a deliberate choice exactly — even
+   * if it overflows — while still auto-fitting the default. Populated
+   * generically by mergeLayoutSchemaDefaults / mergeMetaFontSizesIntoLayoutProps
+   * on the raw layoutProps this type is spread from.
+   */
+  titleFontSizeIsUserSet?: boolean;
+  descriptionFontSizeIsUserSet?: boolean;
   socials?: SocialsMap;
   websiteLink?: string;
   showWebsiteButton?: boolean;

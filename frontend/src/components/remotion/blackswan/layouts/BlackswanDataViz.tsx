@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import {
   Area,
   Bar,
@@ -65,6 +66,8 @@ export const BlackswanDataViz: React.FC<BlackswanLayoutProps> = ({
   fontFamily,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   chartSummary = "",
   subtitle = "",
   chartYAxisTicks = [],
@@ -92,8 +95,13 @@ export const BlackswanDataViz: React.FC<BlackswanLayoutProps> = ({
   const PANEL_BG = rgbaFromHex(accentColor, 0.05);
   const PANEL_BORDER = rgbaFromHex(accentColor, 0.32);
 
-  const titleSize = titleFontSize ?? (p ? 80 : 72);
-  const descSize = descriptionFontSize ?? (p ? 44 : 32);
+  const titleTarget = titleFontSize ?? (p ? 80 : 72);
+  const descTarget = descriptionFontSize ?? (p ? 44 : 32);
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const summaryRef = React.useRef<HTMLDivElement>(null);
+  const narrationRef = React.useRef<HTMLDivElement>(null);
+  const { px: titleSize } = useFitText(titleRef, titleTarget, titleFontSizeIsUserSet ? titleTarget : Math.max(15, Math.round(titleTarget * 0.34)), [title, titleTarget, titleFontSizeIsUserSet, p, height], Math.round(height * (p ? 0.12 : 0.15)));
+  const descSize = descTarget;
   const chartTickSize = Math.round(descSize * 0.82);
   const chartAxisLabelSize = Math.round(descSize * 0.7);
   const VALUE_LABEL_FS = Math.round(descSize * 0.56);
@@ -135,6 +143,11 @@ export const BlackswanDataViz: React.FC<BlackswanLayoutProps> = ({
     if (!hasRealChart) return "";
     return buildAutoChartSummary(chartInputs, resolvedChartType);
   }, [chartSummary, hasRealChart, chartInputs, resolvedChartType]);
+  const summaryTarget = Math.round(descTarget * 0.8);
+  const narrationTarget = Math.round(descTarget * 0.82);
+  const descMin = descriptionFontSizeIsUserSet ? descTarget : Math.max(9, Math.round(descTarget * 0.36));
+  const { px: summarySize } = useFitText(summaryRef, summaryTarget, descriptionFontSizeIsUserSet ? summaryTarget : Math.min(summaryTarget, descMin), [summaryText, summaryTarget, descriptionFontSizeIsUserSet, p, height], Math.round(height * (p ? 0.24 : 0.38)));
+  const { px: narrationSize } = useFitText(narrationRef, narrationTarget, descriptionFontSizeIsUserSet ? narrationTarget : Math.min(narrationTarget, descMin), [narration, narrationTarget, descriptionFontSizeIsUserSet, titleSize, p, height], Math.round(height * (p ? 0.1 : 0.09)));
 
   const lineDataBounds = useMemo(() => {
     let lo = Infinity;
@@ -573,7 +586,7 @@ export const BlackswanDataViz: React.FC<BlackswanLayoutProps> = ({
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", padding: `${padV} ${padH}` }}>
         {/* Title — neon tube */}
         <div style={{ opacity: ra, marginBottom: Math.round(height * 0.02) }}>
-          <div
+          <div ref={titleRef}
             style={{
               fontFamily: font,
               fontWeight: 700,
@@ -644,7 +657,7 @@ export const BlackswanDataViz: React.FC<BlackswanLayoutProps> = ({
                 overflow: "hidden",
               }}
             >
-              <div style={{ fontFamily: font, fontWeight: 400, fontSize: descSize * 0.8, lineHeight: 1.55, color: textColor, opacity: 0.95, whiteSpace: "pre-wrap", textShadow: `0 0 8px ${rgbaFromHex(accentColor, 0.27)}` }}>
+              <div ref={summaryRef} style={{ fontFamily: font, fontWeight: 400, fontSize: summarySize, lineHeight: 1.55, color: textColor, opacity: 0.95, whiteSpace: "pre-wrap", overflowWrap: "break-word", wordBreak: "break-word", textShadow: `0 0 8px ${rgbaFromHex(accentColor, 0.27)}` }}>
                 {summaryText
                   ? summaryText.split(/(__[^_]+__)/).map((seg, i) => {
                       if (seg.startsWith("__") && seg.endsWith("__")) {
@@ -665,7 +678,7 @@ export const BlackswanDataViz: React.FC<BlackswanLayoutProps> = ({
         {/* Narration */}
         {narration && (
           <div style={{ opacity: Math.min(1, Math.max(0, (frame - 16) / 20)), marginTop: Math.round(height * 0.02) }}>
-            <div style={{ fontFamily: font, fontStyle: "italic", fontSize: descSize * 0.82, color: textColor, opacity: 0.7, lineHeight: 1.45, overflowWrap: "break-word", wordBreak: "break-word" }}>
+            <div ref={narrationRef} style={{ fontFamily: font, fontStyle: "italic", fontSize: narrationSize, color: textColor, opacity: 0.7, lineHeight: 1.45, overflowWrap: "break-word", wordBreak: "break-word" }}>
               {narration}
             </div>
           </div>

@@ -21,6 +21,9 @@ export const BLOOMBERG_LAYOUT_REGISTRY: Record<
 > = {
   terminal_boot: TerminalBoot,
   terminal_narrative: TerminalNarrative,
+  // TerminalChart has dense SVG annotations that are intentionally close to
+  // chart edges. Scene-wide fitting mistakes those for copy overflow and
+  // shrinks the entire dashboard, so this layout fits only its editable text.
   terminal_chart: TerminalChart,
   terminal_dashboard: TerminalDashboard,
   terminal_ticker: TerminalTicker,

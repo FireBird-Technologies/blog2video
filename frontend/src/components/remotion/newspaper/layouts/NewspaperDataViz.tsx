@@ -15,6 +15,7 @@ import {
   YAxis,
 } from "recharts";
 import { NewsBackground } from "../NewsBackground";
+import { useFitText } from "../components/useFitText";
 import type { BlogLayoutProps } from "../types";
 import {
   toNumber,
@@ -66,6 +67,8 @@ export const NewspaperDataViz: React.FC<BlogLayoutProps> = ({
   fontFamily,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   chartSummary = "",
   subtitle = "",
   chartYAxisTicks = [],
@@ -92,6 +95,29 @@ export const NewspaperDataViz: React.FC<BlogLayoutProps> = ({
 
   const titleSize = titleFontSize ?? (p ? 67 : 52);
   const descSize = descriptionFontSize ?? (p ? 29 : 21);
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and body copy are unbounded user input; long text overflows the card
+     and is clipped. Fit each to the space actually available. An explicitly
+     chosen size is honored exactly (minPx === targetPx makes the hook a no-op). */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitBodyRef = React.useRef<HTMLDivElement>(null);
+  const titleBudgetPx = Math.round(height * (p ? 0.22 : 0.24));
+  const { px: titlePx } = useFitText(
+    fitTitleRef,
+    titleSize,
+    titleFontSizeIsUserSet ? titleSize : p ? 30 : 26,
+    [title, titleSize, titleFontSizeIsUserSet, titleBudgetPx, p],
+    titleBudgetPx,
+  );
+  const bodyBudgetPx = Math.round(height * (p ? 0.30 : 0.34));
+  const { px: bodyPx } = useFitText(
+    fitBodyRef,
+    descSize,
+    descriptionFontSizeIsUserSet ? descSize : p ? 16 : 13,
+    [narration, descSize, descriptionFontSizeIsUserSet, bodyBudgetPx, titlePx, p],
+    bodyBudgetPx,
+  );
   const chartTickSize = Math.round(descSize * 0.82);
   const chartAxisLabelSize = Math.round(descSize * 0.7);
   const VALUE_LABEL_FS = Math.round(descSize * 0.56);
@@ -655,12 +681,12 @@ export const NewspaperDataViz: React.FC<BlogLayoutProps> = ({
       >
         {/* Masthead-style title with kicker rule */}
         <div style={{ opacity: ra, marginBottom: Math.round(height * 0.018) }}>
-          <div style={{ height: 6, width: 64, background: accentColor, marginBottom: 10 }} />
+          <div ref={fitTitleRef} style={{ height: 6, width: 64, background: accentColor, marginBottom: 10 }} />
           <div
             style={{
               fontFamily: headFont,
               fontWeight: 800,
-              fontSize: titleSize,
+              fontSize: titlePx,
               letterSpacing: "-0.01em",
               lineHeight: 1.05,
               color: textColor,
@@ -748,7 +774,7 @@ export const NewspaperDataViz: React.FC<BlogLayoutProps> = ({
         {/* Narration / standfirst */}
         {narration && (
           <div style={{ opacity: Math.min(1, Math.max(0, (frame - 16) / 20)), marginTop: Math.round(height * 0.018) }}>
-            <div style={{ fontFamily: bodyFont, fontStyle: "italic", fontSize: descSize * 0.82, color: textColor, opacity: 0.7, lineHeight: 1.45, overflowWrap: "break-word", wordBreak: "break-word" }}>
+            <div ref={fitBodyRef} style={{ fontFamily: bodyFont, fontStyle: "italic", fontSize: bodyPx * 0.82, color: textColor, opacity: 0.7, lineHeight: 1.45, overflowWrap: "break-word", wordBreak: "break-word" }}>
               {narration}
             </div>
           </div>

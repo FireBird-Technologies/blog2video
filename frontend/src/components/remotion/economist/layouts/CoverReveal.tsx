@@ -8,6 +8,7 @@ import {
   Img,
 } from "remotion";
 import type { EconomistLayoutProps } from "../types";
+import { useFitText } from "../components/useFitText";
 import { EconomistClip } from "../components/EconomistClip";
 import { ECONOMIST_COLORS } from "../constants";
 import { ECONOMIST_SERIF_FONT, ECONOMIST_SANS_FONT } from "../../../../fonts/economist-defaults";
@@ -49,6 +50,7 @@ export const CoverReveal: React.FC<EconomistLayoutProps> = ({
   accentColor = ECONOMIST_COLORS.accent,
   textColor = ECONOMIST_COLORS.ink,
   titleFontSize,
+  titleFontSizeIsUserSet,
   fontFamily,
   aspectRatio = "landscape",
 }) => {
@@ -100,21 +102,21 @@ export const CoverReveal: React.FC<EconomistLayoutProps> = ({
   const textShadow = hasImage ? "0 2px 18px rgba(0,0,0,0.45)" : "none";
 
   // ── Headline word-by-word assembly (now the red hero block) ─────────────────
-  // Length-aware sizing: a fixed size makes long titles swamp the frame (the red
-  // block covers the whole image). Shrink the type as the title grows so the
-  // block always leaves the cover photo breathing room. The longest word also
-  // bounds the size so a single long word never overflows the block edges.
+  // Title is unbounded user input; a fixed size makes long titles swamp the
+  // frame (the red block covers the whole image). Measure the real rendered
+  // height and shrink to fit instead of guessing from character count — the
+  // block always leaves the cover photo breathing room. Each word's
+  // letterpressStamp only animates opacity/transform on spans already in the
+  // DOM (never adds/removes words), so it's safe to ref the wrapper directly.
+  const headlineRef = React.useRef<HTMLDivElement>(null);
   const baseHeadlineSize = (titleFontSize ?? (isPortrait ? 104 : 132)) as number;
   const words = (title || "").split(/\s+/).filter(Boolean);
-  const charCount = (title || "").trim().length;
-  const longestWord = words.reduce((m, w) => Math.max(m, w.length), 0);
-  // Reference comfortably fits ~22 chars at the base size; scale down past that.
-  const fitByChars = Math.min(1, 26 / Math.max(charCount, 1));
-  // A single long word shouldn't exceed ~62% of the block's inner width.
-  const fitByWord = Math.min(1, 12 / Math.max(longestWord, 1));
-  const headlineSize = Math.max(
-    isPortrait ? 52 : 60,
-    Math.round(baseHeadlineSize * Math.min(fitByChars, fitByWord)),
+  const { px: headlineSize } = useFitText(
+    headlineRef,
+    baseHeadlineSize,
+    titleFontSizeIsUserSet ? baseHeadlineSize : (isPortrait ? 52 : 60),
+    [title, baseHeadlineSize, titleFontSizeIsUserSet, isPortrait, height],
+    Math.round(height * (isPortrait ? 0.22 : 0.28)),
   );
   const headlineStart = 30;
 
@@ -368,6 +370,39 @@ export const CoverReveal: React.FC<EconomistLayoutProps> = ({
             padding: `0 ${margin}px`,
           }}
         >
+          {/* Hidden full-width mirror used only to measure the true available
+              headline size — kept off the visible tree (visibility:hidden,
+              position:absolute) so the VISIBLE red block below can keep
+              shrink-wrapping tightly around short titles (its original
+              badge-like look) instead of always spanning the full 82%/100%
+              width, which is what would happen if we measured the visible
+              block directly (see useFitText's width-bug note). */}
+          <div
+            aria-hidden
+            style={{
+              position: "absolute",
+              visibility: "hidden",
+              width: isPortrait ? "100%" : "82%",
+              maxWidth: isPortrait ? "100%" : "82%",
+              padding: `0 ${headlineSize * 0.34}px`,
+            }}
+          >
+            <div
+              ref={headlineRef}
+              style={{
+                fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT,
+                fontWeight: 900,
+                fontSize: headlineSize,
+                lineHeight: 1.04,
+                letterSpacing: -headlineSize * 0.012,
+                textAlign: "center",
+                width: "100%",
+              }}
+            >
+              {words.join(" ")}
+            </div>
+          </div>
+
           <div
             style={{
               background: accentColor,

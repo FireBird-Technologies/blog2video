@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import type { EconomistLayoutProps } from "../types";
+import { useFitText } from "../components/useFitText";
 import { ECONOMIST_COLORS } from "../constants";
 import { EconomistMasthead } from "../components/EconomistMasthead";
 import { SocialIcons } from "../../SocialIcons";
@@ -25,11 +26,13 @@ export const EndingSocials: React.FC<EconomistLayoutProps> = ({
   socials,
   accentColor = ECONOMIST_COLORS.accent,
   textColor = ECONOMIST_COLORS.ink,
+  descriptionFontSize,
+  descriptionFontSizeIsUserSet,
   fontFamily,
   aspectRatio = "landscape",
 }) => {
   const frame = useCurrentFrame();
-  const { fps, width } = useVideoConfig();
+  const { fps, width, height } = useVideoConfig();
   const isPortrait = aspectRatio === "portrait";
 
   const mastheadScale = spring({ frame: frame - 4, fps, config: { damping: 14, mass: 0.6 } });
@@ -43,6 +46,24 @@ export const EndingSocials: React.FC<EconomistLayoutProps> = ({
   // copy so it always lands well before the CTAs arrive.
   const closingWords = (closing || "").split(/\s+/).filter(Boolean);
   const wordStep = Math.min(2, 30 / Math.max(1, closingWords.length));
+
+  /* ── Auto-fit (closing line) ──────────────────────────────────────────────
+     Fixed 38/40px italic sign-off with no existing heuristic; unbounded copy
+     (narration or title) can run long. The words render as spans that only
+     animate opacity/transform/blur per span (baselineSettle) — all words are
+     already in the DOM from frame 0 — so the wrapping div is safe to ref
+     directly. Its parent AbsoluteFill uses alignItems:"center", and the div
+     has maxWidth but no width — add width:"100%" so the fitter measures the
+     true available column instead of shrink-wrapping around short closings. */
+  const closingFitRef = React.useRef<HTMLDivElement>(null);
+  const closingFitTarget = (descriptionFontSize ?? (isPortrait ? 38 : 40)) as number;
+  const { px: closingFs } = useFitText(
+    closingFitRef,
+    closingFitTarget,
+    descriptionFontSizeIsUserSet ? closingFitTarget : Math.round(closingFitTarget * 0.5),
+    [closing, closingFitTarget, descriptionFontSizeIsUserSet, isPortrait, height],
+    Math.round(height * (isPortrait ? 0.22 : 0.26)),
+  );
   // The masthead shows the brand/channel name supplied by the brief. When none
   // is given we hide the flag entirely rather than print a brand the user never
   // chose (e.g. "The Economist").
@@ -66,13 +87,15 @@ export const EndingSocials: React.FC<EconomistLayoutProps> = ({
 
       {closing && (
         <div
+          ref={closingFitRef}
           style={{
             fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT,
             fontStyle: "italic",
-            fontSize: isPortrait ? 38 : 40,
+            fontSize: closingFs,
             lineHeight: 1.35,
             textAlign: "center",
             color: textColor,
+            width: "100%",
             maxWidth: isPortrait ? "100%" : "64%",
             margin: `${isPortrait ? 44 : 30}px 0`,
           }}

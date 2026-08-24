@@ -1,6 +1,8 @@
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import React from "react";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { WhiteboardBackground } from "../WhiteboardBackground";
 import type { WhiteboardLayoutProps } from "../types";
+import { useFitText } from "../components/useFitText";
 
 /**
  * Scribble Decor: Random hand-drawn shapes to fill portrait white space
@@ -167,9 +169,8 @@ function StickFigure({
   );
 }
 
-function estimateBubbleHeight(text: string, fontSize: number, innerW: number): number {
-  // Rough estimation, adjust char width for scaled innerW
-  const charsPerLine = Math.floor(innerW / (fontSize * 0.56));
+function estimateBubbleLines(text: string, fontSize: number, innerW: number): number {
+  const charsPerLine = Math.max(1, Math.floor(innerW / (fontSize * 0.56)));
   const words = text.split(" ");
   let lines = 1;
   let lineLen = 0;
@@ -181,7 +182,30 @@ function estimateBubbleHeight(text: string, fontSize: number, innerW: number): n
       lineLen += (lineLen > 0 ? 1 : 0) + word.length;
     }
   }
+  return lines;
+}
+
+function estimateBubbleHeight(text: string, fontSize: number, innerW: number): number {
+  const lines = estimateBubbleLines(text, fontSize, innerW);
   return Math.max(72, lines * (fontSize * 1.45) + 32);
+}
+
+/**
+ * Bubble text is unbounded user input; the bubble used to auto-grow past any
+ * height cap, pushing it (and the whole speech-bubble shape) off the top of
+ * the frame for longer dialogue. Shrink the font instead once the estimate
+ * would exceed `maxH`, the same measure-and-shrink idea as useFitText but
+ * computed from the character-count estimate this layout already uses for
+ * bubble geometry (an SVG foreignObject can't be probed with the DOM
+ * measurement useFitText relies on before its own size is known).
+ */
+function fitBubbleFontSize(text: string, baseFontSize: number, innerW: number, maxH: number): number {
+  let size = baseFontSize;
+  const floor = Math.max(11, Math.round(baseFontSize * 0.55));
+  while (size > floor && estimateBubbleHeight(text, size, innerW) > maxH) {
+    size -= 1;
+  }
+  return size;
 }
 
 interface BubbleProps {
@@ -281,13 +305,43 @@ export const SpeechBubbleDialogue: React.FC<WhiteboardLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   leftThought = "Wait, did you know?",
   rightThought = "Tell me more!",
   fontFamily,
   stats,
 }) => {
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const p = aspectRatio === "portrait";
+
+  /* ── Auto-fit (title + narration) ────────────────────────────────
+     Both render at the bottom of the scene as full text directly from
+     frame 0 (only opacity fades via titleOp) — no slice-reveal — so direct
+     ref is safe. The speech-bubble thought text (leftThought/rightThought)
+     is NOT fitted here: its bubble auto-expands to the text's natural
+     height (estimateBubbleHeight) rather than clipping against a fixed
+     box, so there is no overflow to correct — it's a self-sizing badge,
+     not an unbounded-text-in-a-fixed-frame case. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitNarrationRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 72 : 37);
+  const fitNarrationTarget = descriptionFontSize ?? (p ? 30 : 19);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.4),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.16 : 0.18)),
+  );
+  const { px: fitNarrationPx } = useFitText(
+    fitNarrationRef,
+    fitNarrationTarget,
+    descriptionFontSizeIsUserSet ? fitNarrationTarget : Math.round(fitNarrationTarget * 0.5),
+    [narration, fitNarrationTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * (p ? 0.14 : 0.16)),
+  );
 
   const figureScale = p ? 1 : 0.75; // Define scale for landscape mode
 
@@ -323,8 +377,18 @@ export const SpeechBubbleDialogue: React.FC<WhiteboardLayoutProps> = ({
   // Use this new figureHeadTopY for bubble positioning
   const bubbleGap = 12 * figureScale; // Scaled gap between head and bubble
 
-  const leftBH = estimateBubbleHeight(leftThought, fontSize, bubbleInnerW); // Estimate height with scaled innerW
-  const rightBH = estimateBubbleHeight(rightThought, fontSize, bubbleInnerW); // Estimate height with scaled innerW
+  // The SVG's own coordinate space starts at y=0 (viewBox "0 0 svgW ..."), so
+  // figureHeadTopY IS the exact vertical budget available above the figure's
+  // head for tailH + bubbleGap + the bubble itself — not an estimate. A
+  // fixed-size bubble that grows past this pushes the whole bubble (and its
+  // ink-stroke outline) above y=0, off the top of the rendered frame. Shrink
+  // the bubble's font instead of letting it keep growing once it would
+  // exceed that budget.
+  const bubbleMaxH = Math.max(60, figureHeadTopY - tailH - bubbleGap - 8);
+  const leftFontSize = fitBubbleFontSize(leftThought, fontSize, bubbleInnerW, bubbleMaxH);
+  const rightFontSize = fitBubbleFontSize(rightThought, fontSize, bubbleInnerW, bubbleMaxH);
+  const leftBH = estimateBubbleHeight(leftThought, leftFontSize, bubbleInnerW);
+  const rightBH = estimateBubbleHeight(rightThought, rightFontSize, bubbleInnerW);
 
   const leftBubbleTopY = figureHeadTopY - leftBH - tailH - bubbleGap;
   const rightBubbleTopY = figureHeadTopY - rightBH - tailH - bubbleGap;
@@ -390,8 +454,8 @@ export const SpeechBubbleDialogue: React.FC<WhiteboardLayoutProps> = ({
             <line x1={20} y1={groundY} x2={680} y2={groundY - 2} stroke={textColor} strokeWidth={p ? 4.5 : 3} strokeLinecap="round" />
           </g>
 
-          <SpeechBubble anchorX={leftCX} topY={leftBubbleTopY} side="right" text={leftThought} textColor={textColor} progress={leftBubbleProgress} fontSize={fontSize} swayX={leftSway} swayY={leftSwayYFinal} portrait={p} fontFamily={fontFamily} figureScale={figureScale} />
-          <SpeechBubble anchorX={rightCX} topY={rightBubbleTopY} side="left" text={rightThought} textColor={accentColor} progress={rightBubbleProgress} fontSize={fontSize} swayX={rightSway} swayY={rightSwayYFinal} portrait={p} fontFamily={fontFamily} figureScale={figureScale} />
+          <SpeechBubble anchorX={leftCX} topY={leftBubbleTopY} side="right" text={leftThought} textColor={textColor} progress={leftBubbleProgress} fontSize={leftFontSize} swayX={leftSway} swayY={leftSwayYFinal} portrait={p} fontFamily={fontFamily} figureScale={figureScale} />
+          <SpeechBubble anchorX={rightCX} topY={rightBubbleTopY} side="left" text={rightThought} textColor={accentColor} progress={rightBubbleProgress} fontSize={rightFontSize} swayX={rightSway} swayY={rightSwayYFinal} portrait={p} fontFamily={fontFamily} figureScale={figureScale} />
 
           <StickFigure cx={leftCX} dash={figDash} offset={figOff} stroke={textColor} isRight={false} bubbleBottomY={leftBubbleBottomY} bubbleWidth={bubbleTotalWidth} bubbleSway={leftSway} portrait={p} groundY={groundY} />
           <StickFigure cx={rightCX} dash={figDash} offset={figOff} stroke={accentColor} isRight={true} bubbleBottomY={rightBubbleBottomY} bubbleWidth={bubbleTotalWidth} bubbleSway={rightSway} portrait={p} groundY={groundY} />
@@ -405,9 +469,9 @@ export const SpeechBubbleDialogue: React.FC<WhiteboardLayoutProps> = ({
           })}
         </svg>
 
-        <div style={{ textAlign: "center", opacity: titleOp }}>
-          <div style={{ color: textColor, fontWeight: 700, fontSize: titleFontSize ?? (p ? 72 : 37), lineHeight: 1.1, filter: "url(#ink)" }}>{title}</div>
-          {narration && <div style={{ marginTop: 8, color: textColor, fontSize: descriptionFontSize ?? (p ? 30 : 19), opacity: 0.88, filter: "url(#ink)" }}>{narration}</div>}
+        <div style={{ textAlign: "center", opacity: titleOp, width: "100%" }}>
+          <div ref={fitTitleRef} style={{ color: textColor, fontWeight: 700, fontSize: fitTitlePx, lineHeight: 1.1, filter: "url(#ink)", width: "100%" }}>{title}</div>
+          {narration && <div ref={fitNarrationRef} style={{ marginTop: 8, color: textColor, fontSize: fitNarrationPx, opacity: 0.88, filter: "url(#ink)", width: "100%" }}>{narration}</div>}
         </div>
       </div>
     </AbsoluteFill>

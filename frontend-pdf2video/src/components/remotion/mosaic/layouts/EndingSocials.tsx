@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { MosaicBackground } from "../MosaicBackground";
 import type { MosaicLayoutProps } from "../types";
 import { MOSAIC_COLORS, MOSAIC_DEFAULT_FONT_FAMILY } from "../constants";
@@ -28,7 +29,7 @@ export const EndingSocials: React.FC<MosaicLayoutProps> = ({
   mosaicTileGap,
 }) => {
   const frame = useCurrentFrame();
-  const { durationInFrames } = useVideoConfig();
+  const { durationInFrames, height } = useVideoConfig();
   const motion = getSceneTransition(frame, durationInFrames, 20, 14);
   // All content starts when tiles are ≈57% done (frame 65)
   const contentStart = 65;
@@ -55,6 +56,12 @@ export const EndingSocials: React.FC<MosaicLayoutProps> = ({
     (c) => c.showWebsiteButton && c.websiteLink.length > 0,
   );
   const hasAnyCard = cards.length > 0;
+  const titleTarget = titleFontSize ?? (p ? 92 : 72);
+  const bodyTarget = descriptionFontSize ?? (p ? 38 : 30);
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const bodyRef = React.useRef<HTMLDivElement>(null);
+  const { px: titleSize } = useFitText(titleRef, titleTarget, Math.max(14, Math.round(titleTarget * 0.25)), [title, titleTarget, p, height], Math.round(height * 0.18));
+  const { px: bodySize } = useFitText(bodyRef, bodyTarget, Math.max(9, Math.round(bodyTarget * 0.35)), [narration, bodyTarget, titleSize, p, height], Math.round(height * 0.16));
 
   return (
     <AbsoluteFill>
@@ -82,11 +89,11 @@ export const EndingSocials: React.FC<MosaicLayoutProps> = ({
           opacity: motion.presence,
         }}
       >
-        <div style={{ fontFamily: family, fontSize: titleFontSize ?? (p ? 92 : 72), color: textColor || MOSAIC_COLORS.textPrimary, fontWeight: 700, opacity: titleIn }}>
+        <div ref={titleRef} style={{ fontFamily: family, fontSize: titleSize, color: textColor || MOSAIC_COLORS.textPrimary, fontWeight: 700, opacity: titleIn, overflowWrap: "anywhere" }}>
           {title}
         </div>
         <div style={{ width: 300 * lineIn, height: 2, background: line, marginTop: 16, marginBottom: 16 }} />
-        <div style={{ fontFamily: family, fontSize: descriptionFontSize ?? (p ? 38 : 30), color: textColor || MOSAIC_COLORS.textSecondary, opacity: bodyIn }}>
+        <div ref={bodyRef} style={{ fontFamily: family, fontSize: bodySize, color: textColor || MOSAIC_COLORS.textSecondary, opacity: bodyIn, overflowWrap: "anywhere" }}>
           {narration}
         </div>
         {hasAnyCard ? (

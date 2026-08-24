@@ -7,6 +7,7 @@ import {
   SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY,
 } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
+import { useFitText } from "../components/useFitText";
 
 /**
  * SpotlightTable — data table / snapshot scene. Renders the shared tickerTable
@@ -73,6 +74,29 @@ export const SpotlightTable: React.FC<SpotlightLayoutProps> = ({
 
   const titleSize = titleFontSize ?? (p ? 60 : 50);
   const descSize = descriptionFontSize ?? (p ? 22 : 18);
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and footnote are unbounded user input; long copy would overflow
+     their fixed slots and push into (or clip against) the table panel. Fit
+     each to its own share of the frame — the table itself is unaffected. */
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const footnoteRef = React.useRef<HTMLDivElement>(null);
+  const titleBudgetPx = Math.round(height * (p ? 0.16 : 0.18));
+  const { px: titlePx } = useFitText(
+    titleRef,
+    titleSize,
+    p ? 26 : 22,
+    [title, titleSize, titleBudgetPx],
+    titleBudgetPx,
+  );
+  const footnoteBudgetPx = Math.round(height * 0.08);
+  const { px: footnotePx } = useFitText(
+    footnoteRef,
+    Math.round(descSize * 0.84),
+    p ? 13 : 11,
+    [tickerFootnote, narration, descSize, footnoteBudgetPx],
+    footnoteBudgetPx,
+  );
 
   const rawHeaders = (tickerTable?.headers ?? []).slice(0, TABLE_MAX_COLS);
   const rawRows = (tickerTable?.rows ?? [])
@@ -150,7 +174,7 @@ export const SpotlightTable: React.FC<SpotlightLayoutProps> = ({
             transformOrigin: fewCols ? "center" : "left center",
           }}
         >
-          <div style={{ fontFamily: displayFont, fontWeight: 900, fontSize: titleSize, letterSpacing: "-0.03em", lineHeight: 1.02, color: textColor || WHITE, textTransform: "uppercase" }}>
+          <div ref={titleRef} style={{ fontFamily: displayFont, fontWeight: 900, fontSize: titlePx, letterSpacing: "-0.03em", lineHeight: 1.02, color: textColor || WHITE, textTransform: "uppercase" }}>
             {title}
           </div>
           {tickerTitle ? (
@@ -278,7 +302,7 @@ export const SpotlightTable: React.FC<SpotlightLayoutProps> = ({
         </div>
 
         {(tickerFootnote || narration) && (
-          <div style={{ opacity: footnoteA, flexShrink: 0, marginTop: Math.round(height * 0.01), fontFamily: bodyFont, fontWeight: 500, fontSize: Math.round(descSize * 0.84), letterSpacing: "0.02em", color: "rgba(255,255,255,0.6)", lineHeight: 1.4, whiteSpace: "normal" }}>
+          <div ref={footnoteRef} style={{ opacity: footnoteA, flexShrink: 0, marginTop: Math.round(height * 0.01), fontFamily: bodyFont, fontWeight: 500, fontSize: footnotePx, letterSpacing: "0.02em", color: "rgba(255,255,255,0.6)", lineHeight: 1.4, whiteSpace: "normal" }}>
             {tickerFootnote || narration}
           </div>
         )}

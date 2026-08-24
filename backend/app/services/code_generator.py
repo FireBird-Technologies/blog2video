@@ -7,6 +7,7 @@ All scenes run in PARALLEL via asyncio.gather.
 """
 
 import asyncio
+import functools
 import hashlib
 import json
 import logging
@@ -16,7 +17,12 @@ from concurrent.futures import ThreadPoolExecutor
 
 import dspy
 
-from app.dspy_modules import ensure_dspy_configured, get_custom_lm, get_scene_type_lm
+from app.dspy_modules import (
+    ensure_dspy_configured,
+    get_custom_lm,
+    get_custom_lm_no_thinking,
+    get_scene_type_lm,
+)
 from app.models.custom_template import CustomTemplate
 from app.services.code_validator import clean_code, validate_component_code
 
@@ -1098,9 +1104,16 @@ def _generate_single_scene_sync(
     scene_index: int,
     total_scenes: int,
     scene_purpose: str,
+    *,
+    no_thinking: bool = False,
 ) -> tuple[str, dict[str, str]]:
     """Generate a single scene using DSPy ChainOfThought + Refine (sync).
-    Returns (code, {"landscape": "W / H", "portrait": "W / H"})."""
+    Returns (code, {"landscape": "W / H", "portrait": "W / H"}).
+
+    no_thinking=True swaps in get_custom_lm_no_thinking() — used by the outer
+    retry loop in generate_component_code() after a scene comes back with truly
+    empty code (GLM's thinking pass consumed the whole max_tokens budget before
+    `code` was emitted). See that function's get_custom_lm_no_thinking docstring."""
     ensure_dspy_configured()
 
     base_module = dspy.ChainOfThought(
@@ -1120,7 +1133,7 @@ def _generate_single_scene_sync(
 
     t0 = time.time()
 
-    codegen_lm = get_custom_lm()
+    codegen_lm = get_custom_lm_no_thinking() if no_thinking else get_custom_lm()
     with dspy.context(lm=codegen_lm):
         result = refined(
             brand_context=brand_context,
@@ -1173,19 +1186,24 @@ async def _generate_single_scene(
     scene_index: int,
     total_scenes: int,
     scene_purpose: str,
+    *,
+    no_thinking: bool = False,
 ) -> tuple[str, dict[str, str]]:
     """Async wrapper — runs the sync Refine call in a dedicated thread pool.
     Returns (code, {"landscape": "W / H", "portrait": "W / H"})."""
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(
         _SCENE_EXECUTOR,
-        _generate_single_scene_sync,
-        brand_context,
-        design_system,
-        scene_type,
-        scene_index,
-        total_scenes,
-        scene_purpose,
+        functools.partial(
+            _generate_single_scene_sync,
+            brand_context,
+            design_system,
+            scene_type,
+            scene_index,
+            total_scenes,
+            scene_purpose,
+            no_thinking=no_thinking,
+        ),
     )
 
 
@@ -1518,7 +1536,22 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
                     "literal is well-formed with no stray characters]"
                 ),
             }
-            code, ar = await _generate_single_scene(**retry_kwargs)
+            # "Code is empty" means the LM's thinking pass ate the whole max_tokens
+            # budget before it wrote a single token of `code` (see
+            # get_custom_lm_no_thinking's docstring) — a syntax-fixup retry can't
+            # help that, it needs a completion that actually reaches the code
+            # field. Force thinking off for this retry so the budget goes straight
+            # to code instead of gambling on the same truncation again.
+            use_no_thinking = err == "Code is empty"
+            if use_no_thinking:
+                print(
+                    f"[F7-DEBUG] [CODEGEN] Scene {i} ({scene_labels[i]}) retry {retry}/{MAX_SCENE_RETRIES}: "
+                    f"previous attempt failed with 'Code is empty' — forcing thinking OFF "
+                    f"(get_custom_lm_no_thinking) for this retry"
+                )
+            code, ar = await _generate_single_scene(
+                **retry_kwargs, no_thinking=use_no_thinking
+            )
             valid, err = validate_component_code(code, scene_type=scene_types_simple[i])
             scenes[i] = code
             scene_aspect_ratios[i] = ar

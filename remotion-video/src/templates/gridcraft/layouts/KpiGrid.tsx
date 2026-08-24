@@ -4,6 +4,7 @@ import { GridcraftLayoutProps } from "../types";
 import { GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY } from "../constants";
 import { glass, COLORS } from "../utils/styles";
 import { ZoomCropImg } from "../components/ZoomCropImg";
+import { useFitText } from "../components/useFitText";
 
 // Animation Constants
 const CARD_STAGGER_DELAY = 12; // frames between each card's animation start
@@ -59,6 +60,62 @@ const formatAnimatedValue = (animatedNum: number, targetNum: number, suffix: str
     return `${formattedNum}${suffix}`;
 };
 
+/**
+ * One KPI tile's value + label. The tile is `aspectRatio:"1/1"` (or a fixed
+ * `minHeight` in portrait) — not a shrinkable measurable box — so both fit
+ * against a fraction of the tile's own size. The value is fitted against the
+ * FINAL formatted string (`finalValueForFit`), not the live count-up text:
+ * fitting the animating string would re-run the measurement every frame
+ * (churny and pointless, since the final string is always >= the in-progress
+ * one in digit count).
+ */
+const KpiValue: React.FC<{
+  displayedValue: string;
+  finalValueForFit: string;
+  fontSize: number;
+  isUserSet?: boolean;
+  p: boolean;
+  budgetPx: number;
+  style: React.CSSProperties;
+}> = ({ displayedValue, finalValueForFit, fontSize, isUserSet, p, budgetPx, style }) => {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const { px } = useFitText(
+    ref,
+    fontSize,
+    isUserSet ? fontSize : p ? 28 : 32,
+    [finalValueForFit, fontSize, isUserSet, budgetPx],
+    budgetPx,
+  );
+  return (
+    <div ref={ref} style={{ ...style, fontSize: px }}>
+      {displayedValue}
+    </div>
+  );
+};
+
+const KpiLabel: React.FC<{
+  label: string;
+  fontSize: number;
+  isUserSet?: boolean;
+  p: boolean;
+  budgetPx: number;
+  style: React.CSSProperties;
+}> = ({ label, fontSize, isUserSet, p, budgetPx, style }) => {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const { px } = useFitText(
+    ref,
+    fontSize,
+    isUserSet ? fontSize : p ? 14 : 15,
+    [label, fontSize, isUserSet, budgetPx],
+    budgetPx,
+  );
+  return (
+    <div ref={ref} style={{ ...style, fontSize: px }}>
+      {label}
+    </div>
+  );
+};
+
 export const KpiGrid: React.FC<GridcraftLayoutProps> = ({
   dataPoints,
   highlightIndex = 0,imageUrl,
@@ -74,10 +131,12 @@ export const KpiGrid: React.FC<GridcraftLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, height: videoHeight } = useVideoConfig();
 
   const items = dataPoints && dataPoints.length > 0 ? dataPoints : [
       { label: "Growth", value: "10x", trend: "up" },
@@ -91,6 +150,13 @@ export const KpiGrid: React.FC<GridcraftLayoutProps> = ({
 
   const imageOpacity = interpolate(frame, [5, 25], [0, 1], { extrapolateRight: "clamp" });
   const imageScale = spring({ frame: Math.max(0, frame - 5), fps, config: { damping: 14 } });
+
+  // Tiles are `aspectRatio:"1/1"` (landscape) or a fixed `minHeight` (portrait)
+  // — not shrinkable measurable boxes — so budget the value/label from a
+  // fraction of the tile's own edge length.
+  const tileEdgePx = p ? 150 : Math.max(1, (videoHeight * 0.8) / Math.min(items.length, 3));
+  const kpiValueBudgetPx = Math.max(1, tileEdgePx * 0.42);
+  const kpiLabelBudgetPx = Math.max(1, tileEdgePx * 0.24);
 
   return (
     <div
@@ -167,6 +233,9 @@ export const KpiGrid: React.FC<GridcraftLayoutProps> = ({
             }
           );
           const finalDisplayedValue = formatAnimatedValue(animatedNumber, targetValue, valueSuffix, item.value || "0");
+          // Stable string to fit against — the fully-counted-up value, so the
+          // font size doesn't recompute (and jitter) every frame of count-up.
+          const finalValueForFit = formatAnimatedValue(targetValue, targetValue, valueSuffix, item.value || "0");
 
           // --- Label fade-in animation ---
           const labelStartFrame = numberEndFrame + LABEL_FADE_DELAY_AFTER_NUMBER;
@@ -207,35 +276,44 @@ export const KpiGrid: React.FC<GridcraftLayoutProps> = ({
                   overflow: "hidden",
                 }}
               >
-                  <div style={{ 
-                      fontSize: titleFontSize ?? (p ? 57 : 75), 
-                      fontWeight: 700, 
-                      lineHeight: 1, 
+                  <KpiValue
+                    displayedValue={finalDisplayedValue}
+                    finalValueForFit={finalValueForFit}
+                    fontSize={titleFontSize ?? (p ? 57 : 75)}
+                    isUserSet={titleFontSizeIsUserSet}
+                    p={p}
+                    budgetPx={kpiValueBudgetPx}
+                    style={{
+                      fontWeight: 700,
+                      lineHeight: 1,
                       color: isAccent ? COLORS.WHITE : (textColor || COLORS.DARK),
                       marginBottom: 12,
                       textAlign: "center",
                       wordBreak: "break-word",
-                    }}>
-                      {finalDisplayedValue} {/* Use animated value */}
-                  </div>
-                  
+                    }}
+                  />
+
                   <div style={{ fontSize: 24, color: isAccent ? "rgba(255,255,255,0.8)" : trendColor }}>
                       {trendIcon}
                   </div>
 
-                  <div style={{ 
-                      marginTop: 12, 
-                      fontSize: descriptionFontSize ?? (p ? 30 : 39), 
-                      textTransform: "uppercase", 
+                  <KpiLabel
+                    label={item.label}
+                    fontSize={descriptionFontSize ?? (p ? 30 : 39)}
+                    isUserSet={descriptionFontSizeIsUserSet}
+                    p={p}
+                    budgetPx={kpiLabelBudgetPx}
+                    style={{
+                      marginTop: 12,
+                      textTransform: "uppercase",
                       letterSpacing: "0.1em",
                       opacity: labelOpacity, // Apply label opacity here
                       color: isAccent ? COLORS.WHITE : COLORS.MUTED,
                       textAlign: "center",
                       wordBreak: "break-word",
                       maxWidth: "100%",
-                   }}>
-                      {item.label}
-                  </div>
+                    }}
+                  />
               </div>
           )
       })}

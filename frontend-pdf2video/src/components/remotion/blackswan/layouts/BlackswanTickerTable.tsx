@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import type { BlackswanLayoutProps } from "../types";
 import { StarField, neonTitleTubeStyle } from "./scenePrimitives";
 import { rgbaFromHex } from "./blackswanAccent";
@@ -35,6 +36,8 @@ export const BlackswanTickerTable: React.FC<BlackswanLayoutProps> = ({
   aspectRatio = "landscape",
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   tickerTable,
   tickerTitle,
   tickerFootnote,
@@ -46,8 +49,17 @@ export const BlackswanTickerTable: React.FC<BlackswanLayoutProps> = ({
   const p = aspectRatio === "portrait";
   const font = fontFamily ?? DISPLAY_FONT;
 
-  const titleSize = titleFontSize ?? (p ? 80 : 65);
+  const titleTarget = titleFontSize ?? (p ? 80 : 65);
   const descSize = descriptionFontSize ?? (p ? 38 : 31);
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const tickerTitleRef = React.useRef<HTMLDivElement>(null);
+  const footnoteRef = React.useRef<HTMLDivElement>(null);
+  const { px: titleSize } = useFitText(titleRef, titleTarget, titleFontSizeIsUserSet ? titleTarget : Math.max(15, Math.round(titleTarget * 0.34)), [title, titleTarget, titleFontSizeIsUserSet, p, height], Math.round(height * (p ? 0.1 : 0.13)));
+  const secondaryTarget = Math.max(10, descSize - 4);
+  const footnoteTarget = Math.max(9, Math.round(descSize * 0.82));
+  const secondaryMin = descriptionFontSizeIsUserSet ? secondaryTarget : Math.max(9, Math.round(secondaryTarget * 0.4));
+  const { px: tickerTitleSize } = useFitText(tickerTitleRef, secondaryTarget, secondaryMin, [tickerTitle, secondaryTarget, secondaryMin, titleSize, p, height], Math.round(height * 0.06));
+  const { px: footnoteSize } = useFitText(footnoteRef, footnoteTarget, descriptionFontSizeIsUserSet ? footnoteTarget : Math.max(9, Math.round(footnoteTarget * 0.4)), [tickerFootnote, narration, footnoteTarget, descriptionFontSizeIsUserSet, p, height], Math.round(height * 0.08));
 
   const GRID_LINE = rgbaFromHex(accentColor, 0.12);
   const PANEL_BG = rgbaFromHex(accentColor, 0.05);
@@ -96,11 +108,11 @@ export const BlackswanTickerTable: React.FC<BlackswanLayoutProps> = ({
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", padding: p ? "8% 7%" : "5% 7%", gap: 0, zIndex: 10 }}>
         {/* Title block */}
         <div style={{ opacity: titleOp, flexShrink: 0, marginBottom: Math.round(height * 0.022), alignSelf: fewCols ? "center" : "stretch", textAlign: fewCols ? "center" : "left", width: tableWidthCap, maxWidth: "100%" }}>
-          <div style={{ fontFamily: font, fontWeight: 700, fontSize: titleSize, lineHeight: 1.05, ...neonTitleTubeStyle(accentColor, { bgColor }) }}>
+          <div ref={titleRef} style={{ fontFamily: font, fontWeight: 700, fontSize: titleSize, lineHeight: 1.05, ...neonTitleTubeStyle(accentColor, { bgColor }) }}>
             {title}
           </div>
           {tickerTitle && (
-            <div style={{ fontFamily: font, fontSize: descSize - 4, color: accentColor, opacity: 0.75, marginTop: 6, letterSpacing: "0.06em" }}>
+            <div ref={tickerTitleRef} style={{ fontFamily: font, fontSize: tickerTitleSize, color: accentColor, opacity: 0.75, marginTop: 6, letterSpacing: "0.06em" }}>
               {tickerTitle}
             </div>
           )}
@@ -146,7 +158,7 @@ export const BlackswanTickerTable: React.FC<BlackswanLayoutProps> = ({
 
         {/* Footnote */}
         {(tickerFootnote || narration) && (
-          <div style={{ opacity: footnoteOp * 0.55, flexShrink: 0, marginTop: Math.round(height * 0.014), fontFamily: font, fontSize: Math.round(descSize * 0.82), color: accentColor, lineHeight: 1.4, letterSpacing: "0.03em" }}>
+          <div ref={footnoteRef} style={{ opacity: footnoteOp * 0.55, flexShrink: 0, marginTop: Math.round(height * 0.014), fontFamily: font, fontSize: footnoteSize, color: accentColor, lineHeight: 1.4, letterSpacing: "0.03em", overflowWrap: "break-word", wordBreak: "break-word" }}>
             {tickerFootnote || narration}
           </div>
         )}

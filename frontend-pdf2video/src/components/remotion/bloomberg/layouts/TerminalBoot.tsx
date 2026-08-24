@@ -1,4 +1,6 @@
+import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY, derivePalette } from "../constants";
 import type { BloombergLayoutProps } from "../types";
 
@@ -58,6 +60,21 @@ export const TerminalBoot: React.FC<BloombergLayoutProps> = ({
   const tSize = titleFontSize ?? Math.round(dSize * (p ? 2.9 : 2.7));
   const logSize = dSize * 0.72;
   const labelSize = dSize * 0.4;
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const narrationRef = React.useRef<HTMLDivElement>(null);
+  const logMeasureRef = React.useRef<HTMLDivElement>(null);
+  const titleTarget = tSize * 0.56;
+  // Keep ordinary narration at the configured description size. Only reduce
+  // it when the copy actually exceeds the narration band below the boot log.
+  const narrationTarget = dSize;
+  // Floors were hardcoded absolute px, not proportional to target size, so
+  // longer copy could shrink well past legible before the fitter gave up.
+  const titleFloor = Math.max(20, Math.round(titleTarget * 0.4));
+  const narrationFloor = Math.max(16, Math.round(narrationTarget * 0.45));
+  const logFloor = Math.max(14, Math.round(logSize * 0.5));
+  const { px: fittedTitleSize } = useFitText(titleRef, titleTarget, titleFloor, [title, titleTarget, titleFloor, p, safeH], Math.round(safeH * 0.18));
+  const { px: fittedNarrationSize } = useFitText(narrationRef, narrationTarget, narrationFloor, [narration, narrationTarget, narrationFloor, p, safeH], Math.round(safeH * 0.3));
+  const { px: fittedLogSize } = useFitText(logMeasureRef, logSize, logFloor, [bootLines.join("\n"), logSize, logFloor, p, safeH], Math.round(safeH * 0.4));
 
   const barPx = p ? 18 : 14; // dot size in progress bars
   const totalBars = 20;
@@ -66,6 +83,8 @@ export const TerminalBoot: React.FC<BloombergLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff, overflow: "hidden" }}>
+      {/* Full-copy boot-log mirror: animated rows are measured before capture. */}
+      <div ref={logMeasureRef} style={{ position: "absolute", visibility: "hidden", width: p ? "82%" : "60%", fontSize: logSize, lineHeight: 1.9, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{bootLines.join("\n")}</div>
       {/* Subtle horizontal scanlines */}
       <div style={{
         position: "absolute", inset: 0,
@@ -110,15 +129,16 @@ export const TerminalBoot: React.FC<BloombergLayoutProps> = ({
         overflow: "hidden",
         opacity: panelOpacity,
       }}>
-      <div style={{ width: p ? "88%" : "64%" }}>
+      <div style={{ width: p ? "88%" : "64%", maxHeight: "100%", display: "flex", flexDirection: "column", justifyContent: "center", minHeight: 0 }}>
         {/* Title */}
-        <div style={{
+        <div ref={titleRef} style={{
           display: "flex", alignItems: "center", justifyContent: "center", gap: 14,
-          color: amber, fontSize: tSize * 0.56,
-          letterSpacing: 2, marginBottom: 22,
+          color: amber, fontSize: fittedTitleSize, lineHeight: 1.12,
+          letterSpacing: 2, marginBottom: 22, minWidth: 0,
+          textAlign: "center", overflowWrap: "anywhere",
         }}>
-          <TerminalGlyph color={amber} size={tSize * 0.5} />
-          <span>{title}</span>
+          <TerminalGlyph color={amber} size={Math.min(tSize * 0.5, fittedTitleSize * 0.9)} />
+          <span style={{ minWidth: 0 }}>{title}</span>
         </div>
 
         {/* Connecting line with ticking dots */}
@@ -175,7 +195,7 @@ export const TerminalBoot: React.FC<BloombergLayoutProps> = ({
                 opacity: lineOpacity,
                 display: "flex", alignItems: "center", gap: 14,
                 color: isPrompt ? amber : done ? amber : muted,
-                fontSize: logSize,
+                fontSize: fittedLogSize,
                 lineHeight: 1.9,
                 letterSpacing: 1,
                 backgroundColor: justDone ? `${amber}15` : "transparent",
@@ -215,12 +235,12 @@ export const TerminalBoot: React.FC<BloombergLayoutProps> = ({
           {/* Blinking prompt cursor */}
           <div style={{
             marginTop: p ? 16 : 12,
-            color: amber, fontSize: logSize, letterSpacing: 1,
+            color: amber, fontSize: fittedLogSize, letterSpacing: 1,
             opacity: interpolate(frame, [bootLines.length * lineStagger + 14, bootLines.length * lineStagger + 24], [0, 1], { extrapolateRight: "clamp" }),
           }}>
             ALL SYSTEMS NOMINAL.{" "}
             <span style={{
-              display: "inline-block", width: logSize * 0.55, height: logSize * 0.9,
+              display: "inline-block", width: fittedLogSize * 0.55, height: fittedLogSize * 0.9,
               backgroundColor: cursorOn ? amber : "transparent",
               verticalAlign: "text-bottom",
               marginLeft: 4,
@@ -229,12 +249,14 @@ export const TerminalBoot: React.FC<BloombergLayoutProps> = ({
         </div>
 
         {/* Narration */}
-        <div style={{
+        <div ref={narrationRef} style={{
           color: muted,
-          fontSize: dSize * 0.65,
+          fontSize: fittedNarrationSize,
           marginTop: 22,
+          lineHeight: 1.35,
           letterSpacing: 1,
           textAlign: "center",
+          overflowWrap: "anywhere",
           opacity: interpolate(frame, [bootLines.length * lineStagger + 20, bootLines.length * lineStagger + 35], [0, 1], { extrapolateRight: "clamp" }),
         }}>
           {narration}

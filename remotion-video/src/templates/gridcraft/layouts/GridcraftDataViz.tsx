@@ -10,6 +10,7 @@ import {
   Line,
   ReferenceDot,
   ReferenceLine,
+  ResponsiveContainer,
   XAxis,
   YAxis,
 } from "recharts";
@@ -34,7 +35,7 @@ import {
   clampProgressAt,
 } from "../../_shared/chartData";
 import { LineChartEndCallouts, lineChartCalloutMargin } from "../../_shared/LineChartEndCallouts";
-import { MeasuredChart } from "../../_shared/MeasuredChart";
+import { useFitText } from "../components/useFitText";
 
 /**
  * GridcraftDataViz — data-visualization scene (line / bar / histogram) driven by
@@ -65,6 +66,8 @@ export const GridcraftDataViz: React.FC<GridcraftLayoutProps> = ({
   fontFamily,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   chartSummary = "",
   subtitle = "",
   chartYAxisTicks = [],
@@ -91,6 +94,30 @@ export const GridcraftDataViz: React.FC<GridcraftLayoutProps> = ({
   const chartTickSize = Math.round(descSize * 0.8);
   const chartAxisLabelSize = Math.round(descSize * 0.68);
   const VALUE_LABEL_FS = Math.round(descSize * 0.56);
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user/LLM text sitting in fixed-fraction
+     rows above/below the flex-1 chart area (not shrinkable measurable boxes),
+     so budget each from a fraction of the frame height. Independent budgets:
+     the two never compete for the same space (chart area absorbs the rest). */
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const narrationRef = React.useRef<HTMLDivElement>(null);
+  const titleBudgetPx = Math.round(height * (p ? 0.14 : 0.16));
+  const { px: titlePx } = useFitText(
+    titleRef,
+    titleSize,
+    titleFontSizeIsUserSet ? titleSize : p ? 30 : 26,
+    [title, titleSize, titleFontSizeIsUserSet, titleBudgetPx, p],
+    titleBudgetPx,
+  );
+  const narrationBudgetPx = Math.round(height * (p ? 0.1 : 0.12));
+  const { px: narrationPx } = useFitText(
+    narrationRef,
+    descSize * 0.82,
+    descriptionFontSizeIsUserSet ? descSize * 0.82 : p ? 16 : 13,
+    [narration, descSize, descriptionFontSizeIsUserSet, narrationBudgetPx, titlePx, p],
+    narrationBudgetPx,
+  );
 
   const AXIS_LINE_STYLE = { stroke: `${textColor}22`, strokeWidth: 1.2 };
   const TICK_LINE_STYLE = { stroke: `${textColor}22`, strokeWidth: 1.0 };
@@ -569,10 +596,11 @@ export const GridcraftDataViz: React.FC<GridcraftLayoutProps> = ({
         {/* Title */}
         <div style={{ opacity: ra, marginBottom: Math.round(height * 0.02) }}>
           <div
+            ref={titleRef}
             style={{
               fontFamily: font,
               fontWeight: 800,
-              fontSize: titleSize,
+              fontSize: titlePx,
               letterSpacing: "-0.02em",
               lineHeight: 1.08,
               color: textColor,
@@ -618,9 +646,9 @@ export const GridcraftDataViz: React.FC<GridcraftLayoutProps> = ({
                     )}
                   </div>
                 )}
-                <MeasuredChart>
+                <ResponsiveContainer width="100%" height="100%">
                   {renderChart()}
-                </MeasuredChart>
+                </ResponsiveContainer>
               </div>
             ) : (
               <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: font, color: COLORS.MUTED, fontSize: descSize, fontStyle: "italic" }}>
@@ -661,7 +689,7 @@ export const GridcraftDataViz: React.FC<GridcraftLayoutProps> = ({
         {/* Narration */}
         {narration && (
           <div style={{ opacity: Math.min(1, Math.max(0, (frame - 16) / 18)), marginTop: Math.round(height * 0.02) }}>
-            <div style={{ fontFamily: font, fontSize: descSize * 0.82, color: COLORS.MUTED, lineHeight: 1.45, overflowWrap: "break-word", wordBreak: "break-word" }}>
+            <div ref={narrationRef} style={{ fontFamily: font, fontSize: narrationPx, color: COLORS.MUTED, lineHeight: 1.45, overflowWrap: "break-word", wordBreak: "break-word" }}>
               {narration}
             </div>
           </div>

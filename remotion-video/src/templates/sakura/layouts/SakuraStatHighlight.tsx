@@ -2,6 +2,7 @@ import React from "react";
 import { useCurrentFrame, useVideoConfig, interpolate, spring, Img } from "remotion";
 import { SakuraClip } from "../components/SakuraClip";
 import { SceneLayoutProps } from "../types";
+import { useFitText } from "../components/useFitText";
 import {
   SAKURA,
   SAKURA_DISPLAY_FONT,
@@ -41,6 +42,8 @@ export const SakuraStatHighlight: React.FC<SceneLayoutProps> = (props) => {
     sceneDurationInFrames,
     titleFontSize,
     descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
     fontFamily,
   } = props;
   const p = aspectRatio === "portrait";
@@ -70,11 +73,46 @@ export const SakuraStatHighlight: React.FC<SceneLayoutProps> = (props) => {
   const statLabel = (props as any).statLabel ?? "";
   const context = (props as any).context ?? narration ?? "";
 
-  const statPx = titleFontSize ?? (p ? 190 : 240);
-  const contextPx = descriptionFontSize ?? (p ? 28 : 24);
-  // Stat label (gold caps caption under the number) scales off the context/body
-  // size so it tracks the display-text slider.
-  const statLabelPx = Math.max(16, Math.round(contextPx * 1.0));
+  // The generic Sakura metadata historically supplied a headline-sized default
+  // (76px landscape) here. That is appropriate for prose headings, but makes a
+  // hero metric look permanently shrunken even when it has ample room. Use the
+  // scene's display-size default unless the editor has genuinely overridden it.
+  const statTargetPx = titleFontSizeIsUserSet && titleFontSize != null
+    ? titleFontSize
+    : p ? 190 : 240;
+  const contextTargetPx = descriptionFontSize ?? (p ? 28 : 24);
+  const statMeasureRef = React.useRef<HTMLDivElement>(null);
+  const statLabelRef = React.useRef<HTMLDivElement>(null);
+  const contextRef = React.useRef<HTMLDivElement>(null);
+  // A single hero-number line is roughly `fontSize * lineHeight` tall. At
+  // 720p, 30% of the frame is only 216px, which is smaller than the default
+  // 240px stat's 228px line box and used to trigger shrinking unconditionally.
+  const statBudget = Math.max(
+    Math.round(height * (p ? 0.25 : 0.3)),
+    Math.ceil(statTargetPx * 1.02),
+  );
+  const { px: statPx } = useFitText(
+    statMeasureRef,
+    statTargetPx,
+    Math.max(48, Math.round(statTargetPx * 0.55)),
+    [stat, statTargetPx, titleFontSizeIsUserSet, p, width, height],
+    statBudget,
+  );
+  const statLabelTargetPx = Math.max(16, contextTargetPx);
+  const { px: statLabelPx } = useFitText(
+    statLabelRef,
+    statLabelTargetPx,
+    Math.max(18, Math.round(statLabelTargetPx * 0.7)),
+    [statLabel, statLabelTargetPx, p, height],
+    Math.max(Math.round(height * 0.1), Math.ceil(statLabelTargetPx * 1.3)),
+  );
+  const { px: contextPx } = useFitText(
+    contextRef,
+    contextTargetPx,
+    Math.max(18, Math.round(contextTargetPx * 0.58)),
+    [context, contextTargetPx, descriptionFontSizeIsUserSet, statPx, p, height],
+    Math.round(height * (p ? 0.28 : 0.34)),
+  );
 
   const cx = width / 2;
   const cy = height / 2 - (p ? 40 : 30);
@@ -361,6 +399,26 @@ export const SakuraStatHighlight: React.FC<SceneLayoutProps> = (props) => {
           padding: p ? "150px 80px" : "80px 160px",
         }}
       >
+        {/* The visible number counts up, so measure the final value in a hidden
+            mirror to keep its fitted size stable throughout the animation. */}
+        <div
+          ref={statMeasureRef}
+          aria-hidden
+          style={{
+            position: "absolute",
+            width: p ? "82%" : "76%",
+            visibility: "hidden",
+            pointerEvents: "none",
+            fontFamily: fontFamily ?? SAKURA_DISPLAY_FONT,
+            fontWeight: 700,
+            fontSize: statPx,
+            lineHeight: 0.95,
+            letterSpacing: "0.02em",
+            overflowWrap: "anywhere",
+          }}
+        >
+          {stat}
+        </div>
         <div
           style={{
             fontFamily: fontFamily ?? SAKURA_DISPLAY_FONT,
@@ -373,6 +431,8 @@ export const SakuraStatHighlight: React.FC<SceneLayoutProps> = (props) => {
             opacity: statOpacity,
             transform: `scale(${statScale})`,
             marginBottom: p ? 40 : 30,
+            maxWidth: "100%",
+            overflowWrap: "anywhere",
           }}
         >
           {displayedStat}
@@ -384,6 +444,7 @@ export const SakuraStatHighlight: React.FC<SceneLayoutProps> = (props) => {
 
         {statLabel ? (
           <div
+            ref={statLabelRef}
             style={{
               fontFamily: fontFamily ?? SAKURA_BODY_FONT,
               fontSize: statLabelPx,
@@ -394,6 +455,8 @@ export const SakuraStatHighlight: React.FC<SceneLayoutProps> = (props) => {
               opacity: labelReveal,
               transform: `translateY(${(1 - labelReveal) * 12}px)`,
               marginBottom: 20,
+              maxWidth: p ? "88%" : "78%",
+              overflowWrap: "anywhere",
             }}
           >
             {statLabel}
@@ -402,13 +465,17 @@ export const SakuraStatHighlight: React.FC<SceneLayoutProps> = (props) => {
 
         {context ? (
           <div
+            ref={contextRef}
             style={{
               fontFamily: fontFamily ?? SAKURA_BODY_FONT,
               fontStyle: "italic",
               fontSize: contextPx,
               color: hexToRgba(ink, 0.85),
               lineHeight: 1.65,
-              maxWidth: p ? 760 : 820,
+              // Use the open landscape width before reducing type. The former
+              // 820px cap created avoidable lines in a 1920px scene, causing
+              // the fitter to shrink copy while both sides remained empty.
+              maxWidth: p ? 760 : Math.min(1240, width * 0.68),
               opacity: contextReveal,
               transform: `translateY(${(1 - contextReveal) * 12}px)`,
             }}

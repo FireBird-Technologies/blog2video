@@ -1,5 +1,6 @@
 import React from "react";
 import { NewspaperClip, NEWSPRINT_FILTER } from "../components/NewspaperClip";
+import { useFitText } from "../components/useFitText";
 import {
   AbsoluteFill,
   interpolate,
@@ -138,6 +139,8 @@ export const NewsHeadline: React.FC<
   aspectRatio = "landscape",
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   stats,
   category,
   imageUrl,
@@ -152,7 +155,7 @@ export const NewsHeadline: React.FC<
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
-  const { durationInFrames, width: videoWidth } = useVideoConfig();
+  const { durationInFrames, width: videoWidth, height: videoHeight } = useVideoConfig();
   const p = aspectRatio === "portrait";
 
   /* 🎬 Unified Fade In / Fade Out */
@@ -189,6 +192,74 @@ export const NewsHeadline: React.FC<
   // trigger the no-image layout.
   const hasVisual = Boolean(imageUrl || videoUrl);
   const portraitNoImage = p && !hasVisual;
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Narration length is unbounded, so long copy would overflow the layout and
+     get clipped by the AbsoluteFill's overflow:hidden. Measure the real
+     leftover height and shrink to fit.
+
+     A size the user explicitly picked on the slider is honored exactly (even
+     if it overflows); only a size that came from meta.json defaults auto-fits.
+     Passing minPx === targetPx makes the hook a no-op while still calling it
+     unconditionally, as the Rules of Hooks require. */
+  const narrationRef = React.useRef<HTMLDivElement>(null);
+  const titleRef = React.useRef<HTMLDivElement>(null);
+
+  const actualTitleFontSize = titleFontSize ?? (p ? 77 : 68);
+
+  /* Stage 1 — the headline fits its own share of the column.
+     The title is `flex-shrink:0`, so its clientHeight always equals its content
+     height; measuring it against itself could never detect overflow. Give it an
+     explicit budget instead: a capped fraction of the container, leaving room
+     for the category block and the narration below it. A title that already
+     fits inside its share is left completely alone. */
+  const titleBudgetPx = React.useMemo(() => {
+    // Container height minus its vertical padding (percentages of the frame).
+    const padFrac = portraitNoImage ? 0.12 + 0.1 : p ? 0.15 : 0.14;
+    const inner = videoHeight * (1 - padFrac);
+    // The headline may claim at most this much of the usable column; the rest
+    // is reserved for the category chip, byline and narration.
+    return Math.max(1, inner * (portraitNoImage ? 0.42 : p ? 0.5 : 0.55));
+  }, [videoHeight, p, portraitNoImage]);
+
+  /* Stage 3 (fed back below) — when the narration bottoms out at its floor and
+     STILL overflows, the headline has to give up more room than its own share.
+     Tighten the title's budget by exactly the height the narration is short by. */
+  const [titleGiveBackPx, setTitleGiveBackPx] = React.useState(0);
+
+  // Drop any accumulated give-back when the copy or geometry changes, so a
+  // previous scene's squeeze never carries over into a fresh measurement.
+  React.useLayoutEffect(() => {
+    setTitleGiveBackPx(0);
+  }, [title, narration, actualTitleFontSize, actualDescriptionFontSize, titleBudgetPx, p, portraitNoImage, hasVisual]);
+
+  const { px: titlePx } = useFitText(
+    titleRef,
+    actualTitleFontSize,
+    titleFontSizeIsUserSet ? actualTitleFontSize : p ? 34 : 30,
+    [title, actualTitleFontSize, titleFontSizeIsUserSet, titleBudgetPx, titleGiveBackPx, p],
+    Math.max(1, titleBudgetPx - titleGiveBackPx),
+  );
+
+  /* Stage 2 — the narration fits whatever the (now-sized) headline leaves.
+     Keyed on titlePx so it re-measures after the headline settles. */
+  const { px: narrationPx, overflowPx: narrationOverflowPx } = useFitText(
+    narrationRef,
+    actualDescriptionFontSize,
+    descriptionFontSizeIsUserSet ? actualDescriptionFontSize : p ? 18 : 14,
+    [narration, actualDescriptionFontSize, descriptionFontSizeIsUserSet, titlePx, p, portraitNoImage, hasVisual],
+  );
+
+  /* Feed the narration's residual overflow back into the title budget, once.
+     Guarded by `> 0` and by only ever increasing, so this settles instead of
+     oscillating: each pass either frees enough room or stops at the title floor
+     (at which point the narration simply clips, as designed). */
+  React.useLayoutEffect(() => {
+    if (titleFontSizeIsUserSet) return;
+    if (narrationOverflowPx > 0) {
+      setTitleGiveBackPx((prev) => prev + narrationOverflowPx);
+    }
+  }, [narrationOverflowPx, titleFontSizeIsUserSet]);
 
   return (
     <AbsoluteFill style={{ overflow: "hidden", fontFamily: fontFamily ?? B_FONT }}>
@@ -292,6 +363,9 @@ export const NewsHeadline: React.FC<
           padding: portraitNoImage ? "12% 10% 10% 10%" : p ? "0 10% 15% 10%" : "7% 10%",
           zIndex: 10,
           opacity: contentOpacity,
+          // Let the narration shrink into the leftover space instead of
+          // pushing past the scene and being clipped.
+          minHeight: 0,
         }}
       >
         {/* CATEGORY + AUTHOR (from stats) */}
@@ -347,10 +421,11 @@ export const NewsHeadline: React.FC<
 
         {/* TITLE */}
         <div
+          ref={titleRef}
           style={{
             fontFamily: fontFamily ?? H_FONT,
             // Drastically increased portrait size for mobile impact
-            fontSize: titleFontSize ?? (p ? 77 : 68),
+            fontSize: titlePx,
             fontWeight: 800,
             lineHeight: 1.0,
             marginBottom: portraitNoImage ? 0 : p ? 40 : 36,
@@ -401,18 +476,29 @@ export const NewsHeadline: React.FC<
                     paddingTop: 24,
                     paddingBottom: 24,
                   }
-                : undefined
+                : // `flex-shrink:1` + `min-height:0` lets this shrink BELOW its
+                  // content height once the column overflows, which is what
+                  // gives the fitter a real band to measure. It never grows, so
+                  // short narration stays exactly where it sits today and the
+                  // parent's justifyContent semantics are untouched.
+                  { flex: "0 1 auto", minHeight: 0, overflow: "hidden", display: "flex" }
             }
           >
             <div
+              ref={narrationRef}
               style={{
-                fontSize: actualDescriptionFontSize,
+                fontSize: narrationPx,
                 fontWeight: 600,
                 color: textColor,
                 lineHeight: 1.4,
                 maxWidth: p ? "100%" : (imageUrl ? "50%" : "70%"),
                 opacity: 0.9,
                 textAlign: portraitNoImage ? "center" : undefined,
+                // Read the band, not the copy: without these the measured
+                // clientHeight would just be the text's own height.
+                height: "100%",
+                minHeight: 0,
+                overflow: "hidden",
               }}
             >
               {narration}

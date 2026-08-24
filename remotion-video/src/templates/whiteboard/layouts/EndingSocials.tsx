@@ -4,6 +4,7 @@ import { WhiteboardBackground } from "../WhiteboardBackground";
 import type { WhiteboardLayoutProps } from "../types";
 import { SocialIcons } from "../../SocialIcons";
 import { resolveCtas } from "../../shared/resolveCtas";
+import { useFitText } from "../components/useFitText";
 
 export const EndingSocials: React.FC<WhiteboardLayoutProps> = ({
   title,
@@ -19,10 +20,12 @@ export const EndingSocials: React.FC<WhiteboardLayoutProps> = ({
   aspectRatio,
   fontFamily,
   titleFontSize,
-  descriptionFontSize
+  descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
 }) => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, height } = useVideoConfig();
   const p = aspectRatio === "portrait";
 
   // --- Animation Timings ---
@@ -52,6 +55,29 @@ const swayRotation = interpolate(heavyBob, [-7, 7], [-4, 4]);
 
   const subtext = (narration ?? "").trim();
   const markerFont = (fontFamily ?? "").trim() || "'Patrick Hand', system-ui, sans-serif";
+
+  /* ── Auto-fit (title + subtext) ──────────────────────────────────
+     Both render the full prop text directly from frame 0 (only opacity/
+     translateY animate via `entrance`) — no slice-reveal — so they can be
+     measured directly. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitSubtextRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 80 : 64);
+  const fitSubtextTarget = descriptionFontSize ?? (p ? 36 : 28);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.4),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.18 : 0.22)),
+  );
+  const { px: fitSubtextPx } = useFitText(
+    fitSubtextRef,
+    fitSubtextTarget,
+    descriptionFontSizeIsUserSet ? fitSubtextTarget : Math.round(fitSubtextTarget * 0.5),
+    [subtext, fitSubtextTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * (p ? 0.14 : 0.16)),
+  );
 
   // CTA cards (1-3). Only render cards with toggle on + a link.
   const cards = resolveCtas({ ctas, ctaButtonText, websiteLink, showWebsiteButton }).filter(
@@ -89,15 +115,20 @@ const swayRotation = interpolate(heavyBob, [-7, 7], [-4, 4]);
         }}
       >
         {/* Title Section */}
-        <div style={{
-            fontSize: titleFontSize ?? (p ? 80 : 64),
+        <div
+          ref={fitTitleRef}
+          style={{
+            fontSize: fitTitlePx,
             fontWeight: 700,
             color: textColor || "#111111",
             fontFamily: markerFont,
             opacity: entrance,
             transform: `translateY(${interpolate(entrance, [0, 1], [20, 0])}px)`,
             lineHeight: 1.1,
-          }}>
+            width: "100%",
+            textAlign: "center",
+          }}
+        >
           {title}
         </div>
 
@@ -269,14 +300,19 @@ const swayRotation = interpolate(heavyBob, [-7, 7], [-4, 4]);
 
         {/* Subtext Section */}
         {subtext ? (
-          <div style={{
+          <div
+            ref={fitSubtextRef}
+            style={{
               marginTop: 30,
-              fontSize: descriptionFontSize ?? (p ? 36 : 28),
+              fontSize: fitSubtextPx,
               color: `${textColor || "#111111"}CC`,
               fontFamily: markerFont,
               opacity: entrance,
               maxWidth: 700,
-            }}>
+              width: "100%",
+              textAlign: "center",
+            }}
+          >
             {subtext}
           </div>
         ) : null}
