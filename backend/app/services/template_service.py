@@ -67,7 +67,13 @@ CHART_TICKER_TICKER_LAYOUT_IDS: frozenset[str] = frozenset(
 
 
 def is_builtin_chart_layout(layout: str) -> bool:
-    """True for a built-in data-viz chart layout or its bar/histogram variant."""
+    """True for a built-in data-viz chart layout or its bar/histogram variant.
+
+    NOTE: this is a PREFIX test, so a scene variant of a chart layout
+    (``data_visualisation__v2``, see get_layout_variants) would also match. That
+    is correct today — such a variant IS a chart layout — but it means chart
+    layouts cannot use the ``__vN`` variant suffix to mean anything else.
+    """
     return any(layout.startswith(chart) for chart in CHART_TICKER_CHART_LAYOUT_IDS)
 
 
@@ -393,6 +399,66 @@ def get_layouts_without_image(template_id: str) -> set[str]:
         return set()
     layouts = meta.get("layouts_without_image", [])
     return set(layouts) if isinstance(layouts, list) else set()
+
+
+def get_layout_variants(template_id: str) -> dict[str, list[str]]:
+    """Map each base layout ID to its list of visual variants, base first.
+
+    A variant is a sibling layout ID (``news_headline__v2``) that renders the same
+    scene in a different visual style and shares the base layout's prop schema.
+    Variants are declared in meta.json's ``layout_variants`` and are deliberately
+    NOT in ``valid_layouts`` — the layout planner must only ever pick base IDs.
+    The base is always element 0 of its own list, so "what can this scene be?" is
+    a single dict lookup with no special-casing of the base.
+    """
+    meta = _load_meta(template_id)
+    if not meta:
+        return {}
+    raw = meta.get("layout_variants") or {}
+    if not isinstance(raw, dict):
+        return {}
+    out: dict[str, list[str]] = {}
+    for base, variants in raw.items():
+        if not isinstance(base, str) or not isinstance(variants, list):
+            continue
+        ids = [v for v in variants if isinstance(v, str) and v.strip()]
+        if base not in ids:
+            ids = [base, *ids]
+        out[base] = ids
+    return out
+
+
+def get_variant_to_base(template_id: str) -> dict[str, str]:
+    """Every variant ID (including each base, mapping to itself) -> base layout ID."""
+    return {
+        variant: base
+        for base, ids in get_layout_variants(template_id).items()
+        for variant in ids
+    }
+
+
+def resolve_base_layout(template_id: str, layout: str) -> str:
+    """Collapse a variant layout ID to its base. Unknown IDs pass through unchanged.
+
+    Every consumer of the per-layout metadata (``layout_prop_schema``,
+    ``layouts_without_image``, image aspect ratios) is keyed by BASE layout, so
+    variants inherit their base's schema by resolving through here rather than
+    duplicating entries. That makes schema drift between a base and its variants
+    structurally impossible.
+    """
+    if not isinstance(layout, str) or "__" not in layout:
+        return layout
+    return get_variant_to_base(template_id).get(layout, layout)
+
+
+def get_all_renderable_layouts(template_id: str) -> set[str]:
+    """Every layout ID the RENDERER can dispatch: valid_layouts plus all variants.
+
+    Distinct from :func:`get_valid_layouts`, which is the smaller set the layout
+    PLANNER may pick from. Anything validating a stored/user-supplied layout ID
+    wants this; anything offering layouts to the LLM wants get_valid_layouts().
+    """
+    return get_valid_layouts(template_id) | set(get_variant_to_base(template_id))
 
 
 def get_hero_layout(template_id: str) -> str:

@@ -27,4 +27,6 @@ export const MAGAZINE_LAYOUT_REGISTRY: Record<MagazineLayoutType, React.FC<Scene
   colorblock: Colorblock,
   feature: Feature,
   comparison: Comparison,
+
+  // ── Visual variants — same props as their base, different composition ──
 };

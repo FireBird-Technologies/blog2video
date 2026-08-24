@@ -113,6 +113,9 @@ const DEFAULT_LAYOUTS = new Set([
   "ending_socials",
 ]);
 
+// Includes the `__vN` visual variants (see backend/templates/nightfall/meta.json
+// `layout_variants`). This is the STATIC fallback used before /projects/:id/layouts
+// resolves — a variant missing here renders as the fallback layout on first paint.
 const NIGHTFALL_LAYOUTS = new Set([
   "cinematic_title",
   "glass_narrative",
@@ -141,11 +144,16 @@ const GRIDCRAFT_LAYOUTS = new Set([
   "data_visualisation",
   "ticker_table",
   "ending_socials",
+  // Visual variants. VideoPreview coerces any layout id absent from this Set to the
+  // template's fallbackLayout, so a variant missing here silently renders the wrong
+  // scene with no compile error.
 ]);
 
 const SPOTLIGHT_LAYOUTS = new Set([
   "impact_title",
+  "impact_title__v2",
   "statement",
+  "statement__v2",
   "word_punch",
   "cascade_list",
   "stat_stage",
@@ -156,6 +164,7 @@ const SPOTLIGHT_LAYOUTS = new Set([
   "spotlight_table",
   "closer",
   "ending_socials",
+  "ending_socials__v2",
 ]);
 
 const MATRIX_LAYOUTS = new Set([
@@ -186,6 +195,9 @@ const MOSAIC_LAYOUTS = new Set([
   "ending_socials",
 ]);
 
+// Includes the `__vN` motion variants (see backend/templates/whiteboard/meta.json
+// `layout_variants`). This is the STATIC fallback used before /projects/:id/layouts
+// resolves; omitting variants here makes the first paint flash the fallback layout.
 const WHITEBOARD_LAYOUTS = new Set([
   "drawn_title",
   "marker_story",
@@ -201,10 +213,18 @@ const WHITEBOARD_LAYOUTS = new Set([
   "ending_socials",
 ]);
 
+// Includes the `__vN` visual variants (see backend/templates/newspaper/meta.json
+// `layout_variants`). This is the STATIC fallback used before /projects/:id/layouts
+// resolves — a variant missing here renders as the fallback layout on first paint.
 const NEWSPAPER_LAYOUTS = new Set([
   "news_headline",
+  "news_headline__v2",
+  "news_headline__v3",
   "article_lead",
+  "article_lead__v2",
+  "article_lead__v3",
   "pull_quote",
+  "pull_quote__v2",
   "data_snapshot",
   "fact_check",
   "news_timeline",
@@ -213,11 +233,17 @@ const NEWSPAPER_LAYOUTS = new Set([
   "perspective_split",
   "ticker_table",
   "ending_socials",
+  "ending_socials__v2",
 ]);
 
+// Includes the `__vN` visual variants (see backend/templates/newscast/meta.json
+// `layout_variants`). This is the STATIC fallback used before /projects/:id/layouts
+// resolves — a variant missing here renders as the fallback layout on first paint.
 const NEWSCAST_LAYOUTS = new Set([
   "opening",
+  "opening__v2",
   "anchor_narrative",
+  "anchor_narrative__v2",
   "live_metrics_board",
   "data_visualization",
   "briefing_code_panel",
@@ -227,6 +253,7 @@ const NEWSCAST_LAYOUTS = new Set([
   "segment_break",
   "field_image_focus",
   "ending_socials",
+  "ending_socials__v2",
 ]);
 const BLACKSWAN_LAYOUTS = new Set([
   "droplet_intro",
@@ -345,6 +372,8 @@ const SAKURA_LAYOUTS = new Set([
   "ending_socials",
   "sakura_data_visualization",
   "sakura_ticker",
+  // Visual variants — see the note on GRIDCRAFT_LAYOUTS above. The ending variant
+  // hangs off the canonical "ending_socials" id, not the sakura_-prefixed alias.
 ]);
 
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {

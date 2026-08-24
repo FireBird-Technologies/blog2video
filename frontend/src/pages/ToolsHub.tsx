@@ -4,7 +4,6 @@ import PublicHeader from "../components/public/PublicHeader";
 import Seo from "../components/seo/Seo";
 import { tools, toolsHub } from "../content/siteContent";
 import type { ToolCategory } from "../content/seoTypes";
-import { substackDirectoryPaths } from "../content/substackDirectory";
 import { toolsHubSchema } from "../seo/schema";
 
 const categoryLabels: Record<ToolCategory, string> = {
@@ -42,9 +41,6 @@ export default function ToolsHub() {
             <div className="mt-8 flex flex-wrap gap-3">
               <span className="rounded-full border border-purple-100 bg-white px-4 py-2 text-sm font-medium text-purple-700">
                 {tools.length} interactive tools
-              </span>
-              <span className="rounded-full border border-purple-100 bg-white px-4 py-2 text-sm font-medium text-purple-700">
-                {substackDirectoryPaths.length} directory pages
               </span>
               <span className="rounded-full border border-purple-100 bg-white px-4 py-2 text-sm font-medium text-purple-700">
                 Built for Medium, Substack, and writing-first workflows

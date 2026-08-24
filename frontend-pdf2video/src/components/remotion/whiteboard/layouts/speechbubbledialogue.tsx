@@ -358,7 +358,7 @@ export const SpeechBubbleDialogue: React.FC<WhiteboardLayoutProps> = ({
   const labelY = groundY + 28; // Labels below the ground
   const leftCX = 240;
   const rightCX = 460;
-  const fontSize = descriptionFontSize ?? (p ? 30 : 19); // Keep fontSize as is, it's user-configurable
+  const fontSize = descriptionFontSize ?? (p ? 30 : 17); // Keep fontSize as is, it's user-configurable
 
   // Scale bubble dimensions in the parent
   const bubbleInnerW = 210 * figureScale;

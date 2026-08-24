@@ -9,6 +9,7 @@ import {
   getMarketingPage,
   getPublicPaths,
   getRelatedBlogPosts,
+  getStructuredInternalLinks,
   getToolByPath,
   helpPosts,
   marketingPages,
@@ -17,13 +18,6 @@ import {
   tools,
   toolsHub,
 } from "../src/content/siteContent";
-import {
-  getSubstackDirectoryNichePath,
-  getSubstackDirectoryPage,
-  getSubstackNichePublications,
-  pricingLabels,
-  type SubstackDirectoryPage,
-} from "../src/content/substackDirectory";
 import type { BlogPost, HelpPost, MarketingPage, ToolDefinition } from "../src/content/seoTypes";
 import {
   normalizeSchemaForJsonLd,
@@ -39,8 +33,6 @@ import {
   helpPostSchema,
   marketingPageSchema,
   pricingSchema,
-  substackDirectoryNicheSchema,
-  substackDirectoryPublicationSchema,
   toolPageSchema,
   toolsHubSchema,
 } from "../src/seo/schema";
@@ -185,6 +177,24 @@ function renderToolsHubHtml(): string {
   return `<main><h1>${escapeHtml(toolsHub.heroTitle)}</h1><p>${escapeHtml(toolsHub.heroDescription)}</p>${toolsHtml}</main>`;
 }
 
+// Tool pages are the money pages, but until now their prerendered HTML shipped
+// with zero anchors — the related-pages rail and the "next step" CTA existed
+// only in `ToolPage.tsx`, i.e. only after hydration. That left every /tools/*
+// URL orphaned in the crawlable link graph while the blog posts that review
+// competing tools kept all the internal equity. Mirror the React output here.
+function renderToolPageLinksHtml(tool: ToolDefinition): string {
+  const related = getStructuredInternalLinks(tool.relatedPaths);
+  const relatedHtml = related.length
+    ? `<nav aria-label="Related pages"><h2>Related pages</h2><ul>${related
+        .map(
+          (link) =>
+            `<li><a href="${escapeHtml(link.path)}">${escapeHtml(link.label)}</a><p>${escapeHtml(link.description)}</p></li>`
+        )
+        .join("")}</ul></nav>`
+    : "";
+  return `<section><h2>Turn this finished article into video with Blog2Video</h2><p>Once this tool helps you shape the copy, headline, formatting, or angle, paste the same piece into Blog2Video and generate a narrated video from it.</p><p><a href="/blog-to-video">Try Blog2Video free</a></p><p><a href="/tools">Back to all free tools</a></p></section>${relatedHtml}`;
+}
+
 function renderToolPageHtml(tool: ToolDefinition): string {
   const sectionsHtml = tool.sections
     .map((s) => {
@@ -198,26 +208,7 @@ function renderToolPageHtml(tool: ToolDefinition): string {
   const proofHtml = tool.proofPoints?.length
     ? `<ul>${tool.proofPoints.map((p) => `<li>${escapeHtml(p)}</li>`).join("")}</ul>`
     : "";
-  return `<main><p>${escapeHtml(tool.eyebrow)}</p><h1>${escapeHtml(tool.heroTitle)}</h1><p>${escapeHtml(tool.heroDescription)}</p>${proofHtml}${sectionsHtml}${renderFaqHtml(tool.faq)}</main>`;
-}
-
-function renderSubstackDirectoryHtml(page: SubstackDirectoryPage): string {
-  if (page.kind === "publication") {
-    const { publication } = page;
-    const bestFor = publication.bestFor.length
-      ? `<ul>${publication.bestFor.map((b) => `<li>${escapeHtml(b)}</li>`).join("")}</ul>`
-      : "";
-    return `<main><article><h1>${escapeHtml(publication.name)}</h1><p>${escapeHtml(publication.tagline)}</p><p>${escapeHtml(publication.description)}</p><section><h2>Who it is for</h2><p>${escapeHtml(publication.audience)}</p>${bestFor}</section><section><h2>Publication details</h2><ul><li>Pricing: ${escapeHtml(pricingLabels[publication.pricingModel])}</li><li>Cadence: ${escapeHtml(publication.cadence)}</li><li>Tone: ${escapeHtml(publication.tone)}</li></ul><p>${escapeHtml(publication.differentiator)}</p></section>${renderFaqHtml(page.faq)}</article></main>`;
-  }
-
-  const { niche } = page;
-  const publicationsHtml = page.publications
-    .map(
-      (publication) =>
-        `<article><a href="/tools/substack-directory/publication/${publication.slug}"><h3>${escapeHtml(publication.name)}</h3></a><p>${escapeHtml(publication.tagline)}</p><p>${escapeHtml(pricingLabels[publication.pricingModel])} · ${escapeHtml(publication.cadence)}</p></article>`
-    )
-    .join("");
-  return `<main><h1>${escapeHtml(page.title)}</h1><p>${escapeHtml(page.description)}</p><p>${escapeHtml(niche.audience)}</p><p>${escapeHtml(niche.angle)}</p><section><h2>Publications</h2>${publicationsHtml}</section>${renderFaqHtml(page.faq)}</main>`;
+  return `<main><p>${escapeHtml(tool.eyebrow)}</p><h1>${escapeHtml(tool.heroTitle)}</h1><p>${escapeHtml(tool.heroDescription)}</p>${proofHtml}${sectionsHtml}${renderFaqHtml(tool.faq)}${renderToolPageLinksHtml(tool)}</main>`;
 }
 
 /**
@@ -252,30 +243,7 @@ function getAppHtml(routePath: string): string {
   const tool = getToolByPath(routePath);
   if (tool) return renderToolPageHtml(tool);
 
-  const directoryPage = getSubstackDirectoryPage(routePath);
-  if (directoryPage) return renderSubstackDirectoryHtml(directoryPage);
-
   return "";
-}
-
-// A pricing filter that resolves to the same publications as its parent niche is a
-// duplicate of that niche page. This happens when every publication in the niche
-// shares one pricing model, or when nothing matches and getSubstackNichePublications
-// falls back to returning the full list. Such pages stay crawlable and useful, but
-// they consolidate onto the parent niche instead of competing with it.
-function getDuplicatePricingParentPath(page: SubstackDirectoryPage): string | undefined {
-  if (page.kind !== "niche" || !page.pricing) return undefined;
-
-  const toKey = (publications: { slug: string }[]) =>
-    publications
-      .map((publication) => publication.slug)
-      .sort()
-      .join(",");
-
-  const parentKey = toKey(getSubstackNichePublications(page.niche));
-  if (toKey(page.publications) !== parentKey) return undefined;
-
-  return getSubstackDirectoryNichePath(page.niche.slug);
 }
 
 function getSeoPayload(routePath: string): SeoPayload {
@@ -400,30 +368,6 @@ function getSeoPayload(routePath: string): SeoPayload {
       description: tool.description,
       path: routePath,
       schema: toolPageSchema(tool),
-    };
-  }
-
-  const directoryPage = getSubstackDirectoryPage(routePath);
-  if (directoryPage) {
-    return {
-      title: directoryPage.title,
-      description: directoryPage.description,
-      path: routePath,
-      canonicalPath: getDuplicatePricingParentPath(directoryPage),
-      schema:
-        directoryPage.kind === "publication"
-          ? substackDirectoryPublicationSchema(
-              directoryPage.publication,
-              directoryPage.path,
-              directoryPage.faq
-            )
-          : substackDirectoryNicheSchema(
-              directoryPage.niche,
-              directoryPage.publications,
-              directoryPage.path,
-              directoryPage.faq,
-              directoryPage.pricing
-            ),
     };
   }
 

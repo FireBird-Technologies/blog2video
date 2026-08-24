@@ -2,6 +2,7 @@ import type { SocialsMap, SocialsRow } from "../SocialIcons";
 
 export type Stickman2LayoutType =
   | "chalk_title" | "night_walk" | "shooting_star" | "constellation_stats" | "moonphase_chart" | "shadow_comparison" | "signal_fire_scene" | "neon_countdown" | "lantern_dialogue" | "data_visualisation" | "ending_socials" | "ticker_table";
+  // Visual variants — same props as their base, different composition.
 
 export interface SceneLayoutProps {
   title: string;

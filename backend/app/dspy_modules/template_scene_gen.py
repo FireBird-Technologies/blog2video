@@ -1235,6 +1235,13 @@ class TemplateSceneGenerator:
         (object_array / string_array such as stats, socials, handles, ctas) —
         those must stay grounded in the source, never filled with example data.
         """
+        # Visual variants (`news_headline__v2`) share their base layout's schema
+        # entry by construction, so resolve to the base before the lookup. Matters
+        # on the regeneration path, where the layout comes from a stored
+        # descriptor that may already carry a variant ID.
+        from app.services.template_service import resolve_base_layout
+
+        layout = resolve_base_layout(self.template_id, layout)
         layout_meta = (self._meta or {}).get("layout_prop_schema", {}).get(layout, {})
         fields = layout_meta.get("fields", [])
         if not fields:

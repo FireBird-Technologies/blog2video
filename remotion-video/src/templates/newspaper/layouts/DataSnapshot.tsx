@@ -32,7 +32,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
   const items = stats.slice(0, 4);
 
   // Resolve description font size once for consistency
-  const resolvedDescriptionFontSize = descriptionFontSize ?? (p ? 36 : 22);
+  const resolvedDescriptionFontSize = descriptionFontSize ?? (p ? 25 : 22);
 
   /* ── Auto-fit ──────────────────────────────────────────────
      Title and caption are unbounded user input; long copy pushes the stat cards

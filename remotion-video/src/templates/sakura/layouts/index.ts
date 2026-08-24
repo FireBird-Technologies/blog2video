@@ -27,4 +27,6 @@ export const SAKURA_LAYOUT_REGISTRY: Record<SakuraLayoutType, React.FC<SceneLayo
   ending_socials: SakuraEndingSocials,
   sakura_data_visualization: SakuraDataChart,
   sakura_ticker: SakuraTable,
+  // Visual variants. Note the ending variant hangs off the canonical
+  // "ending_socials" id above, not the legacy "sakura_ending_socials" alias.
 };

@@ -107,6 +107,7 @@ export const GlassNarrative: React.FC<NewscastLayoutProps> = ({
   const foldRightX = interpolate(frame, [0, 14], [180, 0], { extrapolateRight: "clamp" });
   const timelineOpacity = interpolate(frame, [6, 16], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
+  const hasVisual = Boolean(imageUrl?.trim() || videoUrl?.trim());
   const cat = category ?? "WORLD AFFAIRS";
   const safeTickerItems = (tickerItems?.filter(Boolean) ?? []).slice(0, 4);
   const safeLowerTag = lowerThirdTag ?? "LIVE COVERAGE";
@@ -122,18 +123,27 @@ export const GlassNarrative: React.FC<NewscastLayoutProps> = ({
           position: "absolute",
           inset: 0,
           display: "flex",
+          // Portrait stacks image OVER text: three side-by-side columns in a 720px
+          // frame leave the image a sliver, so portrait goes vertical instead.
+          flexDirection: p && hasVisual ? "column" : "row",
           alignItems: "center",
-          justifyContent: "space-between",
-          padding: isNarrow ? "7% 4% 6% 6%" : "7% 6% 6% 6%",
-          gap: 18,
+          justifyContent: p && hasVisual ? "flex-start" : "space-between",
+          // Portrait reserves the bottom band where NewsCastChrome draws its
+          // lower-third + ticker, so the stacked text panel is never covered.
+          padding: p && hasVisual
+            ? "5% 4% 190px 4%"
+            : isNarrow ? "7% 4% 6% 6%" : "7% 6% 6% 6%",
+          gap: p && hasVisual ? 16 : 18,
           opacity,
         }}
       >
         <div
           style={{
             position: "relative",
-            width: isNarrow ? "62%" : "62%",
-            maxWidth: 860,
+            // With an image the frame is split roughly in half (landscape) or the
+            // panel spans full width under the image band (portrait).
+            width: hasVisual ? (p ? "100%" : "48%") : "62%",
+            maxWidth: hasVisual && !p ? 720 : 860,
             ...panelTumbleStyle(tumble),
             filter: `blur(${panelBlur}px)`,
             opacity: tumble.opacity,
@@ -200,8 +210,11 @@ export const GlassNarrative: React.FC<NewscastLayoutProps> = ({
             />
           ))}
 
-          {/* Body layout */}
-          <div style={{ display: "flex", gap: imageUrl ? 22 : 0, alignItems: "stretch" }}>
+          {/* Body layout — text only. The image used to live here at flex 40% of
+              this panel's inner width, which resolved to just ~23% of the frame
+              (297px on 1280) and vanished entirely in portrait. It is now a
+              full-height rail rendered as a sibling of this panel; see below. */}
+          <div style={{ display: "flex", gap: 0, alignItems: "stretch" }}>
             <div style={{ flex: 1, minWidth: 0, transform: `translateX(${foldLeftX}px)` }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, opacity: timelineOpacity }}>
                 <div style={{ width: 54, height: 2, background: `linear-gradient(90deg, ${GOLD}, transparent)` }} />
@@ -270,52 +283,81 @@ export const GlassNarrative: React.FC<NewscastLayoutProps> = ({
               ) : null}
             </div>
 
-            {(imageUrl || videoUrl) ? (
-              <div
-                style={{
-                  flex: "0 0 40%",
-                  minHeight: 0,
-                  borderRadius: 12,
-                  overflow: "hidden",
-                  alignSelf: "stretch",
-                  position: "relative",
-                  opacity: imageOpacity,
-                  transform: `translateX(${foldRightX}px) translateY(${imageY}px) scale(${imageScale})`,
-                }}
-              >
-                {videoUrl ? (
-                  <ZoomCropVideo
-                    src={videoUrl}
-                    imageObjectPosition={imageObjectPosition}
-                    imageZoom={imageZoom}
-                    muted={videoMuted ?? true}
-                    volume={videoVolume ?? 0.35}
-                    durationInFrames={videoDurationInFrames}
-                    startInFrames={videoStartInFrames}
-                  />
-                ) : (
-                  <ZoomCropImg
-                    src={imageUrl!}
-                    imageObjectPosition={imageObjectPosition}
-                    imageZoom={imageZoom}
-                    alt=""
-                  />
-                )}
-                <div
-                  aria-hidden
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    background: "linear-gradient(90deg, rgba(10,42,110,0) 0%, rgba(10,42,110,0.7) 65%, rgba(10,42,110,0.9) 100%)",
-                  }}
-                />
-              </div>
-            ) : null}
           </div>
           </div>
         </div>
 
-        {/* Right: bulletin rail */}
+        {/* Image panel — a substantial block, not a thin rail. Landscape: it takes
+            ~46% of the frame beside the text panel (the bulletin rail is dropped,
+            since three columns is what squeezed the image to a sliver). Portrait:
+            a full-width band ABOVE the text, ordered first via flex `order`. */}
+        {hasVisual ? (
+          <div
+            style={{
+              flex: p ? "0 0 42%" : "0 0 46%",
+              alignSelf: "stretch",
+              order: p ? -1 : 0,
+              width: p ? "100%" : undefined,
+              minWidth: 0,
+              minHeight: 0,
+              position: "relative",
+              borderRadius: 12,
+              overflow: "hidden",
+              border: `1px solid ${BORDER}`,
+              opacity: imageOpacity,
+              transform: `translateX(${foldRightX}px) translateY(${imageY}px) scale(${imageScale})`,
+            }}
+          >
+            {videoUrl ? (
+              <ZoomCropVideo
+                src={videoUrl}
+                imageObjectPosition={imageObjectPosition}
+                imageZoom={imageZoom}
+                muted={videoMuted ?? true}
+                volume={videoVolume ?? 0.35}
+                durationInFrames={videoDurationInFrames}
+                startInFrames={videoStartInFrames}
+              />
+            ) : (
+              <ZoomCropImg
+                src={imageUrl!}
+                imageObjectPosition={imageObjectPosition}
+                imageZoom={imageZoom}
+                alt=""
+              />
+            )}
+            {/* Light navy tint so the rail sits in the same world as the panels,
+                without the heavy 90% wash the old inset used. */}
+            <div
+              aria-hidden
+              style={{
+                position: "absolute",
+                inset: 0,
+                background:
+                  "linear-gradient(90deg, rgba(10,42,110,0.32) 0%, rgba(10,42,110,0.10) 45%, rgba(10,42,110,0.32) 100%)",
+              }}
+            />
+            <div
+              aria-hidden
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 3,
+                background: RED,
+                opacity: 0.95,
+              }}
+            />
+          </div>
+        ) : null}
+
+        {/* Right: bulletin rail — dropped entirely when an image is present. Three
+            columns is precisely what made the image a sliver; with the rail gone
+            the frame splits cleanly between text and a real image panel. Its
+            content is not lost: lowerThird* and tickerItems are already rendered
+            by the composition's NewsCastChrome on every non-hero scene. */}
+        {hasVisual ? null : (
         <div style={{ flex: "0 0 28%", minWidth: isNarrow ? 190 : 250, display: "flex", flexDirection: "column", gap: 12 }}>
           <div
             style={{
@@ -377,6 +419,7 @@ export const GlassNarrative: React.FC<NewscastLayoutProps> = ({
             </div>
           </div>
         </div>
+        )}
       </div>
     </AbsoluteFill>
   );

@@ -16,7 +16,6 @@ const frontends = [
   {
     name: "pdf2video",
     contentFiles: [
-      "frontend-pdf2video/src/content/blogPosts.ts",
       "frontend-pdf2video/src/content/blog/pipelinePosts.ts",
       "frontend-pdf2video/src/content/blog/convergentPosts.ts",
       "frontend-pdf2video/src/content/blog/documentTypePosts.ts",
@@ -41,9 +40,7 @@ function extractPosts(filePath) {
   const slugRe = /slug:\s*"([^"]+)"/g;
   const slugs = [];
   let m;
-  while ((m = slugRe.exec(text))) {
-    slugs.push({ slug: m[1], idx: m.index });
-  }
+  while ((m = slugRe.exec(text))) slugs.push({ slug: m[1], idx: m.index });
   const posts = [];
   for (let i = 0; i < slugs.length; i++) {
     const block = text.slice(slugs[i].idx, slugs[i + 1]?.idx ?? text.length);
@@ -61,11 +58,10 @@ function extractPosts(filePath) {
   return posts;
 }
 
+const report = {};
+
 for (const fe of frontends) {
   const publicDir = path.join(root, fe.publicDir);
-  const blogDir = path.join(publicDir, "blog");
-  if (!fs.existsSync(blogDir)) fs.mkdirSync(blogDir, { recursive: true });
-
   const seen = new Set();
   const noHero = [];
   const missing = [];
@@ -77,24 +73,15 @@ for (const fe of frontends) {
       if (seen.has(post.slug)) continue;
       seen.add(post.slug);
       if (!post.heroImage) {
-        noHero.push({ ...post, heroImage: `/blog/blog-cover-${post.slug}.png` });
+        noHero.push(post);
         continue;
       }
       const fp = resolveHero(publicDir, post.heroImage);
-      if (!fs.existsSync(fp)) {
-        missing.push({ ...post, dest: fp });
-      }
+      if (!fs.existsSync(fp)) missing.push({ ...post, dest: fp });
     }
   }
 
-  console.log(`\n=== ${fe.name} ===`);
-  console.log(`Posts without heroImage: ${noHero.length}`);
-  noHero.forEach((p) => console.log(`  ${p.slug} (${p.source})`));
-  console.log(`Posts with missing file: ${missing.length}`);
-  missing.forEach((p) => console.log(`  ${p.slug} -> ${p.heroImage}`));
-
-  fs.writeFileSync(
-    path.join(root, `scripts/audit-${fe.name}-missing-images.json`),
-    JSON.stringify({ noHero, missing }, null, 2),
-  );
+  report[fe.name] = { total: seen.size, noHero, missing };
 }
+
+console.log(JSON.stringify(report, null, 2));

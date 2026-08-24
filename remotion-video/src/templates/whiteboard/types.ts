@@ -1,5 +1,10 @@
 import type { SocialsMap } from "../SocialIcons";
 
+/**
+ * Layout IDs renderable by this template, including the `__vN` motion variants.
+ * Source of truth: `backend/templates/whiteboard/meta.json` `layout_variants`.
+ * Variants share their base layout's props and metadata and differ only in motion.
+ */
 export type WhiteboardLayoutType =
   | "drawn_title"
   | "marker_story"

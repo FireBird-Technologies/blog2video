@@ -1,9 +1,11 @@
-import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
+import React from "react";
+import { AbsoluteFill, Img, interpolate, useCurrentFrame, useVideoConfig, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
 import { AccentBars, SpotlightBeam, StreakField } from "../components/SpotlightArtifacts";
 import { SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
 import { ZoomCropVideo } from "../components/ZoomCropVideo";
+import { useFitText } from "../components/useFitText";
 
 /**
  * Statement — Sentence Drop
@@ -31,6 +33,7 @@ export const Statement: React.FC<SpotlightLayoutProps> = ({
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const fps = 30;
   const p = aspectRatio === "portrait";
   const displayFontFamily =
@@ -46,6 +49,25 @@ export const Statement: React.FC<SpotlightLayoutProps> = ({
     lines.length = 0;
     lines.push(words.slice(0, mid).join(" "), words.slice(mid).join(" "));
   }
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Lines are unbounded user input (narration or title, split into 1-2 lines
+     of huge display type) with no height cap today — long copy just grows past
+     the stage. The highlighted word renders 1.2x the base size, so a single
+     hidden mirror carrying all lines at their real word/highlight ratio is
+     measured, and the fitted px is applied to every word proportionally
+     (isHighlight ? 1.2x : 1x), keeping the emphasis ratio intact at any size. */
+  const fitRef = React.useRef<HTMLDivElement>(null);
+  const baseTargetPx = titleFontSize ?? (p ? 42 : 56);
+  const stackBudgetPx = Math.round(height * (p ? 0.55 : 0.6));
+  const { px: fittedBasePx } = useFitText(
+    fitRef,
+    baseTargetPx,
+    p ? 22 : 26,
+    [lines.join("|"), baseTargetPx, stackBudgetPx, highlightWord],
+    stackBudgetPx,
+  );
+  const highlightScale = titleFontSize ? 1.2 : (p ? 50 / 42 : 66 / 56);
 
   const imageOpacity = interpolate(frame, [10, 35], [0, 1], {
     extrapolateRight: "clamp",
@@ -116,7 +138,52 @@ export const Statement: React.FC<SpotlightLayoutProps> = ({
           </div>
         )}
 
-        <div style={{ width: p ? "100%" : "58%" }}>
+        <div style={{ width: p ? "100%" : "58%", position: "relative" }}>
+          {/* Measurement mirror: same lines/words/highlight ratio as the visible
+              content, hidden and off-flow, so the fitter can read its natural
+              height without fighting the spring entrance transforms below.
+              Children use `em` so the hook's own fontSize probe on this
+              wrapper (which it sets directly during the binary search) is
+              what actually changes their rendered size — an explicit px value
+              on the children would ignore the probe and freeze the measurement. */}
+          <div
+            ref={fitRef}
+            aria-hidden
+            style={{
+              position: "absolute",
+              inset: 0,
+              visibility: "hidden",
+              pointerEvents: "none",
+              fontSize: fittedBasePx,
+            }}
+          >
+            {lines.map((line, i) => {
+              const words = line.trim().split(" ");
+              return (
+                <div key={i} style={{ lineHeight: 1.15, marginBottom: 4, textAlign: p ? "center" : "left" }}>
+                  {words.map((word, wi) => {
+                    const isHighlight =
+                      highlightWord &&
+                      word.toLowerCase().replace(/[.,!?]/g, "") === highlightWord.toLowerCase();
+                    return (
+                      <span
+                        key={wi}
+                        style={{
+                          fontSize: isHighlight ? `${highlightScale}em` : "1em",
+                          fontWeight: 800,
+                          fontFamily: displayFontFamily,
+                          letterSpacing: isHighlight ? "-0.04em" : "-0.02em",
+                          display: "inline",
+                        }}
+                      >
+                        {word}{" "}
+                      </span>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
           {lines.map((line, i) => {
             const lineSpring = spring({
               frame: frame - i * 8,
@@ -147,8 +214,8 @@ export const Statement: React.FC<SpotlightLayoutProps> = ({
                       key={wi}
                       style={{
                         fontSize: isHighlight
-                          ? titleFontSize ? Math.round(titleFontSize * 1.2) : (p ? 50 : 66)
-                          : titleFontSize ?? (p ? 42 : 56),
+                          ? Math.round(fittedBasePx * highlightScale)
+                          : fittedBasePx,
                         fontWeight: 800,
                         color: isHighlight ? accentColor : textColor || "#FFFFFF",
                         fontFamily: displayFontFamily,

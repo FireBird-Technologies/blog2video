@@ -99,13 +99,15 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
   const separatorAnim = getPopUpStyles(currentDelay);
   currentDelay += itemSpacing;
 
-  let ctaTextAnim: ReturnType<typeof getPopUpStyles> | undefined;
-  let ctaLinkAnim: ReturnType<typeof getPopUpStyles> | undefined;
+  // Each card pops in after the one before it, so multiple CTAs read as a
+  // sequence instead of all three scaling up in lockstep.
+  const ctaBaseDelay = currentDelay;
+  const ctaAnimFor = (idx: number) => ({
+    text: getPopUpStyles(ctaBaseDelay + idx * itemSpacing * 2),
+    link: getPopUpStyles(ctaBaseDelay + idx * itemSpacing * 2 + itemSpacing),
+  });
   if (hasAnyCard) {
-    ctaTextAnim = getPopUpStyles(currentDelay);
-    currentDelay += itemSpacing;
-    ctaLinkAnim = getPopUpStyles(currentDelay);
-    currentDelay += itemSpacing;
+    currentDelay += cards.length * itemSpacing * 2;
   }
 
   const socialAnim = getPopUpStyles(currentDelay);
@@ -175,49 +177,52 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
           width: "92%",
           zIndex: 2,
         }}>
-          {cards.map((card, idx) => (
-            <div
-              key={idx}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                flex: cardCount === 1 ? "0 1 auto" : "1 1 0",
-                minWidth: 220,
-                maxWidth: cardCount === 1 ? "100%" : cardCount === 2 ? "46%" : "32%",
-              }}
-            >
-              <div style={{
-                color: accentColor || "#7C3AED",
-                fontSize: cardCount === 1 ? resolvedCtaSize : Math.max(36, resolvedCtaSize - 28),
-                fontWeight: 900,
-                lineHeight: 1,
-                fontFamily: bodyFont,
-                textAlign: "center",
-                textTransform: "uppercase",
-                marginInline: 15,
-                ...ctaTextAnim,
-              }}>
-                {card.ctaButtonText.trim() || "Get started"}
+          {cards.map((card, idx) => {
+            const cardAnim = ctaAnimFor(idx);
+            return (
+              <div
+                key={idx}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  flex: cardCount === 1 ? "0 1 auto" : "1 1 0",
+                  minWidth: 220,
+                  maxWidth: cardCount === 1 ? "100%" : cardCount === 2 ? "46%" : "32%",
+                }}
+              >
+                <div style={{
+                  color: accentColor || "#7C3AED",
+                  fontSize: cardCount === 1 ? resolvedCtaSize : Math.max(36, resolvedCtaSize - 28),
+                  fontWeight: 900,
+                  lineHeight: 1,
+                  fontFamily: bodyFont,
+                  textAlign: "center",
+                  textTransform: "uppercase",
+                  marginInline: 15,
+                  ...cardAnim.text,
+                }}>
+                  {card.ctaButtonText.trim() || "Get started"}
+                </div>
+                <div style={{
+                  marginTop: 10,
+                  padding: "10px 20px",
+                  marginInline: 15,
+                  fontSize: cardCount === 1 ? (p ? 28 : 26) : (p ? 22 : 20),
+                  fontWeight: 600,
+                  color: textColor || "#FFFFFF",
+                  fontFamily: bodyFont,
+                  textAlign: "center",
+                  maxWidth: "100%",
+                  whiteSpace: "normal",
+                  overflowWrap: "break-word",
+                  ...cardAnim.link,
+                }}>
+                  {card.websiteLink}
+                </div>
               </div>
-              <div style={{
-                marginTop: 10,
-                padding: "10px 20px",
-                marginInline: 15,
-                fontSize: cardCount === 1 ? (p ? 28 : 26) : (p ? 22 : 20),
-                fontWeight: 600,
-                color: textColor || "#FFFFFF",
-                fontFamily: bodyFont,
-                textAlign: "center",
-                maxWidth: "100%",
-                whiteSpace: "normal",
-                overflowWrap: "break-word",
-                ...ctaLinkAnim,
-              }}>
-                {card.websiteLink}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

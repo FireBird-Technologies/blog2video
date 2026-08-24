@@ -810,7 +810,10 @@ const HERO_LAYOUTS_FROM = new Set<string>(["sakura_intro"]);
 // Accept both the Sakura-prefixed id and the canonical "ending_socials" id the
 // backend emits for the appended ending scene, so the clean petal-free fade fires
 // either way.
-const HERO_LAYOUTS_TO = new Set<string>(["sakura_ending_socials", "ending_socials"]);
+const HERO_LAYOUTS_TO = new Set<string>([
+  "sakura_ending_socials",
+  "ending_socials",
+]);
 
 // Flower-transition pool, cycled by boundary index. Ordered so adjacent picks
 // read as clearly different families (petal / craft / geometric).

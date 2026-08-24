@@ -3,6 +3,9 @@ import { useVideoConfig, interpolate, spring } from "remotion";
 import { SceneLayoutProps } from "../types";
 import { SocialIcons } from "../../SocialIcons";
 import { useFitText } from "../components/useFitText";
+// NOTE for the render tree: resolveCtas lives at ../../shared/resolveCtas there.
+// This is the ONLY line that differs between the two copies of this file.
+import { resolveCtas } from "../../shared/resolveCtas";
 import {
   SAKURA,
   SAKURA_DISPLAY_FONT,
@@ -56,6 +59,24 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
   // websiteLink) so the CTA box and website line populate on generated videos.
   const ctaText = (props as any).ctaText ?? (props as any).ctaButtonText ?? "";
   const websiteUrl = (props as any).websiteUrl ?? (props as any).websiteLink ?? "";
+  /**
+   * Up to three CTAs. This scene used to read ONLY the single `ctaText` above, so
+   * a `ctas` array silently rendered just its first entry. `resolveCtas` reads the
+   * array when present and falls back to the legacy single-CTA fields.
+   * A lone legacy CTA is honoured even with no link, since that is what the sakura
+   * pipeline has always emitted here; in the multi case a card needs a label or a
+   * link and must be toggled on.
+   */
+  const ctaCards = resolveCtas({
+    ctas: (props as any).ctas,
+    ctaButtonText: ctaText,
+    websiteLink: websiteUrl,
+    showWebsiteButton: (props as any).showWebsiteButton,
+  }).filter((c, _i, arr) =>
+    arr.length === 1
+      ? c.ctaButtonText.trim().length > 0
+      : c.showWebsiteButton && (c.ctaButtonText.trim().length > 0 || c.websiteLink.length > 0),
+  );
   const socialHandles: string[] = (props as any).socialHandles ?? [];
 
   const titleTargetPx = titleFontSize ?? (p ? 80 : 64);
@@ -294,65 +315,125 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
 
         {/* CTA box with corner blossoms — auto-sizes to hug the text so the
             crimson border always contains it, capped so it can't run off-frame */}
-        {ctaText ? (
+        {ctaCards.length > 0 ? (
           <div
             style={{
-              position: "relative",
-              width: "auto",
-              height: "auto",
-              minWidth: p ? 320 : 300,
-              maxWidth: p ? "82%" : boxW,
-              padding: p ? "20px 34px" : "16px 30px",
-              boxSizing: "border-box",
-              border: `1.8px solid ${crimson}`,
               display: "flex",
-              alignItems: "center",
+              flexWrap: "wrap",
+              alignItems: "stretch",
               justifyContent: "center",
-              opacity: ctaReveal,
-              transform: `scale(${0.9 + 0.1 * ctaReveal})`,
+              // The boxes carry corner blossoms that overhang by 12px on each
+              // side, so adjacent boxes need >24px of gap or the petals collide.
+              gap: p ? 30 : 40,
+              maxWidth: p ? "92%" : "94%",
               marginBottom: 34,
             }}
           >
-            {[
-              { pos: { left: -12, top: -12 }, rot: 0 },
-              { pos: { right: -12, top: -12 }, rot: 90 },
-              { pos: { left: -12, bottom: -12 }, rot: -90 },
-              { pos: { right: -12, bottom: -12 }, rot: 180 },
-            ].map((c, i) => (
-              <svg
-                key={i}
-                width={22}
-                height={22}
-                viewBox="0 0 22 22"
+            {ctaCards.map((card, ci) => (
+              <div
+                key={ci}
                 style={{
-                  position: "absolute",
-                  ...c.pos,
-                  overflow: "visible",
-                  transform: `scale(${cornerPetalScale(i)})`,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 10,
+                  minWidth: 0,
                 }}
               >
-                <SoftPetal cx={11} cy={11} r={9} rotation={c.rot} color={crimson} centerColor={SAKURA.gold} />
-              </svg>
+                <div
+                  style={{
+                    position: "relative",
+                    width: "auto",
+                    height: "auto",
+                    // Several boxes share the row, so the generous single-CTA
+                    // minWidth would push them off-frame.
+                    minWidth: ctaCards.length > 1 ? (p ? 180 : 200) : p ? 320 : 300,
+                    maxWidth: p ? "82%" : boxW,
+                    padding:
+                      ctaCards.length > 1
+                        ? p
+                          ? "16px 26px"
+                          : "14px 26px"
+                        : p
+                          ? "20px 34px"
+                          : "16px 30px",
+                    boxSizing: "border-box",
+                    border: `1.8px solid ${crimson}`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    opacity: ctaReveal,
+                    transform: `scale(${0.9 + 0.1 * ctaReveal})`,
+                  }}
+                >
+                  {[
+                    { pos: { left: -12, top: -12 }, rot: 0 },
+                    { pos: { right: -12, top: -12 }, rot: 90 },
+                    { pos: { left: -12, bottom: -12 }, rot: -90 },
+                    { pos: { right: -12, bottom: -12 }, rot: 180 },
+                  ].map((c, i) => (
+                    <svg
+                      key={i}
+                      width={22}
+                      height={22}
+                      viewBox="0 0 22 22"
+                      style={{
+                        position: "absolute",
+                        ...c.pos,
+                        overflow: "visible",
+                        transform: `scale(${cornerPetalScale(i)})`,
+                      }}
+                    >
+                      <SoftPetal cx={11} cy={11} r={9} rotation={c.rot} color={crimson} centerColor={SAKURA.gold} />
+                    </svg>
+                  ))}
+                  <div
+                    style={{
+                      fontFamily: fontFamily ?? SAKURA_BODY_FONT,
+                      // The wide letter-spacing is the look here, so shrink the
+                      // type rather than the tracking when boxes share a row.
+                      fontSize: ctaCards.length > 1 ? ctaPx * 0.82 : ctaPx,
+                      color: ink,
+                      // Ease the tracking when boxes share a row — at 0.5em three
+                      // labels run tight against their borders.
+                      letterSpacing: ctaCards.length > 1 ? "0.3em" : "0.5em",
+                      textTransform: "uppercase",
+                      textIndent: ctaCards.length > 1 ? "0.3em" : "0.5em",
+                      textAlign: "center",
+                      lineHeight: 1.25,
+                    }}
+                  >
+                    {card.ctaButtonText.trim() || "Get started"}
+                  </div>
+                </div>
+                {/* Each CTA has its own link, so with several of them the single
+                    website line below cannot say where any one of them goes. */}
+                {ctaCards.length > 1 && card.websiteLink ? (
+                  <div
+                    style={{
+                      fontFamily: fontFamily ?? SAKURA_DETAIL_FONT,
+                      fontSize: websitePx * 0.92,
+                      color: SAKURA.gold,
+                      letterSpacing: "0.12em",
+                      maxWidth: "100%",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      opacity: ctaReveal,
+                    }}
+                  >
+                    {card.websiteLink}
+                  </div>
+                ) : null}
+              </div>
             ))}
-            <div
-              style={{
-                fontFamily: fontFamily ?? SAKURA_BODY_FONT,
-                fontSize: ctaPx,
-                color: ink,
-                letterSpacing: "0.5em",
-                textTransform: "uppercase",
-                textIndent: "0.5em",
-                textAlign: "center",
-                lineHeight: 1.25,
-              }}
-            >
-              {ctaText}
-            </div>
           </div>
         ) : null}
 
         {/* Website — constrained + wrapping so a long URL stays in-frame */}
-        {websiteUrl ? (
+        {/* Suppressed when several CTAs are shown — each carries its own link
+            above, so a single shared line would be ambiguous. */}
+        {websiteUrl && ctaCards.length <= 1 ? (
           <div
             style={{
               fontFamily: fontFamily ?? SAKURA_DETAIL_FONT,

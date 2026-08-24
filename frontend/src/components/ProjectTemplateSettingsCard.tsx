@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { CraftedTemplateItem, CustomTemplateItem, Project, TemplateMeta } from "../api/client";
 import {
   NewTemplateBadge,
+  NewScenesTemplateBadge,
   TEMPLATE_DESCRIPTIONS,
   TEMPLATE_PREVIEWS,
 } from "./templatePreviewRegistry";
@@ -194,6 +195,10 @@ export default function ProjectTemplateSettingsCard({
   const assignedBuiltinNew =
     !templateId.startsWith("custom_") &&
     templateMetas.some((t) => t.id === templateId && t.new_template === true);
+  const assignedBuiltinNewScenes =
+    !templateId.startsWith("custom_") &&
+    !assignedBuiltinNew &&
+    templateMetas.some((t) => t.id === templateId && t.new_scenes === true);
 
   return (
     <div>
@@ -233,6 +238,7 @@ export default function ProjectTemplateSettingsCard({
                   {selectedCustom ? selectedCustom.name : selectedCrafted ? selectedCrafted.name : selectedDesc?.title ?? templateId}
                 </span>
                 {assignedBuiltinNew && <NewTemplateBadge className="shrink-0" />}
+                {assignedBuiltinNewScenes && <NewScenesTemplateBadge className="shrink-0" />}
                 {selectedCustom && (
                   <span
                     className="px-1.5 py-0.5 rounded text-[9px] font-bold text-white shrink-0"

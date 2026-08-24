@@ -77,7 +77,7 @@ export const Feature: React.FC<SceneLayoutProps> = (props) => {
   // doesn't flash; the real work is done by `useFitText`, which measures the
   // actual column band and shrinks the type until nothing overflows past the
   // bottom. This copes with any headline length, key-points band or aspect ratio.
-  const base = descriptionFontSize ?? (p ? 52 : 28);
+  const base = descriptionFontSize ?? (p ? 52 : 21);
   // The body flows in a single column whenever a photo plate shares the spread
   // (portrait always; landscape only when an image confines the copy to the left
   // leaf), otherwise two justified columns run across both leaves.

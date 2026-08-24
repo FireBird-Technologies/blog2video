@@ -25,9 +25,13 @@ class ProjectCreate(BaseModel):
     template: Optional[str] = "default"
     voice_gender: Optional[str] = "female"   # "male", "female", or "none"
     voice_accent: Optional[str] = "american"  # "american" or "british"
-    accent_color: Optional[str] = "#7C3AED"  # purple default
-    bg_color: Optional[str] = "#FFFFFF"      # white default
-    text_color: Optional[str] = "#000000"    # black default
+    # None (not a literal colour) so the template's own preview_colors win in
+    # create_project's `data.X or colors.get(...) or <fallback>` chain. With a
+    # literal default the first branch was never falsy, so every project got
+    # purple regardless of template. The frontend always sends explicit values.
+    accent_color: Optional[str] = None
+    bg_color: Optional[str] = None
+    text_color: Optional[str] = None
     font_family: Optional[str] = None        # optional font ID override
     animation_instructions: Optional[str] = None
     logo_position: Optional[str] = "bottom_right"  # top_left, top_right, bottom_left, bottom_right
@@ -42,9 +46,9 @@ class ProjectCreate(BaseModel):
     content_language: Optional[str] = None     # preferred target language (ISO code or name)
     bgm_track_id: Optional[str] = None
     bgm_volume: Optional[float] = 0.10
-    # Paid + Newscast only. Pauses generation after the script stage so the user
-    # can approve an auto-picked stock clip per image-capable scene. Enforced
-    # server-side in create_project — never trust the client for this.
+    # Available on every plan and every template (see _resolve_stock_footage_flag).
+    # Free users get a clip on a single scene, paid users on all image-capable
+    # scenes. When false the pipeline skips stock fetching entirely.
     stock_footage_enabled: Optional[bool] = False
     captions_enabled: Optional[bool] = False
     caption_position: Optional[str] = "bottom_center"  # bottom_center | top_center
@@ -459,9 +463,11 @@ class BulkProjectItem(BaseModel):
     video_style: Optional[str] = "explainer"
     voice_gender: Optional[str] = "female"
     voice_accent: Optional[str] = "american"
-    accent_color: Optional[str] = "#7C3AED"
-    bg_color: Optional[str] = "#FFFFFF"
-    text_color: Optional[str] = "#000000"
+    # None, not a literal colour — same reason as ProjectCreate above: a literal
+    # default is never falsy, so the template's own palette could never win.
+    accent_color: Optional[str] = None
+    bg_color: Optional[str] = None
+    text_color: Optional[str] = None
     font_family: Optional[str] = None
     animation_instructions: Optional[str] = None
     logo_position: Optional[str] = "bottom_right"

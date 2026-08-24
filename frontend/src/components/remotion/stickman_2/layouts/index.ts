@@ -27,4 +27,6 @@ export const STICKMAN_2_LAYOUT_REGISTRY: Record<Stickman2LayoutType, React.FC<Sc
   data_visualisation: Stickman2DataViz,
   ending_socials: EndingSocials,
   ticker_table: Stickman2TickerTable,
+
+  // ── Visual variants — same props as their base, different composition ──
 };

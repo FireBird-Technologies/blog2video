@@ -25,6 +25,7 @@ from app.services.template_service import (
     get_fallback_layout,
     get_composition_id,
     get_layouts_without_image,
+    resolve_base_layout,
     is_custom_template,
     is_crafted_template,
     get_meta,
@@ -694,6 +695,21 @@ def rebuild_workspace(
 # ─── Write project files to workspace ────────────────────────
 
 
+def _clip_ingest_sort_key(filename: str) -> tuple[int, str]:
+    """Sort key for stock-clip assets, ordering by when the clip was ingested.
+
+    Clips are named ``scene_<scene_id>_<unix_ts>.<ext>``. The timestamp is what
+    separates a clip fetched for the current run from one left over by a previous
+    one; the scene id does not (ids only ever climb, so a stale clip for an old
+    scene can still sort ahead of a fresh one). Filenames that don't match the
+    pattern sort oldest, keeping them behind anything we can date.
+    """
+    match = re.match(r"^scene_\d+_(\d+)\.", filename)
+    if not match:
+        return (0, filename)
+    return (int(match.group(1)), filename)
+
+
 def write_remotion_data(
     project: Project,
     scenes: list[Scene],
@@ -786,6 +802,12 @@ def write_remotion_data(
     # Pre-parse all scene descriptors once
     parsed_descs: list[dict | None] = []
     scene_layouts: list[str] = []
+    # Base layout per scene, i.e. `news_headline__v2` -> `news_headline`. All the
+    # per-layout POLICY metadata (layouts_without_image, layout_prop_schema) is
+    # keyed by base layout, so visual variants inherit their base's entry through
+    # here. scene_layouts keeps the VARIANT — that is what the renderer dispatches
+    # on and what gets written back into the descriptor and data.json.
+    scene_base_layouts: list[str] = []
     scene_layout_props: list[dict] = []
     fallback = get_fallback_layout(template_id)
     for scene in scenes:
@@ -807,6 +829,7 @@ def write_remotion_data(
             lp["imageFocusY"] = _clamp_focus_value(lp.get("imageFocusY", 50))
         parsed_descs.append(desc)
         scene_layouts.append(layout)
+        scene_base_layouts.append(resolve_base_layout(template_id, layout))
         scene_layout_props.append(lp)
 
     # Track which scene descriptors were modified (need serialization at end)
@@ -816,7 +839,7 @@ def write_remotion_data(
         # Full script regeneration creates a new scene sequence. Clear sticky
         # image choices first so assignment below behaves like fresh generation.
         for i, lp in enumerate(scene_layout_props):
-            if scene_layouts[i] in no_image_layouts:
+            if scene_base_layouts[i] in no_image_layouts:
                 continue
             changed = False
             for key in ("assignedImage", "imageFocusX", "imageFocusY", "imageZoom", "hideImage"):
@@ -840,7 +863,7 @@ def write_remotion_data(
         assigned_video = lp.get("assignedVideo")
         if not assigned_video:
             continue
-        if scene_layouts[i] in no_image_layouts or assigned_video not in all_video_files:
+        if scene_base_layouts[i] in no_image_layouts or assigned_video not in all_video_files:
             lp.pop("assignedVideo", None)
             lp.pop("videoMuted", None)
             lp.pop("videoVolume", None)
@@ -864,12 +887,23 @@ def write_remotion_data(
             # Deterministic order so repeated runs land the same way. Assets are
             # named scene_<id>_<ts>, so this keeps original capture order.
             spare_videos.sort()
+            if redistribute_images:
+                # Full descriptor rebuild (script regeneration / template change):
+                # the scenes are NEW content, and the stock stage has already
+                # fetched clips matching that new copy. Plain filename order puts
+                # the previous run's clips first (lower scene ids sort first), so
+                # those stale clips would take every open slot and strand the
+                # freshly-fetched ones. Order by ingest timestamp, newest first,
+                # so the new clips win and leftovers from prior runs only fill
+                # whatever is still empty.
+                spare_videos.sort(key=_clip_ingest_sort_key, reverse=True)
             open_slots = [
                 i
                 for i in range(len(scenes))
                 if i not in video_scene_indices
-                and scene_layouts[i] not in no_image_layouts
+                and scene_base_layouts[i] not in no_image_layouts
                 and not scene_layout_props[i].get("hideImage")
+                and not scene_layout_props[i].get("assignedImage")
             ]
             for idx, filename in zip(open_slots, spare_videos):
                 lp = scene_layout_props[idx]
@@ -924,7 +958,7 @@ def write_remotion_data(
             if i in video_scene_indices:
                 continue
 
-            if layout in no_image_layouts:
+            if scene_base_layouts[i] in no_image_layouts:
                 hide_image_flags[i] = True
                 changed = False
                 if lp.get("assignedImage"):
@@ -968,7 +1002,7 @@ def write_remotion_data(
         # Step 2: Orphan scene_<id>_ files on disk with no layoutProps assignment — bind once per scene.
         for scene_id, filename in scene_specific:
             idx = id_to_idx.get(scene_id, -1)
-            if idx < 0 or scene_layouts[idx] in no_image_layouts:
+            if idx < 0 or scene_base_layouts[idx] in no_image_layouts:
                 continue
             if hide_image_flags[idx] or idx in video_scene_indices:
                 continue
@@ -1005,7 +1039,7 @@ def write_remotion_data(
             if scene_type == "outro":
                 hide_image_flags[i] = True
                 lp = scene_layout_props[i]
-                if scene_layouts[i] not in no_image_layouts:
+                if scene_base_layouts[i] not in no_image_layouts:
                     changed = False
                     if lp.get("assignedImage"):
                         lp.pop("assignedImage", None)
@@ -1020,7 +1054,7 @@ def write_remotion_data(
                         dirty.add(i)
                 continue
 
-            if hide_image_flags[i] or scene_layouts[i] in no_image_layouts:
+            if hide_image_flags[i] or scene_base_layouts[i] in no_image_layouts:
                 continue
 
             if (
@@ -1048,7 +1082,7 @@ def write_remotion_data(
         # Step 4: Assign remaining generics (1 per scene)
         generic_idx = 0
         for i in range(len(scenes)):
-            if scene_image_map[i] or hide_image_flags[i] or scene_layouts[i] in no_image_layouts:
+            if scene_image_map[i] or hide_image_flags[i] or scene_base_layouts[i] in no_image_layouts:
                 continue
             if i in video_scene_indices:
                 continue
@@ -1072,7 +1106,7 @@ def write_remotion_data(
         # Video scenes are skipped: they have no assignedImage by design, and
         # hideImage would blank the clip too (it gates the whole visual slot).
         for i in range(len(scenes)):
-            if scene_layouts[i] in no_image_layouts or scene_image_map[i]:
+            if scene_base_layouts[i] in no_image_layouts or scene_image_map[i]:
                 continue
             if i in video_scene_indices:
                 continue
@@ -1184,12 +1218,16 @@ def write_remotion_data(
         if not is_custom_template(template_id) and layout:
             try:
                 _meta = get_meta(template_id)
+                # A visual variant (`news_headline__v2`) inherits its BASE layout's
+                # schema entry, so resolve before the lookup or the variant renders
+                # with none of its meta defaults. An exact entry wins when a variant
+                # declares its own — used for per-variant typography defaults, which
+                # must match what the variant component actually renders.
+                _schema_map = (_meta or {}).get("layout_prop_schema", {})
                 _layout_defaults = (
-                    (_meta or {})
-                    .get("layout_prop_schema", {})
-                    .get(layout, {})
-                    .get("defaults", {})
-                )
+                    _schema_map.get(layout)
+                    or _schema_map.get(resolve_base_layout(template_id, layout), {})
+                ).get("defaults", {})
                 _skip_keys = (
                     _ECONOMIST_CONTENT_SKIP_KEYS
                     if str(template_id).lower() == "economist"

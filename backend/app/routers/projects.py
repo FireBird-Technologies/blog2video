@@ -64,6 +64,10 @@ from app.services.template_service import (
     get_valid_layouts,
     get_hero_layout,
     get_layouts_without_image,
+    get_layout_variants,
+    get_variant_to_base,
+    get_all_renderable_layouts,
+    resolve_base_layout,
     is_custom_template,
     is_crafted_template,
     _load_custom_template_data,
@@ -82,6 +86,23 @@ logger = get_logger(__name__)
 
 
 import threading as _threading
+from datetime import timedelta as _timedelta
+
+# How far back create_project looks for an identical in-flight request before
+# treating a call as a retry rather than a new video. Sized to comfortably cover
+# a full generation (the MCP generate poll tops out at 300s) so a client that
+# times out and retries mid-generation reuses the project it already paid for.
+_DUPLICATE_CREATE_WINDOW = _timedelta(minutes=10)
+
+# Statuses that mean "this project is still mid-pipeline". Deliberately excludes
+# GENERATED/DONE/ERROR: those are settled outcomes, and asking for the same URL
+# again afterwards is a genuine new video that must create and charge normally.
+# Only an unfinished run is treated as the target of a retry.
+_IN_FLIGHT_STATUSES = (
+    ProjectStatus.CREATED,
+    ProjectStatus.SCRAPED,
+    ProjectStatus.SCRIPTED,
+)
 
 # URL → (expires_at_epoch, is_reachable). Avoids HEAD-ing the same brand-logo
 # URL on every project serialization (_inject_custom_theme runs on every GET).
@@ -952,6 +973,32 @@ def create_project(
 
     if not data.blog_url:
         raise HTTPException(status_code=400, detail="blog_url is required for URL-based project creation.")
+
+    # Idempotency guard. A client that times out waiting for this endpoint (the
+    # MCP connector gives up well before a long generation finishes) retries the
+    # same request — and every retry used to create another project AND charge
+    # another video credit, while the original kept generating server-side.
+    # Return the in-flight project instead of duplicating it. Scoped tightly:
+    # same user, same URL, only recently, and only while it is still progressing
+    # — a finished or failed project must not block a deliberate re-run.
+    duplicate = (
+        db.query(Project)
+        .filter(
+            Project.user_id == user.id,
+            Project.blog_url == data.blog_url,
+            Project.created_at >= datetime.utcnow() - _DUPLICATE_CREATE_WINDOW,
+            Project.status.in_(_IN_FLIGHT_STATUSES),
+        )
+        .order_by(Project.id.desc())
+        .first()
+    )
+    if duplicate is not None:
+        logger.info(
+            "[PROJECTS] Reusing in-flight project %s for user %s (duplicate create for %s)",
+            duplicate.id, user.id, data.blog_url,
+            extra={"project_id": duplicate.id, "user_id": user.id},
+        )
+        return _prepare_project_response(duplicate, user, db)
 
     name = data.name or _name_from_url(data.blog_url)
     template_id = validate_template_id(data.template, db=db, user_id=user.id)
@@ -4263,10 +4310,26 @@ async def update_scene_image(
     if len(file_bytes) > MAX_IMAGE_SIZE:
         raise HTTPException(status_code=400, detail="Image file too large. Maximum size is 5 MB.")
 
+    # Trust the actual bytes, not the client-supplied filename/content-type. AI-generated
+    # images (e.g. GLM/z.ai) can come back JPEG-encoded while the client names/labels them
+    # .png — Remotion renders via headless Chromium, which rejects files whose bytes don't
+    # match the filename extension, so a mismatch here silently drops the scene's image at
+    # render time even though it looks fine in a browser <img> tag. Same failure mode
+    # _download_logo_normalized() already guards against for logos.
+    ext = "png"
+    try:
+        from io import BytesIO
+        from PIL import Image as PILImage
+
+        with PILImage.open(BytesIO(file_bytes)) as probe:
+            fmt = (probe.format or "").upper()
+        ext = {"PNG": "png", "JPEG": "jpg", "WEBP": "webp", "GIF": "gif"}.get(fmt, "png")
+    except Exception:
+        pass
+
     image_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project_id}/images")
     os.makedirs(image_dir, exist_ok=True)
 
-    ext = image.filename.rsplit(".", 1)[-1] if image.filename and "." in image.filename else "png"
     image_filename = f"scene_{scene_id}_{int(time.time())}.{ext}"
     local_path = os.path.join(image_dir, image_filename)
 
@@ -4275,10 +4338,11 @@ async def update_scene_image(
 
     r2_key_val = None
     r2_url_val = None
+    real_content_type = {"png": "image/png", "jpg": "image/jpeg", "webp": "image/webp", "gif": "image/gif"}.get(ext, "image/png")
     if r2_storage.is_r2_configured():
         try:
             r2_key_val = r2_storage.image_key(user.id, project_id, image_filename)
-            r2_url_val = r2_storage.upload_file(local_path, r2_key_val, content_type=image.content_type)
+            r2_url_val = r2_storage.upload_file(local_path, r2_key_val, content_type=real_content_type)
         except Exception as e:
             print(f"[IMAGE_UPDATE] R2 upload failed for {image_filename}: {e}")
 
@@ -5035,28 +5099,52 @@ def get_project_layouts(
 
     valid_layouts = get_valid_layouts(project.template)
     no_image_layouts = get_layouts_without_image(project.template)
+    # Visual variants of a layout (`news_headline__v2`). Not in valid_layouts —
+    # the layout planner must never pick one — but the renderer dispatches on
+    # them, so they belong in `layouts` (see below).
+    layout_variants = get_layout_variants(project.template)
+    variant_to_base = get_variant_to_base(project.template)
+    renderable_layouts = get_all_renderable_layouts(project.template)
 
     # Convert layout IDs to human-readable names
     meta = get_meta(project.template)
     schema = meta.get("layout_prop_schema", {}) if meta else {}
+    variant_labels = meta.get("layout_variant_labels", {}) if meta else {}
 
     # Custom templates with generated code embed layout_names directly in meta
     meta_layout_names = meta.get("layout_names", {}) if meta else {}
     layout_names = {}
-    for layout_id in valid_layouts:
-        if layout_id in meta_layout_names:
-            layout_names[layout_id] = meta_layout_names[layout_id]
+    for layout_id in renderable_layouts:
+        base_id = variant_to_base.get(layout_id, layout_id)
+        if base_id in meta_layout_names:
+            base_name = meta_layout_names[base_id]
         else:
             # Prefer schema label, fallback to Title Case
-            layout_schema = schema.get(layout_id, {})
-            name = layout_schema.get("label") or layout_id.replace("_", " ").title()
-            layout_names[layout_id] = name
+            layout_schema = schema.get(base_id, {})
+            base_name = layout_schema.get("label") or base_id.replace("_", " ").title()
+        # Variants read as "News Headline — Broadsheet" so a scene sitting on one
+        # still shows a meaningful name wherever a raw layout ID is labelled.
+        variant_label = variant_labels.get(layout_id)
+        if variant_label and layout_id != base_id:
+            layout_names[layout_id] = f"{base_name} — {variant_label}"
+        else:
+            layout_names[layout_id] = base_name
 
     return {
-        "layouts": sorted(list(valid_layouts)),
+        # Every layout the RENDERER understands, variants included. The preview
+        # coerces any layout missing from this list to the fallback layout, so
+        # omitting variants here would make preview and export disagree.
+        "layouts": sorted(renderable_layouts),
+        # The subset a layout PICKER may offer: base layouts only. Variants are
+        # switched via the variant strip, not the layout dropdown.
+        "selectable_layouts": sorted(valid_layouts),
         "layout_names": layout_names,
+        # Both of these stay keyed by BASE layout; clients resolve a variant to
+        # its base before looking up either.
         "layouts_without_image": sorted(list(no_image_layouts)),
         "layout_prop_schema": schema,
+        "layout_variants": layout_variants,
+        "layout_variant_labels": variant_labels,
     }
 
 
@@ -5406,7 +5494,9 @@ async def regenerate_scene(
     keep_layout = layout == "__keep__"
     normalized_layout = None
     if layout and not keep_layout:
-        valid_layouts = get_valid_layouts(project.template)
+        # Renderable, not just plannable: the scene-style strip posts visual
+        # variant IDs (`news_headline__v2`) through this same field.
+        valid_layouts = get_all_renderable_layouts(project.template)
 
         if is_custom_template(project.template):
             normalized_layout = layout.strip().lower().replace(" ", "-")
@@ -5634,6 +5724,17 @@ async def regenerate_scene(
     )
     if is_builtin_layout_switch:
         descriptor = current_descriptor if current_descriptor else {}
+        _prev_layout = descriptor.get("layout") if isinstance(descriptor, dict) else None
+        # Switching between visual variants of the SAME layout (Classic ↔
+        # Broadsheet) is a style toggle, not an edit: the props are unchanged
+        # because variants share a schema, and no LLM call is made. Only a real
+        # layout change is metered below.
+        _is_style_only_switch = bool(
+            isinstance(_prev_layout, str)
+            and resolve_base_layout(project.template, _prev_layout)
+            == resolve_base_layout(project.template, normalized_layout)
+            and _prev_layout != normalized_layout
+        )
         descriptor["layout"] = normalized_layout
         # Seed example chart data when switching into a chart layout with no existing chartTable
         _chart_layouts = {"data_visualization", "terminal_dataviz"}
@@ -5669,16 +5770,27 @@ async def regenerate_scene(
             field_name="remotion_code",
             old_value=old_remotion_code,
             new_value=scene.remotion_code,
-            is_ai_assisted=True,
-            user_instruction=f"Layout switch to {normalized_layout}",
+            is_ai_assisted=not _is_style_only_switch,
+            user_instruction=(
+                f"Scene style switch to {normalized_layout}"
+                if _is_style_only_switch
+                else f"Layout switch to {normalized_layout}"
+            ),
                         user_id=user.id,
                         change_set_id=_regen_change_set,
                     )
         # A layout change counts as an AI-assisted edit even though no LLM call is made.
         # Metered against the OWNER, who pays (see the gate at the top of this function).
-        consume_ai_edit(payer, project)
+        # A style-only switch between variants of one layout is free — nothing is
+        # generated and the props are untouched.
+        if not _is_style_only_switch:
+            consume_ai_edit(payer, project)
         db.commit()
-        print(f"[REGENERATE] Layout switch → {normalized_layout} (counts as AI edit)")
+        print(
+            f"[REGENERATE] {'Scene style' if _is_style_only_switch else 'Layout'} switch → "
+            f"{normalized_layout}"
+            f"{'' if _is_style_only_switch else ' (counts as AI edit)'}"
+        )
 
         db.refresh(scene)
         _broadcast_scene_regen(project_id, user.id)
@@ -5754,6 +5866,18 @@ async def regenerate_scene(
                 effective_layout = current_descriptor["layoutConfig"].get("arrangement")
             else:
                 effective_layout = current_descriptor.get("layout")
+        # The generator validates this against the plannable layout set, which has
+        # no variant IDs in it — pass the base so a variant scene isn't dropped to
+        # "no preferred layout". The variant itself is restored after generation.
+        _preserve_variant_layout = (
+            effective_layout
+            if isinstance(effective_layout, str)
+            and not is_custom_template(project.template)
+            and resolve_base_layout(project.template, effective_layout) != effective_layout
+            else None
+        )
+        if _preserve_variant_layout:
+            effective_layout = resolve_base_layout(project.template, effective_layout)
 
         print(
             f"[REGENERATE] template={project.template}, "
@@ -5885,6 +6009,16 @@ async def regenerate_scene(
                 variant_idx = int(normalized_layout.split("_")[1])
                 descriptor["sceneTypeOverride"] = "content"
                 descriptor["contentVariantIndex"] = variant_idx
+
+        # Restore the scene's visual variant if the model stayed in the same
+        # layout family. A regenerate is a request for new CONTENT, so the style
+        # the user is looking at shouldn't shuffle underneath them. If the model
+        # genuinely moved to a different layout, its choice stands.
+        if _preserve_variant_layout and isinstance(descriptor.get("layout"), str):
+            if descriptor["layout"] == resolve_base_layout(
+                project.template, _preserve_variant_layout
+            ):
+                descriptor["layout"] = _preserve_variant_layout
 
         scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(descriptor))
         track_scene_edit(

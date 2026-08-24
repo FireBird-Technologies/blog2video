@@ -99,7 +99,7 @@ import VideoPreview, { type CaptionSettings } from "../components/VideoPreview";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import RegenerateScriptModal from "../components/RegenerateScriptModal";
 import VerifyScriptModal from "../components/VerifyScriptModal";
-import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge, PopularTemplateBadge } from "../components/templatePreviewRegistry";
+import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge, NewScenesTemplateBadge, PopularTemplateBadge } from "../components/templatePreviewRegistry";
 import ProjectTemplateSettingsCard, { TemplateAssignPreview } from "../components/ProjectTemplateSettingsCard";
 import ProjectVoiceLanguageSettingsCard from "../components/ProjectVoiceLanguageSettingsCard";
 import { BgmTrackDropdown } from "../components/BgmTrackDropdown";
@@ -122,6 +122,7 @@ import { normalizeVideoStyle } from "../constants/videoStyles";
 import { getPendingUpload } from "../stores/pendingUpload";
 import { FONT_REGISTRY, resolveFontFamily } from "../fonts/registry";
 import { getSceneLayoutLabel } from "../utils/layoutLabels";
+import { baseLayoutId } from "../utils/layoutVariants";
 import { resolveCustomImageBoxAr } from "../utils/customImageBoxAr";
 import { getTemplateConfig } from "../components/remotion/templateConfig";
 import { getImageBoxAspectRatio, normalizeLayoutId, isImageBoxCircular } from "../components/remotion/imageBoxConfig";
@@ -4120,9 +4121,10 @@ export default function ProjectView() {
   const handleKeepGeneratedSceneImage = (sceneId: number) => {
     if (!generatedImageBase64) return;
     const dataUrl = `data:image/png;base64,${generatedImageBase64}`;
-    // When the Scene Edit modal for this scene is still open, keeping only STAGES the
-    // image into its form (persisted when the user hits Save). When the modal has been
-    // closed, keep saves the image to the scene directly.
+    // Keeping an image always saves it to the scene immediately — the tick is the
+    // confirm action, not a staging step. When the Scene Edit modal for this scene is
+    // still open, we also drop the file into its preview (already-saved) so the modal
+    // doesn't re-upload it again when the user later hits Save.
     const stageIntoOpenModal =
       sceneEditModal?.id === sceneId ? stageEditModalImageRef.current : null;
     // Close preview modal immediately so the spinner shows in the scene row
@@ -4134,14 +4136,11 @@ export default function ProjectView() {
     fetch(dataUrl)
       .then((r) => r.blob())
       .then((blob) => new File([blob], "generated.png", { type: "image/png" }))
-      .then((file) => {
-        if (stageIntoOpenModal) {
-          stageIntoOpenModal(file);
-          return;
-        }
-        return handleAddSceneImage(sceneId, file)
-          .catch(() => setGenerateImageError("Failed to use generated image"));
-      })
+      .then((file) =>
+        handleAddSceneImage(sceneId, file).then(() => {
+          if (stageIntoOpenModal) stageIntoOpenModal(file);
+        }),
+      )
       .catch(() => setGenerateImageError("Failed to use generated image"));
   };
 
@@ -5825,13 +5824,14 @@ export default function ProjectView() {
                       templateMetas.length > 0 ? (
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                           {[...templateMetas].sort((a, b) => {
-                            const rank = (t: typeof a) => (t.new_template ? 0 : t.popular_template ? 1 : 2);
+                            const rank = (t: typeof a) => (t.new_template ? 0 : t.new_scenes ? 1 : t.popular_template ? 2 : 3);
                             return rank(a) - rank(b);
                           }).map((t) => {
                             const PreviewComp = TEMPLATE_PREVIEWS[t.id];
                             const desc = TEMPLATE_DESCRIPTIONS[t.id];
                             const isSel = templateChangeDraft === t.id;
                             const isNew = t.new_template === true;
+                            const isNewScenes = t.new_scenes === true;
                             const isPopular = t.popular_template === true;
                             return (
                               <button
@@ -5843,6 +5843,8 @@ export default function ProjectView() {
                                     ? "ring-2 ring-purple-500 ring-offset-1 ring-offset-gray-50"
                                     : isNew
                                     ? "ring-1 ring-purple-400/60 hover:ring-purple-500"
+                                    : isNewScenes
+                                    ? "ring-1 ring-sky-400/60 hover:ring-sky-500"
                                     : isPopular
                                     ? "ring-1 ring-amber-400/60 hover:ring-amber-500"
                                     : "ring-1 ring-gray-200/60 hover:ring-purple-300/60"
@@ -5861,7 +5863,12 @@ export default function ProjectView() {
                                       <NewTemplateBadge />
                                     </div>
                                   )}
-                                  {!isNew && isPopular && (
+                                  {!isNew && isNewScenes && (
+                                    <div className="absolute top-0 left-0.5 z-[1]">
+                                      <NewScenesTemplateBadge />
+                                    </div>
+                                  )}
+                                  {!isNew && !isNewScenes && isPopular && (
                                     <div className="absolute top-0.5 left-0.5 z-[1]">
                                       <PopularTemplateBadge />
                                     </div>
@@ -6996,7 +7003,11 @@ export default function ProjectView() {
                                       return scene.remotion_code ? JSON.parse(scene.remotion_code).layout : null;
                                     } catch { return null; }
                                   })();
-                                  const sceneSupportsImage = !sceneLayout || !layoutsWithoutImage.has(sceneLayout);
+                                  // `layoutsWithoutImage` is keyed by BASE layout, so a `__vN`
+                                  // variant (e.g. `ending_socials__v2`) must be resolved first —
+                                  // otherwise it misses the set and the image section shows on a
+                                  // layout that can't render one. Matches SceneEditModal.
+                                  const sceneSupportsImage = !sceneLayout || !layoutsWithoutImage.has(baseLayoutId(sceneLayout));
                                   const isCustomTpl = (project.template || "").startsWith("custom_");
                                   const ctId = isCustomTpl ? parseInt((project.template || "").replace("custom_", ""), 10) : NaN;
                                   const ctOgImage = isCustomTpl

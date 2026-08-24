@@ -4,6 +4,9 @@ export type SakuraLayoutType =
   // "ending_socials" is the canonical id the backend emits for the ending scene;
   // it is aliased to the sakura_ending_socials component in SAKURA_LAYOUT_REGISTRY.
   | "sakura_intro" | "sakura_section" | "sakura_quote" | "sakura_two_column_detail" | "sakura_stat_highlight" | "sakura_list_scene" | "sakura_text_narration" | "sakura_ending_socials" | "ending_socials" | "sakura_data_visualization" | "sakura_ticker";
+  // Visual variants — same props as their base, different composition. The ending
+  // variant hangs off "ending_socials" (the id the backend emits), NOT the legacy
+  // "sakura_ending_socials" alias.
 
 export interface SceneLayoutProps {
   title: string;
@@ -39,6 +42,9 @@ export interface SceneLayoutProps {
   websiteLink?: string;
   showWebsiteButton?: boolean;
   ctaButtonText?: string;
+  /** Optional multi-CTA array (up to 3), same shape as gridcraft's. Read via
+   *  resolveCtas(), which falls back to the legacy single-CTA fields. */
+  ctas?: Array<{ ctaButtonText?: string; websiteLink?: string; showWebsiteButton?: boolean }>;
   kanjiTitle?: string;
   romanTitle?: string;
   tagline?: string;

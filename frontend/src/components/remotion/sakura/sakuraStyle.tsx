@@ -254,6 +254,9 @@ export const SAKURA_ENTRANCE: Record<string, SakuraEntrance> = {
   sakura_list_scene: "rise",
   sakura_text_narration: "rise",
   sakura_ending_socials: "slide_panel",
+  // Variants. Each takes the entrance family that matches its own composition
+  // rather than its base's: the scroll settles, the folding screen wipes, the
+  // seal blooms from the centre.
 };
 
 export interface EntranceStyle {
@@ -1219,6 +1222,9 @@ export const SAKURA_BACKDROP: Record<string, SakuraBackdropVariant> = {
   sakura_list_scene: "ink_corner",
   sakura_text_narration: "washi_radial",
   sakura_ending_socials: "celebration",
+  // Variants pass `backdrop` explicitly to <SakuraScene>, so these entries are not
+  // strictly load-bearing today — they are here so any future lookup by layout id
+  // agrees with what the components actually render.
 };
 
 export const isDarkBackdrop = (v: SakuraBackdropVariant): boolean =>

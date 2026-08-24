@@ -6,6 +6,8 @@
  * chart colors, axis captions, example tables, font sizes, etc.
  */
 
+import { baseLayoutId } from "./layoutVariants";
+
 export type LayoutPropSchema = Record<string, { defaults?: Record<string, unknown> }>;
 
 // Economist wordmark/dateline/teasers are LLM-authored content, never defaults —
@@ -53,7 +55,10 @@ export function mergeLayoutSchemaDefaults(
   options?: { deriveUserSetFlags?: boolean },
 ): Record<string, unknown> {
   if (!layoutId || !schema || Object.keys(schema).length === 0) return layoutProps;
-  const defaults = schema[layoutId]?.defaults;
+  // The schema is keyed by BASE layout, so a visual variant (`news_headline__v2`)
+  // reads its base's defaults — matching resolve_base_layout() on the render path.
+  // An exact entry still wins, should a variant ever declare its own.
+  const defaults = (schema[layoutId] ?? schema[baseLayoutId(layoutId)])?.defaults;
   if (!defaults || Object.keys(defaults).length === 0) return layoutProps;
   const resolved = resolveDefaultsForAspect(defaults, aspectRatio);
   // Drop content-only defaults the renderer also refuses to inject, so the
