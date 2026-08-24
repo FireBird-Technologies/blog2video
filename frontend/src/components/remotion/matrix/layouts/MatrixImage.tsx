@@ -1,4 +1,6 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import React from "react";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, spring } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { MatrixBackground } from "../MatrixBackground";
 import { buildHudStatus, DecodeSweep, GlitchSlice, ScanlinesOverlay, TerminalHUD } from "../components/MatrixArtifacts";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
@@ -33,10 +35,18 @@ export const MatrixImage: React.FC<MatrixLayoutProps> = ({
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const fps = 30;
   const p = aspectRatio === "portrait";
   const accent = accentColor || "#00FF41";
   const resolvedFontFamily = fontFamily ?? MATRIX_DEFAULT_FONT_FAMILY;
+  const hasMedia = !!videoUrl || !!imageUrl;
+  const titleMirrorRef = React.useRef<HTMLDivElement>(null);
+  const narrationMirrorRef = React.useRef<HTMLDivElement>(null);
+  const titleTarget = titleFontSize ?? (p ? 66 : 80);
+  const narrationTarget = descriptionFontSize ?? (p ? 45 : 37);
+  const { px: fittedTitleSize } = useFitText(titleMirrorRef, titleTarget, 15, [title, titleTarget, p, hasMedia], height * (hasMedia ? 0.13 : 0.3));
+  const { px: fittedNarrationSize } = useFitText(narrationMirrorRef, narrationTarget, 12, [narration, narrationTarget, p, hasMedia], height * (hasMedia ? 0.11 : 0.25));
 
   const revealSpring = spring({
     frame: frame - 3,
@@ -66,9 +76,11 @@ export const MatrixImage: React.FC<MatrixLayoutProps> = ({
       <TerminalHUD accentColor={accent} statusText={buildHudStatus("DECRYPTING", title)} hexColumn={false} startFrame={6} seed={37} />
       <GlitchSlice accentColor={accent} every={74} seed={67} />
       <ScanlinesOverlay accentColor={accent} intensity={0.7} />
+      <div ref={titleMirrorRef} style={{ position: "absolute", visibility: "hidden", width: hasMedia ? "82%" : "70%", fontSize: titleTarget, fontWeight: 700, lineHeight: 1.2, fontFamily: resolvedFontFamily, overflowWrap: "anywhere" }}>{title}</div>
+      <div ref={narrationMirrorRef} style={{ position: "absolute", visibility: "hidden", width: hasMedia ? "82%" : "70%", fontSize: narrationTarget, lineHeight: 1.4, fontFamily: resolvedFontFamily, overflowWrap: "anywhere" }}>{narration}</div>
 
       {/* Image/video layer */}
-      {(videoUrl || imageUrl) ? (
+      {hasMedia ? (
         <div
           style={{
             position: "absolute",
@@ -129,7 +141,7 @@ export const MatrixImage: React.FC<MatrixLayoutProps> = ({
           <div style={{ maxWidth: 900 }}>
             <div
               style={{
-                fontSize: titleFontSize ?? (p ? 66 : 80),
+                fontSize: fittedTitleSize,
                 fontWeight: 700,
                 color: accent,
                 fontFamily: resolvedFontFamily,
@@ -138,6 +150,7 @@ export const MatrixImage: React.FC<MatrixLayoutProps> = ({
                 opacity: captionOpacity,
                 transform: `translateY(${(1 - captionSpring) * 8}px)`,
                 textShadow: `0 0 20px ${accent}44`,
+                overflowWrap: "anywhere",
               }}
             >
               {title}
@@ -145,7 +158,7 @@ export const MatrixImage: React.FC<MatrixLayoutProps> = ({
             {narration && (
               <div
                 style={{
-                  fontSize: descriptionFontSize ?? (p ? 45 : 37),
+                  fontSize: fittedNarrationSize,
                   fontWeight: 400,
                   color: `${accent}88`,
                   fontFamily: resolvedFontFamily,
@@ -153,6 +166,7 @@ export const MatrixImage: React.FC<MatrixLayoutProps> = ({
                   lineHeight: 1.4,
                   opacity: captionOpacity,
                   transform: `translateY(${(1 - captionSpring) * 8}px)`,
+                  overflowWrap: "anywhere",
                 }}
               >
                 {narration}
@@ -191,11 +205,12 @@ export const MatrixImage: React.FC<MatrixLayoutProps> = ({
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
             style={{
-              fontSize: titleFontSize ?? (p ? 66 : 80),
+              fontSize: fittedTitleSize,
               fontWeight: 700,
               color: accent,
               fontFamily: resolvedFontFamily,
               lineHeight: 1.2,
+              overflowWrap: "anywhere",
             }}
           >
             {title}
@@ -203,11 +218,12 @@ export const MatrixImage: React.FC<MatrixLayoutProps> = ({
           {narration && (
             <div
               style={{
-                fontSize: descriptionFontSize ?? (p ? 45 : 37),
+                fontSize: fittedNarrationSize,
                 color: `${accent}88`,
                 fontFamily: resolvedFontFamily,
                 marginTop: 6,
                 lineHeight: 1.4,
+                overflowWrap: "anywhere",
               }}
             >
               {narration}

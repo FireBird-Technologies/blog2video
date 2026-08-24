@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import type { NewscastLayoutProps } from "./types";
 import { SocialIcons } from "../../SocialIcons";
 import { resolveCtas } from "../../../../utils/resolveCtas";
@@ -28,6 +29,8 @@ export const EndingSocials: React.FC<NewscastLayoutProps> = ({
   fontFamily,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
 }) => {
   const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
@@ -39,6 +42,31 @@ export const EndingSocials: React.FC<NewscastLayoutProps> = ({
   const bodyOp = interpolate(frame, [14, 30], [0, 1], { extrapolateRight: "clamp" });
 
   const subtext = (narration ?? "").trim();
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and subtext are unbounded user input in a card centred on the
+     frame with no fixed height; long copy could push the CTA cards/socials
+     below past the frame's overflow:hidden edge. Measure the real available
+     height and shrink to fit. An explicitly chosen size is honored exactly
+     (minPx === targetPx no-ops the hook). */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitSubRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 52 : 40);
+  const fitSubTarget = descriptionFontSize ?? (p ? 20 : 16);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.45),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.18 : 0.2)),
+  );
+  const { px: fitSubPx } = useFitText(
+    fitSubRef,
+    fitSubTarget,
+    descriptionFontSizeIsUserSet ? fitSubTarget : Math.round(fitSubTarget * 0.5),
+    [subtext, fitSubTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * (p ? 0.16 : 0.18)),
+  );
 
   // CTA cards (1-3). Only render cards with toggle on + a link.
   const cards = resolveCtas({ ctas, ctaButtonText, websiteLink, showWebsiteButton }).filter(
@@ -102,9 +130,10 @@ export const EndingSocials: React.FC<NewscastLayoutProps> = ({
             Follow along
           </div>
           <div
+            ref={fitTitleRef}
             style={{
               fontFamily: newscastFont(fontFamily, "title"),
-              fontSize: titleFontSize ?? (p ? 52 : 40),
+              fontSize: fitTitlePx,
               fontWeight: 800,
               color: "#fff",
               lineHeight: 1.1,
@@ -116,9 +145,10 @@ export const EndingSocials: React.FC<NewscastLayoutProps> = ({
           </div>
           {subtext ? (
             <div
+              ref={fitSubRef}
               style={{
                 fontFamily: newscastFont(fontFamily, "body"),
-                fontSize: descriptionFontSize ?? (p ? 20 : 16),
+                fontSize: fitSubPx,
                 color: STEEL,
                 lineHeight: 1.45,
                 maxWidth: 640,

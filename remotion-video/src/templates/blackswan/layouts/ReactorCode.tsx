@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import type { BlackswanLayoutProps } from "../types";
 import { neonTitleTubeStyle, StarField } from "./scenePrimitives";
 import { blackswanNeonPalette, rgbaFromHex } from "./blackswanAccent";
@@ -24,11 +25,14 @@ export const ReactorCode: React.FC<BlackswanLayoutProps> = (props) => {
     codeLines,
     titleFontSize,
     descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
     fontFamily,
     aspectRatio = "landscape",
   } = props;
 
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const p = aspectRatio === "portrait";
   const pal = useMemo(() => blackswanNeonPalette(accentColor), [accentColor]);
 
@@ -52,8 +56,12 @@ export const ReactorCode: React.FC<BlackswanLayoutProps> = (props) => {
   const terminalOp = interpolate(frame, [6, 24],  [0, 1], { extrapolateRight: "clamp" });
 
   // Font sizes — driven by sliders, same pattern as DropletIntro
-  const titleSize = titleFontSize ?? (p ? 81 : 88);
-  const codeSize  = descriptionFontSize ?? (p ? 33 : 35);
+  const titleTarget = titleFontSize ?? (p ? 81 : 88);
+  const codeTarget = descriptionFontSize ?? (p ? 33 : 35);
+  const titleRef = React.useRef<HTMLHeadingElement>(null);
+  const codeRef = React.useRef<HTMLDivElement>(null);
+  const { px: titleSize } = useFitText(titleRef, titleTarget, titleFontSizeIsUserSet ? titleTarget : Math.max(15, Math.round(titleTarget * 0.34)), [title, titleTarget, titleFontSizeIsUserSet, p, height], Math.round(height * (p ? 0.14 : 0.18)));
+  const { px: codeSize } = useFitText(codeRef, codeTarget, descriptionFontSizeIsUserSet ? codeTarget : Math.max(9, Math.round(codeTarget * 0.38)), [displayLines.join("\u0000"), codeTarget, descriptionFontSizeIsUserSet, titleSize, p, height], Math.round(height * (p ? 0.34 : 0.42)));
   const lineNumSize = codeSize * 0.75;
 
   const getLineColor = (line: string): string => {
@@ -97,7 +105,7 @@ export const ReactorCode: React.FC<BlackswanLayoutProps> = (props) => {
           transform: `translateY(${titleY}px)`,
         }}
       >
-        <h1
+        <h1 ref={titleRef}
           style={{
             margin: 0,
             fontFamily: fontFamily ?? display,
@@ -129,12 +137,12 @@ export const ReactorCode: React.FC<BlackswanLayoutProps> = (props) => {
       <div
         style={{
           position: "absolute",
-          top: p ? "48%" : "20%", // Adjusted for portrait to bring code block upwards
+          top: "48%",
           bottom: p ? "10%" : "5%", // Adjusted for portrait to control vertical extent
           left: 0,
           right: 0,
           display: "flex",
-          alignItems: p ? "flex-start" : "center", // Align content to top for portrait
+          alignItems: "flex-start",
           justifyContent: "center",
           // paddingTop and paddingBottom removed as 'top' and 'bottom' properties now define the container's vertical bounds.
           paddingLeft: p ? "4%" : "6%",
@@ -232,7 +240,7 @@ export const ReactorCode: React.FC<BlackswanLayoutProps> = (props) => {
             </div>
 
             {/* Code lines */}
-            <div
+            <div ref={codeRef}
               style={{
                 fontSize: codeSize,
                 flex: 1,
@@ -250,7 +258,9 @@ export const ReactorCode: React.FC<BlackswanLayoutProps> = (props) => {
                       color: isRevealed ? getLineColor(line) : "transparent",
                       opacity: isRevealed ? 1 : 0,
                       minHeight: "2em",
-                      whiteSpace: "pre",
+                      whiteSpace: "pre-wrap",
+                      overflowWrap: "anywhere",
+                      wordBreak: "break-word",
                     }}
                   >
                     {line || "\u00A0"}

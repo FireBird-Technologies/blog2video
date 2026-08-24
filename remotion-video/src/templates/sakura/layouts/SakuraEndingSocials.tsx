@@ -2,6 +2,7 @@ import React from "react";
 import { useVideoConfig, interpolate, spring } from "remotion";
 import { SceneLayoutProps } from "../types";
 import { SocialIcons } from "../../SocialIcons";
+import { useFitText } from "../components/useFitText";
 // NOTE for the render tree: resolveCtas lives at ../../shared/resolveCtas there.
 // This is the ONLY line that differs between the two copies of this file.
 import { resolveCtas } from "../../shared/resolveCtas";
@@ -31,6 +32,8 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
     sceneDurationInFrames,
     titleFontSize,
     descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
     fontFamily,
     socials,
   } = props;
@@ -76,8 +79,24 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
   );
   const socialHandles: string[] = (props as any).socialHandles ?? [];
 
-  const titlePx = titleFontSize ?? (p ? 80 : 64);
-  const taglinePx = descriptionFontSize ?? (p ? 26 : 20);
+  const titleTargetPx = titleFontSize ?? (p ? 80 : 64);
+  const taglineTargetPx = descriptionFontSize ?? (p ? 26 : 20);
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const taglineRef = React.useRef<HTMLDivElement>(null);
+  const { px: titlePx } = useFitText(
+    titleRef,
+    titleTargetPx,
+    Math.max(28, Math.round(titleTargetPx * 0.55)),
+    [brandName, titleTargetPx, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.22 : 0.26)),
+  );
+  const { px: taglinePx } = useFitText(
+    taglineRef,
+    taglineTargetPx,
+    Math.max(18, Math.round(taglineTargetPx * 0.58)),
+    [tagline, taglineTargetPx, descriptionFontSizeIsUserSet, titlePx, p, height],
+    Math.round(height * (p ? 0.2 : 0.24)),
+  );
   // CTA line, website URL and social handles all scale off the tagline size so
   // they track the display-text slider.
   const ctaPx = Math.max(15, Math.round(taglinePx * 0.95));
@@ -236,6 +255,7 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
       >
         {/* Brand */}
         <div
+          ref={titleRef}
           style={{
             fontFamily: fontFamily ?? SAKURA_DISPLAY_FONT,
             fontWeight: 700,
@@ -254,6 +274,7 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
         {/* Tagline */}
         {tagline ? (
           <div
+            ref={taglineRef}
             style={{
               fontFamily: fontFamily ?? SAKURA_BODY_FONT,
               fontSize: taglinePx,
@@ -262,6 +283,7 @@ export const SakuraEndingSocials: React.FC<SceneLayoutProps> = (props) => {
               textTransform: "uppercase",
               textIndent: "0.45em",
               maxWidth: p ? 820 : 980,
+              overflowWrap: "anywhere",
               opacity: taglineReveal,
               transform: `translateY(${(1 - taglineReveal) * 12}px)`,
               marginBottom: 34,

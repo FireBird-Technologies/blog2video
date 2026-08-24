@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import type { NewscastLayoutProps } from "./types";
 import { NewsCastLayoutImageBackground } from "../NewsCastLayoutImageBackground";
 import { HEADLINE_WEIGHT, headlinePop, headlinePopStyle, headlineTextShadow } from "../newscastLayoutMotion";
@@ -70,12 +71,46 @@ export const KineticInsight: React.FC<NewscastLayoutProps> = ({
   textColor,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { width, height, durationInFrames } = useVideoConfig();
+
   const portraitScale = getNewscastPortraitTypeScale(width, height);
   const p = height > width;
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input; long copy overflowed the
+     frame. Measure the real available height and shrink to fit. An explicitly
+     chosen size is honored exactly (minPx === targetPx no-ops the hook). */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitDescRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 75 : 58);
+  const fitDescTarget = descriptionFontSize ?? (p ? 17 : 13);
+  // The rendered title copy is `q` (quote ?? title), and the rendered
+  // attribution copy is `attr` (attribution ?? narration) — the fit hooks'
+  // deps must track those actual rendered strings, not the raw title/
+  // narration props, otherwise a change to `quote`/`attribution` alone
+  // (title/narration unchanged) never re-triggers the measurement effect
+  // and the new text renders unfitted, overflowing the frame.
+  const qForFit = quote ?? title ?? "";
+  const attrForFit = attribution ?? narration ?? "";
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef, fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.4),
+    [qForFit, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.22 : 0.26)),
+  );
+  const { px: fitDescPx } = useFitText(
+    fitDescRef, fitDescTarget,
+    descriptionFontSizeIsUserSet ? fitDescTarget : Math.round(fitDescTarget * 0.55),
+    [attrForFit, fitDescTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    // Newscast keeps a lower-third + ticker across the bottom of the frame,
+    // so the body gets the mid-band only, not the full height.
+    Math.round(height * (p ? 0.32 : 0.36)),
+  );
   const sceneFadeFrames = 16;
   const sceneOpacity = interpolate(
     frame,
@@ -113,8 +148,6 @@ export const KineticInsight: React.FC<NewscastLayoutProps> = ({
   });
   const highlightOpacity = interpolate(frame, [hlStart, hlStart + 6], [0, 1], { extrapolateRight: "clamp" });
   const isNarrow = width < 900;
-  const q = quote ?? title ?? "";
-  const attr = attribution ?? narration ?? "";
   const quoteHeadPop = headlinePop(frame, 4);
   const safeTickerItems = (tickerItems?.filter(Boolean) ?? []).slice(0, 4);
   const safeLowerTag = lowerThirdTag ?? "LIVE COVERAGE";
@@ -162,7 +195,7 @@ export const KineticInsight: React.FC<NewscastLayoutProps> = ({
           zIndex: 1,
         }}
       >
-        <div style={{ flex: "1 1 auto", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", paddingRight: 20 }}>
+        <div style={{ flex: "1 1 auto", minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", paddingRight: 20 }}>
           <div
             style={{
               display: "flex",
@@ -190,15 +223,16 @@ export const KineticInsight: React.FC<NewscastLayoutProps> = ({
               </div>
             ))}
           </div>
-          <div
+          <div ref={fitTitleRef}
             style={{
               fontFamily: newscastFont(fontFamily, "title"),
-              fontSize: titleFontSize ?? (p ? 75 : 58),
+              fontSize: fitTitlePx,
               fontWeight: HEADLINE_WEIGHT,
               textTransform: "uppercase",
               textAlign: "center",
               letterSpacing: 1,
               lineHeight: 1.2,
+              width: "100%",
               maxWidth: 900,
               color: "white",
               textShadow: `${headlineTextShadow.strong}, ${headlineCrackleX}px ${-headlineCrackleY}px 16px rgba(255,235,205,${headlineCrackleGlow}), 0 0 28px rgba(232,32,32,${headlineCrackleGlow * 0.75})`,
@@ -206,7 +240,7 @@ export const KineticInsight: React.FC<NewscastLayoutProps> = ({
               ...headlinePopStyle(quoteHeadPop),
             }}
           >
-            {highlightQuote(q, highlightWord, RED, {
+            {highlightQuote(qForFit, highlightWord, RED, {
               blurPx: highlightBlurPx,
               rotZDeg: highlightRotZ,
               scale: highlightScale,
@@ -215,19 +249,20 @@ export const KineticInsight: React.FC<NewscastLayoutProps> = ({
             })}
           </div>
 
-          <div
+          <div ref={fitDescRef}
             style={{
               fontFamily: newscastFont(fontFamily, "label"),
-              fontSize: descriptionFontSize ?? (p ? 17 : 13),
+              fontSize: fitDescPx,
               letterSpacing: 4,
               color: STEEL,
               textTransform: "uppercase",
               marginTop: 18,
               opacity: 0.95,
               textAlign: "center",
+              width: "100%",
             }}
           >
-            {attr}
+            {attrForFit}
           </div>
         </div>
 
@@ -297,5 +332,4 @@ export const KineticInsight: React.FC<NewscastLayoutProps> = ({
     </AbsoluteFill>
   );
 };
-
 

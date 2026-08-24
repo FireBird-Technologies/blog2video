@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { EconomistLayoutProps } from "../types";
+import { useFitText } from "../components/useFitText";
 import { ECONOMIST_COLORS, CHROME_INSET } from "../constants";
 import { ECONOMIST_SERIF_FONT, ECONOMIST_SANS_FONT } from "../../../../fonts/economist-defaults";
 import { parseChartTable, toNum, fmtValue, clamp, textRise } from "./chartHelpers";
@@ -29,6 +30,7 @@ export const DataTable: React.FC<EconomistLayoutProps> = ({
   accentColor = ECONOMIST_COLORS.accent,
   textColor = ECONOMIST_COLORS.ink,
   titleFontSize,
+  titleFontSizeIsUserSet,
   fontFamily,
   aspectRatio = "landscape",
 }) => {
@@ -39,7 +41,22 @@ export const DataTable: React.FC<EconomistLayoutProps> = ({
   const topInset = (isPortrait ? CHROME_INSET.topPortrait : CHROME_INSET.top) + 24;
   const botInset = (isPortrait ? CHROME_INSET.bottomPortrait : CHROME_INSET.bottom) + 22;
   const pad = isPortrait ? { x: 70, t: topInset, b: botInset } : { x: 96, t: topInset, b: botInset };
-  const titleSize = (titleFontSize ?? (isPortrait ? 58 : 52)) as number;
+
+  /* ── Auto-fit (table title) ───────────────────────────────────────────────
+     Same reasoning as ChartLine/ChartBar: `headerBlock` below budgets the
+     title as one line; a long custom title wraps to more lines and eats into
+     the row band. Fit it to that one-line-equivalent budget. The header div
+     is a plain block child of the padded AbsoluteFill (no centering flex
+     ancestor), so no shrink-wrap width bug. */
+  const titleFitRef = React.useRef<HTMLDivElement>(null);
+  const titleFitTarget = (titleFontSize ?? (isPortrait ? 58 : 52)) as number;
+  const { px: titleSize } = useFitText(
+    titleFitRef,
+    titleFitTarget,
+    titleFontSizeIsUserSet ? titleFitTarget : Math.round(titleFitTarget * 0.55),
+    [title, titleFitTarget, titleFontSizeIsUserSet, isPortrait, width],
+    Math.round(titleFitTarget * 1.05),
+  );
   const subSize = Math.round(titleSize * 0.56);
 
   const headOp = interpolate(frame, [0, 14], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
@@ -98,6 +115,7 @@ export const DataTable: React.FC<EconomistLayoutProps> = ({
       <div style={{ marginBottom: 22 }}>
         <div style={{ width: 34, height: 6, background: accentColor, marginBottom: 16, ...textRise(frame, 0, 14) }} />
         <div
+          ref={titleFitRef}
           style={{
             fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT,
             fontWeight: 700,

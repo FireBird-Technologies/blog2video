@@ -6,6 +6,7 @@ import {
   GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY,
 } from "../constants";
 import { glass, COLORS } from "../utils/styles";
+import { useFitText } from "../components/useFitText";
 
 export const BentoCode: React.FC<GridcraftLayoutProps> = ({
   title, // Language
@@ -15,11 +16,13 @@ export const BentoCode: React.FC<GridcraftLayoutProps> = ({
   accentColor,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   aspectRatio,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
-  const { fps, width } = useVideoConfig();
+  const { fps, width, height: videoHeight } = useVideoConfig();
   const p = aspectRatio === "portrait";
 
   const spr = (d: number) => spring({ frame: Math.max(0, frame - d), fps, config: { damping: 16 } });
@@ -84,6 +87,47 @@ export const BentoCode: React.FC<GridcraftLayoutProps> = ({
     gridTemplateRowsStyle = "1fr 1fr";
   }
 
+  // Numeric height of the code panel (spans both rows via `gridRow: 1 / 3`),
+  // used for the fitter's explicit budget — the panel is `overflow:hidden`
+  // with fixed 32px padding, and `codeLines` count is unbounded.
+  const codePanelHeightPx = p
+    ? ((effectiveContainerWidth - gap) / 3) * 2 + gap
+    : videoHeight * containerHeightPercentage;
+  const codeBudgetPx = Math.max(1, codePanelHeightPx - 64);
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Code lines are unbounded (LLM-generated snippets); shrink the monospace
+     size to fit the panel instead of clipping trailing lines. */
+  const codeRef = React.useRef<HTMLDivElement>(null);
+  const actualCodeFontSize = descriptionFontSize ?? 27;
+  const { px: codePx } = useFitText(
+    codeRef,
+    actualCodeFontSize,
+    descriptionFontSizeIsUserSet ? actualCodeFontSize : 12,
+    [lines.join("\n"), actualCodeFontSize, descriptionFontSizeIsUserSet, codeBudgetPx],
+    codeBudgetPx,
+  );
+
+  // Language badge and details card sit in fixed `1fr`/square grid cells.
+  const badgeRef = React.useRef<HTMLDivElement>(null);
+  const detailsRef = React.useRef<HTMLDivElement>(null);
+  const actualTitleFontSize = titleFontSize ?? 37;
+  const badgeCellHeightPx = p ? (effectiveContainerWidth - gap) / 3 : videoHeight * containerHeightPercentage * 0.5;
+  const { px: badgePx } = useFitText(
+    badgeRef,
+    actualTitleFontSize,
+    titleFontSizeIsUserSet ? actualTitleFontSize : 18,
+    [title, actualTitleFontSize, titleFontSizeIsUserSet, badgeCellHeightPx],
+    Math.max(1, badgeCellHeightPx - 48),
+  );
+  const { px: detailsPx } = useFitText(
+    detailsRef,
+    20,
+    12,
+    [narration, badgeCellHeightPx],
+    Math.max(1, badgeCellHeightPx - 48),
+  );
+
   return (
     <div
       style={{
@@ -99,6 +143,7 @@ export const BentoCode: React.FC<GridcraftLayoutProps> = ({
     >
       {/* Code Window */}
       <div
+        ref={codeRef}
         style={{
            gridRow: "1 / 3",
            backgroundColor: "rgba(15, 23, 42, 0.85)", // Dark slate
@@ -107,7 +152,7 @@ export const BentoCode: React.FC<GridcraftLayoutProps> = ({
            border: "1px solid rgba(255,255,255,0.1)",
            padding: 32,
            fontFamily: codeFontFamily,
-           fontSize: descriptionFontSize ?? (p ? 27 : 27),
+           fontSize: codePx,
            lineHeight: 1.8,
            color: "#E2E8F0",
            overflow: "hidden", // Important for containing the typing lines
@@ -137,7 +182,7 @@ export const BentoCode: React.FC<GridcraftLayoutProps> = ({
             opacity: interpolate(badgeSpring, [0, 1], [0, 1]),
         }}
       >
-          <div style={{ fontSize: titleFontSize ?? (p ? 37 : 37), fontWeight: 700 }}>{title || "Code"}</div>
+          <div ref={badgeRef} style={{ fontSize: badgePx, fontWeight: 700 }}>{title || "Code"}</div>
       </div>
 
       {/* Description (Details Card) */}
@@ -151,7 +196,7 @@ export const BentoCode: React.FC<GridcraftLayoutProps> = ({
         }}
       >
           <div style={{ fontSize: 12, color: COLORS.MUTED, textTransform: "uppercase", marginBottom: 8 }}>Details</div>
-          <div style={{ fontSize: 20, lineHeight: 1.4, fontWeight: 500 }}>{narration}</div>
+          <div ref={detailsRef} style={{ fontSize: detailsPx, lineHeight: 1.4, fontWeight: 500 }}>{narration}</div>
       </div>
     </div>
   );

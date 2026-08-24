@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { SceneLayoutProps } from "../types";
 import { GrassGround, StickFace } from "../shared";
 
@@ -14,6 +15,8 @@ export const InjuryBreak: React.FC<SceneLayoutProps> = (props) => {
     sceneDurationInFrames,
     titleFontSize,
     descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
     fontFamily,
   } = props;
   const p = aspectRatio === "portrait";
@@ -23,13 +26,37 @@ export const InjuryBreak: React.FC<SceneLayoutProps> = (props) => {
   const leftDescription = (props as any).leftDescription ?? "";
   const rightDescription = (props as any).rightDescription ?? "";
 
-  const { fps } = useVideoConfig();
+  const { fps, height} = useVideoConfig();
   const frame = useCurrentFrame();
   const dur = sceneDurationInFrames ?? 150;
   const tSec = frame / fps;
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input; long copy overflows the card
+     and is clipped by the scene frame. Measure the real available height and
+     shrink to fit. A size the user explicitly picked is honored exactly —
+     minPx === targetPx makes the hook a no-op. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitDescRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 62 : 57);
+  const fitDescTarget = descriptionFontSize ?? (p ? 44 : 34);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.42),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.22 : 0.26)),
+  );
+  const { px: fitDescPx } = useFitText(
+    fitDescRef,
+    fitDescTarget,
+    descriptionFontSizeIsUserSet ? fitDescTarget : Math.round(fitDescTarget * 0.4),
+    [narration, fitDescTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * (p ? 0.30 : 0.34)),
+  );
 
-  const titlePx = titleFontSize ?? (p ? 62 : 57);
-  const descPx = descriptionFontSize ?? (p ? 44 : 34);
+  const titlePx = fitTitlePx;
+  const descPx = fitDescPx;
+
   const labelPx = p ? 40 : 48;
   const ff = fontFamily ?? "'Patrick Hand', system-ui, sans-serif";
 
@@ -279,7 +306,7 @@ export const InjuryBreak: React.FC<SceneLayoutProps> = (props) => {
         <div style={{ height: 4, background: accent, marginTop: 8, width: "60%", transformOrigin: "left center", transform: `scaleX(${seg(labelDelay, 350)})`, borderRadius: 2 }} />
       </div>
       {desc ? (
-        <div style={{ marginTop: 14, color: text, fontSize: descPx, fontWeight: 500, lineHeight: 1.42, opacity: seg(descDelay, 350), wordBreak: "break-word", overflowWrap: "break-word" }}>
+        <div ref={fitDescRef} style={{ marginTop: 14, color: text, fontSize: descPx, fontWeight: 500, lineHeight: 1.42, opacity: seg(descDelay, 350), wordBreak: "break-word", overflowWrap: "break-word" }}>
           {desc}
         </div>
       ) : null}
@@ -352,7 +379,7 @@ export const InjuryBreak: React.FC<SceneLayoutProps> = (props) => {
         }}
       >
         {title ? (
-          <div
+          <div ref={fitTitleRef}
             style={{
               opacity: titleFade * exit,
               color: text,

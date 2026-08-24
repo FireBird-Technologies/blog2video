@@ -1,10 +1,12 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import React from "react";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
 import { AccentBars, FilmGrain, LightDust, PulseRing, SpotlightBeam } from "../components/SpotlightArtifacts";
 import { SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
 import { ZoomCropVideo } from "../components/ZoomCropVideo";
+import { useFitText } from "../components/useFitText";
 
 /**
  * Closer — Final Takeaway
@@ -33,9 +35,53 @@ export const Closer: React.FC<SpotlightLayoutProps> = ({
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const fps = 30;
   const p = aspectRatio === "portrait";
   const bodyFontFamily = fontFamily ?? SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY;
+
+  const hasImageForFit = Boolean(imageUrl) || Boolean(videoUrl);
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Statement text and CTA line are unbounded user input stacked in one
+     column with no height cap. Fit the statement to its own budget first, then
+     the CTA to what's left; if the CTA bottoms out at its floor and still
+     overflows, give back that much from the statement's budget (same cascade
+     as newspaper's NewsHeadline). */
+  const statementRef = React.useRef<HTMLDivElement>(null);
+  const ctaRef = React.useRef<HTMLDivElement>(null);
+  const statementTargetPx = titleFontSize ?? (p ? 55 : 42);
+  const ctaTargetPx = descriptionFontSize ?? (p ? 55 : 44);
+  const displayTextForFit = narration || title;
+  const displayCtaForFit = cta || "Read the full article →";
+
+  const stackBudgetPx = Math.round(height * (hasImageForFit && !p ? 0.55 : p ? 0.55 : 0.65));
+  const statementBudgetPx = Math.round(stackBudgetPx * 0.62);
+  const [ctaGiveBackPx, setCtaGiveBackPx] = React.useState(0);
+  React.useLayoutEffect(() => {
+    setCtaGiveBackPx(0);
+  }, [displayTextForFit, displayCtaForFit, statementTargetPx, ctaTargetPx, stackBudgetPx]);
+
+  const { px: statementPx } = useFitText(
+    statementRef,
+    statementTargetPx,
+    p ? 24 : 20,
+    [displayTextForFit, statementTargetPx, statementBudgetPx, ctaGiveBackPx],
+    Math.max(1, statementBudgetPx - ctaGiveBackPx),
+  );
+  const ctaBudgetPx = Math.max(1, stackBudgetPx - statementBudgetPx);
+  const { px: ctaPx, overflowPx: ctaOverflowPx } = useFitText(
+    ctaRef,
+    ctaTargetPx,
+    p ? 20 : 18,
+    [displayCtaForFit, ctaTargetPx, ctaBudgetPx, statementPx],
+    ctaBudgetPx,
+  );
+  React.useLayoutEffect(() => {
+    if (ctaOverflowPx > 0) {
+      setCtaGiveBackPx((prev) => Math.min(statementBudgetPx * 0.7, prev + ctaOverflowPx));
+    }
+  }, [ctaOverflowPx, statementBudgetPx]);
 
   const blurSpring = spring({
     frame,
@@ -179,8 +225,9 @@ export const Closer: React.FC<SpotlightLayoutProps> = ({
         )}
         <div style={{ flex: hasImage && !p ? 1 : "none", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
         <div
+          ref={statementRef}
           style={{
-            fontSize: titleFontSize ?? (p ? 55 : 42),
+            fontSize: statementPx,
             fontWeight: 700,
             color: textColor || "#FFFFFF",
             letterSpacing: "-0.02em",
@@ -195,9 +242,10 @@ export const Closer: React.FC<SpotlightLayoutProps> = ({
         </div>
 
         <div
+          ref={ctaRef}
           style={{
             marginTop: p ? 24 : 36,
-            fontSize: descriptionFontSize ?? (p ? 55 : 44),
+            fontSize: ctaPx,
             fontWeight: 300,
             color: "#666666",
             letterSpacing: "0.12em",

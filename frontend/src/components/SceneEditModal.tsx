@@ -2286,6 +2286,10 @@ const HIDDEN_LAYOUT_PROP_KEYS = new Set([
   "image_box_aspect_ratio",
   "titleFontSize",
   "descriptionFontSize",
+  // Derived at render time from whether a font size is stored — never persisted,
+  // and never shown as a raw content input.
+  "titleFontSizeIsUserSet",
+  "descriptionFontSizeIsUserSet",
   // Image framing state — edited via the image adjust UI, never as a raw
   // "extra" content input (they otherwise leak in as IMAGEFOCUSX / IMAGEFOCUSY).
   "imageFocusX",
@@ -3567,6 +3571,9 @@ export default function SceneEditModal({
         | undefined,
       project.aspect_ratio || "landscape",
       normalizedTemplateId,
+      // This seeds EDITABLE state that gets persisted on save — the derived
+      // font-size markers must not leak into it.
+      { deriveUserSetFlags: false },
     );
     setEditableLayoutProps(lpCopy);
     if (isEndingScene) {
@@ -3689,6 +3696,8 @@ export default function SceneEditModal({
           | undefined,
         project.aspect_ratio || "landscape",
         normalizedTemplateId,
+        // Editable state — see the note on the sibling call above.
+        { deriveUserSetFlags: false },
       ),
     );
 
@@ -4197,6 +4206,12 @@ export default function SceneEditModal({
             else delete lp.titleFontSize;
             if (dsNum !== null && dsNum !== defDesc) lp.descriptionFontSize = dsNum;
             else delete lp.descriptionFontSize;
+            // These are DERIVED at render time from whether a size is stored above —
+            // they must never be persisted. mergeLayoutSchemaDefaults injects them when
+            // it seeds the editor's state, so without this a pure text edit would save
+            // "user set the size", permanently disabling layouts' auto-fit.
+            delete lp.titleFontSizeIsUserSet;
+            delete lp.descriptionFontSizeIsUserSet;
             if (isEndingScene) {
               lp.hideImage = true;
               delete lp.assignedImage;

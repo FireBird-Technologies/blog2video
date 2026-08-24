@@ -1,4 +1,5 @@
-import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
+import React from "react";
+import { AbsoluteFill, Img, interpolate, useCurrentFrame, useVideoConfig, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
 import {
   AccentBars,
@@ -15,6 +16,7 @@ import {
 } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
 import { ZoomCropVideo } from "../components/ZoomCropVideo";
+import { useFitText } from "../components/useFitText";
 
 function normalizeTitleToken(word: string): string {
   return word.toLowerCase().replace(/[.,!?:;]/g, "");
@@ -75,11 +77,41 @@ export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const fps = 30;
   const p = aspectRatio === "portrait";
   const displayFontFamily =
     fontFamily ?? SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY;
   const bodyFontFamily = fontFamily ?? SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY;
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and subtitle are unbounded user input; at this template's huge
+     display sizes long copy would overflow the stage and clip. Give the title
+     the bulk of the column and the subtitle the rest — both flex-shrink:0 (the
+     title is scaled by a spring, the subtitle wraps), so neither can measure
+     its own overflow; budget each explicitly instead. */
+  const hasImageForFit = Boolean(imageUrl) || Boolean(videoUrl);
+  const titleRef = React.useRef<HTMLHeadingElement>(null);
+  const subtitleRef = React.useRef<HTMLParagraphElement>(null);
+  const titleTargetPx = titleFontSize ?? (p ? 87 : 100);
+  const subtitleTargetPx = descriptionFontSize ?? (p ? 35 : 33);
+  const stackBudgetPx = Math.round(height * (hasImageForFit && !p ? 0.6 : p ? 0.55 : 0.7));
+  const titleBudgetPx = Math.round(stackBudgetPx * (narration ? 0.72 : 1));
+  const { px: titlePx } = useFitText(
+    titleRef,
+    titleTargetPx,
+    p ? 36 : 42,
+    [title, titleTargetPx, titleBudgetPx],
+    titleBudgetPx,
+  );
+  const subtitleBudgetPx = Math.max(1, stackBudgetPx - titleBudgetPx);
+  const { px: subtitlePx } = useFitText(
+    subtitleRef,
+    subtitleTargetPx,
+    p ? 16 : 15,
+    [narration, subtitleTargetPx, subtitleBudgetPx, titlePx],
+    subtitleBudgetPx,
+  );
 
   const titleScale = spring({
     frame: frame - 3,
@@ -172,8 +204,9 @@ export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
         )}
         <div style={{ flex: hasImage && !p ? 1 : "none", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
         <h1
+          ref={titleRef}
           style={{
-            fontSize: titleFontSize ?? (p ? 87 : 100),
+            fontSize: titlePx,
             fontWeight: 900,
             color: baseTitleColor,
             fontFamily: displayFontFamily,
@@ -201,8 +234,9 @@ export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
 
         {narration && (
           <p
+            ref={subtitleRef}
             style={{
-              fontSize: descriptionFontSize ?? (p ? 35 : 33),
+              fontSize: subtitlePx,
               fontWeight: 300,
               color: textColor,
               fontFamily: bodyFontFamily,

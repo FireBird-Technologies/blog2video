@@ -1,6 +1,7 @@
 import React from "react";
 import { useVideoConfig, interpolate } from "remotion";
 import { SceneLayoutProps } from "../types";
+import { useFitText } from "../components/useFitText";
 import {
   SAKURA,
   SAKURA_DISPLAY_FONT,
@@ -30,6 +31,8 @@ export const SakuraQuote: React.FC<SceneLayoutProps> = (props) => {
     sceneDurationInFrames,
     titleFontSize,
     descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
     fontFamily,
   } = props;
 
@@ -49,8 +52,33 @@ export const SakuraQuote: React.FC<SceneLayoutProps> = (props) => {
   const body = (props as any).body ?? (props as any).context ?? "";
   const attribution = (props as any).attribution ?? (props as any).author ?? "";
 
-  const quotePx = titleFontSize ?? (p ? 92 : 76);
-  const translationPx = descriptionFontSize ?? (p ? 52 : 48);
+  const quoteTargetPx = titleFontSize ?? (p ? 92 : 76);
+  const translationTargetPx = descriptionFontSize ?? (p ? 52 : 48);
+  const quoteMeasureRef = React.useRef<HTMLDivElement>(null);
+  const translationRef = React.useRef<HTMLDivElement>(null);
+  const bodyRef = React.useRef<HTMLDivElement>(null);
+  const { px: quotePx } = useFitText(
+    quoteMeasureRef,
+    quoteTargetPx,
+    Math.max(30, Math.round(quoteTargetPx * 0.52)),
+    [quote, quoteTargetPx, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.27 : 0.32)),
+  );
+  const { px: translationPx } = useFitText(
+    translationRef,
+    translationTargetPx,
+    Math.max(20, Math.round(translationTargetPx * 0.52)),
+    [quoteTranslation, translationTargetPx, descriptionFontSizeIsUserSet, quotePx, p, height],
+    Math.round(height * (p ? 0.34 : 0.4)),
+  );
+  const bodyTargetPx = Math.round(translationTargetPx * 0.8);
+  const { px: bodyPx } = useFitText(
+    bodyRef,
+    bodyTargetPx,
+    Math.max(18, Math.round(bodyTargetPx * 0.55)),
+    [body, bodyTargetPx, descriptionFontSizeIsUserSet, translationPx, p, height],
+    Math.round(height * (p ? 0.3 : 0.35)),
+  );
   // Romaji sits directly under the quote, so it tracks the quote (title slider);
   // the attribution tracks the translation/body (display-text slider).
   const romajiPx = Math.max(16, Math.round(quotePx * 0.28));
@@ -189,7 +217,27 @@ export const SakuraQuote: React.FC<SceneLayoutProps> = (props) => {
         }}
       >
         {/* Main quote — brushed in one glyph at a time like sumi-e calligraphy */}
-        <div style={{ marginBottom: 30 }}>
+        <div style={{ position: "relative", width: "100%", marginBottom: 30 }}>
+          {/* SumiBrushText reveals glyphs over time; this full-copy mirror keeps
+              fitting stable from frame zero instead of shrinking mid-animation. */}
+          <div
+            ref={quoteMeasureRef}
+            aria-hidden
+            style={{
+              position: "absolute",
+              inset: 0,
+              visibility: "hidden",
+              pointerEvents: "none",
+              fontFamily: fontFamily ?? SAKURA_DISPLAY_FONT,
+              fontWeight: 700,
+              fontSize: quotePx,
+              letterSpacing: "0.1em",
+              lineHeight: 1.25,
+              overflowWrap: "anywhere",
+            }}
+          >
+            {quote}
+          </div>
           <SumiBrushText
             text={quote}
             fontFamily={fontFamily ?? SAKURA_DISPLAY_FONT}
@@ -237,6 +285,7 @@ export const SakuraQuote: React.FC<SceneLayoutProps> = (props) => {
 
         {/* Translation */}
         <div
+          ref={translationRef}
           style={{
             fontFamily: fontFamily ?? SAKURA_BODY_FONT,
             fontStyle: "italic",
@@ -255,9 +304,10 @@ export const SakuraQuote: React.FC<SceneLayoutProps> = (props) => {
         {/* Body — a fuller explanatory passage beneath the quote */}
         {body ? (
           <div
+            ref={bodyRef}
             style={{
               fontFamily: fontFamily ?? SAKURA_BODY_FONT,
-              fontSize: Math.round(translationPx * 0.8),
+              fontSize: bodyPx,
               color: hexToRgba(ink, 0.7),
               letterSpacing: "0.02em",
               lineHeight: 1.7,
@@ -290,6 +340,7 @@ export const SakuraQuote: React.FC<SceneLayoutProps> = (props) => {
                 color: hexToRgba(ink, 0.5),
                 letterSpacing: "0.4em",
                 textTransform: "uppercase",
+                overflowWrap: "anywhere",
               }}
             >
               — {attribution}

@@ -1,4 +1,5 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import React from "react";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, spring } from "remotion";
 import { BigGlyphBackdrop, DiagonalShards, FilmGrain, FlashPop, HalftoneField } from "../components/SpotlightArtifacts";
 import {
   SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY,
@@ -7,6 +8,103 @@ import {
 import type { SpotlightLayoutProps } from "../types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
 import { ZoomCropVideo } from "../components/ZoomCropVideo";
+import { useFitText } from "../components/useFitText";
+
+/**
+ * One side of the split — its own component so left/right each get their own
+ * useFitText refs/calls (Rules of Hooks forbid a variable number of hook
+ * calls, and inlining both sides in one function body would otherwise need
+ * two differently-keyed calls anyway; a component keeps it symmetric).
+ */
+const VersusPanel: React.FC<{
+  kicker: string;
+  heading: string;
+  description: string;
+  headingTargetPx: number;
+  descTargetPx: number;
+  budgetPx: number;
+  p: boolean;
+  headingColor: string;
+  descColor: string;
+  displayFontFamily: string;
+  bodyFontFamily: string;
+  style: React.CSSProperties;
+}> = ({ kicker, heading, description, headingTargetPx, descTargetPx, budgetPx, p, headingColor, descColor, displayFontFamily, bodyFontFamily, style }) => {
+  const stackRef = React.useRef<HTMLDivElement>(null);
+  const headingRef = React.useRef<HTMLDivElement>(null);
+  const descRef = React.useRef<HTMLDivElement>(null);
+
+  const headingBudgetPx = Math.round(budgetPx * (description ? 0.6 : 1));
+  const { px: headingPx } = useFitText(
+    headingRef,
+    headingTargetPx,
+    p ? 30 : 26,
+    [heading, headingTargetPx, headingBudgetPx],
+    headingBudgetPx,
+  );
+  const descBudgetPx = Math.max(1, budgetPx - headingBudgetPx);
+  const { px: descPx } = useFitText(
+    descRef,
+    descTargetPx,
+    p ? 18 : 16,
+    [description, descTargetPx, descBudgetPx, headingPx],
+    descBudgetPx,
+  );
+
+  return (
+    <div style={style}>
+      <div
+        style={{
+          fontSize: p ? 14 : 18,
+          fontWeight: 700,
+          color: "#666666",
+          letterSpacing: "0.15em",
+          textTransform: "uppercase",
+          fontFamily: bodyFontFamily,
+          marginBottom: 12,
+          flexShrink: 0,
+        }}
+      >
+        {kicker}
+      </div>
+      <div ref={stackRef} style={{ display: "flex", flexDirection: "column", alignItems: "center", minHeight: 0, overflow: "hidden", maxHeight: "100%" }}>
+        <div
+          ref={headingRef}
+          style={{
+            fontSize: headingPx,
+            fontWeight: 900,
+            color: headingColor,
+            textAlign: "center",
+            letterSpacing: "-0.03em",
+            lineHeight: 1.1,
+            fontFamily: displayFontFamily,
+            flexShrink: 0,
+          }}
+        >
+          {heading}
+        </div>
+        {description && (
+          <div
+            ref={descRef}
+            style={{
+              fontSize: descPx,
+              color: descColor,
+              marginTop: 12,
+              textAlign: "center",
+              fontFamily: bodyFontFamily,
+              maxWidth: "90%",
+              minHeight: 0,
+              overflow: "hidden",
+              flex: "0 1 auto",
+            }}
+          >
+            {description}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 /**
  * Versus — Contrast Split
@@ -35,11 +133,16 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const fps = 30;
   const p = aspectRatio === "portrait";
   const displayFontFamily =
     fontFamily ?? SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY;
   const bodyFontFamily = fontFamily ?? SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY;
+  const headingTargetPx = titleFontSize ?? (p ? 64 : 57);
+  const descTargetPx = descriptionFontSize ?? (p ? 36 : 42);
+  // Each panel's column has ~76% of the frame minus padding to work with.
+  const panelBudgetPx = Math.round(height * 0.7);
 
   const leftSpring = spring({
     frame: frame - 3,
@@ -120,7 +223,18 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
         }}
       >
       {/* Left — White background */}
-      <div
+      <VersusPanel
+        kicker={displayLeftLabel}
+        heading={title && !leftLabel ? title : displayLeftLabel}
+        description={displayLeftDesc}
+        headingTargetPx={headingTargetPx}
+        descTargetPx={descTargetPx}
+        budgetPx={panelBudgetPx}
+        p={p}
+        headingColor="#000000"
+        descColor="#888888"
+        displayFontFamily={displayFontFamily}
+        bodyFontFamily={bodyFontFamily}
         style={{
           flex: 1,
           backgroundColor: "#FFFFFF",
@@ -129,53 +243,13 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
           alignItems: "center",
           justifyContent: "center",
           padding: "8%",
+          minHeight: 0,
           transform: p
             ? `translateY(${(1 - leftSpring) * -60}px)`
             : `translateX(${(1 - leftSpring) * -60}px)`,
           opacity: leftSpring,
         }}
-      >
-        <div
-          style={{
-            fontSize: p ? 14 : 18,
-            fontWeight: 700,
-            color: "#666666",
-            letterSpacing: "0.15em",
-            textTransform: "uppercase",
-            fontFamily: bodyFontFamily,
-            marginBottom: 12,
-          }}
-        >
-          {displayLeftLabel}
-        </div>
-        <div
-          style={{
-            fontSize: titleFontSize ?? (p ? 64 : 57),
-            fontWeight: 900,
-            color: "#000000",
-            textAlign: "center",
-            letterSpacing: "-0.03em",
-            lineHeight: 1.1,
-            fontFamily: displayFontFamily,
-          }}
-        >
-          {title && !leftLabel ? title : displayLeftLabel}
-        </div>
-        {displayLeftDesc && (
-          <div
-            style={{
-              fontSize: descriptionFontSize ?? (p ? 36 : 42),
-              color: "#888888",
-              marginTop: 12,
-              textAlign: "center",
-              fontFamily: bodyFontFamily,
-              maxWidth: "90%",
-            }}
-          >
-            {displayLeftDesc}
-          </div>
-        )}
-      </div>
+      />
 
       {/* Divider */}
       <div
@@ -191,7 +265,18 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
       />
 
       {/* Right — Black background */}
-      <div
+      <VersusPanel
+        kicker={displayRightLabel}
+        heading={displayRightLabel}
+        description={displayRightDesc}
+        headingTargetPx={headingTargetPx}
+        descTargetPx={descTargetPx}
+        budgetPx={panelBudgetPx}
+        p={p}
+        headingColor="#FFFFFF"
+        descColor="#666666"
+        displayFontFamily={displayFontFamily}
+        bodyFontFamily={bodyFontFamily}
         style={{
           flex: 1,
           backgroundColor: "#000000",
@@ -200,53 +285,13 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
           alignItems: "center",
           justifyContent: "center",
           padding: "8%",
+          minHeight: 0,
           transform: p
             ? `translateY(${(1 - rightSpring) * 60}px)`
             : `translateX(${(1 - rightSpring) * 60}px)`,
           opacity: rightSpring,
         }}
-      >
-        <div
-          style={{
-            fontSize: p ? 14 : 18,
-            fontWeight: 700,
-            color: "#666666",
-            letterSpacing: "0.15em",
-            textTransform: "uppercase",
-            fontFamily: bodyFontFamily,
-            marginBottom: 12,
-          }}
-        >
-          {displayRightLabel}
-        </div>
-        <div
-          style={{
-            fontSize: titleFontSize ?? (p ? 64 : 57),
-            fontWeight: 900,
-            color: "#FFFFFF",
-            textAlign: "center",
-            letterSpacing: "-0.03em",
-            lineHeight: 1.1,
-            fontFamily: displayFontFamily,
-          }}
-        >
-          {displayRightLabel}
-        </div>
-        {displayRightDesc && (
-          <div
-            style={{
-              fontSize: descriptionFontSize ?? (p ? 36 : 42),
-              color: "#666666",
-              marginTop: 12,
-              textAlign: "center",
-              fontFamily: bodyFontFamily,
-              maxWidth: "90%",
-            }}
-          >
-            {displayRightDesc}
-          </div>
-        )}
-      </div>
+      />
       </div>
 
       {/* Decorative artifacts — ghost VS, shards on both corners, flashes on the face-off. */}

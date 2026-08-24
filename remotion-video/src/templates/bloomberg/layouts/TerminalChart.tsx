@@ -1,4 +1,6 @@
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import React from "react";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY, derivePalette } from "../constants";
 import type { BloombergLayoutProps } from "../types";
 
@@ -19,6 +21,7 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
   yAxisLabel,
 }) => {
   const frame = useCurrentFrame();
+  const { height: canvasH } = useVideoConfig();
   const p = aspectRatio === "portrait";
   const ff = fontFamily || BLOOMBERG_DEFAULT_FONT_FAMILY;
   const amber = textColor || BLOOMBERG_COLORS.amber;
@@ -254,6 +257,15 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
   const chartLeft = p ? pad : "42%";
   const signalStripH = p ? 200 : 0;
   const narrationH = p ? 0 : 0;
+  const topTitleRef = React.useRef<HTMLSpanElement>(null);
+  const landscapeNarrationRef = React.useRef<HTMLDivElement>(null);
+  const portraitNarrationRef = React.useRef<HTMLDivElement>(null);
+  const topTitleTarget = tSize * 0.28;
+  const landscapeNarrationTarget = dSize * 0.52;
+  const portraitNarrationTarget = dSize * 0.6;
+  const { px: fittedTopTitleSize } = useFitText(topTitleRef, topTitleTarget, 18, [title, topTitleTarget, p, topH], Math.round(topH * 0.82));
+  const { px: fittedLandscapeNarrationSize } = useFitText(landscapeNarrationRef, landscapeNarrationTarget, 16, [narration, landscapeNarrationTarget, p, canvasH], Math.round(canvasH * 0.24));
+  const { px: fittedPortraitNarrationSize } = useFitText(portraitNarrationRef, portraitNarrationTarget, 16, [narration, portraitNarrationTarget, p, signalStripH], Math.round(signalStripH * 0.32));
 
   // ── SVG viewBox ──
   // Portrait: fixed 1000×600 viewBox (same as landscape) with preserveAspectRatio="meet"
@@ -298,7 +310,7 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
         display: "flex", alignItems: "center", padding: `0 ${pad}px`, gap: 24,
 
       }}>
-        <span style={{ backgroundColor: amber, color: bg, fontSize: tSize * 0.28, padding: "1px 8px 2px", display: "inline-block" }}>{title}</span>
+        <span ref={topTitleRef} style={{ backgroundColor: amber, color: bg, fontSize: fittedTopTitleSize, padding: "1px 8px 2px", display: "inline-block", maxWidth: "72%", lineHeight: 1.05, overflowWrap: "anywhere" }}>{title}</span>
         <div style={{ flex: 1 }} />
         <span style={{ color: amber, fontSize: p ? dSize * 0.9 : dSize * 0.7, letterSpacing: 1 }}>
           {last.toFixed(2)}
@@ -773,11 +785,12 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
 
           {/* Narration */}
           {narration ? (
-            <div style={{
+            <div ref={landscapeNarrationRef} style={{
               marginTop: "auto",
               paddingTop: 12,
               borderTop: `1px solid ${amber}33`,
-              color: `${muted}CC`, fontSize: dSize * 0.52, lineHeight: 1.5,
+              color: `${muted}CC`, fontSize: fittedLandscapeNarrationSize, lineHeight: 1.5,
+              overflowWrap: "anywhere",
             }}>
               {narration}
             </div>
@@ -818,7 +831,7 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
             </div>
           ))}
           {narration ? (
-            <div style={{ marginTop: 6, paddingTop: 8, borderTop: `1px solid ${amber}22`, color: `${muted}BB`, fontSize: dSize * 0.6, lineHeight: 1.4 }}>
+            <div ref={portraitNarrationRef} style={{ marginTop: 6, paddingTop: 8, borderTop: `1px solid ${amber}22`, color: `${muted}BB`, fontSize: fittedPortraitNarrationSize, lineHeight: 1.4, overflowWrap: "anywhere" }}>
               {narration}
             </div>
           ) : null}

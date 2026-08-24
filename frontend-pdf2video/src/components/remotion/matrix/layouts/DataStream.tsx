@@ -1,4 +1,6 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import React from "react";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, spring } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { MatrixBackground } from "../MatrixBackground";
 import { buildHudStatus, DecodeSweep, GridTunnel, ScanlinesOverlay, TelemetryGauge, TerminalHUD } from "../components/MatrixArtifacts";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
@@ -32,6 +34,7 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const fps = 30;
   const p = aspectRatio === "portrait";
   const accent = accentColor || "#00FF41";
@@ -76,13 +79,27 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
     displayItems.length - 1
   );
 
-  const scaledFontSize = descriptionFontSize ?? (p ? 77 : 73);
-  const computedFontSize = scaledFontSize;
+  const scaledFontSize = descriptionFontSize ?? titleFontSize ?? (p ? 77 : 73);
   const prefixWidth = p ? 110 : 132;
   const stackPaddingTop = hasImage ? (p ? 56 : 36) : (p ? 180 : 140);
   const stackPaddingBottom = p ? 120 : 84;
   const stackPaddingX = p ? 40 : 88;
   const listMaxWidth = hasImage ? (p ? 760 : 920) : (p ? 820 : 1080);
+  const rowGap = p ? 24 : 30;
+  const streamColumnGap = p ? 18 : 24;
+  const imageStackHeight = hasImage ? (p ? 260 + 32 : 300 + 40) : 0;
+  const availableListHeight = Math.max(
+    160,
+    height - stackPaddingTop - stackPaddingBottom - imageStackHeight,
+  );
+  const streamMirrorRef = React.useRef<HTMLDivElement>(null);
+  const { px: computedFontSize } = useFitText(
+    streamMirrorRef,
+    scaledFontSize,
+    11,
+    [displayItems.join("\n"), scaledFontSize, p, hasImage, height, listMaxWidth],
+    availableListHeight,
+  );
 
   return (
     <AbsoluteFill style={{ overflow: "hidden", backgroundColor: bgColor }}>
@@ -95,6 +112,33 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
       {!p && <TelemetryGauge accentColor={accent} label="LOAD" corner="top-right" startFrame={8} seed={65} />}
       <DecodeSweep accentColor={accent} startFrame={2} seed={57} />
       <ScanlinesOverlay accentColor={accent} intensity={0.8} />
+      {/* Match the visible prefix/text grid exactly. Measuring plain full-width
+          lines under-counted wrapping and omitted every inter-row gap. */}
+      <div ref={streamMirrorRef} style={{
+        position: "absolute",
+        visibility: "hidden",
+        width: listMaxWidth,
+        display: "flex",
+        flexDirection: "column",
+        gap: rowGap,
+        fontSize: scaledFontSize,
+        lineHeight: 1.4,
+        fontFamily: resolvedFontFamily,
+      }}>
+        {displayItems.map((item, i) => (
+          <div key={i} style={{
+            display: "grid",
+            gridTemplateColumns: `${prefixWidth}px minmax(0, 1fr)`,
+            columnGap: streamColumnGap,
+            alignItems: "start",
+          }}>
+            <span style={{ whiteSpace: "nowrap" }}>{`> ${String(i + 1).padStart(2, "0")}`}</span>
+            <span style={{ minWidth: 0, display: "flex", flexWrap: "wrap", columnGap: "0.38em", rowGap: "0.14em", overflowWrap: "anywhere" }}>
+              {item.trim().split(/\s+/).filter(Boolean).map((word, wordIdx) => <span key={wordIdx}>{word}</span>)}
+            </span>
+          </div>
+        ))}
+      </div>
 
       <div
         style={{
@@ -158,8 +202,9 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            // User Instruction: increase the gap between the items.
-            gap: p ? 24 : 30,
+            gap: rowGap,
+            maxHeight: availableListHeight,
+            overflow: "hidden",
           }}
         >
         {displayItems.map((item, i) => {
@@ -183,7 +228,7 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
                 gridTemplateColumns: `${prefixWidth}px minmax(0, 1fr)`,
                 alignItems: "flex-start",
                 width: "100%",
-                columnGap: p ? 18 : 24,
+                columnGap: streamColumnGap,
                 opacity: lineOpacity,
                 filter: `drop-shadow(0 0 8px ${accent}66)`,
               }}
@@ -219,6 +264,7 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
                   justifyContent: "flex-start",
                   columnGap: "0.38em",
                   rowGap: "0.14em",
+                  overflowWrap: "anywhere",
                 }}
               >
                 {words.map((word, wordIdx) => {
@@ -263,4 +309,3 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
     </AbsoluteFill>
   );
 };
-

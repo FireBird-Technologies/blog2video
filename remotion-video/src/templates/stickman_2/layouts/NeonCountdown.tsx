@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate, spring } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { SceneLayoutProps } from "../types";
 import { Stickman2BackgroundImage } from "../Stickman2BackgroundImage";
 
@@ -22,6 +23,8 @@ export const NeonCountdown: React.FC<SceneLayoutProps> = (props) => {
     sceneDurationInFrames,
     titleFontSize,
     descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
     fontFamily,
   } = props;
   const p = aspectRatio === "portrait";
@@ -39,8 +42,35 @@ export const NeonCountdown: React.FC<SceneLayoutProps> = (props) => {
   const masterOpacity = enter * exit;
 
   // Typography
-  const titlePx = titleFontSize ?? (p ? 100 : 88);
-  const descPx = descriptionFontSize ?? (p ? 66 : 40);
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input; long copy overflows the card
+     (and in this template collides with the artwork) instead of resizing.
+     Measure the real available height and shrink to fit. A size the user
+     explicitly picked is honored exactly — minPx === targetPx no-ops the hook. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitDescRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 100 : 88);
+  const fitDescTarget = descriptionFontSize ?? (p ? 66 : 40);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.42),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.22 : 0.26)),
+  );
+  const { px: fitDescPx } = useFitText(
+    fitDescRef,
+    fitDescTarget,
+    descriptionFontSizeIsUserSet ? fitDescTarget : Math.round(fitDescTarget * 0.4),
+    [narration, fitDescTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    // No explicit budget: the narration block is now bounded top AND bottom, so
+    // its own clientHeight IS the real band. Passing a fixed fraction of the
+    // frame here would override that with a far larger number and the fitter
+    // would never see the overflow.
+  );
+  const titlePx = fitTitlePx;
+  const descPx = fitDescPx;
+
 
   // Canvas dimensions
   const W = p ? 1080 : 1920;
@@ -396,7 +426,7 @@ export const NeonCountdown: React.FC<SceneLayoutProps> = (props) => {
 
       {/* Title text at top — HTML so long text wraps instead of overflowing */}
       {title ? (
-        <div style={{
+        <div ref={fitTitleRef} style={{
           position: "absolute",
           top: p ? 60 : 40,
           left: p ? 60 : 120,
@@ -424,7 +454,7 @@ export const NeonCountdown: React.FC<SceneLayoutProps> = (props) => {
           right: p ? 60 : 120,
           textAlign: "center",
           color: text,
-          fontSize: descriptionFontSize ?? (p ? 66 : 40),
+          fontSize: fitDescPx,
           fontFamily: ff,
           lineHeight: 1.3,
           opacity: labelOpacity,
@@ -437,11 +467,17 @@ export const NeonCountdown: React.FC<SceneLayoutProps> = (props) => {
 
       {/* Narration below label — HTML for wrapping */}
       {narration ? (
-        <div style={{
+        <div ref={fitDescRef} style={{
           position: "absolute",
           top: (ringCY + ringR + (p ? 140 : 110)) * (height / H),
           left: p ? 60 : 120,
           right: p ? 60 : 120,
+          // Anchored only by `top`, long narration grew straight off the bottom
+          // of the frame and was clipped mid-sentence — and with no height limit
+          // the fitter could never see the overflow. Bounding it to the frame
+          // bottom gives the fitter a real band to measure against.
+          bottom: p ? 40 : 30,
+          overflow: "hidden",
           textAlign: "center",
           color: accent,
           fontSize: descPx,

@@ -1,4 +1,6 @@
+import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY, derivePalette } from "../constants";
 import type { BloombergLayoutProps } from "../types";
 import { BackgroundGraph } from "./BackgroundGraph";
@@ -49,9 +51,15 @@ export const TerminalList: React.FC<BloombergLayoutProps> = ({
   const topH = p ? 56 : 48;
   const botH = p ? 44 : 36;
   const pad = p ? 60 : 80;
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const listMeasureRef = React.useRef<HTMLDivElement>(null);
+  const listCopy = listItems.join("\n");
+  const { px: fittedTitleSize } = useFitText(titleRef, tSize * 0.55, p ? 30 : 28, [title, tSize, p], p ? 150 : 130);
+  const { px: fittedItemSize } = useFitText(listMeasureRef, dSize, p ? 22 : 20, [listCopy, dSize, p], p ? 650 : 560);
 
   return (
     <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff, overflow: "hidden" }}>
+      <div ref={listMeasureRef} style={{ position: "absolute", visibility: "hidden", width: p ? "82%" : 950, fontSize: dSize, lineHeight: 1.65, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{listCopy}</div>
       {(videoUrl || imageUrl) && (
         <>
           <div style={{ position: "absolute", inset: 0 }}>
@@ -97,8 +105,9 @@ export const TerminalList: React.FC<BloombergLayoutProps> = ({
       }}>
         
         {/* Title */}
-        <div style={{
-          fontSize: tSize * 0.55,
+        <div ref={titleRef} style={{
+          fontSize: fittedTitleSize,
+          lineHeight: 1.1,
           opacity: titleOpacity,
           letterSpacing: -0.5,
           fontWeight: "bold",
@@ -124,12 +133,12 @@ export const TerminalList: React.FC<BloombergLayoutProps> = ({
                 gap: 25,
                 opacity: itemOpacity,
               }}>
-                <span style={{ color: blue, fontSize: dSize, fontWeight: "bold", flexShrink: 0 }}>
+                <span style={{ color: blue, fontSize: fittedItemSize, fontWeight: "bold", flexShrink: 0 }}>
                   &gt;
                 </span>
                 <div style={{
                   color: amber, 
-                  fontSize: dSize, 
+                  fontSize: fittedItemSize,
                   lineHeight: 1.3,
                   borderBottom: `1px solid ${border}`, 
                   paddingBottom: 12,

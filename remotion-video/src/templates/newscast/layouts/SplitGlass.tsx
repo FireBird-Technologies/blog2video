@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import type { NewscastLayoutProps } from "./types";
 import { NewsCastLayoutImageBackground } from "../NewsCastLayoutImageBackground";
 import {
@@ -43,6 +44,8 @@ export const SplitGlass: React.FC<NewscastLayoutProps> = ({
   textColor,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
@@ -55,6 +58,48 @@ export const SplitGlass: React.FC<NewscastLayoutProps> = ({
 
   const safeLeftBody = leftBody ?? "";
   const safeRightBody = rightBody ?? "";
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Each side's title + body is unbounded user input inside a fixed-height
+     (360px) panel; long copy overflowed it. Measure the real available
+     height and shrink to fit, independently per side. An explicitly chosen
+     size is honored exactly (minPx === targetPx no-ops the hook). */
+  const PANEL_H = 360;
+  const fitLeftTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitLeftBodyRef = React.useRef<HTMLDivElement>(null);
+  const fitRightTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitRightBodyRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 34 : 26);
+  const fitBodyTarget = descriptionFontSize ?? (p ? 18 : 14);
+  const { px: fitLeftTitlePx } = useFitText(
+    fitLeftTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.45),
+    [leftTitle, fitTitleTarget, titleFontSizeIsUserSet, p],
+    Math.round(PANEL_H * 0.42),
+  );
+  const { px: fitLeftBodyPx } = useFitText(
+    fitLeftBodyRef,
+    fitBodyTarget,
+    descriptionFontSizeIsUserSet ? fitBodyTarget : Math.round(fitBodyTarget * 0.5),
+    [safeLeftBody, fitBodyTarget, descriptionFontSizeIsUserSet, fitLeftTitlePx, p],
+    Math.round(PANEL_H * 0.42),
+  );
+  const { px: fitRightTitlePx } = useFitText(
+    fitRightTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.45),
+    [rightTitle, fitTitleTarget, titleFontSizeIsUserSet, p],
+    Math.round(PANEL_H * 0.42),
+  );
+  const { px: fitRightBodyPx } = useFitText(
+    fitRightBodyRef,
+    fitBodyTarget,
+    descriptionFontSizeIsUserSet ? fitBodyTarget : Math.round(fitBodyTarget * 0.5),
+    [safeRightBody, fitBodyTarget, descriptionFontSizeIsUserSet, fitRightTitlePx, p],
+    Math.round(PANEL_H * 0.42),
+  );
+
   const safeTickerItems = (tickerItems?.filter(Boolean) ?? []).slice(0, 4);
   const safeLowerTag = lowerThirdTag ?? "LIVE COVERAGE";
   const safeLowerHeadline = lowerThirdHeadline ?? "Correspondent Report";
@@ -140,10 +185,11 @@ export const SplitGlass: React.FC<NewscastLayoutProps> = ({
           >
             <div style={tagStyle(true)}>{leftLabel}</div>
             <div
+              ref={fitLeftTitleRef}
               style={{
                 marginTop: 8,
                 fontFamily: newscastFont(fontFamily, "title"),
-                fontSize: titleFontSize ?? (p ? 34 : 26),
+                fontSize: fitLeftTitlePx,
                 fontWeight: HEADLINE_WEIGHT,
                 textTransform: "uppercase",
                 color: "white",
@@ -156,10 +202,11 @@ export const SplitGlass: React.FC<NewscastLayoutProps> = ({
             </div>
             {safeLeftBody ? (
               <div
+                ref={fitLeftBodyRef}
                 style={{
                   marginTop: 10,
                   fontFamily: newscastFont(fontFamily, "body"),
-                  fontSize: descriptionFontSize ?? (p ? 18 : 14),
+                  fontSize: fitLeftBodyPx,
                   lineHeight: 1.5,
                   color: "rgba(255,255,255,0.86)",
                 }}
@@ -200,10 +247,11 @@ export const SplitGlass: React.FC<NewscastLayoutProps> = ({
           >
             <div style={tagStyle(false)}>{rightLabel}</div>
             <div
+              ref={fitRightTitleRef}
               style={{
                 marginTop: 8,
                 fontFamily: newscastFont(fontFamily, "title"),
-                fontSize: titleFontSize ?? (p ? 34 : 26),
+                fontSize: fitRightTitlePx,
                 fontWeight: HEADLINE_WEIGHT,
                 textTransform: "uppercase",
                 color: "white",
@@ -216,10 +264,11 @@ export const SplitGlass: React.FC<NewscastLayoutProps> = ({
             </div>
             {safeRightBody ? (
               <div
+                ref={fitRightBodyRef}
                 style={{
                   marginTop: 10,
                   fontFamily: newscastFont(fontFamily, "body"),
-                  fontSize: descriptionFontSize ?? (p ? 18 : 14),
+                  fontSize: fitRightBodyPx,
                   lineHeight: 1.5,
                   color: "rgba(255,255,255,0.86)",
                 }}

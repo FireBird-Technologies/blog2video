@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
+import { useFitText } from "../components/useFitText";
 import { buildHudStatus, DecodeSweep, GlitchSlice, TerminalHUD } from "../components/MatrixArtifacts";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
@@ -67,8 +68,8 @@ export const MatrixTicker: React.FC<MatrixLayoutProps> = ({
   const p = aspectRatio === "portrait";
   const font = fontFamily || MONO;
 
-  const titleSize = titleFontSize ?? (p ? 44 : 36);
-  const descSize = descriptionFontSize ?? (p ? 22 : 18);
+  const titleTarget = titleFontSize ?? (p ? 44 : 36);
+  const descTarget = descriptionFontSize ?? (p ? 22 : 18);
 
   const rawHeaders = (tickerTable?.headers ?? []).slice(0, TICKER_MAX_COLS);
   const rawRows = (tickerTable?.rows ?? [])
@@ -87,18 +88,16 @@ export const MatrixTicker: React.FC<MatrixLayoutProps> = ({
   const fewRows = rowCount <= 6;
   const fewCols = colCount <= 4;
 
-  const cellFontSize = (() => {
+  const cellTarget = (() => {
     const colTier = colCount <= 3 ? 0 : colCount <= 5 ? 1 : 2;
     const tier = Math.max(densityTier, colTier);
     const baseFs = p ? 26 : 22;
     const scale = [1, 0.96, 0.91][tier];
     return Math.round(baseFs * scale);
   })();
-  const headerFontSize = Math.round(cellFontSize * 0.9);
   const cellPadV = (p ? [14, 11, 9] : [12, 10, 8])[densityTier];
   const cellPadH = colCount <= 4 ? 14 : 10;
 
-  const naturalRowHeight = Math.round(cellFontSize * 1.6 + cellPadV * 2);
   const tableWidthCap = (() => {
     if (colCount <= 2) return p ? "70%" : "55%";
     if (colCount === 3) return p ? "88%" : "70%";
@@ -107,6 +106,17 @@ export const MatrixTicker: React.FC<MatrixLayoutProps> = ({
   })();
 
   const padH = p ? "3.5%" : "4%";
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const tickerTitleRef = React.useRef<HTMLDivElement>(null);
+  const footnoteRef = React.useRef<HTMLDivElement>(null);
+  const tableMirrorRef = React.useRef<HTMLDivElement>(null);
+  const tableCopy = [rawHeaders.join(" | "), ...rawRows.map((row) => row.join(" | "))].join("\n");
+  const { px: titleSize } = useFitText(titleRef, titleTarget, 11, [title, titleTarget, p], height * 0.09);
+  const { px: descSize } = useFitText(tickerTitleRef, descTarget, 9, [tickerTitle, descTarget, p], height * 0.07);
+  const { px: footnoteSize } = useFitText(footnoteRef, descTarget * 0.84, 9, [tickerFootnote, narration, descTarget, p], height * 0.08);
+  const { px: cellFontSize } = useFitText(tableMirrorRef, cellTarget, 8, [tableCopy, cellTarget, p, rowCount, colCount], height * 0.58);
+  const headerFontSize = Math.round(cellFontSize * 0.9);
+  const naturalRowHeight = Math.round(cellFontSize * 1.6 + cellPadV * 2);
 
   const headerA = reveal(frame, 0, 0.18);
   const titleA = reveal(frame, 0.05, 0.25);
@@ -137,6 +147,7 @@ export const MatrixTicker: React.FC<MatrixLayoutProps> = ({
       <TerminalHUD accentColor={accentColor} statusText={buildHudStatus("INTERCEPTED", tickerTitle || title)} startFrame={4} seed={45} />
       <DecodeSweep accentColor={accentColor} startFrame={3} seed={71} />
       <GlitchSlice accentColor={accentColor} every={90} seed={73} />
+      <div ref={tableMirrorRef} style={{ position: "absolute", visibility: "hidden", width: p ? "93%" : "92%", fontFamily: font, fontSize: cellTarget, lineHeight: 1.6, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{tableCopy}</div>
 
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", padding: `${p ? "5%" : "4%"} ${padH}`, minHeight: 0, gap: 0 }}>
         <div
@@ -150,11 +161,11 @@ export const MatrixTicker: React.FC<MatrixLayoutProps> = ({
             textAlign: fewCols ? "center" : "left",
           }}
         >
-          <div style={{ fontFamily: font, fontWeight: 700, fontSize: titleSize, letterSpacing: "0.01em", lineHeight: 1.1, color: accentColor, textShadow: `0 0 14px ${accentColor}99, 0 0 30px ${accentColor}44` }}>
+          <div ref={titleRef} style={{ fontFamily: font, fontWeight: 700, fontSize: titleSize, letterSpacing: "0.01em", lineHeight: 1.1, color: accentColor, overflowWrap: "anywhere", textShadow: `0 0 14px ${accentColor}99, 0 0 30px ${accentColor}44` }}>
             {chromeTitle}
           </div>
           {tickerTitle && (
-            <div style={{ fontFamily: font, fontWeight: 500, fontSize: Math.round(descSize * 0.9), letterSpacing: "0.08em", color: NEON_DIM, marginTop: Math.round(height * 0.006), textTransform: "uppercase" }}>
+            <div ref={tickerTitleRef} style={{ fontFamily: font, fontWeight: 500, fontSize: Math.round(descSize * 0.9), letterSpacing: "0.08em", color: NEON_DIM, marginTop: Math.round(height * 0.006), textTransform: "uppercase", overflowWrap: "anywhere" }}>
               {`[ ${tickerTitle} ]`}
             </div>
           )}
@@ -276,7 +287,7 @@ export const MatrixTicker: React.FC<MatrixLayoutProps> = ({
         </div>
 
         {(tickerFootnote || narration) && (
-          <div style={{ opacity: footnoteA, flexShrink: 0, marginTop: Math.round(height * 0.008), fontFamily: font, fontWeight: 400, fontSize: Math.round(descSize * 0.84), letterSpacing: "0.02em", color: NEON_DIM, lineHeight: 1.4, whiteSpace: "normal" }}>
+          <div ref={footnoteRef} style={{ opacity: footnoteA, flexShrink: 0, marginTop: Math.round(height * 0.008), fontFamily: font, fontWeight: 400, fontSize: footnoteSize, letterSpacing: "0.02em", color: NEON_DIM, lineHeight: 1.4, whiteSpace: "normal", overflowWrap: "anywhere" }}>
             {tickerFootnote || narration}
           </div>
         )}

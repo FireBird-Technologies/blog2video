@@ -5,6 +5,42 @@ import { GridcraftLayoutProps } from "../types";
 import { GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY } from "../constants";
 import { glass, COLORS } from "../utils/styles";
 import { ZoomCropImg } from "../components/ZoomCropImg";
+import { useFitText } from "../components/useFitText";
+
+/**
+ * One supporting-fact card. The fact row is a `1fr` grid track (or `auto` in
+ * portrait), not a shrinkable measurable box, so budget the fact text from a
+ * fixed fraction of the frame height passed in as `budgetPx`.
+ */
+const FactCard: React.FC<{
+  fact: string;
+  factNumber: number;
+  factFontSize: number;
+  factLabelSize: number;
+  descriptionFontSizeIsUserSet?: boolean;
+  p: boolean;
+  budgetPx: number;
+  style: React.CSSProperties;
+}> = ({ fact, factNumber, factFontSize, factLabelSize, descriptionFontSizeIsUserSet, p, budgetPx, style }) => {
+  const factRef = React.useRef<HTMLDivElement>(null);
+  const { px: factPx } = useFitText(
+    factRef,
+    factFontSize,
+    descriptionFontSizeIsUserSet ? factFontSize : p ? 14 : 13,
+    [fact, factFontSize, descriptionFontSizeIsUserSet, budgetPx],
+    budgetPx,
+  );
+  return (
+    <div style={style}>
+      <div style={{ fontSize: factLabelSize, opacity: 0.8, fontWeight: 500, marginBottom: 8, textTransform: "uppercase", wordBreak: "break-word" }}>
+        Fact {factNumber}
+      </div>
+      <div ref={factRef} style={{ fontSize: factPx, fontWeight: 600, lineHeight: 1.4, wordBreak: "break-word" }}>
+        {fact}
+      </div>
+    </div>
+  );
+};
 
 export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
   // Backend props
@@ -25,14 +61,15 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
   accentColor,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   aspectRatio,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
-  const { fps, durationInFrames } = useVideoConfig();
+  const { fps, durationInFrames, height: videoHeight } = useVideoConfig();
 
   const p = aspectRatio === "portrait";
-  const resolvedFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY;
 
   // Helper for spring animations, allowing custom config
   const spr = (d: number, config?: Partial<SpringConfig>) => spring({
@@ -63,10 +100,48 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
     : (dataPoints || []).map(d => d.value || d.description || d.label || "");
 
   const hasImage = !!(imageUrl || videoUrl);
+  const resolvedFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY;
 
   // Facts text size follows display/description text size
   const factFontSize = descriptionFontSize ?? (p ? 24 : 28);
   const factLabelSize = Math.round(factFontSize * 0.6);
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     The main box is a `1.8fr` grid track (or `auto` in portrait), not a
+     measurable shrinkable box, so budget the title and subtitle from fixed
+     fractions of the frame height; the title fits first, the subtitle's
+     residual overflow feeds back to shrink the title's budget further. */
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const subtitleRef = React.useRef<HTMLDivElement>(null);
+  const actualTitleFontSize = titleFontSize ?? (p ? 50 : 52);
+  const actualSubtitleFontSize = descriptionFontSize ?? (p ? 26 : 28);
+  const titleBudgetPx = Math.max(1, videoHeight * (p ? 0.22 : 0.26));
+  const subtitleBudgetPx = Math.max(1, videoHeight * (p ? 0.1 : 0.12));
+
+  const [titleGiveBackPx, setTitleGiveBackPx] = React.useState(0);
+  React.useLayoutEffect(() => {
+    setTitleGiveBackPx(0);
+  }, [primaryText, subtitle, actualTitleFontSize, actualSubtitleFontSize, titleBudgetPx]);
+
+  const { px: titlePx } = useFitText(
+    titleRef,
+    actualTitleFontSize,
+    titleFontSizeIsUserSet ? actualTitleFontSize : p ? 26 : 24,
+    [primaryText, actualTitleFontSize, titleFontSizeIsUserSet, titleBudgetPx, titleGiveBackPx],
+    Math.max(1, titleBudgetPx - titleGiveBackPx),
+  );
+  const { px: subtitlePx, overflowPx: subtitleOverflowPx } = useFitText(
+    subtitleRef,
+    actualSubtitleFontSize,
+    descriptionFontSizeIsUserSet ? actualSubtitleFontSize : p ? 14 : 13,
+    [subtitle, actualSubtitleFontSize, descriptionFontSizeIsUserSet, subtitleBudgetPx, titlePx],
+    subtitleBudgetPx,
+  );
+  React.useLayoutEffect(() => {
+    if (titleFontSizeIsUserSet || subtitleOverflowPx <= 0) return;
+    setTitleGiveBackPx((prev) => Math.min(titleBudgetPx * 0.6, prev + subtitleOverflowPx));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subtitleOverflowPx, titleFontSizeIsUserSet]);
 
   // --- Title Word-by-Word Animation ---
   const titleWords = primaryText.split(" ");
@@ -145,8 +220,8 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
             Main Point
           </div>
           {/* Animated Main Title (word by word from top) */}
-          <div style={{
-            fontSize: titleFontSize ?? (p ? 50 : 52),
+          <div ref={titleRef} style={{
+            fontSize: titlePx,
             fontWeight: 700,
             lineHeight: 1.3,
             color: textColor || COLORS.DARK,
@@ -181,8 +256,8 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
           </div>
           {/* Animated Subtitle (Body Text) fading in softly */}
           {subtitle && (
-            <div style={{
-              fontSize: descriptionFontSize ?? (p ? 26 : 28),
+            <div ref={subtitleRef} style={{
+              fontSize: subtitlePx,
               color: COLORS.MUTED,
               marginTop: 12,
               wordBreak: "break-word",
@@ -206,7 +281,16 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
          const isAccent = i === 1;
 
          return (
-             <div key={i} style={{
+             <FactCard
+               key={i}
+               fact={fact}
+               factNumber={i + 1}
+               factFontSize={factFontSize}
+               factLabelSize={factLabelSize}
+               descriptionFontSizeIsUserSet={descriptionFontSizeIsUserSet}
+               p={p}
+               budgetPx={Math.max(1, videoHeight * (p ? 0.14 : 0.18))}
+               style={{
                  gridColumn: p ? "1" : undefined,
                  gridRow: p ? i + 2 : undefined,
                  ...glass(isAccent),
@@ -219,14 +303,8 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
                  overflow: "hidden",
                  transform: p ? `translateY(${translateY}px)` : `translateX(${translateX}px)`,
                  opacity: factOpacity,
-             }}>
-                 <div style={{ fontSize: factLabelSize, opacity: 0.8, fontWeight: 500, marginBottom: 8, textTransform: "uppercase", wordBreak: "break-word" }}>
-                     Fact {i + 1}
-                 </div>
-                 <div style={{ fontSize: factFontSize, fontWeight: 600, lineHeight: 1.4, wordBreak: "break-word" }}>
-                     {fact}
-                 </div>
-             </div>
+               }}
+             />
          )
       })}
     </div>

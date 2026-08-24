@@ -1,6 +1,7 @@
 import React from "react";
 import { useVideoConfig, interpolate, spring, Img } from "remotion";
 import { SceneLayoutProps } from "../types";
+import { useFitText } from "../components/useFitText";
 import { SakuraClip } from "../components/SakuraClip";
 import {
   SAKURA,
@@ -34,6 +35,8 @@ export const SakuraSection: React.FC<SceneLayoutProps> = (props) => {
     sceneDurationInFrames,
     titleFontSize,
     descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
     fontFamily,
   } = props;
   const p = aspectRatio === "portrait";
@@ -49,8 +52,24 @@ export const SakuraSection: React.FC<SceneLayoutProps> = (props) => {
   const crimson = accentColor || SAKURA.crimson;
   const ink = textColor || SAKURA.ink;
 
-  const titlePx = titleFontSize ?? (p ? 58 : 64);
-  const bodyPx = descriptionFontSize ?? (p ? 26 : 22);
+  const titleTargetPx = titleFontSize ?? (p ? 58 : 64);
+  const bodyTargetPx = descriptionFontSize ?? (p ? 26 : 22);
+  const headlineRef = React.useRef<HTMLHeadingElement>(null);
+  const bodyRef = React.useRef<HTMLParagraphElement>(null);
+  const { px: titlePx } = useFitText(
+    headlineRef,
+    titleTargetPx,
+    Math.max(26, Math.round(titleTargetPx * 0.55)),
+    [headline, titleTargetPx, titleFontSizeIsUserSet, p, height, imageUrl, videoUrl],
+    Math.round(height * (p ? 0.2 : 0.3)),
+  );
+  const { px: bodyPx } = useFitText(
+    bodyRef,
+    bodyTargetPx,
+    Math.max(18, Math.round(bodyTargetPx * 0.58)),
+    [body, bodyTargetPx, descriptionFontSizeIsUserSet, titlePx, p, height, imageUrl, videoUrl],
+    Math.round(height * (p ? 0.34 : 0.48)),
+  );
   // Chapter eyebrow (vertical kanji + roman label) scales off the body size so
   // it tracks the display-text slider.
   const chapterKanjiPx = Math.max(14, Math.round(bodyPx * 0.85));
@@ -130,6 +149,8 @@ export const SakuraSection: React.FC<SceneLayoutProps> = (props) => {
         flexDirection: "column",
         justifyContent: "center",
         minWidth: 0,
+        minHeight: 0,
+        overflow: "hidden",
       }}
     >
       {/* Eyebrow: vertical kanji + descending line + roman label */}
@@ -177,6 +198,7 @@ export const SakuraSection: React.FC<SceneLayoutProps> = (props) => {
 
       {/* Headline */}
       <h1
+        ref={headlineRef}
         style={{
           fontFamily: fontFamily ?? SAKURA_DISPLAY_FONT,
           fontWeight: 700,
@@ -200,6 +222,7 @@ export const SakuraSection: React.FC<SceneLayoutProps> = (props) => {
 
       {/* Body */}
       <p
+        ref={bodyRef}
         style={{
           fontFamily: fontFamily ?? SAKURA_BODY_FONT,
           fontSize: bodyPx,

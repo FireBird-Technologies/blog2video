@@ -1,4 +1,6 @@
+import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY, derivePalette } from "../constants";
 import type { BloombergLayoutProps } from "../types";
 
@@ -23,6 +25,10 @@ export const TerminalNarrative: React.FC<BloombergLayoutProps> = ({
   const dSize = descriptionFontSize ?? (p ? 41 : 30);
   const labelSize = dSize * 0.4;
   const eyebrowSize = dSize * 0.38;
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const narrationMeasureRef = React.useRef<HTMLDivElement>(null);
+  const { px: fittedTitleSize } = useFitText(titleRef, tSize, p ? 30 : 28, [title, tSize, p], p ? 210 : 160);
+  const { px: fittedNarrationSize } = useFitText(narrationMeasureRef, dSize, p ? 22 : 20, [narration, dSize, p], p ? 360 : 260);
 
   const eyebrowOp  = interpolate(frame, [0, 15],  [0, 1], { extrapolateRight: "clamp" });
   const titleOp    = interpolate(frame, [8, 28],   [0, 1], { extrapolateRight: "clamp" });
@@ -50,6 +56,7 @@ export const TerminalNarrative: React.FC<BloombergLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff, overflow: "hidden" }}>
+      <div ref={narrationMeasureRef} style={{ position: "absolute", visibility: "hidden", width: p ? "78%" : "70%", fontSize: dSize, lineHeight: 1.6, overflowWrap: "anywhere" }}>{narration}</div>
       {/* Scanlines */}
       <div style={{
         position: "absolute", inset: 0,
@@ -103,9 +110,9 @@ export const TerminalNarrative: React.FC<BloombergLayoutProps> = ({
       }}>
         {/* Title — one place, horizontally centered */}
         {title && (
-          <div style={{
+          <div ref={titleRef} style={{
             textAlign: "center",
-            fontSize: tSize, lineHeight: 1.1,
+            fontSize: fittedTitleSize, lineHeight: 1.1,
             opacity: titleOp,
             transform: `translateY(${titleSlide}px)`,
           }}>
@@ -131,7 +138,7 @@ export const TerminalNarrative: React.FC<BloombergLayoutProps> = ({
           border={border}
           muted={muted}
           eyebrowSize={eyebrowSize}
-          dSize={dSize}
+          dSize={fittedNarrationSize}
           padding={p ? "28px 32px" : "22px 26px"}
           opacity={bodyOp}
           translateY={bodySlide}
@@ -263,4 +270,3 @@ const Waveform: React.FC<{ color: string; width: number | string; height: number
     </div>
   );
 };
-

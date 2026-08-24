@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { SceneLayoutProps } from "../types";
 import { Football, GrassGround, PlayerStickman } from "../shared";
 
@@ -14,12 +15,14 @@ export const PassingPlay: React.FC<SceneLayoutProps> = (props) => {
     sceneDurationInFrames,
     titleFontSize,
     descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
     fontFamily,
     stats,
   } = props;
 
   const p = aspectRatio === "portrait";
-  const { fps } = useVideoConfig();
+  const { fps, height} = useVideoConfig();
   const frame = useCurrentFrame();
   const dur = sceneDurationInFrames ?? 150;
   const tSec = frame / fps;
@@ -537,9 +540,33 @@ export const PassingPlay: React.FC<SceneLayoutProps> = (props) => {
 
   // ── Stat cards reveal ──
   const cardIn = (i: number) => interpolate(frame, [40 + i * 6, 58 + i * 6], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input; long copy overflows the card
+     and is clipped by the scene frame. Measure the real available height and
+     shrink to fit. A size the user explicitly picked is honored exactly —
+     minPx === targetPx makes the hook a no-op. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitDescRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 78 : 76);
+  const fitDescTarget = descriptionFontSize ?? (p ? 50 : 40);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.42),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.22 : 0.26)),
+  );
+  const { px: fitDescPx } = useFitText(
+    fitDescRef,
+    fitDescTarget,
+    descriptionFontSizeIsUserSet ? fitDescTarget : Math.round(fitDescTarget * 0.4),
+    [narration, fitDescTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * (p ? 0.30 : 0.34)),
+  );
 
-  const titlePx = titleFontSize ?? (p ? 78 : 76);
-  const descPx = descriptionFontSize ?? (p ? 50 : 40);
+  const titlePx = fitTitlePx;
+  const descPx = fitDescPx;
+
   const portraitTextGap = Math.max(52, descPx * 0.85);
 
   // ── Stat card panel (cardboard look) — fixed 2-column grid (2 per column) ──
@@ -626,7 +653,7 @@ export const PassingPlay: React.FC<SceneLayoutProps> = (props) => {
           }}
         >
           <div style={{ transform: `translateX(${titleX}px)`, opacity: titleProg }}>
-            <div
+            <div ref={fitTitleRef}
               style={{
                 fontFamily: font,
                 fontSize: titlePx,
@@ -654,7 +681,7 @@ export const PassingPlay: React.FC<SceneLayoutProps> = (props) => {
               }}
             />
             {narration && (
-              <div
+              <div ref={fitDescRef}
                 style={{
                   marginTop: 26,
                   opacity: narrationOpacity * 0.85,

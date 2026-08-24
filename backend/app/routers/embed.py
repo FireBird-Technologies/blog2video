@@ -40,6 +40,13 @@ class EmbedProjectOut(BaseModel):
     logo_opacity: float
     logo_size: float
     playback_speed: float
+    # Caption settings — the embed player renders captions and offers a viewer-side
+    # caption toggle, so it needs the project's saved values (without these the
+    # player always fell back to "off / inter / 36" no matter what the owner set).
+    captions_enabled: bool
+    caption_font_family: str
+    caption_font_size: str
+    caption_offset: int
     updated_at: datetime
     custom_theme: Optional[dict] = None
     scenes: list[SceneOut] = []

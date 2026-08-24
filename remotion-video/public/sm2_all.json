@@ -1,0 +1,392 @@
+{
+  "projectName": "sm2",
+  "accentColor": "#FFE34D",
+  "bgColor": "#0B1020",
+  "textColor": "#F5F7FF",
+  "scenes": [
+    {
+      "id": 1,
+      "order": 1,
+      "title": "Long Title That Keeps Going Well Past Any Reasonable Headline Length For This Card Layout",
+      "narration": "Lawmakers failed to pass a short-term spending bill before the midnight deadline, triggering a partial shutdown affecting hundreds of thousands of federal workers across every agency. Negotiators had spent the better part of the week trading proposals, but the two sides remained far apart on the question of supplemental funding that had dominated the debate since the summer. Agency heads began notifying staff late Monday that furlough notices would go out.",
+      "layout": "chalk_title",
+      "layoutProps": {
+        "stats": [
+          {
+            "value": "42%",
+            "label": "Affected"
+          },
+          {
+            "value": "18",
+            "label": "Agencies"
+          },
+          {
+            "value": "3.2M",
+            "label": "Workers"
+          },
+          {
+            "value": "12d",
+            "label": "Days"
+          }
+        ],
+        "leftThought": "The bill will pass before the deadline arrives without further delay",
+        "rightThought": "The bill is dead on arrival and cannot clear the chamber in time"
+      },
+      "durationSeconds": 9,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 2,
+      "order": 2,
+      "title": "Long Title That Keeps Going Well Past Any Reasonable Headline Length For This Card Layout",
+      "narration": "Lawmakers failed to pass a short-term spending bill before the midnight deadline, triggering a partial shutdown affecting hundreds of thousands of federal workers across every agency. Negotiators had spent the better part of the week trading proposals, but the two sides remained far apart on the question of supplemental funding that had dominated the debate since the summer. Agency heads began notifying staff late Monday that furlough notices would go out.",
+      "layout": "night_walk",
+      "layoutProps": {
+        "stats": [
+          {
+            "value": "42%",
+            "label": "Affected"
+          },
+          {
+            "value": "18",
+            "label": "Agencies"
+          },
+          {
+            "value": "3.2M",
+            "label": "Workers"
+          },
+          {
+            "value": "12d",
+            "label": "Days"
+          }
+        ],
+        "leftThought": "The bill will pass before the deadline arrives without further delay",
+        "rightThought": "The bill is dead on arrival and cannot clear the chamber in time"
+      },
+      "durationSeconds": 9,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 3,
+      "order": 3,
+      "title": "Long Title That Keeps Going Well Past Any Reasonable Headline Length For This Card Layout",
+      "narration": "Lawmakers failed to pass a short-term spending bill before the midnight deadline, triggering a partial shutdown affecting hundreds of thousands of federal workers across every agency. Negotiators had spent the better part of the week trading proposals, but the two sides remained far apart on the question of supplemental funding that had dominated the debate since the summer. Agency heads began notifying staff late Monday that furlough notices would go out.",
+      "layout": "shooting_star",
+      "layoutProps": {
+        "stats": [
+          {
+            "value": "42%",
+            "label": "Affected"
+          },
+          {
+            "value": "18",
+            "label": "Agencies"
+          },
+          {
+            "value": "3.2M",
+            "label": "Workers"
+          },
+          {
+            "value": "12d",
+            "label": "Days"
+          }
+        ],
+        "leftThought": "The bill will pass before the deadline arrives without further delay",
+        "rightThought": "The bill is dead on arrival and cannot clear the chamber in time"
+      },
+      "durationSeconds": 9,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 4,
+      "order": 4,
+      "title": "Long Title That Keeps Going Well Past Any Reasonable Headline Length For This Card Layout",
+      "narration": "Lawmakers failed to pass a short-term spending bill before the midnight deadline, triggering a partial shutdown affecting hundreds of thousands of federal workers across every agency. Negotiators had spent the better part of the week trading proposals, but the two sides remained far apart on the question of supplemental funding that had dominated the debate since the summer. Agency heads began notifying staff late Monday that furlough notices would go out.",
+      "layout": "constellation_stats",
+      "layoutProps": {
+        "stats": [
+          {
+            "value": "42%",
+            "label": "Affected"
+          },
+          {
+            "value": "18",
+            "label": "Agencies"
+          },
+          {
+            "value": "3.2M",
+            "label": "Workers"
+          },
+          {
+            "value": "12d",
+            "label": "Days"
+          }
+        ],
+        "leftThought": "The bill will pass before the deadline arrives without further delay",
+        "rightThought": "The bill is dead on arrival and cannot clear the chamber in time"
+      },
+      "durationSeconds": 9,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 5,
+      "order": 5,
+      "title": "Long Title That Keeps Going Well Past Any Reasonable Headline Length For This Card Layout",
+      "narration": "Lawmakers failed to pass a short-term spending bill before the midnight deadline, triggering a partial shutdown affecting hundreds of thousands of federal workers across every agency. Negotiators had spent the better part of the week trading proposals, but the two sides remained far apart on the question of supplemental funding that had dominated the debate since the summer. Agency heads began notifying staff late Monday that furlough notices would go out.",
+      "layout": "moonphase_chart",
+      "layoutProps": {
+        "stats": [
+          {
+            "value": "42%",
+            "label": "Affected"
+          },
+          {
+            "value": "18",
+            "label": "Agencies"
+          },
+          {
+            "value": "3.2M",
+            "label": "Workers"
+          },
+          {
+            "value": "12d",
+            "label": "Days"
+          }
+        ],
+        "leftThought": "The bill will pass before the deadline arrives without further delay",
+        "rightThought": "The bill is dead on arrival and cannot clear the chamber in time"
+      },
+      "durationSeconds": 9,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 6,
+      "order": 6,
+      "title": "Long Title That Keeps Going Well Past Any Reasonable Headline Length For This Card Layout",
+      "narration": "Lawmakers failed to pass a short-term spending bill before the midnight deadline, triggering a partial shutdown affecting hundreds of thousands of federal workers across every agency. Negotiators had spent the better part of the week trading proposals, but the two sides remained far apart on the question of supplemental funding that had dominated the debate since the summer. Agency heads began notifying staff late Monday that furlough notices would go out.",
+      "layout": "shadow_comparison",
+      "layoutProps": {
+        "stats": [
+          {
+            "value": "42%",
+            "label": "Affected"
+          },
+          {
+            "value": "18",
+            "label": "Agencies"
+          },
+          {
+            "value": "3.2M",
+            "label": "Workers"
+          },
+          {
+            "value": "12d",
+            "label": "Days"
+          }
+        ],
+        "leftThought": "The bill will pass before the deadline arrives without further delay",
+        "rightThought": "The bill is dead on arrival and cannot clear the chamber in time"
+      },
+      "durationSeconds": 9,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 7,
+      "order": 7,
+      "title": "Long Title That Keeps Going Well Past Any Reasonable Headline Length For This Card Layout",
+      "narration": "Lawmakers failed to pass a short-term spending bill before the midnight deadline, triggering a partial shutdown affecting hundreds of thousands of federal workers across every agency. Negotiators had spent the better part of the week trading proposals, but the two sides remained far apart on the question of supplemental funding that had dominated the debate since the summer. Agency heads began notifying staff late Monday that furlough notices would go out.",
+      "layout": "signal_fire_scene",
+      "layoutProps": {
+        "stats": [
+          {
+            "value": "42%",
+            "label": "Affected"
+          },
+          {
+            "value": "18",
+            "label": "Agencies"
+          },
+          {
+            "value": "3.2M",
+            "label": "Workers"
+          },
+          {
+            "value": "12d",
+            "label": "Days"
+          }
+        ],
+        "leftThought": "The bill will pass before the deadline arrives without further delay",
+        "rightThought": "The bill is dead on arrival and cannot clear the chamber in time"
+      },
+      "durationSeconds": 9,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 8,
+      "order": 8,
+      "title": "Long Title That Keeps Going Well Past Any Reasonable Headline Length For This Card Layout",
+      "narration": "Lawmakers failed to pass a short-term spending bill before the midnight deadline, triggering a partial shutdown affecting hundreds of thousands of federal workers across every agency. Negotiators had spent the better part of the week trading proposals, but the two sides remained far apart on the question of supplemental funding that had dominated the debate since the summer. Agency heads began notifying staff late Monday that furlough notices would go out.",
+      "layout": "neon_countdown",
+      "layoutProps": {
+        "stats": [
+          {
+            "value": "42%",
+            "label": "Affected"
+          },
+          {
+            "value": "18",
+            "label": "Agencies"
+          },
+          {
+            "value": "3.2M",
+            "label": "Workers"
+          },
+          {
+            "value": "12d",
+            "label": "Days"
+          }
+        ],
+        "leftThought": "The bill will pass before the deadline arrives without further delay",
+        "rightThought": "The bill is dead on arrival and cannot clear the chamber in time"
+      },
+      "durationSeconds": 9,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 9,
+      "order": 9,
+      "title": "Long Title That Keeps Going Well Past Any Reasonable Headline Length For This Card Layout",
+      "narration": "Lawmakers failed to pass a short-term spending bill before the midnight deadline, triggering a partial shutdown affecting hundreds of thousands of federal workers across every agency. Negotiators had spent the better part of the week trading proposals, but the two sides remained far apart on the question of supplemental funding that had dominated the debate since the summer. Agency heads began notifying staff late Monday that furlough notices would go out.",
+      "layout": "lantern_dialogue",
+      "layoutProps": {
+        "stats": [
+          {
+            "value": "42%",
+            "label": "Affected"
+          },
+          {
+            "value": "18",
+            "label": "Agencies"
+          },
+          {
+            "value": "3.2M",
+            "label": "Workers"
+          },
+          {
+            "value": "12d",
+            "label": "Days"
+          }
+        ],
+        "leftThought": "The bill will pass before the deadline arrives without further delay",
+        "rightThought": "The bill is dead on arrival and cannot clear the chamber in time"
+      },
+      "durationSeconds": 9,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 10,
+      "order": 10,
+      "title": "Long Title That Keeps Going Well Past Any Reasonable Headline Length For This Card Layout",
+      "narration": "Lawmakers failed to pass a short-term spending bill before the midnight deadline, triggering a partial shutdown affecting hundreds of thousands of federal workers across every agency. Negotiators had spent the better part of the week trading proposals, but the two sides remained far apart on the question of supplemental funding that had dominated the debate since the summer. Agency heads began notifying staff late Monday that furlough notices would go out.",
+      "layout": "data_visualisation",
+      "layoutProps": {
+        "stats": [
+          {
+            "value": "42%",
+            "label": "Affected"
+          },
+          {
+            "value": "18",
+            "label": "Agencies"
+          },
+          {
+            "value": "3.2M",
+            "label": "Workers"
+          },
+          {
+            "value": "12d",
+            "label": "Days"
+          }
+        ],
+        "leftThought": "The bill will pass before the deadline arrives without further delay",
+        "rightThought": "The bill is dead on arrival and cannot clear the chamber in time"
+      },
+      "durationSeconds": 9,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 11,
+      "order": 11,
+      "title": "Long Title That Keeps Going Well Past Any Reasonable Headline Length For This Card Layout",
+      "narration": "Lawmakers failed to pass a short-term spending bill before the midnight deadline, triggering a partial shutdown affecting hundreds of thousands of federal workers across every agency. Negotiators had spent the better part of the week trading proposals, but the two sides remained far apart on the question of supplemental funding that had dominated the debate since the summer. Agency heads began notifying staff late Monday that furlough notices would go out.",
+      "layout": "ticker_table",
+      "layoutProps": {
+        "stats": [
+          {
+            "value": "42%",
+            "label": "Affected"
+          },
+          {
+            "value": "18",
+            "label": "Agencies"
+          },
+          {
+            "value": "3.2M",
+            "label": "Workers"
+          },
+          {
+            "value": "12d",
+            "label": "Days"
+          }
+        ],
+        "leftThought": "The bill will pass before the deadline arrives without further delay",
+        "rightThought": "The bill is dead on arrival and cannot clear the chamber in time"
+      },
+      "durationSeconds": 9,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 12,
+      "order": 12,
+      "title": "Long Title That Keeps Going Well Past Any Reasonable Headline Length For This Card Layout",
+      "narration": "Lawmakers failed to pass a short-term spending bill before the midnight deadline, triggering a partial shutdown affecting hundreds of thousands of federal workers across every agency. Negotiators had spent the better part of the week trading proposals, but the two sides remained far apart on the question of supplemental funding that had dominated the debate since the summer. Agency heads began notifying staff late Monday that furlough notices would go out.",
+      "layout": "ending_socials",
+      "layoutProps": {
+        "stats": [
+          {
+            "value": "42%",
+            "label": "Affected"
+          },
+          {
+            "value": "18",
+            "label": "Agencies"
+          },
+          {
+            "value": "3.2M",
+            "label": "Workers"
+          },
+          {
+            "value": "12d",
+            "label": "Days"
+          }
+        ],
+        "leftThought": "The bill will pass before the deadline arrives without further delay",
+        "rightThought": "The bill is dead on arrival and cannot clear the chamber in time"
+      },
+      "durationSeconds": 9,
+      "voiceoverFile": null,
+      "images": []
+    }
+  ]
+}

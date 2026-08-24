@@ -1,0 +1,19 @@
+{
+  "projectName": "s",
+  "accentColor": "#3DD6C1",
+  "bgColor": "#071C2C",
+  "textColor": "#EAF6F5",
+  "scenes": [
+    {
+      "id": 1,
+      "order": 1,
+      "title": "The Signal",
+      "narration": "A short summary line for this scene.",
+      "layout": "droplet_intro",
+      "layoutProps": {},
+      "durationSeconds": 6,
+      "voiceoverFile": null,
+      "images": []
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 import React from "react";
 import { interpolate } from "remotion";
 import { SceneLayoutProps } from "../types";
+import { useFitText } from "../components/useFitText";
 import {
   MagazinePage,
   MAG_TEXTURES,
@@ -69,11 +70,50 @@ export const TextNarration: React.FC<SceneLayoutProps> = (props) => {
   const maxN = p ? 4 : 6;
   const entries = toPoints(props.points, narration ?? "").slice(0, maxN);
 
-  const titlePx = titleFontSize ?? (p ? 100 : 100);
+  const titleTargetPx = titleFontSize ?? (p ? 100 : 100);
   // Portrait is one tall single column, so the notes can carry a larger body size
   // and still fit (the ledger caps at maxN notes and centres in the remaining height).
-  const entryPx = descriptionFontSize ?? (p ? 72 : 43);
+  const entryTargetPx = descriptionFontSize ?? (p ? 72 : 43);
   const bulletPx = p ? 28 : 17;
+
+  const titleFontSizeIsUserSet = (props as { titleFontSizeIsUserSet?: boolean }).titleFontSizeIsUserSet;
+  const descriptionFontSizeIsUserSet = (props as { descriptionFontSizeIsUserSet?: boolean }).descriptionFontSizeIsUserSet;
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and the ledger notes are unbounded user/narration-derived input;
+     long copy was clipped by the ledger grid's overflow:hidden (fixed
+     entryPx, no measurement at all). Measure the real page height and shrink
+     both to fit. The ledger's entries share one font size, so the LONGEST
+     entry is measured (a hidden hidden mirror) and the fitted size applied
+     to every note — a note shorter than the longest already fits. An
+     explicitly chosen size is honored exactly (minPx === targetPx no-ops). */
+  const pageRef = React.useRef<HTMLDivElement>(null);
+  const [pageHeight, setPageHeight] = React.useState(0);
+  React.useLayoutEffect(() => {
+    const next = pageRef.current?.clientHeight ?? 0;
+    if (next > 0) setPageHeight((prev) => (Math.abs(prev - next) <= 1 ? prev : next));
+  }, [p]);
+
+  const titleRef = React.useRef<HTMLHeadingElement>(null);
+  const titleBudget = pageHeight > 0 ? Math.round(pageHeight * (p ? 0.16 : 0.2)) : undefined;
+  const { px: titlePx } = useFitText(
+    titleRef,
+    titleTargetPx,
+    titleFontSizeIsUserSet ? titleTargetPx : Math.max(28, Math.round(titleTargetPx * 0.4)),
+    [title, titleTargetPx, titleFontSizeIsUserSet, titleBudget, p],
+    titleBudget,
+  );
+
+  const longestEntry = entries.reduce((a, b) => (b.length > a.length ? b : a), "");
+  const entryMeasureRef = React.useRef<HTMLParagraphElement>(null);
+  const entryBudget = pageHeight > 0 ? Math.round(pageHeight * (p ? 0.14 : 0.32)) : undefined;
+  const { px: entryPx } = useFitText(
+    entryMeasureRef,
+    entryTargetPx,
+    descriptionFontSizeIsUserSet ? entryTargetPx : Math.max(18, Math.round(entryTargetPx * 0.45)),
+    [longestEntry, entryTargetPx, descriptionFontSizeIsUserSet, titlePx, entryBudget, p],
+    entryBudget,
+  );
 
   const kickerO = rev(2);
   const ruleP = rev(12);
@@ -104,12 +144,13 @@ export const TextNarration: React.FC<SceneLayoutProps> = (props) => {
       backgroundImageZoom={props.imageZoom}
       backgroundImageOpacity={0.22}
     >
-      <div style={{ height: "100%", display: "flex", flexDirection: "column", position: "relative" }}>
+      <div ref={pageRef} style={{ height: "100%", display: "flex", flexDirection: "column", position: "relative" }}>
         {/* Department masthead */}
         <Kicker color={accent} style={{ opacity: kickerO, marginBottom: 14 }}>
           {sectionLabel}
         </Kicker>
         <h1
+          ref={titleRef}
           style={{
             fontFamily: MAG_DISPLAY,
             fontWeight: 800,
@@ -139,6 +180,7 @@ export const TextNarration: React.FC<SceneLayoutProps> = (props) => {
             full height regardless of whether a photo is present. */}
         <div
           style={{
+            position: "relative",
             flex: 1,
             marginTop: p ? 24 : 34,
             display: "grid",
@@ -150,6 +192,33 @@ export const TextNarration: React.FC<SceneLayoutProps> = (props) => {
             overflow: "hidden",
           }}
         >
+          {/* Hidden mirror of the longest note, sized to one grid column, used
+              only to measure — every visible note shares the resulting
+              entryPx, so a shorter note (which would measure smaller) never
+              drives the size and the longest note is what actually fits.
+              position:absolute takes it out of grid flow entirely so it can't
+              affect track sizing or push real entries around; useFitText's
+              own measurement pass re-widens it to the real column width via
+              el.clientWidth before probing (see the hook's width-bug note),
+              so it needs a real starting width here, not auto. */}
+          <p
+            ref={entryMeasureRef}
+            aria-hidden
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              visibility: "hidden",
+              pointerEvents: "none",
+              width: p ? "100%" : "calc(50% - 28px)",
+              fontFamily: MAG_SERIF,
+              fontSize: entryPx,
+              lineHeight: 1.5,
+              margin: 0,
+            }}
+          >
+            {longestEntry}
+          </p>
           {entries.map((note, i) => {
             const o = rev(18 + i * 5);
             return (

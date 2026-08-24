@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { EconomistLayoutProps, EconomistProsConsItem } from "../types";
+import { useFitText } from "../components/useFitText";
 import { ECONOMIST_COLORS, CHROME_INSET } from "../constants";
 import { ECONOMIST_SERIF_FONT, ECONOMIST_SANS_FONT } from "../../../fonts/economist-defaults";
 import {
@@ -164,6 +165,9 @@ export const ProsCons: React.FC<EconomistLayoutProps> = ({
   accentColor = ECONOMIST_COLORS.accent,
   textColor = ECONOMIST_COLORS.ink,
   titleFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSize,
+  descriptionFontSizeIsUserSet,
   fontFamily,
   aspectRatio = "landscape",
 }) => {
@@ -174,7 +178,33 @@ export const ProsCons: React.FC<EconomistLayoutProps> = ({
   const topInset = (isPortrait ? CHROME_INSET.topPortrait : CHROME_INSET.top) + 24;
   const botInset = (isPortrait ? CHROME_INSET.bottomPortrait : CHROME_INSET.bottom) + 22;
   const pad = isPortrait ? { x: 70, t: topInset, b: botInset } : { x: 88, t: topInset, b: botInset };
-  const titleSize = (titleFontSize ?? (isPortrait ? 66 : 62)) as number;
+
+  /* ── Auto-fit ──────────────────────────────────────────────────────────────
+     Title and intro sit above the two pros/cons columns with fixed sizes and
+     no existing heuristic; long custom copy would crowd the columns below.
+     Both wrapper divs are plain stacked block children of the AbsoluteFill
+     (display:flex, flexDirection:"column", no alignItems — default stretch),
+     so no shrink-wrap width bug. Intro cascades off the title's fitted size
+     since they share the header band above the columns. */
+  const titleFitRef = React.useRef<HTMLDivElement>(null);
+  const titleFitTarget = (titleFontSize ?? (isPortrait ? 66 : 62)) as number;
+  const { px: titleSize } = useFitText(
+    titleFitRef,
+    titleFitTarget,
+    titleFontSizeIsUserSet ? titleFitTarget : Math.round(titleFitTarget * 0.5),
+    [title, titleFitTarget, titleFontSizeIsUserSet, isPortrait, height],
+    Math.round(height * (isPortrait ? 0.16 : 0.2)),
+  );
+
+  const introFitRef = React.useRef<HTMLDivElement>(null);
+  const introFitTarget = (descriptionFontSize ?? (isPortrait ? 32 : 25)) as number;
+  const { px: introFs } = useFitText(
+    introFitRef,
+    introFitTarget,
+    descriptionFontSizeIsUserSet ? introFitTarget : Math.round(introFitTarget * 0.55),
+    [intro, introFitTarget, descriptionFontSizeIsUserSet, titleSize, isPortrait, height],
+    Math.round(height * (isPortrait ? 0.14 : 0.16)),
+  );
 
   const headOp = interpolate(frame, [0, 14], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const introOp = interpolate(frame, [8, 22], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
@@ -184,6 +214,7 @@ export const ProsCons: React.FC<EconomistLayoutProps> = ({
       {/* Title + rule — title rises in. */}
       <div style={{ maxWidth: isPortrait ? "100%" : "82%" }}>
         <div
+          ref={titleFitRef}
           style={{
             fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT,
             fontWeight: 900,
@@ -202,9 +233,10 @@ export const ProsCons: React.FC<EconomistLayoutProps> = ({
       {/* Intro paragraph. */}
       {intro && (
         <div
+          ref={introFitRef}
           style={{
             fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT,
-            fontSize: isPortrait ? 32 : 25,
+            fontSize: introFs,
             lineHeight: 1.5,
             color: ECONOMIST_COLORS.muted,
             textAlign: "justify",

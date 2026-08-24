@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { EconomistLayoutProps } from "../types";
+import { useFitText } from "../components/useFitText";
 import { EconomistClip } from "../components/EconomistClip";
 import { ECONOMIST_COLORS, CHROME_INSET } from "../constants";
 import { EditorialDivider, EngravingTexture } from "../components/EconomistOrnaments";
@@ -45,11 +46,13 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
   accentColor = ECONOMIST_COLORS.accent,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
   aspectRatio = "landscape",
 }) => {
   const frame = useCurrentFrame();
-  const { width } = useVideoConfig();
+  const { width, height } = useVideoConfig();
   const isPortrait = aspectRatio === "portrait";
   const hasImage = Boolean(imageUrl || videoUrl);
 
@@ -63,34 +66,39 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
   // The on-screen body is the full article paragraph (independent of the short
   // spoken `narration`); fall back to narration when no body was generated.
   const lead = (body || narration || "").trim();
-  const titleSize = (titleFontSize ?? (isPortrait ? 66 : 74)) as number;
-  // The lead is the hero on the paper side; scale it by length so a terse beat
-  // reads as a big statement that fills the page and a long article still fits.
-  const leadLen = lead.length;
-  const isLongLead = leadLen > 320;
-  const baseLeadFs = (descriptionFontSize ?? 0) || 0;
-  const leadFs =
-    baseLeadFs > 0
-      ? baseLeadFs
-      : leadLen < 120
-        ? isPortrait
-          ? 50
-          : 54
-        : leadLen < 260
-          ? isPortrait
-            ? 42
-            : 44
-          : leadLen < 420
-            ? isPortrait
-              ? 35
-              : 37
-            : leadLen < 620
-              ? isPortrait
-                ? 30
-                : 32
-              : isPortrait
-                ? 26
-                : 28;
+  const isLongLead = lead.length > 320;
+
+  /* ── Auto-fit ──────────────────────────────────────────────────────────────
+     Title (plate) and lead (paper side) each live in their own fixed-height
+     panel — the plate is vertically centred (justifyContent:"center") and the
+     paper side too, so unbounded copy can grow past the panel's edge, which
+     the scene's AbsoluteFill then clips at the frame boundary. Both panels are
+     flex columns with default alignItems:"stretch", so their children already
+     span the full column width — no shrink-wrap width bug here. The title's
+     masking wrapper (`overflow:hidden`) only clips the entrance transform, not
+     final layout, so it's safe to ref the inner text div directly.
+     The lead's sentence spans (leadParts.map below) only animate
+     opacity/blur per span — all sentences are in the DOM from frame 0 — so the
+     wrapping div is also safe to ref directly (no hidden mirror needed). */
+  const titleFitRef = React.useRef<HTMLDivElement>(null);
+  const titleFitTarget = (titleFontSize ?? (isPortrait ? 66 : 74)) as number;
+  const { px: titleSize } = useFitText(
+    titleFitRef,
+    titleFitTarget,
+    titleFontSizeIsUserSet ? titleFitTarget : Math.round(titleFitTarget * 0.45),
+    [title, titleFitTarget, titleFontSizeIsUserSet, isPortrait, height],
+    Math.round(height * (isPortrait ? 0.16 : 0.22)),
+  );
+
+  const leadFitRef = React.useRef<HTMLDivElement>(null);
+  const leadFitTarget = (descriptionFontSize ?? (isPortrait ? 42 : 44)) as number;
+  const { px: leadFs } = useFitText(
+    leadFitRef,
+    leadFitTarget,
+    descriptionFontSizeIsUserSet ? leadFitTarget : Math.round(leadFitTarget * 0.5),
+    [lead, leadFitTarget, descriptionFontSizeIsUserSet, isPortrait, height],
+    Math.round(height * (isPortrait ? 0.34 : 0.5)),
+  );
 
   // ── timeline ────────────────────────────────────────────────────────────────
   // The ink plate wipes in first; everything else is staggered behind it.
@@ -211,6 +219,7 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
         {/* Title rises out from behind its own top edge (masked). */}
         <div style={{ overflow: "hidden" }}>
           <div
+            ref={titleFitRef}
             style={{
               fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT,
               fontWeight: 900,
@@ -285,6 +294,7 @@ export const LeaderArticle: React.FC<EconomistLayoutProps> = ({
     >
       {/* Lead statement — the hero, revealed sentence by sentence. */}
       <div
+        ref={leadFitRef}
         style={{
           fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT,
           fontWeight: 500,

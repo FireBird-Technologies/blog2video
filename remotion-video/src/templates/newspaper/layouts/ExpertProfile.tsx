@@ -2,6 +2,7 @@ import React from "react";
 import { NewspaperClip } from "../components/NewspaperClip";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, Img, spring, staticFile } from "remotion";
 import { NewsBackground } from "../NewsBackground";
+import { useFitText } from "../components/useFitText";
 import type { BlogLayoutProps } from "../types";
 
 const H_FONT = "'Source Serif 4', Georgia, 'Times New Roman', serif";
@@ -16,6 +17,8 @@ export const ExpertProfile: React.FC<BlogLayoutProps> = ({
   aspectRatio = "landscape",
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   stats,
   imageUrl,
   imageObjectPosition,
@@ -31,7 +34,7 @@ export const ExpertProfile: React.FC<BlogLayoutProps> = ({
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
-  const { durationInFrames, width, fps } = useVideoConfig();
+  const { durationInFrames, width, height, fps } = useVideoConfig();
   const p = aspectRatio === "portrait";
 
   const expertName = leftThought ?? "";
@@ -43,6 +46,29 @@ export const ExpertProfile: React.FC<BlogLayoutProps> = ({
 
   const titleSize = titleFontSize ?? (p ? 55 : 58);
   const descSize = descriptionFontSize ?? (p ? 32 : 26);
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and body copy are unbounded user input; long text overflows the card
+     and is clipped. Fit each to the space actually available. An explicitly
+     chosen size is honored exactly (minPx === targetPx makes the hook a no-op). */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitBodyRef = React.useRef<HTMLDivElement>(null);
+  const titleBudgetPx = Math.round(height * (p ? 0.22 : 0.26));
+  const { px: titlePx } = useFitText(
+    fitTitleRef,
+    titleSize,
+    titleFontSizeIsUserSet ? titleSize : p ? 30 : 30,
+    [title, titleSize, titleFontSizeIsUserSet, titleBudgetPx, p],
+    titleBudgetPx,
+  );
+  const bodyBudgetPx = Math.round(height * (p ? 0.26 : 0.30));
+  const { px: bodyPx } = useFitText(
+    fitBodyRef,
+    descSize,
+    descriptionFontSizeIsUserSet ? descSize : p ? 16 : 14,
+    [narration, descSize, descriptionFontSizeIsUserSet, bodyBudgetPx, titlePx, p],
+    bodyBudgetPx,
+  );
 
   // 3D camera entrance
   const cameraRotateX = interpolate(frame, [0, 30], [12, 0], { extrapolateRight: "clamp" });
@@ -135,10 +161,14 @@ export const ExpertProfile: React.FC<BlogLayoutProps> = ({
             )}
 
             {/* Title + narration centered */}
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: 20 }}>
+            {/* `minHeight:0` + `overflow:hidden` are what bound this column. With
+                flex:1 alone the children grew past the padded box in BOTH
+                directions — pushing the category badge off the top and the
+                narration off the bottom. */}
+            <div style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: "center", gap: 20 }}>
               {/* Category badge */}
               {category && (
-                <div style={{ opacity: categoryOp, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                <div style={{ opacity: categoryOp, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flexShrink: 0 }}>
                   <div style={{ fontFamily: fontFamily ?? B_FONT, fontSize: 13, fontWeight: 800, letterSpacing: "0.12em", color: textColor, textTransform: "uppercase", opacity: 0.7 }}>
                     {category}
                   </div>
@@ -147,7 +177,7 @@ export const ExpertProfile: React.FC<BlogLayoutProps> = ({
               )}
 
               {/* Title word-reveal */}
-              <div style={{ fontFamily: fontFamily ?? H_FONT, fontWeight: 700, fontSize: titleSize, lineHeight: 1.1, color: textColor }}>
+              <div ref={fitTitleRef} style={{ fontFamily: fontFamily ?? H_FONT, fontWeight: 700, fontSize: titlePx, lineHeight: 1.1, color: textColor, flexShrink: 0 }}>
                 {words.slice(0, visWords).join(" ")}
                 {showTitleCursor && visWords > 0 && (
                   <span style={{ display: "inline-block", width: 3, height: "0.85em", background: textColor, opacity: 0.5, marginLeft: 4, verticalAlign: "middle" }} />
@@ -155,7 +185,7 @@ export const ExpertProfile: React.FC<BlogLayoutProps> = ({
               </div>
 
               {/* Narration char-reveal */}
-              <div style={{ fontFamily: fontFamily ?? B_FONT, fontSize: descSize, color: textColor, lineHeight: 1.5, opacity: 0.85 }}>
+              <div ref={fitBodyRef} style={{ fontFamily: fontFamily ?? B_FONT, fontSize: bodyPx, color: textColor, lineHeight: 1.5, opacity: 0.85, minHeight: 0, flex: "0 1 auto", overflow: "hidden" }}>
                 {visText}
                 {showBodyCursor && visChars > 0 && (
                   <span style={{ display: "inline-block", width: 3, height: "0.85em", background: textColor, opacity: 0.5, marginLeft: 2, verticalAlign: "middle" }} />
@@ -247,7 +277,7 @@ export const ExpertProfile: React.FC<BlogLayoutProps> = ({
 
               {/* Category badge */}
               {category && (
-                <div style={{ opacity: categoryOp, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                <div style={{ opacity: categoryOp, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flexShrink: 0 }}>
                   <div style={{ fontFamily: fontFamily ?? B_FONT, fontSize: 13, fontWeight: 800, letterSpacing: "0.12em", color: textColor, textTransform: "uppercase", opacity: 0.7 }}>
                     {category}
                   </div>
@@ -256,7 +286,7 @@ export const ExpertProfile: React.FC<BlogLayoutProps> = ({
               )}
 
               {/* Title word-reveal */}
-              <div style={{ fontFamily: fontFamily ?? H_FONT, fontWeight: 700, fontSize: titleSize, lineHeight: 1.1, color: textColor, textAlign: "center" }}>
+              <div ref={fitTitleRef} style={{ fontFamily: fontFamily ?? H_FONT, fontWeight: 700, fontSize: titlePx, lineHeight: 1.1, color: textColor, textAlign: "center", flexShrink: 0 }}>
                 {words.slice(0, visWords).join(" ")}
                 {showTitleCursor && visWords > 0 && (
                   <span style={{ display: "inline-block", width: 3, height: "0.85em", background: textColor, opacity: 0.5, marginLeft: 4, verticalAlign: "middle" }} />
@@ -264,7 +294,7 @@ export const ExpertProfile: React.FC<BlogLayoutProps> = ({
               </div>
 
               {/* Narration char-reveal */}
-              <div style={{ fontFamily: fontFamily ?? B_FONT, fontSize: descSize, color: textColor, lineHeight: 1.5, opacity: 0.85, textAlign: "center" }}>
+              <div ref={fitBodyRef} style={{ fontFamily: fontFamily ?? B_FONT, fontSize: bodyPx, color: textColor, lineHeight: 1.5, opacity: 0.85, textAlign: "center", minHeight: 0, flex: "0 1 auto", overflow: "hidden" }}>
                 {visText}
                 {showBodyCursor && visChars > 0 && (
                   <span style={{ display: "inline-block", width: 3, height: "0.85em", background: textColor, opacity: 0.5, marginLeft: 2, verticalAlign: "middle" }} />
@@ -327,7 +357,7 @@ export const ExpertProfile: React.FC<BlogLayoutProps> = ({
               )}
 
               {/* Title word-reveal */}
-              <div style={{ fontFamily: fontFamily ?? H_FONT, fontWeight: 700, fontSize: titleSize, lineHeight: 1.1, color: textColor }}>
+              <div ref={fitTitleRef} style={{ fontFamily: fontFamily ?? H_FONT, fontWeight: 700, fontSize: titlePx, lineHeight: 1.1, color: textColor, flexShrink: 0 }}>
                 {words.slice(0, visWords).join(" ")}
                 {showTitleCursor && visWords > 0 && (
                   <span style={{ display: "inline-block", width: 3, height: "0.85em", background: textColor, opacity: 0.5, marginLeft: 4, verticalAlign: "middle" }} />
@@ -335,7 +365,7 @@ export const ExpertProfile: React.FC<BlogLayoutProps> = ({
               </div>
 
               {/* Narration char-reveal */}
-              <div style={{ fontFamily: fontFamily ?? B_FONT, fontSize: descSize, color: textColor, lineHeight: 1.55, opacity: 0.85 }}>
+              <div ref={fitBodyRef} style={{ fontFamily: fontFamily ?? B_FONT, fontSize: bodyPx, color: textColor, lineHeight: 1.55, opacity: 0.85, minHeight: 0, flex: "0 1 auto", overflow: "hidden" }}>
                 {visText}
                 {showBodyCursor && visChars > 0 && (
                   <span style={{ display: "inline-block", width: 3, height: "0.85em", background: textColor, opacity: 0.5, marginLeft: 2, verticalAlign: "middle" }} />
@@ -424,7 +454,7 @@ export const ExpertProfile: React.FC<BlogLayoutProps> = ({
               )}
 
               {/* Title word-reveal */}
-              <div style={{ fontFamily: fontFamily ?? H_FONT, fontWeight: 700, fontSize: titleSize, lineHeight: 1.1, color: textColor }}>
+              <div ref={fitTitleRef} style={{ fontFamily: fontFamily ?? H_FONT, fontWeight: 700, fontSize: titlePx, lineHeight: 1.1, color: textColor, flexShrink: 0 }}>
                 {words.slice(0, visWords).join(" ")}
                 {showTitleCursor && visWords > 0 && (
                   <span style={{ display: "inline-block", width: 3, height: "0.85em", background: textColor, opacity: 0.5, marginLeft: 4, verticalAlign: "middle" }} />
@@ -432,7 +462,7 @@ export const ExpertProfile: React.FC<BlogLayoutProps> = ({
               </div>
 
               {/* Narration char-reveal */}
-              <div style={{ fontFamily: fontFamily ?? B_FONT, fontSize: descSize, color: textColor, lineHeight: 1.55, opacity: 0.85, flex: 1 }}>
+              <div ref={fitBodyRef} style={{ fontFamily: fontFamily ?? B_FONT, fontSize: bodyPx, color: textColor, lineHeight: 1.55, opacity: 0.85, flex: "1 1 auto", minHeight: 0, overflow: "hidden" }}>
                 {visText}
                 {showBodyCursor && visChars > 0 && (
                   <span style={{ display: "inline-block", width: 3, height: "0.85em", background: textColor, opacity: 0.5, marginLeft: 2, verticalAlign: "middle" }} />

@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { Swan } from "../components/Swan";
 import type { BlackswanLayoutProps } from "../types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
@@ -145,12 +146,21 @@ export const NeonNarrative: React.FC<BlackswanLayoutProps> = (props) => {
     textColor = "#DFFFFF",
     titleFontSize,
     descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
     fontFamily,
     aspectRatio = "landscape",
   } = props;
 
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const p = aspectRatio === "portrait";
+  const titleTarget = titleFontSize ?? (p ? 73 : 69);
+  const descTarget = descriptionFontSize ?? (p ? 38 : 32);
+  const titleRef = React.useRef<HTMLHeadingElement>(null);
+  const descRef = React.useRef<HTMLDivElement>(null);
+  const { px: titlePx } = useFitText(titleRef, titleTarget, titleFontSizeIsUserSet ? titleTarget : Math.max(15, Math.round(titleTarget * 0.34)), [title, titleTarget, titleFontSizeIsUserSet, p, height], Math.round(height * (p ? 0.18 : 0.24)));
+  const { px: descPx } = useFitText(descRef, descTarget, descriptionFontSizeIsUserSet ? descTarget : Math.max(10, Math.round(descTarget * 0.38)), [narration, descTarget, descriptionFontSizeIsUserSet, titlePx, p, height], Math.round(height * (p ? 0.3 : 0.42)));
 
   const eyebrowOp = interpolate(frame, [0, 20], [0, 1], { extrapolateRight: "clamp" });
   const titleOp   = interpolate(frame, [10, 35], [0, 1], { extrapolateRight: "clamp" });
@@ -270,11 +280,11 @@ export const NeonNarrative: React.FC<BlackswanLayoutProps> = (props) => {
           </div>
 
           {/* Title */}
-          <h1
+          <h1 ref={titleRef}
             style={{
               margin: 0,
               fontFamily: fontFamily ?? display,
-              fontSize: titleFontSize ?? (p ? 73 : 69),
+              fontSize: titlePx,
               fontWeight: 100,
               ...neonTitleTubeStyle(accentColor, { bgColor }),
               lineHeight: 1.1,
@@ -292,7 +302,7 @@ export const NeonNarrative: React.FC<BlackswanLayoutProps> = (props) => {
 
           {/* Narration body — one block per newline so breaks read clearly */}
           {narration && (
-            <div
+            <div ref={descRef}
               style={{
                 display: "flex",
                 flexDirection: "column",
@@ -302,6 +312,7 @@ export const NeonNarrative: React.FC<BlackswanLayoutProps> = (props) => {
                 transform: `translateY(${bodyY}px)`,
                 textAlign: "left",
                 maxWidth: "100%",
+                fontSize: descPx,
               }}
             >
               {narrationBlocks(narration).map((block, i) => (
@@ -322,7 +333,7 @@ export const NeonNarrative: React.FC<BlackswanLayoutProps> = (props) => {
                     style={{
                       margin: 0,
                       fontFamily: fontFamily ?? mono,
-                      fontSize: descriptionFontSize ?? (p ? 38 : 32),
+                      fontSize: "inherit",
                       fontWeight: 400,
                       letterSpacing: "0.04em",
                       lineHeight: 1.95,

@@ -53,6 +53,10 @@ export interface MatrixLayoutProps {
   // typography overrides
   titleFontSize?: number;
   descriptionFontSize?: number;
+  /** Derived at render time; slider values are preferred maxima, not overflow locks. */
+  titleFontSizeIsUserSet?: boolean;
+  /** Derived at render time; slider values are preferred maxima, not overflow locks. */
+  descriptionFontSizeIsUserSet?: boolean;
 
   // ── matrix_data (chart) — uses the shared chartTable data-viz contract ──
   /** Column 0 = X labels; columns 1–3 = up to three numeric series. */

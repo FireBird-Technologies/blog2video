@@ -38,6 +38,7 @@ import {
   easeInOutCubic,
   clampProgressAt,
 } from "../../_shared/chartData";
+import { useFitText, useAvailableHeight } from "../components/useFitText";
 
 /**
  * SpotlightDataChart — data-visualization scene (line / bar / histogram) driven by
@@ -108,6 +109,30 @@ export const SpotlightDataChart: React.FC<SpotlightLayoutProps> = ({
   const chartTickSize = Math.round(descSize * 0.86);
   const chartAxisLabelSize = Math.round(descSize * 0.72);
   const VALUE_LABEL_FS = Math.round(descSize * 0.56);
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input; long copy overflows the
+     stage and clips or crowds the chart panel. Fit each to the space actually
+     available — the chart panel itself is untouched. */
+  const contentRef = React.useRef<HTMLDivElement>(null);
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const narrationRef = React.useRef<HTMLDivElement>(null);
+  const titleBudgetPx = Math.round(height * (p ? 0.18 : 0.2));
+  const { px: titlePx } = useFitText(
+    titleRef,
+    titleSize,
+    p ? 28 : 24,
+    [title, titleSize, titleBudgetPx],
+    titleBudgetPx,
+  );
+  const narrationAvail = useAvailableHeight(narrationRef, contentRef, [title, titlePx, narration, descSize, p]);
+  const { px: narrationPx } = useFitText(
+    narrationRef,
+    Math.round(descSize * 0.82),
+    p ? 14 : 12,
+    [narration, descSize, titlePx, narrationAvail, p],
+    narrationAvail || undefined,
+  );
 
   /** Spotlight-themed X-axis builder (white ink + body font). */
   const buildXAxisProps = (
@@ -568,14 +593,15 @@ export const SpotlightDataChart: React.FC<SpotlightLayoutProps> = ({
       {/* Decorative artifacts — subtle accent bars only; don't fight the chart. */}
       <AccentBars accentColor={accent} position="bottom-right" count={2} startFrame={10} />
 
-      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", padding: `${padV} ${padH}` }}>
+      <div ref={contentRef} style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", padding: `${padV} ${padH}` }}>
         {/* Title — spring-slam entrance */}
         <div style={{ opacity: titleOpacity, marginBottom: Math.round(height * 0.022), transform: `scale(${titleScale})`, transformOrigin: "left center" }}>
           <div
+            ref={titleRef}
             style={{
               fontFamily: displayFont,
               fontWeight: 900,
-              fontSize: titleSize,
+              fontSize: titlePx,
               letterSpacing: "-0.03em",
               lineHeight: 1.02,
               color: textColor || SPOT.white,
@@ -666,7 +692,7 @@ export const SpotlightDataChart: React.FC<SpotlightLayoutProps> = ({
         {/* Narration */}
         {narration && (
           <div style={{ opacity: Math.min(1, Math.max(0, (frame - 18) / 20)), marginTop: Math.round(height * 0.02) }}>
-            <div style={{ fontFamily: bodyFont, fontStyle: "italic", fontSize: descSize * 0.82, color: textColor || SPOT.white, opacity: 0.6, lineHeight: 1.45, overflowWrap: "break-word", wordBreak: "break-word" }}>
+            <div ref={narrationRef} style={{ fontFamily: bodyFont, fontStyle: "italic", fontSize: narrationPx, color: textColor || SPOT.white, opacity: 0.6, lineHeight: 1.45, overflowWrap: "break-word", wordBreak: "break-word" }}>
               {narration}
             </div>
           </div>

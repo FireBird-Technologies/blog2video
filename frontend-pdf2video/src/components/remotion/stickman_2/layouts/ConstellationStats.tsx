@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { SceneLayoutProps } from "../types";
 
 export const ConstellationStats: React.FC<SceneLayoutProps> = (props) => {
@@ -13,20 +14,46 @@ export const ConstellationStats: React.FC<SceneLayoutProps> = (props) => {
     sceneDurationInFrames,
     titleFontSize,
     descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
     fontFamily,
   } = props;
   const p = aspectRatio === "portrait";
-
-  const titlePx    = titleFontSize ?? (p ? 86 : 79);
-  const descPx     = descriptionFontSize ?? (p ? 50 : 41);
   // Sign text size is its own entity, derived from the narration (description)
   // font size as a fixed offset smaller (descPx − 15). It is rendered at this
   // absolute px size — decoupled from the figure scale — so the stats always
   // read a bit smaller than the narration text. The sign board sizes to match.
-  const signFontPx = ((props as any).signFontSize ?? Math.max(10, descPx - 15)) as number;
 
   const frame = useCurrentFrame();
   const { fps, width, height } = useVideoConfig();
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input; long copy overflows the card
+     (and in this template collides with the artwork) instead of resizing.
+     Measure the real available height and shrink to fit. A size the user
+     explicitly picked is honored exactly — minPx === targetPx no-ops the hook. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitDescRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 86 : 79);
+  const fitDescTarget = descriptionFontSize ?? (p ? 50 : 41);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.42),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.22 : 0.26)),
+  );
+  const { px: fitDescPx } = useFitText(
+    fitDescRef,
+    fitDescTarget,
+    descriptionFontSizeIsUserSet ? fitDescTarget : Math.round(fitDescTarget * 0.4),
+    [narration, fitDescTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * (p ? 0.30 : 0.34)),
+  );
+
+  const titlePx    = fitTitlePx;
+  const descPx     = fitDescPx;
+  const signFontPx = ((props as any).signFontSize ?? Math.max(10, descPx - 15)) as number;
   const dur = sceneDurationInFrames ?? 150;
 
   const enter = interpolate(frame, [0, 18], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
@@ -492,7 +519,7 @@ export const ConstellationStats: React.FC<SceneLayoutProps> = (props) => {
             transform: `translateY(${interpolate(titleProg, [0, 1], [20, 0])}px)`,
             textAlign: p ? "center" : "left",
           }}>
-            <div style={{
+            <div ref={fitTitleRef} style={{
               color: accent,
               fontSize: titlePx,
               fontWeight: 700,
@@ -502,7 +529,7 @@ export const ConstellationStats: React.FC<SceneLayoutProps> = (props) => {
               marginBottom: p ? 12 : 10,
             }}>{title}</div>
             {narration && (
-              <div style={{
+              <div ref={fitDescRef} style={{
                 color: stroke,
                 fontSize: descPx,
                 fontFamily: fontFamily ?? "'Patrick Hand', system-ui, sans-serif",

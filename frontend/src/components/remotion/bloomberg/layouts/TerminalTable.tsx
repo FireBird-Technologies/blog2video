@@ -1,4 +1,6 @@
+import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY, derivePalette } from "../constants";
 import type { BloombergLayoutProps } from "../types";
 
@@ -50,9 +52,18 @@ export const TerminalTable: React.FC<BloombergLayoutProps> = ({
   const rowPad = p ? "16px 20px" : "13px 20px";
   const rowFontSize = dSize * 0.78;
   const headerFontSize = dSize * 0.7;
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const tableMeasureRef = React.useRef<HTMLDivElement>(null);
+  const narrationRef = React.useRef<HTMLDivElement>(null);
+  const tableCopy = rawRows.join("\n");
+  const { px: fittedTitleSize } = useFitText(titleRef, tSize * 0.5, p ? 26 : 28, [title, tSize, p], p ? 130 : 110);
+  const { px: fittedRowFontSize } = useFitText(tableMeasureRef, rowFontSize, p ? 18 : 17, [tableCopy, rowFontSize, p], p ? 620 : 660);
+  const fittedHeaderFontSize = Math.min(headerFontSize, fittedRowFontSize * 0.9);
+  const { px: fittedNarrationSize } = useFitText(narrationRef, dSize, p ? 20 : 18, [narration, dSize, p], p ? 130 : 100);
 
   return (
     <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff, overflow: "hidden" }}>
+      <div ref={tableMeasureRef} style={{ position: "absolute", visibility: "hidden", width: p ? "82%" : "88%", fontSize: rowFontSize, lineHeight: 1.55, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{tableCopy}</div>
       {/* Top bar */}
       <div style={{
         position: "absolute", top: 0, left: 0, right: 0, height: topH,
@@ -64,9 +75,9 @@ export const TerminalTable: React.FC<BloombergLayoutProps> = ({
       </div>
 
       {/* Title */}
-      <div style={{
+      <div ref={titleRef} style={{
         position: "absolute", top: topH + (p ? 14 : 10), left: pad, right: pad,
-        fontSize: tSize * 0.5, opacity: titleOpacity, letterSpacing: -0.5,
+        fontSize: fittedTitleSize, lineHeight: 1.1, opacity: titleOpacity, letterSpacing: -0.5,
       }}>
         <span style={{ backgroundColor: amber, color: bg, display: "inline-block", padding: "3px 14px 6px" }}>{title}</span>
       </div>
@@ -95,7 +106,7 @@ export const TerminalTable: React.FC<BloombergLayoutProps> = ({
               <div key={ci} style={{
                 flex: colFlexes[ci],
                 color: blue,
-                fontSize: headerFontSize,
+                fontSize: fittedHeaderFontSize,
                 letterSpacing: 2,
                 textAlign: "center",
                 textTransform: "uppercase",
@@ -139,7 +150,7 @@ export const TerminalTable: React.FC<BloombergLayoutProps> = ({
                   <div key={ci} style={{
                     flex: colFlexes[ci],
                     color: cellColor,
-                    fontSize: rowFontSize,
+                    fontSize: fittedRowFontSize,
                     textAlign: "center",
                     fontWeight: isLast ? "bold" : "normal",
                   }}>
@@ -153,9 +164,10 @@ export const TerminalTable: React.FC<BloombergLayoutProps> = ({
       </div>
 
       {/* Narration footer */}
-      <div style={{
+      <div ref={narrationRef} style={{
         position: "absolute", bottom: botH + 8, left: pad, right: pad,
-        color: amber, fontSize: dSize * 0.65,
+        color: amber, fontSize: fittedNarrationSize, lineHeight: 1.3,
+        maxHeight: p ? 130 : 100, overflow: "hidden", overflowWrap: "anywhere",
       }}>
         {narration}
       </div>

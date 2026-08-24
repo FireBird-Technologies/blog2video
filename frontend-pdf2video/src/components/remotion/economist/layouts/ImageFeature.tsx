@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, Img } from "remotion";
 import type { EconomistLayoutProps } from "../types";
+import { useFitText } from "../components/useFitText";
 import { EconomistClip } from "../components/EconomistClip";
 import { ECONOMIST_COLORS } from "../constants";
 import { EconomistMasthead } from "../components/EconomistMasthead";
@@ -32,6 +33,9 @@ export const ImageFeature: React.FC<EconomistLayoutProps> = ({
   accentColor = ECONOMIST_COLORS.accent,
   textColor = ECONOMIST_COLORS.ink,
   titleFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSize,
+  descriptionFontSizeIsUserSet,
   fontFamily,
   aspectRatio = "landscape",
 }) => {
@@ -43,7 +47,54 @@ export const ImageFeature: React.FC<EconomistLayoutProps> = ({
   const brandWordmark = (wordmark ?? "").trim();
 
   const margin = isPortrait ? 56 : 70;
-  const headlineSize = (titleFontSize ?? (isPortrait ? 76 : 80)) as number;
+
+  /* ── Auto-fit ──────────────────────────────────────────────────────────────
+     Two independent layouts share this component (photo vs no-photo card),
+     each with its own fixed-size headline + optional caption/dek. Both
+     Hooks must run unconditionally before the no-image early return, so they
+     are computed here and consumed by whichever branch renders. The
+     no-image card's wrapper div is a plain block (no alignItems:center flex
+     ancestor); the photo branch's headline block already has an explicit
+     `width`. Neither needs a width fix. */
+  const headlineFitRef = React.useRef<HTMLDivElement>(null);
+  const headlineFitTarget = (titleFontSize ?? (isPortrait ? 76 : 80)) as number;
+  const { px: headlineSize } = useFitText(
+    headlineFitRef,
+    headlineFitTarget,
+    titleFontSizeIsUserSet ? headlineFitTarget : Math.round(headlineFitTarget * 0.4),
+    [title, headlineFitTarget, titleFontSizeIsUserSet, isPortrait, hasImage, height],
+    Math.round(height * (isPortrait ? 0.18 : 0.24)),
+  );
+
+  const captionFitRef = React.useRef<HTMLDivElement>(null);
+  const captionFitTarget = (descriptionFontSize ?? (isPortrait ? 28 : 26)) as number;
+  const { px: captionFs } = useFitText(
+    captionFitRef,
+    captionFitTarget,
+    descriptionFontSizeIsUserSet ? captionFitTarget : Math.round(captionFitTarget * 0.55),
+    [caption, captionFitTarget, descriptionFontSizeIsUserSet, isPortrait, hasImage, headlineSize, height],
+    Math.round(height * (isPortrait ? 0.14 : 0.16)),
+  );
+
+  const noImgHeadlineFitRef = React.useRef<HTMLDivElement>(null);
+  const noImgHeadlineFitTarget = (titleFontSize ?? (isPortrait ? 84 : 92)) as number;
+  const { px: noImgHeadline } = useFitText(
+    noImgHeadlineFitRef,
+    noImgHeadlineFitTarget,
+    titleFontSizeIsUserSet ? noImgHeadlineFitTarget : Math.round(noImgHeadlineFitTarget * 0.4),
+    [title, noImgHeadlineFitTarget, titleFontSizeIsUserSet, isPortrait, hasImage, height],
+    Math.round(height * (isPortrait ? 0.24 : 0.3)),
+  );
+
+  const noImgCaptionFitRef = React.useRef<HTMLDivElement>(null);
+  const noImgCaptionFitTarget = (descriptionFontSize ?? (isPortrait ? 38 : 30)) as number;
+  const { px: noImgCaptionFs } = useFitText(
+    noImgCaptionFitRef,
+    noImgCaptionFitTarget,
+    descriptionFontSizeIsUserSet ? noImgCaptionFitTarget : Math.round(noImgCaptionFitTarget * 0.55),
+    [caption, noImgCaptionFitTarget, descriptionFontSizeIsUserSet, isPortrait, hasImage, noImgHeadline, height],
+    Math.round(height * (isPortrait ? 0.16 : 0.18)),
+  );
 
   const photoOp = interpolate(frame, [0, 22], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const kbScale = interpolate(frame, [0, 260], [1.05, 1.14], { extrapolateRight: "clamp" }) * imageZoom;
@@ -64,7 +115,6 @@ export const ImageFeature: React.FC<EconomistLayoutProps> = ({
   // should avoid picking image_feature without an image, but this keeps the
   // scene clean if it slips through.
   if (!hasImage) {
-    const noImgHeadline = (titleFontSize ?? (isPortrait ? 84 : 92)) as number;
     return (
       <AbsoluteFill
         style={{
@@ -91,11 +141,11 @@ export const ImageFeature: React.FC<EconomistLayoutProps> = ({
             );
           })()}
           <div style={{ width: 64, height: 6, background: accentColor, margin: `${isPortrait ? 20 : 22}px 0`, ...ruleDraw(frame, 12, 16) }} />
-          <div style={{ fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT, fontWeight: 900, fontSize: noImgHeadline, lineHeight: 1.02, letterSpacing: -noImgHeadline * 0.014, color: textColor, ...headline }}>
+          <div ref={noImgHeadlineFitRef} style={{ fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT, fontWeight: 900, fontSize: noImgHeadline, lineHeight: 1.02, letterSpacing: -noImgHeadline * 0.014, color: textColor, ...headline }}>
             {title}
           </div>
           {caption && (
-            <div style={{ fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT, fontStyle: "italic", fontSize: isPortrait ? 38 : 30, lineHeight: 1.4, color: ECONOMIST_COLORS.muted, marginTop: isPortrait ? 24 : 26, maxWidth: isPortrait ? "100%" : "82%", opacity: capOp }}>
+            <div ref={noImgCaptionFitRef} style={{ fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT, fontStyle: "italic", fontSize: noImgCaptionFs, lineHeight: 1.4, color: ECONOMIST_COLORS.muted, marginTop: isPortrait ? 24 : 26, maxWidth: isPortrait ? "100%" : "82%", opacity: capOp }}>
               {caption}
             </div>
           )}
@@ -151,11 +201,11 @@ export const ImageFeature: React.FC<EconomistLayoutProps> = ({
           collide on long deks. */}
       <div style={{ position: "absolute", left: margin, bottom: isPortrait ? height * 0.1 : margin, width: isPortrait ? width - margin * 2 : width * 0.62 }}>
         <div style={{ width: 60, height: 6, background: accentColor, marginBottom: 20, ...ruleDraw(frame, 12, 16) }} />
-        <div style={{ fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT, fontWeight: 900, fontSize: headlineSize, lineHeight: 1.03, letterSpacing: -headlineSize * 0.012, color: ink, textShadow, ...headline }}>
+        <div ref={headlineFitRef} style={{ fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT, fontWeight: 900, fontSize: headlineSize, lineHeight: 1.03, letterSpacing: -headlineSize * 0.012, color: ink, textShadow, ...headline }}>
           {title}
         </div>
         {caption && (
-          <div style={{ fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT, fontStyle: "italic", fontSize: isPortrait ? 28 : 26, lineHeight: 1.4, color: "rgba(255,255,255,0.92)", textShadow, marginTop: 18, maxWidth: isPortrait ? "100%" : "92%", opacity: capOp }}>
+          <div ref={captionFitRef} style={{ fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT, fontStyle: "italic", fontSize: captionFs, lineHeight: 1.4, color: "rgba(255,255,255,0.92)", textShadow, marginTop: 18, maxWidth: isPortrait ? "100%" : "92%", opacity: capOp }}>
             {caption}
           </div>
         )}

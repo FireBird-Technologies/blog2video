@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, spring } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { MosaicBackground, bgTilePalette } from "../MosaicBackground";
 import { MOSAIC_COLORS, MOSAIC_DEFAULT_FONT_FAMILY } from "../constants";
 import { DiamondIndicators } from "../mosaicPrimitives";
@@ -22,7 +23,7 @@ export const MosaicPhrases: React.FC<MosaicLayoutProps> = ({
   mosaicTileGap,
 }) => {
   const frame = useCurrentFrame();
-  const { fps, durationInFrames } = useVideoConfig();
+  const { fps, durationInFrames, height } = useVideoConfig();
   const motion = getSceneTransition(frame, durationInFrames, 16, 12);
   const p = aspectRatio === "portrait";
   const family = fontFamily || MOSAIC_DEFAULT_FONT_FAMILY;
@@ -47,6 +48,10 @@ export const MosaicPhrases: React.FC<MosaicLayoutProps> = ({
   const freezeFrame = Math.max(0, durationInFrames - 18);
   const cycleFrame = frame >= freezeFrame ? freezeFrame : frame;
   const idx = Math.floor(cycleFrame / 72) % Math.max(list.length, 1);
+  const phraseTarget = titleFontSize ?? (p ? 56 : 48);
+  const phraseRef = React.useRef<HTMLDivElement>(null);
+  const longestPhrase = list.reduce((a, b) => b.length > a.length ? b : a, "");
+  const { px: phraseSize } = useFitText(phraseRef, phraseTarget, Math.max(11, Math.round(phraseTarget * 0.28)), [longestPhrase, list[idx], phraseTarget, p, height], Math.round(height * 0.28));
   
   const fade = interpolate(cycleFrame % 72, [0, 10, 54, 70], [0, 1, 1, 0], { 
     extrapolateLeft: "clamp", 
@@ -98,6 +103,8 @@ export const MosaicPhrases: React.FC<MosaicLayoutProps> = ({
           opacity: interpolate(panelSpring(10), [0, 1], [0, 1]),
           transform: `translateX(${interpolate(panelSpring(10), [0, 1], [-20, 0])}px)`
         }}>
+          <div style={{ color: accentColor || MOSAIC_COLORS.gold, fontSize: 12, letterSpacing: 2, fontFamily: family }}>STATUS: ACTIVE</div>
+          <div style={{ height: 2, width: "100%", background: accentColor || MOSAIC_COLORS.gold, marginTop: 8, opacity: 0.3 }} />
         </div>
 
         {/* MAIN CENTER MOSAIC (The Bento Primary Tile) */}
@@ -111,10 +118,14 @@ export const MosaicPhrases: React.FC<MosaicLayoutProps> = ({
           opacity: motion.presence,
           transform: `scale(${interpolate(panelSpring(5), [0, 1], [0.95, 1])})`,
         }}>
-          <div style={{
+          <div style={{ color: textColor || MOSAIC_COLORS.textSecondary, fontFamily: family, letterSpacing: "0.5em", textTransform: "uppercase", fontSize: 12 }}>
+            Central Processing
+          </div>
+          <div ref={phraseRef} style={{
               marginTop: 20,
               fontFamily: family,
-              fontSize: titleFontSize ?? (p ? 56 : 48),
+              fontSize: phraseSize,
+              overflowWrap: "anywhere",
               color: textColor || MOSAIC_COLORS.textPrimary,
               lineHeight: 1.1,
               opacity: fade,
@@ -136,6 +147,12 @@ export const MosaicPhrases: React.FC<MosaicLayoutProps> = ({
           opacity: interpolate(panelSpring(20), [0, 1], [0, 1]),
           transform: `translateY(${interpolate(panelSpring(20), [0, 1], [20, 0])}px)`
         }}>
+          <div style={{ color: textColor || MOSAIC_COLORS.textPrimary, fontSize: 14, fontFamily: family, opacity: 0.8 }}>
+            SEC_ID: 00{idx + 1}
+          </div>
+          <div style={{ color: textColor || MOSAIC_COLORS.textSecondary, fontSize: 10, fontFamily: family, marginTop: 4 }}>
+            INLAID SEQUENCE V2.6
+          </div>
         </div>
 
       </AbsoluteFill>

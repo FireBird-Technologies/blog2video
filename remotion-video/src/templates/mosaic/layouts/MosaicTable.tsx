@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import type { MosaicLayoutProps } from "../types";
 import { MOSAIC_DEFAULT_FONT_FAMILY } from "../constants";
 
@@ -56,8 +57,16 @@ export const MosaicTable: React.FC<MosaicLayoutProps> = ({
   const ink = textColor || MOSAIC_INK;
   const accent = accentColor || "#C26240";
 
-  const titleSize = titleFontSize ?? (p ? 50 : 44);
+  const titleTarget = titleFontSize ?? (p ? 50 : 44);
   const descSize = descriptionFontSize ?? (p ? 22 : 19);
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const tickerTitleRef = React.useRef<HTMLDivElement>(null);
+  const footnoteRef = React.useRef<HTMLDivElement>(null);
+  const { px: titleSize } = useFitText(titleRef, titleTarget, Math.max(11, Math.round(titleTarget * 0.28)), [title, titleTarget, p, height], Math.round(height * 0.1));
+  const tickerTarget = Math.max(9, Math.round(descSize * 0.95));
+  const footTarget = Math.max(9, Math.round(descSize * 0.88));
+  const { px: tickerSize } = useFitText(tickerTitleRef, tickerTarget, Math.max(8, Math.round(tickerTarget * 0.4)), [tickerTitle, tickerTarget, titleSize, p, height], Math.round(height * 0.06));
+  const { px: footSize } = useFitText(footnoteRef, footTarget, Math.max(8, Math.round(footTarget * 0.4)), [tickerFootnote, narration, footTarget, p, height], Math.round(height * 0.07));
 
   const rawHeaders = (tickerTable?.headers ?? []).slice(0, TABLE_MAX_COLS);
   const rawRows = (tickerTable?.rows ?? [])
@@ -111,11 +120,11 @@ export const MosaicTable: React.FC<MosaicLayoutProps> = ({
     <AbsoluteFill style={{ overflow: "hidden", opacity: fadeOut, background: "#EAE4DA" }}>
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", padding: `${p ? "7%" : "5.5%"} ${p ? "6%" : "7%"}`, minHeight: 0, gap: 0 }}>
         <div style={{ opacity: titleA, flexShrink: 0, marginBottom: Math.round(height * 0.014), textAlign: "center" }}>
-          <div style={{ fontFamily: bodyFont, fontWeight: 700, fontSize: titleSize, lineHeight: 1.08, color: ink }}>
+          <div ref={titleRef} style={{ fontFamily: bodyFont, fontWeight: 700, fontSize: titleSize, lineHeight: 1.08, color: ink, overflowWrap: "anywhere" }}>
             {title}
           </div>
           {tickerTitle && (
-            <div style={{ fontFamily: bodyFont, fontWeight: 400, fontSize: Math.round(descSize * 0.95), letterSpacing: "0.08em", textTransform: "uppercase", color: INK_DIM, marginTop: Math.round(height * 0.006) }}>
+            <div ref={tickerTitleRef} style={{ fontFamily: bodyFont, fontWeight: 400, fontSize: tickerSize, letterSpacing: "0.08em", textTransform: "uppercase", color: INK_DIM, marginTop: Math.round(height * 0.006), overflowWrap: "anywhere" }}>
               {tickerTitle}
             </div>
           )}
@@ -178,7 +187,7 @@ export const MosaicTable: React.FC<MosaicLayoutProps> = ({
         </div>
 
         {(tickerFootnote || narration) && (
-          <div style={{ opacity: footnoteA, flexShrink: 0, marginTop: Math.round(height * 0.01), fontFamily: bodyFont, fontStyle: "italic", fontWeight: 400, fontSize: Math.round(descSize * 0.88), letterSpacing: "0.02em", color: INK_DIM, lineHeight: 1.4, whiteSpace: "normal", textAlign: "center" }}>
+          <div ref={footnoteRef} style={{ opacity: footnoteA, flexShrink: 0, marginTop: Math.round(height * 0.01), fontFamily: bodyFont, fontStyle: "italic", fontWeight: 400, fontSize: footSize, letterSpacing: "0.02em", color: INK_DIM, lineHeight: 1.4, whiteSpace: "normal", textAlign: "center", overflowWrap: "anywhere" }}>
             {tickerFootnote || narration}
           </div>
         )}

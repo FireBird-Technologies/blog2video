@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, staticFile } from "remotion";
 import { NewsBackground } from "../NewsBackground";
+import { useFitText } from "../components/useFitText";
 import type { BlogLayoutProps } from "../types";
 
 const H_FONT = "'Source Serif 4', Georgia, 'Times New Roman', serif";
@@ -36,6 +37,8 @@ export const NewspaperTickerTable: React.FC<BlogLayoutProps> = ({
   aspectRatio = "landscape",
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   tickerTable,
   tickerTitle,
   tickerFootnote,
@@ -48,6 +51,29 @@ export const NewspaperTickerTable: React.FC<BlogLayoutProps> = ({
 
   const titleSize = titleFontSize ?? (p ? 64 : 51);
   const descSize = descriptionFontSize ?? (p ? 33 : 27);
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and body copy are unbounded user input; long text overflows the card
+     and is clipped. Fit each to the space actually available. An explicitly
+     chosen size is honored exactly (minPx === targetPx makes the hook a no-op). */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitBodyRef = React.useRef<HTMLDivElement>(null);
+  const titleBudgetPx = Math.round(height * (p ? 0.24 : 0.26));
+  const { px: titlePx } = useFitText(
+    fitTitleRef,
+    titleSize,
+    titleFontSizeIsUserSet ? titleSize : p ? 30 : 26,
+    [title, titleSize, titleFontSizeIsUserSet, titleBudgetPx, p],
+    titleBudgetPx,
+  );
+  const bodyBudgetPx = Math.round(height * (p ? 0.30 : 0.34));
+  const { px: bodyPx } = useFitText(
+    fitBodyRef,
+    descSize,
+    descriptionFontSizeIsUserSet ? descSize : p ? 17 : 14,
+    [narration, descSize, descriptionFontSizeIsUserSet, bodyBudgetPx, titlePx, p],
+    bodyBudgetPx,
+  );
 
   const rawHeaders = (tickerTable?.headers ?? []).slice(0, MAX_COLS);
   const rawRows = (tickerTable?.rows ?? []).slice(0, MAX_ROWS).map((r) => (r ?? []).slice(0, MAX_COLS));
@@ -96,7 +122,7 @@ export const NewspaperTickerTable: React.FC<BlogLayoutProps> = ({
         {/* Title block — pinned left */}
         <div style={{ opacity: titleOp, flexShrink: 0, marginBottom: Math.round(height * 0.022), alignSelf: "flex-start", textAlign: "left", width: "100%", maxWidth: "100%", marginLeft: p ? "-1%" : "-2%" }}>
           <div style={{ height: 5, width: 52, background: accentColor, marginBottom: 10 }} />
-          <div style={{ fontFamily: fontFamily ?? H_FONT, fontWeight: 800, fontSize: titleSize, lineHeight: 1.05, letterSpacing: "-0.01em", color: textColor }}>
+          <div ref={fitTitleRef} style={{ fontFamily: fontFamily ?? H_FONT, fontWeight: 800, fontSize: titlePx, lineHeight: 1.05, letterSpacing: "-0.01em", color: textColor }}>
             {title}
           </div>
           {tickerTitle && (
@@ -150,7 +176,7 @@ export const NewspaperTickerTable: React.FC<BlogLayoutProps> = ({
 
         {/* Footnote */}
         {(tickerFootnote || narration) && (
-          <div style={{ flexShrink: 0, marginTop: Math.round(height * 0.014), marginLeft: p ? "-1%" : "-2%", textAlign: "left", fontFamily: fontFamily ?? B_FONT, fontStyle: "italic", fontSize: Math.round(descSize * 0.82), color: textColor, opacity: footnoteOp * 0.65, lineHeight: 1.4 }}>
+          <div ref={fitBodyRef} style={{ flexShrink: 0, marginTop: Math.round(height * 0.014), marginLeft: p ? "-1%" : "-2%", textAlign: "left", fontFamily: fontFamily ?? B_FONT, fontStyle: "italic", fontSize: Math.round(bodyPx * 0.82), color: textColor, opacity: footnoteOp * 0.65, lineHeight: 1.4 }}>
             {tickerFootnote || narration}
           </div>
         )}
