@@ -108,9 +108,14 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
 
   /* ── Auto-fit ──────────────────────────────────────────────
      The main box is a `1.8fr` grid track (or `auto` in portrait), not a
-     measurable shrinkable box, so budget the title and subtitle from fixed
-     fractions of the frame height; the title fits first, the subtitle's
-     residual overflow feeds back to shrink the title's budget further. */
+     measurable shrinkable box, so budget the title and subtitle from fixed,
+     independent fractions of the frame height. No give-back cross-talk
+     between the two: a useLayoutEffect+setState chain reacting to another
+     useFitText's overflow output creates a multi-render convergence that
+     Remotion's per-frame headless capture can settle at different points on
+     different frames (confirmed via a real render — frame-to-frame
+     scene-change score hit 1.0, i.e. maximum, twice in the first ten
+     frames, in the equivalent newscast/newspaper opening scenes). */
   const titleRef = React.useRef<HTMLDivElement>(null);
   const subtitleRef = React.useRef<HTMLDivElement>(null);
   const actualTitleFontSize = titleFontSize ?? (p ? 50 : 52);
@@ -118,30 +123,20 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
   const titleBudgetPx = Math.max(1, videoHeight * (p ? 0.22 : 0.26));
   const subtitleBudgetPx = Math.max(1, videoHeight * (p ? 0.1 : 0.12));
 
-  const [titleGiveBackPx, setTitleGiveBackPx] = React.useState(0);
-  React.useLayoutEffect(() => {
-    setTitleGiveBackPx(0);
-  }, [primaryText, subtitle, actualTitleFontSize, actualSubtitleFontSize, titleBudgetPx]);
-
   const { px: titlePx } = useFitText(
     titleRef,
     actualTitleFontSize,
     titleFontSizeIsUserSet ? actualTitleFontSize : p ? 26 : 24,
-    [primaryText, actualTitleFontSize, titleFontSizeIsUserSet, titleBudgetPx, titleGiveBackPx],
-    Math.max(1, titleBudgetPx - titleGiveBackPx),
+    [primaryText, actualTitleFontSize, titleFontSizeIsUserSet, titleBudgetPx],
+    titleBudgetPx,
   );
-  const { px: subtitlePx, overflowPx: subtitleOverflowPx } = useFitText(
+  const { px: subtitlePx } = useFitText(
     subtitleRef,
     actualSubtitleFontSize,
     descriptionFontSizeIsUserSet ? actualSubtitleFontSize : p ? 14 : 13,
     [subtitle, actualSubtitleFontSize, descriptionFontSizeIsUserSet, subtitleBudgetPx, titlePx],
     subtitleBudgetPx,
   );
-  React.useLayoutEffect(() => {
-    if (titleFontSizeIsUserSet || subtitleOverflowPx <= 0) return;
-    setTitleGiveBackPx((prev) => Math.min(titleBudgetPx * 0.6, prev + subtitleOverflowPx));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subtitleOverflowPx, titleFontSizeIsUserSet]);
 
   // --- Title Word-by-Word Animation ---
   const titleWords = primaryText.split(" ");

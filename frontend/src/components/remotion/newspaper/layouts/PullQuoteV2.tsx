@@ -7,6 +7,7 @@ import {
   staticFile,
 } from "remotion";
 import { NewsBackground, NewsPaperWash } from "../NewsBackground";
+import { useFitText, useAvailableHeight } from "../components/useFitText";
 import type { BlogLayoutProps } from "../types";
 
 const H_FONT = "'Source Serif 4', Georgia, 'Times New Roman', serif";
@@ -31,6 +32,8 @@ export const PullQuoteV2: React.FC<BlogLayoutProps> = ({
   aspectRatio = "landscape",
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   stats,
   fontFamily,
 }) => {
@@ -71,14 +74,6 @@ export const PullQuoteV2: React.FC<BlogLayoutProps> = ({
   const stillTyping = visChars < title.length;
   const caretOn = stillTyping ? Math.floor(frame / 6) % 2 === 0 : true;
 
-  // The scrap is a FIXED size, so long quotes step the type down to stay inside
-  // the torn edge rather than the sheet growing to fit them.
-  const baseQuoteSize = titleFontSize ?? (p ? 79 : 71);
-  const quoteLen = title.length;
-  const lengthScale =
-    quoteLen > 190 ? 0.42 : quoteLen > 140 ? 0.5 : quoteLen > 95 ? 0.6 : quoteLen > 60 ? 0.72 : 0.92;
-  const quoteFontSize = Math.round(baseQuoteSize * lengthScale);
-
   const markOp = interpolate(frame, [10, 26], [0, 1], { extrapolateRight: "clamp" });
   // Follows the typing rather than sitting on a fixed frame, so a short quote
   // doesn't finish and then wait for its attribution.
@@ -86,6 +81,55 @@ export const PullQuoteV2: React.FC<BlogLayoutProps> = ({
   const attrOp = interpolate(frame, [attrStart, attrStart + 14], [0, 1], {
     extrapolateRight: "clamp",
   });
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     The scrap is a FIXED size (a torn piece of paper), so long copy has to
+     shrink to stay inside it rather than the sheet growing. Real measurement
+     replaces the old character-count heuristic. The quote types out
+     character by character, so the visible copy is a partial slice at most
+     frames — a hidden mirror carrying the FULL title is measured instead,
+     same pattern as the base PullQuote.tsx. */
+  const cardRef = React.useRef<HTMLDivElement>(null);
+  const quoteRef = React.useRef<HTMLDivElement>(null);
+  const attrRef = React.useRef<HTMLDivElement>(null);
+  const attrBlockRef = React.useRef<HTMLDivElement>(null);
+
+  const quoteTarget = titleFontSize ?? (p ? 79 : 71);
+  const attrTarget = descriptionFontSize ?? (p ? 27 : 23);
+
+  /* attrReserve used to be a static single-line estimate for the attribution
+     block (rule + name + source), which under-reserves whenever `narration`
+     is long enough to wrap to a second line — the quote would then be sized
+     too large and the attribution/source would overflow the card despite the
+     overflow:hidden backstop. Measure the block's REAL rendered height
+     instead, at its eventual fitted attrFontSize, so the reserve tracks
+     however many lines it actually needs. */
+  const [attrReserve, setAttrReserve] = React.useState(0);
+  React.useLayoutEffect(() => {
+    const el = attrBlockRef.current;
+    if (!el) return;
+    const next = Math.max(1, el.offsetHeight);
+    setAttrReserve((prev) => (Math.abs(prev - next) <= 1 ? prev : next));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [narration, attrTarget, p, source]);
+
+  const quoteAvail = useAvailableHeight(quoteRef, cardRef, [title, quoteTarget, p]);
+  const { px: quoteFontSize } = useFitText(
+    quoteRef,
+    quoteTarget,
+    titleFontSizeIsUserSet ? quoteTarget : p ? 26 : 22,
+    [title, quoteTarget, titleFontSizeIsUserSet, quoteAvail, attrReserve, p],
+    quoteAvail ? Math.max(1, quoteAvail - attrReserve) : undefined,
+  );
+
+  const attrAvail = useAvailableHeight(attrRef, cardRef, [title, quoteFontSize, attrTarget, p]);
+  const { px: attrFontSize } = useFitText(
+    attrRef,
+    attrTarget,
+    descriptionFontSizeIsUserSet ? attrTarget : p ? 16 : 14,
+    [narration, attrTarget, descriptionFontSizeIsUserSet, quoteFontSize, attrAvail, p],
+    attrAvail || undefined,
+  );
 
   // A rough, fibrous rip rather than a cut edge.
   //
@@ -177,6 +221,7 @@ export const PullQuoteV2: React.FC<BlogLayoutProps> = ({
             every scene, and the type steps down to fit it (see lengthScale)
             rather than the sheet growing or shrinking around the quote. */}
         <div
+          ref={cardRef}
           style={{
             position: "relative",
             width: p ? "100%" : "84%",
@@ -236,16 +281,38 @@ export const PullQuoteV2: React.FC<BlogLayoutProps> = ({
             </div>
 
             {/* QUOTE */}
-            <div
-              style={{
-                fontFamily: fontFamily ?? H_FONT,
-                fontSize: quoteFontSize,
-                fontWeight: 600,
-                lineHeight: 1.24,
-                color: textColor,
-                letterSpacing: p ? "-0.02em" : "normal",
-              }}
-            >
+            <div style={{ position: "relative" }}>
+              {/* Measurement mirror: the quote types out character by
+                  character, so the visible copy would measure short and the
+                  size would change mid-scene. Measure the FULL quote,
+                  hidden, instead. */}
+              <div
+                ref={quoteRef}
+                aria-hidden
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  visibility: "hidden",
+                  pointerEvents: "none",
+                  fontFamily: fontFamily ?? H_FONT,
+                  fontSize: quoteFontSize,
+                  fontWeight: 600,
+                  lineHeight: 1.24,
+                  letterSpacing: p ? "-0.02em" : "normal",
+                }}
+              >
+                {title}
+              </div>
+              <div
+                style={{
+                  fontFamily: fontFamily ?? H_FONT,
+                  fontSize: quoteFontSize,
+                  fontWeight: 600,
+                  lineHeight: 1.24,
+                  color: textColor,
+                  letterSpacing: p ? "-0.02em" : "normal",
+                }}
+              >
               {typedText}
               {/* Caret: blinks while typing, solid once the quote is complete */}
               <span
@@ -259,10 +326,11 @@ export const PullQuoteV2: React.FC<BlogLayoutProps> = ({
                   verticalAlign: "baseline",
                 }}
               />
+              </div>
             </div>
 
             {/* ATTRIBUTION */}
-            <div style={{ opacity: attrOp, marginTop: p ? 34 : 30 }}>
+            <div ref={attrBlockRef} style={{ opacity: attrOp, marginTop: p ? 34 : 30 }}>
               <div
                 style={{
                   width: p ? 100 : 120,
@@ -272,9 +340,10 @@ export const PullQuoteV2: React.FC<BlogLayoutProps> = ({
                 }}
               />
               <div
+                ref={attrRef}
                 style={{
                   fontFamily: fontFamily ?? B_FONT,
-                  fontSize: descriptionFontSize ?? (p ? 27 : 23),
+                  fontSize: attrFontSize,
                   fontWeight: 800,
                   color: textColor,
                   textTransform: "uppercase",

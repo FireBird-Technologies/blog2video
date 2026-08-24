@@ -44,28 +44,55 @@ export const EndingSocials: React.FC<NewscastLayoutProps> = ({
   const subtext = (narration ?? "").trim();
 
   /* ── Auto-fit ──────────────────────────────────────────────
-     Title and subtext are unbounded user input in a card centred on the
-     frame with no fixed height; long copy could push the CTA cards/socials
-     below past the frame's overflow:hidden edge. Measure the real available
-     height and shrink to fit. An explicitly chosen size is honored exactly
-     (minPx === targetPx no-ops the hook). */
+     Title and subtext are unbounded user input. The composition draws its
+     own persistent chrome OVER every scene (NewsCastChrome: a channel logo
+     top-centre, and a ticker + lower-third band at the bottom) — this layout
+     doesn't render that chrome itself, so a card that's simply centred with
+     no height cap can grow tall enough to sit BEHIND (and read as hidden
+     under) that chrome, top and bottom, once it's centred within the full
+     frame instead of the real space between the chrome bands. Reserve the
+     same top/bottom chrome heights NewsCastChrome actually uses, and fit
+     title and subtext each against their own fixed, independent budget.
+     Never clip: the goal is "shrink until it fits", not "cut off what
+     doesn't". No give-back cross-talk between the two fields: a
+     useLayoutEffect+setState chain reacting to another useFitText's overflow
+     output creates a multi-render convergence that Remotion's per-frame
+     headless capture can settle at different points on different frames
+     (confirmed via a real render — frame-to-frame scene-change score hit
+     1.0, i.e. maximum, twice in the first ten frames, in this scene). */
+  const topChromeReserve = Math.round(70 * portraitScale); // channel logo band
+  const bottomChromeReserve = p ? 190 : 170; // ticker + lower-third, matches EndingSocialsV2
+  const cardBandPx = Math.max(
+    1,
+    height - topChromeReserve - bottomChromeReserve,
+  );
+
   const fitTitleRef = React.useRef<HTMLDivElement>(null);
   const fitSubRef = React.useRef<HTMLDivElement>(null);
   const fitTitleTarget = titleFontSize ?? (p ? 52 : 40);
   const fitSubTarget = descriptionFontSize ?? (p ? 20 : 16);
+  const cardChromeBudgetPx = Math.round(cardBandPx * (p ? 0.55 : 0.6));
+  const titleBudgetPx = Math.round(cardChromeBudgetPx * (subtext ? 0.55 : 1));
+
   const { px: fitTitlePx } = useFitText(
     fitTitleRef,
     fitTitleTarget,
-    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.45),
-    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
-    Math.round(height * (p ? 0.18 : 0.2)),
+    // A moderate floor (e.g. 45% of target) still can't fit dozens of lines
+    // of stress-test copy into a fixed-width, fixed-height card — line count
+    // scales with content length regardless of font size. A near-minimum
+    // legible floor is what actually lets extreme copy converge instead of
+    // hitting the floor and overflowing for good.
+    titleFontSizeIsUserSet ? fitTitleTarget : 10,
+    [title, fitTitleTarget, titleFontSizeIsUserSet, titleBudgetPx],
+    titleBudgetPx,
   );
+  const subBudgetPx = Math.max(1, cardChromeBudgetPx - titleBudgetPx);
   const { px: fitSubPx } = useFitText(
     fitSubRef,
     fitSubTarget,
-    descriptionFontSizeIsUserSet ? fitSubTarget : Math.round(fitSubTarget * 0.5),
-    [subtext, fitSubTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
-    Math.round(height * (p ? 0.16 : 0.18)),
+    descriptionFontSizeIsUserSet ? fitSubTarget : 9,
+    [subtext, fitSubTarget, descriptionFontSizeIsUserSet, fitTitlePx, subBudgetPx],
+    subBudgetPx,
   );
 
   // CTA cards (1-3). Only render cards with toggle on + a link.
@@ -79,14 +106,21 @@ export const EndingSocials: React.FC<NewscastLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ zIndex: 60, overflow: "hidden" }}>
+      {/* Top/bottom pinned to the REAL chrome edges (not inset:0) so
+          alignItems:"center" centres within the actual space between the
+          persistent channel logo and the ticker/lower-third — never behind
+          either. */}
       <div
         style={{
           position: "absolute",
-          inset: 0,
+          top: topChromeReserve,
+          left: 0,
+          right: 0,
+          bottom: bottomChromeReserve,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: p ? "8% 5%" : "7% 8%",
+          padding: p ? "0 5%" : "0 8%",
           opacity,
         }}
       >

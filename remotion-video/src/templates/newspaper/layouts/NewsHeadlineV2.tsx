@@ -9,6 +9,7 @@ import {
   staticFile,
 } from "remotion";
 import { NewsBackground, NewsPaperWash } from "../NewsBackground";
+import { useFitText } from "../components/useFitText";
 import type { BlogLayoutProps } from "../types";
 
 const H_FONT = "'Source Serif 4', Georgia, 'Times New Roman', serif";
@@ -37,6 +38,8 @@ export const NewsHeadlineV2: React.FC<
   aspectRatio = "landscape",
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   stats,
   category,
   imageUrl,
@@ -51,7 +54,7 @@ export const NewsHeadlineV2: React.FC<
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
-  const { durationInFrames } = useVideoConfig();
+  const { durationInFrames, height: videoHeight } = useVideoConfig();
   const p = aspectRatio === "portrait";
 
   // Symmetric in/out so the scene never appears to end early.
@@ -109,8 +112,45 @@ export const NewsHeadlineV2: React.FC<
             .filter(Boolean)
         : [];
 
-  const actualDescriptionFontSize = descriptionFontSize ?? (p ? 29 : 27);
   const hasVisual = Boolean(imageUrl || videoUrl);
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Headline and narration are unbounded user input, stacked flexShrink:0 in
+     a centred column with no height cap of their own; long copy would push
+     the below-the-fold image down and off past the frame (or simply overflow
+     when there's no image). Reserve a fixed share of the frame for the two
+     text blocks combined, split between them, leaving the rest for the
+     masthead rule / image.
+
+     Title and narration each fit against their own fixed, independent
+     budget. No give-back cross-talk: a useLayoutEffect+setState chain
+     reacting to another useFitText's overflow output creates a multi-render
+     convergence that Remotion's per-frame headless capture can settle at
+     different points on different frames (confirmed via a real render —
+     frame-to-frame scene-change score hit 1.0, i.e. maximum, twice in the
+     first ten frames, in the equivalent newspaper opening scene). */
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const narrationRef = React.useRef<HTMLDivElement>(null);
+  const titleTargetPx = titleFontSize ?? (p ? 54 : 54);
+  const narrationTargetPx = descriptionFontSize ?? (p ? 29 : 27);
+  const stackBudgetPx = Math.round(videoHeight * (hasVisual ? (p ? 0.34 : 0.32) : p ? 0.55 : 0.5));
+  const titleBudgetPx = Math.round(stackBudgetPx * (narration ? 0.66 : 1));
+
+  const { px: titlePx } = useFitText(
+    titleRef,
+    titleTargetPx,
+    titleFontSizeIsUserSet ? titleTargetPx : Math.round(titleTargetPx * 0.42),
+    [title, titleTargetPx, titleFontSizeIsUserSet, titleBudgetPx],
+    titleBudgetPx,
+  );
+  const narrationBudgetPx = Math.max(1, stackBudgetPx - titleBudgetPx);
+  const { px: actualDescriptionFontSize } = useFitText(
+    narrationRef,
+    narrationTargetPx,
+    descriptionFontSizeIsUserSet ? narrationTargetPx : p ? 16 : 14,
+    [narration, narrationTargetPx, descriptionFontSizeIsUserSet, narrationBudgetPx, titlePx],
+    narrationBudgetPx,
+  );
 
   return (
     <AbsoluteFill
@@ -192,15 +232,16 @@ export const NewsHeadlineV2: React.FC<
 
         {/* HEADLINE */}
         <div
+          ref={titleRef}
           style={{
             fontFamily: fontFamily ?? H_FONT,
-            fontSize: titleFontSize ?? (p ? 54 : 54),
+            fontSize: titlePx,
             fontWeight: 800,
             lineHeight: 1.02,
             letterSpacing: "-0.015em",
             color: textColor,
             marginTop: p ? 30 : 26,
-            maxWidth: "100%",
+            width: "100%",
             flexShrink: 0,
           }}
         >
@@ -237,7 +278,7 @@ export const NewsHeadlineV2: React.FC<
 
         {/* DECK / SUBHEAD — hairline rule above, byline below */}
         {narration && (
-          <div style={{ opacity: deckOp, marginTop: p ? 24 : 20, maxWidth: p ? "100%" : "72%" }}>
+          <div style={{ opacity: deckOp, marginTop: p ? 24 : 20, width: p ? "100%" : "72%" }}>
             <div
               style={{
                 width: p ? 90 : 110,
@@ -247,6 +288,7 @@ export const NewsHeadlineV2: React.FC<
               }}
             />
             <div
+              ref={narrationRef}
               style={{
                 fontFamily: fontFamily ?? B_FONT,
                 fontSize: actualDescriptionFontSize,

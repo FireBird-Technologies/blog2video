@@ -33,10 +33,17 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
      Quote and author are unbounded user input; the text column has no height
      limit of its own (just `alignItems:stretch` next to the accent bar), so a
      long quote grows past the frame and gets clipped by the AbsoluteFill's
-     overflow:hidden. Fit the quote to its own budget first, then the author
-     line to what's left; a residual overflow at the author's floor shrinks
-     the quote further (NewsHeadline's cascade). A size the user explicitly
-     picked is honored exactly (minPx === targetPx makes the hook a no-op). */
+     overflow:hidden. Quote and author each fit against their own fixed,
+     independent budget. A size the user explicitly picked is honored exactly
+     (minPx === targetPx makes the hook a no-op).
+
+     No give-back cross-talk between the two: a useLayoutEffect+setState
+     chain reacting to another useFitText's overflow output creates a
+     multi-render convergence that Remotion's per-frame headless capture can
+     settle at different points on different frames (confirmed via a real
+     render — frame-to-frame scene-change score hit 1.0, i.e. maximum, twice
+     in the first ten frames, in the equivalent newscast/newspaper opening
+     scenes). */
   const quoteRef = React.useRef<HTMLParagraphElement>(null);
   const authorRef = React.useRef<HTMLParagraphElement>(null);
 
@@ -44,34 +51,23 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
   const actualAuthorFontSize = descriptionFontSize ?? (p ? 30 : 26);
 
   const quoteBudgetPx = Math.round(height * (p ? 0.5 : 0.46));
-  const [quoteGiveBackPx, setQuoteGiveBackPx] = React.useState(0);
-  React.useLayoutEffect(() => {
-    setQuoteGiveBackPx(0);
-  }, [displayQuote, displayAuthor, actualQuoteFontSize, actualAuthorFontSize, quoteBudgetPx, p]);
 
   const { px: quotePx } = useFitText(
     quoteRef,
     actualQuoteFontSize,
     titleFontSizeIsUserSet ? actualQuoteFontSize : p ? 24 : 20,
-    [displayQuote, actualQuoteFontSize, titleFontSizeIsUserSet, quoteBudgetPx, quoteGiveBackPx, p],
-    Math.max(1, quoteBudgetPx - quoteGiveBackPx),
+    [displayQuote, actualQuoteFontSize, titleFontSizeIsUserSet, quoteBudgetPx, p],
+    quoteBudgetPx,
   );
 
   const authorBudgetPx = Math.round(height * 0.14);
-  const { px: authorPx, overflowPx: authorOverflowPx } = useFitText(
+  const { px: authorPx } = useFitText(
     authorRef,
     actualAuthorFontSize,
     descriptionFontSizeIsUserSet ? actualAuthorFontSize : p ? 16 : 14,
     [displayAuthor, actualAuthorFontSize, descriptionFontSizeIsUserSet, quotePx, authorBudgetPx, p],
     authorBudgetPx,
   );
-
-  React.useLayoutEffect(() => {
-    if (titleFontSizeIsUserSet) return;
-    if (authorOverflowPx > 0) {
-      setQuoteGiveBackPx((prev) => prev + authorOverflowPx);
-    }
-  }, [authorOverflowPx, titleFontSizeIsUserSet]);
 
   const barH = interpolate(frame, [0, 25], [0, 100], {
     extrapolateRight: "clamp",

@@ -116,16 +116,30 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
   const contentRef = React.useRef<HTMLDivElement>(null);
   const quoteRef = React.useRef<HTMLDivElement>(null);
   const attrRef = React.useRef<HTMLDivElement>(null);
+  const attrBlockRef = React.useRef<HTMLDivElement>(null);
 
   const quoteTarget = titleFontSize ?? (p ? 90 : 71);
   const attrTarget = descriptionFontSize ?? (p ? 27 : 23);
 
+  /* The attribution reserve used to be a static single-line estimate, which
+     under-reserves whenever `narration` is long enough to wrap to a second
+     line — the quote would then be sized too large and the attribution/
+     source would overflow the box despite its overflow:hidden clip. Measure
+     the block's REAL rendered height instead, at its eventual fitted size,
+     so the reserve tracks however many lines it actually needs. */
+  const markReserve = Math.round((p ? 140 : 120) * 0.5 + (p ? 20 : 15));
+  const [attrBlockHeight, setAttrBlockHeight] = React.useState(0);
+  React.useLayoutEffect(() => {
+    const el = attrBlockRef.current;
+    if (!el) return;
+    const next = Math.max(1, el.offsetHeight);
+    setAttrBlockHeight((prev) => (Math.abs(prev - next) <= 1 ? prev : next));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [narration, attrTarget, p, source]);
+  const attrReserve = attrBlockHeight + markReserve;
+
   // The quote must leave room for the attribution block below it.
   const quoteAvail = useAvailableHeight(quoteRef, contentRef, [title, quoteTarget, p]);
-  // Reserve what sits BELOW the quote (attribution + source + margin) AND the
-  // quote mark above it, so the fitted quote leaves room for both.
-  const markReserve = Math.round((p ? 140 : 120) * 0.5 + (p ? 20 : 15));
-  const attrReserve = Math.round(attrTarget * 1.4 + 8 + 18 * 1.4 + 40) + markReserve;
   const { px: quotePx } = useFitText(
     quoteRef,
     quoteTarget,
@@ -311,7 +325,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
               </div>
 
               {/* Attribution */}
-              <div style={{ opacity: attrOp }}>
+              <div ref={attrBlockRef} style={{ opacity: attrOp }}>
                 <div ref={attrRef} style={{
                     fontFamily: fontFamily ?? B_FONT,
                     fontSize: attrPx,

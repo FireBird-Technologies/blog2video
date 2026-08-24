@@ -43,11 +43,18 @@ export const Timeline: React.FC<SceneLayoutProps & { imageUrl?: string }> = (pro
      clientHeight is a genuine leftover-space budget, but the title has a
      fixed marginBottom and the items list has no height limit of its own —
      long copy just grows past the frame and is clipped by the AbsoluteFill's
-     overflow:hidden. Fit the title to its own budget first, then the whole
-     items block (every item shares one descriptionFontSize, so they must
-     shrink together) to what remains; a residual overflow at the items'
-     floor shrinks the title further (NewsHeadline's cascade). A size the
-     user explicitly picked is honored exactly (minPx === targetPx no-ops). */
+     overflow:hidden. Title fits against its own fixed budget; the items
+     block (every item shares one descriptionFontSize, so they must shrink
+     together) fits against the real leftover flex space. A size the user
+     explicitly picked is honored exactly (minPx === targetPx no-ops).
+
+     No give-back cross-talk between the two: a useLayoutEffect+setState
+     chain reacting to another useFitText's overflow output creates a
+     multi-render convergence that Remotion's per-frame headless capture can
+     settle at different points on different frames (confirmed via a real
+     render — frame-to-frame scene-change score hit 1.0, i.e. maximum, twice
+     in the first ten frames, in the equivalent newscast/newspaper opening
+     scenes). */
   const titleRef = React.useRef<HTMLHeadingElement>(null);
   const itemsRef = React.useRef<HTMLDivElement>(null);
 
@@ -55,32 +62,21 @@ export const Timeline: React.FC<SceneLayoutProps & { imageUrl?: string }> = (pro
   const actualDescriptionFontSize = descriptionFontSize ?? (p ? 40 : 30);
 
   const titleBudgetPx = Math.round(height * (p ? 0.16 : 0.2));
-  const [titleGiveBackPx, setTitleGiveBackPx] = React.useState(0);
-  React.useLayoutEffect(() => {
-    setTitleGiveBackPx(0);
-  }, [title, timelineItems, actualTitleFontSize, actualDescriptionFontSize, titleBudgetPx, p]);
 
   const { px: titlePx } = useFitText(
     titleRef,
     actualTitleFontSize,
     titleFontSizeIsUserSet ? actualTitleFontSize : p ? 34 : 30,
-    [title, actualTitleFontSize, titleFontSizeIsUserSet, titleBudgetPx, titleGiveBackPx, p],
-    Math.max(1, titleBudgetPx - titleGiveBackPx),
+    [title, actualTitleFontSize, titleFontSizeIsUserSet, titleBudgetPx, p],
+    titleBudgetPx,
   );
 
-  const { px: itemFontSize, overflowPx: itemsOverflowPx } = useFitText(
+  const { px: itemFontSize } = useFitText(
     itemsRef,
     actualDescriptionFontSize,
     descriptionFontSizeIsUserSet ? actualDescriptionFontSize : p ? 18 : 15,
     [timelineItems, actualDescriptionFontSize, descriptionFontSizeIsUserSet, titlePx, p],
   );
-
-  React.useLayoutEffect(() => {
-    if (titleFontSizeIsUserSet) return;
-    if (itemsOverflowPx > 0) {
-      setTitleGiveBackPx((prev) => prev + itemsOverflowPx);
-    }
-  }, [itemsOverflowPx, titleFontSizeIsUserSet]);
 
   // --- ENTRANCE ANIMATIONS ---
   const entranceSpring = spring({

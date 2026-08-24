@@ -3,6 +3,7 @@ import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remo
 import type { NewscastLayoutProps } from "./types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
 import { ZoomCropVideo } from "../components/ZoomCropVideo";
+import { useFitText } from "../components/useFitText";
 import {
   DEFAULT_NEWSCAST_ACCENT,
   DEFAULT_NEWSCAST_TEXT,
@@ -55,6 +56,8 @@ export const GlassNarrativeV2: React.FC<NewscastLayoutProps> = ({
   textColor,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
@@ -96,6 +99,56 @@ export const GlassNarrativeV2: React.FC<NewscastLayoutProps> = ({
   // disagreed, and framing chosen in the modal did not match the render. Keep
   // this in sync with LAYOUT_IMAGE_BOX_DIMS.anchor_narrative__v2.
   const PLATE_BOTTOM = `calc(${CHROME_RESERVE}px + ${BAND_H})`;
+
+  // `tickerItems` render as a real flex sibling of the copy area (flexShrink:0)
+  // inside the band, so when present it genuinely claims space the copy area
+  // doesn't have. Its own layout is fixed regardless of content — one line at
+  // fontSize 12 (~15px line height at the default ~1.2 line-height) plus its
+  // own bottom padding (16/18px) — so its real height is a stable constant,
+  // computed from those same values rather than an unconditional flat guess.
+  const hasTicker = (tickerItems?.filter(Boolean) ?? []).length > 0;
+  const tickerLineHeightPx = Math.ceil(scaleNewscastPx(12, portraitScale) * 1.2);
+  const tickerBottomPadPx = p ? 16 : 18;
+  const tickerStripPx = hasTicker ? tickerLineHeightPx + tickerBottomPadPx : 0;
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input inside the lower-third
+     band's copy area (flex:1, minHeight:0) — a genuinely fixed-height
+     container (the band is BAND_H_PCT of the frame); long copy would push
+     past the band's bottom edge or the ticker strip below it. Reserve room
+     for the category flag + rule (and the ticker strip, if one renders)
+     before splitting the rest between title and narration.
+
+     Title and narration each fit against their own fixed, independent
+     budget. No give-back cross-talk: a useLayoutEffect+setState chain
+     reacting to another useFitText's overflow output creates a multi-render
+     convergence that Remotion's per-frame headless capture can settle at
+     different points on different frames (confirmed via a real render —
+     frame-to-frame scene-change score hit 1.0, i.e. maximum, twice in the
+     first ten frames, in the equivalent newscast opening scene). */
+  const titleRef = React.useRef<HTMLHeadingElement>(null);
+  const narrationRef = React.useRef<HTMLDivElement>(null);
+  const titleTargetPx = titleFontSize ?? (p ? 64 : 57);
+  const narrationTargetPx = descriptionFontSize ?? (p ? 30 : 22);
+  const bandBudgetPx = Math.round(height * (BAND_H_PCT / 100));
+  const copyBudgetPx = Math.max(1, bandBudgetPx - (p ? 60 : 66) - tickerStripPx);
+  const titleBudgetPx = Math.round(copyBudgetPx * (narration ? 0.55 : 1));
+
+  const { px: titlePx } = useFitText(
+    titleRef,
+    titleTargetPx,
+    titleFontSizeIsUserSet ? titleTargetPx : Math.round(titleTargetPx * 0.42),
+    [title, titleTargetPx, titleFontSizeIsUserSet, titleBudgetPx],
+    titleBudgetPx,
+  );
+  const narrationBudgetPx = Math.max(1, copyBudgetPx - titleBudgetPx);
+  const { px: narrationPx } = useFitText(
+    narrationRef,
+    narrationTargetPx,
+    descriptionFontSizeIsUserSet ? narrationTargetPx : Math.round(narrationTargetPx * 0.55),
+    [narration, narrationTargetPx, descriptionFontSizeIsUserSet, narrationBudgetPx, titlePx],
+    narrationBudgetPx,
+  );
 
   return (
     <AbsoluteFill style={{ zIndex: 60, overflow: "hidden" }}>
@@ -295,10 +348,11 @@ export const GlassNarrativeV2: React.FC<NewscastLayoutProps> = ({
           </div>
 
           <h2
+            ref={titleRef}
             style={{
               margin: 0,
               fontFamily: newscastFont(fontFamily, "title"),
-              fontSize: titleFontSize ?? (p ? 64 : 57),
+              fontSize: titlePx,
               fontWeight: HEADLINE_WEIGHT,
               color: "white",
               textTransform: "uppercase",
@@ -326,9 +380,10 @@ export const GlassNarrativeV2: React.FC<NewscastLayoutProps> = ({
 
           {narration ? (
             <div
+              ref={narrationRef}
               style={{
                 fontFamily: newscastFont(fontFamily, "body"),
-                fontSize: descriptionFontSize ?? (p ? 30 : 22),
+                fontSize: narrationPx,
                 fontWeight: 400,
                 color: "rgba(232,238,248,0.95)",
                 lineHeight: 1.6,
@@ -336,7 +391,6 @@ export const GlassNarrativeV2: React.FC<NewscastLayoutProps> = ({
                 maxWidth: p ? "100%" : "78%",
                 opacity: bodyIn,
                 transform: `translateY(${(1 - bodyIn) * 14}px)`,
-                overflow: "hidden",
               }}
             >
               {narration}
