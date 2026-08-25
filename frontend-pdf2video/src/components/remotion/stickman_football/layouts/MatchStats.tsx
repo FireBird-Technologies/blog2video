@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { SceneLayoutProps } from "../types";
 
 export const MatchStats: React.FC<SceneLayoutProps> = (props) => {
@@ -12,18 +13,44 @@ export const MatchStats: React.FC<SceneLayoutProps> = (props) => {
     sceneDurationInFrames,
     titleFontSize,
     descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
     fontFamily,
   } = props;
   const p = aspectRatio === "portrait";
-
-  const titlePx = titleFontSize ?? (p ? 103 : 70);
-  const descPx = descriptionFontSize ?? (p ? 60 : 44);
-
   const stats: Array<{ label: string; value: string }> = (props as any).stats ?? [];
   const clampedStats = stats.filter((s) => s && (s.label || s.value)).slice(0, 4);
   const n = clampedStats.length || 1;
 
-  const { fps } = useVideoConfig();
+  const { fps, height} = useVideoConfig();
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input; long copy overflows the card
+     and is clipped by the scene frame. Measure the real available height and
+     shrink to fit. A size the user explicitly picked is honored exactly —
+     minPx === targetPx makes the hook a no-op. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitDescRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 103 : 70);
+  const fitDescTarget = descriptionFontSize ?? (p ? 60 : 44);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.42),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.22 : 0.26)),
+  );
+  const { px: fitDescPx } = useFitText(
+    fitDescRef,
+    fitDescTarget,
+    descriptionFontSizeIsUserSet ? fitDescTarget : Math.round(fitDescTarget * 0.4),
+    [narration, fitDescTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * (p ? 0.30 : 0.34)),
+  );
+
+  const titlePx = fitTitlePx;
+  const descPx = fitDescPx;
+
   const frame = useCurrentFrame();
   const dur = sceneDurationInFrames ?? 150;
   const msToFrames = (ms: number) => (ms / 1000) * fps;
@@ -198,7 +225,7 @@ export const MatchStats: React.FC<SceneLayoutProps> = (props) => {
           pointerEvents: "none",
         }}
       >
-        <div
+        <div ref={fitTitleRef}
           style={{
             fontSize: titlePx,
             fontWeight: 900,
@@ -245,8 +272,9 @@ export const MatchStats: React.FC<SceneLayoutProps> = (props) => {
             pointerEvents: "none",
           }}
         >
-          <div
+          <div ref={fitDescRef}
             style={{
+              width: "100%",
               maxWidth: p ? W * 0.84 : W * 0.64,
               textAlign: "center",
               fontSize: descPx,

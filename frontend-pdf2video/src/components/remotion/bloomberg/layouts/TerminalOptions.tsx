@@ -1,4 +1,6 @@
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import React from "react";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY, derivePalette } from "../constants";
 import type { BloombergLayoutProps } from "../types";
 import { BackgroundGraph } from "./BackgroundGraph";
@@ -26,6 +28,7 @@ export const TerminalOptions: React.FC<BloombergLayoutProps> = ({
   videoStartInFrames,
 }) => {
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const p = aspectRatio === "portrait";
   const ff = fontFamily || BLOOMBERG_DEFAULT_FONT_FAMILY;
   const amber = textColor || BLOOMBERG_COLORS.amber;
@@ -57,9 +60,26 @@ export const TerminalOptions: React.FC<BloombergLayoutProps> = ({
   const topH = p ? 56 : 48;
   const botH = p ? 44 : 36;
   const pad = p ? 40 : 48;
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const tableMeasureRef = React.useRef<HTMLDivElement>(null);
+  const narrationRef = React.useRef<HTMLDivElement>(null);
+  const cellTarget = dSize * 0.75;
+  const tableCopy = rawRows.join("\n");
+  const { px: fittedTitleSize } = useFitText(titleRef, tSize * 0.6, p ? 30 : 28, [title, tSize, p], p ? 170 : 145);
+  const { px: fittedCellSize } = useFitText(tableMeasureRef, cellTarget, p ? 17 : 16, [tableCopy, cellTarget, p], p ? 600 : 570);
+  const fittedHeaderSize = Math.min(dSize * 0.7, fittedCellSize * 0.94);
+  const narrationBudget = Math.round(height * 0.28);
+  const { px: fittedNarrationSize } = useFitText(
+    narrationRef,
+    dSize * 0.9,
+    p ? 12 : 11,
+    [narration, dSize, p, height],
+    narrationBudget,
+  );
 
   return (
     <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff, overflow: "hidden" }}>
+      <div ref={tableMeasureRef} style={{ position: "absolute", visibility: "hidden", width: p ? "82%" : "90%", fontSize: cellTarget, lineHeight: 1.55, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{tableCopy}</div>
       {(videoUrl || imageUrl) && (
         <>
           <div style={{ position: "absolute", inset: 0 }}>
@@ -92,12 +112,13 @@ export const TerminalOptions: React.FC<BloombergLayoutProps> = ({
       </div>
 
       {/* Centered Title */}
-      <div style={{
+      <div ref={titleRef} style={{
         position: "absolute", 
         top: topH + (p ? 20 : 30), // Added more top clearance
         left: pad, right: pad,
         color: amber, 
-        fontSize: tSize * 0.6, 
+        fontSize: fittedTitleSize,
+        lineHeight: 1.1,
         opacity: titleOpacity, 
         letterSpacing: -0.5,
         textAlign: "center", // Centered as requested
@@ -107,40 +128,43 @@ export const TerminalOptions: React.FC<BloombergLayoutProps> = ({
         {title}
       </div>
 
-      {/* Table Container - Height decreased from both ends */}
+      {/* Table and narration share the body height. Short narration leaves the
+          table untouched; only overflowing copy claims more of the lower area. */}
       <div style={{
         position: "absolute",
         top: topH + (p ? 110 : 130), // Pushed down further
         left: pad, right: pad,
-        bottom: botH + (p ? 120 : 140), // Pulled up significantly
+        bottom: botH + (p ? 20 : 24),
         display: "flex",
         flexDirection: "column",
+        gap: p ? 20 : 24,
       }}>
-        {/* Header Row */}
-        <div style={{
-          display: "flex",
-          backgroundColor: headerBg,
-          border: `1px solid ${amber}`,
-          borderBottom: `2px solid ${amber}`,
-          opacity: headerOpacity,
-        }}>
-          {headerCells.map((cell, idx) => (
-            <div key={idx} style={{
-              flex: 1,
-              padding: "12px 10px",
-              color: blue,
-              fontSize: dSize * 0.7,
-              textAlign: "center",
-              borderRight: idx < headerCells.length - 1 ? `1px solid ${border}` : 'none'
-            }}>
-              {cell}
-            </div>
-          ))}
-        </div>
+        <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+          {/* Header Row */}
+          <div style={{
+            display: "flex",
+            backgroundColor: headerBg,
+            border: `1px solid ${amber}`,
+            borderBottom: `2px solid ${amber}`,
+            opacity: headerOpacity,
+          }}>
+            {headerCells.map((cell, idx) => (
+              <div key={idx} style={{
+                flex: 1,
+                padding: "12px 10px",
+                color: blue,
+                fontSize: fittedHeaderSize,
+                textAlign: "center",
+                borderRight: idx < headerCells.length - 1 ? `1px solid ${border}` : 'none'
+              }}>
+                {cell}
+              </div>
+            ))}
+          </div>
 
-        {/* Data Rows */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-          {dataRows.map((cells, i) => {
+          {/* Data Rows */}
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+            {dataRows.map((cells, i) => {
             const rowOpacity = interpolate(frame, [i * 6 + 12, i * 6 + 24], [0, 1], { extrapolateRight: "clamp" });
             const isPut = cells.some(c => c.toUpperCase() === "PUT");
             const rowBg = i % 2 === 0 ? "rgba(22, 31, 45, 0.48)" : "rgba(10, 16, 24, 0.42)";
@@ -161,7 +185,7 @@ export const TerminalOptions: React.FC<BloombergLayoutProps> = ({
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: dSize * 0.75,
+                    fontSize: fittedCellSize,
                     borderRight: idx < cells.length - 1 ? `1px solid ${border}` : 'none'
                   }}>
                     {cell}
@@ -169,22 +193,23 @@ export const TerminalOptions: React.FC<BloombergLayoutProps> = ({
                 ))}
               </div>
             );
-          })}
+            })}
+          </div>
         </div>
-      </div>
 
-      {/* Increased Narration Size & Positioned Below Metrics */}
-      <div style={{
-        position: "absolute", 
-        bottom: botH + (p ? 30 : 40), 
-        left: pad, right: pad,
-        color: muted, 
-        fontSize: dSize * 0.9, // Increased size significantly
-        textAlign: "center",
-        lineHeight: 1.3,
-        opacity: interpolate(frame, [25, 40], [0, 1], { extrapolateRight: "clamp" }),
-      }}>
-        {narration}
+        <div ref={narrationRef} style={{
+          color: muted,
+          fontSize: fittedNarrationSize,
+          textAlign: "center",
+          lineHeight: 1.3,
+          maxHeight: narrationBudget,
+          flexShrink: 0,
+          overflow: "hidden",
+          overflowWrap: "anywhere",
+          opacity: interpolate(frame, [25, 40], [0, 1], { extrapolateRight: "clamp" }),
+        }}>
+          {narration}
+        </div>
       </div>
 
       {/* Bottom bar */}

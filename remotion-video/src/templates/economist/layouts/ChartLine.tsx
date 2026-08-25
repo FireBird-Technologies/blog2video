@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { EconomistLayoutProps } from "../types";
+import { useFitText } from "../components/useFitText";
 import { ECONOMIST_COLORS, ECONOMIST_CHART_SERIES, CHROME_INSET } from "../constants";
 import { ECONOMIST_SERIF_FONT, ECONOMIST_SANS_FONT } from "../../../fonts/economist-defaults";
 import {
@@ -52,6 +53,7 @@ export const ChartLine: React.FC<EconomistLayoutProps> = ({
   accentColor = ECONOMIST_COLORS.accent,
   textColor = ECONOMIST_COLORS.ink,
   titleFontSize,
+  titleFontSizeIsUserSet,
   fontFamily,
   aspectRatio = "landscape",
 }) => {
@@ -82,7 +84,24 @@ export const ChartLine: React.FC<EconomistLayoutProps> = ({
   const innerT = pad.t;
   const innerB = height - pad.b;
 
-  const titleSize = (titleFontSize ?? (isPortrait ? 58 : 50)) as number;
+  /* ── Auto-fit (chart title) ───────────────────────────────────────────────
+     The title is a fixed-size headline (58/50px) that `headerH` below budgets
+     as exactly one line (titleSize * 1.1); a long custom chart title wraps to
+     more lines than that and runs into the plot area beneath it. Fit it to
+     that same one-line-equivalent height budget so it shrinks instead of
+     colliding with the chart, rather than reworking the header/plot geometry
+     split. The header div (below, in the JSX) already has an explicit `width`
+     and is not inside an alignItems:"center" flex container, so no
+     shrink-wrap width bug here. */
+  const titleFitRef = React.useRef<HTMLDivElement>(null);
+  const titleFitTarget = (titleFontSize ?? (isPortrait ? 58 : 50)) as number;
+  const { px: titleSize } = useFitText(
+    titleFitRef,
+    titleFitTarget,
+    titleFontSizeIsUserSet ? titleFitTarget : Math.round(titleFitTarget * 0.55),
+    [title, titleFitTarget, titleFontSizeIsUserSet, isPortrait, width],
+    Math.round(titleFitTarget * 1.1),
+  );
   const subSize = Math.round(titleSize * 0.62);
 
   const headerH = 6 + 16 + titleSize * 1.1 + (narration ? subSize * 1.5 : 0) + 20;
@@ -204,6 +223,7 @@ export const ChartLine: React.FC<EconomistLayoutProps> = ({
           }}
         />
         <div
+          ref={titleFitRef}
           style={{
             fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT,
             fontWeight: 700,

@@ -15,6 +15,7 @@ import {
 } from "recharts";
 import type { SceneLayoutProps } from "../types";
 import { MeasuredChart } from "../../_shared/MeasuredChart";
+import { useFitText } from "../components/useFitText";
 import {
   MagazinePage,
   Kicker,
@@ -85,7 +86,7 @@ export const MagazineDataChart: React.FC<SceneLayoutProps> = (props) => {
 
   const frame = useMagFrame();
   const { fps, durationInFrames } = useVideoConfig();
-  const { width } = useMagDims();
+  const { width, height: magHeight } = useMagDims();
   const p = isPortrait(props.aspectRatio);
   const colors = resolveMagColors(props);
   const ink = colors.text;
@@ -101,11 +102,21 @@ export const MagazineDataChart: React.FC<SceneLayoutProps> = (props) => {
   const dotBg = colors.bg;
   const DEFAULT_BAR_COLORS = [accent, "#3B3B3B", "#8A867E"] as const;
 
-  const titleSize = titleFontSize ?? (p ? 56 : 52);
+  const titleTargetPx = titleFontSize ?? (p ? 56 : 52);
   const descSize = descriptionFontSize ?? (p ? 28 : 26);
   const chartTickSize = Math.round(descSize * 0.86);
   const chartAxisLabelSize = Math.round(descSize * 0.72);
   const VALUE_LABEL_FS = Math.round(descSize * 0.56);
+
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const titleBudgetPx = Math.round(magHeight * (p ? 0.14 : 0.12));
+  const { px: titleSize } = useFitText(
+    titleRef,
+    titleTargetPx,
+    Math.max(24, Math.round(titleTargetPx * 0.45)),
+    [title, titleTargetPx, titleBudgetPx, p],
+    titleBudgetPx,
+  );
 
   const buildXAxisProps = (
     labels: string[],
@@ -155,6 +166,19 @@ export const MagazineDataChart: React.FC<SceneLayoutProps> = (props) => {
     if (!hasRealChart) return "";
     return buildAutoChartSummary(chartInputs, resolvedChartType);
   }, [chartSummary, hasRealChart, chartInputs, resolvedChartType]);
+
+  /* Insight paragraph is unbounded user/generated text; fit its own display
+     size to its column so long copy shrinks instead of clipping. Kept
+     separate from descSize, which also drives the chart's own tick/axis
+     label sizes and must not shrink just because the paragraph is long. */
+  const summaryRef = React.useRef<HTMLDivElement>(null);
+  const summaryTargetPx = Math.round(descSize * 0.9);
+  const { px: summaryPx } = useFitText(
+    summaryRef,
+    summaryTargetPx,
+    Math.max(13, Math.round(summaryTargetPx * 0.55)),
+    [summaryText, summaryTargetPx, p],
+  );
 
   const lineDataBounds = useMemo(() => {
     let lo = Infinity;
@@ -559,7 +583,7 @@ export const MagazineDataChart: React.FC<SceneLayoutProps> = (props) => {
         <Kicker color={accent} style={{ opacity: titleO, marginBottom: 12 }}>
           Figures
         </Kicker>
-        <h1 style={{ fontFamily: MAG_DISPLAY, fontWeight: 800, fontSize: titleSize, lineHeight: 1.12, letterSpacing: "-0.015em", color: ink, margin: 0, overflowWrap: "break-word" }}>
+        <h1 ref={titleRef} style={{ fontFamily: MAG_DISPLAY, fontWeight: 800, fontSize: titleSize, lineHeight: 1.12, letterSpacing: "-0.015em", color: ink, margin: 0, overflowWrap: "break-word" }}>
           <KineticWords text={title} start={2} stagger={2} dur={14} />
         </h1>
         <Rule color={accent} progress={ruleP} thickness={3} width={p ? 110 : 90} style={{ margin: "22px 0" }} />
@@ -615,7 +639,7 @@ export const MagazineDataChart: React.FC<SceneLayoutProps> = (props) => {
                 paddingLeft: p ? 0 : Math.round(descSize * 0.6),
               }}
             >
-              <p style={{ fontFamily: MAG_SERIF, fontSize: descSize * 0.9, lineHeight: 1.55, color: ink, opacity: 0.92, margin: 0, whiteSpace: "pre-wrap" }}>
+              <p ref={summaryRef} style={{ fontFamily: MAG_SERIF, fontSize: summaryPx, lineHeight: 1.55, color: ink, opacity: 0.92, margin: 0, whiteSpace: "pre-wrap" }}>
                 {summaryText
                   ? summaryText.split(/(__[^_]+__)/).map((seg: string, i: number) =>
                       seg.startsWith("__") && seg.endsWith("__") ? (

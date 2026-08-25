@@ -3,6 +3,7 @@ import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } fr
 import { SceneLayoutProps } from "../types";
 import { GeometricBackground } from "../components/GeometricBackground";
 import { FlybyPlane } from "../components/FlybyPlane";
+import { useFitText } from "../components/useFitText";
 
 // Approximate total stroke length for the arrow paths (used for draw-on animation)
 const ARROW_STROKE_LEN = 41;
@@ -16,12 +17,50 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
   sceneIndex,
 }) => {
   const frame = useCurrentFrame();
-  const { fps, durationInFrames } = useVideoConfig();
+  const { fps, durationInFrames, height } = useVideoConfig();
   const p = aspectRatio === "portrait";
+  const safeSteps = Array.isArray(steps) ? steps : [];
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and step labels are unbounded user input; the title and the row/
+     column of step pills each have no height limit of their own, so long
+     copy just grows past the frame and gets clipped by the AbsoluteFill's
+     overflow:hidden. Fit the title to its own budget; step labels wrap inside
+     fixed pills already (word-break:break-word) but a long label can still
+     grow a pill past the available height in portrait's stacked column, so
+     fit the whole steps block too. Independent (no cascade): the title sits
+     above with fixed margins, not competing with the steps for the same
+     band. A size the user explicitly picked is honored exactly (minPx ===
+     targetPx makes the hook a no-op). */
+  const titleRef = React.useRef<HTMLHeadingElement>(null);
+  const stepsRef = React.useRef<HTMLDivElement>(null);
+
+  const actualTitleFontSize = titleFontSize ?? (p ? 50 : 51);
+  const actualDescriptionFontSize = descriptionFontSize ?? (p ? 35 : 27);
+
+  const titleBudgetPx = Math.round(height * (p ? 0.16 : 0.18));
+  const { px: titlePx } = useFitText(
+    titleRef,
+    actualTitleFontSize,
+    titleFontSizeIsUserSet ? actualTitleFontSize : p ? 26 : 24,
+    [title, actualTitleFontSize, titleFontSizeIsUserSet, titleBudgetPx, p],
+    titleBudgetPx,
+  );
+
+  const stepsBudgetPx = Math.round(height * (p ? 0.62 : 0.5));
+  const { px: nodeFontSize } = useFitText(
+    stepsRef,
+    actualDescriptionFontSize,
+    descriptionFontSizeIsUserSet ? actualDescriptionFontSize : p ? 16 : 14,
+    [safeSteps, actualDescriptionFontSize, descriptionFontSizeIsUserSet, titlePx, stepsBudgetPx, p],
+    stepsBudgetPx,
+  );
 
   // ── Title ────────────────────────────────────────────────────────────────
   const titleSp = spring({ frame: frame - 3, fps, config: { damping: 22, stiffness: 90, mass: 1 } });
@@ -35,8 +74,6 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
   // ── Exit timing ──────────────────────────────────────────────────────────
   const EXIT_DUR   = 26;
   const EXIT_START = Math.max(0, durationInFrames - EXIT_DUR);
-
-  const safeSteps = Array.isArray(steps) ? steps : [];
 
   return (
     <AbsoluteFill
@@ -68,9 +105,10 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
         }}
       >
         <h2
+          ref={titleRef}
           style={{
             color: textColor,
-            fontSize: titleFontSize ?? (p ? 50 : 51),
+            fontSize: titlePx,
             fontWeight: 700,
             fontFamily: fontFamily ?? "'Roboto Slab', serif",
             marginTop: 0,
@@ -99,6 +137,7 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
 
       {/* ── Steps row / column ──────────────────────────────────────────── */}
       <div
+        ref={stepsRef}
         style={{
           display: "flex",
           flexDirection: p ? "column" : "row",
@@ -107,6 +146,8 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
           flexWrap: p ? "nowrap" : "wrap",
           justifyContent: "center",
           maxWidth: "100%",
+          maxHeight: "100%",
+          overflow: "hidden",
         }}
       >
         {safeSteps.map((step, i) => {
@@ -167,8 +208,6 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
           const nodeOp    = inExit ? exitOp    : entOp;
           const nodeX     = inExit ? exitX     : entX;
           const nodeY     = inExit ? exitY     : entY;
-
-          const nodeFontSize = descriptionFontSize ?? (p ? 35 : 27);
 
           return (
             <div

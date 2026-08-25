@@ -1,6 +1,8 @@
+import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, spring, useVideoConfig } from "remotion";
 import { SceneLayoutProps } from "../types";
 import { GeometricBackground } from "../components/GeometricBackground";
+import { useFitText, useAvailableHeight } from "../components/useFitText";
 
 export const CodeBlock: React.FC<SceneLayoutProps> = ({
   aspectRatio,
@@ -11,12 +13,50 @@ export const CodeBlock: React.FC<SceneLayoutProps> = ({
   codeLines = [],
   descriptionFontSize,
   titleFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
   sceneIndex,
 }) => {
   const frame = useCurrentFrame();
-  const { fps, durationInFrames } = useVideoConfig();
+  const { fps, durationInFrames, height } = useVideoConfig();
   const p = aspectRatio === "portrait";
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and code are unbounded user input. The card grows to fit the code
+     (only `minHeight` is set) inside a wrapper with no height limit of its
+     own, so a long title or many code lines just grow past the frame and get
+     clipped by the AbsoluteFill's overflow:hidden. Fit the title to its own
+     budget, then the code block to the space left in the wrapper (measured
+     via offsetTop/offsetHeight, which the card's scale-in transform does not
+     perturb, unlike getBoundingClientRect). A size the user explicitly
+     picked is honored exactly (minPx === targetPx makes the hook a no-op). */
+  const wrapperRef = React.useRef<HTMLDivElement>(null);
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const codeRef = React.useRef<HTMLPreElement>(null);
+
+  const actualTitleFontSize = titleFontSize ?? (p ? 72 : 60);
+  const actualDescriptionFontSize = descriptionFontSize ?? (p ? 40 : 32);
+
+  const titleBudgetPx = Math.round(height * (p ? 0.16 : 0.18));
+  const { px: titlePx } = useFitText(
+    titleRef,
+    actualTitleFontSize,
+    titleFontSizeIsUserSet ? actualTitleFontSize : p ? 32 : 26,
+    [title, actualTitleFontSize, titleFontSizeIsUserSet, titleBudgetPx, p],
+    titleBudgetPx,
+  );
+
+  const codeAvail = useAvailableHeight(codeRef, wrapperRef, [
+    title, titlePx, codeLines, actualDescriptionFontSize, p,
+  ]);
+  const { px: codePx } = useFitText(
+    codeRef,
+    actualDescriptionFontSize,
+    descriptionFontSizeIsUserSet ? actualDescriptionFontSize : p ? 16 : 13,
+    [codeLines, actualDescriptionFontSize, descriptionFontSizeIsUserSet, titlePx, codeAvail, p],
+    codeAvail || undefined,
+  );
 
   // ── Entrance animations ──────────────────────────────────────────────────
   const titleSpring = spring({
@@ -82,12 +122,14 @@ export const CodeBlock: React.FC<SceneLayoutProps> = ({
 
       {/* Content wrapper: title + terminal card */}
       <div
+        ref={wrapperRef}
         style={{
           display: "flex",
           flexDirection: "column",
           alignItems: "flex-start",
           gap: p ? 20 : 30,
           width: p ? "88%" : "76%",
+          maxHeight: "84%",
           opacity: exitOp,
           transform: `scale(${exitScale})`,
           position: "relative",
@@ -97,14 +139,16 @@ export const CodeBlock: React.FC<SceneLayoutProps> = ({
         {/* Scene title — uses project textColor */}
         {title && (
           <div
+            ref={titleRef}
             style={{
               fontFamily: fontFamily ?? "'Roboto Slab', serif",
-              fontSize: titleFontSize ?? (p ? 72 : 60),
+              fontSize: titlePx,
               color: textColor,
               fontWeight: 800,
               opacity: titleOpacity,
               transform: `translateY(${titleY}px)`,
               lineHeight: 1.1,
+              flexShrink: 0,
             }}
           >
             {title}
@@ -135,10 +179,11 @@ export const CodeBlock: React.FC<SceneLayoutProps> = ({
           </div>
 
           <pre
+            ref={codeRef}
             style={{
               margin: 0,
               fontFamily: "'Fira Code', 'Courier New', monospace",
-              fontSize: descriptionFontSize ?? (p ? 40 : 32),
+              fontSize: codePx,
               lineHeight: 1.75,
               color: codeTextColor,
               whiteSpace: "pre-wrap",

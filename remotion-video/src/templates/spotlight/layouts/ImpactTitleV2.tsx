@@ -1,4 +1,5 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import React from "react";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
 import {
   AccentBars,
@@ -17,6 +18,7 @@ import {
 import type { SpotlightLayoutProps } from "../types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
 import { ZoomCropVideo } from "../components/ZoomCropVideo";
+import { useFitText } from "../components/useFitText";
 
 function normalizeTitleToken(word: string): string {
   return word.toLowerCase().replace(/[.,!?:;]/g, "");
@@ -93,6 +95,7 @@ export const ImpactTitleV2: React.FC<SpotlightLayoutProps> = ({
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const fps = 30;
   const p = aspectRatio === "portrait";
   const accent = accentColor || "#EF4444";
@@ -104,6 +107,44 @@ export const ImpactTitleV2: React.FC<SpotlightLayoutProps> = ({
 
   const words = title.trim().split(/\s+/).filter(Boolean);
   const hlIndex = resolveImpactTitleHighlightIndex(words, highlightWord);
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input at this template's huge
+     display sizes; long copy would overflow the marquee column. Same
+     budgeting shape as the base ImpactTitle.tsx: give the title most of the
+     column, narration the rest. Words render fully from frame 0 (only
+     opacity/transform animate per word), so the title element is safe to
+     ref directly.
+
+     Title and narration each fit against their own fixed, independent
+     budget. No give-back cross-talk: a useLayoutEffect+setState chain
+     reacting to another useFitText's overflow output creates a multi-render
+     convergence that Remotion's per-frame headless capture can settle at
+     different points on different frames (confirmed via a real render —
+     frame-to-frame scene-change score hit 1.0, i.e. maximum, twice in the
+     first ten frames, in the equivalent newscast/newspaper opening scenes). */
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const narrationRef = React.useRef<HTMLDivElement>(null);
+  const titleTargetPx = titleFontSize ?? (p ? 97 : 100);
+  const narrationTargetPx = descriptionFontSize ?? (p ? 29 : 33);
+  const stackBudgetPx = Math.round(height * (hasMedia && !p ? 0.55 : p ? 0.5 : 0.65));
+  const titleBudgetPx = Math.round(stackBudgetPx * (narration ? 0.72 : 1));
+
+  const { px: titlePx } = useFitText(
+    titleRef,
+    titleTargetPx,
+    p ? 36 : 42,
+    [title, titleTargetPx, titleBudgetPx],
+    titleBudgetPx,
+  );
+  const narrationBudgetPx = Math.max(1, stackBudgetPx - titleBudgetPx);
+  const { px: narrationPx } = useFitText(
+    narrationRef,
+    narrationTargetPx,
+    p ? 16 : 15,
+    [narration, narrationTargetPx, narrationBudgetPx, titlePx],
+    narrationBudgetPx,
+  );
 
   // ── Timing ────────────────────────────────────────────────────────────────
   const WORD_START = 8;
@@ -124,9 +165,6 @@ export const ImpactTitleV2: React.FC<SpotlightLayoutProps> = ({
     extrapolateRight: "clamp",
   });
   const mediaSpring = spring({ frame: frame - 14, fps, config: { damping: 20, stiffness: 80 } });
-
-  const titlePx = titleFontSize ?? (p ? 97 : 100);
-  const narrationPx = descriptionFontSize ?? (p ? 29 : 33);
 
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor || "#000000", overflow: "hidden" }}>
@@ -225,6 +263,7 @@ export const ImpactTitleV2: React.FC<SpotlightLayoutProps> = ({
 
           {/* The bill itself — words rise one at a time; the highlight slams. */}
           <div
+            ref={titleRef}
             style={{
               fontFamily: displayFontFamily,
               fontWeight: 900,
@@ -285,6 +324,7 @@ export const ImpactTitleV2: React.FC<SpotlightLayoutProps> = ({
 
           {narration ? (
             <div
+              ref={narrationRef}
               style={{
                 marginTop: p ? 24 : 22,
                 fontFamily: bodyFontFamily,

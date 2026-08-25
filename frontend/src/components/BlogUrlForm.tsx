@@ -812,7 +812,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
   const bulkLogoInputRef = useRef<HTMLInputElement>(null);
   const [bulkApplyLengthAll, setBulkApplyLengthAll] = useState(true);
   const [bulkLengthMasterIndex, setBulkLengthMasterIndex] = useState(0);
-  const [bulkStockFootage, setBulkStockFootage] = useState<boolean[]>([true]);
+  const [bulkStockFootage, setBulkStockFootage] = useState<boolean[]>([false]);
   const [bulkApplyStockAll, setBulkApplyStockAll] = useState(true);
   const [bulkStockMasterIndex, setBulkStockMasterIndex] = useState(0);
   const [bulkApplyTemplateAll, setBulkApplyTemplateAll] = useState(true);
@@ -921,7 +921,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
   // Stock footage at generation time: available on every plan and every
   // template (builtin, custom, crafted). Free users get a clip on a single
   // scene (the backend caps it), paid users on all image-capable scenes.
-  const [stockFootageEnabled, setStockFootageEnabled] = useState(true);
+  const [stockFootageEnabled, setStockFootageEnabled] = useState(false);
   const stockFootageAvailable = true;
   useEffect(() => {
     onExtraOptionsChange?.({ stockFootageEnabled: stockFootageAvailable && stockFootageEnabled });
@@ -1525,7 +1525,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
         setBulkCustomVoiceId((prev) => resizeTo(prev, n, ""));
         setBulkContentLanguage((prev) => resizeTo(prev, n, "auto"));
         setBulkVideoLength((prev) => resizeTo(prev, n, "short"));
-        setBulkStockFootage((prev) => resizeTo(prev, n, true));
+        setBulkStockFootage((prev) => resizeTo(prev, n, false));
         setBulkAspectRatio((prev) => resizeTo(prev, n, "landscape"));
         setBulkVideoStyles((prev) =>
           resizeTo(
@@ -1570,7 +1570,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
     setBulkContentLanguage((prev) => [...prev, "auto"]);
     setBulkVideoLength((prev) => [...prev, "short"]);
     setBulkStockFootage((prev) => {
-      const next = [...prev, bulkApplyStockAll ? (prev[bulkStockMasterIndex] ?? true) : true];
+      const next = [...prev, bulkApplyStockAll ? (prev[bulkStockMasterIndex] ?? false) : false];
       return next;
     });
     setBulkAspectRatio((prev) => [...prev, "landscape"]);
@@ -1748,7 +1748,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
       setBulkCustomVoiceId([]);
       setBulkContentLanguage(["auto"]);
       setBulkVideoLength(["short"]);
-      setBulkStockFootage([true]);
+      setBulkStockFootage([false]);
       setBulkAspectRatio(["landscape"]);
       setBulkVideoStyles([DEFAULT_VIDEO_STYLE]);
       setBulkAccentColors([""]);

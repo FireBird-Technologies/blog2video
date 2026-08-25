@@ -330,14 +330,25 @@ def get_custom_lm() -> dspy.LM:
             _codegen_lm = _make_anthropic_lm(
                 "anthropic/claude-sonnet-4-6",
                 temperature=0.7,
-                max_tokens=12000,
+                max_tokens=14000,
                 api_key=_custom_anthropic_key(),
             )
         else:
+            # GLM's thinking/reasoning tokens are NOT a separate budget from Anthropic-
+            # style extended thinking — they're emitted into the same max_tokens pool as
+            # the final answer (see _make_zai_lm's extra_body={"thinking": {...}}, no
+            # separate allowance field). With reasoning_effort="medium" plus DSPy's own
+            # ChainOfThought rationale field, reasoning alone can occasionally burn past
+            # the budget before a single token of the `code` output is emitted,
+            # truncating it to empty ("[REFINE] FAILED: Code is empty"). When that
+            # happens, code_generator.py's outer retry loop reaches for
+            # get_custom_lm_no_thinking() below (thinking disabled) instead of
+            # retrying on this same budget, rather than always paying thinking's
+            # quality cost up front for every scene.
             _codegen_lm = _make_zai_lm(
                 settings.CUSTOM_TEMPLATE_LM,
                 temperature=0.7,
-                max_tokens=12000,
+                max_tokens=14000,
                 thinking=_CODEGEN_THINKING,
                 reasoning_effort=_CODEGEN_REASONING_EFFORT,
             )
@@ -355,6 +366,44 @@ def get_custom_lm() -> dspy.LM:
         # kept as a redundant safety net.)
         _codegen_lm.cache = False
         return _codegen_lm
+
+
+_codegen_lm_no_thinking: dspy.LM | None = None
+_codegen_lm_no_thinking_lock = threading.Lock()
+
+
+def get_custom_lm_no_thinking() -> dspy.LM:
+    """Thinking-off fallback for custom-template codegen (local/dev Z.AI path only).
+
+    code_generator.py's outer per-scene retry loop reaches for this after a scene
+    comes back with truly empty code from get_custom_lm() — i.e. GLM's thinking
+    pass ran long enough to consume the whole max_tokens budget before a single
+    token of `code` was emitted (see get_custom_lm's docstring). With thinking
+    disabled, GLM writes fields directly with no reasoning pass competing for the
+    budget, so the completion reliably fits — at the cost of the deliberation that
+    thinking mode would have given the layout/animation plan. Used as a targeted
+    fallback rather than the default so most scenes still get thinking's quality
+    benefit; only a scene that already timed out on budget pays this tradeoff.
+    Production (Claude, no thinking toggle) has no equivalent — just returns the
+    same LM as get_custom_lm().
+    """
+    global _codegen_lm_no_thinking
+    if _codegen_lm_no_thinking is not None:
+        return _codegen_lm_no_thinking
+    with _codegen_lm_no_thinking_lock:
+        if _codegen_lm_no_thinking is not None:
+            return _codegen_lm_no_thinking
+        if _IS_PRODUCTION:
+            _codegen_lm_no_thinking = get_custom_lm()
+        else:
+            _codegen_lm_no_thinking = _make_zai_lm(
+                settings.CUSTOM_TEMPLATE_LM,
+                temperature=0.7,
+                max_tokens=14000,
+                thinking=False,
+            )
+            _codegen_lm_no_thinking.cache = False
+        return _codegen_lm_no_thinking
 
 
 def get_scene_type_lm() -> dspy.LM:

@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { SceneLayoutProps } from "../types";
 import { Stickman2BackgroundImage } from "../Stickman2BackgroundImage";
 
@@ -8,10 +9,35 @@ export const ChalkTitle: React.FC<SceneLayoutProps> = (props) => {
     title, narration, imageUrl, imageObjectPosition, imageZoom,
     videoUrl, videoMuted, videoVolume, videoDurationInFrames, videoStartInFrames,
     accentColor, bgColor, textColor, aspectRatio, sceneDurationInFrames,
-    titleFontSize, descriptionFontSize, fontFamily,
+    titleFontSize, descriptionFontSize,
+    titleFontSizeIsUserSet, descriptionFontSizeIsUserSet, fontFamily,
   } = props;
   const p = aspectRatio === "portrait";
-  const { fps } = useVideoConfig();
+  const { fps, height} = useVideoConfig();
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input; long copy overflows the card
+     (and in this template collides with the artwork) instead of resizing.
+     Measure the real available height and shrink to fit. A size the user
+     explicitly picked is honored exactly — minPx === targetPx no-ops the hook. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitDescRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 93 : 84);
+  const fitDescTarget = descriptionFontSize ?? (p ? 50 : 45);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.42),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.22 : 0.26)),
+  );
+  const { px: fitDescPx } = useFitText(
+    fitDescRef,
+    fitDescTarget,
+    descriptionFontSizeIsUserSet ? fitDescTarget : Math.round(fitDescTarget * 0.4),
+    [narration, fitDescTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * (p ? 0.30 : 0.34)),
+  );
   const frame = useCurrentFrame();
   const dur = sceneDurationInFrames ?? 150;
 
@@ -558,15 +584,23 @@ export const ChalkTitle: React.FC<SceneLayoutProps> = (props) => {
       <AbsoluteFill style={{ zIndex: 2, background: "radial-gradient(ellipse 80% 45% at 50% 50%, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.72) 100%)" }} />
 
       {/* ── Layer 4: Title ── */}
-      <AbsoluteFill style={{ zIndex: 3, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start" }}>
-        <div style={{ position: "absolute", top: p ? "38%" : "42%", left: "50%", transform: `translate(-50%, -50%) translateY(${titleY}px)`, display: "flex", flexDirection: "column", alignItems: "center", opacity: titleProgress, width: p ? "90%" : "80%" }}>
-          <div style={{ fontFamily: ff, fontSize: titleFontSize ?? (p ? 93 : 84), fontWeight: 700, color: accent, textAlign: "center", letterSpacing: "0.04em", lineHeight: 1.15, filter: `drop-shadow(0 0 12px rgba(255,255,255,${titleGlow * 0.7}))`, textShadow: `0 0 24px rgba(255,255,255,0.5), 0 0 8px rgba(255,255,255,0.3)`, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+      {/* Title and narration share ONE centred column rather than sitting on
+          two fixed percentage anchors (previously top 42% / 58%). Anchored
+          blocks are pinned a fixed distance apart, so long copy grew straight
+          through the gap and the two overlapped; in a column the narration is
+          always pushed below the title, and the band's height is what the
+          fitter measures against. */}
+      <AbsoluteFill style={{ zIndex: 3, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: p ? "18% 5% 20% 5%" : "12% 8%", gap: p ? 24 : 20 }}>
+        <div style={{ transform: `translateY(${titleY}px)`, display: "flex", flexDirection: "column", alignItems: "center", opacity: titleProgress, width: p ? "90%" : "80%", flexShrink: 0 }}>
+          <div ref={fitTitleRef} style={{ fontFamily: ff, fontSize: fitTitlePx, fontWeight: 700, color: accent, textAlign: "center", letterSpacing: "0.04em", lineHeight: 1.15, filter: `drop-shadow(0 0 12px rgba(255,255,255,${titleGlow * 0.7}))`, textShadow: `0 0 24px rgba(255,255,255,0.5), 0 0 8px rgba(255,255,255,0.3)`, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
             {title}
           </div>
         </div>
         {narration && (
-          <div style={{ position: "absolute", top: p ? "56%" : "58%", left: "50%", transform: `translate(-50%, -50%) translateY(${narrationY}px)`, opacity: narrationProgress, width: p ? "85%" : "70%", textAlign: "center", fontFamily: ff, fontSize: descriptionFontSize ?? (p ? 50 : 45), color: text, lineHeight: 1.5, filter: `drop-shadow(0 0 6px rgba(255,255,255,0.4))`, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-            {narration}
+          <div style={{ transform: `translateY(${narrationY}px)`, opacity: narrationProgress, width: p ? "85%" : "70%", minHeight: 0, flexShrink: 1, overflow: "hidden" }}>
+            <div ref={fitDescRef} style={{ textAlign: "center", fontFamily: ff, fontSize: fitDescPx, color: text, lineHeight: 1.5, filter: `drop-shadow(0 0 6px rgba(255,255,255,0.4))`, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+              {narration}
+            </div>
           </div>
         )}
       </AbsoluteFill>

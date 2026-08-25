@@ -1,4 +1,6 @@
+import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY, derivePalette } from "../constants";
 import type { BloombergLayoutProps } from "../types";
 
@@ -53,9 +55,18 @@ export const TerminalTicker: React.FC<BloombergLayoutProps> = ({
   // Marquee content built from rows (so it references the data)
   const marqueeText = rows.concat(rows).map((r) => r.replace(/\s+/g, "  ")).join("   ·   ");
   const marqueeOffset = ((frame * 4) % 2000);
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const rowMeasureRef = React.useRef<HTMLDivElement>(null);
+  const narrationRef = React.useRef<HTMLDivElement>(null);
+  const rowTarget = dSize * 0.9;
+  const longestRow = rows.reduce((longest, row) => row.length > longest.length ? row : longest, "");
+  const { px: fittedTitleSize } = useFitText(titleRef, tSize * 0.5, p ? 28 : 30, [title, tSize, p], p ? 140 : 120);
+  const { px: fittedRowSize } = useFitText(rowMeasureRef, rowTarget, p ? 20 : 18, [longestRow, rowTarget, p], p ? 54 : 48);
+  const { px: fittedNarrationSize } = useFitText(narrationRef, dSize, p ? 22 : 20, [narration, dSize, p], p ? 140 : 110);
 
   return (
     <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff, overflow: "hidden" }}>
+      <div ref={rowMeasureRef} style={{ position: "absolute", visibility: "hidden", width: p ? "72%" : "55%", fontSize: rowTarget, lineHeight: 1.3, overflowWrap: "anywhere" }}>{longestRow}</div>
       {/* Subtle scanlines */}
       <div style={{
         position: "absolute", inset: 0,
@@ -102,9 +113,9 @@ export const TerminalTicker: React.FC<BloombergLayoutProps> = ({
       </div>
 
       {/* Title */}
-      <div style={{
+      <div ref={titleRef} style={{
         position: "absolute", top: topH + marqueeH + (p ? 14 : 10), left: pad, right: pad,
-        fontSize: tSize * 0.5, opacity: titleOpacity, letterSpacing: -0.5,
+        fontSize: fittedTitleSize, lineHeight: 1.1, opacity: titleOpacity, letterSpacing: -0.5,
         display: "flex", alignItems: "center", gap: 14,
         justifyContent: p ? "center" : "flex-start",
       }}>
@@ -195,12 +206,12 @@ export const TerminalTicker: React.FC<BloombergLayoutProps> = ({
               }} />
 
               {/* Arrow */}
-              <Arrow up={!isNeg} color={isNeg ? neg : pos} size={dSize * 0.9} />
+              <Arrow up={!isNeg} color={isNeg ? neg : pos} size={fittedRowSize} />
 
               {/* Row text */}
               <span style={{
                 color: isNeg ? neg : amber,
-                fontSize: dSize * 0.9,
+                fontSize: fittedRowSize,
                 letterSpacing: 1,
                 flex: 1,
               }}>
@@ -222,9 +233,10 @@ export const TerminalTicker: React.FC<BloombergLayoutProps> = ({
       </div>
 
       {/* Narration footer */}
-      <div style={{
+      <div ref={narrationRef} style={{
         position: "absolute", bottom: botH + 8, left: pad, right: pad,
-        color: muted, fontSize: dSize * 0.65,
+        color: muted, fontSize: fittedNarrationSize, lineHeight: 1.3,
+        maxHeight: p ? 140 : 110, overflow: "hidden", overflowWrap: "anywhere",
         opacity: interpolate(frame, [25, 40], [0, 1], { extrapolateRight: "clamp" }),
       }}>
         {narration}

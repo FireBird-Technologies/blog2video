@@ -2,6 +2,7 @@ import React from "react";
 import { useVideoConfig, interpolate, spring, Img } from "remotion";
 import { SceneLayoutProps } from "../types";
 import { SakuraClip } from "../components/SakuraClip";
+import { useFitText } from "../components/useFitText";
 import {
   SAKURA,
   SAKURA_DISPLAY_FONT,
@@ -64,8 +65,24 @@ export const SakuraIntro: React.FC<SceneLayoutProps> = (props) => {
   const tagline = (props as any).tagline ?? narration ?? "";
   const author = (props as any).author ?? "";
 
-  const titlePx = titleFontSize ?? (p ? 92 : 132);
-  const taglinePx = descriptionFontSize ?? (p ? 52 : 67);
+  const titleTargetPx = titleFontSize ?? (p ? 92 : 132);
+  const taglineTargetPx = descriptionFontSize ?? (p ? 52 : 67);
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const taglineRef = React.useRef<HTMLDivElement>(null);
+  const { px: titlePx } = useFitText(
+    titleRef,
+    titleTargetPx,
+    Math.max(28, Math.round(titleTargetPx * 0.52)),
+    [kanjiTitle, titleTargetPx, p, height],
+    Math.round(height * (p ? 0.24 : 0.3)),
+  );
+  const { px: taglinePx } = useFitText(
+    taglineRef,
+    taglineTargetPx,
+    Math.max(20, Math.round(taglineTargetPx * 0.5)),
+    [tagline, taglineTargetPx, titlePx, p, height],
+    Math.round(height * (p ? 0.38 : 0.5)),
+  );
   // Roman title scales with the kanji title so they grow/shrink together.
   const romanPx = Math.max(14, Math.round(titlePx * 0.19));
   // Author byline is a faint micro-label; scale it off the tagline (the
@@ -206,6 +223,7 @@ export const SakuraIntro: React.FC<SceneLayoutProps> = (props) => {
       >
         {/* Kanji title */}
         <div
+          ref={titleRef}
           style={{
             fontFamily: fontFamily ?? SAKURA_DISPLAY_FONT,
             fontWeight: 700,
@@ -255,7 +273,7 @@ export const SakuraIntro: React.FC<SceneLayoutProps> = (props) => {
 
         {/* Italic tagline */}
         {tagline ? (
-          <div
+          <div ref={taglineRef}
             style={{
               fontFamily: fontFamily ?? SAKURA_BODY_FONT,
               fontStyle: "italic",
@@ -264,6 +282,7 @@ export const SakuraIntro: React.FC<SceneLayoutProps> = (props) => {
               letterSpacing: "0.14em",
               lineHeight: 1.5,
               maxWidth: p ? 820 : 1000,
+              overflowWrap: "anywhere",
               opacity: taglineReveal * 0.92,
               transform: `translateY(${(1 - taglineReveal) * 14}px)`,
             }}
@@ -283,6 +302,8 @@ export const SakuraIntro: React.FC<SceneLayoutProps> = (props) => {
               textTransform: "uppercase",
               textIndent: "0.6em",
               marginTop: 44,
+              maxWidth: p ? "86%" : "72%",
+              overflowWrap: "anywhere",
               opacity: authorReveal,
             }}
           >

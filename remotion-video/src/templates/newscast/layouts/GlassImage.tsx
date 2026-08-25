@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import type { NewscastLayoutProps } from "./types";
 import {
   DEFAULT_NEWSCAST_ACCENT,
@@ -22,8 +23,7 @@ import { ZoomCropVideo } from "../components/ZoomCropVideo";
 
 const GOLD = "#D4AA50";
 
-export const GlassImage: React.FC<NewscastLayoutProps> = ({
-  imageUrl,
+export const GlassImage: React.FC<NewscastLayoutProps> = ({imageUrl,
   imageObjectPosition,
   imageZoom,
   videoUrl,
@@ -38,12 +38,39 @@ export const GlassImage: React.FC<NewscastLayoutProps> = ({
   textColor,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { fps, width, height } = useVideoConfig();
   const portraitScale = getNewscastPortraitTypeScale(width, height);
   const p = height > width;
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input in a card centred on the
+     frame with no fixed height; long copy could grow the card past the
+     frame's overflow:hidden edge. Measure the real available height and
+     shrink to fit. An explicitly chosen size is honored exactly (minPx ===
+     targetPx no-ops the hook). */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitDescRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 34 : 26);
+  const fitDescTarget = descriptionFontSize ?? (p ? 19 : 15);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.45),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.2 : 0.24)),
+  );
+  const { px: fitDescPx } = useFitText(
+    fitDescRef,
+    fitDescTarget,
+    descriptionFontSizeIsUserSet ? fitDescTarget : Math.round(fitDescTarget * 0.5),
+    [narration, fitDescTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * (p ? 0.28 : 0.32)),
+  );
 
   const zoom = interpolate(frame, [0, fps * 8], [1, 1.05], { extrapolateRight: "clamp" });
   const yShift = interpolate(frame, [0, fps * 8], [0, -8], { extrapolateRight: "clamp" });
@@ -146,9 +173,10 @@ export const GlassImage: React.FC<NewscastLayoutProps> = ({
           {cat}
         </div>
         <div
+          ref={fitTitleRef}
           style={{
             fontFamily: newscastFont(fontFamily, "title"),
-            fontSize: titleFontSize ?? (p ? 34 : 26),
+            fontSize: fitTitlePx,
             fontWeight: HEADLINE_WEIGHT,
             color: "white",
             textTransform: "uppercase",
@@ -163,9 +191,10 @@ export const GlassImage: React.FC<NewscastLayoutProps> = ({
         </div>
         {narration ? (
           <div
+            ref={fitDescRef}
             style={{
               fontFamily: newscastFont(fontFamily, "body"),
-              fontSize: descriptionFontSize ?? (p ? 19 : 15),
+              fontSize: fitDescPx,
               fontWeight: 400,
               color: STEEL,
               letterSpacing: 0.3,

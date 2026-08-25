@@ -1,4 +1,6 @@
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import React from "react";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY, derivePalette } from "../constants";
 import type { BloombergLayoutProps, BloombergSocial } from "../types";
 import { SocialIcons } from "../../SocialIcons";
@@ -84,6 +86,8 @@ export const EndingSocials: React.FC<BloombergLayoutProps> = ({
   aspectRatio,
 }) => {
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
+  const p = aspectRatio === "portrait";
   const ff = fontFamily || BLOOMBERG_DEFAULT_FONT_FAMILY;
   const amber = textColor || BLOOMBERG_COLORS.amber;
   const blue = accentColor || BLOOMBERG_COLORS.accent;
@@ -106,12 +110,31 @@ export const EndingSocials: React.FC<BloombergLayoutProps> = ({
     (c) => c.showWebsiteButton && (c.websiteLink.length > 0 || c.ctaButtonText.trim().length > 0),
   );
   const hasAnyCard = cards.length > 0;
+  const ctaMeasureRef = React.useRef<HTMLDivElement>(null);
+  const linkMeasureRef = React.useRef<HTMLDivElement>(null);
+  const narrationRef = React.useRef<HTMLDivElement>(null);
+  const ctaTarget = cards.length === 1 ? titleFontSize * 0.65 : titleFontSize * 0.4;
+  const linkTarget = cards.length === 1 ? descriptionFontSize * 0.7 : descriptionFontSize * 0.55;
+  const longestCta = cards.reduce((longest, card) => card.ctaButtonText.length > longest.length ? card.ctaButtonText : longest, "");
+  const longestLink = cards.reduce((longest, card) => card.websiteLink.length > longest.length ? card.websiteLink : longest, "");
+  const { px: fittedCtaSize } = useFitText(ctaMeasureRef, ctaTarget, 14, [longestCta, ctaTarget, cards.length], p ? 150 : 120);
+  const { px: fittedLinkSize } = useFitText(linkMeasureRef, linkTarget, 12, [longestLink, linkTarget, cards.length], p ? 110 : 90);
+  const narrationBudget = Math.round(height * (p ? 0.34 : 0.32));
+  const { px: fittedNarrationSize } = useFitText(
+    narrationRef,
+    descriptionFontSize * 0.8,
+    p ? 12 : 11,
+    [narration, descriptionFontSize, p, height],
+    narrationBudget,
+  );
 
   // Blinking cursor
   const cursorVisible = Math.floor(frame / 15) % 2 === 0;
 
   return (
     <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff, overflow: "hidden" }}>
+      <div ref={ctaMeasureRef} style={{ position: "absolute", visibility: "hidden", width: cards.length === 1 ? "70%" : "28%", fontSize: ctaTarget, lineHeight: 1.2, overflowWrap: "anywhere" }}>{longestCta}</div>
+      <div ref={linkMeasureRef} style={{ position: "absolute", visibility: "hidden", width: cards.length === 1 ? "70%" : "28%", fontSize: linkTarget, lineHeight: 1.3, wordBreak: "break-all" }}>{longestLink}</div>
       <BackgroundGraph accentColor={blue} textColor={amber} variant="socials" />
 
       {/* Horizontal rules framing centre */}
@@ -126,10 +149,14 @@ export const EndingSocials: React.FC<BloombergLayoutProps> = ({
 
       {/* Centre block */}
       <div style={{
-        position: "absolute", top: "50%", left: "50%",
-        transform: "translate(-50%, -50%)",
+        position: "absolute",
+        top: p ? 86 : 82,
+        right: p ? 48 : 72,
+        bottom: p ? 106 : 104,
+        left: p ? 48 : 72,
         display: "flex", flexDirection: "column", alignItems: "center",
-        gap: 28, width: "80%",
+        justifyContent: "center",
+        gap: p ? 24 : 28,
       }}>
         {/* CTA prompts — 1/2/3 columns */}
         {hasAnyCard && (
@@ -142,6 +169,7 @@ export const EndingSocials: React.FC<BloombergLayoutProps> = ({
             alignItems: "flex-start",
             gap: 32,
             width: "100%",
+            flexShrink: 0,
           }}>
             {cards.map((card, idx) => (
               <div
@@ -158,9 +186,12 @@ export const EndingSocials: React.FC<BloombergLayoutProps> = ({
               >
                 <div style={{
                   color: amber,
-                  fontSize: cards.length === 1 ? titleFontSize * 0.65 : titleFontSize * 0.4,
+                  fontSize: fittedCtaSize,
+                  lineHeight: 1.2,
                   letterSpacing: 1,
                   textAlign: "center",
+                  maxWidth: "100%",
+                  overflowWrap: "anywhere",
                 }}>
                   {card.ctaButtonText.trim() || "Get Started"}
                   {idx === 0 && <span style={{ opacity: cursorVisible ? 1 : 0, color: blue }}>_</span>}
@@ -168,7 +199,7 @@ export const EndingSocials: React.FC<BloombergLayoutProps> = ({
                 {card.websiteLink ? (
                   <div style={{
                     color: muted,
-                    fontSize: cards.length === 1 ? descriptionFontSize * 0.7 : descriptionFontSize * 0.55,
+                    fontSize: fittedLinkSize,
                     letterSpacing: 2,
                     textAlign: "center",
                     wordBreak: "break-all",
@@ -184,13 +215,15 @@ export const EndingSocials: React.FC<BloombergLayoutProps> = ({
 
         {/* Amber rule */}
         <div style={{
-          width: "60%", height: 1, backgroundColor: amber, opacity: ctaOpacity * 0.4,
+          width: "60%", height: 1, flexShrink: 0, backgroundColor: amber, opacity: ctaOpacity * 0.4,
         }} />
 
         {/* Narration */}
-        <div style={{
-          color: amber, fontSize: descriptionFontSize * 0.8,
-          textAlign: "center", lineHeight: 1.6, maxWidth: "70%",
+        <div ref={narrationRef} style={{
+          color: amber, fontSize: fittedNarrationSize,
+          textAlign: "center", lineHeight: 1.5, maxWidth: p ? "90%" : "94%",
+          maxHeight: narrationBudget, flexShrink: 0,
+          overflow: "hidden", overflowWrap: "anywhere",
           opacity: bodyOpacity,
         }}>
           {narration}
@@ -198,7 +231,7 @@ export const EndingSocials: React.FC<BloombergLayoutProps> = ({
 
         {/* Social icons */}
         {enabledSocials.length > 0 && (
-          <div style={{ opacity: socialOpacity }}>
+          <div style={{ opacity: socialOpacity, flexShrink: 0, maxWidth: "100%" }}>
             <SocialIcons
               socials={enabledSocials}
               accentColor={amber}

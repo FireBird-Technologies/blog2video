@@ -1,4 +1,6 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import React from "react";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, spring } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { MatrixBackground } from "../MatrixBackground";
 import { buildHudStatus, CodeFragments, ScanlinesOverlay, TerminalHUD } from "../components/MatrixArtifacts";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
@@ -31,6 +33,7 @@ export const TerminalText: React.FC<MatrixLayoutProps> = ({
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const fps = 30;
   const p = aspectRatio === "portrait";
   const accent = accentColor || "#00FF41";
@@ -38,6 +41,9 @@ export const TerminalText: React.FC<MatrixLayoutProps> = ({
   const resolvedFontFamily = fontFamily ?? MATRIX_DEFAULT_FONT_FAMILY;
 
   const displayText = narration || title;
+  const textRef = React.useRef<HTMLDivElement>(null);
+  const textTarget = titleFontSize ?? (p ? 68 : 48);
+  const { px: fittedTextSize } = useFitText(textRef, textTarget, 14, [displayText, textTarget, p, hasImage], height * (hasImage ? (p ? 0.30 : 0.58) : 0.68));
 
   // --- Animation Timings ---
   // contentOverallStartFrame acts as the general start point for the scene's main elements
@@ -172,17 +178,19 @@ export const TerminalText: React.FC<MatrixLayoutProps> = ({
         )}
 
         <div
+          ref={textRef}
           style={{
             width: hasImage && !p ? "58%" : "85%",
             maxWidth: 1000,
             opacity: textOpacity, // Text animated with punch from left
             transform: `translateX(${textTranslateX}px)`,
+            overflowWrap: "anywhere",
           }}
         >
           {/* Prompt prefix */}
           <span
             style={{
-              fontSize: titleFontSize ?? (p ? 68 : 48),
+              fontSize: fittedTextSize,
               fontWeight: 700,
               color: accent,
               fontFamily: resolvedFontFamily,
@@ -202,7 +210,7 @@ export const TerminalText: React.FC<MatrixLayoutProps> = ({
               <span
                 key={wi}
                 style={{
-                  fontSize: titleFontSize ?? (p ? 68 : 48),
+                  fontSize: fittedTextSize,
                   fontWeight: isHighlight ? 700 : 400,
                   color: isHighlight ? "#FFFFFF" : accent,
                   fontFamily: resolvedFontFamily,
@@ -221,7 +229,7 @@ export const TerminalText: React.FC<MatrixLayoutProps> = ({
           {cursorVisible && (
             <span
               style={{
-                fontSize: titleFontSize ?? (p ? 68 : 48),
+                fontSize: fittedTextSize,
                 fontWeight: 400,
                 color: accent,
                 fontFamily: resolvedFontFamily,
@@ -247,4 +255,3 @@ export const TerminalText: React.FC<MatrixLayoutProps> = ({
     </AbsoluteFill>
   );
 };
-

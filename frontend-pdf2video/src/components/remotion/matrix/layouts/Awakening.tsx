@@ -1,4 +1,6 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import React from "react";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, spring } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { MatrixBackground } from "../MatrixBackground";
 import { CodeFragments, GridTunnel, RainBurst, ScanlinesOverlay } from "../components/MatrixArtifacts";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
@@ -34,6 +36,7 @@ export const Awakening: React.FC<MatrixLayoutProps> = ({
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const fps = 30;
   const p = aspectRatio === "portrait";
   const accent = accentColor || "#00FF41";
@@ -70,6 +73,12 @@ export const Awakening: React.FC<MatrixLayoutProps> = ({
   const displayText = narration || title;
   const displayCta = cta || "> Read the full article";
   const hasImage = !!imageUrl || !!videoUrl;
+  const headlineRef = React.useRef<HTMLDivElement>(null);
+  const ctaRef = React.useRef<HTMLDivElement>(null);
+  const headlineTarget = titleFontSize ?? (p ? 67 : 59);
+  const ctaTarget = descriptionFontSize ?? (p ? 37 : 38);
+  const { px: fittedHeadlineSize } = useFitText(headlineRef, headlineTarget, 15, [displayText, headlineTarget, p, hasImage], height * (hasImage ? 0.32 : 0.5));
+  const { px: fittedCtaSize } = useFitText(ctaRef, ctaTarget, 12, [displayCta, ctaTarget, p], height * 0.14);
 
   // Headline animation: each word fades in one at a time from slight blur to sharp focus.
   const wordDelay = 5; // Frames between each word animation start
@@ -261,8 +270,9 @@ export const Awakening: React.FC<MatrixLayoutProps> = ({
           }}
         >
           <div
+            ref={headlineRef}
             style={{
-              fontSize: titleFontSize ?? (p ? 67 : 59),
+              fontSize: fittedHeadlineSize,
               fontWeight: 700,
               color: accent, // Default color, words will override if highlighted
               letterSpacing: "-0.01em",
@@ -270,6 +280,7 @@ export const Awakening: React.FC<MatrixLayoutProps> = ({
               // Removed global blur and opacity, now handled per word
               fontFamily: resolvedFontFamily,
               position: "relative",
+              overflowWrap: "anywhere",
               // Removed global text shadow, now handled per word
             }}
           >
@@ -277,15 +288,17 @@ export const Awakening: React.FC<MatrixLayoutProps> = ({
           </div>
 
           <div
+            ref={ctaRef}
             style={{
               marginTop: p ? 24 : 36,
-              fontSize: descriptionFontSize ?? (p ? 37 : 38),
+              fontSize: fittedCtaSize,
               fontWeight: 400,
               color: `${accent}66`,
               letterSpacing: "0.1em",
               fontFamily: resolvedFontFamily,
               opacity: ctaOpacityAnim, // Apply animated opacity
               transform: `translateX(${ctaSlideX}px)`, // Apply animated slide from right
+              overflowWrap: "anywhere",
             }}
           >
             [EXECUTE] {displayCta}
@@ -295,4 +308,3 @@ export const Awakening: React.FC<MatrixLayoutProps> = ({
     </AbsoluteFill>
   );
 };
-

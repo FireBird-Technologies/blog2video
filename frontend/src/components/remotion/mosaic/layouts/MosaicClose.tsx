@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { MosaicBackground } from "../MosaicBackground";
 import { MosaicTiledText } from "../MosaicTiledText";
 import { MOSAIC_COLORS, MOSAIC_DEFAULT_FONT_FAMILY } from "../constants";
@@ -24,7 +25,7 @@ export const MosaicClose: React.FC<MosaicLayoutProps> = ({
   mosaicTileGap,
 }) => {
   const frame = useCurrentFrame();
-  const { durationInFrames } = useVideoConfig();
+  const { durationInFrames, height } = useVideoConfig();
   const motion = getSceneTransition(frame, durationInFrames, 24, 14);
   const p = aspectRatio === "portrait";
   const family = fontFamily || MOSAIC_DEFAULT_FONT_FAMILY;
@@ -51,6 +52,12 @@ export const MosaicClose: React.FC<MosaicLayoutProps> = ({
     phrase && title.includes(phrase)
       ? title.replace(phrase, `__HL__${phrase}__HL__`)
       : title;
+  const titleTarget = titleFontSize ?? (p ? 64 : 56);
+  const bodyTarget = descriptionFontSize ?? (p ? 30 : 24);
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const bodyRef = React.useRef<HTMLDivElement>(null);
+  const { px: titleSize } = useFitText(titleRef, titleTarget, Math.max(13, Math.round(titleTarget * 0.26)), [title, out, titleTarget, p, height], Math.round(height * 0.3));
+  const { px: bodySize } = useFitText(bodyRef, bodyTarget, Math.max(9, Math.round(bodyTarget * 0.35)), [narration, bodyTarget, titleSize, p, height], Math.round(height * 0.18));
 
   return (
     <AbsoluteFill>
@@ -73,10 +80,10 @@ export const MosaicClose: React.FC<MosaicLayoutProps> = ({
       <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", textAlign: "center", padding: "0 12%" }}>
         <div style={{ opacity: inOpacity * motion.exit, filter: `blur(${sharpen}px)` }}>
           <div style={{ height: 1, background: "rgba(42,42,40,0.35)", width: 90, margin: "0 auto 22px" }} />
-          <div
+          <div ref={titleRef}
             style={{
               fontFamily: family,
-              fontSize: titleFontSize ?? (p ? 64 : 56),
+              fontSize: titleSize,
               color: textColor || MOSAIC_COLORS.textPrimary,
               lineHeight: 1.34,
             }}
@@ -91,7 +98,7 @@ export const MosaicClose: React.FC<MosaicLayoutProps> = ({
               ),
             )}
           </div>
-          <div style={{ marginTop: 16, fontFamily: family, fontSize: descriptionFontSize ?? (p ? 30 : 24), color: textColor || MOSAIC_COLORS.textSecondary }}>
+          <div ref={bodyRef} style={{ marginTop: 16, fontFamily: family, fontSize: bodySize, color: textColor || MOSAIC_COLORS.textSecondary, overflowWrap: "anywhere" }}>
             <MosaicTiledText text={narration} revealProgress={tileEntry} speed={1.5} fontFamily={fontFamily} />
           </div>
           {cta ? (

@@ -836,13 +836,23 @@ def write_remotion_data(
     dirty: set[int] = set()
 
     if redistribute_images:
-        # Full script regeneration creates a new scene sequence. Clear sticky
-        # image choices first so assignment below behaves like fresh generation.
+        # Full script regeneration / template change creates a new scene sequence.
+        # Release BOTH sticky stills and sticky clips so assignment below behaves
+        # like fresh generation: images are handed out first, then whatever clips
+        # the project owns fill the scenes no image could cover.
+        #
+        # Clips are released, not deleted — the assets stay in all_video_files and
+        # the placement pass after the image cascade re-places them. Clearing them
+        # here is what stops a clip from sitting pinned to whichever scene index it
+        # happened to land on in the previous sequence.
         for i, lp in enumerate(scene_layout_props):
             if scene_base_layouts[i] in no_image_layouts:
                 continue
             changed = False
-            for key in ("assignedImage", "imageFocusX", "imageFocusY", "imageZoom", "hideImage"):
+            for key in (
+                "assignedImage", "imageFocusX", "imageFocusY", "imageZoom", "hideImage",
+                "assignedVideo", "videoMuted", "videoVolume", "videoStartSeconds",
+            ):
                 if key in lp:
                     lp.pop(key, None)
                     changed = True
@@ -871,55 +881,6 @@ def write_remotion_data(
             dirty.add(i)
             continue
         video_scene_indices.add(i)
-
-    # Clips outrank images for the visual slot. A full descriptor rebuild (script
-    # regeneration / template change) produces a brand-new scene sequence, so a
-    # clip the project already owns can end up referenced by nothing while other
-    # scenes sit empty. Those clips are already paid for and CFR-30 transcoded, so
-    # hand them out here — BEFORE any image step — rather than filling the slot
-    # with a still and leaving the clip stranded.
-    if scenes and all_video_files:
-        placed_videos = {
-            scene_layout_props[i].get("assignedVideo") for i in video_scene_indices
-        }
-        spare_videos = [fn for fn in all_video_files if fn not in placed_videos]
-        if spare_videos:
-            # Deterministic order so repeated runs land the same way. Assets are
-            # named scene_<id>_<ts>, so this keeps original capture order.
-            spare_videos.sort()
-            if redistribute_images:
-                # Full descriptor rebuild (script regeneration / template change):
-                # the scenes are NEW content, and the stock stage has already
-                # fetched clips matching that new copy. Plain filename order puts
-                # the previous run's clips first (lower scene ids sort first), so
-                # those stale clips would take every open slot and strand the
-                # freshly-fetched ones. Order by ingest timestamp, newest first,
-                # so the new clips win and leftovers from prior runs only fill
-                # whatever is still empty.
-                spare_videos.sort(key=_clip_ingest_sort_key, reverse=True)
-            open_slots = [
-                i
-                for i in range(len(scenes))
-                if i not in video_scene_indices
-                and scene_base_layouts[i] not in no_image_layouts
-                and not scene_layout_props[i].get("hideImage")
-                and not scene_layout_props[i].get("assignedImage")
-            ]
-            for idx, filename in zip(open_slots, spare_videos):
-                lp = scene_layout_props[idx]
-                lp["assignedVideo"] = filename
-                # A clip and a still are mutually exclusive in one slot.
-                lp.pop("assignedImage", None)
-                lp.pop("hideImage", None)
-                lp.setdefault("videoMuted", True)
-                lp.setdefault("videoVolume", 0.35)
-                video_scene_indices.add(idx)
-                dirty.add(idx)
-            if open_slots and spare_videos:
-                logger.info(
-                    "[REMOTION] project=%s: placed %s unreferenced clip(s) ahead of images",
-                    project.id, min(len(open_slots), len(spare_videos)),
-                )
 
     if all_image_files and scenes:
         # Build scene_id -> index lookup before classifying scene-specific files.
@@ -1125,6 +1086,62 @@ def write_remotion_data(
             if changed:
                 dirty.add(i)
 
+    # Images own the visual slot; clips fill only what images could not cover.
+    # This runs AFTER the whole image cascade above, so `assignedImage` is final
+    # and a clip can never evict a still. A full descriptor rebuild (script
+    # regeneration / template change) produces a brand-new scene sequence and
+    # released every clip above, so this is also what re-places clips the project
+    # already owns — they are paid for and CFR-30 transcoded, so re-using one
+    # always beats fetching another.
+    #
+    # Deliberately OUTSIDE the `all_image_files` block: a project can own clips
+    # and no images at all, and those clips must still be placed.
+    if scenes and all_video_files:
+        placed_videos = {
+            scene_layout_props[i].get("assignedVideo") for i in video_scene_indices
+        }
+        spare_videos = [fn for fn in all_video_files if fn not in placed_videos]
+        if spare_videos:
+            # Deterministic order so repeated runs land the same way. Assets are
+            # named scene_<id>_<ts>, so this keeps original capture order.
+            spare_videos.sort()
+            if redistribute_images:
+                # Full descriptor rebuild: the scenes are NEW content, and the
+                # stock stage has already fetched clips matching that new copy.
+                # Plain filename order puts the previous run's clips first (lower
+                # scene ids sort first), so those stale clips would take every
+                # open slot and strand the freshly-fetched ones. Order by ingest
+                # timestamp, newest first, so the new clips win and leftovers from
+                # prior runs only fill whatever is still empty.
+                spare_videos.sort(key=_clip_ingest_sort_key, reverse=True)
+            # Only scenes the image cascade left empty. `scene_image_map[i]` is the
+            # authoritative post-cascade record of which scenes took a still.
+            open_slots = [
+                i
+                for i in range(len(scenes))
+                if i not in video_scene_indices
+                and scene_base_layouts[i] not in no_image_layouts
+                and not scene_image_map[i]
+                and not scene_layout_props[i].get("assignedImage")
+            ]
+            for idx, filename in zip(open_slots, spare_videos):
+                lp = scene_layout_props[idx]
+                lp["assignedVideo"] = filename
+                # Step 5 just set hideImage on these empty image-capable scenes;
+                # it gates the WHOLE visual slot, so a clip landing here must
+                # clear it or the clip renders blank.
+                lp.pop("hideImage", None)
+                hide_image_flags[idx] = False
+                lp.setdefault("videoMuted", True)
+                lp.setdefault("videoVolume", 0.35)
+                video_scene_indices.add(idx)
+                dirty.add(idx)
+            if open_slots:
+                logger.info(
+                    "[REMOTION] project=%s: placed %s clip(s) into scenes no image covered",
+                    project.id, min(len(open_slots), len(spare_videos)),
+                )
+
     # Serialize modified descriptors back to scenes (single write per scene)
     if dirty:
         is_custom = is_custom_template(template_id)
@@ -1243,7 +1260,18 @@ def write_remotion_data(
                             _resolved_defaults[_k] = _v.get(_ar) or _v.get("landscape")
                         else:
                             _resolved_defaults[_k] = _v
-                    layout_props = {**_resolved_defaults, **layout_props}
+                    # Font sizes are about to be backfilled from the schema, which
+                    # erases the difference between "user picked this size" and
+                    # "nobody touched the slider" (the editor only persists a size
+                    # that DIFFERS from the default). Capture that bit first so
+                    # auto-shrinking layouts can honor a deliberate choice exactly
+                    # while still fitting the default to the available space.
+                    _user_set_flags = {
+                        f"{_k}IsUserSet": True
+                        for _k in ("titleFontSize", "descriptionFontSize")
+                        if _k in layout_props
+                    }
+                    layout_props = {**_resolved_defaults, **layout_props, **_user_set_flags}
             except Exception:
                 pass
 

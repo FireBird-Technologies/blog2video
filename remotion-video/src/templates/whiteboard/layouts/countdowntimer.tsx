@@ -1,6 +1,8 @@
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import React from "react";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { WhiteboardBackground } from "../WhiteboardBackground";
 import type { WhiteboardLayoutProps } from "../types";
+import { useFitText } from "../components/useFitText";
 
 /**
  * CountdownTimer
@@ -30,11 +32,38 @@ export const CountdownTimer: React.FC<WhiteboardLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   stats,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const p = aspectRatio === "portrait";
+
+  /* ── Auto-fit (title + narration) ────────────────────────────────
+     Both render the full prop text directly from frame 0 (only opacity
+     animates via globalOp) — no slice-reveal — so direct ref is safe. The
+     countdown ring's center number/label use a separate digit-count sizing
+     system and are intentionally left untouched. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitNarrationRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 69 : 53);
+  const fitNarrationTarget = descriptionFontSize ?? (p ? 35 : 25);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.4),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.14 : 0.16)),
+  );
+  const { px: fitNarrationPx } = useFitText(
+    fitNarrationRef,
+    fitNarrationTarget,
+    descriptionFontSizeIsUserSet ? fitNarrationTarget : Math.round(fitNarrationTarget * 0.5),
+    [narration, fitNarrationTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * (p ? 0.1 : 0.12)),
+  );
 
   const startCount = parseInt(stats?.[0]?.value ?? "5", 10) || 5;
   const clampedStart = Math.min(Math.max(startCount, 2), 9);
@@ -121,13 +150,15 @@ export const CountdownTimer: React.FC<WhiteboardLayoutProps> = ({
         {/* Title */}
         {title && (
           <div
+            ref={fitTitleRef}
             style={{
               color: textColor,
               fontWeight: 700,
-              fontSize: titleFontSize ?? (p ? 69 : 53),
+              fontSize: fitTitlePx,
               lineHeight: 1.1,
               textAlign: "center",
               filter: "url(#ink)",
+              width: "100%",
             }}
           >
             {title}
@@ -269,13 +300,15 @@ export const CountdownTimer: React.FC<WhiteboardLayoutProps> = ({
         {/* Narration / "until launch" label */}
         {narration && (
           <div
+            ref={fitNarrationRef}
             style={{
               color: textColor,
-              fontSize: descriptionFontSize ?? (p ? 35 : 25),
+              fontSize: fitNarrationPx,
               fontWeight: 600,
               textAlign: "center",
               opacity: 0.85,
               filter: "url(#ink)",
+              width: "100%",
             }}
           >
             {narration}

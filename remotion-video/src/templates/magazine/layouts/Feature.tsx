@@ -77,7 +77,7 @@ export const Feature: React.FC<SceneLayoutProps> = (props) => {
   // doesn't flash; the real work is done by `useFitText`, which measures the
   // actual column band and shrinks the type until nothing overflows past the
   // bottom. This copes with any headline length, key-points band or aspect ratio.
-  const base = descriptionFontSize ?? (p ? 52 : 28);
+  const base = descriptionFontSize ?? (p ? 52 : 21);
   // The body flows in a single column whenever a photo plate shares the spread
   // (portrait always; landscape only when an image confines the copy to the left
   // leaf), otherwise two justified columns run across both leaves.
@@ -91,7 +91,10 @@ export const Feature: React.FC<SceneLayoutProps> = (props) => {
   // On the landscape two-column spread, let short copy GROW (up to this ceiling)
   // so it flows across both leaves instead of filling only the left column and
   // leaving the facing page blank. Single-column spreads keep shrink-only fitting.
-  const bodyMaxPx = !p && !hasImage ? Math.round(base * 1.6) : undefined;
+  // Kept modest (1.3x, not 1.6x): a larger ceiling let growth land close enough
+  // to the true overflow boundary that borderline-long copy got clipped by the
+  // key-points band below instead of shrinking to make room for it.
+  const bodyMaxPx = !p && !hasImage ? Math.round(base * 1.3) : undefined;
 
   const bodyRef = React.useRef<HTMLDivElement>(null);
   const bodyPx = useFitText(bodyRef, targetBodyPx, floorPx, bodyCols, [columns, targetBodyPx, p, bodyMaxPx], bodyMaxPx);

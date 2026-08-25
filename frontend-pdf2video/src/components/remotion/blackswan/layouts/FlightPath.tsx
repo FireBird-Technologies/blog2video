@@ -1,5 +1,6 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { useFitText } from "../components/useFitText";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { BlackswanLayoutProps } from "../types";
 import { neonTitleTubeStyle, StarField } from "./scenePrimitives";
 
@@ -157,11 +158,14 @@ export const FlightPath: React.FC<BlackswanLayoutProps> = (props) => {
     phrases,
     titleFontSize,
     descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
     fontFamily,
     aspectRatio = "landscape",
   } = props;
 
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const p = aspectRatio === "portrait";
 
   const pathPhrases = (phrases && phrases.length > 0 ? phrases : derivePhrases(narration, 8)).slice(0, 8);
@@ -171,13 +175,17 @@ export const FlightPath: React.FC<BlackswanLayoutProps> = (props) => {
 
   // ── Font/size tokens (all driven by the two sliders) ──
   const descFS  = descriptionFontSize ?? (p ? 32 : 31);
-  const titleFS = titleFontSize ?? (p ? 73 : 80);
+  const titleTarget = titleFontSize ?? (p ? 73 : 80);
+  const titleRef = React.useRef<HTMLHeadingElement>(null);
+  const narrationRef = React.useRef<HTMLParagraphElement>(null);
+  const { px: titleFS } = useFitText(titleRef, titleTarget, titleFontSizeIsUserSet ? titleTarget : Math.max(15, Math.round(titleTarget * 0.34)), [title, titleTarget, titleFontSizeIsUserSet, p, height], Math.round(height * (p ? 0.14 : 0.18)));
   const nodeD   = Math.round(descFS * 2.6);   // circle diameter
   const numFS   = Math.round(descFS * 0.95);  // number inside circle
   const labelFS = Math.round(descFS * 1.3);   // node label
   const arrowFS = Math.round(descFS * 1.6);   // arrow character
 
-  const narrationFS = p ? Math.round(descFS * 0.9) : Math.round(descFS * 1.1); // Adjusted font size for narration
+  const narrationTarget = p ? Math.round(descFS * 0.9) : Math.round(descFS * 1.1);
+  const { px: narrationFS } = useFitText(narrationRef, narrationTarget, descriptionFontSizeIsUserSet ? narrationTarget : Math.max(9, Math.round(narrationTarget * 0.38)), [narration, narrationTarget, descriptionFontSizeIsUserSet, titleFS, p, height], Math.round(height * (p ? 0.13 : 0.15)));
   const narrationOp = interpolate(frame, [80, 100], [0, 1], { extrapolateRight: "clamp" });
   const narrationY = interpolate(frame, [80, 100], [15, 0], { extrapolateRight: "clamp" });
 
@@ -231,7 +239,7 @@ export const FlightPath: React.FC<BlackswanLayoutProps> = (props) => {
           transform: `translateY(${titleY}px)`,
         }}
       >
-        <h1
+        <h1 ref={titleRef}
           style={{
             margin: 0,
             fontFamily: fontFamily ?? display,
@@ -469,7 +477,7 @@ export const FlightPath: React.FC<BlackswanLayoutProps> = (props) => {
             pointerEvents: "none",
           }}
         >
-          <p
+          <p ref={narrationRef}
             style={{
               margin: 0,
               fontFamily: fontFamily ?? mono,

@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { MosaicBackground } from "../MosaicBackground";
 import { MosaicImageReveal } from "../MosaicImageReveal";
 import { MOSAIC_COLORS, MOSAIC_DEFAULT_FONT_FAMILY } from "../constants";
@@ -32,7 +33,7 @@ function hslToHex(h: number, s: number, l: number): string {
   const k = (n: number) => (n + h / 30) % 12;
   const a = sl * Math.min(ll, 1 - ll);
   const f = (n: number) => ll - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
-  return "#" + [f(0), f(8), f(4)].map((x) => Math.round(x * 255).toString(16).padStart(2, "0")).join("");
+  return "#" + [f(0), f(8), f(4)].map((x) => Math.round(x * 255).toString(16).padStart(2, "00")).join("");
 }
 
 /** 8-stop palette centred on the accent colour (lighter → darker with slight hue drift) */
@@ -115,7 +116,7 @@ export const MosaicTitle: React.FC<MosaicLayoutProps> = ({
   const isPortrait = aspectRatio === "portrait";
   const p = isPortrait;
   const frame = useCurrentFrame();
-  const { durationInFrames } = useVideoConfig();
+  const { durationInFrames, height } = useVideoConfig();
   const motion = getSceneTransition(frame, durationInFrames, 34, 12);
   // Tile sweep — 130 frames ≈ 4.3s
   const tileEntry = interpolate(frame, [0, 130], [0, 1], {
@@ -143,12 +144,39 @@ export const MosaicTitle: React.FC<MosaicLayoutProps> = ({
   const family = fontFamily || MOSAIC_DEFAULT_FONT_FAMILY;
 
   const titleLines = wrapToLines((title || "TESSERAE").toUpperCase(), isPortrait ? 14 : 16);
-  const narrationLines = wrapToLines((narration || "STONE").toUpperCase(), isPortrait ? 18 : 22);
-  const titleLineH = titleFontSize ? Math.round(titleFontSize * 1.5) : (isPortrait ? 100 : 110);
-  const narLineH   = descriptionFontSize ? Math.round(descriptionFontSize * 1.8) : (isPortrait ? 58 : 66);
+  const narrationCopy = (narration || "STONE").toUpperCase();
+  // Preserve the narrow editorial subtitle for ordinary copy. When narration
+  // is unusually long, use the available poster width instead of building a
+  // very tall central column that forces the whole group toward the top rule.
+  const narrationMaxChars = narrationCopy.length > 180 ? (isPortrait ? 28 : 44) : (isPortrait ? 18 : 22);
+  const narrationLines = wrapToLines(narrationCopy, narrationMaxChars);
+  const titleTarget = titleFontSize ?? (p ? 96 : 84);
+  const narrationTarget = descriptionFontSize ?? (p ? 42 : 34);
+  const titleMeasureRef = React.useRef<HTMLDivElement>(null);
+  const narrationMeasureRef = React.useRef<HTMLDivElement>(null);
+  // The tiled glyphs need only a small line gap. A 1.5em box made ordinary
+  // titles consume their height budget too early and collapse into a narrow
+  // central column. Reserve most of the poster for the headline, while the
+  // narration keeps its own independent band below it.
+  const titleMeasureLineHeight = fontFamily ? 1.15 : 1.05;
+  const narrationMeasureLineHeight = fontFamily ? 1.3 : 1.15;
+  // Floors were hardcoded absolute px (12 / 9) — far below legible size, so
+  // very long copy shrank to near-illegibility instead of stopping at a
+  // reasonable minimum. Floor relative to the target size instead, matching
+  // every other fitted layout in this app; also widen the narration budget,
+  // which at 20% of frame height was tight enough to force the floor on
+  // anything longer than a short line.
+  const titleFloor = Math.max(24, Math.round(titleTarget * 0.35));
+  const narrationFloor = Math.max(16, Math.round(narrationTarget * 0.45));
+  const { px: fittedTitleSize } = useFitText(titleMeasureRef, titleTarget, titleFloor, [titleLines.join("\n"), titleTarget, titleFloor, titleMeasureLineHeight, p, height], Math.round(height * 0.46));
+  const { px: fittedNarrationSize } = useFitText(narrationMeasureRef, narrationTarget, narrationFloor, [narrationLines.join("\n"), narrationTarget, narrationFloor, narrationMeasureLineHeight, fittedTitleSize, p, height], Math.round(height * 0.3));
+  const titleLineH = Math.round(fittedTitleSize * 1.05);
+  const narLineH = Math.round(fittedNarrationSize * 1.15);
 
   return (
     <AbsoluteFill>
+      <div ref={titleMeasureRef} style={{ position: "absolute", visibility: "hidden", width: "84%", fontFamily: family, fontSize: fittedTitleSize, lineHeight: titleMeasureLineHeight, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{titleLines.join("\n")}</div>
+      <div ref={narrationMeasureRef} style={{ position: "absolute", visibility: "hidden", width: "84%", fontFamily: family, fontSize: fittedNarrationSize, lineHeight: narrationMeasureLineHeight, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{narrationLines.join("\n")}</div>
       <MosaicBackground
         bgColor={bgColor}
         accentColor={accentColor}
@@ -200,7 +228,10 @@ export const MosaicTitle: React.FC<MosaicLayoutProps> = ({
           alignItems: "center",
           justifyContent: isPortrait ? "space-evenly" : "center",
           textAlign: "center",
-          padding: isPortrait ? "12% 6%" : "0 8%",
+          // The rules sit at 12% and 88%; half a percent keeps tile edges clear
+          // without squeezing the poster-like headline toward the centre.
+          padding: isPortrait ? "13% 6%" : "13% 8%",
+          boxSizing: "border-box",
           opacity: motion.presence,
           filter: `blur(${(1 - motion.exit) * 2}px)`,
         }}
@@ -221,7 +252,8 @@ export const MosaicTitle: React.FC<MosaicLayoutProps> = ({
               style={{
                 fontFamily,
                 fontWeight: 900,
-                fontSize: titleFontSize ?? (p ? 96 : 84),
+                fontSize: fittedTitleSize,
+                overflowWrap: "anywhere",
                 color: (accentPalette(accentColor || MOSAIC_COLORS.gold))[0],
                 lineHeight: 1.15,
                 letterSpacing: "0.03em",
@@ -255,7 +287,7 @@ export const MosaicTitle: React.FC<MosaicLayoutProps> = ({
             display: "flex",
             flexDirection: "column",
             gap: 6,
-            marginTop: isPortrait ? 60 : 24,
+            marginTop: isPortrait ? 40 : 12,
             opacity: subIn,
           }}
         >
@@ -263,7 +295,8 @@ export const MosaicTitle: React.FC<MosaicLayoutProps> = ({
             <div
               style={{
                 fontFamily,
-                fontSize: descriptionFontSize ?? (p ? 42 : 34),
+                fontSize: fittedNarrationSize,
+                overflowWrap: "anywhere",
                 color: narrationPalette(textColor || MOSAIC_COLORS.textSecondary)[0],
                 lineHeight: 1.3,
                 letterSpacing: "0.02em",

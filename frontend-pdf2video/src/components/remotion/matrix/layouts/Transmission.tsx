@@ -1,4 +1,6 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import React from "react";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, spring } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { MatrixBackground } from "../MatrixBackground";
 import { buildHudStatus, DecodeSweep, GlitchSlice, ScanlinesOverlay, SignalWaveform, TerminalHUD } from "../components/MatrixArtifacts";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
@@ -49,9 +51,11 @@ export const Transmission: React.FC<MatrixLayoutProps> = ({
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const p = aspectRatio === "portrait";
   const accent = accentColor || "#00FF41";
   const resolvedFontFamily = fontFamily ?? MATRIX_DEFAULT_FONT_FAMILY;
+  const hasImage = !!imageUrl || !!videoUrl;
 
   const displayPhrases =
     phrases && phrases.length > 0
@@ -59,6 +63,10 @@ export const Transmission: React.FC<MatrixLayoutProps> = ({
       : narration
         ? narration.split(/[.!?]+/).filter((s) => s.trim())
         : [title];
+  const longestPhrase = displayPhrases.reduce((longest, phrase) => phrase.length > longest.length ? phrase : longest, "");
+  const phraseMirrorRef = React.useRef<HTMLDivElement>(null);
+  const phraseTarget = titleFontSize ?? (p ? 84 : 78);
+  const { px: fittedPhraseSize } = useFitText(phraseMirrorRef, phraseTarget, 16, [longestPhrase, phraseTarget, p, hasImage], height * (hasImage ? (p ? 0.24 : 0.42) : 0.5));
 
   const holdFrames = 45; // Reduced from 60 to make transitions faster
   const currentIdx = Math.floor(frame / holdFrames) % displayPhrases.length;
@@ -121,8 +129,6 @@ export const Transmission: React.FC<MatrixLayoutProps> = ({
     extrapolateRight: "clamp",
   });
 
-  const hasImage = !!imageUrl || !!videoUrl;
-
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
       <MatrixBackground bgColor={bgColor} opacity={0.2} fontFamily={resolvedFontFamily} />
@@ -134,6 +140,7 @@ export const Transmission: React.FC<MatrixLayoutProps> = ({
       <DecodeSweep accentColor={accent} startFrame={4} seed={27} />
       <GlitchSlice accentColor={accent} every={66} seed={63} />
       <ScanlinesOverlay accentColor={accent} intensity={0.85} />
+      <div ref={phraseMirrorRef} style={{ position: "absolute", visibility: "hidden", width: hasImage && !p ? "48%" : "84%", fontSize: phraseTarget, fontWeight: 700, letterSpacing: "-0.02em", lineHeight: 1.15, fontFamily: resolvedFontFamily, overflowWrap: "anywhere" }}>{longestPhrase}</div>
 
       {displayPhrases.map((phrase, i) => {
         const isActive = currentIdx === i;
@@ -232,12 +239,13 @@ export const Transmission: React.FC<MatrixLayoutProps> = ({
               {/* Main phrase */}
               <div
                 style={{
-                  fontSize: titleFontSize ?? (p ? 84 : 78),
+                  fontSize: fittedPhraseSize,
                   fontWeight: 700,
                   color: accent,
                   letterSpacing: "-0.02em",
                   lineHeight: 1.15,
                   fontFamily: resolvedFontFamily,
+                  overflowWrap: "anywhere",
                   textShadow: `0 0 16px ${accent}44`,
                   // Apply body text animations
                   opacity: bodyOpacity,
@@ -253,4 +261,3 @@ export const Transmission: React.FC<MatrixLayoutProps> = ({
     </AbsoluteFill>
   );
 };
-

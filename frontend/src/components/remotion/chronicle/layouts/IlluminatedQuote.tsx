@@ -10,6 +10,7 @@ import { OrnamentalBorder } from "../components/OrnamentalBorder";
 import { EmberSparks, InkFlourish } from "../components/ChronicleArtifacts";
 import { RibbonBanner, QuillText } from "../components/QuillInk";
 import { EmbossedImage } from "../components/EmbossedImage";
+import { useFitText } from "../components/useFitText";
 
 /**
  * IlluminatedQuote — pull quote / memorable line with ornamental vine corners,
@@ -26,6 +27,8 @@ export const IlluminatedQuote: React.FC<ChronicleLayoutProps> = ({
   aspectRatio = "landscape",
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
   imageUrl,
   imageObjectPosition,
@@ -42,6 +45,23 @@ export const IlluminatedQuote: React.FC<ChronicleLayoutProps> = ({
 
   const quoteText = (quote ?? narration ?? title ?? "").trim();
   const attributionText = (attribution ?? title ?? "").trim();
+
+  /* ── Auto-fit (quote) ─────────────────────────────────────────
+     The quote is unbounded user input in a fixed-size scene. QuillText's
+     mode="word" (used in every branch of renderQuote, including the
+     highlight-phrase split) renders the full text from frame 0 — only
+     opacity/transform animate — so the wrapper is safe to ref directly.
+     The ribbon-banner attribution is a short label sized independently of
+     the quote and is left untouched. */
+  const fitQuoteRef = React.useRef<HTMLDivElement>(null);
+  const fitQuoteTarget = titleFontSize ?? (p ? 54 : 58);
+  const { px: fitQuotePx } = useFitText(
+    fitQuoteRef,
+    fitQuoteTarget,
+    titleFontSizeIsUserSet ? fitQuoteTarget : Math.round(fitQuoteTarget * 0.4),
+    [quoteText, highlightPhrase, fitQuoteTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.34 : 0.4)),
+  );
 
   // Highlight phrase rendering (red-ink underline on the phrase if present)
   const renderQuote = (): React.ReactNode => {
@@ -190,14 +210,16 @@ export const IlluminatedQuote: React.FC<ChronicleLayoutProps> = ({
 
         {/* Quote text */}
         <div
+          ref={fitQuoteRef}
           style={{
             fontFamily: CHRONICLE_HEADING_FONT,
             fontStyle: "italic",
-            fontSize: titleFontSize ?? (p ? 54 : 58),
+            fontSize: fitQuotePx,
             color: textColor,
             lineHeight: 1.25,
             fontWeight: 400,
             letterSpacing: "0.01em",
+            width: "100%",
           }}
         >
           {renderQuote()}

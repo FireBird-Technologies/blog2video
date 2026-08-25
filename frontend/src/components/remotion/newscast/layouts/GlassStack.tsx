@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import type { NewscastLayoutProps } from "./types";
 import { NewsCastLayoutImageBackground } from "../NewsCastLayoutImageBackground";
 import {
@@ -42,12 +43,38 @@ export const GlassStack: React.FC<NewscastLayoutProps> = ({
   textColor,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { width, height, durationInFrames } = useVideoConfig();
   const portraitScale = getNewscastPortraitTypeScale(width, height);
   const p = height > width;
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input above a fixed set of items
+     (capped at 3); long copy was clipped by the card's overflow:hidden.
+     Measure the real available height and shrink to fit. An explicitly
+     chosen size is honored exactly (minPx === targetPx no-ops the hook). */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitDescRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 31 : 24);
+  const fitDescTarget = descriptionFontSize ?? (p ? 18 : 14);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.45),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.16 : 0.2)),
+  );
+  const { px: fitDescPx } = useFitText(
+    fitDescRef,
+    fitDescTarget,
+    descriptionFontSizeIsUserSet ? fitDescTarget : Math.round(fitDescTarget * 0.5),
+    [narration, fitDescTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * (p ? 0.16 : 0.18)),
+  );
   const sceneFadeFrames = 16;
   const sceneOpacity = interpolate(
     frame,
@@ -137,10 +164,11 @@ export const GlassStack: React.FC<NewscastLayoutProps> = ({
               />
 
               <div
+                ref={fitTitleRef}
                 style={{
                   marginTop: 12,
                   fontFamily: newscastFont(fontFamily, "title"),
-                  fontSize: titleFontSize ?? (p ? 31 : 24),
+                  fontSize: fitTitlePx,
                   fontWeight: HEADLINE_WEIGHT,
                   color: "white",
                   textTransform: "uppercase",
@@ -154,10 +182,11 @@ export const GlassStack: React.FC<NewscastLayoutProps> = ({
               </div>
               {safeNarration ? (
                 <div
+                  ref={fitDescRef}
                   style={{
                     marginTop: 8,
                     fontFamily: newscastFont(fontFamily, "body"),
-                    fontSize: descriptionFontSize ?? (p ? 18 : 14),
+                    fontSize: fitDescPx,
                     color: STEEL,
                     lineHeight: 1.5,
                     opacity: 0.95,

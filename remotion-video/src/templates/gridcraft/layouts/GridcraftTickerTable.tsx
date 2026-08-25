@@ -3,6 +3,7 @@ import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remo
 import type { GridcraftLayoutProps } from "../types";
 import { GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY } from "../constants";
 import { COLORS, glass } from "../utils/styles";
+import { useFitText } from "../components/useFitText";
 
 const MAX_ROWS = 20;
 const MAX_COLS = 6;
@@ -34,6 +35,8 @@ export const GridcraftTickerTable: React.FC<GridcraftLayoutProps> = ({
   aspectRatio = "landscape",
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   tickerTable,
   tickerTitle,
   tickerFootnote,
@@ -47,6 +50,29 @@ export const GridcraftTickerTable: React.FC<GridcraftLayoutProps> = ({
 
   const titleSize = titleFontSize ?? (p ? 90 : 87);
   const descSize = descriptionFontSize ?? (p ? 39 : 33);
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and footnote sit in fixed-fraction bands above/below the flex-1
+     table (not shrinkable measurable boxes), so budget each from a fraction
+     of the frame height. */
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const footnoteRef = React.useRef<HTMLDivElement>(null);
+  const titleBudgetPx = Math.round(height * (p ? 0.16 : 0.18));
+  const { px: titlePx } = useFitText(
+    titleRef,
+    titleSize,
+    titleFontSizeIsUserSet ? titleSize : p ? 30 : 26,
+    [title, titleSize, titleFontSizeIsUserSet, titleBudgetPx, p],
+    titleBudgetPx,
+  );
+  const footnoteBudgetPx = Math.round(height * 0.06);
+  const { px: footnotePx } = useFitText(
+    footnoteRef,
+    descSize * 0.82,
+    descriptionFontSizeIsUserSet ? descSize * 0.82 : p ? 16 : 13,
+    [tickerFootnote, narration, descSize, descriptionFontSizeIsUserSet, footnoteBudgetPx, titlePx, p],
+    footnoteBudgetPx,
+  );
 
   const rawHeaders = (tickerTable?.headers ?? []).slice(0, MAX_COLS);
   const rawRows = (tickerTable?.rows ?? []).slice(0, MAX_ROWS).map((r) => (r ?? []).slice(0, MAX_COLS));
@@ -93,7 +119,7 @@ export const GridcraftTickerTable: React.FC<GridcraftLayoutProps> = ({
         {/* Title block */}
         <div style={{ opacity: titleOp, flexShrink: 0, marginBottom: Math.round(height * 0.022), alignSelf: fewCols ? "center" : "stretch", textAlign: fewCols ? "center" : "left", width: tableWidthCap, maxWidth: "100%" }}>
           <div style={{ height: 4, background: accentColor, width: `${accentBarW}%`, borderRadius: 2, marginBottom: 12 }} />
-          <div style={{ fontFamily: SANS, fontWeight: 800, fontSize: titleSize, lineHeight: 1.05, letterSpacing: "-0.02em", color: textColor }}>
+          <div ref={titleRef} style={{ fontFamily: SANS, fontWeight: 800, fontSize: titlePx, lineHeight: 1.05, letterSpacing: "-0.02em", color: textColor }}>
             {title}
           </div>
           {tickerTitle && (
@@ -143,7 +169,7 @@ export const GridcraftTickerTable: React.FC<GridcraftLayoutProps> = ({
 
         {/* Footnote */}
         {(tickerFootnote || narration) && (
-          <div style={{ opacity: footnoteOp, flexShrink: 0, marginTop: Math.round(height * 0.014), fontFamily: SANS, fontSize: Math.round(descSize * 0.82), color: COLORS.MUTED, lineHeight: 1.4 }}>
+          <div ref={footnoteRef} style={{ opacity: footnoteOp, flexShrink: 0, marginTop: Math.round(height * 0.014), fontFamily: SANS, fontSize: footnotePx, color: COLORS.MUTED, lineHeight: 1.4 }}>
             {tickerFootnote || narration}
           </div>
         )}

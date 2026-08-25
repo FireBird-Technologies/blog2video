@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import type { NewscastLayoutProps } from "./types";
 import { NewsCastLayoutImageBackground } from "../NewsCastLayoutImageBackground";
 import {
@@ -47,12 +48,38 @@ export const CinematicTitle: React.FC<NewscastLayoutProps> = ({
   textColor,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
+
   const portraitScale = getNewscastPortraitTypeScale(width, height);
   const p = height > width;
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input; long copy overflowed the
+     frame. Measure the real available height and shrink to fit. An explicitly
+     chosen size is honored exactly (minPx === targetPx no-ops the hook). */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitDescRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 94 : 72);
+  const fitDescTarget = descriptionFontSize ?? (p ? 23 : 18);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef, fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.4),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.22 : 0.26)),
+  );
+  const { px: fitDescPx } = useFitText(
+    fitDescRef, fitDescTarget,
+    descriptionFontSizeIsUserSet ? fitDescTarget : Math.round(fitDescTarget * 0.55),
+    [narration, fitDescTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    // Newscast keeps a lower-third + ticker across the bottom of the frame,
+    // so the body gets the mid-band only, not the full height.
+    Math.round(height * (p ? 0.32 : 0.36)),
+  );
   const heroBarH = Math.max(36, Math.ceil(36 * portraitScale));
   const heroTickerBottomPad = 36 + (heroBarH - 36);
   const fadeIn = interpolate(frame, [0, 16], [0, 1], { extrapolateRight: "clamp" });
@@ -410,7 +437,13 @@ export const CinematicTitle: React.FC<NewscastLayoutProps> = ({
           position: "absolute",
           inset: 0,
           zIndex: 10,
-          padding: "6% 6% 7% 6%",
+          // Bottom padding must clear the persistent lower-third + ticker
+          // (~22% of the frame); at 7% long copy ran underneath them.
+          padding: "6% 6% 24% 6%",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          overflow: "hidden",
           ...panelTumbleStyle(heroTumble),
           opacity: fadeIn * heroTumble.opacity,
         }}
@@ -470,10 +503,10 @@ export const CinematicTitle: React.FC<NewscastLayoutProps> = ({
             </div>
           </div>
 
-          <h1
+          <h1 ref={fitTitleRef}
             style={{
               fontFamily: newscastFont(fontFamily, "title"),
-              fontSize: titleFontSize ?? (p ? 94 : 72),
+              fontSize: fitTitlePx,
               fontWeight: HEADLINE_WEIGHT,
               textTransform: "uppercase",
               letterSpacing: 1,
@@ -508,10 +541,10 @@ export const CinematicTitle: React.FC<NewscastLayoutProps> = ({
           </div>
 
           {narration ? (
-            <div
+            <div ref={fitDescRef}
               style={{
                 fontFamily: newscastFont(fontFamily, "body"),
-                fontSize: descriptionFontSize ?? (p ? 23 : 18),
+                fontSize: fitDescPx,
                 fontWeight: 400,
                 lineHeight: 1.65,
                 color: STEEL,

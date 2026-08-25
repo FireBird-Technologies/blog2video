@@ -15,6 +15,7 @@ import {
   YAxis,
 } from "recharts";
 import type { SceneLayoutProps } from "../types";
+import { useFitText } from "../components/useFitText";
 import {
   SAKURA,
   SAKURA_DISPLAY_FONT,
@@ -80,6 +81,8 @@ export const SakuraDataChart: React.FC<SceneLayoutProps> = ({
   fontFamily,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   chartSummary = "",
   subtitle = "",
   chartYAxisTicks = [],
@@ -99,7 +102,7 @@ export const SakuraDataChart: React.FC<SceneLayoutProps> = ({
   const ink = textColor || SAKURA.ink;
   const accent = accentColor || SAKURA.crimson;
 
-  const titleSize = titleFontSize ?? (p ? 70 : 66);
+  const titleTargetSize = titleFontSize ?? (p ? 70 : 66);
   const descSize = descriptionFontSize ?? (p ? 36 : 34);
   const chartTickSize = Math.round(descSize * 0.86);
   const chartAxisLabelSize = Math.round(descSize * 0.72);
@@ -158,6 +161,33 @@ export const SakuraDataChart: React.FC<SceneLayoutProps> = ({
     if (!hasRealChart) return "";
     return buildAutoChartSummary(chartInputs, resolvedChartType);
   }, [chartSummary, hasRealChart, chartInputs, resolvedChartType]);
+
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const summaryRef = React.useRef<HTMLDivElement>(null);
+  const narrationRef = React.useRef<HTMLDivElement>(null);
+  const { px: titleSize } = useFitText(
+    titleRef,
+    titleTargetSize,
+    Math.max(28, Math.round(titleTargetSize * 0.55)),
+    [title, titleTargetSize, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.17 : 0.2)),
+  );
+  const summaryTargetSize = descSize * 0.9;
+  const { px: summarySize } = useFitText(
+    summaryRef,
+    summaryTargetSize,
+    Math.max(18, Math.round(summaryTargetSize * 0.58)),
+    [summaryText, summaryTargetSize, descriptionFontSizeIsUserSet, titleSize, p, height],
+    Math.round(height * (p ? 0.22 : 0.38)),
+  );
+  const narrationTargetSize = descSize * 0.82;
+  const { px: narrationSize } = useFitText(
+    narrationRef,
+    narrationTargetSize,
+    Math.max(18, Math.round(narrationTargetSize * 0.58)),
+    [narration, narrationTargetSize, descriptionFontSizeIsUserSet, summarySize, p, height],
+    Math.round(height * (p ? 0.15 : 0.16)),
+  );
 
   const lineDataBounds = useMemo(() => {
     let lo = Infinity;
@@ -615,7 +645,7 @@ export const SakuraDataChart: React.FC<SceneLayoutProps> = ({
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", padding: p ? "12% 7% 6%" : "9% 7% 5%" }}>
         {/* Title */}
         <div style={{ opacity: titleOp, marginBottom: Math.round(height * 0.024), textAlign: "center" }}>
-          <div style={{ fontFamily: displayFont, fontWeight: 700, fontSize: titleSize, lineHeight: 1.08, color: ink, letterSpacing: "0.01em" }}>
+          <div ref={titleRef} style={{ fontFamily: displayFont, fontWeight: 700, fontSize: titleSize, lineHeight: 1.08, color: ink, letterSpacing: "0.01em" }}>
             {title}
           </div>
           <div style={{ display: "flex", justifyContent: "center", marginTop: Math.round(height * 0.012) }}>
@@ -692,7 +722,7 @@ export const SakuraDataChart: React.FC<SceneLayoutProps> = ({
               <div style={{ marginBottom: Math.round(descSize * 0.4) }}>
                 <PetalDivider width={Math.min(160, (p ? width : width * 0.16))} lineColor={hexToRgba(accent, 0.5)} flowerColor={accent} flowerR={5} startFrame={34} durationFrames={18} />
               </div>
-              <div style={{ fontFamily: bodyFont, fontWeight: 400, fontSize: descSize * 0.9, lineHeight: 1.6, color: ink, opacity: 0.95, whiteSpace: "pre-wrap" }}>
+              <div ref={summaryRef} style={{ fontFamily: bodyFont, fontWeight: 400, fontSize: summarySize, lineHeight: 1.6, color: ink, opacity: 0.95, whiteSpace: "pre-wrap" }}>
                 {summaryText
                   ? summaryText.split(/(__[^_]+__)/).map((seg: string, i: number) => {
                       if (seg.startsWith("__") && seg.endsWith("__")) {
@@ -709,7 +739,7 @@ export const SakuraDataChart: React.FC<SceneLayoutProps> = ({
         {/* Narration */}
         {narration && (
           <div style={{ opacity: interpolate(frame, [36, 56], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }), marginTop: Math.round(height * 0.018) }}>
-            <div style={{ fontFamily: bodyFont, fontStyle: "italic", fontSize: descSize * 0.82, color: ink, opacity: 0.60, lineHeight: 1.45, textAlign: "center", overflowWrap: "break-word", wordBreak: "break-word" }}>
+            <div ref={narrationRef} style={{ fontFamily: bodyFont, fontStyle: "italic", fontSize: narrationSize, color: ink, opacity: 0.60, lineHeight: 1.45, textAlign: "center", overflowWrap: "break-word", wordBreak: "break-word" }}>
               {narration}
             </div>
           </div>

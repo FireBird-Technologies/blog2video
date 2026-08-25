@@ -10,6 +10,7 @@ import { SceneLayoutProps } from "../types";
 import { AnimatedImage } from "./AnimatedImage";
 import { AnimatedVideo } from "./AnimatedVideo";
 import { GeometricBackground } from "../components/GeometricBackground";
+import { useFitText } from "../components/useFitText";
 
 export const HeroImage: React.FC<SceneLayoutProps> = (props) => {
   const {
@@ -29,6 +30,8 @@ export const HeroImage: React.FC<SceneLayoutProps> = (props) => {
     aspectRatio,
     titleFontSize,
     descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
     fontFamily,
     sceneIndex,
   } = props;
@@ -38,6 +41,46 @@ export const HeroImage: React.FC<SceneLayoutProps> = (props) => {
   const { durationInFrames, width, height } = useVideoConfig();
   const isPortrait = aspectRatio === "portrait";
   const hasImage = !!imageUrl || !!videoUrl;
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input. The content column is
+     centred with no height limit of its own (padding: 80px on all sides), so
+     long copy just grows past the frame and is clipped by overflow:hidden.
+     Title and narration each fit against their own fixed, independent
+     budget. A size the user explicitly picked is honored exactly (minPx ===
+     targetPx no-ops).
+
+     No give-back cross-talk between the two: a useLayoutEffect+setState
+     chain reacting to another useFitText's overflow output creates a
+     multi-render convergence that Remotion's per-frame headless capture can
+     settle at different points on different frames (confirmed via a real
+     render — frame-to-frame scene-change score hit 1.0, i.e. maximum, twice
+     in the first ten frames, in the equivalent newscast/newspaper opening
+     scenes). */
+  const titleRef = React.useRef<HTMLHeadingElement>(null);
+  const narrationRef = React.useRef<HTMLParagraphElement>(null);
+
+  const actualTitleFontSize = titleFontSize ?? 76;
+  const actualDescriptionFontSize = descriptionFontSize ?? 40;
+
+  const titleBudgetPx = Math.round(height * (hasImage ? 0.34 : 0.3));
+
+  const { px: titlePx } = useFitText(
+    titleRef,
+    actualTitleFontSize,
+    titleFontSizeIsUserSet ? actualTitleFontSize : 34,
+    [title, actualTitleFontSize, titleFontSizeIsUserSet, titleBudgetPx, hasImage],
+    titleBudgetPx,
+  );
+
+  const narrationBudgetPx = Math.round(height * (hasImage ? 0.28 : 0.4));
+  const { px: narrationPx } = useFitText(
+    narrationRef,
+    actualDescriptionFontSize,
+    descriptionFontSizeIsUserSet ? actualDescriptionFontSize : 18,
+    [narration, actualDescriptionFontSize, descriptionFontSizeIsUserSet, titlePx, narrationBudgetPx, hasImage],
+    narrationBudgetPx,
+  );
 
   // --- ENTRANCE ANIMATIONS ---
   const contentEntranceDelay = 10;
@@ -232,11 +275,12 @@ export const HeroImage: React.FC<SceneLayoutProps> = (props) => {
           </svg>
         </div>
 
-        <div style={{ textAlign: "center", maxWidth: "90%", zIndex: 10 }}>
+        <div style={{ textAlign: "center", maxWidth: "90%", maxHeight: "100%", zIndex: 10, display: "flex", flexDirection: "column", minHeight: 0 }}>
           <h1
+            ref={titleRef}
             style={{
               fontFamily: fontFamily ?? "'Roboto Slab', serif",
-              fontSize: titleFontSize ?? 76,
+              fontSize: titlePx,
               fontWeight: 800,
               lineHeight: 1.1,
               color: textColor || "black",
@@ -244,6 +288,7 @@ export const HeroImage: React.FC<SceneLayoutProps> = (props) => {
               textTransform: "uppercase",
               transform: `scale(${hasImage ? titleVanishScale : 1})`,
               opacity: hasImage ? titleVanishOpacity : 1,
+              flexShrink: 0,
             }}
           >
             {title}
@@ -267,9 +312,10 @@ export const HeroImage: React.FC<SceneLayoutProps> = (props) => {
 
           {narration && (
             <p
+              ref={narrationRef}
               style={{
                 fontFamily: fontFamily ?? "'Roboto Slab', serif",
-                fontSize: descriptionFontSize ?? 40,
+                fontSize: narrationPx,
                 fontWeight: 400,
                 lineHeight: 1.4,
                 color: textColor || "black",
@@ -277,6 +323,9 @@ export const HeroImage: React.FC<SceneLayoutProps> = (props) => {
                 maxWidth: "40ch",
                 transform: `scale(${hasImage ? vanishItemScale : 1})`,
                 opacity: hasImage ? vanishItemOpacity : 1,
+                flex: "0 1 auto",
+                minHeight: 0,
+                overflow: "hidden",
               }}
             >
               {narration}

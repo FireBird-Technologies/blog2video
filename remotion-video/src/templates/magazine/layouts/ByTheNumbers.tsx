@@ -1,6 +1,7 @@
 import React from "react";
 import { useVideoConfig, interpolate } from "remotion";
 import { SceneLayoutProps } from "../types";
+import { useFitText } from "../components/useFitText";
 import {
   MagazinePage,
   MAG_TEXTURES,
@@ -95,8 +96,48 @@ export const ByTheNumbers: React.FC<SceneLayoutProps> = (props) => {
 
   // Heading + standfirst sizing — anchor off titleFontSize when supplied, else a
   // sensible display default. Kept plain (no blur/shadow) to stay cheap to paint.
-  const headingPx = props.titleFontSize ? Math.round(props.titleFontSize * 0.6) : p ? 40 : 56;
-  const standPx = Math.max(15, Math.round(headingPx * 0.3));
+  const headingTargetPx = props.titleFontSize ? Math.round(props.titleFontSize * 0.6) : p ? 40 : 56;
+  const standTargetPx = Math.max(15, Math.round(headingTargetPx * 0.3));
+
+  /* The three upper text bands are unbounded user input. Measure the actual page
+     content height and fit each band independently, keeping most of the page
+     reserved for the statistic grid instead of allowing a long heading to push
+     the figures below the sheet. */
+  const pageRef = React.useRef<HTMLDivElement>(null);
+  const displayTitleRef = React.useRef<HTMLDivElement>(null);
+  const headingRef = React.useRef<HTMLDivElement>(null);
+  const standRef = React.useRef<HTMLDivElement>(null);
+  const [pageHeight, setPageHeight] = React.useState(0);
+  React.useLayoutEffect(() => {
+    const next = pageRef.current?.clientHeight ?? 0;
+    if (next > 0) setPageHeight((prev) => Math.abs(prev - next) <= 1 ? prev : next);
+  }, [p, displayTitle, heading, standfirst, n]);
+
+  const displayTitleTargetPx = p ? 60 : 84;
+  const displayTitleBudget = pageHeight > 0 ? pageHeight * (p ? 0.1 : 0.14) : undefined;
+  const headingBudget = pageHeight > 0 ? pageHeight * (p ? 0.2 : 0.22) : undefined;
+  const standBudget = pageHeight > 0 ? pageHeight * 0.1 : undefined;
+  const { px: displayTitlePx } = useFitText(
+    displayTitleRef,
+    displayTitleTargetPx,
+    Math.max(14, Math.round(displayTitleTargetPx * 0.28)),
+    [displayTitle, displayTitleTargetPx, displayTitleBudget, p],
+    displayTitleBudget,
+  );
+  const { px: headingPx } = useFitText(
+    headingRef,
+    headingTargetPx,
+    Math.max(12, Math.round(headingTargetPx * 0.24)),
+    [heading, headingTargetPx, headingBudget, p],
+    headingBudget,
+  );
+  const { px: standPx } = useFitText(
+    standRef,
+    standTargetPx,
+    10,
+    [standfirst, standTargetPx, standBudget, headingPx, p],
+    standBudget,
+  );
 
   // Portrait keeps its 2-column grid; landscape flows the stats in a single row so
   // two figures read as a centred pair, not two marooned columns.
@@ -109,7 +150,7 @@ export const ByTheNumbers: React.FC<SceneLayoutProps> = (props) => {
 
   return (
     <MagazinePage colors={colors} section={sectionLabel} issue={props.issueLabel ?? "Data"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} hideGutter lightChrome cameraMove={props.cameraMove} hidePrintTexture>
-      <div style={{ height: "100%", display: "flex", flexDirection: "column", position: "relative" }}>
+      <div ref={pageRef} style={{ height: "100%", minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column", position: "relative" }}>
         {/* Section header — a bold, unmistakable masthead so the scene reads as
             "By the Numbers" at a glance: a small red eyebrow, an oversized display
             title, and a heavy full-width rule that draws in beneath it. */}
@@ -118,10 +159,11 @@ export const ByTheNumbers: React.FC<SceneLayoutProps> = (props) => {
             {`${kickerPrefix} · ${sectionLabel}`}
           </Kicker>
           <div
+            ref={displayTitleRef}
             style={{
               fontFamily: MAG_DISPLAY,
               fontWeight: 900,
-              fontSize: p ? 60 : 84,
+              fontSize: displayTitlePx,
               lineHeight: 1.12,
               letterSpacing: "-0.02em",
               color: text,
@@ -143,8 +185,9 @@ export const ByTheNumbers: React.FC<SceneLayoutProps> = (props) => {
             page never opens onto blank paper above the figures. Rendered only when the
             prompt supplied a title; otherwise the stats-only layout is unchanged. */}
         {hasHeading && (
-          <div style={{ marginTop: p ? 24 : 30 }}>
+          <div style={{ flex: "0 1 auto", minHeight: 0, overflow: "hidden", marginTop: p ? 24 : 30 }}>
             <div
+              ref={headingRef}
               style={{
                 fontFamily: MAG_DISPLAY,
                 fontWeight: 800,
@@ -161,6 +204,7 @@ export const ByTheNumbers: React.FC<SceneLayoutProps> = (props) => {
             </div>
             {standfirst && (
               <div
+                ref={standRef}
                 style={{
                   fontFamily: MAG_SANS,
                   fontWeight: 600,

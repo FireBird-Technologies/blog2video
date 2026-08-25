@@ -1,4 +1,6 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import React from "react";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, spring } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { MatrixBackground } from "../MatrixBackground";
 import { buildHudStatus, GlitchSlice, RainBurst, ScanlinesOverlay, TerminalHUD } from "../components/MatrixArtifacts";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
@@ -37,10 +39,25 @@ export const MatrixTitle: React.FC<MatrixLayoutProps> = ({
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
+  const { width, height } = useVideoConfig();
   const fps = 30;
   const p = aspectRatio === "portrait";
   const accent = accentColor || "#00FF41";
   const resolvedFontFamily = fontFamily ?? MATRIX_DEFAULT_FONT_FAMILY;
+  const hasImage = !!imageUrl || !!videoUrl;
+  const titleRef = React.useRef<HTMLHeadingElement>(null);
+  const narrationRef = React.useRef<HTMLParagraphElement>(null);
+  const titleTarget = titleFontSize ?? (p ? 128 : 110);
+  const narrationTarget = descriptionFontSize ?? (p ? 52 : 53);
+  const { px: fittedTitleSize } = useFitText(titleRef, titleTarget, 18, [title, titleTarget, p, hasImage], height * (hasImage ? 0.25 : 0.38));
+  const narrationBudget = Math.round(height * (hasImage && !p ? 0.34 : 0.42));
+  const { px: fittedNarrationSize } = useFitText(
+    narrationRef,
+    narrationTarget,
+    p ? 12 : 11,
+    [narration, narrationTarget, p, hasImage, width, height],
+    narrationBudget,
+  );
 
   const titleChars = title.split("");
   // Speed up decode for longer titles so animation completes in time
@@ -59,8 +76,6 @@ export const MatrixTitle: React.FC<MatrixLayoutProps> = ({
     fps,
     config: { damping: 20, stiffness: 160 },
   });
-
-  const hasImage = !!imageUrl || !!videoUrl;
 
   // --- Image entrance animation ---
   const imageDelay = 20; // Start image animation at this frame
@@ -154,11 +169,45 @@ export const MatrixTitle: React.FC<MatrixLayoutProps> = ({
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
+            width: hasImage && !p ? undefined : "100%",
+            maxHeight: "100%",
+            minHeight: 0,
           }}
         >
+          {/* Hidden full-text mirror carries the real heading semantics — the
+              visible element below is a decorative per-character decode
+              animation (an unrevealed character renders as a blank space,
+              not its real glyph), so it's marked aria-hidden and this
+              invisible-but-measured <h1> is what a screen reader announces.
+              Measuring the mirror (not the animating text) also means the
+              fit is computed from the true final content, not whatever
+              partially-blank shape the decode happens to be in at the frame
+              the probe runs. */}
           <h1
+            ref={titleRef}
             style={{
-              fontSize: titleFontSize ?? (p ? 128 : 110),
+              position: "absolute",
+              visibility: "hidden",
+              pointerEvents: "none",
+              fontSize: fittedTitleSize,
+              fontWeight: 700,
+              fontFamily: resolvedFontFamily,
+              textAlign: "center",
+              lineHeight: 1.1,
+              letterSpacing: "-0.02em",
+              textTransform: "uppercase",
+              margin: 0,
+              width: "100%",
+              maxWidth: "95%",
+              overflowWrap: "anywhere",
+            }}
+          >
+            {title}
+          </h1>
+          <div
+            aria-hidden
+            style={{
+              fontSize: fittedTitleSize,
               fontWeight: 700,
               color: accent,
               fontFamily: resolvedFontFamily,
@@ -166,7 +215,10 @@ export const MatrixTitle: React.FC<MatrixLayoutProps> = ({
               lineHeight: 1.1,
               letterSpacing: "-0.02em",
               textTransform: "uppercase",
+              margin: 0,
+              width: "100%",
               maxWidth: "95%",
+              overflowWrap: "anywhere",
               textShadow: `0 0 20px ${accent}88, 0 0 40px ${accent}44`,
             }}
           >
@@ -200,21 +252,27 @@ export const MatrixTitle: React.FC<MatrixLayoutProps> = ({
                 </span>
               );
             })}
-          </h1>
+          </div>
 
           {narration && (
             <p
+              ref={narrationRef}
               style={{
-                fontSize: descriptionFontSize ?? (p ? 52 : 53),
+                fontSize: fittedNarrationSize,
                 fontWeight: 400,
                 color: `${accent}88`,
                 fontFamily: resolvedFontFamily,
                 textAlign: "center",
-                marginTop: p ? 20 : 28,
+                margin: `${p ? 20 : 28}px 0 0`,
                 letterSpacing: "0.08em",
                 opacity: subtitleOpacity,
                 transform: `translateY(${(1 - subtitleY) * 12}px)`,
-                maxWidth: p ? "85%" : 900,
+                width: "100%",
+                maxWidth: p ? "88%" : hasImage ? "100%" : Math.min(1320, width * 0.72),
+                maxHeight: narrationBudget,
+                flexShrink: 0,
+                overflow: "hidden",
+                overflowWrap: "anywhere",
               }}
             >
               {narration}
@@ -225,4 +283,3 @@ export const MatrixTitle: React.FC<MatrixLayoutProps> = ({
     </AbsoluteFill>
   );
 };
-

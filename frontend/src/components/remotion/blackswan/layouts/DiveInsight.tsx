@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { useFitText } from "../components/useFitText";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { BlackswanLayoutProps } from "../types";
 import { BlackswanFlock } from "./birds";
 import { NeonWater } from "./neonWater";
@@ -68,6 +69,8 @@ export const DiveInsight: React.FC<BlackswanLayoutProps> = (props) => {
     bgColor = "#000000",
     titleFontSize,
     descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
     fontFamily,
     aspectRatio = "landscape",
     imageUrl,
@@ -81,6 +84,7 @@ export const DiveInsight: React.FC<BlackswanLayoutProps> = (props) => {
   } = props;
 
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const p = aspectRatio === "portrait";
   const hasImage = !!(imageUrl || videoUrl);
 
@@ -100,8 +104,12 @@ export const DiveInsight: React.FC<BlackswanLayoutProps> = (props) => {
       : insightText;
   const pieces = highlighted.split(/(__S__|__E__)/);
 
-  const quoteFontSize = titleFontSize ?? (p ? 80 : 67);
-  const subFontSize   = descriptionFontSize ?? (p ? 33 : 39);
+  const quoteTarget = titleFontSize ?? (p ? 80 : 67);
+  const subTarget = descriptionFontSize ?? (p ? 33 : 39);
+  const quoteRef = React.useRef<HTMLDivElement>(null);
+  const subRef = React.useRef<HTMLParagraphElement>(null);
+  const { px: quoteFontSize } = useFitText(quoteRef, quoteTarget, titleFontSizeIsUserSet ? quoteTarget : Math.max(15, Math.round(quoteTarget * 0.3)), [insightText, quoteTarget, titleFontSizeIsUserSet, p, height, hasImage], Math.round(height * (p ? 0.2 : hasImage ? 0.18 : 0.3)));
+  const { px: subFontSize } = useFitText(subRef, subTarget, descriptionFontSizeIsUserSet ? subTarget : Math.max(10, Math.round(subTarget * 0.38)), [title, insightText, subTarget, descriptionFontSizeIsUserSet, quoteFontSize, p, height, hasImage], Math.round(height * 0.12));
 
   // ── With image: image centered, quote below ──────────────────
   if (hasImage) {
@@ -160,7 +168,7 @@ export const DiveInsight: React.FC<BlackswanLayoutProps> = (props) => {
           </div>
 
           {/* Quote */}
-          <div
+          <div ref={quoteRef}
             style={{
               fontFamily: fontFamily ?? display,
               fontSize: quoteFontSize,
@@ -196,7 +204,7 @@ export const DiveInsight: React.FC<BlackswanLayoutProps> = (props) => {
           }} />
 
           {title && title !== insightText && (
-            <p style={{
+            <p ref={subRef} style={{
               margin: 0,
               fontFamily: fontFamily ?? display,
               fontSize: subFontSize,
@@ -252,7 +260,7 @@ export const DiveInsight: React.FC<BlackswanLayoutProps> = (props) => {
           Insight
         </div>
 
-        <div
+        <div ref={quoteRef}
           style={{
             fontFamily: fontFamily ?? display,
             fontSize: titleFontSize ?? (p ? 80 : 67),
@@ -287,7 +295,7 @@ export const DiveInsight: React.FC<BlackswanLayoutProps> = (props) => {
         }} />
 
         {title && title !== insightText && (
-          <p style={{
+          <p ref={subRef} style={{
             margin: 0,
             fontFamily: fontFamily ?? display,
             fontSize: subFontSize,

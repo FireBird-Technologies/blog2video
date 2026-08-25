@@ -3,6 +3,7 @@ import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remo
 import type { NewscastLayoutProps } from "./types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
 import { ZoomCropVideo } from "../components/ZoomCropVideo";
+import { useFitText } from "../components/useFitText";
 import {
   DEFAULT_NEWSCAST_ACCENT,
   DEFAULT_NEWSCAST_TEXT,
@@ -61,6 +62,8 @@ export const CinematicTitleV2: React.FC<NewscastLayoutProps> = ({
   textColor,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
@@ -93,7 +96,40 @@ export const CinematicTitleV2: React.FC<NewscastLayoutProps> = ({
   const deckIn = interpolate(frame, [42, 62], [0, 1], { extrapolateRight: "clamp" });
   const slateIn = interpolate(frame, [30, 50], [0, 1], { extrapolateRight: "clamp" });
 
-  const titlePx = titleFontSize ?? (p ? 78 : 66);
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input in a flex-centred desk
+     column pinned between the feed panel and the ticker (bottom: 40); long
+     copy would overflow that band. Headline wipes in as opacity/translateY
+     only — full text is in the DOM from frame 0 — so refs are safe. Title
+     gets most of the column's share, narration the rest — each against its
+     own fixed, independent budget. No give-back cross-talk between the two:
+     a useLayoutEffect+setState chain reacting to another useFitText's
+     overflow output creates a multi-render convergence that Remotion's
+     per-frame headless capture can settle at different points on different
+     frames (confirmed via a real render — frame-to-frame scene-change score
+     hit 1.0, i.e. maximum, twice in the first ten frames). */
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const narrationRef = React.useRef<HTMLDivElement>(null);
+  const titleTargetPx = titleFontSize ?? (p ? 78 : 66);
+  const narrationTargetPx = descriptionFontSize ?? (p ? 30 : 19);
+  const stackBudgetPx = Math.round(height * (p ? 0.4 : 0.52));
+  const titleBudgetPx = Math.round(stackBudgetPx * (narration ? 0.6 : 1));
+
+  const { px: titlePx } = useFitText(
+    titleRef,
+    titleTargetPx,
+    titleFontSizeIsUserSet ? titleTargetPx : Math.round(titleTargetPx * 0.42),
+    [title, titleTargetPx, titleFontSizeIsUserSet, titleBudgetPx],
+    titleBudgetPx,
+  );
+  const narrationBudgetPx = Math.max(1, stackBudgetPx - titleBudgetPx);
+  const { px: narrationPx } = useFitText(
+    narrationRef,
+    narrationTargetPx,
+    descriptionFontSizeIsUserSet ? narrationTargetPx : Math.round(narrationTargetPx * 0.55),
+    [narration, narrationTargetPx, descriptionFontSizeIsUserSet, narrationBudgetPx, titlePx],
+    narrationBudgetPx,
+  );
 
   const visual = hasVisual ? (
     videoUrl ? (
@@ -343,45 +379,47 @@ export const CinematicTitleV2: React.FC<NewscastLayoutProps> = ({
         </div>
 
         {/* Masked headline — line 1 (lede words), line 2 (accent word) */}
-        <div style={{ overflow: "hidden" }}>
-          <h1
-            style={{
-              margin: 0,
-              fontFamily: newscastFont(fontFamily, "title"),
-              fontSize: titlePx,
-              fontWeight: HEADLINE_WEIGHT,
-              textTransform: "uppercase",
-              letterSpacing: 0.5,
-              lineHeight: 1.02,
-              color: "white",
-              textShadow: shadows.strong,
-              opacity: line1Wipe,
-              transform: `translateY(${(1 - line1Wipe) * 100}%)`,
-            }}
-          >
-            {white}
-          </h1>
-        </div>
-        {red ? (
-          <div style={{ overflow: "hidden", marginTop: 2 }}>
-            <div
+        <div ref={titleRef}>
+          <div style={{ overflow: "hidden" }}>
+            <h1
               style={{
+                margin: 0,
                 fontFamily: newscastFont(fontFamily, "title"),
                 fontSize: titlePx,
                 fontWeight: HEADLINE_WEIGHT,
                 textTransform: "uppercase",
                 letterSpacing: 0.5,
                 lineHeight: 1.02,
-                color: RED,
+                color: "white",
                 textShadow: shadows.strong,
-                opacity: line2Wipe,
-                transform: `translateY(${(1 - line2Wipe) * 100}%)`,
+                opacity: line1Wipe,
+                transform: `translateY(${(1 - line1Wipe) * 100}%)`,
               }}
             >
-              {red}
-            </div>
+              {white}
+            </h1>
           </div>
-        ) : null}
+          {red ? (
+            <div style={{ overflow: "hidden", marginTop: 2 }}>
+              <div
+                style={{
+                  fontFamily: newscastFont(fontFamily, "title"),
+                  fontSize: titlePx,
+                  fontWeight: HEADLINE_WEIGHT,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.5,
+                  lineHeight: 1.02,
+                  color: RED,
+                  textShadow: shadows.strong,
+                  opacity: line2Wipe,
+                  transform: `translateY(${(1 - line2Wipe) * 100}%)`,
+                }}
+              >
+                {red}
+              </div>
+            </div>
+          ) : null}
+        </div>
 
         {/* Rule under the headline */}
         <div
@@ -397,9 +435,10 @@ export const CinematicTitleV2: React.FC<NewscastLayoutProps> = ({
 
         {narration ? (
           <div
+            ref={narrationRef}
             style={{
               fontFamily: newscastFont(fontFamily, "body"),
-              fontSize: descriptionFontSize ?? (p ? 30 : 19),
+              fontSize: narrationPx,
               fontWeight: 400,
               lineHeight: 1.62,
               color: STEEL,

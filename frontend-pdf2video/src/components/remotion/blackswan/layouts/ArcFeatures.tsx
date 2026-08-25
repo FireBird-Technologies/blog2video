@@ -1,5 +1,6 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import type { BlackswanLayoutProps } from "../types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
 import { ZoomCropVideo } from "../components/ZoomCropVideo";
@@ -209,6 +210,8 @@ export const ArcFeatures: React.FC<BlackswanLayoutProps> = (props) => {
     items,
     titleFontSize,
     descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
     fontFamily,
     aspectRatio = "landscape",
     imageUrl,
@@ -222,6 +225,7 @@ export const ArcFeatures: React.FC<BlackswanLayoutProps> = (props) => {
   } = props;
 
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const p = aspectRatio === "portrait";
 
   const featureItems = (items && items.length > 0 ? items : deriveItems(narration)).slice(0, 6);
@@ -242,6 +246,11 @@ export const ArcFeatures: React.FC<BlackswanLayoutProps> = (props) => {
   const imgOp   = interpolate(frame, [5, 25], [0, 1], { extrapolateRight: "clamp" });
 
   const hasImage = !!(imageUrl || videoUrl);
+  const titleTarget = titleFontSize ?? (hasImage ? (p ? 72 : 60) : (p ? 90 : 83));
+  const titleRef = React.useRef<HTMLHeadingElement>(null);
+  const narrationRef = React.useRef<HTMLParagraphElement>(null);
+  const { px: fittedTitleSize } = useFitText(titleRef, titleTarget, titleFontSizeIsUserSet ? titleTarget : Math.max(15, Math.round(titleTarget * 0.34)), [title, titleTarget, titleFontSizeIsUserSet, p, height, hasImage], Math.round(height * (p ? 0.14 : 0.18)));
+  const { px: fittedNarrationSize } = useFitText(narrationRef, narrationFontSize, descriptionFontSizeIsUserSet ? narrationFontSize : Math.max(10, Math.round(narrationFontSize * 0.38)), [narration, narrationFontSize, descriptionFontSizeIsUserSet, fittedTitleSize, p, height, hasImage], Math.round(height * (p ? 0.15 : 0.14)));
 
   // ── Landscape + image: two-column layout ────────────────────
   if (!p && hasImage) {
@@ -284,11 +293,11 @@ export const ArcFeatures: React.FC<BlackswanLayoutProps> = (props) => {
               paddingRight: "2%",
             }}
           >
-            <h1
+            <h1 ref={titleRef}
               style={{
                 margin: 0,
                 fontFamily: fontFamily ?? display,
-                fontSize: titleFontSize ?? 60,
+                fontSize: fittedTitleSize,
                 fontWeight: 800,
                 ...neonTitleTubeStyle(accentColor, { bgColor }),
                 lineHeight: 1.1,
@@ -369,11 +378,11 @@ export const ArcFeatures: React.FC<BlackswanLayoutProps> = (props) => {
               zIndex: 3,
             }}
           >
-            <p
+            <p ref={narrationRef}
               style={{
                 margin: 0,
                 fontFamily: fontFamily ?? mono,
-                fontSize: narrationFontSize,
+                fontSize: fittedNarrationSize,
                 color: textColor,
                 lineHeight: 1.7,
                 textAlign: "center",
@@ -425,11 +434,11 @@ export const ArcFeatures: React.FC<BlackswanLayoutProps> = (props) => {
           }}
         >
           {/* Title — top */}
-          <h1
+          <h1 ref={titleRef}
             style={{
               margin: 0,
               fontFamily: fontFamily ?? display,
-              fontSize: titleFontSize ?? 72,
+              fontSize: fittedTitleSize,
               fontWeight: 800,
               ...neonTitleTubeStyle(accentColor, { bgColor }),
               lineHeight: 1.1,
@@ -474,11 +483,11 @@ export const ArcFeatures: React.FC<BlackswanLayoutProps> = (props) => {
 
           {/* Narration */}
           {narration && (
-            <p
+            <p ref={narrationRef}
               style={{
                 margin: 0,
                 fontFamily: fontFamily ?? mono,
-                fontSize: narrationFontSize,
+                fontSize: fittedNarrationSize,
                 color: textColor,
                 lineHeight: 1.7,
                 textAlign: "center",
@@ -537,11 +546,11 @@ export const ArcFeatures: React.FC<BlackswanLayoutProps> = (props) => {
           zIndex: 3,
         }}
       >
-        <h1
+        <h1 ref={titleRef}
           style={{
             margin: 0,
             fontFamily: fontFamily ?? display,
-            fontSize: titleFontSize ?? (p ? 90 : 83),
+            fontSize: fittedTitleSize,
             fontWeight: 800,
             ...neonTitleTubeStyle(accentColor, { bgColor }),
             lineHeight: 1.1,
@@ -593,12 +602,12 @@ export const ArcFeatures: React.FC<BlackswanLayoutProps> = (props) => {
           />
 
         {narration && (
-          <p
+          <p ref={narrationRef}
             style={{
               margin: 0,
                 // Removed marginTop as gap property on parent handles spacing
               fontFamily: fontFamily ?? mono,
-                fontSize: narrationFontSize,
+                fontSize: fittedNarrationSize,
               color: textColor,
                 lineHeight: p ? (narrWordCount > 45 ? 1.65 : 1.8) : 1.8,
               textAlign: "center",

@@ -179,38 +179,32 @@ export const otherBrand = isPdfBrand ? BRANDS.blog2video : BRANDS.pdf2video;
 /* ─────────────────────────── favicon ─────────────────────────── */
 
 /**
- * Rounded purple tile with the brand's badge text, matching the nav logo.
+ * Favicon href for a brand — always a real file at a fixed path.
  *
- * Generated as an inline SVG rather than a file so a new brand needs no new
- * asset. blog2video keeps its existing /b2b.png — this only swaps the icon for
- * brands that have no artwork of their own.
+ * This used to synthesize an inline SVG `data:` URI. That renders fine in a
+ * browser tab, but search engines fetch the favicon as a SEPARATE crawlable URL
+ * and cache it independently of the page, so a data URI is invisible to them and
+ * the icon never appeared in Google/Bing results.
+ *
+ * Each brand ships its own artwork to these same paths from its own `public/`
+ * directory (see scripts/build-favicons.mjs), so the path does not vary by
+ * brand — only the bytes served at it do.
  */
-function faviconDataUri(text: string): string {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#9333ea"/><text x="32" y="33" font-family="Inter,Helvetica,Arial,sans-serif" font-size="${text.length > 3 ? 20 : 24}" font-weight="700" fill="#fff" text-anchor="middle" dominant-baseline="central">${text}</text></svg>`;
-  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
-}
-
-/** Favicon href for a brand — a real file for blog2video, synthesized otherwise. */
-export function brandFaviconHref(b: Brand = getSessionBrand()): string {
-  return faviconDataUri(b.logoText);
+export function brandFaviconHref(_b: Brand = getSessionBrand()): string {
+  return "/favicon.ico";
 }
 
 /**
- * Point the tab icon at the active brand. Safe to call on every render — it
- * no-ops when the href already matches.
+ * Point the tab icon at the active brand.
+ *
+ * Each brand's deployment serves its own /favicon.ico, so switching brands
+ * within a session needs no DOM change — index.html already carries the correct
+ * tags. This is kept as a no-op rather than deleted because it is called from
+ * several mount points; re-pointing the href here would replace the crawlable
+ * file reference with something else and undo the fix above.
  */
-export function applyFavicon(b: Brand = getSessionBrand()): void {
-  if (typeof document === "undefined") return;
-  const href = brandFaviconHref(b);
-  let link = document.head.querySelector<HTMLLinkElement>('link[rel="icon"]');
-  if (!link) {
-    link = document.createElement("link");
-    link.rel = "icon";
-    document.head.appendChild(link);
-  }
-  if (link.getAttribute("href") === href) return;
-  link.setAttribute("type", b.id === "blog2video" ? "image/png" : "image/svg+xml");
-  link.setAttribute("href", href);
+export function applyFavicon(_b: Brand = getSessionBrand()): void {
+  /* intentionally empty — see brandFaviconHref */
 }
 
 /**

@@ -10,6 +10,7 @@ import {
 import { WaxSeal } from "../components/WaxSeal";
 import { EmberSparks } from "../components/ChronicleArtifacts";
 import { InkSplatter, QuillText } from "../components/QuillInk";
+import { useFitText } from "../components/useFitText";
 
 /**
  * DecreeSeal — single punch-line layout. Blackletter keyword,
@@ -27,6 +28,8 @@ export const DecreeSeal: React.FC<ChronicleLayoutProps> = ({
   aspectRatio = "landscape",
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
@@ -41,6 +44,21 @@ export const DecreeSeal: React.FC<ChronicleLayoutProps> = ({
 
   // The word writes in
   const wordText = (word ?? highlightWord ?? title ?? "DECREED").toUpperCase();
+
+  /* ── Auto-fit (blackletter word) ──────────────────────────────
+     Designed for a single word/short phrase, but it's unbounded user input
+     rendered at a huge fixed size (180-220px) — long custom copy would blow
+     past the frame. QuillText's mode="char" reveals characters progressively,
+     so a hidden full-text mirror is measured instead of the animated element. */
+  const fitWordRef = React.useRef<HTMLDivElement>(null);
+  const fitWordTarget = titleFontSize ?? (p ? 180 : 220);
+  const { px: fitWordPx } = useFitText(
+    fitWordRef,
+    fitWordTarget,
+    titleFontSizeIsUserSet ? fitWordTarget : Math.round(fitWordTarget * 0.35),
+    [wordText, fitWordTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.24 : 0.3)),
+  );
 
   // Seal stamps at frame 45
   const sealFrame = 40;
@@ -108,6 +126,7 @@ export const DecreeSeal: React.FC<ChronicleLayoutProps> = ({
           alignItems: "center",
           justifyContent: "center",
           minHeight: p ? 260 : 320,
+          width: "100%",
         }}
       >
         {/* Ink splatter behind word */}
@@ -124,10 +143,30 @@ export const DecreeSeal: React.FC<ChronicleLayoutProps> = ({
           <InkSplatter color={textColor} size={p ? 300 : 400} startFrame={18} />
         </div>
 
+        {/* QuillText mode="char" reveals characters progressively; this
+            hidden full-text mirror keeps fitting stable from frame zero. */}
+        <div
+          ref={fitWordRef}
+          aria-hidden
+          style={{
+            visibility: "hidden",
+            position: "absolute",
+            inset: 0,
+            fontFamily: CHRONICLE_BLACKLETTER_FONT,
+            fontSize: fitWordPx,
+            fontWeight: 400,
+            lineHeight: 0.9,
+            letterSpacing: "0.02em",
+            textAlign: "center",
+            width: "100%",
+          }}
+        >
+          {wordText}
+        </div>
         <div
           style={{
             fontFamily: CHRONICLE_BLACKLETTER_FONT,
-            fontSize: titleFontSize ?? (p ? 180 : 220),
+            fontSize: fitWordPx,
             fontWeight: 400,
             color: textColor,
             lineHeight: 0.9,
@@ -136,6 +175,8 @@ export const DecreeSeal: React.FC<ChronicleLayoutProps> = ({
             textShadow: "3px 3px 0 rgba(184,134,11,0.25), 5px 5px 15px rgba(40,25,12,0.45)",
             position: "relative",
             zIndex: 1,
+            width: "100%",
+            maxWidth: "90%",
           }}
         >
           <QuillText

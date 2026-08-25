@@ -3,6 +3,7 @@ import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remo
 import type { SceneLayoutProps } from "../types";
 import { GeometricBackground } from "../components/GeometricBackground";
 import { FlybyPlane } from "../components/FlybyPlane";
+import { useFitText } from "../components/useFitText";
 
 const DEFAULT_TABLE_MAX_ROWS = 20;
 const TABLE_MAX_COLS = 6;
@@ -46,6 +47,8 @@ export const DefaultTable: React.FC<SceneLayoutProps> = ({
   aspectRatio = "landscape",
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
   tickerTable,
   tickerTitle,
@@ -60,8 +63,36 @@ export const DefaultTable: React.FC<SceneLayoutProps> = ({
   const ink = textColor || DEFAULT_INK;
   const accent = accentColor || "#6366F1";
 
-  const titleSize = titleFontSize ?? (p ? 58 : 44);
-  const descSize = descriptionFontSize ?? (p ? 26 : 19);
+  const actualTitleFontSize = titleFontSize ?? (p ? 58 : 44);
+  const actualDescriptionFontSize = descriptionFontSize ?? (p ? 26 : 19);
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and footnote/narration are unbounded user input; both sit in
+     `flexShrink:0` bands above/below the table with no height limit of their
+     own, so long copy pushes the table (or gets clipped by the AbsoluteFill's
+     overflow:hidden). The table body itself already handles density via row
+     count, so only these two text bands need fitting. A size the user
+     explicitly picked is honored exactly (minPx === targetPx no-ops). */
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const footnoteRef = React.useRef<HTMLDivElement>(null);
+
+  const titleBudgetPx = Math.round(height * (p ? 0.12 : 0.14));
+  const { px: titleSize } = useFitText(
+    titleRef,
+    actualTitleFontSize,
+    titleFontSizeIsUserSet ? actualTitleFontSize : p ? 26 : 22,
+    [title, actualTitleFontSize, titleFontSizeIsUserSet, titleBudgetPx, p],
+    titleBudgetPx,
+  );
+
+  const footnoteBudgetPx = Math.round(height * 0.08);
+  const { px: descSize } = useFitText(
+    footnoteRef,
+    actualDescriptionFontSize,
+    descriptionFontSizeIsUserSet ? actualDescriptionFontSize : p ? 14 : 12,
+    [tickerFootnote, narration, actualDescriptionFontSize, descriptionFontSizeIsUserSet, titleSize, footnoteBudgetPx, p],
+    footnoteBudgetPx,
+  );
 
   const rawHeaders = (tickerTable?.headers ?? []).slice(0, TABLE_MAX_COLS);
   const rawRows = (tickerTable?.rows ?? [])
@@ -122,7 +153,7 @@ export const DefaultTable: React.FC<SceneLayoutProps> = ({
 
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", padding: `${p ? "7%" : "5.5%"} ${p ? "6%" : "7%"}`, minHeight: 0, gap: 0 }}>
         <div style={{ opacity: titleA, flexShrink: 0, marginBottom: Math.round(height * 0.014), textAlign: "center" }}>
-          <div style={{ fontFamily: bodyFont, fontWeight: 700, fontSize: titleSize, lineHeight: 1.08, color: ink }}>
+          <div ref={titleRef} style={{ fontFamily: bodyFont, fontWeight: 700, fontSize: titleSize, lineHeight: 1.08, color: ink }}>
             {title}
           </div>
           {tickerTitle && (
@@ -189,7 +220,7 @@ export const DefaultTable: React.FC<SceneLayoutProps> = ({
         </div>
 
         {(tickerFootnote || narration) && (
-          <div style={{ opacity: footnoteA, flexShrink: 0, marginTop: Math.round(height * 0.01), fontFamily: bodyFont, fontStyle: "italic", fontWeight: 400, fontSize: Math.round(descSize * 0.88), letterSpacing: "0.02em", color: INK_DIM, lineHeight: 1.4, whiteSpace: "normal", textAlign: "center" }}>
+          <div ref={footnoteRef} style={{ opacity: footnoteA, flexShrink: 0, marginTop: Math.round(height * 0.01), fontFamily: bodyFont, fontStyle: "italic", fontWeight: 400, fontSize: Math.round(descSize * 0.88), letterSpacing: "0.02em", color: INK_DIM, lineHeight: 1.4, whiteSpace: "normal", textAlign: "center" }}>
             {tickerFootnote || narration}
           </div>
         )}

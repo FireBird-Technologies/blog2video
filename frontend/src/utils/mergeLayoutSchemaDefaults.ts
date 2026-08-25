@@ -40,6 +40,11 @@ function resolveDefaultsForAspect(
 
 /**
  * Apply layout schema defaults under `layoutProps` (stored props win on conflict).
+ *
+ * `options.deriveUserSetFlags` (default true) adds the render-time
+ * `titleFontSizeIsUserSet` / `descriptionFontSizeIsUserSet` markers described below.
+ * Callers that feed the result into EDITABLE, later-persisted state must pass `false` —
+ * those markers are derived, never stored.
  */
 export function mergeLayoutSchemaDefaults(
   layoutProps: Record<string, unknown>,
@@ -47,6 +52,7 @@ export function mergeLayoutSchemaDefaults(
   schema: LayoutPropSchema | null | undefined,
   aspectRatio = "landscape",
   templateId?: string | null,
+  options?: { deriveUserSetFlags?: boolean },
 ): Record<string, unknown> {
   if (!layoutId || !schema || Object.keys(schema).length === 0) return layoutProps;
   // The schema is keyed by BASE layout, so a visual variant (`news_headline__v2`)
@@ -61,6 +67,22 @@ export function mergeLayoutSchemaDefaults(
     for (const key of ECONOMIST_CONTENT_SKIP_KEYS) delete resolved[key];
   }
   const merged = { ...resolved, ...layoutProps };
+
+  // Font sizes are backfilled from the schema below, which erases the difference
+  // between "user picked this size" and "nobody touched the slider" (the editor
+  // only persists a size that DIFFERS from the default). Record that bit before
+  // it is lost so auto-shrinking layouts (newspaper news_headline) can honor a
+  // deliberate choice exactly while still fitting the default to the space.
+  // Mirrors the renderer's flags in backend/app/services/remotion.py.
+  //
+  // These are DERIVED, never persisted: the scene editor seeds its editable state from
+  // this helper, so writing them there would save "user set the size" after a pure text
+  // edit and permanently disable auto-fit. Such callers pass deriveUserSetFlags: false.
+  if (options?.deriveUserSetFlags ?? true) {
+    for (const key of ["titleFontSize", "descriptionFontSize"] as const) {
+      if (key in layoutProps) merged[`${key}IsUserSet`] = true;
+    }
+  }
 
   // Keep example chart data when stored chartTable has no rows (legacy partial merge).
   const existingTable = layoutProps.chartTable;

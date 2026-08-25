@@ -1,6 +1,8 @@
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import React from "react";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { WhiteboardBackground } from "../WhiteboardBackground";
 import type { WhiteboardLayoutProps } from "../types";
+import { useFitText } from "../components/useFitText";
 
 const DEFAULT_STEPS = [
   { label: "Compound Interest Formula", value: "A = P · (1 + r/n)^(n·t)" },
@@ -21,20 +23,45 @@ export const HandwrittenEquation: React.FC<WhiteboardLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize: descPropSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   stats: statsProp,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const p = aspectRatio === "portrait";
 
   const steps = statsProp?.length ? statsProp : DEFAULT_STEPS;
   const maxSteps = Math.min(steps.length, 5);
   const displaySteps = steps.slice(0, maxSteps);
 
-  const finalTitleSize = titleFontSize ?? (p ? 80 : 68);
-  const finalDescSize = descPropSize ?? (p ? 32 : 27);
+  const baseTitleSize = titleFontSize ?? (p ? 80 : 68);
+  const baseDescSize = descPropSize ?? (p ? 32 : 27);
 
   const titleOp = interpolate(frame, [0, 14], [0, 1], { extrapolateRight: "clamp" });
+
+  /* ── Auto-fit (title + narration) ────────────────────────────────
+     Both render the full prop text directly from frame 0 (only opacity
+     animates via titleOp) — no slice-reveal here (the .slice() elsewhere
+     in this file is on step.value, a fixed equation-step label, not
+     title/narration, and is left untouched). */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitNarrationRef = React.useRef<HTMLDivElement>(null);
+  const { px: finalTitleSize } = useFitText(
+    fitTitleRef,
+    baseTitleSize,
+    titleFontSizeIsUserSet ? baseTitleSize : Math.round(baseTitleSize * 0.4),
+    [title, baseTitleSize, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.12 : 0.16)),
+  );
+  const { px: finalDescSize } = useFitText(
+    fitNarrationRef,
+    baseDescSize,
+    descriptionFontSizeIsUserSet ? baseDescSize : Math.round(baseDescSize * 0.5),
+    [narration, baseDescSize, descriptionFontSizeIsUserSet, finalTitleSize, p, height],
+    Math.round(height * (p ? 0.08 : 0.1)),
+  );
   const stepStartFrame = (i: number) => 16 + i * (STEP_DURATION + STEP_GAP);
 
   // === STICKMAN ANIMATION MATH ===
@@ -111,18 +138,25 @@ export const HandwrittenEquation: React.FC<WhiteboardLayoutProps> = ({
           zIndex: 2,
         }}
       >
-        <div style={{ opacity: titleOp, textAlign: p ? "center" : "left" }}>
-          <div style={{
-            color: textColor,
-            fontWeight: 800,
-            fontSize: finalTitleSize,
-            lineHeight: 1.1,
-            filter: "url(#ink)",
-          }}>
+        <div style={{ opacity: titleOp, textAlign: p ? "center" : "left", width: "100%" }}>
+          <div
+            ref={fitTitleRef}
+            style={{
+              color: textColor,
+              fontWeight: 800,
+              fontSize: finalTitleSize,
+              lineHeight: 1.1,
+              filter: "url(#ink)",
+              width: "100%",
+            }}
+          >
             {title}
           </div>
           {narration && (
-            <div style={{ marginTop: 8, color: textColor, fontSize: finalDescSize, opacity: 0.8, filter: "url(#ink)" }}>
+            <div
+              ref={fitNarrationRef}
+              style={{ marginTop: 8, color: textColor, fontSize: finalDescSize, opacity: 0.8, filter: "url(#ink)", width: "100%" }}
+            >
               {narration}
             </div>
           )}

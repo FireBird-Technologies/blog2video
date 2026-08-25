@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import type { BlackswanLayoutProps } from "../types";
 import { NeonWater } from "./neonWater";
 import { neonTitleTubeStyle, StarField } from "./scenePrimitives";
@@ -37,11 +38,14 @@ export const PulseMetric: React.FC<BlackswanLayoutProps> = (props) => {
     metrics,
     titleFontSize,
     descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
     fontFamily,
     aspectRatio = "landscape",
   } = props;
 
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const p = aspectRatio === "portrait";
   const neonPal = useMemo(() => blackswanNeonPalette(accentColor), [accentColor]);
 
@@ -52,10 +56,16 @@ export const PulseMetric: React.FC<BlackswanLayoutProps> = (props) => {
   const narOp     = interpolate(frame, [30, 50], [0, 1], { extrapolateRight: "clamp" });
   const narY      = interpolate(frame, [30, 50], [10, 0], { extrapolateRight: "clamp" });
 
-  const metricNumSize = titleFontSize ?? (p ? 80 : 81);
+  const titleTarget = titleFontSize ?? (p ? 80 : 81);
+  const descTarget = descriptionFontSize ?? (p ? 28 : 33);
+  const titleRef = React.useRef<HTMLHeadingElement>(null);
+  const narrationRef = React.useRef<HTMLParagraphElement>(null);
+  const { px: fittedTitleSize } = useFitText(titleRef, titleTarget, titleFontSizeIsUserSet ? titleTarget : Math.max(15, Math.round(titleTarget * 0.34)), [title, titleTarget, titleFontSizeIsUserSet, p, height], Math.round(height * (p ? 0.14 : 0.17)));
+  const { px: fittedNarrationSize } = useFitText(narrationRef, descTarget, descriptionFontSizeIsUserSet ? descTarget : Math.max(10, Math.round(descTarget * 0.4)), [narration, descTarget, descriptionFontSizeIsUserSet, fittedTitleSize, p, height], Math.round(height * (p ? 0.13 : 0.15)));
+  const metricNumSize = titleTarget;
   const suffixSize    = metricNumSize * 0.32;
   const labelSize     = descriptionFontSize ?? (p ? 28 : 33);
-  const narSize       = descriptionFontSize ?? (p ? 28 : 33);
+  const narSize       = fittedNarrationSize;
 
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor, overflow: "hidden" }}>
@@ -100,11 +110,11 @@ export const PulseMetric: React.FC<BlackswanLayoutProps> = (props) => {
           zIndex: 2,
         }}
       >
-        <h1
+        <h1 ref={titleRef}
           style={{
             margin: 0,
             fontFamily: fontFamily ?? display,
-            fontSize: titleFontSize ?? (p ? 80 : 81),
+            fontSize: fittedTitleSize,
             fontWeight: 400,
             ...neonTitleTubeStyle(accentColor, { bgColor }),
             lineHeight: 1.1,
@@ -233,7 +243,7 @@ export const PulseMetric: React.FC<BlackswanLayoutProps> = (props) => {
             zIndex: 2,
           }}
         >
-          <p
+          <p ref={narrationRef}
             style={{
               margin: 0,
               fontFamily: fontFamily ?? display,

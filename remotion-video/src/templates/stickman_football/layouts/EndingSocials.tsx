@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { SceneLayoutProps } from "../types";
 import { GrassGround, StickFace } from "../shared";
 import type { SocialKey, SocialsMap, SocialsRow } from "../../SocialIcons";
@@ -175,6 +176,8 @@ export const EndingSocials: React.FC<SceneLayoutProps> = (props) => {
     sceneDurationInFrames,
     titleFontSize,
     descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
     fontFamily,
   } = props;
 
@@ -186,7 +189,7 @@ export const EndingSocials: React.FC<SceneLayoutProps> = (props) => {
   const ctaButtonText = (props as any).ctaButtonText;
 
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, height} = useVideoConfig();
   const tSec = frame / fps;
 
   const dur = sceneDurationInFrames ?? 150;
@@ -194,9 +197,33 @@ export const EndingSocials: React.FC<SceneLayoutProps> = (props) => {
   const enter = interpolate(frame, [0, 18], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const exit = interpolate(frame, [dur - 18, dur], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const masterOpacity = enter * exit;
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input; long copy overflows the card
+     and is clipped by the scene frame. Measure the real available height and
+     shrink to fit. A size the user explicitly picked is honored exactly —
+     minPx === targetPx makes the hook a no-op. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitDescRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 80 : 70);
+  const fitDescTarget = descriptionFontSize ?? (p ? 40 : 30);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.42),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.22 : 0.26)),
+  );
+  const { px: fitDescPx } = useFitText(
+    fitDescRef,
+    fitDescTarget,
+    descriptionFontSizeIsUserSet ? fitDescTarget : Math.round(fitDescTarget * 0.4),
+    [narration, fitDescTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * (p ? 0.30 : 0.34)),
+  );
 
-  const titlePx = titleFontSize ?? (p ? 80 : 70);
-  const descPx = descriptionFontSize ?? (p ? 40 : 30);
+  const titlePx = fitTitlePx;
+  const descPx = fitDescPx;
+
 
   const accent = accentColor ?? "#2E7D32";
   const bg = bgColor ?? "#FFFFFF";
@@ -379,7 +406,7 @@ export const EndingSocials: React.FC<SceneLayoutProps> = (props) => {
         >
           {/* Title */}
           <div style={{ width: "100%", textAlign: "center", opacity: titleProgress, transform: `translateY(${interpolate(titleProgress, [0, 1], [22, 0])}px)` }}>
-            <div
+            <div ref={fitTitleRef}
               style={{
                 fontSize: titlePx,
                 fontWeight: 900,
@@ -400,7 +427,7 @@ export const EndingSocials: React.FC<SceneLayoutProps> = (props) => {
           {/* Narration / sign-off */}
           {narration ? (
             <div style={{ width: "100%", textAlign: "center", opacity: narrationOpacity }}>
-              <div style={{ fontSize: descPx, color: text, fontFamily: font, lineHeight: 1.42, fontWeight: 500, maxWidth: p ? "94%" : "72%", margin: "0 auto", wordBreak: "break-word", overflowWrap: "break-word" }}>
+              <div ref={fitDescRef} style={{ fontSize: descPx, color: text, fontFamily: font, lineHeight: 1.42, fontWeight: 500, maxWidth: p ? "94%" : "72%", margin: "0 auto", wordBreak: "break-word", overflowWrap: "break-word" }}>
                 {narration}
               </div>
             </div>

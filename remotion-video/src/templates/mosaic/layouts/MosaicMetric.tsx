@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { MosaicBackground, bgTilePalette } from "../MosaicBackground";
 import { MOSAIC_COLORS, MOSAIC_DEFAULT_FONT_FAMILY } from "../constants";
 import { TileWordSvg } from "../mosaicPrimitives";
@@ -61,7 +62,7 @@ export const MosaicMetric: React.FC<MosaicLayoutProps> = ({
   mosaicTileGap,
 }) => {
   const frame = useCurrentFrame();
-  const { durationInFrames } = useVideoConfig();
+  const { durationInFrames, height } = useVideoConfig();
   const motion = getSceneTransition(frame, durationInFrames, 18, 14);
   // Content starts when tiles are ≥55% done (frame 55)
   const contentStart = 55;
@@ -79,7 +80,7 @@ export const MosaicMetric: React.FC<MosaicLayoutProps> = ({
   );
   const p = aspectRatio === "portrait";
   const family = fontFamily || MOSAIC_DEFAULT_FONT_FAMILY;
-  const list = metrics && metrics.length > 0 ? metrics.slice(0, 3) : [{ value: "97", label: title || "craft precision", suffix: "%" }];
+  const list = metrics && metrics.length > 0 ? metrics.slice(0, 3) : [];
   const first = list[0];
   const line = accentColor || MOSAIC_COLORS.gold;
   const tp = bgTilePalette(bgColor || MOSAIC_COLORS.deepNavy);
@@ -87,9 +88,16 @@ export const MosaicMetric: React.FC<MosaicLayoutProps> = ({
   const panelBorder = tp[6] + "60"; // mid-palette stop, ~38% opacity
   const descBase = descriptionFontSize ?? (p ? 18 : 22);
   const descScale = descBase / (p ? 18 : 22);
+  const metricText = first ? `${first.value}${first.suffix || ""}` : "";
+  const metricTarget = titleFontSize ?? (p ? 90 : 131);
+  const metricMeasureRef = React.useRef<HTMLDivElement>(null);
+  const labelRef = React.useRef<HTMLDivElement>(null);
+  const { px: metricSize } = useFitText(metricMeasureRef, metricTarget, Math.max(12, Math.round(metricTarget * 0.18)), [metricText, metricTarget, p, height], Math.round(height * 0.24));
+  const { px: labelSize } = useFitText(labelRef, descBase, Math.max(9, Math.round(descBase * 0.4)), [first?.label, descBase, metricSize, p, height], Math.round(height * 0.1));
 
   return (
     <AbsoluteFill>
+      <div ref={metricMeasureRef} style={{ position: "absolute", visibility: "hidden", width: "80%", fontFamily: family, fontSize: metricSize, fontWeight: 900, lineHeight: 1.1, textAlign: "center", overflowWrap: "anywhere" }}>{metricText}</div>
       <MosaicBackground
         bgColor={bgColor}
         accentColor={accentColor}
@@ -117,48 +125,53 @@ export const MosaicMetric: React.FC<MosaicLayoutProps> = ({
           }}
         >
           {/* Metric value: fontFamily → plain text; default → mosaic tile SVG */}
-          <div style={{ display: "flex", justifyContent: "center", height: titleFontSize ?? (p ? 90 : 131) }}>
-            {fontFamily ? (
-              <div
+          {first && (
+            <>
+              <div style={{ display: "flex", justifyContent: "center", height: metricSize, maxWidth: "100%" }}>
+                {fontFamily ? (
+                  <div
+                    style={{
+                      height: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      fontFamily,
+                      fontWeight: 900,
+                      fontSize: metricSize,
+                      letterSpacing: "0.03em",
+                      whiteSpace: "normal",
+                      overflowWrap: "anywhere",
+                      color: (accentPalette(accentColor || MOSAIC_COLORS.gold))[0],
+                      opacity: ringIn,
+                      lineHeight: 1.1,
+                    }}
+                  >
+                    {`${first.value}${first.suffix || ""}`}
+                  </div>
+                ) : (
+                  <TileWordSvg
+                    text={`${first.value}${first.suffix || ""}`}
+                    tileSize={mosaicTileSize ?? Math.max(Math.floor(metricSize / 7), 8)}
+                    gap={mosaicTileGap ?? 1}
+                    revealProgress={ringIn}
+                    colors={accentPalette(accentColor || MOSAIC_COLORS.gold)}
+                    style={{ height: "100%", width: "auto", maxWidth: "100%" }}
+                  />
+                )}
+              </div>
+              <div style={{ marginTop: 14, height: 1, background: `${line}` }} />
+              <div ref={labelRef}
                 style={{
-                  height: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  fontFamily,
-                  fontWeight: 900,
-                  fontSize: titleFontSize ?? (p ? 90 : 131),
-                  letterSpacing: "0.03em",
-                  whiteSpace: "nowrap",
-                  color: (accentPalette(accentColor || MOSAIC_COLORS.gold))[0],
-                  opacity: ringIn,
-                  lineHeight: 1.1,
+                  marginTop: 14,
+                  fontFamily: family,
+                  fontSize: labelSize,
+                  color: textColor || MOSAIC_COLORS.textSecondary,
+                  fontStyle: "italic",
                 }}
               >
-                {`${first.value}${first.suffix || ""}`}
+                {first.label}
               </div>
-            ) : (
-              <TileWordSvg
-                text={`${first.value}${first.suffix || ""}`}
-                tileSize={mosaicTileSize ?? Math.max(Math.floor((titleFontSize ?? (p ? 90 : 131)) / 7), 8)}
-                gap={mosaicTileGap ?? 1}
-                revealProgress={ringIn}
-                colors={accentPalette(accentColor || MOSAIC_COLORS.gold)}
-                style={{ height: "100%", width: "auto" }}
-              />
-            )}
-          </div>
-          <div style={{ marginTop: 14, height: 1, background: `${line}` }} />
-          <div
-            style={{
-              marginTop: 14,
-              fontFamily: family,
-              fontSize: descBase,
-              color: textColor || MOSAIC_COLORS.textSecondary,
-              fontStyle: "italic",
-            }}
-          >
-            {first.label}
-          </div>
+            </>
+          )}
           {list.length > 1 ? (
             <div style={{ marginTop: 30, display: "flex", gap: 48, justifyContent: "center" }}>
               {list.slice(1).map((metric, idx) => (

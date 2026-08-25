@@ -7,6 +7,7 @@ import {
   useVideoConfig,
 } from "remotion";
 import type { ChronicleLayoutProps } from "../types";
+import { useFitText } from "../components/useFitText";
 import {
   CHRONICLE_BODY_FONT,
   CHRONICLE_HEADING_FONT,
@@ -40,6 +41,8 @@ export const ChapterPlate: React.FC<ChronicleLayoutProps> = ({
   aspectRatio = "landscape",
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
@@ -149,9 +152,33 @@ export const ChapterPlate: React.FC<ChronicleLayoutProps> = ({
       ? rawSubtitle
       : "";
 
-  const titleFont = titleFontSize ?? computeTitleFont(cleanTitle, pageW, p);
-  const bodyFontSize = descriptionFontSize ?? (p ? 32 : 28);
   const kickerFontSize = Math.max(14, (descriptionFontSize ?? (p ? 22 : 20)) * 0.7);
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input in a fixed-size illuminated
+     panel (overflow:hidden); long copy was clipped, and the title previously
+     relied on a character-count guess (computeTitleFont) rather than real
+     measurement. Measure the real available height and shrink to fit. An
+     explicitly chosen size is honored exactly (minPx === targetPx no-ops the
+     hook). */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitBodyRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? pageW * 0.09 * 1.15 : pageW * 0.08 * 1.15);
+  const fitBodyTarget = descriptionFontSize ?? (p ? 32 : 28);
+  const { px: titleFont } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.35),
+    [cleanTitle, fitTitleTarget, titleFontSizeIsUserSet, p, pageH],
+    Math.round(pageH * (p ? 0.24 : 0.28)),
+  );
+  const { px: bodyFontSize } = useFitText(
+    fitBodyRef,
+    fitBodyTarget,
+    descriptionFontSizeIsUserSet ? fitBodyTarget : Math.round(fitBodyTarget * 0.5),
+    [bodyText, fitBodyTarget, descriptionFontSizeIsUserSet, titleFont, p, pageH],
+    Math.round(pageH * (p ? 0.24 : 0.26)),
+  );
 
   return (
     <AbsoluteFill
@@ -389,6 +416,7 @@ export const ChapterPlate: React.FC<ChronicleLayoutProps> = ({
 
           {/* ─────── Title (rubric red with gold shadow) ─────── */}
           <div
+            ref={fitTitleRef}
             style={{
               fontFamily: heading,
               fontWeight: 900,
@@ -404,6 +432,7 @@ export const ChapterPlate: React.FC<ChronicleLayoutProps> = ({
                 3px 3px 0 ${GOLD_DEEP},
                 4px 4px 6px rgba(0,0,0,0.25)
               `,
+              width: "100%",
               maxWidth: "92%",
               textTransform: "uppercase",
               zIndex: 2,
@@ -434,6 +463,7 @@ export const ChapterPlate: React.FC<ChronicleLayoutProps> = ({
           {/* ─────── Narration body — the "display text" of the scene ─────── */}
           {bodyText && (
             <div
+              ref={fitBodyRef}
               style={{
                 fontFamily: body,
                 fontStyle: "italic",
@@ -442,6 +472,7 @@ export const ChapterPlate: React.FC<ChronicleLayoutProps> = ({
                 opacity: captionOp,
                 textAlign: "center",
                 lineHeight: 1.55,
+                width: "100%",
                 maxWidth: p ? "88%" : "78%",
                 letterSpacing: "0.01em",
                 zIndex: 2,
@@ -758,18 +789,6 @@ function paintedFrameMask(progress: number): string {
     0 ${100 - leftPct}%,
     0 ${100 - leftPct}%
   )`;
-}
-
-function computeTitleFont(title: string, pageW: number, portrait: boolean): number {
-  const len = title.trim().length;
-  const base = portrait ? pageW * 0.09 : pageW * 0.08;
-  if (len <= 8) return base * 1.15;
-  if (len <= 14) return base;
-  if (len <= 22) return base * 0.82;
-  if (len <= 32) return base * 0.66;
-  if (len <= 46) return base * 0.54;
-  if (len <= 64) return base * 0.46;
-  return base * 0.4;
 }
 
 function darkenHex(hex: string, amt: number): string {

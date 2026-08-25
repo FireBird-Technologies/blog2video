@@ -10,6 +10,7 @@ Covers the two things most likely to break silently:
      so these lock them in against drift.
 """
 import json
+import textwrap
 from types import SimpleNamespace
 
 import pytest
@@ -752,6 +753,102 @@ def test_video_scene_is_not_also_given_a_generic_image(db_session, paid_user, tm
     assert s2["images"] == ["generic.jpg"]
 
 
+def test_redistribute_assigns_images_before_clips(db_session, paid_user, tmp_path, monkeypatch):
+    """Template change / script regeneration: images first, clips fill the rest.
+
+    Previously the spare-clip pass ran BEFORE the image cascade and popped
+    assignedImage, so a clip took every open slot and images got the residue.
+    """
+    from app.models.asset import Asset, AssetType
+    from app.services import remotion as remotion_service
+
+    # 3 scenes; scene 3 is the outro (hideImage), leaving 2 usable slots.
+    project, scenes = _newscast_project(db_session, paid_user, n_scenes=3)
+
+    clip_path = tmp_path / "scene_1_1.mp4"
+    clip_path.write_bytes(b"fake-mp4")
+    img_path = tmp_path / "generic.jpg"
+    img_path.write_bytes(b"fake-jpg")
+    db_session.add(Asset(project_id=project.id, asset_type=AssetType.VIDEO,
+                         local_path=str(clip_path), filename="scene_1_1.mp4",
+                         duration_seconds=6.0, excluded=False))
+    db_session.add(Asset(project_id=project.id, asset_type=AssetType.IMAGE,
+                         local_path=str(img_path), filename="generic.jpg",
+                         excluded=False))
+    db_session.commit()
+
+    # The clip starts pinned to scene 1 — redistribution must release it so the
+    # image gets first pick of that slot.
+    desc = json.loads(scenes[0].remotion_code)
+    desc["layoutProps"]["assignedVideo"] = "scene_1_1.mp4"
+    scenes[0].remotion_code = json.dumps(desc)
+    db_session.commit()
+
+    workspace = tmp_path / "ws"
+    (workspace / "public").mkdir(parents=True)
+    monkeypatch.setattr(remotion_service, "provision_workspace", lambda *a, **k: str(workspace))
+
+    db_session.refresh(project)
+    remotion_service.write_remotion_data(
+        project, db_session.query(Scene).filter(Scene.project_id == project.id)
+        .order_by(Scene.order).all(), db_session, redistribute_images=True,
+    )
+
+    data = json.loads((workspace / "public" / "data.json").read_text())
+    s1, s2 = data["scenes"][0], data["scenes"][1]
+
+    # Scene 1 takes the image; the clip moves to scene 2 rather than evicting it.
+    assert s1["images"] == ["generic.jpg"]
+    assert s1.get("video") is None
+    assert s2["video"] == "scene_1_1.mp4"
+    assert s2["images"] == []
+
+    # The clip is re-placed, never orphaned — that was the "more videos than
+    # scenes" regression.
+    placed = [s.get("video") for s in data["scenes"] if s.get("video")]
+    assert placed == ["scene_1_1.mp4"]
+
+
+def test_manual_clip_survives_plain_save(db_session, paid_user, tmp_path, monkeypatch):
+    """Without redistribute_images a user's clip choice stays put."""
+    from app.models.asset import Asset, AssetType
+    from app.services import remotion as remotion_service
+
+    project, scenes = _newscast_project(db_session, paid_user, n_scenes=3)
+    clip_path = tmp_path / "scene_2_9.mp4"
+    clip_path.write_bytes(b"fake-mp4")
+    img_path = tmp_path / "generic.jpg"
+    img_path.write_bytes(b"fake-jpg")
+    db_session.add(Asset(project_id=project.id, asset_type=AssetType.VIDEO,
+                         local_path=str(clip_path), filename="scene_2_9.mp4",
+                         duration_seconds=5.0, excluded=False))
+    db_session.add(Asset(project_id=project.id, asset_type=AssetType.IMAGE,
+                         local_path=str(img_path), filename="generic.jpg",
+                         excluded=False))
+    db_session.commit()
+
+    desc = json.loads(scenes[1].remotion_code)
+    desc["layoutProps"]["assignedVideo"] = "scene_2_9.mp4"
+    scenes[1].remotion_code = json.dumps(desc)
+    db_session.commit()
+
+    workspace = tmp_path / "ws"
+    (workspace / "public").mkdir(parents=True)
+    monkeypatch.setattr(remotion_service, "provision_workspace", lambda *a, **k: str(workspace))
+
+    db_session.refresh(project)
+    remotion_service.write_remotion_data(
+        project, db_session.query(Scene).filter(Scene.project_id == project.id)
+        .order_by(Scene.order).all(), db_session,
+    )
+
+    data = json.loads((workspace / "public" / "data.json").read_text())
+    assert data["scenes"][1]["video"] == "scene_2_9.mp4"
+    assert data["scenes"][1]["images"] == []
+    # The image goes to the other open scene, not underneath the clip.
+    assert data["scenes"][0]["images"] == ["generic.jpg"]
+
+
 def test_stale_assigned_video_is_pruned(db_session, paid_user, tmp_path, monkeypatch):
     """A clip whose asset was deleted must not leave the scene rendering nothing."""
     from app.services import remotion as remotion_service
@@ -1151,12 +1248,33 @@ def test_fill_missing_stock_clips_targets_final_image_layout(
     assert called == []
 
 
-def test_prepare_stock_footage_falls_back_to_image_when_no_clip(
+def _add_image(db, project, tmp_path, filename):
+    from app.models.asset import Asset, AssetType
+
+    p = tmp_path / filename
+    p.write_bytes(b"fake-jpg")
+    db.add(
+        Asset(
+            project_id=project.id,
+            asset_type=AssetType.IMAGE,
+            local_path=str(p),
+            filename=filename,
+            excluded=False,
+        )
+    )
+    db.commit()
+
+
+def test_prepare_stock_footage_leaves_slot_empty_when_no_clip(
     db_session, paid_user, monkeypatch, tmp_path,
 ):
-    """When stock search finds nothing, assign a scraped still instead."""
+    """A search miss must NOT duplicate an image an earlier scene already owns.
+
+    Images are the primary visual, so the one image here covers scene 1 and only
+    scene 2 is fetched for. When that search finds nothing the slot is left empty
+    — write_remotion_data's Step 5 then persists hideImage=true.
+    """
     import asyncio
-    from app.models.asset import Asset, AssetType
     from app.models.scene import Scene
     from app.routers.pipeline import _prepare_stock_footage_candidates
 
@@ -1165,18 +1283,7 @@ def test_prepare_stock_footage_falls_back_to_image_when_no_clip(
         paid_user,
         layouts=("opening", "anchor_narrative"),
     )
-    img_path = tmp_path / "hero.jpg"
-    img_path.write_bytes(b"fake-jpg")
-    db_session.add(
-        Asset(
-            project_id=project.id,
-            asset_type=AssetType.IMAGE,
-            local_path=str(img_path),
-            filename="hero.jpg",
-            excluded=False,
-        )
-    )
-    db_session.commit()
+    _add_image(db_session, project, tmp_path, "hero.jpg")
 
     monkeypatch.setattr(
         "app.services.stock_footage.pick_best_for_scene",
@@ -1184,7 +1291,7 @@ def test_prepare_stock_footage_falls_back_to_image_when_no_clip(
     )
 
     n = asyncio.run(_prepare_stock_footage_candidates(project, db_session))
-    assert n == 2
+    assert n == 0
 
     scenes = (
         db_session.query(Scene)
@@ -1193,11 +1300,284 @@ def test_prepare_stock_footage_falls_back_to_image_when_no_clip(
         .all()
     )
     for scene in scenes:
-        lp = json.loads(scene.remotion_code)["layoutProps"]
+        lp = json.loads(scene.remotion_code)["layoutProps"] if scene.remotion_code else {}
         assert "assignedVideo" not in lp
-        assert lp["assignedImage"] == "hero.jpg"
-        assert lp["stockFootageImageFallback"] is True
-        assert lp["hideImage"] is False
+        # No still is force-assigned here any more; the image cascade in
+        # write_remotion_data owns that decision.
+        assert not lp.get("stockFootageImageFallback")
+
+
+def test_image_coverage_count__generics_and_scene_specific(
+    db_session, paid_user, tmp_path,
+):
+    """Coverage mirrors write_remotion_data: generics spread one per scene."""
+    from app.routers.pipeline import _image_capable_scenes, _image_coverage_count
+
+    project = _scripted_newscast_project(
+        db_session, paid_user,
+        layouts=("opening", "anchor_narrative", "anchor_narrative"),
+    )
+    capable = _image_capable_scenes(project, db_session)
+    assert len(capable) == 3
+
+    assert _image_coverage_count(project, db_session, capable) == 0
+
+    _add_image(db_session, project, tmp_path, "a.jpg")
+    assert _image_coverage_count(project, db_session, capable) == 1
+
+    # Scene 3 is the implicit outro, so coverage saturates at 2 of the 3
+    # image-capable scenes no matter how many images the project holds.
+    _add_image(db_session, project, tmp_path, "b.jpg")
+    _add_image(db_session, project, tmp_path, "c.jpg")
+    _add_image(db_session, project, tmp_path, "d.jpg")
+    assert _image_coverage_count(project, db_session, capable) == 2
+
+
+@pytest.mark.parametrize(
+    "n_images,expected_orders",
+    [(10, []), (2, [4]), (1, [2, 4]), (0, [1, 2, 4])],
+)
+def test_reconciler_reserves_scenes_images_will_cover(
+    db_session, paid_user, tmp_path, monkeypatch, n_images, expected_orders
+):
+    """The reconciler must reserve image-covered scenes, same as the main pass.
+
+    CRITICAL ORDERING BUG this locks down: the reconciler runs BEFORE
+    write_remotion_data, which is the only writer of ``assignedImage``. So every
+    layoutProps is still empty here and an "already has an image" test can never
+    fire. Without an explicit coverage reservation the reconciler fetched a clip
+    for every image-capable scene — the reported "10 images but still 3 clips".
+    """
+    import asyncio
+    from app.models.asset import Asset, AssetType
+    from app.routers.pipeline import _fill_missing_stock_clips_after_scene_gen
+
+    project = Project(
+        user_id=paid_user.id, name="recon", blog_url="https://r.test",
+        status=ProjectStatus.SCRIPTED, template="newspaper",
+        stock_footage_enabled=True,
+    )
+    db_session.add(project); db_session.commit(); db_session.refresh(project)
+
+    # newspaper: pull_quote and ending_socials cannot show a visual, so scenes
+    # 1, 2 and 4 are the clip-eligible ones.
+    layouts = ["news_headline", "article_lead", "pull_quote", "fact_check", "ending_socials"]
+    for i, layout in enumerate(layouts, start=1):
+        db_session.add(Scene(
+            project_id=project.id, order=i, title=f"S{i}", narration_text="n",
+            visual_description="v", preferred_layout=layout, scene_type=None,
+            remotion_code=json.dumps({"layout": layout, "layoutProps": {}}),
+        ))
+    for i in range(n_images):
+        f = tmp_path / f"img_{i}.png"
+        f.write_bytes(b"x")
+        db_session.add(Asset(
+            project_id=project.id, asset_type=AssetType.IMAGE,
+            local_path=str(f), filename=f"img_{i}.png", excluded=False,
+        ))
+    db_session.commit()
+
+    searched: list[int] = []
+
+    async def _fake_assign(project, scene, db, **kw):
+        searched.append(scene.order)
+        return False
+
+    monkeypatch.setattr(
+        "app.routers.pipeline._try_assign_stock_clip_to_scene", _fake_assign
+    )
+
+    scenes = (
+        db_session.query(Scene)
+        .filter(Scene.project_id == project.id)
+        .order_by(Scene.order)
+        .all()
+    )
+    asyncio.run(
+        _fill_missing_stock_clips_after_scene_gen(
+            project, scenes, db_session, "newspaper"
+        )
+    )
+    assert searched == expected_orders
+
+
+def test_descriptor_rebuild_image_beats_clip():
+    """A scene carrying BOTH a still and a clip must keep the still.
+
+    The descriptor generator assigns images while the stock task fetches clips
+    concurrently, so a scene can reach the rebuild holding both. Testing
+    `old_video` before `old_assigned` (the old branch order) popped
+    assignedImage here — the reported "images are assigned, then replaced by
+    video clips at the end" behaviour.
+
+    Exercises the carry-over block of _generate_scenes by running the real
+    source of that block, so the branch order cannot silently regress.
+    """
+    import inspect
+    from app.routers import pipeline as pipeline_mod
+
+    src = inspect.getsource(pipeline_mod._generate_scenes)
+    start = src.index("if old_assigned or old_hide or old_video:")
+    end = src.index("except (json.JSONDecodeError, TypeError):", start)
+    block = textwrap.dedent(src[start:end])
+
+    def run(old_lp):
+        descriptor = {"layout": "news_headline", "layoutProps": {}}
+        ns = {
+            "descriptor": descriptor,
+            "old_lp": old_lp,
+            "old_assigned": old_lp.get("assignedImage"),
+            "old_hide": old_lp.get("hideImage"),
+            "old_video": old_lp.get("assignedVideo"),
+        }
+        exec(block, {}, ns)
+        return ns["descriptor"]["layoutProps"]
+
+    # The reported bug: both present -> the image must survive.
+    both = run({"assignedImage": "a.jpg", "assignedVideo": "c.mp4"})
+    assert both["assignedImage"] == "a.jpg"
+    assert "assignedVideo" not in both, "clip must not evict the still"
+
+    # A clip with no competing still still carries across.
+    clip_only = run({"assignedVideo": "c.mp4"})
+    assert clip_only["assignedVideo"] == "c.mp4"
+
+    # A deliberate hide with neither asset is preserved.
+    hidden = run({"hideImage": True})
+    assert hidden["hideImage"] is True
+
+
+def test_image_coverage_count__excludes_implicit_outro(
+    db_session, paid_user, tmp_path,
+):
+    """With scene_type NULL, write_remotion_data Step 3 treats the LAST scene as
+    an outro and forces hideImage. Coverage must not count it, or the prediction
+    over-reports by one and a real scene silently loses its clip."""
+    from app.routers.pipeline import _image_capable_scenes, _image_coverage_count
+
+    project = _scripted_newscast_project(
+        db_session, paid_user,
+        layouts=("opening", "anchor_narrative", "anchor_narrative"),
+    )
+    capable = _image_capable_scenes(project, db_session)
+    assert [s.scene_type for s in capable] == [None, None, None]
+
+    for fn in ("a.jpg", "b.jpg", "c.jpg"):
+        _add_image(db_session, project, tmp_path, fn)
+
+    # 3 images, 3 capable scenes, but the last is the implicit outro -> 2.
+    assert _image_coverage_count(project, db_session, capable) == 2
+
+
+def test_stock_fetch_skips_outro_scene(db_session, paid_user, monkeypatch, tmp_path):
+    """An outro can never display a clip, so none may be bought for it."""
+    import asyncio
+    from app.routers.pipeline import _prepare_stock_footage_candidates
+
+    project = _scripted_newscast_project(
+        db_session, paid_user,
+        layouts=("opening", "anchor_narrative", "anchor_narrative"),
+    )
+    _add_image(db_session, project, tmp_path, "a.jpg")
+
+    searched: list[int] = []
+
+    async def _fake_assign(project, scene, db, **kw):
+        searched.append(scene.order)
+        return False
+
+    monkeypatch.setattr(
+        "app.routers.pipeline._try_assign_stock_clip_to_scene", _fake_assign
+    )
+
+    asyncio.run(_prepare_stock_footage_candidates(project, db_session))
+    # Scene 1 covered by a.jpg, scene 3 is the implicit outro -> only scene 2.
+    assert searched == [2]
+
+
+def test_prepare_stock_footage_skips_scenes_images_cover(
+    db_session, paid_user, monkeypatch, tmp_path,
+):
+    """Clips are fetched only for the image-capable scenes no image can fill."""
+    import asyncio
+    from app.routers.pipeline import _prepare_stock_footage_candidates
+
+    project = _scripted_newscast_project(
+        db_session, paid_user,
+        layouts=("opening", "anchor_narrative", "anchor_narrative", "anchor_narrative"),
+    )
+    _add_image(db_session, project, tmp_path, "a.jpg")
+
+    searched: list[int] = []
+
+    async def _fake_assign(project, scene, db, **kw):
+        searched.append(scene.order)
+        return False
+
+    monkeypatch.setattr(
+        "app.routers.pipeline._try_assign_stock_clip_to_scene", _fake_assign
+    )
+
+    asyncio.run(_prepare_stock_footage_candidates(project, db_session))
+    # Scene 1 covered by a.jpg, scene 4 is the implicit outro -> 2 and 3.
+    assert searched == [2, 3]
+
+
+def test_prepare_stock_footage_fetches_nothing_when_images_cover_all(
+    db_session, paid_user, monkeypatch, tmp_path,
+):
+    """The headline case: enough images for every scene means zero clips."""
+    import asyncio
+    from app.routers.pipeline import _prepare_stock_footage_candidates
+
+    project = _scripted_newscast_project(
+        db_session, paid_user, layouts=("opening", "anchor_narrative"),
+    )
+    _add_image(db_session, project, tmp_path, "a.jpg")
+    _add_image(db_session, project, tmp_path, "b.jpg")
+
+    called = False
+
+    async def _fake_assign(*a, **kw):
+        nonlocal called
+        called = True
+        return False
+
+    monkeypatch.setattr(
+        "app.routers.pipeline._try_assign_stock_clip_to_scene", _fake_assign
+    )
+
+    assert asyncio.run(_prepare_stock_footage_candidates(project, db_session)) == 0
+    assert not called, "no provider call may be made when images cover every scene"
+
+
+def test_free_plan_cap_applies_to_uncovered_surplus_only(
+    db_session, free_user, monkeypatch, tmp_path,
+):
+    """Images are assigned regardless of plan; the cap limits only the surplus."""
+    import asyncio
+    from app.routers.pipeline import _prepare_stock_footage_candidates
+
+    project = _scripted_newscast_project(
+        db_session, free_user,
+        layouts=("opening", "anchor_narrative", "anchor_narrative", "anchor_narrative"),
+    )
+    _add_image(db_session, project, tmp_path, "a.jpg")
+    _add_image(db_session, project, tmp_path, "b.jpg")
+
+    searched: list[int] = []
+
+    async def _fake_assign(project, scene, db, **kw):
+        searched.append(scene.order)
+        return False
+
+    monkeypatch.setattr(
+        "app.routers.pipeline._try_assign_stock_clip_to_scene", _fake_assign
+    )
+
+    asyncio.run(_prepare_stock_footage_candidates(project, db_session))
+    # Scenes 1-2 covered by images; free cap of 1 allows a clip on scene 3 only.
+    assert searched == [3]
 
 
 def test_prepare_stock_footage_candidates_skips_already_assigned(
@@ -1241,8 +1621,11 @@ def test_prepare_stock_footage_candidates_skips_already_assigned(
     )
 
     n = asyncio.run(_prepare_stock_footage_candidates(project, db_session))
-    assert n == 3
-    assert called == [scenes[2].id]
+    # Scenes 1-2 already carry clips and are skipped. Scene 3 is the implicit
+    # outro (scene_type NULL, last scene), whose slot is forced to hideImage —
+    # so nothing is fetched for it and the count is the 2 pre-existing clips.
+    assert n == 2
+    assert called == []
 
 
 # ─── Relevance metadata + candidate pool ────────────────────────────────────

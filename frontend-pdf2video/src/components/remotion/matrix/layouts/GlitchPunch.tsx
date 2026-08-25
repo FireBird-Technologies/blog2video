@@ -1,4 +1,6 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import React from "react";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, spring } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { MatrixBackground } from "../MatrixBackground";
 import { CipherRing, CodeFragments, GlitchSlice, ScanlinesOverlay } from "../components/MatrixArtifacts";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
@@ -36,6 +38,7 @@ export const GlitchPunch: React.FC<MatrixLayoutProps> = ({
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const fps = 30;
   const p = aspectRatio === "portrait";
   const accent = accentColor || "#00FF41";
@@ -60,6 +63,9 @@ export const GlitchPunch: React.FC<MatrixLayoutProps> = ({
   const scale = isSettled ? 0.9 + scaleSpring * 0.1 : 1;
 
   const hasImage = !!imageUrl || !!videoUrl;
+  const wordMirrorRef = React.useRef<HTMLDivElement>(null);
+  const wordTarget = titleFontSize ?? (p ? 100 : 150);
+  const { px: fittedWordSize } = useFitText(wordMirrorRef, wordTarget, 18, [displayWord, wordTarget, p, hasImage], height * (hasImage ? (p ? 0.28 : 0.62) : 0.7));
   const imageOpacity = interpolate(frame, [10, 35], [0, 1], {
     extrapolateRight: "clamp",
   });
@@ -78,6 +84,7 @@ export const GlitchPunch: React.FC<MatrixLayoutProps> = ({
       <GlitchSlice accentColor={accent} every={58} seed={21} />
       <CodeFragments accentColor={accent} count={8} seed={53} startFrame={settleFrame} />
       <ScanlinesOverlay accentColor={accent} intensity={0.85} />
+      <div ref={wordMirrorRef} style={{ position: "absolute", visibility: "hidden", width: hasImage && !p ? "48%" : "84%", fontSize: wordTarget, fontWeight: 700, lineHeight: 1, textTransform: "uppercase", fontFamily: resolvedFontFamily, overflowWrap: "anywhere" }}>{displayWord}</div>
 
       <div
         style={{
@@ -125,7 +132,7 @@ export const GlitchPunch: React.FC<MatrixLayoutProps> = ({
 
         <div
           style={{
-            fontSize: titleFontSize ?? (p ? 100 : 150),
+            fontSize: fittedWordSize,
             fontWeight: 700,
             color: accent,
             textTransform: "uppercase",
@@ -135,6 +142,8 @@ export const GlitchPunch: React.FC<MatrixLayoutProps> = ({
             textAlign: "center",
             padding: "0 5%",
             flex: hasImage && !p ? 1 : "none",
+            maxWidth: "100%",
+            overflowWrap: "anywhere",
             transform: `scale(${scale})`,
             textShadow: isSettled
               ? `0 0 ${20 + glowPulse * 30}px ${accent}${Math.round(glowPulse * 99).toString().padStart(2, "0")}, 0 0 ${40 + glowPulse * 60}px ${accent}44`
@@ -174,4 +183,3 @@ export const GlitchPunch: React.FC<MatrixLayoutProps> = ({
     </AbsoluteFill>
   );
 };
-

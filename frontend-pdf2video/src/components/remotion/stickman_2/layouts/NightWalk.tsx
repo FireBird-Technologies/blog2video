@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { SceneLayoutProps } from "../types";
 import { Stickman2BackgroundImage } from "../Stickman2BackgroundImage";
 
@@ -22,11 +23,37 @@ export const NightWalk: React.FC<SceneLayoutProps> = (props) => {
     sceneDurationInFrames,
     titleFontSize,
     descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
     fontFamily,
   } = props;
   const p = aspectRatio === "portrait";
 
-  const { fps } = useVideoConfig();
+  const { fps, height} = useVideoConfig();
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input; long copy overflows the card
+     (and in this template collides with the artwork) instead of resizing.
+     Measure the real available height and shrink to fit. A size the user
+     explicitly picked is honored exactly — minPx === targetPx no-ops the hook. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitDescRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 101 : 96);
+  const fitDescTarget = descriptionFontSize ?? (p ? 50 : 42);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.42),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.22 : 0.26)),
+  );
+  const { px: fitDescPx } = useFitText(
+    fitDescRef,
+    fitDescTarget,
+    descriptionFontSizeIsUserSet ? fitDescTarget : Math.round(fitDescTarget * 0.4),
+    [narration, fitDescTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * (p ? 0.30 : 0.34)),
+  );
   const frame = useCurrentFrame();
   const dur = sceneDurationInFrames ?? 150;
 
@@ -299,9 +326,9 @@ export const NightWalk: React.FC<SceneLayoutProps> = (props) => {
         }}
       >
         {/* Title */}
-        <div
+        <div ref={fitTitleRef}
           style={{
-            fontSize: titleFontSize ?? (p ? 101 : 96),
+            fontSize: fitTitlePx,
             fontWeight: 700,
             color: accentColor ?? "#FFFFFF",
             lineHeight: 1.15,
@@ -330,9 +357,9 @@ export const NightWalk: React.FC<SceneLayoutProps> = (props) => {
         </svg>
 
         {/* Narration */}
-        <div
+        <div ref={fitDescRef}
           style={{
-            fontSize: descriptionFontSize ?? (p ? 50 : 42),
+            fontSize: fitDescPx,
             color: textColor ?? "#FFFFFF",
             lineHeight: 1.6,
             opacity: narrationOpacity,

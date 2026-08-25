@@ -178,6 +178,7 @@ const NewscastSequenceInner: React.FC<{
   sceneIndex: number;
   sceneCount: number;
   isHero: boolean;
+  showLowerThird: boolean;
   layoutType: string;
   layoutProps: NewscastLayoutProps;
   LayoutComponent: React.ComponentType<NewscastLayoutProps>;
@@ -198,6 +199,7 @@ const NewscastSequenceInner: React.FC<{
   sceneIndex,
   sceneCount,
   isHero,
+  showLowerThird,
   layoutType,
   layoutProps,
   LayoutComponent,
@@ -259,7 +261,7 @@ const NewscastSequenceInner: React.FC<{
                 lowerThirdTag={layoutProps.lowerThirdTag}
                 lowerThirdHeadline={layoutProps.lowerThirdHeadline}
                 lowerThirdSub={layoutProps.lowerThirdSub}
-                showLowerThird={layoutType !== "data_visualization"}
+                showLowerThird={showLowerThird}
                 aspectRatio={layoutProps.aspectRatio}
                 accentColor={layoutProps.accentColor}
                 textColor={layoutProps.textColor}
@@ -430,6 +432,14 @@ export const NewscastVideoComposition: React.FC<NewscastVideoCompositionProps> =
         // hero too — otherwise the variant gets the composition chrome AND its
         // own, drawing the ticker/top bar twice.
         const isHero = normalizedLayout.split("__")[0] === "opening";
+        // data_visualization renders its own lower-third-equivalent cards;
+        // anchor_narrative__v2 ("Studio Desk") renders its own on-air slate
+        // top-right AND its own band with the same lowerThird* copy — the
+        // composition's chrome lower-third would just duplicate both, so
+        // it's suppressed for either.
+        const showLowerThird =
+          layoutType !== "data_visualization" &&
+          normalizedLayout !== "anchor_narrative__v2";
 
         return (
           <Sequence
@@ -444,6 +454,7 @@ export const NewscastVideoComposition: React.FC<NewscastVideoCompositionProps> =
               sceneIndex={index}
               sceneCount={scenes.length}
               isHero={isHero}
+              showLowerThird={showLowerThird}
               layoutType={layoutType}
               layoutProps={layoutProps}
               LayoutComponent={LayoutComponent}

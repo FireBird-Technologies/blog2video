@@ -15,6 +15,7 @@ import {
   YAxis,
 } from "recharts";
 import { MatrixBackground } from "../MatrixBackground";
+import { useFitText } from "../components/useFitText";
 import { buildHudStatus, DecodeSweep, GlitchSlice, TerminalHUD } from "../components/MatrixArtifacts";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
@@ -123,11 +124,8 @@ export const MatrixDataChart: React.FC<MatrixLayoutProps> = ({
   const p = aspectRatio === "portrait";
   const font = fontFamily || MONO;
 
-  const titleSize = titleFontSize ?? (p ? 46 : 40);
-  const descSize = descriptionFontSize ?? (p ? 28 : 28);
-  const chartTickSize = Math.round(descSize * 0.92);
-  const chartAxisLabelSize = Math.round(descSize * 0.74);
-  const VALUE_LABEL_FS = Math.round(descSize * 0.58);
+  const titleTarget = titleFontSize ?? (p ? 46 : 40);
+  const descTarget = descriptionFontSize ?? (p ? 28 : 28);
 
   // Panel / text entry reveal
   const ra = Math.min(1, Math.max(0, frame / 18));
@@ -164,6 +162,17 @@ export const MatrixDataChart: React.FC<MatrixLayoutProps> = ({
     if (!hasRealChart) return "";
     return buildAutoChartSummary(chartInputs, resolvedChartType);
   }, [chartSummary, hasRealChart, chartInputs, resolvedChartType]);
+
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const summaryRef = React.useRef<HTMLDivElement>(null);
+  const narrationRef = React.useRef<HTMLDivElement>(null);
+  const { px: titleSize } = useFitText(titleRef, titleTarget, 12, [title, titleTarget, p], height * 0.1);
+  const { px: fittedSummarySize } = useFitText(summaryRef, descTarget * 0.82, 10, [summaryText, descTarget, p], height * (p ? 0.14 : 0.5));
+  const { px: fittedNarrationSize } = useFitText(narrationRef, descTarget * 0.84, 10, [narration, descTarget, p], height * 0.1);
+  const descSize = descTarget;
+  const chartTickSize = Math.round(descSize * 0.92);
+  const chartAxisLabelSize = Math.round(descSize * 0.74);
+  const VALUE_LABEL_FS = Math.round(descSize * 0.58);
 
   const lineDataBounds = useMemo(() => {
     let lo = Infinity;
@@ -578,6 +587,7 @@ export const MatrixDataChart: React.FC<MatrixLayoutProps> = ({
         {/* Title */}
         <div style={{ opacity: ra, marginBottom: Math.round(height * 0.02) }}>
           <div
+            ref={titleRef}
             style={{
               fontFamily: font,
               fontWeight: 700,
@@ -586,6 +596,7 @@ export const MatrixDataChart: React.FC<MatrixLayoutProps> = ({
               lineHeight: 1.1,
               color: accentColor,
               textShadow: `0 0 14px ${accentColor}99, 0 0 32px ${accentColor}55`,
+              overflowWrap: "anywhere",
             }}
           >
             {chromeTitle}
@@ -648,7 +659,7 @@ export const MatrixDataChart: React.FC<MatrixLayoutProps> = ({
                 overflow: "hidden",
               }}
             >
-              <div style={{ fontFamily: font, fontWeight: 500, fontSize: descSize * 0.82, lineHeight: 1.5, color: textColor, opacity: 0.95, whiteSpace: "pre-wrap", textShadow: `0 0 8px ${accentColor}44` }}>
+              <div ref={summaryRef} style={{ fontFamily: font, fontWeight: 500, fontSize: fittedSummarySize, lineHeight: 1.5, color: textColor, opacity: 0.95, whiteSpace: "pre-wrap", overflowWrap: "anywhere", textShadow: `0 0 8px ${accentColor}44` }}>
                 {summaryText
                   ? summaryText.split(/(__[^_]+__)/).map((seg, i) => {
                       if (seg.startsWith("__") && seg.endsWith("__")) {
@@ -669,7 +680,7 @@ export const MatrixDataChart: React.FC<MatrixLayoutProps> = ({
         {/* Narration */}
         {narration && (
           <div style={{ opacity: Math.min(1, Math.max(0, (frame - 16) / 20)), marginTop: Math.round(height * 0.02) }}>
-            <div style={{ fontFamily: font, fontStyle: "italic", fontSize: descSize * 0.84, color: textColor, opacity: 0.7, lineHeight: 1.45, overflowWrap: "break-word", wordBreak: "break-word" }}>
+            <div ref={narrationRef} style={{ fontFamily: font, fontStyle: "italic", fontSize: fittedNarrationSize, color: textColor, opacity: 0.7, lineHeight: 1.45, overflowWrap: "anywhere", wordBreak: "break-word" }}>
               {narration}
             </div>
           </div>

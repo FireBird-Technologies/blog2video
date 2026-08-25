@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { MosaicBackground } from "../MosaicBackground";
 import { getSceneTransition, getStaggeredReveal } from "../transitions";
 import {
@@ -15,6 +16,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { MeasuredChart } from "../../_shared/MeasuredChart";
 import type { MosaicLayoutProps } from "../types";
 import { MOSAIC_DEFAULT_FONT_FAMILY } from "../constants";
 import {
@@ -34,7 +36,6 @@ import {
   easeInOutCubic,
   clampProgressAt,
 } from "../../_shared/chartData";
-import { MeasuredChart } from "../../_shared/MeasuredChart";
 
 // ─── Mosaic chart palette (stone & terracotta) ────────────────────────────────
 const MOSAIC_BG = "#EAE4DA";
@@ -95,8 +96,12 @@ export const MosaicDataChart: React.FC<MosaicLayoutProps> = ({
   const ink = textColor || MOSAIC_INK;
   const accent = accentColor || MOSAIC.terracotta;
 
-  const titleSize = titleFontSize ?? (p ? 56 : 52);
+  const titleTarget = titleFontSize ?? (p ? 56 : 52);
   const descSize = descriptionFontSize ?? (p ? 28 : 26);
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const summaryRef = React.useRef<HTMLDivElement>(null);
+  const narrationRef = React.useRef<HTMLDivElement>(null);
+  const { px: titleSize } = useFitText(titleRef, titleTarget, Math.max(12, Math.round(titleTarget * 0.28)), [title, titleTarget, p, height], Math.round(height * 0.12));
   const chartTickSize = Math.round(descSize * 0.86);
   const chartAxisLabelSize = Math.round(descSize * 0.72);
   const VALUE_LABEL_FS = Math.round(descSize * 0.56);
@@ -168,6 +173,10 @@ export const MosaicDataChart: React.FC<MosaicLayoutProps> = ({
     if (!hasRealChart) return "";
     return buildAutoChartSummary(chartInputs, resolvedChartType);
   }, [chartSummary, hasRealChart, chartInputs, resolvedChartType]);
+  const summaryTarget = Math.round(descSize * 0.9);
+  const narrationTarget = Math.round(descSize * 0.82);
+  const { px: summarySize } = useFitText(summaryRef, summaryTarget, Math.max(9, Math.round(summaryTarget * 0.36)), [summaryText, summaryTarget, p, height], Math.round(height * (p ? 0.24 : 0.38)));
+  const { px: narrationSize } = useFitText(narrationRef, narrationTarget, Math.max(9, Math.round(narrationTarget * 0.36)), [narration, narrationTarget, titleSize, p, height], Math.round(height * 0.09));
 
   const lineDataBounds = useMemo(() => {
     let lo = Infinity;
@@ -597,7 +606,7 @@ export const MosaicDataChart: React.FC<MosaicLayoutProps> = ({
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", padding: p ? "14% 7% 6%" : "12% 7% 5%", opacity: fadeOut }}>
         {/* Title */}
         <div style={{ opacity: titleOp, marginBottom: Math.round(height * 0.022), textAlign: "center" }}>
-          <div style={{ fontFamily: bodyFont, fontWeight: 800, fontSize: titleSize, lineHeight: 1.05, color: ink, letterSpacing: "0.01em" }}>
+          <div ref={titleRef} style={{ fontFamily: bodyFont, fontWeight: 800, fontSize: titleSize, lineHeight: 1.05, color: ink, letterSpacing: "0.01em", overflowWrap: "anywhere" }}>
             {title}
           </div>
           {/* mosaic-style accent underline: wide bar + small square */}
@@ -665,7 +674,7 @@ export const MosaicDataChart: React.FC<MosaicLayoutProps> = ({
                 overflow: "hidden",
               }}
             >
-              <div style={{ fontFamily: bodyFont, fontWeight: 500, fontSize: descSize * 0.9, lineHeight: 1.5, color: ink, opacity: 0.95, whiteSpace: "pre-wrap" }}>
+              <div ref={summaryRef} style={{ fontFamily: bodyFont, fontWeight: 500, fontSize: summarySize, lineHeight: 1.5, color: ink, opacity: 0.95, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
                 {summaryText
                   ? summaryText.split(/(__[^_]+__)/).map((seg: string, i: number) => {
                       if (seg.startsWith("__") && seg.endsWith("__")) {
@@ -682,7 +691,7 @@ export const MosaicDataChart: React.FC<MosaicLayoutProps> = ({
         {/* Narration */}
         {narration && (
           <div style={{ opacity: interpolate(frame, [60, 80], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }), marginTop: Math.round(height * 0.018) }}>
-            <div style={{ fontFamily: bodyFont, fontStyle: "italic", fontSize: descSize * 0.82, color: ink, opacity: 0.60, lineHeight: 1.45, textAlign: "center", overflowWrap: "break-word", wordBreak: "break-word" }}>
+            <div ref={narrationRef} style={{ fontFamily: bodyFont, fontStyle: "italic", fontSize: narrationSize, color: ink, opacity: 0.60, lineHeight: 1.45, textAlign: "center", overflowWrap: "break-word", wordBreak: "break-word" }}>
               {narration}
             </div>
           </div>

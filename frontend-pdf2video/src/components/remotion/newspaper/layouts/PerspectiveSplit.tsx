@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, spring, staticFile } from "remotion";
 import { NewsBackground } from "../NewsBackground";
+import { useFitText } from "../components/useFitText";
 import type { BlogLayoutProps } from "../types";
 
 const H_FONT = "'Source Serif 4', Georgia, 'Times New Roman', serif";
@@ -17,6 +18,8 @@ export const PerspectiveSplit: React.FC<BlogLayoutProps> = ({
   aspectRatio = "landscape",
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   stats,
   category,
   fontFamily,
@@ -32,6 +35,29 @@ export const PerspectiveSplit: React.FC<BlogLayoutProps> = ({
 
   const titleSize = titleFontSize ?? (p ? 58 : 38);
   const descSize = descriptionFontSize ?? (p ? 25 : 17);
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and body copy are unbounded user input; long text overflows the card
+     and is clipped. Fit each to the space actually available. An explicitly
+     chosen size is honored exactly (minPx === targetPx makes the hook a no-op). */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitBodyRef = React.useRef<HTMLDivElement>(null);
+  const titleBudgetPx = Math.round(height * (p ? 0.22 : 0.24));
+  const { px: titlePx } = useFitText(
+    fitTitleRef,
+    titleSize,
+    titleFontSizeIsUserSet ? titleSize : p ? 28 : 20,
+    [title, titleSize, titleFontSizeIsUserSet, titleBudgetPx, p],
+    titleBudgetPx,
+  );
+  const bodyBudgetPx = Math.round(height * (p ? 0.30 : 0.34));
+  const { px: bodyPx } = useFitText(
+    fitBodyRef,
+    descSize,
+    descriptionFontSizeIsUserSet ? descSize : p ? 14 : 11,
+    [narration, descSize, descriptionFontSizeIsUserSet, bodyBudgetPx, titlePx, p],
+    bodyBudgetPx,
+  );
 
   // Shard entrance wipe: two panels slide in from left/right
   const shardProgress = interpolate(frame, [0, 35], [0, 1], { extrapolateRight: "clamp" });
@@ -181,7 +207,7 @@ export const PerspectiveSplit: React.FC<BlogLayoutProps> = ({
               </div>
 
               {/* Left thought word-reveal */}
-              <div style={{ fontFamily: fontFamily ?? H_FONT, fontSize: descSize, fontWeight: 500, color: textColor, lineHeight: 1.4, fontStyle: "italic", flex: 1 }}>
+              <div ref={fitBodyRef} style={{ fontFamily: fontFamily ?? H_FONT, fontSize: bodyPx, fontWeight: 500, color: textColor, lineHeight: 1.4, fontStyle: "italic", flex: 1 }}>
                 "{leftWords.slice(0, leftVisWords).join(" ")}
                 {leftVisWords < leftWords.length && leftVisWords > 0 && (
                   <span style={{ display: "inline-block", width: 3, height: "0.8em", background: textColor, opacity: 0.45, marginLeft: 3, verticalAlign: "middle" }} />
@@ -227,7 +253,7 @@ export const PerspectiveSplit: React.FC<BlogLayoutProps> = ({
               </div>
             )}
             <div style={{ opacity: titleOp }}>
-              <div style={{ fontFamily: fontFamily ?? H_FONT, fontSize: titleSize, fontWeight: 800, color: textColor, lineHeight: 1.05, letterSpacing: "-0.01em" }}>
+              <div ref={fitTitleRef} style={{ fontFamily: fontFamily ?? H_FONT, fontSize: titlePx, fontWeight: 800, color: textColor, lineHeight: 1.05, letterSpacing: "-0.01em" }}>
                 {title}
               </div>
               <div style={{ height: 3, background: textColor, opacity: 0.18, width: `${ruleW}%`, maxWidth: 220, margin: "10px auto 0" }} />

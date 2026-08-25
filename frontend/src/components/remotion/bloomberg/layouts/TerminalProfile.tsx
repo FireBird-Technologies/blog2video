@@ -1,4 +1,6 @@
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import React from "react";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY, derivePalette } from "../constants";
 import type { BloombergLayoutProps } from "../types";
 import { BackgroundHistogramGraph } from "./BackgroundHistogramGraph";
@@ -26,6 +28,7 @@ export const TerminalProfile: React.FC<BloombergLayoutProps> = ({
   videoStartInFrames,
 }) => {
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const p = aspectRatio === "portrait";
   const ff = fontFamily || BLOOMBERG_DEFAULT_FONT_FAMILY;
   const amber = textColor || BLOOMBERG_COLORS.amber;
@@ -51,9 +54,25 @@ export const TerminalProfile: React.FC<BloombergLayoutProps> = ({
   const topH = p ? 56 : 48;
   const botH = p ? 44 : 36;
   const pad = p ? 40 : 48;
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const profileMeasureRef = React.useRef<HTMLDivElement>(null);
+  const narrationRef = React.useRef<HTMLDivElement>(null);
+  const profileTarget = dSize * 0.7;
+  const profileCopy = profiles.join("\n");
+  const { px: fittedTitleSize } = useFitText(titleRef, tSize * 0.6, p ? 30 : 28, [title, tSize, p], p ? 170 : 140);
+  const { px: fittedProfileSize } = useFitText(profileMeasureRef, profileTarget, p ? 19 : 18, [profileCopy, profileTarget, p], p ? 580 : 420);
+  const narrationBudget = Math.round(height * 0.28);
+  const { px: fittedNarrationSize } = useFitText(
+    narrationRef,
+    dSize * 0.85,
+    p ? 12 : 11,
+    [narration, dSize, p, height],
+    narrationBudget,
+  );
 
   return (
     <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff, overflow: "hidden" }}>
+      <div ref={profileMeasureRef} style={{ position: "absolute", visibility: "hidden", width: p ? "82%" : 340, fontSize: profileTarget, lineHeight: 1.45, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{profileCopy}</div>
       {(videoUrl || imageUrl) && (
         <>
           <div style={{ position: "absolute", inset: 0 }}>
@@ -87,18 +106,23 @@ export const TerminalProfile: React.FC<BloombergLayoutProps> = ({
 
       {/* Main Centered Container */}
       <div style={{
+        position: "absolute",
+        top: topH,
+        right: 0,
+        bottom: botH,
+        left: 0,
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
         alignItems: "center",
-        height: "100%",
         padding: `0 ${pad}px`,
       }}>
         
         {/* Single Centered Title */}
-        <div style={{
+        <div ref={titleRef} style={{
           color: amber,
-          fontSize: tSize * 0.6,
+          fontSize: fittedTitleSize,
+          lineHeight: 1.1,
           opacity: titleOpacity,
           letterSpacing: -0.5,
           fontWeight: "bold",
@@ -142,7 +166,7 @@ export const TerminalProfile: React.FC<BloombergLayoutProps> = ({
               }}>
                 <span style={{ 
                   color: blue, 
-                  fontSize: dSize * 0.7, 
+                  fontSize: fittedProfileSize,
                   letterSpacing: 2, 
                   fontWeight: "bold" 
                 }}>
@@ -150,7 +174,7 @@ export const TerminalProfile: React.FC<BloombergLayoutProps> = ({
                 </span>
                 <span style={{ 
                   color: muted, 
-                  fontSize: dSize * 0.7, 
+                  fontSize: fittedProfileSize,
                   lineHeight: 1.4 
                 }}>
                   {desc}
@@ -161,12 +185,18 @@ export const TerminalProfile: React.FC<BloombergLayoutProps> = ({
         </div>
 
         {/* Increased Narration Size below Cards */}
-        <div style={{
-          marginTop: p ? 40 : 60,
+        <div ref={narrationRef} style={{
+          marginTop: p ? 40 : 50,
           color: muted,
-          fontSize: dSize * 0.85,
+          fontSize: fittedNarrationSize,
+          lineHeight: 1.35,
+          maxHeight: narrationBudget,
+          flexShrink: 0,
+          overflow: "hidden",
+          overflowWrap: "anywhere",
           textAlign: "center",
-          maxWidth: "80%",
+          width: "100%",
+          maxWidth: p ? "88%" : "92%",
           opacity: interpolate(frame, [30, 45], [0, 1], { extrapolateRight: "clamp" }),
         }}>
           {narration}

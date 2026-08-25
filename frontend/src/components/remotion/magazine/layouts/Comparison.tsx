@@ -1,4 +1,5 @@
 import React from "react";
+import { useVideoConfig } from "remotion";
 import { interpolate } from "remotion";
 import { SceneLayoutProps } from "../types";
 import {
@@ -14,6 +15,7 @@ import {
   gutterPx,
   useMagFrame,
 } from "../magazineStyle";
+import { useFitText as useFitTextBudget, useAvailableHeight } from "../components/useFitText";
 
 // Normalise a points prop (object_array of { value } or string[]) to a clean
 // string list. When absent, fall back to splitting the legacy paragraph copy
@@ -38,6 +40,7 @@ const toPoints = (raw: unknown, fallbackText: string): string[] => {
  */
 export const Comparison: React.FC<SceneLayoutProps> = (props) => {
   const { title, narration, titleFontSize, descriptionFontSize } = props;
+  const { height } = useVideoConfig();
   const leftHeader = props.leftHeader ?? "Before";
   const rightHeader = props.rightHeader ?? "After";
   const leftPoints = toPoints(props.leftPoints, props.leftContent ?? narration ?? "");
@@ -53,12 +56,25 @@ export const Comparison: React.FC<SceneLayoutProps> = (props) => {
   const vsO = interpolate(frame, [10, 24], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const vsScale = interpolate(frame, [10, 24], [0.6, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
-  const bodyPx = descriptionFontSize ?? (p ? 52 : 46);
-  const titlePx = titleFontSize ?? (p ? 92 : 95);
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and the before/after bullets are unbounded user input; long copy ran
+     across the gutter and off the bottom of the spread. Fit both to the page. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitBodyRef = React.useRef<HTMLUListElement>(null);
+  const colRef = React.useRef<HTMLDivElement>(null);
+  const bodyTarget = descriptionFontSize ?? (p ? 52 : 46);
+  const titleTarget = titleFontSize ?? (p ? 92 : 95);
+  const { px: titlePx } = useFitTextBudget(fitTitleRef, titleTarget, Math.round(titleTarget * 0.32),
+    [title, titleTarget, p, height], Math.round(height * 0.13));
+  // The page sits under a camera transform, so a frame-height budget does not
+  // map to page pixels — measure the real band the list sits in instead.
+  const bodyAvail = useAvailableHeight(fitBodyRef, colRef, [narration, bodyTarget, titlePx, p]);
+  const { px: bodyPx } = useFitTextBudget(fitBodyRef, bodyTarget, Math.round(bodyTarget * 0.6),
+    [narration, bodyTarget, titlePx, p, bodyAvail], bodyAvail || undefined);
   const headPx = p ? 26 : 24;
 
-  const Column = (header: string, points: string[], o: number, headerColor: string, start: number) => (
-    <div style={{ flex: 1, opacity: o, display: "flex", flexDirection: "column", justifyContent: "flex-start", padding: p ? "0" : "0 8px" }}>
+  const Column = (header: string, points: string[], o: number, headerColor: string, start: number, listRef?: React.RefObject<HTMLUListElement>, boxRef?: React.RefObject<HTMLDivElement>) => (
+    <div ref={boxRef} style={{ flex: 1, minHeight: 0, overflow: "hidden", opacity: o, display: "flex", flexDirection: "column", justifyContent: "flex-start", padding: p ? "0" : "0 8px" }}>
       <div
         style={{
           fontFamily: MAG_SANS,
@@ -73,7 +89,7 @@ export const Comparison: React.FC<SceneLayoutProps> = (props) => {
         {header}
       </div>
       <div style={{ height: 3, width: 56, background: headerColor, marginBottom: 22 }} />
-      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: p ? 16 : 14 }}>
+      <ul ref={listRef} style={{ listStyle: "none", margin: 0, padding: 0, minHeight: 0, height: "100%", flex: "1 1 auto", overflow: "hidden", display: "flex", flexDirection: "column", gap: p ? 16 : 14 }}>
         {points.map((pt, i) => {
           const bo = interpolate(frame, [start + i * 4, start + i * 4 + 14], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
           return (
@@ -91,7 +107,7 @@ export const Comparison: React.FC<SceneLayoutProps> = (props) => {
 
   return (
     <MagazinePage lightChrome colors={colors} section={(props.sectionLabel as string)?.trim() || "Comparison"} issue={props.issueLabel ?? "Analysis"} page={props.pageNumber} aspectRatio={props.aspectRatio} fontFamily={props.fontFamily} cameraMove={props.cameraMove} hidePrintTexture={p} printTextureSrc={p ? MAG_TEXTURES.comparisonPortrait : MAG_TEXTURES.comparison} printTextureOpacity={0.3}>
-      <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      <div ref={fitTitleRef} style={{ height: "100%", display: "flex", flexDirection: "column" }}>
         {title && (
           <h1
             style={{
@@ -112,6 +128,11 @@ export const Comparison: React.FC<SceneLayoutProps> = (props) => {
         <div
           style={{
             flex: 1,
+            // Without minHeight:0 a flex child refuses to shrink below its
+            // content, so the columns (and the fitter) never see a real bound
+            // and long bullet copy ran off the bottom of the spread.
+            minHeight: 0,
+            overflow: "hidden",
             display: "flex",
             flexDirection: p ? "column" : "row",
             gap: p ? 28 : 0,
@@ -119,7 +140,7 @@ export const Comparison: React.FC<SceneLayoutProps> = (props) => {
             position: "relative",
           }}
         >
-          {Column(leftHeader, leftPoints, leftO, accent, 16)}
+          {Column(leftHeader, leftPoints, leftO, accent, 16, fitBodyRef, colRef)}
 
           {/* Centre divider — gap matches the binding so neither column's copy
               lands on the hinge */}

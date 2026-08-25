@@ -5,9 +5,11 @@ import {
   useCurrentFrame,
   spring,
   Easing,
+  useVideoConfig,
 } from "remotion";
 import { SceneLayoutProps } from "../types";
 import { GeometricBackground } from "../components/GeometricBackground";
+import { useFitText } from "../components/useFitText";
 
 export const Metric: React.FC<SceneLayoutProps> = ({
   title,
@@ -18,12 +20,47 @@ export const Metric: React.FC<SceneLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
   sceneIndex,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
+  const { height } = useVideoConfig();
   const isPortrait = aspectRatio === "portrait";
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and the metric label(s) are unbounded user input; this scene has no
+     overflow:hidden, but the header/label bands have no height limit of their
+     own either, so long copy just grows past the header/gauge and breaks the
+     centred layout. Fit the header to a small budget and the main label to a
+     modest one — both independent (no cascade needed; the gauge circle
+     between them is a fixed size). A size the user explicitly picked is
+     honored exactly (minPx === targetPx makes the hook a no-op). */
+  const titleRef = React.useRef<HTMLHeadingElement>(null);
+  const labelRef = React.useRef<HTMLParagraphElement>(null);
+
+  const actualTitleFontSize = titleFontSize ?? (isPortrait ? 40 : 32);
+  const actualDescriptionFontSize = descriptionFontSize ?? (isPortrait ? 34 : 28);
+
+  const titleBudgetPx = Math.round(height * 0.1);
+  const { px: titlePx } = useFitText(
+    titleRef,
+    actualTitleFontSize,
+    titleFontSizeIsUserSet ? actualTitleFontSize : isPortrait ? 20 : 16,
+    [title, actualTitleFontSize, titleFontSizeIsUserSet, titleBudgetPx, isPortrait],
+    titleBudgetPx,
+  );
+
+  const labelBudgetPx = Math.round(height * 0.12);
+  const { px: labelPx } = useFitText(
+    labelRef,
+    actualDescriptionFontSize,
+    descriptionFontSizeIsUserSet ? actualDescriptionFontSize : isPortrait ? 18 : 15,
+    [metrics, actualDescriptionFontSize, descriptionFontSizeIsUserSet, titlePx, labelBudgetPx, isPortrait],
+    labelBudgetPx,
+  );
 
   // Data Handling
   const mainMetric = metrics[0] || { value: "0", label: "", suffix: "%" };
@@ -80,9 +117,9 @@ export const Metric: React.FC<SceneLayoutProps> = ({
         marginBottom: 40,
         zIndex: 2,
       }}>
-        <h3 style={{
+        <h3 ref={titleRef} style={{
           color: textColor,
-          fontSize: titleFontSize ?? (isPortrait ? 40 : 32),
+          fontSize: titlePx,
           fontWeight: 700,
           textTransform: "uppercase",
           letterSpacing: 8,
@@ -177,9 +214,9 @@ export const Metric: React.FC<SceneLayoutProps> = ({
           opacity: interpolate(frame, [40, 60], [0, 1], { extrapolateLeft: "clamp" }),
           zIndex: 2, // Ensure it's above background decorations
         }}>
-          <p style={{
+          <p ref={labelRef} style={{
             color: textColor,
-            fontSize: descriptionFontSize ?? (isPortrait ? 34 : 28), // Changed to use descriptionFontSize
+            fontSize: labelPx,
             fontWeight: 500,
             margin: 0,
             lineHeight: 1.2,

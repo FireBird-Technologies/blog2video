@@ -1,8 +1,10 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, spring, Img } from "remotion";
+import React from "react";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring, useVideoConfig, Img } from "remotion";
 import { SceneLayoutProps } from "../types";
 import { GeometricBackground } from "../components/GeometricBackground";
 import { FlybyPlane } from "../components/FlybyPlane";
 import { AnimatedVideo } from "./AnimatedVideo";
+import { useFitText } from "../components/useFitText";
 
 export const BulletList: React.FC<SceneLayoutProps & { imageUrl?: string }> = (props) => {
   const {
@@ -13,6 +15,8 @@ export const BulletList: React.FC<SceneLayoutProps & { imageUrl?: string }> = (p
     aspectRatio,
     titleFontSize,
     descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
     imageUrl, // New Prop
     imageObjectPosition,
     imageZoom,
@@ -32,7 +36,53 @@ export const BulletList: React.FC<SceneLayoutProps & { imageUrl?: string }> = (p
 
   const frame = useCurrentFrame();
   const { fps } = { fps: 30 };
+  const { height } = useVideoConfig();
   const p = aspectRatio === "portrait";
+  const hasVisual = Boolean(imageUrl || videoUrl);
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and bullet copy are unbounded user input; the content column is
+     vertically centred with no height limit of its own, so a long title or
+     many/long bullets just grow past the frame and get clipped by the
+     AbsoluteFill's overflow:hidden. Title and list each fit against their
+     own fixed, independent budget. A size the user explicitly picked is
+     honored exactly (minPx === targetPx makes the hook a no-op).
+
+     No give-back cross-talk between the two: a useLayoutEffect+setState
+     chain reacting to another useFitText's overflow output creates a
+     multi-render convergence that Remotion's per-frame headless capture can
+     settle at different points on different frames (confirmed via a real
+     render — frame-to-frame scene-change score hit 1.0, i.e. maximum, twice
+     in the first ten frames, in the equivalent newscast/newspaper opening
+     scenes). */
+  const titleRef = React.useRef<HTMLHeadingElement>(null);
+  const listRef = React.useRef<HTMLDivElement>(null);
+
+  const actualTitleFontSize = titleFontSize ?? (p ? 60 : 52);
+  const actualDescriptionFontSize = descriptionFontSize ?? (p ? 37 : 29);
+
+  const titleBudgetPx = Math.round(height * (p ? 0.24 : 0.28));
+
+  const { px: titlePx } = useFitText(
+    titleRef,
+    actualTitleFontSize,
+    titleFontSizeIsUserSet ? actualTitleFontSize : p ? 28 : 24,
+    [title, actualTitleFontSize, titleFontSizeIsUserSet, titleBudgetPx, p],
+    titleBudgetPx,
+  );
+
+  const listBudgetPx = Math.round(height * (p ? 0.62 : 0.6));
+  const { px: descPx } = useFitText(
+    listRef,
+    actualDescriptionFontSize,
+    descriptionFontSizeIsUserSet ? actualDescriptionFontSize : p ? 16 : 14,
+    [points, actualDescriptionFontSize, descriptionFontSizeIsUserSet, titlePx, listBudgetPx, p],
+    listBudgetPx,
+  );
+
+  // Scale the bullet-number badge and the key-line proportionally to the
+  // fitted body size so they don't dwarf shrunken copy.
+  const keyFontSize = Math.round(descPx * ((actualDescriptionFontSize * 1.1) / actualDescriptionFontSize));
 
   // Animation for the Image
   const imageSpring = spring({
@@ -119,25 +169,28 @@ export const BulletList: React.FC<SceneLayoutProps & { imageUrl?: string }> = (p
             flexDirection: "column",
             justifyContent: "center",
             zIndex: 2,
+            minHeight: 0,
           }}
         >
           {title && (
             <h2
+              ref={titleRef}
               style={{
-                fontSize: titleFontSize ?? (p ? 60 : 52),
+                fontSize: titlePx,
                 fontWeight: 800,
                 color: textColor,
                 marginBottom: 40,
                 textAlign: p ? "center" : "left",
                 lineHeight: 1.1,
-                letterSpacing: "-0.02em"
+                letterSpacing: "-0.02em",
+                flexShrink: 0,
               }}
             >
               {title}
             </h2>
           )}
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 30 }}>
+          <div ref={listRef} style={{ display: "flex", flexDirection: "column", gap: 30, flex: "0 1 auto", minHeight: 0, overflow: "hidden" }}>
             {points.map((point, i) => {
               const delay = 20 + i * 10;
               const itemSpring = spring({
@@ -183,7 +236,7 @@ export const BulletList: React.FC<SceneLayoutProps & { imageUrl?: string }> = (p
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     <div
                       style={{
-                        fontSize: descriptionFontSize ? descriptionFontSize * 1.1 : 32,
+                        fontSize: keyFontSize,
                         fontWeight: 700,
                         color: accentColor,
                         textTransform: "uppercase",
@@ -195,7 +248,7 @@ export const BulletList: React.FC<SceneLayoutProps & { imageUrl?: string }> = (p
                     {point.value && (
                       <div
                         style={{
-                          fontSize: descriptionFontSize ?? (p ? 37 : 29),
+                          fontSize: descPx,
                           color: textColor,
                           opacity: 0.9,
                           lineHeight: 1.4,

@@ -8,6 +8,7 @@ import {
 } from "../../../fonts/chronicle-defaults";
 import { EmbossedImage } from "../components/EmbossedImage";
 import { QuillText } from "../components/QuillInk";
+import { useFitText } from "../components/useFitText";
 
 /**
  * VersusFolio — two facing pages with a central spine + "vs." medallion.
@@ -25,6 +26,8 @@ export const VersusFolio: React.FC<ChronicleLayoutProps> = ({
   aspectRatio = "landscape",
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
   imageUrl,
   imageObjectPosition,
@@ -38,6 +41,73 @@ export const VersusFolio: React.FC<ChronicleLayoutProps> = ({
   const frame = useCurrentFrame();
   const { durationInFrames, height, width } = useVideoConfig();
   const p = aspectRatio === "portrait" || height > width;
+
+  /* ── Auto-fit ──────────────────────────────────────────────────
+     Title, sub-narration, and each folio's label + description are all
+     unbounded user input. `renderPage` is a plain function (not a component,
+     see the note above it) called once per side, so its label/description
+     refs and fitted px are created here at the top level and threaded in as
+     parameters rather than via hooks inside renderPage. QuillText's
+     mode="char" (title, folio labels) reveals characters progressively —
+     hidden mirrors are measured; mode="word" (folio descriptions) renders
+     full text from frame 0 with only opacity/transform animating, so those
+     are safe to ref directly. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = (titleFontSize ?? (p ? 84 : 65)) * (p ? 0.7 : 0.8);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.45),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * 0.1),
+  );
+  const fitNarrationRef = React.useRef<HTMLDivElement>(null);
+  const fitNarrationTarget = descriptionFontSize ? descriptionFontSize * 0.85 : (p ? 24 : 20);
+  const { px: fitNarrationPx } = useFitText(
+    fitNarrationRef,
+    fitNarrationTarget,
+    descriptionFontSizeIsUserSet ? fitNarrationTarget : Math.round(fitNarrationTarget * 0.55),
+    [narration, fitNarrationTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * 0.08),
+  );
+
+  const fitLeftLabelRef = React.useRef<HTMLDivElement>(null);
+  const fitRightLabelRef = React.useRef<HTMLDivElement>(null);
+  const fitLabelTarget = titleFontSize ? titleFontSize * 0.55 : (p ? 44 : 50);
+  const { px: fitLeftLabelPx } = useFitText(
+    fitLeftLabelRef,
+    fitLabelTarget,
+    titleFontSizeIsUserSet ? fitLabelTarget : Math.round(fitLabelTarget * 0.45),
+    [leftLabel, fitLabelTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * 0.08),
+  );
+  const { px: fitRightLabelPx } = useFitText(
+    fitRightLabelRef,
+    fitLabelTarget,
+    titleFontSizeIsUserSet ? fitLabelTarget : Math.round(fitLabelTarget * 0.45),
+    [rightLabel, fitLabelTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * 0.08),
+  );
+
+  const fitLeftDescRef = React.useRef<HTMLDivElement>(null);
+  const fitRightDescRef = React.useRef<HTMLDivElement>(null);
+  const fitDescTarget = descriptionFontSize ?? (p ? 39 : 30);
+  const leftDescText = leftDescription || narration || "";
+  const rightDescText = rightDescription || "";
+  const { px: fitLeftDescPx } = useFitText(
+    fitLeftDescRef,
+    fitDescTarget,
+    descriptionFontSizeIsUserSet ? fitDescTarget : Math.round(fitDescTarget * 0.5),
+    [leftDescText, fitDescTarget, descriptionFontSizeIsUserSet, fitLeftLabelPx, p, height],
+    Math.round(height * (p ? 0.16 : 0.32)),
+  );
+  const { px: fitRightDescPx } = useFitText(
+    fitRightDescRef,
+    fitDescTarget,
+    descriptionFontSizeIsUserSet ? fitDescTarget : Math.round(fitDescTarget * 0.5),
+    [rightDescText, fitDescTarget, descriptionFontSizeIsUserSet, fitRightLabelPx, p, height],
+    Math.round(height * (p ? 0.16 : 0.32)),
+  );
 
   // Left page slides in first, right page second
   const leftIn = interpolate(frame, [0, 25], [p ? -30 : -50, 0], {
@@ -85,6 +155,10 @@ export const VersusFolio: React.FC<ChronicleLayoutProps> = ({
     slideOffset,
     opacity,
     showImage,
+    labelRef,
+    labelPx,
+    descRef,
+    descPx,
   }: {
     align: "left" | "right";
     label: string;
@@ -93,6 +167,10 @@ export const VersusFolio: React.FC<ChronicleLayoutProps> = ({
     slideOffset: number;
     opacity: number;
     showImage: boolean;
+    labelRef: React.RefObject<HTMLDivElement>;
+    labelPx: number;
+    descRef: React.RefObject<HTMLDivElement>;
+    descPx: number;
   }) => (
     <div
       style={{
@@ -128,24 +206,44 @@ export const VersusFolio: React.FC<ChronicleLayoutProps> = ({
         {align === "left" ? "I." : "II."}
       </div>
 
-      <div
-        style={{
-          fontFamily: CHRONICLE_HEADING_FONT,
-          fontSize: titleFontSize ? titleFontSize * 0.55 : (p ? 44 : 50),
-          fontWeight: 700,
-          color: textColor,
-          lineHeight: 1.1,
-          textAlign: align === "left" ? "left" : "right",
-          marginBottom: 20,
-        }}
-      >
-        <QuillText
-          text={label}
-          startFrame={align === "left" ? 10 : 25}
-          durationFrames={25}
-          mode="char"
-          showCursor={false}
-        />
+      <div style={{ position: "relative", marginBottom: 20 }}>
+        {/* QuillText mode="char" reveals characters progressively; this
+            hidden full-text mirror keeps fitting stable from frame zero. */}
+        <div
+          ref={labelRef}
+          aria-hidden
+          style={{
+            visibility: "hidden",
+            position: "absolute",
+            inset: 0,
+            fontFamily: CHRONICLE_HEADING_FONT,
+            fontSize: labelPx,
+            fontWeight: 700,
+            lineHeight: 1.1,
+            textAlign: align === "left" ? "left" : "right",
+            width: "100%",
+          }}
+        >
+          {label}
+        </div>
+        <div
+          style={{
+            fontFamily: CHRONICLE_HEADING_FONT,
+            fontSize: labelPx,
+            fontWeight: 700,
+            color: textColor,
+            lineHeight: 1.1,
+            textAlign: align === "left" ? "left" : "right",
+          }}
+        >
+          <QuillText
+            text={label}
+            startFrame={align === "left" ? 10 : 25}
+            durationFrames={25}
+            mode="char"
+            showCursor={false}
+          />
+        </div>
       </div>
 
       {/* Divider */}
@@ -161,9 +259,10 @@ export const VersusFolio: React.FC<ChronicleLayoutProps> = ({
       />
 
       <div
+        ref={descRef}
         style={{
           fontFamily: fontFamily ?? CHRONICLE_BODY_FONT,
-          fontSize: descriptionFontSize ?? (p ? 39 : 30),
+          fontSize: descPx,
           color: textColor,
           lineHeight: 1.5,
           opacity: 0.92,
@@ -221,32 +320,53 @@ export const VersusFolio: React.FC<ChronicleLayoutProps> = ({
     >
       {/* Optional title */}
       {title && (
-        <div
-          style={{
-            fontFamily: CHRONICLE_HEADING_FONT,
-            fontSize: (titleFontSize ?? (p ? 84 : 65)) * (p ? 0.7 : 0.8),
-            fontWeight: 700,
-            color: textColor,
-            textAlign: "center",
-            marginBottom: 24,
-            opacity: leftOp,
-          }}
-        >
-          <QuillText text={title} startFrame={5} durationFrames={25} mode="char" showCursor={false} />
+        <div style={{ position: "relative", marginBottom: 24 }}>
+          {/* QuillText mode="char" reveals characters progressively; this
+              hidden full-text mirror keeps fitting stable from frame zero. */}
+          <div
+            ref={fitTitleRef}
+            aria-hidden
+            style={{
+              visibility: "hidden",
+              position: "absolute",
+              inset: 0,
+              fontFamily: CHRONICLE_HEADING_FONT,
+              fontSize: fitTitlePx,
+              fontWeight: 700,
+              textAlign: "center",
+              width: "100%",
+            }}
+          >
+            {title}
+          </div>
+          <div
+            style={{
+              fontFamily: CHRONICLE_HEADING_FONT,
+              fontSize: fitTitlePx,
+              fontWeight: 700,
+              color: textColor,
+              textAlign: "center",
+              opacity: leftOp,
+            }}
+          >
+            <QuillText text={title} startFrame={5} durationFrames={25} mode="char" showCursor={false} />
+          </div>
         </div>
       )}
 
       {/* Sub narration */}
       {narration && (
         <div
+          ref={fitNarrationRef}
           style={{
             textAlign: "center",
-            fontSize: descriptionFontSize ? descriptionFontSize * 0.85 : (p ? 24 : 20),
+            fontSize: fitNarrationPx,
             color: textColor,
             opacity: 0.7,
             fontStyle: "italic",
             marginBottom: 20,
             maxWidth: p ? "100%" : "70%",
+            width: "100%",
             alignSelf: "center",
           }}
         >
@@ -267,20 +387,28 @@ export const VersusFolio: React.FC<ChronicleLayoutProps> = ({
         {renderPage({
           align: "left",
           label: leftLabel,
-          desc: leftDescription || narration || "",
+          desc: leftDescText,
           tint: "rgba(248,239,214,0.55)",
           slideOffset: leftIn,
           opacity: leftOp,
           showImage: Boolean(imageUrl || videoUrl),
+          labelRef: fitLeftLabelRef,
+          labelPx: fitLeftLabelPx,
+          descRef: fitLeftDescRef,
+          descPx: fitLeftDescPx,
         })}
         {renderPage({
           align: "right",
           label: rightLabel,
-          desc: rightDescription || "",
+          desc: rightDescText,
           tint: "rgba(248,239,214,0.55)",
           slideOffset: rightIn,
           opacity: rightOp,
           showImage: false,
+          labelRef: fitRightLabelRef,
+          labelPx: fitRightLabelPx,
+          descRef: fitRightDescRef,
+          descPx: fitRightDescPx,
         })}
 
         {/* Central spine + VS medallion */}

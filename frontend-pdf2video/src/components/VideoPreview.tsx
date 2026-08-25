@@ -738,6 +738,11 @@ function mergeMetaFontSizesIntoLayoutProps(
   const next = { ...layoutProps };
   if (!hasTitle) next.titleFontSize = fromSchema.title;
   if (!hasDesc) next.descriptionFontSize = fromSchema.desc;
+  // Preserve which sizes were the user's own choice vs. backfilled here, so
+  // auto-shrinking layouts can honor a deliberate size exactly while still
+  // fitting the default. Mirrors mergeLayoutSchemaDefaults + the renderer.
+  if (hasTitle) next.titleFontSizeIsUserSet = true;
+  if (hasDesc) next.descriptionFontSizeIsUserSet = true;
   return next;
 }
 
