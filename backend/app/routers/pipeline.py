@@ -471,12 +471,9 @@ def get_pending_stock_footage(
         .all()
     }
 
-    # Same enumeration + per-plan cap the auto-pick uses, so the review list can't
-    # drift from what actually got a clip: a free user sees only their one scene.
-    scenes = _image_capable_scenes(project, db)
-    cap = _stock_footage_scene_cap(project, db)
-    if cap is not None:
-        scenes = scenes[:cap]
+    # The exact scene set the auto-pick targets, so the review list can't drift
+    # from what actually got a clip: a free user sees only their one scene.
+    scenes = _stock_footage_target_scenes(project, db)
 
     items = []
     for s in scenes:
@@ -677,10 +674,7 @@ async def reject_stock_footage(
             detail="This project is not waiting for stock footage review.",
         )
 
-    scenes = _image_capable_scenes(project, db)
-    cap = _stock_footage_scene_cap(project, db)
-    if cap is not None:
-        scenes = scenes[:cap]
+    scenes = _stock_footage_target_scenes(project, db)
 
     used_generics: set[str] = set()
     for scene in scenes:
@@ -1258,6 +1252,51 @@ def _image_coverage_count(project: Project, db: Session, scenes: list[Scene]) ->
     return len(scene_specific) + min(generic_count, max(0, remaining))
 
 
+def _stock_footage_target_scenes(project: Project, db: Session) -> list[Scene]:
+    """The scenes the stock-footage feature owns, in scene order.
+
+    ONE definition of "which scenes get a clip", shared by the auto-pick pass
+    and the review endpoints — they drifted when the free plan's single clip
+    moved from the head to the tail.
+
+    * Eligible = image-capable scenes minus outros. An outro's visual slot is
+      forced to hideImage by ``write_remotion_data`` Step 3, so a clip there can
+      never render.
+    * Images come first: the cascade hands stills out in scene order, so the
+      LEADING ``covered`` scenes are reserved and only the tail is fetched for.
+    * GUARANTEE: enabling the feature always buys at least one clip. When images
+      cover every eligible scene that reservation empties the list, so give the
+      last image slot back — the clip lands on the scene DIRECTLY AFTER the
+      images, not at the end of the video. That scene's image is displaced: a
+      pre-existing ``assignedVideo`` wins over every image-cascade step
+      (remotion.py:862-883 collects ``video_scene_indices``; :919/:968/:991/
+      :1048/:1072 all skip them) and the freed still cascades elsewhere.
+    * The per-plan cap is applied LAST and to the HEAD of what survives, so a
+      capped user's clip sits immediately after the images rather than being
+      pushed to the tail.
+    """
+    eligible = _image_capable_scenes(project, db)
+    outro_ids = _outro_scene_ids(project, db)
+    if outro_ids:
+        eligible = [s for s in eligible if s.id not in outro_ids]
+    if not eligible:
+        return []
+
+    covered = _image_coverage_count(project, db, eligible)
+    # Honour the guarantee by reserving one fewer scene for images, so the clip
+    # follows them immediately instead of jumping to the end of the video.
+    if covered >= len(eligible):
+        covered = len(eligible) - 1
+    scenes = eligible[covered:]
+
+    # Free plans get exactly one clip, paid plans every remaining scene. Sliced
+    # from the HEAD so the single clip is the first scene images did not cover.
+    cap = _stock_footage_scene_cap(project, db)
+    if cap is not None:
+        scenes = scenes[:cap]
+    return scenes
+
+
 def _unreferenced_clip_count(
     project: Project, db: Session, scenes: list[Scene]
 ) -> int:
@@ -1473,6 +1512,11 @@ def _stock_footage_scene_cap(project: Project, db: Session) -> int | None:
     charged): paid plans get every image-capable scene (``None`` = no cap),
     everyone else is limited to a single scene. This is the one place the free /
     paid split for the generation-time feature lives.
+
+    A cap of 1 is a floor as well as a ceiling: see
+    :func:`_stock_footage_target_scenes`, which gives a free user exactly one
+    clip on the LAST eligible scene regardless of how many images the project
+    holds. Callers must apply this cap to the TAIL of their candidate list.
     """
     from app.models.user import PAID_TIERS
     from app.services.access import project_owner
@@ -1853,7 +1897,21 @@ async def _fill_missing_stock_clips_after_scene_gen(
     # filtered by the resolved descriptor layout), so the two stages agree.
     outro_ids = _outro_scene_ids(project, db)
     needing = [s for s in needing if s.id not in outro_ids]
+
+    # Mirror the guarantee _stock_footage_target_scenes makes: enabling the
+    # feature buys at least one clip. `existing_clips` counts the ones the main
+    # pass already landed, so this only fires when that pass came up empty
+    # (search miss / timeout). It can never double-buy — a scene that already
+    # carries a clip never enters `needing` (see the assignedVideo branch above).
+    guarantee_unmet = existing_clips == 0 and bool(needing)
+    reserved_pool = list(needing)
+
     covered = _image_coverage_count(project, db, needing)
+    # Honour the guarantee by reserving one fewer scene for images, so the clip
+    # follows them immediately instead of jumping to the end of the video. Only
+    # when nothing else will produce a clip — see `guarantee_unmet` above.
+    if guarantee_unmet and covered >= len(needing):
+        covered = len(needing) - 1
     if covered:
         logger.info(
             "[PIPELINE] project=%s: %s of %s clip-eligible scene(s) will be covered "
@@ -1875,6 +1933,15 @@ async def _fill_missing_stock_clips_after_scene_gen(
             "skipping re-fetch for that many scene(s)",
             project.id, spare_clips,
         )
+
+    # The coverage step above already gave a slot back for the guarantee, but the
+    # spare-clip reservation can still empty the list. That is fine when a spare
+    # exists — write_remotion_data re-places an already-paid clip, satisfying the
+    # guarantee without buying another (the double-buy this reconciler prevents).
+    # It is only a problem when the last candidate was reserved for a spare that
+    # cannot cover it, so restore the first uncovered scene in that case.
+    if guarantee_unmet and not needing and not spare_clips:
+        needing = reserved_pool[-1:]
 
     cap = _stock_footage_scene_cap(project, db)
     if cap is not None:
@@ -1976,7 +2043,12 @@ async def _build_llm_stock_queries(
 
 
 async def _prepare_stock_footage_candidates(project: Project, db: Session) -> int:
-    """Auto-pick and ingest one stock clip per image-capable scene.
+    """Auto-pick and ingest a stock clip for each targeted scene.
+
+    Which scenes those are is decided by :func:`_stock_footage_target_scenes`:
+    images cover the leading scenes, clips fill the tail, and enabling the
+    feature always yields at least one clip (on the last eligible scene, whose
+    image is displaced) even when images could cover everything.
 
     Runs between the script and scene-generation stages. Each clip is searched by
     keywords extracted from the whole scene (see
@@ -1992,37 +2064,10 @@ async def _prepare_stock_footage_candidates(project: Project, db: Session) -> in
 
     Returns the number of scenes that got a clip.
     """
-    capable = _image_capable_scenes(project, db)
-    if not capable:
-        return 0
-
-    # Images come first. The image cascade in write_remotion_data hands stills out
-    # in scene order, so the LEADING `covered` scenes are the ones it will fill —
-    # reserve them and fetch clips only for the tail no image can reach. When the
-    # project has an image for every scene this leaves nothing, and no provider
-    # call is made at all.
-    covered = _image_coverage_count(project, db, capable)
-    scenes = capable[covered:]
-
-    # An outro's visual slot is forced to hideImage by write_remotion_data Step 3,
-    # so a clip fetched for it can never render — it would be paid for, then
-    # re-placed onto some other scene or stranded. NULL scene_type makes the last
-    # scene of the project an implicit outro, which is the common case.
-    outro_ids = _outro_scene_ids(project, db)
-    if outro_ids:
-        scenes = [s for s in scenes if s.id not in outro_ids]
-
-    # Free plans get a clip on a single scene; paid plans get every scene. The cap
-    # applies to the UNCOVERED surplus only — it never reserves a slot away from
-    # an image.
-    cap = _stock_footage_scene_cap(project, db)
-    if cap is not None:
-        scenes = scenes[:cap]
-
+    scenes = _stock_footage_target_scenes(project, db)
     logger.info(
-        "[PIPELINE] project=%s: %s image-capable scene(s), %s covered by images, "
-        "fetching clips for %s",
-        project.id, len(capable), covered, len(scenes),
+        "[PIPELINE] project=%s: fetching stock clips for %s scene(s)",
+        project.id, len(scenes),
     )
     if not scenes:
         return 0
