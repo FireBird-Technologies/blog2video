@@ -151,7 +151,13 @@
     <!-- Site ownership verification token is Blog2Video-specific — re-verify
          and add a pdf2vid.com token here once that's set up. -->
     <title>PDF2Video</title>
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%239333ea'/%3E%3Ctext x='32' y='33' font-family='Inter,Helvetica,Arial,sans-serif' font-size='20' font-weight='700' fill='%23fff' text-anchor='middle' dominant-baseline='central'%3EP2V%3C/text%3E%3C/svg%3E" />
+    <!-- Real icon files: search engines fetch the favicon as a separate crawlable
+         URL, so a data: URI never appears in results. Regenerate with:
+         node ../frontend/scripts/build-favicons.mjs --mark P2V --out public -->
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+    <link rel="manifest" href="/site.webmanifest" />
     <!-- Fonts are self-hosted via @fontsource (see src/index.css). They used to
          be five render-blocking <link>s to fonts.googleapis.com, which needed
          two cross-origin round trips (CSS, then the font file) before any text

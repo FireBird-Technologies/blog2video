@@ -1,4 +1,5 @@
-import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
+import React from "react";
+import { AbsoluteFill, Img, interpolate, useCurrentFrame, useVideoConfig, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
 import { PulseRing, BigGlyphBackdrop, FilmGrain, HalftoneField, KineticTicker, StarburstBadge } from "../components/SpotlightArtifacts";
 import {
@@ -7,6 +8,7 @@ import {
 } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
 import { ZoomCropVideo } from "../components/ZoomCropVideo";
+import { useFitText } from "../components/useFitText";
 
 /**
  * StatStage — Number Spotlight
@@ -35,6 +37,7 @@ export const StatStage: React.FC<SpotlightLayoutProps> = ({
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const fps = 30;
   const p = aspectRatio === "portrait";
   const hasImage = !!imageUrl || !!videoUrl;
@@ -55,6 +58,41 @@ export const StatStage: React.FC<SpotlightLayoutProps> = ({
   const displayNumber = isNumeric
     ? Math.round(eased * numericValue)
     : primary?.value || title;
+
+  const contextText =
+    metrics && metrics.length > 1
+      ? metrics
+          .slice(1)
+          .map((m) => `${m.value}${m.suffix || ""} ${m.label}`)
+          .join(" · ")
+      : narration || "";
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     The giant number falls back to raw title text when no numeric metric is
+     supplied, and the context line under it can be a joined multi-metric
+     string or full narration — both unbounded. Fit the number against the
+     stat column, then the label/context card against what's left below it. */
+  const numberRef = React.useRef<HTMLDivElement>(null);
+  const contextRef = React.useRef<HTMLDivElement>(null);
+  const numberTargetPx = titleFontSize ?? (p ? 131 : 120);
+  const labelTargetPx = descriptionFontSize ?? (p ? 31 : 29);
+  const stackBudgetPx = Math.round(height * (hasImage && !p ? 0.55 : p ? 0.6 : 0.68));
+  const numberBudgetPx = Math.round(stackBudgetPx * 0.68);
+  const { px: numberPx } = useFitText(
+    numberRef,
+    numberTargetPx,
+    p ? 48 : 44,
+    [String(displayNumber), numberTargetPx, numberBudgetPx],
+    numberBudgetPx,
+  );
+  const contextBudgetPx = Math.max(1, stackBudgetPx - numberBudgetPx);
+  const { px: contextPx } = useFitText(
+    contextRef,
+    labelTargetPx,
+    p ? 14 : 13,
+    [contextText, primary?.label, labelTargetPx, contextBudgetPx, numberPx],
+    contextBudgetPx,
+  );
 
   const cardSpring = spring({
     frame: frame - 30,
@@ -154,8 +192,9 @@ export const StatStage: React.FC<SpotlightLayoutProps> = ({
 
         <div style={{ textAlign: "center" }}>
           <div
+            ref={numberRef}
             style={{
-              fontSize: titleFontSize ?? (p ? 131 : 120),
+              fontSize: numberPx,
               fontWeight: 900,
               color: textColor || "#FFFFFF",
               letterSpacing: "-0.05em",
@@ -185,35 +224,36 @@ export const StatStage: React.FC<SpotlightLayoutProps> = ({
               display: "inline-block",
             }}
           >
-            <div
-              style={{
-                fontSize: descriptionFontSize ?? (p ? 31 : 29),
-                fontWeight: 700,
-                color: textColor || "#FFFFFF",
-                letterSpacing: "0.12em",
-                textTransform: "uppercase",
-                fontFamily: bodyFontFamily,
-              }}
-            >
-              {primary?.label || title}
-            </div>
-            {(narration || (metrics && metrics.length > 1)) && (
+            {/* fontSize set on the wrapper (by the hook) and inherited (`1em`) by
+                both children below — so the wrapper's own naturalHeight probe
+                actually reflects their combined rendered height at the size
+                being tested, instead of being ignored by explicit child sizes. */}
+            <div ref={contextRef} style={{ fontSize: contextPx, maxHeight: "100%", overflow: "hidden" }}>
               <div
                 style={{
-                  fontSize: descriptionFontSize ?? (p ? 31 : 29),
-                  color: "#666666",
-                  marginTop: 4,
+                  fontSize: "1em",
+                  fontWeight: 700,
+                  color: textColor || "#FFFFFF",
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
                   fontFamily: bodyFontFamily,
                 }}
               >
-                {metrics && metrics.length > 1
-                  ? metrics
-                      .slice(1)
-                      .map((m) => `${m.value}${m.suffix || ""} ${m.label}`)
-                      .join(" · ")
-                  : narration}
+                {primary?.label || title}
               </div>
-            )}
+              {contextText && (
+                <div
+                  style={{
+                    fontSize: "1em",
+                    color: "#666666",
+                    marginTop: 4,
+                    fontFamily: bodyFontFamily,
+                  }}
+                >
+                  {contextText}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

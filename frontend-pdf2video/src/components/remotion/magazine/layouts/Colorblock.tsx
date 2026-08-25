@@ -1,6 +1,7 @@
 import React from "react";
 import { SceneLayoutProps } from "../types";
 import {
+  useFitText,
   MagazinePage,
   Kicker,
   OptionalImg,
@@ -54,8 +55,35 @@ export const Colorblock: React.FC<SceneLayoutProps> = (props) => {
   const tagO = useReveal(42, 14);
 
   const g = gutterPx(props.aspectRatio);
-  const quotePx = titleFontSize ?? (p ? 52 : 62);
-  const sublinePx = descriptionFontSize ?? (p ? 40 : 30);
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Quote and subline are unbounded user input; long copy ran past the bottom
+     of both colour panels. The quote/subline elements themselves are plain
+     block children of a justifyContent:center column with no height of their
+     own — measuring their own clientHeight (the old call, no availPx) always
+     reports "fits" since a block sizes to its content. Measure the PANEL's
+     real height instead and pass it as an explicit budget, so the fitter
+     shrinks against the actual space the panel's overflow:hidden allows. */
+  const leftPanelRef = React.useRef<HTMLDivElement>(null);
+  const rightPanelRef = React.useRef<HTMLDivElement>(null);
+  const [leftPanelH, setLeftPanelH] = React.useState(0);
+  const [rightPanelH, setRightPanelH] = React.useState(0);
+  React.useLayoutEffect(() => {
+    const l = leftPanelRef.current?.clientHeight ?? 0;
+    const r = rightPanelRef.current?.clientHeight ?? 0;
+    if (l > 0) setLeftPanelH((prev) => (Math.abs(prev - l) <= 1 ? prev : l));
+    if (r > 0) setRightPanelH((prev) => (Math.abs(prev - r) <= 1 ? prev : r));
+  }, [p]);
+
+  const quoteRef = React.useRef<HTMLHeadingElement>(null);
+  const sublineRef = React.useRef<HTMLDivElement>(null);
+  const quoteTarget = titleFontSize ?? (p ? 64 : 78);
+  const sublineTarget = descriptionFontSize ?? (p ? 40 : 30);
+  // Reserve room for the quote glyph + its margin above the quote text, and
+  // (on the right panel) the kicker/rule/heading stack above the subline.
+  const quoteBudget = leftPanelH > 0 ? Math.round(leftPanelH - (p ? 96 : 128) - (p ? 24 : 30)) : undefined;
+  const sublineBudget = rightPanelH > 0 ? Math.round(rightPanelH * 0.3) : undefined;
+  const quotePx = useFitText(quoteRef, quoteTarget, Math.round(quoteTarget * 0.34), 1, [quote, quoteTarget, quoteBudget, p], quoteBudget);
+  const sublinePx = useFitText(sublineRef, sublineTarget, Math.round(sublineTarget * 0.4), 1, [subline, sublineTarget, quotePx, sublineBudget, p], sublineBudget);
   const headingPx = p ? 68 : 58;
   const kickerPx = p ? 32 : 24;
   const tagPx = p ? 21 : 17;
@@ -78,11 +106,13 @@ export const Colorblock: React.FC<SceneLayoutProps> = (props) => {
       <div style={{ height: "100%", display: "flex", flexDirection: p ? "column" : "row", gap: p ? 22 : g }}>
         {/* LEFT BLOCK — solid ink panel with the pull-quote */}
         <div
+          ref={leftPanelRef}
           style={{
             flex: p ? 0.7 : 1,
             minWidth: 0,
             background: text,
             display: "flex",
+            minHeight: 0,
             flexDirection: "column",
             justifyContent: "center",
             padding: pad,
@@ -93,6 +123,7 @@ export const Colorblock: React.FC<SceneLayoutProps> = (props) => {
         >
           <QuoteGlyph color={accent} size={p ? 96 : 128} opacity={1} style={{ marginBottom: p ? 4 : 8 }} />
           <h1
+            ref={quoteRef}
             style={{
               fontFamily: MAG_DISPLAY,
               fontWeight: 800,
@@ -112,6 +143,7 @@ export const Colorblock: React.FC<SceneLayoutProps> = (props) => {
             stock clip) a hero visual under an accent-tinted scrim so the centred
             white label stack stays legible. Focus + zoom match the image path. */}
         <div
+          ref={rightPanelRef}
           style={{
             flex: p ? 1.3 : 1,
             minWidth: 0,
@@ -195,6 +227,7 @@ export const Colorblock: React.FC<SceneLayoutProps> = (props) => {
             )}
             {subline && (
               <div
+                ref={sublineRef}
                 style={{
                   fontFamily: MAG_SERIF,
                   fontStyle: "italic",
@@ -202,6 +235,7 @@ export const Colorblock: React.FC<SceneLayoutProps> = (props) => {
                   color: bg,
                   opacity: sublineO * 0.92,
                   marginTop: 12,
+                  width: "100%",
                   maxWidth: "92%",
                 }}
               >

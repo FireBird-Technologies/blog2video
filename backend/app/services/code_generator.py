@@ -7,6 +7,7 @@ All scenes run in PARALLEL via asyncio.gather.
 """
 
 import asyncio
+import functools
 import hashlib
 import json
 import logging

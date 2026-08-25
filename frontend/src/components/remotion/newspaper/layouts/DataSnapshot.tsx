@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, spring, staticFile } from "remotion";
 import { NewsBackground } from "../NewsBackground";
+import { useFitText, useAvailableHeight } from "../components/useFitText";
 import type { BlogLayoutProps } from "../types";
 
 const H_FONT = "'Source Serif 4', Georgia, 'Times New Roman', serif";
@@ -15,6 +16,8 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
   aspectRatio = "landscape",
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   stats = [
     { value: "800K", label: "Federal workers affected" },
     { value: "47%", label: "Agencies impacted" },
@@ -29,7 +32,37 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
   const items = stats.slice(0, 4);
 
   // Resolve description font size once for consistency
-  const resolvedDescriptionFontSize = descriptionFontSize ?? (p ? 25 : 22);
+  const resolvedDescriptionFontSize = descriptionFontSize ?? (p ? 36 : 22);
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and caption are unbounded user input; long copy pushes the stat cards
+     out of frame and clips. Fit each to the space actually available. An
+     explicitly chosen size is honored exactly (minPx === targetPx no-ops). */
+  const contentRef = React.useRef<HTMLDivElement>(null);
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const captionRef = React.useRef<HTMLDivElement>(null);
+
+  const titleTarget = titleFontSize ?? (p ? 78 : 69);
+  // The header may claim at most this much; the rest is for cards + caption.
+  const titleBudget = Math.round(height * (p ? 0.26 : 0.3));
+  const { px: titlePx } = useFitText(
+    titleRef,
+    titleTarget,
+    titleFontSizeIsUserSet ? titleTarget : p ? 34 : 30,
+    [title, titleTarget, titleFontSizeIsUserSet, titleBudget, p],
+    titleBudget,
+  );
+
+  const captionAvail = useAvailableHeight(captionRef, contentRef, [
+    title, titlePx, narration, resolvedDescriptionFontSize, p,
+  ]);
+  const { px: captionPx } = useFitText(
+    captionRef,
+    resolvedDescriptionFontSize,
+    descriptionFontSizeIsUserSet ? resolvedDescriptionFontSize : p ? 18 : 14,
+    [narration, resolvedDescriptionFontSize, descriptionFontSizeIsUserSet, titlePx, captionAvail, p],
+    captionAvail || undefined,
+  );
 
   // --- Exit Logic (Modified for left slide transition) ---
   const EXIT_START = durationInFrames - 25;
@@ -116,6 +149,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
 
         {/* Content Container */}
         <div
+          ref={contentRef}
           style={{
             position: "absolute",
             inset: 0,
@@ -130,9 +164,10 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
           {/* Header */}
           <div style={{ opacity: titleOp }}>
             <div
+              ref={titleRef}
               style={{
                 fontFamily: fontFamily ?? H_FONT,
-                fontSize: titleFontSize ?? (p ? 56 : 60),
+                fontSize: titlePx,
                 fontWeight: 800,
                 color: textColor,
                 lineHeight: 1.1,
@@ -212,9 +247,10 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
           {/* Caption */}
           {narration && (
             <div
+              ref={captionRef}
               style={{
                 fontFamily: fontFamily ?? B_FONT,
-                fontSize: resolvedDescriptionFontSize, // Use resolved value
+                fontSize: captionPx,
                 fontWeight: 500,
                 color: textColor,
                 opacity: interpolate(frame, [60, 76], [0, 0.7], { extrapolateRight: "clamp" }),

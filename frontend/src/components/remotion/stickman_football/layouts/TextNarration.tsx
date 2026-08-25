@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { SceneLayoutProps } from "../types";
 import { GrassGround, StickFace } from "../shared";
 
@@ -14,6 +15,8 @@ export const TextNarration: React.FC<SceneLayoutProps> = (props) => {
     sceneDurationInFrames,
     titleFontSize,
     descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
     fontFamily,
   } = props;
   const p = aspectRatio === "portrait";
@@ -23,13 +26,37 @@ export const TextNarration: React.FC<SceneLayoutProps> = (props) => {
   const leftReport = (props as any).leftDescription ?? "";
   const rightReport = (props as any).rightDescription ?? "";
 
-  const { fps } = useVideoConfig();
+  const { fps, height} = useVideoConfig();
   const frame = useCurrentFrame();
   const dur = sceneDurationInFrames ?? 150;
   const tSec = frame / fps;
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input; long copy overflows the card
+     and is clipped by the scene frame. Measure the real available height and
+     shrink to fit. A size the user explicitly picked is honored exactly —
+     minPx === targetPx makes the hook a no-op. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitDescRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 92 : 62);
+  const fitDescTarget = descriptionFontSize ?? (p ? 44 : 40);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.42),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.22 : 0.26)),
+  );
+  const { px: fitDescPx } = useFitText(
+    fitDescRef,
+    fitDescTarget,
+    descriptionFontSizeIsUserSet ? fitDescTarget : Math.round(fitDescTarget * 0.4),
+    [narration, fitDescTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * (p ? 0.30 : 0.34)),
+  );
 
-  const titlePx = titleFontSize ?? (p ? 92 : 62);
-  const narrationPx = descriptionFontSize ?? (p ? 44 : 40);
+  const titlePx = fitTitlePx;
+  const narrationPx = fitDescPx;
+
   const ff = fontFamily ?? "'Patrick Hand', system-ui, sans-serif";
 
   const enter = interpolate(frame, [0, 18], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
@@ -225,11 +252,11 @@ export const TextNarration: React.FC<SceneLayoutProps> = (props) => {
         }}
       >
         {eyebrow ? (
-          <div style={{ opacity: titleFade, color: accent, fontSize: narrationPx * 0.8, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 10 }}>
+          <div ref={fitDescRef} style={{ opacity: titleFade, color: accent, fontSize: narrationPx * 0.8, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 10 }}>
             {eyebrow}
           </div>
         ) : null}
-        <div
+        <div ref={fitTitleRef}
           style={{
             opacity: titleFade,
             transform: `translateY(${(1 - titleFade) * 24}px)`,

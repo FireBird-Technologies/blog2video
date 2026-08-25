@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { MosaicBackground } from "../MosaicBackground";
 import { MOSAIC_COLORS, MOSAIC_DEFAULT_FONT_FAMILY } from "../constants";
 import { getSceneTransition } from "../transitions";
@@ -22,13 +23,17 @@ export const MosaicStream: React.FC<MosaicLayoutProps> = ({
   aspectRatio,
 }) => {
   const frame = useCurrentFrame();
-  const { durationInFrames } = useVideoConfig();
+  const { durationInFrames, height } = useVideoConfig();
   const isPortrait = aspectRatio === "portrait";
   const p = isPortrait;
   const motion = getSceneTransition(frame, durationInFrames, 26, 20);
   const family = fontFamily || MOSAIC_DEFAULT_FONT_FAMILY;
   const stream = items && items.length > 0 ? items : [title];
   const streamItems = stream.slice(0, 8);
+  const itemTarget = titleFontSize ?? (p ? 46 : 42);
+  const itemMeasureRef = React.useRef<HTMLDivElement>(null);
+  const longestItem = streamItems.reduce((a, b) => b.length > a.length ? b : a, "");
+  const { px: itemSize } = useFitText(itemMeasureRef, itemTarget, Math.max(10, Math.round(itemTarget * 0.28)), [longestItem, itemTarget, p, height], Math.round(height * (p ? 0.1 : 0.12)));
   const boxBuild = interpolate(frame, [0, 140], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
@@ -52,6 +57,7 @@ export const MosaicStream: React.FC<MosaicLayoutProps> = ({
 
   return (
     <AbsoluteFill>
+      <div ref={itemMeasureRef} style={{ position: "absolute", visibility: "hidden", width: p ? "70%" : "42%", fontFamily: family, fontSize: itemSize, lineHeight: 1.2, overflowWrap: "anywhere" }}>{longestItem}</div>
       <MosaicBackground
         bgColor={bgColor}
         accentColor={accentColor}
@@ -116,7 +122,8 @@ export const MosaicStream: React.FC<MosaicLayoutProps> = ({
                   style={{
                     fontFamily: family,
                     color: textColor || MOSAIC_COLORS.textPrimary,
-                    fontSize: titleFontSize ?? (p ? 46 : 42),
+                    fontSize: itemSize,
+                    overflowWrap: "anywhere",
                     lineHeight: 1.2,
                     borderBottom: "1px solid rgba(42,42,40,0.2)",
                     paddingBottom: 10 * out,
@@ -128,7 +135,7 @@ export const MosaicStream: React.FC<MosaicLayoutProps> = ({
             );
           })}
         </div>
-      
+
       </AbsoluteFill>
     </AbsoluteFill>
   );

@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { SceneLayoutProps } from "../types";
 
 export const MoonphaseChart: React.FC<SceneLayoutProps> = (props) => {
@@ -13,15 +14,41 @@ export const MoonphaseChart: React.FC<SceneLayoutProps> = (props) => {
     sceneDurationInFrames,
     titleFontSize,
     descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
     fontFamily,
   } = props;
   const p = aspectRatio === "portrait";
-
-  const titlePx = titleFontSize ?? (p ? 104 : 77);
-  const descPx  = descriptionFontSize ?? (p ? 65 : 40);
-
   const frame = useCurrentFrame();
   const { fps, width, height } = useVideoConfig();
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input; long copy overflows the card
+     (and in this template collides with the artwork) instead of resizing.
+     Measure the real available height and shrink to fit. A size the user
+     explicitly picked is honored exactly — minPx === targetPx no-ops the hook. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitDescRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 104 : 77);
+  const fitDescTarget = descriptionFontSize ?? (p ? 65 : 40);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.42),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.22 : 0.26)),
+  );
+  const { px: fitDescPx } = useFitText(
+    fitDescRef,
+    fitDescTarget,
+    descriptionFontSizeIsUserSet ? fitDescTarget : Math.round(fitDescTarget * 0.4),
+    [narration, fitDescTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * (p ? 0.30 : 0.34)),
+  );
+
+  const titlePx = fitTitlePx;
+  const descPx  = fitDescPx;
+
   const dur = sceneDurationInFrames ?? 150;
 
   const enter = interpolate(frame, [0, 18], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
@@ -303,7 +330,7 @@ export const MoonphaseChart: React.FC<SceneLayoutProps> = (props) => {
         transform: `translateY(${interpolate(enter, [0, 1], [20, 0])}px)`,
         textAlign: p ? "center" : "left",
       }}>
-        <div style={{
+        <div ref={fitTitleRef} style={{
           fontSize: titlePx, fontWeight: 700, color: accent,
           lineHeight: 1.1, textShadow: `0 0 12px ${accent}B3`, letterSpacing: "0.01em",
         }}>{title}</div>
@@ -315,7 +342,7 @@ export const MoonphaseChart: React.FC<SceneLayoutProps> = (props) => {
             stroke={accent} strokeWidth={2.5} strokeLinecap="round" fill="none" opacity={0.8} />
         </svg>
         {narration && (
-          <div style={{
+          <div ref={fitDescRef} style={{
             fontSize: descPx, color: stroke, marginTop: 12,
             opacity: interpolate(frame, [20, 40], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
             textShadow: "0 0 6px rgba(255,255,255,0.4)",

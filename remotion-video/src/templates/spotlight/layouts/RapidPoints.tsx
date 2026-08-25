@@ -1,10 +1,65 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import React from "react";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
 import { KineticTicker, StreakField, FlashPop } from "../components/SpotlightArtifacts";
 import { SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
 import { ZoomCropImg } from "../components/ZoomCropImg";
 import { ZoomCropVideo } from "../components/ZoomCropVideo";
+import { useFitText } from "../components/useFitText";
+
+/**
+ * One phrase's text block. Own component so each phrase (only one visible at a
+ * time, but all mounted) gets its own useFitText ref/call — Rules of Hooks
+ * forbid a variable number of hook calls inside the phrases.map loop.
+ */
+const RapidPointsText: React.FC<{
+  phrase: string;
+  targetPx: number;
+  minPx: number;
+  budgetPx: number;
+  accentColor?: string;
+  textColor?: string;
+  displayFontFamily: string;
+}> = ({ phrase, targetPx, minPx, budgetPx, accentColor, textColor, displayFontFamily }) => {
+  const textRef = React.useRef<HTMLDivElement>(null);
+  const { px } = useFitText(textRef, targetPx, minPx, [phrase, targetPx, budgetPx], budgetPx);
+
+  return (
+    <div
+      ref={textRef}
+      style={{
+        fontSize: px,
+        fontWeight: 800,
+        color: textColor || "#FFFFFF",
+        letterSpacing: "-0.025em",
+        lineHeight: 1.15,
+        fontFamily: displayFontFamily,
+      }}
+    >
+      {phrase
+        .trim()
+        .split(" ")
+        .map((word, wi) => {
+          const clean = word.replace(/[.,!?]/g, "").toLowerCase();
+          const isAccent =
+            clean.match(/^\d+$/) ||
+            clean === "free" ||
+            clean === "now" ||
+            clean === "fast";
+          return (
+            <span key={wi}>
+              {isAccent ? (
+                <span style={{ color: accentColor }}>{word}</span>
+              ) : (
+                word
+              )}{" "}
+            </span>
+          );
+        })}
+    </div>
+  );
+};
 
 /**
  * RapidPoints — Fast-Cut Phrases
@@ -31,6 +86,7 @@ export const RapidPoints: React.FC<SpotlightLayoutProps> = ({
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const p = aspectRatio === "portrait";
   const displayFontFamily =
     fontFamily ?? SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY;
@@ -41,6 +97,8 @@ export const RapidPoints: React.FC<SpotlightLayoutProps> = ({
       : narration
         ? narration.split(/[.!?]+/).filter((s) => s.trim())
         : [title];
+
+  const phraseTargetPx = titleFontSize ?? (p ? 96 : 90);
 
   const holdFrames = 36;
   const currentIdx = Math.floor(frame / holdFrames) % displayPhrases.length;
@@ -116,38 +174,16 @@ export const RapidPoints: React.FC<SpotlightLayoutProps> = ({
                 </div>
               </div>
             )}
-            <div style={{ flex: hasImage && !p ? 1 : "none", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div
-              style={{
-                fontSize: titleFontSize ?? (p ? 96 : 90),
-                fontWeight: 800,
-                color: textColor || "#FFFFFF",
-                letterSpacing: "-0.025em",
-                lineHeight: 1.15,
-                fontFamily: displayFontFamily,
-              }}
-            >
-              {phrase
-                .trim()
-                .split(" ")
-                .map((word, wi) => {
-                  const clean = word.replace(/[.,!?]/g, "").toLowerCase();
-                  const isAccent =
-                    clean.match(/^\d+$/) ||
-                    clean === "free" ||
-                    clean === "now" ||
-                    clean === "fast";
-                  return (
-                    <span key={wi}>
-                      {isAccent ? (
-                        <span style={{ color: accentColor }}>{word}</span>
-                      ) : (
-                        word
-                      )}{" "}
-                    </span>
-                  );
-                })}
-            </div>
+            <div style={{ flex: hasImage && !p ? 1 : "none", display: "flex", alignItems: "center", justifyContent: "center", minWidth: 0, maxHeight: "100%", overflow: "hidden" }}>
+              <RapidPointsText
+                phrase={phrase}
+                targetPx={phraseTargetPx}
+                minPx={p ? 32 : 30}
+                budgetPx={Math.round(height * (hasImage && p ? 0.4 : 0.7))}
+                accentColor={accentColor}
+                textColor={textColor}
+                displayFontFamily={displayFontFamily}
+              />
             </div>
           </div>
         );

@@ -1,7 +1,9 @@
-import { AbsoluteFill, Img, interpolate, useCurrentFrame } from "remotion";
+import React from "react";
+import { AbsoluteFill, Img, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { WhiteboardBackground } from "../WhiteboardBackground";
 import { WhiteboardClip } from "../components/WhiteboardClip";
 import type { WhiteboardLayoutProps } from "../types";
+import { useFitText } from "../components/useFitText";
 
 export const MarkerStory: React.FC<WhiteboardLayoutProps> = ({
   title,
@@ -19,11 +21,39 @@ export const MarkerStory: React.FC<WhiteboardLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
   const hasImage = !!(imageUrl || videoUrl);
+  const { height } = useVideoConfig();
+
+  /* ── Auto-fit (title + body) ──────────────────────────────────────
+     Both the title and body text are rendered TWICE: an invisible
+     (opacity:0) full-text copy that establishes layout size, plus an
+     absolutely-positioned copy revealed via clip-path (not a sliced
+     substring) — the full text is present in the DOM from frame 0, so the
+     opacity:0 copy is a safe, stable direct ref. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitBodyRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 90 : 63);
+  const fitBodyTarget = descriptionFontSize ?? (p ? 33 : 28);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.4),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.22 : 0.26)),
+  );
+  const { px: fitBodyPx } = useFitText(
+    fitBodyRef,
+    fitBodyTarget,
+    descriptionFontSizeIsUserSet ? fitBodyTarget : Math.round(fitBodyTarget * 0.5),
+    [narration, fitBodyTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * (p ? 0.28 : 0.3)),
+  );
 
   const titleProgress = interpolate(frame, [0, 28], [0, 1], {
     extrapolateLeft: "clamp",
@@ -90,14 +120,16 @@ export const MarkerStory: React.FC<WhiteboardLayoutProps> = ({
           }}
         >
           {/* Title with clip reveal */}
-          <div style={{ position: "relative", display: "inline-block", maxWidth: "100%" }}>
+          <div style={{ position: "relative", display: "inline-block", maxWidth: "100%", width: "100%" }}>
             <div
+              ref={fitTitleRef}
               style={{
                 color: textColor,
-                fontSize: titleFontSize ?? (p ? 90 : 63),
+                fontSize: fitTitlePx,
                 lineHeight: 1.03,
                 fontWeight: 700,
                 opacity: 0,
+                width: "100%",
               }}
             >
               {title}
@@ -108,10 +140,11 @@ export const MarkerStory: React.FC<WhiteboardLayoutProps> = ({
                 inset: 0,
                 clipPath: `inset(0 ${titleClipRight}% 0 0)`,
                 color: textColor,
-                fontSize: titleFontSize ?? (p ? 90 : 63),
+                fontSize: fitTitlePx,
                 lineHeight: 1.03,
                 fontWeight: 700,
                 filter: "url(#ink)",
+                width: "100%",
               }}
             >
               {title}
@@ -170,14 +203,15 @@ export const MarkerStory: React.FC<WhiteboardLayoutProps> = ({
           <div
             style={{
               marginTop: p ? 10 : 22,
-              fontSize: descriptionFontSize ?? (p ? 33 : 28),
+              fontSize: fitBodyPx,
               lineHeight: 1.3,
               maxWidth: p ? "100%" : 820,
+              width: p ? "100%" : 820,
               position: "relative",
               color: textColor,
             }}
           >
-            <div style={{ opacity: 0 }}>{narration}</div>
+            <div ref={fitBodyRef} style={{ opacity: 0, width: "100%" }}>{narration}</div>
             <div
               style={{
                 position: "absolute",

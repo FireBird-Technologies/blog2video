@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import {
   Area,
   Bar,
@@ -75,6 +76,8 @@ export const Stickman2DataViz: React.FC<SceneLayoutProps> = ({
   fontFamily,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   chartSummary = "",
   subtitle = "",
   chartYAxisTicks = [],
@@ -95,9 +98,33 @@ export const Stickman2DataViz: React.FC<SceneLayoutProps> = ({
   const SERIES_3 = "#7FB7FF"; // moon blue
   const DEFAULT_BAR_COLORS = [accentColor, SERIES_2, SERIES_3] as const;
   const axisInk = textColor;
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input; long copy overflows the card
+     (and in this template collides with the artwork) instead of resizing.
+     Measure the real available height and shrink to fit. A size the user
+     explicitly picked is honored exactly — minPx === targetPx no-ops the hook. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitDescRef = React.useRef<HTMLDivElement>(null);
+  const fitSummaryRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 88 : 72);
+  const fitDescTarget = descriptionFontSize ?? (p ? 45 : 32);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.42),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.22 : 0.26)),
+  );
+  const { px: fitDescPx } = useFitText(
+    fitDescRef,
+    fitDescTarget,
+    descriptionFontSizeIsUserSet ? fitDescTarget : Math.round(fitDescTarget * 0.4),
+    [narration, fitDescTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * (p ? 0.12 : 0.1)),
+  );
+  const titleSize = fitTitlePx;
+  const descSize = fitDescPx;
 
-  const titleSize = titleFontSize ?? (p ? 88 : 72);
-  const descSize = descriptionFontSize ?? (p ? 45 : 32);
   const chartTickSize = Math.round(descSize * 0.84);
   const chartAxisLabelSize = Math.round(descSize * 0.72);
   const VALUE_LABEL_FS = Math.round(descSize * 0.58);
@@ -140,6 +167,14 @@ export const Stickman2DataViz: React.FC<SceneLayoutProps> = ({
     if (!hasRealChart) return "";
     return buildAutoChartSummary(chartInputs, resolvedChartType);
   }, [chartSummary, hasRealChart, chartInputs, resolvedChartType]);
+
+  const { px: fitSummaryPx } = useFitText(
+    fitSummaryRef,
+    Math.round(fitDescTarget * 0.9),
+    descriptionFontSizeIsUserSet ? Math.round(fitDescTarget * 0.9) : Math.round(fitDescTarget * 0.36),
+    [summaryText, fitDescTarget, descriptionFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.24 : 0.38)),
+  );
 
   const lineDataBounds = useMemo(() => {
     let lo = Infinity;
@@ -583,7 +618,7 @@ export const Stickman2DataViz: React.FC<SceneLayoutProps> = ({
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", padding: `${padV} ${padH}` }}>
         {/* Title */}
         <div style={{ opacity: ra, marginBottom: Math.round(height * 0.02) }}>
-          <div
+          <div ref={fitTitleRef}
             style={{
               fontFamily: font,
               fontWeight: 700,
@@ -655,7 +690,7 @@ export const Stickman2DataViz: React.FC<SceneLayoutProps> = ({
                 overflow: "hidden",
               }}
             >
-              <div style={{ fontFamily: font, fontWeight: 400, fontSize: descSize * 0.9, lineHeight: 1.5, color: textColor, opacity: 0.95, whiteSpace: "pre-wrap" }}>
+              <div ref={fitSummaryRef} style={{ fontFamily: font, fontWeight: 400, fontSize: fitSummaryPx, lineHeight: 1.5, color: textColor, opacity: 0.95, whiteSpace: "pre-wrap", overflowWrap: "break-word", wordBreak: "break-word" }}>
                 {summaryText
                   ? summaryText.split(/(__[^_]+__)/).map((seg, i) => {
                       if (seg.startsWith("__") && seg.endsWith("__")) {
@@ -676,7 +711,7 @@ export const Stickman2DataViz: React.FC<SceneLayoutProps> = ({
         {/* Narration */}
         {narration && (
           <div style={{ opacity: Math.min(1, Math.max(0, (frame - 16) / 20)), marginTop: Math.round(height * 0.02) }}>
-            <div style={{ fontFamily: font, fontStyle: "italic", fontSize: descSize * 0.82, color: textColor, opacity: 0.65, lineHeight: 1.45, overflowWrap: "break-word", wordBreak: "break-word" }}>
+            <div ref={fitDescRef} style={{ fontFamily: font, fontStyle: "italic", fontSize: fitDescPx, color: textColor, opacity: 0.65, lineHeight: 1.45, overflowWrap: "break-word", wordBreak: "break-word" }}>
               {narration}
             </div>
           </div>

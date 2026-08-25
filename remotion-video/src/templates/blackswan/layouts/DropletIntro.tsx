@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { Swan } from "../components/Swan";
 import { ZoomCropImg } from "../components/ZoomCropImg";
 import { ZoomCropVideo } from "../components/ZoomCropVideo";
@@ -131,6 +132,8 @@ export const DropletIntro: React.FC<BlackswanLayoutProps> = (props) => {
     textColor = "#FFFFFF",
     titleFontSize,
     descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
     fontFamily,
     aspectRatio = "landscape",
     imageUrl,
@@ -143,9 +146,15 @@ export const DropletIntro: React.FC<BlackswanLayoutProps> = (props) => {
     videoStartInFrames,
   } = props;
   const frame = useCurrentFrame();
-  const { fps, durationInFrames } = useVideoConfig();
+  const { fps, durationInFrames, height } = useVideoConfig();
   const t = frame / fps;
   const portrait = aspectRatio === "portrait";
+  const titleTarget = titleFontSize ?? (portrait ? 73 : 74);
+  const descTarget = descriptionFontSize ?? (portrait ? 36 : 33);
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const descRef = React.useRef<HTMLDivElement>(null);
+  const { px: titlePx } = useFitText(titleRef, titleTarget, titleFontSizeIsUserSet ? titleTarget : Math.max(16, Math.round(titleTarget * 0.34)), [title, titleTarget, titleFontSizeIsUserSet, portrait, height], Math.round(height * (portrait ? 0.2 : 0.22)));
+  const { px: descPx } = useFitText(descRef, descTarget, descriptionFontSizeIsUserSet ? descTarget : Math.max(10, Math.round(descTarget * 0.38)), [narration, descTarget, descriptionFontSizeIsUserSet, titlePx, portrait, height], Math.round(height * (portrait ? 0.18 : 0.2)));
   const iy = portrait ? IY : 490;
 
   // Image appears in last 3 seconds, fades in over 0.7s
@@ -170,7 +179,7 @@ export const DropletIntro: React.FC<BlackswanLayoutProps> = (props) => {
         <StarField accentColor={accentColor} />
       </div>
 
-      {/* Full-screen image — behind neon water + droplet impact */}
+      {/* Full-screen image — behind neon water only */}
       {hasImage && (
         <div style={{ position: "absolute", inset: 0, opacity: imgOpacity, zIndex: 1, overflow: "hidden" }}>
           {videoUrl ? (
@@ -244,16 +253,32 @@ export const DropletIntro: React.FC<BlackswanLayoutProps> = (props) => {
           opacity: textOpacity * nonNeonHideOp,
           transform: `translateY(${textY}px)`,
         }}>
-          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center" }}>
+          {/* Constrained to the padded frame width so long titles wrap instead
+              of running past the left/right edges — the fitter only measured
+              height, so a title with few/no natural break points (long words,
+              or a size that happened to fit vertically) could still overflow
+              horizontally with nothing to stop it. */}
+          <div
+            ref={titleRef}
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              justifyContent: "center",
+              width: "100%",
+              maxWidth: "100%",
+            }}
+          >
             <span style={{
               fontFamily: fontFamily ?? display,
-              fontSize: titleFontSize ?? (portrait ? 73 : 74),
+              fontSize: titlePx,
               fontWeight: 400,
               ...neonTitleTubeStyle(accentColor, { bgColor }),
               letterSpacing: "0.12em",
               textTransform: "capitalize", // Modified from "uppercase" to "capitalize"
               lineHeight: 1.2,
               textAlign: "center",
+              overflowWrap: "break-word",
+              wordBreak: "break-word",
             }}>
               {title}
             </span>
@@ -262,10 +287,10 @@ export const DropletIntro: React.FC<BlackswanLayoutProps> = (props) => {
           <div style={{ height: 3, width: portrait ? 320 : 400, background: accentColor, boxShadow: `0 0 10px ${accentColor}` }} />
 
           {narration && (
-            <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 6, marginTop: 10 }}>
+            <div ref={descRef} style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 6, marginTop: 10, fontSize: descPx }}>
               {narration.split(" ").map((w, i) => (
                 <span key={i} style={{
-                  fontSize: descriptionFontSize ?? (portrait ? 36 : 33),
+                  fontSize: "inherit",
                   color: textColor,
                   fontFamily: fontFamily ?? display,
                   fontWeight: 400,

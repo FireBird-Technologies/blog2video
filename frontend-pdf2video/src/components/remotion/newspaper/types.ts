@@ -21,6 +21,19 @@ export interface BlogLayoutProps {
   descriptionFontSize?: number;
 
   /**
+   * True when the size above was explicitly chosen by the user, false/absent
+   * when it was backfilled from meta.json `layout_prop_schema` defaults.
+   *
+   * Layouts that auto-shrink text to avoid overflow (news_headline) use this to
+   * honor a deliberate choice exactly — even if it overflows — while still
+   * auto-fitting the default. The distinction is available because the scene
+   * editor only persists a font size that DIFFERS from the default; it is
+   * captured before the defaults are merged back in.
+   */
+  titleFontSizeIsUserSet?: boolean;
+  descriptionFontSizeIsUserSet?: boolean;
+
+  /**
    * Generic data array — each component interprets these differently:
    *  - NewsHeadline  : stats[0].value = author, stats[1].value = date
    *  - ArticleLead   : stats[0].value = pull-stat number, stats[0].label = pull-stat caption

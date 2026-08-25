@@ -1,6 +1,7 @@
 import React from "react";
 import { interpolate, useVideoConfig, delayRender, continueRender } from "remotion";
 import type { SceneLayoutProps } from "../types";
+import { useFitText } from "../components/useFitText";
 import {
   SAKURA,
   SAKURA_DISPLAY_FONT,
@@ -54,6 +55,8 @@ export const SakuraTable: React.FC<SceneLayoutProps> = ({
   sceneDurationInFrames,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
   tickerTable,
   tickerTitle,
@@ -69,8 +72,35 @@ export const SakuraTable: React.FC<SceneLayoutProps> = ({
   const ink = textColor || SAKURA.ink;
   const accent = accentColor || SAKURA.crimson;
 
-  const titleSize = titleFontSize ?? (p ? 50 : 44);
+  const titleTargetSize = titleFontSize ?? (p ? 50 : 44);
   const descSize = descriptionFontSize ?? (p ? 22 : 19);
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const tickerTitleRef = React.useRef<HTMLDivElement>(null);
+  const footnoteRef = React.useRef<HTMLDivElement>(null);
+  const { px: titleSize } = useFitText(
+    titleRef,
+    titleTargetSize,
+    Math.max(24, Math.round(titleTargetSize * 0.55)),
+    [title, titleTargetSize, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.13 : 0.16)),
+  );
+  const tickerTitleTargetSize = Math.round(descSize * 0.95);
+  const { px: tickerTitleSize } = useFitText(
+    tickerTitleRef,
+    tickerTitleTargetSize,
+    Math.max(16, Math.round(tickerTitleTargetSize * 0.62)),
+    [tickerTitle, tickerTitleTargetSize, descriptionFontSizeIsUserSet, titleSize, p, height],
+    Math.round(height * 0.085),
+  );
+  const footnoteText = tickerFootnote || narration || "";
+  const footnoteTargetSize = Math.round(descSize * 0.88);
+  const { px: footnoteSize } = useFitText(
+    footnoteRef,
+    footnoteTargetSize,
+    Math.max(16, Math.round(footnoteTargetSize * 0.62)),
+    [footnoteText, footnoteTargetSize, descriptionFontSizeIsUserSet, p, height],
+    Math.round(height * 0.12),
+  );
 
   const rawHeaders = (tickerTable?.headers ?? []).slice(0, TABLE_MAX_COLS);
   const rawRows = (tickerTable?.rows ?? [])
@@ -205,11 +235,11 @@ export const SakuraTable: React.FC<SceneLayoutProps> = ({
     >
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", padding: `${p ? "8%" : "6%"} ${p ? "6%" : "7%"}`, minHeight: 0, gap: 0 }}>
         <div style={{ opacity: titleA, flexShrink: 0, marginBottom: Math.round(height * 0.016), textAlign: "center" }}>
-          <div style={{ fontFamily: displayFont, fontWeight: 700, fontSize: titleSize, lineHeight: 1.08, color: ink }}>
+          <div ref={titleRef} style={{ fontFamily: displayFont, fontWeight: 700, fontSize: titleSize, lineHeight: 1.08, color: ink }}>
             {title}
           </div>
           {tickerTitle && (
-            <div style={{ fontFamily: bodyFont, fontWeight: 400, fontSize: Math.round(descSize * 0.95), letterSpacing: "0.08em", textTransform: "uppercase", color: hexToRgba(ink, 0.6), marginTop: Math.round(height * 0.006) }}>
+            <div ref={tickerTitleRef} style={{ fontFamily: bodyFont, fontWeight: 400, fontSize: tickerTitleSize, letterSpacing: "0.08em", textTransform: "uppercase", color: hexToRgba(ink, 0.6), marginTop: Math.round(height * 0.006) }}>
               {tickerTitle}
             </div>
           )}
@@ -299,8 +329,8 @@ export const SakuraTable: React.FC<SceneLayoutProps> = ({
         </div>
 
         {(tickerFootnote || narration) && (
-          <div style={{ opacity: footnoteA, flexShrink: 0, marginTop: Math.round(height * 0.012), fontFamily: bodyFont, fontStyle: "italic", fontWeight: 400, fontSize: Math.round(descSize * 0.88), letterSpacing: "0.02em", color: hexToRgba(ink, 0.6), lineHeight: 1.4, whiteSpace: "normal", textAlign: "center" }}>
-            {tickerFootnote || narration}
+          <div ref={footnoteRef} style={{ opacity: footnoteA, flexShrink: 0, marginTop: Math.round(height * 0.012), fontFamily: bodyFont, fontStyle: "italic", fontWeight: 400, fontSize: footnoteSize, letterSpacing: "0.02em", color: hexToRgba(ink, 0.6), lineHeight: 1.4, whiteSpace: "normal", textAlign: "center" }}>
+            {footnoteText}
           </div>
         )}
       </div>

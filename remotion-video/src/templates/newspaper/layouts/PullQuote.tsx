@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, staticFile } from "remotion";
 import { NewsBackground } from "../NewsBackground";
+import { useFitText, useAvailableHeight } from "../components/useFitText";
 import type { BlogLayoutProps } from "../types";
 
 const H_FONT = "'Source Serif 4', Georgia, 'Times New Roman', serif";
@@ -15,13 +16,14 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
   aspectRatio = "landscape",
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   stats,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, width, height } = useVideoConfig();
   const p = aspectRatio === "portrait";
-  // Use 1280 as the baseline so 720p portrait/landscape don't shrink; never go below 1
   const source = stats?.[0]?.label ?? "";
 
   // --- Continuous Motion Logic ---
@@ -106,6 +108,55 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
   const attrOp = interpolate(frame, [50, 64], [0, 1], { extrapolateRight: "clamp" });
   const sourceOp = interpolate(frame, [58, 72], [0, 1], { extrapolateRight: "clamp" });
 
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Quote and attribution are unbounded user input; long copy overflows the
+     card and is clipped. Fit the quote to the space between the quote mark and
+     the bottom of the content box, then the attribution to what remains.
+     An explicitly chosen size is honored exactly (minPx === targetPx no-ops). */
+  const contentRef = React.useRef<HTMLDivElement>(null);
+  const quoteRef = React.useRef<HTMLDivElement>(null);
+  const attrRef = React.useRef<HTMLDivElement>(null);
+  const attrBlockRef = React.useRef<HTMLDivElement>(null);
+
+  const quoteTarget = titleFontSize ?? (p ? 90 : 71);
+  const attrTarget = descriptionFontSize ?? (p ? 27 : 23);
+
+  /* The attribution reserve used to be a static single-line estimate, which
+     under-reserves whenever `narration` is long enough to wrap to a second
+     line — the quote would then be sized too large and the attribution/
+     source would overflow the box despite its overflow:hidden clip. Measure
+     the block's REAL rendered height instead, at its eventual fitted size,
+     so the reserve tracks however many lines it actually needs. */
+  const markReserve = Math.round((p ? 140 : 120) * 0.5 + (p ? 20 : 15));
+  const [attrBlockHeight, setAttrBlockHeight] = React.useState(0);
+  React.useLayoutEffect(() => {
+    const el = attrBlockRef.current;
+    if (!el) return;
+    const next = Math.max(1, el.offsetHeight);
+    setAttrBlockHeight((prev) => (Math.abs(prev - next) <= 1 ? prev : next));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [narration, attrTarget, p, source]);
+  const attrReserve = attrBlockHeight + markReserve;
+
+  // The quote must leave room for the attribution block below it.
+  const quoteAvail = useAvailableHeight(quoteRef, contentRef, [title, quoteTarget, p]);
+  const { px: quotePx } = useFitText(
+    quoteRef,
+    quoteTarget,
+    titleFontSizeIsUserSet ? quoteTarget : p ? 34 : 28,
+    [title, quoteTarget, titleFontSizeIsUserSet, quoteAvail, attrReserve, p],
+    quoteAvail ? Math.max(1, quoteAvail - attrReserve) : undefined,
+  );
+
+  const attrAvail = useAvailableHeight(attrRef, contentRef, [title, quotePx, attrTarget, p]);
+  const { px: attrPx } = useFitText(
+    attrRef,
+    attrTarget,
+    descriptionFontSizeIsUserSet ? attrTarget : p ? 16 : 14,
+    [narration, attrTarget, descriptionFontSizeIsUserSet, quotePx, attrAvail, p],
+    attrAvail || undefined,
+  );
+
   // --- New: Content exit scale for text zoom ---
   const contentExitScale = interpolate(frame,
     [EXIT_TRANSITION_START, durationInFrames],
@@ -177,7 +228,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
         />
 
         {/* Main Content */}
-        <div style={{
+        <div ref={contentRef} style={{
           position: "absolute",
           inset: 0,
           display: "flex",
@@ -188,13 +239,18 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
           transform: `translateZ(80px) scale(${contentExitScale})`, // Added contentExitScale for text zoom
           filter: `blur(${contentBlur}px)`, // Added blur filter
         }}>
-          <div style={{ 
-            display: "flex", 
-            flexDirection: "row", 
+          <div style={{
+            display: "flex",
+            flexDirection: "row",
             gap: p ? 24 : 32,
             alignItems: "flex-start",
             maxWidth: p ? width * 0.9 : 1000,
-            width: "100%" 
+            width: "100%",
+            // Bound the block to the padded content box. Unbounded, a long quote
+            // grew in BOTH directions out of the centred container — pushing the
+            // opening quote mark off the top and the attribution off the bottom.
+            maxHeight: "100%",
+            minHeight: 0,
           }}>
             {/* Accent Bar */}
             <div style={{
@@ -207,7 +263,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
               borderRadius: 4,
             }} />
 
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
               {/* Quote Mark */}
               <div style={{
                 fontFamily: fontFamily ?? H_FONT,
@@ -218,40 +274,62 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
                 transform: `scale(${quoteMarkS})`,
                 transformOrigin: "left top",
                 marginBottom: p ? 20 : 15,
+                flexShrink: 0,
               }}>
                 &#8220;
               </div>
 
               {/* Main Quote Text */}
-              <div style={{
-                fontFamily: fontFamily ?? H_FONT,
-                fontSize: titleFontSize ?? (p ? 90 : 71), 
-                fontWeight: 600,
-                lineHeight: 1.25,
-                color: textColor,
-                marginBottom: 40,
-                letterSpacing: p ? "-0.02em" : "normal",
-              }}>
-                {words.slice(0, visWords).join(" ")}
-                {visWords < words.length && visWords > 0 && (
-                  <span style={{ 
-                    display: "inline-block", 
-                    width: p ? 4 : 3, 
-                    height: "0.8em", 
-                    background: textColor, 
-                    opacity: 0.5, 
-                    marginLeft: 6, 
-                    verticalAlign: "middle" 
-                  }} />
-                )}
+              <div style={{ position: "relative", marginBottom: 40 }}>
+                {/* Measurement mirror: the quote reveals word by word, so the
+                    visible copy would measure short and the size would change
+                    mid-scene. Measure the FULL quote, hidden, instead. */}
+                <div
+                  ref={quoteRef}
+                  aria-hidden
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    visibility: "hidden",
+                    pointerEvents: "none",
+                    fontFamily: fontFamily ?? H_FONT,
+                    fontSize: quotePx,
+                    fontWeight: 600,
+                    lineHeight: 1.25,
+                    letterSpacing: p ? "-0.02em" : "normal",
+                  }}
+                >
+                  {title}
+                </div>
+                <div style={{
+                  fontFamily: fontFamily ?? H_FONT,
+                  fontSize: quotePx,
+                  fontWeight: 600,
+                  lineHeight: 1.25,
+                  color: textColor,
+                  letterSpacing: p ? "-0.02em" : "normal",
+                }}>
+                  {words.slice(0, visWords).join(" ")}
+                  {visWords < words.length && visWords > 0 && (
+                    <span style={{
+                      display: "inline-block",
+                      width: p ? 4 : 3,
+                      height: "0.8em",
+                      background: textColor,
+                      opacity: 0.5,
+                      marginLeft: 6,
+                      verticalAlign: "middle"
+                    }} />
+                  )}
+                </div>
               </div>
 
               {/* Attribution */}
-              <div style={{ opacity: attrOp }}>
-                <div style={{ 
-                    fontFamily: fontFamily ?? B_FONT, 
-                    fontSize: descriptionFontSize ?? (p ? 27 : 23),
-                    fontWeight: 800, 
+              <div ref={attrBlockRef} style={{ opacity: attrOp }}>
+                <div ref={attrRef} style={{
+                    fontFamily: fontFamily ?? B_FONT,
+                    fontSize: attrPx,
+                    fontWeight: 800,
                     color: textColor, 
                     marginBottom: 8,
                     textTransform: "uppercase",

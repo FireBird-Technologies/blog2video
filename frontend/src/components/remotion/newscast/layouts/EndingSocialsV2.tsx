@@ -3,6 +3,7 @@ import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remo
 import type { NewscastLayoutProps } from "./types";
 import { SocialIcons } from "../../SocialIcons";
 import { resolveCtas } from "../../../../utils/resolveCtas";
+import { useFitText } from "../components/useFitText";
 import {
   DEFAULT_NEWSCAST_ACCENT,
   DEFAULT_NEWSCAST_TEXT,
@@ -42,6 +43,8 @@ export const EndingSocialsV2: React.FC<NewscastLayoutProps> = ({
   fontFamily,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
 }) => {
   const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
@@ -55,6 +58,35 @@ export const EndingSocialsV2: React.FC<NewscastLayoutProps> = ({
     (c) => c.showWebsiteButton && c.websiteLink.length > 0,
   );
   const subtext = (narration ?? "").trim();
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and subtext are unbounded user input in a left-ranged head block
+     with no fixed height; long copy could push the CTA slats/socials below
+     off-frame (and, above, the composition's persistent top chrome). The
+     floor has to be genuinely low — line count scales with content length
+     regardless of font size, so a moderate floor (e.g. 45% of target) still
+     can't fit dozens of lines of stress-test copy into a ~0.18*height band;
+     it just hits the floor and stops, overflowing for good. A near-minimum
+     legible floor (~10px) is what actually lets extreme copy converge.
+     Never clip: shrink to fit, don't cut off what doesn't. */
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const subtextRef = React.useRef<HTMLDivElement>(null);
+  const titleTargetPx = titleFontSize ?? (p ? 69 : 52);
+  const subTargetPx = descriptionFontSize ?? (p ? 32 : 18);
+  const { px: titlePx } = useFitText(
+    titleRef,
+    titleTargetPx,
+    titleFontSizeIsUserSet ? titleTargetPx : 10,
+    [title, titleTargetPx, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.18 : 0.2)),
+  );
+  const { px: subPx } = useFitText(
+    subtextRef,
+    subTargetPx,
+    descriptionFontSizeIsUserSet ? subTargetPx : 9,
+    [subtext, subTargetPx, descriptionFontSizeIsUserSet, titlePx, p, height],
+    Math.round(height * (p ? 0.16 : 0.18)),
+  );
 
   const ruleGrow = interpolate(frame, [0, 26], [0, 1], { extrapolateRight: "clamp" });
   const titleIn = interpolate(frame, [8, 28], [0, 1], { extrapolateRight: "clamp" });
@@ -121,9 +153,10 @@ export const EndingSocialsV2: React.FC<NewscastLayoutProps> = ({
               Follow along
             </div>
             <div
+              ref={titleRef}
               style={{
                 fontFamily: newscastFont(fontFamily, "title"),
-                fontSize: titleFontSize ?? (p ? 69 : 52),
+                fontSize: titlePx,
                 fontWeight: 800,
                 color: "#fff",
                 textTransform: "uppercase",
@@ -169,10 +202,11 @@ export const EndingSocialsV2: React.FC<NewscastLayoutProps> = ({
 
             {subtext ? (
               <div
+                ref={subtextRef}
                 style={{
                   marginTop: p ? 16 : 18,
                   fontFamily: newscastFont(fontFamily, "body"),
-                  fontSize: descriptionFontSize ?? (p ? 32 : 18),
+                  fontSize: subPx,
                   color: STEEL,
                   lineHeight: 1.5,
                   maxWidth: p ? "100%" : 640,

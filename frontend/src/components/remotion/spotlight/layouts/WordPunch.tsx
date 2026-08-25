@@ -1,9 +1,11 @@
-import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
+import React from "react";
+import { AbsoluteFill, Img, interpolate, useCurrentFrame, useVideoConfig, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
 import { StreakField, BigGlyphBackdrop, FilmGrain, FlashPop, HalftoneField, TitleEcho } from "../components/SpotlightArtifacts";
 import { SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
 import { ZoomCropVideo } from "../components/ZoomCropVideo";
+import { useFitText } from "../components/useFitText";
 
 /**
  * WordPunch — Single Word Impact
@@ -30,6 +32,7 @@ export const WordPunch: React.FC<SpotlightLayoutProps> = ({
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const fps = 30;
   const p = aspectRatio === "portrait";
   const displayFontFamily =
@@ -49,6 +52,23 @@ export const WordPunch: React.FC<SpotlightLayoutProps> = ({
 
   const displayWord = word || title;
   const hasImage = Boolean(imageUrl) || Boolean(videoUrl);
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     This is the highest-risk layout in the template: a single word/phrase
+     rendered at up to 164px with no height cap. A long phrase (a user typing a
+     sentence into what's meant to be one word) would blow straight through the
+     frame. Fit it to the column left after the optional image. */
+  const wordRef = React.useRef<HTMLDivElement>(null);
+  const wordTargetPx = titleFontSize ?? (hasImage ? (p ? 100 : 148) : (p ? 112 : 164));
+  const wordBudgetPx = Math.round(height * (hasImage ? (p ? 0.5 : 0.55) : p ? 0.7 : 0.8));
+  const { px: wordPx } = useFitText(
+    wordRef,
+    wordTargetPx,
+    p ? 40 : 48,
+    [displayWord, wordTargetPx, wordBudgetPx],
+    wordBudgetPx,
+  );
+
   const imageOpacity = interpolate(frame, [10, 35], [0, 1], {
     extrapolateRight: "clamp",
   });
@@ -95,8 +115,9 @@ export const WordPunch: React.FC<SpotlightLayoutProps> = ({
         }}
       >
         <div
+          ref={wordRef}
           style={{
-            fontSize: titleFontSize ?? (hasImage ? (p ? 100 : 148) : (p ? 112 : 164)),
+            fontSize: wordPx,
             fontWeight: 900,
             color: accentColor,
             textTransform: "uppercase",

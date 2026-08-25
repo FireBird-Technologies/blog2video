@@ -37,6 +37,10 @@ export interface ChronicleLayoutProps {
   // Responsive typography (drives scene editor)
   titleFontSize?: number;
   descriptionFontSize?: number;
+  /** Derived at render time; true only when the user explicitly changed it. */
+  titleFontSizeIsUserSet?: boolean;
+  /** Derived at render time; true only when the user explicitly changed it. */
+  descriptionFontSizeIsUserSet?: boolean;
 
   // Image adjustment modal props
   imageUrl?: string;

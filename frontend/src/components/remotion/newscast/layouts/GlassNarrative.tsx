@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import type { NewscastLayoutProps } from "./types";
 import {
   DEFAULT_NEWSCAST_ACCENT,
@@ -41,6 +42,8 @@ export const GlassNarrative: React.FC<NewscastLayoutProps> = ({
   textColor,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
@@ -49,6 +52,30 @@ export const GlassNarrative: React.FC<NewscastLayoutProps> = ({
   const p = height > width;
 
   const isNarrow = width < 900;
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input and share the left column
+     of a fixed-height, overflow:hidden panel; long copy was clipped. Measure
+     the real available height and shrink to fit. An explicitly chosen size
+     is honored exactly (minPx === targetPx no-ops the hook). */
+  const fitTitleRef = React.useRef<HTMLHeadingElement>(null);
+  const fitDescRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 39 : 30);
+  const fitDescTarget = descriptionFontSize ?? (p ? 20 : 16);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.45),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.2 : 0.24)),
+  );
+  const { px: fitDescPx } = useFitText(
+    fitDescRef,
+    fitDescTarget,
+    descriptionFontSizeIsUserSet ? fitDescTarget : Math.round(fitDescTarget * 0.5),
+    [narration, fitDescTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * (p ? 0.3 : 0.36)),
+  );
 
   const opacity = interpolate(frame, [0, 20], [0, 1], {
     extrapolateLeft: "clamp",
@@ -218,9 +245,10 @@ export const GlassNarrative: React.FC<NewscastLayoutProps> = ({
               </div>
 
               <h2
+                ref={fitTitleRef}
                 style={{
                   fontFamily: newscastFont(fontFamily, "title"),
-                  fontSize: titleFontSize ?? (p ? 39 : 30),
+                  fontSize: fitTitlePx,
                   fontWeight: HEADLINE_WEIGHT,
                   color: "white",
                   textTransform: "uppercase",
@@ -238,9 +266,10 @@ export const GlassNarrative: React.FC<NewscastLayoutProps> = ({
 
               {narration ? (
                 <div
+                  ref={fitDescRef}
                   style={{
                     fontFamily: newscastFont(fontFamily, "body"),
-                    fontSize: descriptionFontSize ?? (p ? 20 : 16),
+                    fontSize: fitDescPx,
                     fontWeight: 500,
                     color: "rgba(232,238,248,0.95)",
                     lineHeight: 1.6,

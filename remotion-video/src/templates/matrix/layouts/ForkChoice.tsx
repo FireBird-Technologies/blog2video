@@ -1,4 +1,6 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import React from "react";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, spring } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { CodeFragments, DecodeSweep, GlitchSlice, ScanlinesOverlay } from "../components/MatrixArtifacts";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
@@ -33,6 +35,7 @@ export const ForkChoice: React.FC<MatrixLayoutProps> = ({
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const fps = 30;
   const p = aspectRatio === "portrait";
   const accent = accentColor || "#00FF41";
@@ -61,6 +64,17 @@ export const ForkChoice: React.FC<MatrixLayoutProps> = ({
   const displayLeftDesc = leftDescription || narration || "";
   const displayRightDesc = rightDescription || "";
   const hasImage = !!imageUrl || !!videoUrl;
+  const leftTitleRef = React.useRef<HTMLDivElement>(null);
+  const rightTitleRef = React.useRef<HTMLDivElement>(null);
+  const leftDescRef = React.useRef<HTMLDivElement>(null);
+  const rightDescRef = React.useRef<HTMLDivElement>(null);
+  const titleTarget = titleFontSize ?? (p ? 76 : 58);
+  const descTarget = descriptionFontSize ?? (p ? 48 : 32);
+  const panelBudget = height * (p ? (hasImage ? 0.18 : 0.28) : 0.22);
+  const { px: leftTitleSize } = useFitText(leftTitleRef, titleTarget, 14, [title, displayLeftLabel, titleTarget, p, hasImage], panelBudget);
+  const { px: rightTitleSize } = useFitText(rightTitleRef, titleTarget, 14, [displayRightLabel, titleTarget, p, hasImage], panelBudget);
+  const { px: leftDescSize } = useFitText(leftDescRef, descTarget, 11, [displayLeftDesc, descTarget, p, hasImage], height * 0.16);
+  const { px: rightDescSize } = useFitText(rightDescRef, descTarget, 11, [displayRightDesc, descTarget, p, hasImage], height * 0.16);
 
   const imageOpacity = interpolate(frame, [5, 25], [0, 1], {
     extrapolateRight: "clamp",
@@ -139,7 +153,6 @@ export const ForkChoice: React.FC<MatrixLayoutProps> = ({
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            justifyContent: "center",
             padding: "8%",
             transform: p
               ? `translateY(${(1 - leftSpring) * -60}px)`
@@ -147,42 +160,54 @@ export const ForkChoice: React.FC<MatrixLayoutProps> = ({
             opacity: leftSpring,
           }}
         >
-          <div
-            style={{
-              fontSize: p ? 12 : 16,
-              fontWeight: 700,
-              color: "#EF444488",
-              letterSpacing: "0.2em",
-              textTransform: "uppercase",
-              fontFamily: resolvedFontFamily,
-              marginBottom: 12,
-            }}
-          >
-            {">"} {displayLeftLabel}
-          </div>
-          <div
-            style={{
-              fontSize: titleFontSize ?? (p ? 76 : 58),
-              fontWeight: 700,
-              color: "#EF4444",
-              textAlign: "center",
-              letterSpacing: "-0.02em",
-              lineHeight: 1.1,
-              fontFamily: resolvedFontFamily,
-              textShadow: "0 0 16px #EF444444",
-            }}
-          >
-            {title && !leftLabel ? title : displayLeftLabel}
+          {/* Label + title are pinned to a fixed band from the top of the
+              panel — NOT vertically centered together with the description —
+              so both panels' titles land at the same Y regardless of whether
+              either side has description text below (or how many lines it
+              wraps to). The description flows in its own space beneath. */}
+          <div style={{ flex: "0 0 auto", marginTop: p ? "18%" : "30%" }}>
+            <div
+              style={{
+                fontSize: p ? 12 : 16,
+                fontWeight: 700,
+                color: "#EF444488",
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
+                fontFamily: resolvedFontFamily,
+                marginBottom: 12,
+                textAlign: "center",
+              }}
+            >
+              {">"} {displayLeftLabel}
+            </div>
+            <div
+              ref={leftTitleRef}
+              style={{
+                fontSize: leftTitleSize,
+                fontWeight: 700,
+                color: "#EF4444",
+                textAlign: "center",
+                letterSpacing: "-0.02em",
+                lineHeight: 1.1,
+                fontFamily: resolvedFontFamily,
+                textShadow: "0 0 16px #EF444444",
+                overflowWrap: "anywhere",
+              }}
+            >
+              {title && !leftLabel ? title : displayLeftLabel}
+            </div>
           </div>
           {displayLeftDesc && (
             <div
+              ref={leftDescRef}
               style={{
-                fontSize: descriptionFontSize ?? (p ? 48 : 32),
+                fontSize: leftDescSize,
                 color: "#EF444488",
-                marginTop: 12,
+                marginTop: 16,
                 textAlign: "center",
                 fontFamily: resolvedFontFamily,
                 maxWidth: "90%",
+                overflowWrap: "anywhere",
               }}
             >
               {displayLeftDesc}
@@ -211,7 +236,6 @@ export const ForkChoice: React.FC<MatrixLayoutProps> = ({
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            justifyContent: "center",
             padding: "8%",
             transform: p
               ? `translateY(${(1 - rightSpring) * 60}px)`
@@ -219,42 +243,51 @@ export const ForkChoice: React.FC<MatrixLayoutProps> = ({
             opacity: rightSpring,
           }}
         >
-          <div
-            style={{
-              fontSize: p ? 12 : 16,
-              fontWeight: 700,
-              color: "#3B82F688",
-              letterSpacing: "0.2em",
-              textTransform: "uppercase",
-              fontFamily: resolvedFontFamily,
-              marginBottom: 12,
-            }}
-          >
-            {">"} {displayRightLabel}
-          </div>
-          <div
-            style={{
-              fontSize: titleFontSize ?? (p ? 76 : 58),
-              fontWeight: 700,
-              color: "#3B82F6",
-              textAlign: "center",
-              letterSpacing: "-0.02em",
-              lineHeight: 1.1,
-              fontFamily: resolvedFontFamily,
-              textShadow: "0 0 16px #3B82F644",
-            }}
-          >
-            {displayRightLabel}
+          {/* Same fixed label+title band as the left panel — keeps both
+              titles aligned regardless of description presence/length. */}
+          <div style={{ flex: "0 0 auto", marginTop: p ? "18%" : "30%" }}>
+            <div
+              style={{
+                fontSize: p ? 12 : 16,
+                fontWeight: 700,
+                color: "#3B82F688",
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
+                fontFamily: resolvedFontFamily,
+                marginBottom: 12,
+                textAlign: "center",
+              }}
+            >
+              {">"} {displayRightLabel}
+            </div>
+            <div
+              ref={rightTitleRef}
+              style={{
+                fontSize: rightTitleSize,
+                fontWeight: 700,
+                color: "#3B82F6",
+                textAlign: "center",
+                letterSpacing: "-0.02em",
+                lineHeight: 1.1,
+                fontFamily: resolvedFontFamily,
+                textShadow: "0 0 16px #3B82F644",
+                overflowWrap: "anywhere",
+              }}
+            >
+              {displayRightLabel}
+            </div>
           </div>
           {displayRightDesc && (
             <div
+              ref={rightDescRef}
               style={{
-                fontSize: descriptionFontSize ?? (p ? 48 : 32),
+                fontSize: rightDescSize,
                 color: "#3B82F688",
-                marginTop: 12,
+                marginTop: 16,
                 textAlign: "center",
                 fontFamily: resolvedFontFamily,
                 maxWidth: "90%",
+                overflowWrap: "anywhere",
               }}
             >
               {displayRightDesc}
@@ -271,4 +304,3 @@ export const ForkChoice: React.FC<MatrixLayoutProps> = ({
     </AbsoluteFill>
   );
 };
-

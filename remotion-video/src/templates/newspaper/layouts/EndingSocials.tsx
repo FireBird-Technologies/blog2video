@@ -6,6 +6,7 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
+import { useFitText } from "../components/useFitText";
 import type { BlogLayoutProps } from "../types";
 import { SocialIcons } from "../../SocialIcons";
 import { resolveCtas } from "../../shared/resolveCtas";
@@ -27,9 +28,11 @@ export const EndingSocials: React.FC<
   fontFamily,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
 }) => {
   const frame = useCurrentFrame();
-  const { fps, durationInFrames, width } = useVideoConfig();
+  const { fps, durationInFrames, width, height } = useVideoConfig();
   const p = aspectRatio === "portrait";
 
   const H_FONT =
@@ -38,6 +41,31 @@ export const EndingSocials: React.FC<
     fontFamily ??
     "'Source Sans 3', 'Helvetica Neue', Helvetica, Arial, sans-serif";
   const subtext = (narration ?? "").trim();
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and sign-off copy are unbounded user input; long text overflows the
+     card and is clipped. Fit each to the space available. An explicitly chosen
+     size is honored exactly (minPx === targetPx makes the hook a no-op). */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitBodyRef = React.useRef<HTMLDivElement>(null);
+  const titleTargetPx = titleFontSize ?? (p ? 70 : 55);
+  const bodyTargetPx = descriptionFontSize ?? (p ? 38 : 25);
+  const titleBudgetPx = Math.round(height * (p ? 0.22 : 0.26));
+  const { px: titlePx } = useFitText(
+    fitTitleRef,
+    titleTargetPx,
+    titleFontSizeIsUserSet ? titleTargetPx : p ? 30 : 24,
+    [title, titleTargetPx, titleFontSizeIsUserSet, titleBudgetPx, p],
+    titleBudgetPx,
+  );
+  const bodyBudgetPx = Math.round(height * (p ? 0.34 : 0.38));
+  const { px: bodyPx } = useFitText(
+    fitBodyRef,
+    bodyTargetPx,
+    descriptionFontSizeIsUserSet ? bodyTargetPx : p ? 18 : 14,
+    [subtext, bodyTargetPx, descriptionFontSizeIsUserSet, titlePx, bodyBudgetPx, p],
+    bodyBudgetPx,
+  );
   const resolvedWebsiteLink = (websiteLink ?? "").trim();
 
   // CTA cards (1-3). Newspaper shows the highlighted CTA label whenever the toggle
@@ -230,25 +258,48 @@ export const EndingSocials: React.FC<
               marginBottom: 30,
             }}
           >
-            <div
-              style={{
-                fontFamily: H_FONT,
-                fontSize: titleFontSize ?? (p ? 70 : 55),
-                fontWeight: 900,
-                textTransform: "uppercase",
-                lineHeight: 1.1,
-                color: textCol,
-              }}
-            >
-              {title.substring(0, titleCharsVisible)}
+            <div style={{ position: "relative" }}>
+              {/* Measurement mirror: the title types in character by character,
+                  so the visible copy would measure short and the fitted size
+                  would change mid-scene. Measure the FULL title, hidden. */}
+              <div
+                ref={fitTitleRef}
+                aria-hidden
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  visibility: "hidden",
+                  pointerEvents: "none",
+                  fontFamily: H_FONT,
+                  fontSize: titlePx,
+                  fontWeight: 900,
+                  textTransform: "uppercase",
+                  lineHeight: 1.1,
+                }}
+              >
+                {title}
+              </div>
+              <div
+                style={{
+                  fontFamily: H_FONT,
+                  fontSize: titlePx,
+                  fontWeight: 900,
+                  textTransform: "uppercase",
+                  lineHeight: 1.1,
+                  color: textCol,
+                }}
+              >
+                {title.substring(0, titleCharsVisible)}
+              </div>
             </div>
           </div>
 
           {subtext && (
             <div
+              ref={fitBodyRef}
               style={{
                 textAlign: "justify",
-                fontSize: descriptionFontSize ?? (p ? 38 : 25),
+                fontSize: bodyPx,
                 lineHeight: 1.6,
                 fontFamily: B_FONT,
                 color: textCol,

@@ -29,7 +29,7 @@ export interface SceneLayoutProps {
   accentColor: string;
   bgColor: string;
   textColor: string;
-  aspectRatio?: string;  // "landscape" or "portrait"
+  aspectRatio?: string;
   fontFamily?: string;
   /** Index of this scene in the video — used to vary the background fly-in direction per scene. */
   sceneIndex?: number;
@@ -69,11 +69,20 @@ export interface SceneLayoutProps {
   // typography overrides
   titleFontSize?: number;
   descriptionFontSize?: number;
-  // ending_socials
+  /**
+   * True when the size above was explicitly chosen by the user, false/absent
+   * when it was backfilled from meta.json `layout_prop_schema` defaults.
+   *
+   * Auto-fitting layouts use this to honor a deliberate choice exactly — even
+   * if it overflows — while still auto-fitting the default. Populated
+   * generically by mergeLayoutSchemaDefaults / mergeMetaFontSizesIntoLayoutProps
+   * on the raw layoutProps this type is spread from.
+   */
+  titleFontSizeIsUserSet?: boolean;
+  descriptionFontSizeIsUserSet?: boolean;
   socials?: SocialsMap;
   websiteLink?: string;
   showWebsiteButton?: boolean;
-  /** Short label on the CTA pill above the link (from script / editor). */
   ctaButtonText?: string;
   /** Optional multi-CTA array (up to 3). When present, renderer renders columns. */
   ctas?: Array<{ ctaButtonText?: string; websiteLink?: string; showWebsiteButton?: boolean }>;

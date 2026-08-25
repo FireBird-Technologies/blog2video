@@ -2287,6 +2287,10 @@ const HIDDEN_LAYOUT_PROP_KEYS = new Set([
   "image_box_aspect_ratio",
   "titleFontSize",
   "descriptionFontSize",
+  // Derived at render time from whether a font size is stored — never persisted,
+  // and never shown as a raw content input.
+  "titleFontSizeIsUserSet",
+  "descriptionFontSizeIsUserSet",
   // Image framing state — edited via the image adjust UI, never as a raw
   // "extra" content input (they otherwise leak in as IMAGEFOCUSX / IMAGEFOCUSY).
   "imageFocusX",
@@ -2825,6 +2829,9 @@ export default function SceneEditModal({
   const endingCtaButtonText = ctas[0]?.ctaButtonText ?? "";
   const [selectedLayout, setSelectedLayout] = useState("");
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  // True when selectedImageFile was already saved to the scene by the parent (kept AI
+  // image, saved on tick) — Save should show it but not re-upload the same file.
+  const selectedImageAlreadySavedRef = useRef(false);
   const [imageSourceChooserOpen, setImageSourceChooserOpen] = useState(false);
   const [scrapedImagesModalOpen, setScrapedImagesModalOpen] = useState(false);
   // Which asset kind the existing-media picker offers ("video" = reuse a clip,
@@ -3587,6 +3594,9 @@ export default function SceneEditModal({
         | undefined,
       project.aspect_ratio || "landscape",
       normalizedTemplateId,
+      // This seeds EDITABLE state that gets persisted on save — the derived
+      // font-size markers must not leak into it.
+      { deriveUserSetFlags: false },
     );
     setEditableLayoutProps(lpCopy);
     if (isEndingScene) {
@@ -3709,6 +3719,8 @@ export default function SceneEditModal({
           | undefined,
         project.aspect_ratio || "landscape",
         normalizedTemplateId,
+        // Editable state — see the note on the sibling call above.
+        { deriveUserSetFlags: false },
       ),
     );
 
@@ -3929,11 +3941,11 @@ export default function SceneEditModal({
     "ctaButtonText",
   ]);
 
-  const handleSave = async (override?: { imageFocusX?: number; imageFocusY?: number; imageZoom?: number }) => {
-    if (isDemo) return;
-    if (editMode === "manual") {
-      setLoading(true);
-      try {
+  // Persists every field the Manual tab edits (title, display text, layoutProps,
+  // font sizes, CTAs, image/focus). Runs on every save regardless of which tab is
+  // active, so switching to the AI tab before saving never drops Manual edits —
+  // re-sending unchanged values when only the AI tab was touched is a harmless no-op.
+  const saveManualChanges = async (override?: { imageFocusX?: number; imageFocusY?: number; imageZoom?: number }) => {
         // Build remotion_code with font size overrides in layoutProps
         let remotionCode: string | undefined;
         const parseNum = (s: string, min: number, max: number): number | null => {
@@ -4244,6 +4256,12 @@ export default function SceneEditModal({
             else delete lp.titleFontSize;
             if (dsNum !== null && dsNum !== defDesc) lp.descriptionFontSize = dsNum;
             else delete lp.descriptionFontSize;
+            // These are DERIVED at render time from whether a size is stored above —
+            // they must never be persisted. mergeLayoutSchemaDefaults injects them when
+            // it seeds the editor's state, so without this a pure text edit would save
+            // "user set the size", permanently disabling layouts' auto-fit.
+            delete lp.titleFontSizeIsUserSet;
+            delete lp.descriptionFontSizeIsUserSet;
             if (isEndingScene) {
               lp.hideImage = true;
               delete lp.assignedImage;
@@ -4343,13 +4361,23 @@ export default function SceneEditModal({
         const extraHoldVal = parseFloat(extraHoldSeconds.trim());
         const extraHold = !Number.isNaN(extraHoldVal) && extraHoldVal >= 0 ? extraHoldVal : 0;
 
+        // The narration box lives on the AI tab but edits scene.narration_text
+        // directly — persist it here too so a Manual-tab save never drops it.
+        // Ending scenes derive their own narration_text above, which takes priority.
+        const trimmedAiNarration = aiNarration.trim();
+        const aiNarrationChanged =
+          !derivedEndingNarrationText &&
+          trimmedAiNarration !== (scene.narration_text || "").trim();
+
         await updateScene(project.id, scene.id, {
           title,
           // Update only the on-screen display text here; narration_text continues to drive voiceover.
           display_text: displayText,
           ...(derivedEndingNarrationText
             ? { narration_text: derivedEndingNarrationText }
-            : {}),
+            : aiNarrationChanged
+              ? { narration_text: trimmedAiNarration }
+              : {}),
           ...(remotionCode !== undefined && { remotion_code: remotionCode }),
           extra_hold_seconds: extraHold,
         });
@@ -4378,62 +4406,64 @@ export default function SceneEditModal({
         if (supportsImage && !stagedRemoval && hasAssignedVisual) {
           await updateSceneImageFocus(project.id, scene.id, focusXToSave, focusYToSave, zoomToPatch);
         }
-        onSaved();
-        onClose();
-      } catch (err: unknown) {
-        const msg =
-          err && typeof err === "object" && "response" in err
-            ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
-            : "Failed to update scene";
-        showError(String(msg));
-      } finally {
-        setLoading(false);
-      }
-      return;
+  };
+
+  // Persists the AI tab's instruction as a scene regeneration. Only invoked when
+  // the AI tab is active and aiHasChanges — never fires from a Manual-tab save.
+  const saveAiChanges = async () => {
+    const keepLayout = selectedLayout === "__keep__";
+    // If narration text was edited, persist it before regenerating layout/voiceover
+    const trimmedNarration = aiNarration.trim();
+    if (trimmedNarration !== (scene.narration_text || "").trim()) {
+      await updateScene(project.id, scene.id, {
+        narration_text: trimmedNarration,
+      });
     }
 
-    if (editMode === "ai") {
-      const keepLayout = selectedLayout === "__keep__";
-      setLoading(true);
-      try {
-        // If narration text was edited, persist it before regenerating layout/voiceover
-        const trimmedNarration = aiNarration.trim();
-        if (trimmedNarration !== (scene.narration_text || "").trim()) {
-          await updateScene(project.id, scene.id, {
-            narration_text: trimmedNarration,
-          });
-        }
+    await regenerateScene(
+      project.id,
+      scene.id,
+      description,
+      // For this modal, keep display text unchanged by sending an empty display-text payload.
+      "",
+      regenerateVoiceover,
+      keepLayout ? "__keep__" : (selectedLayout === "__auto__" ? undefined : selectedLayout || undefined),
+      selectedImageFile || undefined,
+      matchNarrationExactly
+    );
+    // Commit a staged reused image after the regen rewrote the descriptor, so it
+    // binds into the fresh descriptor (only when no file was uploaded this pass).
+    if (!selectedImageFile && pendingExistingImage) {
+      await assignExistingImageToScene(project.id, scene.id, pendingExistingImage.assetId);
+    }
+    // Refresh the user so the AI-edit credit balance (consumed server-side)
+    // is reflected in the UI rather than showing a stale count.
+    void refreshUser();
+  };
 
-        await regenerateScene(
-          project.id,
-          scene.id,
-          description,
-          // For this modal, keep display text unchanged by sending an empty display-text payload.
-          "",
-          regenerateVoiceover,
-          keepLayout ? "__keep__" : (selectedLayout === "__auto__" ? undefined : selectedLayout || undefined),
-          selectedImageFile || undefined,
-          matchNarrationExactly
-        );
-        // Commit a staged reused image after the regen rewrote the descriptor, so it
-        // binds into the fresh descriptor (only when no file was uploaded this pass).
-        if (!selectedImageFile && pendingExistingImage) {
-          await assignExistingImageToScene(project.id, scene.id, pendingExistingImage.assetId);
-        }
-        // Refresh the user so the AI-edit credit balance (consumed server-side)
-        // is reflected in the UI rather than showing a stale count.
-        void refreshUser();
-        onSaved();
-        onClose();
-      } catch (err: unknown) {
-        const msg =
-          err && typeof err === "object" && "response" in err
-            ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
-            : "Failed to regenerate scene";
-        showError(String(msg));
-      } finally {
-        setLoading(false);
+  // Always saves Manual-tab fields first (so they're never dropped regardless of
+  // which tab is active), then additionally runs the AI regeneration when the AI
+  // tab is active and has a real instruction to apply.
+  const handleSave = async (override?: { imageFocusX?: number; imageFocusY?: number; imageZoom?: number }) => {
+    if (isDemo) return;
+    setLoading(true);
+    try {
+      await saveManualChanges(override);
+      if (editMode === "ai" && aiHasChanges) {
+        await saveAiChanges();
       }
+      onSaved();
+      onClose();
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+          : editMode === "ai"
+            ? "Failed to regenerate scene"
+            : "Failed to update scene";
+      showError(String(msg));
+    } finally {
+      setLoading(false);
     }
   };
 

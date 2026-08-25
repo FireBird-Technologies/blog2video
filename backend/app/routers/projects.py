@@ -887,8 +887,8 @@ def _run_project_template_change_job(job_id: int) -> None:
 
         # Re-run visual assignment against the NEW template. The descriptors were
         # rebuilt above with empty layoutProps, so this is what actually fills each
-        # scene's visual slot — clips the project already owns first, then images
-        # (see the clip-first pass in write_remotion_data). Must run AFTER
+        # scene's visual slot — images first, then clips the project already owns
+        # into whatever no image covered (see write_remotion_data). Must run AFTER
         # project.template flips so it uses the target template's layout rules.
         try:
             from app.services.remotion import write_remotion_data
@@ -3836,6 +3836,11 @@ def delete_asset(
     return {"detail": "Asset deleted"}
 
 
+# Mirrors the `scenes.title` column width (String(255) in app/models/scene.py).
+# Every other editable scene text field is unbounded TEXT, so only the title
+# needs a length guard.
+SCENE_TITLE_MAX_LENGTH = 255
+
 MANUAL_TRACKED_FIELDS = {
     "title",
     "display_text",
@@ -3921,6 +3926,21 @@ def update_scene(
         raise HTTPException(status_code=404, detail="Scene not found")
 
     update_data = data.model_dump(exclude_unset=True)
+
+    # `scenes.title` is VARCHAR(255) while the other editable text fields are
+    # unbounded TEXT. Reject an over-long title up front with a clear 400 —
+    # otherwise it reaches the DB and surfaces as an unhandled 500
+    # (psycopg2 StringDataRightTruncation) with no usable message for the UI.
+    _title = update_data.get("title")
+    if isinstance(_title, str) and len(_title) > SCENE_TITLE_MAX_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Scene title is too long ({len(_title)} characters). "
+                f"Maximum is {SCENE_TITLE_MAX_LENGTH}."
+            ),
+        )
+
     # Group every field changed by this one request into a single change-set so
     # they preview and revert atomically, attributed to the acting user.
     from app.services.edit_tracker import new_change_set_id
@@ -4300,10 +4320,26 @@ async def update_scene_image(
     if len(file_bytes) > MAX_IMAGE_SIZE:
         raise HTTPException(status_code=400, detail="Image file too large. Maximum size is 5 MB.")
 
+    # Trust the actual bytes, not the client-supplied filename/content-type. AI-generated
+    # images (e.g. GLM/z.ai) can come back JPEG-encoded while the client names/labels them
+    # .png — Remotion renders via headless Chromium, which rejects files whose bytes don't
+    # match the filename extension, so a mismatch here silently drops the scene's image at
+    # render time even though it looks fine in a browser <img> tag. Same failure mode
+    # _download_logo_normalized() already guards against for logos.
+    ext = "png"
+    try:
+        from io import BytesIO
+        from PIL import Image as PILImage
+
+        with PILImage.open(BytesIO(file_bytes)) as probe:
+            fmt = (probe.format or "").upper()
+        ext = {"PNG": "png", "JPEG": "jpg", "WEBP": "webp", "GIF": "gif"}.get(fmt, "png")
+    except Exception:
+        pass
+
     image_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project_id}/images")
     os.makedirs(image_dir, exist_ok=True)
 
-    ext = image.filename.rsplit(".", 1)[-1] if image.filename and "." in image.filename else "png"
     image_filename = f"scene_{scene_id}_{int(time.time())}.{ext}"
     local_path = os.path.join(image_dir, image_filename)
 
@@ -4312,10 +4348,11 @@ async def update_scene_image(
 
     r2_key_val = None
     r2_url_val = None
+    real_content_type = {"png": "image/png", "jpg": "image/jpeg", "webp": "image/webp", "gif": "image/gif"}.get(ext, "image/png")
     if r2_storage.is_r2_configured():
         try:
             r2_key_val = r2_storage.image_key(user.id, project_id, image_filename)
-            r2_url_val = r2_storage.upload_file(local_path, r2_key_val, content_type=image.content_type)
+            r2_url_val = r2_storage.upload_file(local_path, r2_key_val, content_type=real_content_type)
         except Exception as e:
             print(f"[IMAGE_UPDATE] R2 upload failed for {image_filename}: {e}")
 

@@ -113,6 +113,10 @@ export interface GridcraftLayoutProps {
   titleFontSize?: number;
   descriptionFontSize?: number;
   categoryFontSize?: number;
+  // Derived render-time flags (see mergeLayoutSchemaDefaults.ts): true only when
+  // the user explicitly picked a size, so auto-fit can honor it exactly.
+  titleFontSizeIsUserSet?: boolean;
+  descriptionFontSizeIsUserSet?: boolean;
   socials?: SocialsMap;
   websiteLink?: string;
   showWebsiteButton?: boolean;

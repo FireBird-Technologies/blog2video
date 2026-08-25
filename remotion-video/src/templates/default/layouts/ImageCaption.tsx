@@ -1,8 +1,10 @@
+import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, spring, useVideoConfig } from "remotion";
 import { SceneLayoutProps } from "../types";
 import { AnimatedImage } from "./AnimatedImage";
 import { AnimatedVideo } from "./AnimatedVideo";
 import { FlybyPlane } from "../components/FlybyPlane";
+import { useFitText } from "../components/useFitText";
 
 export const ImageCaption: React.FC<SceneLayoutProps> = ({
   title,
@@ -21,6 +23,8 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
@@ -28,6 +32,47 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
   const p = aspectRatio === "portrait";
 
   const hasImage = !!imageUrl || !!videoUrl; // New variable to track image/video presence
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input. The text column is a plain
+     centred flex block with no height limit of its own (it shares the frame
+     with the image, when present), so long copy just grows past the frame
+     and is clipped by the AbsoluteFill's overflow:hidden. Title and
+     narration each fit against their own fixed, independent budget. A size
+     the user explicitly picked is honored exactly (minPx === targetPx makes
+     the hook a no-op).
+
+     No give-back cross-talk between the two: a useLayoutEffect+setState
+     chain reacting to another useFitText's overflow output creates a
+     multi-render convergence that Remotion's per-frame headless capture can
+     settle at different points on different frames (confirmed via a real
+     render — frame-to-frame scene-change score hit 1.0, i.e. maximum, twice
+     in the first ten frames, in the equivalent newscast/newspaper opening
+     scenes). */
+  const titleRef = React.useRef<HTMLHeadingElement>(null);
+  const narrationRef = React.useRef<HTMLParagraphElement>(null);
+
+  const actualTitleFontSize = titleFontSize ?? (p ? 57 : 56);
+  const actualDescriptionFontSize = descriptionFontSize ?? (p ? 37 : 32);
+
+  const titleBudgetPx = Math.round(videoHeight * (hasImage ? 0.2 : 0.24));
+
+  const { px: titlePx } = useFitText(
+    titleRef,
+    actualTitleFontSize,
+    titleFontSizeIsUserSet ? actualTitleFontSize : p ? 26 : 24,
+    [title, actualTitleFontSize, titleFontSizeIsUserSet, titleBudgetPx, hasImage],
+    titleBudgetPx,
+  );
+
+  const narrationBudgetPx = Math.round(videoHeight * (hasImage ? 0.28 : 0.4));
+  const { px: narrationPx } = useFitText(
+    narrationRef,
+    actualDescriptionFontSize,
+    descriptionFontSizeIsUserSet ? actualDescriptionFontSize : p ? 16 : 14,
+    [narration, actualDescriptionFontSize, descriptionFontSizeIsUserSet, titlePx, narrationBudgetPx, hasImage],
+    narrationBudgetPx,
+  );
 
   // --- Initial animations (spring in) ---
 
@@ -208,12 +253,14 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
         style={{
           flex: hasImage ? (p ? "none" : 1) : "none",
           width: !hasImage ? (p ? "90%" : "70%") : undefined,
+          maxHeight: "100%",
           opacity: currentTextOpacity,
           transform: `translateY(${currentTextTranslateY}px) translateX(${currentTextTranslateX}px) scale(${currentTextScale})`,
           textAlign: "center",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
+          minHeight: 0,
         }}
       >
         <div
@@ -224,32 +271,39 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
             backgroundColor: accentColor,
             borderRadius: 2,
             marginBottom: 20,
+            flexShrink: 0,
             // Center the border if no image or if portrait
             marginLeft: (!hasImage || p) ? "auto" : undefined,
             marginRight: (!hasImage || p) ? "auto" : undefined,
           }}
         />
         <h2
+          ref={titleRef}
           style={{
             color: textColor,
-            fontSize: titleFontSize ?? (p ? 57 : 56),
+            fontSize: titlePx,
             fontWeight: 700,
             fontFamily: fontFamily ?? "'Roboto Slab', serif",
             marginTop: 0,
             marginBottom: 16,
             lineHeight: 1.3,
+            flexShrink: 0,
           }}
         >
           {title}
         </h2>
         <p
+          ref={narrationRef}
           style={{
             color: textColor,
-            fontSize: descriptionFontSize ?? (p ? 37 : 32),
+            fontSize: narrationPx,
             fontFamily: fontFamily ?? "'Roboto Slab', serif",
             lineHeight: 1.6,
             opacity: 0.7,
             margin: 0,
+            flex: "0 1 auto",
+            minHeight: 0,
+            overflow: "hidden",
           }}
         >
           {narration}

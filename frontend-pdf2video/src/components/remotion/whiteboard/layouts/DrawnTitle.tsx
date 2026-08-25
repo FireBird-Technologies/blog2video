@@ -1,7 +1,8 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { WhiteboardBackground } from "../WhiteboardBackground";
 import type { WhiteboardLayoutProps } from "../types";
+import { useFitText } from "../components/useFitText";
 
 const CHARS_PER_SEC = 28;
 
@@ -71,11 +72,14 @@ export const DrawnTitle: React.FC<WhiteboardLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
   const fps = 30;
+  const { height } = useVideoConfig();
 
   const titleDur = Math.ceil(title.length * (fps / CHARS_PER_SEC));
   const titleChars = Math.min(
@@ -99,6 +103,34 @@ export const DrawnTitle: React.FC<WhiteboardLayoutProps> = ({
 
   const visibleTitle = title.slice(0, titleChars);
   const visibleNarration = narration.slice(0, narrationChars);
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input; long copy overflows the
+     frame. The visible copy is progressively SLICED in via titleChars/
+     narrationChars (not spans revealed by opacity), so measuring the visible
+     div directly would chase a moving (and initially empty) target — hidden
+     full-text mirrors are measured instead, matching the pattern used for
+     char-reveal text elsewhere in this codebase (e.g. chronicle/DecreeSeal).
+     An explicitly chosen size is honored exactly (minPx === targetPx no-ops
+     the hook). */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitNarrationRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 81 : 66);
+  const fitNarrationTarget = descriptionFontSize ?? (p ? 37 : 27);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.4),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.22 : 0.26)),
+  );
+  const { px: fitNarrationPx } = useFitText(
+    fitNarrationRef,
+    fitNarrationTarget,
+    descriptionFontSizeIsUserSet ? fitNarrationTarget : Math.round(fitNarrationTarget * 0.5),
+    [narration, fitNarrationTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * (p ? 0.22 : 0.24)),
+  );
 
   return (
     <AbsoluteFill
@@ -142,19 +174,43 @@ export const DrawnTitle: React.FC<WhiteboardLayoutProps> = ({
           alignItems: "center",
           justifyContent: p ? "flex-start" : "center",
           textAlign: "center",
-          padding: p ? "18% 10% 0 10%" : "0 14%",
+          // Landscape stays centred, but the extra bottom padding lifts the
+          // block off dead centre so it clears the walking figure below.
+          // Side padding kept tight so long titles and narration have room:
+          // at 14% the inner box was only 922px of a 1280 frame, and the
+          // narration's own 76% cap cut that to 700px — barely half the width.
+          padding: p ? "15% 6% 0 6%" : "0 9% 10% 9%",
           zIndex: 10,
         }}
       >
+        {/* Hidden full-title mirror — titleChars slices the visible copy in
+            progressively, so it can't be measured directly (see Auto-fit
+            note above). */}
+        <div
+          ref={fitTitleRef}
+          aria-hidden
+          style={{
+            position: "absolute",
+            visibility: "hidden",
+            width: "100%",
+            fontWeight: 700,
+            lineHeight: 1.1,
+            fontSize: fitTitlePx,
+            letterSpacing: "0.01em",
+          }}
+        >
+          {title}
+        </div>
         {/* Title */}
         <div
           style={{
             color: textColor,
             fontWeight: 700,
             lineHeight: 1.1,
-            fontSize: titleFontSize ?? (p ? 81 : 66),
+            fontSize: fitTitlePx,
             letterSpacing: "0.01em",
             filter: "url(#ink)",
+            width: "100%",
           }}
         >
           {visibleTitle}
@@ -163,7 +219,7 @@ export const DrawnTitle: React.FC<WhiteboardLayoutProps> = ({
         {/* Animated Underline */}
         <svg
           style={{ 
-            width: p ? 380 : 720, 
+            width: p ? 440 : 860, 
             maxWidth: "90%", 
             height: 14, 
             marginTop: p ? 30 : 20, 
@@ -200,14 +256,32 @@ export const DrawnTitle: React.FC<WhiteboardLayoutProps> = ({
           />
         </svg>
 
+        {/* Hidden full-narration mirror — narrationChars slices the visible
+            copy in progressively, so it can't be measured directly. */}
+        <div
+          ref={fitNarrationRef}
+          aria-hidden
+          style={{
+            position: "absolute",
+            visibility: "hidden",
+            fontSize: fitNarrationPx,
+            fontWeight: 500,
+            width: p ? "100%" : "76%",
+            maxWidth: p ? "100%" : "76%",
+            lineHeight: 1.45,
+          }}
+        >
+          {narration}
+        </div>
         {/* Narration Text */}
         <div
           style={{
             marginTop: p ? 30 : 26,
             color: textColor,
-            fontSize: descriptionFontSize ?? (p ? 37 : 27),
+            fontSize: fitNarrationPx,
             fontWeight: 500,
-            maxWidth: p ? "100%" : "76%",
+            width: p ? "100%" : "76%",
+            maxWidth: p ? "100%" : "92%",
             lineHeight: 1.45,
             filter: "url(#ink)",
           }}

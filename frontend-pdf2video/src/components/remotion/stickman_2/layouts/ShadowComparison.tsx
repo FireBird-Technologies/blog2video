@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { SceneLayoutProps } from "../types";
 
 /** Deterministic RNG — Remotion renders each frame in isolation, so Math.random()
@@ -23,6 +24,8 @@ export const ShadowComparison: React.FC<SceneLayoutProps> = (props) => {
     sceneDurationInFrames,
     titleFontSize,
     descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
     fontFamily,
   } = props;
   const p = aspectRatio === "portrait";
@@ -30,12 +33,9 @@ export const ShadowComparison: React.FC<SceneLayoutProps> = (props) => {
   const leftThought = (props as any).leftThought ?? "Option A";
   const rightThought = (props as any).rightThought ?? "Option B";
 
-  const { fps } = useVideoConfig();
+  const { fps, height} = useVideoConfig();
   const frame = useCurrentFrame();
   const dur = sceneDurationInFrames ?? 150;
-
-  const descPx = descriptionFontSize ?? (p ? 57 : 35);
-
   // Transitions
   const enter = interpolate(frame, [0, 20], [0, 1], {
     extrapolateLeft: "clamp",
@@ -248,9 +248,37 @@ export const ShadowComparison: React.FC<SceneLayoutProps> = (props) => {
   const moonX = p ? W - 120 : W - 160;
   const moonY = p ? 120 : 90;
 
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input; long copy overflows the card
+     (and in this template collides with the artwork) instead of resizing.
+     Measure the real available height and shrink to fit. A size the user
+     explicitly picked is honored exactly — minPx === targetPx no-ops the hook. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitDescRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 115 : 85);
+  const fitDescTarget = descriptionFontSize ?? (p ? 57 : 35);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.42),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.22 : 0.26)),
+  );
+  const { px: fitDescPx } = useFitText(
+    fitDescRef,
+    fitDescTarget,
+    descriptionFontSizeIsUserSet ? fitDescTarget : Math.round(fitDescTarget * 0.4),
+    [narration, fitDescTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * (p ? 0.30 : 0.34)),
+  );
+
+  const descPx = fitDescPx;
+
+  const cloudFontPx = descPx;
+  const titleFs = fitTitlePx;
+
   // ── Thought cloud sizing — width grows with the text, text tracks the
   // narration font size. ────────────────────────────────────────────────────
-  const cloudFontPx = descPx;
   // Width stays roughly fixed (grows only slightly, tightly capped); longer
   // text wraps onto more lines so the cloud grows in HEIGHT instead.
   const cloudHalfW = (text: string) =>
@@ -271,7 +299,7 @@ export const ShadowComparison: React.FC<SceneLayoutProps> = (props) => {
   // Cloud vertical centre — sits a little lower than before, and is pushed down
   // further if needed so the cloud's top never overlaps the title. The cloud
   // path rises to ~1.3·halfH above the centre, so we clamp against the title bottom.
-  const titleFs = titleFontSize ?? (p ? 115 : 85);
+
   const titleBottom = (p ? 60 : 40) + titleFs * 1.25;
   const maxCloudH = Math.max(lH, rH);
   const cloudCY = Math.max(
@@ -666,7 +694,7 @@ export const ShadowComparison: React.FC<SceneLayoutProps> = (props) => {
       </div>
 
       {/* Title */}
-      <div
+      <div ref={fitTitleRef}
         style={{
           position: "absolute",
           top: p ? 60 : 40,
@@ -674,7 +702,7 @@ export const ShadowComparison: React.FC<SceneLayoutProps> = (props) => {
           width: W,
           textAlign: "center",
           color: accentColor ?? "#FFFFFF",
-          fontSize: titleFontSize ?? (p ? 115 : 85),
+          fontSize: fitTitlePx,
           fontFamily: fontFamily ?? "'Patrick Hand', system-ui, sans-serif",
           filter: "drop-shadow(0 0 12px rgba(255,255,255,0.7))",
           opacity: enter,
@@ -688,7 +716,7 @@ export const ShadowComparison: React.FC<SceneLayoutProps> = (props) => {
 
       {/* Narration */}
       {narration && (
-        <div
+        <div ref={fitDescRef}
           style={{
             position: "absolute",
             bottom: p ? 80 : 40,

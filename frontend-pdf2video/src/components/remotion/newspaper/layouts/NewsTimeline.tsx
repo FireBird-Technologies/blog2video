@@ -2,6 +2,7 @@ import React from "react";
 import { NewspaperClip } from "../components/NewspaperClip";
 import { AbsoluteFill, interpolate, useCurrentFrame, Img, useVideoConfig, spring, staticFile } from "remotion";
 import { NewsBackground } from "../NewsBackground";
+import { useFitText, useAvailableHeight } from "../components/useFitText";
 import type { BlogLayoutProps } from "../types";
 
 const H_FONT = "'Source Serif 4', Georgia, 'Times New Roman', serif";
@@ -16,6 +17,8 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
   aspectRatio = "landscape",
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   stats = [
     { value: "Sep 30", label: "Fiscal year deadline passes without a budget" },
     { value: "Oct 15", label: "House passes short-term CR — Senate delays vote" },
@@ -33,7 +36,7 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
-  const { durationInFrames, fps, width } = useVideoConfig();
+  const { durationInFrames, fps, width, height } = useVideoConfig();
   const p = aspectRatio === "portrait";
   const items = stats.slice(0, 5);
 
@@ -56,9 +59,35 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
   const imageSpring = spring({ frame: frame - 10, fps, config: { damping: 12 } });
 
   // Use descriptionFontSize directly when provided (like titleFontSize); fixed defaults otherwise.
-  const timelineLabelSize = descriptionFontSize ?? (p ? 26 : 23);
-  const timelineDateSize = descriptionFontSize != null ? descriptionFontSize - 2 : (p ? 23 : 20);
-  const narrationSize = descriptionFontSize ?? (p ? 26 : 23);
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title, the milestone rows and the closing narration are all unbounded user
+     input; long copy overflows the card and clips. Fit the headline to its own
+     share, then the narration to what is left below the timeline. An
+     explicitly chosen size is honored exactly (minPx === targetPx no-ops). */
+  const contentRef = React.useRef<HTMLDivElement>(null);
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const narrationRef = React.useRef<HTMLDivElement>(null);
+
+  const titleTarget = titleFontSize ?? (p ? 76 : 62);
+  const bodyTarget = descriptionFontSize ?? (p ? 26 : 23);
+
+  const titleBudget = Math.round(height * (p ? 0.24 : 0.3));
+  const { px: titlePx } = useFitText(
+    titleRef,
+    titleTarget,
+    titleFontSizeIsUserSet ? titleTarget : p ? 30 : 26,
+    [title, titleTarget, titleFontSizeIsUserSet, titleBudget, p],
+    titleBudget,
+  );
+
+  const narrationAvail = useAvailableHeight(narrationRef, contentRef, [title, titlePx, narration, bodyTarget, p]);
+  const { px: narrationPx } = useFitText(
+    narrationRef,
+    bodyTarget,
+    descriptionFontSizeIsUserSet ? bodyTarget : p ? 15 : 13,
+    [narration, bodyTarget, descriptionFontSizeIsUserSet, titlePx, narrationAvail, p],
+    narrationAvail || undefined,
+  );
 
   return (
     <AbsoluteFill style={{ overflow: "hidden", backgroundColor: "#000", perspective: "2000px" }}>
@@ -96,6 +125,7 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
 
         {/* Content Layer */}
         <div
+          ref={contentRef}
           style={{
             position: "absolute",
             inset: 0,
@@ -110,9 +140,10 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
           {/* 1. HEADER */}
           <div style={{ opacity: titleOp, marginBottom: p ? 30 : 40 }}>
             <h1
+              ref={titleRef}
               style={{
                 fontFamily: fontFamily ?? H_FONT,
-                fontSize: titleFontSize ?? (p ? 76 : 62),
+                fontSize: titlePx,
                 fontWeight: 900,
                 color: textColor,
                 margin: 0,
@@ -238,9 +269,10 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
           {/* 4. NARRATION (BOTTOM) */}
           {narration && (
             <div
+              ref={narrationRef}
               style={{
                 fontFamily: fontFamily ?? B_FONT,
-                fontSize: descriptionFontSize ?? (p ? 26 : 23),
+                fontSize: narrationPx,
                 fontStyle: "italic",
                 color: textColor,
                 opacity: interpolate(frame, [80, 100], [0, 0.75], {

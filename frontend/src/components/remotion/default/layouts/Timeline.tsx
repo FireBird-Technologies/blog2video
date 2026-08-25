@@ -9,6 +9,7 @@ import {
 } from "remotion";
 import { SceneLayoutProps } from "../types";
 import { AnimatedVideo } from "./AnimatedVideo";
+import { useFitText } from "../components/useFitText";
 
 export const Timeline: React.FC<SceneLayoutProps & { imageUrl?: string }> = (props) => {
   const {
@@ -19,7 +20,9 @@ export const Timeline: React.FC<SceneLayoutProps & { imageUrl?: string }> = (pro
     timelineItems = [],
     aspectRatio,
     titleFontSize,
-    descriptionFontSize,imageUrl,
+    descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,imageUrl,
   imageObjectPosition,
   imageZoom,
     videoUrl,
@@ -33,6 +36,47 @@ export const Timeline: React.FC<SceneLayoutProps & { imageUrl?: string }> = (pro
   const frame = useCurrentFrame();
   const { fps, durationInFrames, width, height } = useVideoConfig();
   const p = aspectRatio === "portrait" || height > width;
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and timeline-item copy are unbounded user input; the right-side
+     content column is a real `flex:1.5` sibling of a fixed-height row, so its
+     clientHeight is a genuine leftover-space budget, but the title has a
+     fixed marginBottom and the items list has no height limit of its own —
+     long copy just grows past the frame and is clipped by the AbsoluteFill's
+     overflow:hidden. Title fits against its own fixed budget; the items
+     block (every item shares one descriptionFontSize, so they must shrink
+     together) fits against the real leftover flex space. A size the user
+     explicitly picked is honored exactly (minPx === targetPx no-ops).
+
+     No give-back cross-talk between the two: a useLayoutEffect+setState
+     chain reacting to another useFitText's overflow output creates a
+     multi-render convergence that Remotion's per-frame headless capture can
+     settle at different points on different frames (confirmed via a real
+     render — frame-to-frame scene-change score hit 1.0, i.e. maximum, twice
+     in the first ten frames, in the equivalent newscast/newspaper opening
+     scenes). */
+  const titleRef = React.useRef<HTMLHeadingElement>(null);
+  const itemsRef = React.useRef<HTMLDivElement>(null);
+
+  const actualTitleFontSize = titleFontSize ?? (p ? 85 : 74);
+  const actualDescriptionFontSize = descriptionFontSize ?? (p ? 40 : 30);
+
+  const titleBudgetPx = Math.round(height * (p ? 0.16 : 0.2));
+
+  const { px: titlePx } = useFitText(
+    titleRef,
+    actualTitleFontSize,
+    titleFontSizeIsUserSet ? actualTitleFontSize : p ? 34 : 30,
+    [title, actualTitleFontSize, titleFontSizeIsUserSet, titleBudgetPx, p],
+    titleBudgetPx,
+  );
+
+  const { px: itemFontSize } = useFitText(
+    itemsRef,
+    actualDescriptionFontSize,
+    descriptionFontSizeIsUserSet ? actualDescriptionFontSize : p ? 18 : 15,
+    [timelineItems, actualDescriptionFontSize, descriptionFontSizeIsUserSet, titlePx, p],
+  );
 
   // --- ENTRANCE ANIMATIONS ---
   const entranceSpring = spring({
@@ -152,19 +196,21 @@ export const Timeline: React.FC<SceneLayoutProps & { imageUrl?: string }> = (pro
           }}
         >
           <h2
+            ref={titleRef}
             style={{
-              fontSize: titleFontSize ?? (p ? 85 : 74),
+              fontSize: titlePx,
               fontWeight: 900,
               color: textColor || "#fff",
               marginBottom: 40,
               textAlign: p ? "center" : "left",
               lineHeight: 1.1,
+              flexShrink: 0,
             }}
           >
             {title}
           </h2>
 
-          <div style={{ display: "flex", flexDirection: "row", gap: 60, flex: 1 }}>
+          <div ref={itemsRef} style={{ display: "flex", flexDirection: "row", gap: 60, flex: "0 1 auto", minHeight: 0, overflow: "hidden" }}>
             {columnItems.map((col, colIndex) => (
               <div
                 key={colIndex}
@@ -227,10 +273,10 @@ export const Timeline: React.FC<SceneLayoutProps & { imageUrl?: string }> = (pro
                           border: "1px solid rgba(255, 255, 255, 0.08)",
                         }}
                       >
-                        <h3 style={{ fontSize: descriptionFontSize ?? (p ? 40 : 30), fontWeight: 700, color: accentColor, margin: "0 0 4px 0" }}>
+                        <h3 style={{ fontSize: itemFontSize, fontWeight: 700, color: accentColor, margin: "0 0 4px 0" }}>
                           {item.label}
                         </h3>
-                        <p style={{ fontSize: descriptionFontSize ?? (p ? 40 : 30), color: textColor, opacity: 0.7, margin: 0, lineHeight: 1.3 }}>
+                        <p style={{ fontSize: itemFontSize, color: textColor, opacity: 0.7, margin: 0, lineHeight: 1.3 }}>
                           {item.description}
                         </p>
                       </div>

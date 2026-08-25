@@ -1,4 +1,5 @@
-import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
+import React from "react";
+import { AbsoluteFill, Img, interpolate, useCurrentFrame, useVideoConfig, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
 import { AccentBars, FilmGrain, LightDust, SpotlightBeam } from "../components/SpotlightArtifacts";
 import {
@@ -7,6 +8,7 @@ import {
 } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
 import { ZoomCropVideo } from "../components/ZoomCropVideo";
+import { useFitText } from "../components/useFitText";
 
 /**
  * SpotlightImage — Image From Darkness
@@ -34,11 +36,41 @@ export const SpotlightImage: React.FC<SpotlightLayoutProps> = ({
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const fps = 30;
   const p = aspectRatio === "portrait";
   const displayFontFamily =
     fontFamily ?? SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY;
   const bodyFontFamily = fontFamily ?? SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY;
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration render at up to 91px in two places: the frosted
+     caption bar (always shown) and, when there's no image, the fallback
+     center content — both unbounded. Fit against the caption bar's real
+     height budget (a fraction of the frame) and reuse the same fitted px for
+     the fallback content, since both show identical text at the same target
+     size. */
+  const captionTitleRef = React.useRef<HTMLDivElement>(null);
+  const captionBodyRef = React.useRef<HTMLDivElement>(null);
+  const captionTitleTargetPx = titleFontSize ?? (p ? 91 : 72);
+  const captionBodyTargetPx = descriptionFontSize ?? (p ? 39 : 37);
+  const captionStackBudgetPx = Math.round(height * (p ? 0.24 : 0.22));
+  const captionTitleBudgetPx = Math.round(captionStackBudgetPx * (narration ? 0.6 : 1));
+  const { px: captionTitlePx } = useFitText(
+    captionTitleRef,
+    captionTitleTargetPx,
+    p ? 30 : 26,
+    [title, captionTitleTargetPx, captionTitleBudgetPx],
+    captionTitleBudgetPx,
+  );
+  const captionBodyBudgetPx = Math.max(1, captionStackBudgetPx - captionTitleBudgetPx);
+  const { px: captionBodyPx } = useFitText(
+    captionBodyRef,
+    captionBodyTargetPx,
+    p ? 16 : 15,
+    [narration, captionBodyTargetPx, captionBodyBudgetPx, captionTitlePx],
+    captionBodyBudgetPx,
+  );
 
   const revealSpring = spring({
     frame: frame - 3,
@@ -121,7 +153,7 @@ export const SpotlightImage: React.FC<SpotlightLayoutProps> = ({
           <div style={{ maxWidth: 900 }}>
             <div
               style={{
-                fontSize: titleFontSize ?? (p ? 91 : 72),
+                fontSize: captionTitlePx,
                 fontWeight: 800,
                 color: textColor || "#FFFFFF",
                 fontFamily: displayFontFamily,
@@ -136,7 +168,7 @@ export const SpotlightImage: React.FC<SpotlightLayoutProps> = ({
             {narration && (
               <div
                 style={{
-                  fontSize: descriptionFontSize ?? (p ? 39 : 37),
+                  fontSize: captionBodyPx,
                   fontWeight: 400,
                   color: "rgba(255,255,255,0.75)",
                   fontFamily: bodyFontFamily,
@@ -197,8 +229,9 @@ export const SpotlightImage: React.FC<SpotlightLayoutProps> = ({
         />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
+            ref={captionTitleRef}
             style={{
-              fontSize: titleFontSize ?? (p ? 91 : 72),
+              fontSize: captionTitlePx,
               fontWeight: 700,
               color: textColor || "#FFFFFF",
               fontFamily: displayFontFamily,
@@ -209,8 +242,9 @@ export const SpotlightImage: React.FC<SpotlightLayoutProps> = ({
           </div>
           {narration && (
             <div
+              ref={captionBodyRef}
               style={{
-                fontSize: descriptionFontSize ?? (p ? 39 : 37),
+                fontSize: captionBodyPx,
                 color: "rgba(255,255,255,0.85)",
                 fontFamily: bodyFontFamily,
                 marginTop: 8,

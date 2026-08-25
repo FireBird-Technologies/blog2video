@@ -11,6 +11,7 @@ import { OrnamentalBorder, InkDivider } from "../components/OrnamentalBorder";
 import { WaxSeal } from "../components/WaxSeal";
 import { QuillText } from "../components/QuillInk";
 import { resolveCtas } from "../../../../utils/resolveCtas";
+import { useFitText } from "../components/useFitText";
 
 /**
  * EndingSocials — "The End" colophon page.
@@ -33,6 +34,8 @@ export const EndingSocials: React.FC<ChronicleLayoutProps> = ({
   aspectRatio = "landscape",
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
@@ -42,6 +45,32 @@ export const EndingSocials: React.FC<ChronicleLayoutProps> = ({
   // CTA cards (1-3). Only render cards with toggle on + a link.
   const cards = resolveCtas({ ctas, ctaButtonText, websiteLink, showWebsiteButton }).filter(
     (c) => c.showWebsiteButton && c.websiteLink.length > 0,
+  );
+
+  /* ── Auto-fit (title + narration) ────────────────────────────
+     Title ("Finis" or custom colophon text) and narration/sign-off are
+     unbounded user input in a fixed-size scene. QuillText's mode="char"
+     (title) reveals characters progressively, so a hidden full-text mirror
+     is measured; mode="word" (narration) renders the full text from frame 0
+     with only opacity/transform animating spans, so it's safe to ref
+     directly. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 130 : 150);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.4),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * 0.22),
+  );
+  const fitNarrationRef = React.useRef<HTMLDivElement>(null);
+  const fitNarrationTarget = descriptionFontSize ?? (p ? 30 : 26);
+  const { px: fitNarrationPx } = useFitText(
+    fitNarrationRef,
+    fitNarrationTarget,
+    descriptionFontSizeIsUserSet ? fitNarrationTarget : Math.round(fitNarrationTarget * 0.55),
+    [narration, fitNarrationTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * 0.16),
   );
   const shouldShowWebsite = cards.length > 0;
 
@@ -102,20 +131,42 @@ export const EndingSocials: React.FC<ChronicleLayoutProps> = ({
       />
 
       {/* Title */}
-      <div
-        style={{
-          fontFamily: CHRONICLE_HEADING_FONT,
-          fontSize: titleFontSize ?? (p ? 130 : 150),
-          fontWeight: 900,
-          color: textColor,
-          textAlign: "center",
-          letterSpacing: "0.08em",
-          opacity: titleOp,
-          textShadow: "2px 2px 0 rgba(184,134,11,0.3)",
-          lineHeight: 1,
-        }}
-      >
-        <QuillText text={title} startFrame={5} durationFrames={28} mode="char" showCursor={false} />
+      <div style={{ position: "relative", width: "100%" }}>
+        {/* QuillText mode="char" reveals characters progressively; this
+            hidden full-text mirror keeps fitting stable from frame zero. */}
+        <div
+          ref={fitTitleRef}
+          aria-hidden
+          style={{
+            visibility: "hidden",
+            position: "absolute",
+            inset: 0,
+            fontFamily: CHRONICLE_HEADING_FONT,
+            fontSize: fitTitlePx,
+            fontWeight: 900,
+            textAlign: "center",
+            letterSpacing: "0.08em",
+            lineHeight: 1,
+            width: "100%",
+          }}
+        >
+          {title}
+        </div>
+        <div
+          style={{
+            fontFamily: CHRONICLE_HEADING_FONT,
+            fontSize: fitTitlePx,
+            fontWeight: 900,
+            color: textColor,
+            textAlign: "center",
+            letterSpacing: "0.08em",
+            opacity: titleOp,
+            textShadow: "2px 2px 0 rgba(184,134,11,0.3)",
+            lineHeight: 1,
+          }}
+        >
+          <QuillText text={title} startFrame={5} durationFrames={28} mode="char" showCursor={false} />
+        </div>
       </div>
 
       {/* Divider */}
@@ -126,14 +177,16 @@ export const EndingSocials: React.FC<ChronicleLayoutProps> = ({
       {/* Narration / sign-off */}
       {narration && (
         <div
+          ref={fitNarrationRef}
           style={{
             fontFamily: fontFamily ?? CHRONICLE_BODY_FONT,
             fontStyle: "italic",
-            fontSize: descriptionFontSize ?? (p ? 30 : 26),
+            fontSize: fitNarrationPx,
             color: textColor,
             textAlign: "center",
             opacity: narrationOp * 0.9,
             maxWidth: p ? "95%" : "75%",
+            width: "100%",
             lineHeight: 1.4,
           }}
         >

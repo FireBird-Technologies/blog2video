@@ -1,5 +1,6 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, spring } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { MatrixBackground } from "../MatrixBackground";
 import { CipherRing, CodeFragments, RainBurst, ScanlinesOverlay } from "../components/MatrixArtifacts";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
@@ -77,6 +78,7 @@ export const EndingSocials: React.FC<MatrixLayoutProps> = ({
   descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const fps = 30;
   const p = aspectRatio === "portrait";
   const accent = accentColor || "#00FF41";
@@ -92,9 +94,17 @@ export const EndingSocials: React.FC<MatrixLayoutProps> = ({
   const cardCount = Math.min(Math.max(cards.length, 1), 3);
 
   // --- Dynamic Sizing ---
-  const resolvedTitleSize = titleFontSize ?? (p ? 76 : 57);
+  const titleTarget = titleFontSize ?? (p ? 76 : 57);
+  const narrationTarget = descriptionFontSize ?? (p ? 38 : 30);
+  const titleMirrorRef = React.useRef<HTMLDivElement>(null);
+  const narrationRef = React.useRef<HTMLDivElement>(null);
+  const ctaMirrorRef = React.useRef<HTMLDivElement>(null);
+  const longestCta = cards.reduce((longest, card) => card.ctaButtonText.length > longest.length ? card.ctaButtonText : longest, "");
+  const { px: resolvedTitleSize } = useFitText(titleMirrorRef, titleTarget, 15, [title, titleTarget, p], height * 0.16);
+  const { px: resolvedNarrationSize } = useFitText(narrationRef, narrationTarget, 12, [subtext, narrationTarget, p, hasAnyCard], height * 0.13);
   const baseCtaSize = resolvedTitleSize * 1.2;
   const ctaSize = cardCount === 1 ? baseCtaSize : Math.max(28, baseCtaSize * 0.5);
+  const { px: fittedCtaSize } = useFitText(ctaMirrorRef, ctaSize, 12, [longestCta, ctaSize, p, cardCount], height * 0.1);
 
   // --- Timing logic ---
   const titleStart = 10;
@@ -123,6 +133,8 @@ export const EndingSocials: React.FC<MatrixLayoutProps> = ({
       <CipherRing accentColor={accent} scale={0.85} startFrame={Math.max(0, socialStart - 6)} seed={49} />
       <CodeFragments accentColor={accent} count={8} seed={75} startFrame={14} />
       <ScanlinesOverlay accentColor={accent} intensity={0.8} />
+      <div ref={titleMirrorRef} style={{ position: "absolute", visibility: "hidden", width: "80%", fontSize: titleTarget, fontWeight: 900, lineHeight: 1.04, textTransform: "uppercase", fontFamily: resolvedFontFamily, overflowWrap: "anywhere" }}>{title}</div>
+      <div ref={ctaMirrorRef} style={{ position: "absolute", visibility: "hidden", width: cardCount === 1 ? "80%" : cardCount === 2 ? "42%" : "28%", fontSize: ctaSize, fontWeight: 900, lineHeight: 1, textTransform: "uppercase", fontFamily: resolvedFontFamily, overflowWrap: "anywhere" }}>{longestCta}</div>
 
       {/* 1. TOP GROUP: Moved significantly lower toward center */}
       <div style={{
@@ -152,6 +164,7 @@ export const EndingSocials: React.FC<MatrixLayoutProps> = ({
             lineHeight: 1.04,
             textAlign: "center",
             textShadow: `0 0 18px ${accent}66, 0 0 42px ${accent}22`,
+            overflowWrap: "anywhere",
           }}
         />
         
@@ -167,15 +180,16 @@ export const EndingSocials: React.FC<MatrixLayoutProps> = ({
 
         {/* Narration */}
         {subtext && (
-          <div style={{
+          <div ref={narrationRef} style={{
             marginTop: 35,
-            fontSize: descriptionFontSize ?? (p ? 38 : 30),
+            fontSize: resolvedNarrationSize,
             fontWeight: 500,
             color: `${textColor || "#00FF41"}CC`,
             lineHeight: 1.3,
             maxWidth: 750,
             fontFamily: resolvedFontFamily,
             textAlign: "center",
+            overflowWrap: "anywhere",
             opacity: subtextPop,
             transform: `scale(${interpolate(subtextPop, [0, 1], [0.95, 1])}) translateY(${interpolate(subtextPop, [0, 1], [5, 0])}px)`,
           }}>
@@ -245,11 +259,12 @@ export const EndingSocials: React.FC<MatrixLayoutProps> = ({
                   fontFamily={resolvedFontFamily}
                   style={{
                     color: accent,
-                    fontSize: ctaSize,
+                    fontSize: fittedCtaSize,
                     fontWeight: 900,
                     textTransform: "uppercase",
                     lineHeight: 1,
                     letterSpacing: "0.02em",
+                    overflowWrap: "anywhere",
                   }}
                 />
               </div>

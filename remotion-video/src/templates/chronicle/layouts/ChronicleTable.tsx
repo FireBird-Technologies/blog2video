@@ -8,6 +8,7 @@ import {
 } from "../../../fonts/chronicle-defaults";
 import { OrnamentalCorner } from "../components/OrnamentalBorder";
 import { QuillText } from "../components/QuillInk";
+import { useFitText } from "../components/useFitText";
 
 /**
  * ChronicleTable — data table / ledger page scene. Renders the shared
@@ -57,6 +58,8 @@ export const ChronicleTable: React.FC<ChronicleLayoutProps> = ({
   aspectRatio = "landscape",
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
   tickerTable,
   tickerTitle,
@@ -70,8 +73,31 @@ export const ChronicleTable: React.FC<ChronicleLayoutProps> = ({
   const ink = textColor || INK;
   const accent = accentColor || "#B8860B";
 
-  const titleSize = titleFontSize ?? (p ? 50 : 44);
   const descSize = descriptionFontSize ?? (p ? 22 : 19);
+
+  /* ── Auto-fit (title + footnote) ─────────────────────────────
+     Title and footnote/narration are unbounded user input above/below a
+     fixed-size ledger panel; table cell/header sizing is its own density-tier
+     system (untouched). QuillText's mode="char" reveals characters
+     progressively, so a hidden full-text mirror is measured for the title. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 50 : 44);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.45),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * 0.1),
+  );
+  const fitFootnoteRef = React.useRef<HTMLDivElement>(null);
+  const fitFootnoteTarget = Math.round(descSize * 0.88);
+  const { px: fitFootnotePx } = useFitText(
+    fitFootnoteRef,
+    fitFootnoteTarget,
+    descriptionFontSizeIsUserSet ? fitFootnoteTarget : Math.round(fitFootnoteTarget * 0.55),
+    [tickerFootnote, narration, fitFootnoteTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * 0.08),
+  );
 
   const rawHeaders = (tickerTable?.headers ?? []).slice(0, TABLE_MAX_COLS);
   const rawRows = (tickerTable?.rows ?? [])
@@ -142,17 +168,37 @@ export const ChronicleTable: React.FC<ChronicleLayoutProps> = ({
             textAlign: "center",
           }}
         >
-          <div
-            style={{
-              fontFamily: CHRONICLE_HEADING_FONT,
-              fontWeight: 700,
-              fontSize: titleSize,
-              lineHeight: 1.08,
-              color: ink,
-              textShadow: "1px 1px 0 rgba(184,134,11,0.15)",
-            }}
-          >
-            <QuillText text={title} startFrame={4} durationFrames={22} mode="char" showCursor={false} />
+          <div style={{ position: "relative" }}>
+            {/* QuillText mode="char" reveals characters progressively; this
+                hidden full-text mirror keeps fitting stable from frame zero. */}
+            <div
+              ref={fitTitleRef}
+              aria-hidden
+              style={{
+                visibility: "hidden",
+                position: "absolute",
+                inset: 0,
+                fontFamily: CHRONICLE_HEADING_FONT,
+                fontWeight: 700,
+                fontSize: fitTitlePx,
+                lineHeight: 1.08,
+                width: "100%",
+              }}
+            >
+              {title}
+            </div>
+            <div
+              style={{
+                fontFamily: CHRONICLE_HEADING_FONT,
+                fontWeight: 700,
+                fontSize: fitTitlePx,
+                lineHeight: 1.08,
+                color: ink,
+                textShadow: "1px 1px 0 rgba(184,134,11,0.15)",
+              }}
+            >
+              <QuillText text={title} startFrame={4} durationFrames={22} mode="char" showCursor={false} />
+            </div>
           </div>
           {tickerTitle && (
             <div
@@ -285,7 +331,24 @@ export const ChronicleTable: React.FC<ChronicleLayoutProps> = ({
         </div>
 
         {(tickerFootnote || narration) && (
-          <div style={{ opacity: footnoteA, flexShrink: 0, marginTop: Math.round(height * 0.01), fontFamily: bodyFont, fontStyle: "italic", fontWeight: 400, fontSize: Math.round(descSize * 0.88), letterSpacing: "0.02em", color: INK_DIM, lineHeight: 1.4, whiteSpace: "normal", textAlign: "center" }}>
+          <div
+            ref={fitFootnoteRef}
+            style={{
+              opacity: footnoteA,
+              flexShrink: 0,
+              marginTop: Math.round(height * 0.01),
+              fontFamily: bodyFont,
+              fontStyle: "italic",
+              fontWeight: 400,
+              fontSize: fitFootnotePx,
+              letterSpacing: "0.02em",
+              color: INK_DIM,
+              lineHeight: 1.4,
+              whiteSpace: "normal",
+              textAlign: "center",
+              width: "100%",
+            }}
+          >
             {tickerFootnote || narration}
           </div>
         )}

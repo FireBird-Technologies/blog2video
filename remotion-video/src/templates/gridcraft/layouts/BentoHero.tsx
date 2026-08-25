@@ -7,6 +7,7 @@ import {
 } from "../constants";
 import { glass, COLORS } from "../utils/styles";
 import { ZoomCropImg } from "../components/ZoomCropImg";
+import { useFitText } from "../components/useFitText";
 
 // Custom SVG Component for the Gridcraft Icon
 const GridcraftSVG = ({ color, size = 80 }: { color: string; size?: number }) => (
@@ -32,7 +33,8 @@ const GridcraftSVG = ({ color, size = 80 }: { color: string; size?: number }) =>
 export const BentoHero: React.FC<GridcraftLayoutProps> = ({
   title,
   subtitle,
-  narration,imageUrl,
+  narration,
+  imageUrl,
   imageObjectPosition,
   imageZoom,
   videoUrl,
@@ -47,11 +49,13 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
   titleFontSize,
   descriptionFontSize,
   categoryFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   aspectRatio,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, height: videoHeight } = useVideoConfig();
 
   const p = aspectRatio === "portrait";
 
@@ -61,6 +65,34 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
   const sansFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY;
   const serifFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SERIF_FONT_FAMILY;
   const titleFontFamily = p ? sansFontFamily : serifFontFamily;
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Both cells are CSS-grid cells whose row/column tracks are fixed by the
+     grid, so a cell's own clientHeight never shrinks below its content —
+     measuring it against itself could never detect overflow. Budget each from
+     a fraction of the frame height instead, leaving room for the category
+     label / "Tagline" caption above it. */
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const taglineRef = React.useRef<HTMLDivElement>(null);
+  const actualTitleFontSize = titleFontSize ?? (p ? 72 : 85);
+  const actualDescriptionFontSize = descriptionFontSize ?? (p ? 30 : 28);
+  const titleCellBudgetPx = Math.max(1, videoHeight * (p ? 0.32 : 0.34));
+  const taglineCellBudgetPx = Math.max(1, videoHeight * (p ? 0.24 : 0.22));
+
+  const { px: titlePx } = useFitText(
+    titleRef,
+    actualTitleFontSize,
+    titleFontSizeIsUserSet ? actualTitleFontSize : p ? 30 : 28,
+    [title, actualTitleFontSize, titleFontSizeIsUserSet, titleCellBudgetPx],
+    titleCellBudgetPx,
+  );
+  const { px: taglinePx } = useFitText(
+    taglineRef,
+    actualDescriptionFontSize,
+    descriptionFontSizeIsUserSet ? actualDescriptionFontSize : p ? 14 : 13,
+    [tagline, actualDescriptionFontSize, descriptionFontSizeIsUserSet, taglineCellBudgetPx],
+    taglineCellBudgetPx,
+  );
 
   // Animations
   const spr = (delay: number) =>
@@ -107,6 +139,12 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
           padding: p ? 32 : 48,
           transform: `scale(${scale1})`,
           opacity: opacity1,
+          // Grid rows sized in `fr` units grow to fit their content unless
+          // clamped — without this, a long title stretched the row (and the
+          // whole grid) past its "80%"-of-frame bound instead of the cell
+          // clipping to the size useFitText actually shrank it to.
+          minHeight: 0,
+          overflow: "hidden",
         }}
       >
         <div
@@ -122,8 +160,9 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
           {categoryTag}
         </div>
         <div
+          ref={titleRef}
           style={{
-            fontSize: titleFontSize ?? (p ? 72 : 85),
+            fontSize: titlePx,
             fontWeight: 700,
             lineHeight: 1.1,
             fontFamily: titleFontFamily,
@@ -202,6 +241,11 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
           padding: p ? 24 : 32,
           transform: `scale(${scale3})`,
           opacity: opacity3,
+          // Same fr-track growth issue as the title cell — clamp so a long
+          // tagline clips to the fitted size instead of stretching the row
+          // (and spilling past the grid's own bounds).
+          minHeight: 0,
+          overflow: "hidden",
         }}
       >
         {tagline ? (
@@ -216,11 +260,11 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
             }}>
               Tagline
             </div>
-            <div style={{ 
-              fontSize: descriptionFontSize ?? (p ? 30 : 28), 
-              fontWeight: 600, 
-              color: textColor || COLORS.DARK, 
-              lineHeight: 1.3 
+            <div ref={taglineRef} style={{
+              fontSize: taglinePx,
+              fontWeight: 600,
+              color: textColor || COLORS.DARK,
+              lineHeight: 1.3
             }}>
               {tagline}
             </div>

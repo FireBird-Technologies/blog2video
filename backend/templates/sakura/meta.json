@@ -317,8 +317,8 @@
       },
       "defaults": {
         "titleFontSize": {
-          "portrait": 92,
-          "landscape": 76
+          "portrait": 190,
+          "landscape": 240
         },
         "descriptionFontSize": {
           "portrait": 52,
@@ -332,7 +332,7 @@
           "type": "number",
           "responsive": true,
           "min": 18,
-          "max": 220,
+          "max": 300,
           "step": 1
         },
         {

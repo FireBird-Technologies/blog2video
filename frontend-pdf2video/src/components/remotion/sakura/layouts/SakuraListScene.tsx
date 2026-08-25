@@ -2,6 +2,7 @@ import React from "react";
 import { useVideoConfig, interpolate, spring, Img } from "remotion";
 import { SakuraClip } from "../components/SakuraClip";
 import { SceneLayoutProps } from "../types";
+import { useFitText } from "../components/useFitText";
 import {
   SAKURA,
   SAKURA_DISPLAY_FONT,
@@ -33,6 +34,8 @@ export const SakuraListScene: React.FC<SceneLayoutProps> = (props) => {
     sceneDurationInFrames,
     titleFontSize,
     descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
     fontFamily,
   } = props;
   const hasVisual = !!(imageUrl || videoUrl);
@@ -58,9 +61,9 @@ export const SakuraListScene: React.FC<SceneLayoutProps> = (props) => {
   const crimson = accentColor || SAKURA.crimson;
   const ink = textColor || SAKURA.ink;
 
-  const titlePx = titleFontSize ?? (p ? 58 : 58);
+  const titleTargetPx = titleFontSize ?? 58;
   // Larger list items so the list reads as the focus of the scene
-  const itemPx = descriptionFontSize ?? (p ? 40 : 38);
+  const itemTargetPx = descriptionFontSize ?? (p ? 40 : 38);
 
   // Headline reveal
   const headlineReveal = interpolate(frame, [0, 16], [0, 1], {
@@ -132,7 +135,22 @@ export const SakuraListScene: React.FC<SceneLayoutProps> = (props) => {
   // fills the frame instead of clustering at the top-left and reading empty.
   const sparse = items.length <= 2;
   const rowGap = sparse ? (p ? 72 : 66) : p ? 46 : 42;
-  const effItemPx = sparse ? Math.round(itemPx * 1.28) : itemPx;
+  const effItemTargetPx = sparse ? Math.round(itemTargetPx * 1.28) : itemTargetPx;
+  const headlineRef = React.useRef<HTMLHeadingElement>(null);
+  const listRef = React.useRef<HTMLDivElement>(null);
+  const { px: titlePx } = useFitText(
+    headlineRef,
+    titleTargetPx,
+    Math.max(26, Math.round(titleTargetPx * 0.55)),
+    [headline, titleTargetPx, titleFontSizeIsUserSet, p, height, hasVisual],
+    Math.round(height * (p ? 0.2 : 0.26)),
+  );
+  const { px: effItemPx } = useFitText(
+    listRef,
+    effItemTargetPx,
+    Math.max(20, Math.round(effItemTargetPx * 0.58)),
+    [items.join("\u0000"), effItemTargetPx, descriptionFontSizeIsUserSet, titlePx, p, height, hasVisual],
+  );
 
   // Optional supporting image: a feather-masked panel down the RIGHT side (the
   // list keeps the left rail). When present it takes the right side that the
@@ -275,11 +293,14 @@ export const SakuraListScene: React.FC<SceneLayoutProps> = (props) => {
             : "90px 130px",
           maxWidth: p ? "100%" : hasVisual ? "60%" : "72%",
           boxSizing: "border-box",
+          minHeight: 0,
+          overflow: "hidden",
         }}
       >
         {/* Headline */}
         {headline ? (
           <h1
+            ref={headlineRef}
             style={{
               fontFamily: fontFamily ?? SAKURA_DISPLAY_FONT,
               fontWeight: 700,
@@ -302,7 +323,7 @@ export const SakuraListScene: React.FC<SceneLayoutProps> = (props) => {
         </svg>
 
         {/* Items with blooming bullet blossoms and connector line */}
-        <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: rowGap }}>
+        <div ref={listRef} style={{ position: "relative", flex: "0 1 auto", minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column", gap: rowGap, fontSize: effItemPx }}>
           {/* Connector line behind bullets */}
           <div
             style={{
@@ -351,7 +372,7 @@ export const SakuraListScene: React.FC<SceneLayoutProps> = (props) => {
                 <div
                   style={{
                     fontFamily: fontFamily ?? SAKURA_BODY_FONT,
-                    fontSize: effItemPx,
+                    fontSize: "inherit",
                     fontWeight: 500,
                     // Fuller ink so the copy reads confidently instead of pale.
                     color: hexToRgba(ink, 0.95),

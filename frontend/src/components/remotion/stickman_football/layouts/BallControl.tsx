@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { SceneLayoutProps } from "../types";
 import { Football, GrassGround, StickFace } from "../shared";
 
@@ -14,13 +15,15 @@ export const BallControl: React.FC<SceneLayoutProps> = (props) => {
     sceneDurationInFrames,
     titleFontSize,
     descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
     fontFamily,
     stats,
   } = props;
   const p = aspectRatio === "portrait";
   const skillCaption = (props as any).skillCaption ?? "Ball Control";
 
-  const { fps } = useVideoConfig();
+  const { fps, height} = useVideoConfig();
   const frame = useCurrentFrame();
   const dur = sceneDurationInFrames ?? 150;
   const tSec = frame / fps;
@@ -212,9 +215,33 @@ export const BallControl: React.FC<SceneLayoutProps> = (props) => {
   const underline = interpolate(frame, [msToFrames(500), msToFrames(900)], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: easeOutCubic });
   const narrationOpacity = interpolate(frame, [msToFrames(600), msToFrames(950)], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const badgeIn = interpolate(frame, [msToFrames(750), msToFrames(1130)], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: easeOut });
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input; long copy overflows the card
+     and is clipped by the scene frame. Measure the real available height and
+     shrink to fit. A size the user explicitly picked is honored exactly —
+     minPx === targetPx makes the hook a no-op. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitDescRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 72 : 66);
+  const fitDescTarget = descriptionFontSize ?? (p ? 40 : 34);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.42),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.22 : 0.26)),
+  );
+  const { px: fitDescPx } = useFitText(
+    fitDescRef,
+    fitDescTarget,
+    descriptionFontSizeIsUserSet ? fitDescTarget : Math.round(fitDescTarget * 0.4),
+    [narration, fitDescTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * (p ? 0.30 : 0.34)),
+  );
 
-  const titlePx = titleFontSize ?? (p ? 72 : 66);
-  const descPx = descriptionFontSize ?? (p ? 40 : 34);
+  const titlePx = fitTitlePx;
+  const descPx = fitDescPx;
+
 
   return (
     <AbsoluteFill style={{ background: bg, opacity: sceneOpacity, fontFamily: font, overflow: "hidden" }}>
@@ -272,7 +299,7 @@ export const BallControl: React.FC<SceneLayoutProps> = (props) => {
         }}
       >
         <div style={{ clipPath: `inset(0 ${(1 - titleWipe) * 100}% 0 0)`, WebkitClipPath: `inset(0 ${(1 - titleWipe) * 100}% 0 0)` }}>
-          <div
+          <div ref={fitTitleRef}
             style={{
               fontSize: titlePx,
               fontFamily: font,
@@ -290,7 +317,7 @@ export const BallControl: React.FC<SceneLayoutProps> = (props) => {
         </div>
         <div style={{ height: 4, background: accent, borderRadius: 2, marginTop: 10, transformOrigin: "left center", transform: `scaleX(${underline})`, width: p ? "55%" : "70%" }} />
         {narration && (
-          <div
+          <div ref={fitDescRef}
             style={{
               marginTop: p ? 24 : 22,
               fontSize: descPx,

@@ -9,6 +9,7 @@ import {
   staticFile,
 } from "remotion";
 import { NewsBackground, NewsPaperWash } from "../NewsBackground";
+import { useFitText } from "../components/useFitText";
 import type { BlogLayoutProps } from "../types";
 
 const H_FONT = "'Source Serif 4', Georgia, 'Times New Roman', serif";
@@ -46,6 +47,8 @@ export const NewsHeadlineV3: React.FC<
   aspectRatio = "landscape",
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   stats,
   category,
   imageUrl,
@@ -60,7 +63,7 @@ export const NewsHeadlineV3: React.FC<
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
-  const { durationInFrames } = useVideoConfig();
+  const { durationInFrames, height: videoHeight } = useVideoConfig();
   const p = aspectRatio === "portrait";
 
   const fadeIn = interpolate(frame, [0, 16], [0, 1], { extrapolateRight: "clamp" });
@@ -116,12 +119,48 @@ export const NewsHeadlineV3: React.FC<
         : [];
 
   const words = title.split(" ");
-  const actualDescriptionFontSize = descriptionFontSize ?? (p ? 31 : 26);
   const hasVisual = Boolean(imageUrl || videoUrl);
 
   // A narrow measure is what makes it read as a column. Without a cutout beside
   // it the column widens, but never to full bleed — the white space is the point.
   const columnWidth = p ? "100%" : hasVisual ? "52%" : "66%";
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Headline and deck are unbounded user input stacked in the column with no
+     height cap beyond the page itself (only portrait-no-image is flexGrow:1
+     against a real bound; elsewhere the column shrink-wraps and can push past
+     the frame). Reserve a fixed share of the page height for the two text
+     blocks, split between them.
+
+     Title and narration each fit against their own fixed, independent
+     budget. No give-back cross-talk: a useLayoutEffect+setState chain
+     reacting to another useFitText's overflow output creates a multi-render
+     convergence that Remotion's per-frame headless capture can settle at
+     different points on different frames (confirmed via a real render —
+     frame-to-frame scene-change score hit 1.0, i.e. maximum, twice in the
+     first ten frames, in the equivalent newspaper opening scene). */
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const narrationRef = React.useRef<HTMLDivElement>(null);
+  const titleTargetPx = titleFontSize ?? (p ? 54 : 50);
+  const narrationTargetPx = descriptionFontSize ?? (p ? 31 : 26);
+  const stackBudgetPx = Math.round(videoHeight * (hasVisual ? (p ? 0.32 : 0.62) : p ? 0.6 : 0.62));
+  const titleBudgetPx = Math.round(stackBudgetPx * (narration ? 0.6 : 1));
+
+  const { px: titlePx } = useFitText(
+    titleRef,
+    titleTargetPx,
+    titleFontSizeIsUserSet ? titleTargetPx : Math.round(titleTargetPx * 0.42),
+    [title, titleTargetPx, titleFontSizeIsUserSet, titleBudgetPx],
+    titleBudgetPx,
+  );
+  const narrationBudgetPx = Math.max(1, stackBudgetPx - titleBudgetPx);
+  const { px: actualDescriptionFontSize } = useFitText(
+    narrationRef,
+    narrationTargetPx,
+    descriptionFontSizeIsUserSet ? narrationTargetPx : p ? 16 : 14,
+    [narration, narrationTargetPx, descriptionFontSizeIsUserSet, narrationBudgetPx, titlePx],
+    narrationBudgetPx,
+  );
 
   return (
     <AbsoluteFill
@@ -181,12 +220,24 @@ export const NewsHeadlineV3: React.FC<
           style={{
             width: columnWidth,
             flexShrink: 0,
+            /* Portrait with no cutout: take the full page height so the deck
+               below can absorb the slack and settle at mid-height, while the
+               kicker, headline and byline stay ranged at top and bottom. */
+            flexGrow: p && !hasVisual ? 1 : 0,
+            minHeight: 0,
             display: "flex",
             flexDirection: "column",
+            /* Portrait centres the column's contents; landscape keeps the ranged-
+               left column set that makes it read as a newspaper column. */
+            alignItems: p ? "center" : "stretch",
+            textAlign: p ? "center" : "left",
             transform: "translateZ(40px)",
           }}
         >
           {/* KICKER: heavy rule, section label, thin rule — the column's masthead */}
+          {/* The explicit width carries the reveal animation and survives the
+              portrait `alignItems: center` above (which only shrinks auto-width
+              children), so the rules still span the full column. */}
           <div style={{ width: `${kickerW}%`, flexShrink: 0 }}>
             <div style={{ height: p ? 9 : 7, background: textColor, width: "100%" }} />
             <div
@@ -234,14 +285,16 @@ export const NewsHeadlineV3: React.FC<
 
           {/* HEADLINE — stacked, tight, ranged left like a real column head */}
           <div
+            ref={titleRef}
             style={{
               fontFamily: fontFamily ?? H_FONT,
-              fontSize: titleFontSize ?? (p ? 54 : 50),
+              fontSize: titlePx,
               fontWeight: 800,
               lineHeight: 1.0,
               letterSpacing: "-0.022em",
               color: textColor,
               marginTop: p ? 26 : 22,
+              width: "100%",
               flexShrink: 0,
             }}
           >
@@ -288,17 +341,37 @@ export const NewsHeadlineV3: React.FC<
 
           {/* DECK — hairline above, italic serif, the way a standfirst sets */}
           {narration && (
-            <div style={{ opacity: deckOp, marginTop: p ? 22 : 20, flexShrink: 0 }}>
+            <div
+              style={{
+                opacity: deckOp,
+                marginTop: p ? 22 : 20,
+                /* Portrait with no cutout: the deck takes the column's slack and
+                   centres itself in it, so the narration lands mid-page while the
+                   headline above stays put. Elsewhere it sits right under the
+                   headline as before. */
+                flex: p && !hasVisual ? "1 1 0" : "0 0 auto",
+                minHeight: 0,
+                alignSelf: p ? "stretch" : undefined,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: p && !hasVisual ? "center" : "flex-start",
+              }}
+            >
               <div
                 style={{
                   width: p ? 120 : 150,
                   height: 2,
+                  flexShrink: 0,
                   background: textColor,
                   opacity: 0.45,
                   marginBottom: p ? 16 : 14,
+                  // Centre the standfirst rule under the centred portrait column.
+                  marginLeft: p ? "auto" : undefined,
+                  marginRight: p ? "auto" : undefined,
                 }}
               />
               <div
+                ref={narrationRef}
                 style={{
                   // Body copy is B_FONT across this family (base and V2 both
                   // set the narration in the sans face) — the serif here made

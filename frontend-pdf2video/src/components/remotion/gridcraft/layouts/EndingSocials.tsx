@@ -5,6 +5,7 @@ import { GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY, GRIDCRAFT_DEFAULT_SERIF_FONT_FAMILY
 import { glass, COLORS } from "../utils/styles";
 import { SocialIcons } from "../../SocialIcons";
 import { resolveCtas } from "../../../../utils/resolveCtas";
+import { useFitText } from "../components/useFitText";
 
 const BOX_STAGGER_DELAY = 8;
 
@@ -22,9 +23,11 @@ export const EndingSocials: React.FC<GridcraftLayoutProps> = ({
   fontFamily,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
 }) => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, height: videoHeight } = useVideoConfig();
   const p = aspectRatio === "portrait";
 
   const subtext = (narration ?? "").trim();
@@ -38,6 +41,33 @@ export const EndingSocials: React.FC<GridcraftLayoutProps> = ({
   const rawFont = (fontFamily ?? "").trim();
   const titleFont = rawFont || GRIDCRAFT_DEFAULT_SERIF_FONT_FAMILY;
   const bodyFont = rawFont || GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY;
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     The title/narration boxes are grid cells sized by content (`minmax`/
+     `auto` tracks), not shrinkable measurable boxes — budget each from a
+     fixed fraction of the frame height. Independent budgets (no shared
+     competition), since the two boxes never occupy the same row. */
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const subtextRef = React.useRef<HTMLDivElement>(null);
+  const actualTitleFontSize = titleFontSize ?? (p ? 50 : 64);
+  const actualDescriptionFontSize = descriptionFontSize ?? (p ? 26 : 30);
+  const titleBudgetPx = Math.max(1, videoHeight * (p ? 0.22 : 0.26));
+  const subtextBudgetPx = Math.max(1, videoHeight * (p ? 0.16 : 0.18));
+
+  const { px: titlePx } = useFitText(
+    titleRef,
+    actualTitleFontSize,
+    titleFontSizeIsUserSet ? actualTitleFontSize : p ? 26 : 28,
+    [title, actualTitleFontSize, titleFontSizeIsUserSet, titleBudgetPx],
+    titleBudgetPx,
+  );
+  const { px: subtextPx } = useFitText(
+    subtextRef,
+    actualDescriptionFontSize,
+    descriptionFontSizeIsUserSet ? actualDescriptionFontSize : p ? 15 : 16,
+    [subtext, actualDescriptionFontSize, descriptionFontSizeIsUserSet, subtextBudgetPx],
+    subtextBudgetPx,
+  );
 
   // Animation & Style Helper
   const getBoxStyle = (index: number, isHighlighted: boolean) => {
@@ -93,8 +123,9 @@ export const EndingSocials: React.FC<GridcraftLayoutProps> = ({
           }}
         >
           <div
+            ref={titleRef}
             style={{
-              fontSize: titleFontSize ?? (p ? 50 : 64),
+              fontSize: titlePx,
               fontWeight: 900,
               fontFamily: titleFont,
               color: textColor || COLORS.DARK,
@@ -124,8 +155,8 @@ export const EndingSocials: React.FC<GridcraftLayoutProps> = ({
                 <div
                   style={{
                     fontSize: cards.length === 1
-                      ? Math.max(24, (titleFontSize ?? (p ? 50 : 64)) * 0.5)
-                      : Math.max(20, (titleFontSize ?? (p ? 50 : 64)) * 0.35),
+                      ? Math.max(24, actualTitleFontSize * 0.5)
+                      : Math.max(20, actualTitleFontSize * 0.35),
                     fontWeight: 800,
                     color: "#FFFFFF",
                     textTransform: "uppercase",
@@ -158,8 +189,9 @@ export const EndingSocials: React.FC<GridcraftLayoutProps> = ({
         {subtext && (
           <div style={{ ...getBoxStyle(2, false), gridColumn: "span 2" }}>
             <div
+              ref={subtextRef}
               style={{
-                fontSize: descriptionFontSize ?? (p ? 26 : 30),
+                fontSize: subtextPx,
                 fontWeight: 500,
                 color: textColor || COLORS.DARK,
                 lineHeight: 1.5,

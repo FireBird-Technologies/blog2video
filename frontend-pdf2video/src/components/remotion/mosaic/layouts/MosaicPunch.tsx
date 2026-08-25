@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { MosaicBackground } from "../MosaicBackground";
 import { MosaicImageReveal } from "../MosaicImageReveal";
 import { MOSAIC_COLORS, MOSAIC_DEFAULT_FONT_FAMILY } from "../constants";
@@ -69,7 +70,7 @@ export const MosaicPunch: React.FC<MosaicLayoutProps> = ({
   mosaicTileGap,
 }) => {
   const frame = useCurrentFrame();
-  const { durationInFrames } = useVideoConfig();
+  const { durationInFrames, height } = useVideoConfig();
   const p = aspectRatio === "portrait";
   const motion = getSceneTransition(frame, durationInFrames, 24, 18);
   // Tile sweep — 100 frames ≈ 3.3s
@@ -100,9 +101,13 @@ export const MosaicPunch: React.FC<MosaicLayoutProps> = ({
   });
   const line = accentColor || MOSAIC_COLORS.gold;
   const value = (word || title || "ENDURES").toUpperCase();
+  const valueTarget = titleFontSize ?? (p ? 110 : 142);
+  const valueMeasureRef = React.useRef<HTMLDivElement>(null);
+  const { px: valueSize } = useFitText(valueMeasureRef, valueTarget, Math.max(12, Math.round(valueTarget * 0.18)), [value, valueTarget, p, height], Math.round(height * 0.32));
 
   return (
     <AbsoluteFill>
+      <div ref={valueMeasureRef} style={{ position: "absolute", visibility: "hidden", width: "90%", fontFamily: fontFamily || MOSAIC_DEFAULT_FONT_FAMILY, fontSize: valueSize, fontWeight: 900, lineHeight: 1.1, textAlign: "center", overflowWrap: "anywhere" }}>{value}</div>
       <MosaicBackground
         bgColor={bgColor}
         accentColor={accentColor}
@@ -160,7 +165,7 @@ export const MosaicPunch: React.FC<MosaicLayoutProps> = ({
           }}
         >
           {/* Height-driven container: titleFontSize controls how tall (and thus how wide) the mosaic text renders */}
-          <div style={{ height: titleFontSize ?? (p ? 110 : 142) }}>
+          <div style={{ height: valueSize, maxWidth: "100%" }}>
             {fontFamily ? (
               <div
                 style={{
@@ -169,9 +174,10 @@ export const MosaicPunch: React.FC<MosaicLayoutProps> = ({
                   alignItems: "center",
                   fontFamily,
                   fontWeight: 900,
-                  fontSize: titleFontSize ?? (p ? 110 : 142),
+                  fontSize: valueSize,
                   letterSpacing: "0.04em",
-                  whiteSpace: "nowrap",
+                  whiteSpace: "normal",
+                  overflowWrap: "anywhere",
                   color: (accentPalette(accentColor || MOSAIC_COLORS.gold))[0],
                   opacity: interpolate(motion.entry, [0.1, 0.5], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
                 }}
@@ -181,13 +187,13 @@ export const MosaicPunch: React.FC<MosaicLayoutProps> = ({
             ) : (
               <TileWordSvg
                 text={value}
-                tileSize={mosaicTileSize ?? Math.max(Math.round((titleFontSize ?? (p ? 110 : 142)) / 8), 8)}
+                tileSize={mosaicTileSize ?? Math.max(Math.round(valueSize / 8), 8)}
                 gap={mosaicTileGap ?? 1}
                 revealProgress={motion.entry}
                 revealMode="cluster"
                 exitProgress={exitBreak}
                 colors={accentPalette(accentColor || MOSAIC_COLORS.gold)}
-                style={{ height: "100%", width: "auto" }}
+                style={{ height: "100%", width: "auto", maxWidth: "100%" }}
               />
             )}
           </div>

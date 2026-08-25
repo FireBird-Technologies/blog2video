@@ -11,6 +11,7 @@ import { OrnamentalCorner } from "../components/OrnamentalBorder";
 import { InkFlourish } from "../components/ChronicleArtifacts";
 import { EmbossedImage } from "../components/EmbossedImage";
 import { QuillText } from "../components/QuillInk";
+import { useFitText } from "../components/useFitText";
 
 /**
  * LedgerStats — aged-parchment ledger with up to 3 handwritten stat cells.
@@ -25,6 +26,8 @@ export const LedgerStats: React.FC<ChronicleLayoutProps> = ({
   aspectRatio = "landscape",
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
   imageUrl,
   imageObjectPosition,
@@ -38,6 +41,30 @@ export const LedgerStats: React.FC<ChronicleLayoutProps> = ({
   const frame = useCurrentFrame();
   const { durationInFrames, height, width } = useVideoConfig();
   const p = aspectRatio === "portrait" || height > width;
+
+  /* ── Auto-fit (title + narration subtitle) ───────────────────
+     Title and narration are unbounded user input above the stat ledger row;
+     stat value/label are a digit-count metric system and short bounded
+     labels, left alone. QuillText's mode="char" reveals characters
+     progressively, so a hidden full-text mirror is measured for the title. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 64 : 58);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.45),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * 0.1),
+  );
+  const fitNarrationRef = React.useRef<HTMLDivElement>(null);
+  const fitNarrationTarget = descriptionFontSize ?? (p ? 26 : 22);
+  const { px: fitNarrationPx } = useFitText(
+    fitNarrationRef,
+    fitNarrationTarget,
+    descriptionFontSizeIsUserSet ? fitNarrationTarget : Math.round(fitNarrationTarget * 0.55),
+    [narration, fitNarrationTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * 0.12),
+  );
 
   const cells = (stats ?? []).slice(0, 3);
   // Ensure we always render something sensible even if no stats passed
@@ -91,32 +118,53 @@ export const LedgerStats: React.FC<ChronicleLayoutProps> = ({
       />
 
       {/* Title */}
-      <div
-        style={{
-          fontFamily: CHRONICLE_HEADING_FONT,
-          fontSize: titleFontSize ?? (p ? 64 : 58),
-          fontWeight: 700,
-          color: textColor,
-          textAlign: "center",
-          marginBottom: 12,
-          opacity: titleOp,
-          textShadow: "1px 1px 0 rgba(184,134,11,0.15)",
-        }}
-      >
-        <QuillText text={title} startFrame={5} durationFrames={25} mode="char" showCursor={false} />
+      <div style={{ position: "relative", marginBottom: 12 }}>
+        {/* QuillText mode="char" reveals characters progressively; this
+            hidden full-text mirror keeps fitting stable from frame zero. */}
+        <div
+          ref={fitTitleRef}
+          aria-hidden
+          style={{
+            visibility: "hidden",
+            position: "absolute",
+            inset: 0,
+            fontFamily: CHRONICLE_HEADING_FONT,
+            fontSize: fitTitlePx,
+            fontWeight: 700,
+            textAlign: "center",
+            width: "100%",
+          }}
+        >
+          {title}
+        </div>
+        <div
+          style={{
+            fontFamily: CHRONICLE_HEADING_FONT,
+            fontSize: fitTitlePx,
+            fontWeight: 700,
+            color: textColor,
+            textAlign: "center",
+            opacity: titleOp,
+            textShadow: "1px 1px 0 rgba(184,134,11,0.15)",
+          }}
+        >
+          <QuillText text={title} startFrame={5} durationFrames={25} mode="char" showCursor={false} />
+        </div>
       </div>
 
       {/* Narration subtitle */}
       {narration && (
         <div
+          ref={fitNarrationRef}
           style={{
             fontFamily: fontFamily ?? CHRONICLE_BODY_FONT,
-            fontSize: descriptionFontSize ?? (p ? 26 : 22),
+            fontSize: fitNarrationPx,
             color: textColor,
             opacity: titleOp * 0.75,
             textAlign: "center",
             fontStyle: "italic",
             maxWidth: p ? "100%" : "75%",
+            width: "100%",
             alignSelf: "center",
             marginBottom: 40,
             lineHeight: 1.4,

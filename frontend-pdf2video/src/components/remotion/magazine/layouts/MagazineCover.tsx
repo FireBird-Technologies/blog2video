@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, useVideoConfig, interpolate, Easing } from "remotion";
 import { SceneLayoutProps } from "../types";
+import { useFitText } from "../components/useFitText";
 import {
   MAG_DISPLAY,
   MAG_SERIF,
@@ -35,6 +36,7 @@ const EASE_OUT = Easing.out(Easing.cubic);
  */
 export const MagazineCover: React.FC<SceneLayoutProps> = (props) => {
   const { title, narration, imageUrl, videoUrl, videoMuted, videoVolume, videoDurationInFrames, videoStartInFrames, imageObjectPosition, imageZoom, titleFontSize, descriptionFontSize, fontFamily } = props;
+  const titleFontSizeIsUserSet = (props as { titleFontSizeIsUserSet?: boolean }).titleFontSizeIsUserSet;
   // Strip a leading "By " the value may already carry (AI/user/default) so the
   // rendered "By {brand}" below never doubles up into "By By …".
   const brand = ((props.byline as string) ?? "").trim().replace(/^by\s+/i, "");
@@ -112,21 +114,54 @@ export const MagazineCover: React.FC<SceneLayoutProps> = (props) => {
   // Auto-fit size (used only when the user hasn't set a size): step down from the
   // width-capped base until the wrapped block fits the top band.
   let autoFitPx = Math.min(basePx, widthCapPx);
-  for (let i = 0; i < 24; i++) {
+  // Iterate until the wrapped block genuinely fits the band. The previous 24-step
+  // cap at 0.94 could only shave ~23% off the base, so a long title exited the
+  // loop still oversized and grew down over the cover-lines, deck and barcode.
+  // Step until we reach the 14px floor instead of a fixed iteration count.
+  const MAST_MIN_PX = 14;
+  while (autoFitPx > MAST_MIN_PX) {
     const lines = estLinesAt(autoFitPx);
     if (lines * autoFitPx * mastLineHeight <= mastBandH) break;
     autoFitPx *= 0.94;
   }
-  autoFitPx = Math.max(14, autoFitPx);
+  autoFitPx = Math.max(MAST_MIN_PX, autoFitPx);
   // Hard safety cap for the user-driven path: the longest word must still fit the
   // inner width (never spill off the cover), and the block can't exceed half the
   // card height. Within that ceiling the slider grows/shrinks the type freely.
   const safetyMaxPx = Math.min(widthCapPx, cardH * 0.5 / mastLineHeight);
-  const mastheadPx =
-    titleFontSize != null
+  // `titleFontSize` is ALWAYS present — meta.json backfills it (landscape 62 /
+  // portrait 92) even when the user never touched the slider. Use the estimated
+  // fit as the default, then enforce the rule boundary with actual DOM geometry
+  // below; the estimate alone cannot account for every word-wrap shape.
+  const mastheadTargetPx =
+    titleFontSize != null && titleFontSizeIsUserSet
       ? Math.max(14, Math.min(titleFontSize, safetyMaxPx))
       : autoFitPx;
-  const deckPx = descriptionFontSize ?? (p ? 16 : 19);
+  const mastheadRef = React.useRef<HTMLHeadingElement>(null);
+  // Words enter from 18px below their resting position; reserve that travel so
+  // the animation itself cannot briefly push the final line across the rule.
+  const mastFitBandH = Math.max(1, mastBandH - 18);
+  const { px: mastheadPx } = useFitText(
+    mastheadRef,
+    mastheadTargetPx,
+    8,
+    [titleText, mastheadTargetPx, mastInnerW, mastFitBandH, p],
+    mastFitBandH,
+  );
+  const deckBasePx = descriptionFontSize ?? (p ? 16 : 19);
+  // Keep ordinary decks at their intended size and let extra lines grow upward
+  // from the bottom-anchored cover-line block. Only unusually long copy is
+  // reduced, so it remains above the byline/barcode instead of being clipped.
+  const deckBandH = cardH * 0.11;
+  const deckUsableW = (cardW * 0.84) - barcodeClearW;
+  const deckAvgCharW = 0.48; // italic serif advance ≈ 0.48em
+  const deckLinesAt = (px: number) => {
+    const perLine = Math.max(1, Math.floor(deckUsableW / (px * deckAvgCharW)));
+    return Math.max(1, Math.ceil((deck.length || 1) / perLine));
+  };
+  let deckPx = deckBasePx;
+  while (deckPx > 8 && deckLinesAt(deckPx) * deckPx * 1.35 > deckBandH) deckPx *= 0.94;
+  deckPx = Math.max(8, deckPx);
 
   // ---- Reveals: masthead first, then the cover-line block cascades in.
   const imgScale = interpolate(frame, [0, fps * 5], [1.06, 1.0], CLAMP);
@@ -238,6 +273,7 @@ export const MagazineCover: React.FC<SceneLayoutProps> = (props) => {
         {/* Masthead wordmark = the scene title, word-by-word reveal. */}
         {titleText ? (
           <h1
+            ref={mastheadRef}
             style={{
               position: "absolute",
               top: "3.5%",
@@ -322,9 +358,6 @@ export const MagazineCover: React.FC<SceneLayoutProps> = (props) => {
                 lineHeight: 1.35,
                 color: coverTextCol,
                 paddingRight: barcodeClearW,
-                display: "-webkit-box",
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: "vertical",
                 overflow: "hidden",
                 textShadow: showPhoto ? "0 1px 10px rgba(0,0,0,0.4)" : "none",
               }}

@@ -1,4 +1,5 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import React from "react";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
 import {
   AccentBars,
@@ -15,6 +16,7 @@ import {
 import type { SpotlightLayoutProps } from "../types";
 import { SocialIcons } from "../../SocialIcons";
 import { resolveCtas } from "../../shared/resolveCtas";
+import { useFitText } from "../components/useFitText";
 
 /**
  * EndingSocialsV2 — "Curtain Call"
@@ -53,6 +55,7 @@ export const EndingSocialsV2: React.FC<SpotlightLayoutProps> = ({
   descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const fps = 30;
   const p = aspectRatio === "portrait";
   const accent = accentColor || "#EF4444";
@@ -98,8 +101,31 @@ export const EndingSocialsV2: React.FC<SpotlightLayoutProps> = ({
     extrapolateRight: "clamp",
   });
 
-  const titlePx = titleFontSize ?? (p ? 81 : 64);
-  const subPx = descriptionFontSize ?? (p ? 33 : 29);
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title (the billing) and subtext are unbounded user input stacked in a
+     centred column with no height cap; long copy would push the CTAs/socials
+     off-frame. Fit each against its own share of the stack, same shape as
+     the base layout's band fit. */
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const subtextRef = React.useRef<HTMLDivElement>(null);
+  const titleTargetPx = titleFontSize ?? (p ? 81 : 64);
+  const subTargetPx = descriptionFontSize ?? (p ? 33 : 29);
+  const titleBudgetPx = Math.round(height * (p ? 0.18 : 0.16));
+  const { px: titlePx } = useFitText(
+    titleRef,
+    titleTargetPx,
+    p ? 32 : 28,
+    [title, titleTargetPx, titleBudgetPx],
+    titleBudgetPx,
+  );
+  const subBudgetPx = Math.round(height * (p ? 0.1 : 0.09));
+  const { px: subPx } = useFitText(
+    subtextRef,
+    subTargetPx,
+    p ? 16 : 14,
+    [subtext, subTargetPx, subBudgetPx, titlePx],
+    subBudgetPx,
+  );
   const ctaPx = p ? 34 : 30;
 
   // The template's slam signature: overshoot dressed with a sine kicker.
@@ -149,6 +175,7 @@ export const EndingSocialsV2: React.FC<SpotlightLayoutProps> = ({
       >
         {/* ── Billing ── */}
         <div
+          ref={titleRef}
           style={{
             fontFamily: displayFont,
             fontWeight: 900,
@@ -161,7 +188,7 @@ export const EndingSocialsV2: React.FC<SpotlightLayoutProps> = ({
             opacity: titleOpacity,
             transform: `scale(${titleScale})`,
             overflowWrap: "anywhere",
-            maxWidth: "100%",
+            width: "100%",
           }}
         >
           {title}
@@ -169,6 +196,7 @@ export const EndingSocialsV2: React.FC<SpotlightLayoutProps> = ({
 
         {subtext ? (
           <div
+            ref={subtextRef}
             style={{
               marginTop: p ? 16 : 14,
               fontFamily: bodyFont,
@@ -179,7 +207,7 @@ export const EndingSocialsV2: React.FC<SpotlightLayoutProps> = ({
               color: text,
               opacity: subOpacity * 0.78,
               textAlign: "center",
-              maxWidth: "88%",
+              width: "88%",
               overflowWrap: "anywhere",
             }}
           >

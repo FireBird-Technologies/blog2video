@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { SceneLayoutProps } from "../types";
 import { Stickman2BackgroundImage } from "../Stickman2BackgroundImage";
 
@@ -22,11 +23,39 @@ export const ShootingStar: React.FC<SceneLayoutProps> = (props) => {
     sceneDurationInFrames,
     titleFontSize,
     descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
     fontFamily,
   } = props;
   const p = aspectRatio === "portrait";
 
-  const { fps } = useVideoConfig();
+  const { fps, height} = useVideoConfig();
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input; long copy overflows the card
+     (and in this template collides with the artwork) instead of resizing.
+     Measure the real available height and shrink to fit. A size the user
+     explicitly picked is honored exactly — minPx === targetPx no-ops the hook. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitDescRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 103 : 79);
+  const fitDescTarget = descriptionFontSize ?? (p ? 48 : 40);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.42),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+  );
+  const { px: fitDescPx } = useFitText(
+    fitDescRef,
+    fitDescTarget,
+    // Floor at 65% of the target: the wrapper band is measured before the title
+    // has settled, so an unbounded floor let the copy shrink far smaller than the
+    // space actually needs.
+    descriptionFontSizeIsUserSet ? fitDescTarget : Math.round(fitDescTarget * 0.65),
+    [narration, fitDescTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * (p ? 0.2 : 0.22)),
+  );
   const frame = useCurrentFrame();
   const dur = sceneDurationInFrames ?? 150;
 
@@ -403,15 +432,25 @@ export const ShootingStar: React.FC<SceneLayoutProps> = (props) => {
         )}
       </svg>
 
-      {/* Title */}
+      {/* Title + narration share ONE flow column rather than sitting on two
+          fixed anchors (previously top 29% / 46%). Anchored blocks are pinned a
+          fixed distance apart, so a long headline grew straight through the gap
+          and overlapped the narration. In a column the narration is always
+          pushed below the title, and the band gives the fitter a real height. */}
       <div style={{
-        position: "absolute", top: p ? "27%" : "29%", left: "50%",
-        transform: `translateX(-50%) scale(${titleScale})`,
-        opacity: titleProg * masterOpacity, textAlign: "center",
+        position: "absolute", top: p ? "20%" : "22%", bottom: p ? "12%" : "10%",
+        left: "50%", transform: "translateX(-50%)",
         width: p ? "85%" : "75%", pointerEvents: "none",
+        display: "flex", flexDirection: "column", alignItems: "center",
+        gap: p ? 18 : 14, minHeight: 0, overflow: "hidden",
       }}>
-        <div style={{
-          fontSize: titleFontSize ?? (p ? 103 : 79), fontWeight: 700,
+      <div style={{
+        transform: `scale(${titleScale})`,
+        opacity: titleProg * masterOpacity, textAlign: "center",
+        width: "100%", flexShrink: 0,
+      }}>
+        <div ref={fitTitleRef} style={{
+          fontSize: fitTitlePx, fontWeight: 700,
           color: accentColor ?? "#FFFFFF",
           textShadow: `0 0 12px ${accentColor ?? "#FFFFFF"}B3, 0 0 24px ${accentColor ?? "#FFFFFF"}66`,
           lineHeight: 1.15, letterSpacing: "0.02em",
@@ -430,19 +469,24 @@ export const ShootingStar: React.FC<SceneLayoutProps> = (props) => {
 
       {/* Narration */}
       <div style={{
-        position: "absolute", top: p ? "44%" : "46%", left: "50%",
-        transform: `translateX(-50%) translateY(${narrationTranslateY}px)`,
+        transform: `translateY(${narrationTranslateY}px)`,
         opacity: narrationProg * masterOpacity, textAlign: "center",
-        width: p ? "80%" : "60%", pointerEvents: "none",
+        width: p ? "94%" : "80%", minHeight: 0, flex: "1 1 auto", overflow: "hidden",
+        display: "flex", flexDirection: "column",
       }}>
         <div style={{
-          fontSize: descriptionFontSize ?? (p ? 48 : 40),
+          minHeight: 0, flex: "1 1 auto", overflow: "hidden",
+        }}>
+        <div ref={fitDescRef} style={{
+          fontSize: fitDescPx,
           color: textColor ?? "#FFFFFF",
           textShadow: "0 0 6px rgba(255,255,255,0.4)",
           lineHeight: 1.5,
           fontFamily: fontFamily ?? "'Patrick Hand', system-ui, sans-serif",
           fontWeight: 400,
         }}>{narration}</div>
+        </div>
+      </div>
       </div>
     </AbsoluteFill>
   );

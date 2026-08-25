@@ -1,4 +1,6 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import React from "react";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, spring } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { MatrixBackground } from "../MatrixBackground";
 import { buildHudStatus, CipherRing, DecodeSweep, ScanlinesOverlay, TelemetryGauge, TerminalHUD } from "../components/MatrixArtifacts";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
@@ -39,6 +41,7 @@ export const CipherMetric: React.FC<MatrixLayoutProps> = ({
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const fps = 30;
   const p = aspectRatio === "portrait";
   const accent = accentColor || "#00FF41";
@@ -46,6 +49,14 @@ export const CipherMetric: React.FC<MatrixLayoutProps> = ({
   const resolvedFontFamily = fontFamily ?? MATRIX_DEFAULT_FONT_FAMILY;
 
   const primary = metrics?.[0];
+  const metricMirrorRef = React.useRef<HTMLDivElement>(null);
+  const cardRef = React.useRef<HTMLDivElement>(null);
+  const metricCopy = `${primary?.value || title}${primary?.suffix || ""}`;
+  const cardCopy = `${primary?.label || title} ${metrics && metrics.length > 1 ? metrics.slice(1).map((m) => `${m.value}${m.suffix || ""} ${m.label}`).join(" · ") : narration || ""}`;
+  const metricTarget = titleFontSize ?? (p ? 182 : 175);
+  const cardTarget = descriptionFontSize ?? (p ? 48 : 39);
+  const { px: fittedMetricSize } = useFitText(metricMirrorRef, metricTarget, 20, [metricCopy, metricTarget, p, hasImage], height * 0.3);
+  const { px: fittedCardSize } = useFitText(cardRef, cardTarget, 12, [cardCopy, cardTarget, p, hasImage], height * 0.22);
   const numericValue = primary
     ? parseFloat(primary.value.replace(/,/g, ""))
     : 0;
@@ -112,6 +123,7 @@ export const CipherMetric: React.FC<MatrixLayoutProps> = ({
       {/* Telemetry gauge sweeps up like a confidence reading on the metric. */}
       <TelemetryGauge accentColor={accent} label="CONF" corner="top-right" startFrame={14} seed={63} />
       <ScanlinesOverlay accentColor={accent} intensity={0.8} />
+      <div ref={metricMirrorRef} style={{ position: "absolute", visibility: "hidden", width: hasImage && !p ? "50%" : "84%", fontSize: metricTarget, fontWeight: 700, lineHeight: 1, fontFamily: resolvedFontFamily, overflowWrap: "anywhere" }}>{metricCopy}</div>
 
       <div
         style={{
@@ -160,13 +172,14 @@ export const CipherMetric: React.FC<MatrixLayoutProps> = ({
         <div style={{ textAlign: "center" }}>
           <div
             style={{
-              fontSize: titleFontSize ?? (p ? 182 : 175),
+              fontSize: fittedMetricSize,
               fontWeight: 700,
               color: accent,
               letterSpacing: "-0.03em",
               lineHeight: 1,
               fontFamily: resolvedFontFamily,
               textShadow: `0 0 ${20 * glowPulse}px ${accent}88, 0 0 ${40 * glowPulse}px ${accent}44`,
+              overflowWrap: "anywhere",
             }}
           >
             {displayNumber}
@@ -179,6 +192,7 @@ export const CipherMetric: React.FC<MatrixLayoutProps> = ({
 
           {/* Terminal card with label */}
           <div
+            ref={cardRef}
             style={{
               marginTop: p ? 16 : 24,
               border: `1px solid ${accent}44`,
@@ -190,7 +204,7 @@ export const CipherMetric: React.FC<MatrixLayoutProps> = ({
           >
             <div
               style={{
-                fontSize: descriptionFontSize ?? (p ? 48 : 39),
+                fontSize: fittedCardSize,
                 fontWeight: 700,
                 color: accent,
                 letterSpacing: "0.12em",
@@ -203,7 +217,7 @@ export const CipherMetric: React.FC<MatrixLayoutProps> = ({
             {(narration || (metrics && metrics.length > 1)) && (
               <div
                 style={{
-                  fontSize: descriptionFontSize ?? (p ? 48 : 39),
+                  fontSize: fittedCardSize,
                   color: `${accent}66`,
                   marginTop: 4,
                   fontFamily: resolvedFontFamily,
@@ -223,4 +237,3 @@ export const CipherMetric: React.FC<MatrixLayoutProps> = ({
     </AbsoluteFill>
   );
 };
-

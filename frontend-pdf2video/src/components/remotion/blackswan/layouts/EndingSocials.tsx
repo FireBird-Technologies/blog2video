@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { Swan } from "../components/Swan";
 import type { BlackswanLayoutProps } from "../types";
 import { BlackswanArcBirdPass, neonTitleTubeStyle, StarField } from "./scenePrimitives";
@@ -136,6 +137,8 @@ export const EndingSocials: React.FC<BlackswanLayoutProps> = (props) => {
     textColor = "#DFFFFF",
     descriptionFontSize,
     titleFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
     fontFamily,
     aspectRatio = "landscape",
     socials,
@@ -146,7 +149,7 @@ export const EndingSocials: React.FC<BlackswanLayoutProps> = (props) => {
   } = props;
 
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, height } = useVideoConfig();
   const t = frame / fps;
   const p = aspectRatio === "portrait";
   /** Droplet impact anchor — low in frame, below social row; syncs with bottom water */
@@ -164,8 +167,12 @@ export const EndingSocials: React.FC<BlackswanLayoutProps> = (props) => {
   const hasAnyCard = cards.length > 0;
   const ctaLabel = (cards[0]?.ctaButtonText.trim()) || (ctaButtonText ?? title ?? "").trim();
   const showCta = ctaLabel.length > 0;
-  const ctaFontSize = titleFontSize ?? (p ? 82 : 76);
-  const narrSize = descriptionFontSize ?? (p ? 36 : 33);
+  const ctaTarget = titleFontSize ?? (p ? 82 : 76);
+  const narrTarget = descriptionFontSize ?? (p ? 36 : 33);
+  const ctaRef = React.useRef<HTMLSpanElement>(null);
+  const narrationRef = React.useRef<HTMLParagraphElement>(null);
+  const { px: ctaFontSize } = useFitText(ctaRef, ctaTarget, titleFontSizeIsUserSet ? ctaTarget : Math.max(15, Math.round(ctaTarget * 0.32)), [ctaLabel, ctaTarget, titleFontSizeIsUserSet, p, height], Math.round(height * (p ? 0.13 : 0.16)));
+  const { px: narrSize } = useFitText(narrationRef, narrTarget, descriptionFontSizeIsUserSet ? narrTarget : Math.max(10, Math.round(narrTarget * 0.38)), [narration, narrTarget, descriptionFontSizeIsUserSet, ctaFontSize, p, height], Math.round(height * (p ? 0.12 : 0.13)));
   const hasSocials =
     socials && (Array.isArray(socials) ? socials.length > 0 : Object.keys(socials as Record<string, unknown>).length > 0);
 
@@ -228,7 +235,7 @@ export const EndingSocials: React.FC<BlackswanLayoutProps> = (props) => {
             pointerEvents: "none",
           }}
         >
-          <span
+          <span ref={ctaRef}
             style={{
               fontFamily: fontFamily ?? display,
               fontSize: ctaFontSize,
@@ -325,7 +332,7 @@ export const EndingSocials: React.FC<BlackswanLayoutProps> = (props) => {
 
         {/* Narration */}
         {narration?.trim() ? (
-          <p
+          <p ref={narrationRef}
             style={{
               margin: 0,
               fontFamily: fontFamily ?? display,

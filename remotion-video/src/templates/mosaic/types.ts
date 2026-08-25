@@ -36,6 +36,10 @@ export interface MosaicLayoutProps {
   cta?: string;
   titleFontSize?: number;
   descriptionFontSize?: number;
+  /** Derived at render time; slider values are preferred maxima, not overflow locks. */
+  titleFontSizeIsUserSet?: boolean;
+  /** Derived at render time; slider values are preferred maxima, not overflow locks. */
+  descriptionFontSizeIsUserSet?: boolean;
   socials?: SocialsMap;
   websiteLink?: string;
   showWebsiteButton?: boolean;

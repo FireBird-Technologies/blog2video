@@ -1201,6 +1201,132 @@ def _image_capable_scenes(project: Project, db: Session) -> list[Scene]:
     return out
 
 
+def _outro_scene_ids(project: Project, db: Session) -> set[int]:
+    """Scenes whose visual slot ``write_remotion_data`` forces to ``hideImage``.
+
+    Mirrors Step 3 of that function's image cascade: an explicit
+    ``scene_type == "outro"``, plus — when ``scene_type`` is NULL — the LAST
+    scene of a multi-scene project, which Step 3 treats as an implicit outro.
+
+    An outro neither consumes an image nor can display a clip, so both the
+    coverage prediction and the stock fetch must exclude it.
+    """
+    all_scenes = (
+        db.query(Scene)
+        .filter(Scene.project_id == project.id, Scene.is_active.is_(True))
+        .order_by(Scene.order)
+        .all()
+    )
+    if not all_scenes:
+        return set()
+
+    out = {
+        s.id for s in all_scenes if getattr(s, "scene_type", None) == "outro"
+    }
+    last = all_scenes[-1]
+    if len(all_scenes) > 1 and getattr(last, "scene_type", None) is None:
+        out.add(last.id)
+    return out
+
+
+def _image_coverage_count(project: Project, db: Session, scenes: list[Scene]) -> int:
+    """How many of ``scenes`` the project's images are expected to cover.
+
+    Images are the primary visual; stock footage is only fetched for the
+    image-capable scenes no image can fill. This runs at the SCRIPTED stage,
+    concurrently with descriptor generation and BEFORE ``write_remotion_data``
+    actually assigns anything — so it is a PREDICTION of that function's image
+    cascade, and it must stay in sync with it:
+
+    * scene-specific ``scene_<id>_*`` files bind to their own scene (Step 2)
+    * every other image is a generic, handed out one per scene (Steps 3-4)
+    * an outro never consumes an image — see :func:`_outro_scene_ids`, which also
+      covers the implicit (NULL ``scene_type``) last-scene case
+
+    Drift is not fatal in either direction: predicting too much coverage leaves a
+    scene without a clip, which ``_fill_missing_stock_clips_after_scene_gen``
+    repairs; predicting too little fetches a clip that the placement pass then
+    finds no empty slot for, so it is simply held for a later edit.
+    """
+    from app.models.asset import Asset, AssetType
+
+    if not scenes:
+        return 0
+
+    images = (
+        db.query(Asset)
+        .filter(
+            Asset.project_id == project.id,
+            Asset.asset_type == AssetType.IMAGE,
+            Asset.excluded.is_(False),
+        )
+        .all()
+    )
+    if not images:
+        return 0
+
+    # An outro is forced to hideImage, so it neither takes an image nor needs a
+    # clip. Excluding it from both sides keeps the arithmetic honest.
+    outro_ids = _outro_scene_ids(project, db)
+    eligible_ids = {s.id for s in scenes if s.id not in outro_ids}
+    if not eligible_ids:
+        return 0
+
+    scene_specific: set[int] = set()
+    generic_count = 0
+    for asset in images:
+        m = re.match(r"^scene_(\d+)_", asset.filename)
+        if m and int(m.group(1)) in eligible_ids:
+            scene_specific.add(int(m.group(1)))
+        elif not m:
+            generic_count += 1
+        # A scene_<id>_ file whose scene is gone behaves as a generic in
+        # write_remotion_data only under redistribution; counting it as coverage
+        # here would over-predict, so it is deliberately ignored.
+
+    remaining = len(eligible_ids) - len(scene_specific)
+    return len(scene_specific) + min(generic_count, max(0, remaining))
+
+
+def _unreferenced_clip_count(
+    project: Project, db: Session, scenes: list[Scene]
+) -> int:
+    """Clips the project owns that no scene currently references.
+
+    A released clip is not a lost clip: ``write_remotion_data`` re-places spare
+    clips into the scenes its image cascade left empty. Callers use this to avoid
+    buying a second clip for a slot one of these will fill — re-using an
+    already-paid-for, already-transcoded clip always beats another provider call.
+    """
+    from app.models.asset import Asset, AssetType
+
+    owned = (
+        db.query(Asset)
+        .filter(
+            Asset.project_id == project.id,
+            Asset.asset_type == AssetType.VIDEO,
+            Asset.excluded.is_(False),
+        )
+        .count()
+    )
+    if not owned:
+        return 0
+
+    referenced: set[str] = set()
+    for scene in scenes:
+        if not scene.remotion_code:
+            continue
+        try:
+            lp = (json.loads(scene.remotion_code) or {}).get("layoutProps") or {}
+        except (json.JSONDecodeError, TypeError):
+            continue
+        fn = lp.get("assignedVideo")
+        if fn:
+            referenced.add(fn)
+
+    return max(0, owned - len(referenced))
+
+
 def _scene_has_assigned_stock_clip(scene: Scene) -> bool:
     """True when remotion_code already carries an auto- or user-picked stock clip."""
     if not scene.remotion_code:
@@ -1730,7 +1856,9 @@ async def _fill_missing_stock_clips_after_scene_gen(
                 continue
             existing_clips += 1
             continue
-        if lp.get("stockFootageImageFallback") and lp.get("assignedImage"):
+        if lp.get("assignedImage"):
+            # Images own the visual slot. A scene that already carries a still
+            # (including a stockFootageImageFallback one) needs no clip.
             continue
         if _is_no_image(descriptor) is not False:
             continue
@@ -1740,6 +1868,42 @@ async def _fill_missing_stock_clips_after_scene_gen(
         logger.info(
             "[PIPELINE] project=%s: dropped %s stock clip(s) whose final layout cannot display them",
             project.id, dropped,
+        )
+
+    # Reserve the scenes images will cover.
+    #
+    # CRITICAL ORDERING: this runs BEFORE write_remotion_data, which is the ONLY
+    # writer of `assignedImage`. So at this point every layoutProps is still
+    # empty and the `lp.get("assignedImage")` test above can never fire — without
+    # this reservation the reconciler fetches a clip for every image-capable
+    # scene, which is exactly the "10 images, still 3 clips" bug.
+    #
+    # Coverage is predicted the same way the pre-scene-gen pass predicts it, and
+    # measured against the scenes THIS function considers clip-eligible (already
+    # filtered by the resolved descriptor layout), so the two stages agree.
+    outro_ids = _outro_scene_ids(project, db)
+    needing = [s for s in needing if s.id not in outro_ids]
+    covered = _image_coverage_count(project, db, needing)
+    if covered:
+        logger.info(
+            "[PIPELINE] project=%s: %s of %s clip-eligible scene(s) will be covered "
+            "by images; reserving them",
+            project.id, covered, len(needing),
+        )
+        needing = needing[covered:]
+
+    # Clips the project owns but no scene currently references. write_remotion_data
+    # re-places these into empty slots after the image cascade, so fetching for
+    # those scenes here would buy a second clip for a slot already covered. This is
+    # what keeps a script regeneration — which releases every clip — from
+    # re-fetching the whole video ("more videos than scenes").
+    spare_clips = _unreferenced_clip_count(project, db, scenes)
+    if spare_clips:
+        needing = needing[spare_clips:]
+        logger.info(
+            "[PIPELINE] project=%s: %s unreferenced clip(s) will be re-placed; "
+            "skipping re-fetch for that many scene(s)",
+            project.id, spare_clips,
         )
 
     cap = _stock_footage_scene_cap(project, db)
@@ -1757,7 +1921,6 @@ async def _fill_missing_stock_clips_after_scene_gen(
     )
     loop = asyncio.get_running_loop()
     assigned = 0
-    used_generics: set[str] = set()
     used_clip_ids: set[str] = set()
 
     # One batched LLM pass before the assign loop, mirroring
@@ -1771,13 +1934,14 @@ async def _fill_missing_stock_clips_after_scene_gen(
         project = refreshed
 
     for scene in needing:
+        # No used_generics — see _prepare_stock_footage_candidates: a search miss
+        # leaves the slot empty rather than duplicating an image another scene owns.
         if await _try_assign_stock_clip_to_scene(
             project,
             scene,
             db,
             orientation=orientation,
             loop=loop,
-            used_generics=used_generics,
             used_clip_ids=used_clip_ids,
             llm_query=llm_queries.get(scene.id),
         ):
@@ -1858,12 +2022,38 @@ async def _prepare_stock_footage_candidates(project: Project, db: Session) -> in
 
     Returns the number of scenes that got a clip.
     """
-    scenes = _image_capable_scenes(project, db)
-    # Free plans get a clip on a single scene (the first image-capable one); paid
-    # plans get every image-capable scene. Un-clipped scenes keep their image.
+    capable = _image_capable_scenes(project, db)
+    if not capable:
+        return 0
+
+    # Images come first. The image cascade in write_remotion_data hands stills out
+    # in scene order, so the LEADING `covered` scenes are the ones it will fill —
+    # reserve them and fetch clips only for the tail no image can reach. When the
+    # project has an image for every scene this leaves nothing, and no provider
+    # call is made at all.
+    covered = _image_coverage_count(project, db, capable)
+    scenes = capable[covered:]
+
+    # An outro's visual slot is forced to hideImage by write_remotion_data Step 3,
+    # so a clip fetched for it can never render — it would be paid for, then
+    # re-placed onto some other scene or stranded. NULL scene_type makes the last
+    # scene of the project an implicit outro, which is the common case.
+    outro_ids = _outro_scene_ids(project, db)
+    if outro_ids:
+        scenes = [s for s in scenes if s.id not in outro_ids]
+
+    # Free plans get a clip on a single scene; paid plans get every scene. The cap
+    # applies to the UNCOVERED surplus only — it never reserves a slot away from
+    # an image.
     cap = _stock_footage_scene_cap(project, db)
     if cap is not None:
         scenes = scenes[:cap]
+
+    logger.info(
+        "[PIPELINE] project=%s: %s image-capable scene(s), %s covered by images, "
+        "fetching clips for %s",
+        project.id, len(capable), covered, len(scenes),
+    )
     if not scenes:
         return 0
 
@@ -1887,7 +2077,6 @@ async def _prepare_stock_footage_candidates(project: Project, db: Session) -> in
     loop = asyncio.get_running_loop()
     assigned = already_assigned
     total = len(scenes)
-    used_generics: set[str] = set()
     used_clip_ids: set[str] = set()
 
     # One batched LLM pass for the whole video, before the assign loop so its
@@ -1903,13 +2092,16 @@ async def _prepare_stock_footage_candidates(project: Project, db: Session) -> in
             "total": total,
             "scene_id": scene.id,
         }
+        # No used_generics: this scene is one no image could cover, so falling
+        # back to a still would duplicate an image an earlier scene already owns.
+        # A search miss instead leaves the slot empty and write_remotion_data's
+        # Step 5 persists hideImage=true.
         if await _try_assign_stock_clip_to_scene(
             project,
             scene,
             db,
             orientation=orientation,
             loop=loop,
-            used_generics=used_generics,
             used_clip_ids=used_clip_ids,
             llm_query=llm_queries.get(scene.id),
         ):
@@ -2947,40 +3139,40 @@ async def _generate_scenes(
             }
 
         has_layout_config = "layoutConfig" in descriptor
-        # NOTE on the two conditions below: `preserve_image_assignments` governs
-        # USER image choices (assignedImage / hideImage) — a regenerated script
-        # legitimately re-picks stills, so those are dropped when it's False.
-        # A stock CLIP is different: it was fetched moments ago by THIS run's
-        # _stock_footage_task, so it is this run's own output, not a stale user
-        # choice. Dropping it here orphaned the downloaded asset (R2 object +
-        # Asset row) and made _fill_missing_stock_clips_after_scene_gen re-fetch
-        # every scene — the "more videos than scenes" bug. Clips therefore carry
-        # unconditionally; images stay gated.
+        # `preserve_image_assignments` governs whether this rebuild keeps the
+        # PREVIOUS sequence's visual choices. Stills and clips are treated alike:
+        # a regenerated script is new content, so both are released and
+        # write_remotion_data(redistribute_images=True) re-assigns from scratch —
+        # images first, then clips into whatever no image covered.
+        #
+        # Releasing a clip is NOT the "more videos than scenes" bug that the old
+        # unconditional carry-over was written to fix. That bug was a re-FETCH:
+        # the asset was orphaned and a fresh clip bought for the same scene. It
+        # cannot recur here because the asset survives and is re-placed by the
+        # spare-clip pass in write_remotion_data, and because
+        # _fill_missing_stock_clips_after_scene_gen (which runs first) now trims
+        # `needing` by _unreferenced_clip_count for exactly this reason.
         if scene.remotion_code:
             try:
                 old_desc = json.loads(scene.remotion_code)
                 old_lp = old_desc.get("layoutProps") or {}
                 old_assigned = old_lp.get("assignedImage") if preserve_image_assignments else None
                 old_hide = old_lp.get("hideImage") if preserve_image_assignments else None
-                # A stock clip occupies the same visual slot as a still and is
-                # chosen BEFORE this stage (the generation-time review gate), so
-                # it must survive the descriptor rebuild too. Without this the
-                # clip is dropped here and write_remotion_data's auto-assign
-                # cascade then fills the empty slot with a generic image.
-                old_video = old_lp.get("assignedVideo")
+                old_video = old_lp.get("assignedVideo") if preserve_image_assignments else None
                 if old_assigned or old_hide or old_video:
                     if "layoutProps" not in descriptor:
                         descriptor["layoutProps"] = {}
-                    if old_video:
-                        descriptor["layoutProps"]["assignedVideo"] = old_video
-                        # Carry the clip's playback settings and framing with it.
-                        for key in ("videoMuted", "videoVolume", "videoStartSeconds", "imageFocusX", "imageFocusY", "imageZoom"):
-                            if key in old_lp:
-                                descriptor["layoutProps"][key] = old_lp[key]
-                        # A clip and a still are mutually exclusive.
-                        descriptor["layoutProps"].pop("assignedImage", None)
-                        descriptor["layoutProps"]["hideImage"] = False
-                    elif old_assigned:
+                    # Images own the visual slot. A clip and a still are mutually
+                    # exclusive, so when a scene carries both — the descriptor
+                    # generator assigned a still while the concurrent stock task
+                    # fetched a clip for the same scene — the IMAGE wins and the
+                    # clip is left unreferenced for write_remotion_data to place
+                    # on a scene no image could cover.
+                    #
+                    # This branch order is load-bearing: testing `old_video` first
+                    # is what used to pop assignedImage here, producing the
+                    # "images appear, then get replaced by clips" behaviour.
+                    if old_assigned:
                         descriptor["layoutProps"]["assignedImage"] = old_assigned
                         for key in (
                             "imageFocusX",
@@ -2990,9 +3182,17 @@ async def _generate_scenes(
                         ):
                             if key in old_lp:
                                 descriptor["layoutProps"][key] = old_lp[key]
-                        if old_lp.get("stockFootageImageFallback"):
-                            descriptor["layoutProps"]["hideImage"] = False
-                    if old_hide and not old_video:
+                        descriptor["layoutProps"].pop("assignedVideo", None)
+                        descriptor["layoutProps"]["hideImage"] = False
+                    elif old_video:
+                        descriptor["layoutProps"]["assignedVideo"] = old_video
+                        # Carry the clip's playback settings and framing with it.
+                        for key in ("videoMuted", "videoVolume", "videoStartSeconds", "imageFocusX", "imageFocusY", "imageZoom"):
+                            if key in old_lp:
+                                descriptor["layoutProps"][key] = old_lp[key]
+                        descriptor["layoutProps"].pop("assignedImage", None)
+                        descriptor["layoutProps"]["hideImage"] = False
+                    if old_hide and not old_video and not old_assigned:
                         descriptor["layoutProps"]["hideImage"] = True
             except (json.JSONDecodeError, TypeError):
                 pass

@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
+import { useFitText } from "../components/useFitText";
 import { SceneLayoutProps } from "../types";
 import type { SocialKey, SocialsMap, SocialsRow } from "../../SocialIcons";
 
@@ -177,6 +178,8 @@ export const EndingSocials: React.FC<SceneLayoutProps> = (props) => {
     sceneDurationInFrames,
     titleFontSize,
     descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
     fontFamily,
   } = props;
 
@@ -202,9 +205,33 @@ export const EndingSocials: React.FC<SceneLayoutProps> = (props) => {
     extrapolateRight: "clamp",
   });
   const masterOpacity = enter * exit;
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input; long copy overflows the card
+     (and in this template collides with the artwork) instead of resizing.
+     Measure the real available height and shrink to fit. A size the user
+     explicitly picked is honored exactly — minPx === targetPx no-ops the hook. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitDescRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 75 : 62);
+  const fitDescTarget = descriptionFontSize ?? (p ? 41 : 28);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.42),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.22 : 0.26)),
+  );
+  const { px: fitDescPx } = useFitText(
+    fitDescRef,
+    fitDescTarget,
+    descriptionFontSizeIsUserSet ? fitDescTarget : Math.round(fitDescTarget * 0.4),
+    [narration, fitDescTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * (p ? 0.30 : 0.34)),
+  );
 
-  const titlePx = titleFontSize ?? (p ? 75 : 62);
-  const descPx = descriptionFontSize ?? (p ? 41 : 28);
+  const titlePx = fitTitlePx;
+  const descPx = fitDescPx;
+
 
   const accent = accentColor ?? "#FFFFFF";
   const bg = bgColor ?? "#000000";
@@ -516,7 +543,7 @@ export const EndingSocials: React.FC<SceneLayoutProps> = (props) => {
           }}
         >
           {/* Title */}
-          <div
+          <div ref={fitTitleRef}
             style={{
               width: "100%",
               textAlign: "center",
@@ -544,7 +571,7 @@ export const EndingSocials: React.FC<SceneLayoutProps> = (props) => {
 
           {/* Narration / sign-off line */}
           {narration ? (
-            <div
+            <div ref={fitDescRef}
               style={{
                 width: "100%",
                 textAlign: "center",
