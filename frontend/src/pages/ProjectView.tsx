@@ -73,6 +73,7 @@ import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useErrorModal, getErrorMessage, DEFAULT_ERROR_MESSAGE } from "../contexts/ErrorModalContext";
 import { useNoticeModal } from "../contexts/NoticeModalContext";
 import { trackGoogleAdsPurchaseConversion } from "../gtag";
+import { trackMetaEvent } from "../meta-pixel";
 import StatusBadge from "../components/StatusBadge";
 import ScriptPanel from "../components/ScriptPanel";
 import { StockFootageModal, STOCK_FOOTAGE_CREDIT_COST } from "../components/StockFootageModal";
@@ -2211,6 +2212,9 @@ export default function ProjectView() {
   useEffect(() => {
     if (searchParams.get("purchased") === "true") {
       trackGoogleAdsPurchaseConversion(searchParams.get("session_id"));
+      // Shares session_id as eventID with the backend's CAPI Purchase call
+      // (billing.py _handle_checkout_completed) so Meta dedupes the two.
+      trackMetaEvent("Purchase", {}, searchParams.get("session_id") ?? undefined);
       // Clear the query param and refresh project to pick up studio_unlocked
       setSearchParams({}, { replace: true });
       loadProject();

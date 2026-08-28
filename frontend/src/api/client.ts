@@ -110,6 +110,10 @@ export interface AuthResponse {
   access_token: string;
   token_type: string;
   user: UserInfo;
+  /** True only when this login just created the account — see useAuth's login(). */
+  created_new_user?: boolean;
+  /** Shared Meta Pixel/CAPI dedup key for this login — see useAuth's login(). */
+  meta_event_id?: string | null;
 }
 
 export interface Scene {

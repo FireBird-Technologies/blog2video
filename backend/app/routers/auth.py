@@ -4,7 +4,8 @@ Frontend sends the Google ID token, backend verifies it and returns a JWT.
 """
 import os
 import shutil
-from fastapi import APIRouter, Depends, HTTPException, Query
+import uuid
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from google.oauth2 import id_token
@@ -20,6 +21,7 @@ from app.services.voice_seed import ensure_free_voices_for_user
 from app.models.referral import Referral, ReferralSignup, REFERRAL_BONUS_VIDEOS, REFERRAL_MAX_SIGNUPS
 from app.services import r2_storage
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
+from app.services.meta_capi import send_capi_event
 from app.observability.logging import get_logger
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -34,6 +36,13 @@ class AuthResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: "UserOut"
+    # True only when this login just created the account (never on repeat
+    # logins). Lets the frontend fire Meta Pixel CompleteRegistration exactly
+    # once per real signup — see meta-pixel.ts.
+    created_new_user: bool = False
+    # Shared dedup key for the paired browser fbq() call. Present on every
+    # login (used by the Login event) even when created_new_user is False.
+    meta_event_id: str | None = None
 
 
 class UserOut(BaseModel):
@@ -141,6 +150,8 @@ def _delete_project_storage(project: Project) -> None:
 @router.post("/google", response_model=AuthResponse)
 def google_login(
     body: GoogleLoginRequest,
+    request: Request,
+    background_tasks: BackgroundTasks,
     reactivate: bool = Query(False, description="Confirm reactivation of a previously deleted account"),
     ref_code: str | None = Query(None, description="Referral code from an invite link"),
     db: Session = Depends(get_db),
@@ -244,8 +255,35 @@ def google_login(
 
     token = create_access_token(user.id)
 
+    # Meta Pixel/CAPI: one event_id shared with the frontend's paired fbq() call
+    # for this same login, so Meta dedupes browser + server into a single event.
+    meta_event_id = str(uuid.uuid4())
+    client_ip = request.client.host if request.client else None
+    client_ua = request.headers.get("user-agent")
+    meta_user_data = {
+        "em": user.email,
+        "client_ip_address": client_ip,
+        "client_user_agent": client_ua,
+    }
+    # Scheduled via BackgroundTasks (runs after the response is sent) rather than
+    # called inline — send_capi_event does a synchronous HTTP POST with a 10s
+    # timeout, which would otherwise add up to ~10s of latency to every login
+    # while the frontend waits for the JWT.
+    #
+    # Only Login is tracked here (not CompleteRegistration) — retargeting scope
+    # is "PageView minus Purchase", which doesn't need a separate signup event.
+    background_tasks.add_task(
+        send_capi_event,
+        event_name="Login",
+        event_id=meta_event_id,
+        event_source_url=f"{settings.FRONTEND_URL}/",
+        user_data=meta_user_data,
+    )
+
     return AuthResponse(
         access_token=token,
+        created_new_user=created_new_user,
+        meta_event_id=meta_event_id,
         user=UserOut(
             id=user.id,
             email=user.email,

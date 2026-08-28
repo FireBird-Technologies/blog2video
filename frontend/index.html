@@ -10,22 +10,41 @@
          no id is hardcoded here. Must stay immediately after <head> per
          Google's install instructions, and there must only ever be ONE GA4 tag
          on the page. src/gtag.ts loads a separate Google Ads tag at runtime;
-         that's a different id and is fine alongside this one. -->
+         that's a different id and is fine alongside this one.
+
+         Both this and the Meta Pixel block below are gated on cookie consent
+         (localStorage "b2v_cookie_consent" === "accepted") — nothing here loads
+         until the user accepts the ConsentBanner (src/components/ConsentBanner.tsx).
+         Declining or not yet answering means neither script loads at all. -->
     <script>
-      // Guard so an unset/blank VITE_GA4_MEASUREMENT_ID (e.g. a local dev build)
-      // is a silent no-op instead of loading gtag.js with an empty id.
       (function () {
+        var consent;
+        try { consent = window.localStorage.getItem("b2v_cookie_consent"); } catch (e) { consent = null; }
+        if (consent !== "accepted") return;
+
         var id = "%VITE_GA4_MEASUREMENT_ID%";
-        if (!id || id.charAt(0) !== "G") return;
-        var s = document.createElement("script");
-        s.async = true;
-        s.src = "https://www.googletagmanager.com/gtag/js?id=" + encodeURIComponent(id);
-        document.head.appendChild(s);
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        window.gtag = gtag;
-        gtag('js', new Date());
-        gtag('config', id);
+        if (id && id.charAt(0) === "G") {
+          var s = document.createElement("script");
+          s.async = true;
+          s.src = "https://www.googletagmanager.com/gtag/js?id=" + encodeURIComponent(id);
+          document.head.appendChild(s);
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          window.gtag = gtag;
+          gtag('js', new Date());
+          gtag('config', id);
+        }
+
+        var pixelId = "%VITE_META_PIXEL_ID%";
+        if (pixelId && pixelId.indexOf("VITE_META_PIXEL_ID") === -1) {
+          !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+          n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+          n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+          t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+          document,'script','https://connect.facebook.net/en_US/fbevents.js');
+          window.fbq('init', pixelId);
+          window.fbq('track', 'PageView');
+        }
       })();
     </script>
 

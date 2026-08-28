@@ -625,7 +625,7 @@ export default function Landing() {
     try {
       const res = await googleLogin(response.credential, false, refCode);
       localStorage.removeItem("b2v_ref_code");
-      login(res.data.access_token, res.data.user);
+      login(res.data.access_token, res.data.user, { createdNewUser: res.data.created_new_user, metaEventId: res.data.meta_event_id });
 
       await redirectAfterLogin();
     } catch (err: any) {
@@ -644,7 +644,7 @@ export default function Landing() {
     setReactivating(true);
     try {
       const res = await googleLogin(pendingCredential, true);
-      login(res.data.access_token, res.data.user);
+      login(res.data.access_token, res.data.user, { createdNewUser: res.data.created_new_user, metaEventId: res.data.meta_event_id });
       setAccountDeletedOpen(false);
       setPendingCredential(null);
       await redirectAfterLogin();

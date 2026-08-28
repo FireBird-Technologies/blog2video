@@ -1,6 +1,6 @@
 import { Routes, Route, useLocation } from "react-router-dom";
 import { useEffect } from "react";
-import { AuthProvider } from "./hooks/useAuth";
+import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { CraftedTemplatesProvider } from "./contexts/CraftedTemplatesContext";
 import { ErrorModalProvider } from "./contexts/ErrorModalContext";
 import { NoticeModalProvider } from "./contexts/NoticeModalContext";
@@ -24,6 +24,8 @@ import EmbedPreviewPage from "./pages/EmbedPreviewPage";
 import TermsOfService from "./pages/TermsOfService";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import { trackPageView } from "./gtag";
+import { trackMetaPageView } from "./meta-pixel";
+import ConsentBanner from "./components/ConsentBanner";
 
 /**
  * This deployment is landing-page-only: pdf2vid.com sells the product and
@@ -37,16 +39,22 @@ import { trackPageView } from "./gtag";
  * or /invite/:token here — none of that exists on this domain.
  */
 function AppRoutes() {
+  const { user } = useAuth();
   const location = useLocation();
 
   useEffect(() => {
     const path = `${location.pathname}${location.search || ""}`;
     trackPageView(path);
+    trackMetaPageView();
   }, [location.pathname, location.search]);
+
+  // Cookie consent banner only shows on the landing page, not on every route.
+  const isLandingPath = location.pathname === "/";
 
   return (
     <div className="min-h-screen bg-white text-gray-900">
       <ScrollToTop />
+      {isLandingPath && <ConsentBanner isLoggedIn={Boolean(user)} />}
 
       <Routes>
         <Route path="/" element={<PdfLanding />} />

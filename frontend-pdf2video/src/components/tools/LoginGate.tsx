@@ -92,7 +92,7 @@ function AuthPanelBody({
         localStorage.removeItem("b2v_ref_code");
         // Stay on this page — `login()` writes the token to localStorage
         // synchronously, so the resumed upload can call the API right away.
-        login(res.data.access_token, res.data.user);
+        login(res.data.access_token, res.data.user, { createdNewUser: res.data.created_new_user, metaEventId: res.data.meta_event_id });
         onSignedIn();
       } catch {
         setError("Sign-in failed. Please try again.");

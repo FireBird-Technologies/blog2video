@@ -306,7 +306,7 @@ export default function PdfLanding() {
     try {
       const res = await googleLogin(response.credential, false, refCode);
       localStorage.removeItem("b2v_ref_code");
-      login(res.data.access_token, res.data.user);
+      login(res.data.access_token, res.data.user, { createdNewUser: res.data.created_new_user, metaEventId: res.data.meta_event_id });
       await redirectAfterLogin();
     } catch (err: any) {
       if (err?.response?.status === 403 && err?.response?.data?.detail === "account_deleted") {
@@ -324,7 +324,7 @@ export default function PdfLanding() {
     setReactivating(true);
     try {
       const res = await googleLogin(pendingCredential, true);
-      login(res.data.access_token, res.data.user);
+      login(res.data.access_token, res.data.user, { createdNewUser: res.data.created_new_user, metaEventId: res.data.meta_event_id });
       setAccountDeletedOpen(false);
       setPendingCredential(null);
       await redirectAfterLogin();

@@ -8,12 +8,21 @@ import {
   ReactNode,
 } from "react";
 import { UserInfo, getMe, logoutCleanup } from "../api/client";
+import { trackMetaEvent } from "../meta-pixel";
+
+/** Meta Pixel dedup fields from AuthResponse — passed through from the /auth/google
+ *  response so login() can fire the paired browser event. Optional: callers that
+ *  don't pass it (there should be none going forward) just skip Meta tracking. */
+interface AuthMetaInfo {
+  createdNewUser?: boolean;
+  metaEventId?: string | null;
+}
 
 interface AuthContextType {
   user: UserInfo | null;
   token: string | null;
   loading: boolean;
-  login: (token: string, user: UserInfo) => void;
+  login: (token: string, user: UserInfo, meta?: AuthMetaInfo) => void;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -39,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     userRef.current = user;
   }, [user]);
 
-  const login = useCallback((newToken: string, newUser: UserInfo) => {
+  const login = useCallback((newToken: string, newUser: UserInfo, meta?: AuthMetaInfo) => {
     localStorage.setItem("b2v_token", newToken);
     localStorage.setItem("b2v_user", JSON.stringify(newUser));
     // Flag a fresh sign-in so login-only surfaces (e.g. the designer-template
@@ -52,6 +61,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setToken(newToken);
     setUser(newUser);
+
+    // Meta Pixel: eventId is shared with the backend's paired CAPI call (fired
+    // in auth.py's google_login) so Meta dedupes browser + server into one event.
+    // Only Login is tracked (not CompleteRegistration) — retargeting scope is
+    // "PageView minus Purchase", which doesn't need a separate signup event.
+    if (meta?.metaEventId) {
+      trackMetaEvent("Login", {}, meta.metaEventId);
+    }
     // Migrate any active anonymous support conversation to this user.
     void (async () => {
       try {

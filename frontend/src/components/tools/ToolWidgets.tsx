@@ -1562,7 +1562,7 @@ function ToolGate({
         localStorage.getItem("b2v_ref_code")
       );
       localStorage.removeItem("b2v_ref_code");
-      login(res.data.access_token, res.data.user);
+      login(res.data.access_token, res.data.user, { createdNewUser: res.data.created_new_user, metaEventId: res.data.meta_event_id });
       // login() flips `user`, re-rendering this component to show `children`.
     } catch {
       setError("Sign-in failed. Please try again.");

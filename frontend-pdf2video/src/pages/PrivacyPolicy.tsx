@@ -15,7 +15,7 @@ export default function PrivacyPolicy() {
       <div className="max-w-3xl mx-auto px-6 py-16">
         <header className="mb-10">
           <h1 className="text-3xl font-semibold text-gray-900 mb-2">Privacy Policy</h1>
-          <p className="text-sm text-gray-500">Last updated: May 11, 2025</p>
+          <p className="text-sm text-gray-500">Last updated: August 26, 2026</p>
         </header>
 
         <div className="prose prose-gray max-w-none space-y-8 text-sm text-gray-700 leading-relaxed">
@@ -73,6 +73,7 @@ export default function PrivacyPolicy() {
               <li><strong>Payment processors</strong> — for billing and subscription management</li>
               <li><strong>Cloud infrastructure providers</strong> — for hosting and storage</li>
               <li><strong>Analytics providers</strong> — for usage analysis (e.g., Google Analytics)</li>
+              <li><strong>Advertising partners</strong> — for measuring ad performance and showing you relevant ads (e.g., Google Ads, Meta/Facebook). These partners may receive information such as your email address (in hashed form), the pages you visit, and actions you take on the Service (such as creating an account or completing a purchase), so that they can measure the effectiveness of our advertising and, where permitted, show you or similar users relevant ads on their platforms.</li>
             </ul>
             <p className="mt-2">
               These providers only receive information necessary to perform their functions and are bound by their own privacy policies.
@@ -118,7 +119,7 @@ export default function PrivacyPolicy() {
           <section>
             <h2 className="text-lg font-semibold text-gray-900 mb-2">8. Cookies</h2>
             <p>
-              We use cookies and similar tracking technologies to operate the Service, remember your preferences, and analyse usage. You can control cookie behaviour through your browser settings, though disabling certain cookies may affect Service functionality.
+              We use cookies and similar tracking technologies to operate the Service, remember your preferences, analyse usage, and measure the performance of our advertising (including via Google Ads and Meta/Facebook Pixel). These advertising cookies may be used to determine whether an ad led you to sign up or make a purchase, and to show you relevant ads on other platforms. You can control cookie behaviour through your browser settings, though disabling certain cookies may affect Service functionality. If you log in to your account, you consent to the use of these cookies and tracking technologies for the duration of your session, regardless of any earlier cookie preference you may have set.
             </p>
           </section>
 

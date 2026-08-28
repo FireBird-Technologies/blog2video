@@ -456,7 +456,7 @@ function SignInPrompt({ onCancel }: { onCancel: () => void }) {
         localStorage.getItem("b2v_ref_code")
       );
       localStorage.removeItem("b2v_ref_code");
-      login(res.data.access_token, res.data.user);
+      login(res.data.access_token, res.data.user, { createdNewUser: res.data.created_new_user, metaEventId: res.data.meta_event_id });
       // login() flips `user`; the parent watches for that and runs the analysis.
     } catch {
       setError("Sign-in failed. Please try again.");

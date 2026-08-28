@@ -79,7 +79,7 @@ export default function AcceptInvite() {
     setSigningIn(true);
     try {
       const res = await googleLogin(response.credential, false);
-      login(res.data.access_token, res.data.user);
+      login(res.data.access_token, res.data.user, { createdNewUser: res.data.created_new_user, metaEventId: res.data.meta_event_id });
       // The user effect re-runs and moves us to decide / wrong_account.
     } catch (err) {
       showError(getErrorMessage(err, "Sign-in failed. Please try again."));

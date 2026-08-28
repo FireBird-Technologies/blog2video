@@ -4,7 +4,7 @@ Supports both Pro subscription ($60/mo) and per-video purchase ($3).
 """
 import time
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -20,6 +20,7 @@ from app.models.subscription import (
 )
 from app.observability.logging import get_logger
 from app.services.email import email_service
+from app.services.meta_capi import send_capi_event
 from app.services.per_video_pricing import (
     per_unit_cents as per_video_unit_cents,
     MIN_QUANTITY as PER_VIDEO_MIN_QTY,
@@ -1576,7 +1577,9 @@ def get_data_summary(
 # ─── Stripe Webhook ───────────────────────────────────────
 
 @router.post("/webhook")
-async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
+async def stripe_webhook(
+    request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)
+):
     """
     Handle Stripe webhook events for subscription lifecycle.
     This endpoint is NOT authenticated -- Stripe signs the payload.
@@ -1598,7 +1601,7 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
         data = data.to_dict()
 
     if event_type == "checkout.session.completed":
-        _handle_checkout_completed(data, db)
+        _handle_checkout_completed(data, db, background_tasks)
     elif event_type == "checkout.session.expired":
         _handle_checkout_expired(data, db)
     elif event_type == "customer.subscription.updated":
@@ -1755,6 +1758,7 @@ def _handle_checkout_expired(session: dict, db: Session):
         return
 
     user = db.query(User).filter(User.id == int(user_id)).first()
+
     try:
         outcome = _send_winback_coupon(db, user, abandoned=True, recovery_url=recovery_url)
     except Exception as exc:
@@ -1764,7 +1768,7 @@ def _handle_checkout_expired(session: dict, db: Session):
     logger.info("[COUPON] checkout.session.expired user=%s — %s", user_id, outcome)
 
 
-def _handle_checkout_completed(session: dict, db: Session):
+def _handle_checkout_completed(session: dict, db: Session, background_tasks: BackgroundTasks):
     session_id = session.get("id")
 
     # Shared-account guard: bail before any DB write if this checkout belongs to
@@ -1790,6 +1794,31 @@ def _handle_checkout_completed(session: dict, db: Session):
         if already:
             logger.info("[BILLING] Duplicate checkout webhook for session %s — skipping", session_id)
             return
+
+    # Meta CAPI Purchase — authoritative, un-spoofable "money moved" signal. Uses
+    # session_id as event_id so it dedupes with the frontend's paired fbq() call
+    # fired from the success-redirect page (Dashboard.tsx / ProjectView.tsx).
+    # Placed after the idempotency guard above so a Stripe webhook redelivery
+    # can't double-fire it.
+    purchase_user_id = metadata.get("user_id")
+    purchase_user = (
+        db.query(User).filter(User.id == int(purchase_user_id)).first()
+        if purchase_user_id else None
+    )
+    if purchase_user and session_id:
+        amount_total = session.get("amount_total")
+        background_tasks.add_task(
+            send_capi_event,
+            event_name="Purchase",
+            event_id=session_id,
+            event_source_url=f"{settings.FRONTEND_URL}/dashboard",
+            user_data={"em": purchase_user.email},
+            custom_data={
+                "content_name": checkout_type,
+                **({"value": amount_total / 100} if amount_total is not None else {}),
+                "currency": (session.get("currency") or "usd"),
+            },
+        )
 
     if checkout_type == "per_video":
         # One-time per-video payment

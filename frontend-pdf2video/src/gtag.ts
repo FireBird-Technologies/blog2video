@@ -9,9 +9,19 @@ const env = typeof import.meta !== "undefined" ? import.meta.env : undefined;
 const AW_ID = env?.VITE_GOOGLE_ADS_ID || "";
 const PURCHASE_CONVERSION_LABEL = env?.VITE_GOOGLE_ADS_PURCHASE_LABEL || "";
 
+/** Same key ConsentBanner.tsx writes and index.html's inline snippet reads. */
+function hasTrackingConsent(): boolean {
+  try {
+    return window.localStorage.getItem("b2v_cookie_consent") === "accepted";
+  } catch {
+    return false;
+  }
+}
+
 export function initGoogleAdsGtag(): void {
   if (typeof window === "undefined") return;
   if (!AW_ID) return;
+  if (!hasTrackingConsent()) return;
   const w = window as Window & { __b2vGtagInit?: boolean };
   if (w.__b2vGtagInit) return;
   w.__b2vGtagInit = true;

@@ -18,6 +18,7 @@ import { preferredFormMode } from "../brand/brand";
 import { isPaidPlan } from "../lib/plan";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import { trackGoogleAdsPurchaseConversion } from "../gtag";
+import { trackMetaEvent } from "../meta-pixel";
 import BlogUrlForm, { GENRE_CRAFTED } from "../components/BlogUrlForm";
 import DeleteProjectModal from "../components/DeleteProjectModal";
 import UpgradePlanModal from "../components/UpgradePlanModal";
@@ -132,10 +133,14 @@ export default function Dashboard() {
     refreshUser();
     if (searchParams.get("upgraded") === "true") {
       trackGoogleAdsPurchaseConversion(searchParams.get("session_id"));
+      // Shares session_id as eventID with the backend's CAPI Purchase call
+      // (billing.py _handle_checkout_completed) so Meta dedupes the two.
+      trackMetaEvent("Purchase", {}, searchParams.get("session_id") ?? undefined);
       refreshUser();
     }
     if (searchParams.get("purchased") === "true") {
       trackGoogleAdsPurchaseConversion(searchParams.get("session_id"));
+      trackMetaEvent("Purchase", {}, searchParams.get("session_id") ?? undefined);
     }
   }, []);
 

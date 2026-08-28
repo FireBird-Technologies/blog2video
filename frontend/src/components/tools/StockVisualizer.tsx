@@ -465,7 +465,7 @@ function SignupModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
     try {
       const res = await googleLogin(response.credential, false, localStorage.getItem("b2v_ref_code"));
       localStorage.removeItem("b2v_ref_code");
-      login(res.data.access_token, res.data.user);
+      login(res.data.access_token, res.data.user, { createdNewUser: res.data.created_new_user, metaEventId: res.data.meta_event_id });
       onSuccess();
     } catch { setError("Sign-in failed. Please try again."); }
     finally { setSigningIn(false); }
@@ -851,7 +851,7 @@ export default function StockVisualizer() {
                 try {
                   const res = await googleLogin(response.credential, false, localStorage.getItem("b2v_ref_code"));
                   localStorage.removeItem("b2v_ref_code");
-                  login(res.data.access_token, res.data.user);
+                  login(res.data.access_token, res.data.user, { createdNewUser: res.data.created_new_user, metaEventId: res.data.meta_event_id });
                 } catch { /* silently ignore */ }
               }}
               onError={() => undefined}

@@ -20,6 +20,7 @@ import AcceptInvite from "./pages/AcceptInvite";
 import InviteDecisionModal from "./components/InviteDecisionModal";
 import MarketingDesignerPopup from "./components/MarketingDesignerPopup";
 import MobileMemoryWarningPopup from "./components/MobileMemoryWarningPopup";
+import ConsentBanner from "./components/ConsentBanner";
 import Contact from "./pages/Contact";
 import Blog from "./pages/Blog";
 import BlogPostPage from "./pages/BlogPostPage";
@@ -47,6 +48,7 @@ import TermsOfService from "./pages/TermsOfService";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import MCPConnector from "./pages/MCPConnector";
 import { trackPageView } from "./gtag";
+import { trackMetaPageView } from "./meta-pixel";
 
 // Hidden poster-capture route (used by scripts/capture-posters.ts). Lazy so it
 // stays out of the main bundle.
@@ -94,11 +96,15 @@ function AppRoutes() {
   useEffect(() => {
     const path = `${location.pathname}${location.search || ""}`;
     trackPageView(path);
+    trackMetaPageView();
   }, [location.pathname, location.search]);
 
   // Keep in sync with the same check in components/public/PublicHeader.tsx.
   const isToolsPath =
     location.pathname === "/tools" || location.pathname.startsWith("/tools/");
+
+  // Cookie consent banner only shows on the landing page, not on every route.
+  const isLandingPath = location.pathname === "/";
 
   // Cross-domain handoff from pdf2vid.com (frontend-pdf2video/, a
   // landing-page-only deployment with no dashboard of its own — see its
@@ -154,6 +160,7 @@ function AppRoutes() {
   return (
     <div className="min-h-screen bg-white text-gray-900">
       <ScrollToTop />
+      {isLandingPath && <ConsentBanner isLoggedIn={Boolean(user)} />}
       {/* /tools keeps its marketing header even when signed in — those pages are
           public content a logged-in user still browses, and the app Navbar (which
           lists only /dashboard, /subscription, …) would read as the site nav

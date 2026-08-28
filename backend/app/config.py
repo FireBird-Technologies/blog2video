@@ -75,6 +75,12 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
 
+    # Meta Pixel / Conversions API. Empty disables server-side event sending
+    # (send_capi_event no-ops) — see app/services/meta_capi.py.
+    META_PIXEL_ID: str = ""
+    META_CAPI_ACCESS_TOKEN: str = ""
+    META_CAPI_TEST_EVENT_CODE: str = ""  # Set while verifying in Events Manager's Test Events tab; leave blank in production
+
     # Stripe
     STRIPE_SECRET_KEY: str = ""
     STRIPE_PUBLISHABLE_KEY: str = ""
