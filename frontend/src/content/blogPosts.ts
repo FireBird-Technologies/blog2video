@@ -17,6 +17,177 @@ function faq(primary: string, variant: string) {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "youtube-backlink",
+    title: "How to Get a YouTube Backlink (DR 99) in Minutes, Without Filming Anything",
+    description:
+      "YouTube is a DR 99 domain that will host a page about your topic, with your link on it, for free. The only reason most writers never collect one is that making the video used to cost a day. Here is the two-minute version — and an honest account of what a nofollow description link is actually worth.",
+    category: "SEO Strategy",
+    publishedAt: "2026-08-27",
+    readTime: "8 min read",
+    heroEyebrow: "SEO Strategy",
+    heroTitle: "YouTube will host a page about your topic, with your link on it, for free.",
+    heroDescription:
+      "Ahrefs rates youtube.com at DR 99. Every upload earns you a permanent, indexed watch page on it — your title, your description, your link, your transcript. The only thing standing between you and one is the video, and that no longer costs a day.",
+    primaryKeyword: "youtube backlink",
+    keywordVariant: "how to get backlinks from youtube",
+    relatedPaths: [
+      "/blog-to-youtube-video",
+      "/youtube-seo-checklist",
+      "/tools/youtube-description-generator",
+      "/how-to-turn-a-blog-post-into-a-youtube-video",
+      "/blogs/where-to-promote-your-writing-2026",
+    ],
+    sections: [
+      {
+        heading: "The highest-authority page you are allowed to publish on",
+        paragraphs: [
+          "There is no outreach involved. No guest post pitch, no HARO reply, no paying $200 to a link vendor whose editorial placements all turn out to be on the same five expired domains.",
+          "You upload a video. YouTube gives you a watch page on a domain Ahrefs scores at DR 99 — the same domain Google owns, indexes constantly, and surfaces in its own results with a thumbnail attached. That page carries your title, up to 5,000 characters of description, your link, your transcript, and your channel name. It stays up indefinitely.",
+          "Google is not neutral about its own product. Video results get pulled into normal search results, into the Videos tab, and increasingly into AI answers that cite what they watched. A page on youtube.com is not a link on a blog. It is a second surface.",
+        ],
+      },
+      {
+        heading: "The honest part: the description link is nofollow",
+        paragraphs: [
+          "Let us get this out of the way, because you will read the phrase \"DR 99 backlink\" on X about once a week and it is never qualified.",
+          "Links in a YouTube description carry rel=\"nofollow\". They always have. Since March 2020 Google has treated nofollow as a hint rather than a hard directive, which means it may consider the link for crawling and ranking — but nobody should plan on link equity flowing from a video description into their domain. If your entire strategy is extracting the DR 99 juice, you will be disappointed.",
+          "Call it what it actually is: a free, permanent, indexed page on the strongest domain you will ever be handed, describing your topic in your words and pointing at your site. The nofollow attribute does not make that worthless. It makes it a different asset than the one people advertise.",
+        ],
+        bullets: [
+          "A ranking page on someone else's authority — your video can rank on Google and inside YouTube search, the second-largest search engine there is.",
+          "Referral traffic that converts, because someone who watched ninety seconds of your explanation is warmer than anything a directory sends you.",
+          "Brand and entity signals — repeated co-occurrence of your name, your topic, and your URL on a high-trust domain is exactly the association graph Google and LLM answer engines build from.",
+          "A discovery surface that is not a feed, so it keeps working after you stop promoting it.",
+        ],
+      },
+      {
+        heading: "So why does almost nobody collect it?",
+        paragraphs: [
+          "Because making the video costs more than the link is worth. A talking-head take means a camera, a room that does not echo, three attempts, and an hour in an editor. Nobody does that for a blog post they already published, so the video never gets made and the DR 99 page never exists.",
+          "The obvious escape hatch — generic AI video generators — has turned out to be a trap. Prompt-to-video output has a look now, and viewers have learned it: the drifting camera, the melting hands, the stock-corporate voice reading someone else's copy. Those videos do not get watched.",
+          "And a video with eleven views does not rank, does not get cited, and does not send anybody to your site. You end up holding a technically-real backlink on a page nobody has ever loaded.",
+        ],
+      },
+      {
+        heading: "Blog2Video renders with code, not a diffusion model",
+        paragraphs: [
+          "This is the part that decides whether the page performs. Blog2Video does not generate frames with a video model. It reads your post, breaks it into scenes, and renders those scenes programmatically — real typography, real charts, real motion, laid out by templates that were designed rather than dreamed.",
+          "Every frame is deterministic. Text is crisp because it is text. A chart is a chart, not a picture of one. Nothing warps between frames, because nothing was hallucinated into existence in the first place.",
+          "The practical result is that it does not read as AI video, because it is not one. It reads like a motion-designed explainer — which is the register that holds attention long enough for YouTube to decide the video is worth showing to somebody else.",
+        ],
+        ctaPath: "/blog-to-youtube-video",
+        ctaLabel: "See the blog-to-YouTube workflow",
+      },
+      {
+        heading: "Put your own voice on it",
+        paragraphs: [
+          "The fastest tell in a low-effort upload is the narration. A stock voice reading your post is the audio equivalent of a stock photo, and it is the moment most viewers close the tab.",
+          "There are two ways around it and both are built in. You can record it yourself scene by scene, with the scene playing beside the recorder while you speak, so you narrate to the visuals instead of guessing at timing. Or you can clone your voice once and reuse it on every project afterwards.",
+          "Cloning takes one pass: Dashboard, then Voices, then Create custom voice, and upload roughly a two-minute audio or video sample. Your clone then appears in the voice picker on every project. It is included on the Lite, Standard, and Pro plans. You can also mix the two — record the opening line and the call to action yourself, and let the clone carry the middle.",
+        ],
+      },
+      {
+        heading: "The actual run: about two minutes",
+        paragraphs: [
+          "The reason this takes two minutes rather than two hours is that the script was already written. It is your blog post.",
+        ],
+        bullets: [
+          "Paste the URL of the post. Blog2Video pulls the content and splits it into scenes.",
+          "Pick a template — editorial, finance, magazine, technical, or a custom one generated from your own site so the video carries your brand.",
+          "Skim the scenes: fix a headline, swap an image, drop in a stock clip where a scene wants footage behind it.",
+          "Choose the voice — your clone, your live recording, or a prebuilt voice.",
+          "Render and download the MP4.",
+        ],
+      },
+      {
+        heading: "Uploading so the page actually earns something",
+        paragraphs: [
+          "The video is the easy half. The upload is where most of the SEO value is won or lost, and it is where the two-minute workflow can still be wasted.",
+          "The description is the part people get wrong most often. YouTube indexes it, Google reads it, and answer engines quote it — so treat it as a page of copy, not a place to dump hashtags.",
+        ],
+        bullets: [
+          "Put the link in the first line of the description. Only the first two lines show above the fold.",
+          "Write two to three hundred real words summarising the post, with your link at the top and again at the bottom.",
+          "Upload subtitles. YouTube will auto-caption you, but auto-captions mangle product names and technical terms — precisely the words you want indexed. You already have the script; export it as an SRT.",
+          "Paste the transcript or a summary into the description: more indexable text on a DR 99 page, in your words.",
+          "Title it for search rather than for cleverness — same keyword as the post, phrased the way someone would type it.",
+          "Pin a comment with the link. It survives description truncation and is the second-most-clicked element on the page.",
+          "Add chapters and an end screen. Chapters get pulled into Google's key-moments display.",
+        ],
+        ctaPath: "/tools/youtube-description-generator",
+        ctaLabel: "Draft the description and tags",
+      },
+      {
+        heading: "Then do it again",
+        paragraphs: [
+          "One video is a novelty. The compounding version is one video per post.",
+          "Every article you have published is a video you have not made yet, and every video is another indexed page on YouTube pointing back at the article. Thirty posts becomes thirty watch pages, one channel Google can read as a topical entity, and thirty entry points that do not depend on your own domain ranking for anything.",
+          "That is the real argument for making video generation cost two minutes instead of two hours. At two hours you do it once. At two minutes you do it every time you publish, and the back catalogue stops being dead weight.",
+        ],
+        ctaPath: "/youtube-seo-checklist",
+        ctaLabel: "Run the YouTube SEO checklist",
+      },
+    ],
+    faq: [
+      {
+        question: "Is a YouTube link a real backlink?",
+        answer:
+          "It is a real link on a real page, but it is nofollow, so you should not expect it to pass link equity the way an editorial link from a blog would. What it does give you is an indexed page on a DR 99 domain that can rank for your topic, send referral traffic, and associate your brand with your subject in the eyes of both Google and AI answer engines.",
+      },
+      {
+        question: "Does nofollow make YouTube backlinks worthless for SEO?",
+        answer:
+          "No, but it changes what they are for. Since March 2020 Google treats nofollow as a hint rather than a directive, so the link may still be considered for crawling and ranking. More importantly, the value sits in the page itself — a video that ranks in Google and YouTube search is a second surface for the same keyword, and the traffic it sends is qualified.",
+      },
+      {
+        question: "How long does it actually take to make the video?",
+        answer:
+          "About two minutes of your attention per video with Blog2Video, because the script is your existing post and the rendering is automatic. Rendering time depends on video length, but you are not sitting in an editor for any of it.",
+      },
+      {
+        question: "Do I need to appear on camera?",
+        answer:
+          "No. Blog2Video renders typography, charts, images, and motion from your post — there is no camera anywhere in the workflow. The only thing that is yours is the voice, and even that is optional if you would rather use a prebuilt one.",
+      },
+      {
+        question: "Can I use my own voice without recording every video?",
+        answer:
+          "Yes. Create a voice clone once from a roughly two-minute audio or video sample under Dashboard, Voices, Create custom voice, and it appears in the voice picker on every project afterwards. Voice cloning is available on the Lite, Standard, and Pro plans.",
+      },
+      {
+        question: "Will Google penalise me for publishing a video of a post I already wrote?",
+        answer:
+          "No. Repurposing your own content across formats is normal publishing, not duplication — the video lives on YouTube, the article lives on your site, and they serve different search surfaces. Embedding the video back into the post tends to help, since it increases time on page.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to get a YouTube backlink (DR 99) in minutes",
+        angle:
+          "Evergreen SEO post targeting writers searching for YouTube backlinks, with the nofollow caveat handled openly so it survives scrutiny from experienced readers.",
+      },
+      {
+        channel: "video",
+        title: "I got a DR 99 backlink in 2 minutes (here is the catch)",
+        angle:
+          "Screen-record the whole loop: paste the URL, pick a template, record one line of voiceover, render, upload to YouTube with the link on the first line of the description. Address the nofollow point on screen.",
+      },
+      {
+        channel: "substack",
+        title: "The DR 99 backlink everyone talks about and nobody qualifies",
+        angle:
+          "Lead with the honest nofollow explanation, then argue the page itself is the asset. Close on the one-video-per-post compounding argument.",
+      },
+      {
+        channel: "twitter",
+        title: "YouTube is a DR 99 domain that will publish your link for free",
+        angle:
+          "Thread: what the watch page actually gives you, why the link is nofollow, why it still matters, and the two-minute production loop that makes it repeatable.",
+      },
+    ],
+  },
+  {
     slug: "where-to-promote-your-writing-2026",
     title: "Where to Promote Your Writing in 2026: Every Platform, Honestly Assessed",
     description:
