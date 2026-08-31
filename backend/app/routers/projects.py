@@ -899,6 +899,25 @@ def _run_project_template_change_job(job_id: int) -> None:
                 exc_info=True,
             )
 
+        # Switching TO the documentary template reuses the project's existing
+        # scene rows, so it never passes through _generate_script's countdown
+        # injection. Add the leader here instead; no-ops for every other
+        # template and when the project already has one.
+        try:
+            from app.routers.pipeline import ensure_docreel_countdown_scene
+
+            if ensure_docreel_countdown_scene(db, project.id, target_template):
+                logger.info(
+                    "[PROJECT_TEMPLATE_CHANGE] job=%s: added docreel countdown leader", job_id
+                )
+        except Exception:
+            # Non-fatal: the template change itself succeeded, and a missing
+            # leader is a cosmetic gap rather than a broken video.
+            logger.warning(
+                "[PROJECT_TEMPLATE_CHANGE] job=%s: countdown leader injection failed", job_id,
+                exc_info=True,
+            )
+
         # Only finalize if a reaper hasn't already claimed (failed) this job.
         finalized = db.execute(
             update(ProjectTemplateChangeJob)

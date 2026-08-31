@@ -184,6 +184,81 @@ def _chartable_props_from_blog(blog_content: str) -> list[dict]:
     return out
 
 
+# ── Old Documentary Reel: system-owned countdown leader ──────────────────────
+# The 3-2-1 academy leader that opens every documentary video. It is NOT in the
+# template's valid_layouts, so the LLM can neither write nor skip it; the
+# pipeline prepends it after layout sanitization. Kept silent (empty narration)
+# so voiceover.py's blank-narration guard skips TTS for it.
+
+DOCREEL_TEMPLATE_ID = "old-documentary-reel"
+DOCREEL_COUNTDOWN_LAYOUT = "docreel_countdown"
+DOCREEL_COUNTDOWN_SECONDS = 3
+
+
+def _scenes_need_countdown_leader(template_id: str) -> bool:
+    """True when this template opens with the system-injected countdown scene."""
+    return (template_id or "").strip().lower() == DOCREEL_TEMPLATE_ID
+
+
+def _build_docreel_countdown_scene() -> dict:
+    """The silent 3-2-1 leader scene_raw dict, prepended as scene 0.
+
+    Empty title/narration is deliberate: the layout renders only the countdown
+    dial, and blank narration_text is exactly what makes voiceover.py skip TTS
+    (see its "Skip scenes with no narration (e.g. hero opening)" guard).
+    """
+    return {
+        "title": "",
+        "narration": "",
+        "visual_description": "",
+        "duration_seconds": DOCREEL_COUNTDOWN_SECONDS,
+        "preferred_layout": DOCREEL_COUNTDOWN_LAYOUT,
+    }
+
+
+def ensure_docreel_countdown_scene(db, project_id: int, template_id: str) -> bool:
+    """Guarantee the documentary countdown leader exists as scene 1 of a project.
+
+    `_generate_script` prepends the leader into `scenes_raw` before any Scene
+    rows exist, which covers first generation and script regeneration. Paths
+    that mutate an EXISTING scene list instead — notably switching a project's
+    template to old-documentary-reel — never go through that, so they call this
+    to add the leader after the fact.
+
+    Idempotent: returns False and does nothing when the template doesn't use a
+    leader or the project already has one, so it is safe to call repeatedly.
+    """
+    from app.models.scene import Scene
+
+    if not _scenes_need_countdown_leader(template_id):
+        return False
+
+    scenes = db.query(Scene).filter(Scene.project_id == project_id).order_by(Scene.order).all()
+    if any((s.preferred_layout or "") == DOCREEL_COUNTDOWN_LAYOUT for s in scenes):
+        return False
+
+    # Push every existing scene back one slot, then take order=1. Renumber from
+    # the end so a UNIQUE(project_id, order) constraint can't trip mid-loop.
+    for s in reversed(scenes):
+        s.order = s.order + 1
+    db.flush()
+
+    spec = _build_docreel_countdown_scene()
+    db.add(
+        Scene(
+            project_id=project_id,
+            order=1,
+            title=spec["title"],
+            narration_text=spec["narration"],
+            visual_description=spec["visual_description"],
+            duration_seconds=spec["duration_seconds"],
+            preferred_layout=spec["preferred_layout"],
+        )
+    )
+    db.commit()
+    return True
+
+
 def _build_custom_dataviz_scenes(blog_content: str) -> list[dict]:
     """Build the 2 dedicated data-viz scene_raw dicts (chart + table) for custom
     templates — but ONLY when the article actually has chartable tables. Returns
@@ -2579,6 +2654,27 @@ async def _generate_script(
     display_gen = DisplayTextGenerator(template_id, video_style=video_style, content_language=content_language)
     display_texts = await display_gen.generate_for_scenes(scenes_raw)
 
+    # Old Documentary Reel opens on a silent 3-2-1 academy leader. It is a
+    # system-owned scene: the LLM never writes it (docreel_countdown is not in
+    # valid_layouts), so it is prepended here instead. Empty narration is what
+    # makes it silent — voiceover.py skips TTS for blank narration_text.
+    #
+    # Must run AFTER _sanitize_script_layouts: that pass forces hero_layout
+    # (docreel_slate) onto index 0 and strips it from every other index, so
+    # inserting earlier would both overwrite the countdown and strand the slate.
+    if _scenes_need_countdown_leader(template_id):
+        # Defensive: strip any countdown the upstream stages may have produced,
+        # so the leader can only ever exist once and only at index 0.
+        _kept = [
+            (s, d)
+            for s, d in zip(scenes_raw, display_texts)
+            if (s.get("preferred_layout") or "") != DOCREEL_COUNTDOWN_LAYOUT
+        ]
+        scenes_raw[:] = [s for s, _ in _kept]
+        display_texts[:] = [d for _, d in _kept]
+        scenes_raw.insert(0, _build_docreel_countdown_scene())
+        display_texts.insert(0, "")
+
     # Custom templates get 2 dedicated data-viz scenes (chart + table), inserted
     # just before the outro — EXTRA to the content scenes, mirroring the built-in
     # templates' chart/table pair. Bound to real Firecrawl tables, and ONLY when
@@ -2889,6 +2985,13 @@ async def _generate_scenes(
             logger.info("[PIPELINE] Skipping voiceover — no-audio mode for project %s", project.id)
             from app.services.voiceover import DURATION_PAD
             for scene in scenes:
+                if getattr(scene, "preferred_layout", None) == DOCREEL_COUNTDOWN_LAYOUT:
+                    # The countdown leader is a fixed-length silent scene. It is
+                    # narration-less by design, so the else-branch below would
+                    # stretch it to MIN_SCENE_DURATION_SECONDS (7s) instead of
+                    # the 3s leader it is meant to be. Leave its duration alone.
+                    scene.voiceover_path = None
+                    continue
                 if scene.narration_text:
                     word_count = len(scene.narration_text.split())
                     scene.duration_seconds = round(
@@ -3080,6 +3183,19 @@ async def _generate_scenes(
         if _bind_dataviz_layout_props(scene, descriptor):
             sc = descriptor.setdefault("structuredContent", {})
             sc["contentType"] = "dataviz"
+
+        # The documentary countdown leader is a fixed, system-owned scene. It is
+        # deliberately absent from the plannable layout set, so the scene
+        # generator can't name it and emits the hero layout instead — which the
+        # `scene.preferred_layout = resolve_base_layout(...)` write further down
+        # would then persist, turning the leader into a second empty slate.
+        # Pin the descriptor back to the countdown and skip the variant/rewrite
+        # path entirely. Same shape as the ending_socials override just below.
+        if getattr(scene, "preferred_layout", None) == DOCREEL_COUNTDOWN_LAYOUT:
+            descriptor["layout"] = DOCREEL_COUNTDOWN_LAYOUT
+            descriptor["layoutProps"] = {}
+            scene.remotion_code = json.dumps(descriptor)
+            continue
 
         # DSPy appends an ending scene with preferred_layout="ending_socials" when the template supports it.
         # We override the descriptor here so Remotion can render the themed ending consistently.

@@ -855,6 +855,48 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
   },
 
   // ─────────────────────────────────────────────────────────────────────────
+  // OLD DOCUMENTARY REEL template  (canvas 1280 × 720 / 720 × 1280)
+  // ─────────────────────────────────────────────────────────────────────────
+  //
+  // Most docreel layouts bind their photo through <ArchiveImageBackdrop>, which
+  // is `position:absolute; inset:0` — a genuinely FULL-BLEED backdrop behind the
+  // scene's content. Those need no entry at all: the {w:1,h:1} fallback in
+  // getImageBoxAspectRatio is already the right shape for them, and adding
+  // 1.0/1.0 rows would just be noise. Only the three layouts whose image sits
+  // in a real sub-box are listed here.
+  //
+  // Values are derived from each layout's own CSS geometry and confirmed
+  // against a real 1280×720 / 720×1280 render (a flat probe image, located by
+  // per-column/per-row fill density — a naive bounding box over-reports here,
+  // because the template's film grain and dust overlays speckle the whole
+  // frame). docreel_slate and docreel_countdown are intentionally absent: both
+  // are in meta.json `layouts_without_image`.
+
+  // The photo fills SingleFilmFrame's inner area — the frame inset plus the
+  // sprocket rails on all four edges. See SingleFilmFrame in docReelStyle.tsx:
+  // railW = max(30, width * 0.024), inner = size - inset*2 - railW*2.
+  docreel_interview: {
+    landscape: { w: 0.905, h: 0.831 }, // 1159 × 599  (measured 0.919 × 0.896)
+    portrait:  { w: 0.856, h: 0.919 }, //  616 × 1176 (measured 0.900 × 0.988)
+  },
+
+  // The "print pulled from its sleeve": a flex child beside the record panel
+  // (landscape row, 52% of the padded width) or above it (portrait column,
+  // 46% of the padded height).
+  docreel_photo_pan: {
+    landscape: { w: 0.452, h: 0.844 }, // 578 × 608  (measured 0.640 × 0.933)
+    portrait:  { w: 0.911, h: 0.431 }, // 656 × 552  (measured 0.926 × 0.858)
+  },
+
+  // A 4×2 (landscape) / 3×2 (portrait) contact-sheet grid. A single bound image
+  // is tiled across the cells, so the crop window is ONE CELL, not the grid —
+  // cell width measured at 392px of 1920 in a real landscape render.
+  docreel_contact_sheet: {
+    landscape: { w: 0.204, h: 0.440 }, // one cell, incl. its 16px inner padding
+    portrait:  { w: 0.256, h: 0.300 },
+  },
+
+  // ─────────────────────────────────────────────────────────────────────────
   // MAGAZINE template — computed from layout geometry (magazineImageBoxDims.ts)
   // ─────────────────────────────────────────────────────────────────────────
   ...buildMagazineImageBoxDims(),

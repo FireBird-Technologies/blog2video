@@ -34,8 +34,10 @@ import StickmanFootballPreviewPortrait from "./templatePreviews/portrait/Stickma
 
 import MagazinePreview from "./templatePreviews/MagazinePreview";
 import SakuraPreview from "./templatePreviews/SakuraPreview";
+import OldDocumentaryReelPreview from "./templatePreviews/OldDocumentaryReelPreview";
 import MagazinePreviewPortrait from "./templatePreviews/portrait/MagazinePreviewPortrait";
 import SakuraPreviewPortrait from "./templatePreviews/portrait/SakuraPreviewPortrait";
+import OldDocumentaryReelPreviewPortrait from "./templatePreviews/portrait/OldDocumentaryReelPreviewPortrait";
 import { withPoster } from "./templatePreviews/PosterOrPlayer";
 
 // Raw preview components. Not exported directly — every built-in preview is
@@ -59,6 +61,7 @@ const RAW_TEMPLATE_PREVIEWS: Record<string, FC<{ thumbnailMode?: boolean }>> = {
   stickman_football: StickmanFootballPreview,
  magazine: MagazinePreview,
   sakura: SakuraPreview,
+  "old-documentary-reel": OldDocumentaryReelPreview,
 };
 
 const RAW_TEMPLATE_PREVIEWS_PORTRAIT: Record<string, FC<{ thumbnailMode?: boolean }>> = {
@@ -79,6 +82,7 @@ const RAW_TEMPLATE_PREVIEWS_PORTRAIT: Record<string, FC<{ thumbnailMode?: boolea
   stickman_football: StickmanFootballPreviewPortrait,
    magazine: MagazinePreviewPortrait,
   sakura: SakuraPreviewPortrait,
+  "old-documentary-reel": OldDocumentaryReelPreviewPortrait,
 };
 
 function wrapPreviews(
@@ -167,6 +171,10 @@ export const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: st
   magazine: { title: "Magazine", subtitle: "Glossy editorial storytelling" },
   stickman_football: { title: "Stickman Football Match", subtitle: "Hand-drawn football action for match recaps & highlights" },
   sakura: { title: "Sakura", subtitle: "Japanese-aesthetic blog-to-video theme" },
+  "old-documentary-reel": {
+    title: "Old Documentary Reel",
+    subtitle: "Archival found-footage aesthetic — grainy film, typewriter reports, and case-file dossiers",
+  },
 };
 
 /** Purple primary "New" chip when template meta.json has new_template: true */
