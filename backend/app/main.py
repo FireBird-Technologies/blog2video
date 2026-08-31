@@ -520,6 +520,15 @@ async def lifespan(app: FastAPI):
             reap_orphaned_language_change_jobs()
         except Exception as e:
             print(f"[STARTUP] Orphaned-job recovery failed: {e}")
+        # Same idea for staged template-generation runs: a run left "running" by
+        # a dead process would otherwise strand its template in a permanent
+        # "generating..." state, since only that thread ever clears the flag.
+        try:
+            from app.routers.custom_templates import fail_orphaned_gen_runs
+
+            fail_orphaned_gen_runs()
+        except Exception as e:
+            print(f"[STARTUP] Orphaned gen-run sweep failed: {e}")
     except Exception as e:
         print(f"[STARTUP] Database initialization failed: {e}")
         import traceback

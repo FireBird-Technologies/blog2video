@@ -27,6 +27,7 @@ existing deterministic signature engine — i.e. today's behaviour.
 """
 from __future__ import annotations
 
+import contextvars
 import hashlib
 import json
 import re
@@ -37,6 +38,9 @@ import dspy
 
 from app.dspy_modules import ensure_dspy_configured, get_blueprint_lm
 from app.services.kit_vocabulary import (
+    CONTENT_TYPE_VARIANTS,
+    layout_variants_for_brand,
+    variants_for,
     ARTIFACT_MOTIONS,
     CLOSING_MOVES,
     DECOR_SYSTEMS,
@@ -92,10 +96,22 @@ class GenerateDesignBlueprint(dspy.Signature):
 
     LAYOUTS (the core of the design)
     - REQUIRED COUNT: exactly ONE layout with role "intro", exactly ONE with
-      role "outro", and SIX to EIGHT with role "content". Eight total is the
-      target. Fewer than six content layouts is a REJECTED answer — the video
-      will reuse layouts and look repetitive, which is the exact failure this
-      design exists to prevent. Count them before you answer.
+      role "outro", and EXACTLY the number of content layouts named in the
+      design constraints below — that count is chosen for THIS brand and is not
+      negotiable. Do not round it toward the smallest allowed number: a template
+      that always ships the minimum is a template that made no decision about
+      its own length. Count them before you answer.
+    - The layouts go in a top-level JSON array named exactly "layouts". Each
+      entry is an OBJECT, and each needs its own `id`: a short semantic slug
+      naming what THIS layout is for, in your own words — not a positional
+      label. An entry without an id is auto-numbered "layout_0", "layout_1",
+      which tells the scene generator nothing about the layout's purpose.
+      Name it after the design you actually made, not after a category.
+    - Each also needs a `variant`: HOW this layout draws its content type,
+      chosen from the layout-variant menu in kit_capabilities. Two templates
+      may both need a metrics layout; the variant is what stops them being the
+      same layout. Your assigned variants are in the design constraints below —
+      design each layout AROUND its variant.
     - Each needs a `geometry`: a concrete, specific description of where things
       sit, in your own words. Not "a split layout" — say which side, what
       proportion, what separates them, where the eyebrow and the focal element
@@ -104,10 +120,25 @@ class GenerateDesignBlueprint(dspy.Signature):
     - `geometry_portrait` says how it RE-COMPOSES for a tall 1080x1920 frame.
       A landscape side-by-side reused verbatim in portrait becomes an unreadable
       strip, so genuinely re-think it (usually stacking, fewer items, larger type).
+    - Every layout COMPOSES OUTWARD FROM ITS CENTRE. The item count is not known
+      when you design it — the same layout renders two metrics and five — so say
+      where the group sits as a whole and let it grow symmetrically from there.
+      A geometry that only works at its maximum item count leaves a lopsided
+      frame at every smaller one. An asymmetric layout is still centred as a
+      composition: the RAIL sits on an edge, the content group does not.
     - Give the content layouts DIFFERENT geometry from one another. Two layouts
       may share a `best_for` (two "bullets" scenes is fine) as long as they are
       genuinely composed differently — a bullet list in a ruled sidebar is not
       the same scene as one over a full-bleed image.
+    - `best_for` says WHAT KIND OF CONTENT each layout is built to hold, and it
+      must come from the content-type list in kit_capabilities. Any other value
+      is discarded and the layout silently falls back to "plain", which makes
+      every scene interchangeable and every preview render the same placeholder
+      copy. Match it to the content the layout actually holds — statistics are
+      ["metrics"], a testimonial is ["quote"], an ordered list is ["steps"].
+      ACROSS the content layouts, cover at least THREE different
+      content types — a template whose layouts are all "plain" cannot match
+      content to a layout and will reuse the same scene shape throughout.
     - `supports_image`: true if the layout has a place for a content image.
       Most content layouts should. Set false for layouts built around text,
       numbers or a full-bleed colour field. The OUTRO is always false.
@@ -115,10 +146,12 @@ class GenerateDesignBlueprint(dspy.Signature):
     ERA + TYPEFACE (what makes two templates read as different DESIGNS rather
     than one design recoloured — decide this first, it drives everything else)
     - `identity.era` is one of: vintage, editorial, modern, technical,
-      expressive. Choose from the brand's actual character, not its industry: a
-      heritage publisher is vintage, a broadsheet is editorial, a developer tool
-      is technical, a streetwear label is expressive. "modern" is the right
-      answer when the evidence genuinely says so — never the safe default.
+      expressive, brutalist, humanist, luxe, zine. Choose from the brand's actual
+      character, not its industry: a heritage publisher is vintage, a broadsheet
+      is editorial, a developer tool is technical, a streetwear label is
+      expressive, an architecture studio is brutalist, a craft/wellness brand is
+      humanist, a jeweller is luxe, an indie music label is zine. "modern" is the
+      right answer when the evidence genuinely says so — never the safe default.
     - The era selects this template's TYPEFACE, which is what a viewer reads as
       period before any layout or colour registers. Vintage gets letterpress and
       inscriptional faces; technical gets monospace and tight grotesques.
@@ -127,6 +160,24 @@ class GenerateDesignBlueprint(dspy.Signature):
       cannot be loaded and renders as the system default — so an invented font
       name silently makes your template look like every other one. Leave them out
       to take the era's own pick.
+
+    TYPE SYSTEM (`type_system` — the sizes every scene is built from. These keys
+    were being parsed but never described, so they fell through to defaults and
+    every template shipped the same scale.)
+    - `base_body_px_landscape` / `base_body_px_portrait`: the BODY size in px,
+      28-72. Everything else is derived from it, including the supporting copy in
+      cards and lists, so this single number sets the density of the whole
+      template. Portrait is a 1080-wide frame — its base is normally a little
+      SMALLER than landscape, never larger.
+    - `scale_ratio`: 1.1-1.7. The step between body and headline. A tight
+      editorial scale is ~1.2; an expressive brand with a huge display headline
+      is ~1.5+. The headline is body x ratio^3, then clamped to what the frame
+      can hold.
+    - `heading_case`: sentence | upper | title. `label_case`: upper | small-caps.
+    - `heading_tracking_em` (-0.05 to 0.2) and `label_tracking_em` (0 to 0.3):
+      letter-spacing. Display type usually tightens; small caps labels open up.
+    - `type_treatment`: one of the treatments in kit_capabilities.
+    - `numeral_style`: tabular | proportional.
 
     STRUCTURE (what repeats across every scene — this is what makes it a
     TEMPLATE rather than nine unrelated cards)
@@ -140,6 +191,13 @@ class GenerateDesignBlueprint(dspy.Signature):
       loud opening and a quiet close — that arc suits some brands and not
       others. A measured open and an emphatic close is equally valid.
     - The intro and outro must not use the same artifact motion.
+    - `opening_move` and `closing_move` are a BRAND DECISION, and they are the
+      first and last thing a viewer sees. "logo_settle" and "recap_card" are the
+      two most overused answers in the vocabulary — reach for them only when the
+      brand genuinely calls for them, and pick from the full list otherwise: a
+      cold open on a statement, type setting itself, a rule drawing across, a
+      photo push, a full-bleed sign-off, a wordmark lockup. Two templates that
+      open and close the same way read as the same template.
 
     Ground every vocabulary choice in kit_capabilities. A value outside those
     lists cannot be rendered and will be replaced.
@@ -258,6 +316,48 @@ def _clamp(value: Any, lo: float, hi: float, default: float) -> float:
     return max(lo, min(hi, n))
 
 
+# Words that reliably identify a content type in a layout's own id or geometry.
+# Ordered most-specific first so "stat_spotlight" reads as metrics, not plain.
+_BEST_FOR_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("metrics", ("metric", "stat", "number", "kpi", "figure", "percent", "counter")),
+    ("quote", ("quote", "testimonial", "pull_quote", "pullquote", "voices", "said")),
+    ("timeline", ("timeline", "journey", "milestone", "roadmap", "history", "chronolog")),
+    ("steps", ("step", "how_it_works", "howitworks", "process", "workflow", "stage")),
+    ("comparison", ("compare", "comparison", "versus", "_vs_", "before_after", "tier")),
+    ("bullets", ("bullet", "list", "feature", "checklist", "points", "benefits")),
+    ("code", ("code", "snippet", "terminal", "console", "api")),
+)
+
+
+def _infer_best_for(layout_id: str, geometry: str) -> list[str]:
+    """Guess a layout's content affinity from how it describes itself.
+
+    Used only when the model supplied no renderable `best_for`. The id is far
+    more reliable than the geometry prose, so it is checked first and alone
+    where it matches — geometry mentions "numbers" in passing all the time.
+    Returns [] when nothing matches, leaving the caller's "plain" default.
+    """
+
+    def _hit(haystack: str, needle: str) -> bool:
+        # The needle must be a WHOLE WORD (allowing a plural/verb suffix), not a
+        # bare substring: "stat" otherwise fires inside "station_steps" and
+        # labels a how-it-works layout as metrics.
+        return (
+            re.search(rf"(?:^|[^a-z]){re.escape(needle)}(?:s|es|ing|ed)?(?:[^a-z]|$)", haystack)
+            is not None
+        )
+
+    hay_id = (layout_id or "").lower()
+    for content_type, needles in _BEST_FOR_HINTS:
+        if any(_hit(hay_id, n) for n in needles):
+            return [content_type]
+    hay_geo = (geometry or "").lower()
+    for content_type, needles in _BEST_FOR_HINTS:
+        if any(_hit(hay_geo, n) for n in needles):
+            return [content_type]
+    return []
+
+
 def _slug(value: Any, fallback: str) -> str:
     s = re.sub(r"[^a-z0-9_]+", "_", str(value or "").strip().lower()).strip("_")
     return s or fallback
@@ -275,6 +375,18 @@ def validate_blueprint(raw: dict, *, seed: str = "") -> tuple[dict, list[str]]:
     """
     repairs: list[str] = []
     bp: dict[str, Any] = {"version": BLUEPRINT_VERSION}
+    # This brand's assigned layout variants — the fallback when the model omits
+    # or invents a `variant`. Seeded, so an omission still lands on THIS
+    # template's rendering rather than a shared default.
+    _brand_variants = layout_variants_for_brand(seed) if seed else {}
+
+    # A model that skips the wrapper object and returns the layouts array bare
+    # has still done the design work. Wrap it rather than discarding the answer.
+    if isinstance(raw, list):
+        raw = {"layouts": raw}
+        repairs.append("top-level array wrapped as {'layouts': [...]}")
+    if not isinstance(raw, dict):
+        raw = {}
 
     # `x or {}` guards None and {} but NOT a truthy non-dict. A model that writes
     # `"chrome": true` (a natural shorthand for "yes, this template has chrome")
@@ -396,14 +508,46 @@ def validate_blueprint(raw: dict, *, seed: str = "") -> tuple[dict, list[str]]:
     }
 
     # ── layouts ──
+    #
+    # The key name is resolved by ALIAS, not just by exact match. The prompt
+    # specifies the schema in prose, and a model that lands on "scenes" or
+    # returns the array bare has designed a perfectly good template that would
+    # otherwise be thrown away for naming it wrong — measured as a failed first
+    # attempt that then burned a second 60-90s call. Idempotent: after the first
+    # pass `raw` is already normalised, so the re-validation inside
+    # enforce_brand_constraints resolves the canonical key and adds no repair.
     layouts_in = raw.get("layouts")
+    if not isinstance(layouts_in, list) or not layouts_in:
+        _alias = None
+        for _k in ("scenes", "layout", "scene_layouts", "template_layouts"):
+            _v = raw.get(_k)
+            if isinstance(_v, list) and _v:
+                layouts_in, _alias = _v, _k
+                break
+        if _alias:
+            repairs.append(f'top-level {_alias!r} read as "layouts"')
     if not isinstance(layouts_in, list) or not layouts_in:
         raise ValueError("blueprint has no layouts")
 
     layouts: list[dict] = []
     seen_ids: set[str] = set()
+    _non_dict = 0
     for i, entry in enumerate(layouts_in):
+        # A stringified entry is recoverable — models sometimes JSON-encode the
+        # elements of an array they were asked to fill with objects.
+        if isinstance(entry, str):
+            try:
+                _decoded = json.loads(entry)
+            except (ValueError, TypeError):
+                _decoded = None
+            if isinstance(_decoded, dict):
+                entry = _decoded
         if not isinstance(entry, dict):
+            # Silently dropping these made the downstream "model returned too
+            # few" message a lie: a model returning twelve strings looked
+            # identical to one returning nothing.
+            _non_dict += 1
+            repairs.append(f"layout[{i}] was a {type(entry).__name__}, not an object — dropped")
             continue
         geometry = str(entry.get("geometry") or "").strip()
         if len(geometry) < MIN_GEOMETRY_CHARS:
@@ -418,7 +562,18 @@ def validate_blueprint(raw: dict, *, seed: str = "") -> tuple[dict, list[str]]:
         role = _pick(entry.get("role"), SCENE_ROLES, "content", repairs, f"layout[{lid}].role")
         best_for = [b for b in (entry.get("best_for") or []) if isinstance(b, str) and b in CONTENT_TYPES]
         if not best_for and role == "content":
-            best_for = ["plain"]
+            # Infer from what the layout calls itself before giving up on
+            # "plain". A model that omits best_for still names its layouts
+            # honestly — metrics_row_4up, quote_center_red, bullets_sidebar_left
+            # — and defaulting all of them to "plain" threw that away: measured
+            # on every blueprint-era template, which then had NO content
+            # affinity at all, so scene matching fell back to round-robin and
+            # every preview scene rendered the same placeholder copy.
+            best_for = _infer_best_for(lid, geometry)
+            if best_for:
+                repairs.append(f"layout[{lid}] best_for inferred as {best_for} from its own name")
+            else:
+                best_for = ["plain"]
 
         geometry_portrait = str(entry.get("geometry_portrait") or "").strip()
         if len(geometry_portrait) < MIN_GEOMETRY_CHARS:
@@ -453,6 +608,28 @@ def validate_blueprint(raw: dict, *, seed: str = "") -> tuple[dict, list[str]]:
             ],
             "supports_image": supports_image,
             "image_treatment": image_treatment,
+            # HOW this layout draws its content type. Coerced against the menu
+            # the kit can actually render, and defaulted to this BRAND's assigned
+            # variant rather than a global default — a global default would put
+            # every template's metrics layout back on the same rendering, which
+            # is the collapse this field exists to break.
+            # A BOOKEND draws from the bookend vocabulary, not the content one.
+            #
+            # Bookends carry `best_for: []`, so this fell through to "plain" and
+            # handed the intro a content arrangement ('drop-cap', 'side-rail')
+            # that says nothing about a brand opening — which is why every
+            # template opened with the same centred wordmark.
+            "variant": _pick(
+                entry.get("variant"),
+                frozenset(variants_for(role if role in ("intro", "outro")
+                                       else (best_for[0] if best_for else "plain")) or ()),
+                (_brand_variants or {}).get(
+                    role if role in ("intro", "outro")
+                    else (best_for[0] if best_for else "plain"), ""
+                ),
+                repairs,
+                f"layout[{lid}].variant",
+            ),
             "motion_beat": str(entry.get("motion_beat") or "")[:200],
         })
 
@@ -494,10 +671,14 @@ def validate_blueprint(raw: dict, *, seed: str = "") -> tuple[dict, list[str]]:
         extra["role"] = "content"
         repairs.append(f"layout[{extra['id']}] was a second outro -> content")
     if not intros:
-        layouts.insert(0, _synthetic_layout("intro", bp, "opening"))
+        layouts.insert(
+            0, _synthetic_layout("intro", bp, "opening", (_brand_variants or {}).get("intro", ""))
+        )
         repairs.append("no intro layout -> synthesised")
     if not outros:
-        layouts.append(_synthetic_layout("outro", bp, "closing"))
+        layouts.append(
+            _synthetic_layout("outro", bp, "closing", (_brand_variants or {}).get("outro", ""))
+        )
         repairs.append("no outro layout -> synthesised")
 
     content = [l for l in layouts if l["role"] == "content"]
@@ -506,7 +687,15 @@ def validate_blueprint(raw: dict, *, seed: str = "") -> tuple[dict, list[str]]:
         # signal about whether the model wrote vague geometry or repeated the
         # same content shape, which are very different problems.
         dropped = [r for r in repairs if "dropped" in r]
-        detail = f" — dropped: {dropped}" if dropped else " (model returned too few)"
+        if _non_dict:
+            detail = (
+                f" — {_non_dict} of {len(layouts_in)} entries were not objects"
+                f"; dropped: {dropped}"
+            )
+        elif dropped:
+            detail = f" — dropped: {dropped}"
+        else:
+            detail = " (model returned too few)"
         raise ValueError(
             f"only {len(content)} usable content layouts (need {MIN_CONTENT_LAYOUTS})"
             f"{detail}"
@@ -585,25 +774,52 @@ def validate_blueprint(raw: dict, *, seed: str = "") -> tuple[dict, list[str]]:
     # A single legal name would also make every cut identical (the renderer
     # rotates with `index % pool.length`), so top up to at least three from the
     # default rotation. Order is preserved: the model's own picks come first.
+    #
+    # The top-up is ROTATED by a brand hash rather than read from the front of
+    # DEFAULT_TRANSITION_FAMILY. Reading it in fixed order meant every template
+    # that supplied no legal names — the common case once the validator above
+    # started (correctly) dropping hallucinations — got byte-identical
+    # ["parallax_push", "accent_bar", "page_fold", "rule_sweep"]. Each template
+    # then varied its transitions across its OWN cuts while being indistinguishable
+    # from every other template, which is the "none of them show their own
+    # transitions" symptom in the gallery. Seeding keeps a given brand's result
+    # reproducible (the renderer's whole selection contract) while making two
+    # brands diverge.
     tf_in = [t for t in (raw.get("transition_family") or []) if isinstance(t, str)]
     tf = [t for t in dict.fromkeys(tf_in) if t in TRANSITION_FAMILIES]
     dropped = [t for t in tf_in if t not in TRANSITION_FAMILIES]
     if dropped:
         repairs.append(f"transition_family dropped unrenderable {dropped}")
     if len(tf) < 3:
-        topped = [t for t in DEFAULT_TRANSITION_FAMILY if t not in tf]
+        pool = [t for t in DEFAULT_TRANSITION_FAMILY if t not in tf]
+        # SHUFFLE, not rotate. A rotation has only len(pool) distinct outcomes —
+        # 9 — so roughly one brand pair in nine drew the identical four moves.
+        # Observed: Yango and LaDucTrading, whose seeds share nothing, both hit
+        # offset 5 and got clock_sweep/whip_pan/page_flip/fade. Sorting by a
+        # per-item hash gives permutations instead of rotations, so a collision
+        # needs the same seed rather than the same seed MODULO nine.
+        topped = sorted(
+            pool,
+            key=lambda t: hashlib.md5(f"{seed or 'brand'}|tf|{t}".encode()).hexdigest(),
+        )
         tf = (tf + topped)[:4]
         repairs.append(
             "transition_family had fewer than 3 renderable entries -> topped up "
-            "(a short pool repeats the same transition on every cut)"
+            "brand-seeded (a short pool repeats the same transition on every cut, "
+            "and an unseeded top-up gives every brand the same pool)"
         )
     bp["transition_family"] = tf[:4]
 
     return bp, repairs
 
 
-def _synthetic_layout(role: str, bp: dict, kind: str) -> dict:
-    """A minimal but valid layout, used when the model omits a bookend."""
+def _synthetic_layout(role: str, bp: dict, kind: str, variant: str = "") -> dict:
+    """A minimal but valid layout, used when the model omits a bookend.
+
+    Carries its own `variant`: these are inserted AFTER the validation loop that
+    fills the field, so a synthesised bookend would otherwise ship without one
+    and land back on the default centred composition.
+    """
     return {
         "id": f"{kind}_{role}",
         "label": f"{kind.title()} Scene",
@@ -614,10 +830,11 @@ def _synthetic_layout(role: str, bp: dict, kind: str) -> dict:
             "space on all sides."
         ),
         "geometry_portrait": (
-            "The same centred column, stacked tighter with a smaller headline so it fits "
-            "the narrow frame without crowding the edges."
+            "The same composition as landscape, stacked tighter with a smaller headline so "
+            "it fits the narrow frame without crowding the edges."
         ),
         "best_for": [],
+        "variant": variant,
         "surface": bp["identity"]["surface_default"],
         "artifact": bp["identity"]["artifact_set"][0],
         "artifact_intensity": 0.5,
@@ -663,6 +880,7 @@ def fallback_blueprint(theme: dict, archetypes: list[dict], name: str = "") -> d
         "clean-sans": "modern",
     }.get(_treatment, "modern")
 
+    _fb_variants = layout_variants_for_brand(name or "")
     bp_seed = {
         "identity": {
             "name": name or "Custom Template",
@@ -685,8 +903,12 @@ def fallback_blueprint(theme: dict, archetypes: list[dict], name: str = "") -> d
         "label": "Opening",
         "role": "intro",
         "geometry": legacy_geometry[0][1],
-        "geometry_portrait": "The same centred composition, stacked vertically with a smaller headline for the narrow frame.",
+        "geometry_portrait": "The same composition, stacked vertically with a smaller headline for the narrow frame.",
         "best_for": [],
+        # Seeded, so the deterministic fallback diverges by brand too. Without
+        # this every fallback template opened identically — and the fallback is
+        # what ships whenever the blueprint model is unavailable.
+        "variant": _fb_variants.get("intro", ""),
         "surface": bp_seed["identity"]["surface_default"],
         "artifact": artifact_set[0],
         "artifact_intensity": 0.7,
@@ -727,8 +949,9 @@ def fallback_blueprint(theme: dict, archetypes: list[dict], name: str = "") -> d
         "label": "Closing",
         "role": "outro",
         "geometry": "A calm closing recap: the brand mark and a short takeaway set low in the frame, leaving the upper area clear for the CTA overlay.",
-        "geometry_portrait": "The recap centred and stacked, sitting below the area the CTA overlay occupies.",
+        "geometry_portrait": "The recap stacked, sitting below the area the CTA overlay occupies.",
         "best_for": [],
+        "variant": _fb_variants.get("outro", ""),
         "surface": bp_seed["identity"]["surface_default"],
         "artifact": artifact_set[-1],
         "artifact_intensity": 0.35,
@@ -781,6 +1004,48 @@ def fallback_blueprint(theme: dict, archetypes: list[dict], name: str = "") -> d
 # the constraint, and `apply` is the guarantee. The template diverges whether or
 # not the model cooperates.
 _ConstraintFn = "Callable[[dict], list[str]]"
+
+
+# The brand seed for the constraint run in progress. A ContextVar rather than a
+# parameter so all 13 constraints keep the same one-argument signature.
+_CONSTRAINT_SEED: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "blueprint_constraint_seed", default=""
+)
+
+
+#: Content-layout count band. The prompt no longer names a range — it defers to
+#: this brand's number — so the band lives in one place and both the prompt and
+#: the enforcement read it. Floor is 6 (below that a video visibly reuses
+#: layouts); ceiling is bounded by MAX_LAYOUTS once the two bookends are added.
+CONTENT_LAYOUT_MIN = 6
+CONTENT_LAYOUT_MAX = 8
+
+
+def content_layout_target(seed: str) -> int:
+    """How many content layouts THIS brand's template should have.
+
+    Seeded rather than fixed because the count is itself a design decision, and
+    a prompt that names a range gets the bottom of that range almost every time:
+    every template shipped exactly the minimum six, so two templates always had
+    the same length as well as the same shapes.
+
+    Read by _brand_constraint (to tell the model) and by _c_layout_count (to
+    enforce it), so the instruction and the enforcement cannot disagree.
+    """
+    span = CONTENT_LAYOUT_MAX - CONTENT_LAYOUT_MIN + 1
+    h = int(hashlib.md5(f"{seed}|layout_count".encode()).hexdigest(), 16)
+    return CONTENT_LAYOUT_MIN + (h % span)
+
+
+def _brand_hash(bp: dict, salt: str = "") -> int:
+    """A stable per-brand number for a deterministic constraint pick.
+
+    Keyed on the RUN'S seed (category|style|name), never on identity.name — the
+    extractor leaves that as the literal "Custom Template" on most blueprints,
+    so hashing it gave every brand the same "brand-seeded" answer.
+    """
+    seed = _CONSTRAINT_SEED.get() or str((bp.get("identity") or {}).get("name") or "brand")
+    return int(hashlib.md5(f"{seed}|{salt}".encode()).hexdigest(), 16)
 
 
 def _c_offcentre_intro(bp: dict) -> list[str]:
@@ -926,13 +1191,192 @@ def _c_decor(bp: dict) -> list[str]:
     ident = bp.get("identity") or {}
     if str(ident.get("decor_system")) in ("rules", "none", "grid", "dots"):
         pool = sorted(DECOR_SYSTEMS - {"rules", "none", "grid", "dots"})
-        h = int(hashlib.md5(str(ident.get("name", "")).encode()).hexdigest(), 16)
+        h = _brand_hash(bp, "decor")
         ident["decor_system"] = pool[h % len(pool)]
         return [f"decor system -> {ident['decor_system']!r} (was a safe default)"]
     return []
 
 
+def _c_bookend_moves(bp: dict) -> list[str]:
+    """Move off the default opening/closing moves.
+
+    Same shape as _c_decor: brand-seeded so two brands landing on this
+    constraint do not both get the same replacement. Only fires when the moves
+    are still at their _pick() defaults — a model that deliberately chose
+    something else keeps its choice.
+    """
+    be = bp.get("bookends") or {}
+    ident = bp.get("identity") or {}
+    intro = be.get("intro") or {}
+    outro = be.get("outro") or {}
+    changed: list[str] = []
+    h = _brand_hash(bp, "bookends")
+    if intro.get("opening_move") == "logo_settle":
+        pool = sorted(OPENING_MOVES - {"logo_settle"})
+        intro["opening_move"] = pool[h % len(pool)]
+        changed.append(f"opening_move -> {intro['opening_move']!r} (was the default)")
+    if outro.get("closing_move") == "recap_card":
+        pool = sorted(CLOSING_MOVES - {"recap_card"})
+        # Decorrelated from the opening pick so a brand does not get the same
+        # index in both pools (mirrors fonts_for_era's //7 on the body slot).
+        outro["closing_move"] = pool[(h // 11) % len(pool)]
+        changed.append(f"closing_move -> {outro['closing_move']!r} (was the default)")
+    return changed
+
+
+def _c_era(bp: dict) -> list[str]:
+    """Move off a defaulted era, which drags the typeface with it.
+
+    era selects the font pair via fonts_for_era(), so an era that collapses
+    collapses typography too — measured at 4 of 7 brands on 'technical', which
+    put fira_code on three unrelated brands. Deliberately a NUDGE: only fires on
+    the 'modern' _pick() default, so a model that genuinely judged a brand
+    technical or editorial keeps that judgement.
+    """
+    ident = bp.get("identity") or {}
+    if str(ident.get("era")) != "modern":
+        return []
+    pool = sorted(ERAS - {"modern"})
+    h = _brand_hash(bp, "era")
+    ident["era"] = pool[h % len(pool)]
+    # Re-derive the typeface for the new era. validate_blueprint already ran, so
+    # the fonts on the dict were picked for the OLD era and would otherwise stay.
+    heading, body = fonts_for_era(ident["era"], str(ident.get("name", "")))
+    ident["heading_font"] = heading
+    ident["body_font"] = body
+    return [f"era -> {ident['era']!r} (was the default; typeface re-derived)"]
+
+
 # (prompt text, enforcement function)
+def _c_layout_count(bp: dict) -> list[str]:
+    """Vary how MANY content layouts a template has.
+
+    Every existing constraint moves chrome, decor, safe area, bookends or era —
+    the template's SKIN. None touches the scene set, so every brand landed on
+    whatever count the model's prior returns, and two templates with visibly
+    different blueprints still shipped the same number of scenes in the same
+    shapes.
+
+    Trimming rather than inventing: a layout the model authored has real
+    geometry, whereas one synthesised here would not. Templates seeded to a
+    smaller count drop their least distinctive layouts (the plain ones first).
+    """
+    # Every NON-BOOKEND layout, not just role="content". _c_role_composition
+    # retags one layout to a punctuation role (statement / chapter_card / ...),
+    # which leaves the template the same LENGTH while dropping the content count
+    # by one — counting only "content" would then read that as a size decision
+    # the model never made, and trim a layout to compensate.
+    content = [
+        l for l in (bp.get("layouts") or [])
+        if str(l.get("role")) not in ("intro", "outro")
+    ]
+    if not content:
+        return []
+    # The SAME target the prompt named, so the instruction and the enforcement
+    # cannot disagree. _CONSTRAINT_SEED is the run's seed; _brand_hash's fallback
+    # covers a direct call with no seed set.
+    seed = _CONSTRAINT_SEED.get() or str((bp.get("identity") or {}).get("name") or "brand")
+    target = content_layout_target(seed)
+    if len(content) == target:
+        return []
+    if len(content) < target:
+        # UNDER target. Trimming was the only direction before, so a model that
+        # returned the minimum every time was never corrected — which is exactly
+        # what it did, and why every template had the same length. Nothing here
+        # can invent a layout with real geometry, so this is reported rather than
+        # silently accepted: the retry sees it and the count is asked for again.
+        return [
+            f"content layout count {len(content)} is under this brand's target {target} "
+            "(the model returned fewer layouts than the design called for)"
+        ]
+    # Drop the most generic first: "plain"-only layouts carry the least identity.
+    ranked = sorted(
+        content,
+        key=lambda l: (list(l.get("best_for") or []) == ["plain"], -len(str(l.get("geometry") or ""))),
+    )
+    keep = {id(l) for l in ranked[:target]}
+    before = len(content)
+    # Filter on BOOKEND-ness, not on role == "content": _c_role_composition may
+    # already have retagged one body layout to a punctuation role, and a
+    # role-based filter would let that one through uncounted — the template then
+    # shipped target+1 layouts while the repair line claimed it had trimmed to
+    # target.
+    bp["layouts"] = [
+        l
+        for l in bp["layouts"]
+        if str(l.get("role")) in ("intro", "outro") or id(l) in keep
+    ]
+    return [f"content layout count {before} -> {target} (brand-seeded)"]
+
+
+def _c_geometry_distinct(bp: dict) -> list[str]:
+    """Reject near-duplicate geometry between two layouts of one template.
+
+    The prompt asks for distinct geometry ("Give the content layouts DIFFERENT
+    geometry from one another") and nothing checked it, so a template could ship
+    six layouts describing the same split in different words.
+    """
+    content = [l for l in (bp.get("layouts") or []) if l.get("role") == "content"]
+    if len(content) < 2:
+        return []
+
+    def _shape(text: str) -> frozenset[str]:
+        """The geometry's structural words, ignoring prose."""
+        words = re.findall(r"[a-z]{4,}", (text or "").lower())
+        return frozenset(w for w in words if w not in _GEOMETRY_STOPWORDS)
+
+    notes: list[str] = []
+    seen: list[tuple[frozenset[str], dict]] = []
+    for lay in content:
+        shape = _shape(str(lay.get("geometry") or ""))
+        if not shape:
+            continue
+        for prev, prev_lay in seen:
+            overlap = len(shape & prev) / max(1, len(shape | prev))
+            if overlap >= 0.7:
+                notes.append(
+                    f"layout[{lay.get('id')}] geometry duplicates "
+                    f"layout[{prev_lay.get('id')}] ({overlap:.0%} shared)"
+                )
+                break
+        seen.append((shape, lay))
+    return notes
+
+
+def _c_role_composition(bp: dict) -> list[str]:
+    """Give some templates a non-content role.
+
+    SCENE_ROLES has 7 members and 4 were never used by any blueprint:
+    section_divider, chapter_card, statement, data_spotlight. They need no new
+    runtime plumbing — code_generator treats every non-intro/outro role as a
+    content variant carrying a role tag — so they are free structural variety.
+    """
+    content = [l for l in (bp.get("layouts") or []) if l.get("role") == "content"]
+    if len(content) < 4:
+        return []
+    pool = ("statement", "chapter_card", "section_divider", "data_spotlight")
+    role = pool[_brand_hash(bp, "role_mix") % len(pool)]
+    # Retag the least image-dependent layout, so a visual layout is never lost.
+    target = next(
+        (l for l in content if not l.get("supports_image")),
+        content[-1],
+    )
+    if target.get("role") == role:
+        return []
+    target["role"] = role
+    return [f"layout[{target.get('id')}] role -> {role!r} (structural variety)"]
+
+
+# Prose words that carry no structural meaning, so two geometries are not judged
+# similar merely for sharing them.
+_GEOMETRY_STOPWORDS = frozenset({
+    "with", "that", "this", "from", "into", "over", "under", "them", "they",
+    "which", "where", "while", "then", "than", "also", "sits", "sit", "goes",
+    "placed", "place", "using", "used", "give", "gives", "make", "makes",
+    "scene", "layout", "frame", "element", "elements", "content", "text",
+})
+
+
 _DESIGN_CONSTRAINTS: list[tuple[str, object]] = [
     (
         "This template must NOT centre its intro. The opening composition is anchored to one "
@@ -989,6 +1433,42 @@ _DESIGN_CONSTRAINTS: list[tuple[str, object]] = [
         "with real character rather than plain rules, dots or a grid.",
         _c_decor,
     ),
+    (
+        "This template must NOT open on a settling logo or close on a recap card — those are the "
+        "stock bookends. Choose an opening_move and closing_move that suit THIS brand: a cold "
+        "open on a statement, type setting itself, a rule drawing across, a full-bleed sign-off.",
+        _c_bookend_moves,
+    ),
+    (
+        "This template's era must be a deliberate choice, not the modern default — pick the era "
+        "whose typography actually matches the brand's voice, and design the type around it.",
+        _c_era,
+    ),
+    # ── Scene-set divergence ─────────────────────────────────────────────────
+    # Everything above moves the template's SKIN. These three move the scene set
+    # itself, which is where two templates were still coming out the same: the
+    # best_for vocabulary is only 8 values and the prompt demands 6+ layouts, so
+    # any two templates must share at least 4 of 6 content types. That overlap
+    # cannot be prompted away — divergence has to come from HOW MANY layouts, how
+    # they are composed, and how differently they are built.
+    (
+        "Do not settle on the usual six content layouts. Decide how many this brand actually "
+        "needs and justify it in the geometry — a brand with one thing to say earns fewer, "
+        "richer layouts; a catalogue brand earns more.",
+        _c_layout_count,
+    ),
+    (
+        "Every content layout must be built DIFFERENTLY from the others — not the same split "
+        "described in different words. If two layouts would look alike in a still frame, "
+        "redesign one of them around a different structural idea.",
+        _c_geometry_distinct,
+    ),
+    (
+        "This template punctuates: give at least one layout a non-content role (a statement "
+        "card, a chapter break, a section divider or a data spotlight) so the video has a "
+        "change of pace rather than nine equal-weight scenes.",
+        _c_role_composition,
+    ),
 ]
 
 
@@ -1011,11 +1491,31 @@ def _brand_constraint(seed: str) -> str:
     if not seed:
         return ""
     first, second = _constraint_indices(seed)
+    # This brand's layout variants. The content TYPE cannot diverge between
+    # templates without losing coverage (a template with no metrics layout sends
+    # every statistics scene to the round-robin fallback), so identity divergence
+    # lives on the variant instead: two templates may both hold "metrics" and
+    # still share no layout.
+    _variants = layout_variants_for_brand(seed)
+    _variant_lines = "".join(
+        f"    {ct} -> {v}\n" for ct, v in _variants.items()
+    )
+    _count = content_layout_target(seed)
     return (
         "NON-NEGOTIABLE DESIGN CONSTRAINTS for this brand — these override your instincts "
         "about what a video template usually looks like:\n"
         f"  1. {_DESIGN_CONSTRAINTS[first][0]}\n"
         f"  2. {_DESIGN_CONSTRAINTS[second][0]}\n"
+        f"  3. THIS TEMPLATE HAS EXACTLY {_count} CONTENT LAYOUTS (plus the intro and the\n"
+        f"     outro, so {_count + 2} layouts in total). Not fewer, not more. The count is part\n"
+        "     of the design: a brand with one thing to say earns fewer, richer layouts; a\n"
+        "     catalogue brand earns more. Every template shipping the same number is the\n"
+        "     same failure as every template shipping the same shapes.\n"
+        "  4. THIS BRAND'S LAYOUT VARIANTS. When you build a layout for one of these content\n"
+        "     types, it MUST use the variant named here — set it as the layout's `variant`\n"
+        "     field and design the geometry around it. These differ per brand on purpose:\n"
+        "     they are what stops two templates' layouts being the same object.\n"
+        f"{_variant_lines}"
         "Design the whole template so these read as deliberate character, not as bolted-on "
         "exceptions to an otherwise conventional design. They will be enforced on the output "
         "either way, so a design that ignores them will simply be overridden."
@@ -1033,6 +1533,25 @@ def enforce_brand_constraints(bp: dict, seed: str) -> list[str]:
         return []
     applied: list[str] = []
 
+    # Give the brand-seeded constraints the REAL seed for this run.
+    #
+    # They used to hash identity.name, which is not the brand: the extractor
+    # leaves it as the literal "Custom Template" on most blueprints, so every
+    # brand hashed to the same value and every "brand-seeded" pick returned the
+    # same answer. That is how _c_decor put 'rules' on five of seven templates
+    # while looking, in the code, like it was diversifying them.
+    _seed_token = _CONSTRAINT_SEED.set(seed)
+    try:
+        return _enforce(bp, seed, applied)
+    finally:
+        # Reset even if something above escaped, so a seed can never leak into
+        # the next brand's constraint run.
+        _CONSTRAINT_SEED.reset(_seed_token)
+
+
+def _enforce(bp: dict, seed: str, applied: list[str]) -> list[str]:
+    """The constraint passes themselves, with _CONSTRAINT_SEED already set."""
+
     def _apply(idx: int) -> None:
         _text, fn = _DESIGN_CONSTRAINTS[idx]
         try:
@@ -1044,6 +1563,31 @@ def enforce_brand_constraints(bp: dict, seed: str) -> list[str]:
     first, second = _constraint_indices(seed)
     _apply(first)
     _apply(second)
+
+    # The bookend moves are applied UNCONDITIONALLY, not left to the two-of-N
+    # draw above. Every other axis is one of many a viewer might notice; the
+    # opening and closing moves are the first and last thing they see, and they
+    # were measured at a 100% collapse (logo_settle / recap_card on 7 of 7
+    # stored blueprints). Leaving them to the lottery still left ~60% of brands
+    # on the default close, because the score-driven loop below stops as soon as
+    # the design clears the threshold and often never reaches this constraint.
+    # _c_bookend_moves is a no-op when the model already chose something else,
+    # so this only ever replaces a default.
+    for _idx, (_text, _fn) in enumerate(_DESIGN_CONSTRAINTS):
+        if _fn is _c_bookend_moves and _idx not in (first, second):
+            _apply(_idx)
+            break
+
+    # The layout COUNT is applied unconditionally for the same reason, and one
+    # more: the prompt now names an exact number for EVERY brand, so leaving
+    # enforcement to the two-of-16 draw meant the instruction was checked on only
+    # ~25% of templates and silently ignored on the rest. An instruction that is
+    # usually unenforced is worse than no instruction — the model learns nothing
+    # from it and the count drifts back to the minimum.
+    for _idx, (_text, _fn) in enumerate(_DESIGN_CONSTRAINTS):
+        if _fn is _c_layout_count and _idx not in (first, second):
+            _apply(_idx)
+            break
 
     # Two constraints move a design but do not always pull a fully generic one
     # under the threshold — measured at 3 of 8 brands still scoring >= 6 when the
@@ -1099,6 +1643,16 @@ def blueprint_fingerprint(bp: dict) -> str:
         f"close={(be.get('outro') or {}).get('closing_move')}",
         f"arc={(be.get('intro') or {}).get('energy')}>{(be.get('outro') or {}).get('energy')}",
         "treat=" + ",".join(sorted({str(l.get("image_treatment")) for l in content})),
+        # ── The SCENE SET ────────────────────────────────────────────────────
+        # Every axis above describes the template's skin. Two templates with
+        # completely different skins could still ship an identical set of scenes,
+        # and the fingerprint would call them distinct — which is exactly how a
+        # scene-level collapse stayed invisible while the divergence tests passed.
+        f"n={len(content)}",
+        "bf=" + ",".join(sorted(x for l in content for x in (l.get("best_for") or []))),
+        "roles=" + ",".join(
+            sorted({str(l.get("role")) for l in (bp.get("layouts") or [])})
+        ),
     ]
     return "|".join(parts)
 
@@ -1134,10 +1688,47 @@ def _house_style_score(bp: dict) -> tuple[int, list[str]]:
         "energy"
     ) == "quiet":
         hits.append("loud-open/quiet-close (the stock arc)")
+    # The bookend MOVES, not just the energy arc. Measured across every stored
+    # blueprint: 7 of 7 used opening_move=logo_settle and closing_move=recap_card
+    # — a 100% collapse on the two seconds of a video a viewer registers first
+    # and last. It went unnoticed because this scorer only counted the energy
+    # arc above, so enforce_brand_constraints never fired on this axis. These
+    # are the _pick() defaults at the intro/outro coercion, so a model that
+    # simply omits them lands here every time.
+    if (be.get("intro") or {}).get("opening_move") == "logo_settle":
+        hits.append("opening_move=logo_settle (the default)")
+    if (be.get("outro") or {}).get("closing_move") == "recap_card":
+        hits.append("closing_move=recap_card (the default)")
     if (ident.get("decor_system") or "") in ("rules", "none", "grid", "dots"):
         hits.append(f"safe decor system {ident.get('decor_system')!r}")
     if len({str(l.get("surface")) for l in content}) <= 1:
         hits.append("one surface treatment across every content layout")
+
+    # ── Scene-set genericness ────────────────────────────────────────────────
+    # The 11 traits above are all skin. A blueprint could score ZERO on them and
+    # still ship the default scene set, which is what made the collapse the user
+    # reported invisible to this scorer.
+    if content:
+        # Count every non-bookend layout, not just role="content": a template
+        # that turned one scene into a statement card still has the same NUMBER
+        # of scenes, so counting only content layouts would score it as having
+        # made a size decision it did not make.
+        _body = [
+            l for l in (bp.get("layouts") or [])
+            if str(l.get("role")) not in ("intro", "outro")
+        ]
+        if len(_body) == 6:
+            # 6 is the prompt's stated floor, so it is also the model's default
+            # answer — landing there is a non-decision far more often than it is
+            # a design.
+            hits.append("exactly the minimum six content layouts (the default count)")
+        _bf = [tuple(sorted(l.get("best_for") or [])) for l in content]
+        if len({b for b in _bf if b}) <= max(2, len(content) // 3):
+            hits.append("content layouts collapse onto very few best_for signatures")
+        if all(str(l.get("role")) == "content" for l in (bp.get("layouts") or [])
+               if str(l.get("role")) not in ("intro", "outro")):
+            hits.append("every non-bookend layout is a plain content scene (no punctuation)")
+
     return len(hits), hits
 
 
@@ -1145,7 +1736,14 @@ def _house_style_score(bp: dict) -> tuple[int, list[str]]:
 # house style rather than a design and is regenerated. Tuned deliberately high:
 # a false positive costs one extra LLM call, but rejecting real designs that
 # happen to be conventional would be worse than the bug being fixed.
-HOUSE_STYLE_REJECT_AT = 6
+#
+# Raised 6 -> 7 when the three SCENE-SET traits were added. The pool went from 11
+# traits to 14, so holding the threshold at 6 would have quietly made the gate
+# stricter — a blueprint with an unremarkable scene set now picks up hits it
+# could not have scored before. 7 keeps roughly the same proportion of the pool
+# (6/11 ~= 7/14) so the change measures the new axis without also retuning the
+# old one.
+HOUSE_STYLE_REJECT_AT = 7
 
 
 def generate_blueprint(

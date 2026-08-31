@@ -1,20 +1,44 @@
 /**
  * Custom-template craft kit — FitText.
  *
- * A deterministic, render-safe auto-fit text block. AI-generated scenes use this
- * for headlines, big numerals and any text that must not overshoot its box, so a
- * long title in landscape OR a narrow portrait canvas can never spill or clip.
+ * A render-safe auto-fit text block. AI-generated scenes use this for headlines,
+ * big numerals and any text that must not overshoot its box, so a long title in
+ * landscape OR a narrow portrait canvas can never spill or clip.
  *
- * Why not @remotion/layout-utils fitText()? That needs imports + a loaded-font
- * measurement pass, neither of which is available in the sandboxed eval scope
- * that runs generated scene code. Instead we estimate a safe size deterministically
- * from the character count and the available width (canvas-derived), then back it
- * up with structural overflow guards (minWidth:0 + overflowWrap). Same frame =
- * same output, no async, identical in preview and headless render.
+ * MEASURES THE REAL DOM. Earlier versions estimated the size from the character
+ * count alone (size = boxWidth * maxLines / (len * 0.58)). That estimate was
+ * systematically pessimistic — the 0.58 advance ratio sits ~15% above the real
+ * average for most faces, and any caller passing `maxHeight` without
+ * `containerWidth` overestimated the width solve and then over-corrected through
+ * the height loop. The visible result was type far smaller than the box it sat
+ * in: exactly the whitespace the built-in templates never show, because they
+ * measure `scrollHeight` instead of guessing.
+ *
+ * So this now does what newspaper/nightfall's `useFitText` does — grow to the
+ * ceiling, then step down until the text actually fits — with the same three
+ * render-safety guarantees, which are NOT optional:
+ *
+ *   1. delayRender()/continueRender() so the headless capturer waits for the
+ *      size to settle and the MP4 matches the Player.
+ *   2. The continueRender is deferred through requestAnimationFrame. setState
+ *      schedules a React re-render, but a synchronous release would fire before
+ *      React commits, and the capturer would grab the frame at the OLD size.
+ *   3. A document.fonts.ready fallback for the headless path, where the first
+ *      layout pass happens before webfonts resolve and every probe reads 0.
+ *
+ * The character-count estimator is kept as the seed and as the fallback for when
+ * measurement is impossible (detached node, zero-height box). A failed measure
+ * must still render readable text, never unsized text.
+ *
+ * STABILITY: the fit runs once per (text, box, desired) tuple, not per frame.
+ * Generated scenes animate freely — including layout — so re-measuring every
+ * frame would let the size drift mid-scene. Newspaper records a real failure of
+ * exactly that kind (a bidirectional loop settling differently on different
+ * frames), which is why the measurement here is one-directional and keyed.
  */
 
 import React from "react";
-import { useVideoConfig } from "remotion";
+import { useVideoConfig, delayRender, continueRender } from "remotion";
 import { useKit } from "./context";
 
 export interface FitTextProps {
@@ -67,11 +91,17 @@ export interface FitTextProps {
 
 /** Average glyph advance as a fraction of font size (empirical for typical UI/serif faces).
  *
- * Deliberately pessimistic: display serifs, heavy weights, uppercase settings and
- * positive letter-spacing all push real advance above this, and underestimating
- * width is what lets text overflow. Being wrong in the "shrink slightly too much"
- * direction is invisible; being wrong the other way breaks the frame. */
-const AVG_CHAR_WIDTH_RATIO = 0.58;
+ * Used only to SEED the measured fit, and as the fallback when the DOM cannot be
+ * measured. It was 0.58 while it was the whole algorithm — deliberately
+ * pessimistic, because an underestimate overflowed the frame while an
+ * overestimate was assumed invisible. It was not invisible: it is the direct
+ * cause of the "type is far too small in the render" report.
+ *
+ * Now that a real `scrollHeight` pass catches genuine overflow, the seed is set
+ * near the true average advance (~0.5 for common sans and serif text faces)
+ * rather than above it. Overshoot is corrected by measurement; undershoot used
+ * to be permanent. */
+const AVG_CHAR_WIDTH_RATIO = 0.5;
 
 /** Character count of the longest single word — a word cannot be split across
  * lines without breaking mid-word, so it sets its own width ceiling. */
@@ -171,22 +201,182 @@ export const FitText: React.FC<FitTextProps> = ({
   // Grow ceiling. Short text may exceed the target — otherwise a two-word
   // headline sits at the size chosen for a full sentence — but never past what
   // the frame can hold, so it is capped against the canvas height too.
-  const ceiling = maxFontSize ?? Math.min(Math.round(desired * 1.6), Math.round(height * 0.18));
+  const ceiling = Math.max(
+    floor,
+    maxFontSize ?? Math.min(Math.round(desired * 1.6), Math.round(height * 0.18)),
+  );
   // Prefer the real container width; fall back to the canvas estimate.
   const boxWidth = containerWidth && containerWidth > 0 ? containerWidth : width * widthFraction;
-  const size = estimateFitSize(
-    textOf(children),
+
+  const text = textOf(children);
+  // The estimate is the seed: it is what paints on the very first frame and what
+  // stands if measurement turns out to be impossible.
+  const seed = estimateFitSize(
+    text,
     boxWidth,
     desired,
     floor,
-    Math.max(floor, ceiling),
+    ceiling,
     maxLines,
     maxHeight,
     lineHeight,
   );
 
+  const ref = React.useRef<HTMLElement | null>(null);
+  const handleRef = React.useRef<number | null>(null);
+
+  // Re-fit only when something that changes the answer changes. Notably NOT the
+  // frame: generated scenes animate transforms and opacity continuously, and a
+  // per-frame re-measure would let the size drift mid-scene.
+  const fitKey = `${text}|${boxWidth}|${desired}|${floor}|${ceiling}|${maxLines}|${maxHeight ?? 0}|${lineHeight}`;
+
+  // The measured size, tagged with the key it was measured for. Storing the key
+  // alongside the value is what makes a stale measurement impossible to paint:
+  // when the key changes, the seed for the NEW inputs is used immediately rather
+  // than the size that was fitted for the old ones.
+  const [fit, setFit] = React.useState<{ key: string; px: number }>({
+    key: fitKey,
+    px: seed,
+  });
+  const size = fit.key === fitKey ? fit.px : seed;
+
+  React.useLayoutEffect(() => {
+    const el = ref.current;
+    // No node to measure (SSR pass, detached) — the seed estimate stands.
+    if (!el || typeof window === "undefined") return;
+
+    if (handleRef.current === null) {
+      handleRef.current = delayRender("kit-fit-text");
+    }
+    let cancelled = false;
+    const release = () => {
+      if (handleRef.current !== null) {
+        continueRender(handleRef.current);
+        handleRef.current = null;
+      }
+    };
+
+    const measure = () => {
+      if (cancelled || !el.isConnected) {
+        release();
+        return;
+      }
+
+      // Probe the element's true content height at a given size, off the normal
+      // flow so a flex parent cannot pin it and report a clipped height.
+      const saved = {
+        position: el.style.position,
+        visibility: el.style.visibility,
+        flex: el.style.flex,
+        width: el.style.width,
+        height: el.style.height,
+        maxHeight: el.style.maxHeight,
+        minHeight: el.style.minHeight,
+        overflow: el.style.overflow,
+        fontSize: el.style.fontSize,
+      };
+      const probeWidth = el.clientWidth || boxWidth;
+
+      const naturalHeight = (px: number): number => {
+        el.style.position = "absolute";
+        el.style.visibility = "hidden";
+        el.style.flex = "none";
+        el.style.width = `${probeWidth}px`;
+        el.style.height = "auto";
+        el.style.maxHeight = "none";
+        el.style.minHeight = "0";
+        el.style.overflow = "visible";
+        el.style.fontSize = `${px}px`;
+        const h = el.scrollHeight;
+        el.style.position = saved.position;
+        el.style.visibility = saved.visibility;
+        el.style.flex = saved.flex;
+        el.style.width = saved.width;
+        el.style.height = saved.height;
+        el.style.maxHeight = saved.maxHeight;
+        el.style.minHeight = saved.minHeight;
+        el.style.overflow = saved.overflow;
+        el.style.fontSize = saved.fontSize;
+        return h;
+      };
+
+      // Fonts have not resolved yet — every probe reads 0 and any size would
+      // "fit". Bail to the fonts.ready path rather than locking in a wrong fit.
+      if (naturalHeight(ceiling) === 0) {
+        release();
+        return;
+      }
+
+      // The height budget. An explicit maxHeight wins; otherwise use the box the
+      // element actually occupies, and fall back to maxLines worth of the seed
+      // when even that is unknown (an auto-height parent).
+      const budget =
+        maxHeight && maxHeight > 0
+          ? maxHeight
+          : el.clientHeight > 0
+            ? el.clientHeight
+            : Math.round(seed * lineHeight * maxLines);
+      // +2px for sub-pixel rounding.
+      const capacity = budget + 2;
+
+      // Largest size in [floor, ceiling] that still fits, by binary search.
+      //
+      // Searching from the CEILING down (rather than from the target, the way
+      // the built-in single-purpose fitters do) is what lets short copy grow to
+      // fill its box instead of sitting at a size chosen for a full sentence.
+      // But that span can be 100+ px, and each probe forces a synchronous
+      // reflow — a linear walk would cost 100+ reflows per text block, on every
+      // text block in the scene. Bisection makes it ~7 and is exact here because
+      // "fits" is monotonic in size.
+      let next: number;
+      if (naturalHeight(ceiling) <= capacity) {
+        next = ceiling;
+      } else {
+        let lo = floor;
+        let hi = ceiling;
+        // Invariant: lo fits (or is the floor, which we take regardless), hi does not.
+        while (hi - lo > 1) {
+          const mid = Math.floor((lo + hi) / 2);
+          if (naturalHeight(mid) <= capacity) lo = mid;
+          else hi = mid;
+        }
+        next = lo;
+      }
+      next = Math.max(floor, Math.min(ceiling, next));
+
+      if (!cancelled) {
+        const px = next;
+        setFit((prev) => (prev.key === fitKey && prev.px === px ? prev : { key: fitKey, px }));
+      }
+      // Deferred so the release lands AFTER React commits and the browser
+      // paints the new size — see the header note.
+      requestAnimationFrame(() => release());
+    };
+
+    const fontsObj = (document as Document & { fonts?: FontFaceSet }).fonts;
+    if (el.clientHeight > 0) {
+      // Fonts already loaded (the usual Player case) — measure synchronously so
+      // frame 0 paints at the fitted size with no visible reflow.
+      measure();
+    } else if (fontsObj?.ready) {
+      fontsObj.ready.then(() => {
+        if (!cancelled) measure();
+      });
+    } else {
+      measure();
+    }
+
+    return () => {
+      cancelled = true;
+      // The handle must always be released, or the render hangs on this scene.
+      release();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fitKey]);
+
   return (
     <Tag
+      ref={ref as React.Ref<HTMLElement>}
       style={{
         fontSize: size,
         lineHeight,
@@ -212,6 +402,24 @@ export const FitText: React.FC<FitTextProps> = ({
         whiteSpace: "normal",
         minWidth: 0,
         maxWidth: "100%",
+        // LAST-RESORT CONTAINMENT.
+        //
+        // The binary search clamps its answer to [floor, ceiling]. When even
+        // `floor` overflows the budget, that size is committed and painted —
+        // and with no vertical bound the text escaped DOWNWARD, over whatever
+        // sat below it, until the scene root's overflow:hidden cut it off. That
+        // is how a long quote shipped clipped mid-sentence.
+        //
+        // Shrinking further is not the answer: below the floor the text is
+        // illegible, so it would be unreadable instead of clipped. Containing
+        // it keeps the failure inside this element's own box rather than
+        // corrupting the rest of the composition.
+        //
+        // The measurement probe saves and restores maxHeight/overflow around
+        // its pass (see naturalHeight), so this does not affect fitting.
+        ...(maxHeight && maxHeight > 0
+          ? { maxHeight, overflow: "hidden" }
+          : null),
       }}
     >
       {children}

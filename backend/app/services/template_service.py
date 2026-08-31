@@ -594,9 +594,20 @@ def get_composition_id(template_id: str) -> str:
     return meta.get("composition_id", "DefaultVideo")
 
 
-def get_preview_colors(template_id: str) -> dict[str, str] | None:
-    """Get preview_colors (accent, bg, text) for template. None = use request defaults."""
-    meta = _load_meta(template_id)
+def get_preview_colors(
+    template_id: str,
+    db: Session | None = None,
+    user_id: int | None = None,
+) -> dict[str, str] | None:
+    """Get preview_colors (accent, bg, text) for template. None = use request defaults.
+
+    `db`/`user_id` are REQUIRED for a custom template: its meta is built from the
+    DB, not read off disk, so without a session `_load_meta` returns None and this
+    reports "no colours" for every custom template. Callers then fell back to the
+    app default accent (#7C3AED) and persisted it on the project — which is how a
+    Careem video rendered purple.
+    """
+    meta = _load_meta(template_id, db=db, user_id=user_id)
     if not meta:
         return None
     pc = meta.get("preview_colors")

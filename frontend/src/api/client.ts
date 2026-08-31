@@ -1919,7 +1919,22 @@ export type TransitionStyle =
   | "ink_bleed";
 
 export interface CustomTemplateTheme {
-  colors: { accent: string; bg: string; text: string; surface: string; muted: string; bg2?: string };
+  /** EXACTLY three brand colours. Panels, borders and muted label text are
+   *  DERIVED from bg+text by the render kit (derivePalette), so storing more
+   *  only invited off-brand hues that nothing rendered.
+   *
+   *  `surface`/`muted` are optional ONLY for backward compatibility: themes
+   *  extracted before this change still carry them, and must keep loading.
+   *  Never read them — use `themeSurface()` / `themeMuted()` in
+   *  utils/themeColors.ts, which derive the same values from bg+text. */
+  colors: {
+    accent: string;
+    bg: string;
+    text: string;
+    bg2?: string;
+    /** @deprecated legacy — derived now. */ surface?: string;
+    /** @deprecated legacy — derived now. */ muted?: string;
+  };
   fonts: { heading: string; body: string; mono: string };
   borderRadius: number;
   style: string;
@@ -2067,6 +2082,17 @@ export interface CodeGenStatus {
   step: string;
   running: boolean;
   error: string | null;
+  /** Durable run fields — present once a template has a staged generation run.
+   *  Absent for templates generated before staging, so all are optional. */
+  stage?: string;
+  run_id?: number;
+  scenes_done?: number;
+  scenes_total?: number;
+  /** False while `scenes_total` is the PROVISIONAL count published ~8s in,
+   *  before the blueprint authors its own layouts. The blueprint picks a
+   *  brand-seeded 6-8 content layouts, so the authoritative total can differ —
+   *  showing the early figure made the counter visibly jump (8 -> 9) mid-run. */
+  scenes_total_final?: boolean;
 }
 
 export const getCodeGenerationStatus = (templateId: number) =>
@@ -2156,8 +2182,17 @@ export interface SceneEditStatus {
   status: "queued" | "generating" | "complete" | "error" | "unknown";
   step: string;
   running: boolean;
+  /** User-facing text. For an exhausted retry this is plain language, NOT the
+   *  validator trace — that is on `detail`, for support. */
   error: string | null;
+  /** Raw diagnostic. Never render this; keep it for a title attribute / logs. */
+  detail?: string | null;
+  /** True when every repair attempt was used without producing valid code. */
+  exhausted?: boolean;
   draft_version_id: number | null;
+  /** Echoed back so a client that polled WITHOUT an id (re-attaching after the
+   *  modal was closed) can keep polling the same job. */
+  edit_id?: string;
 }
 
 export interface SceneDraft {
@@ -2174,16 +2209,25 @@ export interface SceneDraft {
 export const aiEditScene = (
   templateId: number,
   sceneKey: string,
-  data: { prompt: string; keep_geometry?: boolean }
+  /** `prompt` may be empty ONLY with from_blueprint, which rebuilds the scene
+   *  from its stored blueprint layout instead of editing the current code. */
+  data: { prompt: string; keep_geometry?: boolean; from_blueprint?: boolean }
 ) =>
   api.post<{ edit_id: string; template_id: number; scene_key: string }>(
     `/custom-templates/${templateId}/scenes/${sceneKey}/ai-edit`,
     data
   );
 
-export const getSceneEditStatus = (templateId: number, sceneKey: string, editId: string) =>
+/** `editId` is optional: omit it to ask "is anything running for this scene?",
+ *  which is how a reopened modal re-attaches to a retry it already started. */
+export const getSceneEditStatus = (
+  templateId: number,
+  sceneKey: string,
+  editId?: string,
+) =>
   api.get<SceneEditStatus>(
-    `/custom-templates/${templateId}/scenes/${sceneKey}/ai-edit/status?edit_id=${encodeURIComponent(editId)}`
+    `/custom-templates/${templateId}/scenes/${sceneKey}/ai-edit/status` +
+      (editId ? `?edit_id=${encodeURIComponent(editId)}` : "")
   );
 
 export const getSceneDraft = (templateId: number, sceneKey: string) =>

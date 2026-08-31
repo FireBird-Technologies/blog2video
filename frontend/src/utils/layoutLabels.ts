@@ -45,7 +45,10 @@ export function getSceneLayoutLabel(
   layoutId: string | null | undefined,
   fallbackLabel?: string
 ): string {
-  if (!layoutId) return fallbackLabel ?? "Current layout";
+  // No id means the scene's layout could not be resolved at all. "Current
+  // layout" reads like the name of a real layout, which is how an unresolved
+  // intro/outro looked like a deliberate choice rather than a lookup failure.
+  if (!layoutId) return fallbackLabel ?? "Default layout";
 
   if (isNewscastTemplate(templateId)) {
     const canonicalId = LEGACY_NEWSCAST_LAYOUT_ALIASES[layoutId] ?? layoutId;

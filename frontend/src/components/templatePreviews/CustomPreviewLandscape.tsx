@@ -1,3 +1,4 @@
+import { themeSurface, themeMuted } from "../../utils/themeColors";
 import { useState, useEffect, useRef } from "react";
 import type { CustomTemplateTheme } from "../../api/client";
 import CustomPreview from "./CustomPreview";
@@ -30,9 +31,9 @@ function ScaledCanvas({ children }: { children: React.ReactNode }) {
 
 function bg(theme: CustomTemplateTheme): React.CSSProperties {
   const s = theme.style;
-  if (s === "glass") return { background: `linear-gradient(135deg, ${theme.colors.bg}ee, ${theme.colors.surface}cc)` };
+  if (s === "glass") return { background: `linear-gradient(135deg, ${theme.colors.bg}ee, ${themeSurface(theme)}cc)` };
   if (s === "neon") return { background: theme.colors.bg, boxShadow: `inset 0 0 100px ${theme.colors.accent}10` };
-  if (s === "soft") return { background: `linear-gradient(135deg, ${theme.colors.bg}, ${theme.colors.surface})` };
+  if (s === "soft") return { background: `linear-gradient(135deg, ${theme.colors.bg}, ${themeSurface(theme)})` };
   return { background: theme.colors.bg };
 }
 
@@ -108,7 +109,7 @@ function SlideCinematic({ active, theme, name }: { active: boolean; theme: Custo
 
         {/* Subtitle with typing line */}
         <div style={{
-          fontSize: 14, color: theme.colors.muted, fontFamily: `${theme.fonts.body}, system-ui, sans-serif`,
+          fontSize: 14, color: themeMuted(theme), fontFamily: `${theme.fonts.body}, system-ui, sans-serif`,
           opacity: phase >= 3 ? 1 : 0, transform: phase >= 3 ? "translateY(0)" : "translateY(12px)",
           transition: "all 0.5s ease",
           display: "flex", alignItems: "center", gap: 8,
@@ -122,7 +123,7 @@ function SlideCinematic({ active, theme, name }: { active: boolean; theme: Custo
           display: "flex", gap: 6, marginTop: 20,
           opacity: phase >= 4 ? 1 : 0, transition: "opacity 0.5s ease",
         }}>
-          {[theme.colors.accent, theme.colors.bg, theme.colors.text, theme.colors.surface, theme.colors.muted].map((c, i) => (
+          {[theme.colors.accent, theme.colors.bg, theme.colors.text, themeSurface(theme), themeMuted(theme)].map((c, i) => (
             <div key={i} style={{
               width: 18, height: 18, borderRadius: 4,
               backgroundColor: c, border: `1.5px solid ${theme.colors.text}10`,
@@ -176,7 +177,7 @@ function SlideMetrics({ active, theme }: { active: boolean; theme: CustomTemplat
   }, [phase]);
 
   const a = theme.colors.accent;
-  const card = theme.colors.surface;
+  const card = themeSurface(theme);
 
   return (
     <div style={{ width: "100%", height: "100%", position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 44px", ...bg(theme) }}>
@@ -217,7 +218,7 @@ function SlideMetrics({ active, theme }: { active: boolean; theme: CustomTemplat
             }}>
               {i === 1 ? counts[i].toFixed(1) : Math.round(counts[i])}{suffixes[i]}
             </div>
-            <div style={{ fontSize: 11, color: theme.colors.muted, marginTop: 6, fontFamily: `${theme.fonts.body}, sans-serif`, fontWeight: 500 }}>
+            <div style={{ fontSize: 11, color: themeMuted(theme), marginTop: 6, fontFamily: `${theme.fonts.body}, sans-serif`, fontWeight: 500 }}>
               {labels[i]}
             </div>
             {/* Progress bar */}
@@ -244,11 +245,11 @@ function SlideCode({ active, theme }: { active: boolean; theme: CustomTemplateTh
   const [lines, setLines] = useState(0);
 
   const codeLines = [
-    { tokens: [{ text: "const ", color: theme.colors.muted }, { text: "video", color: theme.colors.text }, { text: " = ", color: theme.colors.muted }, { text: "await ", color: theme.colors.accent }, { text: "generate", color: theme.colors.text }, { text: "(", color: theme.colors.muted }] },
-    { tokens: [{ text: "  brand", color: theme.colors.text }, { text: ": ", color: theme.colors.muted }, { text: `"${theme.fonts.heading}"`, color: theme.colors.accent }] },
-    { tokens: [{ text: "  style", color: theme.colors.text }, { text: ": ", color: theme.colors.muted }, { text: `"${theme.style}"`, color: theme.colors.accent }] },
-    { tokens: [{ text: "  scenes", color: theme.colors.text }, { text: ": ", color: theme.colors.muted }, { text: "12", color: theme.colors.accent }, { text: ",", color: theme.colors.muted }] },
-    { tokens: [{ text: ")", color: theme.colors.muted }] },
+    { tokens: [{ text: "const ", color: themeMuted(theme) }, { text: "video", color: theme.colors.text }, { text: " = ", color: themeMuted(theme) }, { text: "await ", color: theme.colors.accent }, { text: "generate", color: theme.colors.text }, { text: "(", color: themeMuted(theme) }] },
+    { tokens: [{ text: "  brand", color: theme.colors.text }, { text: ": ", color: themeMuted(theme) }, { text: `"${theme.fonts.heading}"`, color: theme.colors.accent }] },
+    { tokens: [{ text: "  style", color: theme.colors.text }, { text: ": ", color: themeMuted(theme) }, { text: `"${theme.style}"`, color: theme.colors.accent }] },
+    { tokens: [{ text: "  scenes", color: theme.colors.text }, { text: ": ", color: themeMuted(theme) }, { text: "12", color: theme.colors.accent }, { text: ",", color: themeMuted(theme) }] },
+    { tokens: [{ text: ")", color: themeMuted(theme) }] },
   ];
 
   useEffect(() => {
@@ -322,14 +323,14 @@ function SlideCode({ active, theme }: { active: boolean; theme: CustomTemplateTh
         transition: "all 0.6s cubic-bezier(0.16,1,0.3,1)",
       }}>
         <div style={{
-          width: "100%", borderRadius: theme.borderRadius, backgroundColor: theme.colors.surface,
+          width: "100%", borderRadius: theme.borderRadius, backgroundColor: themeSurface(theme),
           border: `1px solid ${theme.colors.text}08`, padding: "20px 16px", textAlign: "center",
         }}>
           <div style={{ width: 32, height: 32, borderRadius: "50%", backgroundColor: `${a}20`, margin: "0 auto 10px", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <div style={{ width: 14, height: 14, borderRadius: "50%", backgroundColor: a }} />
           </div>
           <div style={{ fontSize: 13, fontWeight: 700, color: theme.colors.text, fontFamily: `${theme.fonts.heading}, sans-serif`, marginBottom: 4 }}>Ready</div>
-          <div style={{ fontSize: 10, color: theme.colors.muted, fontFamily: `${theme.fonts.body}, sans-serif` }}>12 scenes generated</div>
+          <div style={{ fontSize: 10, color: themeMuted(theme), fontFamily: `${theme.fonts.body}, sans-serif` }}>12 scenes generated</div>
           <div style={{
             marginTop: 12, padding: "6px 14px", borderRadius: theme.borderRadius / 2,
             backgroundColor: a, color: theme.colors.bg, fontSize: 11, fontWeight: 700,

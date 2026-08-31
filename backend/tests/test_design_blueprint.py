@@ -366,3 +366,82 @@ def test_layout_for_scene_routing() -> None:
 )
 def test_json_extraction_tolerates_llm_slop(raw: str) -> None:
     assert _extract_json_object(raw) == {"a": 1}
+
+
+# ── best_for inference (layout content affinity) ─────────────────────────────
+#
+# Measured on all seven stored blueprint-era templates: EVERY content layout
+# had best_for=["plain"], including ones the model itself named metrics_row_4up,
+# quote_center_red and bullets_sidebar_left. The prompt named the field but its
+# legal values appeared nowhere, so every guess was filtered out and the default
+# took over. Downstream that collapses content matching to round-robin and makes
+# every preview scene render the same placeholder copy.
+
+
+@pytest.mark.parametrize(
+    "layout_id,expected",
+    [
+        ("metrics_row_4up", "metrics"),
+        ("stat_spotlight_large", "metrics"),
+        ("quote_center_red", "quote"),
+        ("rider_voices", "quote"),
+        ("bullets_sidebar_left", "bullets"),
+        ("feature_list_stack", "bullets"),
+        ("milestone_timeline", "timeline"),
+        ("journey_horizontal", "timeline"),
+        ("station_steps", "steps"),
+        ("how_it_works_3up", "steps"),
+        ("service_tiers", "comparison"),
+        ("code_snippet_dark", "code"),
+    ],
+)
+def test_best_for_is_inferred_from_the_layouts_own_name(layout_id, expected) -> None:
+    from app.dspy_modules.blueprint import _infer_best_for
+
+    assert _infer_best_for(layout_id, "") == [expected]
+
+
+def test_best_for_inference_falls_back_to_geometry_then_gives_up() -> None:
+    from app.dspy_modules.blueprint import _infer_best_for
+
+    assert _infer_best_for("layout_2", "Four large metric figures across the top") == ["metrics"]
+    # Nothing to go on — the caller's "plain" default is correct here.
+    assert _infer_best_for("layout_2", "A calm split with copy on the left") == []
+
+
+def test_a_blueprint_with_no_best_for_still_gets_varied_affinity() -> None:
+    """The end-to-end shape of the bug: named layouts, no best_for supplied."""
+    raw = _blueprint(
+        layouts=[
+            {
+                "id": "intro",
+                "role": "intro",
+                "geometry": "A centred brand lockup with the mark above the headline and space around it.",
+            },
+            *[
+                {
+                    "id": lid,
+                    "role": "content",
+                    "geometry": f"A distinct composition for {lid} filling the frame with its own structure.",
+                }
+                for lid in (
+                    "metrics_row_4up",
+                    "quote_center_red",
+                    "bullets_sidebar_left",
+                    "milestone_timeline",
+                    "split_image_left",
+                )
+            ],
+            {
+                "id": "outro",
+                "role": "outro",
+                "geometry": "A calm sign-off with the brand mark low in the frame and room for a CTA.",
+            },
+        ]
+    )
+    bp, _ = validate_blueprint(raw, seed="cat|style|Brand")
+    tags = {
+        l["best_for"][0] for l in bp["layouts"] if l["role"] == "content" and l.get("best_for")
+    }
+    assert len(tags) >= 3, f"content affinity collapsed: {tags}"
+    assert "metrics" in tags and "quote" in tags

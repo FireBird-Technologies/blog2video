@@ -53,13 +53,15 @@ export const Masthead: React.FC<MastheadProps> = ({
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const { palette, isPortrait, fonts } = useKit();
+  const { palette, isPortrait, fonts, type } = useKit();
 
   const appear = progressAt(frame, revealFrame, Math.round(fps * 0.5));
   const ruleW = drawProgress(frame, revealFrame + 4, Math.round(fps * 0.6));
   if (appear <= 0) return null;
 
-  const fontSize = isPortrait ? 20 : 22;
+  // On the scale (type.micro), not a raw 20/22 literal — chrome has to follow
+  // the body slider like everything else.
+  const fontSize = type.micro;
 
   return (
     <div
@@ -114,7 +116,7 @@ export const Masthead: React.FC<MastheadProps> = ({
           flexShrink: 0,
           color: palette.muted,
           fontFamily: fonts.body ?? "inherit",
-          fontSize: fontSize - 2,
+          fontSize: Math.round(fontSize * 0.9),
           letterSpacing: "0.12em",
           textTransform: "uppercase",
         }}
@@ -147,7 +149,7 @@ export const SectionDivider: React.FC<SectionDividerProps> = ({
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const { palette, isPortrait, fonts } = useKit();
+  const { palette, isPortrait, fonts, type } = useKit();
 
   const p = progressAt(frame, 0, Math.round(fps * 0.7));
   const draw = drawProgress(frame, 2, Math.round(fps * 0.8));
@@ -190,9 +192,10 @@ export const SectionDivider: React.FC<SectionDividerProps> = ({
       {numeral && (
         <div
           style={{
-            color: palette.accent,
+            // Large, but still type the viewer reads.
+            color: palette.accentText,
             fontFamily: fonts.heading ?? "inherit",
-            fontSize: isPortrait ? 140 : 180,
+            fontSize: Math.round(type.numeral * (isPortrait ? 1.6 : 1.7)),
             fontWeight: 800,
             lineHeight: 1,
             letterSpacing: "-0.03em",
@@ -218,7 +221,10 @@ export const SectionDivider: React.FC<SectionDividerProps> = ({
               variant === "wordmark"
                 ? (fonts.heading ?? "inherit")
                 : (fonts.body ?? "inherit"),
-            fontSize: variant === "wordmark" ? (isPortrait ? 56 : 68) : isPortrait ? 26 : 30,
+            fontSize:
+              variant === "wordmark"
+                ? Math.round(type.title * 0.8)
+                : Math.round(type.label * 1.15),
             fontWeight: variant === "wordmark" ? 700 : 500,
             letterSpacing: variant === "wordmark" ? "-0.01em" : "0.16em",
             textTransform: variant === "wordmark" ? "none" : "uppercase",
@@ -258,10 +264,10 @@ export const DropCap: React.FC<DropCapProps> = ({
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const { palette, isPortrait, fonts } = useKit();
+  const { palette, isPortrait, fonts, type } = useKit();
 
   const p = progressAt(frame, 0, Math.round(fps * 0.5));
-  const size = fontSize ?? (isPortrait ? 84 : 104) * (lines / 3);
+  const size = fontSize ?? Math.round(type.hero * 0.95 * (lines / 3));
   const letter = (char || "").trim().charAt(0);
   if (!letter) return null;
 
@@ -307,7 +313,7 @@ export const DropCap: React.FC<DropCapProps> = ({
     );
   }
 
-  return <span style={{ ...base, color: palette.accent }}>{letter}</span>;
+  return <span style={{ ...base, color: palette.accentText }}>{letter}</span>;
 };
 
 // ─── Panel number ────────────────────────────────────────────────────────────
@@ -346,7 +352,7 @@ export const PanelNumber: React.FC<PanelNumberProps> = ({
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const { palette, isPortrait, fonts } = useKit();
+  const { palette, isPortrait, fonts, type } = useKit();
 
   const p = progressAt(frame, 3, Math.round(fps * 0.4));
   if (p <= 0) return null;
@@ -384,12 +390,12 @@ export const PanelNumber: React.FC<PanelNumberProps> = ({
         color: palette.muted,
         fontFamily: fonts.body ?? "inherit",
         fontVariantNumeric: "tabular-nums",
-        fontSize: isPortrait ? 20 : 22,
+        fontSize: type.micro,
         letterSpacing: "0.1em",
         pointerEvents: "none",
       }}
     >
-      <span style={{ color: palette.accent, fontWeight: 700 }}>{shown}</span>
+      <span style={{ color: palette.accentText, fontWeight: 700 }}>{shown}</span>
       {totalShown && <span style={{ opacity: 0.7 }}>/ {totalShown}</span>}
     </div>
   );
@@ -423,7 +429,7 @@ export const EditorialRule: React.FC<EditorialRuleProps> = ({
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const { palette, fonts } = useKit();
+  const { palette, fonts, type } = useKit();
 
   const p = draw ? drawProgress(frame, 0, Math.round(fps * 0.6)) : 1;
   const c = color ?? palette.border;
@@ -458,7 +464,7 @@ export const EditorialRule: React.FC<EditorialRuleProps> = ({
         style={{
           color: palette.muted,
           fontFamily: fonts.body ?? "inherit",
-          fontSize: 20,
+          fontSize: type.micro,
           letterSpacing: "0.14em",
           textTransform: "uppercase",
           whiteSpace: "nowrap",
@@ -480,6 +486,9 @@ export interface KickerProps {
   /** Show the leading accent tick. */
   tick?: boolean;
   color?: string;
+  /** Explicit size. Defaults to the kit type scale's `label`, which the editor's
+   *  "Title font size" slider drives. */
+  fontSize?: number;
 }
 
 /**
@@ -487,10 +496,10 @@ export interface KickerProps {
  * reachable through SceneFrame's `eyebrow` prop, which forced scenes into
  * SceneFrame just to get one.
  */
-export const Kicker: React.FC<KickerProps> = ({ children, tick = true, color }) => {
+export const Kicker: React.FC<KickerProps> = ({ children, tick = true, color, fontSize }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const { palette, isPortrait, fonts } = useKit();
+  const { palette, isPortrait, fonts, type } = useKit();
 
   const p = progressAt(frame, 0, Math.round(fps * 0.4));
 
@@ -519,7 +528,12 @@ export const Kicker: React.FC<KickerProps> = ({ children, tick = true, color }) 
         style={{
           color: color ?? palette.muted,
           fontFamily: fonts.body ?? "inherit",
-          fontSize: isPortrait ? 20 : 22,
+          // Reads the shared type scale rather than a hardcoded size, so the
+          // editor's "Title font size" slider (which targets the scene's short
+          // title / eyebrow) actually moves it. Falls back to the previous
+          // literals when the scale is unset, so a Kicker used outside a
+          // SceneFrame looks exactly as it did before.
+          fontSize: fontSize ?? type.label ?? (isPortrait ? 20 : 22),
           fontWeight: 600,
           letterSpacing: "0.16em",
           textTransform: "uppercase",
@@ -563,7 +577,11 @@ export const SafeArea: React.FC<SafeAreaProps> = ({
   landscape,
   portrait,
   children,
-  center = false,
+  // Composes from the MIDDLE by default. This used to default to `flex-start`,
+  // so the blueprint-driven scaffold top-packed its content and a two-item
+  // scene read as a list stuck to the ceiling with a bare band beneath it.
+  // A scene that genuinely wants top alignment passes center={false}.
+  center = true,
 }) => {
   const { isPortrait } = useKit();
   const i = isPortrait
@@ -582,6 +600,7 @@ export const SafeArea: React.FC<SafeAreaProps> = ({
         display: "flex",
         flexDirection: "column",
         justifyContent: center ? "center" : "flex-start",
+        alignItems: center ? "center" : "stretch",
         minWidth: 0,
       }}
     >

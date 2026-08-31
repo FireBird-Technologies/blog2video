@@ -13,7 +13,7 @@
  * The contentVariantIndex field on each scene (from data.json) assigns which
  * content variant to use. Scenes cycle through variants for visual variety.
  */
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   AbsoluteFill,
   Audio,
@@ -47,7 +47,17 @@ import SceneErrorBoundary from "./SceneErrorBoundary";
 // Dedicated, deterministic data-viz scenes (chart + table) — rendered from a
 // bound table rather than AI code, so custom templates always get a reliable,
 // editable chart/table pair like the built-in templates.
-import { DataChartScene, DataTableScene } from "./kit";
+import {
+  DataChartScene,
+  DataTableScene,
+  EyebrowSizeProvider,
+  KitVariantProvider,
+  backgroundCss,
+  colorsFromBrand,
+  derivePalette,
+  enforceTheme,
+  variantFromSeed,
+} from "./kit";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 // ─── Types ───────────────────────────────────────────────────
@@ -226,6 +236,7 @@ function SceneVisual({
   videoStartInFrames,
   brandColors,
   headingFont,
+  bodyFont,
   resolvedFontFamily,
 }: {
   SceneComp: React.FC<GeneratedSceneProps>;
@@ -239,9 +250,38 @@ function SceneVisual({
   videoStartInFrames?: number;
   brandColors: GeneratedSceneProps["brandColors"];
   headingFont?: string;
+  bodyFont?: string;
   resolvedFontFamily?: string | null;
 }) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+
+  /* Snap any off-theme colour the scene painted back onto the brand palette.
+   *
+   * The validator now rejects hard-coded hues and unreadable text at GENERATION
+   * time, but templates the user already owns carry the older code — one shipped
+   * an indigo rule and white body copy onto a cream canvas, where the white was
+   * invisible and the indigo was simply not a brand colour. Correcting in the
+   * DOM fixes those without regenerating anything.
+   *
+   * Runs on every frame because scenes animate colour (a stat counter fading
+   * from accent to text passes through values that only exist mid-tween), and
+   * enforceTheme is idempotent so a no-op frame costs one walk and no writes. */
+  const enforceFrame = useCurrentFrame();
+  useLayoutEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    const p = derivePalette(colorsFromBrand(brandColors));
+    enforceTheme(el, {
+      palette: [
+        p.accent, p.accentText, p.bg, p.bg2, p.text,
+        p.panel, p.header, p.muted, p.border, p.grid,
+      ].filter(
+        (c): c is string => Boolean(c),
+      ),
+      background: p.bg,
+      text: p.text,
+    });
+  }, [enforceFrame, brandColors]);
 
   return (
     <AbsoluteFill
@@ -265,8 +305,43 @@ function SceneVisual({
         *
         * KEEP IDENTICAL to VideoPreview.tsx — player and export must not
         * diverge. */}
-      <style>{`[data-scene-wrapper] img:not([data-logo]){object-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}[data-scene-wrapper] [data-content-img]{object-position:var(--img-pos,50% 50%) !important;background-position:var(--img-pos,50% 50%) !important;overflow:hidden !important;}${videoUrl ? "[data-scene-wrapper] [data-scenecomp-layer]{background:transparent !important;}[data-scene-wrapper] [data-scenecomp-layer]>div{background:transparent !important;}" : ""}`}</style>
-      <div data-scene-wrapper ref={wrapperRef} style={{ width: "100%", height: "100%", position: "relative" }}>
+      <style>{`[data-scene-wrapper] img:not([data-logo]){object-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}[data-scene-wrapper] [data-content-img]{object-position:var(--img-pos,50% 50%) !important;background-position:var(--img-pos,50% 50%) !important;overflow:hidden !important;}[data-scene-wrapper] [data-scenecomp-layer]{background:transparent !important;}[data-scene-wrapper] [data-scenecomp-layer]>*{background:transparent !important;}[data-scene-wrapper] [data-scenecomp-layer] div[style*="width:100%"][style*="height:100%"][style*="position:absolute"]{background:transparent !important;background-color:transparent !important;}`}</style>
+      {/* THE BRAND CANVAS, painted once per scene by the wrapper.
+        *
+        * Every scene in a template must sit on the same ground. Relying on the
+        * generated code to do that did not work: a scene can set its root fill
+        * through a variable, a spread or a computed value, none of which a
+        * static check can see, and one template shipped a near-black scene, a
+        * cream scene and a solid-red scene. The CSS above neutralises the
+        * scene's own root fill AND any full-bleed backdrop layer nested inside
+        * it, then this paints the real canvas behind them.
+        *
+        * The root alone was not enough: the shape that actually shipped a black
+        * canvas kept a correct root and painted over it with a sibling layer —
+        *     <AbsoluteFill style={{background: palette.background}}>
+        *       <AbsoluteFill style={{background: '#0a0a0a'}} />
+        * so the last selector matches any absolutely-positioned descendant that
+        * is 100% x 100%. AbsoluteFill serialises exactly that, while a SIZED
+        * panel (width:48%) does not — panels and cards keep their fills, which
+        * is where per-scene contrast belongs.
+        *
+        * fontFamily is set here for the same reason: a scene whose fallback is
+        * `inherit` then resolves to the template's body face rather than the
+        * system sans.
+        *
+        * Applies to templates that already exist, with no regeneration — the
+        * same reason EyebrowSizeProvider and KitVariantProvider live here. */}
+      <div
+        data-scene-wrapper
+        ref={wrapperRef}
+        style={{
+          width: "100%",
+          height: "100%",
+          position: "relative",
+          background: backgroundCss(derivePalette(colorsFromBrand(brandColors))),
+          fontFamily: bodyFont || resolvedFontFamily || undefined,
+        }}
+      >
         {/* Clip layer paints first (behind). In the precise-slot case this
             doesn't matter — the placeholder it fills is empty and non-
             overlapping with SceneComp's other content. In the legacy
@@ -484,6 +559,15 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
     brandColors.bg2 = data.bg2Color;
   }
 
+  // This template's structural variant — which arrangement the kit's content
+  // components render. Derived once per template from a brand seed so it is
+  // stable across renders and differs between brands. Without a seed the kit
+  // falls back to DEFAULT_VARIANT (the historical arrangement), so older
+  // projects render exactly as before.
+  const kitVariant = data.kitVariantSeed
+    ? variantFromSeed(data.kitVariantSeed, data.kitVariant ?? undefined)
+    : null;
+
   const totalScenes = data.scenes.length;
   const playbackSpeed = getPlaybackSpeed(data.playbackSpeed);
   const isPortrait = (data.aspectRatio as string) === "portrait";
@@ -595,7 +679,20 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             chartTable: (scene.layoutProps?.chartTable ?? sc.chartTable) as GeneratedSceneProps["chartTable"],
             chartType: (scene.layoutProps?.chartType ?? sc.chartType) as string | undefined,
             chartSummary: (scene.layoutProps?.chartSummary ?? sc.chartSummary) as string | undefined,
-            titleFontSize: scene.layoutConfig?.titleFontSize as number | undefined,
+            // The editor's two typography sliders are deliberately CROSSED here.
+            //
+            // Generated scene code binds props.titleFontSize to the HEADLINE
+            // (props.displayText) — that contract is enforced by a validator
+            // gate and is baked into every scene already stored in the DB. But
+            // the slider labelled "Title font size" is meant to size the scene's
+            // short title / eyebrow (props.sceneTitle), and "Display text font
+            // size" is meant to size the headline AND the body copy.
+            //
+            // Remapping at assembly rather than in the generated code is what
+            // makes this work on templates that already exist: rewriting the
+            // binding in the prompt would only ever fix newly generated ones.
+            sceneTitleFontSize: scene.layoutConfig?.titleFontSize as number | undefined,
+            titleFontSize: scene.layoutConfig?.descriptionFontSize as number | undefined,
             descriptionFontSize: scene.layoutConfig?.descriptionFontSize as number | undefined,
             headingFont,
             bodyFont,
@@ -626,6 +723,7 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
               videoStartInFrames={videoStartInFrames}
               brandColors={brandColors}
               headingFont={headingFont}
+              bodyFont={bodyFont}
               resolvedFontFamily={resolvedFontFamily}
             />
           );
@@ -635,7 +733,16 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
               key={`seq-${scene.id}-${index}`}
               durationInFrames={sequenceFrames[index]}
             >
-              {visual}
+              {/* Eyebrow size is provided ABOVE the scene rather than passed
+                  into it: generated scene code builds its own SceneFrame
+                  overrides and never forwards this, so an ambient provider is
+                  what lets the slider reach already-generated templates. */}
+              <EyebrowSizeProvider size={sceneProps.sceneTitleFontSize}>
+                {/* Structural variant, provided the same way and for the same
+                    reason: a stored scene will never forward it, so existing
+                    templates gain variety without being regenerated. */}
+                <KitVariantProvider variant={kitVariant}>{visual}</KitVariantProvider>
+              </EyebrowSizeProvider>
             </TransitionSeries.Sequence>
           );
 

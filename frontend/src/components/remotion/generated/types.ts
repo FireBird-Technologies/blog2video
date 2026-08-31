@@ -26,7 +26,10 @@ export interface GeneratedSceneProps {
   brandImages?: string[];
   brandColors: {
     primary: string;
-    secondary: string;
+    /** @deprecated Never read by any component. It carried
+     *  theme.colors.surface, which no longer exists — panels are derived
+     *  from bg+text by derivePalette. Optional so callers may omit it. */
+    secondary?: string;
     accent: string;
     background: string;
     text: string;
@@ -50,8 +53,25 @@ export interface GeneratedSceneProps {
   chartTable?: { headers?: string[]; rows?: Array<Array<string | number>> };
   chartType?: string;
   chartSummary?: string;
+  /**
+   * Size for the HEADLINE (props.displayText).
+   *
+   * Named "title" for historical reasons and kept that way because every stored
+   * generated scene already binds it — `props.titleFontSize ?? 72` — and the
+   * validator gates on that exact read. It is fed by the editor's *Display text*
+   * slider, not its *Title* slider; the two are crossed at prop-assembly time so
+   * existing templates pick up the correct behaviour without regeneration. See
+   * GeneratedVideo.tsx where the props object is built.
+   */
   titleFontSize?: number;
+  /** Size for body copy. Fed by the same *Display text* slider as the headline. */
   descriptionFontSize?: number;
+  /**
+   * Size for the scene's short title / eyebrow (props.sceneTitle) — fed by the
+   * editor's *Title* slider. Applied by the kit's eyebrow primitives, since
+   * scenes generated before this prop existed do not read it themselves.
+   */
+  sceneTitleFontSize?: number;
   headingFont?: string;
   bodyFont?: string;
   /**
@@ -90,10 +110,25 @@ export interface GeneratedVideoData {
   captionFontSize?: string;
   captionOffset?: number;
   scenes: GeneratedSceneData[];
+  /**
+   * Stable per-template seed for the kit's structural variants (which
+   * arrangement StatGrid / lists / quotes render). Derived from the brand
+   * on the backend so it never changes for a given template.
+   *
+   * Absent -> DEFAULT_VARIANT, i.e. the historical arrangement, so a project
+   * rendered from older data is unchanged rather than arbitrary.
+   */
+  kitVariantSeed?: string | null;
+  /** Explicit variant overrides, if the template pins any (e.g. the blueprint's
+   *  chosen surface). Merged over the seeded pick. */
+  kitVariant?: Record<string, string> | null;
   /** Brand colors derived from template theme */
   brandColors?: {
     primary: string;
-    secondary: string;
+    /** @deprecated Never read by any component. It carried
+     *  theme.colors.surface, which no longer exists — panels are derived
+     *  from bg+text by derivePalette. Optional so callers may omit it. */
+    secondary?: string;
     accent: string;
     background: string;
     text: string;

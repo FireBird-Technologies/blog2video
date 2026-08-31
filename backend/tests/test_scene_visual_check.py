@@ -197,7 +197,11 @@ def _drive_retry(score: float, *, calls: list):
     module = lambda previous_failure="", **kw: _Pred(SCENE)  # noqa: E731
     with patch.object(cg, "validate_component_code", return_value=(True, None)), patch.object(
         cg, "_score_valid_scene", return_value=score
-    ), patch.object(cg, "visual_check_scene", side_effect=_fake_check):
+    ), patch.object(cg, "visual_check_scene", side_effect=_fake_check), patch.object(
+        # The code critic runs unconditionally now and shares this gate, so it
+        # is stubbed to "no defect" to keep these tests about the VISUAL path.
+        cg, "critique_scene_code", return_value=None
+    ):
         cg._informed_retry(
             module,
             {"scene_index": 1, "total_scenes": 9, "art_direction": ""},
@@ -241,7 +245,9 @@ def test_gate_never_fires_on_the_final_attempt() -> None:
     module = lambda previous_failure="", **kw: _Pred(SCENE)  # noqa: E731
     with patch.object(cg, "validate_component_code", return_value=(True, None)), patch.object(
         cg, "_score_valid_scene", return_value=0.70
-    ), patch.object(cg, "visual_check_scene", side_effect=_fake_check):
+    ), patch.object(cg, "visual_check_scene", side_effect=_fake_check), patch.object(
+        cg, "critique_scene_code", return_value=None
+    ):
         cg._informed_retry(module, {"scene_index": 0, "total_scenes": 9}, "", "content")
 
     # REFINE_N + 1 attempts exist, but the last one must not be checked.
@@ -262,7 +268,7 @@ def test_critique_reaches_the_next_attempt() -> None:
         cg, "_score_valid_scene", return_value=0.70
     ), patch.object(
         cg, "visual_check_scene", return_value="LEGIBILITY: headline invisible on its panel."
-    ):
+    ), patch.object(cg, "critique_scene_code", return_value=None):
         cg._informed_retry(module, {"scene_index": 0, "total_scenes": 9}, "", "content")
 
     assert len(seen) >= 2
@@ -280,3 +286,29 @@ def test_format_visual_failure_reuses_the_repair_checklist() -> None:
     # It must not send the model rewriting structure that already validates.
     assert "structurally correct" in out
     assert "readableOn" in out
+
+
+# ── the thinking-budget parameter, which differs by model family ─────────────
+
+
+def test_thinking_params_match_what_each_model_family_accepts() -> None:
+    """Not interchangeable, and getting it wrong FAILS OPEN — the call errors,
+    the check returns None, and verification silently never runs.
+
+    Measured against the live z.ai API: glm-5.3-flash answers correctly with
+    `reasoning_effort: low` and returns error 1210 ("always engages in thinking
+    and cannot be disabled") for the `thinking: disabled` glm-4.6v requires.
+    """
+    from app.services.scene_visual_check import _thinking_params
+
+    assert _thinking_params("glm-5.3-flash") == {"reasoning_effort": "low"}
+    assert _thinking_params("glm-4.6v") == {"thinking": {"type": "disabled"}}
+
+
+def test_the_configured_vision_model_reads_images() -> None:
+    """The codegen model rejects image content outright, so pointing this at
+    glm-5.2 would disable verification without any error surfacing."""
+    from app.config import settings
+
+    assert settings.SCENE_VISION_MODEL != "glm-5.2"
+    assert settings.SCENE_VISION_MODEL.startswith("glm-")

@@ -29,7 +29,8 @@ def _scene(body: str = "", *, logo: str = "{props.logoUrl && <Img src={props.log
         "const hasImage = !!(props.imageUrl && typeof props.imageUrl === 'string');"
         "return <div style={{overflow:'hidden'}}>"
         f"{logo}"
-        "<FitText fontSize={props.titleFontSize ?? 72}>{props.displayText}</FitText>"
+        "<FitText fontSize={props.titleFontSize ?? 72} "
+        "style={{fontFamily: props.headingFont || 'inherit'}}>{props.displayText}</FitText>"
         "<KenBurnsImage src={props.imageUrl}/>"
         "<SignatureArtifact motion='drift'/>"
         f"{body}{PAD}</div>; }};"
@@ -100,7 +101,7 @@ def test_logo_conditional_accepts_an_aliased_local() -> None:
         "const hasImage = !!(props.imageUrl && typeof props.imageUrl === 'string');"
         "return <div style={{overflow:'hidden'}}>"
         "{logo && <Img src={logo}/>}"
-        "<FitText fontSize={props.titleFontSize ?? 72}>{props.displayText}</FitText><KenBurnsImage src={props.imageUrl}/>"
+        "<FitText fontSize={props.titleFontSize ?? 72} style={{fontFamily: props.headingFont || 'inherit'}}>{props.displayText}</FitText><KenBurnsImage src={props.imageUrl}/>"
         "<SignatureArtifact motion='drift'/>"
         f"{PAD}</div>; }};"
     )
@@ -154,7 +155,7 @@ def test_outro_does_not_require_an_image_conditional() -> None:
         "const SceneComponent = (props) => {"
         "return <div style={{overflow:'hidden'}}>"
         "{props.logoUrl && <Img src={props.logoUrl}/>}"
-        f"<FitText fontSize={{props.titleFontSize ?? 72}}>{{props.displayText}}</FitText><SignatureArtifact motion='drift'/>"
+        f"<FitText fontSize={{props.titleFontSize ?? 72}} style={{{{fontFamily: props.headingFont || 'inherit'}}}}>{{props.displayText}}</FitText><SignatureArtifact motion='drift'/>"
         f"<KenBurnsImage src={{props.imageUrl}}/>{PAD}</div>; }};"
     )
     ok, err = validate_component_code(outro, scene_type="outro")
@@ -166,7 +167,7 @@ def test_content_still_requires_an_image_conditional() -> None:
         "const SceneComponent = (props) => {"
         "return <div style={{overflow:'hidden'}}>"
         "{props.logoUrl && <Img src={props.logoUrl}/>}"
-        f"<FitText fontSize={{props.titleFontSize ?? 72}}>{{props.displayText}}</FitText><SignatureArtifact motion='drift'/>"
+        f"<FitText fontSize={{props.titleFontSize ?? 72}} style={{{{fontFamily: props.headingFont || 'inherit'}}}}>{{props.displayText}}</FitText><SignatureArtifact motion='drift'/>"
         f"<KenBurnsImage src={{props.imageUrl}}/>{PAD}</div>; }};"
     )
     ok, err = validate_component_code(content, scene_type="content")
@@ -277,7 +278,7 @@ def test_valid_interpolate_first_args_are_accepted(arg: str) -> None:
         "return <div style={{overflow:'hidden'}}>"
         "{props.logoUrl && <Img src={props.logoUrl}/>}"
         f"<div style={{{{opacity: interpolate({arg}, [0, 30], [0, 1])}}}}/>"
-        "<FitText fontSize={props.titleFontSize ?? 72}>{props.displayText}</FitText><SignatureArtifact motion='drift'/>"
+        "<FitText fontSize={props.titleFontSize ?? 72} style={{fontFamily: props.headingFont || 'inherit'}}>{props.displayText}</FitText><SignatureArtifact motion='drift'/>"
         + PAD
         + "</div>; };"
     )
@@ -294,7 +295,7 @@ def test_property_reads_are_still_rejected(arg: str) -> None:
         "return <div style={{overflow:'hidden'}}>"
         "{props.logoUrl && <Img src={props.logoUrl}/>}"
         f"<div style={{{{opacity: interpolate({arg}, [0, 30], [0, 1])}}}}/>"
-        "<FitText fontSize={props.titleFontSize ?? 72}>{props.displayText}</FitText><SignatureArtifact motion='drift'/>"
+        "<FitText fontSize={props.titleFontSize ?? 72} style={{fontFamily: props.headingFont || 'inherit'}}>{props.displayText}</FitText><SignatureArtifact motion='drift'/>"
         + PAD
         + "</div>; };"
     )
@@ -362,7 +363,8 @@ def test_generated_stub_satisfies_the_headline_gate() -> None:
 # ─── Contrast: invisible text ────────────────────────────────────────────────
 
 
-def _rich_scene(extra: str = "", head: str = "<FitText fontSize={70}>{props.displayText}</FitText>") -> str:
+def _rich_scene(extra: str = "", head: str = "<FitText fontSize={70} "
+        "style={{fontFamily: props.headingFont || 'inherit'}}>{props.displayText}</FitText>") -> str:
     """A scene that scores 1.00, so a single defect is isolated in the delta."""
     return (
         "const SceneComponent = (props) => {"
@@ -370,6 +372,9 @@ def _rich_scene(extra: str = "", head: str = "<FitText fontSize={70}>{props.disp
         "const isPortrait = props.aspectRatio === 'portrait';"
         "return <div style={{overflow:'hidden', minWidth:0}}>"
         "{props.logoUrl && <Img src={props.logoUrl}/>}"
+        # Binding the template's typeface is a contract now, so the
+        # scores-1.00 baseline has to satisfy it like any other.
+        "<p style={{fontFamily: props.headingFont || 'inherit'}}>{props.sceneTitle}</p>"
         f"{head}<KenBurnsImage src={{props.imageUrl}}/>"
         "{isPortrait ? <span/> : <span/>}<div data-content-img='1'/>"
         "<AbsoluteFill style={{...cameraStage(1600)}}/><Decor system='rules'/>"
@@ -405,10 +410,16 @@ def test_palette_text_on_palette_text_is_penalised() -> None:
 
 
 def test_readable_on_is_not_penalised() -> None:
-    """The CORRECT pattern must score clean — a false positive costs a rollout."""
+    """The CORRECT pattern must score clean — a false positive costs a rollout.
+
+    The inverted fill is a PANEL (a sized region), not an AbsoluteFill: a
+    full-frame inversion is now its own defect, because it makes this scene's
+    canvas disagree with every other scene in the template. See
+    test_a_full_frame_inversion_is_penalised below.
+    """
     good = _rich_scene(
         "const fg = readableOn(palette.text);"
-        "<AbsoluteFill style={{background: palette.text}}/>"
+        "<div style={{background: palette.text, width: '54%', height: '68%'}}/>"
         "<div style={{color: fg}}>visible</div>"
     )
     assert _score(good) == _score(_rich_scene())
@@ -475,8 +486,10 @@ def test_scene_with_no_headline_scale_is_penalised() -> None:
 @pytest.mark.parametrize(
     "head",
     [
-        "<FitText fontSize={70}>{props.displayText}</FitText>",  # JSX prop form
-        "<FitText fontSize={props.titleFontSize ?? 72}>{props.displayText}</FitText>",  # implicit, resolves from the kit scale
+        "<FitText fontSize={70} "
+        "style={{fontFamily: props.headingFont || 'inherit'}}>{props.displayText}</FitText>",  # JSX prop form
+        "<FitText fontSize={props.titleFontSize ?? 72} "
+        "style={{fontFamily: props.headingFont || 'inherit'}}>{props.displayText}</FitText>",  # implicit, resolves from the kit scale
     ],
 )
 def test_fittext_headline_counts_as_headline_scale(head: str) -> None:
@@ -498,7 +511,7 @@ def _valid_scene(body: str = "") -> str:
         "const SceneComponent = (props) => {"
         "const hasImage = !!(props.imageUrl && typeof props.imageUrl === 'string');"
         "return <div style={{overflow:'hidden'}}>{props.logoUrl && <Img src={props.logoUrl}/>}"
-        "<FitText fontSize={props.titleFontSize ?? 72}>{props.displayText}</FitText><KenBurnsImage src={props.imageUrl}/>"
+        "<FitText fontSize={props.titleFontSize ?? 72} style={{fontFamily: props.headingFont || 'inherit'}}>{props.displayText}</FitText><KenBurnsImage src={props.imageUrl}/>"
         "<SignatureArtifact motion='drift'/>" + body + PAD + "</div>; };"
     )
 
@@ -641,7 +654,7 @@ def test_eyebrow_sized_text_is_not_penalised() -> None:
             "const isPortrait = props.aspectRatio === 'portrait';"
             "return <div style={{overflow:'hidden', minWidth:0}}>"
             "{props.logoUrl && <Img src={props.logoUrl}/>}"
-            "<FitText fontSize={props.titleFontSize ?? 72}>{props.displayText}</FitText><KenBurnsImage src={props.imageUrl}/>"
+            "<FitText fontSize={props.titleFontSize ?? 72} style={{fontFamily: props.headingFont || 'inherit'}}>{props.displayText}</FitText><KenBurnsImage src={props.imageUrl}/>"
         "<SignatureArtifact motion='drift'/>"
             "{isPortrait ? <span/> : <span/>}<div data-content-img='1'/>"
             "<AbsoluteFill style={{...cameraStage(1600)}}/><Decor system='rules'/>"
@@ -745,7 +758,8 @@ def test_headline_must_read_title_font_size() -> None:
         "const hasImage = !!(props.imageUrl && typeof props.imageUrl === 'string');"
         "return <div style={{overflow:'hidden'}}>"
         "{props.logoUrl && <Img src={props.logoUrl}/>}"
-        "<FitText fontSize={72}>{props.displayText}</FitText>"
+        "<FitText fontSize={72} "
+        "style={{fontFamily: props.headingFont || 'inherit'}}>{props.displayText}</FitText>"
         "<KenBurnsImage src={props.imageUrl}/><SignatureArtifact motion='drift'/>"
         + PAD
         + "</div>; };"
@@ -792,10 +806,14 @@ def test_headline_bound_to_the_prop_is_counted_as_headline_scale() -> None:
         return buf.getvalue()
 
     for headline in (
-        "<FitText fontSize={70}>{props.displayText}</FitText>",
-        "<FitText fontSize={props.titleFontSize ?? 70}>{props.displayText}</FitText>",
-        "<FitText fontSize={props.titleFontSize ?? (isPortrait ? 52 : 70)}>{props.displayText}</FitText>",
-        "<FitText fontSize={props.titleFontSize}>{props.displayText}</FitText>",
+        "<FitText fontSize={70} "
+        "style={{fontFamily: props.headingFont || 'inherit'}}>{props.displayText}</FitText>",
+        "<FitText fontSize={props.titleFontSize ?? 70} "
+        "style={{fontFamily: props.headingFont || 'inherit'}}>{props.displayText}</FitText>",
+        "<FitText fontSize={props.titleFontSize ?? (isPortrait ? 52 : 70)} "
+        "style={{fontFamily: props.headingFont || 'inherit'}}>{props.displayText}</FitText>",
+        "<FitText fontSize={props.titleFontSize} "
+        "style={{fontFamily: props.headingFont || 'inherit'}}>{props.displayText}</FitText>",
     ):
         assert "no type at headline scale" not in _log(headline), (
             f"penalised a headline-scale scene: {headline}"
@@ -803,5 +821,129 @@ def test_headline_bound_to_the_prop_is_counted_as_headline_scale() -> None:
 
     # A scene whose largest type really is tiny must still be caught.
     assert "no type at headline scale" in _log(
-        "<FitText fontSize={14}>{props.displayText}</FitText>"
+        "<FitText fontSize={14} "
+        "style={{fontFamily: props.headingFont || 'inherit'}}>{props.displayText}</FitText>"
     )
+
+
+# ── fonts must come from props (Stage 1) ─────────────────────────────────────
+#
+# The prompt has said "NEVER hardcode fontFamily" all along, but nothing
+# enforced it: code_validator had no font check at all, so a scene writing
+# fontFamily: 'Playfair Display' passed every gate. The visible symptom is a
+# template whose intro renders in one face and whose content scenes render in
+# another, because only the components that read props.headingFont follow the
+# template's typeface.
+
+
+def _font_error(snippet: str, decl: str = "") -> str | None:
+    """The font failure for a scene, isolated from any other contract."""
+    from app.services.code_validator import validate_component_code
+
+    code = _rich_scene(extra=decl + f"<span style={{{{{snippet}}}}}>x</span>")
+    _ok, err = validate_component_code(code, scene_type="content", collect_all=True)
+    if err and "Hardcoded font family" in err:
+        return err
+    return None
+
+
+@pytest.mark.parametrize(
+    "snippet",
+    [
+        "fontFamily: 'Inter'",
+        'fontFamily: "Georgia, serif"',
+        "fontFamily: 'Playfair Display', serif",
+    ],
+)
+def test_hardcoded_font_family_is_rejected(snippet: str) -> None:
+    assert _font_error(snippet) is not None
+
+
+def test_css_font_shorthand_cannot_smuggle_a_family() -> None:
+    """A fontFamily-only check misses `font: '700 48px Inter'`."""
+    assert _font_error("font: '700 48px Inter'") is not None
+
+
+@pytest.mark.parametrize(
+    "snippet",
+    [
+        "fontFamily: props.headingFont || 'inherit'",
+        "fontFamily: props.bodyFont",
+        "fontFamily: 'monospace'",
+        "fontFamily: 'ui-monospace, SFMono-Regular'",
+    ],
+)
+def test_prop_bound_and_mono_families_are_accepted(snippet: str) -> None:
+    """Mono is the one legitimate literal — code scenes need it, no prop ships it."""
+    assert _font_error(snippet) is None
+
+
+def test_a_const_assigned_from_props_is_accepted() -> None:
+    assert _font_error("fontFamily: hf", decl="const hf = props.headingFont || 'inherit';") is None
+
+
+def test_a_const_assigned_a_literal_is_rejected() -> None:
+    """Indirection through a const must not launder a hardcoded family."""
+    assert _font_error("fontFamily: bad", decl="const bad = 'Playfair Display';") is not None
+
+
+def test_font_error_co_reports_with_other_failures() -> None:
+    """collect_all must not collapse to one error — that regression is documented."""
+    from app.services.code_validator import validate_component_code
+
+    code = _rich_scene(extra="<span style={{fontFamily: 'Inter'}}>{props.narrationText}</span>")
+    _ok, err = validate_component_code(code, scene_type="content", collect_all=True)
+    assert err and "Hardcoded font family" in err
+    assert "narrationText" in err, "the other contract stopped being reported"
+
+
+def test_the_stub_scene_satisfies_the_font_contract() -> None:
+    """A stub that failed this gate would be stubbed again — an infinite floor."""
+    from app.services.code_generator import _build_stub_scene_code
+    from app.services.code_validator import validate_component_code
+
+    theme = {
+        "colors": {
+            "accent": "#ED1C24",
+            "bg": "#FFFFFF",
+            "text": "#111111",
+            "surface": "#EEEEEE",
+            "muted": "#888888",
+        },
+        "fonts": {"heading": "inter", "body": "inter"},
+    }
+    for scene_type in ("intro", "content", "outro"):
+        code = _build_stub_scene_code(scene_type, theme)
+        ok, err = validate_component_code(code, scene_type=scene_type, collect_all=True)
+        assert ok, f"{scene_type} stub no longer validates: {err}"
+
+
+def test_scene_ignoring_the_typeface_is_rejected() -> None:
+    """Setting no family at all is consistent but still ignores the template.
+
+    This was a -0.25 score nudge, which alone never crosses the 0.6 acceptance
+    bar — so a scene rendering in the system sans shipped at 0.75. It is a HARD
+    gate now: the template chose a typeface and the scene must bind it.
+    """
+    base = _rich_scene()
+    assert _score(base) == 1.0
+    stripped = base.replace("fontFamily: props.headingFont || 'inherit'", "color: 'red'")
+    ok, err = validate_component_code(stripped, collect_all=True)
+    assert not ok
+    assert "props.headingFont" in (err or "")
+
+
+def test_art_direction_names_the_templates_typeface() -> None:
+    """The rule only lands if the model knows WHICH face this template is."""
+    from app.services.code_generator import build_art_direction
+
+    bp = {
+        "identity": {"heading_font": "archivo_black", "body_font": "source_sans_3"},
+        "type_system": {"base_body_px_landscape": 36},
+        "structure": {},
+        "layouts": [],
+        "bookends": {},
+    }
+    out = build_art_direction(bp, "content", 0)
+    assert "archivo_black" in out
+    assert "source_sans_3" in out

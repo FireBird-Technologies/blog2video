@@ -18,12 +18,18 @@ export {
   blend,
   withAlpha,
   luminance,
+  relativeLuminance,
+  contrastRatio,
+  ensureContrast,
+  clampGradientStop,
+  AA_CONTRAST,
   isDarkColor,
   readableOn,
   type KitColors,
   type KitPalette,
   type TypeScale,
 } from "./theme";
+export { enforceTheme, type EnforceThemeOptions } from "./enforceTheme";
 
 // Motion primitives
 export {
@@ -51,7 +57,23 @@ export {
 } from "./motion";
 
 // Theme context
-export { KitProvider, useKit, colorsFromBrand, type KitFonts, type KitContextValue } from "./context";
+export { KitProvider, EyebrowSizeProvider, KitVariantProvider, useKit, colorsFromBrand, type KitFonts, type KitContextValue } from "./context";
+
+// Structural variants — which arrangement content components render.
+export {
+  STAT_ARRANGEMENTS,
+  LIST_ARRANGEMENTS,
+  SEQUENCE_ARRANGEMENTS,
+  QUOTE_ARRANGEMENTS,
+  DEFAULT_VARIANT,
+  variantFromSeed,
+  hashString,
+  type KitVariant,
+  type StatArrangement,
+  type ListArrangement,
+  type SequenceArrangement,
+  type QuoteArrangement,
+} from "./variants";
 
 // Scaffolding
 export { SceneFrame, type SceneFrameProps } from "./SceneFrame";

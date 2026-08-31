@@ -16,13 +16,49 @@ import { preloadBabel } from "../utils/compileComponent";
 import CustomTemplateCreator from "../components/CustomTemplateCreator";
 import TemplateStarRating from "../components/TemplateStarRating";
 import CustomTemplateLimitModal from "../components/CustomTemplateLimitModal";
-import CustomTemplateEditor from "../components/CustomTemplateEditor";
 import TemplateSceneEditor from "../components/TemplateSceneEditor";
+import TemplateProgressModal from "../components/TemplateProgressModal";
 import CustomPreview from "../components/templatePreviews/CustomPreview";
 import CustomPreviewLandscape from "../components/templatePreviews/CustomPreviewLandscape";
 import CraftedTemplatePreview from "../components/templatePreviews/CraftedTemplatePreview";
 import DesignerTemplateRequestModal from "../components/DesignerTemplateRequestModal";
 import useIsMobileViewport from "../hooks/useIsMobileViewport";
+import TemplateGenerationProgress, {
+  useGenerationStatus,
+  invalidateGenerationStatus,
+} from "../components/TemplateGenerationProgress";
+
+/** Live step list for one generating card.
+ *
+ * A component rather than an inline block because each card polls its own
+ * status, and hooks cannot be called from inside the template .map(). */
+function GeneratingCardStatus({
+  templateId,
+  onFinished,
+}: {
+  templateId: number;
+  onFinished?: () => void;
+}) {
+  const status = useGenerationStatus(templateId, true);
+
+  // This card polls the generation-status endpoint directly, so it learns the
+  // run finished BEFORE the page's 4s list poller does — and it was showing an
+  // all-green rail beside the words "Generating template…", because that text
+  // is driven by the template ROW, which was still the pre-completion one.
+  //
+  // Telling the page to reload closes that window instead of leaving the card
+  // self-contradicting until the next list poll (or forever, if the list poller
+  // had already stopped).
+  const finished = status?.status === "complete" || status?.status === "error";
+  useEffect(() => {
+    if (finished) onFinished?.();
+    // onFinished is a parent callback and not stable across renders; including
+    // it would re-fire this on every parent render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finished]);
+
+  return <TemplateGenerationProgress status={status} variant="card" />;
+}
 
 // A template stuck "generating" longer than this (no code, not flagged failed) is
 // treated as errored — generation crashed / connection was lost and the backend
@@ -74,12 +110,10 @@ export default function CustomTemplates() {
   const [loaded, setLoaded] = useState(false);
   const [showCreator, setShowCreator] = useState(false);
   const [creatorKey, setCreatorKey] = useState(0);
+  // The single edit modal: name, colours AND per-scene AI edits. Was two
+  // separate states (editTarget + sceneEditTarget) backing two modals that
+  // unmounted each other.
   const [editTarget, setEditTarget] = useState<CustomTemplateItem | null>(null);
-  // Per-scene AI editing (P4) — distinct from CustomTemplateEditor, which only
-  // edits the template's name/colour. Reached from inside that editor (its
-  // `onEditScenes`), not from the card: the card previously carried a second
-  // "Edit scenes" button, and one "Edit" entry point is less cluttered.
-  const [sceneEditTarget, setSceneEditTarget] = useState<CustomTemplateItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<CustomTemplateItem | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteImpactCount, setDeleteImpactCount] = useState<number | null>(null);
@@ -89,6 +123,10 @@ export default function CustomTemplates() {
   const [rateLimitError, setRateLimitError] = useState<string | null>(null);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [showRequestForm, setShowRequestForm] = useState(false);
+  // Re-opened progress view for a template generating in the background.
+  // Holds the id, not the row: the row is replaced wholesale by the poller
+  // on every tick, so a captured object would go stale immediately.
+  const [progressTargetId, setProgressTargetId] = useState<number | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const readyCraftedTemplates = craftedTemplates.filter((ct) => !!ct.theme);
 
@@ -140,15 +178,38 @@ export default function CustomTemplates() {
   const isPending = (t: CustomTemplateItem) =>
     (!t.intro_code && !t.generation_failed) || t.is_regenerating;
 
-  // Merge only pending/failed templates from server — leaves completed ones untouched to avoid resetting preview
+  // Reconcile the server list into local state.
+  //
+  // Settled templates are left alone so a live Remotion preview isn't torn down
+  // and recompiled on every 4s poll. Pending ones take the server row wholesale
+  // — that is how a finished generation's code reaches the card.
+  //
+  // Rows the server has that we don't are APPENDED rather than ignored. Without
+  // this a template created in another tab (or one whose local insert was lost)
+  // never appeared until a full page refresh.
   const mergePendingTemplates = (fresh: CustomTemplateItem[]) => {
-    setTemplates((prev) => prev.map((t) => {
-      if (!isPending(t)) return t; // already settled — don't replace
-      const updated = fresh.find((f) => f.id === t.id);
-      return updated ?? t;
-    }));
+    setTemplates((prev) => {
+      const merged = prev.map((t) => {
+        if (!isPending(t)) return t; // already settled — don't replace
+        const updated = fresh.find((f) => f.id === t.id);
+        return updated ?? t;
+      });
+      const known = new Set(merged.map((t) => t.id));
+      // Server order is created_at DESC, so newcomers belong at the front.
+      const added = fresh.filter((f) => !known.has(f.id));
+      const next = [...added, ...merged];
+      // Collapse any duplicate ids that slipped in (a create racing the poller).
+      // Keeping the FIRST occurrence preserves the list's ordering.
+      const seen = new Set<number>();
+      return next.filter((t) => (seen.has(t.id) ? false : (seen.add(t.id), true)));
+    });
   };
 
+  // `data` is a HINT that something may be pending, never the full picture —
+  // handleCreated passes just the one new template. So it can only ever START
+  // the poller; only the poller itself, seeing a complete server list with
+  // nothing pending, is allowed to stop it. Letting a single-element call take
+  // the stop branch killed the poller for every other in-flight template.
   const startPollingIfNeeded = (data: CustomTemplateItem[]) => {
     const anyPending = data.some(isPending);
     if (anyPending && !pollingRef.current) {
@@ -169,14 +230,19 @@ export default function CustomTemplates() {
           }
         } catch { /* ignore */ }
       }, 4000);
-    } else if (!anyPending && pollingRef.current) {
-      clearInterval(pollingRef.current);
-      pollingRef.current = null;
     }
   };
 
   const handleCreated = (tpl: CustomTemplateItem) => {
-    setTemplates((prev) => [tpl, ...prev]);
+    // Prepend only if it isn't already in the list. The page-level poller runs
+    // listCustomTemplates() every 4s while anything is pending, so by the time
+    // the user closes the creator the server row is frequently ALREADY here —
+    // prepending unconditionally rendered the same template as two cards.
+    setTemplates((prev) =>
+      prev.some((t) => t.id === tpl.id)
+        ? prev.map((t) => (t.id === tpl.id ? tpl : t))
+        : [tpl, ...prev]
+    );
     setShowCreator(false);
     startPollingIfNeeded([tpl]);
     // Drop the project-creation picker's cached template list so this new one
@@ -187,11 +253,6 @@ export default function CustomTemplates() {
     // otherwise the counter stays stale and "Create New" reopens the creator
     // instead of the upgrade modal.
     void refreshUser();
-  };
-
-  const handleSaved = (tpl: CustomTemplateItem) => {
-    setTemplates((prev) => prev.map((t) => (t.id === tpl.id ? tpl : t)));
-    setEditTarget(null);
   };
 
   const handleRate = async (
@@ -232,6 +293,9 @@ export default function CustomTemplates() {
         // showing a spinner. The server bumps it too; this just avoids the
         // gap until the next poll.
         await generateTemplateCode(tpl.id);
+        // A new run — forget the previous one's cached status, or the rail
+        // opens on its finished state until the first poll lands.
+        invalidateGenerationStatus(tpl.id);
         const retried = {
           ...tpl,
           generation_failed: false,
@@ -245,6 +309,7 @@ export default function CustomTemplates() {
         // immediately and survives a refresh/tab-switch via the poller —
         // the server's is_regenerating flag is the actual source of truth.
         await regenerateTemplateCode(tpl.id);
+        invalidateGenerationStatus(tpl.id);
         const optimistic = { ...tpl, is_regenerating: true };
         setTemplates((prev) => prev.map((t) => (t.id === tpl.id ? optimistic : t)));
         startPollingIfNeeded([optimistic]);
@@ -344,9 +409,16 @@ export default function CustomTemplates() {
     })() : null;
 
   // ─── Empty state ──────────────────────────────────────────
-  if (loaded && templates.length === 0 && readyCraftedTemplates.length === 0) {
-    return (
-      <>
+  //
+  // Rendered as a BRANCH of the single return below, not as an early return.
+  // It used to return its own tree carrying its own copy of the creator modal,
+  // so the moment the first template landed and this stopped being the empty
+  // state, React saw the creator at a different position, unmounted the live
+  // one and mounted a fresh instance — losing the in-flight generation and
+  // letting a second create fire onCreated again for the same template.
+  const isEmpty = loaded && templates.length === 0 && readyCraftedTemplates.length === 0;
+
+  const emptyState = (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="w-16 h-16 mb-4 bg-purple-100 rounded-2xl flex items-center justify-center">
             <svg className="w-8 h-8 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -372,40 +444,10 @@ export default function CustomTemplates() {
             Or Get Designer Template  →
           </button>
         </div>
-
-        <DesignerTemplateRequestModal
-          open={showRequestForm}
-          onClose={() => setShowRequestForm(false)}
-        />
-
-        {/* Quota upgrade modal — must also render here in the empty state, otherwise
-            an at-limit user with 0 templates (e.g. after deleting all of them or
-            reactivating a deleted account) clicks "Create" and nothing opens. */}
-        <CustomTemplateLimitModal
-          open={showUpgrade}
-          onClose={() => setShowUpgrade(false)}
-        />
-
-        {showCreator && (
-          <CustomTemplateCreator
-            key={creatorKey}
-            onCreated={handleCreated}
-            onLimitReached={() => {
-              setShowCreator(false);
-              setShowUpgrade(true);
-            }}
-            onCancel={() => {
-              setShowCreator(false);
-            }}
-          />
-        )}
-      </>
-    );
-  }
+  );
 
   // ─── Template grid ────────────────────────────────────────
-  return (
-    <>
+  const grid = (
       <div className="space-y-6">
         {/* Rate limit banner */}
         {rateLimitError && (
@@ -515,7 +557,11 @@ export default function CustomTemplates() {
               <div key={tpl.id} className="glass-card overflow-hidden group">
                 {/* Template preview */}
                 <div className="relative overflow-hidden rounded-t-xl min-h-[120px] aspect-video">
-                  {tpl.intro_code ? (
+                  {/* A REGENERATING template still holds its old intro_code, so
+                      keying this on intro_code alone showed the stale preview and
+                      never mounted the progress card — regeneration looked frozen
+                      for the same reason a closed creator did. */}
+                  {tpl.intro_code && !effectivelyRegenerating ? (
                     <CustomPreview
                       theme={tpl.theme}
                       name={tpl.name}
@@ -530,26 +576,39 @@ export default function CustomTemplates() {
                       staticThumb={isMobile}
                     />
                   ) : (
+                    // White with black text, NOT the brand palette: while a
+                    // template is generating its theme is the one thing not yet
+                    // proven, and a dark brand background made this status text
+                    // unreadable on exactly the cards that needed reading.
                     <div
                       className="w-full h-full flex flex-col items-center justify-center gap-3"
-                      style={{ background: tpl.theme.colors.bg, aspectRatio: "16/9" }}
+                      style={{ background: "#FFFFFF", aspectRatio: "16/9" }}
                     >
                       {effectiveFailed && regeneratingId !== tpl.id ? (
                         <>
-                          <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: tpl.theme.colors.muted }}>
+                          <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: "#6B7280" }}>
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                           </svg>
-                          <span className="text-xs font-medium" style={{ color: tpl.theme.colors.muted }}>
+                          <span className="text-xs font-medium" style={{ color: "#111111" }}>
                             {tpl.generation_failed ? "Generation failed" : "Generation stalled — try again or delete"}
                           </span>
                         </>
                       ) : (
-                        <>
-                          <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: `${tpl.theme.colors.accent}40`, borderTopColor: "transparent" }} />
-                          <span className="text-xs font-medium" style={{ color: tpl.theme.colors.muted }}>
-                            Generating...
-                          </span>
-                        </>
+                        // Clicking reopens the full progress view. The creator
+                        // modal cannot be reused for that — it owns wizard state
+                        // that is gone once it unmounts — so this is a separate
+                        // modal driven purely by the template id.
+                        <button
+                          type="button"
+                          onClick={() => setProgressTargetId(tpl.id)}
+                          title="View generation progress"
+                          className="w-full h-full flex flex-col items-center justify-center gap-3 cursor-pointer"
+                        >
+                          <GeneratingCardStatus
+                            templateId={tpl.id}
+                            onFinished={() => { void loadTemplates(); }}
+                          />
+                        </button>
                       )}
                     </div>
                   )}
@@ -723,6 +782,11 @@ export default function CustomTemplates() {
           </div>
         )}
       </div>
+  );
+
+  return (
+    <>
+      {isEmpty ? emptyState : grid}
 
       {/* Request form modal */}
       <DesignerTemplateRequestModal
@@ -739,11 +803,37 @@ export default function CustomTemplates() {
             setShowCreator(false);
             setShowUpgrade(true);
           }}
-          onCancel={() => {
+          onCancel={(inFlight) => {
             setShowCreator(false);
+            // Closed while still generating: adopt the run so it keeps going
+            // visibly. Without this the template was in NO list — the creator's
+            // pollers died with its unmount, no card existed to take over, and
+            // the page poller had never been started for it, so the UI sat
+            // frozen until an unrelated refresh.
+            if (inFlight) {
+              setTemplates((prev) =>
+                prev.some((t) => t.id === inFlight.id) ? prev : [inFlight, ...prev],
+              );
+              startPollingIfNeeded([inFlight]);
+            }
           }}
         />
       )}
+
+      {/* Re-opened progress for a background generation. Looked up by id on each
+          render so it follows the poller's fresh row rather than a stale copy. */}
+      {progressTargetId != null && (() => {
+        const tpl = templates.find((t) => t.id === progressTargetId);
+        if (!tpl) return null;
+        return (
+          <TemplateProgressModal
+            templateId={tpl.id}
+            name={tpl.name}
+            onClose={() => setProgressTargetId(null)}
+            onFinished={() => { void loadTemplates(); }}
+          />
+        );
+      })()}
 
       {/* Custom-template quota upgrade modal — plan-tiered + $5 extra slot */}
       <CustomTemplateLimitModal
@@ -751,43 +841,19 @@ export default function CustomTemplates() {
         onClose={() => setShowUpgrade(false)}
       />
 
-      {/* Editor modal */}
-      {sceneEditTarget && (
+      {/* ONE editor. Name, colours and per-scene AI edits used to be two modals
+          that unmounted each other, so moving between them prompted to discard
+          unsaved work. TemplateSceneEditor now hosts both. */}
+      {editTarget && (
         <TemplateSceneEditor
-          template={sceneEditTarget}
-          onClose={() => setSceneEditTarget(null)}
+          template={editTarget}
+          onClose={() => setEditTarget(null)}
           onTemplateUpdated={(tpl) => {
             setTemplates((prev) => prev.map((t) => (t.id === tpl.id ? tpl : t)));
-            setSceneEditTarget(tpl);
+            // Keep the modal open on the UPDATED row, so a save is reflected in
+            // the preview without closing what the user is working in.
+            setEditTarget(tpl);
           }}
-          // Round-trip back to the template editor. Carries the CURRENT
-          // sceneEditTarget rather than the original, so scene edits saved in
-          // this modal are reflected in the preview on the way back.
-          onSwitchToTemplate={() => {
-            setSceneEditTarget(null);
-            setEditTarget(sceneEditTarget);
-          }}
-        />
-      )}
-
-      {editTarget && (
-        <CustomTemplateEditor
-          template={editTarget}
-          onSaved={handleSaved}
-          onTemplatePatch={(tpl) =>
-            setTemplates((prev) => prev.map((t) => (t.id === tpl.id ? { ...t, ...tpl } : t)))
-          }
-          onCancel={() => setEditTarget(null)}
-          // Only offer the scene editor when there are generated scenes to edit
-          // — this mirrors the `intro_code` guard the card button used to carry.
-          onEditScenes={
-            editTarget.intro_code
-              ? () => {
-                  setEditTarget(null);
-                  setSceneEditTarget(editTarget);
-                }
-              : undefined
-          }
         />
       )}
 

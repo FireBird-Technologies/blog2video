@@ -21,7 +21,10 @@
  * any non-200 as "no opinion" and ships the scene unverified.
  *
  * ENV
- *   SCENE_SHOT_PORT      default 7861 (bound to 127.0.0.1 only)
+ *   SCENE_SHOT_PORT      default 7861
+ *   SCENE_SHOT_HOST      default 127.0.0.1; set 0.0.0.0 to run as a Compose
+ *                        sidecar (the backend container cannot reach this
+ *                        container's loopback). Keep the port unpublished.
  *   CAPTURE_FRONTEND_URL the deployed frontend serving /_capture
  *   CAPTURE_SECRET       shared secret, checked on every request
  *   PUPPETEER_EXECUTABLE_PATH  optional, else Chrome channel
@@ -209,8 +212,16 @@ const server = http.createServer(async (req, res) => {
   });
 });
 
-server.listen(PORT, "127.0.0.1", () => {
-  console.log(`[scene-shot] listening on 127.0.0.1:${PORT}, frontend=${FRONTEND}`);
+// Bind 127.0.0.1 by default — the safe choice when the backend runs beside this
+// process on the same host. In Docker Compose the backend is a DIFFERENT
+// container with its own loopback, so it cannot reach 127.0.0.1 here; that
+// deployment sets SCENE_SHOT_HOST=0.0.0.0 and keeps the port OFF `ports:` so it
+// stays on the internal network. Requests are authenticated by CAPTURE_SECRET
+// either way.
+const HOST = process.env.SCENE_SHOT_HOST || "127.0.0.1";
+
+server.listen(PORT, HOST, () => {
+  console.log(`[scene-shot] listening on ${HOST}:${PORT}, frontend=${FRONTEND}`);
 });
 
 for (const sig of ["SIGINT", "SIGTERM"]) {

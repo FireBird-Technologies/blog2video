@@ -60,7 +60,10 @@ export interface SceneProps {
   brandImages?: string[];
   brandColors: {
     primary: string;
-    secondary: string;
+    /** @deprecated Never read by any component. It carried
+     *  theme.colors.surface, which no longer exists — panels are derived
+     *  from bg+text by derivePalette. Optional so callers may omit it. */
+    secondary?: string;
     accent: string;
     background: string;
     text: string;
@@ -82,8 +85,15 @@ export interface SceneProps {
   chartTable?: { headers?: string[]; rows?: (string | number)[][] };
   chartType?: string;
   chartSummary?: string;
+  /** Size for the HEADLINE (props.displayText) — fed by the editor's *Display
+   *  text* slider. Named "title" for backward compatibility with every stored
+   *  generated scene, which binds `props.titleFontSize ?? N` on the headline. */
   titleFontSize?: number;
+  /** Size for body copy — fed by the same *Display text* slider. */
   descriptionFontSize?: number;
+  /** Size for the scene's short title / eyebrow (props.sceneTitle) — fed by the
+   *  editor's *Title* slider, applied by the kit rather than by scene code. */
+  sceneTitleFontSize?: number;
   headingFont?: string;
   bodyFont?: string;
   /** Free-form per-layout props declared by this layout's prop schema (P3).

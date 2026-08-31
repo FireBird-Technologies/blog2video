@@ -6733,10 +6733,19 @@ export default function ProjectView() {
                                 {scene.remotion_code && (() => {
                                   try {
                                     const desc = JSON.parse(scene.remotion_code);
+                                    // Custom templates write NONE of `layout`,
+                                    // `contentArchetype` or `layoutConfig.arrangement` —
+                                    // they mark scenes with sceneType / contentVariantIndex.
+                                    // Reading only those three keys left every custom
+                                    // scene's layout null here, which is why the intro and
+                                    // outro rows showed a placeholder instead of their
+                                    // name. Fall back to the shared resolver, which the
+                                    // image-capability check further down already uses.
                                     const layoutId =
                                       desc.layout ||
                                       desc.contentArchetype ||
                                       desc.layoutConfig?.arrangement ||
+                                      customSceneLayoutId(scene.remotion_code, idx, project.scenes.length) ||
                                       null;
                                     return (
                                       <div>

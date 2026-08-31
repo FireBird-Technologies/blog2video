@@ -1,3 +1,4 @@
+import { themeSurface, themeMuted } from "../../../utils/themeColors";
 import { useState, useEffect, useRef } from "react";
 import type { CustomTemplateTheme } from "../../../api/client";
 
@@ -28,9 +29,9 @@ function ScaledCanvas({ children }: { children: React.ReactNode }) {
 
 function bg(theme: CustomTemplateTheme): React.CSSProperties {
   const s = theme.style;
-  if (s === "glass") return { background: `linear-gradient(180deg, ${theme.colors.bg}ee, ${theme.colors.surface}cc)` };
+  if (s === "glass") return { background: `linear-gradient(180deg, ${theme.colors.bg}ee, ${themeSurface(theme)}cc)` };
   if (s === "neon") return { background: theme.colors.bg, boxShadow: `inset 0 0 80px ${theme.colors.accent}10` };
-  if (s === "soft") return { background: `linear-gradient(180deg, ${theme.colors.bg}, ${theme.colors.surface})` };
+  if (s === "soft") return { background: `linear-gradient(180deg, ${theme.colors.bg}, ${themeSurface(theme)})` };
   return { background: theme.colors.bg };
 }
 
@@ -93,7 +94,7 @@ function SlideTitleCard({ active, theme, name }: { active: boolean; theme: Custo
 
         {/* Subtitle */}
         <div style={{
-          fontSize: 12, color: theme.colors.muted, marginTop: 12,
+          fontSize: 12, color: themeMuted(theme), marginTop: 12,
           fontFamily: `${theme.fonts.body}, system-ui, sans-serif`,
           opacity: phase >= 3 ? 1 : 0, transform: phase >= 3 ? "translateY(0)" : "translateY(10px)",
           transition: "all 0.5s ease",
@@ -114,7 +115,7 @@ function SlideTitleCard({ active, theme, name }: { active: boolean; theme: Custo
           display: "flex", gap: 6, marginTop: 24,
           opacity: phase >= 4 ? 1 : 0, transition: "opacity 0.5s ease",
         }}>
-          {[theme.colors.accent, theme.colors.bg, theme.colors.text, theme.colors.surface].map((c, i) => (
+          {[theme.colors.accent, theme.colors.bg, theme.colors.text, themeSurface(theme)].map((c, i) => (
             <div key={i} style={{
               width: 16, height: 16, borderRadius: "50%", backgroundColor: c,
               border: `1.5px solid ${theme.colors.text}12`,
@@ -151,7 +152,7 @@ function SlideSceneGrid({ active, theme }: { active: boolean; theme: CustomTempl
   }, [active]);
 
   const a = theme.colors.accent;
-  const card = theme.colors.surface;
+  const card = themeSurface(theme);
 
   const scenes = [
     { label: "Intro", accent: a },
@@ -208,7 +209,7 @@ function SlideSceneGrid({ active, theme }: { active: boolean; theme: CustomTempl
             {/* Scene label */}
             <div style={{ padding: "6px 8px" }}>
               <div style={{ fontSize: 9, fontWeight: 600, color: theme.colors.text, fontFamily: `${theme.fonts.body}, sans-serif` }}>{scene.label}</div>
-              <div style={{ fontSize: 7, color: theme.colors.muted, fontFamily: `${theme.fonts.body}, sans-serif`, marginTop: 1 }}>Scene {i + 1}</div>
+              <div style={{ fontSize: 7, color: themeMuted(theme), fontFamily: `${theme.fonts.body}, sans-serif`, marginTop: 1 }}>Scene {i + 1}</div>
             </div>
           </div>
         ))}
@@ -224,8 +225,8 @@ function SlideSceneGrid({ active, theme }: { active: boolean; theme: CustomTempl
           }} />
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-          <span style={{ fontSize: 8, color: theme.colors.muted, fontFamily: `${theme.fonts.mono}, monospace` }}>0:00</span>
-          <span style={{ fontSize: 8, color: theme.colors.muted, fontFamily: `${theme.fonts.mono}, monospace` }}>1:42</span>
+          <span style={{ fontSize: 8, color: themeMuted(theme), fontFamily: `${theme.fonts.mono}, monospace` }}>0:00</span>
+          <span style={{ fontSize: 8, color: themeMuted(theme), fontFamily: `${theme.fonts.mono}, monospace` }}>1:42</span>
         </div>
       </div>
 
@@ -299,7 +300,7 @@ function SlideImpact({ active, theme }: { active: boolean; theme: CustomTemplate
           }}>
             {count}%
           </span>
-          <span style={{ fontSize: 9, color: theme.colors.muted, fontFamily: `${theme.fonts.body}, sans-serif`, marginTop: 2 }}>accuracy</span>
+          <span style={{ fontSize: 9, color: themeMuted(theme), fontFamily: `${theme.fonts.body}, sans-serif`, marginTop: 2 }}>accuracy</span>
         </div>
       </div>
 
@@ -308,7 +309,7 @@ function SlideImpact({ active, theme }: { active: boolean; theme: CustomTemplate
         {[{ label: "Colors", value: "5" }, { label: "Fonts", value: "3" }, { label: "Scenes", value: "12" }].map((stat, i) => (
           <div key={i} style={{ textAlign: "center" }}>
             <div style={{ fontSize: 18, fontWeight: 800, color: theme.colors.text, fontFamily: `${theme.fonts.heading}, sans-serif`, lineHeight: 1 }}>{stat.value}</div>
-            <div style={{ fontSize: 8, color: theme.colors.muted, fontFamily: `${theme.fonts.body}, sans-serif`, marginTop: 2 }}>{stat.label}</div>
+            <div style={{ fontSize: 8, color: themeMuted(theme), fontFamily: `${theme.fonts.body}, sans-serif`, marginTop: 2 }}>{stat.label}</div>
           </div>
         ))}
       </div>

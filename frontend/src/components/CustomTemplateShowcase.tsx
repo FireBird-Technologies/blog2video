@@ -86,8 +86,6 @@ function StepFlow({
     { label: "Accent", value: brand.theme.colors.accent },
     { label: "Bg", value: brand.theme.colors.bg },
     { label: "Text", value: brand.theme.colors.text },
-    { label: "Surface", value: brand.theme.colors.surface },
-    { label: "Muted", value: brand.theme.colors.muted },
   ];
 
   return (

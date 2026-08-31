@@ -71,21 +71,6 @@ class Settings(BaseSettings):
     # Custom-template Remotion codegen in local/dev: GLM via OpenRouter (prod still uses Claude).
     CUSTOM_TEMPLATE_LM: str = os.environ.get("CUSTOM_TEMPLATE_LM", "openrouter/z-ai/glm-5.2")
 
-    # Design-blueprint path for custom templates. When enabled, an LLM designs
-    # the template's own layouts / structure / type system / safe-area policy up
-    # front and the scene generator executes that blueprint, instead of every
-    # brand marching through the same five fixed compositions and a house-style
-    # prompt.
-    #
-    # Defaults OFF: this changes how every custom template is generated, so it
-    # ships dark. Generate templates across several brand categories with it on,
-    # compare against current output, then flip the default. Rollback is a
-    # config change rather than a revert.
-    CUSTOM_BLUEPRINT_ENABLED: bool = (
-        os.environ.get("CUSTOM_BLUEPRINT_ENABLED", "false").strip().lower()
-        in ("1", "true", "yes", "on")
-    )
-
     # Google OAuth
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
@@ -151,9 +136,15 @@ class Settings(BaseSettings):
     SCENE_SHOT_SERVER_URL: str = os.environ.get(
         "SCENE_SHOT_SERVER_URL", "http://127.0.0.1:7861"
     )
-    # Vision model for the check. Must be a GLM `-v` variant: the codegen model
-    # (glm-5.2) rejects image content outright.
-    SCENE_VISION_MODEL: str = os.environ.get("SCENE_VISION_MODEL", "glm-4.6v")
+    # Vision model for the check. Must be a GLM model that reads images: the
+    # `-v` variants (glm-4.6v) or the 5.3 line. The codegen model (glm-5.2)
+    # rejects image content outright.
+    #
+    # The two families need DIFFERENT thinking-budget parameters — glm-5.3-flash
+    # returns error 1210 for the `thinking: disabled` that glm-4.6v requires — so
+    # scene_visual_check._thinking_params picks per model. Changing this to a
+    # third family means checking that function still covers it.
+    SCENE_VISION_MODEL: str = os.environ.get("SCENE_VISION_MODEL", "glm-5.3-flash")
 
     # Local testing override — set DEFAULT_PLAN=PRO in .env to auto-assign plan on login
     DEFAULT_PLAN: str = ""

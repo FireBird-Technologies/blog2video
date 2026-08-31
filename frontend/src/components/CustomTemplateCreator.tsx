@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import ReactDOM from "react-dom";
+import TemplateGenerationProgress, { useGenerationStatus } from "./TemplateGenerationProgress";
+import ErrorModal from "./ErrorModal";
 import {
   extractTheme,
   extractThemeFromPrompt,
@@ -7,6 +9,7 @@ import {
   createCustomTemplate,
   generateTemplateCode,
   getCodeGenerationStatus,
+  type CodeGenStatus,
   getCustomTemplate,
   type CustomTemplateTheme,
   type CustomTemplateItem,
@@ -16,6 +19,17 @@ import {
 type CreateMode = "url" | "prompt" | "doc";
 
 const ACCEPTED_DOC_EXTENSIONS = [".pdf", ".docx", ".md", ".txt"];
+
+/** Shown for ANY generation failure except hitting the plan limit.
+ *
+ * Deliberately generic: the backend's own error strings are pipeline internals
+ * ("dspy.Refine exhausted", a validator trace) that tell a user nothing they can
+ * act on, and the only useful action is the same in every case — try again, then
+ * contact support. The limit case is excluded because it HAS a specific action:
+ * the upgrade modal. */
+const GENERATION_ERROR_MESSAGE =
+  "We're sorry for the inconvenience caused. There is some issue with the generation. " +
+  "Please try again, or contact support if the issue persists.";
 const MIN_PROMPT_CHARS = 15;
 const MAX_PROMPT_CHARS = 5000;
 
@@ -34,7 +48,18 @@ export interface CustomTemplateCreatorDemoMode {
 
 interface Props {
   onCreated: (template: CustomTemplateItem) => void;
-  onCancel: () => void;
+  /**
+   * Closed without finishing. Carries the in-flight template when generation is
+   * still RUNNING, so the parent can put a live progress card on the page and
+   * keep polling.
+   *
+   * Without this the run was orphaned: `onCreated` fires only on a terminal
+   * state, so closing mid-generation left the template out of the parent's list
+   * entirely — no card, no page poller, and this component's own pollers gone
+   * with the unmount. The modal's copy promises the run continues in the
+   * background, and this is what makes that true.
+   */
+  onCancel: (inFlight?: CustomTemplateItem) => void;
   /** Called when create is blocked by the plan quota (403) — parent shows the upgrade modal. */
   onLimitReached?: () => void;
   /** When set, the modal renders read-only inside a help video (no API calls, inline render). */
@@ -42,7 +67,7 @@ interface Props {
 }
 
 const DEFAULT_THEME: CustomTemplateTheme = {
-  colors: { accent: "#7C3AED", bg: "#FFFFFF", text: "#1A1A2E", surface: "#F5F5F5", muted: "#9CA3AF" },
+  colors: { accent: "#7C3AED", bg: "#FFFFFF", text: "#1A1A2E" },
   fonts: { heading: "Inter", body: "Inter", mono: "JetBrains Mono" },
   borderRadius: 12,
   style: "minimal",
@@ -64,8 +89,6 @@ export function CustomTemplateCreatorDemoModal({ step = 1 }: { step?: 1 | 2 }) {
       accent: "#7C3AED",
       bg: "#FFFFFF",
       text: "#111827",
-      surface: "#F5F3FF",
-      muted: "#9CA3AF",
     },
     fonts: { heading: "Inter", body: "Inter", mono: "JetBrains Mono" },
   };
@@ -143,7 +166,7 @@ export function CustomTemplateCreatorDemoModal({ step = 1 }: { step?: 1 | 2 }) {
               }}
             >
               <div style={{ display: "flex", gap: 8 }}>
-                {(["accent", "bg", "text", "surface", "muted"] as const).map((key) => (
+                {(["accent", "bg", "text"] as const).map((key) => (
                   <div
                     key={key}
                     style={{
@@ -185,7 +208,7 @@ export function CustomTemplateCreatorDemoModal({ step = 1 }: { step?: 1 | 2 }) {
                   </label>
                   <span className="text-[10px] text-purple-500 font-medium">accent</span>
                 </div>
-                {(["bg", "text", "surface", "muted"] as const).map((key) => (
+                {(["bg", "text"] as const).map((key) => (
                   <div key={key} className="flex flex-col items-center gap-1.5">
                     <div className="w-8 h-8 rounded-full border-2 border-gray-200 shadow-sm" style={{ backgroundColor: theme.colors[key] }} />
                     <span className="text-[10px] text-gray-400 capitalize">{key}</span>
@@ -250,7 +273,13 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
   const [extractedReason, setExtractedReason] = useState("");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [genStep, setGenStep] = useState<string>("");
+  const [genStatus, setGenStatus] = useState<CodeGenStatus | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Latches once the run reaches a terminal state, so the two independent
+  // observers of that state (handleGenerateCode's interval and the rail
+  // poller's effect below) cannot both fire the transition. Declared here,
+  // beside pollingRef, because handleGenerateCode reads it.
+  const finishedRef = useRef(false);
 
   // Elapsed timer for code generation
   useEffect(() => {
@@ -362,9 +391,10 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
         onLimitReached?.();
         return;
       }
-      setError(
-        typeof detail === "string" ? detail : "Failed to save template."
-      );
+      // Any other save failure is, from the user's side, the generation failing
+      // — the save is what kicks generation off — so it gets the same "Oops"
+      // modal rather than an inline banner with a backend string in it.
+      setCodeGenError(GENERATION_ERROR_MESSAGE);
       setSaving(false);
     }
   };
@@ -373,12 +403,18 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
     setGeneratingCode(true);
     setCodeGenError(null);
     setGenStep("Starting generation...");
+    // A retry is a fresh run — re-arm the terminal-transition latch, or the
+    // second attempt could never finish.
+    finishedRef.current = false;
     try {
       await generateTemplateCode(template.id);
       pollingRef.current = setInterval(async () => {
         try {
           const statusRes = await getCodeGenerationStatus(template.id);
           const s = statusRes.data;
+          // Keep the whole payload: the step list below reads the durable
+          // stage and the scene counter, not just this one label.
+          setGenStatus(s);
           if (s.step === "design_system") setGenStep("Generating design system...");
           else if (s.step === "generating_scenes") setGenStep("Generating scenes...");
           else if (s.step === "saving") setGenStep("Saving results...");
@@ -386,15 +422,29 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
           if (s.status === "complete") {
             if (pollingRef.current) clearInterval(pollingRef.current);
             pollingRef.current = null;
+            // Both this interval and the rail poller's effect can observe the
+            // terminal state; whichever gets there first owns the transition.
+            if (finishedRef.current) return;
+            finishedRef.current = true;
             const updated = await getCustomTemplate(template.id);
             setCreatedTemplate(updated.data);
             setGeneratingCode(false);
             setSaving(false);
             setGenStep("");
+            // Hand the finished template to the parent and close.
+            //
+            // The modal used to sit on an all-green rail waiting for a click on
+            // "Done" — but there is nothing left to review here, the finished
+            // template is already rendered on its card behind this dialog, and
+            // a user who walked away during the 5-10 minute run came back to a
+            // dialog whose only purpose was to be dismissed.
+            onCreated(updated.data);
           } else if (s.status === "error") {
             if (pollingRef.current) clearInterval(pollingRef.current);
             pollingRef.current = null;
-            setCodeGenError(s.error || "Code generation failed. You can retry or skip.");
+            if (finishedRef.current) return;
+            finishedRef.current = true;
+            setCodeGenError(GENERATION_ERROR_MESSAGE);
             setGeneratingCode(false);
             setSaving(false);
             setGenStep("");
@@ -402,25 +452,98 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
         } catch { /* ignore polling errors */ }
       }, 2000);
     } catch (err: any) {
-      setCodeGenError(err?.response?.data?.detail || "Code generation failed. You can retry or skip.");
       setGeneratingCode(false);
       setSaving(false);
+      // The plan limit keeps its own path — it is the one failure with a
+      // specific action (upgrade), so it must not collapse into the generic
+      // "try again" message. Reachable here as well as from handleSave, since
+      // the retry button re-enters this function.
+      const detail = err?.response?.data?.detail;
+      if (err?.response?.status === 403 && detail?.code === "custom_template_limit") {
+        onLimitReached?.();
+        return;
+      }
+      setCodeGenError(GENERATION_ERROR_MESSAGE);
     }
   };
 
   const isGenerating = saving || generatingCode;
   const isDone = !isGenerating && !codeGenError && createdTemplate?.intro_code;
 
+  /* Hand the in-flight template up so the run survives this modal closing.
+   *
+   * Bound as `() => handleClose()` at every call site, never passed directly to
+   * onClick: React would hand the MouseEvent through as `inFlight`.
+   *
+   * Only while GENERATING — a template that already finished reaches the parent
+   * through onCreated, and one that never started has nothing to poll. */
+  const handleClose = () => {
+    onCancel(isGenerating && createdTemplate ? createdTemplate : undefined);
+  };
+
+  // Second, independent poller for the step rail.
+  //
+  // handleGenerateCode's own interval drives the terminal transitions (complete
+  // / error), but it is created only on the save that starts the run — so a
+  // modal that is open across a re-render, or reopened on an in-flight
+  // template, had nothing refreshing the rail and it sat frozen on step 1.
+  // This hook keys off the template id, so it polls whenever there is a
+  // generating template to poll, regardless of how the modal got there.
+  const liveStatus = useGenerationStatus(createdTemplate?.id ?? 0, !!createdTemplate && isGenerating);
+  const railStatus = liveStatus ?? genStatus;
+
+  // Backstop for the terminal transition.
+  //
+  // handleGenerateCode's own interval is the primary path, but it is a single
+  // interval owned by one call — if it is cleared, never created (the modal was
+  // reopened on an in-flight template), or its poll happens to miss, the modal
+  // sits on an all-green rail forever with the elapsed timer still ticking.
+  // That is exactly what happened, so completion no longer depends on one
+  // specific poller: whichever observer sees the terminal state finishes the run.
+  useEffect(() => {
+    if (!createdTemplate || !isGenerating || !liveStatus) return;
+    if (finishedRef.current) return;
+
+    if (liveStatus.status === "complete") {
+      finishedRef.current = true;
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+      setGeneratingCode(false);
+      setSaving(false);
+      setGenStep("");
+      // Re-fetch so the parent receives the template WITH its generated code
+      // rather than the pre-generation row we created it from.
+      getCustomTemplate(createdTemplate.id)
+        .then((r) => onCreated(r.data))
+        .catch(() => onCreated(createdTemplate));
+    } else if (liveStatus.status === "error") {
+      finishedRef.current = true;
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+      setGeneratingCode(false);
+      setSaving(false);
+      setGenStep("");
+      setCodeGenError(GENERATION_ERROR_MESSAGE);
+    }
+    // onCreated is a parent callback and is not stable across renders; including
+    // it would re-run this effect on every parent render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveStatus?.status, createdTemplate?.id, isGenerating]);
+
   const modal = (
-    <div className={isDemo ? "absolute inset-0 z-10 flex items-center justify-center p-4" : "fixed inset-0 z-[60] flex items-center justify-center p-4"}>
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCancel} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+    <div className={isDemo ? "absolute inset-0 z-10 flex items-center justify-center p-4" : "fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-4"}>
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => handleClose()} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="text-lg font-semibold text-gray-900">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900">
             {step === 1 ? "Extract Theme" : "Review & Save"}
           </h2>
-          <button onClick={onCancel} className="text-gray-400 hover:text-gray-600 transition-colors">
+          <button onClick={() => handleClose()} className="text-gray-400 hover:text-gray-600 transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -447,7 +570,7 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
           </div>
         </div>
 
-        <div className="px-6 py-5 space-y-5">
+        <div className="px-4 sm:px-6 py-4 sm:py-5 space-y-4 sm:space-y-5">
           {error && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">{error}</div>
           )}
@@ -599,7 +722,7 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
               {/* Brand color palette preview */}
               <div className="rounded-xl overflow-hidden border border-gray-200 shadow-sm" style={{ background: theme.colors.bg, aspectRatio: "16/9", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 10 }}>
                 <div style={{ display: "flex", gap: 8 }}>
-                  {(["accent", "bg", "text", "surface", "muted"] as const).map((key) => (
+                  {(["accent", "bg", "text"] as const).map((key) => (
                     <div key={key} style={{ width: 24, height: 24, borderRadius: 6, backgroundColor: key === "accent" ? accentColor : theme.colors[key], border: `1.5px solid ${theme.colors.text}15` }} />
                   ))}
                 </div>
@@ -644,7 +767,7 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
                     </label>
                     <span className="text-[10px] text-purple-500 font-medium">accent ✎</span>
                   </div>
-                  {(["bg", "text", "surface", "muted"] as const).map((key) => (
+                  {(["bg", "text"] as const).map((key) => (
                     <div key={key} className="flex flex-col items-center gap-1.5">
                       <div className="w-8 h-8 rounded-full border-2 border-gray-200 shadow-sm" style={{ backgroundColor: theme.colors[key] }} />
                       <span className="text-[10px] text-gray-400 capitalize">{key}</span>
@@ -741,26 +864,51 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
           {step === 2 && createdTemplate && (
             <div className="space-y-6">
               {/* Large generation preview */}
-              <div className="rounded-xl overflow-hidden border border-gray-200 shadow-sm" style={{ background: theme.colors.bg, aspectRatio: "16/9", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12 }}>
+              {/* While generating, this panel is WHITE with black text rather
+                  than the brand palette — the theme is the one thing not yet
+                  proven at this point, and a dark brand background made the
+                  status text unreadable. */}
+              <div
+                className="rounded-xl overflow-hidden border border-gray-200 shadow-sm"
+                style={{
+                  background: isGenerating ? "#FFFFFF" : theme.colors.bg,
+                  // 16/9 is the right shape for the finished preview — it stands
+                  // in for the video. While GENERATING there is no video yet,
+                  // and forcing that ratio on a narrow phone made a short, wide
+                  // box the step rail could not fit into. Size to content there
+                  // and keep a minimum so it doesn't look collapsed.
+                  ...(isGenerating
+                    ? { minHeight: 190, paddingTop: 20, paddingBottom: 4 }
+                    : { aspectRatio: "16/9" }),
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexDirection: "column",
+                  gap: 12,
+                }}
+              >
                 {isGenerating ? (
                   <>
-                    <div className="w-10 h-10 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: `${accentColor}40`, borderTopColor: accentColor }} />
-                    <p className="text-sm font-medium" style={{ color: theme.colors.text }}>
-                      {genStep || "Generating template..."}
+                    <TemplateGenerationProgress status={railStatus} variant="modal" />
+                    <p
+                      className="text-[11px] sm:text-xs px-4 sm:px-6 mb-3 sm:mb-4 text-center"
+                      style={{ color: "#9CA3AF" }}
+                    >
+                      {elapsedSeconds}s elapsed · you can close this and let it finish in the background.
                     </p>
-                    <p className="text-xs px-6 text-center" style={{ color: theme.colors.muted }}>
-                      This usually takes 5–10 minutes — please be patient. You can close this and let it finish in the background.
-                    </p>
-                    <p className="text-xs" style={{ color: theme.colors.muted }}>{elapsedSeconds}s elapsed</p>
                   </>
                 ) : codeGenError ? (
+                  // The failure itself is reported by the "Oops" ErrorModal
+                  // below, which is the app's standard failure surface. This
+                  // panel only offers the retry, so the message is not stated
+                  // twice in two different styles.
                   <div className="flex flex-col items-center gap-3 px-6 text-center">
-                    <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-8 h-8 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                     </svg>
-                    <p className="text-sm text-red-500">{codeGenError}</p>
-                    <button onClick={() => handleGenerateCode(createdTemplate)} className="px-4 py-2 text-xs font-medium bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors">
-                      Retry
+                    <p className="text-sm text-gray-500">Generation didn't finish.</p>
+                    <button onClick={() => handleGenerateCode(createdTemplate)} className="px-4 py-2 text-xs font-medium bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg transition-colors">
+                      Try again
                     </button>
                   </div>
                 ) : (
@@ -776,23 +924,45 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
               {/* Template summary */}
               <div className="flex items-center gap-3 px-1">
                 <div className="w-8 h-8 rounded-full shrink-0" style={{ backgroundColor: accentColor }} />
-                <div>
-                  <p className="text-sm font-semibold text-gray-900">{createdTemplate.name}</p>
-                  <p className="text-xs text-gray-400">{theme.fonts.heading}</p>
+                {/* min-w-0 + truncate so a long brand name cannot widen the row
+                    past the dialog on a narrow screen. */}
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 truncate">{createdTemplate.name}</p>
+                  <p className="text-xs text-gray-400 truncate">{theme.fonts.heading}</p>
                 </div>
               </div>
 
               {/* Action */}
               <button
                 onClick={() => onCreated(createdTemplate)}
-                className="w-full px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-xl transition-colors"
+                className="w-full px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-[13px] sm:text-sm font-medium rounded-xl transition-colors"
               >
-                {isGenerating ? "Close & Generate in Background" : "Done"}
+                {/* Shorter label on phones — "Close & Generate in Background" is
+                    the widest element in the dialog and wrapped to two lines. */}
+                {isGenerating ? (
+                  <>
+                    <span className="sm:hidden">Close &amp; run in background</span>
+                    <span className="hidden sm:inline">Close &amp; Generate in Background</span>
+                  </>
+                ) : (
+                  "Done"
+                )}
               </button>
             </div>
           )}
         </div>
       </div>
+
+      {/* Generation failure — the app's standard "Oops 😢" dialog.
+          Not rendered in demo mode, which never calls the API. */}
+      {!isDemo && (
+        <ErrorModal
+          open={!!codeGenError}
+          variant="warning"
+          message={codeGenError || ""}
+          onClose={() => setCodeGenError(null)}
+        />
+      )}
     </div>
   );
   return isDemo ? modal : ReactDOM.createPortal(modal, document.body);

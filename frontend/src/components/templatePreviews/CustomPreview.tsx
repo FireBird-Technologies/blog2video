@@ -1,9 +1,10 @@
-import { lazy, Suspense, Fragment, useState, useCallback, useMemo, useEffect, useRef } from "react";
-import { AbsoluteFill } from "remotion";
+import { themeMuted } from "../../utils/themeColors";
+import { lazy, Suspense, Fragment, useState, useCallback, useMemo, useEffect, useLayoutEffect, useRef } from "react";
+import { AbsoluteFill, useCurrentFrame } from "remotion";
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import type { CustomTemplateTheme } from "../../api/client";
 import { compileComponentCode, compileModuleGraphEntry, type SceneProps } from "../../utils/compileComponent";
-import { DataChartScene, DataTableScene } from "../remotion/generated/kit";
+import { DataChartScene, DataTableScene, derivePalette, backgroundCss, colorsFromBrand, enforceTheme } from "../remotion/generated/kit";
 import { CtaOverlay } from "../remotion/CtaOverlay";
 import { pickGeneratedTransition } from "../remotion/generated/generatedTransitions";
 import StaticPreviewImage from "./StaticPreviewImage";
@@ -21,9 +22,20 @@ type PreviewScene =
   | { kind: "cta_outro"; label: string };
 
 /** Ordered scene labels for the carousel/strip — intro → content variants (named
- *  from their archetype id) → Data Chart, Data Table → outro. Kept in sync with the
- *  `sceneCodes` builder below; exported so the editor can render the scene strip
- *  above the template name without re-deriving the order. */
+ *  from their archetype id) → outro. Exported so the editor can render the scene
+ *  strip above the template name without re-deriving the order.
+ *
+ *  MUST stay index-for-index with the `sceneCodes` builder below: the editor
+ *  highlights `sceneLabels[i]` using the index `sceneCodes` reports through
+ *  onLiveSceneChange, so an extra label here does not just inflate the count —
+ *  it shifts every label off its scene.
+ *
+ *  This appended a "Data Chart" and a "Data Table" on the premise that the
+ *  pipeline always injects them. It does not: `_build_custom_dataviz_scenes` in
+ *  pipeline.py injects the pair only when the ARTICLE being rendered contains a
+ *  chartable table, and a template has no article. `sceneCodes` was corrected
+ *  for this; these labels were left behind, so a 9-scene template reported
+ *  "1 / 11". */
 export function buildCustomSceneLabels(args: {
   introCode?: string;
   outroCode?: string;
@@ -41,10 +53,6 @@ export function buildCustomSceneLabels(args: {
         ?.replace(/\b\w/g, (ch: string) => ch.toUpperCase());
       labels.push(archetypeLabel || `Content ${i + 1}`);
     });
-  }
-  if (labels.length > 0) {
-    labels.push("Data Chart");
-    labels.push("Data Table");
   }
   if (args.outroCode) labels.push("Outro");
   return labels;
@@ -99,6 +107,9 @@ interface ContinuousCompositionProps {
   transitionFamily?: string[];
   /** Scenes branch their layout on this, so it must match the canvas. */
   orientation?: "landscape" | "portrait";
+  /** The template's body face — the ground font for scenes that fall back to
+   *  `inherit`, matching what GeneratedVideo sets at render time. */
+  bodyFont?: string;
 }
 
 const ContinuousCustomComposition: React.FC<ContinuousCompositionProps> = ({
@@ -108,12 +119,39 @@ const ContinuousCustomComposition: React.FC<ContinuousCompositionProps> = ({
   brandColors,
   transitionFamily,
   orientation = "landscape",
+  bodyFont,
 }) => {
   const canvasW = orientation === "portrait" ? 1080 : PREVIEW_CANVAS_W;
   const canvasH = orientation === "portrait" ? 1920 : PREVIEW_CANVAS_H;
   const total = sceneCodes.length;
+
+  /* Snap off-theme colours back onto the brand palette, exactly as
+   * GeneratedVideo does at render time — this is the surface the gallery and
+   * the editor show, so a template that looks corrected in the export must look
+   * corrected here too. One pass over the whole series covers every scene. */
+  const seriesRef = useRef<HTMLDivElement | null>(null);
+  const enforceFrame = useCurrentFrame();
+  useLayoutEffect(() => {
+    const el = seriesRef.current;
+    if (!el) return;
+    const p = derivePalette(colorsFromBrand(brandColors));
+    enforceTheme(el, {
+      palette: [
+        p.accent, p.accentText, p.bg, p.bg2, p.text,
+        p.panel, p.header, p.muted, p.border, p.grid,
+      ].filter((c): c is string => Boolean(c)),
+      background: p.bg,
+      text: p.text,
+    });
+  }, [enforceFrame, brandColors]);
   return (
-    <AbsoluteFill>
+    <AbsoluteFill ref={seriesRef}>
+      {/* Neutralise a scene's own root fill and any full-bleed backdrop layer
+        * nested inside it, so the brand canvas painted on the wrapper below is
+        * what shows. KEEP IDENTICAL to the rule in GeneratedVideo.tsx — the
+        * gallery preview and the exported video must not diverge. Sized panels
+        * (width:48%) deliberately do not match and keep their own fills. */}
+      <style>{`[data-scene-wrapper] [data-scenecomp-layer]{background:transparent !important;}[data-scene-wrapper] [data-scenecomp-layer]>*{background:transparent !important;}[data-scene-wrapper] [data-scenecomp-layer] div[style*="width:100%"][style*="height:100%"][style*="position:absolute"]{background:transparent !important;background-color:transparent !important;}`}</style>
       <TransitionSeries>
         {sceneCodes.map((sc, idx) => {
           // Data-viz/outro scenes render the deterministic kit/CTA components; code
@@ -144,7 +182,21 @@ const ContinuousCustomComposition: React.FC<ContinuousCompositionProps> = ({
               key={`seq-${idx}`}
               durationInFrames={PREVIEW_SCENE_FRAMES + (t ? t.frames : 0)}
             >
-              <AbsoluteFill>{Comp ? <Comp {...props} /> : null}</AbsoluteFill>
+              {/* Same canvas + font enforcement as GeneratedVideo/VideoPreview.
+                * This surface had none, so a scene painting its own near-black
+                * backdrop showed black here even once the render was corrected —
+                * and this is the surface the gallery and the editor show. */}
+              <AbsoluteFill
+                data-scene-wrapper
+                style={{
+                  background: backgroundCss(derivePalette(colorsFromBrand(brandColors))),
+                  ...(bodyFont ? { fontFamily: bodyFont } : {}),
+                }}
+              >
+                <div data-scenecomp-layer style={{ position: "absolute", inset: 0 }}>
+                  {Comp ? <Comp {...props} /> : null}
+                </div>
+              </AbsoluteFill>
             </TransitionSeries.Sequence>
           );
           if (!t) return sequence;
@@ -194,6 +246,12 @@ const DEFAULT_TRANSITION_FAMILY = [
 function buildArchetypeSampleData(
   brandName: string,
   bestFor?: string[],
+  /** Scene position — varies the copy for layouts with no distinct content type. */
+  index = 0,
+  /** Brand-derived offset, so two templates with the same archetype sequence do
+   *  not land on the same copy at the same position. 0 keeps legacy callers on
+   *  the original rotation. */
+  seed = 0,
 ): ContentSampleData {
   const n = brandName || "Our Brand";
   const tag = bestFor?.[0] || "plain";
@@ -204,8 +262,13 @@ function buildArchetypeSampleData(
         displayText: `${n} by the Numbers`,
         narrationText: `Here's a look at the key metrics that define ${n}'s success and growth trajectory.`,
         contentType: "metrics",
+        // `suffix` is a UNIT ("/5"), not a delta. The kit renders it as a
+        // sibling span on the value's baseline, so a 4-char "+12%" beside a
+        // 4-char "3.2M" overran the cell and read as one run — the reported
+        // "3.2M+12" with "%" wrapped below. The growth signal moves into the
+        // label, where it has room.
         metrics: [
-          { value: "3.2M", label: "Active Users", suffix: "+12%" },
+          { value: "3.2M", label: "Active Users" },
           { value: "99.9%", label: "Uptime SLA" },
           { value: "4.8", label: "Rating", suffix: "/5" },
           { value: "150+", label: "Countries" },
@@ -228,7 +291,11 @@ function buildArchetypeSampleData(
         displayText: `What People Say About ${n}`,
         narrationText: `Industry leaders share their experience working with ${n} and the impact it has had.`,
         contentType: "quote",
-        quote: `${n} completely transformed how we approach our workflow. The results speak for themselves.`,
+        // Kept short deliberately. A quote renders at headline scale, and the
+        // previous two-sentence sample (~105 chars with a brand name) ran past
+        // the bottom of the frame and was clipped mid-sentence. Sample copy
+        // should show the layout working, not stress-test it.
+        quote: `${n} changed how our whole team works.`,
         quoteAuthor: "Industry Leader",
       };
     case "comparison":
@@ -286,14 +353,119 @@ function buildArchetypeSampleData(
         narrationText: `The data behind ${n}'s momentum, at a glance.`,
         contentType: "plain",
       };
-    default:
-      return {
-        displayText: `The ${n} Experience`,
-        narrationText: `Discover what makes ${n} a trusted choice for teams and organizations worldwide. Built with quality and innovation at its core.`,
-        contentType: "plain",
-      };
+    default: {
+      // "plain" is the single most common tag — a layout with no distinct
+      // content type. Returning ONE fixed string here made every such scene
+      // render "The <brand> Experience", so a whole template read as the same
+      // slide repeated. Rotate by scene position instead.
+      const plain = PLAIN_SAMPLES(n);
+      return { ...rotate(plain, index, seed), contentType: "plain" };
+    }
   }
 }
+
+/** Alternate headlines per content type.
+ *
+ * A template routinely has several layouts sharing one type — four metrics
+ * scenes is normal — and a single fixed headline per type made all of them
+ * render identical copy. Index 0 is the wording the case above already used, so
+ * the first scene of each type is unchanged. */
+const TAG_HEADLINES: Record<string, (n: string) => string[]> = {
+  metrics: (n) => [`${n} by the Numbers`, `The Numbers Behind ${n}`, `Measured Results`, `Scale at a Glance`],
+  bullets: (n) => [`What Makes ${n} Different`, `Built-In From Day One`, `The Essentials`, `What You Get`],
+  quote: (n) => [`What People Say About ${n}`, `In Their Words`, `From Our Customers`],
+  timeline: (n) => [`The ${n} Journey`, `How We Got Here`, `Milestones That Mattered`],
+  steps: (n) => [`How ${n} Works`, `Getting Started`, `From Setup to Results`],
+  comparison: (n) => [`${n} vs Traditional`, `The Old Way and the New`, `Side by Side`],
+  code: (n) => [`Get Started with ${n}`, `A Few Lines of Code`, `Drop It In`],
+};
+
+/** Short label above the headline, per content type.
+ *
+ * `sceneTitle` used to be assigned `sample.displayText`, so a scene's title and
+ * its headline were the SAME STRING — a layout rendering both showed the
+ * sentence twice. These are deliberately terse: a title is a kicker over a
+ * headline, not a second headline. */
+// Kept DISJOINT from TAG_HEADLINES: a shared string ("In Their Words" was in
+// both) could be drawn for the title and the headline of the same scene, which
+// is the duplication this exists to prevent.
+const TAG_TITLES: Record<string, string[]> = {
+  metrics: ["By the Numbers", "Impact", "Measured", "At Scale"],
+  bullets: ["Highlights", "Essentials", "Included", "Key Features"],
+  quote: ["Testimonial", "Customer Voice", "Feedback"],
+  timeline: ["The Journey", "Milestones", "Our Story"],
+  steps: ["How It Works", "The Process", "Step by Step"],
+  comparison: ["The Difference", "Compared", "Head to Head"],
+  code: ["Quick Start", "Integration", "In Practice"],
+  plain: ["Overview", "In Focus", "Closer Look", "Why It Matters"],
+};
+
+/** FNV-1a. Turns the brand name into a stable per-template rotation offset.
+ *
+ * Without this, sample copy varied ONLY by scene position and content type, so
+ * two templates with the same archetype sequence rendered byte-identical text —
+ * the "every template says the same thing" problem. Seeding the rotation by
+ * brand means two brands land on different entries at the same position, while
+ * one brand stays stable across reloads (this is preview copy, so it must not
+ * change under the user between renders). */
+function brandSeed(name: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < name.length; i++) {
+    h ^= name.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h;
+}
+
+/** Pick from `list`, rotated by both the scene's position and the brand. */
+function rotate<T>(list: T[], index: number, seed: number, salt = 0): T {
+  // The salt decorrelates the title rotation from the headline one; without it
+  // both would advance in lockstep and every brand would pair the same title
+  // with the same headline.
+  const offset = Math.floor(seed / 7 ** salt) + salt;
+  return list[Math.abs(index + offset) % list.length];
+}
+
+/** Apply the per-type headline rotation to an already-built sample. */
+function varyHeadline(
+  sample: ContentSampleData,
+  tag: string,
+  n: string,
+  index: number,
+  seed: number,
+): ContentSampleData {
+  const variants = TAG_HEADLINES[tag]?.(n);
+  if (!variants || variants.length === 0) return sample;
+  return { ...sample, displayText: rotate(variants, index, seed) };
+}
+
+/** Copy for layouts with no distinct content type, varied by scene position. */
+const PLAIN_SAMPLES = (n: string): { displayText: string; narrationText: string }[] => [
+  {
+    displayText: `Why Teams Choose ${n}`,
+    narrationText: `${n} was built for the people who rely on it every day — and it shows in the details.`,
+  },
+  {
+    displayText: `Built for What Comes Next`,
+    narrationText: `Every decision at ${n} is made with the next decade in mind, not just the next quarter.`,
+  },
+  {
+    displayText: `The ${n} Difference`,
+    narrationText: `Quality, consistency and care — the things that are hard to copy and easy to feel.`,
+  },
+  {
+    displayText: `Designed Around You`,
+    narrationText: `From the first interaction onward, ${n} adapts to how you actually work.`,
+  },
+  {
+    displayText: `Where ${n} Goes From Here`,
+    narrationText: `The next chapter is already taking shape, and it starts with the people we serve.`,
+  },
+  {
+    displayText: `A Closer Look`,
+    narrationText: `Behind every result at ${n} is a process worth understanding.`,
+  },
+];
 
 function buildFallbackSamples(brandName: string): ContentSampleData[] {
   const n = brandName || "Our Brand";
@@ -446,7 +618,16 @@ export default function CustomPreview({
     // finished video never shows. Feed the og image here so scene-by-scene preview
     // exercises the same branch the render does.
     const contentImageProps = ogImage ? { imageUrl: ogImage } : {};
-    const logoProps = logoUrls && logoUrls.length > 0 ? { logoUrl: logoUrls[0] } : {};
+    // NO logoUrl. The render blanks it — GeneratedVideo renders
+    // `<SceneComp {...sceneProps} logoUrl={undefined} />` — so a scene never
+    // draws its own logo in the finished video; only the corner LogoOverlay
+    // does, sized as a fraction of the canvas.
+    //
+    // Passing it here made the preview show an in-scene logo the video never
+    // renders, at the fixed 72-96px the scene prompt suggests. On a 1920-wide
+    // frame that is 4-5% of width against the watermark's 10.5%, which is the
+    // "logo is very small in preview" report. Preview and render must agree.
+    const logoProps = {};
     const brandImageProps = logoUrls && logoUrls.length > 0 ? { brandImages: logoUrls } : ogImage ? { brandImages: [ogImage] } : {};
     const fontProps = { titleFontSize: 88, descriptionFontSize: 44 };
 
@@ -510,11 +691,43 @@ export default function CustomPreview({
       const rawArch = contentArchetypeIds?.[contentIdx];
       const bestFor = typeof rawArch === "object" ? rawArch?.best_for : undefined;
       if (bestFor && bestFor.length > 0) {
-        const sample = buildArchetypeSampleData(n, bestFor);
-        return { sceneTitle: sample.displayText, ...sample, ...base, ...contentImageProps };
+        // Rotate by how many EARLIER content scenes share this tag, so a
+        // template with four metrics layouts gets four different headlines
+        // rather than the same one repeated.
+        const tag = bestFor[0];
+        let sameTagBefore = 0;
+        for (let i = 0; i < contentIdx; i++) {
+          const prev = contentArchetypeIds?.[i];
+          const prevTag = typeof prev === "object" ? prev?.best_for?.[0] : undefined;
+          if (prevTag === tag) sameTagBefore++;
+        }
+        const seed = brandSeed(n);
+        const sample = varyHeadline(
+          buildArchetypeSampleData(n, bestFor, contentIdx, seed),
+          tag,
+          n,
+          sameTagBefore,
+          seed,
+        );
+        // sceneTitle is a KICKER over the headline, so it must not simply
+        // repeat displayText — a layout rendering both showed the same
+        // sentence twice. Salted so the title rotation does not advance in
+        // lockstep with the headline one.
+        const titles = TAG_TITLES[tag] ?? TAG_TITLES.plain;
+        return {
+          ...sample,
+          sceneTitle: rotate(titles, sameTagBefore, seed, 1),
+          ...base,
+          ...contentImageProps,
+        };
       }
       const fallback = fallbackSamples[contentIdx % fallbackSamples.length];
-      return { sceneTitle: fallback.displayText, ...fallback, ...base, ...contentImageProps };
+      return {
+        ...fallback,
+        sceneTitle: rotate(TAG_TITLES.plain, contentIdx, brandSeed(n), 1),
+        ...base,
+        ...contentImageProps,
+      };
     });
   }, [sceneCodes, name, ogImage, previewImageUrl, logoUrls, introCode, contentArchetypeIds, fallbackSamples, theme.fonts.heading, theme.fonts.body]);
 
@@ -543,6 +756,10 @@ export default function CustomPreview({
       bgColor: theme.colors.bg,
       textColor: theme.colors.text,
       logo: logoUrls?.[0] || undefined,
+      // Match the render's default. Omitting this let the watermark fall back
+      // to 100% here while the render uses the project column's 70% default —
+      // the same logo at two different sizes in preview and video.
+      logoSize: 70,
       aspectRatio: orientation,
       fontFamily: theme.fonts.body,
       playbackSpeed: 1,
@@ -554,10 +771,14 @@ export default function CustomPreview({
   const brandColors = useMemo<SceneProps["brandColors"]>(
     () => ({
       primary: theme.colors.accent,
-      secondary: theme.colors.surface,
       accent: theme.colors.accent,
       background: theme.colors.bg,
       text: theme.colors.text,
+      // The gradient's second stop. Without this the preview built a solid
+      // palette and every gradient template previewed flat — the render path
+      // (remotion.py's brandColors["bg2"]) has always passed it, so the gallery
+      // and the exported video disagreed.
+      bg2: theme.colors.bg2,
     }),
     [theme.colors],
   );
@@ -573,6 +794,7 @@ export default function CustomPreview({
       transitionFamily: (theme as unknown as { motion?: { transitionFamily?: string[] } })
         .motion?.transitionFamily,
       orientation,
+      bodyFont: theme.fonts.body,
     }),
     [sceneCodes, compiledMap, sceneSampleProps, brandColors, theme, orientation],
   );
@@ -796,7 +1018,7 @@ export default function CustomPreview({
           style={{
             fontFamily: `${theme.fonts.body}, sans-serif`,
             fontSize: 20,
-            color: theme.colors.muted,
+            color: themeMuted(theme),
             textAlign: "center",
           }}
         >

@@ -161,7 +161,6 @@ export default function RemotionPreviewPlayer({
   const brandColors = useMemo(
     () => ({
       primary: theme.colors.accent,
-      secondary: theme.colors.surface,
       accent: theme.colors.accent,
       background: theme.colors.bg,
       text: theme.colors.text,

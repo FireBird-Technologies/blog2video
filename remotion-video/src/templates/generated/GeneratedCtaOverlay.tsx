@@ -10,7 +10,8 @@ export interface GeneratedCtaOverlayProps {
   ctaProps: CtaProps;
   brandColors: {
     primary: string;
-    secondary: string;
+    /** @deprecated Never read. Optional so callers may omit it. */
+    secondary?: string;
     accent: string;
     background: string;
     text: string;

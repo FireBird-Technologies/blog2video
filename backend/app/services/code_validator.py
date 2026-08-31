@@ -97,11 +97,41 @@ DANGEROUS_REGEX = [
 MAX_NESTING_DEPTH = 20
 
 
+def _unescape_if_it_fixes_parsing(code: str) -> str:
+    """Repair source whose newlines arrived JSON-ESCAPED.
+
+    The model occasionally emits a whole scene with literal backslash-n instead
+    of real line breaks:
+
+        const kickerEnter = spring({\\n    frame: frame - 8,\\n  });
+
+    esbuild then reports `Syntax error "n"` and the attempt is thrown away —
+    burning a full generation rollout on a serialization artifact rather than a
+    modelling mistake. One observed retry lost its first of three attempts to
+    exactly this.
+
+    Fixing it blindly would be dangerous: `"a\\nb"` inside a string literal and
+    `/\\n/` in a regex are legitimate and must survive. So the repair is applied
+    ONLY when the code does not parse as-is AND unescaping makes it parse. That
+    makes a false positive structurally impossible — valid code is never
+    touched, because valid code never enters this branch.
+    """
+    if "\\n" not in code:
+        return code
+    ok, _ = _parse_check(code)
+    if ok:
+        return code  # parses already — whatever \n it contains is intentional
+    repaired = code.replace("\\r\\n", "\n").replace("\\n", "\n").replace("\\t", "\t")
+    ok_after, _ = _parse_check(repaired)
+    return repaired if ok_after else code
+
+
 def clean_code(raw: str) -> str:
     """Clean common AI artifacts from generated code.
 
     - Strips markdown fences (```tsx ... ```)
     - Removes import/export lines (globals are pre-injected)
+    - Repairs JSON-escaped newlines when that is what broke parsing
     - Trims whitespace
     """
     code = raw.strip()
@@ -109,6 +139,11 @@ def clean_code(raw: str) -> str:
     # Strip markdown fences
     code = re.sub(r"^```(?:tsx|jsx|javascript|js|typescript|ts)?\s*\n?", "", code)
     code = re.sub(r"\n?```\s*$", "", code)
+
+    # Before the import/export stripping below: those are line-anchored regexes
+    # (re.MULTILINE), and with escaped newlines the whole file is ONE line, so
+    # they would silently fail to match.
+    code = _unescape_if_it_fixes_parsing(code)
 
     # Remove ES import STATEMENTS the AI sometimes adds despite instructions
     # (globals are pre-injected). Only match true top-level import statements —
@@ -222,6 +257,28 @@ _ANIM_HELPER_REGEX = re.compile(
     r'|CornerFrame|StreakField|KineticTicker|BigGlyphBackdrop|PulseRing|AccentSweep)\b'
 )
 
+# A data-content-img slot that fills the whole frame.
+#
+# Matches the marker plus a style block within ~400 chars that is BOTH absolutely
+# positioned AND full-size (either 100%/100% or an inset:0 / AbsoluteFill form).
+# A bounded slot — a column, card or panel — never matches, which is the normal
+# and correct shape.
+_FULLBLEED_SLOT_RE = re.compile(
+    r"data-content-img[^>]{0,400}?"
+    r"(?=[^>]{0,400}?position\s*:\s*['\"]absolute)"
+    r"(?=[^>]{0,400}?(?:width\s*:\s*['\"]100%|inset\s*:\s*0))"
+    r"(?=[^>]{0,400}?(?:height\s*:\s*['\"]100%|inset\s*:\s*0))",
+    re.DOTALL,
+)
+
+# The scene's text/content layers. Used only to establish DOM ORDER relative to
+# the image slot — a full-bleed slot before them is a backdrop, after them it is
+# a cover.
+_CONTENT_LAYER_RE = re.compile(
+    r"\b(?:FitText|RevealText|HighlightPhrase|StatGrid|MetricRow|CodeBlock"
+    r"|displayText|sceneTitle)\b"
+)
+
 # The logo conditional, in every form a competent author might write it.
 #
 # The old pattern only accepted `props.logoUrl &&` / `logoUrl &&` / `hasLogo` /
@@ -261,6 +318,7 @@ def validate_component_code(
     scene_type: str = "content",
     *,
     collect_all: bool = False,
+    theme: dict | None = None,
 ) -> tuple[bool, str | None]:
     """Validate a generated component code string.
 
@@ -271,6 +329,12 @@ def validate_component_code(
     its own generation prompt says it takes no content image, so requiring one
     here made the two contradict each other and guaranteed repair churn.
     (This parameter was previously accepted and never read.)
+
+    theme: the brand's colours, used to resolve `palette.<slot>` references to
+    real hex so the contrast gate can measure them. Omitted (None) means the
+    symbolic half of the contrast check is skipped — the gate then only judges
+    literal hex pairs, which is the conservative default for callers that do not
+    have a theme to hand.
 
     collect_all: when True, report EVERY content failure at once instead of
     returning on the first. The default is False so existing callers are
@@ -338,6 +402,62 @@ def validate_component_code(
         errors.append(msg)
         return None if collect_all else (False, msg)
 
+    # ── Full-bleed image slot that buries the scene ──────────────────────────
+    # Observed in production: an intro whose data-content-img slot was
+    # position:'absolute', 100%x100%, objectFit:'cover', rendered AFTER the
+    # content and carrying the ONLY zIndex in the file. Two siblings with no
+    # zIndex paint in DOM order, so the photo covered every layout element and
+    # the scene rendered as a bare image.
+    #
+    # Only flagged when the slot is BOTH full-bleed AND written after the last
+    # content layer — a full-bleed backdrop rendered first is a legitimate
+    # design, and is exactly what the prompt asks for.
+    _slot = _FULLBLEED_SLOT_RE.search(code)
+    if _slot:
+        _last_content = max(
+            (m.start() for m in _CONTENT_LAYER_RE.finditer(code)),
+            default=-1,
+        )
+        if _last_content >= 0 and _slot.start() > _last_content:
+            r = _fail(
+                "The image slot is a full-bleed layer rendered AFTER the scene's content, so "
+                "the photo paints on top and hides every layout element. Either give the slot a "
+                "bounded box (a column/card/panel), or render it FIRST as a deliberate backdrop "
+                "with zIndex 0 on the slot, zIndex 1 + position:'relative' on the content, and a "
+                "scrim between them."
+            )
+            if r:
+                return r
+
+    # ── Contrast (HARD GATE) ─────────────────────────────────────────────────
+    # Unreadable text is the one defect a viewer cannot work around, and it used
+    # to be enforced only as a -0.25 scoring nudge that was skipped entirely on
+    # the final refine attempt — so a scene whose body copy sat at 1.7:1 against
+    # its own background shipped. Only pairs that resolve to two concrete colours
+    # are judged; computed values, alpha blends and gradients are skipped rather
+    # than guessed at, so a false positive (which costs a full LLM rollout)
+    # stays very unlikely.
+    from app.services.code_generator import (
+        _detect_contrast_defects,
+        detect_offpalette_colors,
+    )
+
+    for _defect in _detect_contrast_defects(code, theme):
+        r = _fail(f"Unreadable text: {_defect}")
+        if r:
+            return r
+        break  # one contrast message is enough to drive a repair
+
+    # Off-palette hues. Separate from contrast: an indigo rule on a cream canvas
+    # reads perfectly well and is still wrong, because indigo is not in the
+    # brand. Without this, "one theme across the template" was never actually
+    # enforced — only "legible against the canvas" was.
+    for _defect in detect_offpalette_colors(code, theme):
+        r = _fail(f"Off-palette colour: {_defect}")
+        if r:
+            return r
+        break  # one is enough to drive a repair
+
     # Must have at least 2 animation calls, counting kit helpers as animation.
     anim_count = code.count("interpolate(") + code.count("spring(")
     anim_count += len(_ANIM_HELPER_REGEX.findall(code))
@@ -389,6 +509,136 @@ def validate_component_code(
         if r:
             return r
 
+    # Long-text props must ALSO go through a fitting component.
+    #
+    # The gate above is scoped to props.displayText, which left the two text
+    # paths that actually overflowed completely ungated:
+    #   * props.quote — no quote component exists in the kit, so quote scenes are
+    #     hand-rolled at a literal fontSize. One shipped clipped mid-sentence.
+    #   * props.metrics — a stat value at a fixed multiple of type.numeral
+    #     overran its cell, colliding with its own suffix.
+    # Neither reads props.displayText, so neither ever tripped the gate.
+    #
+    # StatGrid / MetricRow count as fitting for metrics because the kit sizes
+    # those numerals itself; a hand-rolled numeral row does not.
+    # Checked by PROXIMITY, not file-wide presence. A file-wide test is
+    # satisfied by the headline's own <FitText>, so the realistic failure — a
+    # correctly fitted headline sitting beside a bare quote — slipped straight
+    # through. The prop must appear INSIDE a fitting element, or be handed to a
+    # kit component that sizes it (StatGrid items={props.metrics}).
+    def _prop_aliases(prop: str) -> set[str]:
+        """The prop plus every local name it flows into.
+
+        Matching `props.quote` LITERALLY inside a fitter made this gate
+        impossible to satisfy for code the prompt itself asks for. The contract
+        says to write fallbacks ("If props.bullets / props.steps / props.metrics
+        is empty or undefined: fall back to..."), and a fallback is naturally
+        hoisted:
+
+            const quoteText = props.quote ?? props.displayText;
+            <FitText>{quoteText}</FitText>
+
+        which is correct, fitted code the old check reported as a bare
+        fontSize. The model then rewrote until its attempts ran out — one
+        observed scene burned three rollouts (198s) on a rule it could not
+        satisfy, and the same message repeated on every retry.
+
+        Two hops, because splitting for a per-word animation is one more:
+            const q = props.quote;  const words = q.split(" ");
+        """
+        names = {prop}
+        for _ in range(2):
+            for _m in re.finditer(
+                r"(?:const|let|var)\s+(\w+)\s*=\s*[^;\n]*?"
+                r"\b(?:props\.)?(" + "|".join(re.escape(n) for n in names) + r")\b",
+                code,
+            ):
+                names.add(_m.group(1))
+        return names
+
+    def _is_fitted(prop: str) -> bool:
+        _alt = "|".join(re.escape(n) for n in _prop_aliases(prop))
+        # Inside <FitText>…{props.X}…</FitText> (or the other text fitters).
+        # 2500, not 1500: a fitter wrapping several lines of markup is normal,
+        # and a window that ends mid-block reads as "not fitted".
+        for _blk in re.findall(
+            r"<(?:FitText|RevealText|HighlightPhrase)\b[\s\S]{0,2500}?"
+            r"</(?:FitText|RevealText|HighlightPhrase)>",
+            code,
+        ):
+            if re.search(rf"\b(?:props\.)?(?:{_alt})\b", _blk):
+                return True
+        # Or passed as a prop to a fitter: <RevealText text={props.quote} />,
+        # <StatGrid items={props.metrics} /> — self-closing, so no block above.
+        return bool(
+            re.search(
+                rf"<(?:FitText|RevealText|HighlightPhrase|StatGrid|MetricRow)\b[^>]{{0,300}}"
+                rf"\b(?:props\.)?(?:{_alt})\b",
+                code,
+                re.DOTALL,
+            )
+        )
+
+    for _prop, _what, _fix in (
+        (
+            "quote",
+            "quote text",
+            "<FitText fontSize={props.titleFontSize ?? 64} maxLines={4} "
+            "maxHeight={<px available>}>{props.quote}</FitText>",
+        ),
+        (
+            "metrics",
+            "stat values",
+            "<StatGrid items={props.metrics} /> (or <MetricRow> for 1-2 stats), which "
+            "sizes each numeral to its cell",
+        ),
+    ):
+        if re.search(rf"props\.{_prop}\b", code) and not _is_fitted(_prop):
+            r = _fail(
+                f"This scene renders {_what} from props.{_prop} at a fixed size. A fixed "
+                f"fontSize cannot adapt to how much text a scene actually receives, so it "
+                f"overflows the frame and is clipped. Use {_fix}."
+            )
+            if r:
+                return r
+
+    # A multi-item scene must ADAPT its arrangement to the aspect ratio.
+    #
+    # 1920x1080 and 1080x1920 are not the same layout problem: a row of stats
+    # that reads well across a landscape frame has roughly a third of the width
+    # in portrait, and a portrait-shaped vertical stack wastes most of a
+    # landscape frame. A reported scene showed two stats stacked vertically in
+    # LANDSCAPE, which is the portrait shape used in the wrong orientation.
+    #
+    # This was a -0.15 score nudge, which a scene could buy back on other
+    # criteria — so it shipped anyway. Gated only for scenes that render a
+    # LIST/GRID, where arrangement genuinely differs by orientation; a centred
+    # headline or a single quote reads the same in both and must not be forced
+    # to branch for nothing.
+    if scene_type == "content" and re.search(
+        r"props\.(?:metrics|bullets|steps|timelineItems)\b", code
+    ):
+        _branches = bool(
+            re.search(r"isPortrait\s*\?", code)                                  # ternary
+            or re.search(r"(?:if\s*\(|&&|\|\|)\s*[^)\n]*\bisPortrait\b", code)   # guard
+            or re.search(r"!\s*isPortrait\b", code)                              # negated
+            # A kit component that branches internally (StatGrid picks a
+            # portrait arrangement and caps the item count itself) satisfies
+            # this — the scene has delegated the decision, not skipped it.
+            or re.search(r"<(?:StatGrid|MetricRow)\b", code)
+        )
+        if not _branches:
+            r = _fail(
+                "This scene renders a list/grid but never branches on isPortrait, so the "
+                "same arrangement is used for 1920x1080 and 1080x1920 — one of the two "
+                "will be squashed or will waste most of the frame. Declare "
+                "`const isPortrait = props.aspectRatio === 'portrait'` and branch the "
+                "layout on it (column vs row, fewer items, smaller type), or hand the "
+                "items to <StatGrid> / <MetricRow>, which adapt internally."
+            )
+            if r:
+                return r
+
     # The headline must honour props.titleFontSize.
     #
     # The Typography sliders in the scene editor write layoutConfig.titleFontSize
@@ -414,6 +664,217 @@ def validate_component_code(
         )
         if r:
             return r
+
+    # Fonts must come from props, never from a hardcoded family.
+    #
+    # The prompt has asked for this all along ("NEVER hardcode fontFamily
+    # strings"), but nothing enforced it, so a scene writing
+    # `fontFamily: 'Playfair Display'` passed every gate. The visible symptom is
+    # a template whose intro renders in one face and whose content scenes render
+    # in another — the fonts a user picks in Settings only reach the components
+    # that actually read props.headingFont / props.bodyFont.
+    #
+    # A hardcoded name is also usually not loaded at all: resolveFontFamily()
+    # returns null for anything outside the registry, so the raw string is used
+    # as a bare CSS family and the render silently falls back to the system sans.
+    #
+    # Monospace is the one legitimate literal: code-content scenes genuinely need
+    # it and the kit ships no mono prop.
+    _MONO_OK = re.compile(r"monospace|ui-monospace|SFMono|Menlo|Consolas", re.I)
+    _font_offenders: list[str] = []
+    # A quoted value is captured whole FIRST — a stack like 'Georgia, serif'
+    # contains the comma that would otherwise terminate the unquoted branch,
+    # which let multi-family stacks slip through.
+    for _m in re.finditer(
+        r"""fontFamily\s*:\s*(['"`][^'"`]*['"`]|[^,;}\n]+)""", code
+    ):
+        _val = _m.group(1).strip()
+        if "headingFont" in _val or "bodyFont" in _val:
+            continue
+        if _MONO_OK.search(_val):
+            continue
+        # A quoted literal is the defect; an identifier may well be a const that
+        # was itself assigned from the props, which is checked below.
+        _lit = re.match(r"""^['"`]([^'"`]+)['"`]""", _val)
+        if _lit:
+            _font_offenders.append(_lit.group(1))
+            continue
+        _ident = re.match(r"^([A-Za-z_$][\w$]*)\s*$", _val)
+        if _ident:
+            _name = _ident.group(1)
+            _assign = re.search(
+                rf"(?:const|let|var)\s+{re.escape(_name)}\s*=\s*([^;\n]+)", code
+            )
+            if _assign and (
+                "headingFont" in _assign.group(1) or "bodyFont" in _assign.group(1)
+            ):
+                continue
+            if _assign and _MONO_OK.search(_assign.group(1)):
+                continue
+            if _assign and re.match(r"""^\s*['"`]""", _assign.group(1)):
+                _font_offenders.append(f"{_name} = {_assign.group(1).strip()}")
+    # ── A NAMED family beside the font prop ──────────────────────────────────
+    #
+    # `const headingFont = props.headingFont || 'Playfair Display, serif'` was
+    # accepted by everything: the guards above test for the SUBSTRING
+    # "headingFont", which matches the variable's own name and the prop
+    # reference, so the literal beside it was never examined. Two scenes could
+    # carry different named fallbacks and both pass — which is how one template
+    # shipped with different typefaces per scene.
+    #
+    # The fallback must be "inherit". The wrapper paints the template's real
+    # face, so `inherit` resolves to it, whereas a named family either is not
+    # loaded (silently the system sans) or pins this scene to a face the rest of
+    # the template is not using.
+    for _m in re.finditer(
+        r"""props\.(?:headingFont|bodyFont)\s*(?:\|\||\?\?)\s*(['"`])([^'"`]+)\1""",
+        code,
+    ):
+        _fallback = _m.group(2).strip()
+        if _fallback.lower() in ("inherit", "initial", "unset"):
+            continue
+        if _MONO_OK.search(_fallback):
+            continue
+        _font_offenders.append(f"props.headingFont || {_fallback!r}")
+
+    # CSS shorthand smuggles a family past a fontFamily-only check.
+    for _m in re.finditer(r"""(?<![A-Za-z])font\s*:\s*(['"`][^'"`]+['"`])""", code):
+        if not _MONO_OK.search(_m.group(1)):
+            _font_offenders.append(_m.group(1))
+
+    # ── The escapes ──────────────────────────────────────────────────────────
+    # The checks above only understand `fontFamily:` and `font:` with a literal
+    # or a bare identifier. Every form below was verified to slip through, and
+    # each produces the same defect: one scene in the brand's face, the next in
+    # something else.
+
+    # 1. Hyphenated CSS — inside a <style> string, a styled-component, or any
+    #    template literal. `fontFamily` never appears, so nothing matched.
+    for _m in re.finditer(r"""font-family\s*:\s*([^;"'`}\n]+)""", code, re.I):
+        _val = _m.group(1).strip()
+        if _MONO_OK.search(_val) or "headingFont" in _val or "bodyFont" in _val:
+            continue
+        if "${" in _val or "var(" in _val:
+            continue  # interpolated / CSS variable — unresolvable, skip
+        _font_offenders.append(f"font-family: {_val}")
+
+    # 2. A quoted family anywhere in a fontFamily VALUE that is not a plain
+    #    literal — a ternary, an array .join(), a concatenation. The literal
+    #    branch above needs the value to START with a quote, so these escaped.
+    for _m in re.finditer(r"""fontFamily\s*:\s*([^,;}\n]*)""", code):
+        _val = _m.group(1).strip()
+        if not _val or _val.startswith(("'", '"', "`")):
+            continue  # already handled by the literal branch
+        if "headingFont" in _val or "bodyFont" in _val or _MONO_OK.search(_val):
+            continue
+        _quoted = re.findall(r"""['"]([^'"]{2,})['"]""", _val)
+        for _q in _quoted:
+            if not _MONO_OK.search(_q):
+                _font_offenders.append(_q)
+
+    # 3. Fonts overridden on a kit component. `<SceneFrame fonts={{heading: ...}}>`
+    #    is the worst of these: KitProvider applies that face to the scene's whole
+    #    subtree, so it defeats every per-element check at once.
+    for _m in re.finditer(
+        r"""<\s*(?:SceneFrame|KitProvider)\b[^>]{0,400}?\bfonts\s*=\s*\{\{([^}]{0,200})""",
+        code,
+        re.DOTALL,
+    ):
+        _val = _m.group(1)
+        if "headingFont" in _val or "bodyFont" in _val:
+            continue
+        _font_offenders.append(f"<SceneFrame fonts={{{{{_val.strip()[:60]}}}}}>")
+    if _font_offenders:
+        r = _fail(
+            f"Hardcoded font family {', '.join(repr(f) for f in _font_offenders[:3])} — a "
+            "literal family is not loaded by the renderer (it falls back to the system sans) "
+            "and it ignores the font the user picked in Settings, so the intro and the content "
+            "scenes of one template end up in different typefaces. Use "
+            'fontFamily: props.headingFont || "inherit" for headings and '
+            'fontFamily: props.bodyFont || "inherit" for body text.'
+        )
+        if r:
+            return r
+
+    # ── The template's typefaces must actually be BOUND ──────────────────────
+    #
+    # The check above rejects a HARDCODED family, but a scene that sets no
+    # fontFamily at all passed it outright — it inherits whatever the wrapper
+    # supplies, which is the system sans. That is why one template's intro and
+    # content scenes could read as two different designs even with a blueprint
+    # that had chosen a typeface for both.
+    #
+    # `props.headingFont` was previously only a -0.25 score nudge, which alone
+    # never crosses the 0.6 acceptance bar, so a scene ignoring the template's
+    # typeface shipped at 0.75. `props.bodyFont` was not checked ANYWHERE.
+    # Scoped to scenes that actually render a headline, exactly like the FitText
+    # gate above — a chart-only or image-only scene has no heading to set a face
+    # on, and demanding one there rejects a correct scene.
+    _has_headline = re.search(r"props\.(?:displayText|sceneTitle)", code)
+    if _has_headline and not re.search(r"props\.headingFont", code):
+        r = _fail(
+            "The scene never reads props.headingFont, so its headings render in whatever "
+            "typeface the wrapper happens to supply instead of the one this template was "
+            'designed in. Bind it: fontFamily: props.headingFont || "inherit".'
+        )
+        if r:
+            return r
+
+    # bodyFont is required only when the scene actually renders body copy — an
+    # intro that is one headline and a logo has nothing to set it on, and
+    # demanding it there would reject a correct scene.
+    # narrationText is deliberately NOT a body-copy signal: it is the voiceover
+    # script and must never be rendered at all (there is a gate for that below).
+    # Treating it as body copy would both demand a font for text that should not
+    # exist, and mask that gate's own error behind this one.
+    _has_body_copy = re.search(
+        r"props\.(?:bullets|steps|quote|comparison\w*|timelineItems|metrics)"
+        r"|<(?:Caption|BulletList|StatGrid|MetricRow|CodeBlock)\b",
+        code,
+    )
+    if _has_body_copy and not re.search(r"props\.bodyFont", code):
+        r = _fail(
+            "The scene renders body copy but never reads props.bodyFont, so its body text "
+            "falls back to the system sans while its headings use the template's typeface. "
+            'Bind it: fontFamily: props.bodyFont || "inherit".'
+        )
+        if r:
+            return r
+
+    # Body copy must honour props.descriptionFontSize.
+    #
+    # The mirror of the titleFontSize gate above. That gate's comment used to say
+    # descriptionFontSize had "no single unambiguous target element to bind to",
+    # and that is still true — so this does NOT demand a specific element. It
+    # demands only that a scene which hand-sizes several pieces of body-tier text
+    # reads the prop at least once, which is enough for the slider to move
+    # something the viewer can see.
+    #
+    # Deliberately narrow, to avoid rejecting correct scenes:
+    #   * only fires when the scene has body-copy signals at all;
+    #   * only counts sizes in the 20-60px band — the body/supporting tier.
+    #     Eyebrows (18px) and display numerals (90px+) are legitimately fixed;
+    #   * needs 2+ DISTINCT such sizes, so one incidental literal is fine;
+    #   * a scene that delegates to <StatGrid>/<MetricRow>/<BulletList> has no
+    #     literal sizes of its own and passes untouched — those components read
+    #     the type scale internally and already follow both sliders.
+    if _has_body_copy and not re.search(r"props\.descriptionFontSize", code):
+        _body_tier_sizes = {
+            int(m)
+            for m in re.findall(r"fontSize\s*[:=]\s*\{?\s*(\d{2})\b", code)
+            if 20 <= int(m) <= 60
+        }
+        if len(_body_tier_sizes) >= 2:
+            r = _fail(
+                "Body copy is rendered at hardcoded sizes "
+                f"({', '.join(str(s) for s in sorted(_body_tier_sizes))}px) and the scene "
+                "never reads props.descriptionFontSize, so the editor's body font-size "
+                "slider does nothing. Size supporting text as a fraction of it: "
+                "fontSize: (props.descriptionFontSize ?? 34) * 0.9 — or hand the content to "
+                "<StatGrid>/<MetricRow>, which follow the template's type scale already."
+            )
+            if r:
+                return r
 
     # narrationText is the VOICEOVER SCRIPT — it must never be rendered.
     #

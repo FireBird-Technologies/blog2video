@@ -1021,7 +1021,7 @@ def create_project(
             detail="You do not have access to this crafted template.",
         )
     crafted_pk = _crafted_template_pk(template_id, db)
-    colors = get_preview_colors(template_id)
+    colors = get_preview_colors(template_id, db=db, user_id=user.id)
     normalized_video_style = _normalize_video_style(data.video_style)
     voice_tuning, voice_tuning_pref = _resolve_voice_tuning(data.voice_emotion, user)
     project = Project(
@@ -3068,7 +3068,7 @@ def create_projects_bulk(
                 status_code=403,
                 detail="You do not have access to one or more crafted templates in this bulk request.",
             )
-        colors = get_preview_colors(template_id)
+        colors = get_preview_colors(template_id, db=db, user_id=user.id)
         normalized_video_style = _normalize_video_style(data.video_style)
         voice_tuning, voice_tuning_pref = _resolve_voice_tuning(data.voice_emotion, user)
         if voice_tuning_pref is not None:
@@ -3202,7 +3202,7 @@ def create_project_from_upload(
             status_code=403,
             detail="You do not have access to this crafted template.",
         )
-    colors = get_preview_colors(template_id)
+    colors = get_preview_colors(template_id, db=db, user_id=user.id)
     normalized_video_style = _normalize_video_style(video_style)
     resolved_voice_tuning, resolved_voice_tuning_pref = _resolve_voice_tuning(voice_emotion, user)
     logger.info(

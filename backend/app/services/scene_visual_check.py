@@ -50,10 +50,11 @@ _CRITIQUE_PROMPT = """You are a quality inspector for automatically generated 19
 Work through each check and answer it explicitly before giving a verdict.
 
 1. LEGIBILITY — Report ONLY text a viewer genuinely could not read: near-identical text and background colours, or text lost in a busy image. White or near-white text on a dark background IS readable — do not report it. Light-grey secondary text on black IS readable — do not report it.
-2. SCALE — Report ONLY when NO text on the frame is large (no element reaching roughly a fifth of the frame height), or when the main copy is so small it is unreadable. A frame with one big headline plus small supporting text is CORRECT — do not report it.
+2. SCALE — Report ONLY when NO text on the frame is large (no element reaching roughly a fifth of the frame height), or when the main copy is so small it is unreadable, or when the supporting text is so much smaller than the headline that the frame reads as one big word and nothing else. A frame with one big headline plus legible small supporting text is CORRECT — do not report it.
 3. EMPTINESS — Report ONLY when a large contiguous region — around a third of the frame or more — is completely bare, with no text, imagery, panel, rule or decoration of any kind. Margins and breathing room around content are CORRECT and are not emptiness.
 4. OVERFLOW — Is any text or element clipped by the frame edge, or overlapping another so either becomes unreadable?
 5. RENDER FAILURE — Is the frame blank, one flat colour, unstyled text with no layout, or an error message?
+6. EDGE PACKING — Report ONLY when a group of items (cards, stats, list rows) is jammed against one edge of the frame with a large empty band on the opposite side, as though it were laid out for more items than it actually has. A layout that is deliberately asymmetric — a rail down one side and content beside it, a headline column next to an image — is CORRECT, do not report it. Centred content with even margins is CORRECT.
 
 Rules:
 - This is ONE FROZEN FRAME of an animation. Do NOT report that it "looks static", and do not comment on animation, timing or transitions.
@@ -102,6 +103,20 @@ def _render_scene_png(job_id: str, payload: dict) -> bytes | None:
         return None
 
 
+def _thinking_params(model: str) -> dict:
+    """The thinking-budget parameter this model accepts.
+
+    Both forms exist to stop GLM burning the whole token budget on
+    `reasoning_content` and returning an empty `content`. They are NOT
+    interchangeable — see _critique_image's docstring. Measured against the live
+    API: glm-5.3-flash answers correctly with `reasoning_effort: low` (14
+    completion tokens) and returns HTTP error 1210 for `thinking: disabled`.
+    """
+    if model.startswith("glm-5"):
+        return {"reasoning_effort": "low"}
+    return {"thinking": {"type": "disabled"}}
+
+
 def _critique_image(image_bytes: bytes, context: str) -> str | None:
     """Ask the vision model for defects. Returns a critique, or None for PASS.
 
@@ -109,11 +124,19 @@ def _critique_image(image_bytes: bytes, context: str) -> str | None:
     template codegen and image generation, so this adds no new provider
     dependency.
 
-    Two model details worth knowing:
+    Model details worth knowing:
       * The codegen model (glm-5.2) does NOT accept images — it rejects
-        `image_url` content outright. Vision needs a `-v` model.
-      * With thinking enabled, GLM spends its whole budget on `reasoning_content`
-        and returns an EMPTY `content`, so thinking is explicitly disabled here.
+        `image_url` content outright. Vision needs a model that reads images:
+        the `-v` variants (glm-4.6v) or the 5.3 line (glm-5.3-flash).
+      * GLM otherwise spends its whole budget on `reasoning_content` and returns
+        an EMPTY `content`, so the thinking budget must be capped — but the two
+        model families disagree on HOW:
+          - glm-4.6v accepts `thinking: {"type": "disabled"}`.
+          - glm-5.3-flash REJECTS that outright (error 1210, "always engages in
+            thinking and cannot be disabled") and wants `reasoning_effort`.
+        Sending the wrong one is not a soft failure: the call errors, the check
+        fails open, and verification silently never runs. So the parameter is
+        chosen per model rather than hardcoded.
     """
     if not settings.ZAI_API_KEY:
         return None
@@ -127,7 +150,7 @@ def _critique_image(image_bytes: bytes, context: str) -> str | None:
         response = client.chat.completions.create(
             model=settings.SCENE_VISION_MODEL,
             max_tokens=600,
-            extra_body={"thinking": {"type": "disabled"}},
+            extra_body=_thinking_params(settings.SCENE_VISION_MODEL),
             messages=[
                 {
                     "role": "user",

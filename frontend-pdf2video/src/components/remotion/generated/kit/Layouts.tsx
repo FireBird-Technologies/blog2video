@@ -96,7 +96,8 @@ const Eyebrow: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         fontSize: type.label,
         letterSpacing: "0.16em",
         textTransform: "uppercase",
-        color: palette.accent,
+        // Type, so contrast-clamped — see palette.accentText.
+        color: palette.accentText,
         fontWeight: 700,
       }}
     >
@@ -145,14 +146,18 @@ export const AsymmetricSplit: React.FC<
   const frame = useCurrentFrame();
   const { isPortrait } = useKit();
   debugLayout("AsymmetricSplit", frame, `mainSide=${mainSide}`);
+  // `0 1` rather than `0 0`: the two panels sum to exactly 100% and the outer
+  // row adds a 56px gap ON TOP of that, so with flex-shrink pinned at 0 the
+  // pair overflowed its padded box on every landscape render. Shrink lets the
+  // gap come out of the panels instead of out of the frame.
   const mainPanel = (
-    <div style={{ flex: "0 0 62%", display: "flex", flexDirection: "column", justifyContent: "center", gap: 16, minWidth: 0 }}>
+    <div style={{ flex: "0 1 62%", maxWidth: "62%", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", textAlign: "center", gap: 16, minWidth: 0 }}>
       {eyebrow && <Eyebrow>{eyebrow}</Eyebrow>}
       {main}
     </div>
   );
   const asidePanel = (
-    <div style={{ flex: "0 0 38%", display: "flex", flexDirection: "column", justifyContent: "center", minWidth: 0 }}>
+    <div style={{ flex: "0 1 38%", maxWidth: "38%", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", textAlign: "center", minWidth: 0 }}>
       {aside}
     </div>
   );
@@ -166,6 +171,7 @@ export const AsymmetricSplit: React.FC<
           flexDirection: isPortrait ? "column" : "row",
           gap: isPortrait ? 28 : 56,
           alignItems: "stretch",
+          justifyContent: "center",
           padding: isPortrait ? "8% 7%" : "8% 9%",
         }}
       >
@@ -208,7 +214,11 @@ export const FullBleedHero: React.FC<
           inset: 0,
           display: "flex",
           flexDirection: "column",
+          // Bottom-anchored is the whole point of the hero, so justifyContent
+          // stays flex-end; only the cross axis centers.
           justifyContent: "flex-end",
+          alignItems: "center",
+          textAlign: "center",
           gap: 14,
           padding: isPortrait ? "0 7% 12%" : "0 9% 9%",
         }}
@@ -241,7 +251,7 @@ export const OffsetCardStack: React.FC<LayoutBaseProps & { side?: "left" | "righ
     </div>
   );
   const stackCol = (
-    <div style={{ flex: "0 0 62%", display: "flex", flexDirection: "column", justifyContent: "center", gap: 16, minWidth: 0 }}>
+    <div style={{ flex: "0 1 62%", maxWidth: "62%", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", textAlign: "center", gap: 16, minWidth: 0 }}>
       {children}
     </div>
   );
@@ -255,6 +265,9 @@ export const OffsetCardStack: React.FC<LayoutBaseProps & { side?: "left" | "righ
           flexDirection: isPortrait ? "column" : "row",
           gap: isPortrait ? 22 : 48,
           alignItems: "stretch",
+          // 30 + 62 = 92%, so without this the pair left-packed and left the
+          // slack as a bare band on the right.
+          justifyContent: "center",
           padding: isPortrait ? "8% 7%" : "8% 9%",
         }}
       >
@@ -286,19 +299,50 @@ export const SideRail: React.FC<LayoutBaseProps & { side?: "left" | "right" }> =
   const frame = useCurrentFrame();
   const { isPortrait, palette } = useKit();
   debugLayout("SideRail", frame, `side=${side}`);
+  // The rail turns with the frame. This was the only layout that stayed `row`
+  // in portrait, which squeezed the content column into ~1030px of a 1080px
+  // canvas; laying the rail flat across the top frees the full width.
   const rail = (
-    <div style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", alignItems: "center", gap: 16, width: 46 }}>
-      <div style={{ flex: 1, width: 3, background: withAlpha(palette.accent, 0.9) }} />
+    <div
+      style={{
+        flex: "0 0 auto",
+        display: "flex",
+        flexDirection: isPortrait ? "row" : "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 16,
+        ...(isPortrait ? { height: 46, width: "100%" } : { width: 46 }),
+      }}
+    >
+      <div
+        style={{
+          flex: 1,
+          ...(isPortrait ? { height: 3 } : { width: 3 }),
+          background: withAlpha(palette.accent, 0.9),
+        }}
+      />
       {eyebrow && (
-        <div style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>
+        <div
+          style={
+            isPortrait
+              ? undefined
+              : { writingMode: "vertical-rl", transform: "rotate(180deg)" }
+          }
+        >
           <Eyebrow>{eyebrow}</Eyebrow>
         </div>
       )}
-      <div style={{ flex: 1, width: 3, background: withAlpha(palette.accent, 0.25) }} />
+      <div
+        style={{
+          flex: 1,
+          ...(isPortrait ? { height: 3 } : { width: 3 }),
+          background: withAlpha(palette.accent, 0.25),
+        }}
+      />
     </div>
   );
   const content = (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: 16, minWidth: 0 }}>
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", textAlign: "center", gap: 16, minWidth: 0 }}>
       {children}
     </div>
   );
@@ -309,9 +353,10 @@ export const SideRail: React.FC<LayoutBaseProps & { side?: "left" | "right" }> =
           position: "absolute",
           inset: 0,
           display: "flex",
-          flexDirection: "row",
+          flexDirection: isPortrait ? "column" : "row",
           gap: isPortrait ? 28 : 48,
           alignItems: "stretch",
+          justifyContent: "center",
           padding: isPortrait ? "8% 7%" : "8% 9%",
         }}
       >

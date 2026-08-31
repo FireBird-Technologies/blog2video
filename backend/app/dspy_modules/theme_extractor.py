@@ -4,6 +4,7 @@ Takes HTML/CSS + markdown and produces a structured theme JSON.
 """
 
 import colorsys
+import hashlib
 import json
 import logging
 import dspy
@@ -53,11 +54,12 @@ class ExtractThemeFromContent(dspy.Signature):
     Not limited to any preset list.
 
     ═══ COLOR EXTRACTION ═══
-    - accent: The primary brand/CTA color (buttons, links, highlights)
+    EXACTLY THREE colours. Everything else the renderer derives from them
+    (panels, borders, muted label text and a readable accent-on-background) —
+    supplying more only invited off-brand hues into the video.
+    - accent: The primary brand/CTA color (buttons, links, highlights, rules)
     - bg: Main background color
-    - text: Primary text color
-    - surface: Secondary background (cards, panels) — must visibly contrast with bg
-    - muted: Subtle text / disabled state color
+    - text: Primary text color — must be readable on bg
     Extract from CSS/HTML. If not enough CSS data, INFER from the website's industry and mood.
     A restaurant → warm oranges/reds. A finance site → deep blues/greens. A creative agency → vibrant accent.
 
@@ -153,7 +155,7 @@ class ExtractThemeFromContent(dspy.Signature):
         desc="Brief explanation: what was extracted, the website's personality, and key design choices made"
     )
     theme_json: str = dspy.OutputField(
-        desc='Valid JSON: {"colors":{"accent":"#hex","bg":"#hex","text":"#hex","surface":"#hex","muted":"#hex"},"fonts":{"heading":"Name","body":"Name","mono":"Name"},"borderRadius":number,"style":"free-form string describing visual identity","animationPreset":"free-form string describing motion feel","category":"free-form string for industry/niche"}. Do NOT include patterns here. Return "{}" if not extractable.'
+        desc='Valid JSON: {"colors":{"accent":"#hex","bg":"#hex","text":"#hex"},"fonts":{"heading":"Name","body":"Name","mono":"Name"},"borderRadius":number,"style":"free-form string describing visual identity","animationPreset":"free-form string describing motion feel","category":"free-form string for industry/niche"}. Do NOT include patterns here. Return "{}" if not extractable.'
     )
     patterns_json: str = dspy.OutputField(
         desc='Valid JSON with visual design patterns. Schema: {"cards":{"corners":"string","shadowDepth":"string","borderStyle":"string"},"spacing":{"density":"string","gridGap":number},"images":{"treatment":"string","overlay":"string","captionStyle":"string"},"layout":{"direction":"string","decorativeElements":["string"]}}. Values are descriptive — use your best judgment. decorativeElements MUST have at least one value. Return "{}" if not extractable.'
@@ -195,8 +197,8 @@ class ExtractThemeFromBrief(dspy.Signature):
     "sharp snappy slide", "energetic scale-pop". Not limited to any preset list.
 
     ═══ COLORS ═══
+    EXACTLY THREE colours; the renderer derives panels/borders/muted from them.
     - accent: primary brand/CTA color   - bg: main background   - text: primary text
-    - surface: secondary bg (cards) — must visibly contrast with bg   - muted: subtle text
     Use any colors the brief states; otherwise INFER from the stated industry/mood.
     (Restaurant → warm oranges/reds. Finance → deep blues/greens. Creative → vibrant accent.)
 
@@ -253,7 +255,7 @@ class ExtractThemeFromBrief(dspy.Signature):
         desc="Brief explanation: the personality read from the brief and key design choices made"
     )
     theme_json: str = dspy.OutputField(
-        desc='Valid JSON: {"colors":{"accent":"#hex","bg":"#hex","text":"#hex","surface":"#hex","muted":"#hex"},"fonts":{"heading":"Name","body":"Name","mono":"Name"},"borderRadius":number,"style":"free-form string describing visual identity","animationPreset":"free-form string describing motion feel","category":"free-form string for industry/niche"}. Do NOT include patterns here. Return "{}" if not extractable.'
+        desc='Valid JSON: {"colors":{"accent":"#hex","bg":"#hex","text":"#hex"},"fonts":{"heading":"Name","body":"Name","mono":"Name"},"borderRadius":number,"style":"free-form string describing visual identity","animationPreset":"free-form string describing motion feel","category":"free-form string for industry/niche"}. Do NOT include patterns here. Return "{}" if not extractable.'
     )
     patterns_json: str = dspy.OutputField(
         desc='Valid JSON with visual design patterns. Schema: {"cards":{"corners":"string","shadowDepth":"string","borderStyle":"string"},"spacing":{"density":"string","gridGap":number},"images":{"treatment":"string","overlay":"string","captionStyle":"string"},"layout":{"direction":"string","decorativeElements":["string"]}}. decorativeElements MUST have at least one value. Return "{}" if not extractable.'
@@ -536,7 +538,22 @@ def _derive_extended_theme_fields(theme: dict) -> None:
         motion = {}
     motion.setdefault("energy", energy)
     motion.setdefault("easing", easing)
-    motion.setdefault("transitionFamily", list(_TRANSITION_FAMILY_BY_ENERGY[energy]))
+    # Shuffled per brand, not handed out as a fixed preset list.
+    #
+    # There are only three energy buckets, so every "energetic" brand received a
+    # byte-identical family in a fixed order — and the renderer picks by
+    # `index % len(pool)`, so identical order means identical transition on every
+    # cut. Two unrelated brands (Yango, LaDucTrading) demonstrably shared a whole
+    # rhythm. The bucket still decides WHICH moves a brand gets (that is the
+    # motion personality); the seed decides the order it gets them in.
+    _tf_seed = f"{category}|{style}|{(theme.get('colors') or {}).get('accent', '')}"
+    motion.setdefault(
+        "transitionFamily",
+        sorted(
+            _TRANSITION_FAMILY_BY_ENERGY[energy],
+            key=lambda t: hashlib.md5(f"{_tf_seed}|tf|{t}".encode()).hexdigest(),
+        ),
+    )
     theme["motion"] = motion
 
     # charts
@@ -787,9 +804,16 @@ class ThemeExtractor:
         colors = theme.get("colors")
         if not isinstance(colors, dict):
             return None
-        for key in ("accent", "bg", "text", "surface", "muted"):
+        # Three required keys, not five. This guard returns None — discarding
+        # the ENTIRE extraction — so leaving surface/muted here while removing
+        # them from the prompt would fail every extraction outright.
+        for key in ("accent", "bg", "text"):
             if key not in colors or not isinstance(colors[key], str):
                 return None
+        # Older callers and stored themes may still carry these; drop them so a
+        # freshly extracted theme is exactly the three brand colours.
+        for legacy in ("surface", "muted"):
+            colors.pop(legacy, None)
 
         fonts = theme.get("fonts")
         if not isinstance(fonts, dict):

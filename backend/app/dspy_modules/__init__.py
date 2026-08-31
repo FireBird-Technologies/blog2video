@@ -471,6 +471,12 @@ def get_scene_type_lm() -> dspy.LM:
                 thinking=_CODEGEN_THINKING,
                 reasoning_effort="low",
             )
+        # Disable the DSPy disk cache, matching get_custom_lm and the blueprint
+        # LM. This was the ONLY one of the three still caching, so two brands
+        # whose brand_context shared a prefix replayed a byte-identical scene-type
+        # answer — a direct contributor to templates coming out the same. Scene
+        # decisions are creative generation; a fresh completion is always wanted.
+        _scene_type_lm.cache = False
         return _scene_type_lm
 
 

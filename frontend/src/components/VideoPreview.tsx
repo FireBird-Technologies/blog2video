@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useState, useCallback, useRef, forwardRef } from "react";
+import React, { useMemo, useEffect, useLayoutEffect, useState, useCallback, useRef, forwardRef } from "react";
 import { createPortal } from "react-dom";
 import { Player } from "@remotion/player";
 import type { PlayerRef } from "@remotion/player";
@@ -49,7 +49,17 @@ import { CaptionTrack } from "./remotion/CaptionTrack";
 import { pickGeneratedTransition } from "./remotion/generated/generatedTransitions";
 // Dedicated data-viz scenes (custom templates) — same kit components the render
 // uses, so preview matches the final video.
-import { DataChartScene, DataTableScene } from "./remotion/generated/kit";
+import {
+  DataChartScene,
+  DataTableScene,
+  EyebrowSizeProvider,
+  KitVariantProvider,
+  backgroundCss,
+  colorsFromBrand,
+  derivePalette,
+  enforceTheme,
+  variantFromSeed,
+} from "./remotion/generated/kit";
 
 /**
  * Stock-footage clip player for the live preview — mirrors
@@ -262,6 +272,24 @@ function PreviewSceneVisual({
 }) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
 
+  /* Snap any off-theme colour the scene painted back onto the brand palette.
+   * KEEP IDENTICAL to GeneratedVideo.tsx — preview and export must not diverge.
+   * See the comment there for why this runs in the DOM and on every frame. */
+  const enforceFrame = useCurrentFrame();
+  useLayoutEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    const p = derivePalette(colorsFromBrand(sceneProps.brandColors));
+    enforceTheme(el, {
+      palette: [
+        p.accent, p.accentText, p.bg, p.bg2, p.text,
+        p.panel, p.header, p.muted, p.border, p.grid,
+      ].filter((c): c is string => Boolean(c)),
+      background: p.bg,
+      text: p.text,
+    });
+  }, [enforceFrame, sceneProps.brandColors]);
+
   return (
     <AbsoluteFill
       style={{
@@ -284,8 +312,23 @@ function PreviewSceneVisual({
         *
         * KEEP IDENTICAL to GeneratedVideo.tsx — player and export must not
         * diverge. */}
-      <style>{`[data-scene-wrapper] img:not([data-logo]){object-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}[data-scene-wrapper] [data-content-img]{object-position:var(--img-pos,50% 50%) !important;background-position:var(--img-pos,50% 50%) !important;overflow:hidden !important;}${videoUrl ? "[data-scene-wrapper] [data-scenecomp-layer]{background:transparent !important;}[data-scene-wrapper] [data-scenecomp-layer]>div{background:transparent !important;}" : ""}`}</style>
-      <div data-scene-wrapper ref={wrapperRef} style={{ width: "100%", height: "100%", position: "relative" }}>
+      <style>{`[data-scene-wrapper] img:not([data-logo]){object-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}[data-scene-wrapper] [data-content-img]{object-position:var(--img-pos,50% 50%) !important;background-position:var(--img-pos,50% 50%) !important;overflow:hidden !important;}[data-scene-wrapper] [data-scenecomp-layer]{background:transparent !important;}[data-scene-wrapper] [data-scenecomp-layer]>*{background:transparent !important;}[data-scene-wrapper] [data-scenecomp-layer] div[style*="width:100%"][style*="height:100%"][style*="position:absolute"]{background:transparent !important;background-color:transparent !important;}`}</style>
+      {/* The brand canvas — KEEP IDENTICAL to GeneratedVideo.tsx's SceneVisual.
+          The CSS above neutralises the scene's own root fill (direct child
+          only, so panels keep theirs) and this paints the real canvas, so every
+          scene in a template sits on the same ground regardless of what the
+          generated code set. Preview and export must not diverge. */}
+      <div
+        data-scene-wrapper
+        ref={wrapperRef}
+        style={{
+          width: "100%",
+          height: "100%",
+          position: "relative",
+          background: backgroundCss(derivePalette(colorsFromBrand(sceneProps.brandColors))),
+          fontFamily: sceneProps.bodyFont || undefined,
+        }}
+      >
         {videoUrl && (
           <div style={{ position: "absolute", inset: 0, zIndex: 0 }}>
             <PreviewClipSlotOverlay
@@ -353,11 +396,31 @@ const StableCustomComposition: React.FC<any> = ({
   const themeColors = project.custom_theme?.colors;
   const brandColors: SceneProps["brandColors"] = {
         primary: project.accent_color || themeColors?.accent || "#7C3AED",
-        secondary: themeColors?.surface || "#F5F5F5",
         accent: project.accent_color || themeColors?.accent || "#7C3AED",
         background: project.bg_color || themeColors?.bg || "#FFFFFF",
         text: project.text_color || themeColors?.text || "#1A1A2E",
       };
+
+  // Structural variant — must resolve to the SAME arrangement the render does,
+  // or the preview misrepresents the video.
+  //
+  // Seeded from category|style|template-id, byte-identical to what
+  // remotion.py writes as `kitVariantSeed`, so both sides land on the same
+  // arrangement. (The template ID rather than its name precisely because the
+  // preview has the id and not the name.)
+  //
+  // KNOWN GAP: the render also pins `surface`/`decor` from the blueprint, which
+  // the project payload does not carry — so cards may use the kit's default
+  // surface here and the blueprint's surface in the video. The ARRANGEMENT (the
+  // thing this change is about) matches; the card treatment can differ. Closing
+  // it means threading design_blueprint.identity onto the project response.
+  const kitVariant = variantFromSeed(
+    [
+      project.custom_theme?.category ?? "",
+      project.custom_theme?.style ?? "",
+      project.template ?? "",
+    ].join("|"),
+  );
 
   // Font props: user override (resolvedFontFamily) takes precedence over template theme fonts.
   const themeFonts = project.custom_theme?.fonts;
@@ -529,7 +592,14 @@ const StableCustomComposition: React.FC<any> = ({
           comparisonRight: sc.comparisonRight as SceneProps["comparisonRight"],
           timelineItems: sc.timelineItems as SceneProps["timelineItems"],
           steps: sc.steps as string[] | undefined,
-          titleFontSize: (s.layoutConfig as any)?.titleFontSize as number | undefined,
+          // The two typography sliders are deliberately CROSSED — see the same
+          // remap in remotion-video/src/templates/generated/GeneratedVideo.tsx.
+          // Generated scene code binds props.titleFontSize to the HEADLINE, so
+          // the "Display text" slider drives it while the "Title" slider drives
+          // the eyebrow (props.sceneTitle) via sceneTitleFontSize. Preview and
+          // render must agree, so this mirror is not optional.
+          sceneTitleFontSize: (s.layoutConfig as any)?.titleFontSize as number | undefined,
+          titleFontSize: (s.layoutConfig as any)?.descriptionFontSize as number | undefined,
           descriptionFontSize: (s.layoutConfig as any)?.descriptionFontSize as number | undefined,
           headingFont,
           bodyFont,
@@ -570,7 +640,13 @@ const StableCustomComposition: React.FC<any> = ({
             {/* Gives clip components the scene's own length so a short clip can
                 loop across it, the same way the built-in templates do. */}
             <SceneDurationInFramesContext.Provider value={frameDurations[i]}>
-              {visual}
+              {/* Mirrors GeneratedVideo — the eyebrow size is ambient because
+                  generated scenes never forward it. */}
+              <EyebrowSizeProvider size={sceneProps.sceneTitleFontSize}>
+                {/* Mirrors GeneratedVideo — preview and render must resolve the
+                    same structural variant or the preview lies about the video. */}
+                <KitVariantProvider variant={kitVariant}>{visual}</KitVariantProvider>
+              </EyebrowSizeProvider>
             </SceneDurationInFramesContext.Provider>
           </TransitionSeries.Sequence>
         );

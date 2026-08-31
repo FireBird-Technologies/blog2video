@@ -2851,6 +2851,15 @@ export default function SceneEditModal({
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [imageFocusX, setImageFocusX] = useState(50);
   const [imageFocusY, setImageFocusY] = useState(50);
+  // What the server already has for image framing, so a save can tell whether
+  // the framing actually changed and skip the focus round-trip when it did not.
+  // Seeded from the descriptor when the modal loads (see below) and updated
+  // after each successful focus write.
+  const savedImageFocusRef = useRef<{ x: number; y: number; zoom: number | undefined }>({
+    x: 50,
+    y: 50,
+    zoom: undefined,
+  });
   const [imageAdjustOpen, setImageAdjustOpen] = useState(false);
   const [imageAdjustSrc, setImageAdjustSrc] = useState<string | null>(null);
   const [isAdjustDragging, setIsAdjustDragging] = useState(false);
@@ -3036,7 +3045,21 @@ export default function SceneEditModal({
     // the shared resolver's positional fallback is what keeps them from
     // resolving to null and rendering as "Current layout".
     if (isCustomTemplate) {
-      const order = project.scenes?.findIndex((s) => s.id === scene.id) ?? -1;
+      // Prefer the scene's OWN order field over locating it in project.scenes:
+      // findIndex returns -1 whenever the list has not loaded yet or this scene
+      // object came from a different fetch than the list, and -1 suppresses the
+      // positional fallback entirely — which is how intro/outro ended up with a
+      // null layout id and rendered a placeholder instead of their name.
+      //
+      // Scene.order is ONE-BASED (pipeline.py creates scenes with `order=i + 1`)
+      // while customSceneLayoutId takes a ZERO-BASED index, so it is converted
+      // here. Passing it raw made the intro look like index 1 and never match
+      // the `sceneIndex === 0` rule.
+      const ownOrder = typeof scene.order === "number" ? scene.order - 1 : -1;
+      const foundOrder = project.scenes?.findIndex((s) => s.id === scene.id) ?? -1;
+      const order = ownOrder >= 0 ? ownOrder : foundOrder;
+      // The total has no safe fallback — deriving it from this scene's own order
+      // would make every scene look like the last one, i.e. the outro.
       return customSceneLayoutId(
         scene.remotion_code,
         order >= 0 ? order : undefined,
@@ -3078,7 +3101,7 @@ export default function SceneEditModal({
         currentLayoutId,
         layouts?.layout_names[currentLayoutId] || currentLayoutId.replace(/[-_]/g, " ")
       )
-    : "Current layout";
+    : "Default layout";
   // Label for the scene's REAL current layout — used by the dropdown's "Keep
   // current" row so it names the saved layout even while a new one is picked.
   const savedLayoutLabel = savedLayoutId
@@ -3087,7 +3110,7 @@ export default function SceneEditModal({
         savedLayoutId,
         layouts?.layout_names[savedLayoutId] || savedLayoutId.replace(/[-_]/g, " ")
       )
-    : "Current layout";
+    : "Default layout";
 
   // Keyed by BASE layout, so every membership test resolves the layout first —
   // `pull_quote__v2` inherits `pull_quote`'s no-image status.
@@ -3327,6 +3350,9 @@ export default function SceneEditModal({
     setPendingExistingImage(null);
     setImageFocusX(50);
     setImageFocusY(50);
+    // Reset alongside the state it shadows; re-seeded from the descriptor below
+    // when this scene has stored framing.
+    savedImageFocusRef.current = { x: 50, y: 50, zoom: undefined };
     setShowAiImageUpgradeModal(false);
     shouldAutoOpenAdjustRef.current = openImageAdjustOnOpen;
     let layoutId: string | null = null;
@@ -3354,6 +3380,16 @@ export default function SceneEditModal({
         lpCopy = { ...lp };
         if (typeof lp.imageFocusX === "number") setImageFocusX(Math.max(0, Math.min(100, lp.imageFocusX)));
         if (typeof lp.imageFocusY === "number") setImageFocusY(Math.max(0, Math.min(100, lp.imageFocusY)));
+        // Baseline for the "did the framing change?" check in saveManualChanges.
+        // Mirrors the clamping above so an unchanged scene compares equal.
+        savedImageFocusRef.current = {
+          x: typeof lp.imageFocusX === "number" ? Math.max(0, Math.min(100, lp.imageFocusX)) : 50,
+          y: typeof lp.imageFocusY === "number" ? Math.max(0, Math.min(100, lp.imageFocusY)) : 50,
+          zoom:
+            typeof lp.imageZoom === "number"
+              ? Math.max(IMAGE_ADJUST_ZOOM_MIN, Number(lp.imageZoom))
+              : undefined,
+        };
         // data_visualization charts: convert stored shapes to editable form
         if (layoutId === "data_visualization") {
           const lpAny = lp as Record<string, unknown>;
@@ -4403,8 +4439,17 @@ export default function SceneEditModal({
         // above has no assignedImage/assignedVideo, so the focus endpoint would
         // reject it — and there is nothing left to frame anyway.
         const stagedRemoval = Boolean(editableLayoutProps.hideImage);
-        if (supportsImage && !stagedRemoval && hasAssignedVisual) {
+        // Skip when the framing did not actually change. This used to fire on
+        // EVERY save that had a visual attached, so editing only a font size
+        // cost a second serialized round-trip that wrote back the values it had
+        // just read — a visible chunk of the "saving takes forever" complaint.
+        const focusUnchanged =
+          focusXToSave === savedImageFocusRef.current.x &&
+          focusYToSave === savedImageFocusRef.current.y &&
+          zoomToPatch === savedImageFocusRef.current.zoom;
+        if (supportsImage && !stagedRemoval && hasAssignedVisual && !focusUnchanged) {
           await updateSceneImageFocus(project.id, scene.id, focusXToSave, focusYToSave, zoomToPatch);
+          savedImageFocusRef.current = { x: focusXToSave, y: focusYToSave, zoom: zoomToPatch };
         }
   };
 
@@ -6369,7 +6414,7 @@ export default function SceneEditModal({
                 <div className="space-y-3">
                   <div>
                     <div className="flex justify-between items-baseline">
-                      <label className="text-xs text-gray-400">Title font size</label>
+                      <label className="text-xs text-gray-400" title="Sizes the scene's short title / eyebrow label.">Title font size</label>
                       {(() => {
                         const parsed = parseInt(titleFontSize, 10);
                         const isOverride = Number.isFinite(parsed);
@@ -6396,7 +6441,7 @@ export default function SceneEditModal({
                   </div>
                   <div>
                     <div className="flex justify-between items-baseline ">
-                      <label className="text-xs text-gray-400">Description font size</label>
+                      <label className="text-xs text-gray-400" title="Sizes the on-screen display text and the body copy.">Display &amp; body font size</label>
                       {(() => {
                         const parsed = parseInt(descriptionFontSize, 10);
                         const isOverride = Number.isFinite(parsed);

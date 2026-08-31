@@ -4,7 +4,7 @@ from app.models.scene import Scene
 from app.models.asset import Asset
 from app.models.chat_message import ChatMessage
 from app.models.subscription import SubscriptionPlan, Subscription
-from app.models.custom_template import CustomTemplate
+from app.models.custom_template import CustomTemplate, CustomTemplateGenRun
 from app.models.brand_kit import BrandKit
 from app.models.Project_edit_history import ProjectEditHistory
 from app.models.scene_edit_history import SceneEditHistory
@@ -42,7 +42,7 @@ from app.models.mcp_oauth import MCPClient, MCPAuthCode
 __all__ = [
 
     "User", "Project", "Scene", "Asset", "ChatMessage",
-    "SubscriptionPlan", "Subscription", "CustomTemplate", "BrandKit", "SavedVoice", "CustomVoice", "PrebuiltVoice",
+    "SubscriptionPlan", "Subscription", "CustomTemplate", "CustomTemplateGenRun", "BrandKit", "SavedVoice", "CustomVoice", "PrebuiltVoice",
     "ProjectEditHistory", "SceneEditHistory", "SceneComment", "Review", "TemplateRating", "TemplateVersion",
     "ProjectTemplateChangeJob", "ProjectRegenerateScriptJob", "ProjectVoiceChangeJob",
     "ProjectLanguageChangeJob", "ProjectAddSceneJob",

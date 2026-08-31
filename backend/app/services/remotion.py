@@ -49,6 +49,30 @@ _render_progress_last_upload_at: dict[int, float] = {}
 _MIN_PLAYBACK_SPEED = 0.5
 _MAX_PLAYBACK_SPEED = 2.5
 
+# The app's own colour defaults, as written by models/project.py's column
+# defaults. A project row ALWAYS has these three columns populated — they are
+# non-nullable — so `project.accent_color or template_accent` was always truthy
+# and the template's real accent was never consulted. A Careem template rendered
+# in the app's purple for exactly this reason.
+#
+# Matching one of these means "the user never chose a colour", so the template
+# wins. Any other value is a deliberate Settings > Colors override and still wins
+# over the template, which is what that feature is for.
+_APP_DEFAULT_COLORS = {
+    "accent": "#7C3AED",
+    "bg": "#FFFFFF",
+    "text": "#000000",
+}
+
+
+def _project_color(project_value: str | None, slot: str) -> str | None:
+    """The project's colour for `slot`, or None when it is merely the default."""
+    if not project_value:
+        return None
+    if project_value.strip().upper() == _APP_DEFAULT_COLORS[slot].upper():
+        return None
+    return project_value
+
 # Per-project workspace locks to prevent concurrent file writes
 _workspace_locks: dict[int, threading.Lock] = {}
 
@@ -1525,13 +1549,13 @@ def write_remotion_data(
     raw_speed = round(float(getattr(project, "playback_speed", 1.0) or 1.0), 2)
     playback_speed = min(max(raw_speed, _MIN_PLAYBACK_SPEED), _MAX_PLAYBACK_SPEED)
 
-    _tpl_colors = get_preview_colors(template_id) or {}
+    _tpl_colors = get_preview_colors(template_id, db=db, user_id=project.user_id) or {}
     data = {
         "projectName": project.name,
         "heroImage": hero_image_file,
-        "accentColor": project.accent_color or _tpl_colors.get("accent") or "#7C3AED",
-        "bgColor": project.bg_color or _tpl_colors.get("bg") or "#FFFFFF",
-        "textColor": project.text_color or _tpl_colors.get("text") or "#000000",
+        "accentColor": _project_color(project.accent_color, "accent") or _tpl_colors.get("accent") or "#7C3AED",
+        "bgColor": _project_color(project.bg_color, "bg") or _tpl_colors.get("bg") or "#FFFFFF",
+        "textColor": _project_color(project.text_color, "text") or _tpl_colors.get("text") or "#000000",
         "fontFamily": getattr(project, "font_family", None),
         "logo": logo_file,
         "logoPosition": getattr(project, "logo_position", None) or "bottom_right",
@@ -1578,19 +1602,25 @@ def write_remotion_data(
 
             # Project-level color overrides (from Settings > Colors) take
             # precedence over the template's default theme colors.
+            _p_accent = _project_color(project.accent_color, "accent")
+            _p_bg = _project_color(project.bg_color, "bg")
+            _p_text = _project_color(project.text_color, "text")
             data["brandColors"] = {
-                "primary": project.accent_color or theme_colors.get("accent", "#7C3AED"),
-                "secondary": theme_colors.get("surface", "#F5F5F5"),
-                "accent": project.accent_color or theme_colors.get("accent", "#7C3AED"),
-                "background": project.bg_color or theme_colors.get("bg", "#FFFFFF"),
-                "text": project.text_color or theme_colors.get("text", "#1A1A2E"),
+                "primary": _p_accent or theme_colors.get("accent", "#7C3AED"),
+                "accent": _p_accent or theme_colors.get("accent", "#7C3AED"),
+                "background": _p_bg or theme_colors.get("bg", "#FFFFFF"),
+                "text": _p_text or theme_colors.get("text", "#1A1A2E"),
             }
             # Background style as a render prop: the optional gradient endpoint
             # (bg2) flows through so the kit's SceneFrame renders solid-vs-gradient
             # at render time — toggling Background Style no longer needs a regen.
             # Suppressed when the user has set a custom project bg (solid override).
+            # `not project.bg_color` was never true — the column is non-nullable
+            # and always populated — so a template's gradient endpoint was
+            # suppressed on EVERY render. Only a real user override should
+            # force the solid background.
             bg2 = theme_colors.get("bg2")
-            if bg2 and not project.bg_color:
+            if bg2 and not _p_bg:
                 data["brandColors"]["bg2"] = bg2
                 data["bg2Color"] = bg2
             # Transition family — the BLUEPRINT's choice first, theme second.
@@ -1601,6 +1631,41 @@ def write_remotion_data(
             # THREE-bucket energy map. Every brand in a bucket therefore shared one
             # transition set, and a template whose blueprint had picked a distinct
             # family never got it.
+            # Structural-variant seed for the kit (which arrangement StatGrid,
+            # lists and quotes render). Built from the SAME brand identity the
+            # blueprint seeds from — category|style|name — so a template's
+            # structure is stable, reproducible, and different between brands.
+            #
+            # The kit falls back to its historical arrangement when this is
+            # absent, so an older project rendered from stale data.json is
+            # unchanged rather than arbitrary.
+            # Seeded from category|style|TEMPLATE ID rather than the template
+            # NAME: the frontend preview has the id but not the name, and the
+            # two must resolve to the SAME arrangement or the preview would
+            # misrepresent the video. The id is equally stable and unique.
+            _theme_all = custom_data["theme"]
+            data["kitVariantSeed"] = "|".join(
+                [
+                    str(_theme_all.get("category") or ""),
+                    str(_theme_all.get("style") or ""),
+                    str(template_id or ""),
+                ]
+            )
+            # The blueprint already chooses a surface and a decor system per
+            # template; pin them so the kit's cards stop hardcoding "panel" and
+            # the data-viz backdrop stops hardcoding grid/dots.
+            _bp_ident = (custom_data.get("design_blueprint") or {}).get("identity") or {}
+            _pins = {
+                k: v
+                for k, v in (
+                    ("surface", _bp_ident.get("surface_default")),
+                    ("decor", _bp_ident.get("decor_system")),
+                )
+                if isinstance(v, str) and v
+            }
+            if _pins:
+                data["kitVariant"] = _pins
+
             motion = custom_data["theme"].get("motion") or {}
             _bp = custom_data.get("design_blueprint") or {}
             bp_tfam = _bp.get("transition_family") if isinstance(_bp, dict) else None
@@ -1631,12 +1696,40 @@ def write_remotion_data(
             #
             # The blueprint's ids are validated against the font registry, so they
             # always resolve. A user's explicit project override still wins.
+            # The LAST resort must still be a registry id, not a theme string.
+            # Ending the chain at theme_fonts left the unvalidated extractor
+            # guess as the terminal case, so a template without a blueprint got
+            # exactly the silent system-sans fallback described above.
+            # fonts_for_era() is brand-seeded and always returns bundled ids.
             _bp_ident = (_bp.get("identity") or {}) if isinstance(_bp, dict) else {}
+            from app.services.kit_vocabulary import FONT_IDS, fonts_for_era
+
+            _era = str(_bp_ident.get("era") or "modern")
+            _seed = str(custom_data.get("name") or custom_data["theme"].get("category") or "")
+            _era_heading, _era_body = fonts_for_era(_era, _seed)
+
+            def _first_renderable(*candidates: str | None) -> str:
+                """First candidate the font registry can actually resolve.
+
+                A name outside FONT_IDS resolves to null in resolveFontFamily(),
+                so passing one through is the same as passing nothing.
+                """
+                for c in candidates:
+                    if isinstance(c, str) and c.strip():
+                        _norm = c.strip().lower().replace(" ", "_").replace("-", "_")
+                        if _norm in FONT_IDS:
+                            return _norm
+                return ""
+
             data["headingFont"] = (
-                resolved_font or _bp_ident.get("heading_font") or theme_fonts.get("heading")
+                resolved_font
+                or _first_renderable(_bp_ident.get("heading_font"), theme_fonts.get("heading"))
+                or _era_heading
             )
             data["bodyFont"] = (
-                resolved_font or _bp_ident.get("body_font") or theme_fonts.get("body")
+                resolved_font
+                or _first_renderable(_bp_ident.get("body_font"), theme_fonts.get("body"))
+                or _era_body
             )
 
             # Assign scene types first
