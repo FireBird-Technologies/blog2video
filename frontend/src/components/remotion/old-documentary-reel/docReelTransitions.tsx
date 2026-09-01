@@ -652,15 +652,12 @@ export const pickDocReelTransition = (
   fromLayout: string | undefined,
   toLayout: string | undefined,
 ): DocReelTransitionChoice => {
-  // Leaving the slate into the body of the film is the single most dramatic
-  // cut in the video — the point the documentary proper begins. It gets the
-  // burn-through: the projector jams, the lamp eats the frame, and the first
-  // real scene is revealed through the hole. Distinct from the leader-flash
-  // that bookends the video, so the open and the close don't look identical.
+  // Keep the slate exit clean and archival without painting the sharp white
+  // burn-through blotch over its title and narration.
   if (fromLayout === "docreel_slate") {
     return {
-      presentation: makeDocReelPresentation("film_burn_through", fromIdx % 2 === 0),
-      frames: EFFECT_FRAMES.film_burn_through,
+      presentation: makeDocReelPresentation("grain_crossfade"),
+      frames: EFFECT_FRAMES.grain_crossfade,
     };
   }
 

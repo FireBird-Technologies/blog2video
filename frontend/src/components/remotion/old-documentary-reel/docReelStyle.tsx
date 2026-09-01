@@ -532,7 +532,15 @@ export const DustAndScratches: React.FC<{ opacity?: number; seed?: number }> = (
  * a real strip is always mid-feed, never at rest. Bottom row scrolls opposite
  * direction from the top for a subtle feed/take-up reel asymmetry.
  */
-export const SprocketLetterboxing: React.FC<{ barHeight?: number }> = ({ barHeight = 34 }) => {
+/**
+ * Height of ONE sprocket letterbox bar. Exported because layouts have to
+ * reserve this space at the top AND bottom of the frame: the bars are opaque
+ * and painted OVER the scene, so anything a layout centres into the full frame
+ * height can end up hidden underneath them.
+ */
+export const SPROCKET_BAR_HEIGHT = 34;
+
+export const SprocketLetterboxing: React.FC<{ barHeight?: number }> = ({ barHeight = SPROCKET_BAR_HEIGHT }) => {
   const theme = useDocReelTheme();
   const frame = useDocReelFrame();
   const { width, height } = useVideoConfig();

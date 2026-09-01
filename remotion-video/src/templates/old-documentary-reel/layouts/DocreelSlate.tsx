@@ -10,6 +10,7 @@ import {
   DEFAULT_DOCREEL_ERA,
   useDocReelTheme,
   useDocReelFrame,
+  SPROCKET_BAR_HEIGHT,
 } from "../docReelStyle";
 import { useFitText } from "../components/useFitText";
 
@@ -40,8 +41,15 @@ const Clapperboard: React.FC<{
   // docreel animation.
   const glowFrame = useDocReelFrame();
   const sweepCycle = 150;
-  const sweepX = interpolate(glowFrame % sweepCycle, [0, sweepCycle], [-25, 125]);
-  const glowSize = width * 0.62;
+  const sweepPhase = glowFrame % (sweepCycle * 2);
+  const sweepX = interpolate(
+    sweepPhase,
+    [0, sweepCycle, sweepCycle * 2],
+    [-25, 125, -25],
+  );
+  // A moderately focused beam: broad enough to rake across the board, but
+  // defined enough that it reads as a projector sweep instead of a faint haze.
+  const glowSize = width * 0.82;
   const stripeCount = 10;
   const stripe = (i: number) => (
     <div
@@ -60,9 +68,9 @@ const Clapperboard: React.FC<{
   return (
     <div style={{ width, position: "relative" }}>
       {/* Projector lamp raking along the board's bottom edge — a soft hotspot
-          travelling left to right on a continuous loop. `sweepCycle` frames per
-          pass; the hotspot runs -25% → 125% so it is already moving as it enters
-          and keeps going as it leaves, with no visible jump at the loop seam.
+          travelling back and forth on a continuous loop. `sweepCycle` frames per
+          pass; the hotspot runs -25% → 125% → -25% so it reverses smoothly
+          instead of jumping back to the starting edge at the loop seam.
           The wrapper is `overflow:hidden` at exactly the board's bounds, so the
           light is CLIPPED to the slate and never spills past its corners —
           without it the blurred circle bleeds outside the frame of the board and
@@ -73,20 +81,35 @@ const Clapperboard: React.FC<{
           inset: 0,
           overflow: "hidden",
           pointerEvents: "none",
-          zIndex: 0,
+          // In FRONT of the board (the body is opaque now), so the lamp rakes
+          // across the slate's painted face. Behind it, an opaque board would
+          // hide the light entirely; a translucent one let it bleed through and
+          // pool below — which was the blotch.
+          zIndex: 2,
+          mixBlendMode: "screen",
         }}
       >
         <div
           style={{
             position: "absolute",
             left: `${sweepX}%`,
-            bottom: -glowSize * 0.42,
+            // Centred just below the board's lower edge so only the upper part
+            // of the falloff touches the face — a graze of light along the
+            // bottom rows, not a lamp parked on top of them.
+            bottom: -glowSize * 0.52,
             width: glowSize,
             height: glowSize,
             marginLeft: -glowSize / 2,
-            borderRadius: "50%",
-            background: `radial-gradient(circle, ${hexToRgba(theme.text, 0.30)} 0%, ${hexToRgba(theme.text, 0.14)} 38%, transparent 72%)`,
-            filter: `blur(${Math.round(glowSize * 0.10)}px)`,
+            // The gradient is fully specified — `closest-side at 50% 50%` with an
+            // absolute px extent — and there is deliberately NO borderRadius and
+            // NO filter:blur. Every earlier version left part of the geometry
+            // implicit (a bare `circle` sizes itself to the farthest corner, and a
+            // borderRadius clip plus a blur are both composited differently by
+            // Chrome than by the headless renderer), which is why the same code
+            // painted a soft wash in a still render but a hot white core in the
+            // browser Player. Pinning the extent makes the falloff identical in
+            // both; the tighter, brighter stops keep the sweep visibly defined.
+            background: `radial-gradient(circle closest-side at 50% 50%, ${hexToRgba(theme.accent, 0.34)} 0%, ${hexToRgba(theme.accent, 0.31)} 14%, ${hexToRgba(theme.accent, 0.25)} 30%, ${hexToRgba(theme.accent, 0.16)} 48%, ${hexToRgba(theme.accent, 0.07)} 66%, transparent 84%)`,
           }}
         />
       </div>
@@ -109,7 +132,11 @@ const Clapperboard: React.FC<{
       <div
         style={{
           width: "100%",
-          background: hexToRgba(theme.bg, 0.9),
+          // Fully opaque, not 0.9: at 90% the sweeping lamp behind the board
+          // showed straight THROUGH the info panel and pooled as a bright
+          // blotch over the rows and the copy below. The board is painted
+          // stock — light should rake across its face, not shine through it.
+          background: theme.bg,
           border: `2px solid ${theme.text}`,
           padding: width * 0.045,
           fontFamily: DOCREEL_MONO_FONT,
@@ -245,8 +272,61 @@ export const DocreelSlate: React.FC<SceneLayoutProps> = (props) => {
     narrationBudgetPx,
   );
 
+  // ── Stage 2: scale the WHOLE scene down if it still doesn't fit ────────────
+  //
+  // The fitters above guarantee each block fits ITS OWN budget; they do not
+  // guarantee the SUM fits, and once the narration bottoms out at its floor it
+  // overflows without limit. The column is `justify-content:center`, so the
+  // browser then splits that overflow evenly — and half of it goes off the TOP,
+  // dragging the fixed-size clapperboard under the opaque sprocket bar. That is
+  // the reported bug: "the movie box thing got more above and it now gets
+  // cliped".
+  //
+  // Shrinking the budgets cannot fix it: at the floor the budget is irrelevant,
+  // and tightening it would restyle short copy while leaving long copy broken.
+  // Instead, measure what the content actually needs and scale board + title +
+  // narration together, so the composition keeps its proportions.
+  //
+  // The sprocket bars are opaque and painted OVER the scene, so they are
+  // reserved here as a genuine safe area — content is never allowed under them.
+  const safeBandPx = frameHeight - SPROCKET_BAR_HEIGHT * 2 - columnPadY * 2;
+  // Rendered block heights, estimated from the fitted sizes the same way
+  // boardHeightPx is estimated from boardWidth. Only ever used to derive a
+  // scale factor, so a small error just leaves a little extra margin.
+  const titleWrapPx = p ? width * 0.94 : Math.min(width - 240, 1180);
+  const narrationWrapPx = p ? width * 0.92 : 760;
+  // Display font ~0.58em average advance, mono ~0.6em; line-heights 1.1 / 1.5.
+  const estLines = (text: string, px: number, wrapPx: number, emWidth: number) =>
+    Math.max(1, Math.ceil(text.length / Math.max(1, Math.floor(wrapPx / (px * emWidth)))));
+  const titleBlockPx = title
+    ? estLines(title, titlePx, titleWrapPx, 0.58) * titlePx * 1.1
+    : 0;
+  const narrationBlockPx = narration
+    ? estLines(narration, narrationPx, narrationWrapPx, 0.6) * narrationPx * 1.5
+    : 0;
+  const contentHeightPx =
+    boardHeightPx +
+    (title ? titleMarginPx + titleBlockPx : 0) +
+    (narration ? narrationMarginPx + narrationBlockPx : 0);
+  // Only ever shrinks (capped at 1), and never past half size — below that the
+  // slate stops being readable, so a pathological wall of text clips instead.
+  // A pure `transform` is deliberate: it is composited and does NOT re-run
+  // layout, so it cannot feed back into useFitText and start the multi-render
+  // convergence that Remotion's per-frame capture settles inconsistently (the
+  // give-back trap documented in newspaper/layouts/NewsHeadline.tsx).
+  const sceneScale = Math.max(
+    0.5,
+    Math.min(1, contentHeightPx > 0 ? safeBandPx / contentHeightPx : 1),
+  );
+
   return (
-    <DocReelScene bgColor={bgColor} dur={dur} era={activeEra} textures={["dust_scratches"]} sprockets>
+    /* `vignette={false}`: DocReelScene paints a HalationVignette by default — a
+       large soft radial that lands as a bright blotch in the middle of this
+       layout, right over the narration under the clapperboard. Every other
+       docreel layout keeps it; the slate is the one scene whose centre is empty
+       dark background, so the bloom has nothing to sit behind and reads as a
+       stray light blob. The sweeping lamp on the board is this scene's light. */
+    <DocReelScene bgColor={bgColor} dur={dur} era={activeEra} textures={["dust_scratches"]} sprockets vignette={false}>
       <div
         style={{
           position: "absolute",
@@ -255,7 +335,17 @@ export const DocreelSlate: React.FC<SceneLayoutProps> = (props) => {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          padding: p ? `${columnPadY}px 40px` : `${columnPadY}px 120px`,
+          // Padding includes the sprocket bars, so "centred" means centred in
+          // the SAFE band rather than in the raw frame. The increase is
+          // symmetric, so the centre point is unchanged and content that
+          // already fits does not move.
+          padding: p
+            ? `${columnPadY + SPROCKET_BAR_HEIGHT}px 40px`
+            : `${columnPadY + SPROCKET_BAR_HEIGHT}px 120px`,
+          // Uniform shrink-to-fit for over-long copy (see sceneScale above).
+          // 1 for everything that already fits, so ordinary scenes are untouched.
+          transform: `scale(${sceneScale})`,
+          transformOrigin: "center center",
         }}
       >
         <div style={{ opacity: clapProgress >= 1 ? 1 : 0.001, transform: `scale(${interpolate(clapProgress, [0, 1], [0.96, 1])})` }}>
