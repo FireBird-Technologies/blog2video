@@ -802,6 +802,7 @@ def write_remotion_data(
     # Pre-parse all scene descriptors once
     parsed_descs: list[dict | None] = []
     scene_layouts: list[str] = []
+    pinned_system_layouts: set[int] = set()
     # Base layout per scene, i.e. `news_headline__v2` -> `news_headline`. All the
     # per-layout POLICY metadata (layouts_without_image, layout_prop_schema) is
     # keyed by base layout, so visual variants inherit their base's entry through
@@ -810,7 +811,7 @@ def write_remotion_data(
     scene_base_layouts: list[str] = []
     scene_layout_props: list[dict] = []
     fallback = get_fallback_layout(template_id)
-    for scene in scenes:
+    for scene_index, scene in enumerate(scenes):
         desc = None
         layout = fallback
         lp = {}
@@ -824,6 +825,17 @@ def write_remotion_data(
                 lp = dict(desc.get("layoutProps", {}) or {})
             except (json.JSONDecodeError, TypeError):
                 pass
+        # The documentary countdown is pipeline-owned. Older template-switch
+        # jobs inserted the row without remotion_code, causing the normal
+        # fallback to render it as a hero scene containing "3, 2, 1". Pin and
+        # persist the correct renderer whenever Remotion data is rebuilt.
+        if getattr(scene, "preferred_layout", None) == "docreel_countdown":
+            layout = "docreel_countdown"
+            if desc is None or "layoutConfig" in desc:
+                desc = {"layout": layout, "layoutProps": lp}
+            else:
+                desc["layout"] = layout
+            pinned_system_layouts.add(scene_index)
         if lp.get("assignedImage") and not lp.get("hideImage"):
             lp["imageFocusX"] = _clamp_focus_value(lp.get("imageFocusX", 50))
             lp["imageFocusY"] = _clamp_focus_value(lp.get("imageFocusY", 50))
@@ -833,7 +845,7 @@ def write_remotion_data(
         scene_layout_props.append(lp)
 
     # Track which scene descriptors were modified (need serialization at end)
-    dirty: set[int] = set()
+    dirty: set[int] = set(pinned_system_layouts)
 
     if redistribute_images:
         # Full script regeneration / template change creates a new scene sequence.
@@ -1297,19 +1309,34 @@ def write_remotion_data(
             on_screen_text = display_text_val or scene.narration_text
 
         extra_hold = getattr(scene, "extra_hold_seconds", None) or 0.0
-        effective_duration = scene.duration_seconds + extra_hold
         # Spoken-audio length for caption timing: scene.duration_seconds is set to
         # (audio length + DURATION_PAD of trailing silence) during voiceover
         # generation, so the speech occupies roughly the first
         # (duration - DURATION_PAD). Captions span only this window so they don't
         # drift into the silent tail. Reference the same constant so the two can
         # never diverge. 0 when there's no voiceover (captions disabled anyway).
-        from app.services.voiceover import DURATION_PAD as _VOICEOVER_TRAILING_PAD
-        speech_duration = (
-            max(0.5, round(scene.duration_seconds - _VOICEOVER_TRAILING_PAD, 2))
-            if voiceover_filename
-            else 0.0
+        from app.services.voiceover import (
+            DURATION_PAD as _VOICEOVER_TRAILING_PAD,
+            _get_audio_duration,
         )
+        if (
+            layout == "docreel_countdown"
+            and voiceover_filename
+            and os.path.exists(dest)
+        ):
+            # Repair countdowns generated before they were exempted from the
+            # global scene minimum. The copied/downloaded MP3 is authoritative.
+            speech_duration = round(_get_audio_duration(dest), 2)
+            scene.duration_seconds = round(
+                speech_duration + _VOICEOVER_TRAILING_PAD, 1
+            )
+        else:
+            speech_duration = (
+                max(0.5, round(scene.duration_seconds - _VOICEOVER_TRAILING_PAD, 2))
+                if voiceover_filename
+                else 0.0
+            )
+        effective_duration = scene.duration_seconds + extra_hold
         scene_entry: dict = {
             "id": scene.id,
             "order": scene.order,
