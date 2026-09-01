@@ -1,5 +1,5 @@
 import React from "react";
-import { useCurrentFrame, interpolate } from "remotion";
+import { useCurrentFrame, useVideoConfig, interpolate } from "remotion";
 import { SceneLayoutProps } from "../types";
 import {
   DOCREEL_DISPLAY_FONT,
@@ -44,6 +44,7 @@ export const DocreelTitleCard: React.FC<SceneLayoutProps> = (props) => {
 
   const p = aspectRatio === "portrait";
   const frame = useCurrentFrame();
+  const { height: frameHeight } = useVideoConfig();
   const dur = sceneDurationInFrames ?? 100;
   const activeEra = era ?? DEFAULT_DOCREEL_ERA;
 
@@ -56,32 +57,37 @@ export const DocreelTitleCard: React.FC<SceneLayoutProps> = (props) => {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const { visibleText: visibleNarration, cursor: narrationCursor } = useTypewriterReveal(narration ?? "", 44);
+  const { visibleText: visibleNarration, cursor: narrationCursor } = useTypewriterReveal(narration ?? "", 44, dur);
   const heroTitle = chapterTitle ?? title;
-  const titleTargetPx = titleFontSize ?? (p ? 48 : 90);
-  const narrationTargetPx = descriptionFontSize ?? (p ? 21 : 38);
+  const titleTargetPx = titleFontSize ?? (p ? 85 : 90);
+  const narrationTargetPx = descriptionFontSize ?? (p ? 60 : 42);
 
   // The hero title is rendered by ChippedHeading (an SVG-filtered wrapper), so
   // it is measured through a hidden mirror carrying the same text/typography
   // rather than by ref'ing the component's internals.
+  // Frame-relative budget, not a multiple of the font size (see the newspaper
+  // template, layouts/EndingSocials.tsx): a font-size multiple grows with the
+  // copy it is meant to constrain and so can never detect overflow.
+  const titleBudgetPx = Math.round(frameHeight * (p ? 0.22 : 0.26));
   const titleMirrorRef = React.useRef<HTMLDivElement>(null);
   const { px: titlePx } = useFitText(
     titleMirrorRef,
     titleTargetPx,
-    titleFontSizeIsUserSet ? titleTargetPx : Math.round(titleTargetPx * 0.42),
-    [heroTitle, titleTargetPx, titleFontSizeIsUserSet, p, aspectRatio],
-    Math.round((p ? 48 : 90) * 2.6),
+    titleFontSizeIsUserSet ? titleTargetPx : p ? 38 : 40,
+    [heroTitle, titleTargetPx, titleFontSizeIsUserSet, titleBudgetPx, p, aspectRatio],
+    titleBudgetPx,
   );
 
   // Narration types out — measure a hidden full-text mirror, keyed on titlePx
   // so it re-fits after the title settles (one-directional; no give-back).
   const narrationMirrorRef = React.useRef<HTMLDivElement>(null);
+  const narrationBudgetPx = Math.round(frameHeight * (p ? 0.24 : 0.28));
   const { px: narrationPx } = useFitText(
     narrationMirrorRef,
     narrationTargetPx,
-    descriptionFontSizeIsUserSet ? narrationTargetPx : Math.round(narrationTargetPx * 0.55),
-    [narration, narrationTargetPx, descriptionFontSizeIsUserSet, titlePx, p],
-    Math.round((p ? 21 : 38) * 6),
+    descriptionFontSizeIsUserSet ? narrationTargetPx : p ? 24 : 18,
+    [narration, narrationTargetPx, descriptionFontSizeIsUserSet, narrationBudgetPx, titlePx, p],
+    narrationBudgetPx,
   );
 
   const hasVisual = Boolean(imageUrl || videoUrl);
@@ -136,6 +142,13 @@ export const DocreelTitleCard: React.FC<SceneLayoutProps> = (props) => {
         <div
           style={{
             position: "relative",
+            // Bounded for the same reason as the narration below: an unbounded
+            // inline-block heading lays a long title out on one very wide line
+            // and runs past the scene padding, which a height fitter cannot
+            // see. A real width makes the copy wrap inside the safe column, so
+            // the overrun becomes height the fitter can measure and shrink.
+            width: p ? "100%" : 1280,
+            maxWidth: "100%",
             opacity: titleReveal,
             transform: `translateY(${(1 - titleReveal) * 18}px)`,
           }}
@@ -162,7 +175,14 @@ export const DocreelTitleCard: React.FC<SceneLayoutProps> = (props) => {
           >
             {heroTitle}
           </div>
-          <ChippedHeading fontSize={titlePx} color={theme.accent}>
+          {/* ChippedHeading's outer wrapper is an inline-block that shrink-wraps;
+              `display:block` + `width:100%` carry this column's bound down to
+              the text so a long title wraps instead of overrunning the frame. */}
+          <ChippedHeading
+            fontSize={titlePx}
+            color={theme.accent}
+            style={{ width: "100%", display: "block" }}
+          >
             {heroTitle}
           </ChippedHeading>
         </div>
@@ -172,7 +192,16 @@ export const DocreelTitleCard: React.FC<SceneLayoutProps> = (props) => {
             to use most of the frame's width (still bounded by the outer
             padding) rather than wrapping early. */}
         {narration ? (
-          <div style={{ position: "relative", marginTop: 24, maxWidth: p ? "100%" : 1280 }}>
+          // `width` is set, not just capped. The column is `alignItems:center`,
+          // so a child with only a maxWidth shrink-wraps — and this block's
+          // visible text is a TYPEWRITER reveal, so at frame 0 it wraps to the
+          // width of the first couple of words. The measuring mirror below is
+          // `width:100%` of this box, so the fitter was measuring the whole
+          // narration wrapped into a ~200px column, reading an enormous height,
+          // and shrinking the font to its floor — the description rendered tiny
+          // no matter what size was configured. Fixing the width makes the
+          // measurement independent of how much text has typed out so far.
+          <div style={{ position: "relative", marginTop: 24, width: p ? "100%" : 1280, maxWidth: "100%" }}>
             <div
               ref={narrationMirrorRef}
               aria-hidden

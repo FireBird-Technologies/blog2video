@@ -1,0 +1,5 @@
+{"projectName":"SL","accentColor":"#f4f0e2","bgColor":"#171512","textColor":"#b6b0a1","aspectRatio":"landscape",
+ "scenes":[{"id":1,"order":1,"title":"Convert Your Written Voice","narration":"Turn your written voice into video in minutes — no editing team required.",
+  "layout":"docreel_slate",
+  "layoutProps":{"slateProduction":"BLOG2VIDEO","slateScene":"1","slateTake":"1","slateDirector":"BLOG2VIDEO","slateDate":"01.01.25"},
+  "durationSeconds":8,"voiceoverFile":null,"images":[]}]}

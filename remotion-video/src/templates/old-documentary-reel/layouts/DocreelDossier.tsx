@@ -1,5 +1,5 @@
 import React from "react";
-import { useCurrentFrame, interpolate } from "remotion";
+import { useCurrentFrame, useVideoConfig, interpolate } from "remotion";
 import { SceneLayoutProps } from "../types";
 import {
   DOCREEL_DISPLAY_FONT,
@@ -44,6 +44,7 @@ export const DocreelDossier: React.FC<SceneLayoutProps> = (props) => {
 
   const p = aspectRatio === "portrait";
   const frame = useCurrentFrame();
+  const { height: frameHeight } = useVideoConfig();
   const dur = sceneDurationInFrames ?? 110;
   const activeEra = era ?? DEFAULT_DOCREEL_ERA;
 
@@ -51,24 +52,28 @@ export const DocreelDossier: React.FC<SceneLayoutProps> = (props) => {
   // weren't populated, so the report card never renders as an empty box.
   const displayHeading = dossierHeading || title || "";
   const bodyText = dossierBody || narration || "";
-  const { visibleText: visibleBody, cursor } = useTypewriterReveal(bodyText);
+  const { visibleText: visibleBody, cursor } = useTypewriterReveal(bodyText, 24, dur);
 
   // Small mono-font classification badge scales proportionally with
   // descriptionFontSize instead of a fixed pixel size.
-  const baseDescriptionPx = descriptionFontSize ?? (p ? 24 : 27);
+  const baseDescriptionPx = descriptionFontSize ?? (p ? 49 : 27);
 
   // Heading fits first against its own band; the body then fits whatever is
   // left, keyed on headingPx so it re-measures after the heading settles. One
   // directional only — never feed the body's overflow back into the heading
   // (see the give-back warning in newspaper/layouts/NewsHeadline.tsx).
-  const headingTargetPx = titleFontSize ?? (p ? 51 : 66);
+  const headingTargetPx = titleFontSize ?? (p ? 58 : 66);
+  // Frame-relative budgets (newspaper pattern) — a font-size multiple is
+  // circular and cannot detect overflow.
+  const headingBudgetPx = Math.round(frameHeight * (p ? 0.14 : 0.18));
+  const bodyBudgetPx = Math.round(frameHeight * (p ? 0.34 : 0.38));
   const headingRef = React.useRef<HTMLDivElement>(null);
   const { px: headingPx } = useFitText(
     headingRef,
     headingTargetPx,
-    titleFontSizeIsUserSet ? headingTargetPx : Math.round(headingTargetPx * 0.45),
-    [displayHeading, headingTargetPx, titleFontSizeIsUserSet, p, aspectRatio],
-    Math.round((p ? 51 : 66) * 2.2),
+    titleFontSizeIsUserSet ? headingTargetPx : p ? 26 : 30,
+    [displayHeading, headingTargetPx, titleFontSizeIsUserSet, headingBudgetPx, p, aspectRatio],
+    headingBudgetPx,
   );
 
   // The body TYPES OUT, so the visible copy grows frame by frame — measuring it
@@ -79,11 +84,18 @@ export const DocreelDossier: React.FC<SceneLayoutProps> = (props) => {
   const { px: bodyPx } = useFitText(
     bodyMirrorRef,
     baseDescriptionPx,
-    descriptionFontSizeIsUserSet ? baseDescriptionPx : Math.round(baseDescriptionPx * 0.55),
-    [bodyText, baseDescriptionPx, descriptionFontSizeIsUserSet, headingPx, p],
-    Math.round((p ? 160 : 200) * 1.35),
+    descriptionFontSizeIsUserSet ? baseDescriptionPx : p ? 18 : 14,
+    [bodyText, baseDescriptionPx, descriptionFontSizeIsUserSet, bodyBudgetPx, headingPx, p],
+    bodyBudgetPx,
   );
-  const metaPx = Math.round(bodyPx * 0.5);
+  // The CLASSIFICATION badge and the rubber STAMP are both mono chrome that
+  // sits alongside the body copy, so they track the description size rather
+  // than being fixed. 0.5x rendered the badge so small that a slider move was
+  // nearly invisible on it; 0.7x keeps it subordinate to the body while still
+  // responding legibly. The stamp reads a touch larger again — it is the
+  // loudest mark on the card.
+  const metaPx = Math.round(bodyPx * 0.7);
+  const stampPx = Math.round(bodyPx * 0.85);
 
   const headingReveal = interpolate(frame, [0, 16], [0, 1], {
     extrapolateLeft: "clamp",
@@ -211,7 +223,10 @@ export const DocreelDossier: React.FC<SceneLayoutProps> = (props) => {
                 lineHeight: 1.85,
                 color: hexToRgba(theme.text, 0.92),
                 whiteSpace: "pre-wrap",
-                minHeight: p ? 160 : 200,
+                // Floor only — keeps a short note from collapsing the card. It
+                // must not exceed the fitted copy's own height at large sizes,
+                // so it scales down out of the way rather than fighting it.
+                minHeight: Math.min(p ? 160 : 200, bodyPx * 6),
               }}
             >
               {visibleBody}
@@ -232,7 +247,7 @@ export const DocreelDossier: React.FC<SceneLayoutProps> = (props) => {
                 padding: "8px 18px",
                 fontFamily: DOCREEL_DISPLAY_FONT,
                 fontWeight: 700,
-                fontSize: p ? 20 : 26,
+                fontSize: stampPx,
                 letterSpacing: "0.08em",
                 color: theme.accent,
                 textTransform: "uppercase",

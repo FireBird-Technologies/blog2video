@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import type { BgmTrack } from "../api/client";
+import { groupTracksByGenre } from "../utils/bgmGenres";
 
 type BgmTrackDropdownProps = {
   tracks: BgmTrack[];
@@ -126,22 +127,31 @@ export function BgmTrackDropdown({
               >
                 None
               </button>
-              {tracks.map((track) => (
-                <button
-                  key={track.track_id}
-                  type="button"
-                  role="option"
-                  aria-selected={value === track.track_id}
-                  onClick={() => pick(track.track_id)}
-                  className={`text-left px-2.5 py-2 text-xs rounded-lg transition-colors ${
-                    value === track.track_id
-                      ? "bg-purple-50 text-purple-700"
-                      : "hover:bg-gray-50 text-gray-700"
-                  }`}
-                >
-                  <span className="block font-medium text-gray-900">{track.display_name}</span>
-                  <span className="block text-[11px] text-gray-500 mt-0.5">{track.mood}</span>
-                </button>
+              {groupTracksByGenre(tracks).map(([genre, groupTracks]) => (
+                <div key={genre} className="contents">
+                  {genre && (
+                    <span className="px-2.5 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                      {genre}
+                    </span>
+                  )}
+                  {groupTracks.map((track) => (
+                    <button
+                      key={track.track_id}
+                      type="button"
+                      role="option"
+                      aria-selected={value === track.track_id}
+                      onClick={() => pick(track.track_id)}
+                      className={`text-left px-2.5 py-2 text-xs rounded-lg transition-colors ${
+                        value === track.track_id
+                          ? "bg-purple-50 text-purple-700"
+                          : "hover:bg-gray-50 text-gray-700"
+                      }`}
+                    >
+                      <span className="block font-medium text-gray-900">{track.display_name}</span>
+                      <span className="block text-[11px] text-gray-500 mt-0.5">{track.mood}</span>
+                    </button>
+                  ))}
+                </div>
               ))}
             </div>
           </div>,

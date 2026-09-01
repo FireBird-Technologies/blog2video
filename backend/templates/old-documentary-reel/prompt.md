@@ -58,6 +58,8 @@ Example:
 
 **Best for:** Key figures, "by the numbers" moments, scale-of-the-story beats.
 
+**Hard requirement:** use this layout **only** when the source content for this scene contains an actual numeric figure — an integer, decimal, percentage, currency amount, multiplier, ratio, or count (e.g. `47`, `3.2`, `12%`, `$4.5M`, `10x`, `1 in 5`). `statValue` must be that figure, copied from the source, not paraphrased or estimated. If the scene has no such number, choose a different layout. A bare year/date, a vague quantifier ("many", "most", "several", "a handful"), or a number you would have to infer does **not** qualify — never invent a figure to justify this layout.
+
 **Props (put in `layout_props_json`):**
 - `statValue` (string) — the large number/figure, e.g. `"47"` or `"12%"`
 - `statLabel` (string) — short label describing the statistic, e.g. `"Cases Reopened"`
@@ -299,13 +301,13 @@ Example:
 
 - Scene 0 must use `docreel_slate`.
 
-**System-owned opening leader:** every documentary video also opens with a silent 3-2-1 academy-leader countdown scene (`docreel_countdown`). It is added automatically by the pipeline — **never generate it yourself, and never use `docreel_countdown` as a `preferred_layout`.** Your scene 0 is still `docreel_slate`; the leader is prepended in front of it.
+**System-owned opening leader:** every documentary video also opens with a voiced 3-2-1 academy-leader countdown scene (`docreel_countdown`). It is added automatically by the pipeline and uses the voice selected for the project — **never generate it yourself, and never use `docreel_countdown` as a `preferred_layout`.** Your scene 0 is still `docreel_slate`; the leader is prepended in front of it.
 - Use `docreel_title_card` for chapter breaks and establishing new locations/time periods.
 - Use `docreel_dossier` for case files, reports, and evidence summaries.
 - Use `docreel_photo_pan` for single evocative archive photographs.
 - Use `docreel_contact_sheet` for montage beats or "reviewing the evidence" moments — multiple related images if available, a single strong image otherwise.
 - Use `docreel_interview` for eyewitness or expert testimony.
-- Use `docreel_statistic` for key figures and scale-of-the-story beats.
+- Use `docreel_statistic` **only** for scenes whose source content contains a real numeric figure (number, decimal, percentage, currency amount, multiplier, ratio) — never for a scene where you'd have to invent or infer the number.
 - Use `docreel_field_notes` for a "what we know so far" beat that states several confirmed facts at once.
 - Use `docreel_essay_captions` sparingly, for a sharp editorial/argumentative turn in the story.
 - Always end with `ending_socials`.
@@ -322,7 +324,7 @@ Example:
 
 **Per layout (`layout_props_json`):**
 - **`docreel_slate`:** Fill `slateScene`/`slateTake`/`slateDate`/`slateDirector`/`slateProduction` when the source supports a case/production framing; otherwise use plausible generic values (these stay short — production-log fields, not prose). Global `narration` is the line under the title — required, 25–40 words, 2–3 lines.
-- **`docreel_statistic`:** Map the cited figure to `statValue`/`statLabel` (short labels, stay brief). Write `statContext` as a real 2–3 line sentence of source/context (not a clipped fragment) — e.g. how the figure was verified, compared, or what it means. Global `narration` must be a fuller, different 2–3 line sentence from `statContext` — never duplicate it, and never leave either as a one-liner.
+- **`docreel_statistic`:** Only use this layout when the scene's source actually cites a numeric figure (number, decimal, percentage, currency, multiplier, ratio); otherwise pick another layout. Map the cited figure to `statValue`/`statLabel` (short labels, stay brief) — `statValue` is the source's own figure, never an invented or estimated one. Write `statContext` as a real 2–3 line sentence of source/context (not a clipped fragment) — e.g. how the figure was verified, compared, or what it means. Global `narration` must be a fuller, different 2–3 line sentence from `statContext` — never duplicate it, and never leave either as a one-liner.
 - **`docreel_title_card`:** Set `chapterTitle` only if it should differ from the global `title`. Global `narration` is the primary description text for this layout — always required, 25–40 words / 2–3 lines, since the centered layout has room for it.
 - **`docreel_dossier`:** Write `dossierBody` as a real 2–3 line typed paragraph (multiple sentences of case detail — who, what, when, where), not a single clipped line; the type-in effect is built for real paragraph length. Global `narration` should restate the same fact as a full plain-voiceover sentence — do not leave it empty just because `dossierBody` is filled.
 - **`docreel_photo_pan`:** `caption` is short (a few words, a title/label). `subCaption` is the layout's primary body text — write it genuinely long and detailed (4+ full sentences: what/when/where/who/why it matters), enough to comfortably fill the record panel; do not write a short line here. Global `narration` should carry the same substance as a fallback (used verbatim as `subCaption` if that field is left empty). Applies equally when no photo is available — the scene still needs its full description.
@@ -342,6 +344,7 @@ Example:
 - Alternate between title-card, dossier, photo-pan, contact-sheet, interview, statistic, field-notes, and essay-captions when the content fits.
 - `docreel_contact_sheet` no longer requires multiple images — it works fine with just the single scene image — but don't overuse it; reserve it for genuine montage/"reviewing the evidence" beats rather than defaulting to it for every image-bearing scene.
 - Use `docreel_interview` only when the source contains an actual quote or testimony.
+- Use `docreel_statistic` only when the source contains a real numeric figure (number, decimal, percentage, currency amount, multiplier, ratio) for that scene — never invent one to fill the layout.
 - Use `docreel_field_notes` only when the source supports at least 3 distinct, independent facts — otherwise a shorter layout fits better.
 - Use `docreel_essay_captions` at most once or twice per video — it's a sharp editorial punctuation mark, not a repeating pattern.
 - End with `ending_socials`.

@@ -1,5 +1,5 @@
 import React, { useId } from "react";
-import { useCurrentFrame, interpolate } from "remotion";
+import { useCurrentFrame, useVideoConfig, interpolate } from "remotion";
 import { SceneLayoutProps } from "../types";
 import {
   DOCREEL_DISPLAY_FONT,
@@ -119,6 +119,7 @@ export const DocreelFieldNotes: React.FC<SceneLayoutProps> = (props) => {
 
   const p = aspectRatio === "portrait";
   const frame = useCurrentFrame();
+  const { height: frameHeight } = useVideoConfig();
   const dur = sceneDurationInFrames ?? 130;
   const activeEra = era ?? DEFAULT_DOCREEL_ERA;
 
@@ -133,16 +134,20 @@ export const DocreelFieldNotes: React.FC<SceneLayoutProps> = (props) => {
     extrapolateRight: "clamp",
   });
 
-  const titleTargetPx = titleFontSize ?? (p ? 50 : 48);
-  const bodyTargetPx = descriptionFontSize ?? (p ? 40 : 36);
+  const titleTargetPx = titleFontSize ?? (p ? 60 : 48);
+  const bodyTargetPx = descriptionFontSize ?? (p ? 57 : 36);
 
+  // Frame-relative budgets (newspaper pattern). The list gets the largest
+  // share in this template: it stacks up to 7 checklist rows.
+  const headingBudgetPx = Math.round(frameHeight * (p ? 0.14 : 0.16));
+  const listBudgetPx = Math.round(frameHeight * (p ? 0.44 : 0.48));
   const headingRef = React.useRef<HTMLDivElement>(null);
   const { px: titlePx } = useFitText(
     headingRef,
     titleTargetPx,
-    titleFontSizeIsUserSet ? titleTargetPx : Math.round(titleTargetPx * 0.5),
-    [heading, titleTargetPx, titleFontSizeIsUserSet, p, aspectRatio],
-    Math.round((p ? 50 : 48) * 2.2),
+    titleFontSizeIsUserSet ? titleTargetPx : p ? 24 : 22,
+    [heading, titleTargetPx, titleFontSizeIsUserSet, headingBudgetPx, p, aspectRatio],
+    headingBudgetPx,
   );
 
   // Every checklist row types out independently, so the visible list grows for
@@ -153,9 +158,9 @@ export const DocreelFieldNotes: React.FC<SceneLayoutProps> = (props) => {
   const { px: bodyPx } = useFitText(
     listMirrorRef,
     bodyTargetPx,
-    descriptionFontSizeIsUserSet ? bodyTargetPx : Math.round(bodyTargetPx * 0.5),
-    [items.join(" "), bodyTargetPx, descriptionFontSizeIsUserSet, titlePx, p],
-    Math.round((p ? 40 : 36) * 8),
+    descriptionFontSizeIsUserSet ? bodyTargetPx : p ? 20 : 16,
+    [items.join(" "), items.length, bodyTargetPx, descriptionFontSizeIsUserSet, listBudgetPx, titlePx, p],
+    listBudgetPx,
   );
   const tickSize = Math.round(bodyPx * 0.95);
 
@@ -257,7 +262,11 @@ export const DocreelFieldNotes: React.FC<SceneLayoutProps> = (props) => {
                 extrapolateRight: "clamp",
               });
               const checked = frame >= rowStart(i) + 10;
-              const { visibleText: visibleItem, cursor: itemCursor } = typewriterAt(frame, item, rowStart(i) + 10);
+              // `dur` so a long checklist still finishes typing before the cut.
+              // Each row starts later than the last, and typewriterAt derives
+              // its budget from that start frame, so the lowest rows — which
+              // have the least time left — compress the most.
+              const { visibleText: visibleItem, cursor: itemCursor } = typewriterAt(frame, item, rowStart(i) + 10, dur);
               return (
                 <div
                   key={i}

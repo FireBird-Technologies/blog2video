@@ -33,6 +33,8 @@ export const DocreelReelOut: React.FC<SceneLayoutProps> = (props) => {
     sceneDurationInFrames,
     titleFontSize,
     titleFontSizeIsUserSet,
+    descriptionFontSize,
+    descriptionFontSizeIsUserSet,
     era,
     brandName,
     websiteUrl,
@@ -45,7 +47,7 @@ export const DocreelReelOut: React.FC<SceneLayoutProps> = (props) => {
 
   const p = aspectRatio === "portrait";
   const frame = useCurrentFrame();
-  const { width } = useVideoConfig();
+  const { width, height: frameHeight } = useVideoConfig();
   const dur = sceneDurationInFrames ?? 150;
   const activeEra = era ?? DEFAULT_DOCREEL_ERA;
 
@@ -63,7 +65,17 @@ export const DocreelReelOut: React.FC<SceneLayoutProps> = (props) => {
     extrapolateRight: "clamp",
   });
   const flicker = interpolate(frame % 8, [0, 4, 8], [1, 0.94, 1]);
-  const titleTargetPx = titleFontSize ?? (p ? 115 : 158);
+  const titleTargetPx = titleFontSize ?? (p ? 153 : 158);
+  // The brand name and CTA link are the description-scale copy on this end
+  // card, so they follow descriptionFontSize instead of being fixed. The
+  // fallbacks preserve the previous hardcoded sizes exactly, so an untouched
+  // scene renders unchanged.
+  // Fallbacks raised from 22/28 and 15/17: against a 115–158px "THE END" the
+  // old sizes read as fine print rather than a credit line, and with no
+  // `descriptionFontSize` default in meta.json they were what every untouched
+  // end card actually used.
+  const brandPx = descriptionFontSize ? Math.round(descriptionFontSize * 1.1) : (p ? 38 : 46);
+  const linkPx = descriptionFontSize ? Math.round(descriptionFontSize * 0.75) : (p ? 26 : 30);
 
   // The end card runs very large (158px landscape), so a multi-word title is
   // the likeliest thing in this template to overrun its band. The card only
@@ -79,9 +91,13 @@ export const DocreelReelOut: React.FC<SceneLayoutProps> = (props) => {
   const { px: titlePx } = useFitText(
     titleRef,
     titleTargetPx,
-    titleFontSizeIsUserSet ? titleTargetPx : Math.round(titleTargetPx * 0.42),
+    titleFontSizeIsUserSet ? titleTargetPx : p ? 52 : 70,
     [title, titleTargetPx, titleFontSizeIsUserSet, titleBudgetPx, p],
-    titleBudgetPx ? Math.round(titleBudgetPx * (p ? 0.46 : 0.52)) : undefined,
+    // Measured leftover column height (reserving the rule, brand block and
+    // socials below), with a frame fraction until the measurement lands.
+    titleBudgetPx
+      ? Math.round(titleBudgetPx * (p ? 0.46 : 0.52))
+      : Math.round(frameHeight * (p ? 0.26 : 0.30)),
   );
 
   const link = websiteUrl || websiteLink;
@@ -193,7 +209,7 @@ export const DocreelReelOut: React.FC<SceneLayoutProps> = (props) => {
               marginTop: 34,
               fontFamily: DOCREEL_DISPLAY_FONT,
               fontWeight: 500,
-              fontSize: p ? 22 : 28,
+              fontSize: brandPx,
               letterSpacing: "0.14em",
               textTransform: "uppercase",
               color: theme.text,
@@ -210,7 +226,7 @@ export const DocreelReelOut: React.FC<SceneLayoutProps> = (props) => {
             style={{
               marginTop: 16,
               fontFamily: DOCREEL_MONO_FONT,
-              fontSize: p ? 15 : 17,
+              fontSize: linkPx,
               letterSpacing: "0.08em",
               color: hexToRgba(theme.accent, 0.9),
               opacity: brandReveal,

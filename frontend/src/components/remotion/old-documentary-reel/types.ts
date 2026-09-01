@@ -98,6 +98,8 @@ export interface SceneLayoutProps {
 
   // Countdown Leader (system-owned scene 0)
   countdownFrom?: number;
+  countdownCueSeconds?: number[];
+  playbackSpeed?: number;
 
   // Reel-Out & Credits / ending_socials
   brandName?: string;

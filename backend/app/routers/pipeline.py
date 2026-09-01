@@ -187,11 +187,12 @@ def _chartable_props_from_blog(blog_content: str) -> list[dict]:
 # ── Old Documentary Reel: system-owned countdown leader ──────────────────────
 # The 3-2-1 academy leader that opens every documentary video. It is NOT in the
 # template's valid_layouts, so the LLM can neither write nor skip it; the
-# pipeline prepends it after layout sanitization. Kept silent (empty narration)
-# so voiceover.py's blank-narration guard skips TTS for it.
+# pipeline prepends it after layout sanitization. Its narration is fixed so TTS
+# always speaks the countdown exactly as written.
 
 DOCREEL_TEMPLATE_ID = "old-documentary-reel"
 DOCREEL_COUNTDOWN_LAYOUT = "docreel_countdown"
+DOCREEL_COUNTDOWN_NARRATION = "3, 2, 1"
 DOCREEL_COUNTDOWN_SECONDS = 3
 
 
@@ -201,15 +202,10 @@ def _scenes_need_countdown_leader(template_id: str) -> bool:
 
 
 def _build_docreel_countdown_scene() -> dict:
-    """The silent 3-2-1 leader scene_raw dict, prepended as scene 0.
-
-    Empty title/narration is deliberate: the layout renders only the countdown
-    dial, and blank narration_text is exactly what makes voiceover.py skip TTS
-    (see its "Skip scenes with no narration (e.g. hero opening)" guard).
-    """
+    """The voiced 3-2-1 leader scene_raw dict, prepended as scene 0."""
     return {
         "title": "",
-        "narration": "",
+        "narration": DOCREEL_COUNTDOWN_NARRATION,
         "visual_description": "",
         "duration_seconds": DOCREEL_COUNTDOWN_SECONDS,
         "preferred_layout": DOCREEL_COUNTDOWN_LAYOUT,
@@ -253,6 +249,12 @@ def ensure_docreel_countdown_scene(db, project_id: int, template_id: str) -> boo
             visual_description=spec["visual_description"],
             duration_seconds=spec["duration_seconds"],
             preferred_layout=spec["preferred_layout"],
+            # Template switches do not run the normal descriptor generator for
+            # this newly inserted row. Pin its renderer explicitly so an empty
+            # descriptor cannot fall back to the documentary hero layout.
+            remotion_code=json.dumps(
+                {"layout": DOCREEL_COUNTDOWN_LAYOUT, "layoutProps": {}}
+            ),
         )
     )
     db.commit()
@@ -2654,10 +2656,10 @@ async def _generate_script(
     display_gen = DisplayTextGenerator(template_id, video_style=video_style, content_language=content_language)
     display_texts = await display_gen.generate_for_scenes(scenes_raw)
 
-    # Old Documentary Reel opens on a silent 3-2-1 academy leader. It is a
+    # Old Documentary Reel opens on a voiced 3-2-1 academy leader. It is a
     # system-owned scene: the LLM never writes it (docreel_countdown is not in
-    # valid_layouts), so it is prepended here instead. Empty narration is what
-    # makes it silent — voiceover.py skips TTS for blank narration_text.
+    # valid_layouts), so it is prepended here instead. The system-owned generic
+    # countdown narration is recorded with the voice selected for the project.
     #
     # Must run AFTER _sanitize_script_layouts: that pass forces hero_layout
     # (docreel_slate) onto index 0 and strips it from every other index, so
@@ -2986,10 +2988,9 @@ async def _generate_scenes(
             from app.services.voiceover import DURATION_PAD
             for scene in scenes:
                 if getattr(scene, "preferred_layout", None) == DOCREEL_COUNTDOWN_LAYOUT:
-                    # The countdown leader is a fixed-length silent scene. It is
-                    # narration-less by design, so the else-branch below would
-                    # stretch it to MIN_SCENE_DURATION_SECONDS (7s) instead of
-                    # the 3s leader it is meant to be. Leave its duration alone.
+                    # In the user's explicit no-audio mode the countdown stays
+                    # silent, but it must still keep the template's fixed 3s
+                    # timing instead of stretching to the normal scene minimum.
                     scene.voiceover_path = None
                     continue
                 if scene.narration_text:
@@ -3192,8 +3193,20 @@ async def _generate_scenes(
         # Pin the descriptor back to the countdown and skip the variant/rewrite
         # path entirely. Same shape as the ending_socials override just below.
         if getattr(scene, "preferred_layout", None) == DOCREEL_COUNTDOWN_LAYOUT:
+            countdown_props = {}
+            try:
+                stored_descriptor = (
+                    json.loads(scene.remotion_code) if scene.remotion_code else {}
+                )
+                stored_props = stored_descriptor.get("layoutProps", {})
+                if isinstance(stored_props, dict):
+                    countdown_props = stored_props
+            except (json.JSONDecodeError, TypeError, AttributeError):
+                pass
             descriptor["layout"] = DOCREEL_COUNTDOWN_LAYOUT
-            descriptor["layoutProps"] = {}
+            # The TTS task runs concurrently and writes countdownCueSeconds into
+            # the stored descriptor. Preserve those audio alignment cues here.
+            descriptor["layoutProps"] = countdown_props
             scene.remotion_code = json.dumps(descriptor)
             continue
 

@@ -99,13 +99,30 @@ const useDocReelFontsLoaded = (): void => {
   }, [handle]);
 };
 
-// Silent visual "hold" appended to the end of every non-last scene's visual
-// window, mirroring the Sakura pattern, so each page gets a beat before its
-// transition. No voiceover/caption; only TransitionSeries.Sequence length grows.
+// Silent visual "hold" appended to regular non-last scenes.
 const DOCREEL_EXTRA_HOLD_FRAMES = 30;
 
-const resolveScenes = (scenes: DocReelSceneInput[]) =>
-  scenes.map((scene, index, arr) => {
+interface ResolvedDocReelScene {
+  scene: DocReelSceneInput;
+  layoutKey: DocReelLayoutType;
+  durationFrames: number;
+  sequenceFrames: number;
+}
+
+const transitionFramesForPair = (
+  index: number,
+  currentLayout: DocReelLayoutType,
+  nextLayout: DocReelLayoutType,
+  currentFrames: number,
+  nextFrames: number,
+): number => {
+  const nominal = pickDocReelTransition(index, currentLayout, nextLayout).frames;
+  const cap = Math.floor(Math.min(currentFrames, nextFrames) * 0.25);
+  return Math.max(1, Math.min(nominal, cap));
+};
+
+const resolveScenes = (scenes: DocReelSceneInput[]): ResolvedDocReelScene[] => {
+  const resolved = scenes.map((scene, index, arr) => {
     const layoutKey: DocReelLayoutType =
       (scene.layout as DocReelLayoutType) in LAYOUT_REGISTRY
         ? (scene.layout as DocReelLayoutType)
@@ -121,6 +138,29 @@ const resolveScenes = (scenes: DocReelSceneInput[]) =>
     return { scene, layoutKey, durationFrames, sequenceFrames };
   });
 
+  // A TransitionSeries transition overlaps the tail of its outgoing sequence.
+  // Give the countdown exactly that overlap as its sequence extension, so the
+  // next scene starts at countdown.durationFrames — precisely one second after
+  // its audio ends, because the backend stores audio duration + 1s.
+  return resolved.map((entry, index) => {
+    if (entry.layoutKey !== "docreel_countdown" || index === resolved.length - 1) {
+      return entry;
+    }
+    const next = resolved[index + 1];
+    return {
+      ...entry,
+      sequenceFrames:
+        entry.durationFrames +
+        transitionFramesForPair(
+          index,
+          entry.layoutKey,
+          next.layoutKey,
+          entry.durationFrames,
+          next.durationFrames,
+        ),
+    };
+  });
+};
 // Each transition effect has its own ideal length (a splice flash is a quick
 // stutter, a light leak needs room to bloom) — pickDocReelTransition's `frames`
 // is the nominal target here, still capped to 25% of the shorter adjacent
@@ -129,18 +169,16 @@ const boundaryFrames = (
   resolved: ReturnType<typeof resolveScenes>,
   index: number,
 ): number => {
-  const nominal =
-    index >= 0 && index < resolved.length - 1
-      ? pickDocReelTransition(
-          index,
-          resolved[index].layoutKey,
-          resolved[index + 1].layoutKey,
-        ).frames
-      : DOCREEL_TRANSITION_FRAMES;
-  const here = resolved[index]?.durationFrames ?? nominal;
-  const next = resolved[index + 1]?.durationFrames ?? nominal;
-  const cap = Math.floor(Math.min(here, next) * 0.25);
-  return Math.max(1, Math.min(nominal, cap));
+  if (index < 0 || index >= resolved.length - 1) {
+    return DOCREEL_TRANSITION_FRAMES;
+  }
+  return transitionFramesForPair(
+    index,
+    resolved[index].layoutKey,
+    resolved[index + 1].layoutKey,
+    resolved[index].durationFrames,
+    resolved[index + 1].durationFrames,
+  );
 };
 
 export const computeDocReelSchedule = (

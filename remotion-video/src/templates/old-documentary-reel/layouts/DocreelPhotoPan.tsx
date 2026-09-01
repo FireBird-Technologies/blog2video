@@ -150,7 +150,7 @@ export const DocreelPhotoPan: React.FC<SceneLayoutProps> = (props) => {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const { visibleText: visibleBodyText, cursor: bodyCursor } = useTypewriterReveal(bodyText, 34);
+  const { visibleText: visibleBodyText, cursor: bodyCursor } = useTypewriterReveal(bodyText, 34, dur);
   const tickReveal = interpolate(frame, [46, 58], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
@@ -177,27 +177,30 @@ export const DocreelPhotoPan: React.FC<SceneLayoutProps> = (props) => {
   };
 
   const printSlide = interpolate(slideOut, [0, 1], [p ? -40 : -50, 0]);
-  const titleTargetPx = titleFontSize ?? (p ? 26 : 45);
-  const bodyTargetPx = descriptionFontSize ?? (p ? 19 : 34);
+  const titleTargetPx = titleFontSize ?? (p ? 47 : 45);
+  const bodyTargetPx = descriptionFontSize ?? (p ? 40 : 34);
 
   // Caption is static (safe to measure directly); the body types out and needs
   // a hidden full-text mirror. Body is keyed on the fitted caption size so it
   // re-measures after the caption settles — one-directional, no give-back.
+  // Frame-relative budgets (newspaper pattern), not font-size multiples.
+  const captionBudgetPx = Math.round(frameHeight * (p ? 0.14 : 0.16));
+  const bodyBudgetPx = Math.round(frameHeight * (p ? 0.26 : 0.30));
   const captionRef = React.useRef<HTMLDivElement>(null);
   const { px: titlePx } = useFitText(
     captionRef,
     titleTargetPx,
-    titleFontSizeIsUserSet ? titleTargetPx : Math.round(titleTargetPx * 0.5),
-    [captionText, titleTargetPx, titleFontSizeIsUserSet, p, aspectRatio],
-    Math.round((p ? 26 : 45) * 3),
+    titleFontSizeIsUserSet ? titleTargetPx : p ? 22 : 20,
+    [captionText, titleTargetPx, titleFontSizeIsUserSet, captionBudgetPx, p, aspectRatio],
+    captionBudgetPx,
   );
   const bodyMirrorRef = React.useRef<HTMLDivElement>(null);
   const { px: bodyPx } = useFitText(
     bodyMirrorRef,
     bodyTargetPx,
-    descriptionFontSizeIsUserSet ? bodyTargetPx : Math.round(bodyTargetPx * 0.55),
-    [bodyText, bodyTargetPx, descriptionFontSizeIsUserSet, titlePx, p],
-    Math.round((p ? 19 : 34) * 6),
+    descriptionFontSizeIsUserSet ? bodyTargetPx : p ? 18 : 16,
+    [bodyText, bodyTargetPx, descriptionFontSizeIsUserSet, bodyBudgetPx, titlePx, p],
+    bodyBudgetPx,
   );
   const hasVisual = Boolean(imageUrl || videoUrl);
 
@@ -337,7 +340,11 @@ export const DocreelPhotoPan: React.FC<SceneLayoutProps> = (props) => {
             <div
               style={{
                 fontFamily: DOCREEL_MONO_FONT,
-                fontSize: Math.round(bodyPx * 0.55),
+                // Tracks the description size like the Dossier classification
+                // badge. At 0.55x a slider move was barely perceptible on this
+                // short kicker; 0.7x keeps it subordinate to the caption while
+                // still responding legibly.
+                fontSize: Math.round(bodyPx * 0.7),
                 letterSpacing: "0.2em",
                 color: hexToRgba(theme.text, 0.55),
                 marginBottom: 16,
@@ -364,7 +371,14 @@ export const DocreelPhotoPan: React.FC<SceneLayoutProps> = (props) => {
             ) : null}
 
             {bodyText ? (
-              <div style={{ position: "relative" }}>
+              // `width:100%` is required, not decorative: the mirror below is
+              // sized as a percentage of THIS box, and the visible copy is a
+              // typewriter reveal. Left to shrink-wrap, this box tracks the
+              // few characters typed so far, so the fitter measured the whole
+              // body wrapped into a sliver of a column, read a huge height, and
+              // shrank the text to its floor — the body rendered tiny whatever
+              // size was configured. Same trap as DocreelTitleCard's narration.
+              <div style={{ position: "relative", width: "100%" }}>
                 <div
                   ref={bodyMirrorRef}
                   aria-hidden

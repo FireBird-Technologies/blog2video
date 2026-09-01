@@ -875,6 +875,58 @@ def _run_project_template_change_job(job_id: int) -> None:
         project.r2_video_url = None
         db.commit()
 
+        # Add the system-owned documentary leader BEFORE rebuilding Remotion
+        # data. Otherwise the new row misses that rebuild and its absent
+        # descriptor is rendered as the template's hero layout.
+        countdown_scene = None
+        countdown_added = False
+        try:
+            from app.routers.pipeline import ensure_docreel_countdown_scene
+
+            countdown_added = ensure_docreel_countdown_scene(
+                db, project.id, target_template
+            )
+            if countdown_added:
+                countdown_scene = (
+                    db.query(Scene)
+                    .filter(
+                        Scene.project_id == project.id,
+                        Scene.preferred_layout == "docreel_countdown",
+                    )
+                    .order_by(Scene.order)
+                    .first()
+                )
+                logger.info(
+                    "[PROJECT_TEMPLATE_CHANGE] job=%s: added docreel countdown leader",
+                    job_id,
+                )
+        except Exception:
+            logger.warning(
+                "[PROJECT_TEMPLATE_CHANGE] job=%s: countdown leader injection failed",
+                job_id,
+                exc_info=True,
+            )
+
+        # Record the fixed countdown with the project's selected voice before
+        # rebuilding Remotion data, so the refreshed preview includes its audio.
+        # Existing scenes kept their old filenames while their orders shifted,
+        # so use a unique name rather than overwriting former scene-1 audio.
+        if countdown_added and countdown_scene is not None and project.voice_gender != "none":
+            try:
+                from app.services.voiceover import generate_voiceover
+
+                generate_voiceover(
+                    countdown_scene,
+                    db,
+                    output_filename=f"scene_docreel_countdown_{countdown_scene.id}.mp3",
+                )
+            except Exception:
+                logger.warning(
+                    "[PROJECT_TEMPLATE_CHANGE] job=%s: countdown voiceover failed",
+                    job_id,
+                    exc_info=True,
+                )
+
         # Re-run visual assignment against the NEW template. The descriptors were
         # rebuilt above with empty layoutProps, so this is what actually fills each
         # scene's visual slot — images first, then clips the project already owns
@@ -896,25 +948,6 @@ def _run_project_template_change_job(job_id: int) -> None:
             # rewritten on the next render anyway.
             logger.warning(
                 "[PROJECT_TEMPLATE_CHANGE] job=%s: visual reassignment failed", job_id,
-                exc_info=True,
-            )
-
-        # Switching TO the documentary template reuses the project's existing
-        # scene rows, so it never passes through _generate_script's countdown
-        # injection. Add the leader here instead; no-ops for every other
-        # template and when the project already has one.
-        try:
-            from app.routers.pipeline import ensure_docreel_countdown_scene
-
-            if ensure_docreel_countdown_scene(db, project.id, target_template):
-                logger.info(
-                    "[PROJECT_TEMPLATE_CHANGE] job=%s: added docreel countdown leader", job_id
-                )
-        except Exception:
-            # Non-fatal: the template change itself succeeded, and a missing
-            # leader is a cosmetic gap rather than a broken video.
-            logger.warning(
-                "[PROJECT_TEMPLATE_CHANGE] job=%s: countdown leader injection failed", job_id,
                 exc_info=True,
             )
 

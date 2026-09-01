@@ -102,8 +102,7 @@ const useDocReelFontsLoaded = (): void => {
   }, [handle]);
 };
 
-// Silent visual "hold" appended to the end of every non-last scene's visual
-// window, mirroring the Sakura pattern. Mirror byte-identical across both trees.
+// Silent visual "hold" appended to regular non-last scenes.
 const DOCREEL_EXTRA_HOLD_FRAMES = 30;
 
 interface ResolvedScene {
@@ -113,8 +112,20 @@ interface ResolvedScene {
   sequenceFrames: number;
 }
 
-const resolveScenes = (scenes: SceneData[], playbackSpeed: number): ResolvedScene[] =>
-  scenes.map((scene, index, arr) => {
+const transitionFramesForPair = (
+  index: number,
+  currentLayout: DocReelLayoutType,
+  nextLayout: DocReelLayoutType,
+  currentFrames: number,
+  nextFrames: number,
+): number => {
+  const nominal = pickDocReelTransition(index, currentLayout, nextLayout).frames;
+  const cap = Math.floor(Math.min(currentFrames, nextFrames) * 0.25);
+  return Math.max(1, Math.min(nominal, cap));
+};
+
+const resolveScenes = (scenes: SceneData[], playbackSpeed: number): ResolvedScene[] => {
+  const resolved = scenes.map((scene, index, arr) => {
     const layoutKey: DocReelLayoutType =
       scene.layout in LAYOUT_REGISTRY ? scene.layout : ("docreel_title_card" as DocReelLayoutType);
     const durationFrames = getSceneDurationFrames(scene.durationSeconds, FPS, playbackSpeed);
@@ -123,23 +134,44 @@ const resolveScenes = (scenes: SceneData[], playbackSpeed: number): ResolvedScen
     return { scene, layoutKey, durationFrames, sequenceFrames };
   });
 
+  // Make countdown -> slate begin exactly at countdown.durationFrames. Since
+  // TransitionSeries overlaps its transition, extending by the overlap amount
+  // cancels that subtraction without adding another visual hold.
+  return resolved.map((entry, index) => {
+    if (entry.layoutKey !== "docreel_countdown" || index === resolved.length - 1) {
+      return entry;
+    }
+    const next = resolved[index + 1];
+    return {
+      ...entry,
+      sequenceFrames:
+        entry.durationFrames +
+        transitionFramesForPair(
+          index,
+          entry.layoutKey,
+          next.layoutKey,
+          entry.durationFrames,
+          next.durationFrames,
+        ),
+    };
+  });
+};
+
 // Each transition effect has its own ideal length (a splice flash is a quick
 // stutter, a light leak needs room to bloom) — pickDocReelTransition's `frames`
 // is the nominal target here, still capped to 25% of the shorter adjacent
 // scene so a very short scene can't be swallowed by its own transition.
 const boundaryFrames = (resolved: ResolvedScene[], index: number): number => {
-  const nominal =
-    index >= 0 && index < resolved.length - 1
-      ? pickDocReelTransition(
-          index,
-          resolved[index].layoutKey,
-          resolved[index + 1].layoutKey,
-        ).frames
-      : DOCREEL_TRANSITION_FRAMES;
-  const here = resolved[index]?.durationFrames ?? nominal;
-  const next = resolved[index + 1]?.durationFrames ?? nominal;
-  const cap = Math.floor(Math.min(here, next) * 0.25);
-  return Math.max(1, Math.min(nominal, cap));
+  if (index < 0 || index >= resolved.length - 1) {
+    return DOCREEL_TRANSITION_FRAMES;
+  }
+  return transitionFramesForPair(
+    index,
+    resolved[index].layoutKey,
+    resolved[index + 1].layoutKey,
+    resolved[index].durationFrames,
+    resolved[index + 1].durationFrames,
+  );
 };
 
 const computeTotalFrames = (resolved: ResolvedScene[]): number => {
@@ -235,8 +267,19 @@ export const OldDocumentaryReelVideo: React.FC<VideoProps> = ({ dataUrl }) => {
     const videoUrl = scene.video ? staticFile(scene.video) : undefined;
     const focusX = Math.max(0, Math.min(100, Number(raw?.imageFocusX ?? 50)));
     const focusY = Math.max(0, Math.min(100, Number(raw?.imageFocusY ?? 50)));
+    // A font size present in layoutProps means somebody moved the slider, and
+    // the auto-fit layouts use these flags to pin their shrink floor to that
+    // exact size instead of fitting it back down to the space. The app's two
+    // other entry points already derive them (backend/app/services/remotion.py
+    // and frontend/src/utils/mergeLayoutSchemaDefaults.ts); without them here,
+    // a size raised in Remotion Studio was silently shrunk again by the fitter.
+    const userSetFlags: Record<string, boolean> = {};
+    for (const key of ["titleFontSize", "descriptionFontSize"]) {
+      if (raw && key in raw) userSetFlags[`${key}IsUserSet`] = true;
+    }
     return {
       ...raw,
+      ...userSetFlags,
       title: scene.title,
       narration: scene.narration,
       accentColor: theme.accent,
@@ -258,6 +301,7 @@ export const OldDocumentaryReelVideo: React.FC<VideoProps> = ({ dataUrl }) => {
       imageZoom: Math.max(0.1, Number(raw?.imageZoom ?? 1)),
       fontFamily: resolvedFontFamily || undefined,
       era: activeEra,
+      playbackSpeed,
     };
   };
 

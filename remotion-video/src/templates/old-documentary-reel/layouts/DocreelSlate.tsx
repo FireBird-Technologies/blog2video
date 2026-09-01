@@ -126,7 +126,7 @@ export const DocreelSlate: React.FC<SceneLayoutProps> = (props) => {
 
   const p = aspectRatio === "portrait";
   const frame = useCurrentFrame();
-  const { width } = useVideoConfig();
+  const { width, height: frameHeight } = useVideoConfig();
   const dur = sceneDurationInFrames ?? 90;
   const activeEra = era ?? DEFAULT_DOCREEL_ERA;
 
@@ -148,28 +148,62 @@ export const DocreelSlate: React.FC<SceneLayoutProps> = (props) => {
   });
 
   const boardWidth = p ? width * 0.72 : width * 0.34;
-  const titleTargetPx = titleFontSize ?? (p ? 80 : 74);
-  const narrationTargetPx = descriptionFontSize ?? (p ? 31 : 34);
+  const titleTargetPx = titleFontSize ?? (p ? 108 : 74);
+  const narrationTargetPx = descriptionFontSize ?? (p ? 60 : 34);
 
   // ChippedHeading wraps its text in an SVG-filtered div, so the title is still
   // measured through an equivalent hidden mirror rather than by reaching into
   // the component. The narration renders in full from frame 0 (no typewriter),
   // so its real element can be measured directly.
+  //
+  // Budgets are derived from the column's REAL geometry — frame height minus the
+  // scene padding minus the clapperboard, which is a known size (boardWidth
+  // drives both its stick and its body) — and then split between title and
+  // narration. Two earlier approaches failed here:
+  //   * a flat fraction of the frame ("title gets 20%") ignores the board, which
+  //     eats a much larger share of a landscape frame than a portrait one, so a
+  //     long title still pushed the narration off the bottom;
+  //   * useAvailableHeight (the newspaper pattern) reads offsetTop, which is only
+  //     trustworthy in newspaper's TOP-ALIGNED containers. This column is
+  //     `justify-content:center`, so once the content overflows the browser
+  //     shifts it up and the measured "space below" is already contaminated by
+  //     the overflow it was supposed to detect.
+  // Computing the remainder arithmetically avoids both traps.
+  const columnPadY = p ? 120 : 80;
+  // Clapperboard height: stick (16% of width) + body (5 rows of 3.8%-of-width
+  // text at line-height 1, 4 gaps of 2%, 2x 4.5% padding, 2px borders).
+  const boardHeightPx = boardWidth * 0.16 + (boardWidth * 0.038 * 1.2 * 5 + boardWidth * 0.012 * 5 + boardWidth * 0.02 * 4 + boardWidth * 0.09) + 4;
+  const titleMarginPx = p ? 48 : 56;
+  const narrationMarginPx = p ? 18 : 22;
+  // What is left for title + narration once the board and all the fixed gaps
+  // are paid for.
+  const copyBudgetPx = Math.max(
+    120,
+    frameHeight - columnPadY * 2 - boardHeightPx - titleMarginPx - narrationMarginPx,
+  );
+  // Title takes the smaller share: the narration is the longer copy and needs
+  // the room, and an oversized title is what pushed everything off frame.
+  const titleBudgetPx = Math.round(copyBudgetPx * (p ? 0.42 : 0.40));
+  const narrationBudgetPx = Math.round(copyBudgetPx * (p ? 0.58 : 0.60));
+
   const titleMirrorRef = React.useRef<HTMLDivElement>(null);
+  const narrationRef = React.useRef<HTMLDivElement>(null);
   const { px: titlePx } = useFitText(
     titleMirrorRef,
     titleTargetPx,
-    titleFontSizeIsUserSet ? titleTargetPx : Math.round(titleTargetPx * 0.45),
-    [title, titleTargetPx, titleFontSizeIsUserSet, p, aspectRatio],
-    Math.round((p ? 80 : 74) * 2.2),
+    titleFontSizeIsUserSet ? titleTargetPx : p ? 44 : 32,
+    [title, titleTargetPx, titleFontSizeIsUserSet, titleBudgetPx, p, aspectRatio],
+    titleBudgetPx,
   );
-  const narrationRef = React.useRef<HTMLDivElement>(null);
+  // Keyed on titlePx so it re-measures after the title settles. One-directional
+  // only — never feed this fit's overflow back into the title budget (see the
+  // give-back warning in newspaper/layouts/NewsHeadline.tsx).
   const { px: narrationPx } = useFitText(
     narrationRef,
     narrationTargetPx,
-    descriptionFontSizeIsUserSet ? narrationTargetPx : Math.round(narrationTargetPx * 0.55),
-    [narration, narrationTargetPx, descriptionFontSizeIsUserSet, titlePx, p],
-    Math.round((p ? 31 : 34) * 4),
+    descriptionFontSizeIsUserSet ? narrationTargetPx : p ? 26 : 16,
+    [narration, narrationTargetPx, descriptionFontSizeIsUserSet, narrationBudgetPx, titlePx, p],
+    narrationBudgetPx,
   );
 
   return (
@@ -182,7 +216,7 @@ export const DocreelSlate: React.FC<SceneLayoutProps> = (props) => {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          padding: p ? "120px 40px" : "80px 120px",
+          padding: p ? `${columnPadY}px 40px` : `${columnPadY}px 120px`,
         }}
       >
         <div style={{ opacity: clapProgress >= 1 ? 1 : 0.001, transform: `scale(${interpolate(clapProgress, [0, 1], [0.96, 1])})` }}>
@@ -205,7 +239,16 @@ export const DocreelSlate: React.FC<SceneLayoutProps> = (props) => {
           <div
             style={{
               position: "relative",
-              marginTop: p ? 48 : 56,
+              marginTop: titleMarginPx,
+              // ChippedHeading is an inline-block that shrink-wraps its text, so
+              // without an explicit cap a long title lays out on one very wide
+              // line and runs straight past the scene padding — horizontal
+              // overflow the height fitter cannot see (it measures at whatever
+              // width the element reports). Bounding the wrapper makes the copy
+              // WRAP inside the safe column, which converts the overrun into
+              // extra height that the fitter then shrinks to the budget.
+              width: "100%",
+              maxWidth: p ? "94%" : 1180,
               opacity: titleReveal,
               transform: `translateY(${(1 - titleReveal) * 16}px)`,
               textAlign: "center",
@@ -230,7 +273,17 @@ export const DocreelSlate: React.FC<SceneLayoutProps> = (props) => {
             >
               {title}
             </div>
-            <ChippedHeading fontSize={titlePx} color={theme.accent}>
+            {/* ChippedHeading's own wrapper is an inline-block that shrink-wraps.
+                `display:block` on that wrapper makes it take the bounded width
+                of this column, and `width:100%` carries the constraint down to
+                the text div, so the title wraps instead of running past the
+                scene padding. No line-height override here: a single-line title
+                must keep the exact metrics it has today. */}
+            <ChippedHeading
+              fontSize={titlePx}
+              color={theme.accent}
+              style={{ width: "100%", display: "block" }}
+            >
               {title}
             </ChippedHeading>
           </div>
@@ -240,7 +293,7 @@ export const DocreelSlate: React.FC<SceneLayoutProps> = (props) => {
           <div
             ref={narrationRef}
             style={{
-              marginTop: p ? 18 : 22,
+              marginTop: narrationMarginPx,
               width: "100%",
               maxWidth: p ? "92%" : 760,
               opacity: titleReveal,

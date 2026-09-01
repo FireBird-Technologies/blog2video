@@ -38,7 +38,7 @@
       "label": "Countdown Leader",
       "scene_defaults": {
         "title": "",
-        "narration": "",
+        "narration": "3, 2, 1",
         "durationSeconds": 3
       },
       "sample_props": {},
@@ -71,11 +71,11 @@
       },
       "defaults": {
         "titleFontSize": {
-          "portrait": 80,
+          "portrait": 108,
           "landscape": 74
         },
         "descriptionFontSize": {
-          "portrait": 31,
+          "portrait": 60,
           "landscape": 34
         },
         "slateProductionLabel": "PRODUCTION",
@@ -183,8 +183,8 @@
           "landscape": 211
         },
         "descriptionFontSize": {
-          "portrait": 44,
-          "landscape": 33
+          "portrait": 60,
+          "landscape": 55
         }
       },
       "fields": [
@@ -238,12 +238,12 @@
       },
       "defaults": {
         "titleFontSize": {
-          "portrait": 48,
+          "portrait": 85,
           "landscape": 90
         },
         "descriptionFontSize": {
-          "portrait": 21,
-          "landscape": 38
+          "portrait": 60,
+          "landscape": 42
         }
       },
       "fields": [
@@ -288,11 +288,11 @@
       },
       "defaults": {
         "titleFontSize": {
-          "portrait": 51,
+          "portrait": 58,
           "landscape": 66
         },
         "descriptionFontSize": {
-          "portrait": 24,
+          "portrait": 49,
           "landscape": 27
         }
       },
@@ -312,7 +312,7 @@
           "type": "number",
           "responsive": true,
           "min": 10,
-          "max": 40,
+          "max": 60,
           "step": 1
         },
         {
@@ -355,11 +355,11 @@
       },
       "defaults": {
         "titleFontSize": {
-          "portrait": 26,
+          "portrait": 47,
           "landscape": 45
         },
         "descriptionFontSize": {
-          "portrait": 19,
+          "portrait": 40,
           "landscape": 34
         }
       },
@@ -379,7 +379,7 @@
           "type": "number",
           "responsive": true,
           "min": 10,
-          "max": 40,
+          "max": 60,
           "step": 1
         },
         {
@@ -454,7 +454,7 @@
           "type": "number",
           "responsive": true,
           "min": 10,
-          "max": 40,
+          "max": 60,
           "step": 1
         },
         {
@@ -485,12 +485,12 @@
       },
       "defaults": {
         "titleFontSize": {
-          "portrait": 23,
-          "landscape": 46
+          "portrait": 64,
+          "landscape": 48
         },
         "descriptionFontSize": {
-          "portrait": 14,
-          "landscape": 22
+          "portrait": 32,
+          "landscape": 25
         }
       },
       "fields": [
@@ -500,7 +500,7 @@
           "type": "number",
           "responsive": true,
           "min": 14,
-          "max": 60,
+          "max": 110,
           "step": 1
         },
         {
@@ -509,7 +509,7 @@
           "type": "number",
           "responsive": true,
           "min": 10,
-          "max": 30,
+          "max": 60,
           "step": 1
         },
         {
@@ -550,11 +550,11 @@
       },
       "defaults": {
         "titleFontSize": {
-          "portrait": 50,
+          "portrait": 60,
           "landscape": 48
         },
         "descriptionFontSize": {
-          "portrait": 40,
+          "portrait": 57,
           "landscape": 36
         }
       },
@@ -574,7 +574,7 @@
           "type": "number",
           "responsive": true,
           "min": 10,
-          "max": 40,
+          "max": 60,
           "step": 1
         },
         {
@@ -641,8 +641,12 @@
       },
       "defaults": {
         "titleFontSize": {
-          "portrait": 115,
+          "portrait": 153,
           "landscape": 158
+        },
+        "descriptionFontSize": {
+          "portrait": 60,
+          "landscape": 42
         }
       },
       "fields": [
@@ -654,6 +658,16 @@
           "min": 24,
           "max": 180,
           "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Description Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 12,
+          "max": 90,
+          "step": 1,
+          "description": "Drives the brand/credit line and the website button beneath the end card."
         },
         {
           "key": "brandName",

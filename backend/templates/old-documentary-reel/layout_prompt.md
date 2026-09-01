@@ -38,6 +38,7 @@ Use these layout IDs **exactly** when suggesting `preferred_layout` for scenes u
 - `docreel_statistic`
   - **Best for**: Key figures, "by the numbers", scale-of-the-story beats. Ledger-style animated tally.
   - **Props**: `statValue`, `statLabel`, `statContext` (short source note). `narration` shown as a fuller, different sentence beneath `statContext` — never duplicate it.
+  - **Rule**: Use **only** when the source content for this scene contains an actual numeric figure — an integer, decimal, percentage, currency amount, multiplier, ratio, or count (e.g. `47`, `3.2`, `12%`, `$4.5M`, `10x`, `1 in 5`). If the scene has no such number, pick a different layout. A year/date on its own, a vague quantifier ("many", "most", "several", "a handful"), or a number you would have to infer or invent does **not** qualify — never manufacture a figure to justify this layout.
 
 - `docreel_field_notes`
   - **Best for**: A "what we know so far" recap beat — several short, independent confirmed facts at once. Single photo faded behind a typed checklist page.
@@ -58,9 +59,9 @@ Global variety rules for `preferred_layout`:
 
 - Scene 0 → **always** `docreel_slate`.
 
-**System-owned opening leader:** every documentary video also opens with a silent 3-2-1 academy-leader countdown scene (`docreel_countdown`). It is added automatically by the pipeline — **never generate it yourself, and never use `docreel_countdown` as a `preferred_layout`.** Your scene 0 is still `docreel_slate`; the leader is prepended in front of it.
+**System-owned opening leader:** every documentary video also opens with a voiced 3-2-1 academy-leader countdown scene (`docreel_countdown`). It is added automatically by the pipeline and uses the voice selected for the project — **never generate it yourself, and never use `docreel_countdown` as a `preferred_layout`.** Your scene 0 is still `docreel_slate`; the leader is prepended in front of it.
 - The last scene → **always** `ending_socials`.
 - Use `docreel_title_card` for chapter/location transitions.
 - Alternate between `docreel_dossier`, `docreel_photo_pan`, `docreel_contact_sheet`, `docreel_interview`, `docreel_statistic`, `docreel_field_notes`, and `docreel_essay_captions` for the middle scenes, based on what the source content actually supports.
 - Do not repeat the same layout more than 2 consecutive scenes.
-- `docreel_contact_sheet` works with a single image but shouldn't be the default for every image-bearing scene — reserve it for genuine montage/evidence-review beats; `docreel_interview` only when a real quote/testimony exists in the source; `docreel_field_notes` only when 3+ independent facts are available; `docreel_essay_captions` at most once or twice per video.
+- `docreel_contact_sheet` works with a single image but shouldn't be the default for every image-bearing scene — reserve it for genuine montage/evidence-review beats; `docreel_interview` only when a real quote/testimony exists in the source; `docreel_statistic` only when the scene has a real number/decimal/percentage/currency figure in the source; `docreel_field_notes` only when 3+ independent facts are available; `docreel_essay_captions` at most once or twice per video.

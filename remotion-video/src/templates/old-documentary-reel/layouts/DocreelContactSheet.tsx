@@ -1,5 +1,5 @@
 import React from "react";
-import { useCurrentFrame, interpolate, Img } from "remotion";
+import { useCurrentFrame, useVideoConfig, interpolate, Img } from "remotion";
 import { SceneLayoutProps } from "../types";
 import {
   DOCREEL_DISPLAY_FONT,
@@ -106,7 +106,9 @@ export const DocreelContactSheet: React.FC<SceneLayoutProps> = (props) => {
     aspectRatio,
     sceneDurationInFrames,
     titleFontSize,
+    titleFontSizeIsUserSet,
     descriptionFontSize,
+    descriptionFontSizeIsUserSet,
     era,
     contactSheetImages,
     contactSheetNotes,
@@ -124,6 +126,7 @@ export const DocreelContactSheet: React.FC<SceneLayoutProps> = (props) => {
 
   const p = aspectRatio === "portrait";
   const frame = useCurrentFrame();
+  const { height: frameHeight } = useVideoConfig();
   const dur = sceneDurationInFrames ?? 120;
   const activeEra = era ?? DEFAULT_DOCREEL_ERA;
 
@@ -195,9 +198,12 @@ export const DocreelContactSheet: React.FC<SceneLayoutProps> = (props) => {
   const { px: bodyPx } = useFitText(
     bodyRef,
     bodyTargetPx,
-    Math.round(bodyTargetPx * 0.55),
-    [notesBody, bodyTargetPx, titlePx, p, panelInnerPx],
-    bodyBudget,
+    descriptionFontSizeIsUserSet ? bodyTargetPx : p ? 18 : 14,
+    [notesBody, bodyTargetPx, descriptionFontSizeIsUserSet, titlePx, p, panelInnerPx],
+    // This panel IS a fixed-height grid cell, so its measured inner height is a
+    // true bound (unlike a font-size multiple). Fall back to a frame fraction
+    // until the measurement lands.
+    bodyBudget ?? Math.round(frameHeight * (p ? 0.24 : 0.26)),
   );
 
   const CropMarks: React.FC = () => (

@@ -300,13 +300,47 @@ export const useSceneFade = (
  */
 export const DOCREEL_TYPE_PACE = 1.6;
 
+/**
+ * Frames to leave between the last character landing and the scene cutting —
+ * long copy that finishes on the very last frame reads as though it were
+ * clipped, so the typing always lands with a beat to spare.
+ */
+const TYPE_TAIL_FRAMES = 12;
+
 export const typewriterAt = (
   frame: number,
   text: string,
   startFrame = 24,
+  /**
+   * Scene length in frames. When supplied, the pace is compressed as much as
+   * needed for the text to finish typing before the scene ends.
+   *
+   * Without it the pace is purely per-character, so a long paragraph in a short
+   * scene simply runs out of time and the copy is cut off mid-word (the scene
+   * ends showing "...questioned for ver_"). The length tiers below already
+   * speed long text up, but they cannot know how long the scene actually is —
+   * only this deadline can. Omit it and behaviour is exactly as before.
+   */
+  durationInFrames?: number,
 ): { visibleText: string; cursor: React.ReactNode } => {
   const chars = text.length;
-  const typeSpeed = (chars > 160 ? 0.55 : chars > 90 ? 0.8 : 1.1) * DOCREEL_TYPE_PACE;
+  const baseSpeed = (chars > 160 ? 0.55 : chars > 90 ? 0.8 : 1.1) * DOCREEL_TYPE_PACE;
+  // Frames actually available for typing, once the lead-in and the tail beat
+  // are paid for.
+  const budget =
+    durationInFrames === undefined
+      ? undefined
+      : Math.max(1, durationInFrames - startFrame - TYPE_TAIL_FRAMES);
+  // Compress ONLY when the designed pace would overrun the scene. Copy that
+  // already finishes in time keeps its original pace exactly — clamping every
+  // scene to "finish exactly at the deadline" would have quietly re-timed every
+  // existing short-copy scene in the template, which is a visual change nobody
+  // asked for. This only ever speeds text up, never slows it down to fill time.
+  const needed = chars * baseSpeed;
+  const typeSpeed =
+    budget === undefined || chars === 0 || needed <= budget
+      ? baseSpeed
+      : budget / chars;
   const endFrame = startFrame + chars * typeSpeed;
   const typedChars = Math.floor(
     interpolate(frame, [startFrame, endFrame], [0, chars], {
@@ -326,9 +360,12 @@ export const typewriterAt = (
 export const useTypewriterReveal = (
   text: string,
   startFrame = 24,
+  /** Scene length in frames — see `typewriterAt`. Pass the layout's `dur` so
+   *  long copy speeds up enough to finish before the scene cuts. */
+  durationInFrames?: number,
 ): { visibleText: string; cursor: React.ReactNode } => {
   const frame = useCurrentFrame();
-  return typewriterAt(frame, text, startFrame);
+  return typewriterAt(frame, text, startFrame, durationInFrames);
 };
 
 // ─── Chipped-edge SVG turbulence mask ────────────────────────────────────────
@@ -660,6 +697,141 @@ export const SingleFilmFrame: React.FC<{
       >
         {children}
       </div>
+    </div>
+  );
+};
+
+// ─── Filmstrip Three-Cell ──────────────────────────────────────────────────────
+
+/** Static (non-scrolling) row of bold, widely-spaced rounded-square sprocket
+ *  holes spanning one edge of the WHOLE strip — matching the reference icon
+ *  exactly: a chunky black rail with large square-ish perforations, not a
+ *  dense row of small thin rectangles. One row along the outer top edge, one
+ *  along the outer bottom edge of the entire 3-cell strip, not per cell. */
+const FilmstripStripRail: React.FC<{
+  length: number;
+  railW: number;
+  edge: "top" | "bottom";
+}> = ({ length, railW, edge }) => {
+  const theme = useDocReelTheme();
+  const holeSize = railW * 0.6;
+  const spacing = holeSize * 1.7;
+  const count = Math.max(1, Math.floor((length + spacing - holeSize) / spacing));
+  const totalHolesLength = count * holeSize + (count - 1) * (spacing - holeSize);
+  const start = (length - totalHolesLength) / 2;
+  const positions = Array.from({ length: count }, (_, i) => start + i * spacing);
+  return (
+    <div style={{ position: "absolute", left: 0, right: 0, [edge]: 0, height: railW, background: theme.bg, overflow: "hidden", pointerEvents: "none" }}>
+      {positions.map((x, i) => (
+        <div
+          key={i}
+          style={{
+            position: "absolute",
+            left: x,
+            top: (railW - holeSize) / 2,
+            width: holeSize,
+            height: holeSize,
+            borderRadius: holeSize * 0.18,
+            background: theme.text,
+          }}
+        />
+      ))}
+    </div>
+  );
+};
+
+/**
+ * The classic three-frame 35mm filmstrip icon: three rectangular cells in a
+ * single strip, with a wider interview frame in the centre, separated by solid dividers,
+ * with one static sprocket-hole row along the strip's outer top edge and
+ * one along its outer bottom edge (not repeated per cell — matching the
+ * reference icon exactly). Landscape lays the three cells out in a row;
+ * portrait stacks them in a column instead, since three cells side-by-side
+ * would be unusably narrow in a 9:16 frame. Only the middle cell ever holds
+ * content — the outer two stay empty, matching the reference image.
+ */
+export const FilmstripThreeCell: React.FC<{
+  inset?: number;
+  portrait?: boolean;
+  children?: React.ReactNode;
+}> = ({ inset = 28, portrait = false, children }) => {
+  const theme = useDocReelTheme();
+  const { width, height } = useVideoConfig();
+  const outerW = width - inset * 2;
+  const outerH = height - inset * 2;
+  const railW = Math.max(16, (portrait ? outerW : outerH) * 0.05);
+  // A real, visually substantial divider — sized off the strip's own main
+  // axis, not off the thin sprocket rail, so "wider" actually reads as
+  // wider rather than a barely-there bump.
+  const dividerW = Math.max(24, (portrait ? outerH : outerW) * 0.05);
+  // The sprocket rail always runs the strip's full width — it sits along the
+  // outer top/bottom edge of the whole 3-cell strip, whether the cells
+  // themselves are arranged in a row (landscape) or a column (portrait).
+  const railLength = outerW;
+
+  const Cell: React.FC<{ isMiddle: boolean }> = ({ isMiddle }) => (
+    <div
+      style={{
+        position: "relative",
+        // Give the interview frame more negative-film area than the two
+        // surrounding blank frames. This makes the dark quote panel read as
+        // the broad centre of a strip rather than a narrow third column.
+        flex: isMiddle ? (portrait ? 3.2 : 2.2) : 1,
+        minWidth: 0,
+        minHeight: 0,
+        overflow: "hidden",
+      }}
+    >
+      {/* Every cell starts as a blank exposed frame — a flat neutral gray,
+          NOT derived from theme.text (whose hex has a warm/tan undertone
+          that shows through at any opacity) — with the middle cell's real
+          content painted over it once bound. */}
+      <div style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, background: "#8a8a86" }} />
+      {isMiddle ? (
+        <div style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
+          {children}
+        </div>
+      ) : null}
+    </div>
+  );
+
+  const dividerStyle: React.CSSProperties = portrait
+    ? { height: dividerW, background: theme.bg, flexShrink: 0 }
+    : { width: dividerW, background: theme.bg, flexShrink: 0 };
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: inset,
+        top: inset,
+        width: outerW,
+        height: outerH,
+        background: theme.bg,
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      <FilmstripStripRail length={railLength} railW={railW} edge="top" />
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          top: railW,
+          bottom: railW,
+          minHeight: 0,
+          display: "flex",
+          flexDirection: portrait ? "column" : "row",
+        }}
+      >
+        <Cell isMiddle={false} />
+        <div style={dividerStyle} />
+        <Cell isMiddle />
+        <div style={dividerStyle} />
+        <Cell isMiddle={false} />
+      </div>
+      <FilmstripStripRail length={railLength} railW={railW} edge="bottom" />
     </div>
   );
 };
