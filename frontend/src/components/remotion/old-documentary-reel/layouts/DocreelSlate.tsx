@@ -9,6 +9,7 @@ import {
   hexToRgba,
   DEFAULT_DOCREEL_ERA,
   useDocReelTheme,
+  useDocReelFrame,
 } from "../docReelStyle";
 import { useFitText } from "../components/useFitText";
 
@@ -34,6 +35,13 @@ const Clapperboard: React.FC<{
   const theme = useDocReelTheme();
   const stickHeight = width * 0.16;
   const clapAngle = interpolate(clapProgress, [0, 1], [-18, 0]);
+  // Sweeping lamp behind the board. useDocReelFrame (not useCurrentFrame) so the
+  // sweep honours the template's playback-speed setting like every other
+  // docreel animation.
+  const glowFrame = useDocReelFrame();
+  const sweepCycle = 150;
+  const sweepX = interpolate(glowFrame % sweepCycle, [0, sweepCycle], [-25, 125]);
+  const glowSize = width * 0.62;
   const stripeCount = 10;
   const stripe = (i: number) => (
     <div
@@ -51,6 +59,37 @@ const Clapperboard: React.FC<{
   );
   return (
     <div style={{ width, position: "relative" }}>
+      {/* Projector lamp raking along the board's bottom edge — a soft hotspot
+          travelling left to right on a continuous loop. `sweepCycle` frames per
+          pass; the hotspot runs -25% → 125% so it is already moving as it enters
+          and keeps going as it leaves, with no visible jump at the loop seam.
+          The wrapper is `overflow:hidden` at exactly the board's bounds, so the
+          light is CLIPPED to the slate and never spills past its corners —
+          without it the blurred circle bleeds outside the frame of the board and
+          reads as a stray blob rather than light inside the slate. */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          overflow: "hidden",
+          pointerEvents: "none",
+          zIndex: 0,
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            left: `${sweepX}%`,
+            bottom: -glowSize * 0.42,
+            width: glowSize,
+            height: glowSize,
+            marginLeft: -glowSize / 2,
+            borderRadius: "50%",
+            background: `radial-gradient(circle, ${hexToRgba(theme.text, 0.30)} 0%, ${hexToRgba(theme.text, 0.14)} 38%, transparent 72%)`,
+            filter: `blur(${Math.round(glowSize * 0.10)}px)`,
+          }}
+        />
+      </div>
       {/* Top clap stick */}
       <div
         style={{
