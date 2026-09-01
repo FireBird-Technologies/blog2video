@@ -1490,7 +1490,7 @@ const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
   ],
   deep_dive: [
     { key: "category", label: "Eyebrow label", type: "string", placeholder: "e.g. Macro · Deep Dive" },
-    { key: "stats", label: "Fact rows", type: "object_array", subFields: [{ key: "label", label: "Tag (1–2 words)" }, { key: "value", label: "Supporting fact sentence" }], maxItems: 4 },
+    { key: "stats", label: "Fact rows", type: "object_array", subFields: [{ key: "value", label: "Supporting fact sentence" }], maxItems: 4 },
     { key: "footerNote", label: "Footer tag", type: "string", placeholder: "e.g. Source: Bloomberg · Apr 2026" },
     { key: "editorialWordmark", label: "Top-left brand strip", type: "string", placeholder: "LaDuc · Macro→Micro" },
     { key: "websiteDomain", label: "Domain (chrome footer)", type: "string", placeholder: "laductrading.com" },
