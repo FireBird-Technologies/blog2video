@@ -180,11 +180,11 @@
       "defaults": {
         "titleFontSize": {
           "portrait": 285,
-          "landscape": 211
+          "landscape": 193
         },
         "descriptionFontSize": {
           "portrait": 60,
-          "landscape": 55
+          "landscape": 37
         }
       },
       "fields": [

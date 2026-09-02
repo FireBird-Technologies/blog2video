@@ -7,6 +7,7 @@
     "player": "npx vite --config vite.player.config.ts player.html",
     "render": "npx remotion render DefaultVideo out/video.mp4",
     "render:newscast": "npx remotion render NewscastVideo out/video.mp4",
+    "render:docreel": "npx remotion render OldDocumentaryReelVideo out/docreel.mp4 --scale=1",
     "build": "npx remotion render DefaultVideo out/video.mp4",
     "build:newscast": "npx remotion render NewscastVideo out/video.mp4"
   },

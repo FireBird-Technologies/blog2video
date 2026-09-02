@@ -267,19 +267,12 @@ export const OldDocumentaryReelVideo: React.FC<VideoProps> = ({ dataUrl }) => {
     const videoUrl = scene.video ? staticFile(scene.video) : undefined;
     const focusX = Math.max(0, Math.min(100, Number(raw?.imageFocusX ?? 50)));
     const focusY = Math.max(0, Math.min(100, Number(raw?.imageFocusY ?? 50)));
-    // A font size present in layoutProps means somebody moved the slider, and
-    // the auto-fit layouts use these flags to pin their shrink floor to that
-    // exact size instead of fitting it back down to the space. The app's two
-    // other entry points already derive them (backend/app/services/remotion.py
-    // and frontend/src/utils/mergeLayoutSchemaDefaults.ts); without them here,
-    // a size raised in Remotion Studio was silently shrunk again by the fitter.
-    const userSetFlags: Record<string, boolean> = {};
-    for (const key of ["titleFontSize", "descriptionFontSize"]) {
-      if (raw && key in raw) userSetFlags[`${key}IsUserSet`] = true;
-    }
+    // Do not derive *FontSizeIsUserSet here. Render data already contains
+    // schema defaults, so key presence can no longer distinguish a default
+    // from a size explicitly chosen by the user. The backend derives and
+    // includes these flags before merging defaults; preserve those via ...raw.
     return {
       ...raw,
-      ...userSetFlags,
       title: scene.title,
       narration: scene.narration,
       accentColor: theme.accent,

@@ -3054,5 +3054,9 @@
   "blog:blog-title-checker@8c72649017e09216@20aaebd1": {
     "keep": false,
     "reason": "Compares Blog2Video against multiple SEO competitors."
+  },
+  "blog:youtube-backlink@418fb49a27ada96f@20aaebd1": {
+    "keep": false,
+    "reason": "Describes SEO strategy for YouTube, not Blog2Video features."
   }
 }
