@@ -10,6 +10,7 @@ import {
   hexToRgba,
   DEFAULT_DOCREEL_ERA,
   useDocReelTheme,
+  SPROCKET_BAR_HEIGHT,
 } from "../docReelStyle";
 import { useFitText } from "../components/useFitText";
 
@@ -58,8 +59,8 @@ export const DocreelStatistic: React.FC<SceneLayoutProps> = (props) => {
   const displayContext = statContext || narration || "";
   const showNarrationSeparately = Boolean(narration && narration !== displayContext);
 
-  const numberTargetPx = titleFontSize ?? (p ? 285 : 211);
-  const contextTargetPx = descriptionFontSize ?? (p ? 60 : 55);
+  const numberTargetPx = titleFontSize ?? (p ? 285 : 193);
+  const contextTargetPx = descriptionFontSize ?? (p ? 60 : 37);
 
   // The stat number is a single line inside a shrink-wrapping inline-block, so it
   // overflows HORIZONTALLY — it grows its own box until it pushes the label and
@@ -179,6 +180,51 @@ export const DocreelStatistic: React.FC<SceneLayoutProps> = (props) => {
     narrationBudgetPx,
   );
 
+  // ── Scale the whole column down if it still doesn't fit ───────────────────
+  //
+  // Same failure as DocreelSlate and DocreelInterview: useFitText guarantees
+  // each block fits ITS OWN budget, never that the SUM fits. Once the context
+  // paragraph bottoms out at its floor it grows without limit, and because this
+  // column is `justify-content:center` the browser splits the overflow evenly —
+  // half of it going off the TOP, which pushes the number card (the whole point
+  // of the scene) clean out of frame. Measured: fine at 5x the sample sentence,
+  // card entirely gone by 12x.
+  //
+  // The sprocket bars are opaque and painted OVER the scene, so they are
+  // reserved as a genuine safe area rather than usable space.
+  //
+  // A pure `transform` is deliberate — composited, no re-layout, so it cannot
+  // feed back into useFitText and start the multi-render convergence Remotion's
+  // per-frame capture settles inconsistently (see the give-back warning in
+  // newspaper/layouts/NewsHeadline.tsx).
+  const safeBandPx = frameHeight - SPROCKET_BAR_HEIGHT * 2 - scenePadY * 2;
+  // Rendered block heights estimated from the fitted sizes, the same way
+  // numberBlockPx is estimated above. Mono ~0.6em advance, display ~0.58em.
+  const estLines = (text: string, px: number, wrapPx: number, emWidth: number) =>
+    Math.max(1, Math.ceil(text.length / Math.max(1, Math.floor(wrapPx / (px * emWidth)))));
+  const labelWrapPx = p ? 640 : 920;
+  const contextWrapPx = p ? 640 : 920;
+  const narrationWrapPx = p ? 600 : 860;
+  const labelBlockPx = displayLabel
+    ? estLines(displayLabel, fittedLabelPx, labelWrapPx, 0.58) * fittedLabelPx * 1.2
+    : 0;
+  const contextBlockPx = displayContext
+    ? estLines(displayContext, contextPx, contextWrapPx, 0.6) * contextPx * 1.5
+    : 0;
+  const narrationBlockPx = showNarrationSeparately && narration
+    ? estLines(narration, narrationPx, narrationWrapPx, 0.6) * narrationPx * 1.5
+    : 0;
+  const columnContentPx =
+    numberBlockPx +
+    (displayLabel ? 28 + labelBlockPx : 0) +
+    (displayContext ? 18 + contextBlockPx : 0) +
+    (narrationBlockPx ? 12 + narrationBlockPx : 0) +
+    ruleReservePx;
+  const sceneScale = Math.max(
+    0.5,
+    Math.min(1, columnContentPx > 0 ? safeBandPx / columnContentPx : 1),
+  );
+
   // Ticker count-up: the digits settle in like a mechanical counter.
   const countProgress = interpolate(frame, [8, 40], [0, 1], {
     extrapolateLeft: "clamp",
@@ -220,7 +266,16 @@ export const DocreelStatistic: React.FC<SceneLayoutProps> = (props) => {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          padding: p ? `${scenePadY}px 40px` : `${scenePadY}px 160px`,
+          // Padding includes the sprocket bars, so "centred" means centred in
+          // the SAFE band rather than the raw frame. Symmetric, so the centre
+          // point is unchanged and content that already fits does not move.
+          padding: p
+            ? `${scenePadY + SPROCKET_BAR_HEIGHT}px 40px`
+            : `${scenePadY + SPROCKET_BAR_HEIGHT}px 160px`,
+          // Uniform shrink-to-fit for over-long copy (see sceneScale above).
+          // 1 for everything that already fits, so ordinary stats are untouched.
+          transform: `scale(${sceneScale})`,
+          transformOrigin: "center center",
         }}
       >
         <div

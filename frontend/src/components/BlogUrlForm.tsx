@@ -4138,7 +4138,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
       {/* ─── Music tab content (Premium; optional) ─────── */}
       {voicePanelTab === "bgm" && bgmTracks.length > 0 && (
         <div className="space-y-2">
-          <p className="text-[11px] text-gray-400 mb-1">Ambient music behind your narration — optional.</p>
+          <p className="text-[11px] text-gray-400 mb-1">Background music behind your narration — optional.</p>
 
           {/* Volume — shown once a track is picked; applies to the whole project */}
           {selectedBgmTrackId && (

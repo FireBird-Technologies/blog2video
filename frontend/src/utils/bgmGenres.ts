@@ -3,16 +3,14 @@
  *
  * Purely a frontend presentation concern — the API returns a flat track list
  * with only `mood`, so the genre for each track is assigned here. The labels
- * follow the conventional genre vocabulary used by stock-music libraries
- * (Epidemic Sound / Artlist): Cinematic, Orchestral, Pop, Rock, Acoustic,
- * Ambient — not video themes like "Corporate", which describe the use case
- * rather than the sound.
+ * follow familiar stock-music vocabulary. "Orchestral" is intentionally folded
+ * into Cinematic: its two score-like tracks fit there, while "Instrumental"
+ * would be too broad because every track in this library is instrumental.
  */
 
 /** Display order of the pills; also the order of headings in the dropdown. */
 export const BGM_GENRE_ORDER = [
   "Cinematic",
-  "Orchestral",
   "Pop",
   "Rock",
   "Acoustic",
@@ -29,11 +27,11 @@ const TRACK_GENRES: Record<string, BgmGenre> = {
   ambient_background: "Ambient",
   chasing_success: "Cinematic",
   relaxed_narrative: "Acoustic",
-  sad_violin: "Orchestral",
+  sad_violin: "Cinematic",
   dramatic_trailer: "Cinematic",
   powerful_percussion: "Cinematic",
   dark_cyberpunk: "Cinematic",
-  wonders_of_the_earth: "Orchestral",
+  wonders_of_the_earth: "Cinematic",
   action_race_rock: "Rock",
   moment_of_peace: "Ambient",
 };
