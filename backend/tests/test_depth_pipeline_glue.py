@@ -7,12 +7,18 @@ where most pipeline logic bugs live, and they need no LLM, DB, or render.
 """
 import pytest
 
-from app.routers.pipeline import _is_laduc_or_fj, _normalize_layout_id
+from app.routers.pipeline import (
+    _build_docreel_countdown_scene,
+    _is_laduc_or_fj,
+    _normalize_layout_id,
+    _scenes_need_countdown_leader,
+)
 from app.scene_cta import prepend_b2v_cta_to_visual, strip_b2v_cta_from_visual
 from app.services.code_validator import clean_code, validate_component_code
 from app.services.language_detection import normalize_preferred_language_code
 from app.services.per_video_pricing import per_unit_cents, total_cents
 from app.services.social_content_signals import detect_social_platforms_in_text
+from app.services.voiceover import _extract_countdown_cues
 
 pytestmark = pytest.mark.depth
 
@@ -114,6 +120,38 @@ def test_normalize_layout_id(raw, expected):
 ])
 def test_is_laduc_or_fj(tid, expected):
     assert _is_laduc_or_fj(tid) is expected
+
+
+def test_documentary_template_injects_a_voiced_countdown():
+    scene = _build_docreel_countdown_scene()
+
+    assert _scenes_need_countdown_leader("old-documentary-reel") is True
+    assert _scenes_need_countdown_leader("whiteboard") is False
+    assert scene == {
+        "title": "",
+        "narration": "3, 2, 1",
+        "visual_description": "",
+        "duration_seconds": 3.0,
+        "preferred_layout": "docreel_countdown",
+    }
+
+
+def test_countdown_tts_alignment_extracts_3_2_1_cues():
+    alignment = {
+        "characters": ["3", ",", " ", "2", ",", " ", "1"],
+        "character_start_times_seconds": [0.08, 0.3, 0.34, 0.91, 1.1, 1.14, 1.73],
+    }
+
+    assert _extract_countdown_cues(alignment) == [0.08, 0.91, 1.73]
+
+
+def test_countdown_tts_alignment_rejects_incomplete_cues():
+    alignment = {
+        "characters": ["3", ",", " ", "2"],
+        "character_start_times_seconds": [0.0, 0.2, 0.3, 0.8],
+    }
+
+    assert _extract_countdown_cues(alignment) is None
 
 
 # ─── language normalisation ─────────────────────────────────────────────────

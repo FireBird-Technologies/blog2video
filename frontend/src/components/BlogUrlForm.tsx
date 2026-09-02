@@ -7,6 +7,7 @@ import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useErrorModal } from "../contexts/ErrorModalContext";
 import { BulkLinksSection } from "./BulkLinksSection";
 import { classifyUrl, classifyUrlScrapability } from "../utils/urlScrapability";
+import { availableBgmGenres, getBgmGenre } from "../utils/bgmGenres";
 import { getVoicePreviews, getMyVoices, getPrebuiltVoices, previewVoice, getBgmTracks, BACKEND_URL, type TemplateMeta, type CraftedTemplateItem, type VoicePreview, type BulkProjectItem, type CustomTemplateItem, type SavedVoiceFromAPI, type ElevenLabsVoice } from "../api/client";
 import {
   primeBlogUrlFormStep2Prefetch,
@@ -910,6 +911,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
   const [selectedBgmVolume, setSelectedBgmVolume] = useState<number>(0.10);
   const [bgmPlayingId, setBgmPlayingId] = useState<string | null>(null);
   const bgmAudioRef = useRef<HTMLAudioElement | null>(null);
+  /** Genre pill filter in the music tab. "" = show every track. */
+  const [bgmGenre, setBgmGenre] = useState<string>("");
+  const bgmGenres = availableBgmGenres(bgmTracks);
+  const visibleBgmTracks = bgmGenre
+    ? bgmTracks.filter((t) => getBgmGenre(t.track_id) === bgmGenre)
+    : bgmTracks;
 
   // Step 2 — video style & template
   const [videoStyle, setVideoStyle] = useState<VideoStyleId>(DEFAULT_VIDEO_STYLE);
@@ -4131,7 +4138,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
       {/* ─── Music tab content (Premium; optional) ─────── */}
       {voicePanelTab === "bgm" && bgmTracks.length > 0 && (
         <div className="space-y-2">
-          <p className="text-[11px] text-gray-400 mb-1">Ambient music behind your narration — optional.</p>
+          <p className="text-[11px] text-gray-400 mb-1">Background music behind your narration — optional.</p>
 
           {/* Volume — shown once a track is picked; applies to the whole project */}
           {selectedBgmTrackId && (
@@ -4154,6 +4161,37 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
                 className="w-full accent-purple-600 cursor-pointer"
               />
               <p className="text-[10px] text-gray-400 mt-0.5">Sets the volume for the whole video. After it's generated, you can fine-tune the music volume per scene in the <span className="font-medium text-gray-500">Audio</span> tab.</p>
+            </div>
+          )}
+
+          {/* Genre pills — narrow the list to one kind of music */}
+          {bgmGenres.length > 1 && (
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              <button
+                type="button"
+                onClick={() => setBgmGenre("")}
+                className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
+                  !bgmGenre
+                    ? "border-purple-400 bg-purple-50 text-purple-600"
+                    : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50"
+                }`}
+              >
+                All
+              </button>
+              {bgmGenres.map((g) => (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => setBgmGenre(bgmGenre === g ? "" : g)}
+                  className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
+                    bgmGenre === g
+                      ? "border-purple-400 bg-purple-50 text-purple-600"
+                      : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50"
+                  }`}
+                >
+                  {g}
+                </button>
+              ))}
             </div>
           )}
 
@@ -4190,7 +4228,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
               )}
             </button>
 
-            {bgmTracks.map((track) => {
+            {visibleBgmTracks.map((track) => {
               const isSelected = selectedBgmTrackId === track.track_id;
               const isPlaying = bgmPlayingId === track.track_id;
               return (
@@ -4243,7 +4281,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
 
                   <div className="min-w-0 flex-1">
                     <span className="text-sm font-medium text-gray-700">{track.display_name}</span>
-                    <p className="text-[11px] text-gray-400">{track.mood}</p>
+                    <p className="text-[11px] text-gray-400">
+                      {getBgmGenre(track.track_id)
+                        ? `${getBgmGenre(track.track_id)} · ${track.mood}`
+                        : track.mood}
+                    </p>
                   </div>
 
                   {isSelected && (

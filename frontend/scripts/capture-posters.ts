@@ -40,6 +40,7 @@ const BUILTIN_TEMPLATE_IDS = [
   "stickman_football",
   "magazine",
   "sakura",
+  "old-documentary-reel",
 ];
 
 const ORIENTATIONS = [
