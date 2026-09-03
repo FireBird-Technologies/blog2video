@@ -89,6 +89,7 @@ import SceneEditModal, {
 } from "../components/SceneEditModal";
 import GenerateSceneImageModal, { AI_IMAGE_CREDIT_COST } from "../components/GenerateSceneImageModal";
 import AvatarEditModal from "../components/AvatarEditModal";
+import AvatarPresetMedia from "../components/AvatarPresetMedia";
 import RecordVoiceoverModal from "../components/RecordVoiceoverModal";
 import AddSceneModal, { ADD_SCENE_CREDIT_COST } from "../components/AddSceneModal";
 import AddScenePlaceholderRow from "../components/AddScenePlaceholderRow";
@@ -1229,6 +1230,9 @@ export default function ProjectView() {
   const [expandedScene, setExpandedScene] = useState<number | null>(
     project?.scenes?.[0]?.id ?? null
   );
+  // Scenes tab: scenes are clustered into groups of 5, accordion-style (one group open at a time).
+  const SCENE_GROUP_SIZE = 5;
+  const [expandedGroupIndex, setExpandedGroupIndex] = useState<number | null>(0);
   const firstSceneAutoExpandedRef = useRef(false);
   useEffect(() => {
     if (firstSceneAutoExpandedRef.current) return;
@@ -6580,8 +6584,58 @@ export default function ProjectView() {
                       <p className="mt-3 text-sm font-medium text-gray-700">Saving order…</p>
                     </div>
                   )}
-                  <div className="space-y-2">
-                  {project.scenes.map((scene, idx) => {
+                  {(() => {
+                    const sceneGroups: { scene: Scene; idx: number }[][] = [];
+                    project.scenes.forEach((scene, idx) => {
+                      const groupIdx = Math.floor(idx / SCENE_GROUP_SIZE);
+                      if (!sceneGroups[groupIdx]) sceneGroups[groupIdx] = [];
+                      sceneGroups[groupIdx].push({ scene, idx });
+                    });
+                    return sceneGroups.map((groupScenes, groupIdx) => {
+                      const isGroupExpanded = expandedGroupIndex === groupIdx;
+                      const rangeStart = groupScenes[0].scene.order;
+                      const rangeEnd = groupScenes[groupScenes.length - 1].scene.order;
+                      return (
+                        <div key={groupIdx} className="mb-2">
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => {
+                              if (isGroupExpanded) {
+                                setExpandedGroupIndex(null);
+                                return;
+                              }
+                              setExpandedGroupIndex(groupIdx);
+                              if (
+                                expandedScene != null &&
+                                !groupScenes.some(({ scene }) => scene.id === expandedScene)
+                              ) {
+                                setExpandedScene(null);
+                              }
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                (e.currentTarget as HTMLElement).click();
+                              }
+                            }}
+                            className="w-full flex items-center justify-between gap-2 glass-card px-4 py-3 border-l-2 border-l-purple-300 hover:border-l-purple-500 transition-all rounded-lg border cursor-pointer select-none"
+                          >
+                            <span className="text-sm font-medium text-gray-900">
+                              Scenes {rangeStart}–{rangeEnd}
+                            </span>
+                            <svg
+                              className={`w-4 h-4 text-gray-400 transition-transform ${isGroupExpanded ? "rotate-180" : ""}`}
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </div>
+                          {isGroupExpanded && (
+                  <div className="space-y-2 mt-2 ml-4 max-h-[70vh] overflow-y-auto pr-1">
+                  {groupScenes.map(({ scene, idx }) => {
                     const isExpanded = expandedScene === scene.id;
                     const sceneImages = sceneImageMap[idx] || [];
                     // Use latest audio asset by id (regenerated scene = new asset) and cache-bust so new voiceover loads
@@ -7544,13 +7598,19 @@ export default function ProjectView() {
                       </Fragment>
                     );
                   })}
-                  {/* Placeholder for an append (position past the last scene). */}
-                  {addSceneRunning &&
+                  {/* Placeholder for an append (position past the last scene), shown at the end of the last group. */}
+                  {groupIdx === sceneGroups.length - 1 &&
+                    addSceneRunning &&
                     addScenePosition != null &&
                     addScenePosition > project.scenes.length && (
                       <AddScenePlaceholderRow />
                     )}
-                </div>
+                  </div>
+                          )}
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
 
                 <input

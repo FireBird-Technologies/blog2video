@@ -8,7 +8,7 @@ never drift:
   - the frontend picker (frontend/public/avatars/<id>.jpg thumbnails mirror these).
 
 The portrait image bytes live inside the render service's image (bundled from
-modal-service/omniavatar/avatar_presets/), so the backend only sends the preset
+modal-service/longcat-avatar/avatar_presets/), so the backend only sends the preset
 id — the service resolves it to the bundled file via its own preset map (the
 same ids as PRESET_IMAGE_FILE below). See services/avatar.py.
 

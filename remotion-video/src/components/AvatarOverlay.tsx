@@ -53,13 +53,13 @@ export const AVATAR_DEFAULT_SIZE_PORTRAIT = 0.22;
 /**
  * Persistent talking-head avatar clip, overlaid in a corner of a scene.
  *
- * The clip is a muxed h264+aac mp4 (OmniAvatar), but its audio is MUTED here —
+ * The clip is a muxed h264+aac mp4 (LongCat), but its audio is MUTED here —
  * the scene's voiceover already plays via a separate <Audio>, so an un-muted
  * overlay would double the speech.
  *
- * OmniAvatar emits a clip in whatever aspect its SOURCE PORTRAIT had — NOT always
- * landscape. The 16:9 roster photos give ~720×400, but a 2:3 photo (and any custom
- * portrait a user uploads) gives ~400×720. object-fit: cover crops to the box
+ * The render service emits a clip in whatever aspect its SOURCE PORTRAIT had —
+ * NOT always landscape. The 16:9 roster photos give ~720×400, but a 2:3 photo
+ * (and any custom portrait a user uploads) gives ~400×720. object-fit: cover crops to the box
  * without distorting; objectPosition biases that crop toward the head so a
  * portrait clip does not lose its mouth. Assuming landscape here is what caused
  * portrait clips to render badly cropped.

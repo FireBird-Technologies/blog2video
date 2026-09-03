@@ -78,15 +78,33 @@ export function useAvatarProgress(projectId: number) {
    *  `refresh` instead, which had no stop condition — so starting a batch left
    *  a 1.5s poll running forever after that batch settled. */
   const tickRef = useRef<() => Promise<void>>(async () => {});
+  // Consecutive non-"progress" reads seen in a row. A SINGLE stray reading
+  // used to stop the poller for good — confirmed live on project 1245, where
+  // one tick's `view` briefly read something other than "progress" (a race
+  // between one job completing and its retry/successor row landing) and
+  // polling then stayed dead for the rest of the page session: the batch kept
+  // running server-side, but the card never asked again, so the last stale
+  // rollup (which could still list scenes as "missing") sat there frozen
+  // until a hard refresh remounted the hook. Requiring two IN A ROW before
+  // stopping filters that out — a genuinely settled project still reports
+  // the same view on its very next tick, 1.5s later, so this costs one extra
+  // request per settle rather than a permanent timer.
+  const settledStreakRef = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
     const tick = async () => {
       const next = await refresh();
       if (cancelled || !next) return;
-      // A settled project costs one request per mount instead of a permanent
-      // timer. `refreshNow` restarts it when the user starts a batch.
-      if (next.view !== "progress") stop();
+      if (next.view !== "progress") {
+        settledStreakRef.current += 1;
+        // A settled project costs two requests per mount instead of a
+        // permanent timer. `refreshNow` restarts it when the user starts a
+        // batch (and resets the streak below).
+        if (settledStreakRef.current >= 2) stop();
+      } else {
+        settledStreakRef.current = 0;
+      }
     };
     tickRef.current = tick;
     stop();
@@ -102,6 +120,7 @@ export function useAvatarProgress(projectId: number) {
    *  the view flips to "progress" without waiting for the next tick. */
   const refreshNow = useCallback(async () => {
     const next = await refresh();
+    settledStreakRef.current = 0;
     if (next?.view === "progress" && !timerRef.current) {
       timerRef.current = setInterval(() => void tickRef.current(), POLL_MS);
     }

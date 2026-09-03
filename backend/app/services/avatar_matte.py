@@ -2,14 +2,14 @@
 
 WHY THIS EXISTS
 The roster portraits are ordinary photographs — real rooms, brick walls, shelves
-(see avatar_presets.py). OmniAvatar animates the whole frame, so the mp4 it returns
-has that room baked into every pixel. There is no alpha channel and nothing
-chroma-keyable, so showing the presenter over a colour of the user's choosing means
-literally segmenting them out of the footage.
+(see avatar_presets.py). The render service animates the whole frame, so the mp4
+it returns has that room baked into every pixel. There is no alpha channel and
+nothing chroma-keyable, so showing the presenter over a colour of the user's
+choosing means literally segmenting them out of the footage.
 
 WHY IT RUNS HERE AND NOT IN THE SPACE
-Matting could live in the OmniAvatar Space, next to the GPU. It deliberately does
-not:
+Matting could live in the render service's Space, next to the GPU. It deliberately
+does not:
   - the Space was deployed by OVERWRITING avtr1-service (new Docker Spaces are
     402-paywalled), so every redeploy is a risk we take only when forced;
   - matting there would occupy the L40S with work that is not generation;
@@ -20,7 +20,7 @@ not:
 WHEN IT RUNS — THIS IS NOW THE FALLBACK PATH, NOT THE MAIN ONE
 Matting normally happens INSIDE the Modal render container, so /render returns the
 mp4 and both transparent twins in one call and a scene's cutout exists the moment
-its render lands (see modal-service/omniavatar/app.py's _matte_mp4, which is a port
+its render lands (see modal-service/longcat-avatar/app.py's _matte_mp4, which is a port
 of the pipeline below — keep the two in sync).
 
 This module still runs, as a SceneAvatarJob(kind="matte"), for the cases inline

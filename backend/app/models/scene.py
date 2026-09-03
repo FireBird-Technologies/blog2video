@@ -19,7 +19,7 @@ class Scene(Base):
     visual_description: Mapped[str] = mapped_column(Text, nullable=False)
     remotion_code: Mapped[str | None] = mapped_column(Text, nullable=True)
     voiceover_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    # Optional talking-head avatar clip rendered from this scene's voiceover (OmniAvatar).
+    # Optional talking-head avatar clip rendered from this scene's voiceover (LongCat).
     # Avatars are per-scene and ON DEMAND — the user asks for one from the Scene Edit
     # modal, which runs a SceneAvatarJob. NULL means this scene simply has no overlay.
     # Mirrors voiceover_path (local MEDIA_DIR path; the R2 copy lives on an
@@ -36,7 +36,7 @@ class Scene(Base):
     # Why this scene has no cutout, when the render itself succeeded.
     #
     # The matte now runs inside the Modal render container (see the /render
-    # docstring in modal-service/omniavatar/app.py), and it gets exactly ONE
+    # docstring in modal-service/longcat-avatar/app.py), and it gets exactly ONE
     # attempt: its failures are deterministic (ffmpeg, a bad frame, a codec), so a
     # retry would just hold a billed GPU to fail identically. A failure therefore
     # has to be RECORDED rather than retried.

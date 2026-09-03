@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getAvatarProgress,
   getCachedAvatarProgress,
@@ -185,8 +185,74 @@ export default function ProjectAvatarSettingsCard({
   // be warm (it survives a tab switch but not a refresh) and whether the stale
   // `avatar_batch_unlocked` latch was set. That is why the tab showed something
   // different on every reload. Nothing here re-derives the view.
-  const { view: avatarView, refreshNow: refreshAvatarProgress } =
+  const { view: avatarView, data: avatarProgress, refreshNow: refreshAvatarProgress } =
     useAvatarProgress(projectId);
+  // Scenes that are CLOSED, not merely missing a clip.
+  //
+  // The caller builds `scenesMissingAvatar` from the scene rows alone ("has
+  // narration, has no video"), which cannot see the job history — so a scene
+  // whose credits were returned looked identical to one that was simply never
+  // generated. The banner offered it, authorize_avatar_batch refused it (it
+  // filters refunded scenes out before charging), the selection came back
+  // empty, and the request 400'd with "Select at least 1 scene" while the modal
+  // sat there looking like nothing had happened.
+  //
+  // The rollup already answers this: `refunded_scene_ids` is project-wide and
+  // exists for exactly this purpose. A refund only happens once a scene has
+  // genuinely exhausted its attempts (or died on a terminal error), so this is
+  // also the "already went through its jobs and failed for good" test — there
+  // is no separate attempt_count check to make here.
+  const refundedSceneIds = useMemo(
+    () => new Set(avatarProgress?.refunded_scene_ids ?? []),
+    [avatarProgress?.refunded_scene_ids],
+  );
+  // Offerable = missing a clip AND not closed out.
+  const generatableMissing = useMemo(
+    () => scenesMissingAvatar.filter((s) => !refundedSceneIds.has(s.id)),
+    [scenesMissingAvatar, refundedSceneIds],
+  );
+  // Closed scenes, named so the callout can tell the user what happened to them
+  // rather than silently dropping them from a count that no longer adds up.
+  const refundedMissing = useMemo(
+    () => scenesMissingAvatar.filter((s) => refundedSceneIds.has(s.id)),
+    [scenesMissingAvatar, refundedSceneIds],
+  );
+  // Keep `project.scenes` from going stale WHILE a render is in flight.
+  //
+  // `scenesMissingAvatar`/`hasAnyAvatar` are pure functions of the `project`
+  // prop, which is a ONE-SHOT fetch owned by ProjectView (mount, an explicit
+  // save, a pipeline-status poll settling, a collaborator's websocket edit).
+  // None of those fire when a scene's render finishes server-side, so this
+  // card's "N scenes still don't have an avatar" banner kept showing a scene
+  // as missing for as long as ~10 minutes after it had actually finished —
+  // confirmed live against project 1242's LongCat batch, where the count only
+  // caught up on a manual page reload.
+  //
+  // `avatarProgress` is already being polled every 1500ms by useAvatarProgress
+  // above for as long as `view === "progress"` — reuse that tick instead of
+  // adding a second poller (the card's own history is three pollers fighting
+  // each other; see cachedMatteRows' neighbours above). The moment a render
+  // job this rollup reports "completed" belongs to a scene the `project` prop
+  // still lists as missing, ask the parent to refetch.
+  //
+  // Guarded by a ref of scene ids already asked for, not by re-deriving from
+  // `project` each tick: `onSaved` is async and `project` only updates once it
+  // resolves, so without the guard every poll between "job completed" and
+  // "parent's refetch landed" would re-fire the same request.
+  const requestedRefreshForRef = useRef<Set<number>>(new Set());
+  useEffect(() => {
+    const missingIds = new Set(scenesMissingAvatar.map((s) => s.id));
+    const newlyDone = (avatarProgress?.scenes ?? []).filter(
+      (s) =>
+        s.kind === "render" &&
+        s.status === "completed" &&
+        missingIds.has(s.scene_id) &&
+        !requestedRefreshForRef.current.has(s.scene_id),
+    );
+    if (newlyDone.length === 0) return;
+    for (const s of newlyDone) requestedRefreshForRef.current.add(s.scene_id);
+    void onSaved();
+  }, [avatarProgress?.scenes, scenesMissingAvatar, onSaved]);
   // Auto-resume rather than waiting for a click: a scene can end up here with
   // no avatar not just because it had no narration at generation time, but
   // because the batch was interrupted mid-run (tab closed/navigated away
@@ -644,14 +710,32 @@ export default function ProjectAvatarSettingsCard({
                 still don't have an avatar" while 7 were actively generating, which
                 looks like the run went wrong. Offering to generate the rest only
                 makes sense once the current run has settled. */}
+            {/* Closed-out scenes get their own line, whether or not anything is
+                still generatable. Without it a refunded scene just vanished from
+                the count and the user was left wondering why scene 4 never
+                appeared anywhere — and, having been charged for it, whether the
+                money was gone too. */}
+            {hasAnyAvatar && refundedMissing.length > 0 && !showRemainingWizard && (
+              <div className="rounded-xl bg-amber-50/60 border border-amber-100 px-4 py-3">
+                <p className="text-[11px] text-amber-700 leading-relaxed">
+                  We couldn't generate an avatar for scene
+                  {refundedMissing.length === 1 ? " " : "s "}
+                  {refundedMissing.map((s) => s.order).join(", ")} and have
+                  returned the credits to your balance.{" "}
+                  {refundedMissing.length === 1 ? "It" : "They"} can't be
+                  generated again.
+                </p>
+              </div>
+            )}
+
             {hasAnyAvatar &&
-              scenesMissingAvatar.length > 0 &&
-              (!avatarBatchUnlocked || showRemainingWizard) && (
+              generatableMissing.length > 0 &&
+              (avatarView.kind !== "progress" || showRemainingWizard) && (
               <div className="rounded-xl bg-purple-50/60 border border-purple-100 px-4 py-3">
                 {showRemainingWizard ? (
                   <AvatarBatchWizard
                     projectId={projectId}
-                    scenes={scenesMissingAvatar}
+                    scenes={generatableMissing}
                     customPortraitUrl={avatarCustomImageUrl}
                     avatarBatchUnlocked={avatarBatchUnlocked}
                     // This callout is a narrow inline strip — the picker needs
@@ -685,11 +769,11 @@ export default function ProjectAvatarSettingsCard({
                 ) : (
                   <>
                     <p className="text-[11px] text-gray-600 leading-relaxed">
-                      {scenesMissingAvatar.length} scene
-                      {scenesMissingAvatar.length === 1 ? "" : "s"} (
-                      {scenesMissingAvatar.map((s) => s.order).join(", ")}) still{" "}
-                      {scenesMissingAvatar.length === 1 ? "doesn't" : "don't"} have
-                      an avatar. Generate {scenesMissingAvatar.length === 1 ? "it" : "them"}{" "}
+                      {generatableMissing.length} scene
+                      {generatableMissing.length === 1 ? "" : "s"} (
+                      {generatableMissing.map((s) => s.order).join(", ")}) still{" "}
+                      {generatableMissing.length === 1 ? "doesn't" : "don't"} have
+                      an avatar. Generate {generatableMissing.length === 1 ? "it" : "them"}{" "}
                       with the same presenter and appearance already in use.
                     </p>
                     <button
@@ -698,8 +782,8 @@ export default function ProjectAvatarSettingsCard({
                       onClick={() => setShowRemainingWizard(true)}
                       className="mt-2.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-[11px] font-semibold rounded-lg transition-all"
                     >
-                      Generate {scenesMissingAvatar.length} scene
-                      {scenesMissingAvatar.length === 1 ? "" : "s"}
+                      Generate {generatableMissing.length} scene
+                      {generatableMissing.length === 1 ? "" : "s"}
                     </button>
                   </>
                 )}

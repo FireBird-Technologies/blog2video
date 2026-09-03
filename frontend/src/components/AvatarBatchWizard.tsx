@@ -18,8 +18,14 @@ import {
   type Project,
 } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
+import { isPaidPlan } from "../lib/plan";
 import { AVATAR_CUSTOM_PRESET_ID, avatarBgWantsCutout } from "../api/types";
-import type { AvatarBg, AvatarCorner, AvatarShape } from "../api/types";
+import type {
+  AvatarBg,
+  AvatarCorner,
+  AvatarMotionStyle,
+  AvatarShape,
+} from "../api/types";
 import AvatarPhotoGuide from "./AvatarPhotoGuide";
 import AvatarSceneStatusList, {
   type DisplayRow,
@@ -45,6 +51,13 @@ const STALL_MS = 10 * 60 * 1000;
  *  boxHeight = boxWidth * 1.25 for "rounded"), which keeps the framing sensible
  *  for the shape the result most likely ends up in. */
 const AVATAR_UPLOAD_ASPECT_RATIO = "4 / 5";
+
+/** See app/services/avatar_motion_styles.py — must match its 3 keys exactly. */
+const MOTION_STYLES: { value: AvatarMotionStyle; label: string; hint: string }[] = [
+  { value: "subtle", label: "Subtle", hint: "Calm, minimal movement" },
+  { value: "natural", label: "Natural", hint: "Gentle, everyday delivery" },
+  { value: "expressive", label: "Expressive", hint: "Matches voice energy closely" },
+];
 
 /** Plans that carry a monthly AI-edit allowance — the mirror of PAID_TIERS in
  *  backend/app/models/user.py. Anything NOT in here (including "free", an
@@ -100,6 +113,12 @@ interface SceneLite {
  * opacity and background are all chosen afterward — project-wide in
  * ProjectAvatarSettingsCard, per scene in SceneAvatarSection — where there is a
  * real rendered clip to preview against instead of a guess before paying.
+ *
+ * Motion style is the one exception: it is baked into the render itself (sent
+ * to the provider as part of the prompt, see avatar_motion_styles.py on the
+ * backend), so unlike the overlay properties above it cannot be changed
+ * against an already-rendered clip — it has to be picked here, alongside the
+ * presenter, before generation.
  *
  * Presenter *identity* is still stored per scene (there is no project-level
  * preset column — see ProjectAvatarSettingsCard's doc-comment), so "one avatar
@@ -315,6 +334,13 @@ export default function AvatarBatchWizard({
   // for them. `initialPreset` overrides this only when the wizard skips the
   // "pick" step entirely (mounts straight into "generating").
   const [preset, setPreset] = useState<string | null>(initialPreset ?? null);
+  // Chosen alongside the presenter, below the portrait grid. Seeded from the
+  // project's current setting (persisted from a prior batch) rather than
+  // always defaulting to "expressive", so reopening the wizard doesn't
+  // silently reset a choice already made.
+  const [motionStyle, setMotionStyle] = useState<AvatarMotionStyle>(
+    (project?.avatar_motion_style as AvatarMotionStyle | undefined) ?? "expressive",
+  );
   const [unlocking, setUnlocking] = useState(false);
   const [messageIndex, setMessageIndex] = useState(0);
   // The polled rollup, rendered directly. NOT a derived summary held in state:
@@ -826,11 +852,27 @@ export default function AvatarBatchWizard({
       // avatar_batch_unlocked — one call, one transaction. If this throws (403
       // for credits, 400 for an unrenderable selection) nothing was charged and
       // nothing was queued.
-      await authorizeAvatarBatch(
+      const result = await authorizeAvatarBatch(
         projectId,
         selectedScenes.map((s) => s.id),
         preset as string,
+        motionStyle,
       );
+      // A 200 with no jobs and nothing charged means every selected scene was
+      // already closed out server-side (already refunded, or still awaiting a
+      // refund the sweep hasn't settled yet) — the request did nothing rather
+      // than failing. Without this check the wizard fell straight into
+      // "generating" with an empty batch, which polled forever/settled instantly
+      // into a confusing "0 of 0" done screen with no explanation and no way for
+      // the user to tell they were NOT charged. Say so explicitly instead.
+      if (result.data.job_ids.length === 0) {
+        setUnlocking(false);
+        onError(
+          "These scenes already failed and their credits were refunded — you " +
+            "were not charged just now. Contact support to have them reopened.",
+        );
+        return;
+      }
       // Reflect the new balance without waiting for a page-level refetch. These
       // run AFTER the work is durably queued, so a failure here can no longer
       // strand a paid batch.
@@ -1088,6 +1130,36 @@ export default function AvatarBatchWizard({
           )}
         </div>
 
+        {/* Below the portrait selection — unlike shape/size/position/opacity,
+            this is baked into the render itself (sent to the provider as the
+            prompt), not an overlay property adjustable afterward against a
+            finished clip, so it belongs here rather than in the post-generation
+            settings card. Project-wide, applied to the whole batch. */}
+        <div className="pt-1">
+          <p className="text-[11px] font-medium text-gray-500 mb-1.5">
+            Motion style
+          </p>
+          <div className="grid grid-cols-3 gap-1.5 max-w-sm">
+            {MOTION_STYLES.map((m) => (
+              <button
+                key={m.value}
+                type="button"
+                title={m.hint}
+                onClick={() => setMotionStyle(m.value)}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  motionStyle === m.value
+                    ? "bg-purple-600 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1.5 text-[11px] text-gray-400">
+            {MOTION_STYLES.find((m) => m.value === motionStyle)?.hint}
+          </p>
+        </div>
 
         {/* Explicit Next, rather than a tile click jumping straight to pricing.
             Selecting and advancing used to be the SAME gesture, so a mis-click

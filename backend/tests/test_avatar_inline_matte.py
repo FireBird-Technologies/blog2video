@@ -48,10 +48,10 @@ def _multipart(parts: list[tuple[str, str, str, bytes]]) -> tuple[bytes, str]:
     """Build a body byte-for-byte like the service's _multipart_response does.
 
     Hand-rolled on BOTH sides on purpose (see the encoder's comment in
-    modal-service/omniavatar/app.py), so this test is what proves the two
+    modal-service/longcat-avatar/app.py), so this test is what proves the two
     hand-rolled halves actually agree.
     """
-    boundary = f"----omniavatar{uuid.uuid4().hex}"
+    boundary = f"----avatartest{uuid.uuid4().hex}"
     chunks = []
     for name, filename, content_type, body in parts:
         chunks.append(
@@ -366,7 +366,7 @@ def test_portrait__alpha_is_flattened_onto_white():
             img.putpixel((x, y), (0, 0, 0, 0))
 
     out = _reopen(_normalise_portrait(_img_bytes(img)))
-    assert out.mode == "RGB", "alpha must be gone — OmniAvatar has no defined behaviour for it"
+    assert out.mode == "RGB", "alpha must be gone — the render service has no defined behaviour for it"
     assert out.getpixel((10, 10)) == (255, 255, 255), "transparent → white, not black"
 
 
@@ -429,8 +429,9 @@ def test_portrait__a_real_preset_passes_through_unchanged():
     """The normaliser must be a NO-OP on input that is already right.
 
     The roster presets are the reference: JPEG, RGB, no alpha, no EXIF, ~1200px.
-    Nothing in the code ever prepared them — they simply are what OmniAvatar
-    expects, which is exactly why they render reliably and raw uploads did not.
+    Nothing in the code ever prepared them — they simply are what the render
+    service expects, which is exactly why they render reliably and raw uploads
+    did not.
     """
     import os
 
@@ -438,7 +439,7 @@ def test_portrait__a_real_preset_passes_through_unchanged():
 
     preset = os.path.join(
         os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-        "modal-service/omniavatar/avatar_presets/candidate_man2.jpg",
+        "modal-service/longcat-avatar/avatar_presets/candidate_man2.jpg",
     )
     if not os.path.exists(preset):
         pytest.skip("preset image not present in this checkout")

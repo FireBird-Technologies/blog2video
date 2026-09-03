@@ -2,6 +2,7 @@ export * from "./types";
 import type {
   AvatarBg,
   AvatarCorner,
+  AvatarMotionStyle,
   AvatarShape,
   AvatarReview,
   SubmitAvatarReviewPayload,
@@ -230,6 +231,8 @@ export interface Project {
   avatar_position?: AvatarCorner;
   avatar_bg?: AvatarBg;
   avatar_opacity?: number;
+  /** Project-wide only — no per-scene override, unlike the fields above. */
+  avatar_motion_style?: AvatarMotionStyle;
   /** URL of the presenter photo this user uploaded; null = using the roster. */
   avatar_custom_image_url?: string | null;
   /** Cleared the Avatar tab's whole-video batch-generation paywall. */
@@ -1381,6 +1384,7 @@ export const updateProject = (
     avatar_position?: AvatarCorner;
     avatar_bg?: AvatarBg;
     avatar_opacity?: number | null;
+    avatar_motion_style?: AvatarMotionStyle;
     avatar_batch_unlocked?: boolean;
     }
 ) => api.patch<Project>(`/projects/${projectId}/update-project`, data);
@@ -2098,6 +2102,10 @@ export const authorizeAvatarBatch = (
   projectId: number,
   sceneIds: number[],
   avatarPreset?: string,
+  // Chosen alongside the presenter in the wizard's pick step. Persisted to
+  // project.avatar_motion_style server-side; omit to keep the project's
+  // current setting.
+  avatarMotionStyle?: AvatarMotionStyle,
 ) =>
   api.post<{
     authorized: boolean;
@@ -2108,6 +2116,7 @@ export const authorizeAvatarBatch = (
   }>(`/projects/${projectId}/avatar-batch/authorize`, {
     scene_ids: sceneIds,
     avatar_preset: avatarPreset,
+    avatar_motion_style: avatarMotionStyle,
   });
 
 /** Choose which region of the rendered avatar clip to show. Stored as a focal

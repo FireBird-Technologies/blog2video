@@ -11,8 +11,8 @@ const EXAMPLE_PRESETS = AVATAR_PRESETS.filter((p) => MAIN_AVATAR_PRESET_IDS.incl
  * What makes a photo work as a talking-head source.
  *
  * Every rule maps to a way the render actually degrades — none is a style
- * preference. OmniAvatar animates the WHOLE frame from a single still, so
- * anything odd in the photo gets animated too. Stating the consequence is what
+ * preference. The render service animates the WHOLE frame from a single still,
+ * so anything odd in the photo gets animated too. Stating the consequence is what
  * makes the rule stick: "no smiling" sounds arbitrary until you know the
  * expression is frozen for the entire scene.
  */

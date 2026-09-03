@@ -3,7 +3,9 @@
 Avatars are ON DEMAND and PER SCENE: the user opens the Scene Edit modal, picks a
 presenter and hits Generate, which starts a SceneAvatarJob. That job calls
 ``generate_scene_avatar_sync`` here, which renders a lip-synced clip from THAT
-scene's voiceover mp3 via the self-hosted OmniAvatar HuggingFace Space, saves it
+scene's voiceover mp3 via the LongCat service on Modal serverless GPU
+(modal-service/longcat-avatar/ — it replaced a HuggingFace Space on 2026-08-02; the
+HF Space in this project now only HOSTS THE BACKEND and runs no avatar work), saves it
 to R2, and records it on the scene (avatar_video_path) + an AssetType.AVATAR row.
 The Remotion composition overlays the clip (see remotion.py emit and AvatarOverlay).
 
@@ -46,6 +48,11 @@ from app.models.asset import Asset, AssetType
 from app.models.project import Project
 from app.models.scene import Scene
 from app.services import r2_storage
+from app.services.avatar_motion_styles import (
+    AVATAR_MOTION_PROMPTS,
+    DEFAULT_MOTION_STYLE,
+    normalize_motion_style,
+)
 from app.services.avatar_presets import is_custom_preset, normalize_preset
 
 logger = logging.getLogger(__name__)
@@ -55,7 +62,7 @@ logger = logging.getLogger(__name__)
 class AvatarRenderError:
     """A failure reason paired with whether trying again is worth it.
 
-    ``retryable=True`` means the failure is transient (Space cold-start, 5xx,
+    ``retryable=True`` means the failure is transient (container cold-start, 5xx,
     network blip) — the same job run already retries these internally a few
     times, and it is also safe to let the user hit Retry afterward.
     ``retryable=False`` means the failure will reproduce identically on any
@@ -67,9 +74,6 @@ class AvatarRenderError:
     reason: str
     retryable: bool
 
-# Calibrated default prompt (P7/P8 from the OmniAvatar test-set iteration): lip
-# movement and expression that subtly match the actual volume/pacing of the voice,
-# no exaggerated or theatrical motion, natural head/neck movement, no hand mention.
 # What the USER is told when a render fails. The real reason stays in
 # SceneAvatarJob.error_message and the logs, which is where it is useful:
 # "Could not reach the avatar service: ChunkedEncodingError" tells a user
@@ -78,11 +82,13 @@ class AvatarRenderError:
 # consumer at once and cannot be reintroduced by a new one.
 AVATAR_GENERIC_FAILURE = "We couldn't generate an avatar for this scene."
 
-DEFAULT_AVATAR_PROMPT = (
-    "A person looking at the camera, speaking naturally with lip movements and "
-    "facial expressions that closely and subtly match the actual volume and pacing "
-    "of their voice, with natural head and neck movement, without exaggerated or "
-    "theatrical motion."
+# What the user is told when the PROVIDER ITSELF is switched off, as opposed to a
+# render that went wrong. The distinction is worth its own string: the scene is
+# fine, nothing about it needs changing, and the credits are already back — so
+# the generic "we couldn't generate an avatar" reads as a fault the user might
+# try to fix, which is exactly wrong here.
+AVATAR_SERVICE_UNAVAILABLE = (
+    "The avatar service is temporarily unavailable. Your credits have been refunded."
 )
 
 
@@ -94,32 +100,88 @@ def _base_url() -> str:
     return settings.AVATAR_SERVICE_URL.rstrip("/")
 
 
-def _ping_service(timeout: int = 20) -> bool:
-    """True when the Space is up and serving. Cheap: no GPU work, and it is also
-    what nudges a sleeping Space to start waking."""
+def _is_workspace_disabled(status_code: int, body: str) -> bool:
+    """True when Modal reports the whole WORKSPACE is switched off.
+
+    Modal answers every request to a disabled workspace with
+
+        HTTP 404
+        modal-http: workspace ac-xxxxxxxx is disabled
+
+    which is what a suspended account (usually billing) looks like from here. It
+    is PERMANENT until somebody fixes it in the Modal dashboard: no amount of
+    waiting or retrying brings the service back, and every second spent polling
+    is a second the user watches a spinner that will never resolve.
+
+    Matched on the body rather than the status alone because a bare 404 is
+    ambiguous — it is also what a bad path or a torn-down deployment returns,
+    and those are not worth refunding a batch over.
+    """
+    low = (body or "").lower()
+    return status_code in (403, 404) and "workspace" in low and "disabled" in low
+
+
+def _ping_service(timeout: int = 20) -> tuple[bool, str | None]:
+    """Probe the avatar service. Returns ``(ok, fatal_reason)``.
+
+    ``ok`` is True when Modal is up and serving. ``fatal_reason`` is set ONLY for
+    a permanent condition — currently a disabled workspace — and carries Modal's
+    own wording so it can reach ``error_message`` and the logs.
+
+    Returning the reason rather than a bare bool is the whole point. This used to
+    be ``return resp.status_code == 200``, which flattened "workspace disabled
+    forever" and "container still booting" into the same False; the caller then
+    had no choice but to assume the optimistic case and poll for the full wait
+    window. The response body said exactly what was wrong and was discarded on
+    the line that received it.
+
+    A transient failure (5xx, timeout, connection error) is still just
+    ``(False, None)`` — keep polling, that is what the wait loop is for.
+    """
     try:
-        resp = requests.get(f"{_base_url()}/ping", headers=_headers(), timeout=timeout)
-        return resp.status_code == 200
+        resp = requests.get(
+            f"{_base_url()}/ping", headers=_headers(), timeout=timeout
+        )
     except Exception:
-        return False
+        # Connection refused, DNS, timeout: transient by nature. No body to read.
+        return False, None
+    if resp.status_code == 200:
+        return True, None
+    body = (resp.text or "")[:200]
+    if _is_workspace_disabled(resp.status_code, body):
+        return False, body.strip()
+    return False, None
 
 
-def _wait_for_service(on_status=None) -> bool:
-    """Block until the avatar Space answers /ping, or give up.
+def _wait_for_service(on_status=None) -> tuple[bool, str | None]:
+    """Block until the avatar service answers /ping, or give up.
 
-    Returns True once it is serving. The first ping is what wakes a sleeping
-    Space; the rest are just polling. Cheap GET requests, so polling costs
-    nothing — the GPU only bills once the container is actually up, which is
-    exactly when we want to start using it.
+    Returns ``(ready, fatal_reason)``. The first ping is also what wakes a
+    scaled-to-zero Modal container; the rest are just polling. Cheap GET
+    requests, so polling costs nothing — the GPU only bills once a container is
+    actually up, which is exactly when we want to start using it.
+
+    A fatal probe SHORT-CIRCUITS the loop. Waiting out the full window on a
+    disabled workspace bought nothing but a 15-minute spinner, three times over,
+    and then reported "may be out of capacity" — a guess, and the wrong one.
     """
     deadline = time.time() + settings.AVATAR_SERVICE_WAIT_SECONDS
     attempt = 0
     while time.time() < deadline:
         attempt += 1
-        if _ping_service():
+        ok, fatal = _ping_service()
+        if ok:
             if attempt > 1:
                 logger.info("[AVATAR] Service ready after %s ping(s).", attempt)
-            return True
+            return True, None
+        if fatal:
+            # Log the provider's own words: this is an operator problem (billing,
+            # a suspended account) and the fix is not in this codebase.
+            logger.error(
+                "[AVATAR] Service is permanently unavailable, giving up after "
+                "%s ping(s): %s", attempt, fatal,
+            )
+            return False, fatal
         if attempt == 1 and on_status:
             # Only now do we know it was asleep — tell the UI so the user sees
             # "starting up" rather than a silent multi-minute "generating".
@@ -129,7 +191,7 @@ def _wait_for_service(on_status=None) -> bool:
         "[AVATAR] Service did not become ready within %ss (%s pings).",
         settings.AVATAR_SERVICE_WAIT_SECONDS, attempt,
     )
-    return False
+    return False, None
 
 
 def _read_project_custom_image(project_id: int) -> str | None:
@@ -225,6 +287,60 @@ def ensure_local_voiceover(voiceover_path: str | None, r2_url: str | None) -> st
         return None
 
 
+# LongCat renders a FIXED-length clip per segment regardless of audio length.
+# These two constants are EMPIRICAL, measured directly from real renders this
+# session (not re-derived from reading the model's source, which undercounted):
+#   num_segments=1 -> 93 frames  (3.72s @ 25fps)   ffprobe-confirmed
+#   num_segments=2 -> 153 frames (6.12s @ 25fps)   ffprobe-confirmed
+#   => each additional segment adds 153-93 = 60 frames = 2.4s, not the 80 frames
+#      (93-13, num_frames-num_cond_frames) a literal reading of
+#      run_demo_avatar_single_audio_to_video.py's continuation loop would suggest.
+# Sending no num_segments at all defaults to 1 on the Modal service, which
+# silently truncates every clip to 3.72s and freezes for the rest of the audio —
+# exactly the "avatar goes still after ~3s" symptom this computes the fix for.
+# Rounded UP so the clip always covers the full voiceover rather than cutting off
+# a fraction of a second early; if these constants ever drift (a Modal service
+# update changes num_frames/num_cond_frames), re-measure with
+# modal-service/longcat-avatar/run_test.py rather than re-deriving from source.
+_LONGCAT_FIRST_SEGMENT_SECONDS = 93 / 25
+_LONGCAT_EXTRA_SEGMENT_SECONDS = 60 / 25
+
+
+def _audio_duration_seconds(path: str) -> float | None:
+    """ffprobe duration of an audio file, or None if it can't be read. ffprobe is
+    already a hard dependency here (see avatar_matte.py / stock_footage.py)."""
+    import subprocess
+
+    try:
+        out = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+             "-of", "default=nw=1:nk=1", path],
+            capture_output=True, text=True, timeout=20,
+        )
+        return float(out.stdout.strip())
+    except Exception as e:
+        logger.warning("[AVATAR] Could not probe audio duration for %s: %s", path, e)
+        return None
+
+
+def _num_segments_for(audio_duration_seconds: float | None) -> int:
+    """How many LongCat segments are needed to cover the whole voiceover.
+
+    Falls back to 1 (the old, truncating behaviour) only when duration could not
+    be determined at all — a render that's merely too short is a known,
+    diagnosable bug; a render that fails outright over a missing ffprobe binary
+    is a worse regression than the truncation this function exists to fix.
+    """
+    if not audio_duration_seconds or audio_duration_seconds <= 0:
+        return 1
+    if audio_duration_seconds <= _LONGCAT_FIRST_SEGMENT_SECONDS:
+        return 1
+    extra_needed = audio_duration_seconds - _LONGCAT_FIRST_SEGMENT_SECONDS
+    import math
+    extra_segments = math.ceil(extra_needed / _LONGCAT_EXTRA_SEGMENT_SECONDS)
+    return 1 + extra_segments
+
+
 @dataclass
 class RenderPayload:
     """What one /render call came back with.
@@ -249,7 +365,7 @@ def _parse_render_response(resp) -> RenderPayload:
     TWO SHAPES ARE ACCEPTED, deliberately:
 
       - ``multipart/form-data`` with parts named video/matte/preview — the current
-        service, which mattes inline (see modal-service/omniavatar/app.py).
+        service, which mattes inline (see modal-service/longcat-avatar/app.py).
       - a bare ``video/mp4`` body — what /render returned before inline matting,
         and what it still returns when matting is off or has failed.
 
@@ -375,7 +491,8 @@ def _persist_render_result(scene_id: int, project_id: int, order: int,
 
 
 def _render_and_store(
-    scene_id: int, project_id: int, preset: str, custom_image_path: str | None = None
+    scene_id: int, project_id: int, preset: str, custom_image_path: str | None = None,
+    motion_style: str = DEFAULT_MOTION_STYLE,
 ) -> AvatarRenderError | None:
     """Render one scene's avatar clip and persist it. Runs in a worker thread.
     NEVER raises — a failure just leaves avatar_video_path null (non-blocking).
@@ -384,9 +501,9 @@ def _render_and_store(
     reason (rather than a bare False) is what lets the job show the user what
     actually went wrong instead of a generic "it failed" — the underlying cause
     is otherwise only visible in the server log. The ``retryable`` flag on the
-    error tells the caller whether trying again is worth it: a Space that is
-    still waking up will succeed on retry, but a scene missing its voiceover
-    file never will.
+    error tells the caller whether trying again is worth it: a container that is
+    still starting up will succeed on retry, but a scene missing its voiceover
+    file — or a provider workspace that has been switched off — never will.
 
     Key ordering: read scene inputs with a short-lived session and CLOSE it,
     then do the long (~2.6-min) render with NO DB connection held, then open a
@@ -408,6 +525,18 @@ def _render_and_store(
         audio_name = os.path.basename(voiceover_path)
         with open(voiceover_path, "rb") as f:
             audio_bytes = f.read()
+
+        # How many LongCat segments the render needs to cover the WHOLE voiceover
+        # — see _num_segments_for's docstring. Without this the service defaults
+        # to 1 segment (3.72s) regardless of audio length, and the clip freezes
+        # for the remainder while the narration keeps playing.
+        audio_duration = _audio_duration_seconds(voiceover_path)
+        num_segments = _num_segments_for(audio_duration)
+        logger.info(
+            "[AVATAR] Scene %s: audio=%.1fs -> num_segments=%s",
+            order, audio_duration or -1, num_segments,
+            extra={"project_id": project_id},
+        )
 
         # The portrait travels WITH the render for a custom avatar. Read here,
         # beside the audio, so the closure below holds bytes rather than a path —
@@ -433,17 +562,17 @@ def _render_and_store(
             files = {"audio": (audio_name, audio_bytes, "audio/mpeg")}
             if image_bytes:
                 files["image"] = (image_name, image_bytes, "image/jpeg")
+            data = {
+                "avatar_id": preset,
+                "render_id": render_id,
+                "prompt": AVATAR_MOTION_PROMPTS[motion_style],
+            }
+            if num_segments is not None:
+                data["num_segments"] = str(num_segments)
             return requests.post(
                 f"{_base_url()}/render",
                 headers=_headers(),
-                data={
-                    "avatar_id": preset,
-                    "render_id": render_id,
-                    "prompt": DEFAULT_AVATAR_PROMPT,
-                    # Sent explicitly so matting can be turned off from backend
-                    # config alone, with no redeploy of the Modal service.
-                    "inline_matte": str(settings.AVATAR_INLINE_MATTE).lower(),
-                },
+                data=data,
                 files=files,
                 timeout=settings.AVATAR_RENDER_TIMEOUT_SECONDS,
             )
@@ -485,14 +614,28 @@ def _render_and_store(
                 order, resp.status_code, resp.text[:300],
                 extra={"project_id": project_id},
             )
+            if _is_workspace_disabled(resp.status_code, resp.text or ""):
+                # Checked BEFORE the transient list below, and separately from the
+                # ping, because the workspace can be switched off mid-render — that
+                # is exactly how the 2026-08-10 outage started: three scenes landed,
+                # then the rest died here after ~6 minutes of real GPU work. Without
+                # this the job would fall through to the generic 404 branch and get
+                # a message about the render being "rejected", which is not what
+                # happened.
+                logger.error(
+                    "[AVATAR] Scene %s: provider workspace is disabled — failing "
+                    "without retry: %s", order, detail,
+                    extra={"project_id": project_id},
+                )
+                return AvatarRenderError(AVATAR_SERVICE_UNAVAILABLE, retryable=False)
             if resp.status_code in (408, 409, 425, 429, 500, 502, 503, 504):
-                # A 500 here is virtually always the Space itself crashing (an
-                # unhandled exception in the Gradio app, an OOM, a container
-                # fault) rather than us sending a malformed request — the body
-                # is typically HF's own generic error page (raw HTML), not a
-                # JSON error from our /render handler. That is the same kind
-                # of transient, environment-level failure as 502/503/504, so
-                # it gets the same retry treatment rather than failing fast.
+                # A 500 here is virtually always the provider itself failing (an
+                # unhandled exception in the app, an OOM, a container fault, or
+                # Modal losing track of an in-flight call) rather than us sending
+                # a malformed request. That is the same kind of transient,
+                # environment-level failure as 502/503/504, so it gets the same
+                # retry treatment rather than failing fast — EXCEPT for the
+                # workspace-disabled case handled above, which is permanent.
                 #
                 # The 4xx codes here are transient for the SAME reason, even
                 # though 4xx normally means "our request was bad". The provider
@@ -631,7 +774,7 @@ def _render_and_store(
 
 def generate_scene_avatar_sync(
     scene_id: int, project_id: int, avatar_preset: str | None,
-    on_status=None,
+    on_status=None, motion_style: str | None = None,
 ) -> AvatarRenderError | None:
     """Render + store the avatar clip for ONE scene.
 
@@ -645,14 +788,21 @@ def generate_scene_avatar_sync(
     ("starting_service" -> "rendering") so the UI can explain a long wait
     instead of showing an unchanging spinner.
 
-    Synchronous and blocking (~2.6 min): call it off the event loop.
+    ``motion_style`` ("subtle" | "natural" | "expressive" | None) is the
+    real, persisted, user-facing choice of how much the presenter moves — see
+    Project.avatar_motion_style and avatar_motion_styles.py. None/invalid
+    falls back to the long-standing default.
+
+    Synchronous and blocking (several minutes depending on segment count):
+    call it off the event loop.
     """
     if not settings.AVATAR_ENABLED:
         return AvatarRenderError("Avatar generation is disabled.", retryable=False)
-    if not settings.AVATAR_SERVICE_URL or not settings.AVATAR_SERVICE_SECRET:
+    if not _base_url() or not settings.AVATAR_SERVICE_SECRET:
         return AvatarRenderError("Avatar service is not configured.", retryable=False)
 
     preset = normalize_preset(avatar_preset)
+    motion_style = normalize_motion_style(motion_style)
 
     # A custom preset has no bundled file on the service, so the user's own
     # portrait has to be uploaded with the render. Read it in its own short-lived
@@ -669,21 +819,46 @@ def generate_scene_avatar_sync(
                 retryable=False,
             )
 
-    # WAIT for the Space before doing anything else.
+    # WAIT for the service before doing anything else.
     #
-    # The Space sleeps after ~5 min idle, and the user's Generate click is what
-    # wakes it. Waking is queued behind HF allocating a GPU, which is unbounded
-    # and has been observed to fail and fall back to SLEEPING. Rather than firing
-    # a render at a service that may never answer — and burning the job on a
-    # timeout — poll cheap /ping calls until it is genuinely serving.
+    # Modal scales to zero (scaledown_window=2s), so the user's Generate click is
+    # what starts a container. That is normally ~6s — the weights live on a
+    # mounted Volume rather than being downloaded per boot — but a container can
+    # also queue behind provider capacity. Rather than firing a render at a
+    # service that may not be up yet and burning the job on a timeout, poll cheap
+    # /ping calls until it is genuinely serving.
     #
     # This is deliberately NOT a pre-warm ping when the modal opens: that bills
-    # ~5 min of idle GPU every time somebody looks and walks away. Waiting here
-    # means every second of GPU time belongs to a render a user actually asked for.
-    if not _wait_for_service(on_status=on_status):
+    # idle GPU every time somebody looks and walks away. Waiting here means every
+    # second of GPU time belongs to a render a user actually asked for.
+    ready, fatal = _wait_for_service(on_status=on_status)
+    if not ready:
+        if fatal:
+            # The provider is switched off, not busy. retryable=False both stops
+            # this job burning its remaining attempts on a guaranteed failure and
+            # triggers the refund sweep in avatar_queue._on_batch_settled, which
+            # pays out on `retryable is False` without waiting for the attempt
+            # cap. The user gets their credits back now rather than in 45 minutes.
+            return AvatarRenderError(AVATAR_SERVICE_UNAVAILABLE, retryable=False)
+        # Nearly always GPU QUEUEING at the provider, not a slow container boot.
+        # Measured 2026-08-10: Modal answered /ping in 68-111s and its own logs
+        # said "waiting to be scheduled on a GPU_L40S worker — we are actively
+        # working on acquiring more capacity", i.e. the render was queued behind
+        # provider capacity the whole time. Say that plainly: "could not be
+        # started" reads like a crash and sent a whole debugging session after
+        # this backend instead of the provider.
+        logger.warning(
+            "[AVATAR] Giving up on scene %s after waiting %ss for a free GPU — "
+            "the service answered but never had capacity to start the render. "
+            "This is provider-side queueing, NOT a failure in this backend; "
+            "check the provider's own logs for 'waiting to be scheduled'.",
+            scene_id, settings.AVATAR_SERVICE_WAIT_SECONDS,
+        )
         return AvatarRenderError(
-            "The avatar service could not be started. It may be out of capacity "
-            "— please try again in a few minutes.",
+            f"The avatar service had no free GPU within "
+            f"{settings.AVATAR_SERVICE_WAIT_SECONDS // 60} minutes — it is busy "
+            f"or out of capacity right now. Nothing is wrong with this scene; "
+            f"please try again shortly.",
             retryable=True,
         )
 
@@ -696,4 +871,7 @@ def generate_scene_avatar_sync(
     #
     # Pass the error straight through — this is what reaches job.error_message
     # (and job.retryable) and therefore the user, so it must not be flattened.
-    return _render_and_store(scene_id, project_id, preset, custom_image_path)
+    return _render_and_store(
+        scene_id, project_id, preset, custom_image_path,
+        motion_style=motion_style,
+    )

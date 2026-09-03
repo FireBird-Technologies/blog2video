@@ -5,6 +5,7 @@ import logging
 import os
 import shutil
 import time
+import uuid
 import requests
 from datetime import datetime, timedelta
 from typing import Optional
@@ -37,6 +38,7 @@ from app.schemas.schemas import (
     ProjectCreate, ProjectOut, ProjectListOut, ProjectLogoUpdate,
     BulkProjectItem, BulkCreateResponse,
     ReviewOut, ReviewStateOut, ReviewSubmit, ReviewSubmitResponse, SceneOut,
+    AvatarReviewOut, AvatarReviewSubmit,
     AvatarReviewOut, AvatarReviewSubmit,
     SceneUpdate, ReorderScenesRequest, RegenerateSceneRequest, AddSceneRequest, AddSceneJobOut,
     SceneAvatarAppearanceUpdate,
@@ -242,6 +244,21 @@ def _build_review_state(project: Project, user: User, db: Session) -> ReviewStat
             and project_sequence > 1
         ),
     )
+
+
+def _build_avatar_review(project: Project, user: User, db: Session) -> Optional[AvatarReviewOut]:
+    """This user's avatar rating for this project, or None when they have not rated.
+
+    Carried on the project payload rather than fetched by the Avatar tab: that tab
+    unmounts on every tab switch, so a fetch-on-mount would re-flash the rating
+    form each time before the saved rating arrived.
+    """
+    row = (
+        db.query(AvatarReview)
+        .filter(AvatarReview.user_id == user.id, AvatarReview.project_id == project.id)
+        .first()
+    )
+    return AvatarReviewOut.model_validate(row) if row else None
 
 
 def _build_avatar_review(project: Project, user: User, db: Session) -> Optional[AvatarReviewOut]:
@@ -3638,6 +3655,41 @@ def submit_avatar_review(
     return AvatarReviewOut.model_validate(review)
 
 
+@router.post("/{project_id}/avatar-review", response_model=AvatarReviewOut)
+def submit_avatar_review(
+    project_id: int,
+    payload: AvatarReviewSubmit,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Upsert this user's star rating + message for the project's avatars.
+
+    Editor role, so a collaborator can rate the avatars on a project they were
+    invited to — the unique key is (user_id, project_id), so each collaborator
+    gets their own row. Re-rating updates in place rather than inserting.
+
+    Unlike ``submit_project_review`` this sends no low-rating alert email.
+    """
+    project = _get_user_project(project_id, user.id, db)
+
+    review = (
+        db.query(AvatarReview)
+        .filter(AvatarReview.user_id == user.id, AvatarReview.project_id == project.id)
+        .first()
+    )
+    if review is None:
+        review = AvatarReview(user_id=user.id, project_id=project.id)
+        db.add(review)
+
+    review.rating = payload.rating
+    review.suggestion = payload.suggestion
+
+    db.commit()
+    db.refresh(review)
+
+    return AvatarReviewOut.model_validate(review)
+
+
 @router.delete("/{project_id}")
 def delete_project(
     project_id: int,
@@ -4806,11 +4858,11 @@ async def update_scene_voiceover(
 #
 # Jobs are a real server-side FIFO queue (see services/avatar_queue.py): every
 # request below just inserts a "queued" row and returns immediately. A single
-# in-process dispatcher runs exactly one job at a time, strictly in the order
-# rows were created, across ALL projects and scenes — the shared OmniAvatar
-# Space is one GPU render slot, so there is no per-project concurrency to
-# reason about here anymore (no batch-start bookkeeping, no project-level
-# 409 — that reject-and-retry pattern is what this queue replaces).
+# in-process dispatcher claims the oldest queued rows across ALL projects and
+# scenes, up to AVATAR_CONCURRENCY renders at once, so there is no per-project
+# concurrency to reason about here anymore (no batch-start bookkeeping, no
+# project-level 409 — that reject-and-retry pattern is what this queue
+# replaces).
 
 _ACTIVE_AVATAR_STATUSES = ("queued", "running")
 
@@ -4848,12 +4900,12 @@ def _normalise_portrait(raw: bytes) -> bytes:
     """Make an uploaded presenter photo look like a bundled roster preset.
 
     The presets render reliably because of WHAT THEY ARE — opaque sRGB JPEGs at a
-    sane size — not because anything processes them. A custom upload reached
-    OmniAvatar completely untouched (this endpoint wrote `raw` straight to disk,
-    and the render service just writes the bytes it receives), so a phone photo
-    arrived tagged Display P3, possibly with an alpha channel and 4000px wide.
-    OmniAvatar reads raw pixels and assumes sRGB, which is why a custom avatar's
-    colour drifts through the clip while a preset never does.
+    sane size — not because anything processes them. A custom upload reached the
+    render service completely untouched (this endpoint wrote `raw` straight to
+    disk, and the render service just writes the bytes it receives), so a phone
+    photo arrived tagged Display P3, possibly with an alpha channel and 4000px
+    wide. The render service reads raw pixels and assumes sRGB, which is why a
+    custom avatar's colour drifts through the clip while a preset never does.
 
     Four things, in this order — the order is the substance:
 
@@ -4974,13 +5026,62 @@ def reap_orphaned_avatar_jobs() -> None:
     """Boot sweep: any active avatar job is orphaned (its process is gone).
 
     With --workers 1, a `queued`/`running` row at boot means the process that
-    owned it crashed or was restarted — nothing else could be running it. Left
-    alone, the row would just sit until STALL_THRESHOLD_AVATAR_SECONDS (70 min)
-    quietly makes the per-scene guard ignore it, without ever telling the user
-    or letting them retry immediately. Mark it failed-and-retryable instead, so
-    a fresh request or a Retry click works right away — matching the other
-    reap_orphaned_* sweeps run alongside this one at startup.
+    owned it crashed or was restarted — nothing else could be running it.
+
+    A restart is OUR fault, not the user's, so the goal is to deliver the avatar
+    they paid for rather than to hand the money back. The two statuses are very
+    different losses and are treated differently:
+
+      queued  — never started. No GPU time was spent and the row is still a
+                perfectly good queue entry, so it is LEFT ALONE: the dispatcher
+                claims it on its next tick (it only looks for status='queued')
+                and the render happens as if nothing had occurred. Failing these
+                was pure loss — a batch of five with one rendering lost the four
+                behind it to a restart that never touched them.
+
+      running — the render itself was lost. If the scene still has attempts left
+                it goes BACK TO 'queued' to resume, spending one of them, which
+                is exactly what the retry budget exists for. Only a scene that
+                has genuinely exhausted its attempts is failed, which lets the
+                refund sweep below close it out.
+
+    attempt_count is never fabricated here. It used to be slammed to
+    AVATAR_MAX_ATTEMPTS purely so the refund sweep would pick the row up, which
+    laundered "we restarted" into "you used all three attempts" — a scene killed
+    mid-first-render was stamped 3/3 and reported as having failed three times
+    without ever finishing one. The count now only ever records attempts that
+    really happened, and the refund follows from it honestly.
+
+    DISABLED 2026-08-10. This sweep cannot tell a dead render from a live one:
+    since renders moved to Modal the GPU job runs in a container that OUTLIVES
+    this process, so a restart kills the HTTP request waiting on the result, not
+    the render. Marking those rows failed refunded scenes that then completed
+    normally minutes later — 11 avatars across projects 1146/1155/1156 were
+    delivered AND refunded, and users were told "we couldn't generate" for
+    videos sitting on disk.
+
+    Leaving the rows untouched is strictly safer than guessing: a `queued` row
+    is still claimed by the dispatcher on its next tick, and a `running` row
+    whose render lands completes itself through the normal terminal path. The
+    only thing lost is cleanup of genuinely-dead rows, which now stay `running`
+    until someone clears them by hand — a stale row, not a wrong refund.
+
+    Refunds now happen ONLY through refund_exhausted_avatar_failures, i.e. when
+    a scene has really burned all AVATAR_MAX_ATTEMPTS attempts or died on a
+    terminal (retryable=False) error.
+
+    TO RE-ENABLE: delete the early return below. Do not re-enable without a way
+    to test whether a render is actually still alive (a Modal status endpoint,
+    or a heartbeat that stamps the job row — the current one only runs SELECT 1
+    to keep the connection pool warm and never touches the row).
     """
+    logger.info(
+        "[AVATAR_QUEUE] boot sweep: DISABLED — leaving any active avatar jobs "
+        "untouched (a Modal render outlives a restart; reaping them refunded "
+        "scenes that went on to succeed)."
+    )
+    return
+
     db = SessionLocal()
     try:
         jobs = (
@@ -4988,44 +5089,131 @@ def reap_orphaned_avatar_jobs() -> None:
             .filter(SceneAvatarJob.status.in_(_ACTIVE_AVATAR_STATUSES))
             .all()
         )
+        max_attempts = int(settings.AVATAR_MAX_ATTEMPTS)
+        resumed = 0
+        exhausted: list[SceneAvatarJob] = []
+        # Wall-clock at sweep time, so every line below can report how old a row
+        # was when this boot decided its fate. Renders now run on Modal, whose
+        # container outlives THIS process — a restart kills the HTTP request
+        # waiting on the result, not the render — so "how long had this been
+        # going?" is the fact needed to tell an orphan from a live job.
+        boot_time = datetime.utcnow()
+        logger.info(
+            "[AVATAR_QUEUE] boot sweep: START at %s — %d active job(s) to inspect: %s",
+            boot_time, len(jobs), [j.id for j in jobs] or "none",
+        )
         for job in jobs:
             try:
+                age_min = (
+                    (boot_time - job.created_at).total_seconds() / 60
+                    if job.created_at else float("nan")
+                )
+                # Log EVERY row before deciding, including its age relative to
+                # this boot, so the transcript answers "was this job created
+                # before or after the restart?" without a debugger.
+                logger.info(
+                    "[AVATAR_QUEUE] boot sweep: INSPECT job %s scene=%s project=%s "
+                    "status=%s kind=%s attempts=%s/%s created=%s (%.1f min before "
+                    "this boot) refunded=%s",
+                    job.id, job.scene_id, job.project_id, job.status, job.kind,
+                    job.attempt_count, max_attempts, job.created_at, age_min,
+                    job.credits_refunded,
+                )
+                # Never started — leave it queued and let the dispatcher take it.
+                if job.status == "queued":
+                    logger.info(
+                        "[AVATAR_QUEUE] boot sweep: LEFT QUEUED job %s (scene=%s) "
+                        "— never started, dispatcher will claim it",
+                        job.id, job.scene_id,
+                    )
+                    continue
+                # Mid-render, but the scene has budget left: resume it. The count
+                # already includes the attempt that just died (the dispatcher
+                # persists it BEFORE each try, see _set_attempt), so no adjustment
+                # is needed here — this is simply the next attempt starting.
+                if (job.attempt_count or 0) < max_attempts:
+                    job.status = "queued"
+                    job.phase = None
+                    job.error_message = None
+                    job.retryable = None
+                    resumed += 1
+                    logger.info(
+                        "[AVATAR_QUEUE] boot sweep: RE-QUEUED job %s (scene=%s "
+                        "project=%s) — was running %.1f min, attempts %s/%s left",
+                        job.id, job.scene_id, job.project_id, age_min,
+                        job.attempt_count, max_attempts,
+                    )
+                    continue
+                # Out of attempts for real. Close it so the refund sweep pays out.
+                #
+                # WARNING not INFO: this is the decision a credit refund hangs
+                # off, and it is the one that has been wrong in practice — a
+                # Modal render that outlives the restart gets marked failed here
+                # and then completes minutes later, leaving the scene both
+                # delivered and refunded. Log what it was based on.
+                logger.warning(
+                    "[AVATAR_QUEUE] boot sweep: FAILING job %s (scene=%s project=%s) "
+                    "— was running %.1f min, attempts %s/%s exhausted. Marking "
+                    "failed; refund sweep will follow. If a Modal render is still "
+                    "in flight for this scene it will complete AFTER this point.",
+                    job.id, job.scene_id, job.project_id, age_min,
+                    job.attempt_count, max_attempts,
+                )
                 job.status = "failed"
                 job.phase = None
                 job.error_message = "Server restarted during processing."
-                # `retryable` records that the ERROR CLASS was transient, which is
-                # true — a restart says nothing about the render. It is a
-                # diagnostic, not a permission: the refund sweep below closes
-                # these out and credits_refunded is what actually blocks them.
+                # DIAGNOSTIC: this string appears on jobs killed 75s into a
+                # render on a server that never restarted, while this function
+                # logged nothing — so confirm the write really originates here
+                # and record who called it.
+                import traceback as _tb
+                logger.warning(
+                    "[AVATAR_REAP_TRACE] job %s stamped 'Server restarted' from:\n%s",
+                    job.id, "".join(_tb.format_stack(limit=12)[:-1]),
+                )
+                # A restart IS a transient error class, and with the budget gone
+                # `attempt_count >= max` is what the refund sweep matches on, so
+                # this stays an honest diagnostic rather than being repurposed as
+                # a "row is closed" marker.
                 job.retryable = True
-                # Burn the budget. Nothing is coming back for these — the process
-                # that owned them is gone and no dispatcher saw them end — so
-                # leaving attempt_count as it was made them look retryable to the
-                # refund sweep and they would never be paid back. Marking them
-                # spent is what makes them eligible.
-                job.attempt_count = int(settings.AVATAR_MAX_ATTEMPTS)
                 job.completed_at = datetime.utcnow()
+                exhausted.append(job)
             except Exception:
                 logger.exception("[AVATAR_QUEUE] boot recovery failed for job=%s", job.id)
         db.commit()
-        if jobs:
-            logger.info("[AVATAR_QUEUE] boot sweep: reaped %d orphaned job(s)", len(jobs))
+        # One line naming every row this sweep actually wrote to, so the effect of
+        # a restart is greppable after the fact instead of having to diff the table.
+        logger.info(
+            "[AVATAR_QUEUE] boot sweep: DONE at %s — inspected %d, re-queued %d, "
+            "failed %d. Failed job ids=%s scene ids=%s",
+            boot_time, len(jobs), resumed, len(exhausted),
+            [j.id for j in exhausted] or "none",
+            [j.scene_id for j in exhausted] or "none",
+        )
+        if resumed:
+            logger.info("[AVATAR_QUEUE] boot sweep: resumed %d interrupted render(s)", resumed)
+        # Only the EXHAUSTED ones are owed anything — a resumed job is still going
+        # to run, and refunding it would pay the user back for an avatar they are
+        # about to receive.
+        if exhausted:
+            logger.info(
+                "[AVATAR_QUEUE] boot sweep: closed %d exhausted job(s)", len(exhausted)
+            )
 
             # Refund what the reap just killed for good.
             #
             # This is the ONE terminal path with no dispatcher running to notice
             # the batch ended — the process that owned those jobs is gone, so
             # nothing else will ever come back to them. Without this they would
-            # sit failed and paid-for indefinitely: they keep retryable=True and
-            # their attempt_count, so they do not even look "exhausted" to any
-            # later sweep.
+            # sit failed and paid-for indefinitely, since nothing else sweeps a
+            # project whose last job died with the process that owned it.
             #
             # Only the projects just touched, and the sweep no-ops on anything
             # already refunded, so a restart with nothing owed costs one query
             # per affected project.
             from app.services.avatar_queue import refund_exhausted_avatar_failures
 
-            for pid in {j.project_id for j in jobs}:
+            for pid in {j.project_id for j in exhausted}:
                 try:
                     refund_exhausted_avatar_failures(pid, db)
                     db.commit()
@@ -5046,10 +5234,23 @@ def authorize_avatar_batch(
     project_id: int,
     scene_ids: list[int] = Body(..., embed=True),
     avatar_preset: Optional[str] = Body(None, embed=True),
+    # subtle | natural | expressive | None — chosen alongside the presenter in
+    # AvatarBatchWizard's pick step. Unlike `provider` this IS persisted: it
+    # updates project.avatar_motion_style so it round-trips back to the wizard
+    # (and is what a later retry inherits via SceneAvatarJob.motion_style).
+    # None keeps whatever the project already has.
+    avatar_motion_style: Optional[str] = Body(None, embed=True),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Charge for a batch of avatars and unlock generation for this project.
+
+    Billed against the PLAN'S MONTHLY ALLOWANCE only: usage accumulates in
+    ``ai_edits_used_this_period`` against PLAN_AI_EDIT_ALLOWANCE, and the
+    purchased ``ai_edit_credits`` pool is never read or written here. A payer
+    whose remaining allowance cannot cover the whole batch is refused and told to
+    upgrade — there is no partial batch and no second pool to fall back on, so
+    FREE (allowance 0) cannot generate avatars at all.
 
     ONE charge for the whole batch, deliberately — not per scene. The wizard
     fans out N parallel POSTs to the per-scene endpoint, and consume_* is a
@@ -5075,9 +5276,16 @@ def authorize_avatar_batch(
         consume_avatar_credits,
         project_owner,
     )
+    from app.services.avatar_motion_styles import normalize_motion_style
     from app.services.avatar_presets import normalize_preset
 
     project = _get_user_project(project_id, user.id, db)
+    # An explicit choice from the wizard's pick step updates the project's
+    # setting (so it round-trips back and future batches/retries default to
+    # it); omitted, this batch simply uses whatever the project already has.
+    motion_style = normalize_motion_style(avatar_motion_style or project.avatar_motion_style)
+    if avatar_motion_style:
+        project.avatar_motion_style = motion_style
 
     # Only scenes that could actually render: active, with narration to lip-sync
     # to, and no clip yet. Recomputed here rather than trusted from the client —
@@ -5096,6 +5304,32 @@ def authorize_avatar_batch(
         )
         .distinct()
     }
+    # Scenes whose MOST RECENT job failed for good (exhausted attempts, or a
+    # terminal error) but has NOT been refunded YET are also OUT — same reason
+    # as refunded_scene_ids, one step earlier. Without this, a second
+    # authorize call landing before the refund sweep has processed the first
+    # batch's failure re-charges a scene that is already dead, stacking a
+    # second charge on a scene that was never going to render either time.
+    # Confirmed live: this is exactly how project 1242 ended up charged twice
+    # for 5 scenes and refunded zero — see avatar_queue.py's
+    # _failed_for_good_predicate / _on_batch_settled docstring.
+    from app.services.avatar_queue import _failed_for_good_predicate, _max_attempts
+
+    latest_job_ids_subq = (
+        db.query(func.max(SceneAvatarJob.id))
+        .filter(SceneAvatarJob.project_id == project_id, SceneAvatarJob.kind == "render")
+        .group_by(SceneAvatarJob.scene_id)
+        .subquery()
+    )
+    awaiting_refund_scene_ids = {
+        sid
+        for (sid,) in db.query(SceneAvatarJob.scene_id)
+        .filter(
+            SceneAvatarJob.id.in_(select(latest_job_ids_subq)),
+            _failed_for_good_predicate(_max_attempts()),
+        )
+        .distinct()
+    }
     eligible = (
         db.query(Scene)
         .filter(
@@ -5108,6 +5342,8 @@ def authorize_avatar_batch(
     )
     if refunded_scene_ids:
         eligible = [s for s in eligible if s.id not in refunded_scene_ids]
+    if awaiting_refund_scene_ids:
+        eligible = [s for s in eligible if s.id not in awaiting_refund_scene_ids]
     # …and whose audio is actually reachable. A path column that points at a
     # file no container still has is not something we may charge for: that is
     # exactly how a paid batch used to end up with zero renders.
@@ -5172,6 +5408,10 @@ def authorize_avatar_batch(
     # connection) left the user charged with nothing queued and no way to tell,
     # because the boolean below is the only thing the UI resumes from. Creating
     # the rows here removes the window: the credits cannot land without them.
+    # One id for every row this call creates — see SceneAvatarJob.batch_id.
+    # Lets _on_batch_settled / refund_exhausted_avatar_failures ask "is THIS
+    # run done" instead of guessing from project-wide state.
+    batch_id = str(uuid.uuid4())
     scene_by_id = {s.id: s for s in eligible}
     jobs = []
     for sid in requested:
@@ -5188,11 +5428,20 @@ def authorize_avatar_batch(
             status="queued",
             kind="render",
             avatar_preset=scene.avatar_preset,
+            motion_style=motion_style,
+            batch_id=batch_id,
             # An explicit, paid-for request starts with a full retry budget.
             attempt_count=0,
         ))
 
-    consume_avatar_credits(payer, len(requested))
+    # Charge for the jobs actually CREATED, not for everything requested. The loop
+    # above skips any scene already in flight, and that scene was paid for when it
+    # was queued — billing it again here charged the user twice for one render.
+    # The affordability gate above deliberately stays on len(requested): it runs
+    # before the loop and is the conservative bound.
+    charged_scenes = len(jobs)
+    cost = charged_scenes * AVATAR_CREDIT_COST_PER_SCENE
+    consume_avatar_credits(payer, charged_scenes)
     # Persisted so a mid-batch reload doesn't re-show the paywall.
     project.avatar_batch_unlocked = True
     db.add_all(jobs)
@@ -5257,6 +5506,7 @@ def generate_scene_avatar(
         )
 
     from app.services.access import project_owner
+    from app.services.avatar_motion_styles import normalize_motion_style
     from app.services.avatar_presets import normalize_preset
 
     _assert_can_generate_avatar(project_owner(project, db), project, db)
@@ -5288,6 +5538,9 @@ def generate_scene_avatar(
         user_id=user.id,
         status="queued",
         avatar_preset=preset,
+        motion_style=normalize_motion_style(project.avatar_motion_style),
+        # A batch of one — see SceneAvatarJob.batch_id.
+        batch_id=str(uuid.uuid4()),
         # A deliberate human click RESETS the per-scene attempt budget (unlike
         # the bulk retry endpoint, which inherits it). The service being down an
         # hour ago must never refuse a render that would succeed now.
@@ -5595,6 +5848,11 @@ def retry_failed_scene_avatars(
     # Scenes closed out by a refund — reported separately so the UI can say
     # "we returned your credits" instead of "try again".
     blocked_refunded = 0
+    # One id for every row THIS call creates — its own coherent run, not
+    # inherited from whichever original batch(es) each retried scene came
+    # from (there may be several, so there is no single "original" to
+    # attribute to). See SceneAvatarJob.batch_id.
+    batch_id = str(uuid.uuid4())
     for (scene_id,) in scene_ids_with_jobs:
         latest = (
             db.query(SceneAvatarJob)
@@ -5633,6 +5891,11 @@ def retry_failed_scene_avatars(
             status="queued",
             kind=latest.kind,
             avatar_preset=latest.avatar_preset,
+            # INHERIT the failed job's own style, not the project's current
+            # setting — a retry must reproduce the original render, not
+            # silently switch styles if the project default changed since.
+            motion_style=latest.motion_style,
+            batch_id=batch_id,
             # INHERIT the tally — the dispatcher resumes counting from here
             # rather than restarting at 1.
             attempt_count=latest.attempt_count or 0,

@@ -151,35 +151,51 @@ class Settings(BaseSettings):
     R2_PUBLIC_URL: str = ""  # e.g. https://media.yourdomain.com or https://pub-xxx.r2.dev
     R2_KEY_PREFIX: str = ""  # Set to "dev" (or any string) locally to avoid overwriting production R2 data
 
-    # Talking-head avatar service (self-hosted OmniAvatar on Modal serverless GPU).
+    # Talking-head avatar service (self-hosted LongCat on Modal serverless GPU).
     # Avatars are per-scene and on demand: the user asks for one from the Scene Edit
     # modal, which renders that scene's voiceover into a lip-synced clip via this
     # service and overlays it. See services/avatar.py.
     # AVATAR_ENABLED=False makes the generate endpoint fail with a clear message.
     #
-    # The provider is Modal serverless GPU (modal-service/omniavatar/). It replaced
-    # a self-hosted HuggingFace Space on 2026-08-02; the Space and its settings
-    # (AVATAR_SERVICE_HF_TOKEN, AVATAR_PREPARE_TIMEOUT_SECONDS) were deleted on
-    # 2026-08-07, so there is no longer a rollback target in this repo.
+    # The provider is Modal serverless GPU (modal-service/longcat-avatar/). It
+    # replaced a self-hosted HuggingFace Space on 2026-08-02; the Space and its
+    # settings (AVATAR_SERVICE_HF_TOKEN, AVATAR_PREPARE_TIMEOUT_SECONDS) were
+    # deleted on 2026-08-07, so there is no longer a rollback target in this repo.
     AVATAR_ENABLED: bool = True
-    # Modal workspace `hstyle622`. The default is the REAL deployment, not a
+    # Modal workspace `h-raheel622`. The default is the REAL deployment, not a
     # placeholder, so a container without the env var set still reaches a live
-    # service — the previous default pointed at the h-raheel622 workspace, which
-    # is disabled and answers every request with
-    # "modal-http: workspace ... is disabled".
+    # service.
     #
     # Redeploying to a different Modal workspace CHANGES THIS HOSTNAME (it is
     # derived from the workspace name), so it has to be updated here and in every
     # deployed environment's env.
     AVATAR_SERVICE_URL: str = os.environ.get(
         "AVATAR_SERVICE_URL",
-        "https://hstyle622--omniavatar-omniavatarservice-web.modal.run",
+        "https://h-raheel622--longcat-avatar-eval-longcatavatarservice-web.modal.run",
     )
     AVATAR_SERVICE_SECRET: str = ""       # X-Avatar-Key shared secret (matches the provider's secret)
+
     # How long a job will wait for a cold service to come up before giving up.
-    # A Modal cold start is a container schedule plus mounting the weights Volume.
-    # 15 min is generous headroom; polling is cheap GETs, so a long wait costs
-    # nothing and the GPU only bills once it is actually up.
+    # A Modal cold start is a container schedule plus mounting the weights Volume:
+    # ~6s measured, because the weights live on the Volume instead of being
+    # downloaded per boot (see modal-service/longcat-avatar/app.py).
+    #
+    # RESTORED TO 900 on 2026-08-10. The ~6s figure above holds only when Modal
+    # can schedule a GPU immediately, which is not something this side controls.
+    # Measured on 2026-08-10 against arslan-29835: /ping took 68-111s cold, and
+    # the app logs reported
+    #     "waiting to be scheduled on a GPU_L40S worker — we are actively
+    #      working on acquiring more capacity for your workload"
+    # i.e. the wait is GPU-QUEUEING time at the provider, not container boot.
+    # Under 180s every scene in projects 1157/1158 died in phase
+    # "starting_service" at ~3m54s having never reached the GPU, and each was
+    # then reported to the user as a failure with its credits refunded.
+    #
+    # The 45-minute-spinner concern the 180 was chosen for is handled elsewhere:
+    # a recognised outage still short-circuits in seconds via
+    # avatar.py's _is_workspace_disabled. This ceiling only bounds the
+    # UNRECOGNISED case, where waiting is strictly better than telling a user
+    # their render failed while the provider is still queueing it.
     AVATAR_SERVICE_WAIT_SECONDS: int = int(
         os.environ.get("AVATAR_SERVICE_WAIT_SECONDS", "900")
     )
@@ -188,7 +204,7 @@ class Settings(BaseSettings):
     )
     # How many RENDERS may be in flight at once — this governs kind="render"
     # only (see AVATAR_MATTE_CONCURRENCY below for cutouts). MUST NOT exceed the
-    # provider's own ceiling (`max_containers` in modal-service/omniavatar/app.py,
+    # provider's own ceiling (`max_containers` in modal-service/longcat-avatar/app.py,
     # default 5) or the surplus jobs just queue AT THE PROVIDER while holding a
     # `running` row here — invisible from this side, since the dispatcher only
     # counts its own outstanding requests and never queries provider capacity.
@@ -245,7 +261,7 @@ class Settings(BaseSettings):
     # refuses independently (MATTE_DISABLED there), which is what makes this safe
     # to flip back on its own without a redeploy having any effect yet.
     # TO RE-ENABLE: restore the "true" default here AND set MATTE_DISABLED = False
-    # in modal-service/omniavatar/app.py, then redeploy that app.
+    # in modal-service/longcat-avatar/app.py, then redeploy that app.
     AVATAR_INLINE_MATTE: bool = (
         os.environ.get("AVATAR_INLINE_MATTE", "false").lower() != "false"
     )

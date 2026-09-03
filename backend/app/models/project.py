@@ -159,6 +159,13 @@ class Project(Base):
     avatar_bg: Mapped[str | None] = mapped_column(String(16), nullable=True)
     # Overlay opacity, 0.2-1.0 (mirrors logo_opacity). 1.0 = fully opaque.
     avatar_opacity: Mapped[float] = mapped_column(Float, default=1.0)
+    # How much the rendered presenter moves: subtle | natural | expressive — see
+    # services/avatar_motion_styles.py. Project-wide ONLY, unlike avatar_shape/
+    # _size/_position/_opacity above: there is deliberately no per-scene
+    # override, so this has no Scene-model counterpart and is read straight off
+    # this column when a batch/scene render job is created. Default matches the
+    # prompt every project rendered with before this setting existed.
+    avatar_motion_style: Mapped[str] = mapped_column(String(16), default="expressive")
     # A presenter portrait the user uploaded instead of picking from the roster.
     # Local MEDIA_DIR path; the R2 copy lives on an AssetType.AVATAR asset row.
     # When set, a scene whose avatar_preset == CUSTOM_PRESET_ID renders from this

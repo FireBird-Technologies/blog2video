@@ -22,6 +22,7 @@ def _normalize_caption_position(v: Optional[str]) -> Optional[str]:
 
 VALID_AVATAR_SHAPES = {"circle", "rounded", "square"}
 VALID_AVATAR_POSITIONS = {"top_left", "top_right", "bottom_left", "bottom_right"}
+VALID_AVATAR_MOTION_STYLES = {"subtle", "natural", "expressive"}
 MIN_AVATAR_SIZE = 0.10
 MAX_AVATAR_SIZE = 0.32
 # Floor rather than 0.0: a fully invisible avatar is indistinguishable from a
@@ -80,6 +81,15 @@ def _normalize_avatar_position(v: Optional[str]) -> Optional[str]:
             "avatar_position must be one of 'top_left', 'top_right', "
             "'bottom_left', 'bottom_right'"
         )
+    return n
+
+
+def _normalize_avatar_motion_style(v: Optional[str]) -> Optional[str]:
+    if v is None:
+        return None
+    n = (v or "").strip().lower()
+    if n not in VALID_AVATAR_MOTION_STYLES:
+        raise ValueError("avatar_motion_style must be 'subtle', 'natural' or 'expressive'")
     return n
 
 
@@ -170,11 +180,17 @@ class ProjectCreate(BaseModel):
     avatar_position: Optional[str] = "bottom_left"
     avatar_bg: Optional[str] = None              # None | "transparent" | "#RRGGBB"
     avatar_opacity: Optional[float] = 1.0        # 0.2 - 1.0
+    avatar_motion_style: Optional[str] = "expressive"  # subtle | natural | expressive
 
     @field_validator("avatar_shape")
     @classmethod
     def validate_create_avatar_shape(cls, v: Optional[str]) -> Optional[str]:
         return _normalize_avatar_shape(v)
+
+    @field_validator("avatar_motion_style")
+    @classmethod
+    def validate_create_avatar_motion_style(cls, v: Optional[str]) -> Optional[str]:
+        return _normalize_avatar_motion_style(v)
 
     @field_validator("avatar_position")
     @classmethod
@@ -243,6 +259,7 @@ class ProjectUpdate(BaseModel):
     # fields allowed to be nulled — see the field loop in routers/projects.py.
     avatar_bg: Optional[str] = None
     avatar_opacity: Optional[float] = None
+    avatar_motion_style: Optional[str] = None  # subtle | natural | expressive
     # Set once the placeholder $5 batch-generation paywall has been cleared.
     avatar_batch_unlocked: Optional[bool] = None
 
@@ -250,6 +267,11 @@ class ProjectUpdate(BaseModel):
     @classmethod
     def validate_update_avatar_shape(cls, v: Optional[str]) -> Optional[str]:
         return _normalize_avatar_shape(v)
+
+    @field_validator("avatar_motion_style")
+    @classmethod
+    def validate_update_avatar_motion_style(cls, v: Optional[str]) -> Optional[str]:
+        return _normalize_avatar_motion_style(v)
 
     @field_validator("avatar_position")
     @classmethod
@@ -635,6 +657,7 @@ class ProjectOut(BaseModel):
     avatar_position: str = "bottom_left"
     avatar_bg: Optional[str] = None
     avatar_opacity: float = 1.0
+    avatar_motion_style: str = "expressive"
     # The user's uploaded presenter portrait (URL only — the server path is not
     # the client's business). Null means they are using the built-in roster.
     avatar_custom_image_url: Optional[str] = None

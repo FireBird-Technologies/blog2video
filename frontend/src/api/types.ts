@@ -7,6 +7,12 @@ export type AvatarCorner =
   | "bottom_right";
 
 /**
+ * How much the rendered presenter moves. Project-wide only — unlike shape/
+ * size/position/opacity there is deliberately no per-scene override.
+ */
+export type AvatarMotionStyle = "subtle" | "natural" | "expressive";
+
+/**
  * What sits behind the presenter.
  *   null           PROJECT: keep the portrait's own photographic background.
  *                  SCENE:   inherit whatever the project says.

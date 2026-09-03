@@ -207,6 +207,13 @@ def refund_avatar_credits(db: Session, payer_user_id: int, scene_count: int) -> 
 
     The inverse of consume_avatar_credits, with two deliberate differences.
 
+    ALLOWANCE ONLY, exactly inverting consume_avatar_credits: the refund
+    SUBTRACTS from ``ai_edits_used_this_period``, giving the user back the
+    expenditure they were charged. ``ai_edit_credits`` is a different-purpose
+    pool and is NEVER credited here — doing so would mint permanent purchased
+    credits out of allowance-funded spend. Do not reuse refund_ai_edit, which
+    does exactly that once the period counter runs out.
+
     ATOMIC, unlike the charge. consume_avatar_credits mutates the ORM object and
     is documented-accepted non-atomic, but this runs from a WORKER THREAD on its
     own session: a read-modify-write here would race a concurrent
@@ -229,11 +236,28 @@ def refund_avatar_credits(db: Session, payer_user_id: int, scene_count: int) -> 
     Does not commit — the caller owns the transaction, so the counter change and
     the credits_refunded flags land together or not at all.
 
-    Returns the number of credits returned (0 if scene_count <= 0).
+    Returns the credits nominally refunded (0 if scene_count <= 0).
     """
     if scene_count <= 0:
         return 0
     amount = scene_count * AVATAR_CREDIT_COST_PER_SCENE
+    # DIAGNOSTIC: name the caller. Refunds have been firing for scenes that were
+    # still rendering, and the two paths that should be responsible (the boot
+    # reaper and the batch-settled sweep) both logged nothing for those events —
+    # so the actual origin is still unidentified. A stack snippet here cannot be
+    # bypassed by whichever path it turns out to be.
+    import logging, traceback
+    logging.getLogger(__name__).warning(
+        "[AVATAR_REFUND] refund_avatar_credits(user=%s, scenes=%s, amount=%s) "
+        "called from:\n%s",
+        payer_user_id, scene_count, amount,
+        "".join(traceback.format_stack(limit=12)[:-1]),
+    )
+    used = User.ai_edits_used_this_period
+    # CASE rather than func.max/greatest: portable across SQLite (dev) and
+    # Postgres, which disagree on the name and arity of the scalar max.
+    # min(amount, used) — never drive the counter below zero.
+    give_back = case((used < amount, used), else_=amount)
     db.execute(
         update(User)
         .where(User.id == payer_user_id)
