@@ -1,0 +1,342 @@
+import React from "react";
+import {
+  AbsoluteFill,
+  interpolate,
+  useCurrentFrame,
+  spring,
+  useVideoConfig,
+} from "remotion";
+import { SceneLayoutProps } from "../types";
+import { AnimatedImage } from "./AnimatedImage";
+import { AnimatedVideo } from "./AnimatedVideo";
+import { GeometricBackground } from "../components/GeometricBackground";
+import { useFitText } from "../components/useFitText";
+
+export const HeroImage: React.FC<SceneLayoutProps> = (props) => {
+  const {
+    title,
+    narration,
+    imageUrl,
+    imageObjectPosition,
+  imageZoom,
+    videoUrl,
+    videoMuted,
+    videoVolume,
+    videoDurationInFrames,
+    videoStartInFrames,
+    accentColor,
+    bgColor,
+    textColor,
+    aspectRatio,
+    titleFontSize,
+    descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
+    fontFamily,
+    sceneIndex,
+  } = props;
+
+  const frame = useCurrentFrame();
+  const fps = 30;
+  const { durationInFrames, width, height } = useVideoConfig();
+  const isPortrait = aspectRatio === "portrait";
+  const hasImage = !!imageUrl || !!videoUrl;
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input. The content column is
+     centred with no height limit of its own (padding: 80px on all sides), so
+     long copy just grows past the frame and is clipped by overflow:hidden.
+     Fit the title to its own budget first, then narration to what's left; a
+     residual overflow at the narration's floor shrinks the title further
+     (same cascade as NewsHeadline in the newspaper template). A size the user
+     explicitly picked is honored exactly (minPx === targetPx no-ops). */
+  const titleRef = React.useRef<HTMLHeadingElement>(null);
+  const narrationRef = React.useRef<HTMLParagraphElement>(null);
+
+  const actualTitleFontSize = titleFontSize ?? 76;
+  const actualDescriptionFontSize = descriptionFontSize ?? 40;
+
+  const titleBudgetPx = Math.round(height * (hasImage ? 0.34 : 0.3));
+  const [titleGiveBackPx, setTitleGiveBackPx] = React.useState(0);
+  React.useLayoutEffect(() => {
+    setTitleGiveBackPx(0);
+  }, [title, narration, actualTitleFontSize, actualDescriptionFontSize, titleBudgetPx, hasImage]);
+
+  const { px: titlePx } = useFitText(
+    titleRef,
+    actualTitleFontSize,
+    titleFontSizeIsUserSet ? actualTitleFontSize : 34,
+    [title, actualTitleFontSize, titleFontSizeIsUserSet, titleBudgetPx, titleGiveBackPx, hasImage],
+    Math.max(1, titleBudgetPx - titleGiveBackPx),
+  );
+
+  const narrationBudgetPx = Math.round(height * (hasImage ? 0.28 : 0.4));
+  const { px: narrationPx, overflowPx: narrationOverflowPx } = useFitText(
+    narrationRef,
+    actualDescriptionFontSize,
+    descriptionFontSizeIsUserSet ? actualDescriptionFontSize : 18,
+    [narration, actualDescriptionFontSize, descriptionFontSizeIsUserSet, titlePx, narrationBudgetPx, hasImage],
+    narrationBudgetPx,
+  );
+
+  React.useLayoutEffect(() => {
+    if (titleFontSizeIsUserSet) return;
+    if (narrationOverflowPx > 0) {
+      setTitleGiveBackPx((prev) => prev + narrationOverflowPx);
+    }
+  }, [narrationOverflowPx, titleFontSizeIsUserSet]);
+
+  // --- ENTRANCE ANIMATIONS ---
+  const contentEntranceDelay = 10;
+  const contentSpringVal = spring({
+    frame: frame - contentEntranceDelay,
+    fps,
+    config: { damping: 40, stiffness: 80, mass: 1 },
+  });
+  const contentOpacity = interpolate(contentSpringVal, [0, 1], [0, 1], {
+    extrapolateRight: "clamp",
+  });
+  const contentScale = interpolate(contentSpringVal, [0, 1], [0.98, 1], {
+    extrapolateRight: "clamp",
+  });
+
+  // --- PLANE MOTION LOGIC ---
+  // We use sine and cosine to create a circular/elliptical path
+  const radiusX = isPortrait ? width * 0.45 : width * 0.24;
+  const radiusY = isPortrait ? height * 0.25 : height * 0.32;
+  const speed = frame * 0.05; // Adjust speed here
+
+  const planeX = Math.cos(speed) * radiusX;
+  const planeY = Math.sin(speed) * radiusY;
+  
+  // Calculate rotation so the plane "steers" into the curve
+  const angle = (Math.atan2(Math.cos(speed), -Math.sin(speed)) * 180) / Math.PI;
+
+  // --- VANISH / EXIT ANIMATIONS ---
+  const vanishDurationFrames = 30;
+  const vanishStartFrame = durationInFrames - vanishDurationFrames;
+  const vanishSpringVal = spring({
+    frame: frame - vanishStartFrame,
+    fps,
+    config: { damping: 40, stiffness: 80, mass: 1 },
+  });
+
+  // The Plane flies "out" of the screen (scales up significantly)
+  const planeExitScale = interpolate(vanishSpringVal, [0, 1], [1, 15], {
+    extrapolateRight: "clamp",
+  });
+  const planeExitOpacity = interpolate(vanishSpringVal, [0.8, 1], [1, 0]);
+
+  // Layout Vanish logic
+  const imageHalfTranslate = hasImage
+    ? interpolate(vanishSpringVal, [0, 1], [0, isPortrait ? -height : -width])
+    : 0;
+  const contentHalfTranslate = hasImage
+    ? interpolate(vanishSpringVal, [0, 1], [0, isPortrait ? height : width])
+    : 0;
+  const vanishItemOpacity = interpolate(vanishSpringVal, [0, 1], [1, 0]);
+  const vanishItemScale = interpolate(vanishSpringVal, [0, 1], [1, 0.8]);
+
+  // Title Vanish (Zoom in)
+  const titleVanishStart = durationInFrames - 20;
+  const titleVanishSpring = spring({
+    frame: frame - titleVanishStart,
+    fps,
+    config: { damping: 10, stiffness: 100, mass: 0.5 },
+  });
+  const titleVanishScale = interpolate(titleVanishSpring, [0, 1], [1, 10], {
+    extrapolateRight: "clamp",
+  });
+  const titleVanishOpacity = interpolate(titleVanishSpring, [0, 1], [1, 0], {
+    extrapolateRight: "clamp",
+  });
+
+  return (
+    <AbsoluteFill
+      style={{
+        backgroundColor: bgColor || "#F0F0F0",
+        display: "flex",
+        flexDirection: hasImage ? (isPortrait ? "column" : "row") : "column",
+        overflow: "hidden",
+      }}
+    >
+      <GeometricBackground accentColor={accentColor || "#6366F1"} frame={frame} sceneIndex={sceneIndex} />
+      {/* IMAGE SECTION */}
+      {hasImage && (
+        <div
+          style={{
+            flex: 1,
+            minWidth: 0,
+            minHeight: 0,
+            position: "relative",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            overflow: "hidden",
+            transform: `${
+              isPortrait
+                ? `translateY(${imageHalfTranslate}px)`
+                : `translateX(${imageHalfTranslate}px)`
+            } scale(${contentScale})`,
+            opacity: contentOpacity,
+          }}
+        >
+          <AbsoluteFill
+            style={{
+              overflow: "hidden",
+              transform: `scale(${
+                interpolate(
+                  spring({ frame, fps, config: { damping: 200 } }),
+                  [0, 1],
+                  [1.1, 1]
+                ) * vanishItemScale
+              })`,
+              opacity: vanishItemOpacity,
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                overflow: "hidden",
+              }}
+            >
+              {videoUrl ? (
+                <AnimatedVideo
+                  src={videoUrl}
+                  muted={videoMuted ?? true}
+                  volume={videoVolume ?? 0.35}
+                  durationInFrames={videoDurationInFrames}
+                  startInFrames={videoStartInFrames}
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    top: 0,
+                    width: "100%",
+                    height: "100%",
+                    objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
+                    objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
+                    transform: `scale(${imageZoom ?? 1})`,
+                    transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
+                  }}
+                />
+              ) : (
+                <AnimatedImage
+                  src={imageUrl!}
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    top: 0,
+                    width: "100%",
+                    height: "100%",
+                    objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
+                    objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
+                    transform: `scale(${imageZoom ?? 1})`,
+                    transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
+                  }}
+                />
+              )}
+            </div>
+          </AbsoluteFill>
+        </div>
+      )}
+
+      {/* CONTENT SECTION */}
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          padding: "80px",
+          position: "relative",
+          transform: `${
+            isPortrait
+              ? `translateY(${contentHalfTranslate}px)`
+              : `translateX(${contentHalfTranslate}px)`
+          } scale(${contentScale * (!hasImage ? vanishItemScale : 1)})`,
+          opacity: contentOpacity * (!hasImage ? vanishItemOpacity : 1),
+        }}
+      >
+        {/* --- THE MOVING PLANE --- */}
+        <div
+          style={{
+            position: "absolute",
+            zIndex: 100,
+            transform: `translate(${planeX}px, ${planeY}px) rotate(${angle}deg) scale(${planeExitScale})`,
+            opacity: planeExitOpacity,
+            filter: "drop-shadow(0 10px 10px rgba(0,0,0,0.2))",
+          }}
+        >
+          <svg
+            width="60"
+            height="60"
+            viewBox="0 0 24 24"
+            fill={accentColor || "#000"}
+            style={{ transform: "rotate(90deg)" }} // Adjust based on SVG orientation
+          >
+            <path d="M21,16L21,14L13,9L13,3.5A1.5,1.5 0 0,0 11.5,2A1.5,1.5 0 0,0 10,3.5V9L2,14V16L10,13.5V19L8,20.5V22L11.5,21L15,22V20.5L13,19V13.5L21,16Z" />
+          </svg>
+        </div>
+
+        <div style={{ textAlign: "center", maxWidth: "90%", maxHeight: "100%", zIndex: 10, display: "flex", flexDirection: "column", minHeight: 0 }}>
+          <h1
+            ref={titleRef}
+            style={{
+              fontFamily: fontFamily ?? "'Roboto Slab', serif",
+              fontSize: titlePx,
+              fontWeight: 800,
+              lineHeight: 1.1,
+              color: textColor || "black",
+              margin: 0,
+              textTransform: "uppercase",
+              transform: `scale(${hasImage ? titleVanishScale : 1})`,
+              opacity: hasImage ? titleVanishOpacity : 1,
+              flexShrink: 0,
+            }}
+          >
+            {title}
+          </h1>
+
+          <div
+            style={{
+              height: 5,
+              width: interpolate(
+                spring({ frame: frame - (contentEntranceDelay + 10), fps }),
+                [0, 1],
+                [0, 250]
+              ),
+              backgroundColor: accentColor || textColor || "black",
+              margin: "20px auto",
+              borderRadius: 2,
+              transform: `scale(${hasImage ? vanishItemScale : 1})`,
+              opacity: hasImage ? vanishItemOpacity : 1,
+            }}
+          />
+
+          {narration && (
+            <p
+              ref={narrationRef}
+              style={{
+                fontFamily: fontFamily ?? "'Roboto Slab', serif",
+                fontSize: narrationPx,
+                fontWeight: 400,
+                lineHeight: 1.4,
+                color: textColor || "black",
+                margin: "30px auto 0 auto",
+                maxWidth: "40ch",
+                transform: `scale(${hasImage ? vanishItemScale : 1})`,
+                opacity: hasImage ? vanishItemOpacity : 1,
+                flex: "0 1 auto",
+                minHeight: 0,
+                overflow: "hidden",
+              }}
+            >
+              {narration}
+            </p>
+          )}
+        </div>
+      </div>
+    </AbsoluteFill>
+  );
+};

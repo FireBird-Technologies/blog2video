@@ -10,6 +10,7 @@ import { LogoOverlay } from "../LogoOverlay";
 import { BackgroundMusic } from "../BackgroundMusic";
 import { CaptionTrack } from "../CaptionTrack";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
+import type { CompositionSchedule, SceneScheduleEntry } from "../sceneSchedule";
 
 export interface MatrixSceneInput {
   id: number;
@@ -65,6 +66,49 @@ export interface MatrixVideoCompositionProps {
   captionOffset?: number;
 }
 
+/**
+ * The composition's real timeline: transitions in a TransitionSeries OVERLAP their
+ * neighbours, so each scene starts earlier than a back-to-back sum implies.
+ *
+ * Single source of truth — the component renders from this, and slide export reads
+ * it too, so a slide can never be sampled from the wrong scene.
+ */
+export const computeMatrixSchedule = (
+  scenes: MatrixSceneInput[],
+  playbackSpeed?: number,
+  aspectRatio?: string,
+): CompositionSchedule => {
+  const FPS = 30;
+  if (scenes.length === 0) return { scenes: [], totalFrames: FPS * 5 };
+
+  const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
+  const isPortrait = aspectRatio === "portrait";
+  const w = isPortrait ? 1080 : 1920;
+  const h = isPortrait ? 1920 : 1080;
+
+  const durations = scenes.map((s) =>
+    getSceneDurationFrames(s.durationSeconds, FPS, resolvedPlaybackSpeed),
+  );
+  const transitionAt = (i: number) =>
+    i >= 0 && i < scenes.length - 1
+      ? pickMatrixTransition(i, scenes[i].layout, scenes[i + 1].layout, w, h).frames
+      : 0;
+
+  const entries: SceneScheduleEntry[] = [];
+  let running = 0;
+  durations.forEach((duration, i) => {
+    entries.push({
+      start: running,
+      duration,
+      enterFrames: transitionAt(i - 1),
+      exitFrames: transitionAt(i),
+    });
+    running += duration - transitionAt(i);
+  });
+
+  return { scenes: entries, totalFrames: Math.max(running, FPS * 5) };
+};
+
 export const MatrixVideoComposition: React.FC<
   MatrixVideoCompositionProps
 > = ({
@@ -97,22 +141,13 @@ export const MatrixVideoComposition: React.FC<
     getSceneDurationFrames(s.durationSeconds, FPS, resolvedPlaybackSpeed),
   );
 
-  // Scene start frames accounting for transition overlap (audio sync).
-  const sceneStartFrames: number[] = [];
-  let runningFrame = 0;
-  scenes.forEach((_, i) => {
-    sceneStartFrames[i] = runningFrame;
-    runningFrame += sceneFrames[i];
-    if (i < scenes.length - 1) {
-      runningFrame -= pickMatrixTransition(
-        i,
-        scenes[i].layout,
-        scenes[i + 1].layout,
-        w,
-        h,
-      ).frames;
-    }
-  });
+  // Scene start frames (audio sync) come from the shared schedule, so the render
+  // and slide export cannot disagree about where a scene begins.
+  const sceneStartFrames = computeMatrixSchedule(
+    scenes,
+    playbackSpeed,
+    aspectRatio,
+  ).scenes.map((s) => s.start);
 
   const buildLayoutProps = (scene: MatrixSceneInput): MatrixLayoutProps => ({
     ...scene.layoutProps,

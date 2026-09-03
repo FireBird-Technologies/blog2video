@@ -1,0 +1,281 @@
+import React from "react";
+import { useVideoConfig, interpolate } from "remotion";
+import { SceneLayoutProps } from "../types";
+import { useFitText } from "../components/useFitText";
+import {
+  MagazinePage,
+  Halftone,
+  QuoteGlyph,
+  OptionalImg,
+  WrittenText,
+  Typewriter,
+  MAG_DISPLAY,
+  MAG_SANS,
+  resolveMagColors,
+  isPortrait,
+  hexToRgba,
+  useReveal,
+  useMagFrame,
+} from "../magazineStyle";
+
+/**
+ * Editorial pull quote — an asymmetric "bleed-quote" page. An oversized accent
+ * quotation mark bleeds off the top-left corner, a vertical accent rail grows
+ * down the left margin, and the statement is set large and left-aligned, anchored
+ * toward the lower-left. The attribution runs as vertical marginalia up the right
+ * edge (landscape) or beneath the quote (portrait). Deliberately off-centre so it
+ * never reads like the centred text-narration page.
+ */
+export const EditorialQuote: React.FC<SceneLayoutProps> = (props) => {
+  const { title, titleFontSize, descriptionFontSize } = props;
+  // The pull quote is the layout's own copy: the composition resolves `title` to the
+  // layout-prop quote for this layout (see buildLayoutProps / MagazineVideo). We render
+  // ONLY that quote + the attribution — the scene's main Display-text is not shown here.
+  const quote = (title ?? "").trim();
+  // Attribution is an explicit credit line only — never fall back to the quote
+  // copy, or the statement would be duplicated as its own attribution.
+  const attribution = (props.attribution as string) ?? "";
+  const p = isPortrait(props.aspectRatio);
+  const colors = resolveMagColors(props);
+  const { bg, text, accent } = colors;
+
+  // Optional photo — rendered ONLY when the scene carries an image. When present
+  // it sits as a framed block up the right margin (landscape) / beneath the quote
+  // (portrait), and the statement column narrows to make room for it.
+  const imageUrl = props.imageUrl;
+  const hasImage = Boolean(imageUrl || props.videoUrl);
+
+  const frame = useMagFrame();
+  const { fps } = useVideoConfig();
+
+  // The bleeding glyph and halftone field fade in first; the rail then grows.
+  const markO = useReveal(4, 16);
+  const railP = useReveal(6, 18);
+  const glyphScale = 0.86 + 0.14 * markO;
+  const plateO = useReveal(8, 18); // the photo block fades in with the rail
+
+  const words = quote.split(" ");
+  const wStart = 14; // start right after the glyph + rail have appeared
+  const wStagger = Math.max(1, Math.round(fps * 0.045)); // tighter stagger = smoother flow
+  const wDur = Math.round(fps * 0.22); // each word fades in quickly
+  const lastEnd = wStart + (words.length - 1) * wStagger + wDur;
+  const attrO = interpolate(frame, [lastEnd, lastEnd + 14], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+
+  const quoteTargetPx = titleFontSize ?? (p ? 92 : 78);
+  const attrTargetPx = descriptionFontSize ?? (p ? 52 : 26);
+  const glyphSize = p ? 320 : 520;
+
+  /* Quote + attribution share a fixed-height column. Let flexbox expose the
+     quote's real leftover height, then shrink against that measured band. The
+     attribution gets its own capped share so a long credit cannot push the
+     quote (or itself) beyond the page. */
+  const contentRef = React.useRef<HTMLDivElement>(null);
+  const quoteRef = React.useRef<HTMLQuoteElement>(null);
+  const attrRef = React.useRef<HTMLDivElement>(null);
+  const [contentHeight, setContentHeight] = React.useState(0);
+  React.useLayoutEffect(() => {
+    const next = contentRef.current?.clientHeight ?? 0;
+    if (next > 0) setContentHeight((prev) => Math.abs(prev - next) <= 1 ? prev : next);
+  }, [p, hasImage, quote, attribution]);
+
+  const attrBudget = contentHeight > 0 ? Math.max(1, contentHeight * 0.2) : undefined;
+  const { px: attrPx } = useFitText(
+    attrRef,
+    attrTargetPx,
+    Math.max(10, Math.round(attrTargetPx * 0.38)),
+    [attribution, attrTargetPx, attrBudget, p],
+    attrBudget,
+  );
+  const { px: quotePx } = useFitText(
+    quoteRef,
+    quoteTargetPx,
+    Math.max(12, Math.round(quoteTargetPx * 0.24)),
+    [quote, quoteTargetPx, attrPx, contentHeight, p, hasImage],
+  );
+
+  const cleanAttribution = attribution.replace(/^[—–-]\s*/, "");
+
+  const attrInner = attribution && (
+    <div
+      ref={attrRef}
+      style={{
+        position: "relative",
+        minWidth: 0,
+        flex: 1,
+        fontFamily: MAG_SANS,
+        fontWeight: 700,
+        fontSize: attrPx,
+        letterSpacing: "0.16em",
+        textTransform: "uppercase",
+        color: text,
+        opacity: 0.78,
+      }}
+    >
+      {/* Full-copy mirror reserves the final wrapped height before typing starts. */}
+      <span aria-hidden style={{ visibility: "hidden" }}>{cleanAttribution}</span>
+      <span style={{ position: "absolute", inset: 0 }}>
+        <Typewriter text={cleanAttribution} start={lastEnd + 14} cpf={1.2} caretColor={accent} />
+      </span>
+    </div>
+  );
+
+  return (
+    <MagazinePage
+      colors={colors}
+      section={(props.sectionLabel as string)?.trim() || "Quote"}
+      issue={props.issueLabel ?? "Comment"}
+      page={props.pageNumber}
+      aspectRatio={props.aspectRatio}
+      fontFamily={props.fontFamily}
+      cameraMove={props.cameraMove}
+      lightChrome
+      singlePage
+      hidePrintTexture
+    >
+      <div style={{ height: "100%", position: "relative", overflow: "hidden" }}>
+        {/* Faint halftone field for print texture */}
+        <Halftone color={text} opacity={0.05 * markO} gap={8} />
+
+        {/* Oversized quotation mark anchored in the top-left — kept fully inside
+            the page so the wrapper's overflow:hidden never chops it off. */}
+        <QuoteGlyph
+          color={accent}
+          size={glyphSize}
+          opacity={0.16 * markO}
+          style={{
+            position: "absolute",
+            top: p ? "2%" : "0%",
+            left: p ? "4%" : "5%",
+            transform: `scale(${glyphScale.toFixed(3)})`,
+            transformOrigin: "top left",
+          }}
+        />
+
+        {/* Vertical accent rail growing down the left margin */}
+        <div
+          ref={contentRef}
+          style={{
+            position: "absolute",
+            top: p ? "18%" : "14%",
+            left: p ? "8%" : "9%",
+            width: 6,
+            height: p ? "60%" : "64%",
+            background: accent,
+            transform: `scaleY(${railP.toFixed(3)})`,
+            transformOrigin: "top",
+          }}
+        />
+
+        {/* Optional editorial photo / stock clip. Landscape: a tall framed plate up the
+            right margin; portrait: a wide plate anchored to the lower band. */}
+        {hasImage && (
+          <div
+            style={{
+              position: "absolute",
+              ...(p
+                ? { left: "16%", right: "10%", bottom: "8%", height: "26%" }
+                : { right: "6%", top: "20%", bottom: "12%", width: "30%" }),
+              background: bg,
+              padding: 8,
+              border: `1px solid ${hexToRgba(text, 0.85)}`,
+              boxShadow: "0 6px 16px rgba(0,0,0,0.24)",
+              overflow: "hidden",
+              opacity: plateO,
+              transform: `translateY(${((1 - plateO) * 16).toFixed(1)}px)`,
+              zIndex: 1,
+            }}
+          >
+            <div style={{ width: "100%", height: "100%", overflow: "hidden", position: "relative" }}>
+              <OptionalImg
+                src={imageUrl}
+                videoUrl={props.videoUrl}
+                videoMuted={props.videoMuted}
+                videoVolume={props.videoVolume}
+                videoDurationInFrames={props.videoDurationInFrames}
+                videoStartInFrames={props.videoStartInFrames}
+                imageObjectPosition={props.imageObjectPosition}
+                imageZoom={props.imageZoom}
+                onError={() => {}}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: (props.imageZoom ?? 1) < 1 ? "contain" : "cover",
+                  objectPosition: (props.imageZoom ?? 1) < 1 ? "center" : (props.imageObjectPosition ?? "50% 50%"),
+                  transform: `scale(${props.imageZoom ?? 1})`,
+                  transformOrigin: (props.imageZoom ?? 1) < 1 ? "center center" : (props.imageObjectPosition ?? "50% 50%"),
+                  display: "block",
+                }}
+              />
+              {/* faint paper tint so the photo sits into the printed page */}
+              <div style={{ position: "absolute", inset: 0, background: hexToRgba(bg, 0.06), pointerEvents: "none" }} />
+            </div>
+          </div>
+        )}
+
+        {/* The statement — left-aligned, tucked just below the quotation glyph. It
+            narrows on the right when a photo block shares the page. */}
+        <div
+          style={{
+            position: "absolute",
+            left: "16%",
+            right: p ? "10%" : hasImage ? "40%" : "22%",
+            top: p ? "22%" : "18%",
+            bottom: p ? (hasImage ? "38%" : "8%") : "10%",
+            display: "flex",
+            flexDirection: "column",
+            minHeight: 0,
+            overflow: "hidden",
+            alignItems: "flex-start",
+            justifyContent: "center",
+            zIndex: 1,
+          }}
+        >
+          <blockquote
+            ref={quoteRef}
+            style={{
+              flex: "0 1 auto",
+              minHeight: 0,
+              overflow: "hidden",
+              fontFamily: MAG_DISPLAY,
+              fontStyle: "italic",
+              fontWeight: 500,
+              fontSize: quotePx,
+              lineHeight: 1.26,
+              letterSpacing: "-0.01em",
+              color: text,
+              margin: 0,
+              maxWidth: "100%",
+              textAlign: "left",
+            }}
+          >
+            <WrittenText text={quote} start={wStart} wordsPerFrame={wStagger > 0 ? 1 / wStagger : 0.5} dur={wDur} />
+          </blockquote>
+
+          {/* Attribution beneath the quote with a short accent rule */}
+          {attribution && (
+            <div style={{ flex: "0 1 auto", minHeight: 0, display: "flex", alignItems: "center", gap: 14, marginTop: 26, opacity: attrO }}>
+              <div style={{ width: 46, height: 2, background: accent }} />
+              {attrInner}
+            </div>
+          )}
+        </div>
+
+        {/* Faded-black vignette along the very bottom of the page. Pointer-inert
+            and low in the stack (the quote block above is zIndex:1) so it darkens
+            the bottom edge without ever landing on the statement or attribution. */}
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: "22%",
+            background: "linear-gradient(to top, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0.14) 45%, rgba(0,0,0,0) 100%)",
+            pointerEvents: "none",
+            zIndex: 0,
+          }}
+        />
+      </div>
+    </MagazinePage>
+  );
+};

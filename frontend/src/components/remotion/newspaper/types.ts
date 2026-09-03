@@ -21,6 +21,19 @@ export interface BlogLayoutProps {
   descriptionFontSize?: number;
 
   /**
+   * True when the size above was explicitly chosen by the user, false/absent
+   * when it was backfilled from meta.json `layout_prop_schema` defaults.
+   *
+   * Layouts that auto-shrink text to avoid overflow (news_headline) use this to
+   * honor a deliberate choice exactly — even if it overflows — while still
+   * auto-fitting the default. The distinction is available because the scene
+   * editor only persists a font size that DIFFERS from the default; it is
+   * captured before the defaults are merged back in.
+   */
+  titleFontSizeIsUserSet?: boolean;
+  descriptionFontSizeIsUserSet?: boolean;
+
+  /**
    * Generic data array — each component interprets these differently:
    *  - NewsHeadline  : stats[0].value = author, stats[1].value = date
    *  - ArticleLead   : stats[0].value = pull-stat number, stats[0].label = pull-stat caption
@@ -94,15 +107,32 @@ export interface BlogLayoutProps {
   ctas?: Array<{ ctaButtonText?: string; websiteLink?: string; showWebsiteButton?: boolean }>;
 }
 
+/**
+ * Layout IDs this template can render.
+ *
+ * IDs containing `__v` are visual VARIANTS of the base layout before the
+ * separator: they render the same scene in a different style and take the exact
+ * same props, so they share the base's `layout_prop_schema` entry in
+ * backend/templates/newspaper/meta.json (see its `layout_variants` key, which is
+ * the source of truth this union mirrors). Variants are assigned automatically
+ * at generation time and switchable by the user; the layout planner only ever
+ * picks base IDs.
+ */
 export type NewspaperLayoutType =
   | "news_headline"
+  | "news_headline__v2"
+  | "news_headline__v3"
   | "article_lead"
+  | "article_lead__v2"
+  | "article_lead__v3"
   | "pull_quote"
+  | "pull_quote__v2"
   | "data_snapshot"
   | "fact_check"
   | "news_timeline"
   | "data_visualisation"
   | "ending_socials"
+  | "ending_socials__v2"
   | "expert_profile"
   | "perspective_split"
   | "ticker_table";

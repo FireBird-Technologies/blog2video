@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
+import { useFitText } from "../components/useFitText";
 import type { SceneLayoutProps } from "../types";
 import { FootballPitchBackdrop, FROSTED_CARD_STYLE, estimateWrappedTextHeight } from "./FootballPitchBackdrop";
 import {
@@ -128,6 +129,8 @@ export const FootballDataViz: React.FC<SceneLayoutProps> = (props) => {
     sceneDurationInFrames,
     titleFontSize,
     descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
     fontFamily,
     chartTable,
     chartType,
@@ -142,7 +145,7 @@ export const FootballDataViz: React.FC<SceneLayoutProps> = (props) => {
 
   const p = aspectRatio === "portrait";
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, height} = useVideoConfig();
   const dur = sceneDurationInFrames ?? 150;
   const accent = accentColor ?? "#2E7D32";
   const text = textColor ?? "#111111";
@@ -150,9 +153,33 @@ export const FootballDataViz: React.FC<SceneLayoutProps> = (props) => {
 
   const W = p ? 1080 : 1920;
   const H = p ? 1920 : 1080;
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input; long copy overflows the card
+     and is clipped by the scene frame. Measure the real available height and
+     shrink to fit. A size the user explicitly picked is honored exactly —
+     minPx === targetPx makes the hook a no-op. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitDescRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 66 : 64);
+  const fitDescTarget = descriptionFontSize ?? (p ? 41 : 36);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.42),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.22 : 0.26)),
+  );
+  const { px: fitDescPx } = useFitText(
+    fitDescRef,
+    fitDescTarget,
+    descriptionFontSizeIsUserSet ? fitDescTarget : Math.round(fitDescTarget * 0.4),
+    [narration, fitDescTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * (p ? 0.30 : 0.34)),
+  );
 
-  const titlePx = titleFontSize ?? (p ? 66 : 64);
-  const descPx = descriptionFontSize ?? (p ? 41 : 36);
+  const titlePx = fitTitlePx;
+  const descPx = fitDescPx;
+
   const tickPx = Math.round(descPx * 0.82);
 
   const enter = interpolate(frame, [0, 14], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
@@ -613,7 +640,7 @@ export const FootballDataViz: React.FC<SceneLayoutProps> = (props) => {
             pointerEvents: "none",
           }}
         >
-          <div style={{ fontSize: titlePx, fontWeight: 700, color: text, textTransform: "uppercase", letterSpacing: "0.02em" }}>
+          <div ref={fitTitleRef} style={{ fontSize: titlePx, fontWeight: 700, color: text, textTransform: "uppercase", letterSpacing: "0.02em" }}>
             {title}
           </div>
           <div
@@ -677,7 +704,7 @@ export const FootballDataViz: React.FC<SceneLayoutProps> = (props) => {
         }}
       >
         {!hasRealChart ? (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: text, fontSize: descPx, fontStyle: "italic", opacity: 0.65 }}>
+          <div ref={fitDescRef} style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: text, fontSize: descPx, fontStyle: "italic", opacity: 0.65 }}>
             No data yet — add a table by editing this scene
           </div>
         ) : (

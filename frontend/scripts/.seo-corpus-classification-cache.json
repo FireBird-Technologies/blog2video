@@ -3022,5 +3022,41 @@
   "blog:best-ai-tools-for-substack-writers@501d105df5b07a6c@20aaebd1": {
     "keep": false,
     "reason": "Article primarily about Substack tools, not Blog2Video features."
+  },
+  "marketing:/pdf-to-video@e8f75bb0db9c4f70@20aaebd1": {
+    "keep": true,
+    "reason": "Describes PDF-to-video feature without mentioning competitors."
+  },
+  "blog:blog2video-august-2026-update@8ce68d893e5417b6@20aaebd1": {
+    "keep": true,
+    "reason": "Describes Blog2Video features and pricing updates."
+  },
+  "blog:where-to-promote-your-writing-2026@73e09f22ad7d3d3d@20aaebd1": {
+    "keep": false,
+    "reason": "Article discusses Substack and other platforms, not Blog2Video."
+  },
+  "blog:ai-video-generators-that-are-not-slop@717167ff5878ce7f@20aaebd1": {
+    "keep": false,
+    "reason": "Discusses AI video generators generally without focusing on Blog2Video"
+  },
+  "blog:youtube-title-score-checker@7131da36b2445d56@20aaebd1": {
+    "keep": false,
+    "reason": "Compares Blog2Video against multiple competitors."
+  },
+  "blog:substack-video-70-percent-more-subscribers@bb2f7d7b527f3e49@20aaebd1": {
+    "keep": false,
+    "reason": "Primarily describes Substack growth, not Blog2Video features."
+  },
+  "blog:headline-score@2ffa5694cda27a72@20aaebd1": {
+    "keep": false,
+    "reason": "Compares Blog2Video against multiple headline tool competitors."
+  },
+  "blog:blog-title-checker@8c72649017e09216@20aaebd1": {
+    "keep": false,
+    "reason": "Compares Blog2Video against multiple SEO competitors."
+  },
+  "blog:youtube-backlink@418fb49a27ada96f@20aaebd1": {
+    "keep": false,
+    "reason": "Describes SEO strategy for YouTube, not Blog2Video features."
   }
 }

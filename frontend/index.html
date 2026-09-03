@@ -3,11 +3,46 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Google tag (gtag.js) — GA4 property for blog2video. The id comes from
+         VITE_GA4_MEASUREMENT_ID; Vite substitutes %VITE_GA4_MEASUREMENT_ID% at
+         build time, so each deploy gets its own property from its own env and
+         no id is hardcoded here. Must stay immediately after <head> per
+         Google's install instructions, and there must only ever be ONE GA4 tag
+         on the page. src/gtag.ts loads a separate Google Ads tag at runtime;
+         that's a different id and is fine alongside this one. -->
+    <script>
+      // Guard so an unset/blank VITE_GA4_MEASUREMENT_ID (e.g. a local dev build)
+      // is a silent no-op instead of loading gtag.js with an empty id.
+      (function () {
+        var id = "%VITE_GA4_MEASUREMENT_ID%";
+        if (!id || id.charAt(0) !== "G") return;
+        var s = document.createElement("script");
+        s.async = true;
+        s.src = "https://www.googletagmanager.com/gtag/js?id=" + encodeURIComponent(id);
+        document.head.appendChild(s);
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        window.gtag = gtag;
+        gtag('js', new Date());
+        gtag('config', id);
+      })();
+    </script>
+
     <!-- Site ownership verification (VerifiedTools) -->
     <meta name="verifiedtools-verify" content="c819fbd2e470c99fc23c0b1182a55a472a3db575c4a1f266" />
     <!-- <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval'; connect-src 'self' https://*.blog2video.app; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self' https://fonts.gstatic.com;" /> -->
     <title>Blog2Video</title>
-    <link rel="icon" type="image/png" href="/b2b.png" />
+    <!-- Favicons MUST be real files at crawlable URLs. Google and Bing fetch the
+         icon as a separate request and cache it independently of the page, so a
+         `data:` URI (what this used to be) is invisible to them — it renders in
+         the browser tab but never in search results. /favicon.ico is also the
+         documented fallback Google requests when it finds no usable <link>.
+         Regenerate with: node scripts/build-favicons.mjs -->
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+    <link rel="manifest" href="/site.webmanifest" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />

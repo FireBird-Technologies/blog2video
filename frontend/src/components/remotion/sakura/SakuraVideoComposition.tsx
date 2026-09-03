@@ -9,6 +9,7 @@ import { CaptionTrack } from "../CaptionTrack";
 import { resolveFontFamily } from "../../../fonts/registry";
 import { pickSakuraTransition, SAKURA_TRANSITION_FRAMES } from "./sakuraTransitions";
 import { SceneDurationInFramesContext } from "../SceneDurationContext";
+import type { CompositionSchedule, SceneScheduleEntry } from "../sceneSchedule";
 
 export interface SakuraSceneInput {
   id: number;
@@ -139,19 +140,39 @@ const boundaryFrames = (
 };
 
 /**
- * Total video length in frames. Because TransitionSeries OVERLAPS neighbouring
- * scenes by the transition length, the total is Σ durationFrames − Σ boundary
- * overlaps. Kept in sync with the render loop below.
+ * The composition's real timeline. Because TransitionSeries OVERLAPS neighbouring
+ * scenes by the boundary length, each scene starts earlier than a back-to-back sum
+ * implies and the total is Σ sequenceFrames − Σ boundary overlaps.
+ *
+ * Single source of truth — the component renders from this, and slide export reads
+ * it too, so a slide can never be sampled from the wrong scene.
  */
-export const computeSakuraVideoTotalFrames = (scenes: SakuraSceneInput[]): number => {
-  if (scenes.length === 0) return FPS * 5;
+export const computeSakuraSchedule = (
+  scenes: SakuraSceneInput[],
+): CompositionSchedule => {
+  if (scenes.length === 0) return { scenes: [], totalFrames: FPS * 5 };
   const resolved = resolveScenes(scenes);
-  let total = resolved.reduce((sum, s) => sum + s.sequenceFrames, 0);
-  for (let i = 0; i < resolved.length - 1; i++) {
-    total -= boundaryFrames(resolved, i);
-  }
-  return Math.max(total, FPS * 5);
+  const boundaryAt = (i: number) =>
+    i >= 0 && i < resolved.length - 1 ? boundaryFrames(resolved, i) : 0;
+
+  const entries: SceneScheduleEntry[] = [];
+  let running = 0;
+  resolved.forEach((s, i) => {
+    entries.push({
+      start: running,
+      duration: s.durationFrames,
+      enterFrames: boundaryAt(i - 1),
+      exitFrames: boundaryAt(i),
+    });
+    running += s.sequenceFrames - boundaryAt(i);
+  });
+
+  return { scenes: entries, totalFrames: Math.max(running, FPS * 5) };
 };
+
+/** Total video length in frames. */
+export const computeSakuraVideoTotalFrames = (scenes: SakuraSceneInput[]): number =>
+  computeSakuraSchedule(scenes).totalFrames;
 
 export const SakuraVideoComposition: React.FC<SakuraVideoCompositionProps> = ({
   scenes,
@@ -177,16 +198,9 @@ export const SakuraVideoComposition: React.FC<SakuraVideoCompositionProps> = ({
 
   const resolved = resolveScenes(scenes);
 
-  // Absolute scene start frames (for voiceover audio), accounting for overlaps.
-  let runningFrame = 0;
-  const sceneStartFrames: number[] = [];
-  resolved.forEach((s, i) => {
-    sceneStartFrames[i] = runningFrame;
-    runningFrame += s.sequenceFrames;
-    if (i < resolved.length - 1) {
-      runningFrame -= boundaryFrames(resolved, i);
-    }
-  });
+  // Absolute scene start frames (for voiceover audio) come from the shared
+  // schedule, so the render and slide export cannot disagree.
+  const sceneStartFrames = computeSakuraSchedule(scenes).scenes.map((e) => e.start);
 
   const buildLayoutProps = (
     scene: SakuraSceneInput,

@@ -1,4 +1,5 @@
 import React from "react";
+import { useFitText } from "../components/useFitText";
 import { ECONOMIST_COLORS } from "../constants";
 import { ECONOMIST_SERIF_FONT, ECONOMIST_SANS_FONT } from "../../../fonts/economist-defaults";
 import { textRise } from "./chartHelpers";
@@ -25,6 +26,25 @@ export const ExplainerBox: React.FC<{
   isPortrait: boolean;
   fontFamily?: string;
 }> = ({ frame, delay, left, bottom, width, text, keys, accentColor, fontSize, isPortrait, fontFamily }) => {
+  /* ── Auto-fit (takeaway sentence) ─────────────────────────────────────────
+     `fontSize` here is a caller-computed target (a fraction of the chart's
+     subSize), not a user-editable field, so there's no titleFontSizeIsUserSet
+     to honor — always allow shrinking down to a floor. The panel's width is
+     fixed (an explicit `width` prop, absolutely positioned — no shrink-wrap
+     width bug), but the LLM `explainer` text is unbounded and the box was
+     previously relying solely on -webkit-line-clamp:2 to hide overflow
+     silently; measure and shrink first so more of a long takeaway is legible,
+     keeping the line-clamp only as a final safety net at the fitted size.
+     Hooks must run before the `if (!text) return null` below (Rules of
+     Hooks), so minPx===targetPx degrades this to a no-op when there's no text. */
+  const textFitRef = React.useRef<HTMLDivElement>(null);
+  const { px: fittedFontSize } = useFitText(
+    textFitRef,
+    fontSize,
+    Math.round(fontSize * 0.55),
+    [text, fontSize, width, isPortrait],
+    Math.round(fontSize * 1.4 * 2),
+  );
   if (!text) return null;
   const kickerSize = Math.round(fontSize * 0.62);
   const keySize = Math.round(fontSize * 0.72);
@@ -95,10 +115,11 @@ export const ExplainerBox: React.FC<{
         ))}
       </div>
       <div
+        ref={textFitRef}
         style={{
           fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT,
           fontStyle: "italic",
-          fontSize,
+          fontSize: fittedFontSize,
           lineHeight: 1.4,
           color: ECONOMIST_COLORS.ink,
           marginTop: 10,

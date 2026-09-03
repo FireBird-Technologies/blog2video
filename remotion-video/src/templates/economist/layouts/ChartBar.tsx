@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
 import type { EconomistLayoutProps } from "../types";
+import { useFitText } from "../components/useFitText";
 import { ECONOMIST_COLORS, CHROME_INSET } from "../constants";
 import { ECONOMIST_SERIF_FONT, ECONOMIST_SANS_FONT } from "../../../fonts/economist-defaults";
 import {
@@ -42,6 +43,7 @@ interface BarHeaderProps {
   accentColor: string;
   textColor: string;
   titleSize: number;
+  titleFitRef: React.RefObject<HTMLDivElement>;
   left: number;
   top: number;
   width: number;
@@ -55,6 +57,7 @@ const BarHeader: React.FC<BarHeaderProps> = ({
   accentColor,
   textColor,
   titleSize,
+  titleFitRef,
   left,
   top,
   width,
@@ -75,6 +78,7 @@ const BarHeader: React.FC<BarHeaderProps> = ({
         }}
       />
       <div
+        ref={titleFitRef}
         style={{
           fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT,
           fontWeight: 700,
@@ -116,6 +120,7 @@ export const ChartBar: React.FC<EconomistLayoutProps> = ({
   accentColor = ECONOMIST_COLORS.accent,
   textColor = ECONOMIST_COLORS.ink,
   titleFontSize,
+  titleFontSizeIsUserSet,
   fontFamily,
   aspectRatio = "landscape",
 }) => {
@@ -158,7 +163,22 @@ export const ChartBar: React.FC<EconomistLayoutProps> = ({
   const innerT = pad.t;
   const innerB = height - pad.b;
 
-  const titleSize = (titleFontSize ?? (isPortrait ? 68 : 50)) as number;
+  /* ── Auto-fit (chart title) ───────────────────────────────────────────────
+     Same reasoning as ChartLine: the title is a fixed-size headline that
+     `headerH` budgets as one line; a long custom title wraps to more lines
+     and runs into the plot beneath it. Fit it to that one-line-equivalent
+     budget. BarHeader's title div has an explicit `width` prop and its
+     parent is absolutely positioned (not a centered flex container), so no
+     shrink-wrap width bug. */
+  const titleFitRef = React.useRef<HTMLDivElement>(null);
+  const titleFitTarget = (titleFontSize ?? (isPortrait ? 68 : 50)) as number;
+  const { px: titleSize } = useFitText(
+    titleFitRef,
+    titleFitTarget,
+    titleFontSizeIsUserSet ? titleFitTarget : Math.round(titleFitTarget * 0.55),
+    [title, titleFitTarget, titleFontSizeIsUserSet, isPortrait, width],
+    Math.round(titleFitTarget * 1.1),
+  );
   const subSize = Math.round(titleSize * 0.62);
   const headerH = 6 + 16 + titleSize * 1.1 + (narration ? subSize * 1.5 : 0) + 22;
   const footerH = 0;
@@ -187,6 +207,7 @@ export const ChartBar: React.FC<EconomistLayoutProps> = ({
         accentColor={accentColor}
         textColor={textColor}
         titleSize={titleSize}
+        titleFitRef={titleFitRef}
         left={innerL}
         top={innerT}
         width={innerR - innerL}

@@ -34,8 +34,10 @@ import StickmanFootballPreviewPortrait from "./templatePreviews/portrait/Stickma
 
 import MagazinePreview from "./templatePreviews/MagazinePreview";
 import SakuraPreview from "./templatePreviews/SakuraPreview";
+import OldDocumentaryReelPreview from "./templatePreviews/OldDocumentaryReelPreview";
 import MagazinePreviewPortrait from "./templatePreviews/portrait/MagazinePreviewPortrait";
 import SakuraPreviewPortrait from "./templatePreviews/portrait/SakuraPreviewPortrait";
+import OldDocumentaryReelPreviewPortrait from "./templatePreviews/portrait/OldDocumentaryReelPreviewPortrait";
 import { withPoster } from "./templatePreviews/PosterOrPlayer";
 
 // Raw preview components. Not exported directly — every built-in preview is
@@ -59,6 +61,7 @@ const RAW_TEMPLATE_PREVIEWS: Record<string, FC<{ thumbnailMode?: boolean }>> = {
   stickman_football: StickmanFootballPreview,
  magazine: MagazinePreview,
   sakura: SakuraPreview,
+  "old-documentary-reel": OldDocumentaryReelPreview,
 };
 
 const RAW_TEMPLATE_PREVIEWS_PORTRAIT: Record<string, FC<{ thumbnailMode?: boolean }>> = {
@@ -79,6 +82,7 @@ const RAW_TEMPLATE_PREVIEWS_PORTRAIT: Record<string, FC<{ thumbnailMode?: boolea
   stickman_football: StickmanFootballPreviewPortrait,
    magazine: MagazinePreviewPortrait,
   sakura: SakuraPreviewPortrait,
+  "old-documentary-reel": OldDocumentaryReelPreviewPortrait,
 };
 
 function wrapPreviews(
@@ -106,6 +110,20 @@ export type PosterOrientation = "landscape" | "portrait";
  * shown as its thumbnail; a live preview only renders when the card is active.
  */
 export const BUILTIN_TEMPLATE_IDS = Object.keys(TEMPLATE_PREVIEWS);
+
+/**
+ * Templates hidden from every marketing showcase carousel.
+ *
+ * They stay in {@link TEMPLATE_PREVIEWS} on purpose: existing projects may
+ * already use them, and ProjectView / BlogUrlForm / CapturePage look previews up
+ * by id. Removing the entries outright would break those renders.
+ */
+export const SHOWCASE_HIDDEN_TEMPLATE_IDS = new Set(["economist", "default"]);
+
+/** Template ids shown in the landing-page and showcase carousels, in registry order. */
+export const SHOWCASE_TEMPLATE_IDS = BUILTIN_TEMPLATE_IDS.filter(
+  (id) => !SHOWCASE_HIDDEN_TEMPLATE_IDS.has(id)
+);
 
 /**
  * URL of the pre-rendered poster image for a built-in template. Posters live in
@@ -153,6 +171,10 @@ export const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: st
   magazine: { title: "Magazine", subtitle: "Glossy editorial storytelling" },
   stickman_football: { title: "Stickman Football Match", subtitle: "Hand-drawn football action for match recaps & highlights" },
   sakura: { title: "Sakura", subtitle: "Japanese-aesthetic blog-to-video theme" },
+  "old-documentary-reel": {
+    title: "Old Documentary Reel",
+    subtitle: "Archival found-footage aesthetic — grainy film, typewriter reports, and case-file dossiers",
+  },
 };
 
 /** Purple primary "New" chip when template meta.json has new_template: true */
@@ -162,6 +184,20 @@ export function NewTemplateBadge({ className = "" }: { className?: string }) {
       className={`pointer-events-none px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide text-white bg-purple-600 shadow-[0_0_8px_rgba(124,58,237,0.45)] ring-1 ring-purple-400/70 ${className}`}
     >
       New
+    </span>
+  );
+}
+
+/**
+ * Sky "New Scenes" chip for templates marked new_scenes: true — the template
+ * itself isn't new, but it has gained new scene layouts/variants.
+ */
+export function NewScenesTemplateBadge({ className = "" }: { className?: string }) {
+  return (
+    <span
+      className={`pointer-events-none px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide text-white bg-purple-600 shadow-[0_0_8px_rgba(14,165,233,0.45)] ${className}`}
+    >
+      New Scenes
     </span>
   );
 }

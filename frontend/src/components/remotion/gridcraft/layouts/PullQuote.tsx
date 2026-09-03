@@ -7,6 +7,7 @@ import {
 } from "../constants";
 import { glass, COLORS } from "../utils/styles";
 import { ZoomCropImg } from "../components/ZoomCropImg";
+import { useFitText } from "../components/useFitText";
 
 export const PullQuote: React.FC<GridcraftLayoutProps> = ({
   quote,
@@ -26,10 +27,12 @@ export const PullQuote: React.FC<GridcraftLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, height: videoHeight } = useVideoConfig();
 
   const text = quote || title || "Quote goes here";
   const source = attribution || subtitle || narration || "Author";
@@ -41,6 +44,38 @@ export const PullQuote: React.FC<GridcraftLayoutProps> = ({
   const quoteFontFamily = p ? sansFontFamily : serifFontFamily;
 
   const highlightWords = (highlightPhrase || "").split(" ").map(w => w.toLowerCase().replace(/[.,!?;:]/g, ""));
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     The card is `width:90%; height:80%` with `justifyContent:"center"`, so the
+     quote and attribution have no natural clientHeight budget. Each fits
+     against its own fixed, independent fraction of the frame. No give-back
+     cross-talk between the two: a useLayoutEffect+setState chain reacting to
+     another useFitText's overflow output creates a multi-render convergence
+     that Remotion's per-frame headless capture can settle at different
+     points on different frames (confirmed via a real render — frame-to-frame
+     scene-change score hit 1.0, i.e. maximum, twice in the first ten frames,
+     in the equivalent newscast/newspaper opening scenes). */
+  const quoteRef = React.useRef<HTMLDivElement>(null);
+  const attributionRef = React.useRef<HTMLDivElement>(null);
+  const actualQuoteFontSize = titleFontSize ?? (p ? 49 : 50);
+  const actualAttributionFontSize = descriptionFontSize ?? (p ? 33 : 29);
+  const quoteBudgetPx = Math.max(1, videoHeight * (p ? 0.34 : 0.36));
+  const attributionBudgetPx = Math.max(1, videoHeight * 0.08);
+
+  const { px: quotePx } = useFitText(
+    quoteRef,
+    actualQuoteFontSize,
+    titleFontSizeIsUserSet ? actualQuoteFontSize : p ? 24 : 22,
+    [text, actualQuoteFontSize, titleFontSizeIsUserSet, quoteBudgetPx, hasImage, p],
+    quoteBudgetPx,
+  );
+  const { px: attributionPx } = useFitText(
+    attributionRef,
+    actualAttributionFontSize,
+    descriptionFontSizeIsUserSet ? actualAttributionFontSize : p ? 14 : 13,
+    [source, actualAttributionFontSize, descriptionFontSizeIsUserSet, attributionBudgetPx, quotePx, hasImage, p],
+    attributionBudgetPx,
+  );
 
   const imageOpacity = interpolate(frame, [5, 25], [0, 1], { extrapolateRight: "clamp" });
   const imageScale = spring({ frame: Math.max(0, frame - 5), fps, config: { damping: 14 } });
@@ -163,8 +198,9 @@ export const PullQuote: React.FC<GridcraftLayoutProps> = ({
 
         {/* Quote text */}
         <div
+          ref={quoteRef}
           style={{
-            fontSize: titleFontSize ?? (p ? 49 : 50),
+            fontSize: quotePx,
             lineHeight: 1.3,
             textAlign: "center",
             color: COLORS.DARK,
@@ -206,10 +242,11 @@ export const PullQuote: React.FC<GridcraftLayoutProps> = ({
 
         {/* Attribution line */}
         <div
+          ref={attributionRef}
           style={{
             marginTop: 40,
             fontFamily: sansFontFamily,
-            fontSize: descriptionFontSize ?? (p ? 33 : 29),
+            fontSize: attributionPx,
             color: COLORS.MUTED,
             textTransform: "uppercase",
             letterSpacing: "0.1em",

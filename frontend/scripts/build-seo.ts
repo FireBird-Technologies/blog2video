@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { isPdfBrand } from "../src/brand/brand";
 import {
   blogPosts,
   defaultOgImage,
@@ -8,6 +9,7 @@ import {
   getMarketingPage,
   getPublicPaths,
   getRelatedBlogPosts,
+  getStructuredInternalLinks,
   getToolByPath,
   helpPosts,
   marketingPages,
@@ -16,13 +18,6 @@ import {
   tools,
   toolsHub,
 } from "../src/content/siteContent";
-import {
-  getSubstackDirectoryNichePath,
-  getSubstackDirectoryPage,
-  getSubstackNichePublications,
-  pricingLabels,
-  type SubstackDirectoryPage,
-} from "../src/content/substackDirectory";
 import type { BlogPost, HelpPost, MarketingPage, ToolDefinition } from "../src/content/seoTypes";
 import {
   normalizeSchemaForJsonLd,
@@ -38,8 +33,6 @@ import {
   helpPostSchema,
   marketingPageSchema,
   pricingSchema,
-  substackDirectoryNicheSchema,
-  substackDirectoryPublicationSchema,
   toolPageSchema,
   toolsHubSchema,
 } from "../src/seo/schema";
@@ -66,6 +59,16 @@ function escapeHtml(value: string) {
     .replaceAll('"', "&quot;");
 }
 
+// A section CTA is a real in-content link — internal ones feed the crawlable
+// internal-link graph, external ones are followed links we intend to pass equity.
+// The React view renders these as anchors (react-router `Link` emits a plain <a>
+// for cross-origin URLs), so the prerendered HTML has to emit them too or the
+// link only exists for crawlers that execute JS.
+function renderSectionCtaHtml(ctaPath?: string, ctaLabel?: string): string {
+  if (!ctaPath) return "";
+  return `<p><a href="${escapeHtml(ctaPath)}">${escapeHtml(ctaLabel || "Try Blog2Video free")}</a></p>`;
+}
+
 function renderBlogPostHtml(post: BlogPost): string {
   const heroImg = post.heroImage
     ? `<img src="${post.heroImage}" alt="${escapeHtml(post.heroImageAlt ?? "")}" />`
@@ -76,7 +79,8 @@ function renderBlogPostHtml(post: BlogPost): string {
       const bullets = s.bullets?.length
         ? `<ul>${s.bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join("")}</ul>`
         : "";
-      return `<section><h2>${escapeHtml(s.heading)}</h2>${paras}${bullets}</section>`;
+      const cta = renderSectionCtaHtml(s.ctaPath, s.ctaLabel);
+      return `<section><h2>${escapeHtml(s.heading)}</h2>${paras}${bullets}${cta}</section>`;
     })
     .join("");
   const faqHtml = post.faq.length
@@ -173,6 +177,24 @@ function renderToolsHubHtml(): string {
   return `<main><h1>${escapeHtml(toolsHub.heroTitle)}</h1><p>${escapeHtml(toolsHub.heroDescription)}</p>${toolsHtml}</main>`;
 }
 
+// Tool pages are the money pages, but until now their prerendered HTML shipped
+// with zero anchors — the related-pages rail and the "next step" CTA existed
+// only in `ToolPage.tsx`, i.e. only after hydration. That left every /tools/*
+// URL orphaned in the crawlable link graph while the blog posts that review
+// competing tools kept all the internal equity. Mirror the React output here.
+function renderToolPageLinksHtml(tool: ToolDefinition): string {
+  const related = getStructuredInternalLinks(tool.relatedPaths);
+  const relatedHtml = related.length
+    ? `<nav aria-label="Related pages"><h2>Related pages</h2><ul>${related
+        .map(
+          (link) =>
+            `<li><a href="${escapeHtml(link.path)}">${escapeHtml(link.label)}</a><p>${escapeHtml(link.description)}</p></li>`
+        )
+        .join("")}</ul></nav>`
+    : "";
+  return `<section><h2>Turn this finished article into video with Blog2Video</h2><p>Once this tool helps you shape the copy, headline, formatting, or angle, paste the same piece into Blog2Video and generate a narrated video from it.</p><p><a href="/blog-to-video">Try Blog2Video free</a></p><p><a href="/tools">Back to all free tools</a></p></section>${relatedHtml}`;
+}
+
 function renderToolPageHtml(tool: ToolDefinition): string {
   const sectionsHtml = tool.sections
     .map((s) => {
@@ -186,29 +208,23 @@ function renderToolPageHtml(tool: ToolDefinition): string {
   const proofHtml = tool.proofPoints?.length
     ? `<ul>${tool.proofPoints.map((p) => `<li>${escapeHtml(p)}</li>`).join("")}</ul>`
     : "";
-  return `<main><p>${escapeHtml(tool.eyebrow)}</p><h1>${escapeHtml(tool.heroTitle)}</h1><p>${escapeHtml(tool.heroDescription)}</p>${proofHtml}${sectionsHtml}${renderFaqHtml(tool.faq)}</main>`;
+  return `<main><p>${escapeHtml(tool.eyebrow)}</p><h1>${escapeHtml(tool.heroTitle)}</h1><p>${escapeHtml(tool.heroDescription)}</p>${proofHtml}${sectionsHtml}${renderFaqHtml(tool.faq)}${renderToolPageLinksHtml(tool)}</main>`;
 }
 
-function renderSubstackDirectoryHtml(page: SubstackDirectoryPage): string {
-  if (page.kind === "publication") {
-    const { publication } = page;
-    const bestFor = publication.bestFor.length
-      ? `<ul>${publication.bestFor.map((b) => `<li>${escapeHtml(b)}</li>`).join("")}</ul>`
-      : "";
-    return `<main><article><h1>${escapeHtml(publication.name)}</h1><p>${escapeHtml(publication.tagline)}</p><p>${escapeHtml(publication.description)}</p><section><h2>Who it is for</h2><p>${escapeHtml(publication.audience)}</p>${bestFor}</section><section><h2>Publication details</h2><ul><li>Pricing: ${escapeHtml(pricingLabels[publication.pricingModel])}</li><li>Cadence: ${escapeHtml(publication.cadence)}</li><li>Tone: ${escapeHtml(publication.tone)}</li></ul><p>${escapeHtml(publication.differentiator)}</p></section>${renderFaqHtml(page.faq)}</article></main>`;
-  }
-
-  const { niche } = page;
-  const publicationsHtml = page.publications
-    .map(
-      (publication) =>
-        `<article><a href="/tools/substack-directory/publication/${publication.slug}"><h3>${escapeHtml(publication.name)}</h3></a><p>${escapeHtml(publication.tagline)}</p><p>${escapeHtml(pricingLabels[publication.pricingModel])} · ${escapeHtml(publication.cadence)}</p></article>`
-    )
-    .join("");
-  return `<main><h1>${escapeHtml(page.title)}</h1><p>${escapeHtml(page.description)}</p><p>${escapeHtml(niche.audience)}</p><p>${escapeHtml(niche.angle)}</p><section><h2>Publications</h2>${publicationsHtml}</section>${renderFaqHtml(page.faq)}</main>`;
+/**
+ * Server-rendered pdf2video hero.
+ *
+ * The SPA is JavaScript-rendered, which already costs crawlability on the
+ * existing site. The pdf2video homepage is a brand-new URL with no authority to
+ * fall back on, so its H1 and opening copy ship in the HTML rather than waiting
+ * for hydration.
+ */
+function renderPdfHomeHtml(): string {
+  return `<main><h1>Turn your PDF into a video in minutes</h1><p>Nobody opens the PDF. Everybody watches the video.</p><p>Upload a document. Get a narrated, branded video in minutes. Reports, whitepapers, research notes, decks, and one-pagers. No editor, no camera, no timeline to fight with.</p><section><h2>The PDF graveyard</h2><p>Documents are the worst performing format you own. They ask for a quiet room and twenty uninterrupted minutes, and nobody has either. Meanwhile the same argument, narrated over clean visuals, gets watched to the end on a phone in a lift.</p></section><section><h2>Three steps. Four minutes.</h2><h3>Upload your document</h3><p>Drop in a PDF, Word doc, or slide deck. We pull out the structure, the headings, the key figures, and the argument.</p><h3>Pick your look and voice</h3><p>Choose a template and a narrator. Add your logo and brand colours once and every future video inherits them.</p><h3>Download and publish</h3><p>Get an MP4 ready for LinkedIn, YouTube, email, or your own site.</p></section><section><h2>Why this is not another AI video generator</h2><p>Most AI video tools generate footage. pdf2video renders. Every frame is drawn from a real design system, which means your figures are your figures, your quotes are word for word, and your logo is the right shade of your logo.</p></section></main>`;
 }
 
 function getAppHtml(routePath: string): string {
+  if (routePath === "/" && isPdfBrand) return renderPdfHomeHtml();
   if (routePath === "/blogs") return renderBlogIndexHtml(blogPosts);
   if (routePath.startsWith("/blogs/")) {
     const post = getBlogPost(routePath.replace("/blogs/", ""));
@@ -227,34 +243,20 @@ function getAppHtml(routePath: string): string {
   const tool = getToolByPath(routePath);
   if (tool) return renderToolPageHtml(tool);
 
-  const directoryPage = getSubstackDirectoryPage(routePath);
-  if (directoryPage) return renderSubstackDirectoryHtml(directoryPage);
-
   return "";
-}
-
-// A pricing filter that resolves to the same publications as its parent niche is a
-// duplicate of that niche page. This happens when every publication in the niche
-// shares one pricing model, or when nothing matches and getSubstackNichePublications
-// falls back to returning the full list. Such pages stay crawlable and useful, but
-// they consolidate onto the parent niche instead of competing with it.
-function getDuplicatePricingParentPath(page: SubstackDirectoryPage): string | undefined {
-  if (page.kind !== "niche" || !page.pricing) return undefined;
-
-  const toKey = (publications: { slug: string }[]) =>
-    publications
-      .map((publication) => publication.slug)
-      .sort()
-      .join(",");
-
-  const parentKey = toKey(getSubstackNichePublications(page.niche));
-  if (toKey(page.publications) !== parentKey) return undefined;
-
-  return getSubstackDirectoryNichePath(page.niche.slug);
 }
 
 function getSeoPayload(routePath: string): SeoPayload {
   if (routePath === "/") {
+    if (isPdfBrand) {
+      return {
+        title: "PDF to Video: Turn Any Document Into a Narrated Video",
+        description:
+          "Upload a PDF, report, or whitepaper. Get a branded, narrated video in minutes. No editors, no cameras, no generic AI slop. Free to try.",
+        path: routePath,
+        schema: homepageSchema(),
+      };
+    }
     return {
       title: "Turn Blog Posts Into Videos",
       description:
@@ -320,6 +322,7 @@ function getSeoPayload(routePath: string): SeoPayload {
         title: post.title,
         description: post.description,
         path: routePath,
+        canonicalPath: post.canonicalPath,
         image: post.heroImage ? `${siteUrl}${post.heroImage}` : undefined,
         schema: blogPostSchema(post),
       };
@@ -365,30 +368,6 @@ function getSeoPayload(routePath: string): SeoPayload {
       description: tool.description,
       path: routePath,
       schema: toolPageSchema(tool),
-    };
-  }
-
-  const directoryPage = getSubstackDirectoryPage(routePath);
-  if (directoryPage) {
-    return {
-      title: directoryPage.title,
-      description: directoryPage.description,
-      path: routePath,
-      canonicalPath: getDuplicatePricingParentPath(directoryPage),
-      schema:
-        directoryPage.kind === "publication"
-          ? substackDirectoryPublicationSchema(
-              directoryPage.publication,
-              directoryPage.path,
-              directoryPage.faq
-            )
-          : substackDirectoryNicheSchema(
-              directoryPage.niche,
-              directoryPage.publications,
-              directoryPage.path,
-              directoryPage.faq,
-              directoryPage.pricing
-            ),
     };
   }
 
@@ -475,6 +454,21 @@ function sanitizeTemplate(template: string) {
     .replace(/<div id="root">\s*<main>[\s\S]*<\/main>\s*<\/div>/i, '<div id="root"></div>');
 }
 
+/**
+ * Favicon tags are per-brand REAL FILES at fixed paths (/favicon.ico etc), and
+ * each brand's build writes its own artwork to those paths — so both brands
+ * already carry the right markup and there is nothing to rewrite here.
+ *
+ * This deliberately no longer substitutes a `data:` URI. Search engines fetch
+ * the favicon as a separate crawlable URL and cache it independently of the
+ * page; a data URI renders in the browser tab but is invisible to Google and
+ * Bing, which is why the icon never showed up in results. Prerendered pages are
+ * the ones that actually get indexed, so injecting one here defeated the fix.
+ */
+function applyBrandFavicon(template: string) {
+  return template;
+}
+
 function injectRenderedMarkup(template: string, appHtml: string, head: string) {
   return template
     .replace("<div id=\"root\"></div>", `<div id="root">${appHtml}</div>`)
@@ -501,7 +495,9 @@ ${paths
 }
 
 async function buildPrerenderedPages() {
-  const template = sanitizeTemplate(await readFile(path.join(distDir, "index.html"), "utf8"));
+  const template = applyBrandFavicon(
+    sanitizeTemplate(await readFile(path.join(distDir, "index.html"), "utf8"))
+  );
   const publicPaths = getPublicPaths();
 
   for (const routePath of publicPaths) {

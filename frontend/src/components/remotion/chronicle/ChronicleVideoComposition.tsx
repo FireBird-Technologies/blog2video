@@ -14,6 +14,7 @@ import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 import { SceneDurationInFramesContext } from "../SceneDurationContext";
 import { ChronicleChrome } from "./components/ChronicleChrome";
 import { pickChronicleTransition } from "./transitions";
+import type { CompositionSchedule, SceneScheduleEntry } from "../sceneSchedule";
 
 export interface ChronicleSceneInput {
   id: number;
@@ -119,10 +120,66 @@ const trimLastScene = (frames: number) =>
 // Keep a tiny silent buffer before each non-last page transition.
 const EXTRA_HOLD_FRAMES = 10;
 
+/** Per-scene layout + duration resolution, shared by the schedule and the render. */
+const resolveChronicleScenes = (
+  scenes: ChronicleSceneInput[],
+  playbackSpeed?: number,
+) => {
+  const FPS = 30;
+  const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
+  return scenes.map((scene, idx, arr) => {
+    const layoutKey = (scene.layout as ChronicleLayoutType) in CHRONICLE_LAYOUT_REGISTRY
+      ? (scene.layout as ChronicleLayoutType)
+      : ("parchment_scroll" as ChronicleLayoutType);
+    const raw = getSceneDurationFrames(scene.durationSeconds, FPS, resolvedPlaybackSpeed);
+    const withMin = enforceLayoutMinimum(raw, layoutKey);
+    const isLastInMulti = idx === arr.length - 1 && arr.length > 1;
+    const trimTail = isLastInMulti && !scene.voiceoverUrl?.trim();
+    const durationFrames = trimTail ? trimLastScene(withMin) : withMin;
+    const sequenceFrames = isLastInMulti ? durationFrames : durationFrames + EXTRA_HOLD_FRAMES;
+    return { scene, layoutKey, durationFrames, sequenceFrames };
+  });
+};
+
+/**
+ * The composition's real timeline: where each scene starts, how long it is, and
+ * how many frames at each end are eaten by its transitions.
+ *
+ * Single source of truth — the component below renders from this, and
+ * `computeChronicleVideoTotalFrames` reads its total, so the schedule used by
+ * slide export can never drift from what actually renders.
+ */
+export const computeChronicleSchedule = (
+  scenes: ChronicleSceneInput[],
+  playbackSpeed?: number,
+): CompositionSchedule => {
+  const FPS = 30;
+  if (scenes.length === 0) return { scenes: [], totalFrames: FPS * 5 };
+
+  const resolved = resolveChronicleScenes(scenes, playbackSpeed);
+  const transitionAt = (i: number) =>
+    i >= 0 && i < resolved.length - 1
+      ? pickChronicleTransition(i, resolved[i].layoutKey, resolved[i + 1].layoutKey).frames
+      : 0;
+
+  const entries: SceneScheduleEntry[] = [];
+  let running = 0;
+  resolved.forEach((s, i) => {
+    entries.push({
+      start: running,
+      duration: s.durationFrames,
+      enterFrames: transitionAt(i - 1),
+      exitFrames: transitionAt(i),
+    });
+    running += s.sequenceFrames - transitionAt(i);
+  });
+
+  return { scenes: entries, totalFrames: Math.max(running, FPS * 5) };
+};
+
 /**
  * Compute the exact total video duration (in frames) that TransitionSeries
- * will produce for a Chronicle composition. Must stay in sync with the
- * resolvedScenes calculation inside ChronicleVideoComposition.
+ * will produce for a Chronicle composition.
  *
  * Used by VideoPreview to set the Player's durationInFrames so it matches
  * the actual rendered length (no brown tail).
@@ -130,36 +187,7 @@ const EXTRA_HOLD_FRAMES = 10;
 export const computeChronicleVideoTotalFrames = (
   scenes: ChronicleSceneInput[],
   playbackSpeed?: number,
-): number => {
-  const FPS = 30;
-  const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
-
-  if (scenes.length === 0) return FPS * 5;
-
-  const resolved = scenes.map((scene, idx, arr) => {
-    const layoutKey = (scene.layout as ChronicleLayoutType) in CHRONICLE_LAYOUT_REGISTRY
-      ? (scene.layout as ChronicleLayoutType)
-      : ("parchment_scroll" as ChronicleLayoutType);
-    const raw = getSceneDurationFrames(scene.durationSeconds, FPS, resolvedPlaybackSpeed);
-    const withMin = enforceLayoutMinimum(raw, layoutKey);
-    const isLastInMulti = idx === arr.length - 1 && arr.length > 1;
-    const trimTail =
-      isLastInMulti && !scene.voiceoverUrl?.trim();
-    const sequenceFrames =
-      isLastInMulti ? (trimTail ? trimLastScene(withMin) : withMin) : (trimTail ? trimLastScene(withMin) : withMin) + EXTRA_HOLD_FRAMES;
-    return {
-      layoutKey,
-      durationFrames: trimTail ? trimLastScene(withMin) : withMin,
-      sequenceFrames,
-    };
-  });
-
-  let total = resolved.reduce((sum, s) => sum + s.sequenceFrames, 0);
-  for (let i = 0; i < resolved.length - 1; i++) {
-    total -= pickChronicleTransition(i, resolved[i].layoutKey, resolved[i + 1].layoutKey).frames;
-  }
-  return Math.max(total, FPS * 5);
-};
+): number => computeChronicleSchedule(scenes, playbackSpeed).totalFrames;
 
 export const ChronicleVideoComposition: React.FC<ChronicleVideoCompositionProps> = ({
   scenes,
@@ -185,35 +213,13 @@ export const ChronicleVideoComposition: React.FC<ChronicleVideoCompositionProps>
   const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
   const fallbackFontFamily = fontFamily || CHRONICLE_BODY_FONT;
 
-  const resolvedScenes = scenes.map((scene, idx, arr) => {
-    const layoutKey = (scene.layout as ChronicleLayoutType) in CHRONICLE_LAYOUT_REGISTRY
-      ? (scene.layout as ChronicleLayoutType)
-      : ("parchment_scroll" as ChronicleLayoutType);
-    const raw = getSceneDurationFrames(
-      scene.durationSeconds,
-      FPS,
-      resolvedPlaybackSpeed,
-    );
-    const withMin = enforceLayoutMinimum(raw, layoutKey);
-    const isLastInMulti = idx === arr.length - 1 && arr.length > 1;
-    const trimTail =
-      isLastInMulti && !scene.voiceoverUrl?.trim();
-    const durationFrames = trimTail ? trimLastScene(withMin) : withMin;
-    const sequenceFrames = isLastInMulti ? durationFrames : durationFrames + EXTRA_HOLD_FRAMES;
-    return { scene, layoutKey, durationFrames, sequenceFrames };
-  });
+  const resolvedScenes = resolveChronicleScenes(scenes, playbackSpeed);
 
-  // Compute scene start frames so we can position voiceover audio absolutely.
-  let runningFrame = 0;
-  const sceneStartFrames: number[] = [];
-  resolvedScenes.forEach((s, i) => {
-    sceneStartFrames[i] = runningFrame;
-    runningFrame += s.sequenceFrames;
-    if (i < resolvedScenes.length - 1) {
-      const nextLayout = resolvedScenes[i + 1].layoutKey;
-      runningFrame -= pickChronicleTransition(i, s.layoutKey, nextLayout).frames;
-    }
-  });
+  // Scene start frames (for positioning voiceover audio absolutely) come from the
+  // shared schedule, so the render and slide export cannot disagree.
+  const sceneStartFrames = computeChronicleSchedule(scenes, playbackSpeed).scenes.map(
+    (s) => s.start,
+  );
 
   return (
     <AbsoluteFill

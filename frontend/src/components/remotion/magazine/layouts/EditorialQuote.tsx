@@ -1,6 +1,7 @@
 import React from "react";
 import { useVideoConfig, interpolate } from "remotion";
 import { SceneLayoutProps } from "../types";
+import { useFitText } from "../components/useFitText";
 import {
   MagazinePage,
   Halftone,
@@ -60,13 +61,58 @@ export const EditorialQuote: React.FC<SceneLayoutProps> = (props) => {
   const lastEnd = wStart + (words.length - 1) * wStagger + wDur;
   const attrO = interpolate(frame, [lastEnd, lastEnd + 14], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
-  const quotePx = titleFontSize ?? (p ? 92 : 78);
-  const attrPx = descriptionFontSize ?? (p ? 52 : 26);
+  const quoteTargetPx = titleFontSize ?? (p ? 92 : 78);
+  const attrTargetPx = descriptionFontSize ?? (p ? 52 : 26);
   const glyphSize = p ? 320 : 520;
+
+  /* Quote + attribution share a fixed-height column (the statement box below,
+     ref'd via statementRef — NOT the decorative accent rail, which has its
+     own unrelated fixed height and would give the fitter a meaningless
+     budget). Let flexbox expose the quote's real leftover height, then
+     shrink against that measured band. The attribution gets its own capped
+     share so a long credit cannot push the quote (or itself) beyond the
+     page. */
+  const railRef = React.useRef<HTMLDivElement>(null);
+  const statementRef = React.useRef<HTMLDivElement>(null);
+  const quoteRef = React.useRef<HTMLQuoteElement>(null);
+  const attrRef = React.useRef<HTMLDivElement>(null);
+  const [contentHeight, setContentHeight] = React.useState(0);
+  React.useLayoutEffect(() => {
+    const next = statementRef.current?.clientHeight ?? 0;
+    if (next > 0) setContentHeight((prev) => Math.abs(prev - next) <= 1 ? prev : next);
+  }, [p, hasImage, quote, attribution]);
+
+  const attrBudget = contentHeight > 0 ? Math.max(1, contentHeight * 0.2) : undefined;
+  const { px: attrPx } = useFitText(
+    attrRef,
+    attrTargetPx,
+    Math.max(10, Math.round(attrTargetPx * 0.38)),
+    [attribution, attrTargetPx, attrBudget, p],
+    attrBudget,
+  );
+  // The quote gets whatever the statement column has left once the
+  // attribution's own share is reserved — both are stacked in the same
+  // fixed-height flex column (statementRef), so this is the real remaining
+  // budget, not the quote's own (potentially still-oversized) clientHeight.
+  const quoteAvail =
+    contentHeight > 0 ? Math.max(1, contentHeight - (attribution ? (attrBudget ?? 0) : 0)) : undefined;
+  const { px: quotePx } = useFitText(
+    quoteRef,
+    quoteTargetPx,
+    Math.max(12, Math.round(quoteTargetPx * 0.24)),
+    [quote, quoteTargetPx, attrPx, quoteAvail, p, hasImage],
+    quoteAvail,
+  );
+
+  const cleanAttribution = attribution.replace(/^[—–-]\s*/, "");
 
   const attrInner = attribution && (
     <div
+      ref={attrRef}
       style={{
+        position: "relative",
+        minWidth: 0,
+        flex: 1,
         fontFamily: MAG_SANS,
         fontWeight: 700,
         fontSize: attrPx,
@@ -76,7 +122,11 @@ export const EditorialQuote: React.FC<SceneLayoutProps> = (props) => {
         opacity: 0.78,
       }}
     >
-      <Typewriter text={attribution.replace(/^[—–-]\s*/, "")} start={lastEnd + 14} cpf={1.2} caretColor={accent} />
+      {/* Full-copy mirror reserves the final wrapped height before typing starts. */}
+      <span aria-hidden style={{ visibility: "hidden" }}>{cleanAttribution}</span>
+      <span style={{ position: "absolute", inset: 0 }}>
+        <Typewriter text={cleanAttribution} start={lastEnd + 14} cpf={1.2} caretColor={accent} />
+      </span>
     </div>
   );
 
@@ -114,6 +164,7 @@ export const EditorialQuote: React.FC<SceneLayoutProps> = (props) => {
 
         {/* Vertical accent rail growing down the left margin */}
         <div
+          ref={railRef}
           style={{
             position: "absolute",
             top: p ? "18%" : "14%",
@@ -175,6 +226,7 @@ export const EditorialQuote: React.FC<SceneLayoutProps> = (props) => {
         {/* The statement — left-aligned, tucked just below the quotation glyph. It
             narrows on the right when a photo block shares the page. */}
         <div
+          ref={statementRef}
           style={{
             position: "absolute",
             left: "16%",
@@ -183,13 +235,19 @@ export const EditorialQuote: React.FC<SceneLayoutProps> = (props) => {
             bottom: p ? (hasImage ? "38%" : "8%") : "10%",
             display: "flex",
             flexDirection: "column",
+            minHeight: 0,
+            overflow: "hidden",
             alignItems: "flex-start",
             justifyContent: "center",
             zIndex: 1,
           }}
         >
           <blockquote
+            ref={quoteRef}
             style={{
+              flex: "0 1 auto",
+              minHeight: 0,
+              overflow: "hidden",
               fontFamily: MAG_DISPLAY,
               fontStyle: "italic",
               fontWeight: 500,
@@ -198,7 +256,7 @@ export const EditorialQuote: React.FC<SceneLayoutProps> = (props) => {
               letterSpacing: "-0.01em",
               color: text,
               margin: 0,
-              maxWidth: "100%",
+              width: "100%",
               textAlign: "left",
             }}
           >
@@ -207,7 +265,7 @@ export const EditorialQuote: React.FC<SceneLayoutProps> = (props) => {
 
           {/* Attribution beneath the quote with a short accent rule */}
           {attribution && (
-            <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 26, opacity: attrO }}>
+            <div style={{ flex: "0 1 auto", minHeight: 0, display: "flex", alignItems: "center", gap: 14, marginTop: 26, opacity: attrO }}>
               <div style={{ width: 46, height: 2, background: accent }} />
               {attrInner}
             </div>

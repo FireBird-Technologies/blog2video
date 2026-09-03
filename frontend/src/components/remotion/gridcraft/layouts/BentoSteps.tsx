@@ -4,6 +4,74 @@ import { GridcraftLayoutProps } from "../types";
 import { GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY } from "../constants";
 import { glass, COLORS } from "../utils/styles";
 import { ZoomCropImg } from "../components/ZoomCropImg";
+import { useFitText } from "../components/useFitText";
+
+/**
+ * One step tile. Each tile is a `1fr` grid cell (or `auto` in portrait), not a
+ * shrinkable measurable box, so the label fits a fixed budget first and the
+ * description fits the remainder, with give-back cascading like NewsHeadline.
+ */
+const StepTile: React.FC<{
+  label: string;
+  description?: string;
+  isLast: boolean;
+  p: boolean;
+  titleFontSize?: number;
+  descriptionFontSize?: number;
+  titleFontSizeIsUserSet?: boolean;
+  descriptionFontSizeIsUserSet?: boolean;
+  index: number;
+  budgetPx: number;
+  style: React.CSSProperties;
+}> = ({
+  label,
+  description,
+  isLast,
+  p,
+  titleFontSize,
+  descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
+  index,
+  budgetPx,
+  style,
+}) => {
+  const labelRef = React.useRef<HTMLDivElement>(null);
+  const descRef = React.useRef<HTMLDivElement>(null);
+  const actualTitleFontSize = titleFontSize ?? (p ? 36 : 42);
+  const actualDescriptionFontSize = descriptionFontSize ?? (p ? 22 : 22);
+
+  const labelBudgetPx = Math.max(1, budgetPx * (description ? 0.45 : 1));
+  const { px: labelPx } = useFitText(
+    labelRef,
+    actualTitleFontSize,
+    titleFontSizeIsUserSet ? actualTitleFontSize : p ? 18 : 20,
+    [label, actualTitleFontSize, titleFontSizeIsUserSet, labelBudgetPx],
+    labelBudgetPx,
+  );
+  const descBudgetPx = Math.max(1, budgetPx - labelBudgetPx);
+  const { px: descPx } = useFitText(
+    descRef,
+    actualDescriptionFontSize,
+    descriptionFontSizeIsUserSet ? actualDescriptionFontSize : p ? 13 : 14,
+    [description, actualDescriptionFontSize, descriptionFontSizeIsUserSet, descBudgetPx, labelPx],
+    descBudgetPx,
+  );
+
+  return (
+    <div style={style}>
+      <div style={{ fontSize: p ? 32 : 42, fontWeight: 700, color: isLast ? "rgba(255,255,255,0.4)" : COLORS.ACCENT, opacity: 0.5, marginBottom: 8, lineHeight: 1 }}>
+        {String(index + 1).padStart(2, "0")}
+      </div>
+      <div ref={labelRef} style={{ fontSize: labelPx, fontWeight: 700, marginBottom: 4, color: isLast ? COLORS.WHITE : COLORS.DARK, wordBreak: "break-word" }}>
+        {label}
+      </div>
+      <div ref={descRef} style={{ fontSize: descPx, lineHeight: 1.4, color: isLast ? "rgba(255,255,255,0.8)" : COLORS.MUTED, wordBreak: "break-word" }}>
+        {description}
+      </div>
+    </div>
+  );
+};
 
 export const BentoSteps: React.FC<GridcraftLayoutProps> = ({
   steps,
@@ -19,10 +87,12 @@ export const BentoSteps: React.FC<GridcraftLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, height: videoHeight } = useVideoConfig();
 
   const items = steps || dataPoints || [
       { label: "Step 1", description: "Initialize" },
@@ -37,6 +107,12 @@ export const BentoSteps: React.FC<GridcraftLayoutProps> = ({
 
   const imageOpacity = interpolate(frame, [5, 25], [0, 1], { extrapolateRight: "clamp" });
   const imageScale = spring({ frame: Math.max(0, frame - 5), fps, config: { damping: 14 } });
+
+  // Grid rows are `1fr`/`auto` tracks, not a measurable fixed pixel height, so
+  // approximate each tile's budget from the containing box (80% of frame
+  // height) split across the row count.
+  const rowCount = p ? items.length : 2;
+  const tileBudgetPx = Math.max(1, (videoHeight * 0.8) / rowCount - 48);
 
   return (
     <div
@@ -106,8 +182,18 @@ export const BentoSteps: React.FC<GridcraftLayoutProps> = ({
           const isLast = i === items.length - 1;
 
           return (
-              <div
+              <StepTile
                 key={i}
+                label={item.label}
+                description={item.description}
+                isLast={isLast}
+                p={p}
+                titleFontSize={titleFontSize}
+                descriptionFontSize={descriptionFontSize}
+                titleFontSizeIsUserSet={titleFontSizeIsUserSet}
+                descriptionFontSizeIsUserSet={descriptionFontSizeIsUserSet}
+                index={i}
+                budgetPx={tileBudgetPx}
                 style={{
                   ...(p
                     ? { gridColumn: "1", gridRow: i + 1 }
@@ -123,17 +209,7 @@ export const BentoSteps: React.FC<GridcraftLayoutProps> = ({
                   transform: `scale(${scale})`,
                   opacity,
                 }}
-              >
-                  <div style={{ fontSize: p ? 32 : 42, fontWeight: 700, color: isLast ? "rgba(255,255,255,0.4)" : COLORS.ACCENT, opacity: 0.5, marginBottom: 8, lineHeight: 1 }}>
-                      {String(i + 1).padStart(2, "0")}
-                  </div>
-                  <div style={{ fontSize: titleFontSize ?? (p ? 36 : 42), fontWeight: 700, marginBottom: 4, color: isLast ? COLORS.WHITE : COLORS.DARK, wordBreak: "break-word" }}>
-                      {item.label}
-                  </div>
-                  <div style={{ fontSize: descriptionFontSize ?? (p ? 22 : 22), lineHeight: 1.4, color: isLast ? "rgba(255,255,255,0.8)" : COLORS.MUTED, wordBreak: "break-word" }}>
-                      {item.description}
-                  </div>
-              </div>
+              />
           )
       })}
       </div>

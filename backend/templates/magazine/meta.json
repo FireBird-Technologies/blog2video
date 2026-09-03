@@ -1,7 +1,7 @@
 {
   "id": "magazine",
   "name": "Magazine",
-  "new_template": true,
+  "new_template": false,
   "description": "An authentic print-editorial magazine template: cream paper, serif headlines and book-serif body, a single red accent, hairline rules, page folios and a masthead. Purely typographic — no photographs. Folios, kicker labels, pull quotes, Q&A blocks and crisp infographic ledgers for features, interviews and brand content.",
   "genres": [
     "Business",
@@ -1057,7 +1057,7 @@
         },
         "descriptionFontSize": {
           "portrait": 52,
-          "landscape": 28
+          "landscape": 21
         },
         "sectionLabel": "Feature",
         "issueLabel": "Feature"

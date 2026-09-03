@@ -91,6 +91,12 @@ export interface BlogPost {
   title: string;
   description: string;
   category: string;
+  /**
+   * Set when this post covers the same search intent as another post and should
+   * consolidate its ranking signals onto it. Emits a cross-URL canonical and
+   * drops the post from the sitemap.
+   */
+  canonicalPath?: string;
   heroImage?: string;
   heroImageAlt?: string;
   publishedAt: string;
@@ -155,31 +161,4 @@ export interface ToolDefinition {
   sections: ContentSection[];
   faq: FaqItem[];
   relatedPaths: string[];
-}
-
-export type DirectoryPricingModel = "free" | "paid" | "freemium";
-
-export interface SubstackPublication {
-  slug: string;
-  name: string;
-  tagline: string;
-  description: string;
-  audience: string;
-  pricingModel: DirectoryPricingModel;
-  cadence: string;
-  tone: string;
-  bestFor: string[];
-  topics: string[];
-  differentiator: string;
-}
-
-export interface SubstackNiche {
-  slug: string;
-  name: string;
-  title: string;
-  description: string;
-  audience: string;
-  angle: string;
-  publicationSlugs: string[];
-  relatedNicheSlugs: string[];
 }

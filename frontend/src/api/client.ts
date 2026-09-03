@@ -595,6 +595,8 @@ export interface TemplateMeta {
   description: string;
   /** When true, show a highlighted "New" tag on the template picker (step 2). */
   new_template?: boolean;
+  /** When true, show a sky "New Scenes" tag — existing template, new scene layouts. */
+  new_scenes?: boolean;
   /** When true, show an amber "Popular" tag on the template picker. */
   popular_template?: boolean;
   styles?: string[];  // DEPRECATED — was video_style filter; now replaced by `genres`. Kept for back-compat readers.
@@ -607,6 +609,15 @@ export interface TemplateMeta {
   studio_only_layouts?: string[];
   layouts_without_image?: string[];
   layout_prop_schema?: Record<string, LayoutPropSchema>;
+  /**
+   * base layout id -> [base, ...`__vN` variants], base first. Variants are
+   * alternate visual renderings of the same scene and are deliberately absent
+   * from `valid_layouts` (the LLM must never pick one), but Template Studio
+   * renders them directly — same as `studio_only_layouts`.
+   */
+  layout_variants?: Record<string, string[]>;
+  /** layout id -> short style label, e.g. `news_headline__v2` -> "Broadsheet". */
+  layout_variant_labels?: Record<string, string>;
 }
 
 export type LayoutPropFieldType =
@@ -1757,10 +1768,19 @@ export interface LayoutPropSchemaEntry {
 }
 
 export interface LayoutInfo {
+  /** Every layout the RENDERER can dispatch, including `__vN` visual variants. */
   layouts: string[];
+  /** The subset a layout picker may offer: base layouts only, no variants. */
+  selectable_layouts?: string[];
   layout_names: Record<string, string>;
+  /** Keyed by BASE layout — resolve a variant with baseLayoutId() before lookup. */
   layouts_without_image?: string[];
+  /** Keyed by BASE layout — variants share their base's schema entry. */
   layout_prop_schema?: Record<string, LayoutPropSchemaEntry>;
+  /** base layout id -> [base, ...variants], base always first. */
+  layout_variants?: Record<string, string[]>;
+  /** layout id -> short chip label, e.g. `news_headline__v2` -> "Broadsheet". */
+  layout_variant_labels?: Record<string, string>;
 }
 
 export const getValidLayouts = (projectId: number) =>
@@ -2650,5 +2670,62 @@ export const deleteSavedVoice = (id: number) =>
 
 export const generateEmbedToken = (projectId: number) =>
   api.post<{ embed_token: string; preview_url: string }>(`/embed/token/${projectId}`);
+
+/**
+ * Render one PNG per frame through Remotion (server-side) for slide export.
+ *
+ * The endpoint streams NDJSON — one line per slide as it finishes — so `onSlide`
+ * fires progressively and the UI can report which slide is rendering. Uses fetch
+ * rather than the axios instance because axios buffers the whole body in the
+ * browser, which would defeat the streaming.
+ */
+export const renderProjectStills = async (
+  projectId: number,
+  frames: number[],
+  onSlide: (slide: { index: number; total: number; image: string }) => void,
+  signal?: AbortSignal,
+): Promise<void> => {
+  const token = localStorage.getItem("b2v_token");
+  const res = await fetch(`${BACKEND_URL}/api/projects/${projectId}/render-stills`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ frames }),
+    signal,
+  });
+  if (!res.ok || !res.body) {
+    let detail = `Slide render failed (${res.status}).`;
+    try {
+      const j = await res.json();
+      if (j?.detail) detail = String(j.detail);
+    } catch { /* non-JSON error body */ }
+    throw new Error(detail);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    // Lines can split across chunks; keep the trailing partial in the buffer.
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      const msg = JSON.parse(line);
+      if (msg.error) throw new Error(msg.error);
+      onSlide(msg);
+    }
+  }
+  if (buffer.trim()) {
+    const msg = JSON.parse(buffer);
+    if (msg.error) throw new Error(msg.error);
+    onSlide(msg);
+  }
+};
 
 export default api;

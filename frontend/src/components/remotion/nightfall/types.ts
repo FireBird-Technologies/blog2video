@@ -1,5 +1,8 @@
 import type { SocialsMap } from "../SocialIcons";
 
+// The `__vN` members are visual variants (see backend/templates/nightfall/meta.json
+// `layout_variants`). A variant takes the SAME props as its base layout — switching
+// between them must never require a prop migration.
 export type NightfallLayoutType =
   | "cinematic_title"
   | "glass_narrative"

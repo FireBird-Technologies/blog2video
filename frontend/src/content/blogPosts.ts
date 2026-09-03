@@ -17,11 +17,468 @@ function faq(primary: string, variant: string) {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "youtube-backlink",
+    title: "How to Get a YouTube Backlink (DR 99) in Minutes, Without Filming Anything",
+    description:
+      "YouTube is a DR 99 domain that will host a page about your topic, with your link on it, for free. The only reason most writers never collect one is that making the video used to cost a day. Here is the two-minute version — and an honest account of what a nofollow description link is actually worth.",
+    category: "SEO Strategy",
+    publishedAt: "2026-08-27",
+    readTime: "8 min read",
+    heroEyebrow: "SEO Strategy",
+    heroTitle: "YouTube will host a page about your topic, with your link on it, for free.",
+    heroDescription:
+      "Ahrefs rates youtube.com at DR 99. Every upload earns you a permanent, indexed watch page on it — your title, your description, your link, your transcript. The only thing standing between you and one is the video, and that no longer costs a day.",
+    primaryKeyword: "youtube backlink",
+    keywordVariant: "how to get backlinks from youtube",
+    relatedPaths: [
+      "/blog-to-youtube-video",
+      "/youtube-seo-checklist",
+      "/tools/youtube-description-generator",
+      "/how-to-turn-a-blog-post-into-a-youtube-video",
+      "/blogs/where-to-promote-your-writing-2026",
+    ],
+    sections: [
+      {
+        heading: "The highest-authority page you are allowed to publish on",
+        paragraphs: [
+          "There is no outreach involved. No guest post pitch, no HARO reply, no paying $200 to a link vendor whose editorial placements all turn out to be on the same five expired domains.",
+          "You upload a video. YouTube gives you a watch page on a domain Ahrefs scores at DR 99 — the same domain Google owns, indexes constantly, and surfaces in its own results with a thumbnail attached. That page carries your title, up to 5,000 characters of description, your link, your transcript, and your channel name. It stays up indefinitely.",
+          "Google is not neutral about its own product. Video results get pulled into normal search results, into the Videos tab, and increasingly into AI answers that cite what they watched. A page on youtube.com is not a link on a blog. It is a second surface.",
+        ],
+      },
+      {
+        heading: "The honest part: the description link is nofollow",
+        paragraphs: [
+          "Let us get this out of the way, because you will read the phrase \"DR 99 backlink\" on X about once a week and it is never qualified.",
+          "Links in a YouTube description carry rel=\"nofollow\". They always have. Since March 2020 Google has treated nofollow as a hint rather than a hard directive, which means it may consider the link for crawling and ranking — but nobody should plan on link equity flowing from a video description into their domain. If your entire strategy is extracting the DR 99 juice, you will be disappointed.",
+          "Call it what it actually is: a free, permanent, indexed page on the strongest domain you will ever be handed, describing your topic in your words and pointing at your site. The nofollow attribute does not make that worthless. It makes it a different asset than the one people advertise.",
+        ],
+        bullets: [
+          "A ranking page on someone else's authority — your video can rank on Google and inside YouTube search, the second-largest search engine there is.",
+          "Referral traffic that converts, because someone who watched ninety seconds of your explanation is warmer than anything a directory sends you.",
+          "Brand and entity signals — repeated co-occurrence of your name, your topic, and your URL on a high-trust domain is exactly the association graph Google and LLM answer engines build from.",
+          "A discovery surface that is not a feed, so it keeps working after you stop promoting it.",
+        ],
+      },
+      {
+        heading: "So why does almost nobody collect it?",
+        paragraphs: [
+          "Because making the video costs more than the link is worth. A talking-head take means a camera, a room that does not echo, three attempts, and an hour in an editor. Nobody does that for a blog post they already published, so the video never gets made and the DR 99 page never exists.",
+          "The obvious escape hatch — generic AI video generators — has turned out to be a trap. Prompt-to-video output has a look now, and viewers have learned it: the drifting camera, the melting hands, the stock-corporate voice reading someone else's copy. Those videos do not get watched.",
+          "And a video with eleven views does not rank, does not get cited, and does not send anybody to your site. You end up holding a technically-real backlink on a page nobody has ever loaded.",
+        ],
+      },
+      {
+        heading: "Blog2Video renders with code, not a diffusion model",
+        paragraphs: [
+          "This is the part that decides whether the page performs. Blog2Video does not generate frames with a video model. It reads your post, breaks it into scenes, and renders those scenes programmatically — real typography, real charts, real motion, laid out by templates that were designed rather than dreamed.",
+          "Every frame is deterministic. Text is crisp because it is text. A chart is a chart, not a picture of one. Nothing warps between frames, because nothing was hallucinated into existence in the first place.",
+          "The practical result is that it does not read as AI video, because it is not one. It reads like a motion-designed explainer — which is the register that holds attention long enough for YouTube to decide the video is worth showing to somebody else.",
+        ],
+        ctaPath: "/blog-to-youtube-video",
+        ctaLabel: "See the blog-to-YouTube workflow",
+      },
+      {
+        heading: "Put your own voice on it",
+        paragraphs: [
+          "The fastest tell in a low-effort upload is the narration. A stock voice reading your post is the audio equivalent of a stock photo, and it is the moment most viewers close the tab.",
+          "There are two ways around it and both are built in. You can record it yourself scene by scene, with the scene playing beside the recorder while you speak, so you narrate to the visuals instead of guessing at timing. Or you can clone your voice once and reuse it on every project afterwards.",
+          "Cloning takes one pass: Dashboard, then Voices, then Create custom voice, and upload roughly a two-minute audio or video sample. Your clone then appears in the voice picker on every project. It is included on the Lite, Standard, and Pro plans. You can also mix the two — record the opening line and the call to action yourself, and let the clone carry the middle.",
+        ],
+      },
+      {
+        heading: "The actual run: about two minutes",
+        paragraphs: [
+          "The reason this takes two minutes rather than two hours is that the script was already written. It is your blog post.",
+        ],
+        bullets: [
+          "Paste the URL of the post. Blog2Video pulls the content and splits it into scenes.",
+          "Pick a template — editorial, finance, magazine, technical, or a custom one generated from your own site so the video carries your brand.",
+          "Skim the scenes: fix a headline, swap an image, drop in a stock clip where a scene wants footage behind it.",
+          "Choose the voice — your clone, your live recording, or a prebuilt voice.",
+          "Render and download the MP4.",
+        ],
+      },
+      {
+        heading: "Uploading so the page actually earns something",
+        paragraphs: [
+          "The video is the easy half. The upload is where most of the SEO value is won or lost, and it is where the two-minute workflow can still be wasted.",
+          "The description is the part people get wrong most often. YouTube indexes it, Google reads it, and answer engines quote it — so treat it as a page of copy, not a place to dump hashtags.",
+        ],
+        bullets: [
+          "Put the link in the first line of the description. Only the first two lines show above the fold.",
+          "Write two to three hundred real words summarising the post, with your link at the top and again at the bottom.",
+          "Upload subtitles. YouTube will auto-caption you, but auto-captions mangle product names and technical terms — precisely the words you want indexed. You already have the script; export it as an SRT.",
+          "Paste the transcript or a summary into the description: more indexable text on a DR 99 page, in your words.",
+          "Title it for search rather than for cleverness — same keyword as the post, phrased the way someone would type it.",
+          "Pin a comment with the link. It survives description truncation and is the second-most-clicked element on the page.",
+          "Add chapters and an end screen. Chapters get pulled into Google's key-moments display.",
+        ],
+        ctaPath: "/tools/youtube-description-generator",
+        ctaLabel: "Draft the description and tags",
+      },
+      {
+        heading: "Then do it again",
+        paragraphs: [
+          "One video is a novelty. The compounding version is one video per post.",
+          "Every article you have published is a video you have not made yet, and every video is another indexed page on YouTube pointing back at the article. Thirty posts becomes thirty watch pages, one channel Google can read as a topical entity, and thirty entry points that do not depend on your own domain ranking for anything.",
+          "That is the real argument for making video generation cost two minutes instead of two hours. At two hours you do it once. At two minutes you do it every time you publish, and the back catalogue stops being dead weight.",
+        ],
+        ctaPath: "/youtube-seo-checklist",
+        ctaLabel: "Run the YouTube SEO checklist",
+      },
+    ],
+    faq: [
+      {
+        question: "Is a YouTube link a real backlink?",
+        answer:
+          "It is a real link on a real page, but it is nofollow, so you should not expect it to pass link equity the way an editorial link from a blog would. What it does give you is an indexed page on a DR 99 domain that can rank for your topic, send referral traffic, and associate your brand with your subject in the eyes of both Google and AI answer engines.",
+      },
+      {
+        question: "Does nofollow make YouTube backlinks worthless for SEO?",
+        answer:
+          "No, but it changes what they are for. Since March 2020 Google treats nofollow as a hint rather than a directive, so the link may still be considered for crawling and ranking. More importantly, the value sits in the page itself — a video that ranks in Google and YouTube search is a second surface for the same keyword, and the traffic it sends is qualified.",
+      },
+      {
+        question: "How long does it actually take to make the video?",
+        answer:
+          "About two minutes of your attention per video with Blog2Video, because the script is your existing post and the rendering is automatic. Rendering time depends on video length, but you are not sitting in an editor for any of it.",
+      },
+      {
+        question: "Do I need to appear on camera?",
+        answer:
+          "No. Blog2Video renders typography, charts, images, and motion from your post — there is no camera anywhere in the workflow. The only thing that is yours is the voice, and even that is optional if you would rather use a prebuilt one.",
+      },
+      {
+        question: "Can I use my own voice without recording every video?",
+        answer:
+          "Yes. Create a voice clone once from a roughly two-minute audio or video sample under Dashboard, Voices, Create custom voice, and it appears in the voice picker on every project afterwards. Voice cloning is available on the Lite, Standard, and Pro plans.",
+      },
+      {
+        question: "Will Google penalise me for publishing a video of a post I already wrote?",
+        answer:
+          "No. Repurposing your own content across formats is normal publishing, not duplication — the video lives on YouTube, the article lives on your site, and they serve different search surfaces. Embedding the video back into the post tends to help, since it increases time on page.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to get a YouTube backlink (DR 99) in minutes",
+        angle:
+          "Evergreen SEO post targeting writers searching for YouTube backlinks, with the nofollow caveat handled openly so it survives scrutiny from experienced readers.",
+      },
+      {
+        channel: "video",
+        title: "I got a DR 99 backlink in 2 minutes (here is the catch)",
+        angle:
+          "Screen-record the whole loop: paste the URL, pick a template, record one line of voiceover, render, upload to YouTube with the link on the first line of the description. Address the nofollow point on screen.",
+      },
+      {
+        channel: "substack",
+        title: "The DR 99 backlink everyone talks about and nobody qualifies",
+        angle:
+          "Lead with the honest nofollow explanation, then argue the page itself is the asset. Close on the one-video-per-post compounding argument.",
+      },
+      {
+        channel: "twitter",
+        title: "YouTube is a DR 99 domain that will publish your link for free",
+        angle:
+          "Thread: what the watch page actually gives you, why the link is nofollow, why it still matters, and the two-minute production loop that makes it repeatable.",
+      },
+    ],
+  },
+  {
+    slug: "where-to-promote-your-writing-2026",
+    title: "Where to Promote Your Writing in 2026: Every Platform, Honestly Assessed",
+    description:
+      "Reddit bans you, LinkedIn buries you, X suppresses your links, and Substack wants a second job out of you. An honest look at every promotion channel left to writers in 2026 — and what to do about it.",
+    category: "Distribution",
+    heroImage: "/blog/blog-cover-where-to-promote-your-writing-2026.png",
+    heroImageAlt:
+      "Reddit bans you, LinkedIn buries you, X suppresses your links, and Substack wants a second job out of you. An honest look at every promotion channel left to writers in 2026 — and what to do about it.",
+    publishedAt: "2026-08-07",
+    readTime: "7 min read",
+    heroEyebrow: "Distribution",
+    heroTitle: "Writers in 2026 have almost nowhere left to post.",
+    heroDescription:
+      "Every platform that used to send readers to written work has either closed the door, drowned it in noise, or quietly penalised the outbound link. Here is the honest state of each one, from someone who has been banned from a few of them.",
+    primaryKeyword: "where to promote your blog",
+    keywordVariant: "where to promote your writing in 2026",
+    relatedPaths: [
+      "/blogs/bloghub-product-hunt-for-blogs",
+      "/blogs/best-ai-tools-for-substack-writers",
+      "/distribution-flywheel",
+      "/for-substack-writers",
+      "/blog-to-shorts",
+    ],
+    sections: [
+      {
+        heading: "Reddit: one link, and an eight-year account is gone",
+        paragraphs: [
+          "Reddit is still where the most engaged niche audiences on the internet live, which is exactly why it is guarded so tightly. Most subreddits treat any link to your own writing as self-promotion regardless of how much you have contributed elsewhere, and enforcement is not proportional.",
+          "I had an eight-year-old account permanently banned for posting a single article. Not a campaign, not a drip of links across ten subreddits — one article. There was no warning and no meaningful appeal. Account age and comment history counted for nothing.",
+          "If you want to use Reddit, treat it as a place to be useful in comments for months before you ever link out, and accept that you may still lose the account. It is not a distribution channel. It is a community you are a guest in.",
+        ],
+      },
+      {
+        heading: "LinkedIn: the door is open, the room is deafening",
+        paragraphs: [
+          "LinkedIn is the rare platform that has not declared war on outbound links, and reach for written posts is genuinely available. That is the good news, and it is real.",
+          "The problem is the noise floor. Everyone is posting now, a large share of it is AI-generated filler in the same three-word-line format, and the feed rewards familiarity — accounts readers already recognise. A small publisher starting from zero is competing for attention against people with five years of accumulated network effects.",
+          "It works, but only as a compounding play. Posting consistently for six months to build recognition is a legitimate strategy. Posting your link once and waiting is not.",
+        ],
+      },
+      {
+        heading: "X: link-suppressed, and charged with everything else",
+        paragraphs: [
+          "X still moves faster than anything else when something catches, but two things make it a poor fit for written work. First, posts carrying external links are demonstrably down-ranked — the platform wants you publishing on X, not routing readers off it. Second, the ambient environment is heavily political, and a piece about databases or design lands in a feed that is arguing about something else entirely.",
+          "The writers who do well on X are the ones who gave up and made X the destination: long-form posts native to the platform, with the blog as an afterthought. That is a real strategy. It is just not blog promotion.",
+        ],
+      },
+      {
+        heading: "Substack: good, if you treat Notes as a second job",
+        paragraphs: [
+          "Substack deserves credit — it is one of the few places built by people who actually like writing, and Notes is a genuine discovery engine rather than a token feature.",
+          "But it has LinkedIn's problem in a smaller room. Notes is an engagement-optimised feed, which means it surfaces what performs rather than what is good, and a publication starting at zero subscribers has very little to bootstrap with. The writers growing on Substack are, almost without exception, the ones spending real hours every week in Notes.",
+          "If you have those hours, Substack is the strongest option on this list. If you were hoping to spend your time writing instead, be honest with yourself about the trade.",
+        ],
+      },
+      {
+        heading: "Facebook: a few living rooms in a large graveyard",
+        paragraphs: [
+          "There are still Facebook groups with real activity, usually tightly-themed and moderated by someone who cares. If your topic has one, it can be worth more than any algorithmic feed, because the members are there deliberately.",
+          "Everything outside those groups is either dead or so noisy that it does not matter. And the same self-promotion rules apply as on Reddit — the difference is that the moderator is more likely to be a person you can actually talk to first.",
+        ],
+      },
+      {
+        heading: "Instagram and TikTok: video-only, and that is not negotiable",
+        paragraphs: [
+          "These are the two largest discovery surfaces left on the consumer internet, and neither one has any interest in a paragraph. Screenshots of text underperform, carousels of quotes plateau quickly, and links in bio convert at rates that make the effort hard to justify on their own.",
+          "The workaround is to stop trying to promote written work on them and start turning the writing itself into video. A post becomes a narrated ninety-second clip; the clip earns the reach that the paragraph never would. That is the entire reason Blog2Video exists — the writing is already done, and the video should not cost you a second production job.",
+        ],
+        ctaPath: "/blog-to-shorts",
+        ctaLabel: "Turn a post into shorts",
+      },
+      {
+        heading: "So where does that leave a writer?",
+        paragraphs: [
+          "Look at the pattern across all six. Every one of them is optimised for something other than sending readers to a piece of writing — engagement, session time, on-platform publishing, ad inventory. Written work is at best tolerated and at worst actively penalised. There is no platform whose actual job is helping a good publication get found.",
+          "That is the gap I started building BlogHub for. It works the way Product Hunt works, but for publications: you list your blog or newsletter, you get a profile page structured for both search engines and AI answer engines, you get real backlinks to the publication and to individual posts, and you rise through community upvotes instead of paid placement or accumulated follower counts.",
+          "The honest caveat is the same one I gave last time: BlogHub is in beta, and it is a discovery surface rather than a traffic firehose. But it is the only thing on this page whose incentives point the same direction as yours.",
+        ],
+        ctaPath: "https://bloghub.app",
+        ctaLabel: "List your publication on BlogHub",
+      },
+      {
+        heading: "The one channel on this list that works while you sleep",
+        paragraphs: [
+          "Every platform above has the same hidden cost: it only pays while you are actively feeding it. Stop posting on LinkedIn and the reach stops. Stop showing up in Notes and the subscribers stop. That is not a criticism of those channels so much as a description of what a feed is.",
+          "Directory listings are the exception, which is why they keep quietly outperforming their reputation. You submit a publication once and the page keeps being crawled, browsed, and linked from for as long as it is up. The catch is that most directories are dead, paywalled, or strip the link with a nofollow attribute — which is exactly why the eighty-site submission lists have such a bad name.",
+          "If you want the long version of which ones survive that filter and how to submit so the listing actually converts, we wrote both up on BlogHub: an honest five-place shortlist, and a full accounting of what a BlogHub listing itself gives you — free listing, followed links, a ranked page for your subject, and a weekly email that goes out to every subscriber even when your listing has no votes yet.",
+        ],
+        ctaPath: "https://bloghub.app/blogs/article-submission-sites",
+        ctaLabel: "5 places to submit your article",
+      },
+    ],
+    faq: [
+      {
+        question: "Are blog and newsletter directories still worth submitting to?",
+        answer:
+          "Yes, but only a handful of them. Mass submission to eighty article directories stopped working after Google's Panda update and can now hurt you. A small number of curated, genuinely browsed directories still deliver the one thing feeds never do: a permanent, indexable, followed link that keeps working after you stop promoting. BlogHub's write-up on why it is the best free blog directory covers what to look for in any of them.",
+      },
+      {
+        question: "Where should I promote my blog in 2026?",
+        answer:
+          "There is no single answer, which is the problem. LinkedIn and Substack Notes both work but only as consistent, months-long habits. Reddit and Facebook work only inside communities where you have already contributed. Instagram and TikTok require converting the writing into video first. BlogHub is purpose-built for publication discovery and is worth listing on because it costs nothing but the listing.",
+      },
+      {
+        question: "Why did Reddit ban my account for posting my own article?",
+        answer:
+          "Most subreddits enforce a self-promotion ratio, and many treat any link to a domain you own as spam regardless of context or account history. Enforcement is often automated and permanent — an eight-year-old account with a long comment history can be removed for a single post. If you use Reddit, participate in comments for a long time before linking, and never rely on it as a primary channel.",
+      },
+      {
+        question: "Does X really suppress posts with external links?",
+        answer:
+          "Posts containing outbound links consistently see lower reach than native posts, because the platform's incentive is to keep readers on X. The practical workaround is to publish the substance natively on X and treat the blog as secondary — which works, but is a different strategy from promoting a blog.",
+      },
+      {
+        question: "How do I promote written content on Instagram and TikTok?",
+        answer:
+          "Convert it. Neither platform distributes text well, so the realistic path is turning a post into a short narrated video and letting that earn the reach. Tools like Blog2Video generate the video from the existing article, so you are not producing a second piece of content from scratch.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Where to Promote Your Writing in 2026: Every Platform, Honestly Assessed",
+        angle:
+          "Target writers searching for where to promote a blog, how to get readers for a new blog, and Reddit self-promotion bans — lead with the honest platform-by-platform assessment and close on BlogHub as the structural answer.",
+      },
+      {
+        channel: "substack",
+        title: "I got an 8-year-old Reddit account banned for posting one article",
+        angle:
+          "Open with the ban as a concrete story, widen into the pattern across every platform, and land on why discovery had to be built rather than found.",
+      },
+      {
+        channel: "video",
+        title: "Six platforms, six reasons your writing goes unread",
+        angle:
+          "One scene per platform with the verdict on screen, under two minutes, ending on the two things that actually work.",
+      },
+      {
+        channel: "twitter",
+        title: "The honest state of blog promotion in 2026",
+        angle:
+          "Thread with one platform per post and the verdict stated plainly — deliberately native to the platform, since links are down-ranked.",
+      },
+    ],
+  },
+  {
+    slug: "blog2video-august-2026-update",
+    title: "Blog2Video August 2026 Update: Lite Plan, Stock Footage, and Four More Things",
+    description:
+      "Five things just shipped on Blog2Video — a $19.99 Lite plan, stock footage inside your scenes, a rebuilt image adjust window, voiceover recording with the scene playing beside you, and much lower memory use on mobile.",
+    category: "Product Update",
+    heroImage: "/blog/blog-cover-blog2video-august-2026-update.png",
+    heroImageAlt:
+      "Five things just shipped on Blog2Video — a $19.99 Lite plan, stock footage inside your scenes, a rebuilt image adjust window, voiceover recording with the scene playing beside you, and much lower memory use on mobile.",
+    publishedAt: "2026-08-04",
+    readTime: "5 min read",
+    heroEyebrow: "Product Update - August 2026",
+    heroTitle: "Five new things just landed on Blog2Video.",
+    heroDescription:
+      "A new Lite plan at $19.99, stock footage you can drop straight into any scene, an image adjust window that finally shows the whole photo, voiceover recording in time with the visuals, and a far lighter experience on mobile.",
+    primaryKeyword: "blog2video update",
+    keywordVariant: "blog2video new features august 2026",
+    relatedPaths: [
+      "/pricing",
+      "/blog-to-video",
+      "/custom-branded-video-templates",
+      "/blogs/blog2video-just-shipped-june-2026",
+      "/blogs/whats-new-in-blog2video-six-features",
+    ],
+    sections: [
+      {
+        heading: "1. The new Lite plan — $19.99 a month",
+        paragraphs: [
+          "There has been a gap between the per-video option and the Standard plan for a while. Some people do not need thirty videos a month. They need a handful, reliably, without thinking about credits every time.",
+          "Lite fills that gap: 10 videos every month, 2 custom video templates built from your own site, and 300 AI edit credits for image regeneration and voiceover edits — for $19.99 a month, or $15.99 a month billed annually.",
+          "It is the easy way in. If you outgrow it, Standard and Pro are one click away, and nothing you have already made goes anywhere.",
+        ],
+        bullets: [
+          "10 videos per month",
+          "2 custom video templates in your own brand look",
+          "300 AI edit credits per month",
+          "$19.99/month, or $15.99/month billed annually ($191.88/year)",
+        ],
+        ctaPath: "/pricing",
+        ctaLabel: "See the Lite plan",
+      },
+      {
+        heading: "2. Stock footage, right inside your scenes",
+        paragraphs: [
+          "Until now a scene was type, charts, and images. Now it can hold real footage. Search for a clip from inside the editor and drop it straight into any scene.",
+          "The footage sits behind your text and motion the same way a generated image would — same framing controls, same scene timing, no round trip through an external editor and no re-render of anything else.",
+          "That is the difference between a video that illustrates your post and a video that has something behind it. A market breakdown gets a trading floor. A travel piece gets the road. Stock footage is wired into the built-in templates and the custom template flow, so it works wherever you already are.",
+        ],
+      },
+      {
+        heading: "3. The image adjust window got a lot better",
+        paragraphs: [
+          "The old crop window had one real problem: it showed you the crop, not the photo. You were adjusting a frame while half-blind to what sat outside it.",
+          "The rebuilt window shows the entire picture, with the crop region drawn on top of it. Drag it where you want it, zoom in, and save. What you see is what renders — and because framing is stored per orientation, a landscape adjustment does not fight with the portrait cut of the same asset.",
+          "Small change to describe. Large change if you have ever lost a subject's head to an automatic crop.",
+        ],
+      },
+      {
+        heading: "4. Record your voiceover with the scene playing beside you",
+        paragraphs: [
+          "Recording your own narration used to be a guessing game about timing. You would record, attach, play it back, discover you were two seconds long, and go again.",
+          "Now the scene plays right beside the recorder while you speak. You watch the visuals move and narrate to them, so every word lands in time with what is on screen. No stopwatch, no third-party editor, no re-cutting your own audio to fit.",
+          "It works per scene, so you can record one line in your own voice and leave the rest to the AI voice — or do the whole thing yourself.",
+        ],
+      },
+      {
+        heading: "5. Much less memory on mobile",
+        paragraphs: [
+          "The editor was heavy on phones. Previews would hold on to memory, and long sessions on a small screen ended in reloads.",
+          "We went through the mobile preview path and cut memory use substantially: lighter previews, far fewer reloads, and a much smoother ride on a small screen. If you have been editing on a laptop purely because the phone gave up halfway, it is worth trying again.",
+        ],
+      },
+      {
+        heading: "Try it",
+        paragraphs: [
+          "All five are live now at blog2video.app. Go make something great.",
+          "Made with love, by Firebird Technologies.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video",
+      },
+    ],
+    faq: [
+      {
+        question: "What do you get on the Lite plan?",
+        answer:
+          "10 videos per month, 2 custom video templates, and 300 AI edit credits per month, plus the standard subscription features. It costs $19.99 per month, or $15.99 per month if you pay annually ($191.88 per year).",
+      },
+      {
+        question: "How does stock footage work in a scene?",
+        answer:
+          "Search for a clip inside the editor and drop it into any scene. It behaves like any other scene asset — same framing controls and scene timing — so you do not need an external video editor or a full re-render of the project.",
+      },
+      {
+        question: "What changed in the image adjust window?",
+        answer:
+          "It now shows the entire image with the crop region drawn on top, instead of only the cropped area. You can drag the crop where you want it, zoom in, and save, and framing is stored per orientation so landscape and portrait versions do not overwrite each other.",
+      },
+      {
+        question: "Can I record my own voiceover while watching the scene?",
+        answer:
+          "Yes. The scene plays beside the recorder while you speak, so your narration lines up with the visuals. You can do this per scene and mix your own recordings with AI voiceover in the same video.",
+      },
+      {
+        question: "Is Blog2Video usable on a phone now?",
+        answer:
+          "It is much better. The mobile preview path was reworked to use significantly less memory, which means lighter previews and far fewer reloads during a long editing session on a small screen.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Blog2Video August 2026 Update: Lite Plan, Stock Footage, and Four More Things",
+        angle:
+          "Product update post covering the Lite plan, in-scene stock footage, the rebuilt image adjust window, voiceover recording with scene playback, and mobile memory improvements.",
+      },
+      {
+        channel: "video",
+        title: "Blog2Video latest updates August 2026",
+        angle:
+          "Ride through all five updates in order: the Lite pricing card, dropping a stock clip into a scene, dragging the crop across a full photo, recording a voiceover beside the playing scene, and the memory meter dropping on mobile.",
+      },
+      {
+        channel: "substack",
+        title: "What we shipped in August: a cheaper way in, and real footage in your scenes",
+        angle:
+          "Written-first creators get the practical read — what the Lite plan costs, and what changes when a scene can hold footage instead of only stills.",
+      },
+      {
+        channel: "twitter",
+        title: "Five new things on Blog2Video",
+        angle:
+          "One post per feature with a clip from the release video, closing on the Lite plan price as the entry point.",
+      },
+    ],
+  },
+  {
     slug: "best-ai-tools-for-substack-writers",
     title: "Top 5 AI Tools for Substack Writers in 2026",
     description:
       "Most \"best AI tools\" lists are just writing assistants with different logos. Substack's real bottlenecks in 2026 are video and discovery. Here are the five tools worth paying for, and what each one is actually for.",
     category: "Comparison",
+    heroImage: "/blog/blog-cover-best-ai-tools-for-substack-writers.png",
+    heroImageAlt:
+      "Most \"best AI tools\" lists are just writing assistants with different logos. Substack's real bottlenecks in 2026 are video and discovery. Here are the five tools worth paying for, and what each one is actually for.",
     publishedAt: "2026-07-31",
     readTime: "9 min read",
     heroEyebrow: "Tool stack",
@@ -181,6 +638,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Everyone can prompt ChatGPT to pump out paragraphs, so blogging is over. That is the 2026 consensus. Here is why authentic writing has never been more valuable, and the two products we are building on that conviction.",
     category: "Opinion",
+    heroImage: "/blog/blog-cover-blogging-is-not-dead-authentic-writing-2026.png",
+    heroImageAlt:
+      "Everyone can prompt ChatGPT to pump out paragraphs, so blogging is over. That is the 2026 consensus. Here is why authentic writing has never been more valuable, and the two products we are building on that conviction.",
     publishedAt: "2026-07-31",
     readTime: "6 min read",
     heroEyebrow: "Opinion",
@@ -4554,19 +5014,19 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: "blog-title-checker",
-    title: "5 Best Blog Title Checker Tools for SEO Rankings in 2026",
+    title: "6 Best Blog Title Checker Tools for SEO Rankings in 2026",
     description:
-      "The best free blog title checker tools compared — CoSchedule, WPBeginner, Capitalize My Title, Ideqo, and AIOSEO. Learn what separates a good title from one that ranks and gets clicked.",
+      "The best free blog title checker tools compared — Blog2Video, CoSchedule, WPBeginner, Capitalize My Title, Ideqo, and AIOSEO. Learn what separates a good title from one that ranks and gets clicked.",
     category: "SEO basics",
     heroImage: "/blog/blog-cover-blog-title-checker.png",
     heroImageAlt:
       "Blog title checker tools scoring headlines for SEO, emotion, and click-through potential.",
     publishedAt: "2026-07-14",
-    readTime: "5 min read",
+    readTime: "6 min read",
     heroEyebrow: "SEO basics",
-    heroTitle: "5 Best Blog Title Checker Tools for SEO Rankings in 2026",
+    heroTitle: "6 Best Blog Title Checker Tools for SEO Rankings in 2026",
     heroDescription:
-      "The best free blog title checker tools compared — CoSchedule, WPBeginner, Capitalize My Title, Ideqo, and AIOSEO. Learn what separates a good title from one that ranks and gets clicked.",
+      "The best free blog title checker tools compared — Blog2Video, CoSchedule, WPBeginner, Capitalize My Title, Ideqo, and AIOSEO. Learn what separates a good title from one that ranks and gets clicked.",
     primaryKeyword: "blog title checker",
     keywordVariant: "headline analyzer for blog titles",
     relatedPaths: ["/tools/headline-analyzer", "/blogs/headline-score", "/blogs/youtube-title-score-checker"],
@@ -4574,10 +5034,12 @@ export const blogPosts: BlogPost[] = [
       {
         heading: "Overview",
         paragraphs: [
-          "TL;DR: The five best blog title checker tools for SEO in 2026 — CoSchedule, WPBeginner, Capitalize My Title, Ideqo, and AIOSEO — compared on the feedback that actually separates a title that ranks and gets clicked from one that doesn't.",
+          "TL;DR: The six best blog title checker tools for SEO in 2026 — Blog2Video, CoSchedule, WPBeginner, Capitalize My Title, Ideqo, and AIOSEO — compared on the feedback that actually separates a title that ranks and gets clicked from one that doesn't.",
           "A blog post can be well-written, thoroughly researched, and technically optimized — and still fail to get clicks because the title doesn't connect. The title is the only part of your post that most people ever see. It determines whether they click in search results, in your newsletter, and on social media.",
-          "Blog title checker tools give you a quantified score and specific feedback on what your title is doing well and what it's missing. Here are the five best tools for checking and improving blog titles in 2026.",
+          "Blog title checker tools give you a quantified score and specific feedback on what your title is doing well and what it's missing. Here are the six best tools for checking and improving blog titles in 2026.",
         ],
+        ctaPath: "/tools/headline-analyzer",
+        ctaLabel: "Check your blog title free — no signup",
       },
       {
         heading: "What Does a Blog Title Checker Look For?",
@@ -4593,7 +5055,19 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       {
-        heading: "1. CoSchedule Blog Title Analyzer",
+        heading: "1. Blog2Video Blog Title Checker",
+        paragraphs: [
+          "Best for a transparent score with no signup — and yes, this is our tool",
+          "Full disclosure: we built this one. It is first on the list because it is the only checker here that shows you the whole scoring breakdown without an account, an email, or a usage cap — and because we think the factor-by-factor output is more useful than a single number you can't interrogate.",
+          "It scores a title on length, specificity, keyword placement, curiosity, benefit, audience framing, and clarity, then returns rewrite suggestions tied to the specific weaknesses it found rather than a generic list of power words. Where a title runs past the search truncation point, it shows you which words would disappear so you can move the important ones earlier.",
+          "There is also a YouTube mode that re-weights the score for video titles, which matters if you publish the same piece in both formats. If a tool on this list scores better for your workflow, use that one — but start here, because it costs nothing to check.",
+          "Free tier: Fully free, no account required Best for: Writers who want to see why a title scored what it did, not just the number",
+        ],
+        ctaPath: "/tools/headline-analyzer",
+        ctaLabel: "Score your blog title free",
+      },
+      {
+        heading: "2. CoSchedule Blog Title Analyzer",
         paragraphs: [
           "Best all-around free blog title checker",
           "CoSchedule is the most used title checker for bloggers. It scores across word balance, sentiment, character length, reading grade level, and skimmability. The results are detailed — you can see exactly which word categories are over- or under-represented.",
@@ -4602,7 +5076,7 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       {
-        heading: "2. WPBeginner Headline Analyzer",
+        heading: "3. WPBeginner Headline Analyzer",
         paragraphs: [
           "Best for: WordPress bloggers who want a dead-simple, fast checker",
           "WPBeginner's headline analyzer is the most straightforward tool on this list. You enter your title, get a score, and get a breakdown of what to improve. There's no account required, no friction, and no upsells.",
@@ -4611,7 +5085,7 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       {
-        heading: "3. Capitalize My Title Headline Analyzer",
+        heading: "4. Capitalize My Title Headline Analyzer",
         paragraphs: [
           "Best for: SEO-focused title optimization with 50+ data points",
           "Capitalize My Title's analyzer covers SEO keyword density, emotional words, power words, readability, and sentiment — over 50 data points total. The SEO scoring is more detailed than CoSchedule's, making it a better choice if you're optimizing specifically for search rankings rather than emotional resonance alone.",
@@ -4620,7 +5094,7 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       {
-        heading: "4. Ideqo Title Analyzer",
+        heading: "5. Ideqo Title Analyzer",
         paragraphs: [
           "Best for: Getting AI-rewritten alternatives after scoring",
           "Ideqo is the most AI-forward option. After scoring your title on clarity, specificity, emotional pull, curiosity, benefit, and audience fit, it generates rewritten alternatives with scores attached to each. You're not just getting feedback — you're getting replacements ready to use.",
@@ -4629,7 +5103,7 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       {
-        heading: "5. AIOSEO Headline Analyzer",
+        heading: "6. AIOSEO Headline Analyzer",
         paragraphs: [
           "Best for: WordPress users who want scoring inside the editor",
           "AIOSEO integrates directly into WordPress, which means you get real-time title scoring while you're writing your post — no opening a separate tab. It provides scores on word balance, sentiment, and character count with inline suggestions for improvement.",
@@ -4642,6 +5116,7 @@ export const blogPosts: BlogPost[] = [
         paragraphs: [
         ],
         bullets: [
+          "Blog2Video — Free: ✓ · No Login: ✓✓ · In-Editor: — · AI Rewrites: ✓ · SEO Scoring: ✓✓",
           "CoSchedule — Free: ✓ · No Login: Account needed · In-Editor: — · AI Rewrites: — · SEO Scoring: ✓",
           "WPBeginner — Free: ✓ · No Login: ✓✓ · In-Editor: — · AI Rewrites: — · SEO Scoring: ✓",
           "Capitalize My Title — Free: ✓ · No Login: ✓ · In-Editor: — · AI Rewrites: — · SEO Scoring: ✓✓",
@@ -4656,8 +5131,8 @@ export const blogPosts: BlogPost[] = [
           "Blog2Video turns your blog post into a professional video automatically. You paste the URL, choose a visual template, and get a narrated video ready to publish on YouTube, LinkedIn, or embedded in the post itself. The video uses the same content as the post, so you get a second distribution channel from the same writing without filming anything.",
           "Export options include MP4, PowerPoint, PDF, and PNG — so the blog post also becomes a LinkedIn carousel, a slide deck, and a shareable video simultaneously.",
         ],
-        ctaPath: "/tools/headline-analyzer",
-        ctaLabel: "Try the free headline analyzer",
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Turn your post into a video free",
       },
     ],
     faq: [
@@ -5057,9 +5532,9 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: "headline-score",
-    title: "5 Free Headline Score Checkers That Actually Improve Your CTR (2026)",
+    title: "6 Free Headline Score Checkers That Actually Improve Your CTR (2026)",
     description:
-      "The best free headline score tools analyzed — CoSchedule, Capitalize My Title, AIOSEO, Ideqo, and AMI. Find out which headline analyzer gives the most actionable feedback.",
+      "The best free headline score tools analyzed — Blog2Video, CoSchedule, Capitalize My Title, AIOSEO, Ideqo, and AMI. Find out which headline analyzer gives the most actionable feedback.",
     category: "SEO basics",
     heroImage: "/blog/blog-cover-headline-score.png",
     heroImageAlt:
@@ -5067,9 +5542,9 @@ export const blogPosts: BlogPost[] = [
     publishedAt: "2026-07-14",
     readTime: "5 min read",
     heroEyebrow: "SEO basics",
-    heroTitle: "5 Free Headline Score Checkers That Actually Improve Your CTR (2026)",
+    heroTitle: "6 Free Headline Score Checkers That Actually Improve Your CTR (2026)",
     heroDescription:
-      "The best free headline score tools analyzed — CoSchedule, Capitalize My Title, AIOSEO, Ideqo, and AMI. Find out which headline analyzer gives the most actionable feedback.",
+      "The best free headline score tools analyzed — Blog2Video, CoSchedule, Capitalize My Title, AIOSEO, Ideqo, and AMI. Find out which headline analyzer gives the most actionable feedback.",
     primaryKeyword: "headline score",
     keywordVariant: "headline score checker free",
     relatedPaths: ["/tools/headline-analyzer", "/blogs/blog-title-checker", "/blogs/youtube-title-score-checker"],
@@ -5096,7 +5571,18 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       {
-        heading: "1. CoSchedule Headline Analyzer",
+        heading: "1. Blog2Video Headline Score Checker",
+        paragraphs: [
+          "Full disclosure: we built this one. It is first because it is the only scorer on this list that shows the full factor breakdown with no account and no cap, and because it tells you which weakness cost you the points rather than handing back a number and a word-count chart.",
+          "It scores length, specificity, keyword placement, curiosity, benefit, audience framing, and clarity, then generates rewrite suggestions derived from the weaknesses it actually found. Where the headline runs past the search truncation point, it shows which words disappear so you can reorder rather than rewrite.",
+          "A platform switch re-weights the score for blog, Medium, Substack, or YouTube conventions, which matters because a headline that scores well for an inbox often scores badly on a results page.",
+          "Free tier: Fully free, no account required Best for: Writers who want an interrogable score instead of a black-box one",
+        ],
+        ctaPath: "/tools/headline-analyzer",
+        ctaLabel: "Get your headline score free",
+      },
+      {
+        heading: "2. CoSchedule Headline Analyzer",
         paragraphs: [
           "Best overall free headline scorer",
           "CoSchedule's Headline Analyzer is the most widely used free tool in this category. It scores on a 0–100 scale and breaks results down into word balance, sentiment, length, skimmability, and a reading grade level check.",
@@ -5105,7 +5591,7 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       {
-        heading: "2. Capitalize My Title Headline Analyzer",
+        heading: "3. Capitalize My Title Headline Analyzer",
         paragraphs: [
           "Best for: SEO + sentiment analysis in one place",
           "This free tool scores headlines using over 50 data points, covering SEO keyword density, emotional word count, power words, readability, and sentiment. It's faster than CoSchedule and gives more SEO-specific feedback.",
@@ -5114,7 +5600,7 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       {
-        heading: "3. AIOSEO Headline Analyzer",
+        heading: "4. AIOSEO Headline Analyzer",
         paragraphs: [
           "Best for: WordPress users",
           "AIOSEO's analyzer integrates directly with the WordPress editor, which means you get real-time headline scoring while you're writing your post — no copy-pasting into a separate tool. It provides scores on word balance, sentiment, and character count, plus suggestions for improvement without leaving the editor.",
@@ -5123,7 +5609,7 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       {
-        heading: "4. Ideqo Headline Analyzer",
+        heading: "5. Ideqo Headline Analyzer",
         paragraphs: [
           "Best for: AI-powered rewrites + scoring",
           "Ideqo goes a step further than pure scoring — after it scores your headline, it generates rewritten alternatives optimized for the dimensions where you scored lowest. That means you're not just getting feedback; you're getting replacement options ready to use.",
@@ -5132,7 +5618,7 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       {
-        heading: "5. AMI Emotional Marketing Value Headline Analyzer",
+        heading: "6. AMI Emotional Marketing Value Headline Analyzer",
         paragraphs: [
           "Best for: Checking emotional resonance specifically",
           "The Advanced Marketing Institute's EMV (Emotional Marketing Value) analyzer focuses exclusively on emotional impact. It scores your headline's intellectual, empathetic, and spiritual word appeal — which maps closely to how compelling a title feels rather than how search-optimized it is.",
@@ -5145,6 +5631,7 @@ export const blogPosts: BlogPost[] = [
         paragraphs: [
         ],
         bullets: [
+          "Blog2Video — Free: ✓✓ · Rewrites: ✓ · WordPress: — · SEO Focus: ✓✓ · Emotional Score: ✓",
           "CoSchedule — Free: ✓ · Rewrites: — · WordPress: — · SEO Focus: ✓ · Emotional Score: ✓",
           "Capitalize My Title — Free: ✓ · Rewrites: — · WordPress: — · SEO Focus: ✓✓ · Emotional Score: ✓",
           "AIOSEO — Free: ✓ · Rewrites: — · WordPress: ✓ · SEO Focus: ✓ · Emotional Score: ✓",
@@ -5188,9 +5675,9 @@ export const blogPosts: BlogPost[] = [
     distributionPlan: [
       {
         channel: "site",
-        title: "5 Free Headline Score Checkers That Actually Improve Your CTR (2026)",
+        title: "6 Free Headline Score Checkers That Actually Improve Your CTR (2026)",
         angle:
-          "The best free headline score tools analyzed — CoSchedule, Capitalize My Title, AIOSEO, Ideqo, and AMI. Find out which headline analyzer gives the most actionable feedback.",
+          "The best free headline score tools analyzed — Blog2Video, CoSchedule, Capitalize My Title, AIOSEO, Ideqo, and AMI. Find out which headline analyzer gives the most actionable feedback.",
       },
       {
         channel: "video",
@@ -5391,6 +5878,8 @@ export const blogPosts: BlogPost[] = [
     description:
       "Learn how to make a PDF into a video using 5 AI tools tested in 2026 — Synthesia, Visla, X-Pilot, Vidnoz, and Blog2Video. Step-by-step instructions included.",
     category: "How-to",
+    // Duplicate intent with the canonical PDF-to-video how-to; consolidate signals there.
+    canonicalPath: "/blogs/how-to-convert-pdf-into-video",
     heroImage: "/blog/blog-cover-how-to-make-a-pdf-into-a-video.png",
     heroImageAlt:
       "Step-by-step workflow turning a PDF into a publishable MP4 video.",
@@ -6630,7 +7119,7 @@ export const blogPosts: BlogPost[] = [
       "How we retold the 3,000-year-old Greek myth of Persephone and Demeter — abduction, famine, and the birth of the seasons — with stick figures in a single React/Remotion composition, in under 2 minutes.",
     primaryKeyword: "persephone myth animation",
     keywordVariant: "stick figure animation with remotion",
-    relatedPaths: ["/templates/stickman_2", "/templates/stickman_football", "/tools/free-remotion-templates"],
+    relatedPaths: ["/templates/stickman_2", "/tools/free-remotion-templates"],
     sections: [
       {
         heading: "Overview",
@@ -7071,9 +7560,9 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: "youtube-title-score-checker",
-    title: "5 Best YouTube Title Score Checkers to Maximize Your CTR in 2026",
+    title: "6 Best YouTube Title Score Checkers to Maximize Your CTR in 2026",
     description:
-      "The best free YouTube title score checkers compared — TubeBuddy, Titles.video, Post Bridge, CoSchedule, and PrePublish.ai. Find out which analyzer gives the most actionable CTR feedback.",
+      "The best free YouTube title score checkers compared — Blog2Video, TubeBuddy, Titles.video, Post Bridge, CoSchedule, and PrePublish.ai. Find out which analyzer gives the most actionable CTR feedback.",
     category: "SEO basics",
     heroImage: "/blog/blog-cover-youtube-title-score-checker.png",
     heroImageAlt:
@@ -7081,9 +7570,9 @@ export const blogPosts: BlogPost[] = [
     publishedAt: "2026-07-14",
     readTime: "5 min read",
     heroEyebrow: "SEO basics",
-    heroTitle: "5 Best YouTube Title Score Checkers to Maximize Your CTR in 2026",
+    heroTitle: "6 Best YouTube Title Score Checkers to Maximize Your CTR in 2026",
     heroDescription:
-      "The best free YouTube title score checkers compared — TubeBuddy, Titles.video, Post Bridge, CoSchedule, and PrePublish.ai. Find out which analyzer gives the most actionable CTR feedback.",
+      "The best free YouTube title score checkers compared — Blog2Video, TubeBuddy, Titles.video, Post Bridge, CoSchedule, and PrePublish.ai. Find out which analyzer gives the most actionable CTR feedback.",
     primaryKeyword: "youtube title score checker",
     keywordVariant: "youtube title analyzer free",
     relatedPaths: ["/tools/headline-analyzer", "/youtube-seo-checklist", "/blogs/headline-score"],
@@ -7111,7 +7600,18 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       {
-        heading: "1. Titles.video — Best Overall YouTube Title Analyzer",
+        heading: "1. Blog2Video YouTube Title Checker — Best Free Score With No Signup",
+        paragraphs: [
+          "Full disclosure: this is our tool. It leads the list because it is the only checker here that gives you the complete scoring breakdown without an account, a trial, or a browser extension — and because the YouTube mode is built around the two things that actually decide CTR on a results page.",
+          "Switch the analyzer to YouTube mode and it re-weights scoring for video: whether your keyword is front-loaded, whether the title survives YouTube's roughly 60-character truncation in search and suggested results, and whether there is a real curiosity gap rather than a description of the contents. It flags the exact words that would be cut off, which is usually the fastest fix available.",
+          "It also scores blog and newsletter titles from the same interface, so a post you publish in both formats can be checked once for each context instead of running two tools.",
+          "Free tier: Fully free, no account required Best for: Creators who want to see which factor cost them points, not just a number",
+        ],
+        ctaPath: "/tools/headline-analyzer",
+        ctaLabel: "Score your YouTube title free",
+      },
+      {
+        heading: "2. Titles.video — Best Overall YouTube Title Analyzer",
         paragraphs: [
           "Best for: Creators who want scoring + AI-generated alternatives in one place",
           "Titles.video scores each title on a 0–100 scale across keyword relevance, emotional triggers, length, and curiosity gap. But the most useful feature is what it does after scoring: it generates five alternative titles based on your video content, each with its own score and a full SEO breakdown.",
@@ -7120,7 +7620,7 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       {
-        heading: "2. TubeBuddy Title Analyzer — Best Full YouTube Optimization Suite",
+        heading: "3. TubeBuddy Title Analyzer — Best Full YouTube Optimization Suite",
         paragraphs: [
           "Best for: Serious YouTube creators who want channel-wide optimization",
           "TubeBuddy is the most comprehensive YouTube optimization suite available. Its Title Generator suggests variations based on your topic and target keywords, and the Title Scorer evaluates across searchability, clickability, and character count.",
@@ -7129,7 +7629,7 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       {
-        heading: "3. Post Bridge YouTube Title Checker — Best for Thumbnail Preview + Score",
+        heading: "4. Post Bridge YouTube Title Checker — Best for Thumbnail Preview + Score",
         paragraphs: [
           "Best for: Creators who want to see exactly how their title looks in the feed",
           "Post Bridge scores titles based on length, mobile optimization, and best practices (80+ is excellent, 60–79 is good, below 60 needs improvement). The distinctive feature is thumbnail preview — you can upload your actual thumbnail and see a realistic preview of how your video will appear on YouTube desktop and mobile feeds before publishing.",
@@ -7138,7 +7638,7 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       {
-        heading: "4. CoSchedule YouTube Title Analyzer — Best Free Option for Multi-Platform Creators",
+        heading: "5. CoSchedule YouTube Title Analyzer — Best Free Option for Multi-Platform Creators",
         paragraphs: [
           "Best for: Creators who publish across YouTube, LinkedIn, podcasts, and blogs",
           "CoSchedule's analyzer supports YouTube titles alongside blog headlines, email subjects, and podcast titles. You can score and test titles across every channel in one tool.",
@@ -7147,7 +7647,7 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       {
-        heading: "5. PrePublish.ai YouTube Title Analyzer — Best for Hook-Aware Scoring",
+        heading: "6. PrePublish.ai YouTube Title Analyzer — Best for Hook-Aware Scoring",
         paragraphs: [
           "Best for: Creators who care about the relationship between title and video hook",
           "PrePublish.ai goes beyond the title itself — if your captions are available, it also scores the first 30 seconds of your video (the hook) and evaluates whether the title and hook are aligned. A great title that sets up a weak hook is still a CTR problem, just delayed.",
@@ -7160,6 +7660,7 @@ export const blogPosts: BlogPost[] = [
         paragraphs: [
         ],
         bullets: [
+          "Blog2Video — Free: ✓✓ · Alternatives: ✓ · Thumbnail Preview: — · Multi-Platform: ✓✓ · Hook Analysis: ✓",
           "Titles.video — Free: ✓ · Alternatives: ✓✓ · Thumbnail Preview: — · Multi-Platform: — · Hook Analysis: —",
           "TubeBuddy — Free: Limited · Alternatives: ✓ · Thumbnail Preview: — · Multi-Platform: — · Hook Analysis: —",
           "Post Bridge — Free: ✓ · Alternatives: — · Thumbnail Preview: ✓✓ · Multi-Platform: — · Hook Analysis: —",
@@ -7208,9 +7709,9 @@ export const blogPosts: BlogPost[] = [
     distributionPlan: [
       {
         channel: "site",
-        title: "5 Best YouTube Title Score Checkers to Maximize Your CTR in 2026",
+        title: "6 Best YouTube Title Score Checkers to Maximize Your CTR in 2026",
         angle:
-          "The best free YouTube title score checkers compared — TubeBuddy, Titles.video, Post Bridge, CoSchedule, and PrePublish.ai. Find out which analyzer gives the most actionable CTR feedback.",
+          "The best free YouTube title score checkers compared — Blog2Video, TubeBuddy, Titles.video, Post Bridge, CoSchedule, and PrePublish.ai. Find out which analyzer gives the most actionable CTR feedback.",
       },
       {
         channel: "video",
@@ -9320,7 +9821,7 @@ export const blogPosts: BlogPost[] = [
     heroDescription:
       "When the source document is dense, the best video does not try to show every page. It pulls out the main points, builds a clearer sequence, and turns the PDF into something people will actually watch.",
     primaryKeyword: "create summary videos from pdfs",
-    keywordVariant: "pdf to video",
+    keywordVariant: "pdf summary video",
     relatedPaths: ["/pdf-to-video", "/for-educators", "/article-to-video"],
     sections: [
       {
@@ -12010,6 +12511,8 @@ export const blogPosts: BlogPost[] = [
     description:
       "A step-by-step PDF-to-video workflow for turning whitepapers, lesson notes, research summaries, and guides into narrated explainer videos.",
     category: "How-to",
+    // Duplicate intent with the canonical PDF-to-video how-to; consolidate signals there.
+    canonicalPath: "/blogs/how-to-convert-pdf-into-video",
     heroImage: "/blog/blog-cover-pdf-educators.png",
     heroImageAlt:
       "Editorial illustration of a PDF document being converted into a structured narrated explainer video.",
@@ -14579,6 +15082,7 @@ export const blogPosts: BlogPost[] = [
     keywordVariant: "blog discovery platform",
     relatedPaths: [
       "/blog-to-video",
+      "/blogs/where-to-promote-your-writing-2026",
       "/blogs/whats-new-in-blog2video-six-features",
       "/blogs/ai-linkedin-carousel-generator-from-existing-content",
     ],
@@ -14627,6 +15131,16 @@ export const blogPosts: BlogPost[] = [
         ],
         ctaPath: "https://bloghub.app",
         ctaLabel: "List your publication on BlogHub",
+      },
+      {
+        heading: "How it compares to the rest of the directory landscape",
+        paragraphs: [
+          "The fair question to ask about any directory is what separates it from the eighty-link submission lists that gave the whole channel its bad reputation. There are four tests worth applying, and they are the ones we designed against: is the listing free with no expiry or upgrade gate, is the outbound link followed rather than nofollowed, does a real reader ever browse the category page, and is there a route to distribution that does not require you to already be popular.",
+          "That last test is the one almost nothing passes. On every upvote-driven platform the ranking is the distribution, so a slow start is a dead start. BlogHub sends subscribers a weekly digest of the top five publications and a second weekly digest of the five with the fewest votes — so a listing can reach the whole subscriber list precisely because it has not caught on yet.",
+          "We wrote both sides of this up in full over on BlogHub: the detailed case for the directory itself, and a wider shortlist of the five places still worth submitting an article, blog, or newsletter to in 2026.",
+        ],
+        ctaPath: "https://bloghub.app/blogs/why-bloghub-is-the-best-blog-directory",
+        ctaLabel: "Why BlogHub is the best free blog directory",
       },
     ],
     faq: [
@@ -16996,6 +17510,267 @@ export const blogPosts: BlogPost[] = [
         title: "Describe your book in 200 words, get a book cover. Free.",
         angle:
           "Thread showing a description and the resulting cover, with the 2:3 and export-formats points, ending with the free tool link.",
+      },
+    ],
+  },
+  {
+    slug: "ai-video-generators-that-are-not-slop",
+    title: "AI Video Generators That Are Not Slop",
+    description:
+      "Slop is not a look, it is a production method. Two things separate the AI video generators that produce it from the ones that do not: programmatic rendering, and templates a human actually designed.",
+    category: "Comparison",
+    heroImage: "/blog/blog-cover-best-templates-explainers.png",
+    heroImageAlt:
+      "Editorial illustration contrasting generated AI footage with a video compiled programmatically from real source content inside a designed template.",
+    publishedAt: "2026-08-19",
+    readTime: "8 min read",
+    heroEyebrow: "Comparison",
+    heroTitle: "Most AI video generators make slop. Two things separate the ones that do not.",
+    heroDescription:
+      "It is not the model, the voice, or the resolution. It is whether the video is compiled from your actual content, and whether a human designed the template that content lands in.",
+    primaryKeyword: "ai video generator",
+    keywordVariant: "ai slop",
+    relatedPaths: [
+      "/blogs/ai-videos-are-slop-unless-they-are-relevant",
+      "/ai-video-generator-for-bloggers",
+      "/custom-branded-video-templates",
+      "/blog-to-video",
+    ],
+    sections: [
+      {
+        heading: "Slop is a production method, not an aesthetic",
+        paragraphs: [
+          "People usually describe slop by how it looks. The drifting camera over a city that does not exist. The stock photograph with a slow zoom on it. The face that is almost right. But the look is downstream of something more basic, and naming that is the only way to tell tools apart before you pay for one.",
+          "Slop is what you get when a video is generated about your content instead of from it. A prompt-to-video model takes a sentence and returns pixels. There is no fact anywhere in that pipeline. It has never seen your chart, so it cannot show your chart. It produces something adjacent and hopes the viewer does not check.",
+          "Viewers do check, and they detect it faster than most founders expect. What they register is not really 'a machine made this'. It is 'this does not know anything'. Filler reads as filler regardless of the render quality, which is why bumping the model to a better one does not fix it.",
+        ],
+      },
+      {
+        heading: "Difference one: the video is compiled, not dreamt",
+        paragraphs: [
+          "Programmatic video means the video is a program. Layouts are components with real parameters, your content is the data passed into them, and rendering is deterministic. The same input produces the same frames every time, because nothing is being sampled.",
+          "The consequence matters more than the mechanism. Nothing on screen arrives by accident. The headline on the title card is your headline because it was passed in as a string. The 41% is 41% because it was pulled out of your post, not because a model guessed a plausible-looking number. If a figure is wrong, that is a bug with a cause, not a roll of the dice.",
+          "It also changes what editing means. Fix a typo and only that word re-renders. Change one scene and the other eleven are untouched, frame for frame. A diffusion pipeline has to redraw everything and gives you a different video each time, which is why so many AI tools offer regeneration instead of editing.",
+        ],
+        bullets: [
+          "Deterministic renders — the same source produces the same video, so review actually means something.",
+          "Content-bound elements — every number, quote, and heading traces back to your source.",
+          "Scene-level edits — change one beat without losing the rest of the video.",
+          "Brand consistency — fifty videos from one template look like fifty videos from one publication.",
+        ],
+      },
+      {
+        heading: "Difference two: a human designed the template",
+        paragraphs: [
+          "Determinism on its own buys you accuracy, not taste. It is entirely possible to render precisely correct information into something nobody wants to watch. Taste has to enter the system somewhere, and the honest answer is that it enters through a designer, months before you ever open the tool.",
+          "That is what a human-designed template is: a type scale someone argued about, timings someone tuned by watching the same eight seconds forty times, easing curves, how a chart enters and what it does while the narrator explains it. Those decisions are made once and then applied by machine thousands of times. That is the actual leverage in this category, and it has almost nothing to do with the model.",
+          "The alternative — asking a model to decide layout, colour, and pacing per scene — produces the statistical average of every video it has ever seen. The average of everything is precisely what slop looks like. Nobody designed it, so it is nobody's design.",
+        ],
+      },
+      {
+        heading: "So what is the AI actually doing?",
+        paragraphs: [
+          "A fair question, given that I have just spent two sections arguing against generation. The AI in a non-slop pipeline does bounded jobs, each of which has a checkable output.",
+          "It reads the source and pulls out structure. It decides where scenes begin and end. It rewrites written prose into something that survives being read aloud, because a sentence with two subordinate clauses reads fine and collapses when spoken. It picks which of the designed layouts fits a given beat. It synthesises the voice, which is the one part of this that has quietly become excellent.",
+          "None of those steps produce pixels. The pixels come from the template. That division is the whole design: the model decides what goes where, the code decides that it is drawn correctly, and a person decided what correct looks like long before your file arrived.",
+        ],
+      },
+      {
+        heading: "How to tell in thirty seconds",
+        paragraphs: [
+          "You do not need a trial account to sort most of this category. Open any tool's sample gallery and run through the list below. It takes less time than reading the pricing page.",
+        ],
+        bullets: [
+          "Does a specific number, name, or quote from the source appear on screen, correctly? If every sample is generic, the tool cannot carry specifics.",
+          "Is there footage of something that never happened — people walking through an office, a drone shot of a city — attached to an article about something else entirely?",
+          "Can you edit one scene, or only regenerate the whole video? Regeneration-only is a tell that nothing is compiled.",
+          "Do two videos from the same brand look related, or did each one get a different personality?",
+          "Does the narration say things only your source could say, or things any article in the niche could say?",
+        ],
+      },
+      {
+        heading: "Two places we build it this way",
+        paragraphs: [
+          "Blog2Video is the version for written publishing. You give it a URL, a post, or a newsletter issue, and it follows your structure — your headings, your argument, your examples — into a template built by a designer rather than sampled by a model.",
+          "PDF2Vid is the same engine pointed at documents, where the stakes on accuracy are higher and the source is denser: reports, decks, whitepapers, research papers, lecture notes. A document has ground truth in it that a reader can go and verify, which makes it the least forgiving input in the category and the best test of whether a tool is actually reading your file.",
+          "Same principle, two different shapes of source material. If your content arrives as a document rather than a post, start there instead.",
+        ],
+        ctaPath: "https://pdf2vid.com",
+        ctaLabel: "See the document version at PDF2Vid",
+      },
+      {
+        heading: "Start with something you already wrote",
+        paragraphs: [
+          "The reason this whole argument holds together is that the input is already good. A published post has been through your judgement about what matters, what to cut, and what a reader will actually care about. None of that has to be regenerated, and regenerating it is how it gets flattened.",
+          "Take one post you are proud of, run it through, and watch the result with the checklist above open. That is a more useful evaluation of any tool in this category than a feature comparison table.",
+        ],
+        ctaPath: "/",
+        ctaLabel: "Try Blog2Video free",
+      },
+    ],
+    faq: [
+      {
+        question: "What is AI slop, exactly?",
+        answer:
+          "Content generated about a subject rather than from a source, with nothing verifiable underneath it. In video that usually means synthesised footage and vague narration that could belong to any article in the niche. The giveaway is not that it looks artificial, it is that it contains no specifics.",
+      },
+      {
+        question: "What does programmatic video mean?",
+        answer:
+          "The video is produced by code rather than sampled by a model. Layouts are components, your content is the data passed into them, and rendering is deterministic — the same input yields the same frames. It is why a number on screen can be traced back to the line it came from.",
+      },
+      {
+        question: "Is an AI video generator with human-designed templates still an AI tool?",
+        answer:
+          "Yes. AI does the reading, segmenting, script rewriting, layout matching, and voice. What it does not do is invent the visual design, which was made by a person once and is then applied consistently. That split is what keeps the output from averaging out into slop.",
+      },
+      {
+        question: "Which should I use for a PDF or a report?",
+        answer:
+          "PDF2Vid, which is built for document sources — reports, decks, whitepapers, papers. Blog2Video is the right one for posts, articles, and newsletter issues. Both render programmatically into designed templates, so the difference is the shape of what you are starting from.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "AI Video Generators That Are Not Slop",
+        angle:
+          "Category-defining explainer for the sceptical buyer, built on the programmatic-rendering and designed-template distinction.",
+      },
+      {
+        channel: "substack",
+        title: "Slop is a production method, not a look",
+        angle: "Essay version for a writer audience, leading with the definition rather than the product.",
+      },
+      {
+        channel: "video",
+        title: "How to spot AI slop in 30 seconds",
+        angle: "Run the five-point checklist over real sample galleries on screen.",
+      },
+      {
+        channel: "twitter",
+        title: "AI video slop is a production method, not an aesthetic",
+        angle: "Thread on the two differences, ending with the thirty-second checklist.",
+      },
+    ],
+  },
+  {
+    slug: "substack-video-70-percent-more-subscribers",
+    title: "Adding Video to a Substack Grew New Subscribers by 70%",
+    description:
+      "Two weeks of data from roughly 200 volunteer Substack writers who started publishing video alongside their posts: 4x total audience, 70% more new subscribers, and a 20% lift in open rate.",
+    category: "Strategy",
+    heroImage: "/blog/blog-cover-how-to-grow-your-substack-newsletter.png",
+    heroImageAlt:
+      "Editorial illustration of a Substack publication growing after its posts were turned into videos and distributed across YouTube, Instagram, TikTok, and LinkedIn.",
+    publishedAt: "2026-08-19",
+    readTime: "6 min read",
+    heroEyebrow: "Growth",
+    heroTitle: "Substack writers who added video grew new subscribers by 70%",
+    heroDescription:
+      "We asked around 200 volunteers who had been publishing video alongside their posts for two weeks what changed. The numbers were larger than I expected, and they came from distribution rather than from the videos themselves.",
+    primaryKeyword: "how to grow your substack",
+    keywordVariant: "substack video",
+    relatedPaths: [
+      "/for-substack-writers",
+      "/blogs/how-to-grow-your-substack-newsletter",
+      "/blogs/newsletter-substack-algorithm",
+      "/blog-to-shorts",
+    ],
+    sections: [
+      {
+        heading: "What we asked, and who we asked",
+        paragraphs: [
+          "Roughly 200 Substack writers using Blog2Video volunteered to report back after two weeks of turning their posts into videos. Two weeks is short and the group volunteered rather than being sampled, so treat this as a strong signal rather than a controlled study. I will come back to what that caveat costs at the end.",
+          "The instruction was simple: keep publishing the way you already do, but turn each issue into a video as well, and put that video where video already gets distributed.",
+        ],
+      },
+      {
+        heading: "1. Total audience went up about 4x",
+        paragraphs: [
+          "This is the number that surprised me least once I looked at where it came from. The writers who saw it were the ones who published the videos off Substack — YouTube, Instagram, TikTok, and LinkedIn — rather than only embedding them in the email.",
+          "That makes sense mechanically. A newsletter reaches the people who already subscribed. A video on YouTube or TikTok is shown to people who have never heard of you, by a system whose entire job is finding them. You did not make your writing four times better; you made it visible in four places that were previously closed to you because they do not distribute text.",
+        ],
+        bullets: [
+          "The lift came from off-platform publishing, not from the video existing.",
+          "YouTube and TikTok surface content to non-subscribers; email does not.",
+          "One issue became four uploads plus the original post.",
+        ],
+      },
+      {
+        heading: "2. New subscribers went up 70%",
+        paragraphs: [
+          "This is the headline. If you were adding 100 subscribers a week before, the writers in this group were adding about 170 after two weeks of publishing video alongside their posts.",
+          "The mechanism is the same as above, one step further along. Video reached people outside the subscriber list, and a share of those people followed the link back and subscribed. Nothing about the writing changed. The funnel simply got a wider mouth.",
+          "Seventy percent is a large number for a change that does not touch the product you are actually selling, which is your writing. It is the closest thing to a free lunch I have seen in newsletter growth, and the cost is that you now publish in two formats instead of one.",
+        ],
+      },
+      {
+        heading: "3. Open rate improved by about 20%",
+        paragraphs: [
+          "Writers reported roughly a 20% lift in open rate, and said people seemed to spend longer with the emails themselves. Time-on-email is notoriously hard to measure, so I would weight that part lightly.",
+          "The open rate part is easier to believe. If a reader has seen your face, your voice, or your visual style on another platform before your email lands, the subject line is arriving from someone recognisable rather than from a name in a list. Recognition is most of what an open rate measures.",
+        ],
+      },
+      {
+        heading: "The honest caveats",
+        paragraphs: [
+          "These are self-reported figures from volunteers who agreed to try something new, over two weeks. That selects for engaged writers who were already inclined to put effort in, and two weeks is short enough that novelty and seasonality are both live explanations for part of the effect.",
+          "What I am confident about is the direction and the mechanism, because the mechanism is boring and well understood: platforms that distribute video will show your work to strangers, and platforms that distribute email will not. Everything above follows from that. Whether your own numbers land at 70% or 25% depends on your niche and how consistently you publish.",
+        ],
+      },
+      {
+        heading: "How to run this yourself",
+        paragraphs: [
+          "The version the group ran is not complicated. Take the issue you just published, turn it into a video that follows the same structure, and upload it to YouTube, Instagram, TikTok, and LinkedIn with a link back to the post. Then embed it at the top of the email as well.",
+          "The reason this is now a few minutes rather than an afternoon is that the video is built from the post you already wrote — your headings, your argument, your examples — instead of being generated from a prompt. If you want the reasoning behind why that distinction matters for whether anyone watches, it is the subject of a separate piece on this blog.",
+        ],
+        ctaPath: "/",
+        ctaLabel: "Turn your next issue into a video",
+      },
+    ],
+    faq: [
+      {
+        question: "Where did these numbers come from?",
+        answer:
+          "Around 200 volunteer Substack writers using Blog2Video, self-reporting after two weeks of publishing video alongside their posts. It is a volunteer group over a short window, not a controlled study, so read it as a strong directional signal.",
+      },
+      {
+        question: "Do I have to post the videos off Substack to see the effect?",
+        answer:
+          "That is where the growth came from. The 4x audience and 70% subscriber figures belong to writers who published to YouTube, Instagram, TikTok, and LinkedIn. Embedding the video in the email alone helps engagement but does not reach anyone new.",
+      },
+      {
+        question: "Do I need to be on camera?",
+        answer:
+          "No. The videos in this group were built from the written posts — structure, headings, and examples rendered into designed templates with a synthesised narrator. No filming was involved.",
+      },
+      {
+        question: "How long does making the video take?",
+        answer:
+          "Minutes per issue, because the post supplies the script and the structure. The work that used to make this an afternoon job — scripting, layout, timing — is what the pipeline handles.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Adding Video to a Substack Grew New Subscribers by 70%",
+        angle: "Data post with the three headline numbers and an honest methodology caveat.",
+      },
+      {
+        channel: "substack",
+        title: "I asked 200 Substack writers what video did to their growth",
+        angle: "Lead with the 70% figure, keep the caveats prominent for a sceptical writer audience.",
+      },
+      {
+        channel: "video",
+        title: "70% more subscribers in two weeks",
+        angle: "Walk through the three numbers and the distribution mechanism behind them.",
+      },
+      {
+        channel: "twitter",
+        title: "200 Substack writers added video for two weeks. Here is what happened.",
+        angle: "Thread: 4x audience, 70% more subs, 20% better open rate, plus the caveats.",
       },
     ],
   },

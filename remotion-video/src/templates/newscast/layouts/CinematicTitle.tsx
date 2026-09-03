@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFitText } from "../components/useFitText";
 import type { NewscastLayoutProps } from "./types";
 import { NewsCastLayoutImageBackground } from "../NewsCastLayoutImageBackground";
 import {
@@ -47,15 +48,67 @@ export const CinematicTitle: React.FC<NewscastLayoutProps> = ({
   textColor,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
+
   const portraitScale = getNewscastPortraitTypeScale(width, height);
   const p = height > width;
+
   const heroBarH = Math.max(36, Math.ceil(36 * portraitScale));
   const heroTickerBottomPad = 36 + (heroBarH - 36);
   const fadeIn = interpolate(frame, [0, 16], [0, 1], { extrapolateRight: "clamp" });
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input. The hero content band is
+     justifyContent:"center" with no height cap of its own, so when it grows
+     it grows BOTH up (over the top bar / channel bar) and down (over the
+     lower-third / ticker) — those chrome elements must never be covered.
+     Compute the real pixel band between the channel bar's bottom edge and
+     the lower-third's top edge, and fit the title+narration stack (as a
+     single shared, give-back-corrected budget) inside exactly that band —
+     never the frame's full height. Measure the real available height and
+     shrink to fit; an explicitly chosen size is honored exactly (minPx ===
+     targetPx no-ops the hook). */
+  const topChromeBottom = 44 + heroBarH; // top bar + channel bar
+  const bandTopPad = Math.round(height * 0.06); // breathing room, matches padding
+  const bandBottomPad = Math.round(height * 0.24) + 16; // clears lower-third + ticker
+  const heroBandPx = Math.max(
+    1,
+    height - topChromeBottom - bandTopPad - bandBottomPad,
+  );
+
+  /* No give-back between title/narration here: a useLayoutEffect+setState
+     chain reacting to another useFitText's overflow output creates a
+     multi-render convergence that Remotion's per-frame headless capture can
+     settle at different points on different frames — confirmed via a real
+     render (frame-to-frame scene-change score hit 1.0, i.e. maximum, twice
+     in the first ten frames). Each field gets its own fixed, independent
+     budget instead: no cross-hook state cascade, one deterministic
+     convergence per field, same result on every frame. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitDescRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 94 : 72);
+  const fitDescTarget = descriptionFontSize ?? (p ? 23 : 18);
+  const stackBudgetPx = Math.round(heroBandPx * (p ? 0.85 : 0.95));
+  const titleBudgetPx = Math.round(stackBudgetPx * (narration ? 0.5 : 1));
+
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef, fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.4),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, titleBudgetPx],
+    titleBudgetPx,
+  );
+  const descBudgetPx = Math.max(1, stackBudgetPx - titleBudgetPx);
+  const { px: fitDescPx } = useFitText(
+    fitDescRef, fitDescTarget,
+    descriptionFontSizeIsUserSet ? fitDescTarget : Math.round(fitDescTarget * 0.55),
+    [narration, fitDescTarget, descriptionFontSizeIsUserSet, fitTitlePx, descBudgetPx],
+    descBudgetPx,
+  );
 
   const { white, red } = splitTitleForAccent(title);
   const safeTicker = useMemo(() => (tickerItems?.filter(Boolean) ?? []).slice(0, 8), [tickerItems]);
@@ -404,13 +457,24 @@ export const CinematicTitle: React.FC<NewscastLayoutProps> = ({
         </div>
       </div>
 
-      {/* Main hero content */}
+      {/* Main hero content — top/bottom pinned to the REAL chrome edges (not
+          inset:0 + percentage padding) so justifyContent:"center" centres
+          within the actual available band. Growing content then only ever
+          expands toward that band's own edges, which the fitter above is
+          budgeted against — it can never invade the top bar/channel bar or
+          the lower-third/ticker. */}
       <div
         style={{
           position: "absolute",
-          inset: 0,
+          top: topChromeBottom + bandTopPad,
+          left: 0,
+          right: 0,
+          bottom: bandBottomPad,
           zIndex: 10,
-          padding: "6% 6% 7% 6%",
+          padding: "0 6%",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
           ...panelTumbleStyle(heroTumble),
           opacity: fadeIn * heroTumble.opacity,
         }}
@@ -470,10 +534,10 @@ export const CinematicTitle: React.FC<NewscastLayoutProps> = ({
             </div>
           </div>
 
-          <h1
+          <h1 ref={fitTitleRef}
             style={{
               fontFamily: newscastFont(fontFamily, "title"),
-              fontSize: titleFontSize ?? (p ? 94 : 72),
+              fontSize: fitTitlePx,
               fontWeight: HEADLINE_WEIGHT,
               textTransform: "uppercase",
               letterSpacing: 1,
@@ -508,10 +572,10 @@ export const CinematicTitle: React.FC<NewscastLayoutProps> = ({
           </div>
 
           {narration ? (
-            <div
+            <div ref={fitDescRef}
               style={{
                 fontFamily: newscastFont(fontFamily, "body"),
-                fontSize: descriptionFontSize ?? (p ? 23 : 18),
+                fontSize: fitDescPx,
                 fontWeight: 400,
                 lineHeight: 1.65,
                 color: STEEL,

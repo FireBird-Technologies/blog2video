@@ -1,5 +1,6 @@
 import React from "react";
 import { NewspaperClip, NEWSPRINT_FILTER } from "../components/NewspaperClip";
+import { useFitText } from "../components/useFitText";
 import {
   AbsoluteFill,
   interpolate,
@@ -17,26 +18,38 @@ const B_FONT = "'Source Sans 3', 'Helvetica Neue', Helvetica, Arial, sans-serif"
 /* SHARDS                                   */
 /* ───────────────────────────────────────── */
 
+/* Six shards: two columns × three rows. The seams are cut off-square so the
+   pieces read as torn newsprint, and adjacent shards share their seam vertices
+   so the reassembled frame has no gaps.
+
+   `ox`/`oy` are entry offsets expressed as MULTIPLES OF THE FRAME SIZE, not
+   pixels — they're scaled by the real width/height at render time so the
+   motion is identical in landscape and portrait.
+
+   Each piece glides in along ONE axis from the edge it belongs to — the top
+   row straight down, the middle row straight in from the sides, the bottom
+   row straight up. Single-axis travel plus a small rotation keeps the six
+   pieces moving as one coherent group instead of scattering. */
 const SHARDS = [
-  { clip: "polygon(0% 0%, 38% 0%, 32% 28%, 0% 22%)", ox: -250, oy: -180, rot: -360 },
-  { clip: "polygon(38% 0%, 72% 0%, 68% 26%, 32% 28%)", ox: 220, oy: -200, rot: 320 },
-  { clip: "polygon(72% 0%, 100% 0%, 100% 20%, 68% 26%)", ox: 300, oy: -150, rot: 280 },
+  // Top row — straight down from above.
+  { clip: "polygon(0% 0%, 52% 0%, 48% 34%, 0% 30%)", ox: -0.06, oy: -0.42, rot: -5 },
+  { clip: "polygon(52% 0%, 100% 0%, 100% 30%, 48% 34%)", ox: 0.06, oy: -0.45, rot: 4.5 },
 
-  { clip: "polygon(0% 22%, 32% 28%, 36% 56%, 0% 50%)", ox: -320, oy: 0, rot: -420 },
-  { clip: "polygon(32% 28%, 68% 26%, 64% 54%, 36% 56%)", ox: 0, oy: 260, rot: 360 },
-  { clip: "polygon(68% 26%, 100% 20%, 100% 52%, 64% 54%)", ox: 340, oy: 80, rot: 300 },
+  // Middle row — straight in from the sides.
+  { clip: "polygon(0% 30%, 48% 34%, 52% 68%, 0% 64%)", ox: -0.4, oy: 0, rot: -4 },
+  { clip: "polygon(48% 34%, 100% 30%, 100% 64%, 52% 68%)", ox: 0.4, oy: 0, rot: 4 },
 
-  { clip: "polygon(0% 50%, 36% 56%, 30% 78%, 0% 74%)", ox: -280, oy: 180, rot: -360 },
-  { clip: "polygon(36% 56%, 64% 54%, 70% 80%, 30% 78%)", ox: 0, oy: -300, rot: 360 },
-  { clip: "polygon(64% 54%, 100% 52%, 100% 76%, 70% 80%)", ox: 300, oy: 200, rot: -380 },
-
-  { clip: "polygon(0% 74%, 30% 78%, 34% 100%, 0% 100%)", ox: -220, oy: 320, rot: 300 },
-  { clip: "polygon(30% 78%, 70% 80%, 66% 100%, 34% 100%)", ox: 0, oy: 350, rot: -320 },
-  { clip: "polygon(70% 80%, 100% 76%, 100% 100%, 66% 100%)", ox: 240, oy: 300, rot: 340 },
+  // Bottom row — straight up from below.
+  { clip: "polygon(0% 64%, 52% 68%, 46% 100%, 0% 100%)", ox: -0.06, oy: 0.45, rot: 4.5 },
+  { clip: "polygon(52% 68%, 100% 64%, 100% 100%, 46% 100%)", ox: 0.06, oy: 0.42, rot: -5 },
 ];
 
 const ASSEMBLE_DURATION = 55;
 const DISPERSE_DURATION = 45;
+
+/* Peak opacity once assembled — the shards are a background texture, so they
+   sit well under the headline. */
+const SHARD_OPACITY = 0.22;
 
 /* ───────────────────────────────────────── */
 /* SHATTER BACKGROUND                       */
@@ -44,7 +57,7 @@ const DISPERSE_DURATION = 45;
 
 const ShatterBackground: React.FC<{ bgColor: string }> = ({ bgColor }) => {
   const frame = useCurrentFrame();
-  const { durationInFrames } = useVideoConfig();
+  const { durationInFrames, width, height } = useVideoConfig();
   const disperseStart = durationInFrames - DISPERSE_DURATION;
   const vintageUrl = staticFile("vintage-news.avif");
 
@@ -53,7 +66,14 @@ const ShatterBackground: React.FC<{ bgColor: string }> = ({ bgColor }) => {
       <div style={{ position: "absolute", inset: 0, background: bgColor }} />
 
       {SHARDS.map((shard, i) => {
-        const stagger = i * 2;
+        // Gentle stagger only — a wide spread makes the six pieces read as
+        // unrelated objects rather than one sheet coming together.
+        const stagger = i * 1.2;
+
+        // Offsets are frame-relative, so every shard starts fully off-screen
+        // in both aspect ratios.
+        const offX = shard.ox * width;
+        const offY = shard.oy * height;
 
         const assemble = interpolate(
           frame,
@@ -62,41 +82,49 @@ const ShatterBackground: React.FC<{ bgColor: string }> = ({ bgColor }) => {
           { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
         );
 
-        const disperse = interpolate(
+        const fall = interpolate(
           frame,
           [disperseStart + stagger, durationInFrames],
           [0, 1],
           { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
         );
 
-        const progress =
-          frame >= disperseStart ? 1 - disperse : assemble;
-
-        const eased =
-          progress < 0.5
-            ? 4 * progress ** 3
-            : 1 - Math.pow(-2 * progress + 2, 3) / 2;
-
-        let tx = 0;
-        let ty = 0;
-        let rotate = 0;
-        let scale = 1;
+        let tx: number;
+        let ty: number;
+        let rotate: number;
+        let scale: number;
+        let opacity: number;
 
         if (frame < disperseStart) {
-          tx = shard.ox * (1 - eased);
-          ty = shard.oy * (1 - eased) * (1 + 0.15 * (1 - eased));
-          rotate = shard.rot * (1 - eased) * 0.35;
-          scale = 0.9 + 0.1 * eased;
-        } else {
-          const gravity = disperse * disperse;
-          tx = shard.ox * disperse * 0.2;
-          ty = gravity * 900;
-          rotate = shard.rot * disperse * 0.25;
-          scale = 1 - 0.1 * disperse;
-        }
+          /* ── PHASE 1 — GLIDE IN AND COMBINE ──
+             easeInOutSine: no hard kick at the start and no abrupt braking at
+             the end, so the pieces drift into place. A cubic ease-out covers
+             most of its distance in the first few frames, which is what made
+             the entry feel scattered. */
+          const eased = 0.5 - Math.cos(assemble * Math.PI) / 2;
 
-        const opacity =
-          frame < disperseStart ? 0.4 * eased : 0.4 * (1 - disperse);
+          tx = offX * (1 - eased);
+          ty = offY * (1 - eased);
+          rotate = shard.rot * (1 - eased);
+          scale = 1 + 0.03 * (1 - eased);
+          // Fade in gradually across the whole glide rather than snapping to
+          // full opacity early.
+          opacity = SHARD_OPACITY * eased;
+        } else {
+          /* ── PHASE 2 — SINK AWAY ──
+             A softened gravity curve. True t² acceleration flings the pieces
+             apart in the last few frames; easing the fall in keeps them
+             together as they sink out of frame. */
+          const sink = Math.pow(fall, 1.7);
+
+          tx = offX * fall * 0.06;
+          ty = sink * height * 0.55;
+          rotate = shard.rot * fall * 0.5;
+          scale = 1 - 0.03 * fall;
+          // Fade steadily so the pieces are nearly gone by the time they'd
+          // otherwise separate visibly.
+          opacity = SHARD_OPACITY * (1 - fall);
+        }
 
         return (
           <div
@@ -109,7 +137,7 @@ const ShatterBackground: React.FC<{ bgColor: string }> = ({ bgColor }) => {
               backgroundSize: "cover",
               backgroundPosition: "center",
               transform: `translate(${tx}px, ${ty}px) rotate(${rotate}deg) scale(${scale})`,
-              opacity: 0.2,
+              opacity,
               willChange: "transform, opacity",
             }}
           />
@@ -138,6 +166,8 @@ export const NewsHeadline: React.FC<
   aspectRatio = "landscape",
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   stats,
   category,
   imageUrl,
@@ -152,7 +182,7 @@ export const NewsHeadline: React.FC<
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
-  const { durationInFrames, width: videoWidth } = useVideoConfig();
+  const { durationInFrames, width: videoWidth, height: videoHeight } = useVideoConfig();
   const p = aspectRatio === "portrait";
 
   /* 🎬 Unified Fade In / Fade Out */
@@ -182,13 +212,65 @@ export const NewsHeadline: React.FC<
         : [words[0], words[Math.floor(words.length / 2)], words[words.length - 1]];
 
   // Calculate description font size for relative scaling
-  const actualDescriptionFontSize = descriptionFontSize ?? (p ? 39 : 29);
+  const actualDescriptionFontSize = descriptionFontSize ?? (p ? 35 : 28);
   const categoryBaseFontSize = p ? 28 : 24; // Base for category without descriptionFontSize
   const authorBaseFontSize = p ? 20 : 16; // Base for author without descriptionFontSize
   // A clip fills the same visual slot as a still, so it must not
   // trigger the no-image layout.
   const hasVisual = Boolean(imageUrl || videoUrl);
   const portraitNoImage = p && !hasVisual;
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Narration length is unbounded, so long copy would overflow the layout and
+     get clipped by the AbsoluteFill's overflow:hidden. Measure the real
+     leftover height and shrink to fit.
+
+     A size the user explicitly picked on the slider is honored exactly (even
+     if it overflows); only a size that came from meta.json defaults auto-fits.
+     Passing minPx === targetPx makes the hook a no-op while still calling it
+     unconditionally, as the Rules of Hooks require. */
+  const narrationRef = React.useRef<HTMLDivElement>(null);
+  const titleRef = React.useRef<HTMLDivElement>(null);
+
+  const actualTitleFontSize = titleFontSize ?? (p ? 77 : 68);
+
+  /* Stage 1 — the headline fits its own share of the column.
+     The title is `flex-shrink:0`, so its clientHeight always equals its content
+     height; measuring it against itself could never detect overflow. Give it an
+     explicit budget instead: a capped fraction of the container, leaving room
+     for the category block and the narration below it. A title that already
+     fits inside its share is left completely alone. */
+  const titleBudgetPx = React.useMemo(() => {
+    // Container height minus its vertical padding (percentages of the frame).
+    const padFrac = portraitNoImage ? 0.12 + 0.1 : p ? 0.15 : 0.14;
+    const inner = videoHeight * (1 - padFrac);
+    // The headline may claim at most this much of the usable column; the rest
+    // is reserved for the category chip, byline and narration.
+    return Math.max(1, inner * (portraitNoImage ? 0.42 : p ? 0.5 : 0.55));
+  }, [videoHeight, p, portraitNoImage]);
+
+  const { px: titlePx } = useFitText(
+    titleRef,
+    actualTitleFontSize,
+    titleFontSizeIsUserSet ? actualTitleFontSize : p ? 34 : 30,
+    [title, actualTitleFontSize, titleFontSizeIsUserSet, titleBudgetPx, p],
+    titleBudgetPx,
+  );
+
+  /* Stage 2 — the narration fits whatever the (now-sized) headline leaves.
+     Keyed on titlePx so it re-measures after the headline settles. No
+     give-back from narration back into the title budget: a
+     useLayoutEffect+setState chain reacting to another useFitText's overflow
+     output creates a multi-render convergence that Remotion's per-frame
+     headless capture can settle at different points on different frames
+     (confirmed via a real render — frame-to-frame scene-change score hit
+     1.0, i.e. maximum, twice in the first ten frames, in this scene). */
+  const { px: narrationPx } = useFitText(
+    narrationRef,
+    actualDescriptionFontSize,
+    descriptionFontSizeIsUserSet ? actualDescriptionFontSize : p ? 18 : 14,
+    [narration, actualDescriptionFontSize, descriptionFontSizeIsUserSet, titlePx, p, portraitNoImage, hasVisual],
+  );
 
   return (
     <AbsoluteFill style={{ overflow: "hidden", fontFamily: fontFamily ?? B_FONT }}>
@@ -292,6 +374,9 @@ export const NewsHeadline: React.FC<
           padding: portraitNoImage ? "12% 10% 10% 10%" : p ? "0 10% 15% 10%" : "7% 10%",
           zIndex: 10,
           opacity: contentOpacity,
+          // Let the narration shrink into the leftover space instead of
+          // pushing past the scene and being clipped.
+          minHeight: 0,
         }}
       >
         {/* CATEGORY + AUTHOR (from stats) */}
@@ -347,10 +432,11 @@ export const NewsHeadline: React.FC<
 
         {/* TITLE */}
         <div
+          ref={titleRef}
           style={{
             fontFamily: fontFamily ?? H_FONT,
             // Drastically increased portrait size for mobile impact
-            fontSize: titleFontSize ?? (p ? 77 : 68),
+            fontSize: titlePx,
             fontWeight: 800,
             lineHeight: 1.0,
             marginBottom: portraitNoImage ? 0 : p ? 40 : 36,
@@ -401,18 +487,29 @@ export const NewsHeadline: React.FC<
                     paddingTop: 24,
                     paddingBottom: 24,
                   }
-                : undefined
+                : // `flex-shrink:1` + `min-height:0` lets this shrink BELOW its
+                  // content height once the column overflows, which is what
+                  // gives the fitter a real band to measure. It never grows, so
+                  // short narration stays exactly where it sits today and the
+                  // parent's justifyContent semantics are untouched.
+                  { flex: "0 1 auto", minHeight: 0, overflow: "hidden", display: "flex" }
             }
           >
             <div
+              ref={narrationRef}
               style={{
-                fontSize: actualDescriptionFontSize,
+                fontSize: narrationPx,
                 fontWeight: 600,
                 color: textColor,
                 lineHeight: 1.4,
                 maxWidth: p ? "100%" : (imageUrl ? "50%" : "70%"),
                 opacity: 0.9,
                 textAlign: portraitNoImage ? "center" : undefined,
+                // Read the band, not the copy: without these the measured
+                // clientHeight would just be the text's own height.
+                height: "100%",
+                minHeight: 0,
+                overflow: "hidden",
               }}
             >
               {narration}

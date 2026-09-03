@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import json
 import os
 import re
@@ -24,6 +25,11 @@ MAX_RETRIES = 3
 RETRY_DELAY = 5  # seconds between retries
 SCENE_DELAY = 2  # seconds between scenes to avoid rate limits
 DURATION_PAD = 1.0  # extra seconds held after the voiceover ends, per scene
+DOCREEL_COUNTDOWN_LAYOUT = "docreel_countdown"
+DOCREEL_COUNTDOWN_TTS_TEXT = "3, 2, 1"
+ELEVENLABS_TTS_WITH_TIMESTAMPS_URL = (
+    "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/with-timestamps"
+)
 
 # ElevenLabs premade voices -- narrator / documentary style
 # Verified against the official premade voice list:
@@ -212,17 +218,23 @@ def synthesize_voice_preview(
     custom_voice_id: str | None,
     voice_emotion: str | None,
     video_style: str | None = None,
+    text: str | None = None,
 ) -> bytes:
-    """Synthesize a short fixed sample with the given voice + tuning and return mp3 bytes.
+    """Synthesize a short sample with the given voice + tuning and return mp3 bytes.
 
     Mirrors generate_voiceover's expressive path: when tuning is present, runs v3 with the
     stability/style/speed settings + injected emotion tag; otherwise the default v2 path with
     video-style settings. Raises ValueError if no voice is selected (mute).
+
+    ``text`` overrides the fixed preview sample. The Advanced Options panel
+    leaves it unset (it is auditioning a voice, so the words are irrelevant and
+    a constant sample makes voices comparable); the pdf2vid.com narration tool
+    passes the user's own excerpt, which is the whole point of that tool.
     """
     voice_id = resolve_voice_id(gender, accent, custom_voice_id)
     if voice_id is None:
         raise ValueError("No voice selected for preview.")
-    text = PREVIEW_SAMPLE_TEXT
+    text = (text or "").strip() or PREVIEW_SAMPLE_TEXT
     tuning = _parse_voice_tuning(voice_emotion)
     if tuning is not None:
         strength, speed, emotion, style = tuning
@@ -274,6 +286,53 @@ def _get_audio_duration(filepath: str) -> float:
             return size / 16000
         except Exception:
             return 10.0
+
+
+def _extract_countdown_cues(alignment: object) -> list[float] | None:
+    """Extract the spoken start times for 3, 2 and 1 from ElevenLabs alignment."""
+    if not isinstance(alignment, dict):
+        return None
+    characters = alignment.get("characters")
+    starts = alignment.get("character_start_times_seconds")
+    if not isinstance(characters, list) or not isinstance(starts, list):
+        return None
+    if len(characters) != len(starts):
+        return None
+
+    cues: list[float] = []
+    search_from = 0
+    for target in ("3", "2", "1"):
+        found = None
+        for index in range(search_from, len(characters)):
+            if str(characters[index]).strip() == target:
+                try:
+                    found = max(0.0, float(starts[index]))
+                except (TypeError, ValueError):
+                    return None
+                search_from = index + 1
+                break
+        if found is None:
+            return None
+        cues.append(round(found, 3))
+
+    return cues if cues == sorted(cues) else None
+
+
+def _save_countdown_cues(scene: Scene, cues: list[float]) -> None:
+    """Persist audio cue seconds in the scene descriptor consumed by Remotion."""
+    try:
+        descriptor = json.loads(scene.remotion_code) if scene.remotion_code else {}
+    except (json.JSONDecodeError, TypeError):
+        descriptor = {}
+    if not isinstance(descriptor, dict):
+        descriptor = {}
+    descriptor["layout"] = DOCREEL_COUNTDOWN_LAYOUT
+    layout_props = descriptor.get("layoutProps")
+    if not isinstance(layout_props, dict):
+        layout_props = {}
+    layout_props["countdownCueSeconds"] = cues
+    descriptor["layoutProps"] = layout_props
+    scene.remotion_code = json.dumps(descriptor)
 
 
 def _fetch_voice_meta(voice_id: str) -> dict | None:
@@ -905,7 +964,12 @@ def _spell_abbreviations_for_tts(text: str) -> str:
     return re.sub(r"\b[A-Z]{2,}\b", _replace_caps, text)
 
 
-def generate_voiceover(scene: Scene, db: Session, use_expanded: bool = False) -> str:
+def generate_voiceover(
+    scene: Scene,
+    db: Session,
+    use_expanded: bool = False,
+    output_filename: str | None = None,
+) -> str:
     """
     Generate voiceover audio for a scene using ElevenLabs TTS.
     After generation, updates scene.duration_seconds to audio length + 1s.
@@ -917,6 +981,10 @@ def generate_voiceover(scene: Scene, db: Session, use_expanded: bool = False) ->
     Returns:
         str: Local path to the generated audio file (empty string if no audio)
     """
+    # This system-owned scene always sends the literal countdown to TTS.
+    if getattr(scene, "preferred_layout", None) == DOCREEL_COUNTDOWN_LAYOUT:
+        scene.narration_text = DOCREEL_COUNTDOWN_TTS_TEXT
+
     # Skip scenes with no narration (e.g. hero opening)
     if not scene.narration_text or not scene.narration_text.strip():
         return ""
@@ -961,7 +1029,10 @@ def generate_voiceover(scene: Scene, db: Session, use_expanded: bool = False) ->
     if tuning is not None:
         strength, speed, emotion, style = tuning
         model_id = TTS_MODEL_EXPRESSIVE
-        voiceover_text = _inject_emotion_tag(voiceover_text, emotion)
+        # Keep the system countdown text exactly "3, 2, 1" so its alignment
+        # maps directly to the three visible numbers.
+        if getattr(scene, "preferred_layout", None) != DOCREEL_COUNTDOWN_LAYOUT:
+            voiceover_text = _inject_emotion_tag(voiceover_text, emotion)
         voice_settings = {
             "stability": _snap_v3_stability(1.0 - strength),
             "style": style,
@@ -1007,7 +1078,7 @@ def generate_voiceover(scene: Scene, db: Session, use_expanded: bool = False) ->
     )
     os.makedirs(audio_dir, exist_ok=True)
 
-    filename = f"scene_{scene.order}.mp3"
+    filename = output_filename or f"scene_{scene.order}.mp3"
     output_path = os.path.join(audio_dir, filename)
 
     def _try_tts(vid: str) -> None:
@@ -1026,21 +1097,57 @@ def generate_voiceover(scene: Scene, db: Session, use_expanded: bool = False) ->
             f"{main_remaining_pct:.1f}" if main_remaining_pct is not None else "unknown",
             extra={"project_id": scene.project_id},
         )
-        client = ElevenLabs(api_key=api_key)
-        audio_generator = client.text_to_speech.convert(
-            text=voiceover_text,
-            voice_id=vid,
-            model_id=model_id,
-            output_format="mp3_44100_128",
-            voice_settings=voice_settings,
-        )
-        with open(output_path, "wb") as f:
-            for chunk in audio_generator:
-                f.write(chunk)
+        if getattr(scene, "preferred_layout", None) == DOCREEL_COUNTDOWN_LAYOUT:
+            # This endpoint returns the MP3 and exact character-level timings in
+            # one response, ensuring the visual uses timings from this audio.
+            response = requests.post(
+                ELEVENLABS_TTS_WITH_TIMESTAMPS_URL.format(voice_id=vid),
+                headers={"xi-api-key": api_key, "Content-Type": "application/json"},
+                params={"output_format": "mp3_44100_128"},
+                json={
+                    "text": DOCREEL_COUNTDOWN_TTS_TEXT,
+                    "model_id": model_id,
+                    "voice_settings": voice_settings,
+                },
+                timeout=120,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            encoded_audio = payload.get("audio_base64")
+            if not isinstance(encoded_audio, str) or not encoded_audio:
+                raise RuntimeError("Countdown TTS response did not contain audio")
+            with open(output_path, "wb") as f:
+                f.write(base64.b64decode(encoded_audio))
+            countdown_cues = _extract_countdown_cues(payload.get("alignment"))
+            if countdown_cues is not None:
+                _save_countdown_cues(scene, countdown_cues)
+            else:
+                logger.warning(
+                    "[VOICEOVER] Scene %s: countdown alignment missing; using visual fallback",
+                    scene.order,
+                    extra={"project_id": scene.project_id},
+                )
+        else:
+            client = ElevenLabs(api_key=api_key)
+            audio_generator = client.text_to_speech.convert(
+                text=voiceover_text,
+                voice_id=vid,
+                model_id=model_id,
+                output_format="mp3_44100_128",
+                voice_settings=voice_settings,
+            )
+            with open(output_path, "wb") as f:
+                for chunk in audio_generator:
+                    f.write(chunk)
         audio_duration = _get_audio_duration(output_path)
-        scene.duration_seconds = round(
-            max(settings.MIN_SCENE_DURATION_SECONDS, audio_duration + DURATION_PAD), 1
-        )
+        if getattr(scene, "preferred_layout", None) == DOCREEL_COUNTDOWN_LAYOUT:
+            # The leader should leave exactly the normal one-second tail after
+            # "1", without being stretched to the global 6.5/7s scene minimum.
+            scene.duration_seconds = round(audio_duration + DURATION_PAD, 1)
+        else:
+            scene.duration_seconds = round(
+                max(settings.MIN_SCENE_DURATION_SECONDS, audio_duration + DURATION_PAD), 1
+            )
         scene.voiceover_path = output_path
         db.commit()
         r2_key_val = None
@@ -1180,6 +1287,15 @@ async def generate_all_voiceovers(
 
     style = (video_style or "explainer").strip().lower() or "explainer"
 
+    # Always use the exact literal TTS copy for the documentary countdown.
+    fixed_countdown_copy = False
+    for scene in scenes:
+        if getattr(scene, "preferred_layout", None) == DOCREEL_COUNTDOWN_LAYOUT:
+            scene.narration_text = DOCREEL_COUNTDOWN_TTS_TEXT
+            fixed_countdown_copy = True
+    if fixed_countdown_copy:
+        db.commit()
+
     # ── Phase A: Parallel LLM expansion (skipped in verbatim mode) ─
     if verbatim:
         expanded_texts: list = [s.narration_text or "" for s in scenes]
@@ -1189,6 +1305,8 @@ async def generate_all_voiceovers(
         async def _expand(scene: Scene) -> str:
             if not scene.narration_text or not scene.narration_text.strip():
                 return scene.narration_text or ""
+            if getattr(scene, "preferred_layout", None) == DOCREEL_COUNTDOWN_LAYOUT:
+                return scene.narration_text
             async with expand_sem:
                 return await expand_narration_to_voiceover(
                     scene.narration_text, scene.title, video_style=style,

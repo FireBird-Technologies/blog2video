@@ -1,6 +1,7 @@
 import React from "react";
 import { interpolate } from "remotion";
 import type { SceneLayoutProps } from "../types";
+import { useFitText } from "../components/useFitText";
 import {
   MagazinePage,
   MAG_TEXTURES,
@@ -13,6 +14,7 @@ import {
   isPortrait,
   useReveal,
   useMagFrame,
+  useMagDims,
 } from "../magazineStyle";
 
 const MAX_ROWS = 10;
@@ -45,8 +47,37 @@ export const MagazineTickerTable: React.FC<SceneLayoutProps> = (props) => {
   const colors = resolveMagColors(props);
   const { bg, text, accent } = colors;
 
-  const titleSize = titleFontSize ?? (p ? 58 : 44);
+  const titleTargetPx = titleFontSize ?? (p ? 58 : 44);
   const descSize = descriptionFontSize ?? (p ? 34 : 22);
+
+  /* Title and footnote are unbounded user input; fit each to its own band so
+     long copy shrinks instead of being clipped by the page's overflow:hidden.
+     The table's own cell/header sizes are a deliberate density-tier system
+     (below) and are left untouched by this. */
+  const { height: magHeight } = useMagDims();
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const titleBudgetPx = Math.round(magHeight * (p ? 0.13 : 0.14));
+  const { px: titleSize } = useFitText(
+    titleRef,
+    titleTargetPx,
+    Math.max(20, Math.round(titleTargetPx * 0.4)),
+    [title, titleTargetPx, titleBudgetPx, p],
+    titleBudgetPx,
+  );
+
+  // Footnote is flexShrink:0 (its clientHeight always equals its own content
+  // height), so it needs an explicit budget rather than measuring itself.
+  const footnoteRef = React.useRef<HTMLDivElement>(null);
+  const footnoteText = tickerFootnote || narration || "";
+  const footnoteTargetPx = Math.round(descSize * 0.78);
+  const footnoteBudgetPx = Math.round(magHeight * 0.08);
+  const { px: footnotePx } = useFitText(
+    footnoteRef,
+    footnoteTargetPx,
+    Math.max(11, Math.round(footnoteTargetPx * 0.6)),
+    [footnoteText, footnoteTargetPx, footnoteBudgetPx],
+    footnoteBudgetPx,
+  );
 
   const rawHeaders = (tickerTable?.headers ?? []).slice(0, MAX_COLS);
   const rawRows = (tickerTable?.rows ?? []).slice(0, MAX_ROWS).map((r) => (r ?? []).slice(0, MAX_COLS));
@@ -78,7 +109,7 @@ export const MagazineTickerTable: React.FC<SceneLayoutProps> = (props) => {
       <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
         <div style={{ opacity: titleO, flexShrink: 0, marginBottom: 22 }}>
           <Kicker color={accent} style={{ marginBottom: 12 }}>{tickerTitle || "Figures"}</Kicker>
-          <h1 style={{ fontFamily: MAG_DISPLAY, fontWeight: 800, fontSize: titleSize, lineHeight: 1.12, letterSpacing: "-0.015em", color: text, margin: 0, overflowWrap: "break-word" }}>
+          <h1 ref={titleRef} style={{ fontFamily: MAG_DISPLAY, fontWeight: 800, fontSize: titleSize, lineHeight: 1.12, letterSpacing: "-0.015em", color: text, margin: 0, overflowWrap: "break-word" }}>
             <KineticWords text={title || "By the Numbers"} start={2} stagger={2} dur={14} />
           </h1>
         </div>
@@ -164,9 +195,9 @@ export const MagazineTickerTable: React.FC<SceneLayoutProps> = (props) => {
           )}
         </div>
 
-        {(tickerFootnote || narration) && (
-          <div style={{ flexShrink: 0, marginTop: 16, fontFamily: MAG_SERIF, fontStyle: "italic", fontSize: Math.round(descSize * 0.78), color: text, opacity: footnoteOp * 0.6, lineHeight: 1.45 }}>
-            {tickerFootnote || narration}
+        {footnoteText && (
+          <div ref={footnoteRef} style={{ flexShrink: 0, marginTop: 16, fontFamily: MAG_SERIF, fontStyle: "italic", fontSize: footnotePx, color: text, opacity: footnoteOp * 0.6, lineHeight: 1.45 }}>
+            {footnoteText}
           </div>
         )}
       </div>

@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Blog2Video Settings</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --fg: #16161a;
+        --muted: #6b6b76;
+        --card: #ffffff;
+        --border: #e3e3e8;
+        --accent: #6d5efc;
+        --chip: #f2f2f6;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --fg: #ececf1;
+          --muted: #9a9aa5;
+          --card: #1c1c22;
+          --border: #2e2e38;
+          --chip: #26262e;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 12px;
+        background: transparent;
+        color: var(--fg);
+        font: 14px/1.45 ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      #status { color: var(--muted); padding: 8px 2px; }
+      .section-label {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--muted);
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        margin: 14px 0 8px;
+      }
+      .section-label:first-child { margin-top: 0; }
+      .hint { font-weight: 400; text-transform: none; letter-spacing: 0; }
+
+      #settings {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 2px 12px;
+      }
+      #settings.locked { opacity: .5; pointer-events: none; }
+      .srow {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .srow:last-child { border-bottom: none; }
+      .srow > label:first-child { flex: 1; font-size: 12px; color: var(--muted); }
+      .srow select,
+      .srow input[type=range] {
+        background: var(--chip);
+        color: var(--fg);
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        padding: 5px 8px;
+        font: inherit;
+        font-size: 12px;
+        max-width: 190px;
+      }
+      .srow input[type=range] { padding: 0; min-width: 110px; accent-color: var(--accent); }
+      .srow select:disabled { opacity: .45; }
+      .rangeval { font-size: 11px; color: var(--muted); width: 46px; text-align: right; }
+
+      .switch input {
+        appearance: none;
+        width: 34px;
+        height: 18px;
+        border-radius: 9px;
+        background: var(--chip);
+        border: 1px solid var(--border);
+        position: relative;
+        cursor: pointer;
+        margin: 0;
+      }
+      .switch input::after {
+        content: "";
+        position: absolute;
+        top: 1px;
+        left: 1px;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: var(--muted);
+        transition: transform .12s;
+      }
+      .switch input:checked { border-color: var(--accent); }
+      .switch input:checked::after { transform: translateX(16px); background: var(--accent); }
+
+      .bgmwrap, .colorwrap { display: flex; align-items: center; gap: 8px; }
+      .colorwrap input[type=color] {
+        width: 34px;
+        height: 24px;
+        padding: 0;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--chip);
+        cursor: pointer;
+      }
+      .clearcol {
+        font: inherit;
+        font-size: 11px;
+        color: var(--muted);
+        background: none;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 3px 7px;
+        cursor: pointer;
+      }
+      .clearcol:hover { color: var(--fg); border-color: var(--accent); }
+      .colornote { font-size: 11px; color: var(--muted); }
+
+      .play-btn {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--chip);
+        border: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 10px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        padding: 0;
+      }
+      .play-btn:hover { color: var(--fg); border-color: var(--accent); }
+      .play-btn.playing { color: var(--accent); border-color: var(--accent); }
+      .play-btn.unavailable { opacity: .35; cursor: default; }
+
+      #more { border-top: 1px solid var(--border); }
+      #more > summary {
+        cursor: pointer;
+        font-size: 12px;
+        color: var(--muted);
+        padding: 9px 0;
+        list-style: none;
+      }
+      #more > summary::-webkit-details-marker { display: none; }
+      #more > summary::before { content: "▸ "; }
+      #more[open] > summary::before { content: "▾ "; }
+
+      #bar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 12px;
+      }
+      #bar .status { flex: 1; font-size: 12px; color: var(--muted); }
+      #create {
+        font: inherit;
+        font-weight: 600;
+        font-size: 13px;
+        color: #fff;
+        background: var(--accent);
+        border: none;
+        border-radius: 8px;
+        padding: 9px 18px;
+        cursor: pointer;
+      }
+      #create:disabled { opacity: .4; cursor: not-allowed; }
+      #create:not(:disabled):hover { filter: brightness(1.1); }
+    </style>
+  </head>
+  <body>
+    <div id="status">Loading settings…</div>
+
+    <div class="section-label">Settings <span class="hint">(optional — defaults are already set)</span></div>
+    <div id="settings" hidden>
+      <div class="srow">
+        <label for="s-length">Video length</label>
+        <select id="s-length" data-key="video_length">
+          <option value="auto" selected>Auto (recommended)</option>
+          <option value="short">Short · 4–5 scenes</option>
+          <option value="medium">Medium · 12–15 scenes</option>
+          <option value="detailed" data-paid="1">Detailed · 23–30 scenes</option>
+          <option value="more_detailed" data-paid="1">More detailed · 35–40 scenes</option>
+        </select>
+      </div>
+      <div class="srow">
+        <label for="s-style">Video style</label>
+        <select id="s-style" data-key="video_style">
+          <option value="auto" selected>Auto (recommended)</option>
+          <option value="explainer">Explainer</option>
+          <option value="promotional">Promotional</option>
+          <option value="storytelling">Storytelling</option>
+        </select>
+      </div>
+      <div class="srow">
+        <label for="s-stock">Stock footage</label>
+        <label class="switch"><input type="checkbox" id="s-stock" data-key="stock_footage_enabled" checked></label>
+      </div>
+      <div class="srow">
+        <label for="s-bgm">Background music</label>
+        <div class="bgmwrap">
+          <select id="s-bgm" data-key="bgm_track_id">
+            <option value="" selected>None</option>
+          </select>
+          <button type="button" id="bgm-play" class="play-btn" title="Preview">▶</button>
+        </div>
+      </div>
+      <div class="srow" id="bgm-vol-row" hidden>
+        <label for="s-bgmvol">Music volume</label>
+        <input type="range" id="s-bgmvol" data-key="bgm_volume" min="0" max="0.4" step="0.01" value="0.10">
+        <span class="rangeval" id="s-bgmvol-val">10%</span>
+      </div>
+
+      <details id="more">
+        <summary>More settings</summary>
+        <div class="srow">
+          <label for="s-aspect">Aspect ratio</label>
+          <select id="s-aspect" data-key="aspect_ratio">
+            <option value="landscape" selected>Landscape 16:9</option>
+            <option value="portrait">Portrait 9:16</option>
+          </select>
+        </div>
+        <div class="srow">
+          <label for="s-speed">Playback speed</label>
+          <input type="range" id="s-speed" data-key="playback_speed" min="0.5" max="2.5" step="0.05" value="1.0">
+          <span class="rangeval" id="s-speed-val">1.00×</span>
+        </div>
+        <div class="srow">
+          <label for="s-cap">Captions</label>
+          <label class="switch"><input type="checkbox" id="s-cap" data-key="captions_enabled"></label>
+        </div>
+        <div id="capgroup" hidden>
+          <div class="srow">
+            <label for="s-cappos">Caption position</label>
+            <select id="s-cappos" data-key="caption_position">
+              <option value="bottom_center" selected>Bottom</option>
+              <option value="top_center">Top</option>
+            </select>
+          </div>
+          <div class="srow">
+            <label for="s-capfont">Caption font</label>
+            <select id="s-capfont" data-key="caption_font_family">
+              <option value="inter" selected>Inter</option>
+              <option value="poppins">Poppins</option>
+              <option value="montserrat">Montserrat</option>
+              <option value="roboto_slab">Roboto Slab</option>
+              <option value="oswald">Oswald</option>
+              <option value="lora">Lora</option>
+              <option value="patrick_hand">Patrick Hand</option>
+              <option value="arimo">Arimo</option>
+              <option value="archivo_black">Archivo Black</option>
+              <option value="merriweather">Merriweather</option>
+              <option value="playfair_display">Playfair Display</option>
+              <option value="fira_code">Fira Code</option>
+            </select>
+          </div>
+          <div class="srow">
+            <label for="s-capsize">Caption size</label>
+            <input type="range" id="s-capsize" data-key="caption_font_size" min="12" max="64" step="1" value="36">
+            <span class="rangeval" id="s-capsize-val">36px</span>
+          </div>
+          <div class="srow">
+            <label for="s-capoff">Caption offset</label>
+            <input type="range" id="s-capoff" data-key="caption_offset" min="-100" max="100" step="5" value="0">
+            <span class="rangeval" id="s-capoff-val">0</span>
+          </div>
+        </div>
+        <!-- Colours inherit the template's palette until the user opts in. An
+             <input type=color> cannot express "unset" — it always reports a
+             value — so showing a swatch by default reads as "this colour is
+             applied" when nothing is being sent. The swatch stays hidden behind
+             an explicit toggle; only then is the colour transmitted. -->
+        <div class="srow">
+          <label for="s-accent-on">Accent colour</label>
+          <div class="colorwrap">
+            <span class="colornote" id="s-accent-note">Template default</span>
+            <input type="color" id="s-accent" data-key="accent_color" value="#7c3aed" hidden>
+            <button type="button" class="clearcol" data-toggle="s-accent">Customise</button>
+          </div>
+        </div>
+        <div class="srow">
+          <label for="s-bg-on">Background colour</label>
+          <div class="colorwrap">
+            <span class="colornote" id="s-bg-note">Template default</span>
+            <input type="color" id="s-bg" data-key="bg_color" value="#ffffff" hidden>
+            <button type="button" class="clearcol" data-toggle="s-bg">Customise</button>
+          </div>
+        </div>
+        <div class="srow">
+          <label for="s-text-on">Text colour</label>
+          <div class="colorwrap">
+            <span class="colornote" id="s-text-note">Template default</span>
+            <input type="color" id="s-text" data-key="text_color" value="#000000" hidden>
+            <button type="button" class="clearcol" data-toggle="s-text">Customise</button>
+          </div>
+        </div>
+      </details>
+    </div>
+
+    <div id="bar" hidden>
+      <div class="status" id="bar-status">Adjust anything you like, then create the video.</div>
+      <button id="create">Create Video</button>
+    </div>
+
+    <script type="module" src="/src/settings_panel_app.ts"></script>
+  </body>
+</html>

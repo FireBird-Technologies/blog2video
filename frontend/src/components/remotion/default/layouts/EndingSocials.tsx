@@ -10,6 +10,7 @@ import {
 import type { SceneLayoutProps } from "../types";
 import { SocialIcons } from "../../SocialIcons";
 import { resolveCtas } from "../../../../utils/resolveCtas";
+import { useFitText } from "../components/useFitText";
 
 export const EndingSocials: React.FC<SceneLayoutProps> = ({
   title,
@@ -26,10 +27,55 @@ export const EndingSocials: React.FC<SceneLayoutProps> = ({
   aspectRatio,
   descriptionFontSize,
   titleFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
 }) => {
   const frame = useCurrentFrame();
   const { fps, durationInFrames, width, height } = useVideoConfig();
   const p = aspectRatio === "portrait";
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and narration are unbounded user input, rendered as a flex-wrap row
+     of per-character spans (each with its own hardcoded fontSize prop, for the
+     "blow-away" exit animation) that the fitter can't resize by setting a
+     wrapper fontSize. Measure a hidden plain-text mirror instead (JSX below).
+     The column holding them has no height limit of its own, so long copy
+     would grow past the frame and get clipped by the AbsoluteFill's
+     overflow:hidden. Title and narration each fit against their own fixed,
+     independent budget. A size the user explicitly picked is honored exactly
+     (minPx === targetPx no-ops).
+
+     No give-back cross-talk between the two: a useLayoutEffect+setState
+     chain reacting to another useFitText's overflow output creates a
+     multi-render convergence that Remotion's per-frame headless capture can
+     settle at different points on different frames (confirmed via a real
+     render — frame-to-frame scene-change score hit 1.0, i.e. maximum, twice
+     in the first ten frames, in the equivalent newscast/newspaper opening
+     scenes). */
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const narrationRef = React.useRef<HTMLDivElement>(null);
+
+  const actualTitleFontSize = titleFontSize ?? (p ? 88 : 79);
+  const actualDescriptionFontSize = descriptionFontSize ?? (p ? 44 : 36);
+
+  const titleBudgetPx = Math.round(height * (p ? 0.16 : 0.18));
+
+  const { px: titlePx } = useFitText(
+    titleRef,
+    actualTitleFontSize,
+    titleFontSizeIsUserSet ? actualTitleFontSize : p ? 38 : 32,
+    [title, actualTitleFontSize, titleFontSizeIsUserSet, titleBudgetPx, p],
+    titleBudgetPx,
+  );
+
+  const narrationBudgetPx = Math.round(height * (p ? 0.16 : 0.18));
+  const { px: narrationPx } = useFitText(
+    narrationRef,
+    actualDescriptionFontSize,
+    descriptionFontSizeIsUserSet ? actualDescriptionFontSize : p ? 20 : 16,
+    [narration, actualDescriptionFontSize, descriptionFontSizeIsUserSet, titlePx, narrationBudgetPx, p],
+    narrationBudgetPx,
+  );
 
   // --- CONFIGURATION ---
   const vanishDurationFrames = 30;
@@ -85,7 +131,7 @@ export const EndingSocials: React.FC<SceneLayoutProps> = ({
     baseOpacity: number,
     fontSize: number,
     fontWeight: number | string,
-    isTitle: boolean
+    isTitle: boolean,
   ) => {
     return (
       <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center" }}>
@@ -183,11 +229,32 @@ export const EndingSocials: React.FC<SceneLayoutProps> = ({
         </div>
 
         {/* TITLE SECTION */}
-        <div style={{ transform: `translateY(${(1 - titleEntranceOp) * 10}px)` }}>
+        <div style={{ transform: `translateY(${(1 - titleEntranceOp) * 10}px)`, position: "relative" }}>
+          {/* Measurement mirror: the visible copy is a flex-wrap of per-character
+              spans whose own hardcoded fontSize prop the fitter can't reach by
+              setting the wrapper's fontSize. Measure a plain hidden div with the
+              same text/weight/width instead. */}
+          <div
+            ref={titleRef}
+            aria-hidden
+            style={{
+              position: "absolute",
+              inset: 0,
+              visibility: "hidden",
+              pointerEvents: "none",
+              fontSize: titlePx,
+              fontWeight: 800,
+              fontFamily: bodyFont,
+              lineHeight: 1.05,
+              textAlign: "center",
+            }}
+          >
+            {title}
+          </div>
           {renderAnimatedText(
             titleChars,
             titleEntranceOp,
-            titleFontSize ?? (p ? 88 : 79),
+            titlePx,
             800,
             true
           )}
@@ -266,11 +333,29 @@ export const EndingSocials: React.FC<SceneLayoutProps> = ({
         )}
 
         {/* NARRATION / DESCRIPTION */}
-        <div style={{ maxWidth: p ? 520 : 760, transform: `translateY(${(1 - subEntranceOp) * 6}px)` }}>
+        <div style={{ maxWidth: p ? 520 : 760, transform: `translateY(${(1 - subEntranceOp) * 6}px)`, position: "relative" }}>
+          {/* Measurement mirror — see the title's mirror above for why. */}
+          <div
+            ref={narrationRef}
+            aria-hidden
+            style={{
+              position: "absolute",
+              inset: 0,
+              visibility: "hidden",
+              pointerEvents: "none",
+              fontSize: narrationPx,
+              fontWeight: 500,
+              fontFamily: bodyFont,
+              lineHeight: 1.25,
+              textAlign: "center",
+            }}
+          >
+            {narration}
+          </div>
           {renderAnimatedText(
             narrationChars,
             subEntranceOp,
-            descriptionFontSize ?? (p ? 44 : 36),
+            narrationPx,
             500,
             false
           )}

@@ -26,6 +26,7 @@ from app.services.template_service import (
     get_fallback_layout,
     get_composition_id,
     get_layouts_without_image,
+    resolve_base_layout,
     is_custom_template,
     is_crafted_template,
     get_meta,
@@ -695,6 +696,21 @@ def rebuild_workspace(
 # ─── Write project files to workspace ────────────────────────
 
 
+def _clip_ingest_sort_key(filename: str) -> tuple[int, str]:
+    """Sort key for stock-clip assets, ordering by when the clip was ingested.
+
+    Clips are named ``scene_<scene_id>_<unix_ts>.<ext>``. The timestamp is what
+    separates a clip fetched for the current run from one left over by a previous
+    one; the scene id does not (ids only ever climb, so a stale clip for an old
+    scene can still sort ahead of a fresh one). Filenames that don't match the
+    pattern sort oldest, keeping them behind anything we can date.
+    """
+    match = re.match(r"^scene_\d+_(\d+)\.", filename)
+    if not match:
+        return (0, filename)
+    return (int(match.group(1)), filename)
+
+
 def write_remotion_data(
     project: Project,
     scenes: list[Scene],
@@ -787,9 +803,16 @@ def write_remotion_data(
     # Pre-parse all scene descriptors once
     parsed_descs: list[dict | None] = []
     scene_layouts: list[str] = []
+    pinned_system_layouts: set[int] = set()
+    # Base layout per scene, i.e. `news_headline__v2` -> `news_headline`. All the
+    # per-layout POLICY metadata (layouts_without_image, layout_prop_schema) is
+    # keyed by base layout, so visual variants inherit their base's entry through
+    # here. scene_layouts keeps the VARIANT — that is what the renderer dispatches
+    # on and what gets written back into the descriptor and data.json.
+    scene_base_layouts: list[str] = []
     scene_layout_props: list[dict] = []
     fallback = get_fallback_layout(template_id)
-    for scene in scenes:
+    for scene_index, scene in enumerate(scenes):
         desc = None
         layout = fallback
         lp = {}
@@ -803,24 +826,46 @@ def write_remotion_data(
                 lp = dict(desc.get("layoutProps", {}) or {})
             except (json.JSONDecodeError, TypeError):
                 pass
+        # The documentary countdown is pipeline-owned. Older template-switch
+        # jobs inserted the row without remotion_code, causing the normal
+        # fallback to render it as a hero scene containing "3, 2, 1". Pin and
+        # persist the correct renderer whenever Remotion data is rebuilt.
+        if getattr(scene, "preferred_layout", None) == "docreel_countdown":
+            layout = "docreel_countdown"
+            if desc is None or "layoutConfig" in desc:
+                desc = {"layout": layout, "layoutProps": lp}
+            else:
+                desc["layout"] = layout
+            pinned_system_layouts.add(scene_index)
         if lp.get("assignedImage") and not lp.get("hideImage"):
             lp["imageFocusX"] = _clamp_focus_value(lp.get("imageFocusX", 50))
             lp["imageFocusY"] = _clamp_focus_value(lp.get("imageFocusY", 50))
         parsed_descs.append(desc)
         scene_layouts.append(layout)
+        scene_base_layouts.append(resolve_base_layout(template_id, layout))
         scene_layout_props.append(lp)
 
     # Track which scene descriptors were modified (need serialization at end)
-    dirty: set[int] = set()
+    dirty: set[int] = set(pinned_system_layouts)
 
     if redistribute_images:
-        # Full script regeneration creates a new scene sequence. Clear sticky
-        # image choices first so assignment below behaves like fresh generation.
+        # Full script regeneration / template change creates a new scene sequence.
+        # Release BOTH sticky stills and sticky clips so assignment below behaves
+        # like fresh generation: images are handed out first, then whatever clips
+        # the project owns fill the scenes no image could cover.
+        #
+        # Clips are released, not deleted — the assets stay in all_video_files and
+        # the placement pass after the image cascade re-places them. Clearing them
+        # here is what stops a clip from sitting pinned to whichever scene index it
+        # happened to land on in the previous sequence.
         for i, lp in enumerate(scene_layout_props):
-            if scene_layouts[i] in no_image_layouts:
+            if scene_base_layouts[i] in no_image_layouts:
                 continue
             changed = False
-            for key in ("assignedImage", "imageFocusX", "imageFocusY", "imageZoom", "hideImage"):
+            for key in (
+                "assignedImage", "imageFocusX", "imageFocusY", "imageZoom", "hideImage",
+                "assignedVideo", "videoMuted", "videoVolume", "videoStartSeconds",
+            ):
                 if key in lp:
                     lp.pop(key, None)
                     changed = True
@@ -841,7 +886,7 @@ def write_remotion_data(
         assigned_video = lp.get("assignedVideo")
         if not assigned_video:
             continue
-        if scene_layouts[i] in no_image_layouts or assigned_video not in all_video_files:
+        if scene_base_layouts[i] in no_image_layouts or assigned_video not in all_video_files:
             lp.pop("assignedVideo", None)
             lp.pop("videoMuted", None)
             lp.pop("videoVolume", None)
@@ -849,44 +894,6 @@ def write_remotion_data(
             dirty.add(i)
             continue
         video_scene_indices.add(i)
-
-    # Clips outrank images for the visual slot. A full descriptor rebuild (script
-    # regeneration / template change) produces a brand-new scene sequence, so a
-    # clip the project already owns can end up referenced by nothing while other
-    # scenes sit empty. Those clips are already paid for and CFR-30 transcoded, so
-    # hand them out here — BEFORE any image step — rather than filling the slot
-    # with a still and leaving the clip stranded.
-    if scenes and all_video_files:
-        placed_videos = {
-            scene_layout_props[i].get("assignedVideo") for i in video_scene_indices
-        }
-        spare_videos = [fn for fn in all_video_files if fn not in placed_videos]
-        if spare_videos:
-            # Deterministic order so repeated runs land the same way. Assets are
-            # named scene_<id>_<ts>, so this keeps original capture order.
-            spare_videos.sort()
-            open_slots = [
-                i
-                for i in range(len(scenes))
-                if i not in video_scene_indices
-                and scene_layouts[i] not in no_image_layouts
-                and not scene_layout_props[i].get("hideImage")
-            ]
-            for idx, filename in zip(open_slots, spare_videos):
-                lp = scene_layout_props[idx]
-                lp["assignedVideo"] = filename
-                # A clip and a still are mutually exclusive in one slot.
-                lp.pop("assignedImage", None)
-                lp.pop("hideImage", None)
-                lp.setdefault("videoMuted", True)
-                lp.setdefault("videoVolume", 0.35)
-                video_scene_indices.add(idx)
-                dirty.add(idx)
-            if open_slots and spare_videos:
-                logger.info(
-                    "[REMOTION] project=%s: placed %s unreferenced clip(s) ahead of images",
-                    project.id, min(len(open_slots), len(spare_videos)),
-                )
 
     if all_image_files and scenes:
         # Build scene_id -> index lookup before classifying scene-specific files.
@@ -925,7 +932,7 @@ def write_remotion_data(
             if i in video_scene_indices:
                 continue
 
-            if layout in no_image_layouts:
+            if scene_base_layouts[i] in no_image_layouts:
                 hide_image_flags[i] = True
                 changed = False
                 if lp.get("assignedImage"):
@@ -969,7 +976,7 @@ def write_remotion_data(
         # Step 2: Orphan scene_<id>_ files on disk with no layoutProps assignment — bind once per scene.
         for scene_id, filename in scene_specific:
             idx = id_to_idx.get(scene_id, -1)
-            if idx < 0 or scene_layouts[idx] in no_image_layouts:
+            if idx < 0 or scene_base_layouts[idx] in no_image_layouts:
                 continue
             if hide_image_flags[idx] or idx in video_scene_indices:
                 continue
@@ -1006,7 +1013,7 @@ def write_remotion_data(
             if scene_type == "outro":
                 hide_image_flags[i] = True
                 lp = scene_layout_props[i]
-                if scene_layouts[i] not in no_image_layouts:
+                if scene_base_layouts[i] not in no_image_layouts:
                     changed = False
                     if lp.get("assignedImage"):
                         lp.pop("assignedImage", None)
@@ -1021,7 +1028,7 @@ def write_remotion_data(
                         dirty.add(i)
                 continue
 
-            if hide_image_flags[i] or scene_layouts[i] in no_image_layouts:
+            if hide_image_flags[i] or scene_base_layouts[i] in no_image_layouts:
                 continue
 
             if (
@@ -1049,7 +1056,7 @@ def write_remotion_data(
         # Step 4: Assign remaining generics (1 per scene)
         generic_idx = 0
         for i in range(len(scenes)):
-            if scene_image_map[i] or hide_image_flags[i] or scene_layouts[i] in no_image_layouts:
+            if scene_image_map[i] or hide_image_flags[i] or scene_base_layouts[i] in no_image_layouts:
                 continue
             if i in video_scene_indices:
                 continue
@@ -1073,7 +1080,7 @@ def write_remotion_data(
         # Video scenes are skipped: they have no assignedImage by design, and
         # hideImage would blank the clip too (it gates the whole visual slot).
         for i in range(len(scenes)):
-            if scene_layouts[i] in no_image_layouts or scene_image_map[i]:
+            if scene_base_layouts[i] in no_image_layouts or scene_image_map[i]:
                 continue
             if i in video_scene_indices:
                 continue
@@ -1091,6 +1098,62 @@ def write_remotion_data(
                 changed = True
             if changed:
                 dirty.add(i)
+
+    # Images own the visual slot; clips fill only what images could not cover.
+    # This runs AFTER the whole image cascade above, so `assignedImage` is final
+    # and a clip can never evict a still. A full descriptor rebuild (script
+    # regeneration / template change) produces a brand-new scene sequence and
+    # released every clip above, so this is also what re-places clips the project
+    # already owns — they are paid for and CFR-30 transcoded, so re-using one
+    # always beats fetching another.
+    #
+    # Deliberately OUTSIDE the `all_image_files` block: a project can own clips
+    # and no images at all, and those clips must still be placed.
+    if scenes and all_video_files:
+        placed_videos = {
+            scene_layout_props[i].get("assignedVideo") for i in video_scene_indices
+        }
+        spare_videos = [fn for fn in all_video_files if fn not in placed_videos]
+        if spare_videos:
+            # Deterministic order so repeated runs land the same way. Assets are
+            # named scene_<id>_<ts>, so this keeps original capture order.
+            spare_videos.sort()
+            if redistribute_images:
+                # Full descriptor rebuild: the scenes are NEW content, and the
+                # stock stage has already fetched clips matching that new copy.
+                # Plain filename order puts the previous run's clips first (lower
+                # scene ids sort first), so those stale clips would take every
+                # open slot and strand the freshly-fetched ones. Order by ingest
+                # timestamp, newest first, so the new clips win and leftovers from
+                # prior runs only fill whatever is still empty.
+                spare_videos.sort(key=_clip_ingest_sort_key, reverse=True)
+            # Only scenes the image cascade left empty. `scene_image_map[i]` is the
+            # authoritative post-cascade record of which scenes took a still.
+            open_slots = [
+                i
+                for i in range(len(scenes))
+                if i not in video_scene_indices
+                and scene_base_layouts[i] not in no_image_layouts
+                and not scene_image_map[i]
+                and not scene_layout_props[i].get("assignedImage")
+            ]
+            for idx, filename in zip(open_slots, spare_videos):
+                lp = scene_layout_props[idx]
+                lp["assignedVideo"] = filename
+                # Step 5 just set hideImage on these empty image-capable scenes;
+                # it gates the WHOLE visual slot, so a clip landing here must
+                # clear it or the clip renders blank.
+                lp.pop("hideImage", None)
+                hide_image_flags[idx] = False
+                lp.setdefault("videoMuted", True)
+                lp.setdefault("videoVolume", 0.35)
+                video_scene_indices.add(idx)
+                dirty.add(idx)
+            if open_slots:
+                logger.info(
+                    "[REMOTION] project=%s: placed %s clip(s) into scenes no image covered",
+                    project.id, min(len(open_slots), len(spare_videos)),
+                )
 
     # Serialize modified descriptors back to scenes (single write per scene)
     if dirty:
@@ -1237,12 +1300,16 @@ def write_remotion_data(
         if not is_custom_template(template_id) and layout:
             try:
                 _meta = get_meta(template_id)
+                # A visual variant (`news_headline__v2`) inherits its BASE layout's
+                # schema entry, so resolve before the lookup or the variant renders
+                # with none of its meta defaults. An exact entry wins when a variant
+                # declares its own — used for per-variant typography defaults, which
+                # must match what the variant component actually renders.
+                _schema_map = (_meta or {}).get("layout_prop_schema", {})
                 _layout_defaults = (
-                    (_meta or {})
-                    .get("layout_prop_schema", {})
-                    .get(layout, {})
-                    .get("defaults", {})
-                )
+                    _schema_map.get(layout)
+                    or _schema_map.get(resolve_base_layout(template_id, layout), {})
+                ).get("defaults", {})
                 _skip_keys = (
                     _ECONOMIST_CONTENT_SKIP_KEYS
                     if str(template_id).lower() == "economist"
@@ -1258,7 +1325,18 @@ def write_remotion_data(
                             _resolved_defaults[_k] = _v.get(_ar) or _v.get("landscape")
                         else:
                             _resolved_defaults[_k] = _v
-                    layout_props = {**_resolved_defaults, **layout_props}
+                    # Font sizes are about to be backfilled from the schema, which
+                    # erases the difference between "user picked this size" and
+                    # "nobody touched the slider" (the editor only persists a size
+                    # that DIFFERS from the default). Capture that bit first so
+                    # auto-shrinking layouts can honor a deliberate choice exactly
+                    # while still fitting the default to the available space.
+                    _user_set_flags = {
+                        f"{_k}IsUserSet": True
+                        for _k in ("titleFontSize", "descriptionFontSize")
+                        if _k in layout_props
+                    }
+                    layout_props = {**_resolved_defaults, **layout_props, **_user_set_flags}
             except Exception:
                 pass
 
@@ -1284,19 +1362,34 @@ def write_remotion_data(
             on_screen_text = display_text_val or scene.narration_text
 
         extra_hold = getattr(scene, "extra_hold_seconds", None) or 0.0
-        effective_duration = scene.duration_seconds + extra_hold
         # Spoken-audio length for caption timing: scene.duration_seconds is set to
         # (audio length + DURATION_PAD of trailing silence) during voiceover
         # generation, so the speech occupies roughly the first
         # (duration - DURATION_PAD). Captions span only this window so they don't
         # drift into the silent tail. Reference the same constant so the two can
         # never diverge. 0 when there's no voiceover (captions disabled anyway).
-        from app.services.voiceover import DURATION_PAD as _VOICEOVER_TRAILING_PAD
-        speech_duration = (
-            max(0.5, round(scene.duration_seconds - _VOICEOVER_TRAILING_PAD, 2))
-            if voiceover_filename
-            else 0.0
+        from app.services.voiceover import (
+            DURATION_PAD as _VOICEOVER_TRAILING_PAD,
+            _get_audio_duration,
         )
+        if (
+            layout == "docreel_countdown"
+            and voiceover_filename
+            and os.path.exists(dest)
+        ):
+            # Repair countdowns generated before they were exempted from the
+            # global scene minimum. The copied/downloaded MP3 is authoritative.
+            speech_duration = round(_get_audio_duration(dest), 2)
+            scene.duration_seconds = round(
+                speech_duration + _VOICEOVER_TRAILING_PAD, 1
+            )
+        else:
+            speech_duration = (
+                max(0.5, round(scene.duration_seconds - _VOICEOVER_TRAILING_PAD, 2))
+                if voiceover_filename
+                else 0.0
+            )
+        effective_duration = scene.duration_seconds + extra_hold
         scene_entry: dict = {
             "id": scene.id,
             "order": scene.order,
@@ -1997,6 +2090,35 @@ RESOLUTION_PRESETS = {
     },
 }
 
+# Compositions that are AUTHORED at a size other than 1920x1080. Their layouts use
+# fixed pixel values, so forcing a different render size reflows them — headlines
+# wrap differently, columns widen, spacing stretches. Keep this in sync with the
+# <Composition width/height> declarations in remotion-video/src/Root.tsx.
+#
+# This matters for slide export in particular: the wizard previews each scene in the
+# Player at the composition's authored size, so rendering the still at 1920x1080
+# produced a slide that did not match the preview the user had just approved.
+NATIVE_COMPOSITION_SIZES: dict[str, tuple[int, int]] = {
+    "NewspaperVideo": (1280, 720),
+    "NewscastVideo": (1280, 720),
+    "WhiteboardVideo": (1280, 720),
+}
+
+
+def get_still_dimensions(composition_id: str, aspect_ratio: str) -> dict:
+    """
+    Pixel size to render a still at, matching what the frontend Player previews.
+
+    Landscape uses the composition's authored size. Portrait swaps the axes of that
+    same size, mirroring how the compositions lay out vertically (the Root.tsx
+    declarations are all landscape).
+    """
+    width, height = NATIVE_COMPOSITION_SIZES.get(composition_id, (1920, 1080))
+    if aspect_ratio == "portrait":
+        width, height = height, width
+    return {"width": width, "height": height}
+
+
 def _build_render_cmd(
     npx: str, output_path: str, resolution: str = "1080p",
     aspect_ratio: str = "landscape",
@@ -2116,11 +2238,54 @@ def render_video(project: Project, resolution: str = "1080p") -> str:
     return output_path
 
 
-def render_still(project: Project, frame: int) -> str:
+def get_composition_duration_frames(workspace: str, composition_id: str) -> int | None:
     """
-    Render a single frame of the project composition using Remotion renderStill.
-    Returns the path to the output PNG file.
-    Uses the same workspace and data.json as the video render — pixel-perfect quality.
+    The composition's real `durationInFrames`, or None if it cannot be determined.
+
+    Used to clamp slide-export frames. The frontend computes each slide's frame from
+    the composition's own timeline, but templates whose schedule is not yet
+    transition-aware still sum durations back to back — which overshoots on a
+    TransitionSeries and made `remotion still` fail with
+    "Cannot use frame N: Duration of composition is M". Clamping turns that hard
+    500 into a slightly-late final slide.
+
+    Best-effort by design: on any failure the caller skips clamping rather than
+    failing an otherwise fine export.
+    """
+    npx = shutil.which("npx") or "npx"
+    try:
+        result = subprocess.run(
+            [npx, "remotion", "compositions", "--bundle-cache", "true"],
+            cwd=workspace,
+            shell=(os.name == "nt"),
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+    except Exception:
+        logger.warning("remotion compositions failed for %s", composition_id, exc_info=True)
+        return None
+    if result.returncode != 0:
+        return None
+
+    # Rows look like: "ChronicleVideo   30   1920x1080   4557 (151.90 sec)"
+    for line in (result.stdout or "").splitlines():
+        parts = line.split()
+        if len(parts) >= 4 and parts[0] == composition_id:
+            try:
+                return int(parts[3])
+            except ValueError:
+                return None
+    return None
+
+
+def _prepare_still_workspace(project: Project) -> tuple[str, str, dict]:
+    """
+    Ensure the project's Remotion workspace is ready for `remotion still`.
+
+    Returns (workspace, composition_id, resolution_preset). Split out of
+    render_still so a multi-frame export provisions ONCE instead of repeating the
+    full template copy + node_modules link + data.json mirror for every frame.
     """
     template_id = validate_template_id(getattr(project, "template", "default"))
     provision_workspace(project.id, template_id)
@@ -2139,13 +2304,23 @@ def render_still(project: Project, frame: int) -> str:
     except Exception:
         # Non-fatal: original data.json path still exists.
         pass
-    output_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project.id}/stills")
-    os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, f"frame_{frame}.png")
     aspect_ratio = getattr(project, "aspect_ratio", "landscape") or "landscape"
     composition_id = get_composition_id(template_id)
-    presets = RESOLUTION_PRESETS.get(aspect_ratio, RESOLUTION_PRESETS["landscape"])
-    preset = presets.get("1080p", presets["1080p"])
+    preset = get_still_dimensions(composition_id, aspect_ratio)
+    return workspace, composition_id, preset
+
+
+def _render_still_frame(
+    project_id: int,
+    workspace: str,
+    composition_id: str,
+    preset: dict,
+    frame: int,
+) -> str:
+    """Render one frame into the project's stills dir. Assumes the workspace is ready."""
+    output_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project_id}/stills")
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, f"frame_{frame}.png")
     npx = shutil.which("npx") or "npx"
     cmd = [
         npx, "remotion", "still",
@@ -2169,6 +2344,36 @@ def render_still(project: Project, frame: int) -> str:
     if result.returncode != 0 or not os.path.exists(output_path):
         raise RuntimeError(f"Remotion still render failed (frame={frame}): {result.stderr or result.stdout}")
     return output_path
+
+
+def render_still(project: Project, frame: int) -> str:
+    """
+    Render a single frame of the project composition using Remotion renderStill.
+    Returns the path to the output PNG file.
+    Uses the same workspace and data.json as the video render — pixel-perfect quality.
+    """
+    workspace, composition_id, preset = _prepare_still_workspace(project)
+    return _render_still_frame(project.id, workspace, composition_id, preset, frame)
+
+
+def render_stills(project: Project, frames: list[int]) -> list[str]:
+    """
+    Render several frames of the project composition in one go.
+
+    Provisions the workspace once and reuses Remotion's bundle cache across
+    frames, which is what makes a slide export (one frame per scene) viable —
+    calling render_still per frame would redo the whole template copy and
+    node_modules link every time.
+
+    Returns output PNG paths in the same order as `frames`.
+    """
+    if not frames:
+        return []
+    workspace, composition_id, preset = _prepare_still_workspace(project)
+    return [
+        _render_still_frame(project.id, workspace, composition_id, preset, frame)
+        for frame in frames
+    ]
 
 
 MAX_RENDER_RETRIES = 3  # total attempts (1 initial + 2 retries)

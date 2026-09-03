@@ -1,0 +1,110 @@
+/**
+ * Merge meta.json `layout_prop_schema[layout].defaults` under stored layoutProps,
+ * matching `backend/app/services/remotion.py` (`write_remotion_data`, ~983–1002).
+ *
+ * Keeps frontend preview / SceneEditModal in sync with the rendered MP4 for
+ * chart colors, axis captions, example tables, font sizes, etc.
+ */
+
+export type LayoutPropSchema = Record<string, { defaults?: Record<string, unknown> }>;
+
+// Economist wordmark/dateline/teasers are LLM-authored content, never defaults —
+// mirror `_ECONOMIST_CONTENT_SKIP_KEYS` in backend/app/services/remotion.py so the
+// preview never injects the sample "The Brief" wordmark onto the cover / sign-off.
+const ECONOMIST_CONTENT_SKIP_KEYS = new Set(["wordmark", "dateline", "teasers"]);
+
+function resolveDefaultsForAspect(
+  defaults: Record<string, unknown>,
+  aspectRatio: string,
+): Record<string, unknown> {
+  const ar = aspectRatio === "portrait" ? "portrait" : "landscape";
+  const resolved: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(defaults)) {
+    if (
+      value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      "portrait" in value &&
+      "landscape" in value
+    ) {
+      const responsive = value as { portrait?: unknown; landscape?: unknown };
+      resolved[key] = responsive[ar] ?? responsive.landscape;
+    } else {
+      resolved[key] = value;
+    }
+  }
+  return resolved;
+}
+
+/**
+ * Apply layout schema defaults under `layoutProps` (stored props win on conflict).
+ *
+ * `options.deriveUserSetFlags` (default true) adds the render-time
+ * `titleFontSizeIsUserSet` / `descriptionFontSizeIsUserSet` markers described below.
+ * Callers that feed the result into EDITABLE, later-persisted state must pass `false` —
+ * those markers are derived, never stored.
+ */
+export function mergeLayoutSchemaDefaults(
+  layoutProps: Record<string, unknown>,
+  layoutId: string | null | undefined,
+  schema: LayoutPropSchema | null | undefined,
+  aspectRatio = "landscape",
+  templateId?: string | null,
+  options?: { deriveUserSetFlags?: boolean },
+): Record<string, unknown> {
+  if (!layoutId || !schema || Object.keys(schema).length === 0) return layoutProps;
+  const defaults = schema[layoutId]?.defaults;
+  if (!defaults || Object.keys(defaults).length === 0) return layoutProps;
+  const resolved = resolveDefaultsForAspect(defaults, aspectRatio);
+  // Drop content-only defaults the renderer also refuses to inject, so the
+  // preview matches the MP4 (e.g. economist never auto-stamps a brand wordmark).
+  if (String(templateId ?? "").toLowerCase() === "economist") {
+    for (const key of ECONOMIST_CONTENT_SKIP_KEYS) delete resolved[key];
+  }
+  const merged = { ...resolved, ...layoutProps };
+
+  // Font sizes are backfilled from the schema below, which erases the difference
+  // between "user picked this size" and "nobody touched the slider" (the editor
+  // only persists a size that DIFFERS from the default). Record that bit before
+  // it is lost so auto-shrinking layouts (newspaper news_headline) can honor a
+  // deliberate choice exactly while still fitting the default to the space.
+  // Mirrors the renderer's flags in backend/app/services/remotion.py.
+  //
+  // These are DERIVED, never persisted: the scene editor seeds its editable state from
+  // this helper, so writing them there would save "user set the size" after a pure text
+  // edit and permanently disable auto-fit. Such callers pass deriveUserSetFlags: false.
+  if (options?.deriveUserSetFlags ?? true) {
+    for (const key of ["titleFontSize", "descriptionFontSize"] as const) {
+      if (key in layoutProps) merged[`${key}IsUserSet`] = true;
+    }
+  }
+
+  // Keep example chart data when stored chartTable has no rows (legacy partial merge).
+  const existingTable = layoutProps.chartTable;
+  const existingTableHasRows =
+    existingTable &&
+    typeof existingTable === "object" &&
+    Array.isArray((existingTable as { rows?: unknown }).rows) &&
+    ((existingTable as { rows: unknown[] }).rows.length > 0);
+  if (!existingTableHasRows && resolved.chartTable && typeof resolved.chartTable === "object") {
+    merged.chartTable = resolved.chartTable;
+  }
+
+  const existingTickerTable = layoutProps.tickerTable;
+  const existingTickerTableHasRows =
+    existingTickerTable &&
+    typeof existingTickerTable === "object" &&
+    Array.isArray((existingTickerTable as { rows?: unknown }).rows) &&
+    ((existingTickerTable as { rows: unknown[] }).rows.some((row) =>
+      Array.isArray(row) && row.some((cell) => String(cell ?? "").trim() !== ""),
+    ));
+  if (!existingTickerTableHasRows && resolved.tickerTable && typeof resolved.tickerTable === "object") {
+    merged.tickerTable = resolved.tickerTable;
+  }
+
+  if (!("chartType" in layoutProps) && typeof resolved.chartType === "string") {
+    merged.chartType = resolved.chartType;
+  }
+
+  return merged;
+}

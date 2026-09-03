@@ -1,17 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import PdfToVideoConverter from "./PdfToVideoConverter";
 import StockVisualizer from "./StockVisualizer";
 import SubstackValuationTool from "./SubstackValuationTool";
 import { Link } from "react-router-dom";
 import type { CredentialResponse } from "@react-oauth/google";
-import type { DirectoryPricingModel } from "../../content/seoTypes";
-import {
-  getSubstackDirectoryNichePath,
-  getSubstackDirectoryPricingPath,
-  getSubstackPublicationPath,
-  pricingLabels,
-  substackNiches,
-  substackPublications,
-} from "../../content/substackDirectory";
 import { useAuth } from "../../hooks/useAuth";
 import { isPaidPlan } from "../../lib/plan";
 import GoogleAuthButton from "../public/GoogleAuthButton";
@@ -970,6 +962,390 @@ function HeadlineAnalyzer() {
   );
 }
 
+/**
+ * Google renders desktop result titles in roughly 20px Arial and truncates the
+ * snippet near 600px, so a 58-character title full of wide characters can still
+ * get cut off while a 64-character title of narrow ones survives. Character
+ * count alone therefore under-reports truncation, and the checker measures real
+ * pixel width with canvas instead. The per-character fallback only matters
+ * during prerender, where no component actually renders.
+ */
+const TITLE_FONT = "20px Arial, Helvetica, sans-serif";
+const DESCRIPTION_FONT = "14px Arial, Helvetica, sans-serif";
+const TITLE_PIXEL_LIMIT = 600;
+const TITLE_PIXEL_WARN = 660;
+const DESCRIPTION_PIXEL_LIMIT = 920;
+const MOBILE_TITLE_WIDTH = 340;
+const MOBILE_DESCRIPTION_WIDTH = 340;
+
+let measureCanvas: HTMLCanvasElement | null = null;
+
+function measureTextWidth(text: string, font: string) {
+  if (typeof document === "undefined") return Math.round(text.length * 9);
+  if (!measureCanvas) measureCanvas = document.createElement("canvas");
+  const context = measureCanvas.getContext("2d");
+  if (!context) return Math.round(text.length * 9);
+  context.font = font;
+  return Math.round(context.measureText(text).width);
+}
+
+function truncateToPixels(text: string, font: string, maxWidth: number) {
+  if (measureTextWidth(text, font) <= maxWidth) return { text, truncated: false };
+
+  let low = 0;
+  let high = text.length;
+  while (low < high) {
+    const mid = Math.ceil((low + high) / 2);
+    if (measureTextWidth(`${text.slice(0, mid)}…`, font) <= maxWidth) low = mid;
+    else high = mid - 1;
+  }
+  return { text: `${text.slice(0, low).trimEnd()}…`, truncated: true };
+}
+
+function wrapToLines(text: string, font: string, maxWidth: number) {
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let current = "";
+
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (!current || measureTextWidth(candidate, font) <= maxWidth) {
+      current = candidate;
+    } else {
+      lines.push(current);
+      current = word;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
+function clampLines(text: string, font: string, maxWidth: number, maxLines: number) {
+  const lines = wrapToLines(text, font, maxWidth);
+  if (lines.length <= maxLines) return { lines, truncated: false };
+
+  const kept = lines.slice(0, maxLines);
+  // Re-truncate the final visible line with the leftover words appended so the
+  // ellipsis lands mid-sentence the way Google renders it, not at a word break.
+  kept[maxLines - 1] = truncateToPixels(
+    [kept[maxLines - 1], ...lines.slice(maxLines)].join(" "),
+    font,
+    maxWidth
+  ).text;
+  return { lines: kept, truncated: true };
+}
+
+type CheckStatus = "pass" | "warn" | "fail";
+
+type SeoCheck = {
+  label: string;
+  status: CheckStatus;
+  detail: string;
+  weight: number;
+};
+
+const checkStatusStyles: Record<CheckStatus, { dot: string; text: string; label: string }> = {
+  pass: { dot: "bg-emerald-500", text: "text-emerald-700", label: "Good" },
+  warn: { dot: "bg-amber-500", text: "text-amber-700", label: "Review" },
+  fail: { dot: "bg-rose-500", text: "text-rose-700", label: "Fix" },
+};
+
+function analyzeSeoTitle(rawTitle: string, rawDescription: string, rawKeyword: string) {
+  const title = rawTitle.trim().replace(/\s+/g, " ");
+  const description = rawDescription.trim().replace(/\s+/g, " ");
+  const keyword = rawKeyword.trim().toLowerCase();
+
+  const titleChars = title.length;
+  const titlePixels = measureTextWidth(title, TITLE_FONT);
+  const descriptionChars = description.length;
+  const descriptionPixels = measureTextWidth(description, DESCRIPTION_FONT);
+
+  const lowerTitle = title.toLowerCase();
+  const keywordIndex = keyword ? lowerTitle.indexOf(keyword) : -1;
+  const keywordInTitle = keywordIndex >= 0;
+  const keywordInDescription = keyword ? description.toLowerCase().includes(keyword) : false;
+  const keywordRepeats = keyword
+    ? lowerTitle.split(keyword).length - 1
+    : 0;
+
+  const letters = title.replace(/[^a-z]/gi, "");
+  const isShouting = letters.length > 6 && letters === letters.toUpperCase();
+  const separatorCount = (title.match(/[|\-–—:·»]/g) ?? []).length;
+
+  const checks: SeoCheck[] = [];
+
+  checks.push({
+    label: "Character count",
+    weight: 18,
+    status: !titleChars ? "fail" : titleChars > 70 ? "fail" : titleChars > 60 || titleChars < 30 ? "warn" : "pass",
+    detail: !titleChars
+      ? "Add a title to score it."
+      : titleChars > 70
+        ? `${titleChars} characters. Well past the 60-character guideline — Google will almost certainly cut it.`
+        : titleChars > 60
+          ? `${titleChars} characters. Slightly over the 50–60 sweet spot; check the pixel width below.`
+          : titleChars < 30
+            ? `${titleChars} characters. There is room left for a qualifier or your brand.`
+            : `${titleChars} characters, inside the 50–60 guideline.`,
+  });
+
+  checks.push({
+    label: "Pixel width",
+    weight: 20,
+    status: !titleChars
+      ? "fail"
+      : titlePixels > TITLE_PIXEL_WARN
+        ? "fail"
+        : titlePixels > TITLE_PIXEL_LIMIT
+          ? "warn"
+          : "pass",
+    detail: !titleChars
+      ? "Pixel width is measured once you enter a title."
+      : titlePixels > TITLE_PIXEL_LIMIT
+        ? `${titlePixels}px against a ~${TITLE_PIXEL_LIMIT}px desktop limit. The preview shows where it gets cut.`
+        : `${titlePixels}px, comfortably inside the ~${TITLE_PIXEL_LIMIT}px desktop limit.`,
+  });
+
+  checks.push({
+    label: "Keyword present",
+    weight: 20,
+    status: !keyword ? "warn" : keywordInTitle ? "pass" : "fail",
+    detail: !keyword
+      ? "Add a target keyword to check placement and repetition."
+      : keywordInTitle
+        ? `"${rawKeyword.trim()}" appears in the title.`
+        : `"${rawKeyword.trim()}" is missing from the title.`,
+  });
+
+  checks.push({
+    label: "Keyword position",
+    weight: 14,
+    status: !keyword || !keywordInTitle ? "warn" : keywordIndex <= 30 ? "pass" : "warn",
+    detail: !keyword
+      ? "Front-loading is scored once a keyword is set."
+      : !keywordInTitle
+        ? "Add the keyword before checking how far forward it sits."
+        : keywordIndex <= 30
+          ? `Starts at character ${keywordIndex + 1}, early enough to survive truncation.`
+          : `Starts at character ${keywordIndex + 1}. Move it nearer the front so it reads before any cut-off.`,
+  });
+
+  checks.push({
+    label: "Meta description",
+    weight: 16,
+    status: !descriptionChars
+      ? "warn"
+      : descriptionPixels > DESCRIPTION_PIXEL_LIMIT || descriptionChars > 165
+        ? "warn"
+        : descriptionChars < 70
+          ? "warn"
+          : "pass",
+    detail: !descriptionChars
+      ? "Optional, but the preview is more useful with a description."
+      : descriptionChars > 165
+        ? `${descriptionChars} characters (${descriptionPixels}px). Google usually truncates past ~160.`
+        : descriptionChars < 70
+          ? `${descriptionChars} characters. Short descriptions leave click-through on the table.`
+          : `${descriptionChars} characters (${descriptionPixels}px), inside the usual limit.${
+              keyword && !keywordInDescription ? " The keyword is not mentioned, though." : ""
+            }`,
+  });
+
+  checks.push({
+    label: "Formatting",
+    weight: 12,
+    status: isShouting || keywordRepeats > 1 || separatorCount > 2 ? "warn" : "pass",
+    detail: isShouting
+      ? "All-caps titles read as shouting and are often rewritten by Google."
+      : keywordRepeats > 1
+        ? `The keyword appears ${keywordRepeats} times. Repetition reads as stuffing.`
+        : separatorCount > 2
+          ? "Several separators in one title. Two clauses plus a brand is usually the ceiling."
+          : "No shouting, stuffing, or separator pile-up.",
+  });
+
+  const earned = checks.reduce((total, check) => {
+    if (check.status === "pass") return total + check.weight;
+    if (check.status === "warn") return total + check.weight * 0.55;
+    return total;
+  }, 0);
+  const possible = checks.reduce((total, check) => total + check.weight, 0);
+
+  const desktopTitle = truncateToPixels(title, TITLE_FONT, TITLE_PIXEL_LIMIT);
+  const desktopDescription = clampLines(description, DESCRIPTION_FONT, DESCRIPTION_PIXEL_LIMIT, 2);
+  const mobileTitle = clampLines(title, TITLE_FONT, MOBILE_TITLE_WIDTH, 2);
+  const mobileDescription = clampLines(description, DESCRIPTION_FONT, MOBILE_DESCRIPTION_WIDTH, 3);
+
+  return {
+    score: Math.round(clamp((earned / possible) * 100, 0, 100)),
+    checks,
+    titleChars,
+    titlePixels,
+    descriptionChars,
+    desktopTitle,
+    desktopDescription,
+    mobileTitle,
+    mobileDescription,
+  };
+}
+
+function LengthMeter({ value, limit, warnAt }: { value: number; limit: number; warnAt: number }) {
+  const ratio = clamp(value / warnAt, 0, 1);
+  const tone = value > warnAt ? "bg-rose-500" : value > limit ? "bg-amber-500" : "bg-emerald-500";
+  return (
+    <div className="h-2 rounded-full bg-gray-100">
+      <div className={`h-2 rounded-full transition-all ${tone}`} style={{ width: `${ratio * 100}%` }} />
+    </div>
+  );
+}
+
+function SeoTitleChecker() {
+  const [title, setTitle] = useState("SEO Title Checker: Pixel Width and Google Preview");
+  const [description, setDescription] = useState(
+    "Check your SEO title for character count, pixel width, and keyword placement, then preview exactly how it will appear in Google results."
+  );
+  const [keyword, setKeyword] = useState("seo title checker");
+  const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
+
+  const result = useMemo(
+    () => analyzeSeoTitle(title, description, keyword),
+    [title, description, keyword]
+  );
+
+  const previewTitleLines = device === "desktop" ? [result.desktopTitle.text] : result.mobileTitle.lines;
+  const previewDescriptionLines =
+    device === "desktop" ? result.desktopDescription.lines : result.mobileDescription.lines;
+  const isTruncated =
+    device === "desktop" ? result.desktopTitle.truncated : result.mobileTitle.truncated;
+
+  return (
+    <div className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
+      <div className="rounded-3xl border border-gray-200 bg-gray-50/70 p-6">
+        <Field label="SEO title" hint={`${result.titleChars} chars · ${result.titlePixels}px`}>
+          <textarea
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            className="min-h-[96px] w-full rounded-2xl border border-gray-200 bg-white p-4 text-base leading-6 text-gray-700 shadow-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+          />
+        </Field>
+        <div className="mt-3">
+          <LengthMeter value={result.titlePixels} limit={TITLE_PIXEL_LIMIT} warnAt={TITLE_PIXEL_WARN} />
+        </div>
+
+        <div className="mt-5">
+          <Field label="Target keyword" hint="Optional">
+            <input
+              value={keyword}
+              onChange={(event) => setKeyword(event.target.value)}
+              className={inputClassName()}
+            />
+          </Field>
+        </div>
+
+        <div className="mt-5">
+          <Field label="Meta description" hint={`${result.descriptionChars} chars`}>
+            <textarea
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              className="min-h-[110px] w-full rounded-2xl border border-gray-200 bg-white p-4 text-sm leading-6 text-gray-700 shadow-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+            />
+          </Field>
+        </div>
+
+        <div className="mt-5 flex items-center gap-3">
+          {(["desktop", "mobile"] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => setDevice(option)}
+              className={`rounded-xl border px-4 py-2 text-sm font-medium capitalize transition ${
+                device === option
+                  ? "border-purple-200 bg-purple-50 text-purple-700"
+                  : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:text-gray-900"
+              }`}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <MetricCard
+          label="Title score"
+          value={`${result.score}/100`}
+          helper="Every check below is rules-based, so you can see exactly what moved the number."
+        />
+
+        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-gray-900">Google preview</p>
+            <span className={`text-xs font-medium ${isTruncated ? "text-amber-700" : "text-emerald-700"}`}>
+              {isTruncated ? "Truncated" : "Fits"}
+            </span>
+          </div>
+          <div
+            className={`mt-4 rounded-xl border border-gray-200 bg-white p-4 ${
+              device === "mobile" ? "max-w-[380px]" : ""
+            }`}
+          >
+            <p className="text-xs text-gray-600">blog2video.app › tools › seo-title-checker</p>
+            <div className="mt-1">
+              {previewTitleLines.map((line, index) => (
+                <p key={`${line}-${index}`} className="text-xl leading-7 text-[#1a0dab]">
+                  {line}
+                </p>
+              ))}
+            </div>
+            <div className="mt-1">
+              {previewDescriptionLines.map((line, index) => (
+                <p key={`${line}-${index}`} className="text-sm leading-5 text-gray-600">
+                  {line}
+                </p>
+              ))}
+            </div>
+          </div>
+          <p className="mt-3 text-xs leading-relaxed text-gray-500">
+            Pixel widths are measured in Arial to match how Google renders results. Google may still
+            rewrite a title it considers a poor match for the query.
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <p className="text-sm font-semibold text-gray-900">Checks</p>
+          <ul className="mt-4 space-y-4">
+            {result.checks.map((check) => {
+              const style = checkStatusStyles[check.status];
+              return (
+                <li key={check.label} className="flex gap-3">
+                  <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${style.dot}`} />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-900">{check.label}</span>
+                      <span className={`text-xs font-semibold ${style.text}`}>{style.label}</span>
+                    </div>
+                    <p className="mt-1 text-sm leading-relaxed text-gray-600">{check.detail}</p>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+
+        <div className="rounded-2xl border border-purple-100 bg-purple-50/60 p-5">
+          <p className="text-sm font-semibold text-gray-900">Copy the tested title</p>
+          <p className="mt-2 text-sm leading-relaxed text-gray-600">
+            Paste it straight into your CMS title tag field, not the H1 — they are separate.
+          </p>
+          <div className="mt-4">
+            <CopyButton value={title.trim()} label="Copy title" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 type QuoteTemplate = "editorial" | "signal" | "midnight";
 type QuoteRatio = "landscape" | "square" | "portrait";
 
@@ -1143,127 +1519,6 @@ function QuoteCardGenerator() {
             Export PNG
           </button>
           <CopyButton value={`"${quote}" — ${author}`} label="Copy quote" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SubstackDirectoryExplorer() {
-  const [query, setQuery] = useState("");
-  const [pricing, setPricing] = useState<DirectoryPricingModel | "all">("all");
-
-  const nicheMatches = useMemo(() => {
-    return substackNiches
-      .filter((niche) => {
-        const matchesQuery = !query
-          ? true
-          : `${niche.name} ${niche.description} ${niche.angle}`.toLowerCase().includes(query.toLowerCase());
-        if (!matchesQuery) return false;
-        if (pricing === "all") return true;
-        return niche.publicationSlugs.some((slug) => {
-          const publication = substackPublications.find((entry) => entry.slug === slug);
-          return publication?.pricingModel === pricing;
-        });
-      })
-      .slice(0, 12);
-  }, [pricing, query]);
-
-  const publicationMatches = useMemo(() => {
-    return substackPublications
-      .filter((publication) => {
-        const matchesQuery = !query
-          ? true
-          : `${publication.name} ${publication.tagline} ${publication.topics.join(" ")}`.toLowerCase().includes(query.toLowerCase());
-        const matchesPricing = pricing === "all" ? true : publication.pricingModel === pricing;
-        return matchesQuery && matchesPricing;
-      })
-      .slice(0, 8);
-  }, [pricing, query]);
-
-  return (
-    <div className="space-y-6">
-      <div className="grid gap-4 rounded-3xl border border-gray-200 bg-gray-50/70 p-6 md:grid-cols-[1fr_auto] md:items-end">
-        <Field label="Search niches or publications">
-          <input
-            type="text"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="AI, politics, growth, creators..."
-            className={inputClassName()}
-          />
-        </Field>
-        <Field label="Pricing model">
-          <select
-            className={inputClassName()}
-            value={pricing}
-            onChange={(event) => setPricing(event.target.value as DirectoryPricingModel | "all")}
-          >
-            <option value="all">All pricing models</option>
-            <option value="free">Free</option>
-            <option value="paid">Paid</option>
-            <option value="freemium">Freemium</option>
-          </select>
-        </Field>
-      </div>
-
-      <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
-        <div>
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-xl font-semibold text-gray-900">Niche pages</h3>
-            <Link to={getSubstackDirectoryNichePath("ai")} className="text-sm font-medium text-purple-700 hover:text-purple-800">
-              Explore a sample niche
-            </Link>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            {nicheMatches.map((niche) => (
-              <div
-                key={niche.slug}
-                className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-              >
-                <Link to={getSubstackDirectoryNichePath(niche.slug)} className="block">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-purple-600">{niche.name}</p>
-                  <h4 className="mt-2 text-lg font-semibold text-gray-900">{niche.title}</h4>
-                  <p className="mt-3 text-sm leading-relaxed text-gray-600">{niche.description}</p>
-                </Link>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {(["free", "paid", "freemium"] as DirectoryPricingModel[]).map((mode) => (
-                    <Link
-                      key={mode}
-                      to={getSubstackDirectoryPricingPath(niche.slug, mode)}
-                      className="rounded-full border border-gray-200 px-3 py-1 text-xs font-medium text-gray-500 hover:border-gray-300 hover:text-gray-900"
-                    >
-                      {pricingLabels[mode]}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <h3 className="mb-4 text-xl font-semibold text-gray-900">Publication profiles</h3>
-          <div className="space-y-4">
-            {publicationMatches.map((publication) => (
-              <Link
-                key={publication.slug}
-                to={getSubstackPublicationPath(publication.slug)}
-                className="block rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h4 className="text-lg font-semibold text-gray-900">{publication.name}</h4>
-                    <p className="mt-1 text-sm text-gray-500">{publication.tagline}</p>
-                  </div>
-                  <span className="rounded-full border border-purple-100 bg-purple-50 px-3 py-1 text-xs font-medium text-purple-700">
-                    {pricingLabels[publication.pricingModel]}
-                  </span>
-                </div>
-                <p className="mt-3 text-sm leading-relaxed text-gray-600">{publication.description}</p>
-              </Link>
-            ))}
-          </div>
         </div>
       </div>
     </div>
@@ -2056,10 +2311,10 @@ export function ToolWidget({ slug }: ToolWidgetProps) {
       return <MarkdownFormatter />;
     case "headline-analyzer":
       return <HeadlineAnalyzer />;
+    case "seo-title-checker":
+      return <SeoTitleChecker />;
     case "quote-card-generator":
       return <QuoteCardGenerator />;
-    case "substack-directory":
-      return <SubstackDirectoryExplorer />;
     case "stock-visualizer":
       return <StockVisualizer />;
     case "video-script-generator":
@@ -2072,6 +2327,8 @@ export function ToolWidget({ slug }: ToolWidgetProps) {
       return <VideoLengthCalculatorWidget />;
     case "book-cover-generator":
       return <BookCoverGeneratorWidget />;
+    case "pdf-to-video-converter":
+      return <PdfToVideoConverter />;
     default:
       return null;
   }

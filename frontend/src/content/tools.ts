@@ -4,10 +4,10 @@ export const toolsHub = {
   path: "/tools",
   title: "Free Creator And SEO Tools for Medium, Substack, and Content Teams",
   description:
-    "Free calculators, analyzers, formatters, generators, and directory pages for Medium, Substack, headlines, and content repurposing workflows.",
+    "Free calculators, analyzers, formatters, and generators for Medium, Substack, headlines, and content repurposing workflows.",
   heroTitle: "Free tools for creators who publish from writing first.",
   heroDescription:
-    "Estimate revenue, clean up markdown, score headlines, generate shareable quote cards, and browse curated Substack niches without leaving the site.",
+    "Estimate revenue, clean up markdown, score headlines, and generate shareable quote cards without leaving the site.",
 };
 
 export const tools: ToolDefinition[] = [
@@ -269,7 +269,6 @@ export const tools: ToolDefinition[] = [
       },
     ],
     relatedPaths: [
-      "/tools/substack-directory",
       "/tools/headline-analyzer",
       "/for-substack-writers",
       "/blogs/substack-newsletter-to-video-workflow",
@@ -332,24 +331,49 @@ export const tools: ToolDefinition[] = [
   {
     slug: "headline-analyzer",
     path: "/tools/headline-analyzer",
-    title: "Headline & Title Analyzer",
+    title: "Free Blog Title Checker & Headline Analyzer",
     description:
-      "Score headlines and titles for clarity, specificity, length, curiosity, audience fit, and platform match — including a dedicated YouTube title mode for thumbnail and search-friendly titles.",
-    eyebrow: "Analyzer",
-    heroTitle: "Score your title or headline and get rewrite suggestions you can actually use.",
+      "Free blog title checker: score any blog title or headline for clarity, specificity, length, curiosity, and audience fit, then get rewrite suggestions. No signup. Includes a YouTube title checker mode.",
+    eyebrow: "Free tool",
+    heroTitle:
+      "Free blog title checker and headline analyzer — score any title, then fix it.",
     heroDescription:
-      "See where a title is strong, where it is vague, and how to improve it for blogs, Medium, Substack, or YouTube — including a YouTube title checker mode — without relying on black-box scoring.",
+      "Paste a blog title, headline, or video title to see where it is strong, where it is vague, and exactly how to improve it for blogs, Medium, Substack, or YouTube — with a transparent score instead of a black-box number, and no signup.",
     category: "analyzer",
     icon: "HA",
-    primaryKeyword: "title analyzer",
-    keywordVariant: "youtube title checker",
-    badges: ["Deterministic scoring", "Rewrite suggestions", "YouTube title mode"],
+    primaryKeyword: "blog title checker",
+    keywordVariant: "headline analyzer",
+    badges: ["Free, no signup", "Deterministic scoring", "Rewrite suggestions", "YouTube title mode"],
     proofPoints: [
       "The score is broken into transparent factors instead of hidden behind a single number.",
       "Platform modes help the feedback match blog, newsletter, Medium, or YouTube title goals.",
       "Rewrite suggestions are based on the signals the analyzer found, not generic filler.",
     ],
     sections: [
+      {
+        title: "Using it as a blog title checker",
+        body: [
+          "Paste your blog title into the field above and the checker scores it immediately — no account, no email, no credit limit. You get a breakdown by factor rather than a single number, so you can see whether the problem is length, vagueness, a missing audience signal, or a missing reason to click.",
+          "Most blog titles fail for one of a small number of reasons, and the checker is built around them. A title is too long and gets truncated in search. It is abstract where it should be concrete. It describes the topic but never says who the post is for. It states a fact but gives the reader no reason to open it. Or it front-loads filler instead of the words someone would actually search.",
+          "The fix is usually smaller than writers expect. Adding a number, naming the audience, or moving the keyword four words earlier will often move a title from mediocre to strong without rewriting it from scratch — which is why the tool returns suggestions tied to what it found rather than a generic list of power words.",
+        ],
+        bullets: [
+          "Length, measured against where blog titles get truncated in search results.",
+          "Specificity — whether the title makes a concrete claim or gestures at a topic.",
+          "Keyword placement, since anything after the truncation point is invisible.",
+          "Curiosity and benefit: does the reader get a reason to click?",
+          "Audience framing — whether the title names who the post is for.",
+          "Clarity, including jargon, hedging, and stacked qualifiers.",
+        ],
+      },
+      {
+        title: "What separates a blog title that ranks from one that gets clicked",
+        body: [
+          "These are related but not the same goal, and a checker that collapses them into one score hides the tradeoff. A title that ranks contains the words people search and survives truncation. A title that gets clicked gives the reader a reason to choose it over the nine other results on the page.",
+          "The strongest blog titles do both, and they do it in a specific order: the searchable phrase near the front, the reason to click immediately after. \"Blog title checker\" followed by what the reader gets beats a clever phrase that buries the topic, because the clever phrase never enters the result set in the first place.",
+          "Scores are diagnostic, not predictive. No analyzer — this one included — can tell you a post will rank. What it can tell you is whether the title has a mechanical problem you would rather find before publishing than after.",
+        ],
+      },
       {
         title: "What gets scored",
         body: [
@@ -373,6 +397,21 @@ export const tools: ToolDefinition[] = [
     ],
     faq: [
       {
+        question: "Is this blog title checker free?",
+        answer:
+          "Yes. It runs in full with no account, no email, and no usage cap. There is nothing gated behind a signup.",
+      },
+      {
+        question: "What is a good blog title score?",
+        answer:
+          "Treat anything above 70 as strong and anything below 50 as needing a rewrite. But the factor breakdown matters more than the total: a title scoring 65 with one fixable weakness is better than a 75 that is vague across the board.",
+      },
+      {
+        question: "How long should a blog title be?",
+        answer:
+          "Roughly 50–60 characters keeps a title from being truncated in search results. The checker flags titles that run past the cut-off and shows you which words would disappear, so you can move the important ones earlier.",
+      },
+      {
         question: "Is this analyzer AI-generated?",
         answer:
           "No. The scoring is deterministic and rules-based so you can understand what the tool is rewarding or penalizing.",
@@ -394,10 +433,122 @@ export const tools: ToolDefinition[] = [
       },
     ],
     relatedPaths: [
+      "/tools/seo-title-checker",
+      "/blogs/blog-title-checker",
+      "/blogs/youtube-title-score-checker",
+      "/blogs/headline-score",
       "/tools/markdown-to-medium-substack-formatter",
       "/tools/quote-card-generator",
       "/blog-to-youtube-video",
       "/blogs/blog-to-youtube-strategy-for-written-first-creators",
+    ],
+  },
+  {
+    slug: "seo-title-checker",
+    path: "/tools/seo-title-checker",
+    title: "Free SEO Title Checker — Pixel Length & Preview",
+    description:
+      "Free SEO title checker: count characters, measure pixel width against Google's ~600px limit, check keyword placement, and preview your title tag in desktop and mobile search results.",
+    eyebrow: "Analyzer",
+    heroTitle:
+      "Free SEO title checker for character count, pixel width, and a live Google preview.",
+    heroDescription:
+      "Paste a title tag to see its character count, its real pixel width against Google's ~600px desktop limit, whether your keyword is front-loaded, and exactly where the title gets truncated in desktop and mobile results.",
+    category: "analyzer",
+    icon: "TC",
+    primaryKeyword: "seo title checker",
+    keywordVariant: "title tag checker",
+    badges: ["Character + pixel count", "Desktop & mobile preview", "Keyword placement"],
+    proofPoints: [
+      "Measures real pixel width in Arial instead of guessing from character count alone.",
+      "Shows the exact truncation point in a desktop and mobile search preview.",
+      "Checks keyword presence, front-loading, and repetition without a signup.",
+    ],
+    sections: [
+      {
+        title: "What this SEO title checker measures",
+        body: [
+          "The checker runs six rules-based checks against your title tag and meta description, then renders the result as a Google snippet so you can see the outcome rather than infer it from a number.",
+          "Nothing is hidden behind a proprietary score. Every check states what it found and why it matters, so you can decide when a rule is worth breaking.",
+        ],
+        bullets: [
+          "Character count against the 50–60 guideline.",
+          "Pixel width against Google's ~600px desktop truncation point.",
+          "Whether your target keyword appears in the title at all.",
+          "How early the keyword sits, since anything after the cut-off is invisible.",
+          "Meta description length in both characters and pixels.",
+          "Formatting problems: all-caps titles, keyword repetition, separator pile-up.",
+        ],
+      },
+      {
+        title: "Why pixel width matters more than character count",
+        body: [
+          "Almost every guide repeats the same rule: keep your SEO title between 50 and 60 characters. That rule is a proxy, not the actual limit. Google truncates on rendered width, roughly 600 pixels in a 20px Arial-like font on desktop, and characters are not equal widths.",
+          "A title made of wide characters — capitals, and letters like W, M, and G — can be cut off at 54 characters. A title of narrow ones, heavy on i, l, t, and f, can survive past 65. This is why a title that passes a character counter still shows an ellipsis in the live SERP.",
+          "The checker measures your actual string rather than counting it, which is why the preview and the character count sometimes disagree. When they do, trust the preview.",
+        ],
+      },
+      {
+        title: "Where to put your keyword",
+        body: [
+          "Put the primary keyword near the front of the title. This is partly about relevance and mostly about survival: if the title is truncated, everything after the cut-off disappears from the result, and a keyword that only appears at character 58 may never be seen.",
+          "Front-loading also matches how people scan a results page. Readers read the first two or three words of each blue link and skip the rest, so the opening words do nearly all of the click-through work.",
+          "One mention is enough. Repeating the keyword twice reads as stuffing to both readers and Google, and is one of the more common triggers for Google rewriting your title.",
+        ],
+      },
+      {
+        title: "SEO title, title tag, H1, and headline are not the same thing",
+        body: [
+          "The SEO title — the title tag — is the clickable blue line in search results and the text in the browser tab. The H1 is the heading on the page itself. The headline is the editorial framing of the article, which may match either, both, or neither.",
+          "They serve different jobs. A title tag is written for a search results page, where it competes with nine other blue links and gets truncated at ~600px. An H1 is read after the click, with the whole page as context, and has no length limit.",
+          "This is why the two are worth writing separately. A good title tag is specific, front-loaded, and short; a good H1 can be longer and more expressive. If you want to score the editorial strength of a headline rather than the mechanics of a title tag, use the headline analyzer instead.",
+        ],
+      },
+      {
+        title: "Why Google rewrites titles anyway",
+        body: [
+          "Google rewrites a substantial share of title tags, and no checker can prevent that. Rewrites usually happen for a small set of reasons: the title is truncated or padded with boilerplate, it is stuffed with repeated keywords, it is half brand name, or it does not match what the page actually answers.",
+          "Passing every check here does not guarantee your title is shown verbatim. It removes the mechanical reasons for a rewrite, which is the part you control.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "What is an SEO title?",
+        answer:
+          "An SEO title, also called a title tag, is the HTML element that defines the clickable headline shown for your page in search results and in the browser tab. It is set in the page's <title> tag and is separate from the H1 heading shown on the page itself.",
+      },
+      {
+        question: "How long should an SEO title be?",
+        answer:
+          "Aim for 50 to 60 characters, which is roughly 600 pixels on desktop. The real limit is pixel width rather than character count, so a title full of wide characters can be truncated below 60 characters while a narrow one can exceed it. This checker measures both.",
+      },
+      {
+        question: "What is the difference between an SEO title and an H1?",
+        answer:
+          "The SEO title is what appears in search results and the browser tab; the H1 is the main heading readers see on the page. They can differ, and often should: the title tag is written to earn a click within a ~600px limit, while the H1 is read after the click and has no length constraint.",
+      },
+      {
+        question: "Why does Google show a different title than the one I set?",
+        answer:
+          "Google rewrites titles it judges to be truncated, keyword-stuffed, dominated by a brand name, or a poor match for the query. Fixing length, removing repeated keywords, and making the title describe what the page actually answers removes the mechanical causes, though rewrites can still happen.",
+      },
+      {
+        question: "Does the SEO title affect rankings?",
+        answer:
+          "It is a relevance signal, but its larger effect is on click-through rate. A title that is truncated, vague, or missing the keyword loses clicks even when the page ranks well, and click behaviour on a result feeds back into how it performs.",
+      },
+      {
+        question: "Is this SEO title checker free?",
+        answer:
+          "Yes. It runs entirely in your browser with no signup, no limits, and nothing sent to a server — the pixel measurement happens locally using your own browser's text rendering.",
+      },
+    ],
+    relatedPaths: [
+      "/tools/headline-analyzer",
+      "/tools/youtube-description-generator",
+      "/video-seo-checklist",
+      "/tools/markdown-to-medium-substack-formatter",
     ],
   },
   {
@@ -965,6 +1116,105 @@ export const tools: ToolDefinition[] = [
       "/tools/quote-card-generator",
       "/blog-to-video",
       "/tools/video-script-generator",
+    ],
+  },
+  {
+    slug: "pdf-to-video-converter",
+    path: "/tools/pdf-to-video-converter",
+    title: "PDF to Video Converter — Free AI Tool",
+    description:
+      "Convert a PDF into a narrated AI video free. Drop in your document and Blog2Video rebuilds it as scenes with voiceover and templates — not a silent page slideshow.",
+    eyebrow: "Free Converter",
+    heroTitle: "Convert a PDF into a narrated video, free.",
+    heroDescription:
+      "Drop in your PDF and Blog2Video reads its structure, then rebuilds it as a narrated video with scenes, voiceover, and designed templates. Free account, no credit card.",
+    category: "generator",
+    icon: "PV",
+    primaryKeyword: "pdf to video",
+    keywordVariant: "convert pdf to video free",
+    badges: ["Free account", "AI narration", "PDF, DOCX, PPTX"],
+    proofPoints: [
+      "Rebuilds the document as narrated scenes rather than photographing each page.",
+      "Renders 16:9 for YouTube and LinkedIn or 9:16 for Shorts, Reels, and TikTok.",
+      "Free to start with no credit card — PDF, DOCX, and PPTX all supported.",
+    ],
+    sections: [
+      {
+        title: "How to convert a PDF to video",
+        body: [
+          "Drop your PDF onto the converter or pick it from your file browser, then sign in with Google to continue. You land on the upload step of the create flow, where you select the document and choose how the video should look.",
+          "Blog2Video parses the document rather than screenshotting it. Headings become scene boundaries, body copy becomes narration, and figures and tables are re-laid out at sizes that stay readable on a phone. You review the generated scenes, adjust anything that needs it, and render.",
+        ],
+        bullets: [
+          "Drop in a PDF, DOCX, or PPTX and sign in with a free account.",
+          "Pick a template, voice, and output length.",
+          "Review the generated scenes and narration, then render the video.",
+        ],
+      },
+      {
+        title: "Why page-by-page converters produce unwatchable video",
+        body: [
+          "Most free PDF-to-video tools turn each page into a timed frame. That sounds like a conversion, but a PDF page is designed for a reader holding it at arm's length with body text around 11pt. Dropped into a 16:9 video frame unchanged, that text lands at the visual equivalent of roughly 4pt — technically a video, practically unreadable.",
+          "Pacing breaks too. A page slideshow gives every page the same few seconds whether it holds one chart or six paragraphs of dense argument, so viewers stare at a title page and then get three seconds to absorb a methodology section.",
+        ],
+      },
+      {
+        title: "What a structural rebuild does instead",
+        body: [
+          "Because the document is parsed rather than photographed, each section gets the time it actually needs and the text is re-typeset for a screen. A section carrying a real argument gets forty seconds; a title page gets four.",
+          "The narration is generated from the document's own text, so the video says what the PDF says. Nothing is invented to fill time, and the argument arrives in the order the author wrote it.",
+        ],
+      },
+      {
+        title: "What converts well",
+        body: [
+          "Documents with clear structure — headings, sections, lists, labelled figures. Whitepapers, lesson notes, research summaries, reports, and guides all convert well, because there is a logical spine worth preserving.",
+          "Scanned PDFs without a text layer will not convert, since there is no text to parse. Run those through OCR first.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Is this PDF to video converter free?",
+        answer:
+          "Yes — converting runs on a free Blog2Video account with no credit card required. You sign in with Google, and free accounts include video generation so you can convert a document and see the result before deciding on a paid plan.",
+      },
+      {
+        question: "Why do I need to sign in?",
+        answer:
+          "The conversion parses your document and generates narration and rendered video on our servers, which is work tied to an account. Signing in also means your projects are saved, so you can come back and edit scenes or re-render rather than starting over.",
+      },
+      {
+        question: "Do I get a slideshow of my PDF pages?",
+        answer:
+          "No, and that is the point. Page-by-page converters produce silent video of shrunken, unreadable pages. Blog2Video reads the document structure and rebuilds it as narrated scenes with text sized for video.",
+      },
+      {
+        question: "What file types can I convert?",
+        answer:
+          "PDF, DOCX, and PPTX are all supported, along with Markdown and plain text. You can also paste a URL instead of uploading if the content is already published online.",
+      },
+      {
+        question: "How long is the finished video?",
+        answer:
+          "It depends on the source document and the length you target. A 10-page whitepaper typically becomes a three to six minute explainer, or a 60-second short if you set it to summarise aggressively.",
+      },
+      {
+        question: "Can I make vertical video for Shorts and Reels?",
+        answer:
+          "Yes. The same document renders to 16:9 for YouTube and LinkedIn or 9:16 for Shorts, Reels, and TikTok, with layouts adjusted for each format rather than cropped.",
+      },
+      {
+        question: "Can I edit the video after it is generated?",
+        answer:
+          "Yes. Every scene, its narration, and its layout can be edited before rendering, so you can cut a section, rewrite a line, or reorder the sequence without regenerating the whole video.",
+      },
+    ],
+    relatedPaths: [
+      "/pdf-to-video",
+      "/blogs/how-to-convert-pdf-into-video",
+      "/tools/video-length-calculator",
+      "/pptx-to-video",
     ],
   },
 ];

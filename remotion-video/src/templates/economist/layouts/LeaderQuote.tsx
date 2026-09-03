@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { EconomistLayoutProps } from "../types";
+import { useFitText } from "../components/useFitText";
 import { EconomistClip } from "../components/EconomistClip";
 import { ECONOMIST_COLORS, CHROME_INSET } from "../constants";
 import { ECONOMIST_SERIF_FONT, ECONOMIST_SANS_FONT } from "../../../fonts/economist-defaults";
@@ -35,6 +36,7 @@ export const LeaderQuote: React.FC<EconomistLayoutProps> = ({
   accentColor = ECONOMIST_COLORS.accent,
   textColor = ECONOMIST_COLORS.ink,
   titleFontSize,
+  titleFontSizeIsUserSet,
   fontFamily,
   aspectRatio = "landscape",
 }) => {
@@ -47,7 +49,7 @@ export const LeaderQuote: React.FC<EconomistLayoutProps> = ({
   const text = quote || narration || "";
   const baseQuoteSize = (titleFontSize ?? (isPortrait ? 64 : 84)) as number;
   // The split view's text column is narrower — scale the quote down a touch.
-  const quoteSize = Math.round(baseQuoteSize * (splitView ? 0.82 : 1));
+  const quoteSizeTarget = Math.round(baseQuoteSize * (splitView ? 0.82 : 1));
   const pad = isPortrait ? 64 : width * 0.085;
   const topInset = (isPortrait ? CHROME_INSET.topPortrait : CHROME_INSET.top) + 16;
   // Extra bottom padding in portrait biases the vertically-centred quote upward
@@ -81,6 +83,24 @@ export const LeaderQuote: React.FC<EconomistLayoutProps> = ({
     ...post.split(/\s+/).filter(Boolean).map((w) => ({ word: w, hi: false })),
   ];
   const wordStep = Math.min(3, 40 / Math.max(1, quoteWords.length));
+
+  /* ── Auto-fit (pull-quote) ─────────────────────────────────────────────────
+     The quote is a very large fixed-size headline (up to 84px) with no
+     existing heuristic; unbounded quote text can run long. Words render as
+     spans that only animate opacity/transform/blur per span (baselineSettle)
+     — all words are already in the DOM from frame 0 — so the wrapping div is
+     safe to ref directly. Its ancestor chain sits inside flex containers using
+     alignItems:"center" (non-splitView) or "flex-start" (splitView column,
+     under an outer alignItems:"center" row) — neither stretches children — so
+     give the quote div width:"100%" alongside its existing maxWidth. */
+  const quoteFitRef = React.useRef<HTMLDivElement>(null);
+  const { px: quoteSize } = useFitText(
+    quoteFitRef,
+    quoteSizeTarget,
+    titleFontSizeIsUserSet ? quoteSizeTarget : Math.round(quoteSizeTarget * 0.4),
+    [text, quoteSizeTarget, titleFontSizeIsUserSet, isPortrait, splitView, height],
+    Math.round((height - topInset - botInset) * (splitView ? 0.82 : isPortrait ? 0.4 : 0.5)),
+  );
 
   // ── matted editorial portrait (image mode) ─────────────────────────────────
   // Slides in from the left (landscape) / fades down (portrait) while the
@@ -161,7 +181,13 @@ export const LeaderQuote: React.FC<EconomistLayoutProps> = ({
 
       {photoPane}
 
-      <div style={{ display: "flex", flexDirection: "column", alignItems: align, minWidth: 0, flex: splitView ? 1 : undefined }}>
+      {/* Non-splitView: this is a column-flex item under an outer
+          alignItems:"center" column container, so without an explicit width
+          it would shrink-wrap around its content (defeating the quote's own
+          width:"100%" fit fix below) — give it the full available column
+          width so the fitter measures the true wrap width. SplitView already
+          gets real width from flex:1 on the row axis. */}
+      <div style={{ display: "flex", flexDirection: "column", alignItems: align, minWidth: 0, width: splitView ? undefined : "100%", flex: splitView ? 1 : undefined }}>
         {/* Section kicker above the mark — fills the top space and frames the quote. */}
         {sectionLabel && (
           <div
@@ -211,6 +237,7 @@ export const LeaderQuote: React.FC<EconomistLayoutProps> = ({
         <EditorialDivider width={160} progress={ruleW} accentColor={accentColor} height={16} style={{ marginBottom: isPortrait ? 22 : 28 }} />
 
         <div
+          ref={quoteFitRef}
           style={{
             fontFamily: fontFamily ?? ECONOMIST_SERIF_FONT,
             fontWeight: 700,
@@ -218,6 +245,7 @@ export const LeaderQuote: React.FC<EconomistLayoutProps> = ({
             lineHeight: 1.22,
             color: textColor,
             textAlign,
+            width: "100%",
             maxWidth: splitView ? "100%" : isPortrait ? "100%" : "90%",
           }}
         >

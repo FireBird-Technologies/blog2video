@@ -122,6 +122,11 @@ const LEGACY_TO_NEWCAST_LAYOUT_ID: Record<string, RemotionNewscastLayoutType> = 
   side_by_side_brief: "side_by_side_brief",
   segment_break: "segment_break",
   field_image_focus: "field_image_focus",
+  // Visual variants are identity-mapped: they are real layout IDs, not legacy
+  // aliases. Without these the `?? "anchor_narrative"` fallback swallows them.
+  opening__v2: "opening__v2",
+  anchor_narrative__v2: "anchor_narrative__v2",
+  ending_socials__v2: "ending_socials__v2",
   cinematic_title: "opening",
   glass_narrative: "anchor_narrative",
   glow_metric: "live_metrics_board",
@@ -150,7 +155,9 @@ const normalizeNewscastLayoutId = (layout: string): RemotionNewscastLayoutType =
 
 const NEWCAST_LAYOUT_TO_LEGACY_KEY: Record<RemotionNewscastLayoutType, string> = {
   opening: "cinematic_title",
+  opening__v2: "cinematic_title",
   anchor_narrative: "glass_narrative",
+  anchor_narrative__v2: "glass_narrative",
   live_metrics_board: "glow_metric",
   briefing_code_panel: "glass_code",
   headline_insight: "kinetic_insight",
@@ -160,6 +167,7 @@ const NEWCAST_LAYOUT_TO_LEGACY_KEY: Record<RemotionNewscastLayoutType, string> =
   field_image_focus: "glass_image",
   data_visualization: "data_visualization",
   ending_socials: "ending_socials",
+  ending_socials__v2: "ending_socials",
 };
 
 const toLegacyNewscastLayoutId = (layout: RemotionNewscastLayoutType): string =>
@@ -1557,7 +1565,10 @@ export const RemotionNewscastVideoComposition: React.FC<
         };
 
         const layoutType = legacyLayout;
-        const isHero = normalizedLayout === "opening";
+        // Compare on the BASE id so visual variants (`opening__v2`) count as the
+        // hero too — otherwise the variant gets the composition chrome AND its
+        // own, drawing the ticker/top bar twice.
+        const isHero = normalizedLayout.split("__")[0] === "opening";
 
         return (
           <Sequence

@@ -2,6 +2,8 @@
   "id": "spotlight",
   "name": "Spotlight",
   "new_template": false,
+  "new_scenes": true,
+  "popular_template": false,
   "description": "Bold kinetic typography on a dark stage. Words fill the frame, slam in, and cascade. Glass panels for data moments. High contrast, fast-paced, social-first. Spring-slam animations with accent red highlights. All layouts support optional images alongside content.",
   "genres": [
     "Business",
@@ -760,6 +762,45 @@
           "placeholder": "https://yourwebsite.com"
         }
       ]
+    },
+    "impact_title__v2": {
+      "label": "Impact Title — Marquee",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 97,
+          "landscape": 100
+        },
+        "descriptionFontSize": {
+          "portrait": 29,
+          "landscape": 33
+        }
+      }
+    },
+    "statement__v2": {
+      "label": "Statement — Pull Quote",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 66,
+          "landscape": 72
+        },
+        "descriptionFontSize": {
+          "portrait": 24,
+          "landscape": 20
+        }
+      }
+    },
+    "ending_socials__v2": {
+      "label": "Ending / Follow along — Curtain",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 81,
+          "landscape": 64
+        },
+        "descriptionFontSize": {
+          "portrait": 33,
+          "landscape": 29
+        }
+      }
     }
   },
   "layouts_without_image": [
@@ -777,5 +818,27 @@
     "Blur-to-sharp text reveal for closers",
     "Optional image support in all layouts",
     "Responsive layouts (portrait/landscape)"
-  ]
+  ],
+  "layout_variants": {
+    "impact_title": [
+      "impact_title",
+      "impact_title__v2"
+    ],
+    "statement": [
+      "statement",
+      "statement__v2"
+    ],
+    "ending_socials": [
+      "ending_socials",
+      "ending_socials__v2"
+    ]
+  },
+  "layout_variant_labels": {
+    "impact_title": "Classic",
+    "impact_title__v2": "Marquee",
+    "statement": "Classic",
+    "statement__v2": "Pull Quote",
+    "ending_socials": "Classic",
+    "ending_socials__v2": "Curtain"
+  }
 }

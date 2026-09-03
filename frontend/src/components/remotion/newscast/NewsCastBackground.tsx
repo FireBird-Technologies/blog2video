@@ -156,9 +156,13 @@ export const NewsCastBackground: React.FC<{
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
     });
-    const strongZoom = sceneLayoutType ? STRONG_ZOOM_LAYOUTS.has(sceneLayoutType) : false;
-    const isAsiaFocusLayout = sceneLayoutType === "headline_insight";
-    const isMapSlideInLayout = sceneLayoutType ? MAP_SLIDE_IN_LAYOUTS.has(sceneLayoutType) : false;
+    // Collapse visual variants (`anchor_narrative__v2`) to their base id before
+    // any layout lookup, so a variant inherits its base's map behaviour instead
+    // of silently falling through to the generic default.
+    const baseLayoutType = sceneLayoutType ? sceneLayoutType.split("__")[0] : sceneLayoutType;
+    const strongZoom = baseLayoutType ? STRONG_ZOOM_LAYOUTS.has(baseLayoutType) : false;
+    const isAsiaFocusLayout = baseLayoutType === "headline_insight";
+    const isMapSlideInLayout = baseLayoutType ? MAP_SLIDE_IN_LAYOUTS.has(baseLayoutType) : false;
     const usesDarkeningOpacity = !strongZoom;
     const zoomStart = strongZoom ? 1.48 : 1.24;
     const zoomEnd = 1;
@@ -211,7 +215,7 @@ export const NewsCastBackground: React.FC<{
       extrapolateRight: "clamp",
     });
     const thunderBoost =
-      sceneLayoutType === "headline_insight" || sceneLayoutType === "segment_break" ? 1.12 : 1;
+      baseLayoutType === "headline_insight" || baseLayoutType === "segment_break" ? 1.12 : 1;
     const thunderOpacity = Math.max(thunderPrimary, thunderSecondary) * thunderBoost;
     const sweep = tick % 1;
     const waveCenterX = 0.52;

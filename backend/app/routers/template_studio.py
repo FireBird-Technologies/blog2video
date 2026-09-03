@@ -2539,11 +2539,17 @@ def render_single_layout(payload: RenderLayoutRequest, user: User = Depends(get_
     # studio_only_layouts (they must never be auto-assigned during LLM script
     # generation), which would wrongly 400 those layouts — and any "All Scenes"
     # render that includes them — here.
+    # Visual variants (`news_headline__v2`) get the same treatment for the same
+    # reason: they are renderable but deliberately absent from valid_layouts so
+    # the LLM can never pick one.
     _meta = get_meta(template_id) or {}
     _declared = _meta.get("valid_layouts")
     valid_layouts = {
         str(v).strip().lower() for v in (_declared if isinstance(_declared, list) else [])
     }
+    for _variant_ids in (_meta.get("layout_variants") or {}).values():
+        if isinstance(_variant_ids, list):
+            valid_layouts.update(str(v).strip().lower() for v in _variant_ids if v)
     if layout_id not in valid_layouts:
         raise HTTPException(
             status_code=400,

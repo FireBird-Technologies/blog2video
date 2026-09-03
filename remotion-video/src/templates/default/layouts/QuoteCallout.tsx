@@ -1,7 +1,9 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import React from "react";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring, useVideoConfig } from "remotion";
 import { SceneLayoutProps } from "../types";
 import { GeometricBackground } from "../components/GeometricBackground";
 import { FlybyPlane } from "../components/FlybyPlane";
+import { useFitText } from "../components/useFitText";
 
 export const QuoteCallout: React.FC<SceneLayoutProps> = ({
   title,
@@ -14,12 +16,58 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
   sceneIndex,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
+  const { height } = useVideoConfig();
   const p = aspectRatio === "portrait";
+
+  const displayQuote = quote || narration;
+  const displayAuthor = quoteAuthor || title;
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Quote and author are unbounded user input; the text column has no height
+     limit of its own (just `alignItems:stretch` next to the accent bar), so a
+     long quote grows past the frame and gets clipped by the AbsoluteFill's
+     overflow:hidden. Quote and author each fit against their own fixed,
+     independent budget. A size the user explicitly picked is honored exactly
+     (minPx === targetPx makes the hook a no-op).
+
+     No give-back cross-talk between the two: a useLayoutEffect+setState
+     chain reacting to another useFitText's overflow output creates a
+     multi-render convergence that Remotion's per-frame headless capture can
+     settle at different points on different frames (confirmed via a real
+     render — frame-to-frame scene-change score hit 1.0, i.e. maximum, twice
+     in the first ten frames, in the equivalent newscast/newspaper opening
+     scenes). */
+  const quoteRef = React.useRef<HTMLParagraphElement>(null);
+  const authorRef = React.useRef<HTMLParagraphElement>(null);
+
+  const actualQuoteFontSize = titleFontSize ?? (p ? 54 : 49);
+  const actualAuthorFontSize = descriptionFontSize ?? (p ? 30 : 26);
+
+  const quoteBudgetPx = Math.round(height * (p ? 0.5 : 0.46));
+
+  const { px: quotePx } = useFitText(
+    quoteRef,
+    actualQuoteFontSize,
+    titleFontSizeIsUserSet ? actualQuoteFontSize : p ? 24 : 20,
+    [displayQuote, actualQuoteFontSize, titleFontSizeIsUserSet, quoteBudgetPx, p],
+    quoteBudgetPx,
+  );
+
+  const authorBudgetPx = Math.round(height * 0.14);
+  const { px: authorPx } = useFitText(
+    authorRef,
+    actualAuthorFontSize,
+    descriptionFontSizeIsUserSet ? actualAuthorFontSize : p ? 16 : 14,
+    [displayAuthor, actualAuthorFontSize, descriptionFontSizeIsUserSet, quotePx, authorBudgetPx, p],
+    authorBudgetPx,
+  );
 
   const barH = interpolate(frame, [0, 25], [0, 100], {
     extrapolateRight: "clamp",
@@ -50,9 +98,6 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
   const glowOp = interpolate(frame, [5, 40], [0, 0.15], {
     extrapolateRight: "clamp",
   });
-
-  const displayQuote = quote || narration;
-  const displayAuthor = quoteAuthor || title;
 
   return (
     <AbsoluteFill
@@ -89,6 +134,7 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
           gap: p ? 28 : 40,
           alignItems: "stretch",
           maxWidth: p ? 900 : 1000,
+          maxHeight: "84%",
           position: "relative",
         }}
       >
@@ -108,32 +154,40 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
           style={{
             opacity: textOp,
             transform: `translateX(${textX}px)`,
+            display: "flex",
+            flexDirection: "column",
+            minHeight: 0,
           }}
         >
           <p
+            ref={quoteRef}
             style={{
               color: textColor,
-              fontSize: titleFontSize ?? (p ? 54 : 49),
+              fontSize: quotePx,
               fontWeight: 600,
               fontFamily: fontFamily ?? "'Roboto Slab', serif",
               lineHeight: 1.55,
               fontStyle: "italic",
               marginTop: 0,
               marginBottom: 24,
+              flexShrink: 0,
             }}
           >
             &ldquo;{displayQuote}&rdquo;
           </p>
           <p
+            ref={authorRef}
             style={{
               color: accentColor,
-              fontSize: descriptionFontSize ?? (p ? 30 : 26),
+              fontSize: authorPx,
               fontWeight: 500,
               fontFamily: fontFamily ?? "'Roboto Slab', serif",
               opacity: labelOp,
               textTransform: "uppercase",
               letterSpacing: 3,
               margin: 0,
+              flex: "0 1 auto",
+              overflow: "hidden",
             }}
           >
             {displayAuthor}

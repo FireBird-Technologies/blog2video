@@ -23,6 +23,9 @@ import {
   alternatingQuoteSwing,
 } from "./presentations";
 
+// Variants occupy the same structural slots as their bases, so they belong in these
+// sets too — otherwise the cover-exit page turn and the ending-entry page slide
+// silently stop firing for them.
 export const HERO_LAYOUTS_FROM = new Set<MagazineLayoutType>(["magazine_cover"]);
 export const HERO_LAYOUTS_TO = new Set<MagazineLayoutType>(["ending_socials"]);
 

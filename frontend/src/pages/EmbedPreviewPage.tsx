@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import axios from "axios";
 import { BACKEND_URL, type EmbedProjectResponse, type Project } from "../api/client";
-import VideoPreview from "../components/VideoPreview";
+import VideoPreview, { type CaptionSettings } from "../components/VideoPreview";
 
 export default function EmbedPreviewPage() {
   const { token } = useParams<{ token: string }>();
@@ -52,6 +52,33 @@ export default function EmbedPreviewPage() {
       .finally(() => setLoading(false));
   }, [token]);
 
+  /* The caption and speed buttons are viewer-side controls here.
+     ProjectView persists them via updateProject, but that endpoint is
+     owner-authenticated and this page is public + token-based — a viewer has no
+     credentials and doesn't own the project. So apply the change to local state
+     instead: VideoPreview derives both the caption settings and the playback
+     speed straight from these project fields, so updating them live is all the
+     player needs. The change lasts for this viewing session and never touches
+     the owner's saved settings. */
+  const handleCaptionSettingsChange = useCallback((settings: CaptionSettings) => {
+    setProject((prev) =>
+      prev
+        ? {
+            ...prev,
+            captions_enabled: settings.captionsEnabled,
+            caption_font_family: settings.captionFontFamily,
+            caption_font_size: String(settings.captionFontSize),
+            caption_offset: settings.captionOffset,
+          }
+        : prev,
+    );
+  }, []);
+
+  const handlePlaybackSpeedChange = useCallback((speed: number) => {
+    const normalized = Math.min(2.5, Math.max(0.5, Math.round(speed * 10) / 10));
+    setProject((prev) => (prev ? { ...prev, playback_speed: normalized } : prev));
+  }, []);
+
   if (loading) {
     return (
       <div style={{ height: "100vh", background: "#000", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -76,6 +103,8 @@ export default function EmbedPreviewPage() {
         layoutPropSchema={embedExtras?.layout_prop_schema ?? {}}
         precompiledTemplateData={embedExtras?.custom_template_code ?? undefined}
         precompiledCraftedDetail={embedExtras?.crafted_template ?? undefined}
+        onCaptionSettingsChange={handleCaptionSettingsChange}
+        onPlaybackSpeedChange={handlePlaybackSpeedChange}
       />
     </div>
   );

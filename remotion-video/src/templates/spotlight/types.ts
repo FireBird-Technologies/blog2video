@@ -3,7 +3,10 @@ import type { SocialsMap } from "../SocialIcons";
 
 export type SpotlightLayoutType =
   | "impact_title"
+  // Visual variants — same props as their base, different composition.
+  | "impact_title__v2"
   | "statement"
+  | "statement__v2"
   | "word_punch"
   | "cascade_list"
   | "stat_stage"
@@ -13,7 +16,8 @@ export type SpotlightLayoutType =
   | "spotlight_data"
   | "spotlight_table"
   | "closer"
-  | "ending_socials";
+  | "ending_socials"
+  | "ending_socials__v2";
 
 export interface SpotlightLayoutProps {
   title: string;

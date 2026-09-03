@@ -7,6 +7,7 @@ import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useErrorModal } from "../contexts/ErrorModalContext";
 import { BulkLinksSection } from "./BulkLinksSection";
 import { classifyUrl, classifyUrlScrapability } from "../utils/urlScrapability";
+import { availableBgmGenres, getBgmGenre } from "../utils/bgmGenres";
 import { getVoicePreviews, getMyVoices, getPrebuiltVoices, previewVoice, getBgmTracks, BACKEND_URL, type TemplateMeta, type CraftedTemplateItem, type VoicePreview, type BulkProjectItem, type CustomTemplateItem, type SavedVoiceFromAPI, type ElevenLabsVoice } from "../api/client";
 import {
   primeBlogUrlFormStep2Prefetch,
@@ -16,7 +17,7 @@ import {
 import { VIDEO_STYLE_OPTIONS, normalizeVideoStyle, type VideoStyleId } from "../constants/videoStyles";
 import { SUPPORTED_CONTENT_LANGUAGES, getLanguageOptionLabel } from "../constants/languages";
 import UpgradePlanModal from "./UpgradePlanModal";
-import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge, PopularTemplateBadge, CustomTemplateBadge } from "./templatePreviewRegistry";
+import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge, NewScenesTemplateBadge, PopularTemplateBadge, CustomTemplateBadge } from "./templatePreviewRegistry";
 import CustomPreview from "./templatePreviews/CustomPreview";
 import CustomPreviewLandscape from "./templatePreviews/CustomPreviewLandscape";
 import CraftedTemplatePreviewSmart from "./templatePreviews/CraftedTemplatePreviewSmart";
@@ -90,7 +91,7 @@ function templateBucketsForGenre(
   }
   if (genreFilter === GENRE_NEW) {
     return {
-      suggestedTemplates: sourceList.filter((t) => t.new_template === true),
+      suggestedTemplates: sourceList.filter((t) => t.new_template === true || t.new_scenes === true),
       customTemplatesForStyle: [],
       craftedTemplatesForStyle: [],
     };
@@ -215,6 +216,8 @@ interface Props {
   demoMode?: BlogUrlFormDemoMode;
   /** Pre-select a genre filter when step 2 opens (e.g. GENRE_CRAFTED to show Designer Templates). */
   initialGenre?: string;
+  /** Open the form on a specific source tab. Used by document landing pages that deep-link to upload. */
+  initialMode?: "url" | "upload" | "bulk";
 }
 
 const MAX_UPLOAD_FILES = 5;
@@ -749,7 +752,7 @@ function getFileExtension(s: string): string | null {
   }
 }
 
-export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChange, loading, asModal, onClose, onDismissFlow, demoMode, initialGenre }: Props) {
+export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChange, loading, asModal, onClose, onDismissFlow, demoMode, initialGenre, initialMode }: Props) {
   const { user } = useAuth();
   const { showError } = useErrorModal();
   const navigate = useNavigate();
@@ -766,8 +769,13 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
     if (demoMode?.step) setStep(demoMode.step);
   }, [demoMode?.step]);
 
-  // Step 1 — input
-  const [mode, setMode] = useState<"url" | "upload" | "bulk">("url");
+  // Step 1 — input. Dashboard remounts this form on every open (blogFormMountKey),
+  // so seeding state from the prop is enough — no effect needed to resync.
+  // "bulk" is ignored unless the bulk tab is actually rendered, otherwise the
+  // form would open on a panel with no way back to it.
+  const [mode, setMode] = useState<"url" | "upload" | "bulk">(
+    initialMode && (initialMode !== "bulk" || onSubmitBulk) ? initialMode : "url"
+  );
   const [urls, setUrls] = useState<string[]>([""]);
   const [name, setName] = useState("");
   const [docFiles, setDocFiles] = useState<File[]>([]);
@@ -805,7 +813,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
   const bulkLogoInputRef = useRef<HTMLInputElement>(null);
   const [bulkApplyLengthAll, setBulkApplyLengthAll] = useState(true);
   const [bulkLengthMasterIndex, setBulkLengthMasterIndex] = useState(0);
-  const [bulkStockFootage, setBulkStockFootage] = useState<boolean[]>([true]);
+  const [bulkStockFootage, setBulkStockFootage] = useState<boolean[]>([false]);
   const [bulkApplyStockAll, setBulkApplyStockAll] = useState(true);
   const [bulkStockMasterIndex, setBulkStockMasterIndex] = useState(0);
   const [bulkApplyTemplateAll, setBulkApplyTemplateAll] = useState(true);
@@ -903,6 +911,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
   const [selectedBgmVolume, setSelectedBgmVolume] = useState<number>(0.10);
   const [bgmPlayingId, setBgmPlayingId] = useState<string | null>(null);
   const bgmAudioRef = useRef<HTMLAudioElement | null>(null);
+  /** Genre pill filter in the music tab. "" = show every track. */
+  const [bgmGenre, setBgmGenre] = useState<string>("");
+  const bgmGenres = availableBgmGenres(bgmTracks);
+  const visibleBgmTracks = bgmGenre
+    ? bgmTracks.filter((t) => getBgmGenre(t.track_id) === bgmGenre)
+    : bgmTracks;
 
   // Step 2 — video style & template
   const [videoStyle, setVideoStyle] = useState<VideoStyleId>(DEFAULT_VIDEO_STYLE);
@@ -914,7 +928,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
   // Stock footage at generation time: available on every plan and every
   // template (builtin, custom, crafted). Free users get a clip on a single
   // scene (the backend caps it), paid users on all image-capable scenes.
-  const [stockFootageEnabled, setStockFootageEnabled] = useState(true);
+  const [stockFootageEnabled, setStockFootageEnabled] = useState(false);
   const stockFootageAvailable = true;
   useEffect(() => {
     onExtraOptionsChange?.({ stockFootageEnabled: stockFootageAvailable && stockFootageEnabled });
@@ -1518,7 +1532,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
         setBulkCustomVoiceId((prev) => resizeTo(prev, n, ""));
         setBulkContentLanguage((prev) => resizeTo(prev, n, "auto"));
         setBulkVideoLength((prev) => resizeTo(prev, n, "short"));
-        setBulkStockFootage((prev) => resizeTo(prev, n, true));
+        setBulkStockFootage((prev) => resizeTo(prev, n, false));
         setBulkAspectRatio((prev) => resizeTo(prev, n, "landscape"));
         setBulkVideoStyles((prev) =>
           resizeTo(
@@ -1563,7 +1577,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
     setBulkContentLanguage((prev) => [...prev, "auto"]);
     setBulkVideoLength((prev) => [...prev, "short"]);
     setBulkStockFootage((prev) => {
-      const next = [...prev, bulkApplyStockAll ? (prev[bulkStockMasterIndex] ?? true) : true];
+      const next = [...prev, bulkApplyStockAll ? (prev[bulkStockMasterIndex] ?? false) : false];
       return next;
     });
     setBulkAspectRatio((prev) => [...prev, "landscape"]);
@@ -1741,7 +1755,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
       setBulkCustomVoiceId([]);
       setBulkContentLanguage(["auto"]);
       setBulkVideoLength(["short"]);
-      setBulkStockFootage([true]);
+      setBulkStockFootage([false]);
       setBulkAspectRatio(["landscape"]);
       setBulkVideoStyles([DEFAULT_VIDEO_STYLE]);
       setBulkAccentColors([""]);
@@ -2493,7 +2507,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
   } = templateBucketsForGenre(genre, templates, readyCustomTemplates, readyCraftedTemplates);
 
   const sortedSuggestedTemplates = [...suggestedTemplates].sort((a, b) => {
-    const rank = (t: TemplateMeta) => (t.new_template ? 0 : t.popular_template ? 1 : 2);
+    const rank = (t: TemplateMeta) => (t.new_template ? 0 : t.new_scenes ? 1 : t.popular_template ? 2 : 3);
     return rank(a) - rank(b);
   });
 
@@ -2789,6 +2803,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
                 const desc = TEMPLATE_DESCRIPTIONS[t.id];
                 const isSelected = template === t.id;
                 const isNewTemplate = t.new_template === true;
+                const isNewScenes = t.new_scenes === true;
                 const isPopularTemplate = t.popular_template === true;
                 return (
                   <div
@@ -2799,6 +2814,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
                         ? "border-2 border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
                         : isNewTemplate
                         ? "border border-purple-500 shadow-[0_0_0_2px_rgba(124,58,237,0.2)] hover:border-purple-600"
+                        : isNewScenes
+                        ? "border border-sky-500 shadow-[0_0_0_2px_rgba(14,165,233,0.2)] hover:border-sky-600"
                         : isPopularTemplate
                         ? "border border-amber-400/60 shadow-[0_0_0_2px_rgba(245,158,11,0.15)] hover:border-amber-500"
                         : "border-2 border-gray-200/60 hover:border-purple-300/60"
@@ -2826,7 +2843,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
                           <NewTemplateBadge />
                         </div>
                       )}
-                      {!isNewTemplate && isPopularTemplate && (
+                      {!isNewTemplate && isNewScenes && (
+                        <div className="absolute top-0 left-0.5 z-[1]">
+                          <NewScenesTemplateBadge />
+                        </div>
+                      )}
+                      {!isNewTemplate && !isNewScenes && isPopularTemplate && (
                         <div className="absolute top-0.5 left-0.5 z-[1]">
                           <PopularTemplateBadge />
                         </div>
@@ -3182,7 +3204,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
       craftedTemplatesForStyle,
     } = templateBucketsForGenre(genre, templates, readyCustomTemplates, readyCraftedTemplates);
     const sortedBulkSuggestedTemplates = [...suggestedTemplates].sort((a, b) => {
-      const rank = (t: TemplateMeta) => (t.new_template ? 0 : t.popular_template ? 1 : 2);
+      const rank = (t: TemplateMeta) => (t.new_template ? 0 : t.new_scenes ? 1 : t.popular_template ? 2 : 3);
       return rank(a) - rank(b);
     });
     const styleTemplateItems: Array<
@@ -3550,6 +3572,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
                 const desc = TEMPLATE_DESCRIPTIONS[t.id];
                 const isSelected = tpl === t.id;
                 const isNewTemplate = t.new_template === true;
+                const isNewScenes = t.new_scenes === true;
                 const isPopularTemplate = t.popular_template === true;
                 return (
                   <div
@@ -3560,6 +3583,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
                         ? "border-2 border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
                         : isNewTemplate
                         ? "border border-purple-500 shadow-[0_0_0_2px_rgba(124,58,237,0.2)] hover:border-purple-600"
+                        : isNewScenes
+                        ? "border border-sky-500 shadow-[0_0_0_2px_rgba(14,165,233,0.2)] hover:border-sky-600"
                         : isPopularTemplate
                         ? "border border-amber-400/60 shadow-[0_0_0_2px_rgba(245,158,11,0.15)] hover:border-amber-500"
                         : "border-2 border-gray-200/60 hover:border-purple-300/60"
@@ -3585,7 +3610,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
                           <NewTemplateBadge />
                         </div>
                       )}
-                      {!isNewTemplate && isPopularTemplate && (
+                      {!isNewTemplate && isNewScenes && (
+                        <div className="absolute top-0 left-0.5 z-[1]">
+                          <NewScenesTemplateBadge />
+                        </div>
+                      )}
+                      {!isNewTemplate && !isNewScenes && isPopularTemplate && (
                         <div className="absolute top-0.5 left-0.5 z-[1]">
                           <PopularTemplateBadge />
                         </div>
@@ -4108,7 +4138,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
       {/* ─── Music tab content (Premium; optional) ─────── */}
       {voicePanelTab === "bgm" && bgmTracks.length > 0 && (
         <div className="space-y-2">
-          <p className="text-[11px] text-gray-400 mb-1">Ambient music behind your narration — optional.</p>
+          <p className="text-[11px] text-gray-400 mb-1">Background music behind your narration — optional.</p>
 
           {/* Volume — shown once a track is picked; applies to the whole project */}
           {selectedBgmTrackId && (
@@ -4131,6 +4161,37 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
                 className="w-full accent-purple-600 cursor-pointer"
               />
               <p className="text-[10px] text-gray-400 mt-0.5">Sets the volume for the whole video. After it's generated, you can fine-tune the music volume per scene in the <span className="font-medium text-gray-500">Audio</span> tab.</p>
+            </div>
+          )}
+
+          {/* Genre pills — narrow the list to one kind of music */}
+          {bgmGenres.length > 1 && (
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              <button
+                type="button"
+                onClick={() => setBgmGenre("")}
+                className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
+                  !bgmGenre
+                    ? "border-purple-400 bg-purple-50 text-purple-600"
+                    : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50"
+                }`}
+              >
+                All
+              </button>
+              {bgmGenres.map((g) => (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => setBgmGenre(bgmGenre === g ? "" : g)}
+                  className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
+                    bgmGenre === g
+                      ? "border-purple-400 bg-purple-50 text-purple-600"
+                      : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50"
+                  }`}
+                >
+                  {g}
+                </button>
+              ))}
             </div>
           )}
 
@@ -4167,7 +4228,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
               )}
             </button>
 
-            {bgmTracks.map((track) => {
+            {visibleBgmTracks.map((track) => {
               const isSelected = selectedBgmTrackId === track.track_id;
               const isPlaying = bgmPlayingId === track.track_id;
               return (
@@ -4220,7 +4281,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
 
                   <div className="min-w-0 flex-1">
                     <span className="text-sm font-medium text-gray-700">{track.display_name}</span>
-                    <p className="text-[11px] text-gray-400">{track.mood}</p>
+                    <p className="text-[11px] text-gray-400">
+                      {getBgmGenre(track.track_id)
+                        ? `${getBgmGenre(track.track_id)} · ${track.mood}`
+                        : track.mood}
+                    </p>
                   </div>
 
                   {isSelected && (

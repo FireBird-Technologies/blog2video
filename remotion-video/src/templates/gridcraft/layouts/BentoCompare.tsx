@@ -4,6 +4,90 @@ import { GridcraftLayoutProps } from "../types";
 import { GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY } from "../constants";
 import { glass, COLORS } from "../utils/styles";
 import { ZoomCropImg } from "../components/ZoomCropImg";
+import { useFitText } from "../components/useFitText";
+
+/**
+ * One compare column (left/right). The column is a `1fr` grid cell (or `auto`
+ * in portrait), not a shrinkable measurable box, so the title fits a fixed
+ * budget first and the description fits the remainder, cascading give-back
+ * exactly like NewsHeadline.
+ */
+const CompareColumn: React.FC<{
+  label?: string;
+  itemTitle?: string;
+  description?: string;
+  titleFontSize?: number;
+  descriptionFontSize?: number;
+  titleFontSizeIsUserSet?: boolean;
+  descriptionFontSizeIsUserSet?: boolean;
+  p: boolean;
+  budgetPx: number;
+  style: React.CSSProperties;
+}> = ({
+  label,
+  itemTitle,
+  description,
+  titleFontSize,
+  descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
+  p,
+  budgetPx,
+  style,
+}) => {
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const descRef = React.useRef<HTMLDivElement>(null);
+  const actualTitleFontSize = titleFontSize ?? (p ? 44 : 49);
+  const actualDescriptionFontSize = descriptionFontSize ?? (p ? 26 : 35);
+
+  const titleBudgetPx = Math.max(1, budgetPx * 0.4);
+  const { px: titlePx } = useFitText(
+    titleRef,
+    actualTitleFontSize,
+    titleFontSizeIsUserSet ? actualTitleFontSize : p ? 20 : 22,
+    [itemTitle, actualTitleFontSize, titleFontSizeIsUserSet, titleBudgetPx],
+    titleBudgetPx,
+  );
+  const descBudgetPx = Math.max(1, budgetPx * 0.6);
+  const { px: descPx } = useFitText(
+    descRef,
+    actualDescriptionFontSize,
+    descriptionFontSizeIsUserSet ? actualDescriptionFontSize : p ? 14 : 15,
+    [description, actualDescriptionFontSize, descriptionFontSizeIsUserSet, descBudgetPx, titlePx],
+    descBudgetPx,
+  );
+
+  return (
+    <div style={style}>
+      <div style={{ fontSize: 12, color: COLORS.MUTED, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 12 }}>
+        {label}
+      </div>
+      <div ref={titleRef} style={{ fontSize: titlePx, fontWeight: 700, marginBottom: 12, color: COLORS.DARK, wordBreak: "break-word" }}>
+        {itemTitle}
+      </div>
+      <div ref={descRef} style={{ fontSize: descPx, lineHeight: 1.5, color: COLORS.MUTED, wordBreak: "break-word" }}>
+        {description}
+      </div>
+    </div>
+  );
+};
+
+/** The verdict bar has no dedicated font-size prop (always 18px); still fit
+ * it since `verdict`/`title` text length is unbounded. */
+const VerdictBar: React.FC<{ text: string; p: boolean; budgetPx: number; style: React.CSSProperties }> = ({
+  text,
+  p,
+  budgetPx,
+  style,
+}) => {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const { px } = useFitText(ref, 18, p ? 12 : 13, [text, budgetPx], budgetPx);
+  return (
+    <div style={style}>
+      <div ref={ref} style={{ fontSize: px, fontWeight: 600, wordBreak: "break-word" }}>{text}</div>
+    </div>
+  );
+};
 
 export const BentoCompare: React.FC<GridcraftLayoutProps> = ({
   dataPoints,
@@ -24,10 +108,12 @@ export const BentoCompare: React.FC<GridcraftLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, height: videoHeight } = useVideoConfig();
 
   const spr = (d: number) => spring({ frame: Math.max(0, frame - d), fps, config: { damping: 16 } });
 
@@ -47,6 +133,11 @@ export const BentoCompare: React.FC<GridcraftLayoutProps> = ({
 
   const imageOpacity = interpolate(frame, [5, 25], [0, 1], { extrapolateRight: "clamp" });
   const imageScale = spring({ frame: Math.max(0, frame - 5), fps, config: { damping: 14 } });
+
+  // Column budget: the `1fr` row (or `auto` in portrait) is not a shrinkable
+  // measurable box, so budget the title+description split from a fraction of
+  // frame height.
+  const columnBudgetPx = Math.max(1, videoHeight * (p ? 0.24 : 0.42));
 
   return (
     <div
@@ -99,7 +190,17 @@ export const BentoCompare: React.FC<GridcraftLayoutProps> = ({
         }}
       >
       {/* Left Item */}
-      <div style={{
+      <CompareColumn
+        label={points[0]?.label || "Before"}
+        itemTitle={points[0]?.title}
+        description={points[0]?.description}
+        titleFontSize={titleFontSize}
+        descriptionFontSize={descriptionFontSize}
+        titleFontSizeIsUserSet={titleFontSizeIsUserSet}
+        descriptionFontSizeIsUserSet={descriptionFontSizeIsUserSet}
+        p={p}
+        budgetPx={columnBudgetPx}
+        style={{
           ...glass(false),
           padding: p ? 24 : 32,
           display: "flex", flexDirection: "column", justifyContent: "center",
@@ -109,20 +210,21 @@ export const BentoCompare: React.FC<GridcraftLayoutProps> = ({
             ? `translateY(${interpolate(spr(0), [0, 1], [24, 0])}px)`
             : `translateX(${interpolate(spr(0), [0, 1], [-50, 0])}px)`,
           opacity: interpolate(spr(0), [0, 1], [0, 1]),
-      }}>
-         <div style={{ fontSize: 12, color: COLORS.MUTED, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 12 }}>
-             {points[0]?.label || "Before"}
-         </div>
-         <div style={{ fontSize: titleFontSize ?? (p ? 44 : 49), fontWeight: 700, marginBottom: 12, color: COLORS.DARK, wordBreak: "break-word" }}>
-             {points[0]?.title}
-         </div>
-         <div style={{ fontSize: descriptionFontSize ?? (p ? 26 : 35), lineHeight: 1.5, color: COLORS.MUTED, wordBreak: "break-word" }}>
-             {points[0]?.description}
-         </div>
-      </div>
+        }}
+      />
 
        {/* Right Item */}
-       <div style={{
+      <CompareColumn
+        label={points[1]?.label || "After"}
+        itemTitle={points[1]?.title}
+        description={points[1]?.description}
+        titleFontSize={titleFontSize}
+        descriptionFontSize={descriptionFontSize}
+        titleFontSizeIsUserSet={titleFontSizeIsUserSet}
+        descriptionFontSizeIsUserSet={descriptionFontSizeIsUserSet}
+        p={p}
+        budgetPx={columnBudgetPx}
+        style={{
           ...glass(false),
           padding: p ? 24 : 32,
           display: "flex", flexDirection: "column", justifyContent: "center",
@@ -132,21 +234,16 @@ export const BentoCompare: React.FC<GridcraftLayoutProps> = ({
             ? `translateY(${interpolate(spr(5), [0, 1], [24, 0])}px)`
             : `translateX(${interpolate(spr(5), [0, 1], [50, 0])}px)`,
           opacity: interpolate(spr(5), [0, 1], [0, 1]),
-      }}>
-         <div style={{ fontSize: 12, color: COLORS.MUTED, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 12 }}>
-             {points[1]?.label || "After"}
-         </div>
-         <div style={{ fontSize: titleFontSize ?? (p ? 44 : 49), fontWeight: 700, marginBottom: 12, color: COLORS.DARK, wordBreak: "break-word" }}>
-             {points[1]?.title}
-         </div>
-         <div style={{ fontSize: descriptionFontSize ?? (p ? 26 : 35), lineHeight: 1.5, color: COLORS.MUTED, wordBreak: "break-word" }}>
-             {points[1]?.description}
-         </div>
-      </div>
+        }}
+      />
 
       {/* Verdict / Bottom Bar */}
       {finalVerdict && (
-          <div style={{
+          <VerdictBar
+            text={finalVerdict}
+            p={p}
+            budgetPx={Math.max(1, videoHeight * 0.08)}
+            style={{
               gridColumn: p ? "1" : "1 / 3",
               ...glass(true),
               backgroundColor: accentColor || COLORS.ACCENT,
@@ -156,9 +253,8 @@ export const BentoCompare: React.FC<GridcraftLayoutProps> = ({
               minWidth: 0,
               transform: `translateY(${interpolate(spr(15), [0, 1], [20, 0])}px)`,
               opacity: interpolate(spr(15), [0, 1], [0, 1]),
-          }}>
-              <div style={{ fontSize: 18, fontWeight: 600, wordBreak: "break-word" }}>{finalVerdict}</div>
-          </div>
+            }}
+          />
       )}
       </div>
     </div>

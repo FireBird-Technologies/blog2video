@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Google tag (gtag.js) — GA4 property for pdf2vid.com. The id comes from
+         VITE_GA4_MEASUREMENT_ID; Vite substitutes %VITE_GA4_MEASUREMENT_ID% at
+         build time, so each deploy gets its own property from its own env and
+         no id is hardcoded here. Must stay immediately after <head> per
+         Google's install instructions, and there must only ever be ONE GA4 tag
+         on the page. src/gtag.ts loads a separate Google Ads tag at runtime;
+         that's a different id and is fine alongside this one. -->
+    <script>
+      // Guard so an unset/blank VITE_GA4_MEASUREMENT_ID (e.g. a local dev build)
+      // is a silent no-op instead of loading gtag.js with an empty id.
+      (function () {
+        var id = "%VITE_GA4_MEASUREMENT_ID%";
+        if (!id || id.charAt(0) !== "G") return;
+        var s = document.createElement("script");
+        s.async = true;
+        s.src = "https://www.googletagmanager.com/gtag/js?id=" + encodeURIComponent(id);
+        document.head.appendChild(s);
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        window.gtag = gtag;
+        gtag('js', new Date());
+        gtag('config', id);
+      })();
+    </script>
+
+    <!-- Prevent a flash of unstyled prerendered markup.
+
+         scripts/build-seo.ts bakes server-rendered HTML into #root for SEO, but
+         the bundled stylesheet is an external, render-blocking file that lands
+         after the Google Fonts requests. On a cold load the browser therefore
+         paints raw <h1>/<p> in Times before any CSS arrives. This inline rule
+         runs before the first paint (it can't be delayed by the network), and
+         is cleared by the bundle's own CSS below, so styled content is the
+         first thing shown. -->
+    <style>
+      #root { visibility: hidden; }
+    </style>
+    <noscript>
+      <!-- No JS means .fonts-ready is never set, so show the prerendered
+           content immediately rather than an indefinitely blank page. -->
+      <style>
+        #root { visibility: visible !important; }
+      </style>
+    </noscript>
+    <script>
+      // Failsafe: index.css reveals #root, so if that stylesheet ever fails to
+      // load the page would stay blank forever. Unstyled content beats no
+      // content — but ONLY once we know the bundle CSS is never coming.
+      //
+      // Do NOT hang this off window "load": that fires when every subresource
+      // (including the five Google Fonts sheets) settles, which can be BEFORE
+      // the bundle stylesheet has been applied. Revealing then paints raw
+      // serif text — the exact flash this guard exists to prevent — and an
+      // inline style would outrank the stylesheet rule, so it would stick.
+      //
+      // Instead, watch the bundle stylesheet itself and only force visibility
+      // if it actually errors, or if it still hasn't applied after a timeout.
+      (function () {
+        var done = false;
+        // index.css reveals #root only under html.fonts-ready. Setting the class
+        // is therefore the normal, correct way to show the page.
+        function markReady() {
+          if (done) return;
+          done = true;
+          document.documentElement.classList.add("fonts-ready");
+        }
+        // Last-resort override for when the bundle stylesheet itself is missing,
+        // so .fonts-ready would have nothing to trigger.
+        function reveal() {
+          markReady();
+          var r = document.getElementById("root");
+          if (r && getComputedStyle(r).visibility === "hidden") {
+            r.style.visibility = "visible";
+          }
+        }
+
+        // Primary path: wait until the heading font is genuinely usable.
+        // `display=swap` paints Times first and swaps later, so revealing early
+        // is what caused the serif flash.
+        //
+        // `document.fonts.check()` is the real test — `load()`'s promise can
+        // resolve while status is still "loading", and `ready` resolves once
+        // *all* fonts settle, which is slower than needed. Poll check() and cap
+        // the wait so a dead font CDN can't hide the page.
+        if (document.fonts && document.fonts.check) {
+          var FONT = '600 1em "Plus Jakarta Sans"';
+          var deadline = Date.now() + 2500;
+          try {
+            document.fonts.load(FONT);
+          } catch (e) {
+            /* older engines: polling below still resolves it */
+          }
+          (function poll() {
+            if (done) return;
+            var ok = false;
+            try {
+              ok = document.fonts.check(FONT);
+            } catch (e) {
+              ok = true; // can't introspect — don't hold the page hostage
+            }
+            if (ok || Date.now() > deadline) markReady();
+            else requestAnimationFrame(poll);
+          })();
+        } else {
+          // No CSS Font Loading API — reveal on next tick rather than hang.
+          setTimeout(markReady, 0);
+        }
+        function bundleApplied() {
+          // The reveal rule only exists in the bundle stylesheet, so its
+          // presence is proof that CSS landed.
+          for (var i = 0; i < document.styleSheets.length; i++) {
+            var rules;
+            try {
+              rules = document.styleSheets[i].cssRules;
+            } catch (e) {
+              continue; // cross-origin (fonts) — not ours
+            }
+            for (var j = 0; j < rules.length; j++) {
+              if (
+                rules[j].selectorText === "#root" &&
+                rules[j].style &&
+                rules[j].style.visibility === "visible"
+              ) {
+                return true;
+              }
+            }
+          }
+          return false;
+        }
+        // Hard cap: never leave the page blank for more than 8s, whatever happens.
+        setTimeout(function () {
+          if (!bundleApplied()) reveal();
+        }, 8000);
+        document.addEventListener(
+          "error",
+          function (e) {
+            var t = e.target;
+            if (t && t.tagName === "LINK" && t.rel === "stylesheet") reveal();
+          },
+          true // capture: resource error events don't bubble
+        );
+      })();
+    </script>
+
+    <!-- Site ownership verification token is Blog2Video-specific — re-verify
+         and add a pdf2vid.com token here once that's set up. -->
+    <title>PDF2Video</title>
+    <!-- Real icon files: search engines fetch the favicon as a separate crawlable
+         URL, so a data: URI never appears in results. Regenerate with:
+         node ../frontend/scripts/build-favicons.mjs --mark P2V --out public -->
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <!-- Fonts are self-hosted via @fontsource (see src/index.css). They used to
+         be five render-blocking <link>s to fonts.googleapis.com, which needed
+         two cross-origin round trips (CSS, then the font file) before any text
+         could render in the real face — the source of the serif flash on first
+         load. Do not reintroduce them here. -->
+  </head>
+  <body class="bg-white min-h-screen">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

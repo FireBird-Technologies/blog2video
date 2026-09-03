@@ -7,6 +7,7 @@ import {
 } from "../constants";
 import { glass, COLORS } from "../utils/styles";
 import { ZoomCropImg } from "../components/ZoomCropImg";
+import { useFitText } from "../components/useFitText";
 
 export const Editorial: React.FC<GridcraftLayoutProps> = ({
   title,
@@ -21,24 +22,58 @@ export const Editorial: React.FC<GridcraftLayoutProps> = ({
   accentColor,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   aspectRatio,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, height: videoHeight } = useVideoConfig();
   const p = aspectRatio === "portrait";
   const sansFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY;
   const serifFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SERIF_FONT_FAMILY;
   const titleFontFamily = p ? sansFontFamily : serifFontFamily;
 
   const spr = spring({ frame, fps, config: { damping: 14 } });
-  
+
   const scale = interpolate(spr, [0, 1], [0.95, 1]);
   const opacity = interpolate(spr, [0, 1], [0, 1]);
   const slideUp = interpolate(spr, [0, 1], [30, 0]);
 
   // Dynamic Layout: If image exists, split 50/50. Else center text.
   const hasImage = !!(imageUrl || videoUrl);
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     The text half is `justifyContent:"center"` in a box with no explicit
+     height budget on the children, so title and narration each fit against
+     their own fixed, independent fraction of the frame height. No give-back
+     cross-talk between the two: a useLayoutEffect+setState chain reacting to
+     another useFitText's overflow output creates a multi-render convergence
+     that Remotion's per-frame headless capture can settle at different
+     points on different frames (confirmed via a real render — frame-to-frame
+     scene-change score hit 1.0, i.e. maximum, twice in the first ten frames,
+     in the equivalent newscast/newspaper opening scenes). */
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  const narrationRef = React.useRef<HTMLDivElement>(null);
+  const actualTitleFontSize = titleFontSize ?? (p ? 65 : 64);
+  const actualNarrationFontSize = descriptionFontSize ?? (p ? 37 : 38);
+  const titleBudgetPx = Math.max(1, videoHeight * (p ? 0.26 : 0.3));
+  const narrationBudgetPx = Math.max(1, videoHeight * (p ? 0.24 : 0.28));
+
+  const { px: titlePx } = useFitText(
+    titleRef,
+    actualTitleFontSize,
+    titleFontSizeIsUserSet ? actualTitleFontSize : p ? 30 : 28,
+    [title, actualTitleFontSize, titleFontSizeIsUserSet, titleBudgetPx, hasImage, p],
+    titleBudgetPx,
+  );
+  const { px: narrationPx } = useFitText(
+    narrationRef,
+    actualNarrationFontSize,
+    descriptionFontSizeIsUserSet ? actualNarrationFontSize : p ? 16 : 15,
+    [narration, actualNarrationFontSize, descriptionFontSizeIsUserSet, narrationBudgetPx, titlePx, hasImage, p],
+    narrationBudgetPx,
+  );
 
   return (
     <div
@@ -94,24 +129,24 @@ export const Editorial: React.FC<GridcraftLayoutProps> = ({
             margin: hasImage ? 0 : "auto",
             minWidth: 0,
         }}>
-           <div style={{ 
-               fontSize: titleFontSize ?? (p ? 65 : 64), 
-               fontWeight: 700, 
-               lineHeight: 1.2, 
-               color: COLORS.DARK, 
+           <div ref={titleRef} style={{
+               fontSize: titlePx,
+               fontWeight: 700,
+               lineHeight: 1.2,
+               color: COLORS.DARK,
                marginBottom: 24,
                fontFamily: titleFontFamily,
                wordBreak: "break-word",
             }}>
                {title}
            </div>
-           
+
            <div style={{ width: hasImage ? "40%" : "20%", height: 3, backgroundColor: accentColor || COLORS.ACCENT, marginBottom: 24, alignSelf: hasImage && !p ? "flex-start" : "center" }} />
 
-           <div style={{ 
-               fontSize: descriptionFontSize ?? (p ? 37 : 38), 
-               lineHeight: 1.6, 
-               color: COLORS.DARK, 
+           <div ref={narrationRef} style={{
+               fontSize: narrationPx,
+               lineHeight: 1.6,
+               color: COLORS.DARK,
                opacity: 0.85,
                wordBreak: "break-word",
             }}>

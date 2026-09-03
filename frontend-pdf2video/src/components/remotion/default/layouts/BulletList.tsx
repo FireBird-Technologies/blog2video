@@ -1,0 +1,276 @@
+import React from "react";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring, useVideoConfig, Img } from "remotion";
+import { SceneLayoutProps } from "../types";
+import { GeometricBackground } from "../components/GeometricBackground";
+import { FlybyPlane } from "../components/FlybyPlane";
+import { AnimatedVideo } from "./AnimatedVideo";
+import { useFitText } from "../components/useFitText";
+
+export const BulletList: React.FC<SceneLayoutProps & { imageUrl?: string }> = (props) => {
+  const {
+    title,
+    accentColor,
+    bgColor,
+    textColor,
+    aspectRatio,
+    titleFontSize,
+    descriptionFontSize,
+    titleFontSizeIsUserSet,
+    descriptionFontSizeIsUserSet,
+    imageUrl, // New Prop
+    imageObjectPosition,
+    imageZoom,
+    videoUrl,
+    videoMuted,
+    videoVolume,
+    videoDurationInFrames,
+    videoStartInFrames,
+    fontFamily,
+    sceneIndex,
+    ...extra
+  } = props;
+
+  const { points = [] } = extra as {
+    points?: { key: string; value: string }[];
+  };
+
+  const frame = useCurrentFrame();
+  const { fps } = { fps: 30 };
+  const { height } = useVideoConfig();
+  const p = aspectRatio === "portrait";
+  const hasVisual = Boolean(imageUrl || videoUrl);
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and bullet copy are unbounded user input; the content column is
+     vertically centred with no height limit of its own, so a long title or
+     many/long bullets just grow past the frame and get clipped by the
+     AbsoluteFill's overflow:hidden. Fit the title to its own budget first,
+     then the whole bullet list (all points share one descriptionFontSize,
+     so they're measured as one block) to what remains; a residual overflow
+     at the list's floor shrinks the title further (NewsHeadline's cascade).
+     A size the user explicitly picked is honored exactly (minPx === targetPx
+     makes the hook a no-op). */
+  const titleRef = React.useRef<HTMLHeadingElement>(null);
+  const listRef = React.useRef<HTMLDivElement>(null);
+
+  const actualTitleFontSize = titleFontSize ?? (p ? 60 : 52);
+  const actualDescriptionFontSize = descriptionFontSize ?? (p ? 37 : 29);
+
+  const titleBudgetPx = Math.round(height * (p ? 0.24 : 0.28));
+  const [titleGiveBackPx, setTitleGiveBackPx] = React.useState(0);
+  React.useLayoutEffect(() => {
+    setTitleGiveBackPx(0);
+  }, [title, points, actualTitleFontSize, actualDescriptionFontSize, titleBudgetPx, p]);
+
+  const { px: titlePx } = useFitText(
+    titleRef,
+    actualTitleFontSize,
+    titleFontSizeIsUserSet ? actualTitleFontSize : p ? 28 : 24,
+    [title, actualTitleFontSize, titleFontSizeIsUserSet, titleBudgetPx, titleGiveBackPx, p],
+    Math.max(1, titleBudgetPx - titleGiveBackPx),
+  );
+
+  const listBudgetPx = Math.round(height * (p ? 0.62 : 0.6));
+  const { px: descPx, overflowPx: listOverflowPx } = useFitText(
+    listRef,
+    actualDescriptionFontSize,
+    descriptionFontSizeIsUserSet ? actualDescriptionFontSize : p ? 16 : 14,
+    [points, actualDescriptionFontSize, descriptionFontSizeIsUserSet, titlePx, listBudgetPx, p],
+    listBudgetPx,
+  );
+
+  React.useLayoutEffect(() => {
+    if (titleFontSizeIsUserSet) return;
+    if (listOverflowPx > 0) {
+      setTitleGiveBackPx((prev) => prev + listOverflowPx);
+    }
+  }, [listOverflowPx, titleFontSizeIsUserSet]);
+
+  // Scale the bullet-number badge and the key-line proportionally to the
+  // fitted body size so they don't dwarf shrunken copy.
+  const keyFontSize = Math.round(descPx * ((actualDescriptionFontSize * 1.1) / actualDescriptionFontSize));
+
+  // Animation for the Image
+  const imageSpring = spring({
+    frame,
+    fps,
+    config: { damping: 20, stiffness: 100 },
+  });
+  
+  const imageScale = interpolate(imageSpring, [0, 1], [1.1, 1]);
+  const imageOpacity = interpolate(frame, [0, 15], [0, 1]);
+
+  return (
+    <AbsoluteFill style={{ backgroundColor: bgColor, fontFamily: fontFamily ?? "'Roboto Slab', serif", overflow: "hidden" }}>
+      <GeometricBackground accentColor={accentColor} frame={frame} sceneIndex={sceneIndex} />
+      {/* Decorative flyby — dipping/spiraling plane crosses top area mid-scene */}
+      <FlybyPlane accentColor={accentColor} startFrame={38} yZone={0.12} />
+      <div
+        style={{
+          display: "flex",
+          flexDirection: p ? "column" : "row",
+          width: "100%",
+          height: "100%",
+        }}
+      >
+        {/* --- LEFT/TOP SIDE: IMAGE SECTION --- */}
+        {(imageUrl || videoUrl) && (
+          <div
+            style={{
+              flex: 1,
+              position: "relative",
+              overflow: "hidden",
+              opacity: imageOpacity,
+              transform: `scale(${imageScale})`,
+              boxShadow: "0 0 50px rgba(0,0,0,0.2)",
+              zIndex: 1,
+            }}
+          >
+            {videoUrl ? (
+              <AnimatedVideo
+                src={videoUrl}
+                muted={videoMuted ?? true}
+                volume={videoVolume ?? 0.35}
+                durationInFrames={videoDurationInFrames}
+                startInFrames={videoStartInFrames}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
+                  objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
+                  transform: `scale(${imageZoom ?? 1})`,
+                  transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
+                }}
+              />
+            ) : (
+              <Img
+                src={imageUrl!}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: (imageZoom ?? 1) < 1 ? "contain" : "cover",
+                  objectPosition: (imageZoom ?? 1) < 1 ? "center" : (imageObjectPosition ?? "50% 50%"),
+                  transform: `scale(${imageZoom ?? 1})`,
+                  transformOrigin: (imageZoom ?? 1) < 1 ? "center center" : (imageObjectPosition ?? "50% 50%"),
+                }}
+              />
+            )}
+            {/* Subtle Gradient Overlay to blend with text side */}
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              background: p 
+                ? `linear-gradient(to bottom, transparent 80%, ${bgColor} 100%)`
+                : `linear-gradient(to right, transparent 80%, ${bgColor} 100%)`
+            }} />
+          </div>
+        )}
+
+        {/* --- RIGHT/BOTTOM SIDE: CONTENT SECTION --- */}
+        <div
+          style={{
+            flex: 1.2,
+            padding: p ? "40px 60px" : "80px",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            zIndex: 2,
+            minHeight: 0,
+          }}
+        >
+          {title && (
+            <h2
+              ref={titleRef}
+              style={{
+                fontSize: titlePx,
+                fontWeight: 800,
+                color: textColor,
+                marginBottom: 40,
+                textAlign: p ? "center" : "left",
+                lineHeight: 1.1,
+                letterSpacing: "-0.02em",
+                flexShrink: 0,
+              }}
+            >
+              {title}
+            </h2>
+          )}
+
+          <div ref={listRef} style={{ display: "flex", flexDirection: "column", gap: 30, flex: "0 1 auto", minHeight: 0, overflow: "hidden" }}>
+            {points.map((point, i) => {
+              const delay = 20 + i * 10;
+              const itemSpring = spring({
+                frame: frame - delay,
+                fps,
+                config: { damping: 15, stiffness: 100 },
+              });
+
+              const entranceX = interpolate(itemSpring, [0, 1], [40, 0]);
+              const entranceOpacity = interpolate(itemSpring, [0, 1], [0, 1]);
+
+              return (
+                <div
+                  key={i}
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 20,
+                    opacity: entranceOpacity,
+                    transform: `translateX(${entranceX}px)`,
+                  }}
+                >
+                  {/* Bullet Number with Glow */}
+                  <div
+                    style={{
+                      width: 45,
+                      height: 45,
+                      borderRadius: 12,
+                      backgroundColor: accentColor,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                      boxShadow: `0 10px 20px ${accentColor}44`,
+                      color: "white",
+                      fontWeight: 800,
+                      fontSize: 22,
+                    }}
+                  >
+                    {i + 1}
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div
+                      style={{
+                        fontSize: keyFontSize,
+                        fontWeight: 700,
+                        color: accentColor,
+                        textTransform: "uppercase",
+                        letterSpacing: "1px"
+                      }}
+                    >
+                      {point.key}
+                    </div>
+                    {point.value && (
+                      <div
+                        style={{
+                          fontSize: descPx,
+                          color: textColor,
+                          opacity: 0.9,
+                          lineHeight: 1.4,
+                          maxWidth: "90%"
+                        }}
+                      >
+                        {point.value}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </AbsoluteFill>
+  );
+};

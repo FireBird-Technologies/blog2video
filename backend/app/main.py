@@ -622,6 +622,7 @@ _origins = [
 # Always allow local dev + production origins
 _always_allowed = [
     "http://localhost:5173",
+    "http://localhost:5174",
     "http://localhost:3000",
     "https://blog2video.vercel.app",
     "https://blog2video-nu.vercel.app",
@@ -631,9 +632,24 @@ _always_allowed = [
     "https://muhammad-mehdi-backend-b2v.hf.space",
     "https://blog2video.pages.dev",
     "https://blog2video-prod-frontend.pages.dev",
+    # pdf2vid — separate frontend deployment (frontend-pdf2video/), same
+    # backend/DB as blog2video. See frontend-pdf2video/ for why it's a
+    # separate build rather than a brand switch inside frontend/.
+    # NOTE: the production custom domain is pdf2vid.com. The directory, Vercel
+    # project, and Cloudflare Pages project all keep the longer "pdf2video"
+    # name — don't assume the host matches the project name.
+    "https://pdf2vid.com",
+    "https://www.pdf2vid.com",
+    "https://pdf2video.vercel.app",
+    # Cloudflare Pages project for the pdf2video frontend. Every deploy also
+    # gets its own <hash>.pdf2video.pages.dev subdomain, so the regex below
+    # covers previews too.
+    "https://pdf2video.pages.dev",
     # MCP — Claude clients
     "https://claude.ai",
     "https://app.anthropic.com",
+    # MCP Apps — widget sandbox origin ({hash}.claudemcpcontent.com); the
+    # iframe's own fetches carry this Origin, not claude.ai.
     # MCP — Inspector (local dev)
     "http://localhost:6274",
     "http://127.0.0.1:6274",
@@ -648,11 +664,26 @@ for origin in _always_allowed:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_origins,
-    # Vercel previews + subdomains + HF Spaces + Anthropic subdomains (for MCP)
-    allow_origin_regex=r"https://(blog2video.*\.vercel\.app|.*\.blog2video\.app|.*\.hf\.space|.*\.anthropic\.com|.*\.claude\.ai)",
+    # Vercel previews + Cloudflare Pages deploys + subdomains + HF Spaces +
+    # Anthropic subdomains (for MCP). The *.pages.dev branches cover Cloudflare's
+    # per-deploy hostnames, which are siblings (pdf2video-4sr.pages.dev), not
+    # subdomains, of the project name — hence the leading prefix match.
+    allow_origin_regex=(
+        r"https://("
+        r"blog2video.*\.vercel\.app|pdf2vid.*\.vercel\.app"
+        r"|blog2video.*\.pages\.dev|pdf2video.*\.pages\.dev|pdf2vid.*\.pages\.dev"
+        r"|.*\.blog2video\.app|.*\.pdf2vid\.com"
+        r"|.*\.hf\.space|.*\.anthropic\.com|.*\.claude\.ai|.*\.claudemcpcontent\.com"
+        r")"
+    ),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    # allow_headers governs REQUEST headers; response headers stay hidden from JS
+    # unless named here. /api/free-tools/pdf-narration returns the mp3 as its body
+    # and reports the caller's remaining allowance on these two, so the tools UI
+    # (on a different origin to the API) cannot read them without this.
+    expose_headers=["x-tool-used", "x-tool-limit"],
 )
 
 # Mount media files for serving images/audio

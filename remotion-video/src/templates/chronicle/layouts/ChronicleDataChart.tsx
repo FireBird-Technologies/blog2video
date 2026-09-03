@@ -21,6 +21,7 @@ import {
 } from "../../../fonts/chronicle-defaults";
 import { OrnamentalCorner } from "../components/OrnamentalBorder";
 import { QuillText } from "../components/QuillInk";
+import { useFitText } from "../components/useFitText";
 import {
   toNumber,
   formatAxisTick,
@@ -85,6 +86,8 @@ export const ChronicleDataChart: React.FC<ChronicleLayoutProps> = ({
   fontFamily,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   chartSummary = "",
   subtitle = "",
   chartYAxisTicks = [],
@@ -102,11 +105,35 @@ export const ChronicleDataChart: React.FC<ChronicleLayoutProps> = ({
   const ink = textColor || INK;
   const accent = accentColor || CHRON.gold;
 
-  const titleSize = titleFontSize ?? (p ? 56 : 52);
   const descSize = descriptionFontSize ?? (p ? 28 : 26);
   const chartTickSize = Math.round(descSize * 0.86);
   const chartAxisLabelSize = Math.round(descSize * 0.72);
   const VALUE_LABEL_FS = Math.round(descSize * 0.56);
+
+  /* ── Auto-fit (title only) ──────────────────────────────────
+     The title is unbounded user input above a fixed-height chart folio;
+     descSize (and everything derived from it: tick/axis/value-label sizes)
+     is a chart-internal scaling knob, not free text, so it is left alone.
+     QuillText's mode="char" progressively reveals characters, so a hidden
+     full-text mirror is measured instead of the animated element itself. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 56 : 52);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.45),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * 0.1),
+  );
+  const fitNarrationRef = React.useRef<HTMLDivElement>(null);
+  const fitNarrationTarget = Math.round(descSize * 0.82);
+  const { px: fitNarrationPx } = useFitText(
+    fitNarrationRef,
+    fitNarrationTarget,
+    descriptionFontSizeIsUserSet ? fitNarrationTarget : Math.round(fitNarrationTarget * 0.55),
+    [narration, fitNarrationTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
+    Math.round(height * 0.08),
+  );
 
   /** Chronicle-themed X-axis builder (ink + body font). */
   const buildXAxisProps = (
@@ -164,6 +191,18 @@ export const ChronicleDataChart: React.FC<ChronicleLayoutProps> = ({
     if (!hasRealChart) return "";
     return buildAutoChartSummary(chartInputs, resolvedChartType);
   }, [chartSummary, hasRealChart, chartInputs, resolvedChartType]);
+
+  // Chart summary panel — user-editable (or auto-generated) prose beside the
+  // chart, in a flex row bounded by the chart panel's height.
+  const fitSummaryRef = React.useRef<HTMLDivElement>(null);
+  const fitSummaryTarget = Math.round(descSize * 0.9);
+  const { px: fitSummaryPx } = useFitText(
+    fitSummaryRef,
+    fitSummaryTarget,
+    descriptionFontSizeIsUserSet ? fitSummaryTarget : Math.round(fitSummaryTarget * 0.55),
+    [summaryText, fitSummaryTarget, descriptionFontSizeIsUserSet, p, height],
+    Math.round(height * (p ? 0.16 : 0.24)),
+  );
 
   const lineDataBounds = useMemo(() => {
     let lo = Infinity;
@@ -573,17 +612,37 @@ export const ChronicleDataChart: React.FC<ChronicleLayoutProps> = ({
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", padding: p ? "6% 7%" : "5% 7%" }}>
         {/* Title — quill-written */}
         <div style={{ opacity: titleOp, marginBottom: Math.round(height * 0.018), textAlign: "center" }}>
-          <div
-            style={{
-              fontFamily: CHRONICLE_HEADING_FONT,
-              fontWeight: 700,
-              fontSize: titleSize,
-              lineHeight: 1.05,
-              color: ink,
-              textShadow: "1px 1px 0 rgba(184,134,11,0.15)",
-            }}
-          >
-            <QuillText text={title} startFrame={5} durationFrames={25} mode="char" showCursor={false} />
+          <div style={{ position: "relative" }}>
+            {/* QuillText mode="char" reveals characters progressively; this
+                hidden full-text mirror keeps fitting stable from frame zero. */}
+            <div
+              ref={fitTitleRef}
+              aria-hidden
+              style={{
+                visibility: "hidden",
+                position: "absolute",
+                inset: 0,
+                fontFamily: CHRONICLE_HEADING_FONT,
+                fontWeight: 700,
+                fontSize: fitTitlePx,
+                lineHeight: 1.05,
+                width: "100%",
+              }}
+            >
+              {title}
+            </div>
+            <div
+              style={{
+                fontFamily: CHRONICLE_HEADING_FONT,
+                fontWeight: 700,
+                fontSize: fitTitlePx,
+                lineHeight: 1.05,
+                color: ink,
+                textShadow: "1px 1px 0 rgba(184,134,11,0.15)",
+              }}
+            >
+              <QuillText text={title} startFrame={5} durationFrames={25} mode="char" showCursor={false} />
+            </div>
           </div>
           <div style={{ width: 96, height: 3, background: accent, margin: `${Math.round(height * 0.012)}px auto 0`, opacity: 0.8 }} />
         </div>
@@ -644,7 +703,19 @@ export const ChronicleDataChart: React.FC<ChronicleLayoutProps> = ({
                 overflow: "hidden",
               }}
             >
-              <div style={{ fontFamily: bodyFont, fontWeight: 500, fontSize: descSize * 0.9, lineHeight: 1.5, color: ink, opacity: 0.95, whiteSpace: "pre-wrap" }}>
+              <div
+                ref={fitSummaryRef}
+                style={{
+                  fontFamily: bodyFont,
+                  fontWeight: 500,
+                  fontSize: fitSummaryPx,
+                  lineHeight: 1.5,
+                  color: ink,
+                  opacity: 0.95,
+                  whiteSpace: "pre-wrap",
+                  width: "100%",
+                }}
+              >
                 {summaryText
                   ? summaryText.split(/(__[^_]+__)/).map((seg, i) => {
                       if (seg.startsWith("__") && seg.endsWith("__")) {
@@ -665,7 +736,21 @@ export const ChronicleDataChart: React.FC<ChronicleLayoutProps> = ({
         {/* Narration */}
         {narration && (
           <div style={{ opacity: Math.min(1, Math.max(0, (frame - 18) / 20)), marginTop: Math.round(height * 0.018) }}>
-            <div style={{ fontFamily: bodyFont, fontStyle: "italic", fontSize: descSize * 0.82, color: ink, opacity: 0.65, lineHeight: 1.45, textAlign: "center", overflowWrap: "break-word", wordBreak: "break-word" }}>
+            <div
+              ref={fitNarrationRef}
+              style={{
+                fontFamily: bodyFont,
+                fontStyle: "italic",
+                fontSize: fitNarrationPx,
+                color: ink,
+                opacity: 0.65,
+                lineHeight: 1.45,
+                textAlign: "center",
+                overflowWrap: "break-word",
+                wordBreak: "break-word",
+                width: "100%",
+              }}
+            >
               {narration}
             </div>
           </div>

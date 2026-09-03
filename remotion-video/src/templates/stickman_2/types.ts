@@ -2,6 +2,7 @@ import type { SocialsMap, SocialsRow } from "../SocialIcons";
 
 export type Stickman2LayoutType =
   | "chalk_title" | "night_walk" | "shooting_star" | "constellation_stats" | "moonphase_chart" | "shadow_comparison" | "signal_fire_scene" | "neon_countdown" | "lantern_dialogue" | "data_visualisation" | "ending_socials" | "ticker_table";
+  // Visual variants — same props as their base, different composition.
 
 export interface SceneLayoutProps {
   title: string;
@@ -26,6 +27,17 @@ export interface SceneLayoutProps {
   fontFamily?: string;
   titleFontSize?: number;
   descriptionFontSize?: number;
+
+  /**
+   * True when the size above was explicitly chosen by the user, false/absent
+   * when it was backfilled from meta.json `layout_prop_schema` defaults.
+   *
+   * Layouts that auto-shrink text to avoid overflow use this to honor a
+   * deliberate choice exactly — even if it overflows — while still auto-fitting
+   * the default. Derived at render time; never persisted.
+   */
+  titleFontSizeIsUserSet?: boolean;
+  descriptionFontSizeIsUserSet?: boolean;
   // socials / website are used by the ending_socials layout, which
   // renders the shared <SocialIcons> component (../../SocialIcons)
   socials?: SocialsMap | SocialsRow[];

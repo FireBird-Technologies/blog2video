@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, Easing, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { SceneLayoutProps } from "../types";
+import { useFitText, useAvailableHeight } from "../components/useFitText";
 
 const PLANE_SVG_PATH =
   "M21,16L21,14L13,9L13,3.5A1.5,1.5 0 0,0 11.5,2A1.5,1.5 0 0,0 10,3.5V9L2,14V16L10,13.5V19L8,20.5V22L11.5,21L15,22V20.5L13,19V13.5L21,16Z";
@@ -71,6 +72,8 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
@@ -238,7 +241,58 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
   // ── Misc ────────────────────────────────────────────────────────────────────
   const titleOp  = interpolate(frame, [3, 22], [0, 1], { extrapolateRight: "clamp" });
   const dividerH = interpolate(frame, [5, 35], [0, 100], { extrapolateRight: "clamp" });
-  const resolvedDescriptionFontSize = descriptionFontSize ?? (p ? 43 : 33);
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     Title and the two card descriptions are unbounded user input; the row of
+     cards is `flex:1` but its children (icon + h3 + p) have no height limit of
+     their own, so long copy can grow past the card and be clipped by the
+     AbsoluteFill's overflow:hidden. Fit the title to its own budget, then the
+     LONGER of the two card bodies (both share one descriptionFontSize, so they
+     must shrink together to stay visually balanced) to the row's available
+     height. A size the user explicitly picked is honored exactly (minPx ===
+     targetPx makes the hook a no-op). */
+  const rowRef = React.useRef<HTMLDivElement>(null);
+  const titleRef = React.useRef<HTMLHeadingElement>(null);
+  const leftBodyRef = React.useRef<HTMLParagraphElement>(null);
+  const rightBodyRef = React.useRef<HTMLParagraphElement>(null);
+
+  const actualTitleFontSize = titleFontSize ?? (p ? 70 : 78);
+  const actualDescriptionFontSize = descriptionFontSize ?? (p ? 43 : 33);
+
+  const titleBudgetPx = Math.round(height * (p ? 0.18 : 0.2));
+  const { px: titlePx } = useFitText(
+    titleRef,
+    actualTitleFontSize,
+    titleFontSizeIsUserSet ? actualTitleFontSize : p ? 32 : 30,
+    [title, actualTitleFontSize, titleFontSizeIsUserSet, titleBudgetPx, p],
+    titleBudgetPx,
+  );
+
+  const leftAvail = useAvailableHeight(leftBodyRef, rowRef, [
+    leftLabel, leftDescription, titlePx, actualDescriptionFontSize, p,
+  ]);
+  const { px: leftBodyPx } = useFitText(
+    leftBodyRef,
+    actualDescriptionFontSize,
+    descriptionFontSizeIsUserSet ? actualDescriptionFontSize : p ? 16 : 14,
+    [leftDescription, actualDescriptionFontSize, descriptionFontSizeIsUserSet, titlePx, leftAvail, p],
+    leftAvail || undefined,
+  );
+
+  const rightAvail = useAvailableHeight(rightBodyRef, rowRef, [
+    rightLabel, rightDescription, titlePx, actualDescriptionFontSize, p,
+  ]);
+  const { px: rightBodyPx } = useFitText(
+    rightBodyRef,
+    actualDescriptionFontSize,
+    descriptionFontSizeIsUserSet ? actualDescriptionFontSize : p ? 16 : 14,
+    [rightDescription, actualDescriptionFontSize, descriptionFontSizeIsUserSet, titlePx, rightAvail, p],
+    rightAvail || undefined,
+  );
+
+  // Both cards must stay visually balanced — use the smaller (more shrunk) of
+  // the two independently-fitted sizes.
+  const resolvedDescriptionFontSize = Math.min(leftBodyPx, rightBodyPx);
 
   return (
     <>
@@ -253,21 +307,23 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
         }}
       >
         <h2
+          ref={titleRef}
           style={{
             color: textColor,
-            fontSize: titleFontSize ?? (p ? 70 : 78),
+            fontSize: titlePx,
             fontWeight: 700,
             fontFamily: fontFamily ?? "'Roboto Slab', serif",
             opacity: titleOp,
             marginTop: 0,
             marginBottom: p ? 28 : 40,
             textAlign: "center",
+            flexShrink: 0,
           }}
         >
           {title}
         </h2>
 
-        <div style={{ display: "flex", flexDirection: p ? "column" : "row", flex: 1, gap: 0, position: "relative" }}>
+        <div ref={rowRef} style={{ display: "flex", flexDirection: p ? "column" : "row", flex: 1, gap: 0, position: "relative", minHeight: 0 }}>
 
           {/* Left / Top card */}
           <div style={{ flex: 1, padding: p ? "24px 20px" : 40, opacity: finalOp, transform: `translateX(${finalLeftX}px) translateY(${finalLeftY}px)` }}>
@@ -277,7 +333,7 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
               </svg>
             </div>
             <h3 style={{ fontSize: resolvedDescriptionFontSize, fontWeight: 600, color: textColor, fontFamily: fontFamily ?? "'Roboto Slab', serif", margin: 0, marginBottom: 12 }}>{leftLabel}</h3>
-            <p style={{ fontSize: resolvedDescriptionFontSize, color: textColor, fontFamily: fontFamily ?? "'Roboto Slab', serif", lineHeight: 1.6, opacity: 0.7, margin: 0 }}>{leftDescription}</p>
+            <p ref={leftBodyRef} style={{ fontSize: resolvedDescriptionFontSize, color: textColor, fontFamily: fontFamily ?? "'Roboto Slab', serif", lineHeight: 1.6, opacity: 0.7, margin: 0 }}>{leftDescription}</p>
           </div>
 
           {/* Divider */}
@@ -291,7 +347,7 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
               </svg>
             </div>
             <h3 style={{ fontSize: resolvedDescriptionFontSize, fontWeight: 600, color: textColor, fontFamily: fontFamily ?? "'Roboto Slab', serif", margin: 0, marginBottom: 12 }}>{rightLabel}</h3>
-            <p style={{ fontSize: resolvedDescriptionFontSize, color: textColor, fontFamily: fontFamily ?? "'Roboto Slab', serif", lineHeight: 1.6, opacity: 0.7, margin: 0 }}>{rightDescription}</p>
+            <p ref={rightBodyRef} style={{ fontSize: resolvedDescriptionFontSize, color: textColor, fontFamily: fontFamily ?? "'Roboto Slab', serif", lineHeight: 1.6, opacity: 0.7, margin: 0 }}>{rightDescription}</p>
           </div>
         </div>
 

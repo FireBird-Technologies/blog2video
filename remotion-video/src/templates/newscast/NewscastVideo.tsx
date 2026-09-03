@@ -34,6 +34,11 @@ const LEGACY_TO_NEWCAST_LAYOUT_ID: Record<string, NewscastLayoutType> = {
   side_by_side_brief: "side_by_side_brief",
   segment_break: "segment_break",
   field_image_focus: "field_image_focus",
+  // Visual variants are identity-mapped: they are real layout IDs, not legacy
+  // aliases. Without these the `?? "anchor_narrative"` fallback swallows them.
+  opening__v2: "opening__v2",
+  anchor_narrative__v2: "anchor_narrative__v2",
+  ending_socials__v2: "ending_socials__v2",
   cinematic_title: "opening",
   glass_narrative: "anchor_narrative",
   glow_metric: "live_metrics_board",
@@ -61,7 +66,9 @@ const normalizeNewscastLayoutId = (layout: string): NewscastLayoutType =>
 
 const NEWCAST_LAYOUT_TO_LEGACY_KEY: Record<NewscastLayoutType, string> = {
   opening: "cinematic_title",
+  opening__v2: "cinematic_title",
   anchor_narrative: "glass_narrative",
+  anchor_narrative__v2: "glass_narrative",
   live_metrics_board: "glow_metric",
   data_visualization: "data_visualization",
   briefing_code_panel: "glass_code",
@@ -71,6 +78,7 @@ const NEWCAST_LAYOUT_TO_LEGACY_KEY: Record<NewscastLayoutType, string> = {
   segment_break: "chapter_break",
   field_image_focus: "glass_image",
   ending_socials: "ending_socials",
+  ending_socials__v2: "ending_socials",
 };
 
 const toLegacyNewscastLayoutId = (layout: NewscastLayoutType): string =>
@@ -179,6 +187,7 @@ const NewscastSequenceInner: React.FC<{
   sceneIndex: number;
   sceneCount: number;
   isHero: boolean;
+  showLowerThird: boolean;
   layoutType: string;
   layoutProps: NewscastLayoutProps;
   LayoutComponent: React.ComponentType<NewscastLayoutProps>;
@@ -202,6 +211,7 @@ const NewscastSequenceInner: React.FC<{
   sceneIndex,
   sceneCount,
   isHero,
+  showLowerThird,
   layoutType,
   layoutProps,
   LayoutComponent,
@@ -265,7 +275,7 @@ const NewscastSequenceInner: React.FC<{
                 lowerThirdTag={layoutProps.lowerThirdTag}
                 lowerThirdHeadline={layoutProps.lowerThirdHeadline}
                 lowerThirdSub={layoutProps.lowerThirdSub}
-                showLowerThird={layoutType !== "data_visualization"}
+                showLowerThird={showLowerThird}
                 accentColor={layoutProps.accentColor}
                 textColor={layoutProps.textColor}
                 descriptionFontSize={layoutProps.descriptionFontSize}
@@ -522,7 +532,18 @@ export const NewscastVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         };
 
         const layoutType = legacyLayout;
-        const isHero = normalizedLayout === "opening";
+        // Compare on the BASE id so visual variants (`opening__v2`) count as the
+        // hero too — otherwise the variant gets the composition chrome AND its
+        // own, drawing the ticker/top bar twice.
+        const isHero = normalizedLayout.split("__")[0] === "opening";
+        // data_visualization renders its own lower-third-equivalent cards;
+        // anchor_narrative__v2 ("Studio Desk") renders its own on-air slate
+        // top-right AND its own band with the same lowerThird* copy — the
+        // composition's chrome lower-third would just duplicate both, so
+        // it's suppressed for either.
+        const showLowerThird =
+          layoutType !== "data_visualization" &&
+          normalizedLayout !== "anchor_narrative__v2";
 
         return (
           <Sequence key={scene.id} from={startFrame} durationInFrames={durationFrames} name={scene.title}>
@@ -532,6 +553,7 @@ export const NewscastVideo: React.FC<VideoProps> = ({ dataUrl }) => {
               sceneIndex={sceneIndex}
               sceneCount={data.scenes.length}
               isHero={isHero}
+              showLowerThird={showLowerThird}
               layoutType={layoutType}
               layoutProps={layoutProps}
               LayoutComponent={LayoutComponent}

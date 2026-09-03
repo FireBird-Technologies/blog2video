@@ -9,6 +9,7 @@ import {
 import { CompassRose, OrnamentalCorner } from "../components/OrnamentalBorder";
 import { EmbossedImage } from "../components/EmbossedImage";
 import { QuillText } from "../components/QuillInk";
+import { useFitText } from "../components/useFitText";
 
 /**
  * MapReveal — image layout styled as an unfurled cartographer's map.
@@ -24,6 +25,8 @@ export const MapReveal: React.FC<ChronicleLayoutProps> = ({
   aspectRatio = "landscape",
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
   imageUrl,
   imageObjectPosition,
@@ -37,6 +40,44 @@ export const MapReveal: React.FC<ChronicleLayoutProps> = ({
   const frame = useCurrentFrame();
   const { durationInFrames, height, width } = useVideoConfig();
   const p = aspectRatio === "portrait" || height > width;
+
+  const hasMedia = Boolean(imageUrl || videoUrl);
+
+  /* ── Auto-fit (title + narration) ─────────────────────────────
+     Title and narration are unbounded user input inside the torn-parchment
+     map frame. Narration renders in one of two mutually-exclusive places
+     (caption strip under the map image, or the large no-image inscription),
+     each with its own budget/floor, so each gets its own ref/hook. QuillText's
+     mode="char" (title) reveals characters progressively — hidden mirror
+     needed; mode="word" (both narration spots) renders full text from frame 0
+     with only opacity/transform animating, so those are safe to ref directly. */
+  const fitTitleRef = React.useRef<HTMLDivElement>(null);
+  const fitTitleTarget = titleFontSize ?? (p ? 52 : 48);
+  const { px: fitTitlePx } = useFitText(
+    fitTitleRef,
+    fitTitleTarget,
+    titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.45),
+    [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
+    Math.round(height * 0.09),
+  );
+  const fitCaptionRef = React.useRef<HTMLDivElement>(null);
+  const fitCaptionTarget = Math.round((descriptionFontSize ?? (p ? 24 : 22)) * 0.92);
+  const { px: fitCaptionPx } = useFitText(
+    fitCaptionRef,
+    fitCaptionTarget,
+    descriptionFontSizeIsUserSet ? fitCaptionTarget : Math.round(fitCaptionTarget * 0.55),
+    [narration, fitCaptionTarget, descriptionFontSizeIsUserSet, hasMedia, p, height],
+    Math.round(height * 0.1),
+  );
+  const fitInscriptionRef = React.useRef<HTMLDivElement>(null);
+  const fitInscriptionTarget = descriptionFontSize ?? (p ? 40 : 44);
+  const { px: fitInscriptionPx } = useFitText(
+    fitInscriptionRef,
+    fitInscriptionTarget,
+    descriptionFontSizeIsUserSet ? fitInscriptionTarget : Math.round(fitInscriptionTarget * 0.5),
+    [narration, fitInscriptionTarget, descriptionFontSizeIsUserSet, hasMedia, p, height],
+    Math.round(height * (p ? 0.34 : 0.4)),
+  );
 
   const mapScale = interpolate(frame, [0, 20], [0.9, 1], {
     extrapolateLeft: "clamp",
@@ -78,18 +119,37 @@ export const MapReveal: React.FC<ChronicleLayoutProps> = ({
 
       {/* Title */}
       {title && (
-        <div
-          style={{
-            fontFamily: CHRONICLE_HEADING_FONT,
-            fontSize: titleFontSize ?? (p ? 52 : 48),
-            fontWeight: 700,
-            color: textColor,
-            textAlign: "center",
-            marginBottom: 18,
-            opacity: mapOp,
-          }}
-        >
-          <QuillText text={title} startFrame={5} durationFrames={25} mode="char" showCursor={false} />
+        <div style={{ position: "relative", marginBottom: 18 }}>
+          {/* QuillText mode="char" reveals characters progressively; this
+              hidden full-text mirror keeps fitting stable from frame zero. */}
+          <div
+            ref={fitTitleRef}
+            aria-hidden
+            style={{
+              visibility: "hidden",
+              position: "absolute",
+              inset: 0,
+              fontFamily: CHRONICLE_HEADING_FONT,
+              fontSize: fitTitlePx,
+              fontWeight: 700,
+              textAlign: "center",
+              width: "100%",
+            }}
+          >
+            {title}
+          </div>
+          <div
+            style={{
+              fontFamily: CHRONICLE_HEADING_FONT,
+              fontSize: fitTitlePx,
+              fontWeight: 700,
+              color: textColor,
+              textAlign: "center",
+              opacity: mapOp,
+            }}
+          >
+            <QuillText text={title} startFrame={5} durationFrames={25} mode="char" showCursor={false} />
+          </div>
         </div>
       )}
 
@@ -194,12 +254,13 @@ export const MapReveal: React.FC<ChronicleLayoutProps> = ({
 
               {narration ? (
                 <div
+                  ref={fitCaptionRef}
                   style={{
                     flex: "0 0 auto",
                     padding: p ? "4px 5% 2px" : "2px 6% 0",
                     textAlign: "center",
                     fontFamily: CHRONICLE_SMALLCAPS_FONT,
-                    fontSize: (descriptionFontSize ?? (p ? 24 : 22)) * 0.92,
+                    fontSize: fitCaptionPx,
                     color: textColor,
                     letterSpacing: "0.12em",
                     textTransform: "uppercase",
@@ -208,6 +269,7 @@ export const MapReveal: React.FC<ChronicleLayoutProps> = ({
                       extrapolateLeft: "clamp",
                       extrapolateRight: "clamp",
                     }),
+                    width: "100%",
                   }}
                 >
                   <QuillText
@@ -224,6 +286,7 @@ export const MapReveal: React.FC<ChronicleLayoutProps> = ({
             // No scene image — gold inscription centered on parchment; depth
             // from text-shadow only (no panel behind the block).
             <div
+              ref={fitInscriptionRef}
               style={{
                 width: "100%",
                 height: "100%",
@@ -235,7 +298,7 @@ export const MapReveal: React.FC<ChronicleLayoutProps> = ({
                 textAlign: "center",
                 fontFamily: CHRONICLE_HEADING_FONT,
                 color: accentColor,
-                fontSize: descriptionFontSize ?? (p ? 40 : 44),
+                fontSize: fitInscriptionPx,
                 fontWeight: 700,
                 lineHeight: 1.25,
                 letterSpacing: "0.04em",

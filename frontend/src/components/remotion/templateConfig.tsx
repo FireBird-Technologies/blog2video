@@ -25,6 +25,7 @@ import { Stickman2VideoComposition } from "./stickman_2/Stickman2VideoCompositio
 import { MagazineVideoComposition } from "./magazine/MagazineVideoComposition";
 import { StickmanFootballVideoComposition } from "./stickman_football/StickmanFootballVideoComposition";
 import { SakuraVideoComposition } from "./sakura/SakuraVideoComposition";
+import { OldDocumentaryReelVideoComposition } from "./old-documentary-reel/OldDocumentaryReelVideoComposition";
 import {
   RemotionDefaultVideoComposition,
   RemotionGridcraftVideoComposition,
@@ -113,6 +114,9 @@ const DEFAULT_LAYOUTS = new Set([
   "ending_socials",
 ]);
 
+// Includes the `__vN` visual variants (see backend/templates/nightfall/meta.json
+// `layout_variants`). This is the STATIC fallback used before /projects/:id/layouts
+// resolves — a variant missing here renders as the fallback layout on first paint.
 const NIGHTFALL_LAYOUTS = new Set([
   "cinematic_title",
   "glass_narrative",
@@ -141,11 +145,16 @@ const GRIDCRAFT_LAYOUTS = new Set([
   "data_visualisation",
   "ticker_table",
   "ending_socials",
+  // Visual variants. VideoPreview coerces any layout id absent from this Set to the
+  // template's fallbackLayout, so a variant missing here silently renders the wrong
+  // scene with no compile error.
 ]);
 
 const SPOTLIGHT_LAYOUTS = new Set([
   "impact_title",
+  "impact_title__v2",
   "statement",
+  "statement__v2",
   "word_punch",
   "cascade_list",
   "stat_stage",
@@ -156,6 +165,7 @@ const SPOTLIGHT_LAYOUTS = new Set([
   "spotlight_table",
   "closer",
   "ending_socials",
+  "ending_socials__v2",
 ]);
 
 const MATRIX_LAYOUTS = new Set([
@@ -186,6 +196,9 @@ const MOSAIC_LAYOUTS = new Set([
   "ending_socials",
 ]);
 
+// Includes the `__vN` motion variants (see backend/templates/whiteboard/meta.json
+// `layout_variants`). This is the STATIC fallback used before /projects/:id/layouts
+// resolves; omitting variants here makes the first paint flash the fallback layout.
 const WHITEBOARD_LAYOUTS = new Set([
   "drawn_title",
   "marker_story",
@@ -201,10 +214,18 @@ const WHITEBOARD_LAYOUTS = new Set([
   "ending_socials",
 ]);
 
+// Includes the `__vN` visual variants (see backend/templates/newspaper/meta.json
+// `layout_variants`). This is the STATIC fallback used before /projects/:id/layouts
+// resolves — a variant missing here renders as the fallback layout on first paint.
 const NEWSPAPER_LAYOUTS = new Set([
   "news_headline",
+  "news_headline__v2",
+  "news_headline__v3",
   "article_lead",
+  "article_lead__v2",
+  "article_lead__v3",
   "pull_quote",
+  "pull_quote__v2",
   "data_snapshot",
   "fact_check",
   "news_timeline",
@@ -213,11 +234,17 @@ const NEWSPAPER_LAYOUTS = new Set([
   "perspective_split",
   "ticker_table",
   "ending_socials",
+  "ending_socials__v2",
 ]);
 
+// Includes the `__vN` visual variants (see backend/templates/newscast/meta.json
+// `layout_variants`). This is the STATIC fallback used before /projects/:id/layouts
+// resolves — a variant missing here renders as the fallback layout on first paint.
 const NEWSCAST_LAYOUTS = new Set([
   "opening",
+  "opening__v2",
   "anchor_narrative",
+  "anchor_narrative__v2",
   "live_metrics_board",
   "data_visualization",
   "briefing_code_panel",
@@ -227,6 +254,7 @@ const NEWSCAST_LAYOUTS = new Set([
   "segment_break",
   "field_image_focus",
   "ending_socials",
+  "ending_socials__v2",
 ]);
 const BLACKSWAN_LAYOUTS = new Set([
   "droplet_intro",
@@ -345,6 +373,27 @@ const SAKURA_LAYOUTS = new Set([
   "ending_socials",
   "sakura_data_visualization",
   "sakura_ticker",
+  // Visual variants — see the note on GRIDCRAFT_LAYOUTS above. The ending variant
+  // hangs off the canonical "ending_socials" id, not the sakura_-prefixed alias.
+]);
+
+const DOCREEL_LAYOUTS = new Set([
+  // System-owned opening leader, force-injected as scene 0 by the pipeline.
+  // Must be listed here so VideoPreview doesn't fall it back to another layout.
+  "docreel_countdown",
+  "docreel_slate",
+  "docreel_statistic",
+  "docreel_title_card",
+  "docreel_dossier",
+  "docreel_photo_pan",
+  "docreel_contact_sheet",
+  "docreel_interview",
+  "docreel_field_notes",
+  "docreel_essay_captions",
+  "docreel_reel_out",
+  // Canonical ending id the backend emits; aliased to docreel_reel_out in the
+  // layout registry. Must be a valid layout so VideoPreview doesn't fall it back.
+  "ending_socials",
 ]);
 
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
@@ -565,6 +614,19 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
       accent: "#C0143C",
       bg: "#FDF6F0",
       text: "#2A0A12",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
+  "old-documentary-reel": {
+    component: OldDocumentaryReelVideoComposition as React.ComponentType<any>,
+    heroLayout: "docreel_slate",
+    fallbackLayout: "docreel_title_card",
+    validLayouts: DOCREEL_LAYOUTS,
+    defaultColors: {
+      accent: "#f4f0e2",
+      bg: "#171512",
+      text: "#b6b0a1",
     },
     baseWidth: 1920,
     baseHeight: 1080,
