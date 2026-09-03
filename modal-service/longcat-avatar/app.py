@@ -97,28 +97,62 @@ image = (
     # FIX #4: run_demo_avatar_single_audio_to_video.py hardcodes
     # text_guidance_scale=audio_guidance_scale=1.0 whenever use_distill and
     # model_type=="avatar-v1.5" are both set — which is EVERY render this service
-    # makes (--use_distill is required for v1.5 per upstream's own README). That
-    # override runs AFTER argparse and ignores whatever --text_guidance_scale value
-    # was actually passed, so the CLI flag existing at all is misleading — it can
-    # never take effect in this deployment as shipped.
+    # makes (--use_distill is required for v1.5 per upstream's own README). This
+    # strips the hardcoded 1.0 overwrite for text_guidance_scale ONLY, letting the
+    # --text_guidance_scale CLI flag actually take effect (leaves
+    # audio_guidance_scale's override alone — that governs lip-sync, not motion
+    # style/the experiment below).
     #
-    # At CFG=1.0 the conditional and unconditional generation paths carry equal
-    # weight, so the `prompt` text has essentially no steering influence — confirmed
-    # empirically 2026-09-03: 7 renders with deliberately extreme, contradictory
-    # motion-style prompts (explicit "no hand movement", "robotic", vs. "energetic,
-    # highly animated") produced near-identical output, frame-for-frame.
-    #
-    # This strips the hardcoded 1.0 overwrite for text_guidance_scale ONLY (leaves
-    # audio_guidance_scale's override alone — that one governs lip-sync accuracy,
-    # not motion style, and the README's own tuning advice is already tied to it).
-    # num_inference_steps=8 is also left untouched — that is the actual distillation
-    # step-count and is not part of this experiment. The CLI flag's default (4.0)
-    # takes over once this line is gone; still overridable per-request if a future
-    # /render caller ever passes --text_guidance_scale explicitly.
+    # TESTED 2026-09-03 at text_guidance_scale=4.0 (the script's own un-distilled
+    # default) — motion output was STILL frame-identical to guidance=1.0 across
+    # every prompt tried, so this alone is NOT the fix for prompt-driven motion
+    # control (kept anyway: it is a real, correctly-functioning knob per the
+    # pipeline's CFG math, just not the bottleneck here). See FIX #5 below for the
+    # actual suspect, found via meituan-longcat/LongCat-Video#120.
     .run_commands(
         "sed -i "
         "'/if use_distill and model_type == \"avatar-v1.5\":/,+2{/text_guidance_scale = 1.0/d}' "
         "run_demo_avatar_single_audio_to_video.py"
+    )
+    # FIX #5: the REAL suspect for "prompt doesn't affect motion", per
+    # meituan-longcat/LongCat-Video#120 — a GitHub issue reporting this EXACT
+    # symptom ("Excessive facial expression and motion in v1.5"), where the
+    # maintainer (yzhang2016) confirms it is a known, unfixed bug in the public
+    # v1.5 checkpoint, and a community member traces it to the DMD distillation
+    # LoRA (dmd_lora.safetensors) being loaded at a HARDCODED multiplier=1.0 with
+    # no CLI override — applied to every matching Linear layer across the whole
+    # DiT (see LongCatVideoAvatarTransformer3DModel.load_lora), not scoped to
+    # anything motion-specific, so it can plausibly override/dominate whatever
+    # fine-grained conditioning (including text) would otherwise shape the output.
+    #
+    # This makes the multiplier a real CLI flag (default 1.0 = unchanged
+    # behavior) so it can be swept without an image rebuild per attempt. UNTESTED
+    # as of this comment — the community's suggested starting point is a low
+    # value (~0.1) increased from there; --use_distill (fast, 8-step, LoRA-based)
+    # stays the only supported way to run avatar-v1.5 per upstream's README, so
+    # this tunes the LoRA's strength rather than disabling distillation outright.
+    # Python-based patch, not sed: the insertion needs a literal newline inside a
+    # multi-line `a\` append, which is a well-known cross-platform sed footgun
+    # (BSD vs GNU sed disagree on the exact escaping) — verified failing under
+    # local (BSD) sed during development, so this uses unambiguous str.replace
+    # instead of trusting the same quoting to also work under the container's
+    # GNU sed untested. Each replace() asserts its target appears EXACTLY once
+    # first, so a silent no-op (old text already gone, e.g. upstream renamed
+    # something) fails the image build loudly instead of shipping unpatched.
+    .run_commands(
+        "python3 -c \""
+        "path = 'run_demo_avatar_single_audio_to_video.py'; "
+        "src = open(path).read(); "
+        "old_p = 'parser = argparse.ArgumentParser()'; "
+        "assert src.count(old_p) == 1, src.count(old_p); "
+        "src = src.replace(old_p, old_p + chr(10) + "
+        "    '    parser.add_argument(' + chr(39) + '--dmd_lora_multiplier' + chr(39) + "
+        "    ', type=float, default=1.0)', 1); "
+        "old_m = 'multiplier=1.0, lora_network_dim=128'; "
+        "assert src.count(old_m) == 1, src.count(old_m); "
+        "src = src.replace(old_m, 'multiplier=args.dmd_lora_multiplier, lora_network_dim=128', 1); "
+        "open(path, 'w').write(src)"
+        "\""
     )
     # cu124 torch FIRST from PyTorch's own index — PyPI's default `torch` wheel is CPU-only.
     .pip_install(
@@ -391,17 +425,25 @@ class LongCatAvatarService:
             mask_frame_range: int = Form(3),
             use_int8: bool = Form(None),
             # Overrides run_demo_avatar_single_audio_to_video.py's hardcoded
-            # text_guidance_scale=1.0 (see FIX #4 in this file's image build) — that
-            # hardcode meant `prompt` had essentially no effect on distilled-mode
-            # output regardless of wording. 4.0 is the SCRIPT'S OWN un-distilled
-            # default (its --text_guidance_scale flag's default before the distill
-            # override existed), not a value we invented — a reasonable starting
-            # point to test whether restoring real CFG lets the prompt actually
-            # steer motion. Distilled models are sometimes "guidance-distilled"
-            # (trained assuming CFG=1), so a value this high MAY degrade quality —
-            # unverified for this checkpoint, watch the first renders after any
-            # deploy that changes this default.
+            # text_guidance_scale=1.0 (see FIX #4 in this file's image build).
+            # TESTED 2026-09-03 at 4.0 (the script's own un-distilled default):
+            # motion output was frame-identical to guidance=1.0 regardless of
+            # prompt wording, so this alone does NOT fix prompt-driven motion
+            # control. Kept as a real, correctly-functioning CFG knob (confirmed
+            # via the pipeline's math) — just not the bottleneck. See
+            # dmd_lora_multiplier below for the actual suspect.
             text_guidance_scale: float = Form(4.0),
+            # Overrides run_demo_avatar_single_audio_to_video.py's hardcoded
+            # DMD distillation LoRA multiplier=1.0 (see FIX #5 in this file's
+            # image build) — per meituan-longcat/LongCat-Video#120, this LoRA is
+            # applied at full strength across every matching layer in the DiT
+            # whenever --use_distill is set (always, for us — required for
+            # v1.5), and a maintainer confirms v1.5's motion output has a known,
+            # unfixed bug where it does not respond to fine-grained conditioning
+            # the way expected. 1.0 = unchanged (full LoRA) behavior; the
+            # community's suggested experiment is a low value (~0.1) increased
+            # from there. UNTESTED as of this comment.
+            dmd_lora_multiplier: float = Form(1.0),
         ):
             """(avatar_id | image) + audio (+ prompt) -> lip-synced mp4. Single
             self-contained request, no /prepare step — same reasoning as
@@ -476,6 +518,7 @@ class LongCatAvatarService:
                 f"--ref_img_index={ref_img_index}",
                 f"--mask_frame_range={mask_frame_range}",
                 f"--text_guidance_scale={text_guidance_scale}",
+                f"--dmd_lora_multiplier={dmd_lora_multiplier}",
                 "--model_type=avatar-v1.5",
                 "--use_distill",
             ]
