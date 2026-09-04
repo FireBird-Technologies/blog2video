@@ -49,6 +49,32 @@ class CustomTemplate(Base):
     # scene subtly out of step with its siblings.
     design_system: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Representative on-screen copy per scene, written at generation time and
+    # shaped {"intro": {...}, "content": [{...}, ...], "outro": {...}} — the
+    # same indexing convention as image_box_aspect_ratios and
+    # layout_prop_schemas, so all four arrays stay addressable the same way.
+    #
+    # Preview text used to be synthesised in the browser on every render, so it
+    # was generic ("Our Brand", "Scene 2"), never matched the template's own
+    # subject matter, and could not be edited or inspected. Generating it once
+    # against each scene's design doc gives the gallery and the editor copy that
+    # actually belongs to the template. NULL for templates generated before this
+    # existed — the frontend keeps its client-side fallback for those.
+    scene_sample_content: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Per-scene DEFAULT type sizes, shaped
+    #   {"intro": {"title": {"landscape": N, "portrait": N},
+    #              "description": {"landscape": N, "portrait": N}}, ...}
+    # — indexed exactly like scene_sample_content above.
+    #
+    # Sizes used to live only as literals the model baked into each scene
+    # (`props.titleFontSize ?? (isPortrait ? 52 : 76)`), so nothing could size a
+    # scene to the copy it actually holds and the editor's sliders had no
+    # defaults to start from. Computed from the sample copy's length and stored
+    # here, they become a template property: previewed, editable, and used by
+    # the render. NULL on older templates, which fall through to the literals.
+    scene_font_defaults: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     # Set to True when background code generation permanently fails
     generation_failed: Mapped[bool] = mapped_column(default=False)
 

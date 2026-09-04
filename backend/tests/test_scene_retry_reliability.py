@@ -29,14 +29,20 @@ def _scene(pre: str, body: str) -> str:
         "const f = useCurrentFrame();"
         "const o = interpolate(f, [0, 20], [0, 1]);"
         "const sp = spring({ frame: f, fps: 30 });"
-        "const isPortrait = props.aspectRatio === 'portrait';\n" + pre + "\n" + _PAD + "\n"
+        "const isPortrait = props.aspectRatio === 'portrait';"
+        # Binds the body-size slider with an orientation-aware, in-band default.
+        # These fixtures render a quote, which the typography gate counts as body
+        # copy — not the contract under test, but required to reach it.
+        "const bodySize = props.descriptionFontSize ?? (isPortrait ? 30 : 34);\n"
+        + pre + "\n" + _PAD + "\n"
         "return (<AbsoluteFill style={{ overflow: 'hidden', background: palette.bg,"
         " overflowWrap: 'break-word', minWidth: 0,"
         " fontFamily: props.bodyFont || 'inherit' }}>"
         "<span style={{ fontFamily: props.headingFont || 'inherit' }}>{props.sceneTitle}</span>"
         "{props.logoUrl && <Img src={props.logoUrl} />}"
         "{props.imageUrl && <div data-content-img><Img src={props.imageUrl} /></div>}"
-        "<FitText fontSize={props.titleFontSize ?? 64}>{props.displayText}</FitText>"
+        "<FitText fontSize={props.titleFontSize ?? (isPortrait ? 52 : 76)} containerWidth={800} maxHeight={300}>"
+        "{props.displayText}</FitText>"
         + body +
         "</AbsoluteFill>); };"
     )
@@ -53,15 +59,22 @@ def _valid(pre: str, body: str) -> bool:
 @pytest.mark.parametrize(
     "pre,body",
     [
-        ("", "<FitText maxLines={4}>{props.quote}</FitText>"),
-        ('const q = props.quote || "";', "<FitText maxLines={4}>{q}</FitText>"),
-        ("const qt = props.quote ?? props.displayText;", "<FitText>{qt}</FitText>"),
+        ("", "<FitText maxLines={4} containerWidth={800} maxHeight={300}>{props.quote}</FitText>"),
+        ('const q = props.quote || "";', "<FitText maxLines={4} containerWidth={800} maxHeight={300}>{q}</FitText>"),
+        ("const qt = props.quote ?? props.displayText;", "<FitText containerWidth={800} maxHeight={300}>{qt}</FitText>"),
         (
             'const q = props.quote; const words = q.split(" ");',
-            "<FitText>{words.map((w, i) => (<span key={i}>{w} </span>))}</FitText>",
+            "<FitText containerWidth={800} maxHeight={300}>{words.map((w, i) => (<span key={i}>{w} </span>))}</FitText>",
         ),
-        ("", '<RevealText text={props.quote} mode="line" />'),
-        ("", "<FitText><span style={{ fontStyle: 'italic' }}>{props.quote}</span></FitText>"),
+        # Bound by a .map() callback rather than a const — the item variable is
+        # what appears inside the fitter, never the prop name. Following only
+        # `const` aliases made this unsatisfiable for every array prop.
+        (
+            "",
+            "{(props.quote ?? []).slice(0, 3).map((q, i) => ("
+            "<FitText key={i} containerWidth={800} maxHeight={300}>{q}</FitText>))}",
+        ),
+        ("", "<FitText containerWidth={800} maxHeight={300}><span style={{ fontStyle: 'italic' }}>{props.quote}</span></FitText>"),
     ],
 )
 def test_a_fitted_quote_passes_however_it_is_written(pre: str, body: str) -> None:

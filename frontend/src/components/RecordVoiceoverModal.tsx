@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PlayerRef } from "@remotion/player";
 import type { CraftedTemplateDetail, Project, Scene } from "../api/client";
 import SceneOnlyPlayer from "./SceneOnlyPlayer";
+import type { PrecompiledTemplateData } from "./VideoPreview";
 import useIsMobileViewport from "../hooks/useIsMobileViewport";
 
 export interface RecordVoiceoverModalProps {
@@ -16,11 +17,9 @@ export interface RecordVoiceoverModalProps {
    */
   project?: Project;
   layoutPropSchema?: Record<string, { defaults?: Record<string, unknown> }>;
-  precompiledTemplateData?: {
-    intro_code: string | null;
-    content_codes: string[] | null;
-    outro_code: string | null;
-  };
+  /** Forwarded verbatim to SceneOnlyPlayer → VideoPreview — see
+   *  PrecompiledTemplateData for why this is the shared type. */
+  precompiledTemplateData?: PrecompiledTemplateData;
   precompiledCraftedDetail?: CraftedTemplateDetail | null;
   ownerScopedProjectId?: number;
 }

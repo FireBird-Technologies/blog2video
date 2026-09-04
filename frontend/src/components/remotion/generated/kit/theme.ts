@@ -248,15 +248,30 @@ export function derivePalette(colors: KitColors): KitPalette {
   // this is a guard against bg2 arriving raw from brandColors, not a change to
   // the normal path — an on-brand subtle gradient is untouched.
   const bg2 = clampGradientStop(bg, colors.bg2);
-  // Every derived colour must clear BOTH stops.
+  // Derived DECORATION must clear both stops — a panel or hairline sits over the
+  // whole sweep. See the `text` note below for why type is deliberately excluded.
   const stops = [bg2];
 
   // The brand's own text color is CLAMPED, not trusted. The old fallback
   // (`colors.text || readableOn(bg)`) fired only when text was absent — a text
   // color that was present but unreadable against its own background passed
   // through untouched, which is the worst version of this bug.
+  //
+  // CLAMPED AGAINST `bg` ALONE, NOT AGAINST bg2.
+  //
+  // Passing `stops` here let the gradient's second stop pull the brand's text
+  // colour away from what the brand actually specified — a background choice
+  // silently changing the type colour, which is never what anyone asked for. It
+  // was especially wrong because the gradient was applied by DEFAULT (9 of 12
+  // templates), so most brands had their text shifted by a gradient nobody chose.
+  //
+  // This is safe because bg2 is now built to share bg's readable pole:
+  // _compute_bg2() walks from bg toward the accent and stops at the last tint
+  // that keeps the same pole, and clampGradientStop() above is the second guard
+  // for a bg2 arriving raw from brandColors. Both ends therefore take the same
+  // text colour, so clamping against bg alone loses nothing.
   const rawText = colors.text || readableOn(bg);
-  const text = ensureContrast(rawText, bg, AA_CONTRAST, stops);
+  const text = ensureContrast(rawText, bg, AA_CONTRAST);
 
   const accent = colors.accent || "#6366F1";
   const [tr, tg, tb] = hexToRgb(text);

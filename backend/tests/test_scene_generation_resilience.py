@@ -107,7 +107,7 @@ def test_truncated_response_salvages_the_scene_code() -> None:
         "const SceneComponent = (props) => {\n"
         "  const hasImage = !!(props.imageUrl && typeof props.imageUrl === 'string');\n"
         "  return <div style={{overflow:'hidden'}}>"
-        "<FitText fontSize={props.titleFontSize ?? 72}>{props.displayText}</FitText>"
+        "<FitText fontSize={props.titleFontSize ?? 72} containerWidth={800} maxHeight={300}>{props.displayText}</FitText>"
         "<div style={{background: `radial-gradient(circle, red, blue)`}}/>"
         + "x" * 300
         + "</div>;\n};"
@@ -174,68 +174,46 @@ def test_wrapped_validation_allows_nested_shadowing() -> None:
     assert valid, f"legal nested shadowing was rejected: {err}"
 
 
-# ─── The scene-type stage must never fail a whole template ───────────────────
+# ─── The design stage must never fail a whole template ───────────────────────
 
 
-def test_truncated_scene_types_fall_back_instead_of_raising() -> None:
+def test_truncated_design_docs_fall_back_instead_of_raising() -> None:
     """A cut-off response must not kill generation.
 
-    Template 143 (SpaceX) failed outright this way: DecideBrandSceneTypes ran
-    under dspy.ChainOfThought, whose unbounded `reasoning` field is emitted
-    BEFORE the JSON array, so GLM wrote prose until the budget ran out and
-    returned a bare unterminated "[". Both attempts, on two consecutive
-    generations, 13-24s each — then a RuntimeError that failed the template.
+    Template 143 (SpaceX) failed outright this way in the blueprint era: the
+    planning stage ran under an unbounded reasoning field, wrote prose until the
+    budget ran out, and returned a bare unterminated "[" — twice, then a
+    RuntimeError that failed the template.
 
-    This stage only decides the SHAPE of the scene set, and the blueprint
-    supersedes its layouts when enabled, so a generic-but-valid set is a far
-    better outcome than no template.
+    The design stage now owns the whole shape of the template, so it matters
+    more, not less: a generic-but-valid doc set is a far better outcome than no
+    template.
     """
-    from unittest.mock import MagicMock, patch
+    from app.dspy_modules.design_doc import fallback_design_docs, validate_design_docs
 
-    import app.services.code_generator as cg
+    # Exactly the observed truncation.
+    docs, _ = validate_design_docs("g" * 200, "[", "{}")
+    assert docs is None, "a truncated array must be reported as unusable"
 
-    class _Res:
-        plan_note = "x"
-        scene_types_json = "["  # truncated exactly as observed
-
-    briefs: list[str] = []
-
-    class _Mod:
-        def __call__(self, **kw):
-            briefs.append(kw.get("user_brief", ""))
-            return _Res()
-
-    with patch.object(cg.dspy, "Predict", return_value=_Mod()), patch.object(
-        cg, "get_scene_type_lm", return_value=MagicMock(cache=False)
-    ), patch.object(cg.dspy, "context"):
-        out = cg._decide_brand_scene_types("SpaceX, aerospace", "")
-
-    assert len(out) >= 6
-    assert any(s["scene_type"] == "intro" for s in out)
-    assert any(s["scene_type"] == "outro" for s in out)
-    # The fallback must span content types, or downstream matching has nowhere
-    # to route a bullets/metrics/quote scene.
-    assert len({b for s in out for b in s["best_for"]}) >= 4
-    # And the retry must ADAPT rather than re-roll into the same truncation.
-    assert len(briefs) == 2
-    assert "CUT OFF" in briefs[1]
+    # ...and the caller's fallback must be a usable template.
+    fb = fallback_design_docs({"style": "aerospace", "category": "space"}, "SpaceX")
+    assert len(fb["scenes"]) >= 3
+    assert fb["scenes"][0]["role"] == "intro"
+    assert fb["scenes"][-1]["role"] == "outro"
+    assert fb["general_doc"].strip()
+    for s in fb["scenes"]:
+        assert s["doc"].strip(), "every fallback scene needs a real design doc"
 
 
-def test_scene_types_uses_predict_not_chain_of_thought() -> None:
-    """Guard the swap: ChainOfThought reintroduces the unbounded reasoning field."""
-    import inspect
+def test_design_docs_never_raise_on_garbage() -> None:
+    """Guard the contract: validation reports, it does not throw.
 
-    import dspy
+    generate_design_docs() catches model failures, but validation runs on
+    whatever text came back and must survive all of it.
+    """
+    from app.dspy_modules.design_doc import validate_design_docs
 
-    import app.services.code_generator as cg
-    from app.services.code_generator import DecideBrandSceneTypes
-
-    assert "reasoning" not in dspy.Predict(DecideBrandSceneTypes).signature.output_fields
-    assert "reasoning" in dspy.ChainOfThought(DecideBrandSceneTypes).predict.signature.output_fields
-
-    src = inspect.getsource(cg._decide_brand_scene_types)
-    assert "dspy.Predict(DecideBrandSceneTypes)" in src
-    assert "dspy.ChainOfThought(DecideBrandSceneTypes)" not in src
-    # The bounded plan note must come BEFORE the JSON, so the model still commits
-    # to a shape without being able to spend the response on prose.
-    assert list(DecideBrandSceneTypes.output_fields) == ["plan_note", "scene_types_json"]
+    for scenes in (None, "", "[", "{}", "null", "[1,2,3]", '[{"doc": 5}]'):
+        docs, repairs = validate_design_docs("g" * 200, scenes, "{}")
+        assert docs is None
+        assert isinstance(repairs, list)

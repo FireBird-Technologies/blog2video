@@ -33,6 +33,14 @@ class TemplateVersion(Base):
     image_box_aspect_ratios: Mapped[str | None] = mapped_column(Text, nullable=True)
     design_blueprint: Mapped[str | None] = mapped_column(Text, nullable=True)
     layout_prop_schemas: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Per-scene sample copy, for the same reason as the four above: it is
+    # indexed in lockstep with content_codes, so a rollback that restored the
+    # code without it would show one generation's copy over another's layouts.
+    scene_sample_content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Type sizes travel with the code for the same reason: they are computed
+    # from that generation's copy, so restoring code without them would land one
+    # generation's type scale on another's layouts.
+    scene_font_defaults: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Single-scene snapshots (P4). kind="scene_edit" + scene_role identifies a
     # draft produced by an AI edit of ONE scene; "full" is a whole-template

@@ -7,6 +7,7 @@ All scenes run in PARALLEL via asyncio.gather.
 """
 
 import asyncio
+import contextlib
 import functools
 import hashlib
 import json
@@ -16,14 +17,25 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from functools import partial
+from unittest.mock import patch
 
 import dspy
 
 from app.config import settings
-from app.dspy_modules import ensure_dspy_configured, get_custom_lm, get_scene_type_lm
+from app.dspy_modules import (
+    ensure_dspy_configured,
+    get_custom_lm,
+    get_scene_edit_lm,
+    get_scene_type_lm,
+)
+from app.dspy_modules.design_doc import (
+    MAX_SCENES,
+    fallback_design_docs,
+    generate_design_docs,
+)
 from app.models.custom_template import CustomTemplate
 from app.services.scene_code_critic import critique_scene_code
-from app.services.scene_visual_check import visual_check_scene
+from app.services.scene_content_schema import FIELDS_BY_TYPE, coerce_field
 from app.services.code_validator import (
     clean_code,
     validate_component_code,
@@ -32,7 +44,10 @@ from app.services.code_validator import (
 
 logger = logging.getLogger(__name__)
 
-REFINE_N = 2          # Max 3 attempts per scene (1 initial + 2 retries)
+# 5 attempts per scene (1 initial + 4 retries). Affordable only because
+# _suppress_offer_feedback() removes Refine's between-rollout advice call: a
+# failing scene costs 5 LLM calls here, the same as 3 attempts cost before.
+REFINE_N = 4
 MAX_SCENE_EDIT_RETRIES = 3  # Repair attempts for a single-scene AI edit (P4)
 
 
@@ -46,69 +61,6 @@ class SceneEditExhausted(RuntimeError):
 
 
 # ─── DSPy Signatures ─────────────────────────────────────────
-
-
-class DecideBrandSceneTypes(dspy.Signature):
-    """Given a brand's identity, decide what scene types its videos should have.
-
-    Output a JSON array of objects, each with:
-    - "id": short snake_case identifier
-    - "scene_type": "intro", "content", or "outro"
-    - "best_for": array of content types this scene handles best.
-      Must use values from: "bullets", "steps", "metrics", "code",
-      "quote", "comparison", "timeline", "plain"
-      (These are the content types the classification system outputs — other values won't match.)
-      Do NOT use "dataviz" — charts and tables are rendered by dedicated, separate
-      scenes that are always added automatically. Never create a content scene for
-      charts/graphs/tables.
-    - "description": one-line purpose
-
-    Structural requirements:
-    - Exactly 1 scene with scene_type="intro" and exactly 1 with scene_type="outro"
-    - The rest are scene_type="content"
-
-    Variety (THIS IS WHAT MAKES VIDEOS NOT LOOK REPETITIVE):
-    - Produce 5–8 DISTINCT content scene types. Each MUST have a DIFFERENT best_for
-      signature — never two scenes with the same best_for. Spread across the range;
-      do NOT let "bullets" and "metrics" dominate.
-    - Aim to cover, when the brand suits them: one bullets/steps scene, one metrics
-      scene, one quote/testimonial scene, one comparison scene, one timeline scene,
-      and one or two plain-narrative + image scenes. Pick the 5–8 that best fit THIS
-      brand's personality and category — a finance brand leans metrics/comparison/
-      timeline; an editorial brand leans quote/timeline/plain; a product brand leans
-      steps/comparison/bullets.
-    - Each "description" should hint at a DISTINCT visual treatment (e.g. "asymmetric
-      split hero", "offset stat stack", "full-bleed quote", "side-rail timeline") so
-      the downstream scene generator gives each scene its own composition.
-
-    Honoring the user's brief:
-    - If user_brief is non-empty and names specific scenes, content types, or an
-      ordering (e.g. "add a customer testimonial scene", "make one a code demo",
-      "start with a comparison"), HONOR those requests: include scene types that
-      cover them and respect any requested ordering, then fill the remaining slots
-      with brand-appropriate DISTINCT archetypes. Map requests to the allowed
-      best_for values (a testimonial → "quote"; a code walkthrough → "code"; etc.).
-    - If user_brief is empty, decide purely from the brand identity.
-    - Never let the brief push you below the structural requirements (still exactly
-      1 intro + 1 outro) or create a dedicated chart/table content scene.
-    """
-
-    brand_context: str = dspy.InputField(desc="Brand name, category, personality, visual patterns")
-    user_brief: str = dspy.InputField(
-        desc="The user's free-text prompt / uploaded-doc text describing the desired template (may be empty). Honor explicit scene requests stated here."
-    )
-    plan_note: str = dspy.OutputField(
-        desc=(
-            "AT MOST 2 SHORT LINES naming the shape of the set you are about to emit — the "
-            "brand's content character and how the content scenes differ. Then STOP and write "
-            "scene_types_json. This replaces free-form chain-of-thought deliberately: an "
-            "unbounded rationale consumed the output budget and the JSON array came back "
-            "truncated. Do not enumerate the scenes here; do not think out loud."
-        )
-    )
-    scene_types_json: str = dspy.OutputField(
-        desc='JSON array of scene type objects: [{"id": "...", "scene_type": "...", "best_for": [...], "description": "..."}]'
-    )
 
 
 class GenerateDesignSystem(dspy.Signature):
@@ -126,7 +78,7 @@ class GenerateDesignSystem(dspy.Signature):
     design system is the most common place those colours come from: a
     `--color-text-muted: #6B7280` here became a stubbed scene downstream.
     For secondary text and panel tints, say WHICH palette slot to use
-    (palette.muted, palette.panel, palette.border) rather than naming a hex —
+    (a muted text, a panel fill, a hairline) rather than naming a hex —
     the renderer derives those from bg and text and guarantees they are readable.
 
     Do NOT include: spring configs, animation physics, decorative elements, or entrance patterns.
@@ -134,558 +86,288 @@ class GenerateDesignSystem(dspy.Signature):
     """
 
     brand_context: str = dspy.InputField(desc="Brand identity: name, colors, fonts, style, patterns, personality")
-    design_system: str = dspy.OutputField(desc="Concise design system (under 2000 chars) with CSS values for backgrounds, cards, and text only. Every colour must be one of the brand's three, or a palette.<slot> name — never an invented hex.")
+    design_system: str = dspy.OutputField(desc="Concise design system (under 2000 chars) with CSS values for backgrounds, cards, and text only. Every colour must be one of the brand's three (or one of them at partial alpha) — never an invented hex.")
 
 
 class GenerateSceneCode(dspy.Signature):
     """Generate a single Remotion video scene as a React component.
 
-    Write a component assigned to `const SceneComponent`.
+    Write a component assigned to `const SceneComponent`. No imports — every API
+    below is already a global.
 
-    Technical constraints:
-    - NO import/export statements — all APIs are pre-injected as globals
-    - Component must be deterministic (same frame = same output)
-    - NEVER use: eval, fetch, document, window, process, require, import, setTimeout, setInterval
-    - ALWAYS add overflow: "hidden" on the outermost container
-    - ALL displayed text MUST come from props — NEVER hardcode sample/placeholder content
-    - NEVER hardcode specific names, product names, service names, item labels, or example data
-    - NEVER use fallback arrays with hardcoded data: do NOT write `props.bullets || [{name:'...'}]`
-      or `bullets && bullets.length ? bullets : [{title:'Feature 1'}]` or any similar pattern
-    - If props.bullets / props.steps / props.metrics is empty or undefined:
-      fall back to splitting props.displayText into sentences, or render props.displayText as a
-      single item — NEVER invent example items
-    - NEVER render sceneIndex/totalScenes as visible UI
-    - NEVER render contentType as visible text/label/badge
-    - THE THREE TEXT PROPS ARE DIFFERENT THINGS — do not substitute one for another:
-        props.displayText   the ON-SCREEN copy. This is your headline / body text.
-        props.sceneTitle    the scene's SHORT TITLE — a label, not a sentence. Good for an
-                            eyebrow, a section heading or a chapter marker above the headline.
-                            May be empty; guard it.
-        props.narrationText the VOICEOVER SCRIPT. It is spoken aloud, and is usually a full
-                            paragraph. NEVER RENDER IT AT ALL — not as a headline, not as a
-                            caption, not as an eyebrow, not anywhere. It is audio, not copy.
-                            Putting it on screen shows the viewer the words they are already
-                            hearing, usually duplicating displayText. This is validated: any
-                            JSX use of narrationText is rejected. If you want a small label,
-                            use props.sceneTitle.
+    ════════════════════════════════════════════════════════════════════════
+    THE TEN RULES. Every one is machine-checked; breaking any is an automatic
+    reject and a wasted rebuild. Satisfy all ten FIRST, then design.
 
-    Layout-specific props (props.layoutProps) — MAKE YOUR DESIGN EDITABLE:
-    The props above are the FIXED contract every scene receives. Anything else your layout
-    needs — a chapter numeral, a kicker/section label, a source or dateline, a footer note,
-    a unit or currency symbol, a small on/off styling choice — MUST be read from
-    props.layoutProps with a literal fallback, so the user can edit it in the scene editor:
+     1. TITLE AND DISPLAY TEXT — every scene renders BOTH, at the two different
+        sizes rule 7 defines. Copy these shapes exactly:
+            const { width, height } = useVideoConfig();
+            const colW = width * (isPortrait ? 0.86 : 0.44);  // THIS text's box
+            ...
+            <FitText fontSize={titleSize} minFontSize={24} maxLines={2}
+              containerWidth={colW} maxHeight={height*0.40}>{props.sceneTitle}</FitText>
+            <FitText fontSize={bodySize} minFontSize={20} maxLines={4}
+              containerWidth={colW} maxHeight={height*0.26}>{props.displayText}</FitText>
+        `titleSize` is props.titleFontSize (the TITLE only); `bodySize` is
+        props.descriptionFontSize (everything else) — both from rule 7. Never a
+        bare number here, never another default, and NEVER `titleSize` on the
+        display text: it is body copy, not a headline.
+        THE TITLE ALWAYS GETS THE TALLER BOX: FitText shrinks to its maxHeight,
+        so a title budgeted under the body renders smaller.
+        Never put whiteSpace:'nowrap' on a FitText: it voids maxLines.
+     2. FIT EVERY VARIABLE-LENGTH TEXT. props.quote and props.metrics values are
+        checked too. Any text whose length you do not control gets <FitText>.
+        EVERY <FitText> MUST BE TOLD ITS BOX — this is checked on each one:
+          containerWidth = the REAL width in px of the box the text sits in,
+            from useVideoConfig().width times your layout's fraction: a
+            half-split ~0.44, a full-bleed line 0.86, a 40% rail 0.4. Without it
+            FitText assumes 86% of the WHOLE frame — a ~2x overestimate inside a
+            column, so text renders far too big and breaks mid-word.
+          maxHeight = the height that text block actually owns, for anything
+            that can wrap (maxLines > 1). Without it there is no vertical
+            budget and long copy overflows downward off the frame.
+        Never guess these as bare pixel numbers — always derive them from
+        useVideoConfig() so they hold in BOTH orientations.
+     3. MOTION — at least TWO interpolate()/spring() calls driving visible
+        motion. interpolate ranges are NUMBERS ONLY (never '0%'); spring's
+        from/to are NUMBERS, never objects.
+     4. LOGO — on EVERY scene, guarded exactly like this:
+            {props.logoUrl && typeof props.logoUrl === 'string' && (
+              <Img src={props.logoUrl} data-logo="1" style={{width: 190, height: 'auto',
+                   maxHeight: 190, objectFit: 'contain'}} />
+            )}
+        Required and checked, but props.logoUrl is undefined on every scene:
+        the real brand mark is a corner watermark the render path composites
+        over the finished frame. Never build a layout around it, and keep the
+        bottom-right corner clear.
+     5. IMAGE — do exactly what `scene_doc` says and nothing else.
+        Its IMAGE section names one of three, and there is no fourth:
+          BACKGROUND — full frame, rendered FIRST at zIndex 0, content above at
+            zIndex 1 with position:'relative', and a BACKDROP OVERLAY between
+            them. A full-bleed slot written AFTER the content paints over the
+            layout and is rejected.
+            The overlay is ALWAYS derived from the brand canvas — a gradient or
+            wash built with withAlpha(bg, …), e.g.
+                background: `linear-gradient(180deg, ${withAlpha(bg, 0.25)} 0%,
+                             ${withAlpha(bg, 0.65)} 62%, ${withAlpha(bg, 0.88)} 100%)`
+            NEVER a black or white wash and never a raw rgba() literal: a black
+            scrim on a cream brand reads as a different template. Darken the
+            overlay, never the <Img> — the photo stays fully opaque
+            (objectFit:'cover', no opacity reduction).
+          HALF — a BOUNDED box: 50% width x 100% height landscape, 100% x 50%
+            portrait, on the side named. It is a normal flex/grid child. Never
+            position:'absolute', never inset:0, never full-bleed — those make it
+            a BACKGROUND, which is a different mode and is rejected here.
+          NONE — declare no hasImage, render no props.imageUrl, reserve no slot.
+        When there IS an image:
+            const hasImage = !!(props.imageUrl && typeof props.imageUrl === 'string');
+        and put data-content-img="1" on the slot's CONTAINER div, never on <Img>.
+     6. COLOUR — three roles, read once at the top, and NEVER a hex literal for
+        anything you draw:
+            const bg = props.brandColors.background;
+            const text = props.brandColors.text;
+            const accent = props.brandColors.accent;
+        BACKGROUND — the root fill is always `bg` (or the brand gradient when
+          props.brandColors.bg2 exists). Never repaint the whole frame another
+          colour: every scene shares one canvas, or the background changes as
+          the viewer scrubs.
+        TEXT — `text` is the colour of TYPE. EVERY string you paint uses it:
+          headline, body, bullets, labels, captions, numerals, and anything from
+          props.layoutProps. A kicker you invented is still text. On any surface
+          that is not `bg`, use readableOn(thatSurface) so the type still clears
+          4.5:1 against what is behind it.
+        ACCENT — `accent` is for FILLS and SHAPES ONLY: rules, underlines,
+          markers, borders, bars, dots, panel edges, icon strokes. It is NOT
+          contrast-corrected, so using it AS TYPE is how the most important
+          number on a frame becomes the least readable thing on it. For
+          accent-coloured type: color: ensureContrast(accent, bg).
+        Never introduce a fourth hue — withAlpha() gives you the same hue
+        softer, and that is the right move for a tint, a scrim or a muted label.
+        HARD GATE, and the most common rejection: colours named in the
+        brand_context or a doc ("vivid blue cards") describe the brand's
+        WEBSITE, not your palette. There are three. Use withAlpha(accent, …)
+        where you wanted a second hue.
+     7. TYPE SIZE — THERE ARE EXACTLY TWO SIZES ON THE FRAME AND NO THIRD.
+        Both defaults are CHECKED NUMERICALLY. Write them once, at the top:
+            const titleSize = props.titleFontSize ?? (isPortrait ? 48 : 68);
+            const bodySize  = props.descriptionFontSize ?? (isPortrait ? 30 : 34);
+        titleSize sizes props.sceneTitle and NOTHING ELSE. bodySize sizes
+        EVERYTHING else: the display text, every content prop, and every label,
+        caption, kicker and props.layoutProps string.
 
-        const chapterNumber = props.layoutProps?.chapterNumber ?? "01";
-        const kicker        = props.layoutProps?.kicker ?? "THE OPENING BLOW";
-        const source        = props.layoutProps?.source ?? "";
+        props.sceneTitle IS NOT AN EYEBROW. Sizing it off bodySize is REJECTED —
+        it puts the title at body scale and the Title slider then moves nothing.
+        A small kicker above it is a SEPARATE string, from props.layoutProps.
 
-    Rules:
-    - The fallback is what renders by default, so the scene looks finished with no edits.
-      Choose a real, on-brand value — never a placeholder like "TODO" or "text here".
-    - Read each key with `props.layoutProps?.<key>`. A key you declare but never read this
-      way is dropped, because it would be a dead field in the editor.
-    - Use camelCase keys that describe MEANING (chapterNumber, dateline), not styling
-      (fontSize, marginTop). Sizes, colors and fonts come from the theme, never from here.
-    - Do NOT re-declare anything the fixed contract already provides (displayText,
-      sceneTitle, narrationText, bullets, metrics, quote, imageUrl, brandColors, …).
-    - Aim for 2-5 such props on a typical layout. Zero is acceptable ONLY for a layout that
-      genuinely renders nothing beyond the fixed contract; most editorial layouts have at
-      least a numeral, a label or a dateline that a user would reasonably want to change.
+        Four things are enforced:
+          a. BOTH read their prop with ??. A hardcoded size makes the editor's
+             sliders do nothing.
+          b. BOTH defaults are `isPortrait ? P : L` ternaries, never one flat
+             number.
+          c. title > body in BOTH orientations. Aim ~2.2x landscape, ~1.7x
+             portrait.
+          d. Every default sits inside its band, INCLUSIVE:
+                 title  landscape 48-88   portrait 36-60
+                 body   landscape 28-44   portrait 26-38
+             PORTRAIT IS SMALLER THAN LANDSCAPE HERE — the opposite of the
+             usual convention, and the most common reason a scene is rejected.
 
-    Content array rendering (CRITICAL — THIS IS THE #1 BUG TO AVOID):
-    - When scene_purpose best_for includes "steps": MUST use props.steps to render a list.
-      Pattern: const items = (props.steps && props.steps.length) ? props.steps : [props.displayText];
-      Then: {items.map((step, i) => <div key={i} style={{...}}>...</div>)}
-      Each step is its OWN visible row/card — NEVER dump all steps into one paragraph.
-    - When scene_purpose best_for includes "bullets": MUST use props.bullets to render a list.
-      Pattern: const items = (props.bullets && props.bullets.length) ? props.bullets : [props.displayText];
-      Then: {items.map((bullet, i) => <div key={i} style={{...}}>...</div>)}
-      Each bullet is its OWN visible row/card — NEVER dump all bullets into one paragraph.
-    - Stagger each item's entrance: opacity and translateX animated with delay = i * 12 frames.
+        THERE IS NO props.sceneTitleFontSize — reading it is rejected, and a
+        third constant is a slider the editor does not have. Every other size is
+        a RATIO of `titleSize` or `bodySize` (a small label is bodySize * 0.8),
+        never a second literal. Nothing below 22px: this is a 1920x1080 video
+        watched across a room and crushed by H.264.
+        WRAP THE TEXT REGION IN <FitBlock> so title and body shrink TOGETHER
+        when the pair overflows:
+            <FitBlock style={{display:'flex', flexDirection:'column', gap: 18}}>
+              <FitText fontSize={titleSize} minFontSize={24} maxLines={2}>…</FitText>
+              <div style={{fontSize: bodySize}}>…</div>
+            </FitBlock>
+        A <FitText> fits its OWN box; only <FitBlock> sees that a title and a
+        paragraph each fit while the pair overflows the column.
+     8. FONTS — there are exactly TWO font props and no others:
+            fontFamily: props.headingFont || "inherit"   // headings, display type
+            fontFamily: props.bodyFont || "inherit"      // body, labels, captions
+        The fallback is the literal "inherit", NEVER a font name. Any scene that
+        renders body copy must bind props.bodyFont somewhere — a scene whose
+        headings use the template's face while its body falls back to the system
+        sans reads as two different designs.
+        THERE IS NO MONO FONT PROP. For code, tickers, tabular figures or any
+        other monospaced treatment, write the GENERIC family only:
+            fontFamily: 'monospace'
+        Never a named face — 'Geist Mono', 'JetBrains Mono', 'SF Mono' and the
+        like are not loaded by the renderer, so they silently fall back to the
+        system sans and the scene loses the exact distinction it asked for.
+     9. ORIENTATION — declare it and branch on it:
+            const isPortrait = props.aspectRatio === 'portrait';
+        Render genuinely different JSX per orientation, not one tree with tweaked
+        numbers. Any list/grid MUST branch. Cap every mapped array:
+            (props.bullets ?? []).slice(0, isPortrait ? 3 : 4)
+    10. NEVER — props.narrationText on screen (it is the voiceover);
+        props.contentType as visible text; scene counters ("01 / 09"); invented
+        sample copy or fallback arrays of fake data; overflow other than
+        overflow:'hidden' on the root; any pre-injected name beyond FitText,
+        FitBlock, readableOn, ensureContrast, withAlpha (and SocialIcons in the
+        ending).
+    ════════════════════════════════════════════════════════════════════════
 
-    Images & Logo (MANDATORY — every scene MUST handle these — NO exceptions for intro/outro):
-    - EVERY scene (intro, content, outro) MUST support content images via props.imageUrl. There are
-      NO image-less scene types — the validator REJECTS any scene that does not declare `hasImage`
-      and render props.imageUrl when present. Brand intro/outro scenes still support images
-      (e.g. hero photo behind brand logo, founder photo, product shot, etc.).
-    - ALWAYS check props.logoUrl safely and render it when present:
-      {props.logoUrl && typeof props.logoUrl === 'string' && (
-        <Img src={props.logoUrl} data-logo="1" style={{width: 190, height: 190, objectFit: "contain", ...}} />
-      (~10% of the 1920px frame. 80px reads as a favicon at 1080p — size the logo
-       against the CANVAS, not against a UI mental model.)
-      )}
-      ALWAYS set explicit width + height on logo Img so layout never collapses if image fails to load.
-      ALWAYS add data-logo="1" on the logo Img element (this distinguishes it from content images).
-      Use it as a brand watermark (corner), header element, or animated accent — but ALWAYS render it.
-    - ALWAYS check props.imageUrl safely and render it prominently when present — NOT just a dim background.
-      Use: const hasImage = !!(props.imageUrl && typeof props.imageUrl === 'string');
-      Techniques: Ken Burns zoom (scale 1→1.08 over duration with slight pan), radial vignette reveal,
-      slit/clipPath reveal, or hero card with perspective rotation. Always use objectFit:"cover".
-      Layer gradient overlays for text readability: linear-gradient(to top, rgba(bg,0.95) 0%, transparent 70%)
-      plus radial-gradient vignette plus accent color wash with mixBlendMode:"overlay".
-      ALWAYS set explicit width + height on image Img elements.
-    - Image focus & zoom (MANDATORY when rendering props.imageUrl):
-      If using <Img> element: add data-content-img="1" and include in style:
-        objectFit: "cover", objectPosition: props.imageObjectPosition || "50% 50%",
-        transform: `scale(${props.imageZoom ?? 1})`, transformOrigin: props.imageObjectPosition || "50% 50%"
-      If using a <div> with backgroundImage: add data-content-img="1" and include in style:
-        backgroundSize: "cover", backgroundPosition: props.imageObjectPosition || "50% 50%",
-        transform: `scale(${props.imageZoom ?? 1})`, transformOrigin: props.imageObjectPosition || "50% 50%"
-      This lets users adjust image focus/zoom without regenerating the template.
-    - ADAPT LAYOUT based on the `hasImage` flag (declared above):
-      WITH image: split layout (image on one side, text on other). Example: width: hasImage ? "50%" : "100%"
-      WITHOUT image: text container MUST expand to width: "100%" to fill the full scene. Never leave an empty 50% gap.
-      Both modes must look intentionally designed — not like something is missing.
+    DESIGN FROM `scene_doc`. It describes THIS scene's layout, focal element,
+    type treatment and motion beat, in both orientations. Build what it says —
+    it was written for this brand. `general_doc` is the shared identity every
+    scene inherits; `built_so_far` lists the other scenes, and yours must be a
+    different composition from all of them.
 
-    Aspect-ratio-aware layout (MANDATORY — different orientations need different layouts):
-    - The same component renders into BOTH a 1920x1080 landscape canvas AND a 1080x1920 portrait canvas.
-      A landscape side-by-side layout (image 50% width × full height) becomes a tall narrow strip in
-      portrait if not branched — that looks broken. ALWAYS branch on aspectRatio.
-    - REQUIRED top-of-component declarations (BOTH must be present together — neither replaces the other):
-        const hasImage = !!(props.imageUrl && typeof props.imageUrl === 'string');
-        const isPortrait = props.aspectRatio === 'portrait';
-      Then combine them — there are FOUR layout cases to design for:
-        (1) hasImage  && !isPortrait  → landscape split (image side, text side)
-        (2) hasImage  &&  isPortrait  → portrait stacked (image top, text bottom)
-        (3) !hasImage && !isPortrait  → landscape full-width text, no empty image gap
-        (4) !hasImage &&  isPortrait  → portrait full-width text, no empty image gap
-    - Concrete recipe when hasImage:
-        Landscape branch: flexDirection: 'row', image container width: '50%' height: '100%';
-        text container width: '50%' height: '100%'.
-        Portrait branch:  flexDirection: 'column', image container width: '100%' height: '45%' (top);
-        text container width: '100%' height: '55%' (bottom).
-      The element with data-content-img="1" lives ONLY inside the hasImage branch.
-    - Use isPortrait to also choose font sizes (portrait often needs slightly smaller headings since
-      the canvas is narrower than landscape).
-    - Declare BOTH `isPortrait` and `hasImage` at the top and branch on them together — render
-      different JSX trees per case rather than reusing one tree (a landscape tree in portrait looks broken).
-    - When props.imageUrl is ABSENT (hasImage is false): fill the scene with a deliberate backdrop
-      (see the BACKDROP spec below) + decor/geometry — never leave an empty 50% hole. Respect the
-      brand_context background instruction: an inverted/dark PANEL is a solid fill (always allowed,
-      even for "solid backgrounds only" brands); only true multi-stop gradient *backgrounds* are gated.
-    - If props.brandImages exists (Array.isArray(props.brandImages)), render gallery/carousel elements from it
-    - IMPORTANT: content scenes SUPPORT images, but very often render WITHOUT one — at project
-      creation, during preview, and for any scene that simply has no image assigned. So !hasImage
-      is a COMMON state, not a rare edge case. Both branches must be first-class:
-        • hasImage  → the split layout (image one side, text the other) looks great.
-        • !hasImage → a fully-composed, full-width layout in its own right — NEVER a split with the
-          image half left blank, and never a centered column that reserves space for a missing image.
-      Design the no-image branch to look just as intentional as the with-image one.
-      RECLAIM THE FULL WIDTH. If the with-image branch gives the text column 35%, the no-image
-      branch gives it 90-100% — not 70%. Widening only part-way is the single most common way
-      generated scenes end up with a third of the frame empty, and it is scored:
-          width: showVisualSlot ? '35%' : '100%'      ✅
-          width: showVisualSlot ? '35%' : '70%'       ❌ leaves 30% bare
-      If the extra width alone would leave the copy stranded, spend it: a larger headline, a
-      typographic anchor, a rule, or an oversized ghost numeral behind the text.
-    - Missing image handling is a BUG — the validator REJECTS a scene that does not declare
-      hasImage and branch on it, and the reward function penalizes an image-capable layout
-      with no data-content-img slot
+    CRAFT — the measured defaults of this product's hand-built templates. Use
+    them unless `scene_doc` says otherwise; it owns composition, these own craft.
+      SAFE AREA   horizontal inset 6-8%; vertical 12-14% portrait / 5-7%
+                  landscape. Content occupies 0.46-0.78 of the frame, never 1.0.
+      TYPE        rule 7 owns the numbers and the two-tier rule. A hero NUMERAL
+                  (a single stat, not the title) may go to 240.
+      TRACKING    title -0.01 to -0.05em; small caps labels +0.06 to +0.2em.
+      LEADING     title 1.0-1.15; body 1.3-1.5; numerals 0.95-1.05.
+      WEIGHT      title 900; body 300-400; label 600-700.
+      MOTION      spring {damping:20, stiffness:80} default;
+                  {damping:16, stiffness:210, mass:1.2} for a slam.
+                  Entrances: primary at frame 0-3, secondary +10, tertiary +25;
+                  fades 12-20 frames; stagger i*3 (dense) or i*8 (cards).
+                  EXIT at durationInFrames - 25, over 12-20 frames.
+      SCRIM       3 stops, 180deg, inflection at 62%:
+                  0.25 @0% -> 0.08 @30% -> 0.65 @62% -> 0.88 @100%.
+      CAPS        metrics 3 · stack 3 · stats 4 · timeline 5 · code 12 lines.
+      OVERFLOW    every flex child holding text sets minWidth: 0; running text
+                  sets overflowWrap:'break-word'; fixed-size decals flexShrink:0.
 
-    Stock-footage clip (props.hasVideo) — a THIRD state, distinct from both hasImage cases:
-    - const hasVideo = !!props.hasVideo;
-      When true, a background video clip is ALREADY being rendered behind this component by the
-      player — you do NOT render the clip, and props.imageUrl will be undefined even though this is
-      NOT the "no visual" case. Treat hasVideo exactly like hasImage for LAYOUT PURPOSES: use the
-      same split/stacked geometry (landscape 50/50 row, portrait 45/55 stacked) and still render the
-      slot container marked data-content-img="1" (see the CRITICAL rule below for exactly where that
-      marker goes) — but leave that container fully transparent (background: 'transparent', no fill,
-      no <Img>) so the clip underneath shows through. NEVER render the hasImage-false (full-width
-      text) branch when hasVideo is true — that layout has no slot for the clip and the clip would
-      end up hidden behind opaque text/background.
-    - Priority when branching: check hasVideo BEFORE falling back to the hasImage-false branch:
-        const showVisualSlot = hasImage || hasVideo;  // reserve the image/video geometry
-        const showImageContent = hasImage && !hasVideo;  // only render <Img> when there really is one
-      Use `showVisualSlot` wherever you'd normally check `hasImage` for LAYOUT (split vs full-width),
-      and `showImageContent` only to decide whether an actual <Img> is painted inside the slot.
-    - CRITICAL — WHERE data-content-img="1" GOES: put it on the slot's CONTAINER <div> (the element
-      that carries the slot's width/height/position), and render that container whenever
-      `showVisualSlot` is true — NOT on the <Img>, and NEVER inside a `{showImageContent && ...}`
-      guard. If the marker only exists on the <Img>, it disappears in the hasVideo case (no <Img>
-      is painted) and the player cannot find the slot to align the clip to — the clip then falls
-      back to covering the whole frame. Correct shape:
-        {showVisualSlot && (
-          <div data-content-img="1" style={{ width: ..., height: ..., position: 'relative',
-                                             overflow: 'hidden', background: 'transparent' }}>
-            {showImageContent && <Img src={props.imageUrl} style={{width:'100%',height:'100%',
-                                     objectFit:'cover', ...}} />}
-          </div>
-        )}
-    - THE SLOT MUST NOT COVER THE SCENE. If the slot is a full-bleed layer
-      (position:'absolute' at width:'100%' height:'100%', inset:0, or AbsoluteFill) it MUST be
-      rendered BEFORE the text/content in JSX order AND carry a lower zIndex than the content —
-      two siblings with no zIndex paint in DOM order, so a full-bleed image written after the
-      content hides every layout element behind a bare photo. Either:
-        (a) give the slot a BOUNDED box (a column, card or panel — the normal case), or
-        (b) make it a deliberate full-bleed backdrop: render it FIRST, put `zIndex: 0` on it and
-            `zIndex: 1` (or higher) + `position: 'relative'` on the content layer, and lay a
-            scrim between them so the copy stays readable over the photo.
-      A full-bleed slot with no scrim and no zIndex ordering is always a bug.
-    - When hasVideo is true the slot must be visually EMPTY: no <Img>, no background fill, no opaque
-      overlay/scrim inside it — the clip is painted behind it and shows through.
-    - The component's OUTERMOST <AbsoluteFill> background must ALSO be transparent when hasVideo is
-      true (`background: hasVideo ? 'transparent' : <your normal bg>`). An unconditional
-      backgroundColor/gradient there sits on top of the clip and hides it completely.
-    - NEVER pass a video URL as props.imageUrl — the player never does this; a real image is always
-      a real image.
+    PROPS the scene receives:
+      sceneTitle       THE SCENE'S TITLE, 5-7 words — its main label and the
+                       LARGEST TYPE on the frame. Always rendered, at titleSize.
+      displayText      supporting copy, 1-2 sentences. Always rendered, at
+                       bodySize, alongside the content prop and the image.
+      narrationText    the VOICEOVER — never rendered
+      imageUrl? imageObjectPosition? imageZoom? hasVideo?
+      logoUrl? brandImages?
+      brandColors      { primary, accent, background, text, bg2? }
+      aspectRatio      'landscape' | 'portrait'
+      sceneIndex totalScenes contentType
+      bullets? metrics? steps? timelineItems? quote? quoteAuthor?
+      comparisonLeft? comparisonRight? codeLines? codeLanguage?
+      chartTable? chartType? chartSummary?
+      titleFontSize? descriptionFontSize? headingFont? bodyFont?
+      layoutProps?     YOUR OWN EDITABLE FIELDS — DECLARE 2-5 ON EVERY SCENE.
+                       Every string this scene invents — a kicker, a panel
+                       label, a caption, a footnote — is read as
+                         props.layoutProps?.kicker ?? "KEY POINTS"
+                       never inlined as a literal. Those become the only fields
+                       a user can edit; a hardcoded string is frozen forever.
+                       camelCase, naming MEANING not styling. A key you declare
+                       but never read this way is dropped.
+      ctaProps?        ENDING SCENE ONLY — see the ending contract in scene_doc
 
-    Typography (MANDATORY for readability at 1920×1080):
-    - NEVER hardcode fontFamily strings like "Inter" or "Roboto" — fonts are passed as props.
-      For headings/titles use: fontFamily: props.headingFont || "inherit"
-      For body/description text use: fontFamily: props.bodyFont || "inherit"
-      This lets users change fonts from Settings without regenerating templates.
-      THE FALLBACK MUST BE "inherit" — never a named family, not even beside the prop.
-      `props.headingFont || "Playfair Display, serif"` is REJECTED: the named face is
-      what this scene renders whenever the prop is absent, so two scenes with different
-      fallbacks put two different typefaces in one template. "inherit" resolves to the
-      template's real face, which the renderer supplies.
-    - ALL FONT SIZES COME FROM THE `art_direction` FIELD. It states a min-max px range for the
-      headline, body and labels, per orientation, for THIS template. Use those numbers; do not
-      substitute a size of your own and do not treat the bottom of a range as the target.
-      (Sizes are not stated here because they differ per template — a single house scale applied
-      to every brand is what made body copy uniformly tiny and headlines overflow their frame.)
-    - MANDATORY — the headline MUST read props.titleFontSize, and body copy MUST read
-      props.descriptionFontSize, each with your art_direction size as the fallback:
-          <FitText fontSize={props.titleFontSize ?? <headline max from art_direction>} ...>
-          fontSize: (props.descriptionFontSize ?? <body size from art_direction>)
-      These are the editor's Typography sliders. A hardcoded headline size makes the slider do
-      nothing when the user drags it. This is validated: a headline that renders
-      props.displayText without referencing props.titleFontSize is rejected.
-    - Do NOT hardcode tiny font sizes (e.g. 12–18px) for primary readable content, and do NOT
-      exceed the top of the art_direction range — that is what breaks a headline mid-word.
+    CONTENT ARRAYS: when props.bullets / steps / metrics / timelineItems is
+    present, render each item as its OWN row or cell — never one paragraph —
+    staggered by i*12 frames. When absent, fall back to splitting
+    props.displayText into sentences, or render it as one item. NEVER invent
+    example data, and never write `props.bullets || [{...}]`.
 
-    Overflow safety (MANDATORY — content must FIT the frame in BOTH orientations):
-    The polished built-in templates never let text or rows escape the frame, and neither may you.
-    overflow:'hidden' on the root only CLIPS spill — it does NOT make content fit. The frame is
-    1920×1080 (landscape) or a much narrower 1080×1920 (portrait); the SAME copy must fit both.
-    - Every flex CHILD that holds text MUST set `minWidth: 0`. Flex items default to min-width:auto,
-      which lets long words/titles push past the container instead of wrapping — this is the #1 cause
-      of text spilling off-frame. Add `minWidth: 0` to the text column of every split/row layout.
-    - Every block of running text MUST set `overflowWrap: 'break-word'` (and `wordBreak: 'break-word'`)
-      so a long unbroken word breaks instead of overflowing.
-    - The primary headline / displayText and any BIG numeral should use <FitText> (auto-shrinks to
-      fit, never overshoots) rather than a bare element with a fixed fontSize — portrait especially.
-    - CAP every list before mapping: `const items = (props.bullets ?? []).slice(0, isPortrait ? 4 : 5);`
-      (metrics/steps/timelineItems likewise — portrait fits FEWER rows). NEVER map an uncapped array;
-      a long list overshoots the bottom of the frame. The kit StatGrid/MetricRow already cap internally.
-    - Fixed-size decals (markers, dots, icons, the logo Img) MUST set `flexShrink: 0` so they don't get
-      squeezed; the flexible text beside them gets `flex: 1, minWidth: 0`.
-    - Bound any stacked-rows block with a sensible gap and, if many rows, `maxHeight: '100%'` + smaller
-      per-row sizing in portrait. When in doubt, fewer items at a larger size beats cramming everything.
-    - Portrait is NARROW: scale headings down (use isPortrait to pick a smaller fontSize, or rely on
-      <FitText>), stack instead of side-by-side, and reduce the item count. A landscape layout reused
-      verbatim in portrait WILL overshoot — that is the exact bug to avoid.
-    - COMPOSE OUTWARD FROM THE CENTRE. Any row or stack of N items MUST be centred in its container
-      (`justifyContent: 'center'`), never packed against an edge, so three items read as a deliberate
-      centred group rather than a left-aligned list with dead space on the right. The item count is
-      NOT known in advance — the same component renders 2 items and 5 — so the arrangement has to
-      look composed at every count, which edge-packing never does.
-    - Let items SIZE TO THEIR CONTENT: `flex: '0 1 auto', minWidth: 0` — not `flex: 1` with a
-      `minWidth`. `flex: 1` stretches two cards across the whole frame AND overflows at five, because
-      the minimums add up past the frame width before justifyContent can centre anything. Add
-      `flexWrap: 'wrap'` to any row that can hold more than three items.
+    STOCK FOOTAGE (props.hasVideo): a clip is already painted behind the
+    component. Keep the image slot's geometry and its data-content-img="1"
+    marker, leave it EMPTY (no <Img>, no backgroundColor, no nested
+    gradient div), and make the root transparent. props.imageUrl is
+    undefined here — never render the hasImage-false full-width branch,
+    which has nowhere for the clip.
 
-    Motion (feel alive WITHOUT becoming busy — ONE dominant beat + quiet support):
-    - ONE signature beat per scene (a headline pop OR a panel rise OR a count-up — NOT five
-      competing animations); everything else is quiet supporting motion.
-    - Entrances stagger by 8-14 frames (lists: delay = i*12) — never animate everything at once.
-    - Title entrance combines transforms (translateY + scale + opacity via spring), not a bare fade;
-      scale-punch a key word for emphasis (spring damping:14, stiffness:220).
-    - Text reveals: split words/lines, stagger with spring(frame - i*8).
-    - Count-ups: interpolate(frame, [start, end], [0, target]) — tabular figures, prefix/suffix kept,
-      primary stat in the accent with a grow-in underline/marker.
-    - Clean EXIT 20-30 frames before durationInFrames (fade / scale down / slide) so cuts read intentional.
-    - Spring configs: snappy={damping:14,stiffness:220}, smooth={damping:20,stiffness:70}, fast={damping:22,stiffness:140,mass:1.2}.
+    AVAILABLE GLOBALS (do NOT import, do NOT redeclare):
+      React · useCurrentFrame() · useVideoConfig() -> {fps, width, height,
+      durationInFrames} · interpolate · spring · Easing · AbsoluteFill ·
+      Sequence · Img · random(seed)
+      FitText · FitBlock · readableOn(bg) · ensureContrast(fg, bg) ·
+      withAlpha(hex, a) · SocialIcons (ending scene only)
+    Everything else you build yourself from divs, spans and inline styles.
 
-    Quality bar (emulate the craft of polished editorial/data video — adapt everything to
-    brand_context; never copy any specific brand's colors/fonts/layouts):
-    - Hierarchy: sizes scale off one base — headline ≈ 2× body, big numerals ≈ 3× body; labels
-      small-caps, uppercase, letter-spaced (~0.12em), muted. ONE clear focal element per scene.
-    - Negative space is STRUCTURED, not leftover. Space earns its place by separating groups
-      and framing the focal element; a large region with nothing in it is a HOLE, not
-      restraint. Concretely: the composed content (type, panels, decor, artifact) should
-      occupy roughly 55-75% of the safe area. Below that the frame reads unfinished — which
-      is the most common defect in generated scenes — above it, cluttered.
-    - ONE decorative system at low intensity (not several), hairline borders, a single accent.
-    Prefer the craft-kit components (they already encode these patterns) over re-deriving by hand.
-
-    Available APIs (pre-injected as globals, do NOT import):
-    - React, React.createElement, React.useState, React.useMemo
-    - useCurrentFrame(), useVideoConfig() → { fps, width, height, durationInFrames }
-    - interpolate(frame, inputRange, outputRange, options?) — BOTH ranges must be
-      NUMBERS only. Never put strings/units inside (NOT ['0%','100%']); interpolate
-      the number then add the unit in the style: width: `${interpolate(p,[0,1],[0,100])}%`
-    - interpolate's FIRST argument (the progress value, e.g. `frame`, `frame - item.delay`,
-      `frame - i*12`) MUST always evaluate to a finite number — "Cannot interpolate an input
-      which is not a number" is a hard runtime crash that takes down the whole scene. This
-      breaks whenever the value is derived from a field on a mapped item that might be
-      undefined (e.g. `item.delay`, `entry.offset`) rather than the loop index `i` itself.
-      When interpolating per-item inside a `.map((item, i) => ...)`, ALWAYS derive the
-      progress value from `i` (e.g. `frame - i * 12`), never from a property read off `item` —
-      props arrays (props.timelineItems, props.steps, etc.) are free-form data and are not
-      guaranteed to carry timing fields.
-    - spring({ frame, fps, config: { damping, stiffness, mass }?, from?, to? })
-    - Easing: Easing.bezier(x1,y1,x2,y2), Easing.inOut(Easing.ease)
-    - AbsoluteFill, Sequence, Img, random(seed)
-
-    Craft kit (pre-injected globals — OPTIONAL building blocks, do NOT import):
-    These are tested, brand-themed helpers. They are ALREADY in scope — use them
-    directly. NEVER redeclare them (no `const { staggerEntrance, panelRise } = {...}`
-    and no `import`) — that shadows the global and crashes with a TDZ error.
-    Use the ones that FIT this scene's
-    content — they are never mandatory and must NOT all be crammed into one scene.
-    A plain narrative scene needs none of them; reach for one only when the
-    content calls for it. They automatically pick up the brand palette/fonts, so
-    prefer them over hand-rolling the equivalent (especially charts).
-    - <SceneFrame brandColors={props.brandColors} aspectRatio={props.aspectRatio}
-        fonts={{heading: props.headingFont, body: props.bodyFont}} eyebrow? footer?
-        edge? noFade?>...</SceneFrame>
-        Optional scaffolding: brand background (auto solid/gradient), padding,
-        clean fade in/out, optional chrome. If you use it, put your scene content
-        inside; kit components below then auto-read the brand palette via context.
-        You may also build your own layout WITHOUT SceneFrame — then pass colors
-        explicitly. Both are fine.
-    - <CustomChart chartTable={props.chartTable} chartType={props.chartType} /> —
-        themed line/bar/histogram. Charts and tables are normally their OWN dedicated
-        scenes (added automatically), so a content scene rarely needs this. Render it
-        ONLY when props.chartTable is actually present; NEVER hand-roll a chart and
-        NEVER invent chart data.
-    - <StatGrid items={props.metrics} /> / <MetricRow items={props.metrics} /> /
-        <StatCard item={...} primary /> — animated count-up stat displays. Use when
-        props.metrics is present.
-    - <CountUpValue value="$1.2M" /> — single animated number (prefix/suffix/decimals preserved).
-    - <RevealText text={...} mode="word|char|line|fade|blur|typewriter" /> — staggered text
-        reveal (mode="blur" is the snappy/energetic personality; word/line are smooth/calm;
-        typewriter types characters in with a blinking cursor — editorial/terminal feel).
-    - <HighlightPhrase text={...} phrase={...} /> — accent underline on a key phrase.
-    - <FitText fontSize={props.titleFontSize ?? 75} minFontSize={48} maxLines={3}>{props.displayText}</FitText>
-        — auto-shrinking text that CANNOT overshoot its box (deterministic, render-safe). Use it for
-        the primary headline / displayText and for any big numeral, ESPECIALLY in portrait where the
-        canvas is narrow. It already applies minWidth:0 + overflowWrap, so wrap long titles in it
-        instead of a bare <div> with a fixed fontSize.
-    - <CodeBlock lines={props.codeLines} language={props.codeLanguage} /> — themed, SAFE
-        code panel. Renders ONLY the given lines; use it for "code" scenes instead of
-        hand-rolling. NEVER invent code lines or touch process.env / runtime APIs.
-    - <KenBurnsImage src={props.imageUrl} objectPosition={props.imageObjectPosition}
-        zoom={props.imageZoom} scrim="bottom" /> — image with slow push + reveal,
-        honoring the user's focus/zoom. (Satisfies the image-rendering requirement.)
-    - <Decor system="dots|grid|orbs|starfield|rules|vignette|hairlines|mesh|ticker|concentric|wash"
-        intensity={0.4} /> — restrained background atmosphere. Prefer THIS brand's signature
-        decor system (named in the BRAND SIGNATURE block) so the template reads as its own persona.
-    - <SignatureArtifact motion="<this brand's artifactMotion>" intensity={0.5} /> — the brand's
-        recurring ANIMATED motif (its fingerprint): a drawn-in corner frame, drifting streak field,
-        kinetic ticker, big ghost glyph, pulse ring or accent sweep, picked from the artifactMotion
-        word. Use ONE per scene to carry the brand thread — PROMINENT in the intro, a restrained
-        ECHO (lower intensity) in content, a quiet callback in the outro. (Individual pieces are also
-        available directly: CornerFrame, StreakField, KineticTicker, BigGlyphBackdrop, PulseRing,
-        AccentSweep — but SignatureArtifact is the brand-correct default.)
-    - Helpers: useKit() → {{palette, type, isPortrait, fonts}}; derivePalette(colors);
-        withAlpha(hex, a); staggerEntrance(frame, i); headlinePop(frame, fps);
-        panelRise(frame, fps); countUpString(value, frame); cardStyle(palette, variant).
-    - THE TEMPLATE HAS EXACTLY THREE BRAND COLOURS: bg, text, accent.
-        TEXT is palette.text (or palette.muted for secondary copy).
-        BACKGROUNDS are palette.bg.
-        EVERYTHING ELSE — rules, markers, underlines, indicators, icon fills,
-        chart series, progress bars, the active state of anything — is
-        palette.accent.
-        NEVER introduce a fourth hue. Do not hand-pick a lighter/darker shade of
-        the accent, do not reach for a semantic red/green/amber, and do not write
-        a hex literal for anything you are drawing. The validator rejects it.
-        Text sitting ON an accent fill uses readableOn(palette.accent) or
-        palette.accentText — never a hand-mixed colour.
-    - PALETTE slots (from useKit().palette) — which are safe as TEXT:
-        palette.text        primary copy. Contrast-corrected against the canvas.
-        palette.muted       secondary copy, labels, eyebrows. Contrast-corrected.
-        palette.accentText  accent-coloured TYPE. Contrast-corrected.
-        palette.accent      the raw brand accent — FILLS ONLY (rules, markers, shapes).
-        palette.panel/header/border/grid   surfaces and hairlines, never text.
-    - CONTRAST: readableOn(bgHex) → the more legible of white / near-black, measured.
-        contrastRatio(a, b) → 1..21 (AA body text needs >= 4.5) and
-        ensureContrast(fg, bg) → fg nudged until it clears AA.
-        readableOn is how you guarantee text is visible on ANY background you set.
-    - DEPTH / CAMERA (pre-injected globals — this is what separates a filmed shot
-        from a slide; use them, do not hand-roll perspective math):
-        cameraStage(depth?) → put on the WRAPPER to establish the 3D volume, e.g.
-          <AbsoluteFill style={{...cameraStage(1600)}}> ... </AbsoluteFill>
-        cameraPush(frame, durationInFrames, intensity?) → a slow continuous push +
-          settling tilt across the WHOLE scene. Spread on the composition group.
-          Keep intensity 0.3-0.6 behind text.
-        parallaxLayer(frame, durationInFrames, depth?, intensity?) → per-layer
-          drift. Give the BACKDROP a negative depth and the foreground a positive
-          one so they separate — opposing directions is what reads as parallax.
-          Spread it: <div style={{...parallaxLayer(frame, durationInFrames, -1, 0.4)}}>
-        panelTilt(frame, delayFrames?, intensity?) → a card that rises with a
-          forward tilt that settles; returns {{transform, transformStyle, opacity}}.
-          Spread it: <div style={{...panelTilt(frame, 6)}}>
-        ALL FOUR of these return style OBJECTS. They MUST be spread into a style
-          prop with `...`. Writing style={{ cameraPush(...) }} without the spread
-          is a JavaScript syntax error and the scene will not compile.
-        All are frame-driven and bounded (perspective clamps to 900-2600px, the
-        push tops out at 6%), so they cannot distort type or push content
-        off-frame. NEVER derive motion from Date.now() or Math.random() — renders
-        must be deterministic.
-
-    Content-type → kit recipe (STRONGLY PREFERRED — compose these, don't improvise):
-    Look at scene_purpose.best_for and the props that are actually present, then reach
-    for the matching kit composition. This is how scenes reach built-in craft level —
-    a hand-rolled equivalent will look improvised. Pick the FIRST recipe whose data is present.
-
-    THE VARIANT DECIDES WHICH FORM. `art_direction` names this template's rendering
-    variant for the scene's content type ("draws 'metrics' content as 'ledger'"). The
-    recipes below list the components each type may use; the VARIANT says which
-    arrangement to build from them. Two templates both showing statistics should not
-    produce the same scene — one may be a ruled ledger, another a hero numeral with a
-    side rail. Follow the variant over the first option listed here.
-    - "metrics" (props.metrics present): <StatGrid items={props.metrics} arrangement="<variant>" />
-      renders every metrics variant (row / stacked-rule / ledger / hero-rail / quadrant /
-      ticker), or <MetricRow items={props.metrics} /> for 1-2 stats; each value via
-      CountUpValue. Highlight the primary stat with StatCard ... primary.
-    - "quote" (props.quote present): <RevealText text={props.quote} mode="line" /> with
-      <HighlightPhrase> on the key phrase; attribute props.quoteAuthor below in muted small-caps.
-    - "comparison" (props.comparisonLeft/Right present): two columns, each a StatCard or
-      cardStyle panel; stagger the two sides; a thin accent divider between them.
-    - "timeline"/"steps" (props.timelineItems/steps present): stacked MetricRow-style rows,
-      one per item, staggered with staggerEntrance(frame, i); a growing accent rule connecting them.
-    - "bullets" (props.bullets present): staggered rows (NOT one paragraph), each in a
-      cardStyle panel or with an accent marker; use RevealText per row if short.
-    - "code" (props.codeLines present): <CodeBlock lines={props.codeLines} language={props.codeLanguage} />
-      as the focal element — it renders ONLY those lines safely. NEVER hand-roll a code panel,
-      NEVER invent/hardcode sample code lines, and NEVER reference process.env or any runtime API.
-      If props.codeLines is empty, fall back to a "plain" RevealText of props.displayText instead.
-    - "plain"/narrative: <RevealText text={props.displayText} mode="word|line" /> as the
-      focal element, optional KenBurnsImage when props.imageUrl present. Needs few/no kit pieces.
-    Always wrap in <SceneFrame> (or pass brand colors explicitly) so the kit reads the palette.
-    Do NOT cram multiple recipes into one scene — ONE focal composition per scene.
-
-    ART DIRECTION — read the `art_direction` input field.
-    The composition rules for THIS template (safe area, how the frame is used, the intro and
-    outro character, and the per-scene geometry) are NOT in this prompt. They arrive in the
-    `art_direction` field, because they differ per template. Follow that field exactly. This
-    prompt tells you what the kit CAN DO; `art_direction` tells you what THIS BRAND DOES.
-    Where the two ever seem to disagree, `art_direction` wins.
-
-    Scene-type technical contracts (these hold for every template, whatever the art direction):
-    - EVERY SCENE, including content and outro: the logo conditional from the Required Elements
-      above is MANDATORY here too — `{props.logoUrl && typeof props.logoUrl === 'string' && (
-      <Img src={props.logoUrl} data-logo="1" ... />)}`. The validator REJECTS any scene missing
-      it, whatever its art direction. It is a render-safety contract, not an intro flourish:
-      art_direction decides WHERE the logo sits (or that it sits quietly in a corner), never
-      WHETHER the conditional exists.
-    - INTRO (scene_type == "intro"): also declare `const hasImage = !!(props.imageUrl && ...)`.
-      Do NOT render bullet/metric/step lists in the intro. Branch on isPortrait — portrait and
-      landscape must not be the same JSX.
-    - OUTRO (scene_type == "outro"): a dynamic CTA + social row is composited automatically ON TOP
-      of the outro at render time, so do NOT hand-roll social icons, website buttons, or
-      "Subscribe/Follow" CTAs — leave the space where those will sit clear. This scene takes NO
-      content image.
-
-    CANVAS — ONE background for the whole template (HARD RULE).
-    The scene's outermost fill is ALWAYS the brand canvas: wrap in <SceneFrame> (which paints it
-    for you), or set the root to `palette.bg` — or `backgroundCss(palette)` when the brand has a
-    gradient. NEVER repaint the root a different colour, and never invert the whole frame. Every
-    scene in this template must read as the same surface: a viewer scrubbing the video should
-    never see the background change. This is validated ACROSS scenes — a scene whose canvas
-    disagrees with its siblings is regenerated.
-
-    BACKDROP — richness lives ON TOP of that canvas, not by replacing it.
-    Depth comes from layers over the brand ground: a panel or card (cardStyle), an inverted or
-    accent-filled PANEL occupying part of the frame, a scrim under an image, a low-intensity
-    <Decor> atmosphere, a SignatureArtifact. A scene can be dramatically darker in its panel
-    region while its canvas still matches every other scene — that is the contrast you want.
-    What you must NOT do is paint the whole frame a different colour scene-to-scene. Keep text
-    contrast legible (AA); stay in the brand palette.
-    CONTRAST (HARD RULE — invisible text is the single worst failure a scene can have.
-    This is VALIDATED: a scene whose text does not reach 4.5:1 against its own background
-    is rejected and regenerated.):
-    - On any background you set that is NOT palette.bg, derive the foreground:
-        const panelBg = <that colour>;
-        const panelFg = readableOn(panelBg);   // pre-injected global, no import
-      and use panelFg for EVERY text node inside that region. Never place palette.text on a
-      surface whose background IS palette.text — that renders the text invisible. The same
-      applies to a dark accent panel, a coloured card, or type over a solid colour block.
-    - Colours that are SAFE as text on palette.bg: palette.text (primary copy),
-      palette.muted (secondary/labels/eyebrows) and palette.accentText (accent-coloured
-      type). All three are contrast-corrected against the canvas for you.
-    - Use palette.accent for FILLS — rules, underlines, markers, borders, shapes. For
-      accent-coloured TEXT use palette.accentText instead: the raw accent is the brand's
-      colour untouched, and on some brands it is unreadable on their own background.
-    - NEVER use props.brandColors.secondary as a text colour. It is a SURFACE colour
-      (cards/panels), so as type it lands a background colour on a background.
-    - palette.border and palette.grid are hairlines, not text. Never colour copy with them.
-
-    Useful fragments (ADAPT to the scene — do not paste verbatim, vary them):
-      • inverted PANEL (a region, never the whole frame — the canvas stays palette.bg):
-          const invBg = palette.text; const invFg = readableOn(invBg);
-          <div style={{background: invBg, width: '54%', height: '68%', ...}} /> — and every
-          text node on top of it uses color: invFg (NOT palette.text, which is this panel's
-          own background).
-      • darkened accent: withAlpha(palette.accent, 0.92) over a near-black wash, with
-          text at color: readableOn(palette.accent)
-      • hero scrim:      linear-gradient(0deg, <bg at 0.9> 0%, transparent 70%) over the image
-      • brand atmosphere: <Decor system="<this brand's signature decor>" intensity={0.4} />
-    Apply the Motion rules above (one dominant beat + quiet support). Author the scene's geometry
-    directly from `art_direction` with plain flex/absolute divs — the kit layout skeletons are
-    available if one happens to fit cleanly, but they are NOT a menu to pick from and reaching for
-    one instead of building the described geometry is what makes every brand look alike.
-
-    Component Props:
-    { sceneTitle?, displayText, narrationText, imageUrl?, imageObjectPosition?: string, imageZoom?: number,
-      sceneIndex, totalScenes,
-      logoUrl?, brandImages?, brandColors: { primary, secondary, accent, background, text, bg2? },
-      aspectRatio: "landscape" | "portrait",
-      titleFontSize?: number, descriptionFontSize?: number,
-      headingFont?: string, bodyFont?: string,
-      contentType?: "plain"|"bullets"|"metrics"|"code"|"quote"|"comparison"|"timeline"|"steps"|"dataviz",
-      bullets?: string[], metrics?: {value,label,suffix?}[], codeLines?: string[],
-      codeLanguage?: string, quote?: string, quoteAuthor?: string,
-      comparisonLeft?: {label,description}, comparisonRight?: {label,description},
-      timelineItems?: {label,description}[], steps?: string[],
-      chartTable?: { headers?: string[], rows?: (string|number)[][] }, chartType?: string, chartSummary?: string }
-
-    Resolution: 1920x1080 (landscape) / 1080x1920 (portrait), 30fps, 90-150 frames.
+    EASING — this list is EXHAUSTIVE; any other member crashes the render.
+      curves      linear ease quad cubic sin circle exp bounce step0 step1
+      wrappers    in(fn) out(fn) inOut(fn)
+      parametric  bezier(a,b,c,d) poly(n) back(s) elastic(b)
+    No quint/quart/sine/expo/inOutCubic/easeInOut — compose instead:
+        Easing.inOut(Easing.cubic) · Easing.out(Easing.exp)
+        Easing.bezier(.16,1,.3,1)
     """
 
     brand_context: str = dspy.InputField(desc="Brand name, colors, fonts, style, category, personality")
     design_system: str = dspy.InputField(desc="Shared visual styling — follow for consistency")
-    blueprint: str = dspy.InputField(
+    general_doc: str = dspy.InputField(
         desc=(
-            "This template's Design Blueprint as JSON (may be empty). When present it is the "
-            "DESIGN LAW for the whole template: its identity, persistent structure (chrome, "
-            "dividers, panel numbering), type system and per-orientation safe-area policy. "
-            "Every scene in this template shares it — that shared structure is what makes the "
-            "scenes read as one template. Follow it exactly; it OVERRIDES any generic guidance "
-            "in this prompt, including default insets, font sizes and composition habits."
+            "THE TEMPLATE'S SHARED DESIGN IDENTITY, written for this brand: palette roles, "
+            "typographic character, spatial system, motion personality, the recurring visual "
+            "thread. EVERY scene in this template inherits it, and that is what makes them read "
+            "as one template rather than a pile of slides. Follow it — it OUTRANKS any generic "
+            "habit or default you would otherwise apply."
         ),
         default="",
     )
-    art_direction: str = dspy.InputField(
+    scene_doc: str = dspy.InputField(
         desc=(
-            "THE COMPOSITION RULES FOR THIS TEMPLATE — safe-area insets, how the frame is used, "
-            "the intro and outro character, and this scene's geometry. These are deliberately "
-            "not in the system prompt because they differ per template: a generic house style "
-            "applied to every brand is what makes custom templates look alike. Treat this field "
-            "as the art director's brief and follow it literally, including its numbers. It "
-            "OUTRANKS any composition habit or default inset you would otherwise apply."
+            "THIS SCENE'S OWN DESIGN DOCUMENT — its visual description, concrete layout geometry "
+            "in both orientations, focal element, typographic treatment, motion beat, and its "
+            "image contract. It was written specifically for this scene. BUILD WHAT IT "
+            "DESCRIBES: do not substitute a composition of your own, and do not fall back on a "
+            "familiar arrangement because it is easier. Where it and this prompt disagree about "
+            "LAYOUT, the document wins; where they disagree about the technical contract "
+            "(props, validation rules), this prompt wins."
         ),
         default="",
     )
-    layout_spec: str = dspy.InputField(
+    built_so_far: str = dspy.InputField(
         desc=(
-            "THIS scene's layout entry from the blueprint as JSON (may be empty): id, role, "
-            "geometry, geometry_portrait, best_for, surface, artifact, artifact_intensity, "
-            "structural_elements, supports_image, image_treatment, motion_beat. Build the "
-            "scene's geometry to match `geometry` (and `geometry_portrait` for portrait) — "
-            "these were authored specifically for this brand, so do not substitute a generic "
-            "composition. Render every component named in `structural_elements`."
+            "One-line summaries of the layouts ALREADY built in this template (empty for the "
+            "first scene). Your scene must be a different composition from each of them — not a "
+            "variation, not the same skeleton with different content. Two scenes that could be "
+            "described by the same sentence is the failure to avoid."
         ),
         default="",
     )
     scene_type: str = dspy.InputField(desc="'intro', 'content', or 'outro'")
     scene_index: int = dspy.InputField(desc="0-based scene index")
     total_scenes: int = dspy.InputField(desc="Total number of scenes being generated")
-    scene_purpose: str = dspy.InputField(
-        desc="What this scene is for — e.g., 'intro scene: establish brand identity' or 'content scene optimized for metrics/statistics'"
-    )
     current_code: str = dspy.InputField(
         desc=(
             "Empty when generating fresh. When editing: the scene's CURRENT code. Produce a "
@@ -769,24 +451,52 @@ class GenerateSceneCode(dspy.Signature):
 # slightly-imperfect scenes through.
 REFINE_THRESHOLD = 0.6
 
-# Scenes scoring at or above this are trusted without rendering them. Below it
-# (but at or above REFINE_THRESHOLD) the scene is good enough to ship yet has at
-# least one soft defect, which is exactly where a screenshot earns its cost: the
-# new contrast (-0.25) and undersized-type (-0.24) penalties land here on
-# purpose, so the picture confirms or clears them instead of forcing a blind
-# re-roll. A scene at 1.00 never touches a browser.
-VISUAL_CHECK_THRESHOLD = 0.85
-
-# The code critic's own band, deliberately WIDER than the visual check's because
-# it is one text call rather than a browser render — roughly a tenth of the cost.
+# The code critic's band: scenes scoring at or above this are trusted, and
+# anything below it (but at or above REFINE_THRESHOLD) is good enough to ship yet
+# carries at least one soft defect worth a second opinion.
 #
-# It has to sit above 0.85: every blueprint-adherence miss is worth exactly
-# -0.15, so a scene whose ONLY defect was ignoring its blueprint artifact scored
-# 0.85, and sharing the visual check's `score < 0.85` gate meant it was never
-# reviewed at all. 0.9 keeps those in scope while skipping a scene whose only
-# flaw is a -0.1 (no tonal depth, an uncapped list map) — those are not worth a
-# full extra rollout.
+# It sits above 0.85 deliberately. Every design-adherence miss is worth exactly
+# -0.15, so a scene whose ONLY defect was ignoring its scene doc scored 0.85; a
+# gate at `score < 0.85` meant precisely those were never reviewed. 0.9 keeps
+# them in scope while skipping a scene whose only flaw is a -0.1 (no tonal
+# depth, an uncapped list map) — not worth a full extra rollout.
+#
+# This is now the only second-opinion pass. A vision check that rendered each
+# suspect scene and critiqued the pixels used to sit alongside it in the 0.6-0.85
+# band; it shipped dark, was never enabled, and was removed along with its shot
+# server. The critics that remain read code, not pixels — see scene_code_critic
+# for what that can and cannot catch, and scene_runtime_check for the geometry
+# defects that need the component actually run.
 CODE_CRITIC_THRESHOLD = 0.9
+
+# Absolute font-size sanity bounds, per role and orientation, in px against a
+# 1920x1080 / 1080x1920 canvas. These are the outer limits of legibility — below
+# the floor copy is unreadable in a video, above the ceiling a headline breaks
+# mid-word — and they are all that survives of the old per-template type system.
+#
+# The blueprint used to derive a narrow per-template band from a base size and a
+# scale ratio; the design docs describe typography in prose instead, so only
+# these fixed guard rails remain. They are used to SCORE, not to gate.
+_TYPE_CEILING = {
+    "headline_landscape": 88,
+    "headline_portrait": 60,
+    "body_landscape": 44,
+    "body_portrait": 38,
+    "prop_landscape": 44,
+    "prop_portrait": 38,
+    "micro_landscape": 28,
+    "micro_portrait": 28,
+}
+_TYPE_FLOOR = {
+    "headline_landscape": 48,
+    "headline_portrait": 36,
+    "body_landscape": 28,
+    "body_portrait": 26,
+    "prop_landscape": 22,
+    "prop_portrait": 20,
+    "micro_landscape": 16,
+    "micro_portrait": 16,
+}
 
 
 def _score_valid_scene(code: str, args) -> float:
@@ -844,69 +554,50 @@ def _score_valid_scene(code: str, args) -> float:
         score -= 0.2
         print(f"[F7-DEBUG] [REFINE] -0.2: scene counter visible")
 
-    # Bug: steps/bullets archetype doesn't use the array prop at all
-    # We check for *any* .map() call AND *any* reference to props.steps/props.bullets.
-    # The AI commonly does: const items = props.steps || ...; items.map(...) — that's fine.
-    scene_purpose = _arg("scene_purpose", "") or ""
-    if "steps" in scene_purpose and "best_for" in scene_purpose:
-        uses_steps = bool(re.search(r'props\.steps', code))
-        uses_map = bool(re.search(r'\.map\(', code))
-        if not uses_steps or not uses_map:
+    # A scene handed list data must actually render it as a list, not fold it
+    # into a paragraph. Keyed off the PROPS the scene reads rather than off a
+    # content-type label, because scenes no longer carry one.
+    _doc = _arg("scene_doc", "") or ""
+    for _prop in ("steps", "bullets"):
+        if re.search(rf"props\.{_prop}\b", code) and not re.search(r"\.map\(", code):
             score -= 0.4
-            print(f"[F7-DEBUG] [REFINE] -0.4: steps scene missing props.steps reference or .map()")
-    if "bullets" in scene_purpose and "best_for" in scene_purpose:
-        uses_bullets = bool(re.search(r'props\.bullets', code))
-        uses_map = bool(re.search(r'\.map\(', code))
-        if not uses_bullets or not uses_map:
-            score -= 0.4
-            print(f"[F7-DEBUG] [REFINE] -0.4: bullets scene missing props.bullets reference or .map()")
+            print(f"[F7-DEBUG] [REFINE] -0.4: reads props.{_prop} but never maps it")
 
-    # ── Blueprint adherence (P2) ──────────────────────────────────────────────
-    # Replaces the old CONFORMITY nudges. Those penalised any deviation from one
-    # house style — -0.3 if a metrics scene didn't use StatGrid, -0.3 if an intro
-    # lacked RevealText, -0.2 for "no deliberate backdrop" — which is precisely
-    # what made every brand's scenes converge. A metrics scene in an editorial
-    # template SHOULD look different from one in a fintech template.
-    #
-    # What replaces them is adherence to THIS template's own design: did the
-    # scene render the structural elements and artifact its blueprint layout
-    # declared? Skipped entirely when layout_spec is absent (the legacy path and
-    # already-generated templates), so nothing regresses.
-    layout_spec_raw = _arg("layout_spec", "") or ""
-    if layout_spec_raw:
-        try:
-            _spec = json.loads(layout_spec_raw)
-        except (json.JSONDecodeError, TypeError):
-            _spec = {}
+    # ── Design-doc adherence ─────────────────────────────────────────────────
+    # This replaces the blueprint's structural-element and artifact checks, which
+    # scored a scene on whether it rendered named kit components. Those
+    # components are no longer available and naming them was itself a source of
+    # sameness. What remains is the part that is genuinely checkable from the
+    # doc: did the scene honour its IMAGE contract?
+    if "IMAGE — BACKGROUND MODE" in _doc:
+        if not re.search(r"data-content-img", code):
+            score -= 0.2
+            print("[F7-DEBUG] [REFINE] -0.2: background-image scene has no image slot")
+        # A background image with nothing over it buries the copy. The validator
+        # gates this; the score nudges the model before it gets there.
+        elif not re.search(r"(withAlpha|linear-gradient|rgba)", code):
+            score -= 0.15
+            print("[F7-DEBUG] [REFINE] -0.15: background image with no scrim over it")
+    elif "IMAGE — HALF MODE" in _doc:
+        if not re.search(r"data-content-img", code):
+            score -= 0.2
+            print("[F7-DEBUG] [REFINE] -0.2: half-image scene has no image slot")
+    elif "IMAGE — NONE" in _doc:
+        # An image-less scene that reserves a slot leaves a hole in the frame.
+        if re.search(r"data-content-img", code):
+            score -= 0.2
+            print("[F7-DEBUG] [REFINE] -0.2: image-less scene reserves an image slot")
 
-        if _spec:
-            from app.services.kit_vocabulary import STRUCTURAL_COMPONENT
+    # The ending must host the real CTA/socials rather than leaving room for an
+    # overlay that no longer exists.
+    if (_arg("scene_type", "") or "") == "outro":
+        if not re.search(r"props\.ctaProps", code):
+            score -= 0.25
+            print("[F7-DEBUG] [REFINE] -0.25: outro never reads props.ctaProps")
+        if not re.search(r"<SocialIcons\b", code):
+            score -= 0.2
+            print("[F7-DEBUG] [REFINE] -0.2: outro does not render <SocialIcons>")
 
-            _elements = _spec.get("structural_elements") or []
-            # Masthead is the persistent chrome — its absence breaks the
-            # "one template" read across scenes, so it is weighted heavier.
-            if "masthead" in _elements and not re.search(r"<Masthead\b", code):
-                score -= 0.2
-                print("[F7-DEBUG] [REFINE] -0.2: blueprint declares a masthead, scene omits it")
-
-            _missing = [
-                e for e in _elements
-                if e != "masthead"
-                and not re.search(rf"<{STRUCTURAL_COMPONENT.get(e, e)}\b", code)
-            ]
-            if _missing:
-                score -= min(0.3, 0.15 * len(_missing))
-                print(f"[F7-DEBUG] [REFINE] -{min(0.3, 0.15 * len(_missing)):.2f}: blueprint structural elements missing: {_missing}")
-
-            _artifact = _spec.get("artifact")
-            if _artifact and not re.search(r"<SignatureArtifact\b", code):
-                score -= 0.15
-                print(f"[F7-DEBUG] [REFINE] -0.15: blueprint artifact {_artifact!r} not rendered")
-
-            # A layout declared image-capable must actually handle an image.
-            if _spec.get("supports_image") and not re.search(r"data-content-img", code):
-                score -= 0.15
-                print("[F7-DEBUG] [REFINE] -0.15: image-capable layout has no data-content-img slot")
 
     # Typography binding used to be a -0.25 nudge here. It is now a HARD GATE in
     # code_validator (a scene that reads neither font prop is rejected), so the
@@ -938,20 +629,16 @@ def _score_valid_scene(code: str, args) -> float:
     # redundant (validate_component_code already requires >= 2 animation calls),
     # so it is a small backstop, not a style mandate.
     if scene_type == "content":
+        # Only spring/interpolate are checked. The list used to also count
+        # RevealText, staggerEntrance, headlinePop, CountUpValue, the artifact
+        # components and <Decor> — every one of them now FORBIDDEN, so they could
+        # never contribute a signal and only made this look more permissive than
+        # it was. A scene animates with real interpolate()/spring() calls now.
         _anim_signals = sum(
             bool(re.search(_p, code))
-            for _p in (
-                r'\bspring\s*\(',
-                r'\binterpolate\s*\(',
-                r'\bRevealText\b',
-                r'\bstaggerEntrance\b',
-                r'\bheadlinePop\b',
-                r'\bpanelRise\b',
-                r'\bCountUpValue\b',
-                r'\b(SignatureArtifact|CornerFrame|StreakField|KineticTicker|BigGlyphBackdrop|PulseRing|AccentSweep)\b',
-            )
+            for _p in (r'\bspring\s*\(', r'\binterpolate\s*\(')
         )
-        if _anim_signals < 1 and not re.search(r'<Decor\b', code):
+        if _anim_signals < 1:
             score -= 0.15
             print("[F7-DEBUG] [REFINE] -0.15: content scene has no motion at all")
 
@@ -975,6 +662,28 @@ def _score_valid_scene(code: str, args) -> float:
             score -= 0.15
             print(f"[F7-DEBUG] [REFINE] -0.15: content scene does not branch layout on isPortrait (portrait may look off)")
 
+    # ── Vertical budget nudge ────────────────────────────────────────────────
+    # A wrappable <FitText> with no maxHeight has no height to shrink against,
+    # so long copy can still run downward off the frame. This is a NUDGE, not a
+    # gate: containerWidth (which IS gated) is what fixes the ~2x width
+    # overestimate, and the kit now falls back to a canvas-relative height
+    # budget, so a missing maxHeight degrades rather than disabling the fit.
+    from app.services.code_validator import _missing_fit_block, _missing_fit_max_height
+
+    if _missing_fit_max_height(code):
+        score -= 0.1
+        print(
+            "[F7-DEBUG] [REFINE] -0.1: a wrappable <FitText> has no maxHeight "
+            "(no vertical budget; long copy can overflow downward)"
+        )
+
+    if _missing_fit_block(code):
+        score -= 0.15
+        print(
+            "[F7-DEBUG] [REFINE] -0.15: several <FitText> and no <FitBlock> — each "
+            "fits its own box while the group overflows the column as a pair"
+        )
+
     # ── Overflow-safety nudge (ALL scene types) ───────────────────────────────
     # overflow:'hidden' on the root only CLIPS spill — it doesn't make content fit.
     # Metrics/steps/long headers overshoot the frame in BOTH orientations unless the
@@ -996,29 +705,34 @@ def _score_valid_scene(code: str, args) -> float:
         score -= 0.15
         print(f"[F7-DEBUG] [REFINE] -0.15: no overflow guard (minWidth:0 / overflowWrap / FitText) — text may overshoot")
 
-    # ── Depth / camera (ALL scene types) ──────────────────────────────────────
-    # The art direction asks every scene for a camera stage and a continuous
-    # push; without a score attached that is only a suggestion, and the model
-    # reliably skips it (flat 2D is less work). This is what makes generated
-    # scenes read as slides next to the built-in templates.
+    # ── Depth (ALL scene types) ───────────────────────────────────────────────
     #
-    # A PENALTY only, with no offsetting bonus. A bonus here would let a rich but
-    # UNSAFE scene (oversized type, no FitText) buy its way back over the
-    # threshold, which is the one thing the scoring must never allow — the
-    # overflow penalties have to stay decisive.
-    _has_camera = bool(re.search(r'\b(?:cameraStage|cameraPush|parallaxLayer|panelTilt)\s*\(', code))
-    if not _has_camera:
-        score -= 0.2
-        print("[F7-DEBUG] [REFINE] -0.2: no camera/depth (cameraStage/cameraPush/parallaxLayer)")
+    # THE CAMERA PENALTY IS GONE, AND ITS REMOVAL IS THE POINT.
+    #
+    # It docked 0.2 from any scene that did not call cameraStage / cameraPush /
+    # parallaxLayer / panelTilt. The kit-narrowing refactor removed those from the
+    # AI's scope, and the validator now REJECTS them outright — so every scene
+    # lost 0.2 it could not win back, however good it was.
+    #
+    # That was not cosmetic. Measured over 35 stored scenes, it dragged 17 of them
+    # below CODE_CRITIC_THRESHOLD, buying each an extra LLM call it did not need,
+    # and it is the single largest contributor to the ~690s generation times.
+    #
+    # THE CLASS OF BUG MATTERS MORE THAN THE INSTANCE: a scorer that rewards an
+    # identifier the validator forbids is unwinnable by construction. Any penalty
+    # added here must be checkable against ALLOWED_KIT_NAMES — see
+    # test_scorer_has_no_unwinnable_penalties, which asserts exactly that.
 
     # Tonal depth: a gradient, scrim or wash somewhere. A scene painted on one
     # flat fill is the other half of the "everything looks the same" report.
+    # `withAlpha` is the one kit helper still in scope for this; <Decor> was
+    # dropped from the pattern for the same reason as the camera helpers above.
     _has_depth = bool(
-        re.search(r'linear-gradient|radial-gradient|<Decor\b|withAlpha\s*\(', code)
+        re.search(r'linear-gradient|radial-gradient|withAlpha\s*\(|rgba\s*\(', code)
     )
     if not _has_depth:
         score -= 0.1
-        print("[F7-DEBUG] [REFINE] -0.1: no tonal depth (gradient / scrim / Decor / withAlpha)")
+        print("[F7-DEBUG] [REFINE] -0.1: no tonal depth (gradient / scrim / withAlpha)")
 
     # ── Canvas identity (ALL scene types) ─────────────────────────────────────
     # The scene's outermost fill must be the BRAND canvas. A scene that repaints
@@ -1032,7 +746,7 @@ def _score_valid_scene(code: str, args) -> float:
         score -= 0.2
         print(
             f"[F7-DEBUG] [REFINE] -0.2: canvas is {_canvas!r}, not the brand background "
-            "(wrap in <SceneFrame> or set the root to palette.bg / backgroundCss(palette))"
+            "(set the root AbsoluteFill's background to props.brandColors.background)"
         )
 
     # ── Contrast (ALL scene types) ────────────────────────────────────────────
@@ -1167,7 +881,12 @@ def _score_valid_scene(code: str, args) -> float:
             if _nums:
                 _prop_sizes.append(int(_nums[-1]))
         _all_sizes = _sizes + _prop_sizes
-        _head_floor = (_bands.get("headline_landscape") or (_TYPE_FLOOR["headline_landscape"], 0))[0]
+        # The absolute floor, not a per-template band. `_bands` came from the
+        # blueprint's type_system and is permanently {} since that stage was
+        # removed, so reading it here was dead code that always fell through to
+        # this same constant. Kept as a real check — it is what caught a scene
+        # whose largest type was 18px on a 1920px canvas.
+        _head_floor = _TYPE_FLOOR["headline_landscape"]
         # A FitText headline with no explicit size resolves from the kit's type
         # scale at render time, so it is headline-scale by construction.
         # Headline-scale by construction, so the size check cannot apply:
@@ -1190,6 +909,188 @@ def _score_valid_scene(code: str, args) -> float:
     # small or overflowing. Scoring it twice would double-punish, so it is not
     # repeated here.
 
+    # ── Image slot ignores props.hasVideo (SOFT) ─────────────────────────────
+    # A scene that gates its visual slot on `hasImage` alone has NOWHERE to put
+    # a stock clip: props.imageUrl is undefined in the clip state (the render
+    # path must not hand a video URL to <Img>, which cancelRender()s), so
+    # hasImage is false and the scene takes its no-image branch. That branch
+    # typically paints an opaque full-bleed gradient — or just as often an
+    # opaque placeholder tint (e.g. backgroundColor on the data-content-img
+    # element itself, meant to hold the slot's shape before an <Img> loads) —
+    # either of which covers the clip completely: the video plays, invisible,
+    # underneath.
+    #
+    # Observed on template 196 (bare gradient) and again on custom_201's
+    # content_1 "Detail" layout (opaque tint + gradient painted directly
+    # inside data-content-img). The contract already states this rule ("never
+    # render the hasImage-false full-width branch, which has nowhere for the
+    # clip") but nothing enforced it, so the violation shipped both times.
+    #
+    # SOFT for the same reason as the eyebrow rule below — a hard gate here
+    # would stub scenes whose repair the model may not find. The render path
+    # now also defends itself for real: VideoPreview.tsx/GeneratedVideo.tsx's
+    # data-has-clip neutraliser strips ANY background painted on
+    # data-content-img (and its descendants) whenever a clip is active, not
+    # just fills on OTHER layers — so a scene that still ships this pattern no
+    # longer blanks the clip, it just wastes the dead branch. This nudge is
+    # about generating RIGHT (a clean component, a smaller regeneration diff
+    # later), not about preventing breakage — that backstop is now the
+    # render-time neutraliser, not this score.
+    if re.search(r"\bhasImage\b", code) and not re.search(r"props\.hasVideo", code):
+        score -= 0.1
+        print(
+            "[F7-DEBUG] [REFINE] -0.1: gates its image slot on hasImage but never "
+            "reads props.hasVideo — a stock clip would have nowhere to render"
+        )
+
+    # ── The scene must show its title (SOFT, but heavy) ──────────────────────
+    # Every scene renders props.sceneTitle: it is the scene's main label, the
+    # largest type on the frame, and the only thing props.titleFontSize sizes. A
+    # scene that omits it drops the field the title slider drives, and the user
+    # sees a Typography control with nothing on the frame responding to it.
+    #
+    # SOFT rather than a validator gate, for the reason recorded in
+    # code_validator above _renders_headline: the model cannot add a title to a
+    # design with no place for one, so a hard gate exhausts three repairs and
+    # stubs the scene. -0.3 is heavy enough to sink an otherwise-average attempt
+    # below the 0.6 acceptance bar while still letting an excellent scene
+    # through, which is what makes the refine loop prefer a compliant attempt.
+    #
+    # Detection mirrors _renders_headline in the validator: fire only when
+    # sceneTitle is NOT interpolated into the tree. A data-only read
+    # (`const label = props.sceneTitle || props.displayText`) does not count as
+    # rendering it.
+    #
+    # THE ALIAS PATTERN MUST TOLERATE A WRAPPED INITIALISER. This matched only
+    # `= props.sceneTitle` with the prop immediately after the `=`, which the
+    # bookend contracts' own prescribed idiom does not satisfy:
+    #
+    #     const title = (props.sceneTitle || '').trim();
+    #
+    # The leading paren defeated the match, so the alias went undetected and a
+    # scene that followed the contract exactly was charged -0.3 for "never
+    # renders props.sceneTitle" — a false positive on the very code this prompt
+    # asks for, costing real rollouts. Scan the whole initialiser instead, and
+    # collect EVERY alias rather than the first: a scene routinely declares the
+    # title and the display text together, and the title is not always first.
+    #
+    # An alias counts only when sceneTitle is the SUBJECT of the initialiser —
+    # the first prop it reads. That distinction is the whole point:
+    #
+    #     const title   = (props.sceneTitle || '').trim();          <- the title
+    #     const heading = props.displayText || props.sceneTitle;    <- NOT
+    #
+    # The second renders the display text and merely falls back to the title, so
+    # the frame has no title element. Matching it would let a scene satisfy this
+    # by naming the prop in a fallback chain, which is precisely the defect.
+    _st_render_names = ["props\\.sceneTitle"]
+    for _m in re.finditer(
+        r"const\s+([A-Za-z_$][\w$]*)\s*=\s*([^;\n]*props\.sceneTitle[^;\n]*)", code
+    ):
+        _first_prop = re.search(r"props\.([A-Za-z_$][\w$]*)", _m.group(2))
+        if _first_prop and _first_prop.group(1) == "sceneTitle":
+            _st_render_names.append(re.escape(_m.group(1)))
+    if not any(
+        re.search(rf">\s*\{{\s*{n}\s*(?:\|\||\?\?|\}})", code)
+        or re.search(rf"\{{\s*{n}\s*\}}\s*<", code)
+        for n in _st_render_names
+    ):
+        score -= 0.3
+        print(
+            "[F7-DEBUG] [REFINE] -0.3: never renders props.sceneTitle — the scene "
+            "has no title, and the editor's Title slider drives nothing"
+        )
+
+    # ── The title's box is smaller than the body's (SOFT) ────────────────────
+    #
+    # THE ONE GEOMETRY DEFECT THAT IS STATICALLY VISIBLE.
+    #
+    # FitText shrinks text to fit its maxHeight budget, so the element with the
+    # SMALLER box renders smaller — regardless of the fontSize it was handed. A
+    # title given `maxHeight={height*0.26}` beside a body given `0.30` therefore
+    # inverts the hierarchy while every other check passes: _font_default_defects
+    # compares the `?? 68` / `?? 34` source literals, which are correctly
+    # ordered, and nothing in the pipeline measures what actually renders.
+    #
+    # Rendered size cannot be seen from here, but the RELATIVE BOX GEOMETRY can,
+    # and it is what causes the inversion. Read the two height fractions off the
+    # FitText tags and compare them.
+    #
+    # There is a read-time floor for this in kit/FitText.tsx (a title is never
+    # painted below the body it sits with), so this nudge is about generating
+    # scenes that do not need repairing rather than about preventing a broken
+    # frame. Hence SOFT.
+    _fit_heights = re.findall(
+        r"<FitText\b[^>]{0,400}?fontSize=\{(titleSize|bodySize)\}[^>]{0,400}?"
+        r"maxHeight=\{[^}]*?height\s*\*\s*([0-9.]+)",
+        code,
+        re.DOTALL,
+    )
+    _title_h = [float(v) for k, v in _fit_heights if k == "titleSize"]
+    _body_h = [float(v) for k, v in _fit_heights if k == "bodySize"]
+    if _title_h and _body_h and max(_title_h) < max(_body_h):
+        score -= 0.15
+        print(
+            f"[F7-DEBUG] [REFINE] -0.15: the title's height budget "
+            f"({max(_title_h)}) is smaller than the body's ({max(_body_h)}) — "
+            f"FitText shrinks to the box, so the hierarchy inverts"
+        )
+
+    # ── No editable props declared (SOFT) ────────────────────────────────────
+    #
+    # A scene may expose its own editable fields by reading
+    # `props.layoutProps?.<key> ?? "<default>"`. Those become real inputs in the
+    # scene editor, and they are the only way a user can change a string the
+    # scene invents — a kicker, a panel label, a caption.
+    #
+    # Almost no scene declared any. In a real 9-scene template, 8 scenes had
+    # ZERO `props.layoutProps` reads and the whole template offered exactly one
+    # editable field. The contract asked for "2-5 per scene" in a single line of
+    # the props list, and nothing enforced it, so hardcoding every string passed
+    # at full score.
+    #
+    # SOFT, and only for CONTENT scenes. A bookend legitimately has nothing
+    # beyond its title and CTA, and a hard gate here is the unsatisfiable-rule
+    # failure mode recorded above _renders_headline in code_validator: the model
+    # cannot invent an editable field for a scene that genuinely has none, so it
+    # would burn every rollout and ship a stub.
+    if _arg("scene_type", "content") == "content" and not re.search(
+        r"props\.layoutProps\s*(?:\?\.|\[)", code
+    ):
+        score -= 0.15
+        print(
+            "[F7-DEBUG] [REFINE] -0.15: declares no editable props — every string "
+            "on this frame is hardcoded and the editor can change none of them"
+        )
+
+    # ── A third type tier (SOFT) ─────────────────────────────────────────────
+    # v3 has exactly TWO sizes: titleSize (props.sceneTitle) and bodySize
+    # (everything else). A scene that invents a third independent constant —
+    # `const labelSize = 24`, a kicker at a literal size — creates a size the
+    # editor has no slider for, so the user cannot move it and the template
+    # cannot be resized coherently. Labels are written as ratios of bodySize.
+    #
+    # This replaces the inverse nudge, which penalised a scene for NOT reading
+    # props.sceneTitleFontSize. That prop no longer exists in the contract, so
+    # the old check now punishes correct code.
+    #
+    # SOFT, deliberately. The comment in code_validator.py above _renders_headline
+    # records what the premature hard gate on the headline cost: template 177,
+    # five of nine scenes stubbed, ~1400s on an unsatisfiable rule. This nudge
+    # can be promoted once real generations show compliant scenes clear it.
+    if re.search(r"props\.sceneTitleFontSize", code):
+        score -= 0.1
+        print(
+            "[F7-DEBUG] [REFINE] -0.1: reads props.sceneTitleFontSize, which no "
+            "longer exists — labels take a ratio of bodySize"
+        )
+    # A `const labelSize = 16` heuristic was tried here and removed. It fires on
+    # any local whose name ends in "Size", which in a diagram scene is routinely
+    # a node radius or a glyph box rather than a type size — a false positive
+    # that charges a correct scene for nothing. The prop read above is the
+    # precise signal, and the prompt states the ratio rule in rule 7; a fuzzy
+    # name match buys little on top of that and costs real scenes.
+
     # ── Uncapped list nudge (content scenes) ──────────────────────────────────
     # Mapping straight over props.metrics/steps/bullets/timelineItems with no
     # .slice(N) cap lets a long array push rows off the frame. The kit components
@@ -1210,11 +1111,14 @@ def _score_valid_scene(code: str, args) -> float:
 
 
 def _scene_reward(args, pred) -> float:
-    """Validate + score a generated scene, as a single float.
+    """`dspy.Refine`'s reward function: validate + score one scene as a float.
 
-    Kept for any caller that still wants the combined signature (and for tests);
-    the live generation path uses _informed_retry, which validates once and calls
-    _score_valid_scene directly so it can also feed the error text back.
+    Also the seam that makes Refine usable here at all. Refine's contract gives
+    the reward function no way to return a MESSAGE — only a number — so the
+    validator's diagnostic would be discarded and then re-inferred by an extra
+    LLM call. Instead this writes the real error into `args["previous_failure"]`
+    (see below): Refine re-splats that same dict into the module on every
+    rollout, so the next attempt is TOLD what broke rather than guessing.
     """
     code = clean_code(pred.code or "")
 
@@ -1226,17 +1130,70 @@ def _scene_reward(args, pred) -> float:
         print("[F7-DEBUG] [REFINE] empty code (response truncated) — deferring to repair loop")
         return REFINE_THRESHOLD
 
-    scene_type = (
-        args.get("scene_type", "content")
-        if isinstance(args, dict)
-        else getattr(args, "scene_type", "content")
+    # Refine passes the kwargs dict; tests and older callers may pass an object.
+    def _arg(name: str, default: str = "") -> str:
+        if isinstance(args, dict):
+            return args.get(name, default)
+        return getattr(args, name, default)
+
+    scene_type = _arg("scene_type", "content")
+    scene_doc = _arg("scene_doc")
+    # theme= and collect_all= must match the real checkpoint below (and the
+    # generation-path call), or this scorer accepts a scene that generation then
+    # rejects. Without the theme the palette/contrast gates cannot resolve
+    # palette.<slot> to real hex and silently pass here; without collect_all the
+    # score reflects only the FIRST defect, so a repair fixes one contract while
+    # breaking another and the loop cannot converge.
+    _brand_context = _arg("brand_context")
+    valid, err = validate_component_code(
+        code,
+        scene_type=scene_type,
+        collect_all=True,
+        theme=_theme_from_brand_context(_brand_context or ""),
+        scene_doc=scene_doc or "",
     )
-    valid, err = validate_component_code(code, scene_type=scene_type)
     if not valid:
+        # Name the SCENE and say plainly that a retry follows.
+        #
+        # This used to print a bare "FAILED: <error>" with no scene index and no
+        # indication of what happened next, so a log full of failures read as a
+        # broken run even when every one of them was about to be retried and
+        # fixed. The rollout budget is REFINE_N + 1; a scene that exhausts it
+        # goes to the repair loop, which logs its own attempts.
+        _idx = _arg("scene_index", "?")
+        _first = (err or "").strip().splitlines()[0] if err else "unknown"
+        print(
+            f"[F7-DEBUG] [REFINE] scene {_idx} rejected — RETRYING with the error fed back "
+            f"(up to {REFINE_N + 1} rollouts): {_first}"
+        )
         print(f"[F7-DEBUG] [REFINE] FAILED: {err}")
+        # Hand the REAL diagnostic to the next rollout.
+        #
+        # dspy.Refine's reward_fn returns a bare float, so the validator message
+        # would otherwise be discarded and then re-inferred by its OfferFeedback
+        # call. But Refine.forward re-splats `mod(**kwargs)` on every iteration
+        # and passes us that same dict — so mutating it here IS visible to the
+        # next attempt. `previous_failure` is a documented InputField on
+        # GenerateSceneCode, which is what makes this land in the prompt.
+        if isinstance(args, dict):
+            args["previous_failure"] = _format_scene_failure(
+                code, err, scene_type=scene_type, scene_doc=scene_doc or ""
+            )
         return 0.0
 
-    return _score_valid_scene(code, args)
+    score = _score_valid_scene(code, args)
+
+    # A valid-but-weak scene gets the checklist rather than an error, so the
+    # retry knows it must IMPROVE rather than fix a break.
+    if isinstance(args, dict) and score < REFINE_THRESHOLD:
+        args["previous_failure"] = (
+            f"ERROR: your previous attempt scored {score:.2f}, below the "
+            f"{REFINE_THRESHOLD} bar. It was VALID but had quality problems — see the "
+            "checklist below and fix them while keeping everything that already works.\n\n"
+            + build_repair_checklist(scene_type, scene_doc or "")
+        )
+
+    return score
 
 
 # ─── Brand context builder ─────────────────────────────────────
@@ -1289,81 +1246,6 @@ _V1_TYPE_SCALE = (
     "  number, so the editor's body slider moves them too. Keep the result at least 30px\n"
     "  so previews stay legible when scaled down in the UI."
 )
-
-def _bp_safe_area(blueprint: dict) -> str:
-    """This template's own safe-area policy, stated as concretely as v1's was."""
-    st = (blueprint or {}).get("structure") or {}
-    sa = (st.get("safe_area") or {}).get("landscape") or {}
-    sap = (st.get("safe_area") or {}).get("portrait") or {}
-    edge = st.get("edge_policy") or "inset"
-    land = f"{sa.get('top', 6)}% {sa.get('right', 8)}% {sa.get('bottom', 6)}% {sa.get('left', 8)}%"
-    port = f"{sap.get('top', 8)}% {sap.get('right', 6)}% {sap.get('bottom', 8)}% {sap.get('left', 6)}%"
-    edge_rule = {
-        "inset": (
-            "EDGE POLICY 'inset': readable content stays inside the inset above. Full-bleed\n"
-            "  image backdrops may still reach the edges."
-        ),
-        "edge_to_edge": (
-            "EDGE POLICY 'edge_to_edge': this template DELIBERATELY runs elements to the frame\n"
-            "  edge — rules, panels, images and even type may bleed past the inset. Do NOT\n"
-            "  centre everything into a safe box; that would erase this template's character.\n"
-            "  Keep only small print clear of the outer 2%."
-        ),
-        "mixed": (
-            "EDGE POLICY 'mixed': anchor the scene on the inset above, but let ONE deliberate\n"
-            "  element per scene (a rule, a panel edge, an image) bleed off-frame for tension."
-        ),
-    }.get(edge, "")
-    return (
-        "SAFE AREA — THIS TEMPLATE'S OWN POLICY (authored for this brand; not a generic inset):\n"
-        f"- Outermost content container inset: landscape {land}, portrait {port}.\n"
-        f"  Apply it literally: padding: isPortrait ? '{port}' : '{land}'.\n"
-        f"- {edge_rule}\n"
-        "- Do NOT substitute a symmetric 6-8% inset or force the content group to dead centre\n"
-        "  unless the geometry below actually asks for centring."
-    )
-
-# Hard type ceilings, in px. Nothing in the system had an upper bound before, and
-# that is the whole reason headlines overflowed: the directive gave a body FLOOR
-# plus an open-ended scale_ratio, so "headline = body x ratio^n" resolved upward
-# with nothing to stop it (72px body x 1.7^3 = 353px is reachable from values the
-# blueprint validator happily accepts).
-#
-# Portrait ceilings are much lower than landscape because the canvas is 1080 wide
-# rather than 1920 — the kit's own theme actually made portrait titles LARGER
-# than landscape, which is backwards for the narrower frame.
-#
-# `prop` is the supporting-copy tier (card body, bullet body, list items, table
-# cells) and `micro` is persistent chrome (masthead, panel numbers, rule
-# labels). Neither had a band before, so on the blueprint path the model had NO
-# size instruction for them at all and picked whatever it liked — which is how
-# card body ended up as a hardcoded literal that the body slider could not move.
-#
-# These mirror TYPE_BOUNDS in remotion-video/src/templates/generated/kit/theme.ts.
-# Keep the two in sync: the frontend clamps what it computes, this clamps what
-# the model is told, and they have to agree or a scene renders at a size the
-# prompt says is illegal.
-_TYPE_CEILING = {
-    "headline_landscape": 88,
-    "headline_portrait": 60,
-    "body_landscape": 44,
-    "body_portrait": 38,
-    "prop_landscape": 44,
-    "prop_portrait": 38,
-    "micro_landscape": 28,
-    "micro_portrait": 28,
-}
-_TYPE_FLOOR = {
-    "headline_landscape": 48,
-    "headline_portrait": 36,
-    "body_landscape": 28,
-    "body_portrait": 26,
-    "prop_landscape": 22,
-    "prop_portrait": 20,
-    "micro_landscape": 16,
-    "micro_portrait": 16,
-}
-
 
 def _hex_luminance(hex_str: str) -> float | None:
     """Perceived luminance 0..1, mirroring kit/theme.ts's `luminance`.
@@ -1963,573 +1845,6 @@ def detect_offpalette_colors(code: str, theme: dict | None = None) -> list[str]:
     return hits
 
 
-def _type_bands(blueprint: dict) -> dict[str, tuple[int, int]]:
-    """Concrete min/max px per role and orientation for this template.
-
-    Derived from the blueprint so a brand's type character still varies, but
-    clamped so it can never exceed what the frame can hold.
-    """
-    ts = (blueprint or {}).get("type_system") or {}
-    ratio = float(ts.get("scale_ratio", 1.25) or 1.25)
-
-    def _band(key: str, target: float) -> tuple[int, int]:
-        """Clamp a target size into [floor, ceiling] and widen it into a band.
-
-        Order matters: clamp the TARGET into the legal range first, then derive
-        the band around it. Deriving the low end before clamping produced
-        inverted bands (min above max) whenever the target fell below the floor.
-        """
-        floor, ceil = _TYPE_FLOOR[key], _TYPE_CEILING[key]
-        hi = int(max(floor, min(target, ceil)))
-        lo = int(max(floor, min(hi - 4, round(hi * 0.8))))
-        return min(lo, hi), hi
-
-    body_l = float(ts.get("base_body_px_landscape", 36) or 36)
-    body_p = float(ts.get("base_body_px_portrait", 34) or 34)
-    # Headline steps are chosen so a default template (36px body, ratio 1.25)
-    # lands near 70px landscape — close to the 75px the house style used and the
-    # size the built-in templates ship — rather than collapsing to the floor.
-    return {
-        "headline_landscape": _band("headline_landscape", body_l * (ratio ** 3)),
-        "headline_portrait": _band("headline_portrait", body_p * (ratio ** 2)),
-        "body_landscape": _band("body_landscape", body_l),
-        "body_portrait": _band("body_portrait", body_p),
-        # 0.9x / 0.62x of body, matching typeScale()'s `prop` and `micro`.
-        "prop_landscape": _band("prop_landscape", body_l * 0.9),
-        "prop_portrait": _band("prop_portrait", body_p * 0.9),
-        "micro_landscape": _band("micro_landscape", body_l * 0.62),
-        "micro_portrait": _band("micro_portrait", body_p * 0.62),
-    }
-
-
-# How each era actually LOOKS, as buildable instructions.
-#
-# The era was reaching the blueprint and picking a typeface, but never reaching
-# the scene prompt — so a "vintage" template rendered as a modern one in an old
-# typeface. Era only becomes visible when it drives surface, decor, motion and
-# camera together, which is what these entries do.
-# What each layout variant actually looks like.
-#
-# The variant name alone ("ledger", "hero-rail") means nothing to the model, and
-# a bare name would land back on whatever the recipe table suggests — which is
-# the single fixed composition per content type this whole mechanism exists to
-# break. One concrete sentence each, so the same content type genuinely renders
-# differently between two templates.
-_VARIANT_DIRECTION: dict[str, str] = {
-    # plain
-    "centered-focal": "One dominant block centred with generous space around it.",
-    "asymmetric-split": "Two columns weighted roughly 60/40, copy one side, support the other.",
-    "full-bleed-hero": "The image fills the frame edge to edge; copy sits low over a scrim.",
-    "side-rail": "A thin vertical accent rail with a rotated eyebrow; content beside it.",
-    "drop-cap": "A single narrative column opened by an oversized initial letter.",
-    # metrics
-    "row": "Stat cards side by side, the primary one highlighted.",
-    "stacked-rule": "Full-width rows split by hairlines, no card chrome.",
-    "ledger": "Label left, value right, a hairline between rows — a statement of account.",
-    "hero-rail": "One oversized primary numeral, the rest in a thin side rail.",
-    "quadrant": "A 2x2 block, every figure equal weight.",
-    "ticker": "A dense inline strip, values separated by vertical dividers.",
-    # bullets
-    "markers": "Accent bullet markers beside each row.",
-    "rules": "Rows separated by hairlines, no markers.",
-    "cards": "Each row on its own surface panel.",
-    "numbered": "Large numerals in a left rail leading each row.",
-    "rail": "A continuous vertical rule with items hung off it.",
-    # steps / timeline
-    "vertical-rail": "A vertical spine with a node per item.",
-    "horizontal": "A left-to-right track, items spaced along it.",
-    "numbered-stack": "Stacked rows, each led by a big numeral.",
-    "connected-dots": "Nodes joined by a line that draws in as they appear.",
-    # quote
-    "oversized-mark": "A huge quotation glyph sitting behind the text.",
-    "rule-framed": "Rules above and below the quote, attribution beneath.",
-    "knockout": "The quote set in an inverted panel against the canvas.",
-    "margin-note": "Attribution set in the margin beside the quote, not under it.",
-    # comparison
-    "split": "Two equal columns with a thin accent divider between them.",
-    "stacked": "One above the other, separated by a rule — before over after.",
-    "versus-bar": "A single bar split proportionally, each side labelled.",
-    # code
-    "panel": "A CodeBlock on a surface panel.",
-    "terminal": "A CodeBlock framed as a terminal window with a title bar.",
-    # ── bookends (intro / outro) ──────────────────────────────────────────────
-    #
-    # These describe WHERE THINGS SIT. The existing opening_move/closing_move
-    # vocabulary describes only the motion beat ("logo_settle", "wordmark_wipe"),
-    # so the model was told how the opening should MOVE and nothing about how it
-    # should be COMPOSED — and every brand landed on the same centred wordmark.
-    #
-    # Written as concrete geometry for the same reason the content entries are:
-    # a bare name means nothing, and a negative instruction ("do NOT centre")
-    # leaves the default as the only thing the model actually knows how to draw.
-    "centred-lockup": (
-        "Mark above the wordmark, both centred, a short accent rule between them. "
-        "Generous symmetrical space. The classic title card."
-    ),
-    "corner-mark": (
-        "The mark sits SMALL in one corner (top-left or bottom-right) and the rest "
-        "of the frame is given to a single large line of type set against the "
-        "opposite edge. Deliberately asymmetric — nothing is centred."
-    ),
-    "left-rail": (
-        "A full-height accent rail down the left edge carrying a rotated or "
-        "stacked eyebrow; the wordmark and title hang off it, left-aligned, with "
-        "the right two-thirds left open."
-    ),
-    "full-bleed-statement": (
-        "No logo lockup at all. One statement set very large across the whole "
-        "frame, bleeding to the edges, with the brand name reduced to a small "
-        "caption in a corner."
-    ),
-    "split-plate": (
-        "The frame divided into two plates — one carrying the mark on a filled "
-        "panel, the other the title on the canvas. The division is the composition."
-    ),
-    "stacked-baseline": (
-        "Everything sits on a common baseline in the LOWER third: eyebrow, "
-        "wordmark and title stacked tight and bottom-aligned, with the upper two "
-        "thirds deliberately empty."
-    ),
-}
-
-
-_ERA_DIRECTION: dict[str, dict[str, str]] = {
-    "vintage": {
-        "look": (
-            "Letterpress print, 1900s-1950s. Paper-toned grounds, heavy rules, ornamental "
-            "borders, engraved/etched imagery, ink texture. Colour is restrained and slightly "
-            "aged — never pure #fff or pure #000."
-        ),
-        "gradient": (
-            "Paper wash: a soft off-white/sepia radial that is warmer at the centre and darker "
-            "at the corners, plus a subtle vignette. Never a modern blue-to-purple ramp."
-        ),
-        "camera": (
-            "Almost still — a very slow push (intensity 0.25) as though on a copy stand. "
-            "No tilting; the page stays flat to the lens."
-        ),
-        "motion": "Deliberate and typeset: elements settle rather than fly. Long, calm holds.",
-    },
-    "editorial": {
-        "look": (
-            "Broadsheet / magazine. Strong hairline rules, column structure, generous margins, "
-            "drop caps, small-caps kickers. Black on off-white with ONE accent."
-        ),
-        "gradient": (
-            "Barely-there paper tone plus a scrim under any image so the deck stays readable. "
-            "Depth comes from rules and whitespace, not colour ramps."
-        ),
-        "camera": "Slow push (0.35) with a settling tilt, like a page being laid down.",
-        "motion": "Staggered column reveals; rules draw in before the type they underline.",
-    },
-    "modern": {
-        "look": (
-            "Contemporary product marketing. Soft rounded surfaces, generous negative space, "
-            "clean geometric sans, subtle shadows and glass."
-        ),
-        "gradient": (
-            "Confident duotone wash between two brand hues, plus a radial accent bloom behind "
-            "the focal element. This is the era where gradients belong."
-        ),
-        "camera": "Smooth push (0.5) with parallax: backdrop drifts opposite the foreground.",
-        "motion": "Springy but controlled — scale + fade entrances, continuous ambient drift.",
-    },
-    "technical": {
-        "look": (
-            "Engineering / data. Visible grid, monospace labels, tick marks, hairline borders, "
-            "measurement annotations. Dense and precise, near-black grounds."
-        ),
-        "gradient": (
-            "Scanline or grid-mesh overlay rather than a colour ramp; a cold radial glow behind "
-            "data. Think instrument panel, not sunset."
-        ),
-        "camera": "Precise push (0.4) with slight parallax on the grid layer.",
-        "motion": "Snappy, mechanical: values count up, rules extend, elements snap to grid.",
-    },
-    "expressive": {
-        "look": (
-            "Poster / streetwear. Oversized type that bleeds off-frame, hard-edged colour "
-            "blocks, high contrast, collage overlaps, rotated elements."
-        ),
-        "gradient": (
-            "Bold saturated duotone at a steep angle, or a hard two-tone split. Loud is correct "
-            "here."
-        ),
-        "camera": "Assertive push (0.7) with real tilt and layered parallax.",
-        "motion": "Punchy: slams, whip entrances, overshoot. The loudest era.",
-    },
-    "brutalist": {
-        "look": (
-            "Concrete and unornamented. Raw structural grids left visible, heavy black rules, "
-            "hard 90-degree corners and NO rounding anywhere. Type is oversized, tightly "
-            "tracked and flush-left. One colour against grey-white; ornament is absent, not "
-            "restrained."
-        ),
-        "gradient": (
-            "None. A flat, unmodulated ground is the point — depth comes from the weight of "
-            "rules and the size jump between type levels, never from a ramp or a glow."
-        ),
-        "camera": (
-            "Locked off (intensity 0.15). The frame does not drift; movement happens inside "
-            "it, not to it."
-        ),
-        "motion": (
-            "Blunt cuts and hard snaps to the grid. Nothing eases out, nothing overshoots — an "
-            "element is either in place or not yet placed."
-        ),
-    },
-    "humanist": {
-        "look": (
-            "Warm and hand-inflected. Softly irregular edges, hand-drawn rules and marks, "
-            "generous leading, off-square photo corners. Colour is muted and earthen — clay, "
-            "ink, linen — never a saturated UI palette."
-        ),
-        "gradient": (
-            "A gentle paper-grain tint, slightly warmer where the light falls. Closer to a "
-            "wash on card stock than to a designed gradient."
-        ),
-        "camera": (
-            "A slow, slightly irregular drift (0.3) with a faint tilt, as though handheld and "
-            "resting."
-        ),
-        "motion": (
-            "Unhurried and organic: things arrive on a soft curve and settle a beat late. No "
-            "mechanical timing — a stagger that is felt rather than counted."
-        ),
-    },
-    "luxe": {
-        "look": (
-            "Restrained luxury. Vast negative space, fine-stroke display serifs set small and "
-            "widely letter-spaced, thin metallic rules. Deep near-black or bone ground with a "
-            "single precious accent. Nothing is crowded; emptiness signals value."
-        ),
-        "gradient": (
-            "A slow, low-contrast sheen — a single soft highlight travelling across a dark "
-            "ground, like light on satin. Never more than two stops."
-        ),
-        "camera": (
-            "A very slow, continuous push (0.2) that never arrives. Stillness reads as "
-            "confidence."
-        ),
-        "motion": (
-            "Long, patient fades and letter-spacing that opens as type settles. Nothing snaps; "
-            "the eye is led, not grabbed."
-        ),
-    },
-    "zine": {
-        "look": (
-            "Photocopied counterculture. Cut-and-paste collage, torn and taped edges, halftone "
-            "dot texture, xerox blowout, elements rotated a few degrees off true. High-contrast "
-            "black on newsprint with one hot spot colour."
-        ),
-        "gradient": (
-            "No smooth ramp — coarse halftone dots and photocopy blotching stand in for tone. "
-            "Texture, not blend."
-        ),
-        "camera": (
-            "Slightly unstable (0.45): small irregular pushes and a rotation that does not "
-            "settle perfectly square."
-        ),
-        "motion": (
-            "Stamped and abrupt: elements slap into frame on odd offsets, a beat out of step "
-            "with each other. Deliberately imperfect timing."
-        ),
-    },
-}
-
-
-def _bp_era_directive(blueprint: dict) -> str:
-    """The era as buildable art direction: look, gradient, camera and motion.
-
-    Without this the era only ever changed the typeface, so a vintage template
-    was a modern template in an old face — which is why templates still read as
-    near-identical after the font work.
-    """
-    ident = (blueprint or {}).get("identity") or {}
-    era = ident.get("era")
-    spec = _ERA_DIRECTION.get(era)
-    if not spec:
-        return ""
-    energy = ident.get("motion_energy") or "smooth"
-    decor = ident.get("decor_system") or "rules"
-    surface = ident.get("surface_default") or "panel"
-    return (
-        f"ERA — '{era}'. This is the template's visual period and it governs every scene.\n"
-        f"- Look: {spec['look']}\n"
-        f"- Depth / gradient: {spec['gradient']}\n"
-        f"- Camera: {spec['camera']} Use the kit helpers — wrap the composition in\n"
-        f"  <AbsoluteFill style={{{{...cameraStage(1600)}}}}> and spread\n"
-        f"  cameraPush(frame, durationInFrames, <intensity above>) on the group. Give the\n"
-        f"  backdrop style={{{{...parallaxLayer(frame, durationInFrames, -1, 0.4)}}}} so it\n"
-        f"  drifts the OTHER way. Panels enter with style={{{{...panelTilt(frame, delay)}}}}.\n"
-        f"  ALL FOUR return style OBJECTS — they must be SPREAD into a style prop with `...`.\n"
-        f"  `style={{{{ parallaxLayer(...) }}}}` without the spread is a syntax error.\n"
-        f"- Motion: {spec['motion']} (motion energy: {energy})\n"
-        f"- Surfaces use cardStyle(palette, '{surface}'); the atmosphere is "
-        f"<Decor system=\"{decor}\" />, which is frame-animated and runs the whole scene.\n"
-        f"A viewer must be able to name this era from a single frame. If the scene would look "
-        f"equally at home in another era, it is not finished."
-    )
-
-
-def _bp_type_directive(blueprint: dict) -> str:
-    """The blueprint's type system, as concrete CSS-ready values.
-
-    Emits a min AND a max for every role. The previous version emitted only a
-    floor ("36px landscape — never smaller") plus a modular ratio, which the
-    model resolved in the worst possible way in both directions: body copy sat
-    exactly ON the floor (a floor stated as the template's own type law reads as
-    the target), while headlines grew by an unbounded ratio until they overflowed
-    their container.
-    """
-    ts = (blueprint or {}).get("type_system") or {}
-    if not ts:
-        return ""
-    case_rule = {
-        "upper": "textTransform: 'uppercase'",
-        "title": "Title Case (capitalise each significant word)",
-        "sentence": "sentence case",
-    }.get(ts.get("heading_case", "sentence"), "sentence case")
-    label_rule = (
-        "textTransform: 'uppercase'"
-        if ts.get("label_case") == "upper"
-        else "fontVariant: 'small-caps'"
-    )
-    b = _type_bands(blueprint)
-    hl, hh = b["headline_landscape"]
-    pl, ph = b["headline_portrait"]
-    bl, bh = b["body_landscape"]
-    bpl, bph = b["body_portrait"]
-    rl, rh = b["prop_landscape"]
-    rpl, rph = b["prop_portrait"]
-    ml, mh = b["micro_landscape"]
-    # Name the ACTUAL typeface this template was designed around. The prompt has
-    # always said "fonts arrive as props", but never which face — so the rule
-    # read as an abstract convention rather than a fact about this template, and
-    # a scene that wanted a serif simply named one. The ids are the registry
-    # values resolveFontFamily() understands; a literal family is not loaded.
-    _ident = (blueprint or {}).get("identity") or {}
-    _heading, _body = _ident.get("heading_font"), _ident.get("body_font")
-    _typeface = (
-        f"TYPEFACE: this template is set in {_heading!r} (headings) and {_body!r} (body).\n"
-        "  They reach the component as props.headingFont / props.bodyFont — bind to those,\n"
-        "  and NEVER write a family name yourself. A literal family is not loaded by the\n"
-        "  renderer and silently falls back to the system sans, which is what makes one\n"
-        "  template's intro and content scenes read as two different designs.\n"
-        if _heading or _body
-        else ""
-    )
-    return (
-        f"{_typeface}"
-        "TYPE SYSTEM (this template's own — these are the ACTUAL sizes to use, not minimums):\n"
-        f"- Headline / displayText: MANDATORY <FitText> (the validator rejects a bare\n"
-        f"  fontSize on the headline). Target {hl}-{hh}px landscape, {pl}-{ph}px portrait:\n"
-        f"    <FitText fontSize={{props.titleFontSize ?? {hh}}} minFontSize={{{hl}}} maxLines={{3}}\n"
-        f"             containerWidth={{<px width of the column it sits in>}}\n"
-        f"             maxHeight={{<px height available for it>}}>{{props.displayText}}</FitText>\n"
-        "  FitText MEASURES the rendered text and grows it to fill its box, shrinking only as\n"
-        "  far as it must, so it fixes BOTH failure modes: a short title grows instead of\n"
-        "  sitting tiny, a long one shrinks instead of overflowing.\n"
-        "  PASS containerWidth whenever the headline is in a column or card rather than\n"
-        "  spanning the frame, and PASS maxHeight whenever the text sits in a fixed-height\n"
-        "  band. Those two give it the real box to fill; without them it falls back to a\n"
-        "  canvas-sized guess and leaves the text smaller than the space it was given.\n"
-        "  Use it for big numerals and any other text whose length you do not control.\n"
-        f"- Body / narration copy: {bl}-{bh}px landscape, {bpl}-{bph}px portrait.\n"
-        f"- SUPPORTING COPY — card body, bullet body, list items, captions, table\n"
-        f"  cells: {rl}-{rh}px landscape, {rpl}-{rph}px portrait. These MUST SCALE WITH\n"
-        f"  THE BODY SIZE. Write them as a fraction of props.descriptionFontSize:\n"
-        f"      fontSize: (props.descriptionFontSize ?? {bh}) * 0.9\n"
-        f"  NOT as a fixed number. A fixed size here makes the editor's body slider a\n"
-        f"  no-op on everything except the one paragraph that happens to read the prop,\n"
-        f"  which is the single most common complaint about generated scenes.\n"
-        f"- Chrome (masthead, panel numbers, editorial-rule labels): {ml}-{mh}px, same\n"
-        f"  rule — a fraction of props.descriptionFontSize, never a bare literal.\n"
-        "- Do NOT hand-size anything the kit already sizes. <StatGrid>, <MetricRow>,\n"
-        "  <Masthead>, <PanelNumber>, <EditorialRule>, <SectionDivider> and <Kicker>\n"
-        "  all read this template's type scale internally and already follow BOTH\n"
-        "  sliders. Passing them an explicit fontSize opts them out of that.\n"
-        f"- Eyebrows / labels: {max(18, bl - 12)}-{max(22, bl - 8)}px, {label_rule}, "
-        f"letterSpacing: '{ts.get('label_tracking_em', 0.12)}em'.\n"
-        f"- Headings: {case_rule}, letterSpacing: '{ts.get('heading_tracking_em', -0.01)}em'.\n"
-        f"- Big numerals: at most {int(bh * 2.5)}px. Hand them to <StatGrid items={{props.metrics}}> / <MetricRow> — those size each numeral to its own\n"
-        "    cell. The VALIDATOR REJECTS props.metrics rendered at a fixed fontSize.\n"
-        "- props.quote: the validator REJECTS it at a fixed fontSize too. Use\n"
-        "    <FitText maxLines={4} maxHeight={<px available>}>{props.quote}</FitText>\n"
-        "    or <RevealText text={props.quote} mode=\"line\" />. Pass maxHeight: it is what\n"
-        "    CONTAINS text that cannot fit even at minFontSize, instead of spilling.\n"
-        "- A scene rendering props.metrics/bullets/steps/timelineItems MUST branch its\n"
-        "    arrangement on isPortrait (or delegate to StatGrid/MetricRow) — the validator\n"
-        "    rejects one arrangement reused for both 1920x1080 and 1080x1920.\n"
-        f"- Numerals: {ts.get('numeral_style', 'tabular')}.\n"
-        f"NEVER exceed the top of a range. A headline above {hh}px landscape / {ph}px portrait "
-        "does not fit the frame and will break mid-word or spill off the canvas. Portrait is "
-        "1080px wide — always smaller than landscape, never larger."
-    )
-
-
-def build_art_direction(
-    blueprint: dict | None,
-    role: str,
-    index: int = 0,
-    composition: str = "",
-) -> str:
-    """The complete art-direction brief for one scene.
-
-    Flag OFF -> the exact v1 house style, so output is unchanged.
-    Flag ON  -> the blueprint's decisions, at the same specificity.
-    """
-    if not blueprint:
-        parts = [_V1_SAFE_AREA, _V1_TYPE_SCALE]
-        if role == "content":
-            # regenerate_single_scene has no composition rotation to draw from
-            # (it edits one existing scene, not a fresh batch), so it passes none
-            # and the scene keeps whatever geometry it already has.
-            _comp_line = (
-                f"Build THIS scene as a '{composition}' composition."
-                if composition
-                else "Keep this scene's existing composition."
-            )
-            parts.append(
-                "PER-SCENE COMPOSITION (MAKE EACH SCENE LOOK DIFFERENT):\n"
-                f"{_comp_line} Repeated centered cards\n"
-                "are the #1 reason custom videos feel repetitive, so consecutive scenes must\n"
-                "NOT share a layout. These are GEOMETRY DIRECTIVES you author yourself with\n"
-                "plain flex/absolute divs (NOT components to wrap); flip the focal side vs the\n"
-                "previous scene; honor the four hasImage×isPortrait cases:\n"
-                "  • 'centered focal'    → one dominant focal block dead-centre, generous space.\n"
-                "  • 'asymmetric split'  → ~60/40 two columns: focal copy one side, support other.\n"
-                "  • 'full-bleed hero'   → <KenBurnsImage> edge-to-edge; text overlaid low + scrim.\n"
-                "  • 'offset card stack' → rows weighted one side; eyebrow + vertical rule opposite.\n"
-                "  • 'side rail'         → thin vertical accent rail + vertical eyebrow, content beside."
-            )
-        elif role == "intro":
-            parts.append(
-                "INTRO: the brand-reveal opener. STRONGLY PREFER the <IntroStage> scaffold — it\n"
-                "choreographs the whole opening (logo settle + accent rule draw + staggered title\n"
-                "reveal + signature decor):\n"
-                "  <IntroStage title={props.displayText}\n"
-                "              logo={props.logoUrl && <Img src={props.logoUrl} style={{height: 190}} />}\n"
-                "              subtitle={...optional takeaway...}\n"
-                "              decor=\"<this brand's signature decor>\"\n"
-                "              titleReveal=\"blur for energetic brands, word/line for calm\" />\n"
-                "When hasImage you MAY wrap IntroStage over a <KenBurnsImage scrim=\"bottom\"/> hero\n"
-                "backdrop. (You may hand-roll instead, but it must hit the same bar: a real logo\n"
-                "reveal, a bold title reveal, exactly ONE signature entrance beat.) Calm and\n"
-                "confident: one focal headline, generous negative space. Give the SIGNATURE\n"
-                "ARTIFACT its most PROMINENT take here — <SignatureArtifact intensity={0.7} />."
-            )
-        else:
-            parts.append(
-                "OUTRO: a calm closing recap — restate the brand (props.displayText) plus one\n"
-                "short takeaway with a clean title reveal and a gentle exit. Echo the brand's\n"
-                "SIGNATURE ARTIFACT as a quiet closing callback so the video bookends on its motif."
-            )
-        return "\n\n".join(parts)
-
-    # Era FIRST — it is the template's identity, and everything below is an
-    # expression of it. Placed ahead of the safe area and type system so the model
-    # reads the period before the mechanics.
-    parts = []
-    _era = _bp_era_directive(blueprint)
-    if _era:
-        parts.append(_era)
-    parts.append(_bp_safe_area(blueprint))
-    _type = _bp_type_directive(blueprint)
-    if _type:
-        parts.append(_type)
-
-    lay = None
-    from app.dspy_modules.blueprint import layout_for_scene
-
-    lay = layout_for_scene(blueprint, role, index)
-    if lay:
-        geom = [
-            "SCENE GEOMETRY — build exactly this (authored for this brand, not a generic recipe):",
-            f"- Landscape: {lay.get('geometry')}",
-        ]
-        if lay.get("geometry_portrait"):
-            geom.append(f"- Portrait (1080x1920): {lay['geometry_portrait']}")
-        else:
-            geom.append(
-                "- Portrait: re-compose the above for a tall frame (stack, fewer items, larger\n"
-                "  type). Do NOT reuse the landscape JSX unchanged."
-            )
-        if lay.get("motion_beat"):
-            geom.append(f"- Motion beat: {lay['motion_beat']}")
-        geom.append(
-            f"- Surface treatment: '{lay.get('surface')}' "
-            f"(cardStyle(palette, '{lay.get('surface')}') where a panel is called for)."
-        )
-        if lay.get("supports_image"):
-            geom.append(
-                f"- Image treatment: '{lay.get('image_treatment')}' — honour it in the\n"
-                "  hasImage branch."
-            )
-        else:
-            geom.append("- This layout takes NO content image; compose it as a text/number scene.")
-        geom.append(
-            f"- Signature artifact: <SignatureArtifact motion=\"{lay.get('artifact')}\" "
-            f"intensity={{{lay.get('artifact_intensity', 0.45)}}} /> — placed to suit THIS\n"
-            "  geometry, not dropped in the same corner as neighbouring scenes."
-        )
-        # The layout's VARIANT: how this template draws this content type. Two
-        # templates may both need a metrics layout; the variant is what stops
-        # them being the same layout, so it is stated as direction rather than
-        # left to the recipe table's single default.
-        _variant = lay.get("variant")
-        if _variant:
-            # A BOOKEND is not content, and saying so matters. Bookend layouts
-            # carry `best_for: []`, so this defaulted to "plain" and announced
-            # an intro as "this template draws 'plain' content as 'drop-cap'" —
-            # an oversized initial letter, which describes nothing about a brand
-            # opening. The instruction was meaningless, so the model discarded
-            # it and fell back to the centred wordmark every time.
-            if role in ("intro", "outro"):
-                _what = "opening" if role == "intro" else "closing"
-                geom.append(
-                    f"- {_what.upper()} ARRANGEMENT: '{_variant}'. "
-                    f"{_VARIANT_DIRECTION.get(_variant, '')} "
-                    f"This is THIS brand's {_what}; build it, do not substitute a "
-                    f"centred lockup unless that is what is named above.".rstrip()
-                )
-            else:
-                _bf = (lay.get("best_for") or ["plain"])[0]
-                geom.append(
-                    f"- Rendering variant: this template draws '{_bf}' content as "
-                    f"'{_variant}'. {_VARIANT_DIRECTION.get(_variant, '')}".rstrip()
-                )
-        geom.append(
-            "Build THIS geometry. If it feels unusual, that is the brand, and it is intended."
-        )
-        parts.append("\n".join(geom))
-
-    if role in ("intro", "outro"):
-        be = (blueprint.get("bookends") or {}).get(role) or {}
-        if role == "intro":
-            parts.append(
-                "OPENING (this brand's own, NOT a generic brand reveal):\n"
-                f"- opening_move: '{be.get('opening_move')}'\n"
-                f"- logo_treatment: '{be.get('logo_treatment')}'\n"
-                f"- title_reveal: <RevealText mode=\"{be.get('title_reveal')}\" />\n"
-                f"- energy: '{be.get('energy')}'\n"
-                "Build THIS opening. Do NOT default to a centred logo-above-title reveal, and do\n"
-                "NOT reach for the <IntroStage> scaffold unless the opening_move above genuinely\n"
-                "describes what it does — it choreographs one specific opening, and using it for\n"
-                "every brand is exactly why templates looked identical."
-            )
-        else:
-            parts.append(
-                "CLOSING (this brand's own):\n"
-                f"- closing_move: '{be.get('closing_move')}'\n"
-                f"- energy: '{be.get('energy')}'\n"
-                f"- echoes_intro: {be.get('echoes_intro')}\n"
-                "Design it on its OWN terms. It need NOT be quieter or calmer than the intro —\n"
-                "an emphatic close is valid if the energy above says so."
-            )
-    return "\n\n".join(parts)
-
-
 def _build_brand_context(
     theme: dict,
     brand_kit_data: dict | None,
@@ -2594,7 +1909,18 @@ def _build_brand_context(
 
     if brand_kit_data:
         if brand_kit_data.get("logos"):
-            ctx += "Logo available via props.logoUrl\n"
+            # props.logoUrl is undefined on EVERY scene — the render path blanks
+            # it and composites one corner watermark over the finished frame
+            # instead (see LogoOverlay in GeneratedVideo.tsx). Saying so stops
+            # the model spending composition on a mark that will never appear,
+            # and tells it to keep the corner clear for the one that will.
+            ctx += (
+                "The brand has a logo, but it is a CORNER WATERMARK composited over the "
+                "finished frame by the render path — props.logoUrl is undefined in every "
+                "scene, so nothing you draw for it will appear. Keep rule 4's guarded "
+                "block, design as though the logo were absent, and leave the bottom-right "
+                "corner (about 12% of the width) clear of anything it would cover.\n"
+            )
         if brand_kit_data.get("images"):
             ctx += f"{len(brand_kit_data['images'])} brand image(s) available via props.brandImages\n"
         dl = brand_kit_data.get("design_language", {})
@@ -2643,42 +1969,20 @@ def _build_brand_context(
         _decor = next((_decor_map[d] for d in _decoratives if d in _decor_map), "none")
         _intensity = 0.45
 
-    # ── Brand identity kit (v3) — the persona that makes THIS brand unlike any
-    # other custom template (not a recolor). The key split: TYPE + MOTION stay
-    # CONSISTENT across all scenes (that's the brand thread); DECOR + SURFACE are
-    # a palette to VARY per scene. Pinning surface/decor to one value on every
-    # scene was flattening intra-brand variety, so they are framed as defaults to
-    # reach into, not mandates. (Decor is stated ONCE, here.) ──
-    signature = theme.get("signature") or {}
-    if signature:
-        _surface = signature.get("surfaceStyle", "panel")
-        _type = signature.get("typeTreatment", "clean-sans")
-        _sig_decor = signature.get("decorSystem", _decor)
-        _artifact_motion = signature.get("artifactMotion", "drift")
-        _artifact_set = signature.get("artifactSet") or [_artifact_motion]
-        _type_hint = {
-            "tight-sans": "tight, modern sans — sentence case, low letter-spacing, heavy weights",
-            "editorial-serif": "high-contrast serif headings with an ALL-CAPS sans kicker, wide tracking",
-            "display-serif": "elegant display serif, generous leading, refined small caps",
-            "rounded-sans": "friendly rounded sans, warm and approachable",
-            "display-bold": "loud condensed display, ALL-CAPS, tight tracking, high energy",
-            "clean-sans": "clean neutral sans, balanced weights",
-        }.get(_type, _type)
-        ctx += (
-            "BRAND IDENTITY KIT — the unique persona for this template:\n"
-            f"  • Type (KEEP CONSISTENT every scene — this is the brand thread): {_type_hint}\n"
-            f"  • Motion energy (KEEP CONSISTENT): see the Motion energy line below\n"
-            f"  • SIGNATURE ARTIFACT FAMILY (this brand's fingerprint): {_artifact_set} — a related "
-            f"family of animated motifs via <SignatureArtifact motion=\"...\" />. Each scene's "
-            f"scene_purpose names the EXACT motion + intensity to use for that scene, so VARY the "
-            f"artifact across scenes (don't repeat one motif everywhere): the intro gets a BOLD hero "
-            f"take, content scenes restrained ECHOES placed differently each time, the outro a quiet "
-            f"callback with a DIFFERENT motif than the intro. (The matching <Decor system=\"{_sig_decor}\" /> "
-            f"is a quiet static companion.) This rotating-but-related family is what makes the template "
-            f"read as ONE brand while keeping every scene visually distinct.\n"
-            f"  • Surface lean (DEFAULT, not mandatory): panels tend toward cardStyle(palette, \"{_surface}\") — switch treatment when a scene calls for it\n"
-            f"  • Reveal: RevealText mode=\"blur\" for energetic brands, \"word\"/\"line\" for calm/smooth\n"
-        )
+    # ── Brand design context — the narrative brief the design docs are built on.
+    #
+    # This replaced a "BRAND IDENTITY KIT" block that named a surface variant, a
+    # type treatment and a signature artifact family, all picked deterministically
+    # from fixed enum pools by a hash of the brand's category. That block was a
+    # primary cause of template convergence: two brands hashing into the same
+    # bucket were handed the same persona and produced the same template with
+    # different colours.
+    #
+    # The extractor now writes a real design brief in prose, and the design doc
+    # stage designs from it. Nothing here names a component or a menu value.
+    brand_description = (theme.get("brand_description") or "").strip()
+    if brand_description:
+        ctx += f"BRAND DESIGN CONTEXT (design FROM this, not from the colour values):\n  {brand_description}\n"
     else:
         ctx += f"Suggested decor system (optional): {_decor} at intensity {_intensity}\n"
 
@@ -2712,7 +2016,7 @@ def _build_brand_context(
     return ctx
 
 
-# ─── Brand scene type decision ──────────────────────────────────
+# ─── JSON parsing helpers ───────────────────────────────────────
 
 
 def _extract_json_array(raw: str):
@@ -2765,208 +2069,6 @@ def _extract_json_array(raw: str):
             if depth == 0:
                 return json.loads(s[start : i + 1])
     raise json.JSONDecodeError("unterminated JSON array", s, start)
-
-
-def _decide_brand_scene_types(brand_context: str, user_brief: str = "") -> list[dict]:
-    """Ask the AI to decide scene types tailored to this brand.
-
-    `user_brief` is the user's raw prompt / uploaded-doc text (empty for URL-scraped
-    templates); when present, explicit scene requests in it are honored.
-
-    Retries once on failure. Raises RuntimeError if both attempts fail.
-    Returns list of dicts: [{"id": "...", "scene_type": "...", "best_for": [...], "description": "..."}]
-    """
-    ensure_dspy_configured()
-    def _default_brand_scene_types() -> list[dict]:
-        """A valid, varied scene set for when the model cannot produce one.
-
-        Deliberately spans the content-type taxonomy so downstream archetype
-        matching still has somewhere to route each kind of scene. When the
-        blueprint stage is enabled it supersedes these layouts entirely, so the
-        cost of falling back here is small — far smaller than failing generation.
-        """
-        return [
-            {"id": "brand_intro", "scene_type": "intro", "best_for": [],
-             "description": "Opening brand reveal"},
-            {"id": "key_points", "scene_type": "content", "best_for": ["bullets"],
-             "description": "Key points as a staggered list"},
-            {"id": "headline_stat", "scene_type": "content", "best_for": ["metrics"],
-             "description": "A headline figure with supporting stats"},
-            {"id": "pull_quote", "scene_type": "content", "best_for": ["quote"],
-             "description": "A pulled quote with attribution"},
-            {"id": "process_steps", "scene_type": "content", "best_for": ["steps"],
-             "description": "An ordered sequence of steps"},
-            {"id": "side_by_side", "scene_type": "content", "best_for": ["comparison"],
-             "description": "Two options compared side by side"},
-            {"id": "narrative_beat", "scene_type": "content", "best_for": ["plain"],
-             "description": "A narrative passage with a supporting visual"},
-            {"id": "closing_outro", "scene_type": "outro", "best_for": [],
-             "description": "Closing brand recap"},
-        ]
-
-    # dspy.Predict, NOT ChainOfThought.
-    #
-    # ChainOfThought prepends an unbounded `reasoning` field that is emitted
-    # BEFORE scene_types_json. GLM filled it and ran out of budget mid-array, so
-    # the response was a bare unterminated "[" — "unterminated JSON array: char 0"
-    # — on every attempt. Template 143 (SpaceX) failed generation outright this
-    # way, twice, after 13-24s per attempt spent writing prose instead of JSON.
-    #
-    # The planning is not lost: the signature declares a `plan_note` output capped
-    # at two lines, so the model still commits to a shape before emitting it but
-    # cannot spend the response deliberating. Same fix as the blueprint stage.
-    module = dspy.Predict(DecideBrandSceneTypes)
-    codegen_lm = get_scene_type_lm()
-
-    last_error = None
-    # Set when an attempt ran out of budget mid-array, so the retry can ask for a
-    # shorter answer instead of re-rolling into the same truncation.
-    _truncated = False
-    for attempt in range(2):
-        t0 = time.time()
-        try:
-            # On the RETRY, run with the LM cache disabled so we don't re-fetch the
-            # same malformed response (which fails identically in ~0s and would also
-            # poison every later template with the same inputs). Guarded with
-            # getattr/try so it degrades safely if the dspy/LM version differs.
-            prev_cache = getattr(codegen_lm, "cache", None)
-            if attempt and prev_cache is not None:
-                try:
-                    codegen_lm.cache = False
-                except Exception:  # noqa: BLE001
-                    pass
-            try:
-                # A truncated first attempt means the model wrote prose until the
-                # budget ran out. Re-rolling identically truncates again (observed:
-                # both attempts, on two consecutive generations), so the retry asks
-                # for a shorter answer rather than a different one.
-                _brief = user_brief or ""
-                if attempt and _truncated:
-                    _brief = (
-                        f"{_brief}\n\n[Your previous attempt was CUT OFF before the JSON array "
-                        "was complete. Be COMPACT: skip the plan note, emit SIX content scenes "
-                        "rather than eight, and keep each description to one short sentence. A "
-                        "complete six-scene array is worth far more than a truncated eight-scene "
-                        "one, which is discarded entirely.]"
-                    ).strip()
-                with dspy.context(lm=codegen_lm):
-                    result = module(brand_context=brand_context, user_brief=_brief)
-            finally:
-                if attempt and prev_cache is not None:
-                    try:
-                        codegen_lm.cache = prev_cache
-                    except Exception:  # noqa: BLE001
-                        pass
-
-            # Tolerant parse — the model sometimes appends prose / a second fence
-            # after the array ("Extra data: line N"), so extract the array itself.
-            scene_types = _extract_json_array(result.scene_types_json or "")
-
-            if not isinstance(scene_types, list) or len(scene_types) < 3:
-                raise ValueError(f"Expected list of 3+ scene types, got {type(scene_types).__name__} with {len(scene_types) if isinstance(scene_types, list) else 0} items")
-
-            # Validate structure
-            validated = []
-            for st in scene_types:
-                if not isinstance(st, dict) or "id" not in st:
-                    continue
-                validated.append({
-                    "id": st["id"],
-                    "scene_type": st.get("scene_type", "content"),
-                    "best_for": st.get("best_for", []),
-                    "description": st.get("description", st["id"]),
-                })
-
-            # Ensure we have intro and outro (structural requirement)
-            has_intro = any(s["scene_type"] == "intro" for s in validated)
-            has_outro = any(s["scene_type"] == "outro" for s in validated)
-            if not has_intro:
-                validated.insert(0, {"id": "hero_intro", "scene_type": "intro", "best_for": [], "description": "Opening scene"})
-            if not has_outro:
-                validated.append({"id": "closing_outro", "scene_type": "outro", "best_for": [], "description": "Closing scene"})
-
-            content_types = [s for s in validated if s["scene_type"] == "content"]
-            if not content_types:
-                raise ValueError("AI returned no content scene types")
-
-            # Enforce archetype non-repetition: two content scenes with the same
-            # best_for signature resolve to near-identical layouts, which is the #1
-            # reason custom videos feel repetitive. Keep the first of each signature.
-            deduped, seen = [], set()
-            for s in content_types:
-                sig = tuple(sorted(str(b).lower() for b in (s.get("best_for") or []))) or (s["id"],)
-                if sig in seen:
-                    print(f"[F7-DEBUG] [SCENE-TYPES] Dropped duplicate archetype {s['id']!r} (best_for={s.get('best_for')})")
-                    continue
-                seen.add(sig)
-                deduped.append(s)
-            if len(deduped) < len(content_types):
-                non_content = [s for s in validated if s["scene_type"] != "content"]
-                validated = (
-                    [s for s in non_content if s["scene_type"] == "intro"]
-                    + deduped
-                    + [s for s in non_content if s["scene_type"] == "outro"]
-                )
-
-            elapsed = time.time() - t0
-            print(
-                f"[F7-DEBUG] [SCENE-TYPES] Decided {len(validated)} scene types in {elapsed:.1f}s: "
-                f"{[s['id'] for s in validated]}"
-            )
-            # ── V3 verification: confirm Decision D took effect at runtime ──
-            # D = 5–8 DISTINCT content archetypes, and NO "dataviz" archetype
-            # (charts/tables come ONLY from dedicated kit scenes now).
-            _content = [s for s in validated if s["scene_type"] == "content"]
-            _n_content = len(_content)
-            _in_range = "OK" if 5 <= _n_content <= 8 else "OUT-OF-RANGE(expect 5-8)"
-            _dataviz_hits = [
-                s["id"]
-                for s in validated
-                if "dataviz" in str(s["id"]).lower()
-                or any("dataviz" in str(b).lower() for b in (s.get("best_for") or []))
-                or "dataviz" in str(s.get("scene_type", "")).lower()
-            ]
-            _dataviz_status = (
-                f"LEAKED dataviz archetype(s): {_dataviz_hits}"
-                if _dataviz_hits
-                else "no dataviz archetype (correct)"
-            )
-            print(
-                f"[F7-DEBUG] [V3][SCENE-TYPES] content={_n_content} [{_in_range}] | "
-                f"breakdown={[s['scene_type'] for s in validated]} | {_dataviz_status}"
-            )
-            return validated
-
-        except (json.JSONDecodeError, ValueError) as e:
-            last_error = e
-            elapsed = time.time() - t0
-            # An empty or unterminated array means the response was CUT OFF, not
-            # that the model wrote something malformed. Naming the real cause
-            # makes the log diagnosable and lets the retry adapt.
-            _raw = (getattr(result, "scene_types_json", "") or "") if "result" in locals() else ""
-            _truncated = isinstance(e, json.JSONDecodeError) and (
-                not _raw.strip() or "unterminated" in str(e).lower()
-            )
-            print(
-                f"[F7-DEBUG] [SCENE-TYPES] Attempt {attempt + 1} failed in {elapsed:.1f}s: {e}"
-                + (" — response TRUNCATED (out of output budget)" if _truncated else "")
-            )
-            if attempt == 0:
-                print("[F7-DEBUG] [SCENE-TYPES] Retrying...")
-
-    # Fall back rather than failing the whole template.
-    #
-    # This stage only decides the SHAPE of the scene set; the blueprint supersedes
-    # its layouts anyway when enabled. Raising here killed generation outright for
-    # template 143 — a much worse outcome than a generic-but-valid scene set.
-    print(
-        f"[F7-DEBUG] [SCENE-TYPES] FALLBACK — both attempts failed ({last_error}); "
-        "using the default scene set"
-    )
-    return _default_brand_scene_types()
-
-
-# ─── Design system generation ────────────────────────────────────
 
 
 def _generate_design_system(brand_context: str) -> str:
@@ -3092,162 +2194,92 @@ def _salvage_scene_from_parse_error(err: Exception) -> _SalvagedPrediction | Non
     return _SalvagedPrediction(code)
 
 
-def _informed_retry(
-    base_module,
-    base_kwargs: dict,
-    previous_failure: str,
-    scene_type: str,
-    type_bands: dict | None = None,
-    theme: dict | None = None,
-):
-    """Run the scene module up to REFINE_N+1 times, feeding the REAL error back.
+@contextlib.contextmanager
+def _suppress_offer_feedback():
+    """Stop `dspy.Refine` spending an LLM call to GUESS at an error we already have.
 
-    Replaces dspy.Refine, which could not be told what actually went wrong.
-    Refine calls reward_fn (which returns a bare float, discarding the validator
-    message) and then, to produce a retry hint, spends an ENTIRE EXTRA LLM CALL on
-    its OfferFeedback signature — handing it the program source and trajectory so
-    it can *infer* the failure. Meanwhile `previous_failure` stayed empty for every
-    rollout, so the two attempts where most failures happen never saw the
-    diagnostic that the outer repair loop already builds perfectly well.
+    Between every pair of rollouts Refine calls
+    `dspy.Predict(OfferFeedback)(...)` — handing the model the program source
+    and the full trajectory so it can *infer* why the last attempt scored
+    badly. The call is inline in `Refine.forward` with no flag and no
+    overridable method, so this patch is the only seam.
 
-    That was the dominant cost in the 187s-per-scene tail: 2 rollouts + 1 meta-call
-    to guess at an error we were holding the whole time.
+    Here that inference is pure waste: `_scene_reward` has already written the
+    REAL validator output (every failed contract, numbered, with an annotated
+    source window) into `previous_failure`, which the next rollout reads
+    directly. Refine would spend a call rediscovering a diagnostic we are
+    holding — which is exactly what made the earlier hand-rolled loop faster.
+    Suppressing it is what lets REFINE_N rise to 5 attempts at the same cost 3
+    attempts used to carry: 5 LLM calls per failing scene, not 9.
 
-    Here each retry receives `_format_scene_failure(...)` — the real error, the
-    annotated source window, and the full contract checklist — exactly like a
-    repair. Same rollout budget, no meta-call, and the model is told rather than
-    guessed at.
+    HOW: Refine consumes the result as `if not advice:` and takes the plain
+    (unwrapped) path when it is falsy — so a stub whose `.advice` is None makes
+    the next rollout run normally with no `hint_` field appended. The stub must
+    RETURN falsy rather than raise: an exception here is swallowed by Refine's
+    own `except`, which decrements `fail_count` and burns a rollout (measured:
+    4 generations instead of 5).
 
-    Returns the best prediction by score, matching Refine's contract of never
-    raising and always handing back its best attempt.
+    SAFETY: the patch is process-wide while active and scenes run
+    concurrently, so it must never intercept a sibling's real predictor. The
+    `sig is refine_mod.OfferFeedback` identity check is what guarantees that —
+    every other signature is delegated to the real `dspy.Predict`.
     """
-    best = None
-    best_score = -1.0
-    failure = previous_failure
+    import dspy.predict.refine as refine_mod
 
-    for attempt in range(REFINE_N + 1):
+    _real_predict = refine_mod.dspy.Predict
+
+    class _NullAdvice:
+        """Falsy advice — Refine falls back to its plain, unwrapped path."""
+
+        def __call__(self, **_kwargs):
+            return dspy.Prediction(advice=None)
+
+    def _predict_or_null(signature, *args, **kwargs):
+        if signature is refine_mod.OfferFeedback:
+            return _NullAdvice()
+        return _real_predict(signature, *args, **kwargs)
+
+    with patch.object(refine_mod.dspy, "Predict", _predict_or_null):
+        yield
+
+
+class NonRaisingRefine(dspy.Refine):
+    """`dspy.Refine`, minus the one behaviour that can kill a whole batch.
+
+    Refine re-raises once `fail_count` (default N) is exhausted. That is wrong
+    here: scenes are generated concurrently, and letting one scene's exception
+    propagate previously discarded the ~6 minutes of compute spent on its
+    siblings. The pipeline already has a better answer for a scene that cannot
+    be generated — the caller substitutes a deterministic stub and records a
+    warning — so this returns the best prediction seen instead of raising, and
+    lets that path handle it.
+
+    Everything else is stock Refine: N rollouts at temperature 1.0 with varying
+    rollout_id, best-of-N selection, early exit once the threshold is met, and
+    the OfferFeedback call between rollouts.
+
+    The exact validator error still reaches each retry: `_scene_reward` writes
+    it into the kwargs dict Refine re-splats on every iteration (see the note
+    there), so `previous_failure` carries the real diagnostic rather than an
+    inferred one.
+    """
+
+    def forward(self, **kwargs):
         try:
-            result = base_module(previous_failure=failure, **base_kwargs)
+            with _suppress_offer_feedback():
+                return super().forward(**kwargs)
         except Exception as e:  # noqa: BLE001
-            # A parse failure must not discard a usable scene.
+            print(f"[F7-DEBUG] [REFINE] all rollouts failed ({type(e).__name__}: {e})")
+            # Refine tracks its best prediction in a local, so it is gone once
+            # forward() raises. One clean rollout at default settings is a far
+            # better hand-off to the repair loop than nothing at all.
             #
-            # The four image_box_* fields are emitted AFTER `code`, so a response
-            # truncated anywhere past the code block loses them — and DSPy's
-            # JSONAdapter compares parsed keys to the signature with strict
-            # equality, ignoring field defaults, so it raises rather than filling
-            # them in. Template 139 failed generation outright this way with a
-            # complete, valid scene sitting in the response.
-            #
-            # Those fractions are cropper metadata (see the aspect-ratio note
-            # below); nothing about the render depends on them, so recovering the
-            # code and defaulting them is strictly better than losing the scene.
-            salvaged = _salvage_scene_from_parse_error(e)
-            if salvaged is None:
-                raise
-            print(
-                "[F7-DEBUG] [REFINE] recovered code from a parse failure "
-                "(image-box fractions defaulted)"
-            )
-            result = salvaged
-        code = clean_code(result.code or "")
-
-        # Truncation: retrying makes it worse (temperature and verbosity both
-        # push the same way), so hand straight to the repair loop, which sends
-        # an explicit "you were cut off, be compact" instruction.
-        if not code.strip():
-            print("[F7-DEBUG] [REFINE] empty code (response truncated) — deferring to repair loop")
-            return best if best is not None else result
-
-        valid, err = validate_component_code(
-            code,
-            scene_type=scene_type,
-            collect_all=True,
-            theme=_theme_from_brand_context(base_kwargs.get("brand_context", "")),
-        )
-        if not valid:
-            score = 0.0
-            print(f"[F7-DEBUG] [REFINE] attempt {attempt + 1} FAILED: {err}")
-        else:
-            score = _score_valid_scene(
-                code,
-                {
-                    **base_kwargs,
-                    "_type_bands": type_bands or {},
-                    # Lets the contrast check resolve palette.<slot> to this
-                    # brand's real colours instead of skipping symbolic pairs.
-                    "_theme": theme or {},
-                },
-            )
-
-        if score > best_score:
-            best, best_score = result, score
-
-        # ── Semantic + visual verification ────────────────────────────────────
-        # Two checks with DIFFERENT bands, because they cost two orders of
-        # magnitude apart.
-        #
-        # The code critic runs on ANY scene carrying a soft defect (score < 1.0).
-        # It used to share the visual check's `score < VISUAL_CHECK_THRESHOLD`
-        # (0.85) band, and every blueprint-adherence miss is worth exactly -0.15
-        # — so a scene whose ONLY defect was ignoring its blueprint artifact
-        # scored 0.85, and `0.85 < 0.85` is false, so it skipped the critic and
-        # shipped. The two most common adherence misses were both invisible to
-        # the one check that could have caught them.
-        #
-        # Both still skip the LAST attempt: there is no rollout left to consume
-        # a critique, so paying for one buys nothing.
-        _critics_possible = valid and attempt < REFINE_N and score >= REFINE_THRESHOLD
-        if _critics_possible and score < CODE_CRITIC_THRESHOLD:
-            # Cheapest useful check first. The code critic is one text call
-            # against the code and the layout it was meant to implement, so it
-            # costs roughly a tenth of a render + vision call — and it catches
-            # the defect neither the validator nor the eye reliably does: a
-            # scene that ignored its blueprint layout and built a generic
-            # centered card. That silently discards the design stage's whole
-            # per-brand divergence at the very last step.
-            _code_critique = critique_scene_code(
-                code,
-                scene_type=scene_type,
-                layout_spec=str(base_kwargs.get("layout_spec") or ""),
-                art_direction=str(base_kwargs.get("art_direction") or ""),
-            )
-            if _code_critique:
-                failure = _format_code_critique(_code_critique)
-                continue
-
-            # The visual check keeps the ORIGINAL, narrower band. It is a
-            # browser render plus a vision call — the most expensive check in
-            # the pipeline — so widening the critic must not drag its cost up
-            # with it. A scene at 0.85+ is not suspect enough to photograph.
-            if score >= VISUAL_CHECK_THRESHOLD:
-                return result
-
-            _critique = visual_check_scene(
-                code,
-                scene_type=scene_type,
-                scene_index=int(base_kwargs.get("scene_index") or 0),
-                total_scenes=int(base_kwargs.get("total_scenes") or 1),
-                art_hints=str(base_kwargs.get("art_direction") or "")[:1200],
-            )
-            if _critique:
-                failure = _format_visual_failure(_critique)
-                continue
-            # Passing the eye beats the heuristics: accept even a 0.78 scene.
-
-        if score >= REFINE_THRESHOLD:
-            return result
-        if attempt == REFINE_N:
-            break
-
-        # Feed the real diagnostic into the next attempt.
-        failure = _format_scene_failure(code, err) if not valid else (
-            f"ERROR: your previous attempt scored {score:.2f}, below the {REFINE_THRESHOLD} bar. "
-            "It was VALID but had quality problems — see the checklist below and fix them "
-            "while keeping everything that already works.\n\n" + REPAIR_CHECKLIST
-        )
-
-    print(f"[F7-DEBUG] [REFINE] returning best of {REFINE_N + 1} attempts (score={best_score:.2f})")
-    return best
+            # Deliberately OUTSIDE the suppression context: this is a single
+            # plain call with no rollout loop, so no advice is involved.
+            try:
+                return self.module(**kwargs)
+            except Exception:  # noqa: BLE001
+                raise e
 
 
 def _generate_single_scene_sync(
@@ -3256,17 +2288,22 @@ def _generate_single_scene_sync(
     scene_type: str,
     scene_index: int,
     total_scenes: int,
-    scene_purpose: str,
+    general_doc: str = "",
+    scene_doc: str = "",
+    built_so_far: str = "",
     previous_failure: str = "",
     use_refine: bool = True,
-    blueprint: str = "",
-    layout_spec: str = "",
-    art_direction: str = "",
     current_code: str = "",
     edit_instruction: str = "",
+    lm: "dspy.LM | None" = None,
 ) -> tuple[str, dict[str, str], list[dict]]:
     """Generate a single scene using DSPy ChainOfThought (+ Refine) (sync).
     Returns (code, {"landscape": "W / H", "portrait": "W / H"}).
+
+    `lm` overrides the model for this call. Generation leaves it None and gets
+    the codegen LM; editing an existing scene passes get_scene_edit_lm(), which
+    is a cheaper line for the narrower task. Kept as a parameter rather than a
+    branch inside so this function has exactly one reason to pick a model.
 
     use_refine=False (§R Layer 2) runs the base module ONCE instead of wrapping
     it in dspy.Refine. Repair attempts pass False: Refine costs up to REFINE_N+1
@@ -3287,45 +2324,56 @@ def _generate_single_scene_sync(
 
     t0 = time.time()
 
-    # This template's type bands, for the font-size penalty in _score_valid_scene.
-    # Not a signature field — it never reaches the model, only the scorer.
+    # Font-size sanity bounds only. The per-template numeric band came from the
+    # blueprint's type_system, which no longer exists: the design docs describe
+    # typography in prose, so there is nothing numeric to enforce against.
     _bands: dict = {}
-    if blueprint:
-        try:
-            _bands = _type_bands(json.loads(blueprint))
-        except (ValueError, TypeError):
-            _bands = {}
 
     _base_kwargs = dict(
         brand_context=brand_context,
         design_system=design_system,
-        blueprint=blueprint,
-        layout_spec=layout_spec,
-        art_direction=art_direction,
+        general_doc=general_doc,
+        scene_doc=scene_doc,
+        built_so_far=built_so_far,
         scene_type=scene_type,
         scene_index=scene_index,
         total_scenes=total_scenes,
-        scene_purpose=scene_purpose,
         current_code=current_code,
         edit_instruction=edit_instruction,
     )
 
-    codegen_lm = get_custom_lm()
+    codegen_lm = lm or get_custom_lm()
     with dspy.context(lm=codegen_lm):
         if use_refine:
-            result = _informed_retry(
-                base_module,
-                _base_kwargs,
-                previous_failure,
-                scene_type,
-                type_bands=_bands,
-                theme=_theme_from_brand_context(brand_context),
+            # `_theme` / `_type_bands` are scorer-only inputs and must NOT ride
+            # in the kwargs dict — Refine splats that straight into the module,
+            # and an unknown key there goes to the LLM signature. A closure
+            # keeps them out of the prompt while still reaching the scorer.
+            _scene_theme = _theme_from_brand_context(brand_context)
+
+            def _reward(args, pred, _t=_scene_theme, _b=_bands):
+                if isinstance(args, dict):
+                    args.setdefault("_theme", _t)
+                    args.setdefault("_type_bands", _b)
+                return _scene_reward(args, pred)
+
+            refiner = NonRaisingRefine(
+                module=base_module,
+                N=REFINE_N + 1,  # same rollout budget as the loop it replaces
+                reward_fn=_reward,
+                threshold=REFINE_THRESHOLD,
             )
+            result = refiner(previous_failure=previous_failure, **_base_kwargs)
         else:
             result = base_module(previous_failure=previous_failure, **_base_kwargs)
 
     elapsed = time.time() - t0
-    code = clean_code(result.code or "")
+    # dspy.Refine returns its best prediction, but that is None when EVERY
+    # rollout raised (the hand-rolled loop it replaced always had something to
+    # hand back). Treat it as empty code: the caller's repair/stub path already
+    # handles a scene that produced nothing, and reaching `.code` on None here
+    # would turn one bad scene into an AttributeError that kills the batch.
+    code = clean_code(getattr(result, "code", "") or "") if result is not None else ""
 
     # Derive image-box aspect ratios for both orientations from the fractions the AI reported.
     # Landscape canvas: 1920x1080. Portrait canvas: 1080x1920.
@@ -3365,12 +2413,40 @@ def _generate_single_scene_sync(
     return code, aspect_ratios, prop_schema
 
 
-# Sized for the LARGEST batch the pipeline actually produces, not a round 8.
-# A blueprint routinely authors 6-8 content layouts, so with the two bookends a
-# run is 8-10 scenes — at 8 workers the last two waited a full scene-duration
-# (~40-60s) behind the first batch for no reason. These threads are blocked on a
-# network call, not on CPU, so the extra ones cost nothing while idle.
-_SCENE_EXECUTOR = ThreadPoolExecutor(max_workers=12, thread_name_prefix="scene-gen")
+# How many scenes may be in flight AT ONCE — a ROLLING window, not a wave.
+#
+# Scenes are fully independent (each has its own design doc and prompt, and
+# nothing about one depends on another finishing), so this cap is about the
+# PROVIDER, not correctness.
+#
+# THE WINDOW SLIDES. Every scene's task is created upfront and blocks on the
+# semaphore; the instant one finishes it releases its slot and the next waiting
+# scene starts. An 11-scene template at 8 does NOT run "8 then 3" — it keeps 8
+# in flight until fewer than 8 remain. Both stages that fan out work this way:
+# generation (as_completed over pre-created tasks) and the verify/repair pass
+# (asyncio.gather over all scenes, same semaphore size). Sizing this to
+# MAX_SCENES therefore buys nothing over a smaller window except a bigger
+# opening burst, which is exactly what throttles.
+#
+# Why not larger: 429s appeared at 11 on Z.AI's glm-5.3, and a rate-limited
+# rollout is charged to dspy.Refine as a FAILED ATTEMPT — so a throttled burst
+# can silently eat a scene's whole rollout budget and push it into the repair
+# loop for reasons unrelated to its code.
+#
+# Why this is no longer the real ceiling: a scene is not one request. Each also
+# runs _describe_scene_props on a second LM, and repairs add more. The hard
+# bound on simultaneous provider calls is _PROVIDER_MAX_INFLIGHT in
+# app.dspy_modules, enforced on the LM itself so every caller queues against
+# one gate. THAT is the knob to turn if 429s persist — not this one, which now
+# governs how many scenes are queued rather than how much load is applied.
+SCENE_CONCURRENCY = 8
+
+# One worker per in-flight scene. These threads are blocked on a network call,
+# not on CPU, so sizing them to the concurrency window is exact — any more would
+# sit idle, any fewer would throttle below the window.
+_SCENE_EXECUTOR = ThreadPoolExecutor(
+    max_workers=SCENE_CONCURRENCY, thread_name_prefix="scene-gen"
+)
 
 
 async def _generate_single_scene(
@@ -3379,14 +2455,14 @@ async def _generate_single_scene(
     scene_type: str,
     scene_index: int,
     total_scenes: int,
-    scene_purpose: str,
+    general_doc: str = "",
+    scene_doc: str = "",
+    built_so_far: str = "",
     previous_failure: str = "",
     use_refine: bool = True,
-    blueprint: str = "",
-    layout_spec: str = "",
-    art_direction: str = "",
     current_code: str = "",
     edit_instruction: str = "",
+    lm: "dspy.LM | None" = None,
 ) -> tuple[str, dict[str, str], list[dict]]:
     """Async wrapper — runs the sync generation call in a dedicated thread pool.
     Returns (code, {"landscape": "W / H", "portrait": "W / H"}).
@@ -3401,17 +2477,17 @@ async def _generate_single_scene(
             _generate_single_scene_sync,
             brand_context=brand_context,
             design_system=design_system,
-            blueprint=blueprint,
-            layout_spec=layout_spec,
-            art_direction=art_direction,
+            general_doc=general_doc,
+            scene_doc=scene_doc,
+            built_so_far=built_so_far,
             scene_type=scene_type,
             scene_index=scene_index,
             total_scenes=total_scenes,
-            scene_purpose=scene_purpose,
             previous_failure=previous_failure,
             use_refine=use_refine,
             current_code=current_code,
             edit_instruction=edit_instruction,
+            lm=lm,
         ),
     )
 
@@ -3419,7 +2495,9 @@ async def _generate_single_scene(
 # ─── Failure diagnostics (§R Layer 1) ───────────────────────────
 
 
-def _format_scene_failure(code: str, error: str) -> str:
+def _format_scene_failure(
+    code: str, error: str, *, scene_type: str = "content", scene_doc: str = ""
+) -> str:
     """Format a validation failure into a diagnostic the MODEL can act on.
 
     The retry loop used to send a hardcoded "the previous attempt had a syntax
@@ -3498,36 +2576,103 @@ def _format_scene_failure(code: str, error: str) -> str:
     #
     # Restating the full contract on every repair costs a few hundred tokens and
     # removes the trade-off the model was implicitly making.
-    parts.append(REPAIR_CHECKLIST)
+    parts.append(build_repair_checklist(scene_type, scene_doc))
 
     return "\n\n".join(parts)
 
 
 # Every hard requirement validate_component_code() enforces, as a checklist.
 # Attached to EVERY repair prompt — see _format_scene_failure().
-REPAIR_CHECKLIST = (
+#
+# BUILT PER SCENE, not frozen. The image item in particular must follow the
+# scene's own design: a fixed "declare hasImage and render the image" line would
+# order an image slot into a scene the design deliberately made image-less,
+# which is a hole in the frame rather than a fix.
+_CHECKLIST_HEAD = (
     "KEEP EVERY OTHER CONTRACT INTACT. Fixing the error above must not break a rule the "
     "scene already satisfies — that is the single most common way a repair fails. Before "
     "you answer, verify ALL of these are still true:\n"
     "  1. LOGO: `{props.logoUrl && typeof props.logoUrl === 'string' && (<Img "
-    "src={props.logoUrl} data-logo=\"1\" style={{width: .., height: ..}} />)}` is present.\n"
-    "  2. IMAGE: `const hasImage = !!(props.imageUrl && typeof props.imageUrl === 'string');` "
-    "is declared and the image is rendered when present, on an element carrying "
-    "data-content-img=\"1\".\n"
+    "src={props.logoUrl} data-logo=\"1\" style={{width: .., height: 'auto', maxHeight: ..}} "
+    "/>)}` is present. Width plus `height: 'auto'` — never a fixed width AND a fixed "
+    "height, which letterboxes a wordmark.\n"
+)
+
+_CHECKLIST_IMAGE = {
+    "background": (
+        "  2. IMAGE (this scene's design says BACKGROUND): a full-bleed container carrying "
+        "data-content-img=\"1\" renders FIRST at zIndex 0 with the content layer above it at "
+        "zIndex 1, and a SCRIM sits between them so the copy stays readable.\n"
+    ),
+    "half": (
+        "  2. IMAGE (this scene's design says HALF): a BOUNDED container carrying "
+        "data-content-img=\"1\" occupies one half — 50% width x 100% height in landscape, "
+        "100% width x 50% height in portrait — never full-bleed, and the content fills the "
+        "other half.\n"
+    ),
+    None: (
+        "  2. IMAGE: this scene is deliberately IMAGE-LESS. It must NOT declare hasImage, "
+        "render props.imageUrl, or reserve a data-content-img slot — the composition fills "
+        "the whole frame on its own.\n"
+    ),
+}
+
+_CHECKLIST_TAIL = (
     "  3. ANIMATION: at least TWO interpolate() or spring() calls drive visible motion.\n"
     "  4. OVERFLOW: the outermost container sets overflow:'hidden'.\n"
     "  5. TEXT FROM PROPS: every visible string comes from props — no invented sample "
     "copy, no hardcoded headlines, and never the raw contentType value as text.\n"
-    "  6. NO IMPORTS / NO REDECLARED KIT GLOBALS, and no process.env or runtime APIs.\n"
+    "  6. NO IMPORTS, and no process.env or runtime APIs. The ONLY pre-injected names you "
+    "may use are FitText, FitBlock, readableOn, ensureContrast, withAlpha (and SocialIcons "
+    "in the ending) — build everything else yourself, and never redeclare an injected "
+    "name.\n"
     "  7. PORTRAIT: the isPortrait branch is genuinely different from the landscape one.\n"
-    "  8. HEADLINE SIZE: the headline is `<FitText fontSize={props.titleFontSize ?? <your "
-    "size>} ...>{props.displayText}</FitText>` — inside FitText AND reading the prop. Body "
-    "copy reads `props.descriptionFontSize ?? <your size>`.\n"
+    "  8. TYPE SIZE: the TITLE is `<FitText fontSize={props.titleFontSize ?? <your size>} "
+    "...>{props.sceneTitle}</FitText>` — inside FitText AND reading the prop. The display "
+    "text and EVERY content prop, label and caption read `props.descriptionFontSize ?? "
+    "<your size>` or a ratio of it. There is no third size and no "
+    "`props.sceneTitleFontSize`.\n"
     "  9. NO NARRATION ON SCREEN: `props.narrationText` appears NOWHERE in the JSX. It is "
-    "the voiceover. Use `props.sceneTitle` for an eyebrow/label.\n"
+    "the voiceover. `props.sceneTitle` is the scene's title; `props.displayText` is its "
+    "supporting copy.\n"
+)
+
+_CHECKLIST_OUTRO = (
+    " 10. ENDING: props.ctaProps is read and guarded, <SocialIcons> is rendered when "
+    "socials are present, and props.ctaProps?.ctas is mapped into buttons — all placed "
+    "inside this scene's own composition.\n"
+)
+
+_CHECKLIST_FOOT = (
     "Keep the layout, geometry and motion of your previous attempt — change only what the "
     "error requires."
 )
+
+
+def build_repair_checklist(scene_type: str = "content", scene_doc: str = "") -> str:
+    """The contract checklist for THIS scene, keyed off its design document."""
+    if "IMAGE — BACKGROUND MODE" in scene_doc:
+        image_item = _CHECKLIST_IMAGE["background"]
+    elif "IMAGE — HALF MODE" in scene_doc:
+        image_item = _CHECKLIST_IMAGE["half"]
+    elif "IMAGE — NONE" in scene_doc:
+        image_item = _CHECKLIST_IMAGE[None]
+    else:
+        # No doc (a stored scene being re-validated, or a v1 template): fall back
+        # to the generic wording rather than asserting a mode the scene may not have.
+        image_item = (
+            "  2. IMAGE: if this scene carries an image, it is rendered when present on an "
+            "element carrying data-content-img=\"1\".\n"
+        )
+    parts = [_CHECKLIST_HEAD, image_item, _CHECKLIST_TAIL]
+    if scene_type == "outro":
+        parts.append(_CHECKLIST_OUTRO)
+    parts.append(_CHECKLIST_FOOT)
+    return "".join(parts)
+
+
+# The generic form, for callers with no scene context.
+REPAIR_CHECKLIST = build_repair_checklist()
 
 
 def _format_code_critique(critique: str) -> str:
@@ -3600,6 +2745,425 @@ class DescribeSceneProps(dspy.Signature):
 
     scene_code: str = dspy.InputField(desc="The generated scene component code.")
     prop_schema_json: str = dspy.OutputField(desc="JSON array of extra editable props, or [].")
+
+
+class GenerateSceneSampleContent(dspy.Signature):
+    """Write the on-screen copy a scene shows in the template's PREVIEW.
+
+    This is showcase copy, not real article content: it is what a prospective
+    user sees in the template gallery and the scene editor. Its job is to make
+    the layout legible and to look like it belongs to THIS brand — so write in
+    the brand's register and about the brand's actual subject matter, never
+    "Lorem ipsum", "Scene 2", or "Your Headline Here".
+
+    THE TITLE LEADS AND THE COPY SUPPORTS IT. `sceneTitle` is the scene's
+    title — the largest type on the frame and the thing a viewer reads first.
+    `displayText` is the shorter line beneath it. Write the title so it can
+    carry the scene on its own, and keep the copy tight: a frame crowded with
+    text reads as a wall, and the layout was designed around a title with room
+    to breathe.
+
+    Match the scene's content_type EXACTLY — it says which fields the layout
+    actually renders, and a field the layout does not read is wasted:
+      plain       displayText only
+      bullets     bullets: 3-4 short phrases
+      steps       steps: 3-4 ordered actions
+      metrics     metrics: 2-4 {"value","label"}; values are short ("3x", "92%")
+      quote       quote + quoteAuthor
+      comparison  comparisonLeft + comparisonRight, each {"label","description"}
+      timeline    timelineItems: 3-4 {"label","description"}
+      code        codeLines: 4-6 lines + codeLanguage
+
+    Output ONE JSON object with EXACTLY TWO text fields:
+      sceneTitle     THE SCENE'S TITLE — EXACTLY 5 TO 7 WORDS. Count them. A
+                     real title naming what this scene is about ("Rides that
+                     show up in minutes"), never a bare category word
+                     ("Benefits", "Overview") and never a full sentence.
+      displayText    the supporting copy beneath it — ONE OR TWO SHORT
+                     SENTENCES, roughly 90 to 160 characters. It adds something
+                     the title does not already say, and is never the same text
+                     as sceneTitle.
+    plus exactly the extra fields the content_type above calls for. Do NOT emit
+    a narration or voiceover field: the voiceover is a separate part of the
+    product and anything you write for it here is discarded. No prose outside
+    the JSON, no markdown fence.
+    """
+
+    brand_context: str = dspy.InputField(desc="The brand's identity, category and subject matter.")
+    scene_doc: str = dspy.InputField(desc="This scene's design document — what it is FOR and how it is laid out.")
+    content_type: str = dspy.InputField(desc="plain|bullets|steps|metrics|code|quote|comparison|timeline")
+    sample_json: str = dspy.OutputField(desc="One JSON object of on-screen copy for this scene.")
+
+
+# The per-type key map and the shape coercion moved to
+# services/scene_content_schema.py, so the project-content path
+# (content_classifier) is held to the SAME contract this path always was. That
+# asymmetry is what let a comparison scene ship `left`/`right` while the
+# component read `comparisonLeft`/`comparisonRight`.
+#
+# Kept under the old private names so the call sites below are unchanged.
+_SAMPLE_FIELDS_BY_TYPE = FIELDS_BY_TYPE
+_coerce_sample_field = coerce_field
+
+_SAMPLE_BASE_FIELDS = frozenset({"sceneTitle", "displayText"})
+
+
+def _parse_sample_content(raw: str, content_type: str) -> dict:
+    """Validate one scene's generated sample copy.
+
+    Drops anything unusable rather than raising — sample copy is a nicety, and a
+    malformed one must never cost an otherwise-good scene. Returns {} when
+    nothing usable survives, which the caller treats as "use the deterministic
+    fallback".
+    """
+    data = _extract_json_array(raw) if raw.strip().startswith("[") else None
+    if isinstance(data, list) and data:
+        data = data[0]
+    if not isinstance(data, dict):
+        try:
+            text = (raw or "").strip()
+            fence = re.match(r"^```(?:json)?\s*(.*?)\s*```$", text, re.S)
+            if fence:
+                text = fence.group(1).strip()
+            start, end = text.find("{"), text.rfind("}")
+            if start < 0 or end <= start:
+                return {}
+            data = json.loads(text[start : end + 1])
+        except (ValueError, TypeError):
+            return {}
+    if not isinstance(data, dict):
+        return {}
+
+    allowed = _SAMPLE_BASE_FIELDS | _SAMPLE_FIELDS_BY_TYPE.get(content_type, frozenset())
+    out: dict = {}
+    for key, value in data.items():
+        if key not in allowed or value in (None, "", [], {}):
+            continue
+        # Key-name filtering is not enough: the VALUE must match the shape
+        # GeneratedSceneProps declares, or the scene crashes at render with a
+        # `.trim is not a function` / "Objects are not valid as a React child".
+        coerced = _coerce_sample_field(key, value)
+        if coerced is None:
+            continue
+        out[key] = coerced
+
+    # The TITLE is the one field every layout renders — it is the scene's main
+    # label and the largest type on the frame. Without it there is nothing to
+    # lead the frame and the deterministic fallback is strictly better.
+    #
+    # This used to require displayText instead, back when displayText was the
+    # headline and the title was an optional eyebrow. Both are now required, and
+    # which one is load-bearing has swapped.
+    if not isinstance(out.get("sceneTitle"), str) or not out["sceneTitle"].strip():
+        return {}
+    if not isinstance(out.get("displayText"), str) or not out["displayText"].strip():
+        return {}
+    # Copy that merely repeats the title paints the same sentence twice — the
+    # render path guards this too, but storing it is still wrong. The TITLE is
+    # what survives now; the display text is what drops.
+    if out["displayText"].strip().lower() == out["sceneTitle"].strip().lower():
+        out.pop("displayText", None)
+    return out
+
+
+# The bands rule 7d enforces on every generated scene. Kept here so the computed
+# defaults and the validator can never disagree about what is renderable.
+#
+# PORTRAIT IS SMALLER THAN LANDSCAPE. That is the opposite of the usual
+# convention and the single most common reason a scene is rejected: the portrait
+# canvas is 1080 wide against landscape's 1920, so the same point size eats
+# nearly twice the line.
+# DERIVED from _TYPE_FLOOR/_TYPE_CEILING above rather than restated.
+#
+# These were two hand-maintained copies of the same numbers — the validator
+# gates on the FLOOR/CEILING pair while the size computation used this one — and
+# nothing enforced that they agreed. They happened to match, which is exactly
+# how a silent drift starts. One authority, two views of it.
+#
+# PORTRAIT IS SMALLER THAN LANDSCAPE. That is the opposite of the usual
+# convention and the single most common reason a scene is rejected: the portrait
+# canvas is 1080 wide against landscape's 1920, so the same point size eats
+# nearly twice the line.
+#
+# `title` maps to the HEADLINE tier because props.titleFontSize sizes
+# props.displayText — see rule 1. `eyebrow` is the prop tier, which is what
+# sizes props.sceneTitle.
+_TYPE_BANDS = {
+    "title": {
+        "landscape": (_TYPE_FLOOR["headline_landscape"], _TYPE_CEILING["headline_landscape"]),
+        "portrait": (_TYPE_FLOOR["headline_portrait"], _TYPE_CEILING["headline_portrait"]),
+    },
+    "description": {
+        "landscape": (_TYPE_FLOOR["body_landscape"], _TYPE_CEILING["body_landscape"]),
+        "portrait": (_TYPE_FLOOR["body_portrait"], _TYPE_CEILING["body_portrait"]),
+    },
+    "eyebrow": {
+        "landscape": (_TYPE_FLOOR["prop_landscape"], _TYPE_CEILING["prop_landscape"]),
+        "portrait": (_TYPE_FLOOR["prop_portrait"], _TYPE_CEILING["prop_portrait"]),
+    },
+}
+
+# What a PERSON may set, via the editor's sliders — as opposed to _TYPE_BANDS
+# above, which bounds what the GENERATOR may produce.
+#
+# These were one map, and that was the bug: the read-time clamp used the
+# generation ceiling, so a user dragging the title slider past 88 had the value
+# silently reset on the way back out. The slider looked dead above the
+# generator's own comfort zone, which is the opposite of what a manual override
+# is for. A generated default still has to be defensible with no human in the
+# loop (narrow); a size a person chose while looking at the frame does not
+# (wide). Orientation-independent for the same reason.
+#
+# Mirrored in TypeScript as USER_BANDS in kit/typeBands.ts; the parity test
+# checks both maps.
+_USER_BANDS: dict[str, dict[str, tuple[int, int]]] = {
+    "title": {"landscape": (10, 200), "portrait": (10, 200)},
+    "description": {"landscape": (10, 100), "portrait": (10, 100)},
+}
+
+# Copy length, in characters, at which body type sits at the TOP of its band and
+# at the BOTTOM. Between them the size falls linearly; outside, it clamps.
+#
+# Retuned for v3's shorter sample copy: `displayText` is now one to two short
+# sentences (~90-160 chars), not the one-to-three-sentence paragraph v2 asked
+# for, so a 320-char "long" anchor put almost every real scene at the top of the
+# band and the interpolation never engaged.
+_COPY_SHORT = 60
+_COPY_LONG = 200
+
+# How many props a layout can show before its copy has to give up room. A
+# metrics scene with six figures is carrying far more on-screen text than the
+# `displayText` length alone suggests.
+_PROPS_FREE = 3
+_PROPS_PENALTY_PER_ITEM = 1.5
+
+# Title length, in WORDS, at which the title sits at the TOP of its band and at
+# its midpoint. The sample contract asks for 5-7 words; the range runs a little
+# past both ends so a model that overshoots still lands somewhere sensible.
+_TITLE_WORDS_SHORT = 4
+_TITLE_WORDS_LONG = 9
+
+
+def _count_sample_props(sample: dict, content_type: str) -> int:
+    """How many discrete items this scene renders besides its copy."""
+    for key in ("bullets", "steps", "metrics", "timelineItems", "codeLines"):
+        value = sample.get(key)
+        if isinstance(value, list):
+            return len(value)
+    if content_type == "comparison":
+        return 2
+    return 0
+
+
+def _compute_scene_font_defaults(sample: dict, content_type: str) -> dict:
+    """Default type sizes for one scene, from the copy it actually holds.
+
+    Returns {"title": {"landscape": N, "portrait": N},
+             "description": {"landscape": N, "portrait": N}}.
+
+    Deterministic and clamped to the bands rule 7d already enforces, so the
+    numbers are reproducible, unit-testable, and always renderable — no LLM call
+    and nothing to re-clamp downstream.
+
+    The shape of the rule, in v3 terms: the two sizes are driven by the two
+    DIFFERENT strings they actually size.
+
+      description  from len(displayText) plus the prop count — long copy and a
+                   crowded layout both need smaller type to fit the block the
+                   scene was designed around.
+      title        from the WORD COUNT of sceneTitle. The title is the scene's
+                   main label and should be large, so it starts at the top of
+                   its band for a tight 5-word title and eases toward the middle
+                   as the title runs longer.
+
+    This replaces a formula that derived the title from the description by a
+    length-interpolated 2.2x→1.15x ratio. That existed only because
+    `titleFontSize` used to size `displayText` — a paragraph — where a large
+    stored number was fiction: FitText treats the size as a MAXIMUM, so the text
+    painted at the floor regardless and the slider appeared dead. In v3
+    `titleFontSize` sizes a 5-7 word title, which genuinely renders at the size
+    it is given, so the honest answer is to size it directly and let the 1.15x
+    floor go — that floor is what made titles small.
+    """
+    copy_len = len(str(sample.get("displayText") or ""))
+    # 0.0 at short copy (biggest type) → 1.0 at long copy (smallest).
+    span = max(1, _COPY_LONG - _COPY_SHORT)
+    t = min(1.0, max(0.0, (copy_len - _COPY_SHORT) / span))
+
+    # Props push further toward the small end, capped so a long list cannot
+    # drive type below the band floor on its own.
+    extra = max(0, _count_sample_props(sample, content_type) - _PROPS_FREE)
+    t = min(1.0, t + (extra * _PROPS_PENALTY_PER_ITEM) / 100.0 * 6)
+
+    # The title's own crowding, measured in WORDS rather than characters: the
+    # contract asks for 5-7, and it is the count of words — not their letters —
+    # that decides whether a line fits at display scale. 0.0 at or below
+    # _TITLE_WORDS_SHORT (largest), 1.0 at or above _TITLE_WORDS_LONG.
+    title_words = len(str(sample.get("sceneTitle") or "").split())
+    t_span = max(1, _TITLE_WORDS_LONG - _TITLE_WORDS_SHORT)
+    tt = min(1.0, max(0.0, (title_words - _TITLE_WORDS_SHORT) / t_span))
+
+    out: dict[str, dict[str, int]] = {"title": {}, "description": {}}
+    for orientation in ("landscape", "portrait"):
+        d_lo, d_hi = _TYPE_BANDS["description"][orientation]
+        description = round(d_hi - (d_hi - d_lo) * t)
+
+        # Top of the band for a tight title, easing DOWN TO THE MIDPOINT — not
+        # to the floor — for a long one. A title is the scene's focal element
+        # even when it runs to nine words; dropping it to 48 would make it
+        # compete with the body rather than lead it.
+        t_lo, t_hi = _TYPE_BANDS["title"][orientation]
+        t_mid = t_lo + (t_hi - t_lo) * 0.5
+        title = round(t_hi - (t_hi - t_mid) * tt)
+
+        # The hierarchy is non-negotiable: an inverted or equal pair is a defect
+        # the validator rejects at generation time, and nothing downstream
+        # re-checks these stored numbers. A short body on a long title is the
+        # case that can collide.
+        if title <= description:
+            title = min(t_hi, description + max(2, round(description * 0.25)))
+
+        out["title"][orientation] = min(t_hi, max(t_lo, title))
+        out["description"][orientation] = description
+    return out
+
+
+def _fallback_sample_content(brand_name: str, content_type: str, index: int = 0) -> dict:
+    """Deterministic showcase copy, when the model gives nothing usable.
+
+    A Python port of CustomPreview's client-side generator, kept so that EVERY
+    scene has sample copy even if the LLM pass fails wholesale. Without it a
+    failed pass would store NULL and the preview would silently fall back to the
+    old generic copy — the exact thing this feature removes.
+    """
+    n = (brand_name or "").strip() or "Our Brand"
+    base: dict = {}
+
+    if content_type == "metrics":
+        base = {
+            "sceneTitle": f"The numbers behind {n} today",
+            "displayText": "Measured across every region we operate in.",
+            "metrics": [
+                {"value": "3.2M", "label": "Active Users"},
+                {"value": "99.9%", "label": "Uptime SLA"},
+                {"value": "150+", "label": "Countries"},
+            ],
+        }
+    elif content_type == "bullets":
+        base = {
+            "sceneTitle": f"What sets {n} apart",
+            "displayText": "Built for teams that cannot afford to slow down.",
+            "bullets": [
+                "Enterprise-grade security and compliance built in",
+                "Real-time collaboration across distributed teams",
+                "AI-powered insights and automated workflows",
+                "24/7 dedicated customer success support",
+            ],
+        }
+    elif content_type == "steps":
+        base = {
+            "sceneTitle": f"Getting started with {n} is simple",
+            "displayText": "Four steps from first login to first result.",
+            "steps": [
+                "Connect your existing tools and data sources",
+                "Configure your workspace and invite your team",
+                "Let AI analyze patterns and surface insights",
+                "Take action on recommendations and track results",
+            ],
+        }
+    elif content_type == "quote":
+        base = {
+            "sceneTitle": f"What teams say about {n}",
+            "displayText": "From the people who use it every day.",
+            # Deliberately short: a quote renders at headline scale, and a long
+            # one runs past the bottom of the frame.
+            "quote": f"{n} changed how our whole team works.",
+            "quoteAuthor": "Industry Leader",
+        }
+    elif content_type == "comparison":
+        base = {
+            "sceneTitle": "The old way and the new",
+            "displayText": f"How {n} compares with the traditional approach.",
+            "comparisonLeft": {
+                "label": "Traditional",
+                "description": "Manual processes, slow iteration, limited visibility",
+            },
+            "comparisonRight": {
+                "label": n,
+                "description": "Automated workflows, real-time insights, full transparency",
+            },
+        }
+    elif content_type == "timeline":
+        base = {
+            "sceneTitle": f"How {n} got here",
+            "displayText": "From a first prototype to a global platform.",
+            "timelineItems": [
+                {"label": "Founded", "description": "Started with a vision to transform the industry"},
+                {"label": "First Launch", "description": "Released our flagship product to early adopters"},
+                {"label": "Scale", "description": "Expanded to serve enterprise customers globally"},
+                {"label": "Today", "description": "Industry-leading platform trusted by millions"},
+            ],
+        }
+    elif content_type == "code":
+        _slug = re.sub(r"\s+", "", n)
+        base = {
+            "sceneTitle": f"Integrate {n} in minutes",
+            "displayText": "A few lines is the whole integration.",
+            "codeLines": [
+                f"import {{ {_slug} }} from '{re.sub(r'[^a-z0-9]+', '-', n.lower()).strip('-')}';",
+                "",
+                f"const client = new {_slug}({{ apiKey: \"...\" }});",
+                "const result = await client.analyze(data);",
+                "console.log(result.insights);",
+            ],
+            "codeLanguage": "typescript",
+        }
+    else:
+        # "plain" is the most common type. Rotate by position so a template with
+        # several plain layouts does not render the same slide repeatedly.
+        # (title, copy) — a 5-7 word title becomes sceneTitle and the copy is
+        # the shorter supporting line beneath it, matching the two-field shape.
+        _plain = [
+            (
+                "The thinking behind the product",
+                f"What makes {n} different once you use it daily.",
+            ),
+            (
+                "Why we build the way we do",
+                "Start from the problem, ship the smallest thing that helps.",
+            ),
+            (
+                f"{n} is built for what's next",
+                "The workflows you have now, and the scale you are heading toward.",
+            ),
+            (
+                "Where the product goes from here",
+                "Deeper integrations, faster answers, a quieter interface.",
+            ),
+        ]
+        _kicker, _copy = _plain[index % len(_plain)]
+        base = {
+            "sceneTitle": _kicker,
+            "displayText": _copy,
+        }
+
+    return base
+
+
+def _generate_sample_content(brand_context: str, scene_doc: str, content_type: str) -> dict:
+    """Showcase copy for one scene, from its design doc. {} on any failure."""
+    try:
+        ensure_dspy_configured()
+        with dspy.context(lm=get_scene_type_lm()):
+            result = dspy.Predict(GenerateSceneSampleContent)(
+                brand_context=brand_context[:4000],
+                scene_doc=scene_doc[:4000],
+                content_type=content_type or "plain",
+            )
+        return _parse_sample_content(getattr(result, "sample_json", "") or "", content_type or "plain")
+    except Exception as e:  # noqa: BLE001 - never fail a good scene over preview copy
+        print(f"[F7-DEBUG] [SAMPLE] generation failed ({type(e).__name__}); skipping: {e}")
+        return {}
 
 
 def _describe_scene_props(code: str) -> list[dict]:
@@ -3776,7 +3340,7 @@ def _build_stub_scene_code(scene_type: str, theme: dict | None = None) -> str:
 
     return f"""const SceneComponent = (props) => {{
   const frame = useCurrentFrame();
-  const {{ fps, durationInFrames }} = useVideoConfig();
+  const {{ fps, durationInFrames, width, height }} = useVideoConfig();
 
   const hasImage = !!(props.imageUrl && typeof props.imageUrl === 'string');
   const hasVideo = !!props.hasVideo;
@@ -3784,10 +3348,30 @@ def _build_stub_scene_code(scene_type: str, theme: dict | None = None) -> str:
   const showImageContent = hasImage && !hasVideo;
   const isPortrait = props.aspectRatio === 'portrait';
 
+  // The real box the headline sits in, so <FitText> sizes against IT and not
+  // against 86% of the whole canvas. Mirrors the layout below: the visual slot
+  // takes 45% in the cross-axis when present, and the text column takes the
+  // rest, less the 7% padding either side.
+  const textColW = showVisualSlot
+    ? (isPortrait ? width * 0.86 : width * 0.55 * 0.86)
+    : width * 0.86;
+  const textColH = showVisualSlot && isPortrait ? height * 0.4 : height * 0.55;
+
   const colors = props.brandColors || {{}};
   const bg = colors.background || '{bg}';
   const fg = colors.text || '{text}';
   const accent = colors.accent || '{accent}';
+
+  // The two type sizes (contract rule 7). titleSize sizes props.sceneTitle and
+  // nothing else; bodySize sizes everything else.
+  const titleSize = props.titleFontSize ?? (isPortrait ? 48 : 68);
+  const bodySize = props.descriptionFontSize ?? (isPortrait ? 30 : 34);
+
+  // The title always survives; the supporting line drops when it merely repeats
+  // it. The render path falls back displayText -> title for a scene with no
+  // display text, so both props routinely hold the same string.
+  const _n = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const showSub = !!_n(props.displayText) && !_n(props.displayText).startsWith(_n(props.sceneTitle));
 
   const enter = spring({{ frame, fps, config: {{ damping: 20, stiffness: 90 }} }});
   const exit = interpolate(
@@ -3858,7 +3442,8 @@ def _build_stub_scene_code(scene_type: str, theme: dict | None = None) -> str:
             data-logo="1"
             style={{{{
               width: 190,
-              height: 190,
+              height: 'auto',
+              maxHeight: 190,
               objectFit: 'contain',
               marginBottom: 24,
               flexShrink: 0,
@@ -3878,16 +3463,36 @@ def _build_stub_scene_code(scene_type: str, theme: dict | None = None) -> str:
         />
 
         <FitText
-          fontSize={{props.titleFontSize ?? (isPortrait ? 58 : 68)}}
-          maxLines={{3}}
+          fontSize={{titleSize}}
+          maxLines={{2}}
+          containerWidth={{textColW}}
+          maxHeight={{textColH * 0.5}}
           style={{{{
             color: fg,
             fontFamily: props.headingFont || 'inherit',
             fontWeight: 700,
           }}}}
         >
-          {{props.displayText}}
+          {{props.sceneTitle}}
         </FitText>
+
+        {{showSub && (
+          <FitText
+            fontSize={{bodySize}}
+            maxLines={{4}}
+            containerWidth={{textColW}}
+            maxHeight={{textColH * 0.45}}
+            style={{{{
+              color: fg,
+              fontFamily: props.bodyFont || 'inherit',
+              fontWeight: 400,
+              marginTop: 20,
+              opacity: 0.88,
+            }}}}
+          >
+            {{props.displayText}}
+          </FitText>
+        )}}
       </div>
     </AbsoluteFill>
   );
@@ -3897,51 +3502,354 @@ def _build_stub_scene_code(scene_type: str, theme: dict | None = None) -> str:
 # ─── Per-scene brief hints ──────────────────────────────────────
 
 
-def _scene_hint_for(brief: str, archetype: dict) -> str:
-    """Pull the sentence(s) of the user's brief that are relevant to THIS scene.
+# ─── Image contract ─────────────────────────────────────────────
+#
+# A scene carries an image in exactly ONE of two forms. Both are here rather
+# than left to the model because they are the only two that stay readable at
+# every copy length: an inset or a collage looks fine against the sample text
+# and breaks on a real headline, and a background with no scrim buries the copy
+# under the photo.
+_IMAGE_CONTRACT = {
+    "background": (
+        "IMAGE — BACKGROUND MODE (this scene's design calls for a full-frame image):\n"
+        "  • The image fills the whole frame BEHIND the content. Render its container\n"
+        "    FIRST in JSX with zIndex: 0, and give the content layer position:'relative'\n"
+        "    and zIndex: 1 — two siblings with no zIndex paint in DOM order, so an image\n"
+        "    written after the content hides the entire layout behind a bare photo.\n"
+        "  • A SCRIM IS MANDATORY between the image and the content: a wash or gradient\n"
+        "    (e.g. withAlpha(<canvas colour>, 0.6)) covering the area the type sits on.\n"
+        "    Without it the copy is unreadable over a real photograph. The scrim is what\n"
+        "    makes the text legible — do NOT instead fade the image itself.\n"
+        "  • The <Img> stays fully opaque: objectFit:'cover', no opacity reduction.\n"
+        "  • Put data-content-img=\"1\" on the image's CONTAINER div, not the <Img>.\n"
+    ),
+    "half": (
+        "IMAGE — HALF MODE (this scene's design gives the image exactly one half):\n"
+        "  • LANDSCAPE: the image occupies the {side_landscape} half — 50% width, 100%\n"
+        "    height. The content fills the other 50% and must genuinely fill it.\n"
+        "  • PORTRAIT: the image occupies the {side_portrait} half — 100% width, 50%\n"
+        "    height, stacked. The content takes the other half.\n"
+        "  • The image slot is a BOUNDED box. Never absolute/inset:0, never full-bleed.\n"
+        "  • Put data-content-img=\"1\" on the slot's CONTAINER div, not the <Img>.\n"
+    ),
+    None: (
+        "IMAGE — NONE. This scene is deliberately image-less: its design is carried by\n"
+        "type, space and geometry alone. Do NOT declare hasImage, do NOT render\n"
+        "props.imageUrl, and do NOT reserve an empty visual slot. Compose the FULL frame\n"
+        "as a finished design in its own right.\n"
+    ),
+}
 
-    Cheap + deterministic (no extra LLM call): split the brief into sentences and
-    keep the ones that mention this archetype's content kind (best_for) or its id
-    words. Returns a short directive to append to scene_purpose, or "" when nothing
-    in the brief targets this scene. The full brief still steered the scene-type
-    decision upstream; this just surfaces the specific art direction to the scene
-    that should carry it.
+# Landscape side -> the portrait side that reads as its equivalent.
+_PORTRAIT_SIDE = {"left": "top", "right": "bottom", "top": "top", "bottom": "bottom"}
+_LANDSCAPE_SIDE = {"top": "left", "bottom": "right", "left": "left", "right": "right"}
+
+
+# The structured prop the render path fills for each content type.
+#
+# GeneratedVideo.tsx passes exactly one of these per scene, chosen by the scene's
+# content_type. A scene that reads a DIFFERENT prop renders an empty frame in
+# production while passing every static check — measured on template 179, whose
+# `steps` scene read props.bullets and shipped 7,782 characters of valid code
+# that drew nothing. Naming the prop in the doc is the fix; _content_prop_defect
+# in the validator is the gate.
+# Each entry is (prop name, shape). The SHAPE matters as much as the name: the
+# advice below is fed back verbatim in repair prompts, and array-shaped advice
+# for a string prop is actively harmful. Told to write
+# `(props.quote ?? []).slice(...)` for a `quote` scene, the model produced
+# `Array.isArray(props.quote) ? props.quote : []` — always empty for a string —
+# so the scene rendered blank AND still failed the gate. Shapes are per
+# remotion-video/src/templates/generated/types.ts.
+_CONTENT_PROP = {
+    "bullets": ("bullets", "array"),          # string[]
+    "steps": ("steps", "array"),              # string[]
+    "code": ("codeLines", "array"),           # string[]
+    # OBJECT arrays. Calling them "array" and showing a {item} example was wrong
+    # and shipped a defect: template 181's metrics scene rendered
+    # `{String(item)}` and painted "[object Object]" four times across the frame.
+    # The field lists below are from types.ts and must stay in step with it.
+    "metrics": ("metrics", "objects"),        # {value, label, suffix?}[]
+    "timeline": ("timelineItems", "objects"), # {label, description}[]
+    "quote": ("quote", "string"),             # string
+    "comparison": ("comparisonLeft", "pair"), # {label, description} x2
+}
+
+# The fields each object-shaped prop actually carries, per
+# remotion-video/src/templates/generated/types.ts. Used both to write the
+# contract and to tell a scene what to read when it gets this wrong.
+_OBJECT_FIELDS = {
+    "metrics": "{ value, label, suffix? }",
+    "timelineItems": "{ label, description }",
+    "comparisonLeft": "{ label, description }",
+    "comparisonRight": "{ label, description }",
+}
+
+_CONTENT_HEAD = (
+    "THIS SCENE'S DATA — props.{prop}\n"
+    "  This scene's content_type is `{ctype}`, so the render path fills\n"
+    "  {filled} and NOTHING ELSE. Reading a different structured prop\n"
+    "  (props.bullets on a `steps` scene, say) yields an EMPTY FRAME in production.\n"
+)
+
+_CONTENT_BODY = {
+    "array": (
+        "  props.{prop} is an ARRAY OF PLAIN STRINGS. Each item IS the text — it\n"
+        "  has NO fields. `item.label`, `item.description` and `item.value` are\n"
+        "  all undefined on a string and render blank, which is checked.\n"
+        "  Cap it, map it, and fit each item:\n"
+        "    {{(props.{prop} ?? []).slice(0, isPortrait ? 3 : 4).map((item, i) => (\n"
+        "      <FitText key={{i}} fontSize={{bodySize}}>{{item}}</FitText>\n"
+        "    ))}}\n"
+        "  Need a label AND a description per row? Use props.timelineItems or\n"
+        "  props.metrics — not a field on this one.\n"
+        "  If it is empty the scene must STILL look finished — fall back to\n"
+        "  props.displayText rather than rendering nothing.\n"
+    ),
+    "string": (
+        "  props.{prop} is a STRING, not an array. Do NOT call Array.isArray on it\n"
+        "  and do NOT call .slice() expecting items — read it directly and fit it.\n"
+        "  It is a CONTENT PROP, so it takes bodySize — titleSize belongs to\n"
+        "  props.sceneTitle alone. A pull quote may be set large by scaling the\n"
+        "  BODY size (bodySize * 1.6), so the body slider still moves it:\n"
+        "    const text = props.{prop} || props.displayText;\n"
+        "    <FitText fontSize={{bodySize * 1.6}} maxLines={{4}}>{{text}}</FitText>\n"
+    ),
+    "objects": (
+        "  props.{prop} is an array of OBJECTS shaped {fields} — NOT strings.\n"
+        "  Rendering an item directly paints the literal text \"[object Object]\"\n"
+        "  across the frame, so never write {{item}}, {{String(item)}} or\n"
+        "  ${{item}} — always read a FIELD:\n"
+        "    {{(props.{prop} ?? []).slice(0, isPortrait ? 3 : 4).map((item, i) => (\n"
+        "      <FitText key={{i}} fontSize={{bodySize}}>{{item.{first_field}}}</FitText>\n"
+        "    ))}}\n"
+        "  If it is empty the scene must STILL look finished — fall back to\n"
+        "  props.displayText rather than rendering nothing.\n"
+    ),
+    "pair": (
+        "  props.comparisonLeft and props.comparisonRight are OBJECTS, not arrays —\n"
+        "  each is {fields}. Rendering one directly paints \"[object Object]\", so\n"
+        "  always read a FIELD. Read the two sides directly:\n"
+        "    const left = props.comparisonLeft;  const right = props.comparisonRight;\n"
+        "    <FitText fontSize={{bodySize}}>{{left?.label}}</FitText>\n"
+        "  Fall back to props.displayText when either side is missing.\n"
+    ),
+}
+
+
+# ─── Bookend contracts ──────────────────────────────────────────
+#
+# The intro had NO role contract at all — the only scene role without one. Its
+# content_type is "plain", which is not in _CONTENT_PROP, so its entire
+# specification was the design stage's prose. Three defects followed from that
+# and are each addressed below: the eyebrow and the headline rendered at the
+# same size, the two fields were painted twice when they carried the same
+# string, and the type was sized like a content scene rather than a title card.
+_INTRO_CONTRACT = (
+    "THIS IS THE OPENING SCENE — IT IS THE VIDEO'S TITLE CARD.\n"
+    "  • props.sceneTitle IS THE VIDEO'S TITLE. It is the single largest thing on\n"
+    "    this frame and the only focal element. Size it with `titleSize`, and set\n"
+    "    that default at the TOP of the band rule 7 gives you (landscape 48-88 →\n"
+    "    aim 76-88; portrait 36-60 → aim 52-60), not the middle. A title card that\n"
+    "    reads at content-scene size has no focal point and looks like a slide\n"
+    "    that failed to load.\n"
+    "  • props.displayText IS THE SUBTITLE — one or two sentences BELOW the title,\n"
+    "    at `bodySize`. It supports the title; it does not compete with it. Never\n"
+    "    size it with titleSize.\n"
+    "  • AN OPENING CARRIES NO CONTENT PROPS. No bullets, no metric grid, no\n"
+    "    timeline, no step list. A title card that arrives already full of data is\n"
+    "    not an opening, it is a content slide in the wrong position.\n"
+    "  • THE TWO FIELDS CAN CARRY THE SAME STRING. When a scene has no separate\n"
+    "    display text the render path falls back to the title, so both props hold\n"
+    "    it. Rendering both then paints the same line twice — once large, once\n"
+    "    small. GUARD IT EXACTLY LIKE THIS, and render the subtitle only when the\n"
+    "    guard passes:\n"
+    "        const title = (props.sceneTitle || '').trim();\n"
+    "        const sub = (props.displayText || '').trim();\n"
+    "        const _n = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();\n"
+    "        const showSub = sub && !_n(sub).startsWith(_n(title));\n"
+    "    PREFIX, not equality — the title is often the copy's opening clause.\n"
+    "    THE TITLE IS THE ONE THAT ALWAYS SURVIVES; the subtitle is what drops.\n"
+    "  • DO NOT compose around a logo. props.logoUrl is undefined on every scene,\n"
+    "    this one included — the brand mark is a corner watermark the render path\n"
+    "    composites over the finished frame, at a size and position you do not\n"
+    "    control. Keep rule 4's guarded block (it is checked), but design the\n"
+    "    title card as though the logo were not there, and leave the bottom-right\n"
+    "    corner clear of anything the watermark would sit on top of.\n"
+)
+
+
+def _archetype_entry(scene_doc: dict, index: int) -> dict:
+    """One content scene's routing metadata, from its design document.
+
+    `best_for` is A SENTENCE saying what this layout is for, in the same voice a
+    built-in template's layout_prompt.md uses:
+
+        - `mosaic_stream`
+          - Best for: Ordered or grouped lists.
+
+    It used to be a list of taxonomy values (`["bullets", "steps"]`), and that
+    was too coarse to choose with. Eight layouts in one template routinely share
+    a content type — three of them can hold a list — so the taxonomy could say
+    only "any of these three", and the tie was broken positionally. A sentence
+    can distinguish "a dense scannable list" from "three items given equal
+    weight", which is the distinction that actually decides which layout suits a
+    given scene.
+
+    `content_type` is kept alongside it as the machine-readable fallback: the
+    render's archetype matcher still needs a key it can look up without an LLM,
+    and older templates stored only that.
+
+    `description` is the scene's own design prose, trimmed to a sentence — what
+    the editor shows so a user can tell the content styles apart.
     """
-    if not brief:
-        return ""
+    primary = scene_doc.get("content_type") or "plain"
 
-    # Keywords per content kind → catch the user naming it in plain language.
-    kind_words = {
-        "quote": ("quote", "testimonial", "review", "customer", "client", "praise"),
-        "code": ("code", "snippet", "demo", "walkthrough", "terminal", "developer", "api"),
-        "metrics": ("metric", "stat", "number", "kpi", "figure", "growth", "result"),
-        "comparison": ("comparison", "compare", "versus", " vs ", "before", "after", "pros", "cons"),
-        "timeline": ("timeline", "history", "roadmap", "milestone", "journey", "step-by-step"),
-        "steps": ("step", "how to", "process", "guide", "tutorial", "instructions"),
-        "bullets": ("bullet", "feature", "list", "points", "highlights"),
-        "plain": ("intro", "overview", "summary", "story", "narrative"),
+    doc = (scene_doc.get("doc") or "").strip()
+    # First sentence, bounded — the full doc is several hundred words of design
+    # prose and would swamp a dropdown.
+    description = ""
+    if doc:
+        description = re.split(r"(?<=[.!?])\s", doc)[0].strip()[:200]
+
+    entry = {
+        "id": scene_doc.get("id") or f"content_{index}",
+        # The prose the layout picker reads.
+        "best_for": (scene_doc.get("best_for") or "").strip() or _fallback_best_for(primary),
+        # The taxonomy key the render's matcher falls back to.
+        "content_type": primary,
     }
+    if description:
+        entry["description"] = description
+    return entry
 
-    best_for = archetype.get("best_for") or []
-    targets = set()
-    for bf in best_for:
-        targets.update(kind_words.get(str(bf).lower(), ()))
-    # Also match the id words (e.g. "customer_testimonial" → "customer", "testimonial").
-    targets.update(w for w in str(archetype.get("id", "")).lower().split("_") if len(w) > 3)
-    if not targets:
-        return ""
 
-    sentences = re.split(r"(?<=[.!?\n])\s+", brief)
-    matched = [
-        s.strip()
-        for s in sentences
-        if s.strip() and any(t in s.lower() for t in targets)
-    ]
-    if not matched:
-        return ""
-    # Keep it short — at most ~240 chars of the most relevant direction.
-    hint = " ".join(matched)[:240].strip()
-    return f" | USER REQUEST for this scene (honor it): {hint}"
+# What each content kind is for, in one line. Used when the design stage did not
+# write a `best_for` sentence — an older template, or a doc that came back
+# without one. Deliberately generic: a real per-layout sentence describes THIS
+# layout's treatment, which is the whole point of asking the designer for one.
+_GENERIC_BEST_FOR: dict[str, str] = {
+    "bullets": "A list of named items, features or services.",
+    "steps": "An ordered process or sequence of instructions.",
+    "metrics": "Figures, statistics and KPIs.",
+    "timeline": "Events in chronological order.",
+    "comparison": "Two things set against each other.",
+    "quote": "A direct quote or testimonial.",
+    "code": "A code sample or technical syntax.",
+    "plain": "Narrative prose with no extractable items.",
+}
+
+
+def _fallback_best_for(content_type: str) -> str:
+    return _GENERIC_BEST_FOR.get(content_type, _GENERIC_BEST_FOR["plain"])
+
+
+def _format_scene_doc(scene: dict) -> str:
+    """Render one scene's design document into the text the generator receives.
+
+    The doc itself is prose written by the design stage — it is the design, and
+    it is passed through verbatim. What is appended is the machine-checkable part
+    of the contract: which of the two image forms this scene uses, and (for the
+    ending) that it must host the real CTA and socials. Those are appended rather
+    than left in the prose because the validator gates on them.
+    """
+    doc = (scene.get("doc") or "").strip()
+    parts = [f"THIS SCENE'S DESIGN ({scene.get('id') or 'scene'}):\n{doc}"]
+
+    mode = scene.get("image_mode") if scene.get("supports_image") else None
+    tmpl = _IMAGE_CONTRACT.get(mode, _IMAGE_CONTRACT[None])
+    if mode == "half":
+        side = (scene.get("image_side") or "left").lower()
+        tmpl = tmpl.format(
+            side_landscape=_LANDSCAPE_SIDE.get(side, "left"),
+            side_portrait=_PORTRAIT_SIDE.get(side, "top"),
+        )
+    parts.append(tmpl)
+
+    _entry = _CONTENT_PROP.get(scene.get("content_type") or "")
+    if _entry:
+        _prop, _shape = _entry
+        _filled = (
+            "props.comparisonLeft / props.comparisonRight"
+            if _shape == "pair"
+            else f"props.{_prop}"
+        )
+        # Object-shaped props need their real field list, so the contract can
+        # show a field read rather than a bare item (which paints
+        # "[object Object]"). Unused by the string/array bodies.
+        _fields = _OBJECT_FIELDS.get(_prop, "")
+        _first_field = _fields.strip("{} ").split(",")[0].strip() if _fields else ""
+        parts.append(
+            _CONTENT_HEAD.format(
+                prop=_prop, ctype=scene.get("content_type"), filled=_filled
+            )
+            + _CONTENT_BODY[_shape].format(
+                prop=_prop, fields=_fields, first_field=_first_field
+            )
+        )
+
+    if scene.get("role") == "intro":
+        parts.append(_INTRO_CONTRACT)
+
+    if scene.get("role") == "outro":
+        parts.append(
+            "THIS IS THE CLOSING SCENE — IT MUST READ AS AN ENDING, and it hosts\n"
+            "the closing CTA and social handles.\n"
+            "  • props.sceneTitle IS THE SIGN-OFF — the largest type on the frame,\n"
+            "    sized with `titleSize`. props.displayText is one supporting line\n"
+            "    beneath it at `bodySize`. An ending carries NO content props: no\n"
+            "    bullets, no metrics, no timeline. It is a close, not another beat.\n"
+            "  • THE TWO FIELDS HAVE DIFFERENT SHAPES — read this before writing either:\n"
+            "      – props.ctaProps?.socials is an OBJECT MAP keyed by platform:\n"
+            "        { linkedin: { enabled, label }, instagram: { enabled, label }, … }.\n"
+            "        It is NOT an array. Never call .map/.filter/.slice on it —\n"
+            "        `(socials ?? []).map(...)` throws \"socials.map is not a function\"\n"
+            "        at render as soon as a project has handles configured.\n"
+            "      – props.ctaProps?.ctas IS an array, and is the only one you may map.\n"
+            "  • Socials: pass the map straight through, never iterate it yourself —\n"
+            "    <SocialIcons socials={props.ctaProps?.socials}\n"
+            "    accentColor={<accent>} textColor={<text>} fontFamily={props.bodyFont}\n"
+            "    aspectRatio={props.aspectRatio} />. This shared component normalises the\n"
+            "    shape and supplies the brand glyphs; NEVER hand-roll social icons. Its\n"
+            "    arrangement within your layout is yours to choose.\n"
+            "  • CTAs: map (props.ctaProps?.ctas ?? []) — an array, unlike socials above —\n"
+            "    and render each one as a real button-like element, styled to THIS\n"
+            "    template's design. Fall back to the single ctaButtonText /\n"
+            "    websiteLink pair when `ctas` is absent. EACH ENTRY'S KEYS ARE EXACTLY\n"
+            "    `ctaButtonText` and `websiteLink` — never `label`/`text`/`link`, which\n"
+            "    do not exist on it and read as undefined (an unlabeled button).\n"
+            "    SKIP any entry whose `showWebsiteButton` is false — that is the user\n"
+            "    switching this CTA off, and rendering it anyway ignores the toggle.\n"
+            "    RENDER BOTH FIELDS, not just the label. `ctaButtonText` is the button\n"
+            "    ITSELF; `websiteLink` goes BENEATH it as visible text at about\n"
+            "    bodySize * 0.8, in the muted treatment your design uses for a caption.\n"
+            "    A video has no clickable surface — a link the frame never draws is a\n"
+            "    link the viewer can never follow, so a button reading \"Get started\"\n"
+            "    over nothing tells them nowhere to go. Guard it: render the line only\n"
+            "    when the entry HAS a websiteLink, and keep the button looking\n"
+            "    deliberate when it does not.\n"
+            "    THE BUTTON LABEL IS BODY COPY: wrap it in <FitText fontSize={bodySize}\n"
+            "    maxLines={1} containerWidth={…}> like every other string on the frame.\n"
+            "    A raw `fontSize: bodySize` on the pill is the one element that scales\n"
+            "    linearly and without limit while every fitted element around it is\n"
+            "    bounded by its box — so dragging the body slider appeared to move ONLY\n"
+            "    the CTA button, which is the reported defect.\n"
+            "  • GUARD EVERYTHING: props.ctaProps is undefined in template previews and\n"
+            "    in projects with no CTA configured, and the scene must still look\n"
+            "    finished and deliberate with none of it present.\n"
+            "  • TITLE vs DISPLAY TEXT: props.sceneTitle and props.displayText can\n"
+            "    carry the SAME string here too (the render path falls back to the\n"
+            "    title when a scene has no display text). Render the supporting line\n"
+            "    only when it differs, and keep the TITLE as the one that survives:\n"
+            "        const title = (props.sceneTitle || '').trim();\n"
+            "        const sub = (props.displayText || '').trim();\n"
+            "        const _n = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();\n"
+            "        const showSub = sub && !_n(sub).startsWith(_n(title));\n"
+            "  • Place them INSIDE your own composition — this is your layout, not a\n"
+            "    generic centred card bolted onto the bottom.\n"
+        )
+
+    return "\n".join(parts)
+
 
 
 # ─── Staged generation ──────────────────────────────────────────
@@ -3963,12 +3871,14 @@ def _scene_hint_for(brief: str, archetype: dict) -> str:
 class GenPlan:
     """Everything decided before a single scene is generated (stage A).
 
-    The scene manifest cannot be built before the blueprint: the blueprint's own
-    layouts supersede the scene-type archetypes, so the two must be planned
-    together or the scenes get built against archetypes the design discarded.
+    The scene manifest comes straight from the design docs: the doc stage decides
+    how many scenes there are and what each one is, so the manifest cannot be
+    built before it.
     """
 
     brand_context: str
+    # The design docs (v2). Named `blueprint` because it is persisted to the
+    # `design_blueprint` column and every downstream reader still calls it that.
     blueprint: dict | None
     design_system: str
     scene_kwargs: list[dict]
@@ -3976,6 +3886,9 @@ class GenPlan:
     scene_types_simple: list[str]
     archetype_ids: list[dict]
     theme: dict
+    # The per-scene design documents, index-aligned with scene_kwargs. Used to
+    # build the running "already built" summary that keeps layouts apart.
+    scene_docs: list[dict] = field(default_factory=list)
 
 
 @dataclass
@@ -4002,11 +3915,20 @@ async def generate_scene_batch(
     on_scene_done=None,
     existing: dict[int, SceneResult] | None = None,
 ) -> list[SceneResult]:
-    """Generate every scene, reporting each one the moment it finishes.
+    """Generate every scene in PARALLEL, reporting each one as it lands.
 
-    `on_scene_done` fires per scene rather than once at the end, which is what
-    lets a caller persist partial progress — with asyncio.gather the first
-    result was only observable after the slowest scene had also finished.
+    DIVERGENCE DOES NOT REQUIRE SEQUENCING. An earlier version of this ran
+    strictly in order so each scene could be told what had already been built —
+    but that context is derived from `plan.scene_docs`, which the design stage
+    produced BEFORE any code generation starts. Every scene can therefore be told
+    about its peers up front, and none of them has to wait.
+
+    The sequential version cost N x ~35s of wall clock (roughly 5 minutes for a
+    9-scene template) and bought nothing the docs did not already provide.
+
+    `on_scene_done` fires per scene AS IT COMPLETES (via as_completed, not
+    gather), which is what lets a caller persist partial progress rather than
+    losing a whole run to a crash near the end.
 
     `existing` carries scenes a previous run already produced; those indices are
     not regenerated. That is the resume path.
@@ -4022,15 +3944,73 @@ async def generate_scene_batch(
         if 0 <= idx < len(results):
             results[idx] = done
 
+    def _summarise(idx: int) -> str:
+        """One line describing scene `idx`'s assigned layout.
+
+        Read from the DESIGN DOC, not from generated code — which is what makes
+        this available before anything has been generated.
+        """
+        sd = plan.scene_docs[idx] if idx < len(plan.scene_docs) else {}
+        role = sd.get("role") or (
+            plan.scene_types_simple[idx] if idx < len(plan.scene_types_simple) else "content"
+        )
+        # The first sentence of the doc is the layout in one line — that is how
+        # the design stage is asked to write them.
+        doc = (sd.get("doc") or "").strip().replace("\n", " ")
+        first = re.split(r"(?<=[.!?])\s+", doc)[0] if doc else ""
+        img = sd.get("image_mode")
+        img_note = f" [image: {img}{'/' + sd['image_side'] if sd.get('image_side') else ''}]" if img else " [no image]"
+        return f"  scene {idx + 1} ({role}) — {first[:160]}{img_note}"
+
+    def _peers_for(i: int) -> str:
+        """The OTHER scenes in this template, as told to scene `i`.
+
+        Every peer, not just the earlier ones: with no ordering constraint there
+        is no reason to hide half the template from a scene, and seeing all of
+        them is a stronger signal to differ than seeing a prefix.
+        """
+        others = [_summarise(j) for j in range(len(plan.scene_kwargs)) if j != i]
+        if not others:
+            return ""
+        return (
+            "THE OTHER SCENES IN THIS TEMPLATE:\n"
+            + "\n".join(others)
+            + "\n\nYours must be a DIFFERENT COMPOSITION from every one of these — not a "
+            "variation of one, not the same skeleton with other content. Share the "
+            "template's identity (palette, type, motion character); do not share its "
+            "geometry."
+        )
+
+    # At most SCENE_CONCURRENCY scenes in flight at once, as a ROLLING window.
+    #
+    # Every scene's task is created below and immediately blocks on this
+    # semaphore, so the window refills the moment a slot frees rather than
+    # draining and restarting: with 11 scenes and a window of 8, scene 9 starts
+    # as soon as the first of the 8 completes, not after all 8 do.
+    #
+    # Unbounded fan-out put all 8-11 scenes on the provider simultaneously, each
+    # asking for thousands of tokens of code. That is where the slowdown came
+    # from: the provider queues and throttles the burst, so the tail scenes
+    # finish no sooner than they would have in a smaller window, and rate-limit
+    # errors land as failed slots that then cost a repair round.
+    #
+    # If 429s appear, narrow _PROVIDER_MAX_INFLIGHT (app.dspy_modules) rather
+    # than this — that is the gate that actually bounds simultaneous requests,
+    # because one scene issues more than one call. Never narrow the retry
+    # budget, which is what rescues a failing scene.
+    sem = asyncio.Semaphore(SCENE_CONCURRENCY)
+
     async def _one(idx: int, kw: dict) -> SceneResult:
-        try:
-            code, aspect, schema = await gen(**kw)
-            return SceneResult(index=idx, code=code, aspect_ratios=aspect, prop_schema=schema)
-        except Exception as e:  # noqa: BLE001
-            print(f"[F7-DEBUG] [CODEGEN] scene {idx} failed: {type(e).__name__}: {e}")
-            return SceneResult(
-                index=idx, code="", aspect_ratios={}, prop_schema=[], error=f"{type(e).__name__}: {e}"
-            )
+        async with sem:
+            try:
+                code, aspect, schema = await gen(**{**kw, "built_so_far": _peers_for(idx)})
+                return SceneResult(index=idx, code=code, aspect_ratios=aspect, prop_schema=schema)
+            except Exception as e:  # noqa: BLE001
+                print(f"[F7-DEBUG] [CODEGEN] scene {idx} failed: {type(e).__name__}: {e}")
+                return SceneResult(
+                    index=idx, code="", aspect_ratios={}, prop_schema=[],
+                    error=f"{type(e).__name__}: {e}",
+                )
 
     pending = [
         asyncio.ensure_future(_one(i, kw))
@@ -4144,384 +4124,117 @@ async def generate_component_code(
         f"[F7-DEBUG] [CODEGEN] LLM model={codegen_lm.model!r} max_tokens={_tok}"
     )
 
-    # Step 1: AI decides scene types for this brand. The raw brief (prompt / doc
-    # text, empty for URL-scraped templates) lets the user request specific scenes.
+    # ── Stage A: design documents ────────────────────────────────────────────
+    # The raw brief (prompt / doc text, empty for URL-scraped templates) lets the
+    # user request specific scenes.
     user_brief = (theme.get("brief") or "").strip() if isinstance(theme, dict) else ""
     if user_brief:
-        print(f"[F7-DEBUG] [V3][BRIEF] honoring user brief ({len(user_brief)} chars) in scene decisions")
-    loop = asyncio.get_event_loop()
-    all_scene_types = await loop.run_in_executor(
-        None, _decide_brand_scene_types, brand_context, user_brief
+        print(f"[F7-DEBUG] [BRIEF] honoring user brief ({len(user_brief)} chars)")
+    brand_description = (
+        (theme.get("brand_description") or "").strip() if isinstance(theme, dict) else ""
     )
+    loop = asyncio.get_event_loop()
 
-    intro_archetype = next(s for s in all_scene_types if s["scene_type"] == "intro")
-    outro_archetype = next(s for s in all_scene_types if s["scene_type"] == "outro")
-    content_archetypes = [s for s in all_scene_types if s["scene_type"] == "content"]
-
-    # Report the scene count NOW, not at on_plan_ready.
-    #
-    # The count is known the moment scene types are decided (~8s in), but
-    # on_plan_ready fires only after the blueprint and design system finish —
-    # another ~50s during which the UI could show "Scenes" with no counter and
-    # no sense of how much work was coming.
-    #
-    # This is a PROVISIONAL figure: when the blueprint is enabled it authors its
-    # own layouts and replaces content_archetypes below, which can change the
-    # number. on_plan_ready still sends the authoritative total and the UI
-    # simply takes the newer value, so a corrected count costs nothing.
-    if on_scene_count:
-        try:
-            on_scene_count(1 + len(content_archetypes) + 1)
-        except Exception as e:  # noqa: BLE001
-            # Progress reporting must never be able to kill a generation.
-            print(f"[F7-DEBUG] [CODEGEN] on_scene_count failed: {e}")
-
-    # Step 1b: Design blueprint (P2). ALWAYS RUNS — it used to ship dark behind
-    # CUSTOM_BLUEPRINT_ENABLED, which is gone.
-    #
-    # The blueprint replaces the fixed five-composition vocabulary with layouts
-    # this brand's own design authored, so two brands stop sharing a structural
-    # rhythm. It can never break generation: output is validated + repaired, and
-    # a total failure falls back to a blueprint synthesised from the existing
-    # deterministic signature engine (i.e. today's behaviour).
-    # The design system depends ONLY on brand_context, which is already built —
-    # it has no dependency on the blueprint. Starting it here lets its ~23s run
-    # concurrently with the blueprint's 60-90s instead of strictly after it,
-    # which is pure latency off every single generation.
+    # The design system depends ONLY on brand_context, which is already built, so
+    # start it now and let its ~23s run concurrently with the design docs rather
+    # than strictly after them. Pure latency off every generation.
     _design_system_task = asyncio.ensure_future(
         loop.run_in_executor(None, _generate_design_system, brand_context)
     )
 
-    blueprint: dict | None = None
-    from app.dspy_modules.blueprint import fallback_blueprint, generate_blueprint
-
-    _bp_seed = f"{theme.get('category', '')}|{theme.get('style', '')}|{template.name}"
-    # The blueprint stage must NEVER be able to fail template generation —
-    # that is its stated contract, and the whole point of having a
-    # deterministic fallback. generate_blueprint() catches the model-failure
-    # exceptions it anticipates, but an unanticipated one (an AttributeError
-    # from a malformed section, as seen on template 135) escaped and killed
-    # the entire run. Catch broadly here: a template built on the fallback
-    # blueprint is a far better outcome than no template at all.
-    blueprint = None
+    # This stage must NEVER be able to fail template generation. generate_design_docs
+    # catches the model failures it anticipates, but an unanticipated one (an
+    # AttributeError from a malformed field, as seen on template 135 in the
+    # blueprint era) would otherwise kill the whole run. A template built on the
+    # fallback docs is a far better outcome than no template at all.
+    docs: dict | None = None
     try:
-        blueprint, _bp_repairs = await loop.run_in_executor(
-            None, partial(generate_blueprint, brand_context, user_brief, seed=_bp_seed)
+        docs, _doc_repairs = await loop.run_in_executor(
+            None,
+            partial(
+                generate_design_docs,
+                brand_context,
+                brand_description,
+                user_brief,
+                # Needed only to graft a missing REQUIRED scene type from the
+                # deterministic fallback when two samples both omit one.
+                theme=theme,
+                name=template.name,
+            ),
         )
-    except Exception as _bp_err:  # noqa: BLE001
-        print(f"[F7-DEBUG] [BLUEPRINT] stage raised {type(_bp_err).__name__}: {_bp_err}")
-    if blueprint is None:
-        blueprint = fallback_blueprint(theme, content_archetypes, template.name)
-        print("[F7-DEBUG] [BLUEPRINT] using deterministic fallback blueprint")
+    except Exception as _dd_err:  # noqa: BLE001
+        print(f"[F7-DEBUG] [DESIGN-DOC] stage raised {type(_dd_err).__name__}: {_dd_err}")
+    if docs is None:
+        docs = fallback_design_docs(theme, template.name)
+        print("[F7-DEBUG] [DESIGN-DOC] using deterministic fallback docs")
 
-    # The blueprint's own layouts supersede the scene-type archetypes: it
-    # authored them together with their geometry, so they must stay paired.
-    #
-    # NOTE ON _decide_brand_scene_types: because the blueprint always runs and
-    # always yields content layouts, its output is REPLACED here every time. The
-    # scene-type stage survives only as (a) the provisional scene count reported
-    # to the progress UI ~50s before the blueprint lands, and (b) the
-    # `archetypes` argument to fallback_blueprint. Tuning its prompt cannot
-    # change a shipped template — change the blueprint's layout guidance instead.
-    _bp_content = [
-        l for l in blueprint["layouts"] if l["role"] not in ("intro", "outro")
-    ]
-    if _bp_content:
-        content_archetypes = [
-            {
-                "id": l["id"],
-                "scene_type": "content",
-                "best_for": l["best_for"],
-                "description": l["label"],
-                "role": l["role"],
-                "supports_image": l["supports_image"],
-            }
-            for l in _bp_content
-        ]
+    scene_docs: list[dict] = list(docs.get("scenes") or [])
+    total_scenes = len(scene_docs)
+    general_doc = docs.get("general_doc") or ""
 
-    # Step 2: Collect the design system started before the blueprint above.
+    # The scene count is known the moment the docs land, so report it now — the
+    # UI would otherwise show "Scenes" with no counter for the whole run.
+    if on_scene_count:
+        try:
+            on_scene_count(total_scenes)
+        except Exception as e:  # noqa: BLE001
+            # Progress reporting must never be able to kill a generation.
+            print(f"[F7-DEBUG] [CODEGEN] on_scene_count failed: {e}")
+
     design_system = await _design_system_task
 
-    num_content = len(content_archetypes)
-    total_scenes = 1 + num_content + 1
-
+    num_content = sum(1 for s in scene_docs if s.get("role") == "content")
     print(
         f"[F7-DEBUG] [CODEGEN] Generating {total_scenes} scenes for '{template.name}': "
-        f"1 intro + {num_content} content archetypes + 1 outro"
+        f"1 intro + {num_content} content + 1 outro"
     )
 
-    # Composition archetypes the per-scene directive in GenerateSceneCode rotates
-    # through — surfaced in scene_purpose so each content scene is explicitly told
-    # which distinct layout to build (defeats centered-card repetition). These
-    # are GEOMETRY DIRECTIVES the model authors itself, not components to wrap.
-    _COMPOSITIONS = [
-        "centered focal",
-        "asymmetric split",
-        "full-bleed hero",
-        "offset card stack",
-        "side rail",
-    ]
-    # Brand-seeded permutation so two different brands do NOT march through the
-    # identical structural rhythm (the old `(i+1) % len` was index-fixed, so every
-    # brand shared one sequence — a structural recolor). A deterministic per-brand
-    # Fisher–Yates shuffle keeps neighbours distinct while differing across brands.
-    _seed = f"{theme.get('category', '')}|{theme.get('style', '')}|{template.name}"
-    _rng = int(hashlib.md5(_seed.encode("utf-8")).hexdigest(), 16)
-    _comp_order = _COMPOSITIONS[:]
-    for _k in range(len(_comp_order) - 1, 0, -1):
-        _rng, _j = divmod(_rng, _k + 1)
-        _comp_order[_k], _comp_order[_j] = _comp_order[_j], _comp_order[_k]
-    print(f"[F7-DEBUG] [V3][COMPOSITION] brand-seeded order: {_comp_order}")
-
-    # Per-scene SIGNATURE ARTIFACT rotation. Instead of every scene repeating the
-    # one artifactMotion (which read as same-y), rotate through the brand's small
-    # artifactSet (primary + up to 2 related from the same bucket). intro = the
-    # boldest/primary as a hero take; content scenes rotate the rest for variety;
-    # outro = a DIFFERENT member than the intro so the bookends don't look alike.
-    _sig = (theme.get("signature") or {})
-    _artifact_set = _sig.get("artifactSet") or [_sig.get("artifactMotion") or "drift"]
-    _intro_artifact = _artifact_set[0]
-    _outro_artifact = _artifact_set[-1] if len(_artifact_set) > 1 else _artifact_set[0]
-    # Content scenes rotate the non-primary members first (so they differ from the
-    # intro's hero artifact), falling back to the whole set if there's only one.
-    _content_pool = _artifact_set[1:] or _artifact_set
-    print(
-        f"[F7-DEBUG] [V3][ARTIFACT] set={_artifact_set} | intro={_intro_artifact} "
-        f"| content_pool={_content_pool} | outro={_outro_artifact}"
-    )
-
-    # Blueprint threading helpers. When the blueprint path is off, both return
-    # "" and every scene falls back to the legacy scene_purpose directives.
-    _blueprint_json = json.dumps(blueprint, ensure_ascii=False) if blueprint else ""
-
-    def _layout_spec_for(role: str, index: int = 0) -> str:
-        if not blueprint:
-            return ""
-        from app.dspy_modules.blueprint import layout_for_scene
-
-        lay = layout_for_scene(blueprint, role, index)
-        return json.dumps(lay, ensure_ascii=False) if lay else ""
-
-    def _bookend_directive(which: str) -> str:
-        """Per-brand bookend art direction from the blueprint.
-
-        Replaces the old hardcoded arc ("the intro is loud, the outro is calm"),
-        which was a house style applied to every brand regardless of fit.
-        """
-        if not blueprint:
-            return ""
-        be = (blueprint.get("bookends") or {}).get(which) or {}
-        if which == "intro":
-            return (
-                f" | OPENING (this brand's own): opening_move={be.get('opening_move')!r}, "
-                f"logo_treatment={be.get('logo_treatment')!r}, "
-                f"title_reveal={be.get('title_reveal')!r}, energy={be.get('energy')!r}. "
-                "Build THIS opening — do not default to a generic centred logo-and-title reveal."
-            )
-        return (
-            f" | CLOSING (this brand's own): closing_move={be.get('closing_move')!r}, "
-            f"energy={be.get('energy')!r}, echoes_intro={be.get('echoes_intro')}. "
-            "Design it on its own terms; it need NOT be quieter than the intro."
-        )
-
-    def _structure_directive() -> str:
-        """Persistent chrome that repeats across every scene of this template."""
-        if not blueprint:
-            return ""
-        st = blueprint.get("structure") or {}
-        parts: list[str] = []
-        chrome = st.get("chrome") or {}
-        if chrome.get("enabled"):
-            parts.append(
-                f"<Masthead position=\"{chrome.get('position', 'top')}\" "
-                f"rule=\"{chrome.get('rule', 'hairline')}\" /> on EVERY scene "
-                f"(left={chrome.get('left')!r}, right={chrome.get('right')!r})"
-            )
-        num = st.get("panel_numbering") or {}
-        if num.get("enabled"):
-            parts.append(
-                f"<PanelNumber style=\"{num.get('style', 'padded')}\" "
-                f"corner=\"{num.get('corner', 'tr')}\" value={{props.sceneIndex + 1}} "
-                f"total={{props.totalScenes}} />"
-            )
-        sa = (st.get("safe_area") or {}).get("landscape") or {}
-        sap = (st.get("safe_area") or {}).get("portrait") or {}
-        if sa and sap:
-            parts.append(
-                "safe area (THIS template's own policy, not a generic inset): landscape "
-                f"{sa.get('top')}/{sa.get('right')}/{sa.get('bottom')}/{sa.get('left')}%, portrait "
-                f"{sap.get('top')}/{sap.get('right')}/{sap.get('bottom')}/{sap.get('left')}%"
-            )
-        return f" | TEMPLATE STRUCTURE: {'; '.join(parts)}" if parts else ""
-
-    # Step 3: Generate ALL scenes in parallel. Each scene's kwargs are kept
-    # alongside its task (not just the coroutine) so a scene that fails FINAL
-    # validation below can be individually regenerated — dspy.Refine always
-    # returns its best-scoring attempt even when every attempt scored 0.0 (it
-    # never raises), so a scene can silently come back invalid despite Refine
-    # "succeeding". Retrying only the failed scene(s) is far cheaper than
-    # failing the whole batch and forcing the user to regenerate all 9 scenes
-    # (burning quota) to get past one bad one.
-    scene_kwargs: list[dict] = [
-        dict(
-            brand_context=brand_context,
-            design_system=design_system,
-            blueprint=_blueprint_json,
-            layout_spec=_layout_spec_for("intro"),
-            art_direction=build_art_direction(blueprint, "intro"),
-            scene_type="intro",
-            scene_index=0,
-            total_scenes=total_scenes,
-            scene_purpose=(
-                (
-                    # Blueprint path: the opening move, logo treatment, reveal
-                    # and energy all come from this brand's own bookend design.
-                    f"{intro_archetype['id']}: {intro_archetype['description']} "
-                    "| brand-reveal opener (no bullet/metric lists)"
-                    f"{_bookend_directive('intro')}{_structure_directive()}"
-                )
-                if blueprint
-                else (
-                    f"{intro_archetype['id']}: {intro_archetype['description']} "
-                    "| brand-reveal opener: lead with an animated brand-name title + a real "
-                    "logo reveal and ONE signature entrance beat (no bullet/metric lists) "
-                    f"| SIGNATURE ARTIFACT: give <SignatureArtifact motion=\"{_intro_artifact}\" "
-                    "intensity={0.7} /> its BOLD hero take here — this is the loudest, most "
-                    "energetic moment of the whole video; the title entrance should be the "
-                    "video's biggest motion beat"
-                )
-            ),
-        ),
-    ]
-    for i, arch in enumerate(content_archetypes):
-        best_for_hint = (
-            f" | best_for={arch['best_for']}" if arch.get("best_for") else ""
-        )
-        _comp = _comp_order[i % len(_comp_order)]
-        _brief_hint = _scene_hint_for(user_brief, arch)
-        _scene_artifact = _content_pool[i % len(_content_pool)]
-        # ── V3 verification: each content scene gets a distinct directive.
-        #
-        # On the BLUEPRINT path the five-composition rotation is not used at all
-        # — build_art_direction() sends the layout's authored geometry instead —
-        # so logging `composition='centered focal'` there claimed a directive the
-        # model never received and made the blueprint look ignored in the logs.
-        if blueprint:
-            _lay = _bp_content[i % len(_bp_content)] if _bp_content else None
-            print(
-                f"[F7-DEBUG] [V3][COMPOSITION] content scene {i + 1}/{num_content} "
-                f"(archetype={arch['id']!r}) -> blueprint layout="
-                f"{(_lay or {}).get('id', '?')!r} surface={(_lay or {}).get('surface')!r} "
-                f"img={(_lay or {}).get('image_treatment')!r} "
-                f"artifact={(_lay or {}).get('artifact')!r}"
-                f"{' [+brief-hint]' if _brief_hint else ''}"
-            )
-        else:
-            print(
-                f"[F7-DEBUG] [V3][COMPOSITION] content scene {i + 1}/{num_content} "
-                f"(archetype={arch['id']!r}) -> composition={_comp!r} artifact={_scene_artifact!r}"
-                f"{' [+brief-hint]' if _brief_hint else ''}"
-            )
+    # ── Stage B: one kwargs set per scene ────────────────────────────────────
+    #
+    # Note what is NOT here any more: no composition rotation, no artifact
+    # rotation, no blueprint/layout_spec/art_direction. Those existed to inject
+    # variety that the scene docs now carry themselves. Each scene gets the
+    # SHARED identity (general_doc, which keeps the template coherent) and its
+    # OWN design (scene_doc, which makes it different) — plus, at generation
+    # time, a summary of the layouts already built so it can avoid repeating one.
+    scene_kwargs: list[dict] = []
+    for i, sd in enumerate(scene_docs):
         scene_kwargs.append(
             dict(
                 brand_context=brand_context,
                 design_system=design_system,
-                blueprint=_blueprint_json,
-                layout_spec=_layout_spec_for("content", i),
-                art_direction=build_art_direction(blueprint, "content", i, composition=_comp),
-                scene_type="content",
-                scene_index=i + 1,
+                general_doc=general_doc,
+                scene_doc=_format_scene_doc(sd),
+                built_so_far="",  # filled in per scene by generate_scene_batch
+                scene_type=sd.get("role") or "content",
+                scene_index=i,
                 total_scenes=total_scenes,
-                scene_purpose=(
-                    (
-                        # Blueprint path: geometry comes from layout_spec, so the
-                        # fixed five-composition directive is deliberately absent.
-                        f"{arch['id']}: {arch['description']}{best_for_hint} "
-                        f"| content scene {i + 1} of {num_content}: build the geometry described "
-                        "in layout_spec — it was authored for this brand and must not be "
-                        "replaced with a generic composition"
-                        f"{_structure_directive()}{_brief_hint}"
-                    )
-                    if blueprint
-                    else (
-                        f"{arch['id']}: {arch['description']}{best_for_hint} "
-                        f"| content scene {i + 1} of {num_content}: use a '{_comp}' composition, "
-                        "visually DISTINCT from its neighbours (do not reuse a centered card) "
-                        f"| SIGNATURE ARTIFACT: echo the brand with <SignatureArtifact "
-                        f"motion=\"{_scene_artifact}\" intensity={{0.4}} /> — a restrained ECHO "
-                        "(not the intro's hero take), placed differently than neighbouring scenes"
-                        f"{_brief_hint}"
-                    )
-                ),
-            ),
+            )
         )
-    scene_kwargs.append(
-        dict(
-            brand_context=brand_context,
-            design_system=design_system,
-            blueprint=_blueprint_json,
-            layout_spec=_layout_spec_for("outro"),
-            art_direction=build_art_direction(blueprint, "outro"),
-            scene_type="outro",
-            scene_index=total_scenes - 1,
-            total_scenes=total_scenes,
-            scene_purpose=(
-                (
-                    # Blueprint path: the outro is designed on its OWN terms.
-                    # The old directive defined it only in opposition to the
-                    # intro ("where the intro was loud, the outro is calm"),
-                    # which gave every brand the same arc.
-                    f"{outro_archetype['id']}: {outro_archetype['description']} "
-                    "| closing scene. A CTA + socials row is overlaid automatically at render "
-                    "time — do NOT hand-roll social icons, website buttons or Subscribe/Follow "
-                    "CTAs; leave room for them. This scene takes NO content image."
-                    f"{_bookend_directive('outro')}{_structure_directive()}"
-                )
-                if blueprint
-                else (
-                    f"{outro_archetype['id']}: {outro_archetype['description']} "
-                    "| closing brand recap (a CTA + socials row is overlaid automatically — "
-                    "do not hand-roll social icons or CTA buttons) "
-                    "| DELIBERATELY DIFFERENT FROM THE INTRO: where the intro was loud, big and "
-                    "energetic, the outro is calm and settled — a different alignment/composition "
-                    "and a gentler entrance (NOT the same centered title treatment as the intro) "
-                    f"| SIGNATURE ARTIFACT: a QUIET callback with <SignatureArtifact "
-                    f"motion=\"{_outro_artifact}\" intensity={{0.35}} /> — a different motif than "
-                    "the intro's hero artifact so the bookends don't look identical"
-                )
-            ),
-        ),
-    )
 
-    # ── Per-generation cache-buster ───────────────────────────────────────────
-    # DSPy's LM caches on the request signature (model + prompt + params). Every
-    # call to generate_component_code builds byte-identical scene_purpose kwargs
-    # for the same template, so a *regenerate* produces the identical cache key and
-    # replays the cached completion verbatim — including a scene that renders blank
-    # at runtime (a crash the static validator can't catch, so it passes final
-    # validation, gets stored, and can never be regenerated away). Confirmed in the
-    # wild: three back-to-back regenerate-code calls wrote byte-identical scene
-    # files (e.g. SceneContent3.tsx 10331 bytes each time). This is the same disk
-    # cache replay the failure-retry loop already busts via a nonce (see below) —
-    # here we bust it for EVERY generation, not just the failed-validation path, so
-    # a user hitting "Regenerate" always gets a genuinely fresh completion.
+    # ── Per-generation cache-buster ──────────────────────────────────────────
+    # DSPy's LM caches on the request signature. Every call builds byte-identical
+    # kwargs for the same template, so a *regenerate* produces the identical cache
+    # key and replays the cached completion verbatim — including a scene that
+    # renders blank at runtime (a crash the static validator cannot catch, so it
+    # passes validation, gets stored, and can never be regenerated away).
+    # Confirmed in the wild: three back-to-back regenerates wrote byte-identical
+    # scene files.
     _gen_nonce = time.time_ns()
     for _kw in scene_kwargs:
-        _kw["scene_purpose"] = f"{_kw['scene_purpose']} | [gen {_gen_nonce}]"
+        _kw["scene_doc"] = f"{_kw['scene_doc']}\n\n[gen {_gen_nonce}]"
 
-    # Stage A is done. Hand the caller the blueprint and design system NOW so
-    # they can be persisted before the ~300s of scene work begins — a crash
-    # during scenes then costs the scenes, not the 60-90s blueprint call too.
+    # Stage A is done. Hand the caller the docs and design system NOW so they can
+    # be persisted before the scene work begins — a crash during scenes then costs
+    # the scenes, not the design call too.
     if on_plan_ready:
         try:
             on_plan_ready(
                 {
-                    "blueprint": blueprint,
+                    "blueprint": docs,
                     "design_system": design_system,
-                    "scene_labels": [intro_archetype["id"]]
-                    + [a["id"] for a in content_archetypes]
-                    + [outro_archetype["id"]],
-                    "total_scenes": len(scene_kwargs),
+                    "scene_labels": [s.get("id") or f"scene_{i}" for i, s in enumerate(scene_docs)],
+                    "total_scenes": total_scenes,
                 }
             )
         except Exception as e:  # noqa: BLE001
@@ -4529,19 +4242,21 @@ async def generate_component_code(
             print(f"[F7-DEBUG] [CODEGEN] on_plan_ready failed: {e}")
 
     # Scene generation runs through generate_scene_batch so a caller can observe
-    # (and persist) each scene as it lands rather than only after the slowest
-    # one finishes. With on_scene_done=None this behaves exactly like the old
-    # asyncio.gather it replaced.
-    scene_types_simple = ["intro"] + ["content"] * num_content + ["outro"]
+    # (and persist) each scene as it lands rather than only after the last one
+    # finishes.
+
+    scene_types_simple = [sd.get("role") or "content" for sd in scene_docs]
+    scene_labels = [s.get("id") or f"scene_{i}" for i, s in enumerate(scene_docs)]
     _plan = GenPlan(
         brand_context=brand_context,
-        blueprint=blueprint,
+        blueprint=docs,
         design_system=design_system,
         scene_kwargs=scene_kwargs,
-        scene_labels=[],
+        scene_labels=list(scene_labels),
         scene_types_simple=list(scene_types_simple),
         archetype_ids=[],
         theme=theme,
+        scene_docs=list(scene_docs),
     )
     _batch = await generate_scene_batch(
         _plan, on_scene_done=on_scene_done, existing=resume_scenes
@@ -4562,7 +4277,7 @@ async def generate_component_code(
         _keep = {r.index: r for r in _batch if not r.error}
         for _kw in scene_kwargs:
             # Bust the DSPy cache so the retry cannot replay the same failure.
-            _kw["scene_purpose"] = f"{_kw['scene_purpose']} | [scene-retry {time.time_ns()}]"
+            _kw["scene_doc"] = f"{_kw['scene_doc']}\n[scene-retry {time.time_ns()}]"
         _batch = await generate_scene_batch(
             _plan, on_scene_done=on_scene_done, existing=_keep
         )
@@ -4581,7 +4296,6 @@ async def generate_component_code(
     scene_prop_schemas: list[list[dict]] = [r.prop_schema for r in _batch]
 
     # Log what was generated
-    scene_labels = [intro_archetype["id"]] + [a["id"] for a in content_archetypes] + [outro_archetype["id"]]
     for i, (label, code) in enumerate(zip(scene_labels, scenes)):
         line_count = code.count("\n") + 1
         print(f"[F7-DEBUG] [CODEGEN] Scene {i} ({label}): {line_count} lines")
@@ -4594,6 +4308,39 @@ async def generate_component_code(
     # one bad scene, regenerate just the failing scene(s) a few more times —
     # each retry uses a fresh temperature=1.0 rollout, so it isn't the same
     # deterministic failure repeating.
+    # NOTE the parameter name. It is deliberately NOT `wrapped_err`: this helper
+    # is nested inside generate_component_code, so an inner parameter sharing a
+    # name with an outer local trips the use-before-assignment audit in
+    # test_staged_codegen — which walks the whole function body and cannot tell
+    # a nested scope from the enclosing one. That audit exists because a real
+    # read-before-assignment here costs ~150s and a paid blueprint before it
+    # surfaces, so it is worth keeping blunt.
+    def _wrapped_repair_instruction(_collision_err: str) -> str:
+        """Turn a wrapper-collision error into an instruction that names the fix.
+
+        The validator's message is accurate but reads as a structural problem
+        ("redeclares an injected import ... use them directly, never redeclare
+        them"), which invites a rewrite. The actual fix is a one-word rename,
+        and a scene that rewrites instead loses contracts it already satisfied.
+
+        This path had NO repair at all before — a collision stubbed the scene
+        outright — so the model has never once been asked to make this edit.
+        """
+        _m = re.search(r"Top-level '([A-Za-z_$][\w$]*)'", _collision_err or "")
+        _name = _m.group(1) if _m else None
+        if not _name:
+            return _collision_err
+        return (
+            f"{_collision_err}\n\n"
+            f"THE FIX IS A RENAME. `{_name}` is already provided to your scene, so "
+            f"declaring it again is a module-evaluation SyntaxError. Rename YOUR "
+            f"declaration and every reference to it — for example `{_name}` -> "
+            f"`scene{_name[0].upper()}{_name[1:]}` — and change absolutely nothing "
+            f"else. Do not restructure the scene, do not drop elements, and do not "
+            f"remove the declaration: it is the NAME that is reserved, not what you "
+            f"built with it."
+        )
+
     def _log_failed_scene(scene_idx: int, label: str, code: str, error: str, attempt_label: str) -> str:
         """Print the validator error AND the actual LLM output around the
         failure point, so a broken generation is diagnosable from server logs
@@ -4602,7 +4349,12 @@ async def generate_component_code(
         Returns the formatted diagnostic so the RETRY can feed the model the
         real error (see _format_scene_failure) instead of a generic hint."""
         print(f"[F7-DEBUG] [CODEGEN] Scene {scene_idx} ({label}) {attempt_label}: {error}")
-        diagnostic = _format_scene_failure(code, error)
+        diagnostic = _format_scene_failure(
+            code,
+            error,
+            scene_type=scene_types_simple[scene_idx],
+            scene_doc=str(scene_kwargs[scene_idx].get("scene_doc") or ""),
+        )
         print(f"[F7-DEBUG] [CODEGEN] Failure context (scene {scene_idx}):\n{diagnostic}")
         return diagnostic
 
@@ -4666,13 +4418,40 @@ async def generate_component_code(
     # template with no majority, or too few resolvable scenes, is left alone.
     _canvas_outliers = set(detect_canvas_drift(scenes))
     _font_outliers = set(detect_font_drift(scenes))
+    # The value the outliers must be repaired TOWARD. Naming it in the error is
+    # what turns "your canvas is wrong" into an instruction the model can act on.
+    _canvas_majority: str | None = None
+    if _canvas_outliers:
+        _tokens: list[str] = []
+        for _i, _code in enumerate(scenes):
+            if _i in _canvas_outliers:
+                continue
+            _tok = scene_canvas_token(_code)
+            if _tok:
+                _tokens.append(_tok)
+        if _tokens:
+            _canvas_majority = max(set(_tokens), key=_tokens.count)
     if _canvas_outliers or _font_outliers:
         print(
             f"[F7-DEBUG] [CROSS-SCENE] canvas outliers={sorted(_canvas_outliers)} "
             f"font outliers={sorted(_font_outliers)}"
         )
 
-    for i in range(len(scenes)):
+    # Repair every failing scene CONCURRENTLY.
+    #
+    # This loop used to be strictly sequential: each scene ran up to
+    # MAX_SCENE_RETRIES repairs, one LLM call apiece, before the next scene was
+    # even looked at. With 7 of 9 scenes failing (measured on template 177) that
+    # is up to 21 calls end to end — which is why the "Verifying" step, not scene
+    # generation, was where a ~800s run spent its time.
+    #
+    # Repairs are independent: each rewrites one scene against its own errors and
+    # its own doc. Only the cross-scene verdicts (canvas/font drift) are shared,
+    # and those are computed BEFORE this point. So the whole pass can fan out
+    # under the same window scene generation uses.
+    _repair_sem = asyncio.Semaphore(SCENE_CONCURRENCY)
+
+    async def _verify_and_repair(i: int) -> None:
         # collect_all: report EVERY broken contract, not just the first. Fixing one
         # at a time is what made a scene restore its logo while dropping its
         # animations, then restore animations and drop the logo again.
@@ -4681,40 +4460,63 @@ async def generate_component_code(
             scene_type=scene_types_simple[i],
             collect_all=True,
             theme=theme,
+            scene_doc=str(scene_kwargs[i].get("scene_doc") or ""),
         )
         # Fold the cross-scene verdict into this scene's error list so the
         # existing repair loop below drives the fix — no parallel machinery.
         _cross: list[str] = []
+        # These messages name the MAJORITY value alongside this scene's, and ask
+        # for a swap and nothing else. A bare "canvas drift" reads as a design
+        # complaint and invites a rewrite, which is how a repair loses its
+        # layout while fixing a colour.
         if i in _canvas_outliers:
+            _majority = _canvas_majority or "the template's canvas colour"
             _cross.append(
-                f"This scene's background ({scene_canvas_token(scenes[i])!r}) does not match the "
-                "rest of the template. Every scene must share ONE canvas: wrap in <SceneFrame>, "
-                "or set the outermost fill to palette.bg (backgroundCss(palette) for a gradient "
-                "brand). Move the colour you wanted onto a PANEL inside the scene instead of "
-                "repainting the whole frame."
+                f"Every other scene in this template renders on {_majority!r}; this one uses "
+                f"{scene_canvas_token(scenes[i])!r}. A viewer scrubbing the video would see the "
+                f"background change. Set this scene's outermost fill to "
+                f"props.brandColors.background and move the colour you wanted onto a PANEL "
+                f"inside the scene. Change ONLY the root background — keep the layout, the "
+                f"motion and every other colour exactly as they are."
             )
         if i in _font_outliers:
             _cross.append(
-                "This scene's typography does not match the rest of the template. Bind headings "
-                'to props.headingFont and body copy to props.bodyFont (fontFamily: '
-                'props.headingFont || "inherit"), and never override fonts on a kit component.'
+                "This scene's typography does not match the rest of the template, so the video "
+                "changes typeface mid-way. Bind headings to props.headingFont and body copy to "
+                'props.bodyFont (fontFamily: props.headingFont || "inherit") — the fallback '
+                'must be "inherit", never a named family. Change ONLY the fontFamily values.'
             )
         if _cross:
             valid = False
             err = "\n".join([*( [err] if err else [] ), *_cross])
 
         if valid:
-            continue
+            return  # this scene is fine — nothing to repair
         diagnostic = _log_failed_scene(
             i, scene_labels[i], scenes[i], err, "failed final validation (initial attempt)"
         )
         for retry in range(1, MAX_SCENE_RETRIES + 1):
+            # Say which scene is being repaired and why, before the call rather
+            # than after it — a silent 30-100s gap in the log reads as a hang.
+            _why = (err or "").strip().splitlines()[0] if err else "failed validation"
+            print(
+                f"[F7-DEBUG] [CODEGEN] repairing scene {i} ({scene_labels[i]}) — "
+                f"attempt {retry}/{MAX_SCENE_RETRIES}: {_why}"
+            )
             strategy = _REPAIR_STRATEGIES[min(retry - 1, len(_REPAIR_STRATEGIES) - 1)]
             retry_kwargs = {
                 **scene_kwargs[i],
-                "scene_purpose": (
-                    f"{scene_kwargs[i]['scene_purpose']}{strategy}"
-                    f" | [repair {retry} {time.time_ns()}]"
+                # The scene's own design doc rides along on every repair.
+                #
+                # A scene can now fail SEMANTICALLY — it built a composition its
+                # doc did not describe — so a repair that only sees the generic
+                # contract drifts further from the assigned design with each
+                # attempt. Keeping the doc in front of the model is what makes a
+                # semantic repair converge on the right layout instead of a
+                # merely valid one.
+                "scene_doc": (
+                    f"{scene_kwargs[i]['scene_doc']}{strategy}"
+                    f"\n[repair {retry} {time.time_ns()}]"
                 ),
                 # The REAL error, not a hardcoded "syntax error" guess (§R Layer 1).
                 "previous_failure": diagnostic,
@@ -4739,12 +4541,20 @@ async def generate_component_code(
                     "every contract the scene already satisfies — make the minimum edit that "
                     "clears the whole list."
                 )
-            code, ar, ps = await _generate_single_scene(**retry_kwargs)
+            # Bounded like scene generation — an unbounded burst of repairs would
+            # hit the same provider throttling.
+            async with _repair_sem:
+                code, ar, ps = await _generate_single_scene(**retry_kwargs)
             valid, err = validate_component_code(
                 code,
                 scene_type=scene_types_simple[i],
                 collect_all=True,
                 theme=theme,
+                # Same doc the first pass used. Without it a repaired scene is
+                # judged by DIFFERENT rules than the one that rejected it — an
+                # image-less scene would be told to add an image it was designed
+                # without, and could never converge.
+                scene_doc=str(scene_kwargs[i].get("scene_doc") or ""),
             )
             scenes[i] = code
             scene_aspect_ratios[i] = ar
@@ -4775,11 +4585,20 @@ async def generate_component_code(
                 f"Last error: {err}"
             )
 
+    await asyncio.gather(*(_verify_and_repair(i) for i in range(len(scenes))))
+
+
     # Total failure (every scene stubbed) is a real outage — surface it rather
     # than storing an all-placeholder template.
+    #
+    # `err` used to be read here directly; it was the loop variable of a
+    # sequential pass, so it happened to hold the last scene's error. Now that
+    # repairs run concurrently there is no "last" error, so the warning list —
+    # which every stubbed scene appends to — is the honest source.
     if generation_warnings and len(generation_warnings) == len(scenes):
         raise RuntimeError(
-            f"All {len(scenes)} scenes failed validation. Last error: {err}"
+            f"All {len(scenes)} scenes failed validation. "
+            f"First failure: {generation_warnings[0]}"
         )
 
     # §R Layer 5 — validate the WRAPPED output, not just the raw snippet.
@@ -4790,13 +4609,74 @@ async def generate_component_code(
     # that collides with an injected import (the same TDZ class the validator
     # already special-cases). Catching it here keeps a whole-video bundle failure
     # out of the database.
+    #
+    # ONE REPAIR BEFORE STUBBING. This used to stub outright, with no attempt —
+    # the only path in the pipeline that discards a scene without spending any
+    # of its retry budget, which is why a whole run could come back with several
+    # byte-identical stubs while the logs showed no repair loop at all.
+    #
+    # The fix is nearly always a one-word rename, and the model is never given
+    # the chance to make it. `_wrapped_repair_instruction` states it explicitly,
+    # because "collides with an injected import" reads as a structural problem
+    # and invites a rewrite that changes everything except the name.
     for i in range(len(scenes)):
-        wrapped_ok, wrapped_err = validate_wrapped_component_code(scenes[i])
+        wrapped_ok, _wrapped_first_err = validate_wrapped_component_code(scenes[i])
         if wrapped_ok:
             continue
+        # The error reported to the user. Reassigned only if the repair below
+        # produces a DIFFERENT one, so it is never read before it is bound.
+        wrapped_err = _wrapped_first_err
+
         print(
             f"[F7-DEBUG] [CODEGEN] Scene {i} ({scene_labels[i]}) failed WRAPPED "
-            f"validation — stubbing: {wrapped_err}"
+            f"validation — repairing: {wrapped_err}"
+        )
+        try:
+            _wrapped_kwargs = {
+                **scene_kwargs[i],
+                "scene_doc": (
+                    f"{scene_kwargs[i]['scene_doc']}"
+                    f"\n[wrapped-name repair {time.time_ns()}]"
+                ),
+                "previous_failure": _wrapped_repair_instruction(_wrapped_first_err),
+                "use_refine": False,
+                "current_code": scenes[i],
+                "edit_instruction": (
+                    "RENAME the colliding identifier and change NOTHING else. Every "
+                    "declaration, style, animation and element stays exactly as it is — "
+                    "only the name and its references move."
+                ),
+            }
+            async with _repair_sem:
+                _code, _ar, _ps = await _generate_single_scene(**_wrapped_kwargs)
+            _w_ok, _w_err = validate_wrapped_component_code(_code)
+            _v_ok, _ = validate_component_code(
+                _code,
+                scene_type=scene_types_simple[i],
+                collect_all=True,
+                theme=theme,
+                scene_doc=str(scene_kwargs[i].get("scene_doc") or ""),
+            )
+            # Both must hold: a rename that clears the collision but breaks a
+            # contract the scene already satisfied is not a repair.
+            if _w_ok and _v_ok:
+                print(
+                    f"[F7-DEBUG] [CODEGEN] Scene {i} ({scene_labels[i]}) recovered "
+                    f"from the wrapper collision"
+                )
+                scenes[i] = _code
+                scene_aspect_ratios[i] = _ar
+                scene_prop_schemas[i] = _ps
+                continue
+            wrapped_err = _w_err or _wrapped_first_err
+        except Exception as e:  # noqa: BLE001
+            # The stub below is the floor; a failed repair must never be able to
+            # take the run down with it.
+            print(f"[F7-DEBUG] [CODEGEN] wrapped-name repair for scene {i} failed: {e}")
+
+        print(
+            f"[F7-DEBUG] [CODEGEN] Scene {i} ({scene_labels[i]}) failed WRAPPED "
+            f"validation after 1 repair — stubbing: {wrapped_err}"
         )
         scenes[i] = _build_stub_scene_code(scene_types_simple[i], theme)
         scene_aspect_ratios[i] = {"landscape": "16 / 9", "portrait": "9 / 16"}
@@ -4852,12 +4732,109 @@ async def generate_component_code(
         f"{len(scenes)} scenes ({scene_summary})"
     )
 
+    # ── Sample copy for the template preview ────────────────────────────────
+    #
+    # Generated per scene from its OWN design doc, so the gallery and the editor
+    # show copy that belongs to this template instead of the generic strings the
+    # browser used to synthesise. Runs concurrently — each call is independent
+    # and on the cheap scene-type LM, so the whole stage costs roughly one call's
+    # wall-clock rather than N.
+    #
+    # Never fatal: every scene falls back to deterministic copy, so a failed or
+    # slow pass degrades to what the preview showed before rather than storing a
+    # blank scene.
+    _sample_sem = asyncio.Semaphore(SCENE_CONCURRENCY)
+
+    async def _sample_for(idx: int, sd: dict) -> dict:
+        _ctype = sd.get("content_type") or "plain"
+        # Bookends are not content-routed: the intro carries the title and the
+        # outro the CTA, so neither takes a structured content payload.
+        if sd.get("role") in ("intro", "outro"):
+            _ctype = "plain"
+        async with _sample_sem:
+            try:
+                out = await asyncio.to_thread(
+                    _generate_sample_content,
+                    brand_context,
+                    sd.get("doc") or "",
+                    _ctype,
+                )
+            except Exception:  # noqa: BLE001
+                out = {}
+        if not out:
+            out = _fallback_sample_content(template.name or "", _ctype, idx)
+        # contentType tells the scene component which branch to render; it is
+        # derived from the doc, never from the model's reply.
+        out["contentType"] = _ctype
+        return out
+
+    try:
+        _samples = await asyncio.gather(
+            *[_sample_for(i, sd) for i, sd in enumerate(scene_docs)]
+        )
+    except Exception as e:  # noqa: BLE001
+        print(f"[F7-DEBUG] [SAMPLE] stage failed ({type(e).__name__}); using fallbacks: {e}")
+        _samples = [
+            _fallback_sample_content(
+                template.name or "",
+                "plain" if sd.get("role") in ("intro", "outro")
+                else (sd.get("content_type") or "plain"),
+                i,
+            )
+            for i, sd in enumerate(scene_docs)
+        ]
+
+    _samples = list(_samples)
+    scene_sample_content = {
+        "intro": _samples[0] if _samples else {},
+        "content": _samples[1:-1] if len(_samples) > 2 else [],
+        "outro": _samples[-1] if len(_samples) > 1 else {},
+    }
+    # Type sizes, derived from the SAME list and sliced identically — computing
+    # them here rather than in a second pass is what makes the two arrays
+    # index-aligned by construction instead of by convention.
+    _fonts = [
+        _compute_scene_font_defaults(s, s.get("contentType") or "plain")
+        for s in _samples
+    ]
+    scene_font_defaults = {
+        "intro": _fonts[0] if _fonts else {},
+        "content": _fonts[1:-1] if len(_fonts) > 2 else [],
+        "outro": _fonts[-1] if len(_fonts) > 1 else {},
+    }
+    print(
+        f"[F7-DEBUG] [SAMPLE] built sample copy for {len(_samples)} scenes "
+        f"({sum(1 for s in _samples if s.get('displayText'))} with headlines)"
+    )
+
     return {
         "intro_code": intro_code,
         "outro_code": outro_code,
         "content_codes": content_codes,
-        # Full archetype metadata for content-aware matching at video time
-        "archetype_ids": [{"id": a["id"], "best_for": a["best_for"]} for a in content_archetypes],
+        # Per-scene showcase copy, indexed exactly like image_box_aspect_ratios.
+        "scene_sample_content": scene_sample_content,
+        # Default type sizes for that copy, indexed the same way.
+        "scene_font_defaults": scene_font_defaults,
+        # Per-content-scene metadata for content-aware matching at video time.
+        #
+        # `best_for` IS LOAD-BEARING and must be a LIST of real taxonomy values.
+        # An earlier revision set it to "" on the reasoning that the taxonomy was
+        # part of the design vocabulary being removed. It is not — it is the
+        # content ROUTING key, and match_scenes_to_archetypes iterates it: an
+        # empty string yields no entries, so `type_to_archetype` came out empty
+        # and every scene silently fell through to round-robin. A metrics-heavy
+        # article never reached the metrics layout even when the template had one.
+        # `best_for` is RANKED: element 0 is the kind this layout was designed
+        # for, the rest are acceptable second choices. match_scenes_to_archetypes
+        # claims every primary before considering any secondary, so widening the
+        # list can only fill layouts that would otherwise have gone unused — it
+        # never displaces a real match. Without the secondaries an article whose
+        # sections cluster on one content kind sent every scene to a single
+        # layout and left the other six unused.
+        "archetype_ids": [
+            _archetype_entry(s, i)
+            for i, s in enumerate(sd for sd in scene_docs if sd.get("role") == "content")
+        ],
         # Image box aspect ratios per scene type — used to configure the image adjustment modal
         "intro_aspect_ratio": scene_aspect_ratios[0],
         "outro_aspect_ratio": scene_aspect_ratios[-1],
@@ -4865,10 +4842,12 @@ async def generate_component_code(
         # §R — scenes that fell back to the deterministic stub. Persisted and
         # surfaced in the UI so a stubbed scene is visible, not silent.
         "generation_warnings": generation_warnings,
-        # P2 — the design law this template was built from. Persisted so a
-        # per-scene AI edit can regenerate ONE scene against the same design,
-        # and so the editor knows each layout's image capability.
-        "design_blueprint": blueprint,
+        # The design documents this template was built from (stored in the
+        # `design_blueprint` column, whose v1 `identity` + `transition_family`
+        # shape these deliberately preserve so the render path is unchanged).
+        # Persisted so a per-scene AI edit can regenerate ONE scene against the
+        # same design, and so the editor knows each scene's image capability.
+        "design_blueprint": docs,
         # P3 — per-layout editable props, mirroring image_box_aspect_ratios'
         # {intro, content[], outro} shape so the indexing convention matches.
         # Cached so a single-scene AI edit reuses the same shared styling.
@@ -4983,16 +4962,27 @@ async def regenerate_single_scene(
         loop = asyncio.get_event_loop()
         design_system = await loop.run_in_executor(None, _generate_design_system, brand_context)
 
-    blueprint = (
+    # The stored design docs. An edit must be made against the SAME design the
+    # scene was built from, or it silently re-composes the scene against a
+    # different brief and drifts out of step with its siblings.
+    docs = (
         json.loads(template.design_blueprint) if template.design_blueprint else None
     )
-    layout_spec_json = ""
-    if blueprint:
-        from app.dspy_modules.blueprint import layout_for_scene
-
-        lay = layout_for_scene(blueprint, role, max(0, content_index))
-        if lay:
-            layout_spec_json = json.dumps(lay, ensure_ascii=False)
+    general_doc = ""
+    scene_doc_text = ""
+    scene_doc_raw: dict = {}
+    if isinstance(docs, dict):
+        general_doc = docs.get("general_doc") or ""
+        # v2 stores per-scene docs; a v1 template (blueprint-era) has `layouts`
+        # instead and simply gets no scene doc — the edit then runs on the
+        # general contract alone, which is the best available for a template
+        # generated before the doc stage existed.
+        _scenes = docs.get("scenes")
+        if isinstance(_scenes, list) and 0 <= scene_index < len(_scenes):
+            _sd = _scenes[scene_index]
+            if isinstance(_sd, dict):
+                scene_doc_raw = _sd
+                scene_doc_text = _format_scene_doc(_sd)
 
     instruction = (user_prompt or "").strip()
     if keep_geometry:
@@ -5004,23 +4994,22 @@ async def regenerate_single_scene(
     kwargs = dict(
         brand_context=brand_context,
         design_system=design_system,
-        blueprint=json.dumps(blueprint, ensure_ascii=False) if blueprint else "",
-        layout_spec=layout_spec_json,
-        # Same art direction the scene was originally built under, so an edit
-        # does not silently re-compose the scene against a different brief.
-        art_direction=build_art_direction(blueprint, role, max(0, content_index)),
+        general_doc=general_doc,
+        scene_doc=(
+            f"{scene_doc_text}\n\n[{'rebuild' if from_blueprint else 'edit'} {time.time_ns()}]"
+        ),
+        built_so_far="",
         scene_type=role,
         scene_index=scene_index,
         total_scenes=total_scenes,
-        scene_purpose=(
-            f"{scene_key}: rebuild from blueprint | [rebuild {time.time_ns()}]"
-            if from_blueprint
-            else f"{scene_key}: user-requested edit | [edit {time.time_ns()}]"
-        ),
         # Both empty on a rebuild — that is the "generating fresh" state, and it
         # is what stops a stub's placeholder shape being carried forward.
         current_code="" if from_blueprint else current,
         edit_instruction="" if from_blueprint else instruction,
+        # Editing runs on its own (cheaper, faster) model line — see
+        # get_scene_edit_lm. In kwargs so the repair attempts below inherit it:
+        # a repair is part of the same edit and must not silently change model.
+        lm=get_scene_edit_lm(),
     )
 
     code, aspect_ratio, prop_schema = await _generate_single_scene(**kwargs)
@@ -5029,20 +5018,28 @@ async def regenerate_single_scene(
     # gate needs the theme to resolve palette.<slot> to real hex, and without
     # collect_all a repair fixes one contract and breaks another.
     valid, err = validate_component_code(
-        code, scene_type=role, collect_all=True, theme=theme
+        code,
+        scene_type=role,
+        collect_all=True,
+        theme=theme,
+        scene_doc=scene_doc_text,
     )
 
     for retry in range(1, MAX_SCENE_EDIT_RETRIES + 1):
         if valid:
             break
-        diagnostic = _format_scene_failure(code, err)
+        diagnostic = _format_scene_failure(
+            code, err, scene_type=role, scene_doc=scene_doc_text
+        )
         print(f"[F7-DEBUG] [SCENE-EDIT] {scene_key} attempt {retry} invalid: {err}")
         code, aspect_ratio, prop_schema = await _generate_single_scene(
             **{
                 **kwargs,
-                "scene_purpose": (
-                    f"{scene_key}: {'rebuild from blueprint' if from_blueprint else 'user-requested edit'}"
-                    f" | [retry {retry} {time.time_ns()}]"
+                # The scene doc rides along on the repair, so a semantic failure
+                # converges on the assigned design rather than on any valid one.
+                "scene_doc": (
+                    f"{scene_doc_text}\n\n"
+                    f"[{'rebuild' if from_blueprint else 'edit'} retry {retry} {time.time_ns()}]"
                 ),
                 "previous_failure": diagnostic,
                 "use_refine": False,
@@ -5061,8 +5058,16 @@ async def regenerate_single_scene(
         # theme= and collect_all= matter here: the symbolic contrast gate needs
         # the theme to resolve palette.<slot> to real hex, and without
         # collect_all a repair fixes one contract while breaking another.
+        # scene_doc matters for the same reason: the initial check above passes
+        # it, so omitting it here re-judged the repaired scene by a DIFFERENT
+        # set of rules — the doc-gated contracts (image mode, content prop,
+        # outro CTA) were skipped on the recheck and resurfaced later.
         valid, err = validate_component_code(
-            code, scene_type=role, collect_all=True, theme=theme
+            code,
+            scene_type=role,
+            collect_all=True,
+            theme=theme,
+            scene_doc=scene_doc_text,
         )
 
     # Exhausted. The validator's text is a pipeline diagnostic ("palette.text is
@@ -5083,6 +5088,25 @@ async def regenerate_single_scene(
         )
 
     print(f"[F7-DEBUG] [SCENE-EDIT] {scene_key} edited OK ({code.count(chr(10)) + 1} lines)")
+
+    # Refresh this scene's showcase copy alongside its code.
+    #
+    # The edit can change what the scene renders — a plain narrative beat asked
+    # to "show our three pillars" now needs bullets — so keeping the old sample
+    # would leave the preview showing copy the new layout does not lay out.
+    # Only THIS scene's entry is regenerated; the siblings are untouched.
+    _sample_ctype = "plain" if role in ("intro", "outro") else (
+        scene_doc_raw.get("content_type") or "plain"
+    )
+    sample_content = await asyncio.to_thread(
+        _generate_sample_content, brand_context, scene_doc_raw.get("doc") or "", _sample_ctype
+    )
+    if not sample_content:
+        sample_content = _fallback_sample_content(
+            getattr(template, "name", "") or "", _sample_ctype, max(0, content_index)
+        )
+    sample_content["contentType"] = _sample_ctype
+
     return {
         "scene_key": scene_key,
         "role": role,
@@ -5090,4 +5114,8 @@ async def regenerate_single_scene(
         "code": code,
         "aspect_ratio": aspect_ratio,
         "prop_schema": prop_schema,
+        "sample_content": sample_content,
+        # Sized from the copy just written, so a rewrite that lengthens the copy
+        # gets type that still fits its block.
+        "font_defaults": _compute_scene_font_defaults(sample_content, _sample_ctype),
     }

@@ -24,7 +24,9 @@ from app.models.custom_template import CustomTemplate, CustomTemplateGenRun
 from app.models.template_rating import TemplateRating
 from app.models.project import Project
 from app.schemas.schemas import TemplateRatingSubmit, TemplateRatingOut
+from app.services.access import can_use_ai_edit, consume_ai_edit, refund_ai_edit
 from app.services.custom_prompt_builder import build_custom_prompt
+from app.services.render_registry import FONT_IDS
 from app.services.template_service import apply_blueprint_to_theme
 
 logger = logging.getLogger(__name__)
@@ -285,6 +287,13 @@ def _serialize_template(
         "outro_code": tpl.outro_code,
         "content_codes": json.loads(tpl.content_codes) if tpl.content_codes else None,
         "content_archetype_ids": json.loads(tpl.content_archetype_ids) if tpl.content_archetype_ids else None,
+        # Which generation drew this template. The list already carries the scene
+        # CODE, and ProjectView hands that straight to the player as
+        # `precompiledTemplateData` to skip a round-trip — so the version has to
+        # travel WITH it. Without this the player fell back to 1 and overlaid the
+        # built-in CTA on a v2 outro, discarding the ending the template designed.
+        # Kept in step with GET /{id}/code and the project-scoped mirror.
+        "design_version": _design_version(tpl),
         "current_version_id": tpl.current_version_id,
         "preview_image_url": tpl.preview_image_url,
         "logo_urls": logo_urls,
@@ -301,6 +310,27 @@ def _serialize_template(
         "layout_prop_schemas": (
             json.loads(tpl.layout_prop_schemas) if tpl.layout_prop_schemas else None
         ),
+        # Per-scene sample copy for the preview. NULL on templates generated
+        # before this existed, which the frontend reads as "use the client-side
+        # fallback" — see CustomPreview's sceneSampleProps.
+        "scene_sample_content": (
+            json.loads(tpl.scene_sample_content) if tpl.scene_sample_content else None
+        ),
+        # Per-scene default type sizes, indexed like scene_sample_content. NULL
+        # on older templates, which fall through to the frontend's own defaults.
+        "scene_font_defaults": (
+            json.loads(tpl.scene_font_defaults) if tpl.scene_font_defaults else None
+        ),
+        # Each layout's image mode, so the project preview can tell a full-bleed
+        # BACKGROUND image from a HALF one sitting beside the type.
+        #
+        # Returned by the two /code endpoints already, but ProjectView hands the
+        # player a precompiled shortcut built from THIS payload, which skips that
+        # fetch. Without the field the preview saw `undefined`, could not
+        # distinguish "half" from the legacy null the scrim heuristic falls back
+        # on, and blurred half-side clips that sit beside the copy — where a
+        # scrim buys no readability and only mutes the picture.
+        "image_modes": _image_modes_by_layout(tpl),
         "is_regenerating": bool(tpl.is_regenerating),
         "my_rating": my_rating,
         "my_rating_comment": my_rating_comment,
@@ -335,6 +365,23 @@ def _validate_theme(theme: dict) -> dict:
     if not isinstance(fonts, dict):
         raise HTTPException(status_code=422, detail="theme.fonts must be an object")
 
+    # Normalise the two typefaces the renderer reads to registry ids, so a font
+    # picked in the template editor is one the renderer can actually resolve.
+    #
+    # DROP-DON'T-REJECT, the same posture as `bg2` above. Existing templates
+    # store whatever free-form name the theme extractor guessed ("Cormorant
+    # Garamond"), which is not a registry id — rejecting those would 422 every
+    # save of a pre-existing template, including one that only changed a colour.
+    # So a resolvable value is normalised and written back, and an unresolvable
+    # one is left exactly as it was.
+    for _key in ("heading", "body"):
+        _val = fonts.get(_key)
+        if not isinstance(_val, str) or not _val.strip():
+            continue
+        _norm = _val.strip().lower().replace(" ", "_").replace("-", "_")
+        if _norm in FONT_IDS:
+            fonts[_key] = _norm
+
     # Fill defaults for optional theme fields only if missing entirely
     # The AI extractor returns free-form values (e.g. "glass morphism SaaS", "bouncy playful spring")
     # which are passed to the code generator as brand context — do NOT restrict to an enum.
@@ -355,6 +402,15 @@ def _validate_theme(theme: dict) -> dict:
         theme["brief"] = brief.strip()[:30_000]
     else:
         theme.pop("brief", None)
+
+    # `brand_description` is the extractor's narrative design brief and the
+    # primary input to the design-doc stage. Client-supplied on create (it round
+    # trips through the extract response), so clamp it the same way as `brief`.
+    brand_description = theme.get("brand_description")
+    if isinstance(brand_description, str) and brand_description.strip():
+        theme["brand_description"] = brand_description.strip()[:4_000]
+    else:
+        theme.pop("brand_description", None)
 
     # Validate patterns if present (fill defaults for missing sub-fields)
     patterns = theme.get("patterns")
@@ -825,6 +881,41 @@ def update_custom_template(
         # Regenerate prompt with updated theme
         tpl.generated_prompt = build_custom_prompt(theme, tpl.name)
 
+        # Mirror an explicit font choice into the blueprint's identity.
+        #
+        # The render path resolves headingFont as
+        #     project.font_family or _first_renderable(
+        #         blueprint.identity.heading_font, theme.fonts.heading
+        #     ) or DEFAULT
+        # (see remotion.write_remotion_data). identity is checked FIRST and is
+        # always a valid registry id, so a font edited only in theme.fonts is
+        # ALWAYS shadowed — the preview would change and the exported video
+        # would not. Writing both keeps that precedence intact (so templates
+        # nobody has edited are unaffected, which is why identity was put first)
+        # while making a deliberate edit actually take effect.
+        #
+        # A project's own font_family still outranks both, which is the
+        # "unless the project sets one itself" half of the requirement.
+        _fonts = theme.get("fonts") or {}
+        _heading = _fonts.get("heading")
+        _body = _fonts.get("body")
+
+        def _apply_fonts(bp: dict) -> bool:
+            ident = bp.get("identity")
+            if not isinstance(ident, dict):
+                return False
+            changed = False
+            for _key, _val in (("heading_font", _heading), ("body_font", _body)):
+                # Only registry ids: an unresolvable extractor string in
+                # identity would reintroduce the silent system-sans fallback
+                # that putting identity first was meant to prevent.
+                if isinstance(_val, str) and _val in FONT_IDS and ident.get(_key) != _val:
+                    ident[_key] = _val
+                    changed = True
+            return changed
+
+        _update_blueprint(tpl, _apply_fonts)
+
     db.commit()
     db.refresh(tpl)
 
@@ -913,8 +1004,139 @@ def _persist_generated_variants(tpl: "CustomTemplate", variants: dict) -> None:
             )
         tpl.layout_prop_schemas = None
     tpl.design_system = variants.get("design_system") or None
+    # Per-scene sample copy, indexed exactly like image_box_aspect_ratios above.
+    _samples = variants.get("scene_sample_content")
+    tpl.scene_sample_content = (
+        json.dumps(_samples, ensure_ascii=False) if _samples else None
+    )
+    # Per-scene default type sizes, computed from that copy and indexed the same.
+    _fonts = variants.get("scene_font_defaults")
+    tpl.scene_font_defaults = (
+        json.dumps(_fonts, ensure_ascii=False) if _fonts else None
+    )
     if warnings:
         print(f"[F7-DEBUG] [CODEGEN] {len(warnings)} generation warning(s): {warnings}")
+
+
+def _design_version(tpl: "CustomTemplate") -> int:
+    """Which generation drew this template's design (design_blueprint.version).
+
+    1 for anything without a blueprint or with an unreadable one — the legacy
+    behaviour, in which the built-in CTA overlay replaces the generated outro.
+    """
+    if not tpl.design_blueprint:
+        return 1
+    try:
+        bp = json.loads(tpl.design_blueprint)
+        if not isinstance(bp, dict):
+            return 1
+        return int(bp.get("version", 1) or 1)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return 1
+
+
+def _image_modes_by_layout(tpl: "CustomTemplate") -> dict[str, str | None]:
+    """Each layout's image mode, keyed intro / content_N / outro.
+
+    "background" means the image fills the frame behind the type, so the render
+    path lays a scrim over it or the copy is unreadable on a photograph; "half"
+    puts the image beside the type, where a scrim would only mute the picture.
+
+    Keyed by ROLE and content position — the same convention as
+    image_box_aspect_ratios and layout_prop_schemas — so the project preview can
+    look a scene's mode up by the variant that actually renders it. Empty for a
+    template with no design blueprint; the preview then applies no scrim, which
+    is the pre-existing behaviour.
+    """
+    if not tpl.design_blueprint:
+        return {}
+    try:
+        bp = json.loads(tpl.design_blueprint)
+    except (json.JSONDecodeError, TypeError):
+        return {}
+    scenes = bp.get("scenes") if isinstance(bp, dict) else None
+    if not isinstance(scenes, list):
+        return {}
+
+    out: dict[str, str | None] = {}
+    content_idx = 0
+    for entry in scenes:
+        if not isinstance(entry, dict):
+            continue
+        mode = entry.get("image_mode")
+        mode = mode if mode in ("background", "half") else None
+        role = entry.get("role")
+        if role == "intro":
+            out["intro"] = mode
+        elif role == "outro":
+            out["outro"] = mode
+        else:
+            out[f"content_{content_idx}"] = mode
+            content_idx += 1
+    return out
+
+
+def _write_scene_indexed_field(
+    tpl: "CustomTemplate", field: str, role: str, index: int, value
+) -> None:
+    """Write ONE scene's entry into a {intro, content[], outro} JSON column.
+
+    Every per-scene column on a custom template shares this shape and this
+    indexing convention — scene_sample_content, scene_font_defaults, and
+    layout_prop_schemas all address `content` by the same index as
+    `content_codes`. The padding loop matters: a sparse edit (regenerating
+    content_4 on a template whose column is short) must grow the list rather
+    than raise or silently write to the wrong slot.
+
+    Extracted so that logic lives once. Caller commits.
+    """
+    raw = getattr(tpl, field, None)
+    try:
+        data = json.loads(raw) if raw else {}
+    except (json.JSONDecodeError, TypeError):
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+
+    if role == "content":
+        entries = list(data.get("content") or [])
+        while len(entries) <= index:
+            entries.append({})
+        entries[index] = value
+        data["content"] = entries
+    else:
+        data[role] = value
+
+    setattr(tpl, field, json.dumps(data, ensure_ascii=False))
+
+
+def _update_blueprint(tpl: "CustomTemplate", mutate) -> bool:
+    """Read-modify-write the template's design_blueprint JSON. Caller commits.
+
+    `mutate` receives the parsed blueprint dict and edits it in place; returning
+    False from it aborts the write. Returns True when the column was rewritten.
+
+    Everything that touches the blueprint goes through here because more than
+    one code path now does (a font edit writes `identity`, a scene edit writes
+    that scene's sample content). Two blind `json.dumps(...)` writers on the
+    same column would silently clobber each other's field.
+
+    Never CREATES a blueprint: a template generated before the design-doc stage
+    has NULL here, and synthesising a partial one would make it look like a real
+    design to every reader that checks for presence.
+    """
+    if not tpl.design_blueprint:
+        return False
+    try:
+        bp = json.loads(tpl.design_blueprint)
+    except (json.JSONDecodeError, TypeError):
+        return False
+    if not isinstance(bp, dict):
+        return False
+    if mutate(bp) is False:
+        return False
+    tpl.design_blueprint = json.dumps(bp, ensure_ascii=False)
+    return True
 
 
 def _any_prop_fields(schemas: dict) -> bool:
@@ -945,6 +1167,8 @@ def _save_version(tpl: "CustomTemplate", label: str, db: "Session") -> int:
         image_box_aspect_ratios=tpl.image_box_aspect_ratios,
         design_blueprint=tpl.design_blueprint,
         layout_prop_schemas=tpl.layout_prop_schemas,
+        scene_sample_content=tpl.scene_sample_content,
+        scene_font_defaults=tpl.scene_font_defaults,
         label=label,
     )
     db.add(version)
@@ -1471,6 +1695,36 @@ def get_template_code(
         "intro_code": tpl.intro_code,
         "outro_code": tpl.outro_code,
         "content_codes": json.loads(tpl.content_codes) if tpl.content_codes else None,
+        # Per-scene editable-prop schema, so the PREVIEW can fill each scene's
+        # declared defaults the same way the render path does. Without it a
+        # scene reading props.layoutProps.<key> shows an empty slot in the
+        # preview while the MP4 renders the default — the two must agree.
+        "layout_prop_schemas": (
+            json.loads(tpl.layout_prop_schemas) if tpl.layout_prop_schemas else None
+        ),
+        # Which generation drew this template. The project player needs it to
+        # decide who renders the ENDING: a v1 outro is replaced by the built-in
+        # CTA overlay (it was built expecting that and draws no CTA of its own),
+        # while a v2 outro composes the CTA itself and must render normally.
+        # Mirrors GeneratedVideoData.templateDesignVersion so the preview and
+        # the exported video agree. Defaults to 1, the pre-v2 behaviour.
+        "design_version": _design_version(tpl),
+        # Per-layout image mode, so the project preview can scrim a background
+        # image exactly where the exported video does.
+        "image_modes": _image_modes_by_layout(tpl),
+        # Per-scene DEFAULT type sizes, so the project preview resolves the same
+        # number the MP4 does.
+        #
+        # This endpoint is what the project player compiles a custom template
+        # from, and it did not return these — so the preview fell through to the
+        # literal baked into the generated code (`?? (isPortrait ? 52 : 76)`)
+        # while services/remotion.py injected the STORED default into the render.
+        # Preview and export disagreed about type size on every template that
+        # has them, and the editor's "(default)" readout, computed from a third
+        # source again, agreed with neither.
+        "scene_font_defaults": (
+            json.loads(tpl.scene_font_defaults) if tpl.scene_font_defaults else None
+        ),
     }
 
 
@@ -1581,6 +1835,12 @@ def _run_regen_background(template_id: int, user_id: int) -> None:
                 return
             # Snapshot current state before overwriting.
             _save_version(tpl, "Before regeneration", _db_pre)
+            # _save_version sets tpl.current_version_id AFTER its own flush, so
+            # that assignment is still pending here. The expunge below detaches
+            # `tpl` before the commit, which would drop it — the version row was
+            # created but the template kept pointing at the previous one. Flush
+            # it explicitly while the instance is still attached.
+            _db_pre.flush()
             # Detach BEFORE commit: commit() expires all attributes by default
             # (expire_on_commit=True), and an expired attribute on an already-
             # detached instance can't be refreshed — accessing tpl.brand_kit
@@ -1613,7 +1873,16 @@ def _run_regen_background(template_id: int, user_id: int) -> None:
         except Exception as first_error:
             print(f"[F7-DEBUG] [REGEN-CODE] first attempt failed for template {template_id}, retrying once: {first_error}")
             _set_progress(template_id, step="retrying")
-            _run_write(run_id, attempt=1, error=str(first_error))
+            # Reset the STAGE too, not just the step.
+            #
+            # By the time a first attempt fails, on_verify_start has already
+            # advanced stage to "examine". The retry runs a whole fresh
+            # generation (blueprint -> scenes -> examine, another 5-10 minutes),
+            # but stage stayed at "examine" and the progress rail takes
+            # max(stage, step) — so it sat pinned on "Verifying" for the entire
+            # second attempt while the work quietly proceeded. That is the
+            # "stuck on verify, completes in the background" report.
+            _run_write(run_id, attempt=1, error=str(first_error), stage="blueprint")
             variants = loop.run_until_complete(
                 generate_component_code(
                     tpl,
@@ -1637,16 +1906,34 @@ def _run_regen_background(template_id: int, user_id: int) -> None:
             _set_progress(template_id, step="saving")
             _run_write(run_id, stage="persist")
             _save_version(tpl, "Regenerated", db)
-            tpl.is_regenerating = False
             db.commit()
 
             elapsed = time.time() - t_start
             print(f"[F7-DEBUG] [REGEN-CODE] '{tpl.name}' completed in {elapsed:.1f}s (background)")
 
+            # Mark the run finished BEFORE clearing is_regenerating.
+            #
+            # The template list poller treats is_regenerating as "still working"
+            # and unmounts the progress card the moment it flips false — and
+            # that card is the only live poller of the run. Clearing the flag
+            # first meant a list poll landing in the gap tore the card down
+            # before it ever observed status="complete", so its completion
+            # handler never fired and the rail's last painted frame stuck.
             _set_progress(
                 template_id, status="complete", step="done", running=False, error=None
             )
             _run_finish(run_id, template_id, status="complete")
+
+            # Targeted UPDATE rather than `tpl.is_regenerating = False`.
+            #
+            # _run_finish just wrote active_gen_run_id on its OWN session, so the
+            # ORM instance here is stale for that column; a plain attribute set
+            # plus commit would flush this session's older value back over it.
+            # Updating the single column by query touches nothing else.
+            db.query(CustomTemplate).filter(
+                CustomTemplate.id == template_id
+            ).update({"is_regenerating": False}, synchronize_session=False)
+            db.commit()
 
             try:
                 _render_and_store_thumbnail(template_id, user_id)
@@ -1955,6 +2242,8 @@ def rollback_to_version(
         "image_box_aspect_ratios",
         "design_blueprint",
         "layout_prop_schemas",
+        "scene_sample_content",
+        "scene_font_defaults",
     ):
         _value = getattr(version, _field, None)
         if _value is not None:
@@ -1983,11 +2272,63 @@ def rollback_to_version(
 # _codegen_progress above.
 _scene_edit_progress: dict[str, dict] = {}
 
-# NOTE: there is deliberately NO per-scene-edit quota. Editing or retrying a
-# scene inside a template the user already owns is free — the product limit is
-# on templates (creating and regenerating one). Charging here meant a scene that
-# kept failing validation burned the user's daily allowance for nothing.
-# Concurrency is bounded by the one-edit-per-scene guard in ai_edit_scene.
+# A scene edit costs one AI-edit credit, from the same pool as the project-side
+# edits (see app.services.access).
+#
+# An earlier version of this file charged nothing, because "a scene that kept
+# failing validation burned the user's daily allowance for nothing". That
+# objection is answered here rather than avoided, by two rules:
+#
+#   1. A FALLBACK scene is free. If generation gave up and shipped a stub, the
+#      bad scene is our output, and charging to fix it would bill the user for
+#      our failure. See _scene_is_fallback.
+#   2. A FAILED edit is refunded. The charge is taken when the edit starts and
+#      returned by _run_scene_edit_background on any failure path, so a broken
+#      generation still costs nothing.
+#
+# So the user only ever pays for an edit that ran on a scene we generated
+# correctly. Concurrency is still bounded by the one-edit-per-scene guard in
+# ai_edit_scene.
+SCENE_AI_EDIT_CREDIT_COST = 1
+
+
+def _refund_scene_edit(edit_id: str, user_id: int, cost: int) -> None:
+    """Give back the credit taken for an edit that did not produce a draft.
+
+    Idempotent via the `refunded` flag on the progress entry: the failure paths
+    in _run_scene_edit_background must be safe to reach more than once, and a
+    double refund would mint credits.
+
+    LIMITATION — this only survives within the process. There is no durable job
+    row for scene edits (unlike ProjectAddSceneJob), so the charge is recorded
+    in the DB while the intent-to-refund lives only in `_scene_edit_progress`.
+    A restart between the charge and the failure therefore keeps the credit.
+    Fixing that properly means persisting the job; charging on APPLY instead of
+    on start would avoid it entirely. Both are out of scope here.
+    """
+    if cost <= 0:
+        return
+    progress = _scene_edit_progress.get(edit_id)
+    if progress is not None:
+        if progress.get("refunded"):
+            return
+        # Set BEFORE the write, so a concurrent reader cannot start a second
+        # refund while this one is in flight.
+        progress["refunded"] = True
+    _db = SessionLocal()
+    try:
+        _u = _db.query(User).filter(User.id == user_id).first()
+        if _u:
+            refund_ai_edit(_u, None, cost=cost)
+            _db.commit()
+    except Exception:
+        # Never let a refund failure mask the original error the caller is
+        # reporting — it is logged and the edit still surfaces as failed.
+        logger.exception("Failed to refund scene-edit credit for user %s", user_id)
+        if progress is not None:
+            progress["refunded"] = False
+    finally:
+        _db.close()
 
 
 class SceneAiEditRequest(BaseModel):
@@ -2020,13 +2361,55 @@ def _content_code_count(tpl: "CustomTemplate") -> int:
         return 0
 
 
+def _scene_warning_index(tpl: "CustomTemplate", scene_key: str) -> int | None:
+    """The generation-warning index for ``scene_key``, or None if unparseable.
+
+    Warnings are authored as ``Scene {i} ({label}) ...`` in code_generator, where
+    ``i`` is the position in the generated BATCH: index 0 is the intro, 1..N the
+    content scenes, and the last is the outro. That prefix is the only link back
+    to a scene, so this mapping is what both the warning-clearing and the
+    fallback-detection paths depend on — hence one implementation, not two.
+    """
+    num_content = _content_code_count(tpl)
+    if scene_key == "intro":
+        return 0
+    if scene_key == "outro":
+        return num_content + 1
+    m = re.match(r"^content_(\d+)$", scene_key or "")
+    if not m:
+        return None
+    return int(m.group(1)) + 1  # +1: the intro occupies index 0
+
+
+def _scene_is_fallback(tpl: "CustomTemplate", scene_key: str) -> bool:
+    """Whether this scene shipped a STUB because generation failed validation.
+
+    A stub scene has no flag of its own — the only persisted marker is the
+    warning `code_generator` appends when it gives up on a scene and substitutes
+    `_build_stub_scene_code` ("...uses a simplified fallback design"). So the
+    presence of a warning addressed to this scene IS the fallback signal.
+
+    Used to WAIVE the AI-edit charge: a stub is our bad output, and asking the
+    user to spend a credit fixing it would be charging them for our failure.
+    """
+    if not tpl.generation_warnings:
+        return False
+    try:
+        warnings = json.loads(tpl.generation_warnings) or []
+    except (json.JSONDecodeError, TypeError):
+        return False
+
+    target = _scene_warning_index(tpl, scene_key)
+    if target is None:
+        return False
+    prefix = f"Scene {target} ("
+    return any(str(w).startswith(prefix) for w in warnings)
+
+
 def _clear_scene_warning(tpl: "CustomTemplate", scene_key: str) -> None:
     """Drop the generation warning for ONE scene, once that scene is rewritten.
 
-    Warnings are authored as `Scene {i} ({label}) ...` in code_generator, where
-    `i` is the position in the generated batch — index 0 is the intro, 1..N the
-    content scenes, and the last is the outro. That prefix is the only link back
-    to a scene, so it is what we match on.
+    Addressed by `_scene_warning_index` — see there for the index convention.
 
     Without this the banner was permanent: applying a draft rewrote the scene's
     code but left `generation_warnings` untouched, so a template kept reporting a
@@ -2042,16 +2425,9 @@ def _clear_scene_warning(tpl: "CustomTemplate", scene_key: str) -> None:
     except (json.JSONDecodeError, TypeError):
         return
 
-    num_content = _content_code_count(tpl)
-    if scene_key == "intro":
-        target = 0
-    elif scene_key == "outro":
-        target = num_content + 1
-    else:
-        m = re.match(r"^content_(\d+)$", scene_key or "")
-        if not m:
-            return
-        target = int(m.group(1)) + 1  # +1: the intro occupies index 0
+    target = _scene_warning_index(tpl, scene_key)
+    if target is None:
+        return
 
     prefix = f"Scene {target} ("
     remaining = [w for w in warnings if not str(w).startswith(prefix)]
@@ -2062,8 +2438,14 @@ def _clear_scene_warning(tpl: "CustomTemplate", scene_key: str) -> None:
 def _run_scene_edit_background(
     edit_id: str, template_id: int, user_id: int, scene_key: str,
     prompt: str, keep_geometry: bool, from_blueprint: bool = False,
+    cost: int = 0,
 ) -> None:
-    """Regenerate one scene and store the result as a DRAFT version."""
+    """Regenerate one scene and store the result as a DRAFT version.
+
+    ``cost`` is the credit already charged by ``ai_edit_scene``. Every path that
+    ends without a usable draft refunds it — the user pays for a result, not for
+    an attempt.
+    """
     import asyncio as _asyncio
 
     from app.models.template_version import TemplateVersion
@@ -2075,6 +2457,7 @@ def _run_scene_edit_background(
         _scene_edit_progress[edit_id] = {
             "status": "generating", "step": "editing", "running": True,
             "error": None, "draft_version_id": None,
+            "cost": cost, "refunded": False,
         }
 
         # Load and detach before the long LLM call so the connection is not held
@@ -2091,7 +2474,9 @@ def _run_scene_edit_background(
                 _scene_edit_progress[edit_id] = {
                     "status": "error", "step": "init", "running": False,
                     "error": "Template not found", "draft_version_id": None,
+                    "cost": cost, "refunded": False,
                 }
+                _refund_scene_edit(edit_id, user_id, cost)
                 return
             _db.expunge_all()
         finally:
@@ -2130,11 +2515,15 @@ def _run_scene_edit_background(
                         "code": result["code"],
                         "aspect_ratio": result["aspect_ratio"],
                         "prop_schema": result["prop_schema"],
+                        "sample_content": result.get("sample_content"),
+                        "font_defaults": result.get("font_defaults"),
                     })
                     if result["role"] == "content"
                     else json.dumps({
                         "aspect_ratio": result["aspect_ratio"],
                         "prop_schema": result["prop_schema"],
+                        "sample_content": result.get("sample_content"),
+                        "font_defaults": result.get("font_defaults"),
                     })
                 ),
             )
@@ -2145,6 +2534,9 @@ def _run_scene_edit_background(
             _scene_edit_progress[edit_id] = {
                 "status": "complete", "step": "done", "running": False,
                 "error": None, "draft_version_id": draft.id,
+                # Kept so a later reader cannot mistake a charged-and-delivered
+                # edit for an unrefunded one. Nothing refunds on success.
+                "cost": cost, "refunded": False,
             }
         finally:
             db.close()
@@ -2159,6 +2551,10 @@ def _run_scene_edit_background(
         # into the UI. The trace stays in the log above, and on `detail` for
         # support; `error` is what the modal shows.
         exhausted = isinstance(e, SceneEditExhausted)
+        # Rebuilt wholesale, so carry the refund bookkeeping across — otherwise
+        # _refund_scene_edit would read a dict with no `refunded` key and could
+        # pay out twice if this entry were revisited.
+        _prev = _scene_edit_progress.get(edit_id) or {}
         _scene_edit_progress[edit_id] = {
             "status": "error",
             "step": "exhausted" if exhausted else "failed",
@@ -2172,7 +2568,11 @@ def _run_scene_edit_background(
             "detail": str(e),
             "exhausted": exhausted,
             "draft_version_id": None,
+            "cost": cost,
+            "refunded": bool(_prev.get("refunded")),
         }
+        # The edit produced nothing usable, so it costs nothing.
+        _refund_scene_edit(edit_id, user_id, cost)
     finally:
         loop.close()
 
@@ -2187,10 +2587,12 @@ def ai_edit_scene(
 ):
     """Start an AI edit of ONE scene. Returns 202 + an edit_id to poll.
 
-    FREE: editing or retrying a scene inside a template the user already owns is
-    not a new template, so it consumes no slot and no daily allowance. Only one
-    edit may run per scene at a time (409 otherwise), which is what bounds the
-    endpoint.
+    Costs SCENE_AI_EDIT_CREDIT_COST, unless the scene is a FALLBACK stub — see
+    the note on that constant for both rules and why they are shaped this way.
+    403 when the balance will not cover it. The charge is taken only after every
+    other rejection, and refunded by the worker if the edit fails.
+
+    Only one edit may run per scene at a time (409 otherwise).
     """
     from app.services.code_generator import parse_scene_key
 
@@ -2206,18 +2608,6 @@ def ai_edit_scene(
         parse_scene_key(scene_key, _content_code_count(tpl))
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
-
-    # Editing or retrying a scene INSIDE a template is free.
-    #
-    # The product limit is on templates: creating one costs a slot, and so does
-    # regenerating one. Fixing a scene within a template the user already paid
-    # for is not a new template, and charging for it meant a scene that kept
-    # failing validation burned the user's daily allowance while producing
-    # nothing — they were billed for the pipeline's failures.
-    #
-    # Abuse is bounded by the in-flight guard below instead, which is the
-    # tighter control anyway: one running edit per scene, no matter how many
-    # times the button is clicked.
 
     # One edit per scene at a time.
     #
@@ -2240,16 +2630,37 @@ def ai_edit_scene(
                 },
             )
 
+    # Charge AFTER every rejection above, so a 404/409 never takes a credit.
+    #
+    # A fallback scene is free — see the note on SCENE_AI_EDIT_CREDIT_COST. The
+    # template is single-owner (_get_user_template filters on user_id), so the
+    # acting user IS the payer; there is no project and no collaborator case.
+    cost = 0 if _scene_is_fallback(tpl, scene_key) else SCENE_AI_EDIT_CREDIT_COST
+    if cost:
+        if not can_use_ai_edit(user, None, cost=cost):
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    "You don't have enough AI edit credits to edit this scene. "
+                    "Upgrade your plan or buy more credits to continue."
+                ),
+            )
+        consume_ai_edit(user, None, cost=cost)
+        db.commit()
+
     edit_id = f"{template_id}:{scene_key}:{time.time_ns()}"
     _scene_edit_progress[edit_id] = {
         "status": "queued", "step": "queued", "running": True,
         "error": None, "draft_version_id": None,
+        # What was charged, so the worker knows what to give back, and whether
+        # it already has. See _refund_scene_edit.
+        "cost": cost, "refunded": False,
     }
     threading.Thread(
         target=_run_scene_edit_background,
         args=(
             edit_id, template_id, user.id, scene_key,
-            body.prompt, body.keep_geometry, body.from_blueprint,
+            body.prompt, body.keep_geometry, body.from_blueprint, cost,
         ),
         daemon=True,
     ).start()
@@ -2329,6 +2740,8 @@ def _draft_payload(draft) -> dict:
         "code": code,
         "aspect_ratio": meta.get("aspect_ratio"),
         "prop_schema": meta.get("prop_schema") or [],
+        "sample_content": meta.get("sample_content") or None,
+        "font_defaults": meta.get("font_defaults") or None,
         "created_at": _utc_iso(draft.created_at),
     }
 
@@ -2364,10 +2777,59 @@ def get_scene_draft(
     return _draft_payload(_get_draft_or_404(db, template_id, scene_key))
 
 
+@router.get("/{template_id}/scene-drafts")
+def list_scene_drafts(
+    template_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Which scenes have a pending draft, and which are mid-regeneration.
+
+    The editor needs this for EVERY scene the moment it opens, to put a status
+    dot on each row in the scene list. Asking `/scenes/{key}/draft` once per
+    scene would be N requests that mostly 404, so this answers for the whole
+    template in one.
+
+    `running` comes from the in-process progress dict, so it is empty after a
+    restart. That degrades correctly: a job lost to a restart still leaves its
+    draft row behind once it finishes, so `drafts` keeps driving the dot — the
+    same fallback `get_scene_edit_status` already makes for a single scene.
+    """
+    from app.models.template_version import TemplateVersion
+
+    _get_user_template(template_id, user.id, db)
+
+    drafts = [
+        row[0]
+        for row in db.query(TemplateVersion.scene_role)
+        .filter(
+            TemplateVersion.template_id == template_id,
+            TemplateVersion.kind == "scene_edit",
+            TemplateVersion.is_draft.is_(True),
+            TemplateVersion.scene_role.isnot(None),
+        )
+        .distinct()
+        .all()
+    ]
+
+    # edit_id is "{template_id}:{scene_key}:{ns}", so the scene key is field 1.
+    prefix = f"{template_id}:"
+    running = sorted(
+        {
+            key.split(":")[1]
+            for key, prog in list(_scene_edit_progress.items())
+            if key.startswith(prefix) and prog.get("running") and ":" in key[len(prefix):]
+        }
+    )
+
+    return {"drafts": sorted(drafts), "running": running}
+
+
 @router.post("/{template_id}/scenes/{scene_key}/draft/apply")
 def apply_scene_draft(
     template_id: int,
     scene_key: str,
+    background_tasks: BackgroundTasks,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -2418,6 +2880,22 @@ def apply_scene_draft(
         schemas[role] = payload["prop_schema"]
     tpl.layout_prop_schemas = json.dumps(schemas)
 
+    # Same for the scene's showcase copy: an edit can change what the scene
+    # renders, so its sample must travel with the code it describes. Only THIS
+    # scene's entry is touched — its siblings keep the copy they were generated
+    # with, which is what makes a single-scene edit a single-scene write.
+    if payload.get("sample_content"):
+        _write_scene_indexed_field(
+            tpl, "scene_sample_content", role, index, payload["sample_content"]
+        )
+    # The type sizes are computed FROM that copy, so they must be rewritten with
+    # it — a longer rewrite of one scene needs smaller type, and leaving the old
+    # sizes would overflow the block the new copy fills.
+    if payload.get("font_defaults"):
+        _write_scene_indexed_field(
+            tpl, "scene_font_defaults", role, index, payload["font_defaults"]
+        )
+
     # This scene has just been rewritten, so whatever was wrong with the
     # generated version no longer describes what is stored.
     _clear_scene_warning(tpl, scene_key)
@@ -2427,11 +2905,100 @@ def apply_scene_draft(
     db.commit()
     db.refresh(tpl)
 
-    try:
-        _render_and_store_thumbnail(template_id, user.id)
-    except Exception:
-        pass
+    # The gallery thumbnail is a screenshot of the template's FIRST scene, so
+    # only an intro edit can change it. This used to re-capture after EVERY
+    # apply, which meant editing content_5 paid a full puppeteer round trip
+    # (browser launch + page load, up to the worker's 180s timeout) to re-shoot
+    # a frame that had not changed.
+    #
+    # It also ran INLINE, holding the request open for the whole capture. As a
+    # background task the apply returns as soon as the scene is written. A
+    # failed snapshot must never fail an apply — the scene is already committed
+    # above, and _render_and_store_thumbnail swallows its own exceptions and
+    # opens its own session.
+    if role == "intro":
+        background_tasks.add_task(_render_and_store_thumbnail, template_id, user.id)
 
+    return _serialize_template(tpl)
+
+
+class SceneFontDefaultsRequest(BaseModel):
+    """Per-orientation type sizes for ONE scene. Omitted keys are left alone."""
+
+    title: dict | None = None
+    description: dict | None = None
+
+
+@router.patch("/{template_id}/scenes/{scene_key}/font-defaults")
+def set_scene_font_defaults(
+    template_id: int,
+    scene_key: str,
+    body: SceneFontDefaultsRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Set one scene's DEFAULT type sizes.
+
+    A dedicated route rather than a field on PUT /custom-templates/{id}: that
+    request carries template-level identity (name, theme), and folding per-scene
+    indexed data into it would round-trip the whole array on every rename, with
+    a chance of clobbering it.
+
+    Values are CLAMPED rather than rejected — a slider that refuses to move is
+    worse than one that stops at the edge.
+
+    Clamped to the USER bands, not the generation bands. This route backs the
+    template editor's per-scene sliders, so its input is a size a PERSON chose
+    while looking at the frame; the generation bands bound what the MODEL may
+    bake into code, which is checked at generation time. Clamping a deliberate
+    140px title back to the generator's 88px ceiling is what made the slider
+    look broken.
+    """
+    from app.services.code_generator import _USER_BANDS
+    from app.services.code_generator import parse_scene_key
+
+    tpl = _get_user_template(template_id, user.id, db)
+    try:
+        role, index = parse_scene_key(scene_key, _content_code_count(tpl))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    # Start from what is stored so a partial update (one orientation, one axis)
+    # does not blank the rest.
+    try:
+        current = json.loads(tpl.scene_font_defaults) if tpl.scene_font_defaults else {}
+    except (json.JSONDecodeError, TypeError):
+        current = {}
+    if role == "content":
+        entry = (current.get("content") or [])
+        entry = entry[index] if index < len(entry) else {}
+    else:
+        entry = current.get(role) or {}
+    if not isinstance(entry, dict):
+        entry = {}
+    merged = {k: dict(v) for k, v in entry.items() if isinstance(v, dict)}
+
+    for prop, incoming in (("title", body.title), ("description", body.description)):
+        if not isinstance(incoming, dict):
+            continue
+        slot = merged.setdefault(prop, {})
+        for orientation in ("landscape", "portrait"):
+            raw = incoming.get(orientation)
+            if raw is None:
+                continue
+            try:
+                value = int(raw)
+            except (TypeError, ValueError):
+                continue
+            lo, hi = _USER_BANDS[prop][orientation]
+            slot[orientation] = max(lo, min(hi, value))
+
+    if not merged:
+        raise HTTPException(status_code=422, detail="No usable font sizes supplied")
+
+    _write_scene_indexed_field(tpl, "scene_font_defaults", role, index, merged)
+    db.commit()
+    db.refresh(tpl)
     return _serialize_template(tpl)
 
 

@@ -1,7 +1,7 @@
 import { forwardRef, memo, useMemo } from "react";
 import type { PlayerRef } from "@remotion/player";
 import type { CraftedTemplateDetail, Project } from "../api/client";
-import VideoPreview from "./VideoPreview";
+import VideoPreview, { type PrecompiledTemplateData } from "./VideoPreview";
 
 export interface SceneOnlyPlayerProps {
   /**
@@ -21,11 +21,9 @@ export interface SceneOnlyPlayerProps {
 
   // ─── Passthroughs VideoPreview needs in owner-scoped / precompiled contexts ───
   layoutPropSchema?: Record<string, { defaults?: Record<string, unknown> }>;
-  precompiledTemplateData?: {
-    intro_code: string | null;
-    content_codes: string[] | null;
-    outro_code: string | null;
-  };
+  /** Forwarded verbatim to VideoPreview — see PrecompiledTemplateData for why
+   *  this is the shared type rather than a local copy. */
+  precompiledTemplateData?: PrecompiledTemplateData;
   precompiledCraftedDetail?: CraftedTemplateDetail | null;
   ownerScopedProjectId?: number;
 }

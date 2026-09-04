@@ -731,13 +731,109 @@ def test_the_provisional_scene_total_is_marked_as_provisional() -> None:
     assert provisional["total"] != authoritative["total"]
 
 
-def test_the_blueprint_can_legitimately_change_the_total() -> None:
-    """Not a bug to be papered over: 6-8 content layouts plus intro and outro is
-    8-10 scenes, chosen deterministically per brand. The early estimate assumes
-    whatever the scene-type stage produced, which the blueprint then replaces."""
-    from app.dspy_modules.blueprint import CONTENT_LAYOUT_MAX, CONTENT_LAYOUT_MIN
+def test_the_design_docs_decide_the_scene_count() -> None:
+    """The total is not fixed and not estimated — the design stage chooses it.
 
-    assert CONTENT_LAYOUT_MIN == 6 and CONTENT_LAYOUT_MAX == 8
-    # Bookends are always exactly one each.
-    assert CONTENT_LAYOUT_MIN + 2 == 8
-    assert CONTENT_LAYOUT_MAX + 2 == 10
+    A template can legitimately be any length within the clamp, so the progress
+    UI must take the authoritative figure rather than assuming a house count.
+    """
+    from app.dspy_modules.design_doc import MAX_SCENES, MIN_SCENES
+
+    # Counts INCLUDE the bookends, so the model picks 6-9 content scenes.
+    assert MIN_SCENES == 8
+    assert MAX_SCENES == 11
+    # Room for the two bookends plus real content between them.
+    assert MIN_SCENES > 2
+
+
+def test_verify_stage_repairs_scenes_concurrently() -> None:
+    """The repair pass must not be sequential.
+
+    Measured on template 177: 7 of 9 scenes needed repair, each up to
+    MAX_SCENE_RETRIES LLM calls. Run one after another that is up to 21 calls
+    end to end, which is why "Verifying" — not scene generation — was where an
+    ~800s run spent its time. Repairs are independent (each rewrites one scene
+    against its own errors and its own doc; the cross-scene drift verdicts are
+    computed before the pass), so they fan out under the same window scene
+    generation uses.
+    """
+    import inspect
+
+    from app.services import code_generator as cg
+
+    src = inspect.getsource(cg.generate_component_code)
+
+    assert "async def _verify_and_repair" in src, "repair pass is not a per-scene task"
+    assert "asyncio.gather(*(_verify_and_repair" in src, "repair tasks are not gathered"
+    assert "async with _repair_sem" in src, (
+        "repairs must be bounded by a semaphore — an unbounded burst hits the same "
+        "provider throttling that capped scene generation at SCENE_CONCURRENCY"
+    )
+
+
+def test_the_gated_contracts_lead_the_scene_prompt() -> None:
+    """The rules the validator enforces must come FIRST.
+
+    They were previously stated ~48% into a 29.6k-char prompt, among eight
+    competing "MANDATORY" markers, and the two most-buried ones — FitText and
+    props.titleFontSize — were the top two first-pass failure causes (11x and 7x
+    across 45 scenes, a 42% failure rate). Each failure costs a repair call.
+    """
+    from app.services.code_generator import GenerateSceneCode
+
+    doc = GenerateSceneCode.__doc__ or ""
+    assert doc, "scene prompt has no docstring"
+
+    for term in ("FitText", "titleFontSize"):
+        pos = doc.find(term)
+        assert pos != -1, f"{term} missing from the scene prompt"
+        assert pos / len(doc) < 0.15, (
+            f"{term} first appears {100 * pos // len(doc)}% into the prompt; the "
+            f"machine-checked contracts belong in the opening block"
+        )
+
+
+def test_the_scene_prompt_stays_within_its_token_budget() -> None:
+    """The prompt is re-sent for EVERY scene, so its size is a per-scene cost.
+
+    It had grown to 31,943 chars (~8,000 tokens) — nine scenes paid that nine
+    times, and at ~9,100 total input tokens per call it was the dominant cost of
+    a ~419s run. Trimmed to ~8.4k by removing restatements and historical
+    rationale, not rules.
+
+    The ceiling is deliberately generous; the point is to notice re-accretion
+    before it doubles again.
+
+    Raised 14,000 -> 14,500 for the two-tier type contract: rule 1 now specifies
+    BOTH text fields (props.sceneTitle at titleSize, props.displayText at
+    bodySize) where it previously specified one, and rule 7 states which of the
+    two sizes drives what. That is a new machine-checked contract, not drift —
+    the art-direction TYPE line and rule 7's prop list were cut to pay for most
+    of it, and the net growth is ~150 chars. Trim before raising this again.
+    """
+    from app.services.code_generator import GenerateSceneCode
+
+    doc = GenerateSceneCode.__doc__ or ""
+    assert len(doc) < 14_500, (
+        f"scene prompt is {len(doc)} chars. Every scene pays this. Before adding, "
+        f"check the rule is not already stated in THE TEN RULES."
+    )
+
+
+def test_every_gated_contract_appears_in_the_prompt() -> None:
+    """Trimming must never drop a rule the validator enforces.
+
+    A contract the model is never told about but is rejected for is the same
+    unsatisfiable-gate class of bug that stubbed eight scenes of one template.
+    """
+    from app.services.code_generator import GenerateSceneCode
+
+    doc = GenerateSceneCode.__doc__ or ""
+    for contract in (
+        "FitText", "titleFontSize", "descriptionFontSize", "headingFont",
+        "bodyFont", "logoUrl", "data-content-img", "narrationText",
+        "contentType", "isPortrait", "brandColors", "overflow", "spring",
+        "interpolate", "minWidth", "nowrap", "slice(", "SocialIcons",
+        "ctaProps", "hasVideo", "withAlpha", "readableOn",
+    ):
+        assert contract in doc, f"{contract} is gated but no longer stated in the prompt"

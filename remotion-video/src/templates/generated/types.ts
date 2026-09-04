@@ -1,11 +1,22 @@
 /** Types for AI-generated template compositions. */
 
 export interface GeneratedSceneProps {
-  /** The scene's short title (Scene.title) — a label, not a sentence.
-   *  Distinct from displayText: use it for an eyebrow, a section heading or a
-   *  chapter marker. Optional, so scenes written before it existed still type. */
+  /**
+   * The scene's TITLE (Scene.title) — 5-7 words naming what the scene is about.
+   *
+   * In design v3 this is the scene's main label and the LARGEST TYPE on the
+   * frame, sized by props.titleFontSize. In v1/v2 it was a small eyebrow above
+   * the displayText headline with its own props.sceneTitleFontSize; those
+   * templates still render that way, which is why the field is documented
+   * twice. Optional, so scenes written before it existed still type.
+   */
   sceneTitle?: string;
-  /** The on-screen copy (Scene.display_text). NOT the voiceover. */
+  /**
+   * The on-screen copy (Scene.display_text). NOT the voiceover.
+   *
+   * v3: one or two supporting sentences BENEATH the title, at
+   * props.descriptionFontSize. v1/v2: the headline, at props.titleFontSize.
+   */
   displayText: string;
   /** The voiceover script (Scene.narration_text) — usually a paragraph, and
    *  usually NOT what you put on screen as a headline. */
@@ -54,22 +65,34 @@ export interface GeneratedSceneProps {
   chartType?: string;
   chartSummary?: string;
   /**
-   * Size for the HEADLINE (props.displayText).
+   * WHAT THIS SIZES DEPENDS ON THE TEMPLATE'S DESIGN VERSION — the single
+   * easiest thing to get backwards in this file.
    *
-   * Named "title" for historical reasons and kept that way because every stored
-   * generated scene already binds it — `props.titleFontSize ?? 72` — and the
-   * validator gates on that exact read. It is fed by the editor's *Display text*
-   * slider, not its *Title* slider; the two are crossed at prop-assembly time so
-   * existing templates pick up the correct behaviour without regeneration. See
-   * GeneratedVideo.tsx where the props object is built.
+   *   v3      props.sceneTitle (the scene TITLE). Fed by the editor's *Title*
+   *           slider. This is the mapping the name always implied.
+   *   v1/v2   props.displayText (the HEADLINE). Named "title" for historical
+   *           reasons; every stored v1/v2 scene binds it that way
+   *           (`props.titleFontSize ?? 72`) and keeps rendering unchanged.
+   *
+   * Clamped on read to the USER band — what a person may set — not to the
+   * narrower band the generator is held to. See kit/typeBands.ts.
    */
   titleFontSize?: number;
-  /** Size for body copy. Fed by the same *Display text* slider as the headline. */
+  /**
+   * v3: EVERYTHING that is not the title — props.displayText, every content
+   * prop (bullets, metrics, steps, timeline, quote, comparison, code), and
+   * every label, caption and marker. There is no third size.
+   * v1/v2: body copy and content props only.
+   */
   descriptionFontSize?: number;
   /**
-   * Size for the scene's short title / eyebrow (props.sceneTitle) — fed by the
-   * editor's *Title* slider. Applied by the kit's eyebrow primitives, since
-   * scenes generated before this prop existed do not read it themselves.
+   * v1/v2 ONLY — the eyebrow tier, sizing props.sceneTitle when it was a small
+   * kicker above the headline. Read as `props.sceneTitleFontSize ?? Math.max(22,
+   * bodySize * 0.62)`.
+   *
+   * NOT emitted or read by v3, which has exactly two type tiers: a v3 scene
+   * reading it would size something off a value no slider writes, and the
+   * validator rejects it. Kept declared so v1/v2 scenes still compile.
    */
   sceneTitleFontSize?: number;
   headingFont?: string;
@@ -81,6 +104,39 @@ export interface GeneratedSceneProps {
    * Standard props above are NOT duplicated here.
    */
   layoutProps?: Record<string, unknown>;
+  /**
+   * The closing CTA + social handles, present only on the FINAL scene.
+   *
+   * Previously these never reached scene code at all: GeneratedVideo branched
+   * `scene.ctaProps ? <GeneratedCtaOverlay/> : <SceneVisual/>`, so a template's
+   * own generated outro was DISCARDED and replaced by one generic centred card.
+   * Every custom template therefore ended identically, however distinct the rest
+   * of it was — and the outro was forced into `layouts_without_image` because
+   * its design was never rendered.
+   *
+   * Now the outro composes these itself: it renders <SocialIcons> (the same
+   * shared component every built-in ending uses, so the icon set and handle
+   * resolution stay consistent) and maps `ctas` into its OWN layout.
+   *
+   * Always guard — it is absent in template previews and in projects with no
+   * CTA configured, and the scene must still look finished.
+   */
+  ctaProps?: GeneratedCtaProps;
+}
+
+/** The closing CTA + socials payload handed to the final scene. */
+export interface GeneratedCtaProps {
+  socials?: Record<string, { enabled?: boolean; label?: string }>;
+  /** Legacy single-CTA fields — a mirror of ctas[0]. Prefer `ctas`. */
+  showWebsiteButton?: boolean;
+  websiteLink?: string;
+  ctaButtonText?: string;
+  /** Up to 3 CTA cards. When present, takes precedence over the legacy fields. */
+  ctas?: Array<{
+    ctaButtonText?: string;
+    websiteLink?: string;
+    showWebsiteButton?: boolean;
+  }>;
 }
 
 export interface GeneratedVideoData {
@@ -148,6 +204,18 @@ export interface GeneratedVideoData {
   contentVariantCount?: number;
   /** Brand images from BrandKit (resolved to public/ filenames) */
   brandImages?: string[];
+  /**
+   * Which generation the template's design came from. Absent or 1 = the
+   * blueprint era; 2 = design docs.
+   *
+   * This decides who draws the ending. A v1 outro was generated on the promise
+   * that GeneratedCtaOverlay would be composited OVER it — its own visual was
+   * discarded, so it never learned to render the CTA or socials and would show
+   * an ending with neither. A v2 outro composes them itself from props.ctaProps.
+   * Rendering either one the other's way produces a broken ending, so the
+   * version must travel with the data.
+   */
+  templateDesignVersion?: number;
 }
 
 export interface GeneratedSceneData {
@@ -173,6 +241,13 @@ export interface GeneratedSceneData {
   videoDurationSeconds?: number;
   videoStartSeconds?: number;
   sceneType?: "intro" | "content" | "outro" | "dataviz_chart" | "dataviz_table";
+  /** How this scene's DESIGN uses its image, from the template's design docs.
+   *
+   *  "background" fills the frame behind the type and therefore needs a scrim
+   *  laid over it or the copy is unreadable on a real photograph; "half" puts
+   *  the image beside the type, where a scrim would only mute the picture.
+   *  Absent on templates generated before this was threaded through. */
+  imageMode?: "background" | "half" | null;
   /** Index into content variant array (0-based, cycles) */
   contentVariantIndex?: number;
   /** Structured content extracted from blog content (bullets, metrics, quotes, etc.) */
@@ -181,19 +256,7 @@ export interface GeneratedSceneData {
   layoutConfig?: { titleFontSize?: number; descriptionFontSize?: number; [key: string]: unknown };
   layoutProps?: { imageFocusX?: number; imageFocusY?: number; imageBoxAspectRatio?: string; [key: string]: unknown };
   /** CTA props for outro scenes. Socials are scene-level (one global list).
-   *  CTAs are an array of up to 3 pill+URL cards rendered as columns. */
-  ctaProps?: {
-    socials?: Record<string, { enabled?: boolean; label?: string }>;
-    /** Legacy single-CTA fields. Kept as a mirror of ctas[0] for renderers that
-     *  haven't been updated to read the `ctas` array yet. */
-    showWebsiteButton?: boolean;
-    websiteLink?: string;
-    ctaButtonText?: string;
-    /** New: up to 3 CTA cards. When present, takes precedence over the legacy fields. */
-    ctas?: Array<{
-      ctaButtonText?: string;
-      websiteLink?: string;
-      showWebsiteButton?: boolean;
-    }>;
-  };
+   *  CTAs are an array of up to 3 pill+URL cards.
+   *  Shares GeneratedCtaProps with the scene-level prop so the two cannot drift. */
+  ctaProps?: GeneratedCtaProps;
 }

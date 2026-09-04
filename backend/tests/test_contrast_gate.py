@@ -182,7 +182,8 @@ const SceneComponent = (props) => {{
     <AbsoluteFill style={{{{ overflow: 'hidden', fontFamily: props.headingFont }}}}>
       {{props.logoUrl && <Img src={{props.logoUrl}} />}}
       {{props.imageUrl && <Img src={{props.imageUrl}} data-content-img />}}
-      <FitText fontSize={{props.titleFontSize ?? 72}} maxLines={{3}}>{{props.displayText}}</FitText>
+      <FitText fontSize={{props.titleFontSize ?? 68}} maxLines={{2}} containerWidth={{800}} maxHeight={{300}}>{{props.sceneTitle}}</FitText>
+      <FitText fontSize={{props.descriptionFontSize ?? 34}} maxLines={{4}} containerWidth={{800}} maxHeight={{300}} style={{{{fontFamily: props.bodyFont}}}}>{{props.displayText}}</FitText>
       {body}
     </AbsoluteFill>
   );
@@ -362,7 +363,8 @@ const SceneComponent = (props) => {
       </div>
       {props.logoUrl && <Img src={props.logoUrl} />}
       <div style={{ position: 'relative', zIndex: 1 }}>
-        <FitText fontSize={props.titleFontSize ?? 72} maxLines={3}>{props.displayText}</FitText>
+        <FitText fontSize={props.titleFontSize ?? 68} maxLines={2} containerWidth={800} maxHeight={300}>{props.sceneTitle}</FitText>
+        <FitText fontSize={props.descriptionFontSize ?? 34} maxLines={4} containerWidth={800} maxHeight={300} style={{fontFamily: props.bodyFont}}>{props.displayText}</FitText>
       </div>
     </AbsoluteFill>
   );

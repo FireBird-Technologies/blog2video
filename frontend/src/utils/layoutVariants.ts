@@ -111,5 +111,43 @@ export function customSceneLayoutId(
     if (sceneIndex === 0) return "intro";
     if (sceneIndex === totalScenes - 1) return "outro";
   }
+  // A MIDDLE scene that named no variant stays UNRESOLVED — deliberately.
+  //
+  // Descriptors written before scene-type resolution landed store
+  // `sceneTypeOverride: "content"` with a null `contentVariantIndex`, so no
+  // `content_N` key can be built. Guessing one (e.g. content_0) is not safe:
+  // measured across the live templates, 4 of 5 have MIXED image capability
+  // across their content layouts, so a guess would report the wrong answer more
+  // often than the right one.
+  //
+  // Callers must therefore treat null as "unknown" and fail CLOSED — see
+  // customSceneSupportsImage, which is the shared helper for that decision.
   return null;
+}
+
+/**
+ * Whether a custom-template scene can carry an image, given its resolved layout.
+ *
+ * Exists because the obvious expression — `!layoutId || !noImage.has(layoutId)`
+ * — fails OPEN: an unresolved layout reads as image-capable, so a text-only
+ * scene showed an image picker and offered uploads the render path would
+ * silently discard. An unknown layout must read as NOT capable instead.
+ *
+ * `role` is the scene's resolved type where known. A bookend is decided
+ * outright: the outro never takes an image in a custom template, and the intro
+ * follows its own layout entry.
+ */
+export function customSceneSupportsImage(
+  layoutId: string | null,
+  noImageLayouts: Set<string>,
+  layoutsLoaded: boolean,
+): boolean {
+  // Until the layouts response lands the set is empty, which would report
+  // everything as capable.
+  if (!layoutsLoaded) return false;
+  // Unknown layout -> assume it cannot take an image. Showing no picker on a
+  // scene that could have had one is recoverable; offering an upload that the
+  // render path drops is not.
+  if (!layoutId) return false;
+  return !noImageLayouts.has(baseLayoutId(layoutId));
 }

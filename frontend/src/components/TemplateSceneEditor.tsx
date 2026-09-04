@@ -27,16 +27,25 @@ import {
   applySceneDraft,
   discardSceneDraft,
   getSceneDraft,
+  getSceneDrafts,
   getSceneEditStatus,
-  submitTemplateRating,
+  setSceneFontDefaults,
   updateCustomTemplate,
   type CustomTemplateItem,
   type SceneDraft,
 } from "../api/client";
 import CustomPreview from "./templatePreviews/CustomPreview";
-import TemplateStarRating from "./TemplateStarRating";
+import { useAuth } from "../hooks/useAuth";
+import { formatAiEditCreditsDisplay } from "../lib/formatAiEditCredits";
 import { preloadBabel } from "../utils/compileComponent";
 import { blend, isDarkColor, readableOn } from "./remotion/generated/kit/theme";
+import { USER_BANDS } from "./remotion/generated/kit";
+import {
+  FONT_OPTIONS,
+  fontIdFromName,
+  resolveFontFamily,
+  type FontId,
+} from "../fonts/registry";
 
 const POLL_MS = 2000;
 
@@ -63,11 +72,49 @@ interface Props {
 interface SceneEntry {
   key: string;
   label: string;
+  /** Whether this scene's design takes an image. `undefined` = unknown (a
+   *  template generated before design docs carried the flag), which renders no
+   *  badge at all rather than an assertion we cannot back up. */
+  supportsImage?: boolean;
+}
+
+/** Per-scene image capability, keyed the same way the scene list is.
+ *
+ * Read straight off `design_blueprint.scenes`, which is the source
+ * `build_custom_meta` itself derives `layouts_without_image` from — so this
+ * badge and the image controls the project view shows cannot disagree.
+ *
+ * Indexed by ROLE and content position, not by raw array index: the blueprint
+ * array is ordered intro → content… → outro, and reading it positionally would
+ * mislabel every scene the moment a template has no intro or no outro.
+ */
+function imageCapabilityByKey(
+  designBlueprint: Record<string, unknown> | null | undefined,
+): Record<string, boolean> {
+  const out: Record<string, boolean> = {};
+  const raw = (designBlueprint as { scenes?: unknown } | null | undefined)?.scenes;
+  if (!Array.isArray(raw)) return out;
+
+  let contentIdx = 0;
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object") continue;
+    const scene = entry as { role?: unknown; supports_image?: unknown };
+    if (typeof scene.supports_image !== "boolean") continue;
+    if (scene.role === "intro") out.intro = scene.supports_image;
+    else if (scene.role === "outro") out.outro = scene.supports_image;
+    else out[`content_${contentIdx++}`] = scene.supports_image;
+  }
+  return out;
 }
 
 /** The "whole template" pseudo-scene. Not a real scene key, so every code path
  *  that regenerates or drafts a scene must exclude it. */
 const ALL_SCENES = "__all__";
+
+/** Credits one AI scene edit costs. MUST match SCENE_AI_EDIT_CREDIT_COST in
+ *  backend/app/routers/custom_templates.py — this copy only drives what the
+ *  modal SAYS and whether the button is enabled; the server is what charges. */
+const SCENE_AI_EDIT_CREDIT_COST = 1;
 
 export default function TemplateSceneEditor({ template, onClose, onTemplateUpdated }: Props) {
   const contentCodes = useMemo(() => template.content_codes ?? [], [template.content_codes]);
@@ -79,29 +126,72 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
       if (!id) return `Content ${i + 1}`;
       return id.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
     };
+    const capability = imageCapabilityByKey(template.design_blueprint);
     return [
       // Plays the whole template, so the modal opens on the finished thing
       // rather than on one scene in isolation. Per-scene AI editing is gated
       // off this key — there is no single scene to regenerate here.
       { key: ALL_SCENES, label: "All scenes" },
-      { key: "intro", label: "Intro" },
-      ...contentCodes.map((_, i) => ({ key: `content_${i}`, label: archetypeLabel(i) })),
-      { key: "outro", label: "Outro" },
+      { key: "intro", label: "Intro", supportsImage: capability.intro },
+      ...contentCodes.map((_, i) => ({
+        key: `content_${i}`,
+        label: archetypeLabel(i),
+        supportsImage: capability[`content_${i}`],
+      })),
+      { key: "outro", label: "Outro", supportsImage: capability.outro },
     ];
-  }, [contentCodes, template.content_archetype_ids]);
+  }, [contentCodes, template.content_archetype_ids, template.design_blueprint]);
 
   const [selected, setSelected] = useState<string>(ALL_SCENES);
   const [prompt, setPrompt] = useState("");
-  const [keepGeometry, setKeepGeometry] = useState(false);
   /* WHICH scene is being regenerated, not merely whether one is.
    *
    * This was a single global boolean, so starting a retry on one faulty scene
    * disabled the retry control on EVERY faulty scene at once (a whole column
    * greying together reads as "it is retrying all of them"), and the spinner
    * was keyed on `selected` — so picking a different scene mid-run moved the
-   * spinner onto a scene that was not being retried. */
-  const [busyScene, setBusyScene] = useState<string | null>(null);
-  const busy = busyScene !== null;
+   * spinner onto a scene that was not being retried.
+   *
+   * Now a SET, not one key: an edit keeps running on the backend after the user
+   * navigates to another scene, and the left column has to keep showing it. */
+  const [runningScenes, setRunningScenes] = useState<Set<string>>(new Set());
+  /** Scene keys with a pending draft. Drives the green dot and the per-scene
+   *  edit lock, and is seeded for the whole template by one call on open. */
+  const [draftScenes, setDraftScenes] = useState<Set<string>>(new Set());
+  const isRunning = useCallback(
+    (key: string) => runningScenes.has(key),
+    [runningScenes],
+  );
+  const markRunning = useCallback((key: string, on: boolean) => {
+    setRunningScenes((prev) => {
+      if (prev.has(key) === on) return prev;
+      const next = new Set(prev);
+      if (on) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+  }, []);
+  const markDrafted = useCallback((key: string, on: boolean) => {
+    setDraftScenes((prev) => {
+      if (prev.has(key) === on) return prev;
+      const next = new Set(prev);
+      if (on) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+  }, []);
+  const selectedHasDraft = selected !== ALL_SCENES && draftScenes.has(selected);
+  /** A scene with a pending draft is read-only until the draft is applied or
+   *  discarded — otherwise a font-size edit would be saved against code the
+   *  user is still deciding whether to keep. Only THIS scene locks; the rest of
+   *  the template stays editable. */
+  const sceneLocked = selectedHasDraft;
+  /** Every scene awaiting an apply/discard decision. Saving is blocked until
+   *  this is empty — see the note above the Save button. */
+  const pendingDraftScenes = useMemo(
+    () => scenes.filter((s) => s.key !== ALL_SCENES && draftScenes.has(s.key)),
+    [scenes, draftScenes],
+  );
   const [error, setError] = useState<string | null>(null);
   /** Raw diagnostic behind `error`, shown only on hover — never rendered. */
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
@@ -113,6 +203,8 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
   const [showDraft, setShowDraft] = useState(true);
   const [orientation, setOrientation] = useState<"landscape" | "portrait">("landscape");
   const [scenesOpen, setScenesOpen] = useState(false);
+  /** The "Edit with AI" prompt modal, opened from beside the scene name. */
+  const [aiOpen, setAiOpen] = useState(false);
 
   // ── Template-level fields, merged in from the old CustomTemplateEditor ──────
   //
@@ -124,7 +216,8 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
   // the renderer — colorsFromBrand() reads exactly these, and panel/muted/border
   // are DERIVED by derivePalette rather than stored. surface/muted stay in the
   // theme untouched, spread through on save.
-  const [name, setName] = useState(template.name);
+  // No `name` state: the template is renamed from the gallery, not here. The
+  // PUT treats `name` as optional, so omitting it leaves the stored name alone.
   const [bgColor, setBgColor] = useState(template.theme.colors.bg);
   const [textColor, setTextColor] = useState(template.theme.colors.text);
   const [accentColor, setAccentColor] = useState(template.theme.colors.accent);
@@ -139,16 +232,104 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
   const [bg2Color, setBg2Color] = useState(
     template.theme.colors.bg2 ?? deriveBg2(template.theme.colors.bg),
   );
-  const [savingTemplate, setSavingTemplate] = useState(false);
-  const [myRating, setMyRating] = useState<number | null>(template.my_rating ?? null);
-  const [myRatingComment, setMyRatingComment] = useState<string | null>(
-    template.my_rating_comment ?? null,
+  // ONE typeface for the whole template, written to both the heading and body
+  // slots. The renderer keeps two separate font props (and always will — the
+  // generated scenes bind them independently), but exposing both here asked the
+  // user to make a typographic pairing decision the template does not need: two
+  // controls that are the same value in almost every case, and easy to leave
+  // mismatched by accident.
+  //
+  // Seeded through fontIdFromName because a template's stored font is whatever
+  // the theme extractor guessed ("Cormorant Garamond") and is often NOT a
+  // registry id — a <select> seeded with such a value would show a blank option
+  // and, worse, silently write it back on save. Anything unresolvable starts
+  // from the renderer's own default instead, which is what that template is
+  // already rendering with. Heading is read first since it is the more visible
+  // of the two.
+  const [fontFamily, setFontFamily] = useState<FontId>(
+    () =>
+      fontIdFromName(template.theme.fonts?.heading) ??
+      fontIdFromName(template.theme.fonts?.body) ??
+      "dm_sans",
   );
-  const [ratingSaving, setRatingSaving] = useState(false);
+  /**
+   * Pending per-scene type-size edits, keyed `<sceneKey>:<orientation>`.
+   *
+   * Held here rather than written straight through so the slider previews LIVE
+   * (previewFontSizes below feeds the preview) while nothing persists until
+   * "Save changes" — the same pending-edit shape the colours and the typeface
+   * already use.
+   */
+  const [fontSizeEdits, setFontSizeEdits] = useState<
+    Record<string, { title?: number; description?: number }>
+  >({});
+  const [savingTemplate, setSavingTemplate] = useState(false);
 
   /* Preview the EDITED theme, not the saved one, so colour changes show
    * immediately instead of only after a round-trip. CustomPreview already takes
    * `theme` as a prop, so this costs nothing. */
+  /** This scene's stored default size for one axis, or undefined. */
+  const storedFontSize = (
+    sceneKey: string,
+    axis: "title" | "description",
+    o: "landscape" | "portrait",
+  ): number | undefined => {
+    const fd = template.scene_font_defaults;
+    if (!fd) return undefined;
+    let entry;
+    if (sceneKey === "intro") entry = fd.intro;
+    else if (sceneKey === "outro") entry = fd.outro;
+    else {
+      const m = /^content_(\d+)$/.exec(sceneKey);
+      const list = fd.content;
+      if (m && Array.isArray(list)) entry = list[Number(m[1])];
+    }
+    const v = (entry as Record<string, { landscape?: number; portrait?: number } | null> | null | undefined)?.[axis]?.[o];
+    return typeof v === "number" && v > 0 ? v : undefined;
+  };
+
+  /** The size a slider shows: a pending edit first, else what is stored. */
+  const currentFontSize = (
+    sceneKey: string,
+    axis: "title" | "description",
+    o: "landscape" | "portrait",
+  ): number | undefined =>
+    fontSizeEdits[`${sceneKey}:${o}`]?.[axis] ?? storedFontSize(sceneKey, axis, o);
+
+  /**
+   * The defaults handed to the preview, with pending edits folded in — so a
+   * slider updates the frame immediately without anything being saved.
+   */
+  const previewFontDefaults = useMemo(() => {
+    const base = template.scene_font_defaults;
+    if (!base && Object.keys(fontSizeEdits).length === 0) return base;
+    const clone: Record<string, unknown> = JSON.parse(JSON.stringify(base ?? {}));
+    for (const [key, edit] of Object.entries(fontSizeEdits)) {
+      const [sceneKey, o] = key.split(":") as [string, "landscape" | "portrait"];
+      let holder: Record<string, unknown>;
+      if (sceneKey === "intro" || sceneKey === "outro") {
+        holder = (clone[sceneKey] as Record<string, unknown>) ?? {};
+        clone[sceneKey] = holder;
+      } else {
+        const m = /^content_(\d+)$/.exec(sceneKey);
+        if (!m) continue;
+        const list = (clone.content as Record<string, unknown>[]) ?? [];
+        while (list.length <= Number(m[1])) list.push({});
+        holder = list[Number(m[1])] ?? {};
+        list[Number(m[1])] = holder;
+        clone.content = list;
+      }
+      for (const axis of ["title", "description"] as const) {
+        const v = edit[axis];
+        if (typeof v !== "number") continue;
+        const slot = (holder[axis] as Record<string, unknown>) ?? {};
+        slot[o] = v;
+        holder[axis] = slot;
+      }
+    }
+    return clone as typeof base;
+  }, [template.scene_font_defaults, fontSizeEdits]);
+
   const previewTheme = useMemo(
     () => ({
       ...template.theme,
@@ -161,8 +342,16 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
         // only emits a linear-gradient when bg2 is set.
         bg2: bgMode === "gradient" ? bg2Color : undefined,
       },
+      // CustomPreview resolves these through cssFamilyFromName, so the picked
+      // typeface previews live without a round trip. One choice fills both
+      // slots — see the fontFamily state above.
+      fonts: {
+        ...template.theme.fonts,
+        heading: fontFamily,
+        body: fontFamily,
+      },
     }),
-    [template.theme, bgColor, textColor, accentColor, bgMode, bg2Color],
+    [template.theme, bgColor, textColor, accentColor, bgMode, bg2Color, fontFamily],
   );
 
   /* derivePalette pulls a second stop that crosses the light/dark divide back
@@ -173,22 +362,54 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
     bgMode === "gradient" && readableOn(bg2Color) !== readableOn(bgColor);
 
   const templateDirty =
-    name !== template.name ||
+    Object.keys(fontSizeEdits).length > 0 ||
     bgColor !== template.theme.colors.bg ||
     textColor !== template.theme.colors.text ||
     accentColor !== template.theme.colors.accent ||
     bgMode !== (template.theme.colors.bg2 ? "gradient" : "solid") ||
-    (bgMode === "gradient" && bg2Color !== template.theme.colors.bg2);
+    (bgMode === "gradient" && bg2Color !== template.theme.colors.bg2) ||
+    // Compared against the NORMALISED stored value, matching how the state was
+    // seeded. Comparing against the raw string would leave a template whose
+    // stored font is an unresolvable extractor name permanently dirty, with a
+    // Save button that never settles.
+    //
+    // Also dirty when the two stored slots DISAGREE: collapsing them to one
+    // choice is itself a change worth saving, and without this a template that
+    // arrived with a heading/body pair could never be normalised.
+    fontFamily !==
+      (fontIdFromName(template.theme.fonts?.heading) ??
+        fontIdFromName(template.theme.fonts?.body) ??
+        "dm_sans") ||
+    fontIdFromName(template.theme.fonts?.heading) !==
+      fontIdFromName(template.theme.fonts?.body);
 
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  /** One poll per in-flight scene, keyed by scene key.
+   *
+   * This was a SINGLE interval ref, and `attachToEdit` began by clearing it. So
+   * starting an edit on `intro` and then clicking `content_0` killed the intro
+   * poll: the backend job carried on, but the UI forgot it existed and the row
+   * showed no progress. A registry lets every running edit keep reporting, which
+   * is what the per-scene status dot in the left column needs. */
+  const pollsRef = useRef<
+    Map<string, { timer: ReturnType<typeof setInterval>; startedAt: number }>
+  >(new Map());
   const scenesRef = useRef<HTMLDivElement>(null);
   /** Synchronous double-click guard for apply/discard — see handleApply. */
   const applyingRef = useRef(false);
+  /** `selected`, readable from inside a poll callback. The interval closes over
+   *  its creation-time render, so reading `selected` directly there would see a
+   *  stale value and write a finished draft onto the wrong scene. */
+  const selectedRef = useRef(selected);
+  useEffect(() => {
+    selectedRef.current = selected;
+  }, [selected]);
 
   useEffect(() => {
     preloadBabel();
+    const polls = pollsRef.current;
     return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
+      polls.forEach((entry) => clearInterval(entry.timer));
+      polls.clear();
     };
   }, []);
 
@@ -237,52 +458,54 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
     return () => clearTimeout(t);
   }, [success]);
 
-  const stopPolling = useCallback(() => {
-    if (pollRef.current) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
+  /** Stop polling ONE scene. Other in-flight scenes keep reporting. */
+  const stopPolling = useCallback((sceneKey: string) => {
+    const entry = pollsRef.current.get(sceneKey);
+    if (entry) {
+      clearInterval(entry.timer);
+      pollsRef.current.delete(sceneKey);
     }
   }, []);
 
-  // Load any draft already pending for the selected scene (e.g. after a reload).
+  // Load the draft for the selected scene, when the summary says it has one.
+  //
+  // `draftScenes` (seeded for the whole template on open) replaces what used to
+  // be a per-scene "already checked, it 404s" cache: we now know up front which
+  // scenes have drafts, so a scene without one never fires a request at all.
   //
   // Keyed on the SCENE, not on `template`: applying a draft hands back a new
   // template object, and depending on it re-ran this effect on every apply —
-  // which fired a redundant GET and, worse, reset `draft` to null via the
-  // unconditional clear below. Scenes with no pending draft answer 404, so a
-  // scene revisited during one session refetched every time; `checkedRef`
-  // remembers the answer and skips the repeat.
-  //
-  // (In dev, React StrictMode intentionally double-invokes effects, so each of
-  // these appears twice in the server log. That is dev-only and expected.)
-  const checkedRef = useRef<Set<string>>(new Set());
+  // firing a redundant GET and resetting `draft` to null via the clear below.
   useEffect(() => {
     // ALL_SCENES is not a scene — asking the backend for its draft would 404 on
-    // a route that never existed. It is also the DEFAULT selection, so without
-    // this every open of the modal fired one junk request.
-    if (selected === ALL_SCENES) {
+    // a route that never existed. It is also the DEFAULT selection.
+    if (selected === ALL_SCENES || !selectedHasDraft) {
       setDraft(null);
       return;
     }
-    const cacheKey = `${template.id}:${selected}`;
-    if (checkedRef.current.has(cacheKey)) return;
-
     let cancelled = false;
     setDraft(null);
-    setError(null);
     getSceneDraft(template.id, selected)
       .then((res) => {
-        if (!cancelled) setDraft(res.data);
+        if (cancelled) return;
+        setDraft(res.data);
+        // Arriving at a scene flagged with a draft must SHOW that draft — it is
+        // the whole point of the flag. Only the poll used to set this, and under
+        // the registry the poll runs for the scene that finished, not the one
+        // being viewed.
+        setShowDraft(true);
       })
       .catch(() => {
-        // 404 simply means no pending draft — remember it so selecting this
-        // scene again does not re-ask.
-        if (!cancelled) checkedRef.current.add(cacheKey);
+        // Gone (applied or discarded elsewhere) — drop the stale flag so the
+        // dot and the edit lock clear too.
+        if (!cancelled) markDrafted(selected, false);
       });
     return () => {
       cancelled = true;
     };
-  }, [template.id, selected]);
+    // Depends on the SELECTED scene's flag, not the whole set: keying on the set
+    // would refetch this scene's draft every time any other scene's flag moved.
+  }, [template.id, selected, selectedHasDraft, markDrafted]);
 
   /**
    * Poll a RUNNING edit through to its draft.
@@ -298,73 +521,144 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
    */
   const attachToEdit = useCallback(
     (sceneKey: string, editId?: string) => {
-      stopPolling();
-      setBusyScene(sceneKey);
+      // Already watching this scene. Both the open-time re-attach and a 409
+      // ("already regenerating") can target the same scene, and React's
+      // StrictMode double-invokes effects in dev — without this guard each
+      // would add a second interval polling the same job.
+      if (pollsRef.current.has(sceneKey)) return;
+      markRunning(sceneKey, true);
       const startedAt = Date.now();
-      pollRef.current = setInterval(async () => {
+      /** The finished/failed scene may no longer be the one on screen. Anything
+       *  that writes to the single-scene preview state must check first. */
+      const isOnScreen = () => selectedRef.current === sceneKey;
+      const label =
+        scenes.find((s) => s.key === sceneKey)?.label ?? sceneKey;
+      const finish = () => {
+        stopPolling(sceneKey);
+        markRunning(sceneKey, false);
+      };
+      const timer = setInterval(async () => {
         try {
           const status = await getSceneEditStatus(template.id, sceneKey, editId);
           if (status.data.status === "complete") {
-            stopPolling();
-            const d = await getSceneDraft(template.id, sceneKey);
-            // This scene now HAS a draft — drop the "known empty" marker so
-            // reselecting it later refetches instead of assuming 404.
-            checkedRef.current.delete(`${template.id}:${sceneKey}`);
-            setDraft(d.data);
-            setShowDraft(true);
-            setPrompt("");
-            setBusyScene(null);
+            finish();
+            // The dot in the left column is driven by this, for every scene.
+            markDrafted(sceneKey, true);
+            // A pending draft supersedes any unsaved font-size tweak on this
+            // scene: the scene is about to be locked, so leaving the edit behind
+            // would keep the template permanently dirty AND write font defaults
+            // against code the user has not accepted.
+            setFontSizeEdits((prev) => {
+              const next = { ...prev };
+              delete next[`${sceneKey}:landscape`];
+              delete next[`${sceneKey}:portrait`];
+              return next;
+            });
+            if (isOnScreen()) {
+              // Only fetch when it is being viewed — otherwise the flag above is
+              // enough, and the draft-load effect fetches on navigation.
+              const d = await getSceneDraft(template.id, sceneKey);
+              setDraft(d.data);
+              setShowDraft(true);
+              setPrompt("");
+            }
           } else if (status.data.status === "error") {
-            stopPolling();
+            finish();
             // `error` is already plain language for an exhausted retry; the raw
-            // validator trace stays on `detail` for support.
-            setError(status.data.error || "The edit failed. Try rephrasing your request.");
+            // validator trace stays on `detail` for support. Name the scene when
+            // it is not the one on screen — a background failure that says
+            // nothing about WHICH scene failed is worse than a slightly
+            // out-of-context banner.
+            const msg =
+              status.data.error || "The edit failed. Try rephrasing your request.";
+            setError(isOnScreen() ? msg : `${label}: ${msg}`);
             setErrorDetail(status.data.detail ?? null);
             setErrorSticky(Boolean(status.data.exhausted));
-            setBusyScene(null);
           } else if (status.data.status === "unknown") {
             // Nothing is running and no draft exists — the job is gone (a server
             // restart, most likely). Stop rather than polling a dead id forever.
-            stopPolling();
-            setBusyScene(null);
+            finish();
           } else if (Date.now() - startedAt > POLL_TIMEOUT_MS) {
-            stopPolling();
-            setError("The edit is taking longer than expected. Check back shortly.");
-            setBusyScene(null);
+            finish();
+            setError(
+              `${isOnScreen() ? "The edit" : label} is taking longer than expected. Check back shortly.`,
+            );
           }
         } catch {
-          stopPolling();
+          finish();
           setError("Lost contact with the server while editing.");
-          setBusyScene(null);
         }
       }, POLL_MS);
+      pollsRef.current.set(sceneKey, { timer, startedAt });
     },
-    // stopPolling is a stable useCallback; template.id is the only real input.
-    [template.id, stopPolling],
+    // stopPolling/markRunning/markDrafted are stable useCallbacks.
+    [template.id, stopPolling, markRunning, markDrafted, scenes],
   );
 
-  /* Re-attach on mount to a retry that is already running for this scene.
+  /* On open, learn the draft and in-flight state of EVERY scene at once.
    *
-   * Without this, closing and reopening the modal lost all trace of an in-flight
-   * job: the spinner reset to idle and the retry button re-enabled, inviting a
-   * duplicate. The backend now answers "what is running for this scene?" with no
-   * edit_id, which is what makes recovery possible. */
+   * Two jobs in one request. It seeds the per-scene status dots, and it
+   * re-attaches to edits still running from a previous session — without which
+   * closing and reopening the modal lost all trace of an in-flight job, leaving
+   * the row idle and inviting a duplicate.
+   *
+   * This replaces a per-scene re-attach keyed on the selection, which could only
+   * ever recover the ONE scene the user happened to be looking at.
+   *
+   * If it fails the editor still opens, but it reports the failure rather than
+   * starting up silently blind to every pending draft — see the catch below. */
+  const didInitRef = useRef(false);
   useEffect(() => {
-    if (selected === ALL_SCENES) return;
+    if (didInitRef.current) return;
+    didInitRef.current = true;
     let cancelled = false;
     void (async () => {
       try {
-        const { data } = await getSceneEditStatus(template.id, selected);
-        if (cancelled || !data.running) return;
-        attachToEdit(selected, data.edit_id);
-      } catch {
-        // No running job, or the lookup failed — nothing to resume.
+        const { data } = await getSceneDrafts(template.id);
+        if (cancelled) return;
+        setDraftScenes(new Set(data.drafts ?? []));
+        // No edit_id: the backend resolves the newest live job per scene.
+        (data.running ?? []).forEach((key) => attachToEdit(key));
+      } catch (err: any) {
+        if (cancelled) return;
+        // SAY SO. This used to swallow every failure on the theory that "the
+        // editor still works, it just starts with no status dots" — but a lost
+        // status dot is not cosmetic: `draftScenes` is what gates the draft
+        // banner, the Apply/Discard controls and the per-scene edit lock. A
+        // failure here therefore renders a pending draft INVISIBLE, and the user
+        // sees a scene that silently refuses to accept a new edit ("already
+        // being regenerated") with nothing on screen explaining why.
+        //
+        // Sticky, because it does not resolve itself: reopening the editor runs
+        // the same request again.
+        const status = err?.response?.status;
+        setError(
+          status === 401 || status === 403
+            ? "Your session expired — sign in again to see pending scene drafts."
+            : "Couldn't load pending scene drafts. Any draft you have is safe; reopen the editor to try again.",
+        );
+        setErrorSticky(true);
       }
     })();
     return () => {
       cancelled = true;
+      // RELEASE THE ONE-SHOT, or StrictMode eats the only fetch.
+      //
+      // React 18 dev double-invokes effects: run -> cleanup -> run. Without this
+      // line the first run claimed the ref and started the request, the cleanup
+      // set `cancelled`, and the second run hit `didInitRef.current === true`
+      // and returned without fetching. The in-flight response then arrived,
+      // saw `cancelled`, and was dropped before setDraftScenes — so the request
+      // succeeded in the Network tab while `draftScenes` stayed empty forever,
+      // and a pending draft was invisible no matter how often the page reloaded.
+      //
+      // Resetting here lets the second invocation re-run and keep its result.
+      // The ref still does its real job: it stops the effect re-firing when
+      // `attachToEdit` changes identity (it closes over `scenes`, which is a new
+      // array on every template update).
+      didInitRef.current = false;
     };
-  }, [template.id, selected, attachToEdit]);
+  }, [template.id, attachToEdit]);
 
   /**
    * Start a scene edit and poll it to a draft.
@@ -381,25 +675,34 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
     const text = prompt.trim();
     // ALL_SCENES has no scene to regenerate. The UI hides these controls there,
     // so reaching it means a bug — fail quietly rather than POSTing "__all__".
-    if (busy || sceneKey === ALL_SCENES) return;
+    // Scoped to THIS scene: another scene regenerating in the background is no
+    // reason to refuse. A pending draft is, though — the user has to resolve it
+    // before overwriting it with a new edit.
+    if (isRunning(sceneKey) || draftScenes.has(sceneKey) || sceneKey === ALL_SCENES) return;
     if (!text && !fromBlueprint) return;
     // Regenerating a scene the user is not looking at would drop them into a
     // draft for something else, so move the view first.
     if (sceneKey !== selected) setSelected(sceneKey);
-    setBusyScene(sceneKey);
+    markRunning(sceneKey, true);
     setError(null);
     setErrorDetail(null);
     setErrorSticky(false);
     setSuccess(null);
-    stopPolling();
 
     try {
       const { data } = await aiEditScene(template.id, sceneKey, {
         prompt: fromBlueprint ? "" : text,
-        keep_geometry: fromBlueprint ? false : keepGeometry,
+        // Always a free rewrite. The "keep the current layout" opt-in used to be
+        // offered here; it was removed from the modal, and false is the same
+        // request the unticked box sent (and the backend's own default).
+        keep_geometry: false,
         from_blueprint: fromBlueprint,
       });
       attachToEdit(sceneKey, data.edit_id);
+      // The edit was charged server-side, so pull the new balance rather than
+      // decrementing a local copy — a fallback scene costs nothing, and only the
+      // server knows which rule applied.
+      void refreshUser();
     } catch (err: any) {
       const status = err?.response?.status;
       const detail = err?.response?.data?.detail;
@@ -411,21 +714,39 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
         attachToEdit(sceneKey, detail.edit_id as string);
         return;
       }
+      // 403 is the out-of-credits gate. Its detail is written for the user, so
+      // surface it verbatim — the generic message below would hide the one thing
+      // they can act on. Sticky, because it needs a decision (upgrade/buy), not
+      // a glance.
+      if (status === 403) {
+        setError(
+          typeof detail === "string" && detail
+            ? detail
+            : "You don't have enough AI edit credits to edit this scene.",
+        );
+        setErrorSticky(true);
+        markRunning(sceneKey, false);
+        void refreshUser();
+        return;
+      }
       setError(
         status === 409
           ? "This template is being regenerated — try again shortly."
           : "Could not start the edit.",
       );
-      setBusyScene(null);
+      markRunning(sceneKey, false);
     }
   };
 
-  /* Save name + colours. Entirely separate from the scene-draft flow below —
-   * that writes scene CODE through the draft endpoints, this writes the THEME
+  /* Save colours + type sizes. Entirely separate from the scene-draft flow below
+   * — that writes scene CODE through the draft endpoints, this writes the THEME
    * through PUT /custom-templates/{id}. They never touch the same fields, which
    * is why both can live in one modal with independent save buttons. */
   const handleSaveTemplate = async () => {
-    if (!name.trim() || savingTemplate) return;
+    // Re-checked here, not just on the button: a pending draft means part of the
+    // template is still undecided, and this call would write font defaults for a
+    // scene whose code the user has not accepted.
+    if (savingTemplate || pendingDraftScenes.length > 0) return;
     setSavingTemplate(true);
     setError(null);
     try {
@@ -446,13 +767,48 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
         delete nextColors.bg2;
       }
       const res = await updateCustomTemplate(template.id, {
-        name: name.trim(),
         theme: {
           ...template.theme,
           colors: nextColors as typeof template.theme.colors,
+          // Spread the rest of `fonts` so any extra keys the extractor stored
+          // survive; the two the renderer reads both get the single choice.
+          fonts: {
+            ...template.theme.fonts,
+            heading: fontFamily,
+            body: fontFamily,
+          },
         },
       });
-      onTemplateUpdated(res.data);
+      let latest = res.data;
+
+      // Type sizes are per SCENE, so they go through their own endpoint rather
+      // than the template-level PUT above. One request per edited scene, run in
+      // sequence so each response builds on the last — they all rewrite the same
+      // column, and firing them together would have the last write win.
+      const bySceneKey = new Map<string, {
+        title?: { landscape?: number; portrait?: number };
+        description?: { landscape?: number; portrait?: number };
+      }>();
+      for (const [key, edit] of Object.entries(fontSizeEdits)) {
+        const [sceneKey, o] = key.split(":") as [string, "landscape" | "portrait"];
+        const body = bySceneKey.get(sceneKey) ?? {};
+        if (typeof edit.title === "number") {
+          body.title = { ...(body.title ?? {}), [o]: edit.title };
+        }
+        if (typeof edit.description === "number") {
+          body.description = { ...(body.description ?? {}), [o]: edit.description };
+        }
+        bySceneKey.set(sceneKey, body);
+      }
+      for (const [sceneKey, body] of bySceneKey) {
+        if (!body.title && !body.description) continue;
+        latest = (await setSceneFontDefaults(template.id, sceneKey, body)).data;
+      }
+      // Cleared only after every write landed, so a failure mid-way leaves the
+      // unsaved edits on screen rather than silently discarding them.
+      setFontSizeEdits({});
+
+      onTemplateUpdated(latest);
       setSuccess("Template saved.");
     } catch (err) {
       const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
@@ -462,33 +818,15 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
     }
   };
 
-  const handleRate = async (rating: 1 | 2 | 3 | 4 | 5, comment?: string) => {
-    const prevRating = myRating;
-    const prevComment = myRatingComment;
-    const nextComment = comment ?? prevComment ?? null;
-    setMyRating(rating);
-    setMyRatingComment(nextComment);
-    setRatingSaving(true);
-    try {
-      await submitTemplateRating(template.id, { rating, suggestion: comment });
-      onTemplateUpdated({ ...template, my_rating: rating, my_rating_comment: nextComment });
-    } catch (err) {
-      console.error("Failed to rate template:", err);
-      setMyRating(prevRating);
-      setMyRatingComment(prevComment);
-    } finally {
-      setRatingSaving(false);
-    }
-  };
 
   const handleApply = async () => {
     // `applyingRef` (not `busy`) guards the double-click: state set here is not
     // visible to a second click dispatched in the same tick, so two apply calls
     // could race — the first consumes the draft, the second 404s and reports
     // "Could not apply the draft" even though the apply succeeded.
-    if (!draft || busy || applyingRef.current) return;
+    if (!draft || isRunning(selected) || applyingRef.current) return;
     applyingRef.current = true;
-    setBusyScene(selected);
+    markRunning(selected, true);
     setError(null);
     try {
       const res = await applySceneDraft(template.id, selected);
@@ -498,36 +836,37 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
       // received the update — so the preview visibly reverted to the previous
       // version for the whole duration of the request, then snapped forward.
       onTemplateUpdated(res.data);
-      // The draft is consumed server-side; record that so the effect above does
-      // not issue a guaranteed-404 refetch for this scene.
-      checkedRef.current.add(`${res.data.id}:${selected}`);
+      // The draft is consumed server-side: clear the flag so the dot goes and
+      // the scene becomes editable again.
+      markDrafted(selected, false);
       setDraft(null);
       setSuccess("Scene applied — it's now live in this template.");
     } catch {
       setError("Could not apply the draft.");
     } finally {
       applyingRef.current = false;
-      setBusyScene(null);
+      markRunning(selected, false);
     }
   };
 
   const handleDiscard = async () => {
-    if (!draft || busy || applyingRef.current) return;
+    if (!draft || isRunning(selected) || applyingRef.current) return;
     applyingRef.current = true;
-    setBusyScene(selected);
+    markRunning(selected, true);
     // Cleared up front — unlike apply, reverting the preview to the published
     // code IS the intended outcome here, so showing it immediately is correct.
     setDraft(null);
+    markDrafted(selected, false);
     try {
       await discardSceneDraft(template.id, selected);
-      checkedRef.current.add(`${template.id}:${selected}`);
       setSuccess("Draft discarded.");
     } catch {
       setDraft(draft);
+      markDrafted(selected, true);
       setError("Could not discard the draft.");
     } finally {
       applyingRef.current = false;
-      setBusyScene(null);
+      markRunning(selected, false);
     }
   };
 
@@ -578,6 +917,40 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
     return entry ? [entry] : undefined;
   }, [selected, template.content_archetype_ids]);
 
+  /* Sample copy + type sizes, SLICED to match `previewCodes`.
+   *
+   * Selecting one content scene hands CustomPreview a single-element
+   * `content` array with no intro, so it computes contentIdx = 0 — and passing
+   * the FULL arrays therefore fed it scene 0's copy and scene 0's sizes no
+   * matter which scene was selected. That is why the editor and the gallery
+   * card showed different text for the same scene.
+   *
+   * Same slicing rule as previewArchetypes above, and it must stay in step with
+   * previewCodes: these three are all indexed against the same list. */
+  const previewSlice = useMemo(() => {
+    const samples = template.scene_sample_content;
+    const fonts = previewFontDefaults;
+    if (selected === ALL_SCENES) return { samples, fonts };
+    if (selected === "intro") {
+      return {
+        samples: samples ? { intro: samples.intro, content: [] } : samples,
+        fonts: fonts ? { intro: fonts.intro, content: [] } : fonts,
+      };
+    }
+    if (selected === "outro") {
+      return {
+        samples: samples ? { outro: samples.outro, content: [] } : samples,
+        fonts: fonts ? { outro: fonts.outro, content: [] } : fonts,
+      };
+    }
+    const m = /^content_(\d+)$/.exec(selected);
+    const idx = m ? Number(m[1]) : 0;
+    return {
+      samples: samples ? { content: [samples.content?.[idx] ?? null] } : samples,
+      fonts: fonts ? { content: [fonts.content?.[idx] ?? null] } : fonts,
+    };
+  }, [selected, template.scene_sample_content, previewFontDefaults]);
+
   /* Which scenes the generator flagged, resolved from the warning text.
    *
    * The banner used to say "1 scene used a simplified fallback design" without
@@ -617,10 +990,74 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
   const warnings = template.generation_warnings ?? [];
   const selectedLabel = scenes.find((s) => s.key === selected)?.label ?? selected;
   const selectedWarnings = warningsByKey.get(selected) ?? [];
-  // The outro always renders through GeneratedCtaOverlay at video time, so the
-  // generated outro code is only a fallback. Say so rather than letting the
-  // preview look wrong.
+
+  // What an AI edit of the SELECTED scene costs, mirroring the server rule in
+  // custom_templates.ai_edit_scene: a fallback scene (one that failed generation
+  // and shipped a stub) is free, everything else costs one credit.
+  //
+  // `warnedKeys` is derived from the same `Scene {i} (` warnings the backend
+  // matches on, with the same index convention, so the two agree without a new
+  // API field. A custom template is single-owner, so there is no collaborator
+  // branch here — the acting user is always the payer.
+  const { user, refreshUser } = useAuth();
+  const aiEditCreditsRemaining =
+    (user?.ai_edit_credits ?? 0) + (user?.ai_edit_allowance_remaining ?? 0);
+  const selectedEditIsFree = selected !== ALL_SCENES && warnedKeys.has(selected);
+  const selectedEditCost = selectedEditIsFree ? 0 : SCENE_AI_EDIT_CREDIT_COST;
+  const canAffordSelectedEdit =
+    selectedEditCost === 0 || aiEditCreditsRemaining >= selectedEditCost;
+  // Only a LEGACY (v1) outro is replaced by GeneratedCtaOverlay at video time,
+  // which is what made its generated code a mere fallback. A v2 outro composes
+  // the CTA inside its own layout and is exactly what ships, so the caption
+  // warning otherwise would now describe the opposite of what happens.
   const isOutro = selected === "outro";
+  const isLegacyOutro =
+    isOutro &&
+    ((template.design_blueprint as { version?: number } | null)?.version ?? 1) < 2;
+  // The scene currently on screen, for the per-scene notes under the preview.
+  const selectedScene = scenes.find((s) => s.key === selected);
+
+  /* One status marker, three places: the desktop rail, the mobile dropdown's
+   * trigger and its option rows. Written once because the rail and the dropdown
+   * have drifted apart before — the dropdown showed a bare label while the rail
+   * carried the warning flag.
+   *
+   * Priority is deliberate. Regenerating is transient and outranks everything;
+   * a ready draft needs a decision and outranks a warning, which is a standing
+   * condition the user may have chosen to live with. */
+  const SceneStatusDot = ({ sceneKey }: { sceneKey: string }) => {
+    if (sceneKey === ALL_SCENES) return null;
+    if (isRunning(sceneKey)) {
+      return (
+        <span
+          className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-violet-200 border-t-violet-600"
+          title="Regenerating…"
+          aria-label="Regenerating"
+        />
+      );
+    }
+    if (draftScenes.has(sceneKey)) {
+      return (
+        <span
+          className="h-1.5 w-1.5 shrink-0 rounded-full bg-green-500"
+          title="A draft is ready — apply or discard it"
+          aria-label="Draft ready"
+        />
+      );
+    }
+    if (warnedKeys.has(sceneKey)) {
+      // Same amber the banner uses, so a chip up there and a row down here are
+      // recognisably the same flag.
+      return (
+        <span
+          className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500"
+          title="This scene didn't generate cleanly"
+          aria-hidden
+        />
+      );
+    }
+    return null;
+  };
 
   // Rendered through a portal like every other modal in the app: a `fixed`
   // element is still clipped by any ancestor with a transform/filter, which is
@@ -636,7 +1073,7 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
             <h2 className="truncate text-base font-semibold text-gray-900 sm:text-lg">
               Edit template — {template.name}
             </h2>
-            <p className="hidden text-xs text-gray-500 sm:block">Name, colours and per-scene edits — all in one place.</p>
+            <p className="hidden text-xs text-gray-500 sm:block">Colours, type and per-scene edits — all in one place.</p>
           </div>
           <div className="flex shrink-0 items-center gap-1">
             <button
@@ -779,6 +1216,7 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
                   aria-expanded={scenesOpen}
                   className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-violet-50 py-1.5 pl-3 pr-2 text-sm font-medium text-violet-700 transition-colors hover:bg-violet-100"
                 >
+                  <SceneStatusDot sceneKey={selected} />
                   <span className="truncate">{selectedLabel}</span>
                   <svg
                     className={`h-4 w-4 shrink-0 transition-transform ${scenesOpen ? "rotate-180" : ""}`}
@@ -805,13 +1243,14 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
                           setSelected(s.key);
                           setScenesOpen(false);
                         }}
-                        className={`block w-full truncate px-3 py-2 text-left text-sm transition-colors ${
+                        className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${
                           selected === s.key
                             ? "bg-violet-50/60 font-medium text-violet-700"
                             : "text-gray-700 hover:bg-gray-50"
                         }`}
                       >
-                        {s.label}
+                        <SceneStatusDot sceneKey={s.key} />
+                        <span className="truncate">{s.label}</span>
                       </button>
                     ))}
                   </div>
@@ -836,12 +1275,51 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
                         selected === s.key ? "font-medium text-violet-700" : "text-gray-700"
                       }`}
                     >
-                      {/* Same amber the banner uses, so a chip up there and a
-                          row down here are recognisably the same flag. */}
-                      {warnedKeys.has(s.key) && (
-                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" aria-hidden />
-                      )}
+                      <SceneStatusDot sceneKey={s.key} />
                       <span className="truncate">{s.label}</span>
+                      {/* Whether this scene's design takes an image.
+                          Deliberately shown ONLY when the template's design docs
+                          actually say — an older template with no flag renders
+                          nothing rather than an unbacked claim. Videos made from
+                          this template give images and clips only to the scenes
+                          marked here, so it explains why some scenes never show
+                          one. An icon rather than a word: the label beside it is
+                          already truncated and a retry button shares the row. */}
+                      {s.supportsImage !== undefined && (
+                        <span
+                          title={
+                            s.supportsImage
+                              ? "This scene takes an image or clip"
+                              : "This scene is text-only — videos never place an image here"
+                          }
+                          aria-label={
+                            s.supportsImage ? "Supports images" : "Does not support images"
+                          }
+                          className={`ml-auto shrink-0 ${
+                            s.supportsImage ? "text-gray-400" : "text-gray-300"
+                          }`}
+                        >
+                          {s.supportsImage ? (
+                            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                              />
+                            </svg>
+                          ) : (
+                            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M3 3l18 18M4 16l4.586-4.586a2 2 0 012.828 0L16 16M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                              />
+                            </svg>
+                          )}
+                        </span>
+                      )}
                     </button>
                     {/* One-click rebuild for a scene that fell back to a stub.
                         The generator's error is a pipeline internal ("palette.text
@@ -852,13 +1330,17 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
                       <button
                         type="button"
                         onClick={() => void startEdit({ fromBlueprint: true, sceneKey: s.key })}
-                        disabled={busy}
-                        title="Retry this scene from the template's design"
+                        disabled={isRunning(s.key) || draftScenes.has(s.key)}
+                        title={
+                          draftScenes.has(s.key)
+                            ? "Apply or discard this scene's draft first"
+                            : "Retry this scene from the template's design"
+                        }
                         aria-label={`Retry ${s.label}`}
                         className="mr-1.5 shrink-0 rounded-md p-1.5 text-violet-600 transition-colors hover:bg-violet-100 hover:text-violet-800 disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         <svg
-                          className={`h-3.5 w-3.5 ${busyScene === s.key ? "animate-spin" : ""}`}
+                          className={`h-3.5 w-3.5 ${isRunning(s.key) ? "animate-spin" : ""}`}
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -882,28 +1364,84 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
           {/* Preview — pinned to the top of the panel */}
           <section className="flex min-w-0 flex-1 flex-col bg-gray-50 p-4 sm:p-5 lg:overflow-y-auto">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <span className="truncate text-sm font-medium text-gray-700">{selectedLabel}</span>
-              {draft && (
-                <div className="inline-flex shrink-0 rounded-lg border border-gray-200 bg-white p-0.5">
-                  <button
-                    onClick={() => setShowDraft(false)}
-                    className={`rounded-md px-3 py-1 text-xs transition-colors ${
-                      !showDraft ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-50"
-                    }`}
-                  >
-                    Published
-                  </button>
-                  <button
-                    onClick={() => setShowDraft(true)}
-                    className={`rounded-md px-3 py-1 text-xs transition-colors ${
-                      showDraft ? "bg-violet-600 text-white" : "text-gray-600 hover:bg-gray-50"
-                    }`}
-                  >
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="truncate text-sm font-medium text-gray-700">
+                  {selectedLabel}
+                </span>
+                {draft && showDraft && (
+                  <span className="shrink-0 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
                     Draft
+                  </span>
+                )}
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                {draft && (
+                  <div className="inline-flex shrink-0 rounded-lg border border-gray-200 bg-white p-0.5">
+                    <button
+                      onClick={() => setShowDraft(false)}
+                      className={`rounded-md px-3 py-1 text-xs transition-colors ${
+                        !showDraft ? "bg-violet-600 text-white" : "text-gray-600 hover:bg-gray-50"
+                      }`}
+                    >
+                      Published
+                    </button>
+                    <button
+                      onClick={() => setShowDraft(true)}
+                      className={`rounded-md px-3 py-1 text-xs transition-colors ${
+                        showDraft ? "bg-violet-600 text-white" : "text-gray-600 hover:bg-gray-50"
+                      }`}
+                    >
+                      Draft
+                    </button>
+                  </div>
+                )}
+                {/* At the far right of the row, opposite the scene name — the
+                    action is now visually paired with the Published/Draft
+                    toggle it produces, rather than crowding the scene label.
+
+                    While a draft is pending, this slot swaps to the decision
+                    the user actually needs to make (Apply/Discard) instead of
+                    offering to start ANOTHER edit on top of an undecided one. */}
+                {selected !== ALL_SCENES && sceneLocked ? (
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => void handleApply()}
+                      disabled={isRunning(selected)}
+                      className="rounded-lg bg-violet-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Apply
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleDiscard()}
+                      disabled={isRunning(selected)}
+                      className="rounded-lg border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Discard
+                    </button>
+                  </div>
+                ) : selected !== ALL_SCENES ? (
+                  <button
+                    type="button"
+                    onClick={() => setAiOpen(true)}
+                    disabled={isRunning(selected)}
+                    title={isRunning(selected) ? "This scene is regenerating" : "Rewrite this scene with AI"}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-violet-200 bg-violet-50 px-2 py-1 text-xs font-medium text-violet-700 transition-colors hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    
+                    Edit with AI
                   </button>
-                </div>
-              )}
+                ) : null}
+              </div>
             </div>
+
+            {draft && (
+              <p className="mb-3 text-xs text-amber-600">
+                A draft is ready — use Apply or Discard above. It won&rsquo;t affect
+                your videos until you apply it.
+              </p>
+            )}
 
             <div className="flex justify-center">
               <div
@@ -924,6 +1462,13 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
                   outroCode={previewCodes.outro}
                   contentCodes={previewCodes.content}
                   contentArchetypeIds={previewArchetypes}
+                  designVersion={(template.design_blueprint as { version?: number } | null)?.version}
+                  sceneSampleContent={previewSlice.samples}
+                  sceneFontDefaults={previewSlice.fonts}
+                  // The sizes the user is dragging. A value here renders at
+                  // exactly that number instead of being re-fitted to its box,
+                  // so the slider keeps responding across its whole range.
+                  fontSizeEdits={fontSizeEdits}
                   logoUrls={template.logo_urls}
                   ogImage={template.og_image}
                   showLoaderOnEmptyOrError
@@ -931,10 +1476,27 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
               </div>
             </div>
 
-            {isOutro && (
+            {selected !== ALL_SCENES && isRunning(selected) && (
+              <p className="mt-2 flex items-center justify-center gap-2 text-xs text-violet-700">
+                <span className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-violet-200 border-t-violet-600" />
+                Regenerating — this usually takes a minute or two.
+              </p>
+            )}
+
+            {isLegacyOutro && (
               <p className="mt-2 text-[11px] text-gray-500">
                 The outro renders with the call-to-action overlay in the final video; this
                 preview shows the underlying scene.
+              </p>
+            )}
+
+            {/* Why a scene never shows a photo. The image/clip assignment at
+                video time is driven by exactly this flag, so stating it here is
+                what stops "my images didn't appear" being a mystery. */}
+            {selected !== ALL_SCENES && selectedScene?.supportsImage === false && (
+              <p className="mt-2 text-[11px] text-gray-500">
+                This scene is text-only by design — videos made from this template
+                never place an image or clip here. Rewrite it below to change that.
               </p>
             )}
 
@@ -958,11 +1520,11 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
                 <button
                   type="button"
                   onClick={() => void startEdit({ fromBlueprint: true })}
-                  disabled={busy}
+                  disabled={isRunning(selected) || sceneLocked}
                   className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 font-medium text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <svg
-                    className={`h-3.5 w-3.5 ${busyScene === selected ? "animate-spin" : ""}`}
+                    className={`h-3.5 w-3.5 ${isRunning(selected) ? "animate-spin" : ""}`}
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -974,7 +1536,7 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
                       d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                     />
                   </svg>
-                  {busyScene === selected ? "Retrying…" : "Retry this scene"}
+                  {isRunning(selected) ? "Retrying…" : "Retry this scene"}
                 </button>
               </div>
             )}
@@ -1022,27 +1584,21 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
                 a rename or a recolour no longer costs a round trip through
                 another view — and no longer discards unsaved scene work. */}
             <div className="mb-5">
-              <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-gray-400">
-                Template name
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="mb-4 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
-              />
-
               <label className="mb-2 block text-[11px] font-medium uppercase tracking-wider text-gray-400">
                 Background
               </label>
-              <div className="mb-3 inline-flex rounded-lg border border-gray-200 p-0.5">
+              {/* Two equal columns rather than a hugging pill group: the two
+                  modes are a single either/or choice, and equal halves read as
+                  one control instead of two buttons that happen to sit side by
+                  side. */}
+              <div className="mb-3 grid grid-cols-2 gap-1 rounded-lg border border-gray-200 p-0.5">
                 {(["solid", "gradient"] as const).map((mode) => (
                   <button
                     key={mode}
                     type="button"
                     onClick={() => setBgMode(mode)}
                     aria-pressed={bgMode === mode}
-                    className={`rounded-md px-3 py-1 text-xs font-medium capitalize transition ${
+                    className={`rounded-md px-3 py-1.5 text-xs font-medium capitalize transition ${
                       bgMode === mode
                         ? "bg-violet-600 text-white"
                         : "text-gray-500 hover:text-gray-800"
@@ -1056,11 +1612,19 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
               <label className="mb-2 block text-[11px] font-medium uppercase tracking-wider text-gray-400">
                 Colours
               </label>
-              {/* Exactly three: these are the only colours the renderer reads
-                  (colorsFromBrand takes bg/text/accent). panel, muted and border
-                  are derived from them, so exposing those too would offer
-                  control that nothing honours. */}
-              <div className="mb-1 flex items-center gap-4">
+              {/* Three or four, decided by the background mode — bg/text/accent
+                  are the only colours the renderer reads (colorsFromBrand), and
+                  a gradient adds its second stop. panel, muted and border are
+                  derived from these, so exposing those too would offer control
+                  that nothing honours.
+
+                  The grid follows that count: 4 sit as a 2x2, 3 as a single row,
+                  so neither leaves a lone swatch stranded on its own line. */}
+              <div
+                className={`mb-1 grid justify-items-center gap-3 ${
+                  bgMode === "gradient" ? "grid-cols-2" : "grid-cols-3"
+                }`}
+              >
                 {([
                   ["Background", bgColor, setBgColor],
                   ...(bgMode === "gradient"
@@ -1094,25 +1658,114 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
                   keep text readable across the whole ramp.
                 </p>
               )}
+
+              <label className="mb-2 mt-3 block text-[11px] font-medium uppercase tracking-wider text-gray-400">
+                Font Family
+              </label>
+              {/* ONE font for the whole template. Only the faces the renderer
+                  can actually load are offered — anything outside this registry
+                  resolves to null at render time and silently falls back to the
+                  system sans, so a free-text field would offer control that
+                  nothing honours. Each option previews in its own face. */}
+              <select
+                value={fontFamily}
+                onChange={(e) => setFontFamily(e.target.value as FontId)}
+                aria-label="Template typeface"
+                className="mb-2 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
+                style={{ fontFamily: resolveFontFamily(fontFamily) ?? undefined }}
+              >
+                {FONT_OPTIONS.map((opt) => (
+                  <option key={opt.id} value={opt.id} style={{ fontFamily: opt.cssFamily }}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+
               <p className="mb-3 text-[10px] text-gray-400">
-                Changes preview live; save to keep them.
+                Changes preview live; save to keep them. Videos made from this
+                template use this font unless the project sets its own.
               </p>
 
-              <div className="mb-4">
-                <TemplateStarRating
-                  value={myRating}
-                  comment={myRatingComment}
-                  onRate={handleRate}
-                  disabled={ratingSaving}
-                  size={20}
-                  showLabel
-                  allowComment
-                />
-              </div>
+              {/* Per-scene TYPE SIZE.
+                  Only for a real scene — "All scenes" has no single size to
+                  set — and only for the orientation currently selected above,
+                  because portrait needs smaller type for the same copy and
+                  showing four numbers at once invites setting them wrong. */}
+              {selected !== ALL_SCENES && (
+                <div className="mb-4">
+                  <label className="mb-2 block text-[11px] font-medium uppercase tracking-wider text-gray-400">
+                    Type size — {orientation}
+                  </label>
+                  {([
+                    ["Title", "title"],
+                    ["Display text & content", "description"],
+                  ] as const).map(([label, axis]) => {
+                    const value = currentFontSize(selected, axis, orientation);
+                    // The USER bands — what a person may set. Read from
+                    // kit/typeBands.ts rather than written out here: these were
+                    // literals, and they were the GENERATION bands, so the
+                    // slider stopped at the ceiling the model is held to (88px
+                    // on a landscape title) even though the render and the
+                    // server accept far more. The server clamps to the same
+                    // USER bands, so what is dragged is what is stored.
+                    const [lo, hi] = USER_BANDS[axis][orientation];
+                    return (
+                      <div key={axis} className="mb-2">
+                        <div className="mb-1 flex items-center justify-between">
+                          <span className="text-[10px] text-gray-500">{label}</span>
+                          <span className="text-[10px] font-medium text-violet-600">
+                            {value ?? "—"}
+                            {value === undefined && (
+                              <span className="ml-1 text-gray-400">auto</span>
+                            )}
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min={lo}
+                          max={hi}
+                          value={value ?? Math.round((lo + hi) / 2)}
+                          disabled={sceneLocked}
+                          onChange={(e) => {
+                            // Guarded as well as disabled: the lock can arrive
+                            // while the control is focused (a background edit
+                            // finishing), and a keyboard drag would still fire.
+                            if (sceneLocked) return;
+                            const next = Number(e.target.value);
+                            setFontSizeEdits((prev) => {
+                              const key = `${selected}:${orientation}`;
+                              return {
+                                ...prev,
+                                [key]: { ...(prev[key] ?? {}), [axis]: next },
+                              };
+                            });
+                          }}
+                          className="h-1.5 w-full cursor-pointer appearance-none bg-transparent accent-violet-600 disabled:cursor-not-allowed disabled:opacity-40 [&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-gray-200 [&::-webkit-slider-thumb]:-mt-1 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-violet-600 [&:disabled::-webkit-slider-thumb]:bg-gray-300 [&::-moz-range-track]:h-1 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-gray-200 [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-violet-600 [&:disabled::-moz-range-thumb]:bg-gray-300"
+                          aria-label={`${label} size for ${orientation}`}
+                        />
+                      </div>
+                    );
+                  })}
+                  <p className="text-[10px] text-gray-400">
+                    {sceneLocked
+                      ? "This scene has a pending draft — apply or discard it to edit its type sizes."
+                      : "Sized automatically from this scene’s copy. Drag to override — videos use these unless the scene sets its own."}
+                  </p>
+                </div>
+              )}
 
+              {/* Saving is blocked while any scene is mid-decision — the
+                  reason surfaces on the button's own title rather than a
+                  separate card, since the Apply/Discard action for a locked
+                  scene is already visible at the top of its own preview. */}
               <button
                 onClick={() => void handleSaveTemplate()}
-                disabled={savingTemplate || !templateDirty || !name.trim()}
+                disabled={savingTemplate || !templateDirty || pendingDraftScenes.length > 0}
+                title={
+                  pendingDraftScenes.length > 0
+                    ? "Apply or discard the pending scene drafts before saving."
+                    : undefined
+                }
                 className="w-full rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {savingTemplate ? "Saving…" : "Save changes"}
@@ -1124,90 +1777,118 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
                 question of which scene it applied to. */}
             {selected === ALL_SCENES ? (
               <div className="border-t border-gray-100 pt-4 text-xs text-gray-500">
-                Pick a single scene on the left to rewrite it with AI.
+                Pick a single scene on the left, then use “Edit with AI” beside the
+                scene name to rewrite it.
               </div>
             ) : (
               <div className="flex flex-col border-t border-gray-100 pt-4">
-                {/* What actually went wrong with THIS scene. The banner says
-                    which scenes are flagged; this says why, at the point where
-                    the user is about to describe a fix. */}
-                <label className="mb-2 block text-sm font-medium text-gray-900">
-                  Describe the change
-                </label>
-                <textarea
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  disabled={busy}
-                  rows={5}
-                  maxLength={2000}
-                  placeholder="e.g. Make this a full-bleed image with the headline in the lower left and a section number top right"
-                  className="mb-3 w-full resize-none rounded-xl border border-gray-200 p-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100 disabled:bg-gray-50"
-                />
-                <label className="mb-4 flex items-start gap-2 text-xs text-gray-600">
-                  <input
-                    type="checkbox"
-                    checked={keepGeometry}
-                    onChange={(e) => setKeepGeometry(e.target.checked)}
-                    disabled={busy}
-                    className="mt-0.5 accent-violet-600"
-                  />
-                  Keep the current layout (change details only)
-                </label>
-
-                <button
-                  onClick={() => void startEdit()}
-                  disabled={busy || !prompt.trim()}
-                  className="mb-3 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {/* Distinct from the Retry control under the preview: that one
-                      rebuilds from the blueprint, this applies the user's own
-                      instruction. Same label for both read as one action. */}
-                  {busy ? "Processing…" : "Apply my change"}
-                </button>
-
-                {busy && (
-                  <p className="mb-3 text-xs text-gray-500">
-                    This usually takes a minute or two.
+                {/* The "regenerating" status lives under the preview, next to
+                    the scene it describes; Apply/Discard for a ready draft
+                    lives at the top of the preview, in the same spot "Edit
+                    with AI" occupies otherwise — so this column only points
+                    at those, rather than duplicating either. */}
+                {!draft && !isRunning(selected) && (
+                  <p className="text-xs text-gray-500">
+                    Use “Edit with AI” beside the scene name to describe a change to
+                    this scene.
                   </p>
                 )}
 
                 {draft && (
-                  // Sits directly under the regenerate button rather than being
-                  // pushed to the bottom of the sidebar with `mt-auto`: the
-                  // draft is the result of the action just taken, and parking
-                  // its Apply/Discard a screen away from that action left a
-                  // large empty gap between the two.
-                  //
-                  // Unboxed — no border or fill — so it reads as inline copy
-                  // under that action rather than a separate callout. The amber
-                  // text is what marks it as a pending state needing a decision.
-                  <div className="px-1">
-                    <p className="mb-3 text-xs text-amber-600">
-                      A draft is ready. It won't affect your videos until you apply it.
-                    </p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => void handleApply()}
-                        disabled={busy}
-                        className="flex-1 rounded-lg bg-violet-600 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
-                      >
-                        Apply
-                      </button>
-                      <button
-                        onClick={() => void handleDiscard()}
-                        disabled={busy}
-                        className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
-                      >
-                        Discard
-                      </button>
-                    </div>
-                  </div>
+                  <p className="text-xs text-amber-600">
+                    A draft is ready — use Apply or Discard above the preview. It
+                    won&rsquo;t affect your videos until you apply it.
+                  </p>
                 )}
               </div>
             )}
           </aside>
         </div>
       </div>
+
+      {/* Both modals sit INSIDE this portal, above the editor's own z-50 — the
+          editor is already the top layer, so a second portal would only add a
+          stacking context to reason about. */}
+      {aiOpen && selected !== ALL_SCENES && (
+        <div className="absolute inset-0 z-[60] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setAiOpen(false)}
+          />
+          <div className="relative w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
+            <h3 className="mb-1 text-sm font-semibold text-gray-900">
+              Edit “{selectedLabel}” with AI
+            </h3>
+            <p className="mb-3 text-xs text-gray-500">
+              Describe the change. The scene keeps regenerating if you close this —
+              watch the scene list for progress.
+            </p>
+            <textarea
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              rows={5}
+              maxLength={2000}
+              autoFocus
+              placeholder="e.g. Make this a full-bleed image with the headline in the lower left and a section number top right"
+              className="mb-3 w-full resize-none rounded-xl border border-gray-200 p-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
+            />
+            <div className="mt-1 flex items-center gap-3">
+              {/* Cost and balance, stated before the user commits. A fallback
+                  scene is free — they should not pay to fix a scene we failed to
+                  generate — and that is enforced server-side, not just here.
+                  `min-w-0` so a long line wraps instead of shoving the buttons
+                  out of the modal. */}
+              <p className="min-w-0 flex-1 text-xs text-gray-400">
+                {selectedEditIsFree ? (
+                  <>
+                    <span className="font-medium text-emerald-600">Free</span> —
+                    this scene didn&rsquo;t generate cleanly.
+                  </>
+                ) : (
+                  <>
+                    Costs{" "}
+                    <span className="font-medium text-gray-600">
+                      {SCENE_AI_EDIT_CREDIT_COST} AI edit credit
+                      {SCENE_AI_EDIT_CREDIT_COST === 1 ? "" : "s"}
+                    </span>{" "}
+                    · {formatAiEditCreditsDisplay(aiEditCreditsRemaining)} remaining
+                    {!canAffordSelectedEdit && (
+                      <>
+                        {" "}
+                        ·{" "}
+                        <span className="font-medium text-amber-600">
+                          not enough credits
+                        </span>
+                      </>
+                    )}
+                  </>
+                )}
+              </p>
+              <button
+                type="button"
+                onClick={() => setAiOpen(false)}
+                className="shrink-0 rounded-xl px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  // Close immediately: the job runs in the background and the
+                  // scene list carries the progress, so holding a spinner in a
+                  // modal would only trap the user for a minute or more.
+                  void startEdit();
+                  setAiOpen(false);
+                }}
+                disabled={!prompt.trim() || isRunning(selected) || !canAffordSelectedEdit}
+                className="shrink-0 rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Apply my change
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>,
     document.body,
   );

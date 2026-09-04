@@ -29,7 +29,7 @@ import { isBuiltinDataVizChartLayout, isBuiltinTickerLayout } from "./sceneEditB
 import { mergeLayoutSchemaDefaults } from "../utils/mergeLayoutSchemaDefaults";
 import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { getTemplateConfig, normalizeBuiltInTemplateId } from "./remotion/templateConfig";
-import { resolveFontFamily } from "../fonts/registry";
+import { cssFamilyFromName, resolveFontFamily } from "../fonts/registry";
 import { getPlaybackSpeed, getSceneDurationFrames } from "./remotion/playbackSpeed";
 import { computeChronicleVideoTotalFrames } from "./remotion/chronicle/ChronicleVideoComposition";
 import { computeSakuraVideoTotalFrames } from "./remotion/sakura/SakuraVideoComposition";
@@ -59,7 +59,18 @@ import {
   derivePalette,
   enforceTheme,
   variantFromSeed,
+  withAlpha,
+  resolveTypeSizes,
+  resolveTypeExactness,
+  TypeTierProvider,
+  BodySizeScope,
+  eyebrowRepeatsHeadline,
+  sanitizeSceneProps,
 } from "./remotion/generated/kit";
+import {
+  sceneFontConfig,
+  type SceneFontDefaults,
+} from "../utils/sceneFontDefaults";
 
 /**
  * Stock-footage clip player for the live preview — mirrors
@@ -259,6 +270,7 @@ function PreviewSceneVisual({
   videoVolume,
   imageObjectPosition,
   imageZoom,
+  imageMode,
 }: {
   SceneComp: React.ComponentType<Record<string, unknown>>;
   sceneProps: SceneProps;
@@ -269,8 +281,21 @@ function PreviewSceneVisual({
   videoVolume?: number;
   imageObjectPosition?: string;
   imageZoom: number;
+  imageMode?: "background" | "half" | null;
 }) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+
+  /* Soften a FULL-BLEED image or clip so the copy on top stays readable.
+   * KEEP IDENTICAL to GeneratedVideo.tsx — preview and export must not diverge.
+   * See the comment there for why this lives in the wrapper, why it triggers on
+   * a clip regardless of the declared mode, and why a still and a clip need two
+   * different placements. */
+  const scrimColor = withAlpha(
+    derivePalette(colorsFromBrand(sceneProps.brandColors)).bg,
+    0.32,
+  );
+  const wantsScrim = imageMode === "background" || (!!videoUrl && imageMode !== "half");
+  const BACKDROP_BLUR = "blur(7px)";
 
   /* Snap any off-theme colour the scene painted back onto the brand palette.
    * KEEP IDENTICAL to GeneratedVideo.tsx — preview and export must not diverge.
@@ -311,8 +336,25 @@ function PreviewSceneVisual({
         * stays inside the slot the layout gave it.
         *
         * KEEP IDENTICAL to GeneratedVideo.tsx — player and export must not
-        * diverge. */}
-      <style>{`[data-scene-wrapper] img:not([data-logo]){object-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}[data-scene-wrapper] [data-content-img]{object-position:var(--img-pos,50% 50%) !important;background-position:var(--img-pos,50% 50%) !important;overflow:hidden !important;}[data-scene-wrapper] [data-scenecomp-layer]{background:transparent !important;}[data-scene-wrapper] [data-scenecomp-layer]>*{background:transparent !important;}[data-scene-wrapper] [data-scenecomp-layer] div[style*="width:100%"][style*="height:100%"][style*="position:absolute"]{background:transparent !important;background-color:transparent !important;}`}</style>
+        * diverge.
+        *
+        * The [data-content-img]-targeting rules (added alongside the sibling
+        * neutraliser above) close a gap that let an opaque clip slot ship: the
+        * sibling rule explicitly excludes [data-content-img] itself (a still
+        * image needs to keep its own placeholder tint/backdrop while the <Img>
+        * loads), but that exemption also protected an opaque fill painted
+        * DIRECTLY on the slot itself or a div nested inside it — e.g.
+        * `<div data-content-img style={{backgroundColor: ...}}><Img .../><div
+        * style={{position:'absolute', inset:0, background: gradient}}/></div>`.
+        * When hasVideo is true there is no <Img>, so that fill (and any nested
+        * absolutely-positioned overlay meant to sit ON TOP of the image) is the
+        * only thing painted in the slot — sitting directly over the clip
+        * underneath at zIndex 0, blanking it out completely (observed on
+        * template custom_201's content_1 "Detail" layout: the clip played,
+        * correctly positioned, invisible under the slot's own placeholder
+        * tint + gradient overlay). Scoped to data-has-clip so a real still
+        * image's own slot styling is untouched. */}
+      <style>{`[data-scene-wrapper] img:not([data-logo]){object-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}[data-scene-wrapper] [data-content-img]{object-position:var(--img-pos,50% 50%) !important;background-position:var(--img-pos,50% 50%) !important;overflow:hidden !important;}[data-scene-wrapper] [data-scenecomp-layer]{background:transparent !important;}[data-scene-wrapper] [data-scenecomp-layer]>*{background:transparent !important;}[data-scene-wrapper] [data-scenecomp-layer] div[style*="width:100%"][style*="height:100%"][style*="position:absolute"]{background:transparent !important;background-color:transparent !important;}${videoUrl ? '[data-scene-wrapper][data-has-clip] [data-scenecomp-layer] div[style*="position:absolute"]:not([data-content-img]):not([data-keep-fill]){background:transparent !important;background-color:transparent !important;}[data-scene-wrapper][data-has-clip] [data-content-img]:not([data-keep-fill]){background:transparent !important;background-color:transparent !important;background-image:none !important;}[data-scene-wrapper][data-has-clip] [data-content-img]:not([data-keep-fill]) *:not(img):not([data-keep-fill]){background:transparent !important;background-color:transparent !important;}' : ''}`}</style>
       {/* The brand canvas — KEEP IDENTICAL to GeneratedVideo.tsx's SceneVisual.
           The CSS above neutralises the scene's own root fill (direct child
           only, so panels keep theirs) and this paints the real canvas, so every
@@ -320,6 +362,9 @@ function PreviewSceneVisual({
           generated code set. Preview and export must not diverge. */}
       <div
         data-scene-wrapper
+        // Scopes the nested-fill neutraliser above to clip scenes only, so a
+        // still-image or plain scene keeps every fill its design intended.
+        data-has-clip={videoUrl ? "1" : undefined}
         ref={wrapperRef}
         style={{
           width: "100%",
@@ -351,6 +396,29 @@ function PreviewSceneVisual({
             />
           </div>
         )}
+        {/* Treatment for a full-bleed CLIP: above the video, below the scene.
+            backdropFilter blurs everything already painted beneath it, which is
+            the clip; the background is the light wash over that. */}
+        {wantsScrim && videoUrl && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              zIndex: 0,
+              backdropFilter: BACKDROP_BLUR,
+              WebkitBackdropFilter: BACKDROP_BLUR,
+              background: scrimColor,
+              pointerEvents: "none",
+            }}
+          />
+        )}
+        {/* Treatment for a full-bleed STILL, which the scene draws itself.
+            Scoped to the image slot so type outside it is unaffected: the blur
+            goes on the <img> (backdropFilter cannot reach a sibling that paints
+            later), and the ::after lays the wash over it. */}
+        {wantsScrim && !videoUrl && sceneProps.imageUrl && (
+          <style>{`[data-scene-wrapper] [data-content-img]{position:relative;}[data-scene-wrapper] [data-content-img] img{filter:${BACKDROP_BLUR};}[data-scene-wrapper] [data-content-img]::after{content:"";position:absolute;inset:0;background:${scrimColor};pointer-events:none;z-index:2;}`}</style>
+        )}
         {/* data-scenecomp-layer: when a clip is active, force this layer's own
             background AND its direct child's background-color to transparent
             — some generated components correctly gate their inner decorative
@@ -381,6 +449,9 @@ const StableCustomComposition: React.FC<any> = ({
   scenes,
   project,
   numContentVariants,
+  customDesignVersion,
+  customImageModes,
+  customSceneFontDefaults,
   resolvedFontFamily,
   captionsEnabled,
   captionFontFamily,
@@ -423,9 +494,31 @@ const StableCustomComposition: React.FC<any> = ({
   );
 
   // Font props: user override (resolvedFontFamily) takes precedence over template theme fonts.
+  //
+  // Both are resolved to a real CSS family before use. `custom_theme.fonts`
+  // holds a registry ID ("dm_sans", written there by apply_blueprint_to_theme)
+  // or a raw extractor guess ("Cormorant Garamond") — NEITHER is a loadable CSS
+  // family. Passing one through named a font nothing had loaded, so the browser
+  // fell back to its default serif and every custom-template project rendered in
+  // Times regardless of the template's typeface.
+  //
+  // cssFamilyFromName is the same helper the gallery preview uses
+  // (CustomPreview.tsx), and it appends a sans-serif fallback when it cannot
+  // resolve a name — which is what stops the silent drop to a UA serif. The
+  // render path does the equivalent via _first_renderable + resolveFontFamily,
+  // so preview and export now agree.
+  //
+  // Only resolved when a name actually exists: cssFamilyFromName returns the
+  // bare "sans-serif" fallback for a nullish name, so calling it unconditionally
+  // would pin every font-less template to sans-serif instead of letting it
+  // inherit the composition's own family.
   const themeFonts = project.custom_theme?.fonts;
-  const headingFont = resolvedFontFamily || themeFonts?.heading || undefined;
-  const bodyFont = resolvedFontFamily || themeFonts?.body || undefined;
+  const headingFont =
+    resolvedFontFamily ||
+    (themeFonts?.heading ? cssFamilyFromName(themeFonts.heading) : undefined);
+  const bodyFont =
+    resolvedFontFamily ||
+    (themeFonts?.body ? cssFamilyFromName(themeFonts.body) : undefined);
 
   const aspectRatio = (project.aspect_ratio || "landscape") as "landscape" | "portrait";
   const totalScenes = scenes.length;
@@ -450,7 +543,15 @@ const StableCustomComposition: React.FC<any> = ({
   // result afterwards is what keeps a lone middle scene rendering as content-with-the-
   // right-variant instead of an intro.
   const fullSceneCount = project.scenes?.length ?? scenes.length;
-  const allSceneAssignments: { type: string; variantKey: string }[] = [];
+  // `variantIdx` is carried alongside variantKey so the per-scene font defaults
+  // can be looked up by the variant that actually RENDERS the scene, the same
+  // way services/remotion.py keys them. Deriving it by parsing "content_2" back
+  // out of variantKey would be a second source of truth for the same number.
+  const allSceneAssignments: {
+    type: string;
+    variantKey: string;
+    variantIdx?: number;
+  }[] = [];
   let contentIdx = 0;
   for (let i = 0; i < fullSceneCount; i++) {
     const scene = project.scenes[i];
@@ -484,10 +585,29 @@ const StableCustomComposition: React.FC<any> = ({
 
     if (sceneType === "content") {
       if (variantIdx === 0 && !scene?.remotion_code?.includes("contentVariantIndex")) {
-        variantIdx = numContentVariants > 0 ? contentIdx % numContentVariants : 0;
+        // Prefer the SERVER's answer over re-deriving one.
+        //
+        // `custom_scene_layouts` is _resolve_custom_scene_types' result — the
+        // same function the exported MP4 and the scene card use — so reading it
+        // is what makes preview, card and video agree. The round-robin below is
+        // positional and ignores the archetypes' `best_for` entirely, so it
+        // agreed with the render only by luck; a project showed one layout in
+        // the preview and rendered another until a first render wrote
+        // contentVariantIndex back into the descriptor.
+        const served = project.custom_scene_layouts?.[i];
+        const m = typeof served === "string" ? served.match(/^content_(\d+)$/) : null;
+        if (m) {
+          variantIdx = parseInt(m[1], 10);
+        } else {
+          variantIdx = numContentVariants > 0 ? contentIdx % numContentVariants : 0;
+        }
       }
       contentIdx++;
-      allSceneAssignments.push({ type: "content", variantKey: `content_${variantIdx}` });
+      allSceneAssignments.push({
+        type: "content",
+        variantKey: `content_${variantIdx}`,
+        variantIdx,
+      });
     } else {
       allSceneAssignments.push({ type: sceneType, variantKey: sceneType });
     }
@@ -518,8 +638,11 @@ const StableCustomComposition: React.FC<any> = ({
       : null,
   );
 
+  // The root falls back to the TEMPLATE's body font, not to nothing: a project
+  // with no font override of its own should still inherit the template's
+  // typeface, the same way GeneratedVideo's root does.
   return (
-    <AbsoluteFill style={{ fontFamily: resolvedFontFamily || undefined }}>
+    <AbsoluteFill style={{ fontFamily: resolvedFontFamily || bodyFont || undefined }}>
       <TransitionSeries>
       {scenes.map((s: any, i: number) => {
         const assignment = sceneAssignments[i];
@@ -545,7 +668,7 @@ const StableCustomComposition: React.FC<any> = ({
         // hard-fails real CLI renders. Omit imageUrl for a clip scene —
         // PreviewClipSlotOverlay renders the clip itself (see below).
         const videoUrl: string | undefined = s.videoUrl;
-        const sceneProps: SceneProps = {
+        const sceneProps: SceneProps = sanitizeSceneProps({
           // The three text fields are DISTINCT and must stay that way:
           //   sceneTitle  — the scene's short title  (Scene.title)
           //   displayText — the on-screen copy       (Scene.display_text)
@@ -556,8 +679,43 @@ const StableCustomComposition: React.FC<any> = ({
           // put the VOICEOVER SCRIPT on screen as the headline, and the title
           // was never shown at all. Use display_text directly and fall back to
           // the title (a short label) rather than to the narration (a paragraph).
-          sceneTitle: s.title || "",
-          displayText: s.displayText || s.narration || "",
+          // Never hand a scene the SAME string in both fields. A scene renders
+          // sceneTitle as a small eyebrow above the displayText headline, so a
+          // duplicate paints one line twice at two sizes — the intro defect.
+          // The headline wins; the eyebrow is dropped. Mirrors the same guard in
+          // GeneratedVideo.tsx.
+          // PREFIX, not equality — see kit/typeBands.ts. Titles are routinely
+          // the opening clause of the display text, which the old exact test
+          // let through, so the frame painted the same sentence twice.
+          //
+          // The fallback is the TITLE, never `s.narration`. `narration` is
+          // display-text-or-VOICEOVER (see remotion.py), so a scene with empty
+          // display_text showed its title in the export and the whole voiceover
+          // paragraph in the preview — the two surfaces disagreeing about what
+          // the headline even is. KEEP IDENTICAL to GeneratedVideo.tsx.
+          //
+          // WHICH FIELD SURVIVES A COLLISION FLIPS WITH THE DESIGN VERSION.
+          // v3 binds titleFontSize to sceneTitle and makes the title the
+          // scene's main label, so the TITLE is what always paints and the
+          // display text is what drops. v1/v2 scenes render displayText as the
+          // headline with the title as a small eyebrow, so there it is the
+          // other way round — dropping the headline would blank the frame.
+          ...((customDesignVersion ?? 1) >= 3
+            ? {
+                sceneTitle: s.title || s.displayText || "",
+                displayText: eyebrowRepeatsHeadline(
+                  s.title || s.displayText || "",
+                  s.displayText || "",
+                )
+                  ? ""
+                  : s.displayText || "",
+              }
+            : {
+                sceneTitle: eyebrowRepeatsHeadline(s.title, s.displayText || s.title)
+                  ? ""
+                  : s.title || "",
+                displayText: s.displayText || s.title || "",
+              }),
           // The scene's OWN narration, not a second copy of the headline.
           //
           // This read `s.narration || ""` — the same value displayText gets — so
@@ -592,23 +750,93 @@ const StableCustomComposition: React.FC<any> = ({
           comparisonRight: sc.comparisonRight as SceneProps["comparisonRight"],
           timelineItems: sc.timelineItems as SceneProps["timelineItems"],
           steps: sc.steps as string[] | undefined,
-          // The two typography sliders are deliberately CROSSED — see the same
-          // remap in remotion-video/src/templates/generated/GeneratedVideo.tsx.
-          // Generated scene code binds props.titleFontSize to the HEADLINE, so
-          // the "Display text" slider drives it while the "Title" slider drives
-          // the eyebrow (props.sceneTitle) via sceneTitleFontSize. Preview and
-          // render must agree, so this mirror is not optional.
-          sceneTitleFontSize: (s.layoutConfig as any)?.titleFontSize as number | undefined,
-          titleFontSize: (s.layoutConfig as any)?.descriptionFontSize as number | undefined,
-          descriptionFontSize: (s.layoutConfig as any)?.descriptionFontSize as number | undefined,
+          // Type sizes, CLAMPED to the bands the generator enforces.
+          //
+          // Which band sizes which element is easy to get backwards, so it
+          // lives in one documented place: see kit/typeBands.ts.
+          // `titleFontSize` is named for history — it sizes props.displayText,
+          // and every stored scene already reads it that way.
+          //
+          // A size stored on a scene was never checked on the way back out, so
+          // a value chosen under an older prop mapping could drive an element
+          // it was never meant to — one real scene carries titleFontSize 139,
+          // 1.6x the landscape headline ceiling, picked as an EYEBROW size
+          // before the crossed remap was removed. Clamping on READ repairs
+          // every such row with no migration.
+          //
+          // KEEP IDENTICAL to its twin — preview and export must not diverge
+          // on type size. Both call the same function for that reason.
+          //
+          // The template's stored per-scene defaults go UNDER the scene's own
+          // layoutConfig, so an explicit slider value still wins. Without them
+          // this preview fell through to the literal baked into the generated
+          // code while the MP4 used the stored default (services/remotion.py
+          // injects it the same way) — the two surfaces showed different type
+          // sizes for the same scene.
+          ...resolveTypeSizes(
+            {
+              ...sceneFontConfig(
+                customSceneFontDefaults,
+                {
+                  sceneType: assignment.type,
+                  contentVariantIndex: assignment.variantIdx,
+                  // The FULL-PROJECT position, not `i`.
+                  //
+                  // `scenes` is sliced to one entry in single-scene preview
+                  // mode, so `i`/`scenes.length` would be 0/1 — and
+                  // sceneFontEntry reads `index === 0` as the INTRO whenever
+                  // sceneType is absent. Previewing an outro on its own
+                  // therefore resolved the intro's font defaults. Bookend-only
+                  // by construction, which is why it survived: a content scene
+                  // always carries a sceneType and short-circuits first.
+                  index: sceneOnlyIndex ?? i,
+                  total: project.scenes?.length ?? scenes.length,
+                },
+                aspectRatio,
+              ),
+              ...((s.layoutConfig as Record<string, unknown> | undefined) ?? {}),
+            },
+            aspectRatio,
+            customDesignVersion ?? 1,
+          ),
           headingFont,
           bodyFont,
-        };
+          // Per-layout props the layout declared and the user edited (P3).
+          //
+          // KEEP IDENTICAL to GeneratedVideo.tsx — the export forwards this and
+          // the preview did not, so a scene read `props.layoutProps` as
+          // undefined here and fell through to the literals baked into its
+          // generated code (`props.layoutProps?.kicker ?? "KEY POINT"`). The
+          // value was saved, the modal showed it, the MP4 rendered it — only
+          // this surface disagreed. `s.layoutProps` is already merged
+          // defaults-under-stored, so the user's value wins wherever one exists
+          // and the code's default still applies wherever one does not.
+          layoutProps: s.layoutProps,
+          // The closing CTA + socials. Only the final scene carries these, and
+          // only a v2 outro renders them itself — a v1 outro is replaced by
+          // CtaOverlay below and would ignore them anyway. Without this a v2
+          // outro renders its designed layout with an EMPTY call-to-action,
+          // which is worse than the overlay it replaced.
+          ctaProps: s.ctaProps,
+        // Structured content is model-generated and has shipped in shapes the
+        // prop contract does not declare — quoteAuthor as {name,role}, bullets
+        // as [{lead,detail}] — which crash correct scene code and, through the
+        // error boundary, take down the whole composition. The generator is
+        // fixed at the source; this repairs rows already stored.
+        } as SceneProps);
 
         // console.log(`[F7-DEBUG] [CustomComp] scene ${i}: displayText=${sceneProps.displayText?.substring(0,60)}, contentType=${sceneProps.contentType}, bullets=${sceneProps.bullets?.length}`);
+        // v1: the overlay REPLACES the generated outro — that template's outro
+        // was built expecting it and renders no CTA or socials of its own, so
+        // it must keep getting the overlay or its ending would be empty.
+        // v2: the outro composes ctaProps itself, so it renders like any other
+        // scene and the template's own ending is what ships. Mirrors
+        // GeneratedVideo.tsx:633 exactly — this preview must not show an
+        // ending the exported video does not have.
+        const usesCtaOverlay = !!s.ctaProps && (customDesignVersion ?? 1) < 2;
         const visual = !SceneComp ? (
           <AbsoluteFill />
-        ) : s.ctaProps ? (
+        ) : usesCtaOverlay ? (
           <CtaOverlay
             ctaProps={s.ctaProps as any}
             brandColors={brandColors}
@@ -629,6 +857,9 @@ const StableCustomComposition: React.FC<any> = ({
             videoVolume={s.videoVolume ?? 0.35}
             imageObjectPosition={sceneProps.imageObjectPosition}
             imageZoom={imageZoom}
+            // Keyed by the variant that actually renders this scene, so the
+            // preview scrims exactly the scenes the export does.
+            imageMode={customImageModes?.[assignment.variantKey]}
           />
         );
 
@@ -643,9 +874,32 @@ const StableCustomComposition: React.FC<any> = ({
               {/* Mirrors GeneratedVideo — the eyebrow size is ambient because
                   generated scenes never forward it. */}
               <EyebrowSizeProvider size={sceneProps.sceneTitleFontSize}>
-                {/* Mirrors GeneratedVideo — preview and render must resolve the
-                    same structural variant or the preview lies about the video. */}
-                <KitVariantProvider variant={kitVariant}>{visual}</KitVariantProvider>
+                {/* Which of the two sizes THIS user set explicitly, and a
+                    per-scene registry the body publishes its rendered size into
+                    so the title can clear it. Both are read by FitText, so an
+                    already-generated scene gets literal sizing and a guaranteed
+                    hierarchy without being regenerated. Per SCENE, not global:
+                    two scenes overlap during a transition, and a title must
+                    never be floored against the body it is dissolving into.
+                    KEEP IDENTICAL to GeneratedVideo.tsx. */}
+                <TypeTierProvider
+                  value={{
+                    ...resolveTypeExactness(s.layoutConfig),
+                    // The two RESOLVED sizes, so a FitText can tell which tier it
+                    // is. Generated code passes a bare number and cannot label
+                    // itself without regenerating every stored template; these are
+                    // what it is matched against.
+                    titleSize: sceneProps.titleFontSize,
+                    descriptionSize: sceneProps.descriptionFontSize,
+                  }}
+                >
+                  <BodySizeScope>
+                    {/* Mirrors GeneratedVideo — preview and render must resolve
+                        the same structural variant or the preview lies about
+                        the video. */}
+                    <KitVariantProvider variant={kitVariant}>{visual}</KitVariantProvider>
+                  </BodySizeScope>
+                </TypeTierProvider>
               </EyebrowSizeProvider>
             </SceneDurationInFramesContext.Provider>
           </TransitionSeries.Sequence>
@@ -688,6 +942,8 @@ const StableCustomComposition: React.FC<any> = ({
         ) : null,
       )}
 
+      {/* One corner watermark across EVERY scene, sized as a fraction of the
+        * canvas so it scales with the frame. No scene draws its own logo. */}
       {project.logo_r2_url && (
         <AbsoluteFill style={{ zIndex: 20, pointerEvents: "none" }}>
           <LogoOverlay
@@ -714,6 +970,48 @@ const StableCustomComposition: React.FC<any> = ({
   );
 };
 
+/**
+ * A custom template's code handed to the preview directly, so it can compile
+ * without re-fetching what the caller already has.
+ *
+ * EXPORTED, AND THE ONLY DEFINITION. Three components pass this payload down to
+ * VideoPreview, and each used to re-declare its own narrower inline shape. Every
+ * field VideoPreview reads but a caller's copy omitted then silently arrived as
+ * undefined — the preview fell back to a default and disagreed with the rest of
+ * the editor. That happened with `design_version` (built-in CTA overlaid on a v2
+ * outro) and again with `scene_font_defaults` (generated code's literal type
+ * size instead of the template's own). One shared type means adding a field here
+ * is a compile error at every caller that drops it, instead of a silent
+ * fallback.
+ */
+export interface PrecompiledTemplateData {
+  intro_code: string | null;
+  content_codes: string[] | null;
+  outro_code: string | null;
+  /**
+   * design_blueprint.version — decides who renders the ending (see
+   * customDesignVersion). Optional: a caller that cannot supply it falls back
+   * to 1, which is the pre-v2 behaviour and therefore always safe.
+   */
+  design_version?: number;
+  /**
+   * Per-scene default type sizes. Read via an `as` cast below, so an omission
+   * is silently `null` rather than a compile error — which is exactly why it
+   * belongs in this shared type.
+   */
+  scene_font_defaults?: SceneFontDefaults | null;
+  /**
+   * Each layout's image mode, keyed by the variant that renders the scene.
+   *
+   * Decides whether a scene's media gets the blur+scrim treatment. Omitting it
+   * does not merely lose an enhancement: an undefined mode is indistinguishable
+   * from the legacy null the scrim heuristic deliberately falls back on, so a
+   * "half" scene carrying a clip got blurred as if it were full-bleed. It was
+   * absent here until `_serialize_template` began returning it.
+   */
+  image_modes?: Record<string, "background" | "half" | null>;
+}
+
 interface VideoPreviewProps {
   project: Project;
   /**
@@ -729,11 +1027,7 @@ interface VideoPreviewProps {
   onCaptionSettingsChange?: (settings: CaptionSettings) => void | Promise<void>;
   captionsSaving?: boolean;
   captionSettingsKey?: number;
-  precompiledTemplateData?: {
-    intro_code: string | null;
-    content_codes: string[] | null;
-    outro_code: string | null;
-  };
+  precompiledTemplateData?: PrecompiledTemplateData;
   /** Start the player at this frame and keep it paused there (for modal preview). */
   initialFrame?: number;
   /** Hide the Remotion playback controls bar. */
@@ -862,6 +1156,60 @@ function mergeMetaFontSizesIntoLayoutProps(
   if (hasTitle) next.titleFontSizeIsUserSet = true;
   if (hasDesc) next.descriptionFontSizeIsUserSet = true;
   return next;
+}
+
+/**
+ * Shape `ctaProps.ctas[]` so a generated outro renders what the editor
+ * configured. Two corrections, both compensating for the same thing: the scene
+ * is free-text JS an LLM wrote, so it may read a field under the wrong name or
+ * not read it at all.
+ *
+ *   - DROP entries the user disabled (`showWebsiteButton: false`). No generated
+ *     outro reads that flag — the codegen prompt never named it — so every
+ *     scene does `(props.ctaProps?.ctas ?? []).map(...)` and paints CTAs the
+ *     editor had switched off. v1 templates are unaffected because
+ *     GeneratedCtaOverlay filters on exactly this flag, which is why the toggle
+ *     worked there and silently did nothing on v2/v3 templates.
+ *   - ADD read-alias keys for the label/link: the written contract is
+ *     `ctaButtonText` + `websiteLink`, but one template read
+ *     `c.label ?? c.text` / `c.link ?? c.websiteLink` instead, rendering an
+ *     unlabeled button.
+ *
+ * Mirrors `_normalize_cta_props` in backend/app/services/remotion.py — same
+ * fix, same reasoning, kept in sync so the preview and the exported video agree.
+ */
+function normalizeCtaProps(ctaProps: Record<string, unknown>): Record<string, unknown> {
+  const ctas = ctaProps.ctas;
+  if (!Array.isArray(ctas) || ctas.length === 0) return ctaProps;
+  const normalizedCtas = ctas
+    .filter(
+      (entry) =>
+        !entry ||
+        typeof entry !== "object" ||
+        (entry as Record<string, unknown>).showWebsiteButton !== false,
+    )
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") return entry;
+      const e = entry as Record<string, unknown>;
+      const buttonText = e.ctaButtonText;
+      const websiteLink = e.websiteLink;
+      const merged = { ...e };
+      if (buttonText && !merged.label) merged.label = buttonText;
+      if (buttonText && !merged.text) merged.text = buttonText;
+      if (websiteLink && !merged.link) merged.link = websiteLink;
+      return merged;
+    });
+  const out: Record<string, unknown> = { ...ctaProps, ctas: normalizedCtas };
+  // Clear the LEGACY single-CTA mirror when nothing survives — the editor also
+  // writes ctaButtonText/websiteLink at the top level, and generated outros use
+  // it as a fallback (`ctas.length === 0 && props.ctaProps?.ctaButtonText`), so
+  // filtering the array alone would let the scene resurrect the disabled CTA.
+  if (normalizedCtas.length === 0) {
+    delete out.ctaButtonText;
+    delete out.websiteLink;
+    out.showWebsiteButton = false;
+  }
+  return out;
 }
 
 /**
@@ -1775,6 +2123,33 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
   // ─── Custom template: fetch + JIT-compile AI-generated scene code ─────
   const [compiledScenes, setCompiledScenes] = useState<CompiledSceneMap | null>(null);
   const [isCompiling, setIsCompiling] = useState(false);
+  /**
+   * Which generation drew this custom template (design_blueprint.version).
+   *
+   * v1 outros were built expecting the built-in CTA overlay to REPLACE them and
+   * draw no CTA of their own, so they must keep getting it. v2 outros compose
+   * the CTA and socials inside their own layout, so overlaying them throws away
+   * the ending the template actually designed. Mirrors GeneratedVideo.tsx's
+   * `templateDesignVersion` check — preview and render must agree or the
+   * preview lies about the video.
+   */
+  const [customDesignVersion, setCustomDesignVersion] = useState(1);
+  /**
+   * Each layout's image mode, keyed intro / content_N / outro.
+   *
+   * "background" scenes get a scrim over their image so the copy stays
+   * readable; "half" scenes do not, because their image sits beside the type.
+   * Empty for a template with no design blueprint, which applies no scrim —
+   * the behaviour before this existed.
+   */
+  const [customImageModes, setCustomImageModes] = useState<
+    Record<string, "background" | "half" | null>
+  >({});
+  // The template's per-scene DEFAULT type sizes. Merged under each scene's own
+  // layoutConfig below, so this preview resolves the same number the exported
+  // MP4 does; see utils/sceneFontDefaults.ts for why it lives in one place.
+  const [customSceneFontDefaults, setCustomSceneFontDefaults] =
+    useState<SceneFontDefaults | null>(null);
 
   const compileCustomTemplate = useCallback(async () => {
     if (!isCustom) return;
@@ -1789,6 +2164,18 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
         (ownerScopedProjectId != null
           ? (await getProjectTemplateCode(ownerScopedProjectId, templateId)).data
           : (await getTemplateCode(templateId)).data);
+      setCustomDesignVersion(
+        (data as { design_version?: number }).design_version ?? 1,
+      );
+      setCustomImageModes(
+        (data as {
+          image_modes?: Record<string, "background" | "half" | null>;
+        }).image_modes ?? {},
+      );
+      setCustomSceneFontDefaults(
+        (data as { scene_font_defaults?: SceneFontDefaults | null })
+          .scene_font_defaults ?? null,
+      );
       const map: CompiledSceneMap = {};
 
       // Compile intro
@@ -1812,6 +2199,12 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     } catch (err) {
       console.error("[VideoPreview] Failed to compile custom template:", err);
       setCompiledScenes(null);
+      // Back to the legacy ending rather than leaving a previous template's
+      // version in place: the overlay always renders something, whereas a v2
+      // assumption on an unknown template can produce an empty ending.
+      setCustomDesignVersion(1);
+      setCustomImageModes({});
+      setCustomSceneFontDefaults(null);
     } finally {
       setIsCompiling(false);
     }
@@ -2025,7 +2418,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
               structuredContent = descriptor.structuredContent;
             }
             if (descriptor.ctaProps) {
-              ctaProps = descriptor.ctaProps;
+              ctaProps = normalizeCtaProps(descriptor.ctaProps);
             }
             // Custom templates also store image controls in layoutProps.
             // Without this, imageFocusX/imageFocusY/imageZoom from remotion_code
@@ -2548,6 +2941,9 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
             scenes,
             project,
             numContentVariants,
+            customDesignVersion,
+            customImageModes,
+            customSceneFontDefaults,
             resolvedFontFamily,
             sceneOnlyIndex,
             // A muted player has nothing to gain from mounting media elements,

@@ -225,11 +225,60 @@ def _inject_custom_theme(project: Project, db: Session | None = None) -> Project
             if bk:
                 brand_logo_url = _pick_reachable_brand_logo_url(bk.get("logos") or [])
         project.brand_logo_url = brand_logo_url or None
+
+        # The RESOLVED layout id per scene, in scene order.
+        #
+        # The frontend used to derive this from the descriptor alone, which
+        # cannot be done for a scene whose stored `contentVariantIndex` is null
+        # — the variant is chosen by archetype matching, which only the backend
+        # runs. Those scenes resolved to null, so the expanded row showed
+        # "Default layout" and, because an unknown layout reads as
+        # image-capable, offered an image picker on a text-only scene.
+        #
+        # Computing it here means both surfaces show what will ACTUALLY render,
+        # using the same resolver the render path uses, with no extra query —
+        # `data` is already loaded above.
+        project.custom_scene_layouts = None
+        project.custom_scene_supports_image = None
+        if data and is_custom_template(project.template):
+            try:
+                from app.services.remotion import (
+                    _custom_scene_layout_id,
+                    _resolve_custom_scene_types,
+                )
+
+                _scenes = [s for s in (project.scenes or []) if getattr(s, "is_active", True)]
+                _scenes.sort(key=lambda s: s.order)
+                if _scenes:
+                    _resolved = _resolve_custom_scene_types(project.template, _scenes, data)
+                    _layouts = [_custom_scene_layout_id(r) for r in _resolved]
+                    project.custom_scene_layouts = _layouts
+                    # And the ANSWER, not just the key.
+                    #
+                    # The UI otherwise has to wait on GET /projects/{id}/layouts
+                    # to learn which layouts take an image — a second request it
+                    # fires non-blocking, so the image controls were decided
+                    # before it landed. Resolving it here costs one cached meta
+                    # lookup and means the correct answer is available on first
+                    # paint.
+                    _no_image = get_layouts_without_image(project.template)
+                    project.custom_scene_supports_image = [
+                        bool(_l) and _l not in _no_image for _l in _layouts
+                    ]
+            except Exception:
+                # Advisory metadata — never fail a project load over it. The
+                # frontend falls back to its own descriptor-based resolver.
+                logger.exception(
+                    "[PROJECTS] custom scene layout resolution failed for project %s",
+                    project.id,
+                )
     else:
         project.custom_theme = None
         project.custom_image_box_aspect_ratios = None
         project.custom_template_missing = False
         project.brand_logo_url = None
+        project.custom_scene_layouts = None
+        project.custom_scene_supports_image = None
     return project
 
 
@@ -275,7 +324,10 @@ def _build_review_state(project: Project, user: User, db: Session) -> ReviewStat
 
 def _prepare_project_response(project: Project, user: User, db: Session) -> Project:
     from app.models.user import PAID_TIERS
-    _inject_custom_theme(project)
+    # Reuse the request's session. Without it _load_custom_template_data opens a
+    # short-lived SessionLocal of its own, so every project GET checked out an
+    # extra pooled connection for a query this caller could already serve.
+    _inject_custom_theme(project, db=db)
     project.review_state = _build_review_state(project, user, db)
     project.is_shared = _project_is_shared(project, db)
     # Expose the OWNER's paid-plan status so a collaborator gates premium features
@@ -650,12 +702,22 @@ def _build_ending_socials_props(project: Project, scene: Scene) -> dict:
     if not cta:
         cta = "Get started"
 
+    # `ctas` mirrors the pipeline's descriptor: the ending contract tells a
+    # generated outro to map this array, and without it a compliant scene draws
+    # no button at all. See the note at the pipeline's ctaProps write.
+    _cta_entry = {"ctaButtonText": cta}
+    if source_link:
+        _cta_entry["websiteLink"] = source_link
+
     return {
         "hideImage": True,
         "socials": existing_socials or socials,
-        "showWebsiteButton": bool(source_link),
+        # A labelled CTA is worth showing even with no link — bool(source_link)
+        # alone hid the button on every `upload://` project.
+        "showWebsiteButton": bool(source_link or cta),
         "websiteLink": source_link,
         "ctaButtonText": cta,
+        "ctas": [_cta_entry],
     }
 
 
@@ -773,21 +835,68 @@ def _run_project_template_change_job(job_id: int) -> None:
                 )
                 scene.preferred_layout = preferred_layout or None
 
+            # Same layout-first flow as the generation pipeline: extraction is
+            # told which layout each scene will render in, then the two are
+            # reconciled once. Without this the twin path re-introduced exactly
+            # the defect the pipeline was fixed for — bullets on the intro, and
+            # props a scene's layout was never built to hold.
+            from app.services.content_classifier import reconcile_layouts_and_content
+
+            _layout_best_for: dict = {}
+            _layout_content_types: dict = {}
+            _layout_prop_schemas: dict = {}
+            _meta: dict = {}
+            try:
+                from app.services.template_service import get_meta
+
+                _meta = get_meta(target_template) or {}
+                _layout_prop_schemas = {
+                    lid: (entry.get("fields") or [])
+                    for lid, entry in (_meta.get("layout_prop_schema") or {}).items()
+                    if isinstance(entry, dict)
+                }
+                _layout_best_for = _meta.get("layout_best_for") or {}
+                _layout_content_types = _meta.get("layout_content_types") or {}
+            except Exception:  # noqa: BLE001 — a missing meta must not block the change
+                _layout_best_for = {}
+                _layout_content_types = {}
+
             structured_contents = asyncio.run(
                 extract_structured_content_batch(
                     custom_scenes_data,
                     content_language=project.content_language or "English",
+                    layout_best_for=_layout_best_for,
+                    layout_prop_schemas=_layout_prop_schemas,
                 )
+            )
+            _reconciled = reconcile_layouts_and_content(
+                custom_scenes_data, structured_contents, _layout_content_types
             )
 
             for idx, scene in enumerate(scenes):
                 sc = structured_contents[idx] if idx < len(structured_contents) else {"contentType": "plain"}
-                scene.remotion_code = json.dumps(
-                    {
-                        "structuredContent": sc,
-                        "layoutConfig": {},
-                    }
-                )
+                _filled_props = sc.pop("__layoutProps", None) if isinstance(sc, dict) else None
+                _desc: dict = {
+                    "structuredContent": sc,
+                    "layoutConfig": {},
+                }
+                if isinstance(_filled_props, dict) and _filled_props:
+                    _desc["layoutProps"] = dict(_filled_props)
+                _lid = (
+                    _reconciled[idx].get("preferred_layout")
+                    if idx < len(_reconciled) else None
+                ) or ""
+                if _lid in ("intro", "outro"):
+                    _desc["sceneTypeOverride"] = _lid
+                elif _lid.startswith("content_"):
+                    try:
+                        _desc["contentVariantIndex"] = int(_lid.split("_", 1)[1])
+                        _desc["sceneTypeOverride"] = "content"
+                    except (ValueError, IndexError):
+                        pass
+                if _lid:
+                    scene.preferred_layout = _lid
+                scene.remotion_code = json.dumps(_desc)
                 if cancel_event.is_set():
                     logger.warning("[PROJECT_TEMPLATE_CHANGE] job=%s superseded by reaper; aborting", job_id)
                     return
@@ -4038,11 +4147,29 @@ def bulk_update_scene_typography(
 
         # Custom templates use layoutConfig; built-in templates (e.g. newscast) use layoutProps.
         if is_custom_template(project.template):
+            # Clamp to the USER bands on the way in.
+            #
+            # "Apply to all" was the one write path that never clamped: the
+            # per-scene sliders are bounded by their control, but this takes a
+            # raw number from a request body and wrote it to every scene. An
+            # out-of-band value then survived until something downstream
+            # repaired it on READ, so the stored project and what it rendered
+            # disagreed. Clamping here means the number the user sees in the
+            # editor is the number in the database is the number in the MP4.
+            from app.services.code_generator import _USER_BANDS
+
+            def _clamp(value: int, tier: str) -> int:
+                _o = "portrait" if project.aspect_ratio == "portrait" else "landscape"
+                lo, hi = _USER_BANDS[tier][_o]
+                return max(lo, min(hi, int(round(value))))
+
             layout_config = descriptor.get("layoutConfig") or {}
             if data.title_font_size is not None:
-                layout_config["titleFontSize"] = data.title_font_size
+                layout_config["titleFontSize"] = _clamp(data.title_font_size, "title")
             if data.description_font_size is not None:
-                layout_config["descriptionFontSize"] = data.description_font_size
+                layout_config["descriptionFontSize"] = _clamp(
+                    data.description_font_size, "description"
+                )
             descriptor["layoutConfig"] = layout_config
         else:
             # Merge into existing layoutProps — scenes already have layoutProps, so the old
@@ -5153,9 +5280,62 @@ def get_project_layouts(
         # its base before looking up either.
         "layouts_without_image": sorted(list(no_image_layouts)),
         "layout_prop_schema": schema,
+        # Per-content-type field defs (bullets, steps, metrics, …), so the
+        # editor renders structured content from the SAME definition the
+        # extractor writes against rather than its own hardcoded copy.
+        "content_prop_schema": (meta.get("content_prop_schema") if meta else None) or {},
+        # Layout id -> expected structuredContent.contentType (e.g.
+        # "content_6" -> "timeline"), so the editor can pre-select the right
+        # content type and show its (empty) fields the moment a scene lands on
+        # a layout it has no structuredContent for yet, instead of defaulting
+        # silently to "plain".
+        "layout_content_types": (meta.get("layout_content_types") if meta else None) or {},
         "layout_variants": layout_variants,
         "layout_variant_labels": variant_labels,
+        # Custom templates only: what the editor's Typography sliders need to
+        # tell the truth about a scene.
+        #
+        # `design_version` decides which text each size drives — v3 binds
+        # titleFontSize to the scene TITLE, v1/v2 bound it to the display text —
+        # so it decides how the two sliders are labelled. `scene_font_defaults`
+        # is the per-scene default each slider opens on; without it the editor
+        # fell through to a hardcoded 72/30 unrelated to the template, and
+        # because it DELETES a value equal to "the default", a user deliberately
+        # choosing 72 had it silently discarded.
+        **_custom_template_type_meta(project.template, user.id, db),
     }
+
+
+def _custom_template_type_meta(template: str, user_id: int, db: Session) -> dict:
+    """`design_version` + `scene_font_defaults` for a project's custom template.
+
+    Empty for built-in and crafted templates, which carry neither: their scenes
+    are hand-written and their typography defaults come from meta.json.
+    """
+    import json as _json
+
+    if not is_custom_template(template):
+        return {}
+    try:
+        from app.models.custom_template import CustomTemplate
+        from app.routers.custom_templates import _design_version
+
+        tpl_id = int(str(template).split("_", 1)[1])
+    except (ValueError, IndexError, ImportError):
+        return {}
+
+    tpl = (
+        db.query(CustomTemplate)
+        .filter(CustomTemplate.id == tpl_id, CustomTemplate.user_id == user_id)
+        .first()
+    )
+    if not tpl:
+        return {}
+    try:
+        fonts = _json.loads(tpl.scene_font_defaults) if tpl.scene_font_defaults else None
+    except (TypeError, ValueError):
+        fonts = None
+    return {"design_version": _design_version(tpl), "scene_font_defaults": fonts}
 
 
 def _sync_audio_filenames_to_order(db: Session, project: Project) -> None:
@@ -5665,7 +5845,21 @@ async def regenerate_scene(
 
     if is_variant_switch and not has_description:
         # Pure variant switch: update remotion_code with override, skip AI
+        # Local imports: pipeline pulls in the whole generation stack, and this
+        # module is imported at startup.
+        from app.routers.pipeline import _descriptor_layout_name
+        from app.services.content_classifier import refill_structured_content_for_layout
+
         descriptor = current_descriptor if current_descriptor else {}
+
+        # Capture the OLD layout id before the descriptor below is mutated, so
+        # any layoutProps keys that only the old layout's own declared schema
+        # owns can be dropped once the switch lands. Neither this switch nor
+        # the modal's manual save has ever pruned layoutProps on a layout
+        # change — they only merge new keys in — so a scene that switches
+        # layouts kept carrying the old layout's leftover props (e.g. a
+        # "statement" layout's `kicker`) forever.
+        _old_layout_id = _descriptor_layout_name(project.template, descriptor)
         if normalized_layout == "intro":
             descriptor["sceneTypeOverride"] = "intro"
             descriptor.pop("contentVariantIndex", None)
@@ -5700,6 +5894,109 @@ async def regenerate_scene(
             variant_idx = int(normalized_layout.split("_")[1])
             descriptor["sceneTypeOverride"] = "content"
             descriptor["contentVariantIndex"] = variant_idx
+
+            # Keep contentArchetype in step with the index.
+            #
+            # The switch never updated it, so a descriptor read "sequence" while
+            # its index pointed at versus until the next render recomputed it
+            # (remotion.py:240-245). The renderer routes on the INDEX so nothing
+            # rendered wrong, but the stale name is read for image-prompt context
+            # and shown as the scene's layout label — both of which then
+            # described a layout the scene had already left.
+            try:
+                _arch_ids = (
+                    _load_custom_template_data(
+                        project.template, db=db, user_id=project.user_id
+                    ) or {}
+                ).get("content_archetype_ids") or []
+                if 0 <= variant_idx < len(_arch_ids):
+                    _arch = _arch_ids[variant_idx]
+                    descriptor["contentArchetype"] = (
+                        _arch["id"] if isinstance(_arch, dict) else _arch
+                    )
+            except Exception:  # noqa: BLE001 — a label must never fail the switch
+                logger.exception(
+                    "[REGENERATE] could not stamp contentArchetype for scene %s → %s",
+                    scene.id, normalized_layout,
+                )
+
+            # RE-EXTRACT THE CONTENT FOR THE NEW LAYOUT.
+            #
+            # The switch used to rewrite contentVariantIndex and nothing else,
+            # so the scene kept its old structuredContent. Moving a `plain`
+            # scene onto the timeline layout left it with no timelineItems: the
+            # scene mapped an empty array, fell back to displayText, and printed
+            # the same sentence twice — once as the subtitle and once as the
+            # only "timeline" row.
+            #
+            # Same call generation uses, so a layout gets the shape it was
+            # designed for either way. Returns None when the narration cannot
+            # fill it, and the existing content then stands.
+            # AWAIT — never asyncio.run(). This endpoint is `async def`, so it
+            # runs ON the event loop, and asyncio.run() raises
+            # "cannot be called from a running event loop" SYNCHRONOUSLY, before
+            # the coroutine body executes. The bare `except` below then swallowed
+            # a hard RuntimeError, so every other statement in this block ran —
+            # contentVariantIndex moved, preferred_layout moved, layoutProps were
+            # pruned — and only structuredContent silently stayed on the old
+            # layout's shape. That is the whole "switched the layout, content did
+            # not follow" bug; the refill had never once executed.
+            try:
+                _refilled = await refill_structured_content_for_layout(
+                    template_id=project.template,
+                    layout_id=normalized_layout,
+                    title=scene.title or "",
+                    narration=scene.narration_text or "",
+                    visual_description=scene.visual_description or "",
+                    content_language=project.content_language or "English",
+                )
+            except Exception:  # noqa: BLE001 — a failed refill must not fail the switch
+                # LOUD. Swallowing this silently is what hid the bug above for the
+                # entire life of the feature.
+                logger.exception(
+                    "[REGENERATE] content refill failed for scene %s → %s; "
+                    "keeping the previous structuredContent",
+                    scene.id, normalized_layout,
+                )
+                _refilled = None
+            if _refilled:
+                descriptor["structuredContent"] = _refilled
+
+            # Drop layoutProps keys the OLD layout declared for itself that the
+            # NEW layout does not — e.g. a "statement" layout's `kicker` prop
+            # has no meaning once the scene is on "chronology" and would
+            # otherwise linger in the descriptor forever. Only prunes keys each
+            # layout's own `layout_prop_schema` entry claims; anything the
+            # modal manages separately (font sizes, image props, CTAs) isn't
+            # touched here.
+            _lp = descriptor.get("layoutProps")
+            if isinstance(_lp, dict) and _lp and _old_layout_id and _old_layout_id != normalized_layout:
+                try:
+                    _meta = get_meta(project.template) or {}
+                except Exception:  # noqa: BLE001
+                    _meta = {}
+                _schema = _meta.get("layout_prop_schema") or {}
+                _old_keys = {
+                    f.get("key")
+                    for f in (_schema.get(_old_layout_id) or {}).get("fields") or []
+                    if isinstance(f, dict) and f.get("key")
+                }
+                _new_keys = {
+                    f.get("key")
+                    for f in (_schema.get(normalized_layout) or {}).get("fields") or []
+                    if isinstance(f, dict) and f.get("key")
+                }
+                _stale_keys = _old_keys - _new_keys
+                if _stale_keys:
+                    descriptor["layoutProps"] = {
+                        k: v for k, v in _lp.items() if k not in _stale_keys
+                    }
+
+        # preferred_layout is a hint column several surfaces read; leaving it on
+        # the OLD layout made the scene disagree with itself.
+        _switched_lid = _descriptor_layout_name(project.template, descriptor)
+        if _switched_lid:
+            scene.preferred_layout = resolve_base_layout(project.template, _switched_lid)
 
         scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(descriptor))
         if hasattr(scene, "display_text"):
@@ -6009,6 +6306,9 @@ async def regenerate_scene(
                     )
         # If variant switch + description: stamp the variant override after AI regen
         if is_variant_switch and normalized_layout:
+            from app.routers.pipeline import _descriptor_layout_name
+            from app.services.content_classifier import refill_structured_content_for_layout
+
             if normalized_layout == "intro":
                 descriptor["sceneTypeOverride"] = "intro"
                 descriptor.pop("contentVariantIndex", None)
@@ -6019,6 +6319,31 @@ async def regenerate_scene(
                 variant_idx = int(normalized_layout.split("_")[1])
                 descriptor["sceneTypeOverride"] = "content"
                 descriptor["contentVariantIndex"] = variant_idx
+                # Same refill as the instant path above: the AI regen rewrote the
+                # scene's COPY, not its structured props, so a layout change here
+                # has the identical gap.
+                # await, not asyncio.run — see the note on the instant path above.
+                try:
+                    _refilled2 = await refill_structured_content_for_layout(
+                        template_id=project.template,
+                        layout_id=normalized_layout,
+                        title=scene.title or "",
+                        narration=scene.narration_text or "",
+                        visual_description=scene.visual_description or "",
+                        content_language=project.content_language or "English",
+                    )
+                except Exception:  # noqa: BLE001
+                    logger.exception(
+                        "[REGENERATE] content refill failed for scene %s → %s "
+                        "(post-AI path); keeping the previous structuredContent",
+                        scene.id, normalized_layout,
+                    )
+                    _refilled2 = None
+                if _refilled2:
+                    descriptor["structuredContent"] = _refilled2
+            _switched_lid2 = _descriptor_layout_name(project.template, descriptor)
+            if _switched_lid2:
+                scene.preferred_layout = resolve_base_layout(project.template, _switched_lid2)
 
         # Restore the scene's visual variant if the model stayed in the same
         # layout family. A regenerate is a request for new CONTENT, so the style

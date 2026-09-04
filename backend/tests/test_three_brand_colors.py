@@ -159,3 +159,56 @@ def test_the_filter_is_inert_without_a_resolvable_theme() -> None:
 
     css = ":root { --x: #c7dbea; }"
     assert _strip_offpalette_css(css, "no colours here") == css
+
+
+# ─── Gradient: solid by default, accent-tinted, never touches text ───────────
+
+
+def test_gradient_is_not_the_default() -> None:
+    """Nine of twelve templates were getting a gradient nobody asked for.
+
+    The old rule fired on `"gradients" in decorativeElements`, which the
+    extractor lists for almost any modern site. A gradient is now something the
+    user turns on in the editor, not something inferred from a weak signal.
+    """
+    from app.dspy_modules.theme_extractor import _decide_gradient
+
+    for decorative in (["gradients"], ["gradients", "dots"], [], ["accent-lines"]):
+        assert (
+            _decide_gradient({"patterns": {"layout": {"decorativeElements": decorative}}})
+            is False
+        )
+
+
+@pytest.mark.parametrize(
+    "bg,accent",
+    [
+        ("#0B0B0B", "#76B900"),  # NVIDIA — dark bg, light accent
+        ("#FFFFFF", "#635BFF"),  # Stripe — light bg, dark accent
+        ("#FFFFFF", "#00EB79"),  # same-pole case
+        ("#FAFAFA", "#E4002B"),
+        ("#0A0A0A", "#7DEE4F"),
+    ],
+)
+def test_bg2_is_accent_tinted_and_keeps_the_text_pole(bg: str, accent: str) -> None:
+    """The gradient must read as the brand's accent AND stay legible.
+
+    Four of five real brands have an accent on the opposite side of the
+    light/dark divide from their bg, and a gradient spanning that divide has no
+    text colour that works on both ends. So the stop walks toward the accent and
+    stops at the last tint that keeps bg's pole.
+    """
+    from app.dspy_modules.theme_extractor import _compute_bg2, _readable_pole
+
+    bg2 = _compute_bg2(bg, accent)
+    assert bg2.lower() != bg.lower(), "bg2 is not distinguishable from bg"
+    assert _readable_pole(bg2) == _readable_pole(bg), (
+        f"bg2 {bg2} crosses the light/dark divide from bg {bg} — no single text "
+        f"colour reads on both ends of that gradient"
+    )
+
+
+def test_bg2_falls_back_when_no_accent_is_given() -> None:
+    from app.dspy_modules.theme_extractor import _compute_bg2
+
+    assert _compute_bg2("#FFFFFF").lower() != "#ffffff"

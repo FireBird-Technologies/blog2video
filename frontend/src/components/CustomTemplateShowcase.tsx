@@ -4,6 +4,22 @@ import { getFeaturedPublicTemplates } from "../api/client";
 import CustomPreview from "./templatePreviews/CustomPreview";
 
 interface FeaturedTemplate {
+  /** design_blueprint.version — 2 means the outro renders its own CTA;
+   *  1 (or absent) means the CTA overlay replaces it. */
+  design_blueprint?: { version?: number } | null;
+  /** Showcase copy generated with the template; absent on older templates,
+   *  which fall back to the preview's own sample generator. */
+  scene_sample_content?: {
+    intro?: Record<string, unknown> | null;
+    content?: (Record<string, unknown> | null)[] | null;
+    outro?: Record<string, unknown> | null;
+  } | null;
+  /** Per-scene default type sizes, sized for that scene's copy. */
+  scene_font_defaults?: {
+    intro?: Record<string, unknown> | null;
+    content?: (Record<string, unknown> | null)[] | null;
+    outro?: Record<string, unknown> | null;
+  } | null;
   id: number;
   name: string;
   theme: CustomTemplateTheme;
@@ -359,6 +375,9 @@ export default function CustomTemplateShowcase() {
                       outroCode={currentTemplate.outro_code || undefined}
                       contentCodes={currentTemplate.content_codes || undefined}
                       contentArchetypeIds={currentTemplate.content_archetype_ids || undefined}
+                      designVersion={(currentTemplate.design_blueprint as { version?: number } | null)?.version}
+                      sceneSampleContent={currentTemplate.scene_sample_content}
+                      sceneFontDefaults={currentTemplate.scene_font_defaults}
                       previewImageUrl={currentTemplate.preview_image_url}
                       logoUrls={currentTemplate.logo_urls}
                       ogImage={currentTemplate.og_image}

@@ -149,6 +149,10 @@ def _build_template_result(tpl) -> dict[str, Any]:
         # P2 design blueprint — drives per-layout image capability in meta.
         "design_blueprint": json.loads(tpl.design_blueprint) if getattr(tpl, "design_blueprint", None) else None,
         "layout_prop_schemas": json.loads(tpl.layout_prop_schemas) if getattr(tpl, "layout_prop_schemas", None) else None,
+        # Per-scene default type sizes. Read by the render path's per-scene
+        # defaults merge and folded into meta.layout_prop_schema, which is what
+        # the editor's font sliders resolve their starting values from.
+        "scene_font_defaults": json.loads(tpl.scene_font_defaults) if getattr(tpl, "scene_font_defaults", None) else None,
         "brand_kit": brand_kit_data,
         "og_image": og_image,
     }
@@ -315,6 +319,7 @@ def _get_custom_meta(template_id: str, db: Session | None = None, user_id: int |
         content_archetype_ids=data.get("content_archetype_ids"),
         design_blueprint=data.get("design_blueprint"),
         layout_prop_schemas=data.get("layout_prop_schemas"),
+        scene_font_defaults=data.get("scene_font_defaults"),
     )
 
 
@@ -452,11 +457,32 @@ def _custom_layout_catalog(template_id: str) -> str:
         return ""
     studio_only = set(meta.get("studio_only_layouts") or [])
     names = meta.get("layout_names") or {}
-    rows = [
-        f"- `{lid}` — {names.get(lid, lid.replace('_', ' ').title())}"
-        for lid in layouts
-        if lid not in studio_only
-    ]
+    # What each layout is BUILT FOR. Without this the catalog listed names only,
+    # so the script LLM was choosing between "Everything List" and "Milestone
+    # Track" on the strength of the words alone — and the layout it picked bore
+    # no relation to the shape of the scene's content. Every downstream stage
+    # then inherited that guess.
+    best_for = meta.get("layout_best_for") or {}
+    # Mirrors a built-in template's layout_prompt.md, which is prose:
+    #
+    #   - `mosaic_stream`
+    #     - Best for: Ordered or grouped lists.
+    #
+    # A taxonomy list ("bullets, steps") could not break a tie: eight layouts in
+    # one template routinely share a content type, so it said only "any of these
+    # three" and the choice fell to position. A sentence distinguishes "a dense
+    # scannable list" from "three items given equal weight", which is what
+    # actually decides where a scene belongs.
+    rows = []
+    for lid in layouts:
+        if lid in studio_only:
+            continue
+        rows.append(f"- `{lid}` — {names.get(lid, lid.replace('_', ' ').title())}")
+        _bf = best_for.get(lid)
+        if isinstance(_bf, list):  # legacy taxonomy list
+            _bf = ", ".join(str(k) for k in _bf) if _bf else ""
+        if isinstance(_bf, str) and _bf.strip():
+            rows.append(f"  - Best for: {_bf.strip()}")
     if not rows:
         return ""
     return (
@@ -467,8 +493,15 @@ def _custom_layout_catalog(template_id: str) -> str:
         "vocabulary, are NOT valid here, and will be discarded.\n\n"
         + "\n".join(rows)
         + "\n\n- `intro` is the opening scene and `outro` the closing scene; use each once.\n"
-        "- Spread the `content_*` layouts across the remaining scenes and avoid\n"
-        "  repeating the same one in consecutive scenes.\n"
+        "- MATCH THE CONTENT TO THE LAYOUT. Read each layout's \"Best for\" line and pick\n"
+        "  the one whose description fits what THIS scene actually says — its title, its\n"
+        "  narration, how many items it names and how much text each carries. Where two\n"
+        "  layouts could both hold it, the Best for lines are what tell them apart.\n"
+        "  This choice decides which props the scene is given, so a mismatch leaves the\n"
+        "  layout half-empty.\n"
+        "- Prefer not to repeat a layout in consecutive scenes, but NEVER at the cost of\n"
+        "  the match above: two neighbouring list scenes on the same list layout beat one\n"
+        "  of them on a layout built for something else.\n"
     )
 
 
@@ -628,6 +661,21 @@ def validate_template_id(template_id: str | None, db: Session | None = None, use
         data = _load_custom_template_data(tid, db=db, user_id=user_id)
         if data is not None:
             return tid
+        # Loud fallback, mirroring the crafted-template branch below: a
+        # project whose `template` column names a custom_N id that cannot be
+        # loaded (deleted, not found, a transient DB/session issue) silently
+        # rendered as the generic 'default' template with NO signal anywhere
+        # — every custom-only field (headingFont, bodyFont, layoutConfig,
+        # contentVariantCount, ...) simply never got written, and the only
+        # symptom was the video looking wrong with nothing in the logs to
+        # explain why.
+        logger.warning(
+            "[TEMPLATE] Custom template '%s' could not be loaded (user_id=%s); "
+            "falling back to 'default'. The render will use generic layouts "
+            "and fonts instead of this template's own.",
+            tid,
+            user_id,
+        )
         return "default"
 
     if is_crafted_template(tid):

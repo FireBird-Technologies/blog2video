@@ -569,6 +569,14 @@ export default function CustomTemplates() {
                       outroCode={tpl.outro_code || undefined}
                       contentCodes={tpl.content_codes || undefined}
                       contentArchetypeIds={tpl.content_archetype_ids || undefined}
+                      // Without these two the card fell back to the BUILT-IN CTA
+                      // ending and generic copy: `designVersion ?? 1` sent every
+                      // template down the v1 overlay branch, and an absent sample
+                      // made every scene synthesise placeholder text. Both are
+                      // already on the object this page holds.
+                      designVersion={(tpl.design_blueprint as { version?: number } | null)?.version}
+                      sceneSampleContent={tpl.scene_sample_content}
+                      sceneFontDefaults={tpl.scene_font_defaults}
                       previewImageUrl={tpl.preview_image_url}
                       logoUrls={tpl.logo_urls}
                       ogImage={tpl.og_image}

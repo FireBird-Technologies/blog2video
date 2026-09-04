@@ -241,6 +241,8 @@ def _migrate_sqlite(eng) -> None:
             "generation_warnings": "TEXT",
             "design_blueprint": "TEXT",
             "layout_prop_schemas": "TEXT",
+            "scene_sample_content": "TEXT",
+            "scene_font_defaults": "TEXT",
             "design_system": "TEXT",
             "generation_failed": "BOOLEAN DEFAULT 0",
             "created_at": "DATETIME",
@@ -361,6 +363,8 @@ def _migrate_sqlite(eng) -> None:
             "image_box_aspect_ratios": "TEXT",
             "design_blueprint": "TEXT",
             "layout_prop_schemas": "TEXT",
+            "scene_sample_content": "TEXT",
+            "scene_font_defaults": "TEXT",
             # Single-scene AI-edit drafts.
             "kind": "VARCHAR(32) DEFAULT 'full'",
             "scene_role": "VARCHAR(32)",

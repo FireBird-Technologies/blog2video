@@ -11,6 +11,7 @@ import {
   type CompileResult,
   type SceneProps,
 } from "../utils/compileComponent";
+import { googleFontFamily } from "../fonts/registry";
 
 class PlayerErrorBoundary extends React.Component<
   { children: React.ReactNode; onRetry?: () => void; width?: number | string },
@@ -168,19 +169,42 @@ export default function RemotionPreviewPlayer({
     [theme.colors]
   );
 
-  // Load Google Fonts for theme's heading and body fonts
+  // Load Google Fonts for the theme's fonts.
+  //
+  // The stored name is whatever the theme extractor wrote, and that is NOT a
+  // Google Fonts family name: templates carry "merriweather", "oswald",
+  // "playfair_display", "dm_sans". Google Fonts is case-sensitive and does not
+  // accept snake_case — `family=merriweather` returns HTTP 400 (verified), so
+  // the stylesheet never loaded and the face silently fell back to the system
+  // font. Measured across the 12 most recent templates, 4 requested at least
+  // one font that 400s.
+  //
+  // That is not only cosmetic: FitText decides how to measure by branching on
+  // `el.clientHeight > 0` and `document.fonts.ready`, so an unresolved face
+  // changes the size of every text block in the scene.
+  //
+  // googleFontFamily() normalises case and separators and returns the real
+  // Google family name. A face with no registry entry returns null and is
+  // skipped rather than requested — the app does not ship it, and asking for it
+  // only produces another 400.
   useEffect(() => {
-    const fonts = new Set([theme.fonts.heading, theme.fonts.body].filter(Boolean));
-    fonts.forEach((fontName) => {
-      const id = `gfont-${fontName.replace(/\s+/g, "-")}`;
+    const families = new Set(
+      [theme.fonts.heading, theme.fonts.body, theme.fonts.mono]
+        .map(googleFontFamily)
+        .filter((label): label is string => Boolean(label)),
+    );
+    families.forEach((family) => {
+      const id = `gfont-${family.replace(/\s+/g, "-")}`;
       if (document.getElementById(id)) return;
       const link = document.createElement("link");
       link.id = id;
       link.rel = "stylesheet";
-      link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(fontName)}:wght@400;600;700;800&display=swap`;
+      // `+` for spaces — the form used by index.html and the crafted-template
+      // font defaults.
+      link.href = `https://fonts.googleapis.com/css2?family=${family.replace(/\s+/g, "+")}:wght@400;600;700;800&display=swap`;
       document.head.appendChild(link);
     });
-  }, [theme.fonts.heading, theme.fonts.body]);
+  }, [theme.fonts.heading, theme.fonts.body, theme.fonts.mono]);
 
   const compile = useCallback(async () => {
     if (!componentCode) return;

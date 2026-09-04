@@ -68,8 +68,29 @@ class Settings(BaseSettings):
     IMAGE_PROVIDER: str = os.environ.get("IMAGE_PROVIDER", "openai")
     DSPY_IMAGE_LM: str =  "openai/gpt-4o-mini"
 
-    # Custom-template Remotion codegen in local/dev: GLM via OpenRouter (prod still uses Claude).
-    CUSTOM_TEMPLATE_LM: str = os.environ.get("CUSTOM_TEMPLATE_LM", "openrouter/z-ai/glm-5.2")
+    # Custom-template Remotion codegen in local/dev: GLM via Z.AI (prod still uses Claude).
+    #
+    # This setting is the ONLY place the codegen model line is named — every call
+    # site reads it rather than hardcoding a slug, so reverting to the previous
+    # line is a one-line env change with no deploy:
+    #     CUSTOM_TEMPLATE_LM=openrouter/z-ai/glm-5.2
+    # _make_zai_lm branches on the slug, so 5.2's `thinking: {type: disabled}`
+    # path is restored automatically with no other edit. Keep it that way.
+    #
+    # The one deliberate exception is get_custom_lm_fallback(), which pins 5.2
+    # explicitly — it is the fallback FOR this setting and must not follow it.
+    CUSTOM_TEMPLATE_LM: str = os.environ.get("CUSTOM_TEMPLATE_LM", "openrouter/z-ai/glm-5.3")
+
+    # Model for EDITING one scene of an existing custom template — not for
+    # generating a template. Editing is a smaller, better-constrained task than
+    # generation (the scene already exists and its design doc is fixed), so it
+    # runs on the cheaper/faster Flash line while generation keeps its own model.
+    #
+    # Named here rather than hardcoded for the same reason as CUSTOM_TEMPLATE_LM:
+    # if the vendor slug differs from what we expect, it is an env change and no
+    # deploy. `_make_zai_lm` branches on the slug prefix, so any `glm-5.3*` value
+    # automatically takes the reasoning_effort path (5.3 cannot disable thinking).
+    SCENE_EDIT_LM: str = os.environ.get("SCENE_EDIT_LM", "glm-5.3-flash")
 
     # Google OAuth
     GOOGLE_CLIENT_ID: str = ""
@@ -118,33 +139,6 @@ class Settings(BaseSettings):
     # capture route can read/write any user's custom template without per-user
     # auth. Empty disables the endpoints.
     CAPTURE_SECRET: str = ""
-
-    # Visual verification of generated scenes: render one scene and ask a vision
-    # model whether it is actually broken (invisible text, clipped elements, an
-    # empty frame) — defects no source-code check can see.
-    #
-    # Ships DARK. It costs a screenshot plus a vision call per suspect scene, so
-    # measure the FAIL rate on real scenes before enabling: if it exceeds ~30%,
-    # the critique prompt is too eager rather than the scenes being that bad.
-    SCENE_VISUAL_CHECK_ENABLED: bool = (
-        os.environ.get("SCENE_VISUAL_CHECK_ENABLED", "false").strip().lower()
-        in ("1", "true", "yes", "on")
-    )
-    # Long-lived puppeteer process (backend/capture/scene-shot-server.mjs) that
-    # holds ONE Chrome and a small page pool. A per-check browser launch would
-    # add ~2-3s to every check, which is the ballooning this must avoid.
-    SCENE_SHOT_SERVER_URL: str = os.environ.get(
-        "SCENE_SHOT_SERVER_URL", "http://127.0.0.1:7861"
-    )
-    # Vision model for the check. Must be a GLM model that reads images: the
-    # `-v` variants (glm-4.6v) or the 5.3 line. The codegen model (glm-5.2)
-    # rejects image content outright.
-    #
-    # The two families need DIFFERENT thinking-budget parameters — glm-5.3-flash
-    # returns error 1210 for the `thinking: disabled` that glm-4.6v requires — so
-    # scene_visual_check._thinking_params picks per model. Changing this to a
-    # third family means checking that function still covers it.
-    SCENE_VISION_MODEL: str = os.environ.get("SCENE_VISION_MODEL", "glm-5.3-flash")
 
     # Local testing override — set DEFAULT_PLAN=PRO in .env to auto-assign plan on login
     DEFAULT_PLAN: str = ""

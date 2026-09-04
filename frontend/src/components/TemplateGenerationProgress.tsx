@@ -53,6 +53,13 @@ const STEP_PROGRESS = [15, 45, 70, 88];
 function indexForToken(v: string): number {
   if (!v) return -1;
   if (v === "done") return STEPS.length;
+  // A retry restarts the WHOLE generation from the design stage, so it belongs
+  // at step 0 — and must say so explicitly. Falling through to the `return 0`
+  // below would look equivalent, but activeStepIndex takes max(stage, step):
+  // an unrecognised token silently contributing 0 let a stale `stage` win, and
+  // the rail sat on "Verifying" for the entire second attempt. Naming the token
+  // makes the intent checkable rather than accidental.
+  if (v.includes("retry")) return 0;
   if (v.includes("persist") || v.includes("saving")) return 3;
   // The backend's validation pass over the generated scenes.
   if (v.includes("examine")) return 2;

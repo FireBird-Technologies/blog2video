@@ -38,6 +38,59 @@ import { KIT_EXPORT_NAMES } from "../components/remotion/generated/kit/exportMan
 
 const KIT_EXPORTS = KIT_EXPORT_NAMES;
 
+/**
+ * Strip an `easing` option that is not callable, so interpolate falls back to
+ * Remotion's default (linear) instead of throwing.
+ *
+ * Remotion's `Easing` has NO flat combined members — no `inOutCubic`, no
+ * `easeInOut`, no `inOutQuad`. The only way to combine is
+ * `Easing.inOut(Easing.cubic)`. Generated scenes write the flat form anyway,
+ * and reading a missing member yields `undefined`, which Remotion then CALLS:
+ * "TypeError: easing is not a function", thrown during render.
+ *
+ * That throw is why the whole templates page FROZE rather than showing one
+ * broken card. It unwinds into Remotion's own ErrorBoundary inside PlayerUI,
+ * which responds by re-creating the component tree — which re-runs the same
+ * crash. crash -> catch -> remount -> crash pins the main thread, and the outer
+ * PlayerErrorBoundary never gets a chance to settle.
+ *
+ * A validator gate now rejects the bad member at generation time, but every
+ * ALREADY-STORED scene still carries it, so this recovers at preview time: the
+ * animation loses its curve, the page stays alive, and every other scene on it
+ * still renders. Shared by both compile paths in this file.
+ */
+function safeEasingOptions(
+  options?: Parameters<typeof interpolate>[3],
+): Parameters<typeof interpolate>[3] {
+  if (!options || typeof options !== "object") return options;
+  if (!("easing" in options)) return options;
+  const easing = (options as { easing?: unknown }).easing;
+
+  // A `typeof === "function"` check is NOT enough, and that is the whole
+  // subtlety here. The common shape is `Easing.out(Easing.quint)` — and
+  // `quint` does not exist, so the argument is `undefined`. But the
+  // COMBINATOR still returns a closure:
+  //
+  //     static out(easing) { return (t) => 1 - easing(1 - t); }
+  //
+  // That closure IS a function, so a type check waves it through, and the
+  // TypeError only surfaces when Remotion finally invokes it mid-render.
+  //
+  // So probe it: call it once on a value in its own domain. If it throws (or
+  // returns something non-numeric), drop the key and let Remotion fall back to
+  // its own default — `options?.easing ?? ((num) => num)`, i.e. linear.
+  if (typeof easing === "function") {
+    try {
+      const probe = (easing as (t: number) => unknown)(0.5);
+      if (typeof probe === "number" && Number.isFinite(probe)) return options;
+    } catch {
+      // falls through to the strip below
+    }
+  }
+  const { easing: _dropped, ...rest } = options as Record<string, unknown>;
+  return rest as Parameters<typeof interpolate>[3];
+}
+
 export interface SceneProps {
   /** The scene's short title (Scene.title) — a label, not a sentence. */
   sceneTitle?: string;
@@ -99,6 +152,27 @@ export interface SceneProps {
   /** Free-form per-layout props declared by this layout's prop schema (P3).
    *  Read defensively: props.layoutProps?.chapterNumber ?? "01". */
   layoutProps?: Record<string, unknown>;
+  /** The closing CTA + social handles, present only on the FINAL scene.
+   *
+   *  The generated outro composes these into its OWN layout — it renders
+   *  <SocialIcons> and maps `ctas` itself. Previously GeneratedVideo replaced
+   *  the outro entirely with GeneratedCtaOverlay, so every template ended with
+   *  the same generic card.
+   *
+   *  MUST mirror GeneratedCtaProps in
+   *  remotion-video/src/templates/generated/types.ts — these two declarations
+   *  are maintained by hand and have drifted before (see `bg2`). */
+  ctaProps?: {
+    socials?: Record<string, { enabled?: boolean; label?: string }>;
+    showWebsiteButton?: boolean;
+    websiteLink?: string;
+    ctaButtonText?: string;
+    ctas?: Array<{
+      ctaButtonText?: string;
+      websiteLink?: string;
+      showWebsiteButton?: boolean;
+    }>;
+  };
 }
 
 export type CompileResult =
@@ -158,10 +232,66 @@ export async function compileComponentCode(
     // Safe wrapper around interpolate — ensures inputRange is strictly monotonic
     // even when the LLM generates dynamic ranges that resolve to equal values at runtime.
     const safeInterpolate: typeof interpolate = (frame, inputRange, outputRange, options?) => {
+      // Generated code sometimes calls the React-Native/Framer form,
+      // `interpolate(frame, { inputRange, outputRange })`, passing a CONFIG
+      // OBJECT where an array belongs. `.map()` on it threw
+      // "inputRange.map is not a function" DURING RENDER, which unwinds past
+      // the scene into the Player and blanks the entire preview — template
+      // 181's intro shipped three such calls and showed an empty frame.
+      //
+      // A validator gate now rejects that shape at generation time, but stored
+      // scenes still carry it, so recover here instead of taking the preview
+      // down: read the ranges back off the object when they are there.
+      if (!Array.isArray(inputRange)) {
+        const cfg = inputRange as unknown as {
+          inputRange?: number[];
+          outputRange?: number[];
+        } | null;
+        if (cfg && Array.isArray(cfg.inputRange)) {
+          return safeInterpolate(
+            frame,
+            cfg.inputRange,
+            (Array.isArray(cfg.outputRange) ? cfg.outputRange : outputRange) as number[],
+            (cfg as unknown as Parameters<typeof interpolate>[3]) ?? options,
+          );
+        }
+        // Nothing usable — return the first output rather than throwing, so one
+        // bad call costs one static value and not the whole preview.
+        return Array.isArray(outputRange) ? (outputRange[0] as number) : 0;
+      }
+      // The MIRROR of the guard above, for the output side.
+      //
+      // Remotion throws "inputRange (N) and outputRange (undefined) must have
+      // the same length" when outputRange is missing or not an array — most
+      // often because the generated code destructured a prop that does not
+      // exist, or spread a value it expected to be a tuple. That throw happens
+      // DURING RENDER, so it unwinds past the scene into the Player and blanks
+      // the WHOLE preview, not just the offending scene.
+      //
+      // A length mismatch is equally fatal and equally recoverable: pad with the
+      // last value, or trim, so the animation degrades to something static
+      // rather than taking the preview down.
+      if (!Array.isArray(outputRange)) {
+        return 0;
+      }
       const safe = (inputRange as number[]).map((v, i) =>
         i === 0 ? v : Math.max(v, (inputRange as number[])[i - 1] + 1)
       ) as typeof inputRange;
-      return interpolate(frame, safe, outputRange, options);
+      const out = outputRange as number[];
+      if (out.length !== safe.length) {
+        if (out.length === 0) return 0;
+        const matched =
+          out.length > safe.length
+            ? out.slice(0, safe.length)
+            : [...out, ...Array(safe.length - out.length).fill(out[out.length - 1])];
+        return interpolate(
+          frame,
+          safe,
+          matched as typeof outputRange,
+          safeEasingOptions(options),
+        );
+      }
+      return interpolate(frame, safe, outputRange, safeEasingOptions(options));
     };
 
     // Create factory function that receives Remotion APIs + craft kit as parameters
@@ -249,10 +379,66 @@ export async function compilePreviewComponent(
     // Mirror the safe-interpolate wrapper from compileComponentCode so
     // dynamic inputRanges that resolve to equal values don't crash at runtime.
     const safeInterpolate: typeof interpolate = (frame, inputRange, outputRange, options?) => {
+      // Generated code sometimes calls the React-Native/Framer form,
+      // `interpolate(frame, { inputRange, outputRange })`, passing a CONFIG
+      // OBJECT where an array belongs. `.map()` on it threw
+      // "inputRange.map is not a function" DURING RENDER, which unwinds past
+      // the scene into the Player and blanks the entire preview — template
+      // 181's intro shipped three such calls and showed an empty frame.
+      //
+      // A validator gate now rejects that shape at generation time, but stored
+      // scenes still carry it, so recover here instead of taking the preview
+      // down: read the ranges back off the object when they are there.
+      if (!Array.isArray(inputRange)) {
+        const cfg = inputRange as unknown as {
+          inputRange?: number[];
+          outputRange?: number[];
+        } | null;
+        if (cfg && Array.isArray(cfg.inputRange)) {
+          return safeInterpolate(
+            frame,
+            cfg.inputRange,
+            (Array.isArray(cfg.outputRange) ? cfg.outputRange : outputRange) as number[],
+            (cfg as unknown as Parameters<typeof interpolate>[3]) ?? options,
+          );
+        }
+        // Nothing usable — return the first output rather than throwing, so one
+        // bad call costs one static value and not the whole preview.
+        return Array.isArray(outputRange) ? (outputRange[0] as number) : 0;
+      }
+      // The MIRROR of the guard above, for the output side.
+      //
+      // Remotion throws "inputRange (N) and outputRange (undefined) must have
+      // the same length" when outputRange is missing or not an array — most
+      // often because the generated code destructured a prop that does not
+      // exist, or spread a value it expected to be a tuple. That throw happens
+      // DURING RENDER, so it unwinds past the scene into the Player and blanks
+      // the WHOLE preview, not just the offending scene.
+      //
+      // A length mismatch is equally fatal and equally recoverable: pad with the
+      // last value, or trim, so the animation degrades to something static
+      // rather than taking the preview down.
+      if (!Array.isArray(outputRange)) {
+        return 0;
+      }
       const safe = (inputRange as number[]).map((v, i) =>
         i === 0 ? v : Math.max(v, (inputRange as number[])[i - 1] + 1)
       ) as typeof inputRange;
-      return interpolate(frame, safe, outputRange, options);
+      const out = outputRange as number[];
+      if (out.length !== safe.length) {
+        if (out.length === 0) return 0;
+        const matched =
+          out.length > safe.length
+            ? out.slice(0, safe.length)
+            : [...out, ...Array(safe.length - out.length).fill(out[out.length - 1])];
+        return interpolate(
+          frame,
+          safe,
+          matched as typeof outputRange,
+          safeEasingOptions(options),
+        );
+      }
+      return interpolate(frame, safe, outputRange, safeEasingOptions(options));
     };
     // eslint-disable-next-line no-new-func
     const factory = new Function(

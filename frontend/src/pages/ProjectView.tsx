@@ -26,6 +26,7 @@ import {
   type StockClip,
   deleteScene,
   getValidLayouts,
+  type LayoutInfo,
   updateProjectLogo,
   uploadLogo,
   deleteLogo,
@@ -122,7 +123,11 @@ import { normalizeVideoStyle } from "../constants/videoStyles";
 import { getPendingUpload } from "../stores/pendingUpload";
 import { FONT_REGISTRY, resolveFontFamily } from "../fonts/registry";
 import { getSceneLayoutLabel } from "../utils/layoutLabels";
-import { baseLayoutId, customSceneLayoutId } from "../utils/layoutVariants";
+import {
+  baseLayoutId,
+  customSceneLayoutId,
+  customSceneSupportsImage,
+} from "../utils/layoutVariants";
 import { resolveCustomImageBoxAr } from "../utils/customImageBoxAr";
 import { getTemplateConfig } from "../components/remotion/templateConfig";
 import { getImageBoxAspectRatio, normalizeLayoutId, isImageBoxCircular } from "../components/remotion/imageBoxConfig";
@@ -131,6 +136,8 @@ import { exportScenesPptx, exportScenesPdf, exportScenesPng } from "../utils/sce
 import type { ExportProgress } from "../utils/sceneSlideExport";
 import { getCompositionSchedule } from "../components/remotion/scheduleRegistry";
 import { getSceneExportGlobalFrame, SCENE_EXPORT_TIMELINE_FRACTION } from "../utils/sceneFrameSchedule";
+import { USER_BANDS, bodySizeForHeadline } from "../components/remotion/generated/kit";
+import { sceneFontConfig } from "../utils/sceneFontDefaults";
 
 type Tab = ProjectTabId;
 type SlideExportWizardState = { format: "pptx" | "pdf" | "zip"; fractions: number[]; stepIndex: number };
@@ -141,6 +148,14 @@ const PLAYBACK_SPEED_OPTIONS: readonly number[] = [0.5, 1, 1.5, 2, 2.5] as const
 const IMAGE_ADJUST_ZOOM_MIN = 0.1;
 const IMAGE_ADJUST_ZOOM_MAX = 8;
 const TABS_GUIDE_SEEN_KEY = "blog2video_tabs_guide_seen";
+/**
+ * Ceiling on the pipeline poll, in 2s ticks (~10 minutes).
+ *
+ * Generous enough that a slow-but-real generation is never cut off, short
+ * enough that a stuck server-side flag surfaces as an error the user can act
+ * on rather than an editor that polls forever. See pollTicksRef.
+ */
+const MAX_PIPELINE_POLL_TICKS = 300;
 const TABS_CONTAINER_STEP: Step = {
   target: '[data-tour="tabs-container"]',
   content: "Use these tabs to work on your video: Script shows the full narration, Images manages your visuals and logo, Audio lets you preview voiceover for each scene, and Scenes lets you edit each scene’s text and layout.",
@@ -1027,6 +1042,22 @@ export default function ProjectView() {
       intro_code: tpl.intro_code,
       content_codes: tpl.content_codes ?? null,
       outro_code: tpl.outro_code ?? null,
+      // Must travel with the code. Taking this shortcut SKIPS the fetch that
+      // would otherwise supply it, and the player defaults to 1 — which
+      // overlays the built-in CTA on a v2 outro and discards the ending the
+      // template designed.
+      design_version: tpl.design_version,
+      // Same reasoning, same shortcut, and the same bug a second time: skipping
+      // the fetch left the preview with no per-scene type sizes, so it fell
+      // through to the literal baked into the generated scene code while the
+      // expanded row beside it showed the template's real default. Anything the
+      // preview reads off this object has to be listed here.
+      scene_font_defaults: tpl.scene_font_defaults ?? null,
+      // And a third time: without this the preview could not tell a half-side
+      // image from a full-bleed one, so it blurred and scrimmed media sitting
+      // BESIDE the copy — where the treatment buys nothing and only mutes the
+      // picture.
+      image_modes: tpl.image_modes ?? undefined,
     };
   }, [project?.template, customTemplatesList]);
 
@@ -1059,11 +1090,21 @@ export default function ProjectView() {
           try {
             const d = JSON.parse(s.remotion_code);
             const lp = d.layoutProps ?? d.layoutConfig ?? {};
+            // Seeded within the SAME range the sliders offer. A custom
+            // template's band is narrower at the top than the old fixed 20-200,
+            // so seeding outside it would put the thumb somewhere the control
+            // cannot represent.
+            const _tb = (project.template || "").startsWith("custom_")
+              ? USER_BANDS.title[project.aspect_ratio === "portrait" ? "portrait" : "landscape"]
+              : ([20, 200] as const);
+            const _db = (project.template || "").startsWith("custom_")
+              ? USER_BANDS.description[project.aspect_ratio === "portrait" ? "portrait" : "landscape"]
+              : ([12, 80] as const);
             if (typeof lp.titleFontSize === "number") {
-              setGlobalTitleSize(Math.min(200, Math.max(20, lp.titleFontSize)));
+              setGlobalTitleSize(Math.min(_tb[1], Math.max(_tb[0], lp.titleFontSize)));
             }
             if (typeof lp.descriptionFontSize === "number") {
-              setGlobalDescSize(Math.min(80, Math.max(12, lp.descriptionFontSize)));
+              setGlobalDescSize(Math.min(_db[1], Math.max(_db[0], lp.descriptionFontSize)));
             }
             break;
           } catch { /* ignore */ }
@@ -1131,6 +1172,19 @@ export default function ProjectView() {
   const [awaitingFootageLegacy, setAwaitingFootageLegacy] = useState(false);
   const [pipelineStep, setPipelineStep] = useState(0);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  /**
+   * Ticks spent in the pipeline poll, so it cannot run forever.
+   *
+   * Two branches of the interval return without stopping — "backend says still
+   * running" and "status is still pre-generation" — each on the assumption that
+   * the state they are waiting on must eventually change. Neither is guaranteed:
+   * `running` comes from an in-memory dict on the server that any restart can
+   * strand at `true`, which left the editor polling three endpoints every 2s
+   * indefinitely on an already-finished project. The backend now refuses to
+   * report a terminal project as running; this is the client-side backstop so no
+   * future staleness can present as a frozen editor again.
+   */
+  const pollTicksRef = useRef(0);
   const generationStarted = useRef(false);
   /** One pipeline terminal failure per poll session; also suppresses duplicate "load project" 404 modal after rollback. */
   const pipelineTerminalFailureHandledRef = useRef(false);
@@ -1401,6 +1455,37 @@ export default function ProjectView() {
   const [showAiImageUpgradeModal, setShowAiImageUpgradeModal] = useState(false);
   const [layoutsWithoutImage, setLayoutsWithoutImage] = useState<Set<string>>(new Set());
   const [layoutPropSchema, setLayoutPropSchema] = useState<Record<string, { defaults?: Record<string, unknown> }> | null>(null);
+  /**
+   * The WHOLE layouts response, kept so SceneEditModal does not have to fetch
+   * it again on every open — it only used the two fields above and threw
+   * `layout_names` away, which is why the modal flashed a raw layout id before
+   * the real name arrived.
+   */
+  const [projectLayouts, setProjectLayouts] = useState<LayoutInfo | null>(null);
+  // Ranges and labels for the "Global Text Sizes" panel, which applies one pair
+  // of sizes to every scene. They must match the per-scene sliders exactly: a
+  // global control offering a size the per-scene one cannot express writes a
+  // value the backend then clamps, so the number dragged is not the number
+  // stored.
+  const globalIsCustomTpl = (project?.template || "").startsWith("custom_");
+  const globalIsTwoTierType =
+    globalIsCustomTpl && (projectLayouts?.design_version ?? 1) >= 3;
+  const globalOrientation: "landscape" | "portrait" =
+    project?.aspect_ratio === "portrait" ? "portrait" : "landscape";
+  const globalTitleBand: readonly [number, number] = globalIsCustomTpl
+    ? USER_BANDS.title[globalOrientation]
+    : [20, 200];
+  const globalDescBand: readonly [number, number] = globalIsCustomTpl
+    ? USER_BANDS.description[globalOrientation]
+    : [12, 80];
+  /**
+   * Whether that fetch has resolved. Until it has, the set above is EMPTY, and
+   * an empty set reads as "every layout supports images" — so an image-free
+   * scene briefly showed image controls, and permanently did so if the request
+   * failed (its .catch is swallowed). SceneEditModal already guards this the
+   * same way; treat unknown as NOT supported.
+   */
+  const [layoutsLoaded, setLayoutsLoaded] = useState(false);
   const navigate = useNavigate();
   const missingCustomTemplate = Boolean(
     project?.custom_template_missing ||
@@ -1791,10 +1876,24 @@ export default function ProjectView() {
           setRendered(true);
         }
         // Fetch layout image-support info (non-blocking)
-        getValidLayouts(projectId).then((lr) => {
+        getValidLayouts(projectId)
+          .then((lr) => {
           setLayoutsWithoutImage(new Set(lr.data.layouts_without_image ?? []));
           setLayoutPropSchema(lr.data.layout_prop_schema ?? null);
-        }).catch(() => {/* ignore */});
+          // Keep the full response for SceneEditModal (layout_names in
+          // particular), and record that it landed.
+          setProjectLayouts(lr.data);
+          setLayoutsLoaded(true);
+          })
+          .catch(() => {
+            // The image controls fail CLOSED while this is unresolved, so a
+            // swallowed failure would hide them permanently on scenes that DO
+            // take an image. Mark it resolved anyway: with an empty
+            // layouts_without_image set every layout reads as capable, which is
+            // the pre-existing behaviour and the safe direction when we simply
+            // do not know. The per-scene descriptor still gates what renders.
+            setLayoutsLoaded(true);
+          });
         return res.data;
       } catch (err: unknown) {
         const status =
@@ -2357,8 +2456,22 @@ export default function ProjectView() {
   const startPolling = () => {
     stopPolling();
     pipelineTerminalFailureHandledRef.current = false;
+    pollTicksRef.current = 0;
     pollingRef.current = setInterval(async () => {
       try {
+        // Hard ceiling on the whole poll session — see pollTicksRef. Generation
+        // is minutes, not hours, so anything past this is a stuck server-side
+        // flag rather than work still in flight. Give up loudly instead of
+        // spinning: a visible error the user can act on beats a silent loop.
+        pollTicksRef.current += 1;
+        if (pollTicksRef.current > MAX_PIPELINE_POLL_TICKS) {
+          setPipelineRunning(false);
+          stopPolling();
+          showError(
+            "We lost track of this video's progress. Reload the page — if it still looks unfinished, please try generating again.",
+          );
+          return;
+        }
         const res = await getPipelineStatus(projectId);
         const { step, running, error: pipelineError, status, notice } = res.data;
         const rolledBackProject =
@@ -5923,6 +6036,8 @@ export default function ProjectView() {
                                     outroCode={ct.outro_code || undefined}
                                     contentCodes={ct.content_codes || undefined}
                                     contentArchetypeIds={ct.content_archetype_ids || undefined}
+                                    designVersion={(ct.design_blueprint as { version?: number } | null)?.version}
+                                    sceneSampleContent={ct.scene_sample_content}
                                     previewImageUrl={ct.preview_image_url}
                                     logoUrls={ct.logo_urls}
                                     ogImage={ct.og_image}
@@ -6704,16 +6819,44 @@ export default function ProjectView() {
                       >
                         {isExpanded && (
                               <div className="ml-4 mt-1 glass-card p-5 border-l-2 border-l-purple-100 space-y-4 rounded-r-lg border border-t-0">
-                                {/* Narration */}
+                                {/* Title — the scene's main on-screen label, and
+                                    what the Title font-size slider below drives.
+                                    It was missing from this card entirely: the
+                                    only place it appeared was the collapsed
+                                    row's heading, so a user editing type sizes
+                                    could not see the text they were sizing. */}
                                 <div>
-                              <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                                  <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                                    Title
+                                  </h4>
+                                  <p className="text-sm text-gray-700 leading-relaxed">
+                                    {scene.title || (
+                                      <span className="italic text-gray-300">
+                                        No title
+                                      </span>
+                                    )}
+                                  </p>
+                                </div>
+
+                                {/* Display text.
+                                    NOT `display_text ?? narration_text`. That
+                                    fallback printed the VOICEOVER SCRIPT under a
+                                    "Display text" heading whenever a scene had no
+                                    display text of its own — a field that is
+                                    contractually never rendered on screen, shown
+                                    as though it were the on-screen copy. The
+                                    preview does not do this (see VideoPreview:
+                                    displayText falls back to the TITLE, never to
+                                    narration), so the card was describing a scene
+                                    the video does not contain. */}
+                                <div>
+                                  <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
                                     Display text
                                   </h4>
                                   <p className="text-sm text-gray-700 leading-relaxed">
-                                    {/* Prefer dedicated display_text when available; otherwise fall back to narration_text */}
-                                    {(scene.display_text ?? scene.narration_text) || (
+                                    {scene.display_text || (
                                       <span className="italic text-gray-300">
-                                        No narration
+                                        Not set — the title is shown instead
                                       </span>
                                     )}
                                   </p>
@@ -6741,7 +6884,13 @@ export default function ProjectView() {
                                     // outro rows showed a placeholder instead of their
                                     // name. Fall back to the shared resolver, which the
                                     // image-capability check further down already uses.
+                                    // The backend's resolution is consulted FIRST for
+                                    // custom templates: it knows the archetype-matched
+                                    // content variant, which is exactly the case the
+                                    // descriptor cannot express and which made every
+                                    // middle scene fall through to "Default layout".
                                     const layoutId =
+                                      project.custom_scene_layouts?.[idx] ||
                                       desc.layout ||
                                       desc.contentArchetype ||
                                       desc.layoutConfig?.arrangement ||
@@ -6753,7 +6902,19 @@ export default function ProjectView() {
                                           Layout
                                         </h4>
                                         <span className="inline-block px-2.5 py-1 bg-purple-50 text-purple-600 rounded-lg text-xs font-medium">
-                                          {getSceneLayoutLabel(project.template, layoutId, layoutId?.replace(/_/g, " ")) || "text narration"}
+                                          {/* The template's OWN name for this layout wins.
+                                              `layout_names` is what the template editor's
+                                              scene list shows ("Metrics Quadrant"), built
+                                              from the archetype ids; without it this fell
+                                              back to the de-underscored raw id and read
+                                              "content 1". The response was already being
+                                              fetched and its names thrown away. */}
+                                          {getSceneLayoutLabel(
+                                            project.template,
+                                            layoutId,
+                                            (layoutId ? projectLayouts?.layout_names?.[layoutId] : undefined) ??
+                                              layoutId?.replace(/_/g, " "),
+                                          ) || "text narration"}
                                         </span>
                                       </div>
                                     );
@@ -6773,6 +6934,10 @@ export default function ProjectView() {
                                         descriptionFontSize?: number;
                                       };
                                       layoutProps?: { titleFontSize?: number; descriptionFontSize?: number };
+                                      // How a custom scene says which generated component
+                                      // renders it — the key its stored font defaults sit under.
+                                      sceneTypeOverride?: string;
+                                      contentVariantIndex?: number;
                                     };
                                     const layoutId = desc.layoutConfig?.arrangement ?? desc.layout ?? "text_narration";
                                     const template = project.template ?? "default";
@@ -6781,21 +6946,59 @@ export default function ProjectView() {
                                       template.startsWith("crafted_")
                                         ? (craftedTemplates.find((ct) => ct.id === template)?.frontend_files as Record<string, string> | null) || null
                                         : null;
+                                    const isCustomTpl = (template).startsWith("custom_");
+                                    // THIS scene's stored default sizes, by the same role +
+                                    // variant lookup the render and both previews use. Without
+                                    // it the resolver fell through to a hardcoded 72/30 that had
+                                    // nothing to do with the template — and since a value EQUAL
+                                    // to the default is deleted below, a deliberate 72 vanished.
+                                    const sceneFontDefaults = isCustomTpl
+                                      ? sceneFontConfig(
+                                          projectLayouts?.scene_font_defaults,
+                                          {
+                                            sceneType: desc.sceneTypeOverride ?? scene.scene_type ?? null,
+                                            contentVariantIndex: desc.contentVariantIndex ?? null,
+                                            index: idx,
+                                            total: project.scenes?.length ?? 0,
+                                          },
+                                          aspectRatio === "portrait" ? "portrait" : "landscape",
+                                        )
+                                      : null;
                                     const defaults = resolveDefaultFontSizesForScene({
                                       template,
                                       layoutId,
                                       aspectRatio,
                                       layoutPropSchema: layoutPropSchema ?? undefined,
                                       craftedFrontendFiles,
+                                      sceneFontDefaults,
                                     });
                                     const override = sceneFontOverrides[scene.id];
-                                    const isCustomTpl = (template).startsWith("custom_");
                                     const storedTitle = isCustomTpl ? desc.layoutConfig?.titleFontSize : desc.layoutProps?.titleFontSize;
                                     const storedDesc = isCustomTpl ? desc.layoutConfig?.descriptionFontSize : desc.layoutProps?.descriptionFontSize;
                                     const titleFontSize = override?.title ?? storedTitle ?? defaults.title;
                                     const descFontSize = override?.desc ?? storedDesc ?? defaults.desc;
-                                    const titleClamped = Math.min(200, Math.max(20, Number(titleFontSize) || defaults.title));
-                                    const descClamped = Math.min(80, Math.max(12, Number(descFontSize) || defaults.desc));
+                                    // The sliders offer the USER bands — what a person may set —
+                                    // not the generation bands, which bound what the model may bake
+                                    // into a scene. They were the same map, so the control stopped
+                                    // mattering at the generator's own ceiling. See kit/typeBands.ts.
+                                    //
+                                    // WHICH TEXT THE TOP SLIDER DRIVES depends on the design
+                                    // version: v3 binds props.titleFontSize to the scene TITLE,
+                                    // v1/v2 bound it to props.displayText. Built-in templates keep
+                                    // the historical 20-200 / 12-80 ranges: their scenes are
+                                    // hand-written and do not follow the generated-scene contract.
+                                    const isTwoTierType =
+                                      isCustomTpl && (projectLayouts?.design_version ?? 1) >= 3;
+                                    const bandOf = (tier: "title" | "description"): [number, number] =>
+                                      isCustomTpl
+                                        ? (USER_BANDS[tier][aspectRatio === "portrait" ? "portrait" : "landscape"] as unknown as [number, number])
+                                        : tier === "title"
+                                          ? [20, 200]
+                                          : [12, 80];
+                                    const [titleMin, titleMax] = bandOf("title");
+                                    const [descMin, descMax] = bandOf("description");
+                                    const titleClamped = Math.min(titleMax, Math.max(titleMin, Number(titleFontSize) || defaults.title));
+                                    const descClamped = Math.min(descMax, Math.max(descMin, Number(descFontSize) || defaults.desc));
 
                                     const scheduleFontSave = () => {
                                       const sceneId = scene.id;
@@ -6811,9 +7014,32 @@ export default function ProjectView() {
                                         try {
                                           const d = JSON.parse(sc.remotion_code) as { layout?: string; layoutProps?: Record<string, unknown>; layoutConfig?: Record<string, unknown> };
                                           const isCustom = (proj.template || "").startsWith("custom_");
+                                          // A value EQUAL to the default is stored as no value at all.
+                                          //
+                                          // This used to write unconditionally, so the first nudge of a
+                                          // slider pinned a number forever — even sliding straight back.
+                                          // That matters now that defaults are per-scene and change when a
+                                          // template is regenerated: a pinned value silently overrides the
+                                          // new sizing. Deleting on equal keeps "never touched"
+                                          // distinguishable from "deliberately set", which is what
+                                          // SceneEditModal already does.
+                                          const bag = { ...((isCustom ? d.layoutConfig : d.layoutProps) ?? {}) };
+                                          if (pending.title === defaults.title) delete bag.titleFontSize;
+                                          else bag.titleFontSize = pending.title;
+                                          if (pending.desc === defaults.desc) delete bag.descriptionFontSize;
+                                          else bag.descriptionFontSize = pending.desc;
+                                          // On a custom template the headline slider also pins the
+                                          // body, at the contract's headline:body ratio, so dragging
+                                          // the headline up cannot leave the body at a size that
+                                          // inverts the hierarchy — the same inversion the validator
+                                          // rejects at generation time. Only when the body has not
+                                          // been set deliberately.
+                                          if (isCustom && pending.title !== defaults.title && pending.desc === defaults.desc) {
+                                            bag.descriptionFontSize = bodySizeForHeadline(pending.title, proj.aspect_ratio === "portrait" ? "portrait" : "landscape");
+                                          }
                                           const next = isCustom
-                                            ? { ...d, layoutConfig: { ...(d.layoutConfig ?? {}), titleFontSize: pending.title, descriptionFontSize: pending.desc } }
-                                            : { ...d, layoutProps: { ...(d.layoutProps ?? {}), titleFontSize: pending.title, descriptionFontSize: pending.desc } };
+                                            ? { ...d, layoutConfig: bag }
+                                            : { ...d, layoutProps: bag };
                                           updateScene(proj.id, sceneId, { remotion_code: JSON.stringify(next) }).then(() => {
                                             loadProject();
                                             setSceneFontOverrides((prev) => {
@@ -6840,12 +7066,12 @@ export default function ProjectView() {
                                         </h4>
                                         <div className="space-y-3">
                                           <div>
-                                            <label className="text-xs text-gray-400 mb-1 block">{layoutId === "mosaic_metric" ? "Metric size" : layoutId === "mosaic_punch" ? "Punch size" : "Title font size"}</label>
+                                            <label className="text-xs text-gray-400 mb-1 block">{layoutId === "mosaic_metric" ? "Metric size" : layoutId === "mosaic_punch" ? "Punch size" : isTwoTierType ? "Title" : isCustomTpl ? "Display text (headline)" : "Title font size"}</label>
                                             <div className="flex items-center gap-2">
                                               <input
                                                 type="range"
-                                                min={20}
-                                                max={200}
+                                                min={titleMin}
+                                                max={titleMax}
                                                 step={1}
                                                 value={titleClamped}
                                                 onChange={(e) => {
@@ -6873,12 +7099,12 @@ export default function ProjectView() {
                                             </div>
                                           </div>
                                           <div>
-                                            <label className="text-xs text-gray-400 mb-1 block">{layoutId === "mosaic_metric" ? "Label size" : "Display text font size"}</label>
+                                            <label className="text-xs text-gray-400 mb-1 block">{layoutId === "mosaic_metric" ? "Label size" : isTwoTierType ? "Display text & content" : isCustomTpl ? "Body text" : "Display text font size"}</label>
                                             <div className="flex items-center gap-2">
                                               <input
                                                 type="range"
-                                                min={12}
-                                                max={80}
+                                                min={descMin}
+                                                max={descMax}
                                                 step={1}
                                                 value={descClamped}
                                                 onChange={(e) => {
@@ -7014,16 +7240,38 @@ export default function ProjectView() {
                                   // for every custom scene, `!sceneLayout` short-circuited
                                   // `sceneSupportsImage` to true, and the OUTRO rendered an image
                                   // picker even though meta lists it in layouts_without_image.
-                                  const sceneLayout = customSceneLayoutId(
-                                    scene.remotion_code,
-                                    idx,
-                                    project.scenes.length,
-                                  );
+                                  // The BACKEND's resolution wins where present: it
+                                  // ran the archetype matching, so it knows the
+                                  // content variant a descriptor with a null
+                                  // contentVariantIndex cannot name. The client-side
+                                  // resolver stays as the fallback.
+                                  const sceneLayout =
+                                    project.custom_scene_layouts?.[idx] ??
+                                    customSceneLayoutId(
+                                      scene.remotion_code,
+                                      idx,
+                                      project.scenes.length,
+                                    );
                                   // `layoutsWithoutImage` is keyed by BASE layout, so a `__vN`
                                   // variant (e.g. `ending_socials__v2`) must be resolved first —
                                   // otherwise it misses the set and the image section shows on a
                                   // layout that can't render one. Matches SceneEditModal.
-                                  const sceneSupportsImage = !sceneLayout || !layoutsWithoutImage.has(baseLayoutId(sceneLayout));
+                                  // The server's answer wins, and it arrives with the
+                                  // PROJECT — so the controls are right on first paint
+                                  // instead of waiting on the non-blocking /layouts
+                                  // fetch. Only fall back to the client-side lookup
+                                  // for a template the server did not resolve (a
+                                  // built-in, or a custom one with no blueprint).
+                                  const serverSupportsImage =
+                                    project.custom_scene_supports_image?.[idx];
+                                  const sceneSupportsImage =
+                                    typeof serverSupportsImage === "boolean"
+                                      ? serverSupportsImage
+                                      : customSceneSupportsImage(
+                                          sceneLayout,
+                                          layoutsWithoutImage,
+                                          layoutsLoaded,
+                                        );
                                   const isCustomTpl = (project.template || "").startsWith("custom_");
                                   const ctId = isCustomTpl ? parseInt((project.template || "").replace("custom_", ""), 10) : NaN;
                                   const ctOgImage = isCustomTpl
@@ -7940,6 +8188,9 @@ export default function ProjectView() {
           <SceneEditModal
             open={!!sceneEditModal}
             onClose={() => setSceneEditModal(null)}
+            // Already fetched on project load — passing it through means the
+            // layout name is correct on first paint, with no per-open request.
+            prefetchedLayouts={projectLayouts}
             // Re-derive from the freshly-loaded project rather than using the
             // snapshot captured when the modal opened. Actions that persist
             // server-side while the modal stays open (stock footage assignment)
@@ -8274,15 +8525,21 @@ export default function ProjectView() {
             <h2 className="text-base font-medium text-gray-900 mb-1">Global Text Sizes</h2>
             <p className="text-xs text-gray-400 mb-3">Applied to all scenes at once.</p>
             <div className="glass-card p-6 flex flex-col gap-5">
+              {/* Same ranges and labels as the per-scene sliders. These used a
+                  fixed 20-200 / 12-80 regardless of template, so on a custom
+                  template the global control could offer a size the per-scene
+                  one could not, and wrote it to every scene — the backend now
+                  clamps it, which would silently disagree with what was
+                  dragged. */}
               <div>
                 <label className="text-xs text-gray-500 mb-1.5 flex items-center justify-between">
-                  <span>Title font size</span>
+                  <span>{globalIsTwoTierType ? "Title" : "Title font size"}</span>
                   <span className="text-purple-600 font-semibold tabular-nums">{globalTitleSize}</span>
                 </label>
                 <input
                   type="range"
-                  min={20}
-                  max={200}
+                  min={globalTitleBand[0]}
+                  max={globalTitleBand[1]}
                   step={1}
                   value={globalTitleSize}
                   onChange={(e) => setGlobalTitleSize(Number(e.target.value))}
@@ -8291,13 +8548,13 @@ export default function ProjectView() {
               </div>
               <div>
                 <label className="text-xs text-gray-500 mb-1.5 flex items-center justify-between">
-                  <span>Display text size</span>
+                  <span>{globalIsTwoTierType ? "Display text & content" : "Display text size"}</span>
                   <span className="text-purple-600 font-semibold tabular-nums">{globalDescSize}</span>
                 </label>
                 <input
                   type="range"
-                  min={12}
-                  max={80}
+                  min={globalDescBand[0]}
+                  max={globalDescBand[1]}
                   step={1}
                   value={globalDescSize}
                   onChange={(e) => setGlobalDescSize(Number(e.target.value))}

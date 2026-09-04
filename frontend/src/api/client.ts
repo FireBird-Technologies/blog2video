@@ -201,6 +201,24 @@ export interface Project {
   caption_offset?: number;
   ai_assisted_editing_count?: number;
   custom_theme?: CustomTemplateTheme | null;
+  /**
+   * Resolved layout id per scene, in scene order (custom templates only).
+   *
+   * Authoritative: it comes from the same resolver the render path uses, so it
+   * knows the archetype-matched content variant that a descriptor with a null
+   * `contentVariantIndex` cannot express. Prefer it over
+   * `customSceneLayoutId`, which is the client-side fallback.
+   */
+  custom_scene_layouts?: (string | null)[] | null;
+  /**
+   * Whether each scene's layout takes an image, in scene order.
+   *
+   * Resolved server-side against the same metadata the render path uses, so it
+   * is available on the FIRST paint — the `/projects/{id}/layouts` fetch is
+   * non-blocking, and deciding the image controls before it landed is what made
+   * them flicker or resolve wrongly. Prefer this over the client-side lookup.
+   */
+  custom_scene_supports_image?: boolean[] | null;
   custom_image_box_aspect_ratios?: {
     intro?: string | { landscape?: string; portrait?: string };
     content?: (string | { landscape?: string; portrait?: string })[];
@@ -235,10 +253,27 @@ export interface Project {
 
 export interface EmbedProjectResponse extends Project {
   crafted_template?: CraftedTemplateDetail | null;
+  /**
+   * Handed straight to VideoPreview as `precompiledTemplateData`, which SKIPS
+   * the fetch that would otherwise supply the non-code fields — so every one of
+   * them has to be here or it silently degrades: the built-in CTA replaces the
+   * template's own ending (design_version), type falls back to the literal in
+   * the generated code (scene_font_defaults), or media beside the copy gets the
+   * full-bleed blur (image_modes). Structurally the same as
+   * PrecompiledTemplateData in VideoPreview; kept inline because this is the API
+   * layer and must not depend on a component.
+   */
   custom_template_code?: {
     intro_code: string | null;
     outro_code: string | null;
     content_codes: string[] | null;
+    design_version?: number;
+    scene_font_defaults?: {
+      intro?: SceneFontDefaultEntry | null;
+      content?: (SceneFontDefaultEntry | null)[] | null;
+      outro?: SceneFontDefaultEntry | null;
+    } | null;
+    image_modes?: Record<string, "background" | "half" | null>;
   } | null;
   layout_prop_schema?: Record<string, LayoutPropSchemaEntry> | null;
 }
@@ -672,6 +707,11 @@ export interface CraftedTemplateItem extends CraftedTemplateSummary {
   outro_code?: string | null;
   content_codes?: string[] | null;
   content_archetype_ids?: (string | { id: string; best_for?: string[] })[] | null;
+  /** design_blueprint.version — decides who renders the ending. v2 outros
+   *  compose their own CTA; v1 outros expect the built-in overlay to replace
+   *  them. Travels with the scene code so a caller using this list as
+   *  precompiled data does not silently fall back to v1. */
+  design_version?: number;
   frontend_files?: Record<string, string> | null;
   frontend_entry_rel?: string | null;
   frontend_layout_index_rel?: string | null;
@@ -1728,10 +1768,44 @@ export interface LayoutInfo {
   layouts_without_image?: string[];
   /** Keyed by BASE layout — variants share their base's schema entry. */
   layout_prop_schema?: Record<string, LayoutPropSchemaEntry>;
+  /**
+   * Field defs per CONTENT TYPE (bullets, steps, metrics, …), from the one
+   * backend definition the content extractor also writes against. The editor
+   * renders structured content from this rather than a local copy, which had
+   * drifted — `steps` was declared a flat string_array while scenes stored
+   * objects, printing "[object Object]" per row.
+   */
+  content_prop_schema?: Record<string, LayoutPropSchemaEntry["fields"]>;
   /** base layout id -> [base, ...variants], base always first. */
   layout_variants?: Record<string, string[]>;
   /** layout id -> short chip label, e.g. `news_headline__v2` -> "Broadsheet". */
   layout_variant_labels?: Record<string, string>;
+  /**
+   * Custom templates only — layout id -> expected structuredContent.contentType
+   * (e.g. `content_6` -> "timeline"). Lets the editor pre-select the right
+   * content type — and show its (empty) fields — the moment a scene lands on a
+   * layout it has no structuredContent for yet, instead of defaulting to "plain".
+   */
+  layout_content_types?: Record<string, string>;
+  /**
+   * Custom templates only — absent for built-in and crafted ones.
+   *
+   * `design_version` decides which text each Typography slider drives, and so
+   * how the two are labelled: v3 binds titleFontSize to the scene TITLE and
+   * descriptionFontSize to the display text and every content prop; v1/v2 bound
+   * titleFontSize to the display text with a third eyebrow tier.
+   */
+  design_version?: number;
+  /**
+   * The per-scene DEFAULT type sizes a slider opens on, indexed like the
+   * template's content codes. Resolve one scene's entry with
+   * utils/sceneFontDefaults.ts — the same role + variant lookup the render uses.
+   */
+  scene_font_defaults?: {
+    intro?: SceneFontDefaultEntry | null;
+    content?: (SceneFontDefaultEntry | null)[] | null;
+    outro?: SceneFontDefaultEntry | null;
+  } | null;
 }
 
 export const getValidLayouts = (projectId: number) =>
@@ -1940,6 +2014,16 @@ export interface CustomTemplateTheme {
   style: string;
   animationPreset: string;
   category: string;
+  /**
+   * The narrative design brief for this brand — its register, emotional
+   * temperature, typographic and compositional character.
+   *
+   * This is the PRIMARY input to template design: the design-doc stage builds
+   * every scene's layout from it, so its quality sets the ceiling on how
+   * distinct a template can be. Editable at create time for exactly that
+   * reason. Optional — themes extracted before it existed have none.
+   */
+  brand_description?: string;
   patterns: {
     cards: { corners: string; shadowDepth: string; borderStyle: string };
     spacing: { density: string; gridGap: number };
@@ -1973,6 +2057,12 @@ export interface CustomTemplateTheme {
   brief?: string;
 }
 
+/** One scene's default type sizes, per orientation. */
+export interface SceneFontDefaultEntry {
+  title?: { landscape?: number; portrait?: number } | null;
+  description?: { landscape?: number; portrait?: number } | null;
+}
+
 export interface CustomTemplateItem {
   id: number;
   name: string;
@@ -1985,6 +2075,10 @@ export interface CustomTemplateItem {
   intro_code: string | null;
   outro_code: string | null;
   content_codes: string[] | null;
+  /** design_blueprint.version — decides who renders the ending. Travels with
+   *  the scene code above, because a caller that uses this list as precompiled
+   *  preview data skips the fetch that would otherwise supply it. */
+  design_version?: number;
   content_archetype_ids: (string | { id: string; best_for?: string[] })[] | null;
   current_version_id: number | null;
   preview_image_url: string | null;
@@ -1995,6 +2089,34 @@ export interface CustomTemplateItem {
   generation_warnings?: string[];
   /** The per-brand design this template was generated from (P2), when present. */
   design_blueprint?: Record<string, unknown> | null;
+  /**
+   * Showcase copy generated with the template, one entry per scene and indexed
+   * like content_codes. NULL on templates generated before this existed, which
+   * the preview reads as "synthesise sample copy in the browser" (the old path).
+   */
+  scene_sample_content?: {
+    intro?: Record<string, unknown> | null;
+    content?: (Record<string, unknown> | null)[] | null;
+    outro?: Record<string, unknown> | null;
+  } | null;
+  /**
+   * Per-scene DEFAULT type sizes, indexed like scene_sample_content. Computed
+   * from that copy's length, so a scene is sized for the text it actually
+   * holds. NULL on templates generated before this existed.
+   */
+  scene_font_defaults?: {
+    intro?: SceneFontDefaultEntry | null;
+    content?: (SceneFontDefaultEntry | null)[] | null;
+    outro?: SceneFontDefaultEntry | null;
+  } | null;
+  /**
+   * Each layout's image mode, keyed intro / content_N / outro.
+   *
+   * "background" fills the frame behind the type and needs a scrim for the copy
+   * to stay readable; "half" sits beside the type, where a scrim would only
+   * mute the picture. Empty for a template with no design blueprint.
+   */
+  image_modes?: Record<string, "background" | "half" | null>;
   is_regenerating: boolean;
   my_rating?: number | null;
   my_rating_comment?: string | null;
@@ -2233,9 +2355,40 @@ export const getSceneEditStatus = (
 export const getSceneDraft = (templateId: number, sceneKey: string) =>
   api.get<SceneDraft>(`/custom-templates/${templateId}/scenes/${sceneKey}/draft`);
 
+export interface SceneDraftsSummary {
+  /** Scene keys with a pending draft awaiting apply/discard. */
+  drafts: string[];
+  /** Scene keys with an edit currently regenerating. */
+  running: string[];
+}
+
+/** Draft + in-flight state for EVERY scene in one call — what the editor needs
+ *  on open to put a status dot on each row, instead of one 404-prone request
+ *  per scene. */
+export const getSceneDrafts = (templateId: number) =>
+  api.get<SceneDraftsSummary>(`/custom-templates/${templateId}/scene-drafts`);
+
 export const applySceneDraft = (templateId: number, sceneKey: string) =>
   api.post<CustomTemplateItem>(
     `/custom-templates/${templateId}/scenes/${sceneKey}/draft/apply`
+  );
+
+/**
+ * Set ONE scene's default type sizes. Omitted orientations are left as they
+ * are, and values outside the renderable bands are clamped server-side rather
+ * than rejected.
+ */
+export const setSceneFontDefaults = (
+  templateId: number,
+  sceneKey: string,
+  body: {
+    title?: { landscape?: number; portrait?: number };
+    description?: { landscape?: number; portrait?: number };
+  }
+) =>
+  api.patch<CustomTemplateItem>(
+    `/custom-templates/${templateId}/scenes/${sceneKey}/font-defaults`,
+    body
   );
 
 export const discardSceneDraft = (templateId: number, sceneKey: string) =>

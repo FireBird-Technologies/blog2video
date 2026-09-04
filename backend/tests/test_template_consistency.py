@@ -43,8 +43,10 @@ def _scene(root_style: str = "", body: str = "") -> str:
         f"return <AbsoluteFill style={{{{overflow:'hidden'{root_style}}}}}>"
         "{props.logoUrl && <Img src={props.logoUrl}/>}"
         "{props.imageUrl && <Img src={props.imageUrl} data-content-img/>}"
-        "<FitText fontSize={props.titleFontSize ?? 72} "
-        "style={{fontFamily: props.headingFont}}>{props.displayText}</FitText>"
+        "<FitText fontSize={props.titleFontSize ?? 68} containerWidth={800} maxHeight={300} "
+        "style={{fontFamily: props.headingFont}}>{props.sceneTitle}</FitText>"
+        "<FitText fontSize={props.descriptionFontSize ?? 34} containerWidth={800} maxHeight={300} "
+        "style={{fontFamily: props.bodyFont}}>{props.displayText}</FitText>"
         f"{body}{PAD}</AbsoluteFill>; }};"
     )
 
@@ -148,6 +150,11 @@ def test_too_few_resolvable_scenes_is_not_enough_evidence() -> None:
         # An array join.
         "<p style={{fontFamily: ['Playfair Display','serif'].join(',')}}>x</p>",
         # The worst one: KitProvider applies this face to the WHOLE subtree.
+        #
+        # The kit-scope gate does NOT cover this: it lives in
+        # _design_doc_defects and runs only when a scene_doc is supplied, i.e.
+        # on the generation path. Stored scenes and the edit path validate
+        # without one, so this branch stays the only guard there.
         "<SceneFrame fonts={{heading: 'Playfair Display'}}><p>x</p></SceneFrame>",
     ],
 )
@@ -300,8 +307,10 @@ def _font_scene(decl: str) -> str:
         "return <AbsoluteFill style={{overflow:'hidden', background: palette.bg}}>"
         "{props.logoUrl && <Img src={props.logoUrl}/>}"
         "{props.imageUrl && <Img src={props.imageUrl} data-content-img/>}"
-        "<FitText fontSize={props.titleFontSize ?? 72} "
-        "style={{fontFamily: headingFont}}>{props.displayText}</FitText>"
+        "<FitText fontSize={props.titleFontSize ?? 68} containerWidth={800} maxHeight={300} "
+        "style={{fontFamily: headingFont}}>{props.sceneTitle}</FitText>"
+        "<FitText fontSize={props.descriptionFontSize ?? 34} containerWidth={800} maxHeight={300} "
+        "style={{fontFamily: props.bodyFont}}>{props.displayText}</FitText>"
         f"{PAD}</AbsoluteFill>; }};"
     )
 
@@ -345,3 +354,56 @@ def test_font_drift_compares_scenes_to_EACH_OTHER() -> None:
     inherit = _font_scene("const headingFont = props.headingFont || 'inherit';")
     assert detect_font_drift([inherit, inherit, playfair, inherit]) == [2]
     assert detect_font_drift([inherit] * 4) == []
+
+
+# ── a named font must actually be loadable ───────────────────────────────────
+
+
+@pytest.mark.parametrize("stack", [
+    "monospace",
+    "ui-monospace",
+    "Menlo, monospace",
+    "Consolas, Menlo, monospace",
+    "'Fira Code', monospace",   # the one mono face in the font registry
+])
+def test_loadable_mono_stacks_are_exempt(stack: str) -> None:
+    """Code/data scenes genuinely need a mono face and the kit ships no mono
+    prop, so a stack whose every family actually loads stays allowed."""
+    ok, err = validate_component_code(
+        _scene("", f"<code style={{{{fontFamily: \"{stack}\"}}}}>x</code>"),
+        collect_all=True,
+    )
+    assert ok, err
+
+
+@pytest.mark.parametrize("stack", [
+    "Geist Mono, monospace",     # template 181, Detail scene
+    "'Geist Mono', monospace",   # template 181, Chronology scene
+    "Satoshi, monospace",
+])
+def test_a_named_font_hiding_behind_monospace_is_rejected(stack: str) -> None:
+    """The exemption used to match the word "monospace" ANYWHERE in the stack,
+    so a named font in front of it passed unchallenged.
+
+    Geist Mono is in no registry and is loaded by nothing, so template 181's
+    Detail and Chronology scenes silently rendered in the system mono while
+    their siblings used the brand face — the "different font families" defect.
+    """
+    ok, err = validate_component_code(
+        _scene("", f"<code style={{{{fontFamily: \"{stack}\"}}}}>x</code>"),
+        collect_all=True,
+    )
+    assert not ok
+    assert "font" in (err or "").lower()
+
+
+def test_a_double_quoted_stack_with_inner_quotes_is_parsed() -> None:
+    """`"'Geist Mono', monospace"` captured only `"'"` — the outer double quote
+    to the first inner single quote — which read as an empty family and slipped
+    past every check. That is how the Chronology scene shipped."""
+    ok, err = validate_component_code(
+        _scene("", "<code style={{fontFamily: \"'Playfair Display', serif\"}}>x</code>"),
+        collect_all=True,
+    )
+    assert not ok
+    assert "Playfair Display" in (err or "")

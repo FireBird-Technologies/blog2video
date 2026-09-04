@@ -96,6 +96,178 @@ def _custom_layout_id(template_id: str, descriptor: dict) -> str | None:
     return None
 
 
+def _resolve_custom_scene_types(
+    template_id: str, scenes: list, custom_data: dict | None
+) -> list[dict]:
+    """Per-scene {sceneType, contentVariantIndex, contentArchetype} for a custom template.
+
+    WHY THIS EXISTS AS A SEPARATE, EARLY PASS
+    -----------------------------------------
+    This resolution used to happen ~800 lines into write_remotion_data, while the
+    IMAGE CASCADE that depends on it runs near the top. On a project's first
+    generation the pipeline writes descriptors carrying only
+    ``{"structuredContent": ..., "layoutConfig": {}}`` — no scene type, no
+    variant index — so `_custom_layout_id` returned None and EVERY scene fell
+    through to the fallback layout (``content_0``).
+
+    When that one layout happened to be image-free, the cascade concluded the
+    whole video was image-free: it stripped every ``assignedVideo``, popped
+    every ``assignedImage``, and persisted ``hideImage: True``. The later block
+    then computed the correct variants — too late to matter, and the persisted
+    hideImage meant it never healed. That is the "images and clips are assigned
+    during generation, then cleaned at the end" bug.
+
+    Resolving here, before any asset decision, is what makes the cascade see the
+    real per-scene layouts on the FIRST run.
+
+    Returns one dict per scene, in order. Non-custom templates get an empty list
+    — every caller must treat that as "no opinion" and keep prior behaviour.
+    """
+    if not is_custom_template(template_id) or not scenes:
+        return []
+
+    content_codes = (custom_data or {}).get("content_codes") or []
+    archetype_ids = (custom_data or {}).get("content_archetype_ids") or []
+    num_variants = len(content_codes) if content_codes else 1
+    total = len(scenes)
+
+    out: list[dict] = [
+        {"sceneType": "content", "contentVariantIndex": None, "contentArchetype": None}
+        for _ in range(total)
+    ]
+    overrides: dict[int, int] = {}
+
+    # Pass 1 — scene type. Priority is override > DB column > position, and that
+    # order is load-bearing: an explicit variant switch in the editor must not be
+    # undone by a positional guess.
+    for idx, scene in enumerate(scenes):
+        db_type = getattr(scene, "scene_type", None)
+        override_type = None
+        override_variant = None
+        if getattr(scene, "remotion_code", None):
+            try:
+                desc = json.loads(scene.remotion_code)
+                override_type = desc.get("sceneTypeOverride")
+                override_variant = desc.get("contentVariantIndex")
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        # A stored override wins — EXCEPT a bare "content" on a bookend, which is
+        # never a real choice.
+        #
+        # Nothing legitimate writes that: the pipeline stamps intro/outro
+        # positionally, and no UI offers "make the first scene a content scene".
+        # It only appears when the persistence loop fell back to its literal
+        # `sd.get("sceneType", "content")` default because scene-type resolution
+        # had returned nothing — and because a stored override outranks the
+        # positional rule, that wrong value then MASKED the rule forever. A
+        # project in that state could never be repaired by re-rendering: its
+        # last scene stayed "content", so no consumer saw an outro and the CTA
+        # overlay replaced the template's own ending on every render.
+        #
+        # Position wins for that one case, so such a project self-heals. A
+        # dataviz override stays authoritative even on a bookend — those come
+        # from Scene.scene_type and are real.
+        _is_bookend = idx == 0 or (idx == total - 1 and total > 1)
+        if override_type in ("intro", "content", "outro", "dataviz_chart", "dataviz_table") and not (
+            _is_bookend and override_type == "content"
+        ):
+            out[idx]["sceneType"] = override_type
+        elif db_type in ("intro", "content", "outro", "dataviz_chart", "dataviz_table"):
+            out[idx]["sceneType"] = db_type
+        elif idx == 0:
+            out[idx]["sceneType"] = "intro"
+        elif idx == total - 1 and total > 1:
+            out[idx]["sceneType"] = "outro"
+        else:
+            out[idx]["sceneType"] = "content"
+
+        if override_variant is not None:
+            overrides[idx] = override_variant
+
+    # Pass 2 — content variant, by matching each scene's extracted content type
+    # against the archetypes' declared best_for.
+    if archetype_ids and num_variants > 1:
+        from app.services.content_classifier import match_scenes_to_archetypes
+
+        structured: list[dict] = []
+        indices: list[int] = []
+        for idx, scene in enumerate(scenes):
+            if out[idx]["sceneType"] != "content" or idx in overrides:
+                continue
+            sc_data = {}
+            if getattr(scene, "remotion_code", None):
+                try:
+                    sc_data = json.loads(scene.remotion_code).get("structuredContent", {})
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            structured.append(sc_data)
+            indices.append(idx)
+
+        # Nothing left to match — every content scene already carries a stored
+        # contentVariantIndex, so the loop above skipped all of them.
+        #
+        # That is the NORMAL post-generation state, and this resolver runs on
+        # every GET /projects/{id} (via _inject_custom_theme). Without this
+        # guard, viewing a project re-ran full archetype matching on each poll —
+        # parsing every scene's descriptor a second time — only to compute an
+        # empty distribution and discard it, because the real values come from
+        # the explicit-override loop below. Skipping is behaviour-preserving by
+        # construction: with no indices there is nothing to assign.
+        assignments = (
+            match_scenes_to_archetypes(structured, archetype_ids) if indices else []
+        )
+        for i, scene_idx in enumerate(indices):
+            if i >= len(assignments):
+                continue
+            variant_idx = assignments[i]
+            out[scene_idx]["contentVariantIndex"] = variant_idx
+            if variant_idx < len(archetype_ids):
+                arch = archetype_ids[variant_idx]
+                out[scene_idx]["contentArchetype"] = (
+                    arch["id"] if isinstance(arch, dict) else arch
+                )
+            else:
+                out[scene_idx]["contentArchetype"] = "unknown"
+    else:
+        # No archetype metadata — cycle evenly.
+        content_idx = 0
+        for idx in range(total):
+            if out[idx]["sceneType"] == "content" and idx not in overrides:
+                out[idx]["contentVariantIndex"] = content_idx % num_variants
+                content_idx += 1
+
+    # Explicit overrides win outright, applied last.
+    for idx, variant in overrides.items():
+        out[idx]["contentVariantIndex"] = variant % num_variants
+        if variant % num_variants < len(archetype_ids):
+            arch = archetype_ids[variant % num_variants]
+            out[idx]["contentArchetype"] = arch["id"] if isinstance(arch, dict) else arch
+
+    return out
+
+
+def _custom_scene_layout_id(resolved: dict) -> str | None:
+    """The layout id (intro / content_N / custom_chart / outro) for a resolved scene.
+
+    The counterpart to `_custom_layout_id`, which reads an already-written
+    descriptor; this derives the same id from a freshly resolved scene so the
+    two agree on run 1 and run 2.
+    """
+    stype = resolved.get("sceneType")
+    if stype in ("intro", "outro"):
+        return stype
+    if stype == "dataviz_chart":
+        return "custom_chart"
+    if stype == "dataviz_table":
+        return "custom_table"
+    if stype == "content":
+        idx = resolved.get("contentVariantIndex")
+        if isinstance(idx, int) and idx >= 0:
+            return f"content_{idx}"
+    return None
+
+
 def _clamp_focus_value(value: object | None) -> float:
     try:
         num = float(value)
@@ -106,6 +278,84 @@ def _clamp_focus_value(value: object | None) -> float:
     if num > 100:
         return 100.0
     return round(num, 2)
+
+
+def _normalize_cta_props(cta_props: dict) -> dict:
+    """Shape `ctas[]` so a generated outro renders what the editor configured.
+
+    Two corrections, both compensating for the same thing: the scene is
+    free-text JS an LLM wrote, so it may read a field under the wrong name or
+    not read it at all.
+
+      * DROP entries the user disabled (`showWebsiteButton: False`) — no
+        generated outro reads that flag.
+      * ADD read-alias keys for the label/link, in case the scene guessed
+        `label`/`text`/`link` instead of the canonical names.
+
+    The documented/written contract is `ctaButtonText` + `websiteLink`
+    (SceneEditModal.tsx writes exactly these, per `custom_prompt_builder.py`'s
+    ending-scene contract in the codegen prompt). A generated component is
+    still free-text JS an LLM wrote from that prompt, and at least one
+    template (custom_201's outro, project 1211 scene 9) read
+    `c.label ?? c.text` / `c.link ?? c.websiteLink` instead — neither `label`
+    nor `text` exists on the real objects, so every CTA button rendered with
+    an empty title while its (correctly-read) `websiteLink` line stayed
+    visible beneath an unlabeled box, reading as an empty outline with
+    orphaned URL text next to it.
+    A rewritten component would fix this, but that requires the
+    template-owner to regenerate and re-review the scene (see the ending
+    contract's spacing/nesting rules in code_generator.py). Aliasing the keys
+    here fixes every already-generated template immediately, at the one place
+    all of them read ctaProps from — with no risk of clobbering a component
+    that already reads the canonical names correctly, since the alias is
+    additive.
+    """
+    ctas = cta_props.get("ctas") if isinstance(cta_props, dict) else None
+    if not isinstance(ctas, list) or not ctas:
+        return cta_props
+    normalized_ctas = []
+    for entry in ctas:
+        if not isinstance(entry, dict):
+            normalized_ctas.append(entry)
+            continue
+        # A CTA the user switched OFF is dropped here, not left to the scene.
+        #
+        # `showWebsiteButton` appears in ZERO generated outros — the codegen
+        # prompt never named it, so every scene does
+        # `(props.ctaProps?.ctas ?? []).map(...)` and paints entries the editor
+        # had disabled. v1 templates are unaffected (GeneratedCtaOverlay filters
+        # on exactly this flag), so the toggle worked there and silently did
+        # nothing on v2/v3 templates that compose their own ending.
+        #
+        # Filtering at the same choke point as the aliases above fixes every
+        # already-generated template with no regeneration, and matches the
+        # overlay's own rule so all design versions agree.
+        if entry.get("showWebsiteButton") is False:
+            continue
+        button_text = entry.get("ctaButtonText")
+        website_link = entry.get("websiteLink")
+        merged = dict(entry)
+        if button_text and not merged.get("label"):
+            merged["label"] = button_text
+        if button_text and not merged.get("text"):
+            merged["text"] = button_text
+        if website_link and not merged.get("link"):
+            merged["link"] = website_link
+        normalized_ctas.append(merged)
+    out = {**cta_props, "ctas": normalized_ctas}
+    # Clear the LEGACY single-CTA mirror when nothing survives.
+    #
+    # The editor also writes `ctaButtonText`/`websiteLink` at the top level as a
+    # mirror of ctas[0], and generated outros use it as a fallback:
+    #     ctas.length === 0 && props.ctaProps?.ctaButtonText ? [{...}] : ctas
+    # So filtering the array alone is defeated — emptying it makes the scene
+    # resurrect the very CTA the user disabled. Dropping the mirror too is what
+    # actually turns the toggle off.
+    if not normalized_ctas:
+        out.pop("ctaButtonText", None)
+        out.pop("websiteLink", None)
+        out["showWebsiteButton"] = False
+    return out
 
 
 def _get_workspace_lock(project_id: int) -> threading.Lock:
@@ -340,7 +590,42 @@ def provision_workspace(project_id: int, template_id: str | None = None) -> str:
         return workspace
 
 
-def _safe_scene_code(code: str, scene_type: str, label: str) -> str:
+def _scene_docs_by_role(custom_data: dict) -> dict[str, str]:
+    """The scene_doc text per role, keyed `intro` / `content_N` / `outro`.
+
+    The design docs are stored on the template (design_blueprint.scenes), and
+    the guard below needs them for the same reason generation does: several
+    contracts are conditional on the doc. Without it, `_image_less_by_design`
+    is False for EVERY scene and an image-less scene fails a gate it was
+    legitimately exempt from.
+    """
+    out: dict[str, str] = {}
+    try:
+        from app.services.code_generator import _format_scene_doc
+
+        scenes = ((custom_data or {}).get("design_blueprint") or {}).get("scenes")
+        if not isinstance(scenes, list):
+            return out
+        content_i = 0
+        for sd in scenes:
+            if not isinstance(sd, dict):
+                continue
+            role = sd.get("role")
+            if role == "intro":
+                out["intro"] = _format_scene_doc(sd)
+            elif role == "outro":
+                out["outro"] = _format_scene_doc(sd)
+            else:
+                out[f"content_{content_i}"] = _format_scene_doc(sd)
+                content_i += 1
+    except Exception:  # noqa: BLE001 — the guard must never break the render path
+        logger.exception("[RENDER-GUARD] could not rebuild scene docs; gating without them")
+    return out
+
+
+def _safe_scene_code(
+    code: str, scene_type: str, label: str, scene_doc: str = ""
+) -> str:
     """Last-line-of-defence gate before generated code is written to a render
     workspace (§R Layer 4).
 
@@ -361,7 +646,17 @@ def _safe_scene_code(code: str, scene_type: str, label: str) -> str:
     try:
         from app.services.code_validator import validate_component_code
 
-        valid, err = validate_component_code(code, scene_type=scene_type)
+        # SAME scene_doc generation used. Several contracts are conditional on
+        # it — most importantly the image gate, which exempts a scene whose doc
+        # says "IMAGE — NONE". Validating without it re-judged every image-less
+        # scene by rules it was never generated against, and this guard then
+        # replaced it with the stub. Six of eight scenes in a real template were
+        # swapped that way: the DB held correct code, the workspace got stubs,
+        # and generation had reported no warnings because nothing failed AT
+        # generation.
+        valid, err = validate_component_code(
+            code, scene_type=scene_type, scene_doc=scene_doc
+        )
         if valid:
             return code
 
@@ -411,10 +706,14 @@ def _write_generated_scene_files(workspace: str, template_id: str) -> None:
     generated_dir = os.path.join(workspace, "src", "templates", "generated")
     os.makedirs(generated_dir, exist_ok=True)
 
+    # The design doc per scene, so the write-time guard judges each scene by the
+    # same contract it was generated against.
+    _docs = _scene_docs_by_role(custom_data)
+
     # Write intro
     intro_code = custom_data.get("intro_code")
     if intro_code:
-        wrapped = _wrap_generated_code(_safe_scene_code(intro_code, "intro", "SceneIntro"))
+        wrapped = _wrap_generated_code(_safe_scene_code(intro_code, "intro", "SceneIntro", _docs.get("intro", "")))
         filepath = os.path.join(generated_dir, "SceneIntro.tsx")
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(wrapped)
@@ -423,7 +722,7 @@ def _write_generated_scene_files(workspace: str, template_id: str) -> None:
     # Write outro
     outro_code = custom_data.get("outro_code")
     if outro_code:
-        wrapped = _wrap_generated_code(_safe_scene_code(outro_code, "outro", "SceneOutro"))
+        wrapped = _wrap_generated_code(_safe_scene_code(outro_code, "outro", "SceneOutro", _docs.get("outro", "")))
         filepath = os.path.join(generated_dir, "SceneOutro.tsx")
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(wrapped)
@@ -435,7 +734,7 @@ def _write_generated_scene_files(workspace: str, template_id: str) -> None:
     for i, code in enumerate(content_codes):
         if not code:
             continue
-        wrapped = _wrap_generated_code(_safe_scene_code(code, "content", f"SceneContent{i}"))
+        wrapped = _wrap_generated_code(_safe_scene_code(code, "content", f"SceneContent{i}", _docs.get(f"content_{i}", "")))
         filepath = os.path.join(generated_dir, f"SceneContent{i}.tsx")
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(wrapped)
@@ -777,7 +1076,9 @@ def rebuild_workspace(
     Fully rebuild a project's Remotion workspace from DB data.
     Copies template-specific layout files, then writes data.json + assets.
     """
-    template_id = validate_template_id(getattr(project, "template", "default"))
+    template_id = validate_template_id(
+        getattr(project, "template", "default"), db=db, user_id=getattr(project, "user_id", None)
+    )
     workspace = provision_workspace(project.id, template_id)
     write_remotion_data(project, scenes, db, redistribute_images=redistribute_images)
     return workspace
@@ -812,12 +1113,25 @@ def write_remotion_data(
     Includes layout descriptors in the scene data for data-driven rendering.
     Returns the path to data.json.
     """
+    # Imported once, at the top: this name is used twice further down in this
+    # function (scene-type resolution, then the theme/font block). A local
+    # import anywhere in a function body makes Python treat that name as
+    # LOCAL for the entire function, from its first line — so importing it
+    # again just before its second use (as this used to) made the FIRST use
+    # raise UnboundLocalError on every call, silently degrading every custom
+    # template's render to missing fonts/layoutConfig/contentVariantCount
+    # (caught by the broad try/except around scene-type resolution below, so
+    # the render did not crash outright — it just quietly lost this data).
+    from app.services.template_service import _load_custom_template_data
+
     # Soft-deleted scenes must never appear in a render. This is the single choke
     # point for every render/workspace build (rebuild_workspace, render-still,
     # _rebuild_workspace_safe, pipeline), so filter here regardless of caller.
     scenes = [s for s in scenes if getattr(s, "is_active", True)]
 
-    template_id = validate_template_id(getattr(project, "template", "default"))
+    template_id = validate_template_id(
+        getattr(project, "template", "default"), db=db, user_id=getattr(project, "user_id", None)
+    )
     workspace = provision_workspace(project.id, template_id)
     public_dir = os.path.join(workspace, "public")
     os.makedirs(public_dir, exist_ok=True)
@@ -901,7 +1215,42 @@ def write_remotion_data(
     scene_base_layouts: list[str] = []
     scene_layout_props: list[dict] = []
     fallback = get_fallback_layout(template_id)
-    for scene in scenes:
+
+    # Resolve custom scene types and content variants BEFORE any layout or asset
+    # decision — see _resolve_custom_scene_types for why the ordering is the
+    # whole point. Defensive: a failure here must degrade to the previous
+    # behaviour, never break a render.
+    # Loaded ONCE and reused by every custom branch below.
+    #
+    # This template data used to be fetched separately here and again for the
+    # theme block ~800 lines down. Two independent loads of the same row can
+    # disagree — one returning None while the other succeeds — and that produced
+    # exactly the observed corruption: the theme block ran (so descriptors were
+    # rewritten) while scene-type resolution had come back empty (so every scene
+    # was stamped "content"). One load makes that state unreachable.
+    _custom_data: dict | None = None
+    _custom_scene_types: list[dict] = []
+    if is_custom_template(template_id):
+        try:
+            _custom_data = _load_custom_template_data(
+                template_id, db=db, user_id=getattr(project, "user_id", None)
+            )
+            _custom_scene_types = _resolve_custom_scene_types(
+                template_id, scenes, _custom_data
+            )
+        except Exception:
+            # Never break a render over this — but it must be LOUD. A swallowed
+            # failure here is what silently poisoned a project's descriptors,
+            # and the only symptom was a wrong ending weeks later.
+            logger.error(
+                "[REMOTION] custom scene-type resolution FAILED for template %s "
+                "(project %s) — scene types will fall back to position on the "
+                "next render; descriptors will not be stamped this run",
+                template_id, getattr(project, "id", None), exc_info=True,
+            )
+            _custom_scene_types = []
+
+    for _i, scene in enumerate(scenes):
         desc = None
         layout = fallback
         lp = {}
@@ -917,6 +1266,16 @@ def write_remotion_data(
                 _resolved = _custom_layout_id(template_id, desc)
                 if _resolved:
                     layout = _resolved
+                elif _i < len(_custom_scene_types) and _custom_scene_types[_i]:
+                    # A FIRST-RUN custom descriptor carries no scene type, so
+                    # _custom_layout_id cannot resolve it. Falling through to
+                    # `layoutConfig.arrangement` (an empty dict) handed every
+                    # scene the fallback layout, which is what made the image
+                    # cascade strip the whole video. Use the freshly resolved
+                    # type/variant instead.
+                    layout = (
+                        _custom_scene_layout_id(_custom_scene_types[_i]) or fallback
+                    )
                 elif "layoutConfig" in desc:
                     layout = desc["layoutConfig"].get("arrangement", fallback)
                 else:
@@ -932,16 +1291,28 @@ def write_remotion_data(
         scene_base_layouts.append(resolve_base_layout(template_id, layout))
         scene_layout_props.append(lp)
 
-    # The closing scene of a custom template never takes an image or a clip: the
-    # CTA + socials row is composited OVER it at render time, and the blueprint
-    # forces supports_image=False on the outro layout. Pin it here rather than
-    # relying only on the layout lookup above, because a legacy descriptor (one
-    # written before scene types were stored) resolves to an arrangement name and
-    # would slip past the no_image_layouts check.
+    # Correct the closing scene's LAYOUT ID when nothing else could resolve it —
+    # a legacy descriptor (written before scene types were stored) resolves to an
+    # arrangement name that no per-layout metadata is keyed by.
+    #
+    # This deliberately no longer forces the outro image-free. It used to, and
+    # that was right when GeneratedCtaOverlay REPLACED every generated outro:
+    # any image the scene carried was painted over and discarded. A v2 outro
+    # composes the CTA itself and renders normally, so its image capability is
+    # whatever its own design doc declared. build_custom_meta already encodes
+    # exactly that — it appends "outro" to layouts_without_image for v1 only —
+    # so forcing it here CONTRADICTED the meta and stripped the visual off every
+    # v2 ending. Let no_image_layouts be the single authority.
     if is_custom_template(template_id) and len(scenes) > 1:
         _last = len(scenes) - 1
-        if scene_base_layouts[_last] not in no_image_layouts:
+        _last_type = (
+            _custom_scene_types[_last].get("sceneType")
+            if _last < len(_custom_scene_types)
+            else None
+        )
+        if _last_type == "outro" and scene_base_layouts[_last] == fallback:
             scene_base_layouts[_last] = "outro"
+            scene_layouts[_last] = "outro"
 
     # Track which scene descriptors were modified (need serialization at end)
     dirty: set[int] = set()
@@ -956,6 +1327,15 @@ def write_remotion_data(
         # the placement pass after the image cascade re-places them. Clearing them
         # here is what stops a clip from sitting pinned to whichever scene index it
         # happened to land on in the previous sequence.
+        #
+        # This is ALSO the repair path for projects generated while custom scene
+        # layouts mis-resolved (see _resolve_custom_scene_types): those carry a
+        # persisted `hideImage: True` that permanently gates the visual slot, and
+        # Steps 2/4 below bail on it, so a normal re-render cannot heal them.
+        # Because `scene_base_layouts` is now correct, dropping hideImage here
+        # restores exactly the scenes whose layout really can show a visual — and
+        # only on a deliberate regenerate/template-change, never silently under a
+        # user who removed an image on purpose.
         for i, lp in enumerate(scene_layout_props):
             if scene_base_layouts[i] in no_image_layouts:
                 continue
@@ -1094,10 +1474,11 @@ def write_remotion_data(
             for fn in scene_image_map.get(i, []):
                 used_generic_files.add(fn)
 
-        # Step 3: Scene-type pre-assignment (intro gets hero, outro skips image)
-        # Persist layoutProps for both: intro hero must write assignedImage to DB (otherwise
-        # removing that image does not set hideImage and another generic fills the slot).
-        # Outro must write hideImage so the UI/remotion do not auto-assign a generic later.
+        # Step 3: Scene-type pre-assignment (intro gets the hero image).
+        # The intro hero must write assignedImage to DB — otherwise removing that
+        # image does not set hideImage and another generic fills the slot.
+        # An image-free outro was already stripped and flagged by Step 1, which
+        # is keyed by the same no_image_layouts membership.
         for i, scene in enumerate(scenes):
             if scene_image_map[i] or i in video_scene_indices:
                 continue
@@ -1108,22 +1489,19 @@ def write_remotion_data(
                 elif i == len(scenes) - 1 and len(scenes) > 1:
                     scene_type = "outro"
 
+            # THE OUTRO NEVER TAKES AN IMAGE — decided by the scene's TYPE, not
+            # by its layout id.
+            #
+            # build_custom_meta now puts "outro" in layouts_without_image
+            # unconditionally, so the membership test would usually agree. But it
+            # only holds when the last scene's layout actually resolves to the
+            # literal string "outro", and the repair above only fires when it
+            # resolved to `fallback` — so an outro that resolved to some
+            # content_N layout slipped through and took a clip. Keying off the
+            # scene type closes that, and keeps the rule true even for a
+            # template whose meta is stale.
             if scene_type == "outro":
                 hide_image_flags[i] = True
-                lp = scene_layout_props[i]
-                if scene_base_layouts[i] not in no_image_layouts:
-                    changed = False
-                    if lp.get("assignedImage"):
-                        lp.pop("assignedImage", None)
-                        lp.pop("imageFocusX", None)
-                        lp.pop("imageFocusY", None)
-                        lp.pop("imageZoom", None)
-                        changed = True
-                    if not lp.get("hideImage"):
-                        lp["hideImage"] = True
-                        changed = True
-                    if changed:
-                        dirty.add(i)
                 continue
 
             if hide_image_flags[i] or scene_base_layouts[i] in no_image_layouts:
@@ -1227,6 +1605,22 @@ def write_remotion_data(
                 spare_videos.sort(key=_clip_ingest_sort_key, reverse=True)
             # Only scenes the image cascade left empty. `scene_image_map[i]` is the
             # authoritative post-cascade record of which scenes took a still.
+            # The outro is excluded BY TYPE as well as by layout. This filter
+            # keys off no_image_layouts alone, so an outro whose layout id did
+            # not resolve to "outro" was still a valid slot and quietly took a
+            # spare clip — the one scene a built-in template never gives one to.
+            # Scoped to CUSTOM templates: a built-in's ending resolves to
+            # `ending_socials`, which is already in no_image_layouts, so the
+            # filter above covers it. Widening this to every template would risk
+            # excluding a legitimate final content scene.
+            _outro_idx = None
+            if is_custom_template(template_id) and len(scenes) > 1:
+                _last_i = len(scenes) - 1
+                _last_type = getattr(scenes[_last_i], "scene_type", None)
+                if _last_type is None and len(_custom_scene_types) == len(scenes):
+                    _last_type = _custom_scene_types[_last_i].get("sceneType")
+                if _last_type in (None, "outro"):
+                    _outro_idx = _last_i
             open_slots = [
                 i
                 for i in range(len(scenes))
@@ -1234,6 +1628,7 @@ def write_remotion_data(
                 and scene_base_layouts[i] not in no_image_layouts
                 and not scene_image_map[i]
                 and not scene_layout_props[i].get("assignedImage")
+                and i != _outro_idx
             ]
             for idx, filename in zip(open_slots, spare_videos):
                 lp = scene_layout_props[idx]
@@ -1263,11 +1658,22 @@ def write_remotion_data(
                 if "layoutConfig" not in desc:
                     desc["layout"] = scene_layouts[i]
                 scenes[i].remotion_code = json.dumps(desc)
-            elif not is_custom:
-                scenes[i].remotion_code = json.dumps({
-                    "layout": scene_layouts[i],
-                    "layoutProps": scene_layout_props[i],
-                })
+            else:
+                # A scene whose descriptor was missing or unparseable still gets
+                # its assignment written. This used to be `elif not is_custom`,
+                # so a custom scene in that state SILENTLY LOST the image or clip
+                # the cascade had just given it — the work was done and then
+                # dropped on the floor. Custom scenes carry layoutConfig rather
+                # than a layout id, so the synthesized descriptor matches the
+                # shape the rest of the custom path expects.
+                _rebuilt: dict = {"layoutProps": scene_layout_props[i]}
+                if is_custom:
+                    _rebuilt["layoutConfig"] = {}
+                    if i < len(_custom_scene_types) and _custom_scene_types[i].get("sceneType"):
+                        _rebuilt["sceneTypeOverride"] = _custom_scene_types[i]["sceneType"]
+                else:
+                    _rebuilt["layout"] = scene_layouts[i]
+                scenes[i].remotion_code = json.dumps(_rebuilt)
         try:
             db.commit()
         except Exception as e:
@@ -1280,6 +1686,102 @@ def write_remotion_data(
         for a in project_assets
         if a.asset_type.value == "audio"
     }
+
+    # Per-scene editable-prop defaults for CUSTOM templates.
+    #
+    # Built-in templates keep their schema in meta.json, keyed by layout name.
+    # Custom templates keep theirs on the template row, keyed by POSITION
+    # ({"intro": [...], "content": [[...], ...], "outro": [...]} — the same
+    # convention as image_box_aspect_ratios). Because the shapes differ, custom
+    # templates were skipped by the meta.json merge below entirely, so a scene
+    # reading props.layoutProps.<key> got `undefined` and rendered an empty slot
+    # even though a default was stored for it. Resolved here, once, so the
+    # per-scene merge can treat both kinds the same way.
+    # Type sizes are stored per orientation because portrait is a narrower
+    # canvas and needs SMALLER type for the same copy. Resolved OUTSIDE the try
+    # below so the band clamp further down can always rely on it, even when the
+    # defaults lookup fails.
+    _orientation = (getattr(project, "aspect_ratio", None) or "landscape").strip().lower()
+    if _orientation not in ("landscape", "portrait"):
+        _orientation = "landscape"
+    _custom_prop_defaults: dict[int, dict] = {}
+    if is_custom_template(template_id):
+        try:
+            # Reuses the single load above — see the note there on why two
+            # independent loads of the same row are dangerous.
+            _schemas = (_custom_data or {}).get("layout_prop_schemas") or {}
+            _content = _schemas.get("content") or []
+            _font_defaults = (_custom_data or {}).get("scene_font_defaults") or {}
+            _n = len(scenes)
+            for _idx in range(_n):
+                # Keyed by the variant that actually RENDERS this scene, not by
+                # its position in the video.
+                #
+                # This used to be `_content[_idx - 1]`, i.e. the Nth content
+                # schema for the Nth scene — but which component renders a scene
+                # is decided by match_scenes_to_archetypes, so a scene at
+                # position 3 could render content_0 and receive content_2's
+                # defaults. Every injected data-viz scene shifted it further,
+                # since those occupy a position but have no content schema.
+                # image_box_aspect_ratios is already keyed by variant (see
+                # _pick_ar below); these two must agree about what a scene IS.
+                _rt = _custom_scene_types[_idx] if _idx < len(_custom_scene_types) else {}
+                _stype = _rt.get("sceneType")
+                if _stype == "intro" or (not _stype and _idx == 0):
+                    _fields = _schemas.get("intro") or []
+                elif _stype == "outro" or (not _stype and _idx == _n - 1):
+                    _fields = _schemas.get("outro") or []
+                elif _stype in ("dataviz_chart", "dataviz_table"):
+                    # Rendered by the deterministic kit, not by generated code,
+                    # so it declares no layout props of its own.
+                    _fields = []
+                else:
+                    _ci = _rt.get("contentVariantIndex")
+                    if not isinstance(_ci, int) or _ci < 0:
+                        _ci = _idx - 1
+                    _fields = _content[_ci] if 0 <= _ci < len(_content) else []
+                _defaults = {
+                    f["key"]: f["default"]
+                    for f in _fields
+                    if isinstance(f, dict) and f.get("key") and "default" in f
+                }
+
+                # Per-scene DEFAULT type sizes, resolved by the same role +
+                # variant this block just computed — so the sizes a scene gets
+                # belong to the layout that actually renders it.
+                #
+                # Generated scenes read `props.titleFontSize ?? <literal>`, so
+                # supplying these makes the stored default win over the literal
+                # the model baked in, while an explicit per-scene override in
+                # layoutConfig still beats both (merged defaults-first below).
+                _fd_entry = None
+                if isinstance(_font_defaults, dict):
+                    if _stype == "intro" or (not _stype and _idx == 0):
+                        _fd_entry = _font_defaults.get("intro")
+                    elif _stype == "outro" or (not _stype and _idx == _n - 1):
+                        _fd_entry = _font_defaults.get("outro")
+                    elif _stype not in ("dataviz_chart", "dataviz_table"):
+                        _fd_list = _font_defaults.get("content") or []
+                        _ci2 = _rt.get("contentVariantIndex")
+                        if not isinstance(_ci2, int) or _ci2 < 0:
+                            _ci2 = _idx - 1
+                        if 0 <= _ci2 < len(_fd_list):
+                            _fd_entry = _fd_list[_ci2]
+                if isinstance(_fd_entry, dict):
+                    for _prop, _key in (
+                        ("title", "titleFontSize"),
+                        ("description", "descriptionFontSize"),
+                    ):
+                        _v = (_fd_entry.get(_prop) or {}).get(_orientation)
+                        if isinstance(_v, (int, float)) and _v > 0:
+                            _defaults[_key] = int(_v)
+
+                if _defaults:
+                    _custom_prop_defaults[_idx] = _defaults
+        except Exception:
+            # A missing/malformed schema must never break a render — the scenes
+            # simply fall back to their own inline defaults.
+            logger.exception("[REMOTION] custom layout_prop_schemas lookup failed")
 
     # Build scene data
     scene_data = []
@@ -1338,6 +1840,53 @@ def write_remotion_data(
                     layout_props = desc.get("layoutProps", {})
             except (json.JSONDecodeError, TypeError):
                 pass
+
+        # Custom templates: merge the per-scene defaults resolved above. Stored
+        # layoutProps still win — a default only fills a key the user has not set.
+        _cust_defaults = _custom_prop_defaults.get(i)
+        if _cust_defaults:
+            # Font sizes are the exception: a custom scene reads them from
+            # layoutConfig (that is where both sliders persist an override), not
+            # from layoutProps. Routing them to the wrong bag would silently do
+            # nothing. Defaults go UNDER the stored config, so an explicit
+            # slider value still wins.
+            _font_keys = ("titleFontSize", "descriptionFontSize", "sceneTitleFontSize")
+            _font_part = {k: _cust_defaults[k] for k in _font_keys if k in _cust_defaults}
+            _prop_part = {k: v for k, v in _cust_defaults.items() if k not in _font_keys}
+            if _prop_part:
+                layout_props = {**_prop_part, **layout_props}
+            if _font_part and layout_config is not None:
+                layout_config = {**_font_part, **(layout_config or {})}
+
+            # CLAMP the merged result to the USER bands.
+            #
+            # User bands, not the generation bands. A stored size is a value a
+            # PERSON chose while looking at the frame, and clamping it to the
+            # generator's own ceiling is what made the sliders look dead above
+            # 88: the user dragged to 140, the render silently reset it to 88,
+            # and the preview and the MP4 both ignored the change. The
+            # generation bands still bound what the MODEL may bake in — that is
+            # checked in code_validator._font_default_defects, at generation
+            # time, where it belongs.
+            #
+            # What survives from the old clamp is the sanity floor: a 0 or a
+            # negative is dropped above, and 10px is the smallest legible size
+            # on a 1920x1080 frame crushed by H.264.
+            #
+            # The TSX read paths clamp identically (resolveTypeSizes against
+            # USER_BANDS); this closes the CLI render, which never runs them.
+            if layout_config:
+                from app.services.code_generator import _USER_BANDS
+
+                for _key, _tier in (
+                    ("titleFontSize", "title"),
+                    ("descriptionFontSize", "description"),
+                ):
+                    _raw = layout_config.get(_key)
+                    if not isinstance(_raw, (int, float)) or _raw <= 0:
+                        continue
+                    _lo, _hi = _USER_BANDS[_tier][_orientation]
+                    layout_config[_key] = max(_lo, min(_hi, int(round(_raw))))
 
         # Merge meta.json layout defaults under stored layoutProps so fields like
         # editorialWordmark are always present even if the LLM didn't emit them.
@@ -1489,7 +2038,7 @@ def write_remotion_data(
                     scene_entry["structuredContent"] = sc
                 cta_props = desc_parsed.get("ctaProps")
                 if cta_props:
-                    scene_entry["ctaProps"] = cta_props
+                    scene_entry["ctaProps"] = _normalize_cta_props(cta_props)
             except (json.JSONDecodeError, TypeError):
                 pass
             logger.info("[REMOTION] Scene %s: layoutConfig → arrangement=%s, elements=%s, decorations=%s, structuredContent=%s", i, layout_config.get("arrangement"), len(layout_config.get("elements", [])), layout_config.get("decorations"), scene_entry.get("structuredContent", {}).get("contentType", "none"))
@@ -1578,8 +2127,16 @@ def write_remotion_data(
 
     # Include theme + brandColors for custom templates (GeneratedVideo composition)
     if is_custom_template(template_id) or is_crafted_template(template_id):
-        from app.services.template_service import _load_custom_template_data
-        custom_data = _load_custom_template_data(template_id, db=db, user_id=getattr(project, "user_id", None))
+        # Reuse the single custom load from the top of this function so the
+        # scene-type resolution and this block can never see different data.
+        # Crafted templates are not covered by it, so they still load here.
+        custom_data = (
+            _custom_data
+            if is_custom_template(template_id)
+            else _load_custom_template_data(
+                template_id, db=db, user_id=getattr(project, "user_id", None)
+            )
+        )
         if custom_data:
             if is_crafted_template(template_id) and not data.get("logo"):
                 crafted_logo_file = _resolve_crafted_logo_public_path(custom_data)
@@ -1651,9 +2208,20 @@ def write_remotion_data(
                     str(template_id or ""),
                 ]
             )
-            # The blueprint already chooses a surface and a decor system per
-            # template; pin them so the kit's cards stop hardcoding "panel" and
-            # the data-viz backdrop stops hardcoding grid/dots.
+            # Pin the kit's card surface and data-viz backdrop to this
+            # template's own choice, so the chart/table scenes stop hardcoding
+            # "panel" and "grid" and look like they belong to the template.
+            #
+            # SCOPE: this reaches KIT COMPONENTS ONLY, through the ambient
+            # KitVariantProvider and useKit(). A v2 generated scene cannot call
+            # useKit() and never sees these values — it draws its own panels and
+            # atmosphere from props.brandColors. In practice the only things left
+            # reading them are DataChartScene / DataTableScene, which the
+            # pipeline substitutes wholesale and which are not AI-authored.
+            #
+            # So this is not a house style being applied to the scenes: two
+            # templates sharing a decor system share a data-viz backdrop tint,
+            # not a layout.
             _bp_ident = (custom_data.get("design_blueprint") or {}).get("identity") or {}
             _pins = {
                 k: v
@@ -1666,6 +2234,12 @@ def write_remotion_data(
             if _pins:
                 data["kitVariant"] = _pins
 
+            # Which generation drew this template — it decides who renders the
+            # ending. See GeneratedVideoData.templateDesignVersion.
+            data["templateDesignVersion"] = int(
+                (custom_data.get("design_blueprint") or {}).get("version", 1) or 1
+            )
+
             motion = custom_data["theme"].get("motion") or {}
             _bp = custom_data.get("design_blueprint") or {}
             bp_tfam = _bp.get("transition_family") if isinstance(_bp, dict) else None
@@ -1675,7 +2249,8 @@ def write_remotion_data(
             # Tag each scene with a sceneType for GeneratedVideo (custom only).
             total = len(scene_data)
             content_codes = custom_data.get("content_codes") or []
-            archetype_ids = custom_data.get("content_archetype_ids") or []
+            # content_archetype_ids is read by _resolve_custom_scene_types, which
+            # ran before the image cascade — it is not needed again here.
             num_content_variants = len(content_codes) if content_codes else 1
             if is_custom_template(template_id):
                 data["contentVariantCount"] = num_content_variants
@@ -1698,15 +2273,18 @@ def write_remotion_data(
             # always resolve. A user's explicit project override still wins.
             # The LAST resort must still be a registry id, not a theme string.
             # Ending the chain at theme_fonts left the unvalidated extractor
-            # guess as the terminal case, so a template without a blueprint got
-            # exactly the silent system-sans fallback described above.
-            # fonts_for_era() is brand-seeded and always returns bundled ids.
+            # guess as the terminal case, so a template without a design of its
+            # own got exactly the silent system-sans fallback described above.
+            # The terminal fallback is therefore a registry id, not a theme
+            # string. (This used to be fonts_for_era(), a brand-seeded pick from
+            # nine fixed era pools; the eras are gone with the rest of the design
+            # vocabulary, so the last resort is now a fixed renderable default.)
             _bp_ident = (_bp.get("identity") or {}) if isinstance(_bp, dict) else {}
-            from app.services.kit_vocabulary import FONT_IDS, fonts_for_era
-
-            _era = str(_bp_ident.get("era") or "modern")
-            _seed = str(custom_data.get("name") or custom_data["theme"].get("category") or "")
-            _era_heading, _era_body = fonts_for_era(_era, _seed)
+            from app.services.render_registry import (
+                DEFAULT_BODY_FONT,
+                DEFAULT_HEADING_FONT,
+                FONT_IDS,
+            )
 
             def _first_renderable(*candidates: str | None) -> str:
                 """First candidate the font registry can actually resolve.
@@ -1724,97 +2302,67 @@ def write_remotion_data(
             data["headingFont"] = (
                 resolved_font
                 or _first_renderable(_bp_ident.get("heading_font"), theme_fonts.get("heading"))
-                or _era_heading
+                or DEFAULT_HEADING_FONT
             )
             data["bodyFont"] = (
                 resolved_font
                 or _first_renderable(_bp_ident.get("body_font"), theme_fonts.get("body"))
-                or _era_body
+                or DEFAULT_BODY_FONT
             )
 
-            # Assign scene types first
+            # Scene types and content variants were resolved BEFORE the image
+            # cascade (see _resolve_custom_scene_types) — this is the same
+            # resolution the cascade acted on, so the assets each scene carries
+            # and the layout that renders it can no longer disagree. Reading it
+            # back here rather than recomputing is what guarantees that.
+            # How each scene's design uses its image, keyed by role + variant the
+            # same way the prop schemas and aspect ratios are.
+            #
+            # "background" means the image fills the frame BEHIND the type, and
+            # the render path has to lay a scrim over it or the copy is
+            # unreadable on a real photograph. "half" puts the image beside the
+            # type, where a scrim would only mute the picture. Until now this
+            # never left the design stage, so the renderer could not tell the two
+            # apart and dimmed neither.
+            _bp_scenes = _bp.get("scenes") if isinstance(_bp, dict) else None
+            _image_modes: dict[str, str | None] = {}
+            if isinstance(_bp_scenes, list):
+                _ci = 0
+                for _entry in _bp_scenes:
+                    if not isinstance(_entry, dict):
+                        continue
+                    _mode = _entry.get("image_mode")
+                    _mode = _mode if _mode in ("background", "half") else None
+                    _role = _entry.get("role")
+                    if _role == "intro":
+                        _image_modes["intro"] = _mode
+                    elif _role == "outro":
+                        _image_modes["outro"] = _mode
+                    else:
+                        _image_modes[f"content_{_ci}"] = _mode
+                        _ci += 1
+
             for idx, sd in enumerate(scene_data):
-                scene_obj = scenes[idx] if idx < len(scenes) else None
-                db_type = getattr(scene_obj, "scene_type", None) if scene_obj else None
+                if idx >= len(_custom_scene_types):
+                    continue
+                _rt = _custom_scene_types[idx]
+                sd["sceneType"] = _rt.get("sceneType") or "content"
+                if _rt.get("contentVariantIndex") is not None:
+                    sd["contentVariantIndex"] = _rt["contentVariantIndex"]
+                    if _rt.get("contentArchetype"):
+                        sd["contentArchetype"] = _rt["contentArchetype"]
 
-                # Check for explicit per-scene overrides from variant switching
-                override_type = None
-                override_variant = None
-                if scene_obj and scene_obj.remotion_code:
-                    try:
-                        desc = json.loads(scene_obj.remotion_code)
-                        override_type = desc.get("sceneTypeOverride")
-                        override_variant = desc.get("contentVariantIndex")
-                    except (json.JSONDecodeError, TypeError):
-                        pass
-
-                # Priority: override > db_type > position-based
-                if override_type in ("intro", "content", "outro", "dataviz_chart", "dataviz_table"):
-                    sd["sceneType"] = override_type
-                elif db_type in ("intro", "content", "outro", "dataviz_chart", "dataviz_table"):
-                    sd["sceneType"] = db_type
-                elif idx == 0:
-                    sd["sceneType"] = "intro"
-                elif idx == total - 1 and total > 1:
-                    sd["sceneType"] = "outro"
+                _stype = sd["sceneType"]
+                if _stype in ("intro", "outro"):
+                    _mode_key = _stype
+                elif _stype == "content" and isinstance(
+                    _rt.get("contentVariantIndex"), int
+                ):
+                    _mode_key = f"content_{_rt['contentVariantIndex']}"
                 else:
-                    sd["sceneType"] = "content"
-
-                # Store override_variant for scenes that already have explicit assignments
-                if override_variant is not None:
-                    sd["_override_variant"] = override_variant
-
-            # Content-aware scene matching (replaces blind cycling)
-            if archetype_ids and num_content_variants > 1:
-                from app.services.content_classifier import match_scenes_to_archetypes
-
-                # Collect structuredContent from scene descriptors for matching
-                content_scenes_structured = []
-                content_scene_indices = []
-
-                for idx, sd in enumerate(scene_data):
-                    if sd["sceneType"] == "content" and "_override_variant" not in sd:
-                        # Get structuredContent from the scene descriptor
-                        scene_obj = scenes[idx] if idx < len(scenes) else None
-                        sc_data = {}
-                        if scene_obj and scene_obj.remotion_code:
-                            try:
-                                desc = json.loads(scene_obj.remotion_code)
-                                sc_data = desc.get("structuredContent", {})
-                            except (json.JSONDecodeError, TypeError):
-                                pass
-                        content_scenes_structured.append(sc_data)
-                        content_scene_indices.append(idx)
-
-                # Match content scenes to best archetypes
-                assignments = match_scenes_to_archetypes(content_scenes_structured, archetype_ids)
-
-                # Apply assignments
-                for i, scene_idx in enumerate(content_scene_indices):
-                    if i < len(assignments):
-                        variant_idx = assignments[i]
-                        scene_data[scene_idx]["contentVariantIndex"] = variant_idx
-                        # archetype_ids can be list[str] (old) or list[dict] (new)
-                        if variant_idx < len(archetype_ids):
-                            arch = archetype_ids[variant_idx]
-                            scene_data[scene_idx]["contentArchetype"] = arch["id"] if isinstance(arch, dict) else arch
-                        else:
-                            scene_data[scene_idx]["contentArchetype"] = "unknown"
-
-            else:
-                # Fallback: cycle evenly (for templates without archetype metadata)
-                content_idx = 0
-                for idx, sd in enumerate(scene_data):
-                    if sd.get("sceneType") == "content" and "_override_variant" not in sd:
-                        sd["contentVariantIndex"] = content_idx % num_content_variants
-                        content_idx += 1
-
-            # Apply explicit overrides (from variant switching UI)
-            for sd in scene_data:
-                if "_override_variant" in sd:
-                    sd["contentVariantIndex"] = sd.pop("_override_variant") % num_content_variants
-                else:
-                    sd.pop("_override_variant", None)
+                    _mode_key = None
+                if _mode_key and _mode_key in _image_modes:
+                    sd["imageMode"] = _image_modes[_mode_key]
 
             # Pull aspect ratios stored at template generation time (one per variant).
             # Each entry may be either:
@@ -1838,14 +2386,27 @@ def write_remotion_data(
             content_ars_raw = ar_map.get("content") or []
             content_ars = [_pick_ar(e) for e in content_ars_raw]
 
-            # Persist variant assignments to DB (fixes preview bug)
+            # Persist variant assignments to DB (fixes preview bug).
+            #
+            # WRITES ONLY WHAT CHANGED. This loop covers every scene rather than
+            # the `dirty` set the image cascade built, because it persists a
+            # different thing (the resolved variant + aspect ratio) that is only
+            # known this late. But it used to ASSIGN unconditionally, so each
+            # call re-serialised every scene and SQLAlchemy emitted an UPDATE per
+            # row even when the bytes were identical — and write_remotion_data
+            # runs at least twice per generate→render, so an unchanged project
+            # paid four full scene-table rewrites. Every key written below is
+            # idempotent, so on a re-render this now costs one comparison per
+            # scene and no SQL at all.
+            _descriptors_changed = 0
             for idx in range(len(scene_data)):
                 sd = scene_data[idx]
                 scene_obj = scenes[idx] if idx < len(scenes) else None
                 if scene_obj is None:
                     continue
+                _before = scene_obj.remotion_code
                 try:
-                    desc = json.loads(scene_obj.remotion_code) if scene_obj.remotion_code else {}
+                    desc = json.loads(_before) if _before else {}
                 except (json.JSONDecodeError, TypeError):
                     desc = {}
 
@@ -1861,7 +2422,19 @@ def write_remotion_data(
                 #   * ProjectView's `!sceneLayout` short-circuit made
                 #     sceneSupportsImage true, so the outro rendered an image
                 #     picker despite meta listing it in layouts_without_image.
-                desc["sceneTypeOverride"] = sd.get("sceneType", "content")
+                # NEVER write a scene type that was not actually resolved.
+                #
+                # This used to be `sd.get("sceneType", "content")`, so when
+                # scene-type resolution came back empty — which it does silently
+                # on any exception — every scene was stamped "content",
+                # INCLUDING the last. That value then outranked the positional
+                # outro rule on every later run, so the damage was permanent and
+                # the template's own ending was never rendered again.
+                #
+                # Leaving the key absent is strictly better: the resolver's
+                # positional fallback fills it in correctly next time.
+                if sd.get("sceneType"):
+                    desc["sceneTypeOverride"] = sd["sceneType"]
                 if sd.get("contentVariantIndex") is not None:
                     desc["contentVariantIndex"] = sd["contentVariantIndex"]
                     if sd.get("contentArchetype"):
@@ -1885,12 +2458,38 @@ def write_remotion_data(
                 lp["imageBoxAspectRatio"] = ar
                 desc["layoutProps"] = lp
 
-                scene_obj.remotion_code = json.dumps(desc)
+                _after = json.dumps(desc)
+                if _after != _before:
+                    scene_obj.remotion_code = _after
+                    _descriptors_changed += 1
 
-            db.commit()
+                # KEEP preferred_layout IN STEP with the layout just resolved.
+                #
+                # This block persists a newly-resolved contentVariantIndex, but
+                # left preferred_layout on whatever the script stage guessed. The
+                # two then named different layouts for the same scene: the video
+                # rendered the resolved variant while the editor's badge, and
+                # anything else reading the column, showed the old one.
+                #
+                # `_descriptor_layout_name` derives the id from the descriptor
+                # that was just written, so the two cannot disagree by
+                # construction.
+                try:
+                    from app.routers.pipeline import _descriptor_layout_name
+
+                    _resolved_lid = _descriptor_layout_name(template_id, desc)
+                    if _resolved_lid and getattr(scene_obj, "preferred_layout", None) != _resolved_lid:
+                        scene_obj.preferred_layout = _resolved_lid
+                        _descriptors_changed += 1
+                except Exception:  # noqa: BLE001 — never break a render over a hint column
+                    logger.exception("could not sync preferred_layout for a scene")
+
+            if _descriptors_changed:
+                db.commit()
             logger.info(
-                "GeneratedVideo: brandColors and sceneTypes set for %d scenes (%d content variants)",
-                total, num_content_variants,
+                "GeneratedVideo: brandColors and sceneTypes set for %d scenes "
+                "(%d content variants, %d descriptor(s) rewritten)",
+                total, num_content_variants, _descriptors_changed,
             )
 
             # Include brand logo if available via BrandKit

@@ -3054,5 +3054,9 @@
   "blog:ai-video-generators-that-are-not-slop@717167ff5878ce7f@20aaebd1": {
     "keep": false,
     "reason": "Discusses AI video generators generally, not Blog2Video specifically."
+  },
+  "blog:youtube-backlink@418fb49a27ada96f@20aaebd1": {
+    "keep": false,
+    "reason": "Describes SEO strategy for YouTube, not Blog2Video features."
   }
 }

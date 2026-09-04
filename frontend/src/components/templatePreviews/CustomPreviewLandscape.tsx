@@ -372,6 +372,16 @@ interface Props {
   outroCode?: string;
   contentCodes?: string[];
   contentArchetypeIds?: (string | { id: string; best_for?: string[] })[];
+  /** design_blueprint.version — decides whether the outro is the template's own
+   *  scene (v2) or the CTA overlay that replaces it (v1). */
+  designVersion?: number;
+  /** Showcase copy generated with the template, one entry per scene. Without it
+   *  every scene synthesises generic placeholder text client-side. */
+  sceneSampleContent?: {
+    intro?: Record<string, unknown> | null;
+    content?: (Record<string, unknown> | null)[] | null;
+    outro?: Record<string, unknown> | null;
+  } | null;
   validLayouts?: string[] | null;
   frontendFiles?: Record<string, string> | null;
   frontendEntryRel?: string | null;
@@ -397,6 +407,8 @@ export default function CustomPreviewLandscape({
   outroCode,
   contentCodes,
   contentArchetypeIds,
+  designVersion,
+  sceneSampleContent,
   validLayouts,
   frontendFiles,
   frontendEntryRel,
@@ -428,6 +440,8 @@ export default function CustomPreviewLandscape({
         outroCode={outroCode}
         contentCodes={contentCodes}
         contentArchetypeIds={contentArchetypeIds}
+        designVersion={designVersion}
+        sceneSampleContent={sceneSampleContent}
         validLayouts={validLayouts}
         frontendFiles={frontendFiles}
         frontendEntryRel={frontendEntryRel}

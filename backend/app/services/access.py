@@ -94,7 +94,7 @@ def project_owner(project: Project, db: Session) -> User:
     return owner
 
 
-def can_use_ai_edit(payer: User, project: Project, cost: int = 1) -> bool:
+def can_use_ai_edit(payer: User, project: Optional[Project], cost: int = 1) -> bool:
     """Whether an AI-assisted edit costing ``cost`` credits is permitted.
 
     Charged to the paying ``payer`` (the project owner on shared projects), drawn
@@ -103,12 +103,14 @@ def can_use_ai_edit(payer: User, project: Project, cost: int = 1) -> bool:
     at ``FREE_AI_EDIT_CREDITS``, +``AI_EDIT_CREDITS_PER_VIDEO`` per purchased
     video). The edit is allowed only if the combined balance covers ``cost``.
 
-    ``project`` is retained for signature stability but no longer gates.
+    ``project`` is retained for signature stability but no longer gates, so it
+    may be None for a credit spend that has no project at all (editing a scene
+    of a custom template).
     """
     return payer.ai_edit_credits_available >= cost
 
 
-def consume_ai_edit(payer: User, project: Project, cost: int = 1) -> None:
+def consume_ai_edit(payer: User, project: Optional[Project], cost: int = 1) -> None:
     """Spend ``cost`` AI-assisted-edit credits for ``payer``.
 
     Draws from the monthly plan allowance first, then the non-expirable
@@ -123,7 +125,7 @@ def consume_ai_edit(payer: User, project: Project, cost: int = 1) -> None:
         payer.ai_edit_credits = max(0, (payer.ai_edit_credits or 0) - remainder)
 
 
-def refund_ai_edit(payer: User, project: Project, cost: int = 1) -> None:
+def refund_ai_edit(payer: User, project: Optional[Project], cost: int = 1) -> None:
     """Return ``cost`` AI-edit credits to ``payer`` after a failed background edit.
 
     The inverse of :func:`consume_ai_edit`: reverses the same split, crediting

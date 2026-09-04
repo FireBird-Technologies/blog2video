@@ -22,6 +22,9 @@ import { BACKEND_URL } from "../api/client";
  */
 
 type CaptureData = {
+  /** design_blueprint.version — 2 means the outro renders its own CTA;
+   *  1 (or absent) means the CTA overlay replaces it. */
+  design_blueprint?: { version?: number } | null;
   theme: unknown;
   name?: string;
   intro_code?: string | null;
@@ -131,6 +134,10 @@ function CustomCapture({ customId, secret }: { customId: string; secret: string 
             outroCode: data.outro_code || undefined,
             contentCodes: data.content_codes || undefined,
             contentArchetypeIds: data.content_archetype_ids,
+            // So the captured thumbnail shows the ending the real video renders:
+            // a v2 outro draws its own CTA, a v1 outro is replaced by the overlay.
+            designVersion: (data.design_blueprint as { version?: number } | null)
+              ?.version,
             previewImageUrl: null,
             logoUrls: data.logo_urls,
             ogImage: data.og_image,

@@ -742,7 +742,13 @@ export const MetricRow: React.FC<{ items: StatItem[]; start?: number }> = ({
               <CountUpValue
                 value={it.value}
                 start={start + i * 8 + 4}
-                color={i === 0 ? palette.accent : palette.text}
+                // accentText, not accent: this renders TYPE. The raw accent is
+                // for fills and is not contrast-clamped, so a pale brand accent
+                // made the first metric — the most important number on the
+                // frame — the least readable thing on it. Every sibling stat
+                // component (StatCard above, and each StatGrid arrangement)
+                // already uses accentText; this was the one missed site.
+                color={i === 0 ? palette.accentText : palette.text}
                 fontSize={type.numeral * STAT_RATIOS.metricRow.value}
               />
               {effectiveSuffix(it.value, it.suffix) && (

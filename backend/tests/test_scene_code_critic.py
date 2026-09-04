@@ -3,8 +3,8 @@
 This runs inside the scene-generation hot path, so the one property that
 matters more than any critique it produces is that it can never take a
 generation down with it. It returns None for "no defect" AND for every failure
-mode, exactly like scene_visual_check, whose docstring explains why that
-conflation is deliberate.
+mode; that conflation is deliberate, because a quality gate that can raise is a
+quality gate that can fail a generation.
 """
 from __future__ import annotations
 
@@ -38,13 +38,13 @@ def test_an_lm_failure_is_swallowed(monkeypatch) -> None:
         raise RuntimeError("provider is down")
 
     monkeypatch.setattr(dspy, "Predict", _explode)
-    assert critic.critique_scene_code(CODE, layout_spec="a side rail") is None
+    assert critic.critique_scene_code(CODE, scene_doc="a side rail") is None
 
 
 def test_short_or_empty_code_is_skipped() -> None:
     """A stub or a truncation has nothing to critique; the model would invent."""
-    assert critic.critique_scene_code("", layout_spec="a side rail") is None
-    assert critic.critique_scene_code("const x = 1;", layout_spec="a side rail") is None
+    assert critic.critique_scene_code("", scene_doc="a side rail") is None
+    assert critic.critique_scene_code("const x = 1;", scene_doc="a side rail") is None
 
 
 def test_no_layout_and_no_direction_is_skipped() -> None:
