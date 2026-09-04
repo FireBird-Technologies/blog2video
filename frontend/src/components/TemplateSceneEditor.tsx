@@ -29,10 +29,11 @@ import {
   getSceneDraft,
   getSceneDrafts,
   getSceneEditStatus,
-  setSceneFontDefaults,
+  setSceneFontDefaultsBulk,
   updateCustomTemplate,
   type CustomTemplateItem,
   type SceneDraft,
+  type SceneFontSizes,
 } from "../api/client";
 import CustomPreview from "./templatePreviews/CustomPreview";
 import { useAuth } from "../hooks/useAuth";
@@ -158,6 +159,23 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
   /** Scene keys with a pending draft. Drives the green dot and the per-scene
    *  edit lock, and is seeded for the whole template by one call on open. */
   const [draftScenes, setDraftScenes] = useState<Set<string>>(new Set());
+  /**
+   * Already-fetched drafts, by scene key — so navigating back to a scene is
+   * instant instead of re-fetching a payload dominated by full scene source.
+   *
+   * A ref, not state: it is a cache, and a hit is read synchronously during the
+   * navigation effect so the draft can be shown in the same commit as the
+   * selection change (no `null` flash, no spinner).
+   *
+   * A STALE entry is worse than a slow one, so every path that consumes or
+   * destroys a draft must evict: apply, discard, and a poll that produces a new
+   * draft for a scene that already had one. Cleared wholesale when the template
+   * id changes, since keys are only unique within a template.
+   */
+  const draftCacheRef = useRef<Map<string, SceneDraft>>(new Map());
+  useEffect(() => {
+    draftCacheRef.current = new Map();
+  }, [template.id]);
   const isRunning = useCallback(
     (key: string) => runningScenes.has(key),
     [runningScenes],
@@ -483,21 +501,32 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
       setDraft(null);
       return;
     }
+    // Arriving at a scene flagged with a draft must SHOW that draft — it is the
+    // whole point of the flag. Only the poll used to set `showDraft`, and the
+    // poll runs for the scene that finished, not the one being viewed.
+    const cached = draftCacheRef.current.get(selected);
+    if (cached) {
+      // Synchronously, in the same commit as the selection change: no clear to
+      // null first, so the preview never blanks on the way to a draft we already
+      // hold.
+      setDraft(cached);
+      setShowDraft(true);
+      return;
+    }
+
     let cancelled = false;
     setDraft(null);
     getSceneDraft(template.id, selected)
       .then((res) => {
+        draftCacheRef.current.set(selected, res.data);
         if (cancelled) return;
         setDraft(res.data);
-        // Arriving at a scene flagged with a draft must SHOW that draft — it is
-        // the whole point of the flag. Only the poll used to set this, and under
-        // the registry the poll runs for the scene that finished, not the one
-        // being viewed.
         setShowDraft(true);
       })
       .catch(() => {
         // Gone (applied or discarded elsewhere) — drop the stale flag so the
         // dot and the edit lock clear too.
+        draftCacheRef.current.delete(selected);
         if (!cancelled) markDrafted(selected, false);
       });
     return () => {
@@ -554,10 +583,15 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
               delete next[`${sceneKey}:portrait`];
               return next;
             });
+            // A finished edit SUPERSEDES whatever was cached for this scene, so
+            // evict first — unconditionally, even when the scene is off screen.
+            // Otherwise navigating to it later would serve the previous draft.
+            draftCacheRef.current.delete(sceneKey);
             if (isOnScreen()) {
               // Only fetch when it is being viewed — otherwise the flag above is
               // enough, and the draft-load effect fetches on navigation.
               const d = await getSceneDraft(template.id, sceneKey);
+              draftCacheRef.current.set(sceneKey, d.data);
               setDraft(d.data);
               setShowDraft(true);
               setPrompt("");
@@ -616,9 +650,31 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
       try {
         const { data } = await getSceneDrafts(template.id);
         if (cancelled) return;
-        setDraftScenes(new Set(data.drafts ?? []));
+        const draftKeys = data.drafts ?? [];
+        setDraftScenes(new Set(draftKeys));
         // No edit_id: the backend resolves the newest live job per scene.
         (data.running ?? []).forEach((key) => attachToEdit(key));
+
+        // PREFETCH every pending draft, in parallel, so moving between scenes is
+        // instant. There are rarely more than a handful, and the summary above
+        // already told us exactly which scenes have one — so this fetches only
+        // what is really there, never a 404 per scene.
+        //
+        // allSettled, not all: one scene's draft failing (applied or discarded
+        // in another tab) must not discard the others' payloads.
+        if (draftKeys.length > 0) {
+          const settled = await Promise.allSettled(
+            draftKeys.map((key) =>
+              getSceneDraft(template.id, key).then((r) => [key, r.data] as const),
+            ),
+          );
+          for (const s of settled) {
+            if (s.status === "fulfilled") {
+              const [key, payload] = s.value;
+              draftCacheRef.current.set(key, payload);
+            }
+          }
+        }
       } catch (err: any) {
         if (cancelled) return;
         // SAY SO. This used to swallow every failure on the theory that "the
@@ -782,27 +838,31 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
       let latest = res.data;
 
       // Type sizes are per SCENE, so they go through their own endpoint rather
-      // than the template-level PUT above. One request per edited scene, run in
-      // sequence so each response builds on the last — they all rewrite the same
-      // column, and firing them together would have the last write win.
-      const bySceneKey = new Map<string, {
-        title?: { landscape?: number; portrait?: number };
-        description?: { landscape?: number; portrait?: number };
-      }>();
+      // than the template-level PUT above.
+      //
+      // ONE request for every edited scene. This used to be a request per scene
+      // awaited in a loop, and it had to be sequential: each call re-reads,
+      // merges and rewrites the same `scene_font_defaults` column, so firing
+      // them together let the last response win and dropped the rest. The bulk
+      // route does the same merges server-side under a single commit, which
+      // removes the constraint instead of paying N round trips to work around it.
+      const bySceneKey: Record<string, SceneFontSizes> = {};
       for (const [key, edit] of Object.entries(fontSizeEdits)) {
         const [sceneKey, o] = key.split(":") as [string, "landscape" | "portrait"];
-        const body = bySceneKey.get(sceneKey) ?? {};
+        const body = bySceneKey[sceneKey] ?? {};
         if (typeof edit.title === "number") {
           body.title = { ...(body.title ?? {}), [o]: edit.title };
         }
         if (typeof edit.description === "number") {
           body.description = { ...(body.description ?? {}), [o]: edit.description };
         }
-        bySceneKey.set(sceneKey, body);
+        bySceneKey[sceneKey] = body;
       }
-      for (const [sceneKey, body] of bySceneKey) {
-        if (!body.title && !body.description) continue;
-        latest = (await setSceneFontDefaults(template.id, sceneKey, body)).data;
+      const withSizes = Object.fromEntries(
+        Object.entries(bySceneKey).filter(([, b]) => b.title || b.description),
+      );
+      if (Object.keys(withSizes).length > 0) {
+        latest = (await setSceneFontDefaultsBulk(template.id, withSizes)).data;
       }
       // Cleared only after every write landed, so a failure mid-way leaves the
       // unsaved edits on screen rather than silently discarding them.
@@ -819,6 +879,53 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
   };
 
 
+  /**
+   * The template as it will look once `draft` is applied, built locally.
+   *
+   * Apply writes exactly the fields the draft payload already carries — the
+   * scene's code, its aspect ratio, prop schema, sample content and font
+   * defaults — so the result is predictable without waiting for the server to
+   * echo it back. That is what lets the preview swap the moment the user clicks.
+   *
+   * Returns null when the scene key cannot be placed, so the caller falls back
+   * to the non-optimistic path rather than writing code into the wrong slot.
+   */
+  const applyDraftLocally = (
+    tpl: CustomTemplateItem,
+    sceneKey: string,
+    d: SceneDraft,
+  ): CustomTemplateItem | null => {
+    const next: CustomTemplateItem = { ...tpl };
+    if (sceneKey === "intro") {
+      next.intro_code = d.code;
+    } else if (sceneKey === "outro") {
+      next.outro_code = d.code;
+    } else {
+      const m = /^content_(\d+)$/.exec(sceneKey);
+      if (!m) return null;
+      const idx = Number(m[1]);
+      const codes = [...(tpl.content_codes ?? [])];
+      if (idx < 0 || idx >= codes.length) return null;
+      codes[idx] = d.code;
+      next.content_codes = codes;
+    }
+    // Drop this scene's generation warning, mirroring _clear_scene_warning on
+    // the server — otherwise the "simplified fallback" banner would linger over
+    // a scene the user has just replaced.
+    const target =
+      sceneKey === "intro"
+        ? 0
+        : sceneKey === "outro"
+          ? (tpl.content_codes?.length ?? 0) + 1
+          : Number(/^content_(\d+)$/.exec(sceneKey)?.[1] ?? -1) + 1;
+    if (tpl.generation_warnings?.length) {
+      next.generation_warnings = tpl.generation_warnings.filter(
+        (w) => !String(w).startsWith(`Scene ${target} (`),
+      );
+    }
+    return next;
+  };
+
   const handleApply = async () => {
     // `applyingRef` (not `busy`) guards the double-click: state set here is not
     // visible to a second click dispatched in the same tick, so two apply calls
@@ -828,24 +935,49 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
     applyingRef.current = true;
     markRunning(selected, true);
     setError(null);
-    try {
-      const res = await applySceneDraft(template.id, selected);
-      // Clear the draft only AFTER the new template is in hand, and in the same
-      // commit. Clearing it up front made `previewCodes` fall back to
-      // `template.*_code` — still the OLD code, since the parent had not yet
-      // received the update — so the preview visibly reverted to the previous
-      // version for the whole duration of the request, then snapped forward.
-      onTemplateUpdated(res.data);
-      // The draft is consumed server-side: clear the flag so the dot goes and
-      // the scene becomes editable again.
-      markDrafted(selected, false);
+
+    // Everything needed to put the UI back if the write fails.
+    const prevTemplate = template;
+    const prevDraft = draft;
+    const sceneKey = selected;
+
+    // OPTIMISTIC: show the applied scene now. The draft carries the same code
+    // the server is about to store, so waiting a round trip to display it only
+    // makes the button feel broken on a slow connection.
+    //
+    // `draft` must be cleared for the swap to be visible: the preview is keyed
+    // on draft.version_id, and previewCodes prefers the draft over the template.
+    const optimistic = applyDraftLocally(prevTemplate, sceneKey, prevDraft);
+    if (optimistic) {
+      onTemplateUpdated(optimistic);
+      markDrafted(sceneKey, false);
       setDraft(null);
+      draftCacheRef.current.delete(sceneKey);
+    }
+
+    try {
+      const res = await applySceneDraft(template.id, sceneKey);
+      // Reconcile with the authoritative row — it also carries fields we did not
+      // model locally (current_version_id, a re-shot thumbnail on an intro).
+      onTemplateUpdated(res.data);
+      markDrafted(sceneKey, false);
+      setDraft(null);
+      draftCacheRef.current.delete(sceneKey);
       setSuccess("Scene applied — it's now live in this template.");
     } catch {
-      setError("Could not apply the draft.");
+      // ROLL BACK. The screen must never keep claiming a scene is live when the
+      // write failed — a reload would silently undo it.
+      if (optimistic) {
+        onTemplateUpdated(prevTemplate);
+        markDrafted(sceneKey, true);
+        draftCacheRef.current.set(sceneKey, prevDraft);
+        if (selectedRef.current === sceneKey) setDraft(prevDraft);
+      }
+      setError("Couldn't apply the draft — nothing was saved. Your draft is still here; try again.");
+      setErrorSticky(true);
     } finally {
       applyingRef.current = false;
-      markRunning(selected, false);
+      markRunning(sceneKey, false);
     }
   };
 
@@ -853,20 +985,30 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
     if (!draft || isRunning(selected) || applyingRef.current) return;
     applyingRef.current = true;
     markRunning(selected, true);
+
+    const prevDraft = draft;
+    const sceneKey = selected;
+
     // Cleared up front — unlike apply, reverting the preview to the published
     // code IS the intended outcome here, so showing it immediately is correct.
     setDraft(null);
-    markDrafted(selected, false);
+    markDrafted(sceneKey, false);
+    draftCacheRef.current.delete(sceneKey);
     try {
-      await discardSceneDraft(template.id, selected);
+      await discardSceneDraft(template.id, sceneKey);
       setSuccess("Draft discarded.");
     } catch {
-      setDraft(draft);
-      markDrafted(selected, true);
-      setError("Could not discard the draft.");
+      // Put it back: the draft still exists server-side, and leaving it hidden
+      // would strand it — invisible here, but still blocking new edits on this
+      // scene with "already being regenerated".
+      draftCacheRef.current.set(sceneKey, prevDraft);
+      markDrafted(sceneKey, true);
+      if (selectedRef.current === sceneKey) setDraft(prevDraft);
+      setError("Couldn't discard the draft — it's still there. Try again.");
+      setErrorSticky(true);
     } finally {
       applyingRef.current = false;
-      markRunning(selected, false);
+      markRunning(sceneKey, false);
     }
   };
 

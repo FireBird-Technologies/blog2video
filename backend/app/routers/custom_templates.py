@@ -2929,39 +2929,39 @@ class SceneFontDefaultsRequest(BaseModel):
     description: dict | None = None
 
 
-@router.patch("/{template_id}/scenes/{scene_key}/font-defaults")
-def set_scene_font_defaults(
-    template_id: int,
-    scene_key: str,
-    body: SceneFontDefaultsRequest,
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """Set one scene's DEFAULT type sizes.
+class BulkSceneFontDefaultsRequest(BaseModel):
+    """Type sizes for MANY scenes, keyed by scene_key ("intro" / "content_2" / "outro")."""
 
-    A dedicated route rather than a field on PUT /custom-templates/{id}: that
-    request carries template-level identity (name, theme), and folding per-scene
-    indexed data into it would round-trip the whole array on every rename, with
-    a chance of clobbering it.
+    scenes: dict[str, SceneFontDefaultsRequest]
+
+
+def _merge_scene_font_defaults(
+    tpl: "CustomTemplate", scene_key: str, body: SceneFontDefaultsRequest
+) -> tuple[str, int, dict] | None:
+    """Resolve ONE scene's stored sizes merged with ``body``, clamped.
+
+    Returns ``(role, index, merged)`` ready for ``_write_scene_indexed_field``, or
+    None when the key does not name a scene or nothing usable was supplied.
+
+    Shared by the single-scene and bulk routes so the two cannot disagree about
+    clamping or about how a partial update merges — a difference there would let
+    the same slider produce different stored values depending on whether it was
+    saved alone or alongside others.
 
     Values are CLAMPED rather than rejected — a slider that refuses to move is
-    worse than one that stops at the edge.
-
-    Clamped to the USER bands, not the generation bands. This route backs the
-    template editor's per-scene sliders, so its input is a size a PERSON chose
-    while looking at the frame; the generation bands bound what the MODEL may
-    bake into code, which is checked at generation time. Clamping a deliberate
-    140px title back to the generator's 88px ceiling is what made the slider
-    look broken.
+    worse than one that stops at the edge. Clamped to the USER bands, not the
+    generation bands: the input is a size a PERSON chose while looking at the
+    frame, whereas the generation bands bound what the MODEL may bake into code
+    (checked at generation time). Clamping a deliberate 140px title back to the
+    generator's 88px ceiling is what made the slider look broken.
     """
     from app.services.code_generator import _USER_BANDS
     from app.services.code_generator import parse_scene_key
 
-    tpl = _get_user_template(template_id, user.id, db)
     try:
         role, index = parse_scene_key(scene_key, _content_code_count(tpl))
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError:
+        return None
 
     # Start from what is stored so a partial update (one orientation, one axis)
     # does not blank the rest.
@@ -2993,9 +2993,89 @@ def set_scene_font_defaults(
             lo, hi = _USER_BANDS[prop][orientation]
             slot[orientation] = max(lo, min(hi, value))
 
-    if not merged:
+    return (role, index, merged) if merged else None
+
+
+@router.patch("/{template_id}/scenes/font-defaults")
+def set_scene_font_defaults_bulk(
+    template_id: int,
+    body: BulkSceneFontDefaultsRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Set the DEFAULT type sizes for MANY scenes in ONE request and ONE commit.
+
+    The editor's Save writes every scene whose sliders moved. Doing that through
+    the single-scene route meant N sequential round trips — and they had to be
+    sequential, because each one re-reads, merges and rewrites the SAME
+    `scene_font_defaults` column, so firing them in parallel would let the last
+    response win and silently drop the others' edits.
+
+    Batching removes that constraint rather than working around it:
+    `_write_scene_indexed_field` mutates the in-memory template and leaves the
+    commit to its caller, so N writes followed by one commit is its intended
+    usage and cannot interleave.
+
+    An unparseable scene key is SKIPPED, not fatal: one stale key in a batch must
+    not throw away the other scenes' sizes. 422 only when nothing at all was
+    usable, matching the single-scene route.
+
+    Mirrors the read-side `list_scene_drafts`, which answers for the whole
+    template in one request for the same reason.
+    """
+    tpl = _get_user_template(template_id, user.id, db)
+
+    wrote = 0
+    for scene_key, sizes in (body.scenes or {}).items():
+        resolved = _merge_scene_font_defaults(tpl, scene_key, sizes)
+        if resolved is None:
+            continue
+        role, index, merged = resolved
+        _write_scene_indexed_field(tpl, "scene_font_defaults", role, index, merged)
+        wrote += 1
+
+    if not wrote:
         raise HTTPException(status_code=422, detail="No usable font sizes supplied")
 
+    db.commit()
+    db.refresh(tpl)
+    return _serialize_template(tpl)
+
+
+@router.patch("/{template_id}/scenes/{scene_key}/font-defaults")
+def set_scene_font_defaults(
+    template_id: int,
+    scene_key: str,
+    body: SceneFontDefaultsRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Set one scene's DEFAULT type sizes.
+
+    A dedicated route rather than a field on PUT /custom-templates/{id}: that
+    request carries template-level identity (name, theme), and folding per-scene
+    indexed data into it would round-trip the whole array on every rename, with
+    a chance of clobbering it.
+
+    See `_merge_scene_font_defaults` for the merge and clamp rules, which this
+    shares with the bulk route above.
+    """
+    from app.services.code_generator import parse_scene_key
+
+    tpl = _get_user_template(template_id, user.id, db)
+    # Parsed here as well as in the helper, because a bad key on a SINGLE-scene
+    # request is a 404 (the caller named one scene and got it wrong), while in a
+    # batch it is skipped.
+    try:
+        parse_scene_key(scene_key, _content_code_count(tpl))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    resolved = _merge_scene_font_defaults(tpl, scene_key, body)
+    if resolved is None:
+        raise HTTPException(status_code=422, detail="No usable font sizes supplied")
+
+    role, index, merged = resolved
     _write_scene_indexed_field(tpl, "scene_font_defaults", role, index, merged)
     db.commit()
     db.refresh(tpl)

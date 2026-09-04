@@ -2352,8 +2352,26 @@ export const getSceneEditStatus = (
       (editId ? `?edit_id=${encodeURIComponent(editId)}` : "")
   );
 
+/**
+ * Editor requests that must FAIL rather than hang.
+ *
+ * The shared `api` instance sets no `timeout`, so axios waits forever and a
+ * stalled request only ends when the server or a proxy drops the socket — which
+ * axios reports as ERR_NETWORK, i.e. the "system is being updated" modal, for
+ * what was really one slow call. These four are all small, fast, interactive
+ * operations backing a button the user is watching, so a bounded wait is
+ * strictly better: the handler can roll its optimistic update back and say so.
+ *
+ * Deliberately NOT applied to the instance: several calls on it legitimately run
+ * for minutes with no timeout of their own (uploads, generate-script,
+ * generate-image, render-layout), and a global default would break them.
+ */
+const EDITOR_REQUEST_TIMEOUT_MS = 30000;
+
 export const getSceneDraft = (templateId: number, sceneKey: string) =>
-  api.get<SceneDraft>(`/custom-templates/${templateId}/scenes/${sceneKey}/draft`);
+  api.get<SceneDraft>(`/custom-templates/${templateId}/scenes/${sceneKey}/draft`, {
+    timeout: EDITOR_REQUEST_TIMEOUT_MS,
+  });
 
 export interface SceneDraftsSummary {
   /** Scene keys with a pending draft awaiting apply/discard. */
@@ -2370,7 +2388,9 @@ export const getSceneDrafts = (templateId: number) =>
 
 export const applySceneDraft = (templateId: number, sceneKey: string) =>
   api.post<CustomTemplateItem>(
-    `/custom-templates/${templateId}/scenes/${sceneKey}/draft/apply`
+    `/custom-templates/${templateId}/scenes/${sceneKey}/draft/apply`,
+    undefined,
+    { timeout: EDITOR_REQUEST_TIMEOUT_MS }
   );
 
 /**
@@ -2378,22 +2398,46 @@ export const applySceneDraft = (templateId: number, sceneKey: string) =>
  * are, and values outside the renderable bands are clamped server-side rather
  * than rejected.
  */
+export interface SceneFontSizes {
+  title?: { landscape?: number; portrait?: number };
+  description?: { landscape?: number; portrait?: number };
+}
+
 export const setSceneFontDefaults = (
   templateId: number,
   sceneKey: string,
-  body: {
-    title?: { landscape?: number; portrait?: number };
-    description?: { landscape?: number; portrait?: number };
-  }
+  body: SceneFontSizes
 ) =>
   api.patch<CustomTemplateItem>(
     `/custom-templates/${templateId}/scenes/${sceneKey}/font-defaults`,
     body
   );
 
+/**
+ * The same write for MANY scenes, in one request and one commit.
+ *
+ * Saving used to send one PATCH per edited scene, and they had to run in
+ * sequence: every one re-reads, merges and rewrites the same
+ * `scene_font_defaults` column, so parallel calls would let the last response
+ * win and drop the others. Batching removes that constraint at the source.
+ *
+ * `scenes` is keyed by scene key ("intro" / "content_2" / "outro"). A key the
+ * server cannot parse is skipped rather than failing the batch.
+ */
+export const setSceneFontDefaultsBulk = (
+  templateId: number,
+  scenes: Record<string, SceneFontSizes>
+) =>
+  api.patch<CustomTemplateItem>(
+    `/custom-templates/${templateId}/scenes/font-defaults`,
+    { scenes }
+  );
+
 export const discardSceneDraft = (templateId: number, sceneKey: string) =>
   api.post<{ detail: string }>(
-    `/custom-templates/${templateId}/scenes/${sceneKey}/draft/discard`
+    `/custom-templates/${templateId}/scenes/${sceneKey}/draft/discard`,
+    undefined,
+    { timeout: EDITOR_REQUEST_TIMEOUT_MS }
   );
 
 // ─── ElevenLabs voices (default / available) ─────────────────
