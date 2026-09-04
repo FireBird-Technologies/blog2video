@@ -564,6 +564,7 @@ export const NewscastVideo: React.FC<VideoProps> = ({ dataUrl }) => {
                 size: scene.avatarSize ?? data.avatarSize,
                 position: scene.avatarPosition ?? data.avatarPosition,
                 bg: scene.avatarBg ?? data.avatarBg,
+                opacity: scene.avatarOpacity ?? data.avatarOpacity,
               }}
               playbackSpeed={playbackSpeed}
               captionsEnabled={data.captionsEnabled}
