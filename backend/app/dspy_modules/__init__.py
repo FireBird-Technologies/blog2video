@@ -243,43 +243,49 @@ def _is_rate_limit(exc: Exception) -> bool:
 # code path issues the call: codegen, prop extraction, the critic and the design
 # docs all queue against the same gate.
 #
-# 7 is below Z.AI's observed threshold (429s appeared at 11) with headroom for
+# 8 is below Z.AI's observed threshold (429s appeared at 11) with headroom for
 # the retry traffic that a burst generates. Raise it only with 429 counts to
-# show it is safe.
+# show it is safe. NOTE this is a CONCURRENCY bound, not a rate: a permit is held
+# for the duration of one call, so the requests-per-minute it implies depends
+# entirely on how long calls take.
 #
 # ── Why the budget is SPLIT ──────────────────────────────────────────────────
-# A semaphore has no notion of priority: waiters are just threads blocked on a
-# counter, so a user's scene edit and a batch job's sixteenth call are
-# indistinguishable. And a batch SATURATES the gate — a template generation runs
-# SCENE_CONCURRENCY (8) scenes at once and each issues more than one call, so it
-# always has more work queued than there are permits. An interactive edit landing
-# mid-generation therefore waited behind the whole batch, long enough that the
-# editor's poll gave up while the backend was still working.
+# One workload can saturate this gate on its own: a custom-template generation
+# runs SCENE_CONCURRENCY (8) scenes at once and each issues more than one call
+# (codegen + _describe_scene_props, plus repairs), so it always has more work
+# queued than there are permits. A semaphore has no notion of priority — waiters
+# are just threads blocked on a counter — so anything else that arrives during a
+# generation waits behind the whole batch. That is what made a scene edit hang
+# long enough for the editor's poll to give up while the backend was still fine.
 #
-# So the budget is split by WORKLOAD rather than raised for everyone:
+# So the budget is split by WORKLOAD, and only the saturating one is capped:
 #
-#   * batch work (generation, design docs, theme/brand extraction) may take at
-#     most _PROVIDER_BATCH_INFLIGHT permits, and
-#   * the remainder is reachable ONLY by interactive calls — an LM built with
-#     interactive=True (see get_scene_edit_lm).
+#   * custom-template GENERATION may hold at most _PROVIDER_TEMPLATE_INFLIGHT
+#     permits — an LM built with capped=True, and
+#   * everything else (video generation, scene edits) is uncapped: it may use the
+#     whole gate when nothing else runs, and still has
+#     _PROVIDER_MAX_INFLIGHT - _PROVIDER_TEMPLATE_INFLIGHT while a generation is
+#     in flight.
 #
-# Batch throughput is unchanged: it was already bounded at 4 in practice, and it
-# keeps 5 here. What the reserve buys is that a click can always get through.
-_PROVIDER_MAX_INFLIGHT = 7
-# Permits an interactive call may use that batch work can never hold.
-_PROVIDER_INTERACTIVE_RESERVE = 2
-_PROVIDER_BATCH_INFLIGHT = _PROVIDER_MAX_INFLIGHT - _PROVIDER_INTERACTIVE_RESERVE
+# The flag is POSITIVE ("capped") and defaults False on purpose. An LM added
+# later is then uncapped by default, which costs throughput at worst; the
+# inverse default would silently let new template work exceed the cap.
+_PROVIDER_MAX_INFLIGHT = 8
+# Ceiling for custom-template generation. The remainder is what it can never
+# hold, and is therefore always reachable by video generation and scene edits.
+_PROVIDER_TEMPLATE_INFLIGHT = 4
 
-# Two gates rather than one counter with a rule, because "batch may take at most
-# N" is exactly a second, smaller semaphore: batch acquires BOTH (so it is capped
-# by the smaller one), interactive acquires only the total. Nothing has to inspect
-# a queue or count waiters, and a batch call can never starve the reserve.
+# Two gates rather than one counter with a rule, because "template work may take
+# at most N" is exactly a second, smaller semaphore: capped work acquires BOTH
+# (so the smaller one bounds it), uncapped work acquires only the total. Nothing
+# has to inspect a queue or count waiters, and capped work can never starve the
+# remainder.
 _provider_gate = threading.BoundedSemaphore(_PROVIDER_MAX_INFLIGHT)
-_provider_batch_gate = threading.BoundedSemaphore(_PROVIDER_BATCH_INFLIGHT)
+_provider_template_gate = threading.BoundedSemaphore(_PROVIDER_TEMPLATE_INFLIGHT)
 # The async side needs its own primitives, created lazily: asyncio.Semaphore
 # binds to the running loop, and this module is imported long before one exists.
 _provider_agate: "asyncio.Semaphore | None" = None
-_provider_batch_agate: "asyncio.Semaphore | None" = None
+_provider_template_agate: "asyncio.Semaphore | None" = None
 _provider_agate_lock = threading.Lock()
 
 
@@ -292,46 +298,47 @@ def _get_provider_agate() -> "asyncio.Semaphore":
     return _provider_agate
 
 
-def _get_provider_batch_agate() -> "asyncio.Semaphore":
-    global _provider_batch_agate
-    if _provider_batch_agate is None:
+def _get_provider_template_agate() -> "asyncio.Semaphore":
+    global _provider_template_agate
+    if _provider_template_agate is None:
         with _provider_agate_lock:
-            if _provider_batch_agate is None:
-                _provider_batch_agate = asyncio.Semaphore(_PROVIDER_BATCH_INFLIGHT)
-    return _provider_batch_agate
+            if _provider_template_agate is None:
+                _provider_template_agate = asyncio.Semaphore(_PROVIDER_TEMPLATE_INFLIGHT)
+    return _provider_template_agate
 
 
 @contextlib.contextmanager
-def _provider_slot(interactive: bool):
+def _provider_slot(capped: bool):
     """Hold a provider permit for the duration of one call.
 
-    Batch work takes the batch gate FIRST and then the total gate; interactive
-    work takes only the total. Acquiring in that fixed order (never the reverse)
-    is what keeps the pair deadlock-free — no path holds the total while waiting
-    for the batch gate.
+    Capped (custom-template generation) work takes the template gate FIRST and
+    then the total gate; uncapped work takes only the total. Acquiring in that
+    fixed order — never the reverse — is what keeps the pair deadlock-free: no
+    path holds the total while waiting for the template gate.
 
-    The effect: at most _PROVIDER_BATCH_INFLIGHT batch calls are ever in flight,
-    so _PROVIDER_INTERACTIVE_RESERVE permits of the total remain reachable only
-    by an interactive caller.
+    The effect: at most _PROVIDER_TEMPLATE_INFLIGHT template calls are ever in
+    flight, so the remaining permits stay reachable by video generation and scene
+    edits; and when no template work is running, uncapped callers can use the
+    whole gate.
     """
-    if interactive:
-        with _provider_gate:
+    if capped:
+        with _provider_template_gate, _provider_gate:
             yield
     else:
-        with _provider_batch_gate, _provider_gate:
+        with _provider_gate:
             yield
 
 
 @contextlib.asynccontextmanager
-async def _aprovider_slot(interactive: bool):
+async def _aprovider_slot(capped: bool):
     """Async mirror of :func:`_provider_slot`, same ordering rule."""
-    if interactive:
-        async with _get_provider_agate():
-            yield
-    else:
-        async with _get_provider_batch_agate():
+    if capped:
+        async with _get_provider_template_agate():
             async with _get_provider_agate():
                 yield
+    else:
+        async with _get_provider_agate():
+            yield
 
 
 class _ProviderLoggingLM(dspy.LM):
@@ -344,17 +351,18 @@ class _ProviderLoggingLM(dspy.LM):
     costs latency rather than one of dspy.Refine's rollouts. See
     _RATE_LIMIT_RETRIES for why that distinction is load-bearing.
 
-    `interactive=True` marks an LM whose calls a PERSON is waiting on, which lets
-    them draw from the reserved permits a batch job cannot hold. See
-    _PROVIDER_INTERACTIVE_RESERVE. Default False: batch is the safe assumption,
-    since mislabelling batch work as interactive would defeat the reserve.
+    `capped=True` marks an LM belonging to custom-template GENERATION — the one
+    workload that saturates the gate on its own — so its calls are bounded by
+    _PROVIDER_TEMPLATE_INFLIGHT rather than the full budget. Everything else
+    (video generation, scene edits) leaves it False and may use the whole gate.
+    See the note on _PROVIDER_MAX_INFLIGHT for why the flag is positive.
     """
 
-    def __init__(self, *args, interactive: bool = False, **kwargs):
+    def __init__(self, *args, capped: bool = False, **kwargs):
         super().__init__(*args, **kwargs)
         # Not a dspy.LM field — kept off the kwargs dspy round-trips so it can
         # never leak into a request payload.
-        self._interactive = interactive
+        self._capped = capped
 
     @property
     def _log_tag(self) -> str:
@@ -372,7 +380,7 @@ class _ProviderLoggingLM(dspy.LM):
                 # Held only for the duration of the call, so a backoff sleep
                 # RELEASES the slot rather than blocking a waiting scene behind
                 # a request that is not even in flight.
-                with _provider_slot(self._interactive):
+                with _provider_slot(self._capped):
                     return self._report(super().forward(*args, **kwargs))
             except Exception as e:
                 if attempt < _RATE_LIMIT_RETRIES and _is_rate_limit(e):
@@ -391,7 +399,7 @@ class _ProviderLoggingLM(dspy.LM):
     async def aforward(self, *args, **kwargs):
         for attempt in range(_RATE_LIMIT_RETRIES + 1):
             try:
-                async with _aprovider_slot(self._interactive):
+                async with _aprovider_slot(self._capped):
                     return self._report(await super().aforward(*args, **kwargs))
             except Exception as e:
                 if attempt < _RATE_LIMIT_RETRIES and _is_rate_limit(e):
@@ -407,10 +415,21 @@ class _ProviderLoggingLM(dspy.LM):
 
 
 def _make_anthropic_lm(
-    model: str, temperature: float, max_tokens: int, api_key: str | None = None
+    model: str,
+    temperature: float,
+    max_tokens: int,
+    api_key: str | None = None,
+    *,
+    capped: bool = False,
 ) -> dspy.LM:
-    return dspy.LM(
+    # _ProviderLoggingLM, not a bare dspy.LM. This used to return a plain LM, so
+    # Anthropic calls bypassed the provider gate entirely — invisible while
+    # everything runs on GLM, but it would have silently voided the template cap
+    # (and the rate-limit absorption) the moment ENVIRONMENT was set to
+    # "production" and these branches started being used.
+    return _ProviderLoggingLM(
         model,
+        capped=capped,
         api_key=(api_key or settings.ANTHROPIC_API_KEY),
         temperature=temperature,
         max_tokens=max_tokens,
@@ -501,7 +520,7 @@ def _make_zai_lm(
     *,
     thinking: bool = False,
     reasoning_effort: str | None = None,
-    interactive: bool = False,
+    capped: bool = False,
 ) -> dspy.LM:
     """GLM via Z.AI's own API directly (LiteLLM's `zai/` provider). This is the local/dev
     default for every GLM call site (global default LM, scene descriptors, theme
@@ -578,7 +597,7 @@ def _make_zai_lm(
         temperature=temperature,
         max_tokens=max_tokens,
         extra_body=extra_body,
-        interactive=interactive,
+        capped=capped,
     )
 
 
@@ -608,9 +627,11 @@ def _make_openrouter_codegen_lm(model: str, temperature: float, max_tokens: int)
     )
 
 
-def _make_default_lm(model: str, temperature: float, max_tokens: int) -> dspy.LM:
+def _make_default_lm(
+    model: str, temperature: float, max_tokens: int, *, capped: bool = False
+) -> dspy.LM:
     factory = _make_anthropic_lm if _IS_PRODUCTION else _make_zai_lm
-    return factory(model, temperature, max_tokens)
+    return factory(model, temperature, max_tokens, capped=capped)
 
 
 def ensure_dspy_configured():
@@ -645,6 +666,7 @@ def get_custom_lm() -> dspy.LM:
         if _IS_PRODUCTION:
             _codegen_lm = _make_anthropic_lm(
                 "anthropic/claude-sonnet-4-6",
+                capped=True,
                 temperature=0.7,
                 max_tokens=_CODEGEN_MAX_TOKENS,
                 api_key=_custom_anthropic_key(),
@@ -668,6 +690,7 @@ def get_custom_lm() -> dspy.LM:
                 max_tokens=_CODEGEN_MAX_TOKENS,
                 thinking=_CODEGEN_THINKING,
                 reasoning_effort=_CODEGEN_REASONING_EFFORT,
+                capped=True,
             )
         # Disable DSPy's disk cache for CODEGEN ONLY. The disk cache defaults to ON
         # and persists completions keyed on the prompt signature — so a "regenerate"
@@ -703,10 +726,10 @@ def get_scene_edit_lm() -> dspy.LM:
     `thinking: {type: disabled}` form that line rejects (Z.AI error 1210), so a
     change of slug needs no change here.
 
-    Marked INTERACTIVE: this is the one LM whose calls a person is sitting and
-    waiting for, so it may use the reserved provider permits that batch work
-    cannot hold. Without that, an edit started during a template generation
-    queued behind the whole batch.
+    UNCAPPED (capped=False, the default): editing is not template generation, so
+    it is not bound by _PROVIDER_TEMPLATE_INFLIGHT. It may use the whole provider
+    gate when nothing else is running, and always has the permits a running
+    generation cannot hold — which is what stops an edit queueing behind a batch.
     """
     global _scene_edit_lm
     if _scene_edit_lm is not None:
@@ -720,10 +743,7 @@ def get_scene_edit_lm() -> dspy.LM:
             max_tokens=_CODEGEN_MAX_TOKENS,
             thinking=_CODEGEN_THINKING,
             reasoning_effort=_CODEGEN_REASONING_EFFORT,
-            # A person is watching this one. Editing a scene is a click, not a
-            # batch job, so it draws on the reserved permits that a running
-            # generation cannot hold — see _PROVIDER_INTERACTIVE_RESERVE.
-            interactive=True,
+            # capped left False on purpose — see the docstring.
         )
         # Same reason as get_custom_lm: DSPy's disk cache would replay a stored
         # completion for an identical prompt signature, which makes "edit this
@@ -797,6 +817,7 @@ def get_custom_lm_fallback() -> dspy.LM:
                 temperature=0.7,
                 max_tokens=_CODEGEN_MAX_TOKENS,
                 thinking=False,
+                capped=True,
             )
             _codegen_lm_fallback.cache = False
         return _codegen_lm_fallback
@@ -833,6 +854,7 @@ def get_scene_type_lm() -> dspy.LM:
                 temperature=0.7,
                 max_tokens=12000,
                 api_key=_custom_anthropic_key(),
+                capped=True,
             )
         else:
             _scene_type_lm = _make_zai_lm(
@@ -841,6 +863,7 @@ def get_scene_type_lm() -> dspy.LM:
                 max_tokens=12000,
                 thinking=_CODEGEN_THINKING,
                 reasoning_effort="low",
+                capped=True,
             )
         # Disable the DSPy disk cache, matching get_custom_lm and the blueprint
         # LM. This was the ONLY one of the three still caching, so two brands
@@ -903,6 +926,7 @@ def get_design_doc_lm() -> dspy.LM:
                 temperature=1.0,
                 max_tokens=_DESIGN_DOC_MAX_TOKENS,
                 api_key=_custom_anthropic_key(),
+                capped=True,
             )
         else:
             _design_doc_lm = _make_zai_lm(
@@ -911,6 +935,7 @@ def get_design_doc_lm() -> dspy.LM:
                 max_tokens=_DESIGN_DOC_MAX_TOKENS,
                 thinking=_CODEGEN_THINKING,
                 reasoning_effort="low",
+                capped=True,
             )
         _design_doc_lm.cache = False
         return _design_doc_lm
@@ -945,10 +970,16 @@ def get_theme_lm() -> dspy.LM:
             return _theme_lm
         if _IS_PRODUCTION:
             _theme_lm = _make_anthropic_lm(
-                _DEFAULT_MODEL, temperature=0.3, max_tokens=2048, api_key=_custom_anthropic_key()
+                _DEFAULT_MODEL,
+                temperature=0.3,
+                max_tokens=2048,
+                api_key=_custom_anthropic_key(),
+                capped=True,
             )
         else:
-            _theme_lm = _make_default_lm(_DEFAULT_MODEL, temperature=0.3, max_tokens=2048)
+            _theme_lm = _make_default_lm(
+                _DEFAULT_MODEL, temperature=0.3, max_tokens=2048, capped=True
+            )
         return _theme_lm
 
 
@@ -978,10 +1009,17 @@ def get_brand_extraction_lm() -> dspy.LM:
             return _brand_extraction_lm
         if _IS_PRODUCTION:
             _brand_extraction_lm = _make_anthropic_lm(
-                _DEFAULT_MODEL, temperature=0.3, max_tokens=2048, api_key=_custom_anthropic_key()
+                _DEFAULT_MODEL,
+                temperature=0.3,
+                max_tokens=2048,
+                api_key=_custom_anthropic_key(),
+                capped=True,
             )
         else:
             _brand_extraction_lm = _make_zai_lm(
-                settings.CUSTOM_TEMPLATE_LM, temperature=0.3, max_tokens=2048
+                settings.CUSTOM_TEMPLATE_LM,
+                temperature=0.3,
+                max_tokens=2048,
+                capped=True,
             )
         return _brand_extraction_lm
