@@ -24,7 +24,7 @@ VALID_AVATAR_SHAPES = {"circle", "rounded", "square"}
 VALID_AVATAR_POSITIONS = {"top_left", "top_right", "bottom_left", "bottom_right"}
 VALID_AVATAR_MOTION_STYLES = {"subtle", "natural", "expressive"}
 MIN_AVATAR_SIZE = 0.10
-MAX_AVATAR_SIZE = 0.32
+MAX_AVATAR_SIZE = 0.42
 # Floor rather than 0.0: a fully invisible avatar is indistinguishable from a
 # broken render, so the slider bottoms out at "clearly faded but present".
 MIN_AVATAR_OPACITY = 0.2
@@ -184,7 +184,7 @@ class ProjectCreate(BaseModel):
     avatar_position: Optional[str] = "bottom_left"
     avatar_bg: Optional[str] = None              # None | "transparent" | "#RRGGBB"
     avatar_opacity: Optional[float] = 1.0        # 0.2 - 1.0
-    avatar_motion_style: Optional[str] = "expressive"  # subtle | natural | expressive
+    avatar_motion_style: Optional[str] = "natural"  # subtle | natural | expressive
 
     @field_validator("avatar_shape")
     @classmethod
@@ -661,7 +661,7 @@ class ProjectOut(BaseModel):
     avatar_position: str = "bottom_left"
     avatar_bg: Optional[str] = None
     avatar_opacity: float = 1.0
-    avatar_motion_style: str = "expressive"
+    avatar_motion_style: str = "natural"
     # The user's uploaded presenter portrait (URL only — the server path is not
     # the client's business). Null means they are using the built-in roster.
     avatar_custom_image_url: Optional[str] = None

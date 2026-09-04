@@ -63,6 +63,7 @@ export default function ProjectAvatarSettingsCard({
   scenesRefunded = [],
   avatarBatchUnlocked = false,
   disabled = false,
+  pipelineRunning = false,
   onError,
   onSaved,
   project,
@@ -96,6 +97,10 @@ export default function ProjectAvatarSettingsCard({
   /** Whether the batch wizard's placeholder paywall has been cleared. */
   avatarBatchUnlocked?: boolean;
   disabled?: boolean;
+  /** True while the project's first-time script/image/voiceover pipeline is
+   *  still running — there are no real scenes to pick a presenter for yet, so
+   *  the settings panel and batch wizard have nothing meaningful to show. */
+  pipelineRunning?: boolean;
   onError: (msg: string) => void;
   onSaved: () => void | Promise<void>;
   /** The full project — lets the batch wizard's setup modal preview show the
@@ -614,7 +619,19 @@ export default function ProjectAvatarSettingsCard({
           landed used to unmount the wizard mid-run, taking its polling and its
           automatic background cutout with it — which is how a chosen background
           ended up silently not applied. */}
-      {avatarView.kind === "loading" ? (
+      {pipelineRunning && !hasAnyAvatar ? (
+        /* The video itself is still being generated — no scenes with narration
+           audio exist to pick a presenter for yet. Showing the full settings
+           panel (upload photo, framing tips, placement/size/shape, Save) here
+           looks like a broken/premature UI, since none of it can do anything
+           until scenes and their voiceovers exist. A short placeholder instead. */
+        <div className="glass-card px-6 py-8">
+          <p className="text-sm text-gray-500">
+            Your video is still generating — avatar settings will be available
+            once it's ready.
+          </p>
+        </div>
+      ) : avatarView.kind === "loading" ? (
         /* "We don't know yet" is its OWN render, not a guess at settings.
            Those two used to be the same branch, so a refresh mid-batch painted
            the placement/shape/size controls over five rendering scenes and only

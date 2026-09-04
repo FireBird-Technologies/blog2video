@@ -8,6 +8,7 @@ import {
   MAIN_AVATAR_PRESET_IDS,
   authorizeAvatarBatch,
   createCheckoutSession,
+  createPerVideoCheckout,
   getAvatarProgress,
   getCachedAvatarProgress,
   matteAllSceneAvatars,
@@ -19,6 +20,7 @@ import {
 } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
 import { isPaidPlan } from "../lib/plan";
+import { AI_EDITS_PER_VIDEO } from "../content/pricingContent";
 import { AVATAR_CUSTOM_PRESET_ID, avatarBgWantsCutout } from "../api/types";
 import type {
   AvatarBg,
@@ -70,9 +72,9 @@ const PAID_PLANS = new Set(["lite", "standard", "pro"]);
 /** Cycled purely for texture while jobs are in flight — real progress still
  *  comes from polling, this just keeps a long wait from feeling stuck. */
 const LOADING_MESSAGES = [
-  "Rendering…",
+  "Generating…",
   "This may take a while — please hold.",
-  "Still rendering, you can switch tabs.",
+  "Still generating, you can switch tabs.",
   "Warming up the render service…",
   "Almost there…",
 ];
@@ -254,17 +256,16 @@ export default function AvatarBatchWizard({
     });
   };
 
-  // Credit balance, deliberately UNLIKE SceneEditor's derivation: avatars are a
-  // subscription entitlement billed strictly against the monthly plan allowance,
-  // so this reads `ai_edit_allowance_remaining` ALONE and never the purchased
-  // `ai_edit_credits` pool (see can_afford_avatars on the backend, which enforces
-  // the same rule). Owner-pays still applies, hence the collaborator branch
-  // reading the owner's allowance off the project.
+  // Credit balance: the monthly plan allowance plus the purchased ai_edit_credits
+  // pool, same combined derivation SceneEditor uses for regular AI edits (see
+  // can_afford_avatars on the backend, which now checks the same combined
+  // total). Owner-pays still applies, hence the collaborator branch reading the
+  // owner's balance off the project.
   const { user, refreshUser } = useAuth();
   const isCollaborator = user != null && project != null && project.user_id !== user.id;
   const aiCreditRemaining = isCollaborator
-    ? (project?.owner_ai_edit_allowance_remaining ?? 0)
-    : (user?.ai_edit_allowance_remaining ?? 0);
+    ? (project?.owner_ai_edit_credits ?? 0) + (project?.owner_ai_edit_allowance_remaining ?? 0)
+    : (user?.ai_edit_credits ?? 0) + (user?.ai_edit_allowance_remaining ?? 0);
   const canAfford = aiCreditRemaining >= creditCost;
   // How many scenes the current balance WOULD cover — turns "you're short" into
   // an actionable "pick this many instead".
@@ -284,17 +285,21 @@ export default function AvatarBatchWizard({
     ? !(project?.owner_is_pro ?? false)
     : !PAID_PLANS.has((user?.plan ?? "").toLowerCase());
   // A free payer has no allowance and never will without a subscription — that is
-  // fixable, so we offer the upgrade. A paid payer who has spent the period has
-  // nothing to buy (videos grant the purchased pool, which avatars don't touch),
-  // so the only honest next step is support.
+  // fixable, so we offer the upgrade. A paid payer who has spent the period
+  // still has a remedy: buying a video grants +AI_EDITS_PER_VIDEO to the
+  // purchased pool, same top-up already offered for regular AI edits (see
+  // UpgradePlanModal's per_video checkout).
   //
   // Keyed on the PLAN ALONE, never on the balance. A zero-allowance clause used
   // to be OR-ed in here as a backstop, but zero is the normal state for a paid
-  // payer who has spent the period — so it fired on exactly the users the line
-  // above says must be sent to support, and showed a Pro subscriber an "Upgrade
-  // to Pro plan" button for a plan they already have. Upgrading is only ever the
+  // payer who has spent the period — so it fired on exactly the users who should
+  // see "buy a video" instead, and showed a Pro subscriber an "Upgrade to Pro
+  // plan" button for a plan they already have. Upgrading is only ever the
   // remedy when the payer is actually unsubscribed.
   const needsUpgrade = !canAfford && payerIsFree;
+  // The paid-and-short counterpart to needsUpgrade: nothing to upgrade to, but
+  // a video purchase tops up the purchased pool avatars can now draw on.
+  const needsVideoPurchase = !canAfford && !payerIsFree;
   // Sending the user straight to Pro checkout, rather than opening a second
   // modal on top of this one to ask WHICH plan. This screen has already named
   // Pro (the CTA reads "Upgrade to Pro plan"), so re-asking was a step that
@@ -320,6 +325,23 @@ export default function AvatarBatchWizard({
       }, 1200);
     }
   };
+  // Mirrors startProCheckout, but for the per-video top-up (UpgradePlanModal's
+  // "per_video" checkout) — shares the same in-flight/error state since only
+  // one of the two checkouts can ever be started from this screen at a time.
+  const startVideoCheckout = async () => {
+    setCheckoutError(null);
+    setStartingCheckout(true);
+    try {
+      const res = await createPerVideoCheckout(project?.id);
+      window.location.href = res.data.checkout_url;
+    } catch {
+      setStartingCheckout(false);
+      setCheckoutError("Could not start checkout. Taking you to pricing…");
+      window.setTimeout(() => {
+        window.location.href = "/pricing";
+      }, 1200);
+    }
+  };
 
   // Resume mid-batch on reload. Safe to key on the unlock flag only because the
   // server now CLEARS it once nothing is queued or running (see the avatar
@@ -335,11 +357,14 @@ export default function AvatarBatchWizard({
   // "pick" step entirely (mounts straight into "generating").
   const [preset, setPreset] = useState<string | null>(initialPreset ?? null);
   // Chosen alongside the presenter, below the portrait grid. Seeded from the
-  // project's current setting (persisted from a prior batch) rather than
-  // always defaulting to "expressive", so reopening the wizard doesn't
-  // silently reset a choice already made.
+  // project's current setting ONLY once an avatar batch has actually run
+  // (avatarBatchUnlocked) — before that, avatar_motion_style is just the
+  // column's default value, never a real user choice, so a first-time visit
+  // to this page always shows "Natural" regardless of what's stored.
   const [motionStyle, setMotionStyle] = useState<AvatarMotionStyle>(
-    (project?.avatar_motion_style as AvatarMotionStyle | undefined) ?? "expressive",
+    avatarBatchUnlocked
+      ? ((project?.avatar_motion_style as AvatarMotionStyle | undefined) ?? "natural")
+      : "natural",
   );
   const [unlocking, setUnlocking] = useState(false);
   const [messageIndex, setMessageIndex] = useState(0);
@@ -895,12 +920,18 @@ export default function AvatarBatchWizard({
       const code = typeof raw === "object" ? raw?.code : undefined;
       const message = typeof raw === "string" ? raw : raw?.message;
       // Covers the race where the locally-derived balance was stale (another tab
-      // spent the allowance, or a period rolled over): the server is the real
-      // gate, so honour its verdict and open the upgrade path rather than
-      // dead-ending on a toast.
-      if (code === "avatar_requires_paid_plan") {
+      // spent the allowance/credits, or a period rolled over): the server is the
+      // real gate, so honour its verdict and open the matching remedy rather
+      // than dead-ending on a toast. avatar_requires_paid_plan no longer exists
+      // server-side (the plan-only block was removed — see can_afford_avatars),
+      // but is still matched here in case an older cached build sends it.
+      if (code === "avatar_allowance_exhausted" || code === "avatar_requires_paid_plan") {
         setUnlocking(false);
-        void startProCheckout();
+        if (payerIsFree) {
+          void startProCheckout();
+        } else {
+          void startVideoCheckout();
+        }
         return;
       }
       onError(message || "Could not start avatar generation. Please try again.");
@@ -1457,16 +1488,15 @@ export default function AvatarBatchWizard({
                   </>
                 ) : needsUpgrade ? (
                   // A free payer has no allowance at all, so no selection fits.
-                  <>
-                    Avatar generation is included with paid plans. Upgrade to Pro
-                    to bring your photo to life.
-                  </>
+                  // The explanatory copy is intentionally suppressed — the
+                  // "Upgrade to Pro plan" button below still renders.
+                  null
                 ) : (
-                  // Paid and spent: nothing to buy, so no CTA — just the truth.
+                  // Paid and spent: buy a video to top up the purchased pool.
                   <>
-                    This needs {creditCost} AI credits and your plan has{" "}
-                    {aiCreditRemaining} left this period. Please contact support
-                    to continue.
+                    This needs {creditCost} AI credits and you have{" "}
+                    {aiCreditRemaining} left. Buy a video for +
+                    {AI_EDITS_PER_VIDEO} AI edits to continue.
                   </>
                 )}
               </p>
@@ -1480,6 +1510,15 @@ export default function AvatarBatchWizard({
                 className="mt-6 w-full py-3 text-sm font-semibold text-white bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 disabled:opacity-60 rounded-xl shadow-[0_8px_24px_-6px_rgba(124,58,237,0.5)] transition-all hover:-translate-y-0.5 active:scale-[0.99]"
               >
                 {startingCheckout ? "Taking you to checkout…" : "Upgrade to Pro plan"}
+              </button>
+            ) : needsVideoPurchase ? (
+              <button
+                type="button"
+                disabled={startingCheckout}
+                onClick={() => void startVideoCheckout()}
+                className="mt-6 w-full py-3 text-sm font-semibold text-white bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 disabled:opacity-60 rounded-xl shadow-[0_8px_24px_-6px_rgba(124,58,237,0.5)] transition-all hover:-translate-y-0.5 active:scale-[0.99]"
+              >
+                {startingCheckout ? "Taking you to checkout…" : "Buy a video"}
               </button>
             ) : (
               <button

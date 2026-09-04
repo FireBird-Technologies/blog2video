@@ -10,6 +10,10 @@ import {
  *  cadence the wizard and the settings card each used to poll at separately. */
 const POLL_MS = 1500;
 
+/** Once the poller has declared the batch settled, keep checking in at this
+ *  much slower cadence instead of going fully silent — see IDLE_POLL below. */
+const IDLE_POLL_MS = 8000;
+
 /** What the Avatar tab should render right now.
  *
  *  A DISCRIMINATED UNION, deliberately — "we don't know yet" used to be
@@ -56,6 +60,13 @@ export function useAvatarProgress(projectId: number) {
     }
   }, []);
 
+  /** Swap the running interval to a different cadence without a gap where
+   *  no timer exists at all — see the settle branch in the tick below. */
+  const setCadence = useCallback((ms: number) => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => void tickRef.current(), ms);
+  }, []);
+
   const refresh = useCallback(async () => {
     try {
       const { data: next } = await getAvatarProgress(projectId);
@@ -71,10 +82,11 @@ export function useAvatarProgress(projectId: number) {
     }
   }, [projectId]);
 
-  /** One tick: refetch, and stop the timer once nothing is in flight.
+  /** One tick: refetch, and drop to the slow idle cadence once nothing is in
+   *  flight — never fully stop while the tab is open.
    *
    *  Held in a ref so `refreshNow` can restart polling with the SAME
-   *  self-stopping tick. An earlier version had `refreshNow` schedule bare
+   *  self-adjusting tick. An earlier version had `refreshNow` schedule bare
    *  `refresh` instead, which had no stop condition — so starting a batch left
    *  a 1.5s poll running forever after that batch settled. */
   const tickRef = useRef<() => Promise<void>>(async () => {});
@@ -85,11 +97,16 @@ export function useAvatarProgress(projectId: number) {
   // polling then stayed dead for the rest of the page session: the batch kept
   // running server-side, but the card never asked again, so the last stale
   // rollup (which could still list scenes as "missing") sat there frozen
-  // until a hard refresh remounted the hook. Requiring two IN A ROW before
-  // stopping filters that out — a genuinely settled project still reports
-  // the same view on its very next tick, 1.5s later, so this costs one extra
-  // request per settle rather than a permanent timer.
+  // until a hard refresh remounted the hook. Requiring two IN A ROW filters
+  // most of that out, but confirmed AGAIN live on project 1248 (Neon's pooler
+  // occasionally serves a connection that hasn't seen a just-committed write
+  // yet, and two ticks 1.5s apart can both land on stale connections) — so
+  // "stop" no longer means "go silent," see IDLE_POLL_MS below.
   const settledStreakRef = useRef(0);
+  // Which cadence the running interval is currently set to — so a tick only
+  // calls setCadence (clear + recreate the interval) on an actual transition,
+  // not on every single fast-poll tick while progress is ongoing.
+  const cadenceRef = useRef(POLL_MS);
 
   useEffect(() => {
     let cancelled = false;
@@ -98,34 +115,45 @@ export function useAvatarProgress(projectId: number) {
       if (cancelled || !next) return;
       if (next.view !== "progress") {
         settledStreakRef.current += 1;
-        // A settled project costs two requests per mount instead of a
-        // permanent timer. `refreshNow` restarts it when the user starts a
-        // batch (and resets the streak below).
-        if (settledStreakRef.current >= 2) stop();
+        // Never clear the timer entirely — a permanently-dead poller is worse
+        // than an idle one, since nothing short of a hard refresh recovers it
+        // if this read was wrong. Once settled, back off to IDLE_POLL_MS
+        // instead: cheap enough to run for the life of the tab, and it keeps
+        // checking in case a "settled" read was a stale-connection fluke.
+        if (settledStreakRef.current >= 2 && cadenceRef.current !== IDLE_POLL_MS) {
+          cadenceRef.current = IDLE_POLL_MS;
+          setCadence(IDLE_POLL_MS);
+        }
       } else {
         settledStreakRef.current = 0;
+        if (cadenceRef.current !== POLL_MS) {
+          cadenceRef.current = POLL_MS;
+          setCadence(POLL_MS);
+        }
       }
     };
     tickRef.current = tick;
-    stop();
-    timerRef.current = setInterval(() => void tick(), POLL_MS);
+    cadenceRef.current = POLL_MS;
+    setCadence(POLL_MS);
     void tick();
     return () => {
       cancelled = true;
       stop();
     };
-  }, [projectId, refresh, stop]);
+  }, [projectId, refresh, stop, setCadence]);
 
-  /** Refetch immediately and resume polling — call after starting a batch, so
-   *  the view flips to "progress" without waiting for the next tick. */
+  /** Refetch immediately and resume fast polling — call after starting a
+   *  batch, so the view flips to "progress" without waiting for the next
+   *  idle-cadence tick. */
   const refreshNow = useCallback(async () => {
     const next = await refresh();
     settledStreakRef.current = 0;
-    if (next?.view === "progress" && !timerRef.current) {
-      timerRef.current = setInterval(() => void tickRef.current(), POLL_MS);
+    if (next?.view === "progress" && cadenceRef.current !== POLL_MS) {
+      cadenceRef.current = POLL_MS;
+      setCadence(POLL_MS);
     }
     return next;
-  }, [refresh]);
+  }, [refresh, setCadence]);
 
   const view: AvatarView = !data
     ? { kind: "loading" }

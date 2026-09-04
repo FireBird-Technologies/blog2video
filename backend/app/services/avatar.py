@@ -49,6 +49,7 @@ from app.models.project import Project
 from app.models.scene import Scene
 from app.services import r2_storage
 from app.services.avatar_motion_styles import (
+    AVATAR_MOTION_DMD_LORA_MULTIPLIER,
     AVATAR_MOTION_PROMPTS,
     DEFAULT_MOTION_STYLE,
     normalize_motion_style,
@@ -566,6 +567,7 @@ def _render_and_store(
                 "avatar_id": preset,
                 "render_id": render_id,
                 "prompt": AVATAR_MOTION_PROMPTS[motion_style],
+                "dmd_lora_multiplier": str(AVATAR_MOTION_DMD_LORA_MULTIPLIER[motion_style]),
             }
             if num_segments is not None:
                 data["num_segments"] = str(num_segments)

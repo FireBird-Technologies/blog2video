@@ -60,13 +60,12 @@ PRESET_IMAGE_FILE = {
 # render-time numbers exist: is a warm container meaningfully faster than a cold one here.
 # Starting conservative at Modal's minimum until that's measured.
 SCALEDOWN_WINDOW = int(os.environ.get("MODAL_SCALEDOWN_WINDOW", "60"))
-# Hardcoded to H100 for this testing round (text_guidance_scale experiment,
-# 2026-09-03) — the MODAL_GPU env var did not take effect through `modal deploy`
-# (deploy still resolved A100-80GB despite MODAL_GPU=H100 being set in the
-# invoking shell), so this is a deliberate override rather than the env-var
-# indirection. Revert to A100-80GB (or restore the env var pattern) once this
-# testing round is done, unless H100 is kept intentionally.
-GPU_TYPE = "H100"
+# Reverted to A100-80GB after the H100 testing round (text_guidance_scale
+# experiment, 2026-09-03) concluded. Hardcoded rather than routed through
+# MODAL_GPU, since that env var did not take effect through `modal deploy` in
+# that round (deploy still resolved A100-80GB despite MODAL_GPU=H100 being set
+# in the invoking shell).
+GPU_TYPE = "A100-80GB"
 
 # Single-GPU by default. Upstream's README only documents
 # `--nproc_per_node=2 --context_parallel_size=2`, but reading
@@ -94,26 +93,25 @@ image = (
         f"git clone --depth 1 https://github.com/meituan-longcat/LongCat-Video.git {REPO_DIR}"
     )
     .workdir(REPO_DIR)
-    # FIX #4: run_demo_avatar_single_audio_to_video.py hardcodes
-    # text_guidance_scale=audio_guidance_scale=1.0 whenever use_distill and
-    # model_type=="avatar-v1.5" are both set — which is EVERY render this service
-    # makes (--use_distill is required for v1.5 per upstream's own README). This
-    # strips the hardcoded 1.0 overwrite for text_guidance_scale ONLY, letting the
-    # --text_guidance_scale CLI flag actually take effect (leaves
-    # audio_guidance_scale's override alone — that governs lip-sync, not motion
-    # style/the experiment below).
+    # TRIED AND REVERTED 2026-09-03/04: run_demo_avatar_single_audio_to_video.py
+    # hardcodes text_guidance_scale=audio_guidance_scale=1.0 whenever use_distill
+    # and model_type=="avatar-v1.5" are both set (EVERY render this service makes
+    # — --use_distill is required for v1.5 per upstream's own README). This
+    # deployment briefly patched out that override (via sed) to let
+    # --text_guidance_scale=4.0 actually take effect, testing whether restoring
+    # real classifier-free guidance would let `prompt` steer motion. It did NOT:
+    # motion output was frame-identical to guidance=1.0 across every prompt
+    # tried (see FIX #5 below for the actual fix, dmd_lora_multiplier). The patch
+    # was left live afterward by mistake — CFG at scale 4.0 requires TWO forward
+    # passes per denoising step instead of one (see do_classifier_free_guidance in
+    # pipeline_longcat_video_avatar.py), which measurably slowed EVERY production
+    # render ~2-5x (confirmed against scene_avatar_jobs.duration_seconds: ~80-135
+    # sec/segment before this patch existed vs. ~200-1100 sec/segment while it was
+    # live) for zero benefit. Reverted: the override block now runs exactly as
+    # upstream ships it again, so distilled avatar-v1.5 renders always use the
+    # cheap single-forward-pass path. DO NOT reapply without a documented reason —
+    # this exact experiment has already been run and disproven once.
     #
-    # TESTED 2026-09-03 at text_guidance_scale=4.0 (the script's own un-distilled
-    # default) — motion output was STILL frame-identical to guidance=1.0 across
-    # every prompt tried, so this alone is NOT the fix for prompt-driven motion
-    # control (kept anyway: it is a real, correctly-functioning knob per the
-    # pipeline's CFG math, just not the bottleneck here). See FIX #5 below for the
-    # actual suspect, found via meituan-longcat/LongCat-Video#120.
-    .run_commands(
-        "sed -i "
-        "'/if use_distill and model_type == \"avatar-v1.5\":/,+2{/text_guidance_scale = 1.0/d}' "
-        "run_demo_avatar_single_audio_to_video.py"
-    )
     # FIX #5: the REAL suspect for "prompt doesn't affect motion", per
     # meituan-longcat/LongCat-Video#120 — a GitHub issue reporting this EXACT
     # symptom ("Excessive facial expression and motion in v1.5"), where the
@@ -424,14 +422,19 @@ class LongCatAvatarService:
             ref_img_index: int = Form(10),
             mask_frame_range: int = Form(3),
             use_int8: bool = Form(None),
-            # Overrides run_demo_avatar_single_audio_to_video.py's hardcoded
-            # text_guidance_scale=1.0 (see FIX #4 in this file's image build).
-            # TESTED 2026-09-03 at 4.0 (the script's own un-distilled default):
-            # motion output was frame-identical to guidance=1.0 regardless of
-            # prompt wording, so this alone does NOT fix prompt-driven motion
-            # control. Kept as a real, correctly-functioning CFG knob (confirmed
-            # via the pipeline's math) — just not the bottleneck. See
-            # dmd_lora_multiplier below for the actual suspect.
+            # CURRENTLY INERT: run_demo_avatar_single_audio_to_video.py's own
+            # override block resets text_guidance_scale back to 1.0 internally
+            # whenever use_distill + avatar-v1.5 (always, here) — see the
+            # "TRIED AND REVERTED" comment in this file's image build. Whatever
+            # value is sent here is therefore discarded server-side; kept as a
+            # Form field only so it's a no-op to pass rather than a 422, not
+            # because it does anything. TESTED 2026-09-03 with the override
+            # temporarily patched out (so this WAS live, at 4.0): motion output
+            # was frame-identical to guidance=1.0 regardless of prompt wording
+            # (not the fix), AND it roughly doubled render time (real CFG needs
+            # two forward passes/step) — measurably slowed every production
+            # render until reverted. Do not re-enable without a documented
+            # reason. See dmd_lora_multiplier below for the actual fix.
             text_guidance_scale: float = Form(4.0),
             # Overrides run_demo_avatar_single_audio_to_video.py's hardcoded
             # DMD distillation LoRA multiplier=1.0 (see FIX #5 in this file's

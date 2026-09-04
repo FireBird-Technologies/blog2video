@@ -145,7 +145,7 @@ class Project(Base):
     # Presentation of that overlay, editable post-creation from the Settings tab
     # and consumed by both AvatarOverlay twins (preview player + render tree).
     #   avatar_shape     circle | rounded | square
-    #   avatar_size      box width as a fraction of composition width (0.10-0.32)
+    #   avatar_size      box width as a fraction of composition width (0.10-0.42)
     #   avatar_position  same vocabulary as logo_position (top/bottom _ left/right)
     avatar_shape: Mapped[str] = mapped_column(String(16), default="circle")
     avatar_size: Mapped[float] = mapped_column(Float, default=0.16)
@@ -163,9 +163,8 @@ class Project(Base):
     # services/avatar_motion_styles.py. Project-wide ONLY, unlike avatar_shape/
     # _size/_position/_opacity above: there is deliberately no per-scene
     # override, so this has no Scene-model counterpart and is read straight off
-    # this column when a batch/scene render job is created. Default matches the
-    # prompt every project rendered with before this setting existed.
-    avatar_motion_style: Mapped[str] = mapped_column(String(16), default="expressive")
+    # this column when a batch/scene render job is created.
+    avatar_motion_style: Mapped[str] = mapped_column(String(16), default="natural")
     # A presenter portrait the user uploaded instead of picking from the roster.
     # Local MEDIA_DIR path; the R2 copy lives on an AssetType.AVATAR asset row.
     # When set, a scene whose avatar_preset == CUSTOM_PRESET_ID renders from this

@@ -6681,8 +6681,13 @@ export default function ProjectView() {
                             }}
                             className="w-full flex items-center justify-between gap-2 glass-card px-4 py-3 border-l-2 border-l-purple-300 hover:border-l-purple-500 transition-all rounded-lg border cursor-pointer select-none"
                           >
-                            <span className="text-sm font-medium text-gray-900">
-                              Scenes {rangeStart}–{rangeEnd}
+                            <span className="flex items-baseline gap-2">
+                              <span className="text-sm font-medium text-gray-900">
+                                Scenes {rangeStart}–{rangeEnd}
+                              </span>
+                              {!isGroupExpanded && (
+                                <span className="text-xs text-gray-400">Expand to view scenes</span>
+                              )}
                             </span>
                             <svg
                               className={`w-4 h-4 text-gray-400 transition-transform ${isGroupExpanded ? "rotate-180" : ""}`}
@@ -8345,6 +8350,7 @@ export default function ProjectView() {
               .map((s) => ({ id: s.id, order: s.order }))}
             avatarBatchUnlocked={!!project.avatar_batch_unlocked}
             disabled={anyJobRunning}
+            pipelineRunning={pipelineRunning}
             onError={(msg) => showError(msg)}
             onSaved={async () => { await loadProject(); }}
             project={project}

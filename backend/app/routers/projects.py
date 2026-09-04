@@ -440,6 +440,14 @@ def _sanitize_descriptor_for_data_viz(descriptor: dict | None) -> dict:
     return sanitize_chart_descriptor(descriptor)
 
 
+def _default_avatar_size(aspect_ratio: str | None) -> float:
+    """New-project avatar_size default: portrait frames are much narrower, so
+    the same fraction of composition width reads far smaller on-screen than
+    it does in landscape — portrait gets a bigger default to compensate.
+    """
+    return 0.30 if aspect_ratio == "portrait" else 0.16
+
+
 def _normalize_video_style(video_style: str | None) -> str:
     """Normalize and validate video style.
 
@@ -1152,6 +1160,11 @@ def create_project(
         logo_opacity=data.logo_opacity if data.logo_opacity is not None else 0.9,
         custom_voice_id=data.custom_voice_id or None,
         aspect_ratio=data.aspect_ratio or "landscape",
+        avatar_size=(
+            data.avatar_size
+            if data.avatar_size is not None
+            else _default_avatar_size(data.aspect_ratio or "landscape")
+        ),
         video_style=normalized_video_style,
         video_length=_normalize_video_length(getattr(data, "video_length", None), user),
         playback_speed=_normalize_playback_speed(getattr(data, "playback_speed", None)),
@@ -1255,6 +1268,23 @@ def update_project(
         )
 
         setattr(project, field, value)
+
+    # aspect_ratio changed and the caller did NOT also send avatar_size in this
+    # same PATCH: the overlay's project-level size is a single float with no
+    # per-aspect-ratio memory, so a landscape-appropriate 0.16 stays frozen
+    # after switching to portrait — where the frame is much narrower and 16%
+    # of its width reads as a barely-visible sliver. _default_avatar_size is
+    # already the right number for a NEW project; apply it here too, but ONLY
+    # when the current value still equals one of the two known defaults
+    # (0.16/0.30) — a value the user actually chose must never be silently
+    # overwritten just because they changed the frame shape.
+    if "aspect_ratio" in update_data and "avatar_size" not in update_data:
+        _known_defaults = (0.16, 0.30)
+        if any(abs(project.avatar_size - d) < 1e-9 for d in _known_defaults):
+            new_default = _default_avatar_size(update_data["aspect_ratio"])
+            if abs(project.avatar_size - new_default) > 1e-9:
+                update_data["avatar_size"] = new_default
+                project.avatar_size = new_default
 
     # The avatar overlay settings are GLOBAL: saving them in the Avatar tab
     # pushes the values onto every scene, overwriting per-scene edits. Without
@@ -3246,6 +3276,11 @@ def create_projects_bulk(
             logo_opacity=data.logo_opacity if data.logo_opacity is not None else 0.9,
             custom_voice_id=data.custom_voice_id or None,
             aspect_ratio=data.aspect_ratio or "landscape",
+            avatar_size=(
+                data.avatar_size
+                if data.avatar_size is not None
+                else _default_avatar_size(data.aspect_ratio or "landscape")
+            ),
             video_style=normalized_video_style,
             video_length=_normalize_video_length(getattr(data, "video_length", None), user),
             playback_speed=_normalize_playback_speed(getattr(data, "playback_speed", None)),
@@ -3383,6 +3418,7 @@ def create_project_from_upload(
         logo_opacity=logo_opacity if logo_opacity is not None else 0.9,
         custom_voice_id=custom_voice_id or None,
         aspect_ratio=aspect_ratio or "landscape",
+        avatar_size=_default_avatar_size(aspect_ratio or "landscape"),
         video_style=normalized_video_style,
         video_length=_normalize_video_length(video_length, user),
         playback_speed=_normalize_playback_speed(None),
@@ -5459,12 +5495,13 @@ def authorize_avatar_batch(
 ):
     """Charge for a batch of avatars and unlock generation for this project.
 
-    Billed against the PLAN'S MONTHLY ALLOWANCE only: usage accumulates in
-    ``ai_edits_used_this_period`` against PLAN_AI_EDIT_ALLOWANCE, and the
-    purchased ``ai_edit_credits`` pool is never read or written here. A payer
-    whose remaining allowance cannot cover the whole batch is refused and told to
-    upgrade — there is no partial batch and no second pool to fall back on, so
-    FREE (allowance 0) cannot generate avatars at all.
+    Billed against the payer's COMBINED AI-edit budget: the monthly plan
+    allowance (``ai_edits_used_this_period`` against PLAN_AI_EDIT_ALLOWANCE)
+    first, then the purchased ``ai_edit_credits`` pool for any remainder — same
+    split as a regular AI edit (see can_afford_avatars/consume_avatar_credits).
+    A payer whose combined budget cannot cover the whole batch is refused —
+    there is no partial batch. FREE users can still generate avatars as long as
+    they hold enough purchased ``ai_edit_credits``.
 
     ONE charge for the whole batch, deliberately — not per scene. The wizard
     fans out N parallel POSTs to the per-scene endpoint, and consume_* is a
@@ -5585,32 +5622,20 @@ def authorize_avatar_batch(
     payer = project_owner(project, db)
     cost = len(requested) * AVATAR_CREDIT_COST_PER_SCENE
     if not can_afford_avatars(payer, len(requested)):
-        # Two very different dead ends, so they get two different codes. A FREE
-        # payer has no allowance at all and never will without a subscription —
-        # they can act on this, so the UI offers an upgrade. A paid payer who has
-        # spent the period has nothing to buy (there is no AI-credit SKU: videos
-        # grant ai_edit_credits, which avatars no longer draw on), so the only
-        # honest next step is support.
-        remaining = payer.ai_edit_allowance_remaining
-        if payer.plan not in PAID_TIERS:
-            raise HTTPException(
-                status_code=403,
-                detail={
-                    "code": "avatar_requires_paid_plan",
-                    "message": (
-                        "Avatar generation is included with paid plans. "
-                        "Upgrade to Pro to generate avatars."
-                    ),
-                },
-            )
+        # Combined-budget check failed: allowance + purchased ai_edit_credits
+        # together don't cover the batch. The frontend branches this into
+        # "upgrade" (free payer) vs "buy a video" (paid payer, allowance spent)
+        # — see AvatarBatchWizard's payerIsFree/needsUpgrade/needsVideoPurchase
+        # — this message is only the fallback for the stale-balance race where
+        # the client's local check let the request through anyway.
+        remaining = payer.ai_edit_credits_available
         raise HTTPException(
             status_code=403,
             detail={
                 "code": "avatar_allowance_exhausted",
                 "message": (
                     f"This needs {cost} AI credits ({AVATAR_CREDIT_COST_PER_SCENE} per scene) "
-                    f"and your plan has {remaining} left this period. "
-                    "Please contact support to continue."
+                    f"and you have {remaining} left."
                 ),
             },
         )
@@ -5668,9 +5693,9 @@ def authorize_avatar_batch(
         "scene_ids": requested,
         "job_ids": [j.id for j in jobs],
         "credits_charged": cost,
-        # The allowance, not the purchased pool — that pool is not what was
-        # charged and would never move, so reporting it read as "nothing happened".
-        "credits_remaining": payer.ai_edit_allowance_remaining,
+        # Combined pool — consume_avatar_credits may have spent from either or
+        # both, so this is the only figure that reflects what's left to spend.
+        "credits_remaining": payer.ai_edit_credits_available,
     }
 
 

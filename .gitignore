@@ -16,6 +16,10 @@ dist/
 # Media files
 backend/media/
 backend/tmp/
+emotion_test_clips/
+
+# HF Spaces avatar eval — superseded by Modal serverless GPU migration
+hf-space/
 
 # Remotion output
 remotion-video/out/

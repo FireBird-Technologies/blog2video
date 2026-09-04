@@ -60,7 +60,9 @@ export function avatarBgWantsCutout(bg: AvatarBg | undefined): boolean {
 }
 
 export const AVATAR_MIN_SIZE = 0.10;
-export const AVATAR_MAX_SIZE = 0.32;
+/** Twin of MAX_AVATAR_SIZE in backend/app/schemas/schemas.py — the two must
+ *  always agree, so flip them together. */
+export const AVATAR_MAX_SIZE = 0.42;
 /** Floor rather than 0: a fully invisible avatar reads as a broken render. */
 export const AVATAR_MIN_OPACITY = 0.2;
 

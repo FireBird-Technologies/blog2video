@@ -45,10 +45,10 @@ export function sceneStatusLabel(row: DisplayRow, hasPolled: boolean): string {
       return row.attempts_exhausted ? "Failed — open scene to retry" : "Failed";
     case "running":
       // A matte job has no phases and never re-renders — describing it as
-      // "Rendering" would misrepresent both the work and its cost.
+      // "Generating" would misrepresent both the work and its cost.
       if (row.kind === "matte") return "Removing background";
       if (row.phase === "starting_service") return "Warming up";
-      return "Rendering";
+      return "Generating";
     case "queued":
       // Queue POSITION is deliberately not surfaced. queue_position counts jobs
       // from every project ahead of this one, so it reads as a backlog the user

@@ -14,7 +14,7 @@ export interface AvatarOverlayProps {
   aspectRatio?: string; // "landscape" | "portrait"
   /** circle | rounded | square. Drives both the corner radius and the box aspect. */
   shape?: AvatarShape;
-  /** Box width as a fraction of composition width (0.10-0.32). */
+  /** Box width as a fraction of composition width (0.10-0.42). */
   size?: number;
   position?: AvatarPosition;
   /**
@@ -48,7 +48,7 @@ export interface AvatarOverlayProps {
 export const AVATAR_DEFAULT_SHAPE: AvatarShape = "circle";
 export const AVATAR_DEFAULT_POSITION: AvatarPosition = "bottom_left";
 export const AVATAR_DEFAULT_SIZE_LANDSCAPE = 0.16;
-export const AVATAR_DEFAULT_SIZE_PORTRAIT = 0.22;
+export const AVATAR_DEFAULT_SIZE_PORTRAIT = 0.30;
 
 /**
  * Persistent talking-head avatar clip, overlaid in a corner of a scene.
