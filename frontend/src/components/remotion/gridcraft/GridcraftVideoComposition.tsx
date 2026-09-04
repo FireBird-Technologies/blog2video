@@ -1,4 +1,5 @@
 import { resolveFontFamily } from "../../../fonts/registry";
+import { AvatarOverlay } from "../AvatarOverlay";
 import { AbsoluteFill, Audio, Sequence, interpolate, useCurrentFrame } from "remotion";
 import { GRIDCRAFT_LAYOUT_REGISTRY } from "./layouts";
 import { GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY } from "./constants";
@@ -56,6 +57,16 @@ export interface GridcraftSceneInput {
   videoDurationSeconds?: number;
   videoStartSeconds?: number;
   voiceoverUrl?: string;
+  avatarUrl?: string;
+  /** Per-scene avatar overrides; undefined = inherit the project setting. */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
 }
 
 export interface GridcraftVideoCompositionProps {
@@ -165,6 +176,9 @@ export const GridcraftVideoComposition: React.FC<
             </AbsoluteFill>
             {scene.voiceoverUrl && (
               <Audio src={scene.voiceoverUrl} playbackRate={resolvedPlaybackSpeed} />
+            )}
+            {scene.avatarUrl && (
+              <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />
             )}
             {captionsEnabled && (scene.narrationText || scene.narration) && (
               <CaptionTrack

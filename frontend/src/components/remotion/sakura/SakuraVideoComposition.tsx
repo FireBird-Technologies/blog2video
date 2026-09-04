@@ -1,4 +1,5 @@
 import React from "react";
+import { AvatarOverlay } from "../AvatarOverlay";
 import { AbsoluteFill, Audio, Sequence, delayRender, continueRender } from "remotion";
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import { SAKURA_LAYOUT_REGISTRY as LAYOUT_REGISTRY, SakuraLayoutType, SceneLayoutProps } from "./layouts";
@@ -33,6 +34,16 @@ export interface SakuraSceneInput {
   /** Start offset into the clip, in seconds (the adjust-modal trim). */
   videoStartSeconds?: number;
   voiceoverUrl?: string;
+  avatarUrl?: string;
+  /** Per-scene avatar overrides; undefined = inherit the project setting. */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
 }
 
 export interface SakuraVideoCompositionProps {
@@ -314,6 +325,7 @@ export const SakuraVideoComposition: React.FC<SakuraVideoCompositionProps> = ({
             durationInFrames={s.durationFrames}
           >
             <Audio src={s.scene.voiceoverUrl} />
+            {s.scene.avatarUrl ? <AvatarOverlay src={s.scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={s.scene.avatarShape} size={s.scene.avatarSize} position={s.scene.avatarPosition} bg={s.scene.avatarBg} opacity={s.scene.avatarOpacity} focusX={s.scene.avatarFocusX} focusY={s.scene.avatarFocusY} zoom={s.scene.avatarZoom} /> : null}
           </Sequence>
         );
       })}

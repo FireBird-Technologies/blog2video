@@ -12,6 +12,7 @@ class AssetType(str, enum.Enum):
     # app/services/stock_footage.py) so Remotion's frame sampling lands exactly
     # on source frames — anything else judders.
     VIDEO = "video"
+    AVATAR = "avatar"
 
 
 class Asset(Base):

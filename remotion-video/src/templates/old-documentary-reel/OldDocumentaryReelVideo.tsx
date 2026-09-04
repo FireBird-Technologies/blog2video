@@ -12,6 +12,7 @@ import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import { DOCREEL_LAYOUT_REGISTRY as LAYOUT_REGISTRY, DocReelLayoutType, SceneLayoutProps } from "./layouts";
 import { resolveFontFamily } from "../../fonts/registry";
 import { LogoOverlay } from "../../components/LogoOverlay";
+import { AvatarOverlay } from "../../components/AvatarOverlay";
 import { BackgroundMusic } from "../../components/BackgroundMusic";
 import { CaptionTrack } from "../../components/CaptionTrack";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
@@ -37,6 +38,17 @@ interface SceneData {
   durationSeconds: number;
   speechDurationSeconds?: number;
   voiceoverFile: string | null;
+  avatarVideoFile?: string | null;
+  /** Per-scene avatar presentation, already resolved by the backend
+   *  (scene override ?? project ?? default). See services/remotion.py. */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
   images: string[];
   video?: string;
   videoMuted?: boolean;
@@ -65,6 +77,15 @@ interface VideoData {
   captionFontFamily?: string;
   captionFontSize?: string;
   captionOffset?: number;
+  /** Avatar overlay presentation (see components/AvatarOverlay.tsx). */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
   /** Reference era for the whole video: newsreel / home_movie / tape_dub. */
   era?: DocReelEra;
   scenes: SceneData[];
@@ -390,6 +411,20 @@ export const OldDocumentaryReelVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             durationInFrames={r.durationFrames}
           >
             <Audio src={staticFile(r.scene.voiceoverFile)} playbackRate={playbackSpeed} />
+            {r.scene.avatarVideoFile && (
+              <AvatarOverlay
+                src={staticFile(r.scene.avatarVideoFile)}
+                aspectRatio={data.aspectRatio || "landscape"}
+                shape={r.scene.avatarShape ?? data.avatarShape}
+                size={r.scene.avatarSize ?? data.avatarSize}
+                position={r.scene.avatarPosition ?? data.avatarPosition}
+                bg={r.scene.avatarBg ?? data.avatarBg}
+                opacity={r.scene.avatarOpacity ?? data.avatarOpacity}
+                focusX={r.scene.avatarFocusX}
+                focusY={r.scene.avatarFocusY}
+                zoom={r.scene.avatarZoom}
+              />
+            )}
           </Sequence>
         );
       })}

@@ -36,6 +36,9 @@ interface TemplateStarRatingProps {
   showLabel?: boolean;
   /** Render the optional-feedback toggle + comment box. */
   allowComment?: boolean;
+  /** Accessible name for the star group — override when rating something other
+   *  than a template (e.g. "Rate the avatar"). */
+  ariaLabel?: string;
   className?: string;
 }
 
@@ -52,6 +55,7 @@ export default function TemplateStarRating({
   size = 18,
   showLabel = false,
   allowComment = false,
+  ariaLabel = "Rate this template",
   className = "",
 }: TemplateStarRatingProps) {
   const [hover, setHover] = useState(0);
@@ -96,7 +100,7 @@ export default function TemplateStarRating({
           className="flex items-center gap-0.5"
           onMouseLeave={() => setHover(0)}
           role="radiogroup"
-          aria-label="Rate this template"
+          aria-label={ariaLabel}
         >
           {([1, 2, 3, 4, 5] as const).map((star) => {
             const active = star <= shown;

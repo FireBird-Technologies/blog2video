@@ -14,6 +14,7 @@
  * content variant to use. Scenes cycle through variants for visual variety.
  */
 import { Fragment, useEffect, useRef, useState } from "react";
+import { AvatarOverlay } from "../../components/AvatarOverlay";
 import {
   AbsoluteFill,
   Audio,
@@ -417,6 +418,7 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
               narration: "Generated template preview.",
               durationSeconds: 5,
               voiceoverFile: null,
+              avatarVideoFile: null,
               images: [],
             },
           ],
@@ -641,6 +643,9 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             durationInFrames={sceneFrames[index]}
           >
             <Audio src={staticFile(scene.voiceoverFile)} playbackRate={playbackSpeed} />
+            {scene.avatarVideoFile && (
+              <AvatarOverlay src={staticFile(scene.avatarVideoFile)} aspectRatio={data.aspectRatio || "landscape"} shape={scene.avatarShape ?? data.avatarShape} size={scene.avatarSize ?? data.avatarSize} position={scene.avatarPosition ?? data.avatarPosition} bg={scene.avatarBg ?? data.avatarBg} opacity={scene.avatarOpacity ?? data.avatarOpacity} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />
+            )}
             {data.captionsEnabled && (scene.narrationText || scene.narration) && (
               <CaptionTrack
                 text={scene.narrationText || scene.narration}

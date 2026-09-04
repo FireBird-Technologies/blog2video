@@ -513,11 +513,13 @@ async def lifespan(app: FastAPI):
                 reap_orphaned_template_change_jobs,
                 reap_orphaned_voice_change_jobs,
                 reap_orphaned_language_change_jobs,
+                reap_orphaned_avatar_jobs,
             )
             recover_orphaned_regenerate_script_jobs()
             reap_orphaned_template_change_jobs()
             reap_orphaned_voice_change_jobs()
             reap_orphaned_language_change_jobs()
+            reap_orphaned_avatar_jobs()
         except Exception as e:
             print(f"[STARTUP] Orphaned-job recovery failed: {e}")
     except Exception as e:
@@ -536,6 +538,27 @@ async def lifespan(app: FastAPI):
         elevenlabs_quota_check = asyncio.create_task(_periodic_elevenlabs_quota_check())
         from app.support.cleanup import periodic_support_cleanup
         support_cleanup = asyncio.create_task(periodic_support_cleanup())
+        # System-wide avatar render/matte queue — one job in flight at a time,
+        # strictly FIFO across every project (see services/avatar_queue.py).
+        # Started AFTER reap_orphaned_avatar_jobs() above so it never picks up
+        # a stale "running" row from a previous process.
+        from app.services import avatar_queue
+        # The dispatcher never queries provider capacity — it only counts its own
+        # in-flight requests and trusts that it is not oversubscribing. If that
+        # trust is misplaced the surplus jobs queue at the provider while their
+        # rows say "running" here, which nothing can detect at runtime. So check
+        # it loudly at boot, where it is still cheap to notice.
+        if settings.AVATAR_CONCURRENCY > settings.AVATAR_PROVIDER_MAX_CONTAINERS:
+            print(
+                f"[STARTUP] WARNING: AVATAR_CONCURRENCY="
+                f"{settings.AVATAR_CONCURRENCY} exceeds provider ceiling "
+                f"AVATAR_PROVIDER_MAX_CONTAINERS="
+                f"{settings.AVATAR_PROVIDER_MAX_CONTAINERS}. Jobs beyond the "
+                f"ceiling will queue at the provider while showing as 'running'. "
+                f"Raise MODAL_MAX_CONTAINERS and redeploy the Modal app FIRST, "
+                f"then raise AVATAR_CONCURRENCY."
+            )
+        avatar_queue.start()
         # Pre-load corpus + UI catalog so first request is fast and config errors fail loudly at boot.
         try:
             from app.support.corpus_loader import load_corpus
@@ -569,6 +592,7 @@ async def lifespan(app: FastAPI):
             elevenlabs_quota_check.cancel()
         if support_cleanup:
             support_cleanup.cancel()
+        await avatar_queue.stop()
     except Exception:
         pass
 

@@ -29,6 +29,9 @@ import { isBuiltinDataVizChartLayout, isBuiltinTickerLayout } from "./sceneEditB
 import { mergeLayoutSchemaDefaults } from "../utils/mergeLayoutSchemaDefaults";
 import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { getTemplateConfig, normalizeBuiltInTemplateId } from "./remotion/templateConfig";
+import { AvatarOverlay, AvatarSettingsContext, type AvatarSettings } from "./remotion/AvatarOverlay";
+import type { AvatarCorner, AvatarShape } from "../api/types";
+import { AVATAR_BG_ORIGINAL, avatarBgWantsCutout } from "../api/types";
 import { resolveFontFamily } from "../fonts/registry";
 import { getPlaybackSpeed, getSceneDurationFrames } from "./remotion/playbackSpeed";
 import { computeChronicleVideoTotalFrames } from "./remotion/chronicle/ChronicleVideoComposition";
@@ -550,6 +553,33 @@ const StableCustomComposition: React.FC<any> = ({
       })}
       </TransitionSeries>
 
+      {/* Per-scene talking-head overlay. Like the voiceover below it rides a
+          parallel absolute timeline rather than sitting inside the
+          TransitionSeries, so a transition's overlap can't stretch or clip the
+          clip — and it stays perfectly aligned with the audio it lip-syncs to. */}
+      {scenes.map((s: any, i: number) =>
+        s.avatarUrl ? (
+          <Sequence
+            key={`avatar-${s.id}`}
+            from={frameOffsets[i]}
+            durationInFrames={frameDurations[i]}
+          >
+            <AvatarOverlay
+              src={s.avatarUrl}
+              aspectRatio={aspectRatio || "landscape"}
+              shape={s.avatarShape}
+              size={s.avatarSize}
+              position={s.avatarPosition}
+              bg={s.avatarBg}
+              opacity={s.avatarOpacity}
+              focusX={s.avatarFocusX}
+              focusY={s.avatarFocusY}
+              zoom={s.avatarZoom}
+            />
+          </Sequence>
+        ) : null,
+      )}
+
       {/* Voiceover lives on a parallel absolute timeline (NOT inside the
           TransitionSeries) so transition overlap never warps audio sync —
           frameOffsets is the plain back-to-back schedule. */}
@@ -682,12 +712,47 @@ interface SceneInput {
   bgmVolume?: number | null;
   imageUrl?: string;
   voiceoverUrl?: string;
+  avatarUrl?: string;
+  /** Per-scene avatar overrides; undefined = inherit the project setting. */
+  avatarShape?: AvatarShape;
+  avatarSize?: number;
+  avatarPosition?: AvatarCorner;
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
   /** Stock-footage clip URL, when the scene uses a clip instead of a still. */
   videoUrl?: string;
   /** Position in the FULL project, preserved when sliced to a single scene. */
   trueIndex?: number;
   /** Scene count of the FULL project, preserved when sliced to a single scene. */
   trueTotal?: number;
+}
+
+/** Which avatar clip file a scene currently resolves to, as a stable token.
+ *
+ *  Mirrors the filename + newest-matching-asset resolution the `scenes` memo
+ *  does, and exists so the Player's remount key can depend on the clip actually
+ *  in use. Returns "" when the scene has no avatar, "a{id}" for a stored asset,
+ *  or "p" when only the speculative local /media path is available.
+ *
+ *  Asset ID rather than a bare presence flag on purpose: re-rendering a scene
+ *  writes a NEW asset at the SAME filename, so presence alone would not change
+ *  and the preview would keep showing the previous clip from cache. */
+function avatarClipToken(
+  scene: { order: number; avatar_video_path?: string | null; avatar_bg?: string | null; has_matte?: boolean },
+  project: { avatar_bg?: string | null },
+  avatarAssets: { id?: number; filename: string }[],
+): string {
+  if (!scene.avatar_video_path) return "";
+  const sceneBg = scene.avatar_bg ?? project.avatar_bg ?? null;
+  const useMatte = Boolean(avatarBgWantsCutout(sceneBg) && scene.has_matte);
+  const filename = `avatar_scene_${scene.order}.${useMatte ? "webm" : "mp4"}`;
+  const newestId = avatarAssets
+    .filter((a) => a.filename === filename)
+    .reduce<number | null>((best, a) => Math.max(best ?? 0, a.id ?? 0) || null, null);
+  return newestId ? `a${newestId}` : "p";
 }
 
 function resolveCraftedTemplateLogoUrl(template?: CraftedTemplateItem | CraftedTemplateDetail | null): string | null {
@@ -1718,9 +1783,11 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
       const subdir =
         asset.asset_type === "image"
           ? "images"
-          : asset.asset_type === "video"
-            ? "videos"
-            : "audio";
+          : asset.asset_type === "avatar"
+            ? "avatars"
+            : asset.asset_type === "video"
+              ? "videos"
+              : "audio";
       const localPath = `/media/projects/${project.id}/${subdir}/${asset.filename}`;
       
       // In local dev, prefer R2 when available so projects still preview
@@ -1752,6 +1819,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
         return (a.id ?? 0) - (b.id ?? 0);
       });
     const audioAssets = project.assets.filter((a) => a.asset_type === "audio");
+    const avatarAssets = project.assets.filter((a) => a.asset_type === "avatar");
     const videoAssets = project.assets.filter(
       (a) => a.asset_type === "video" && !a.excluded,
     );
@@ -2003,6 +2071,34 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
         }
       }
 
+      // Resolve the talking-head avatar clip URL (mirrors voiceoverUrl above).
+      // Prefer the R2 AVATAR asset, else the local /media path. Undefined when no
+      // avatar was rendered → no overlay.
+      //
+      // WHICH file depends on the resolved background: a custom colour or
+      // "transparent" needs the matted WebM (presenter cut out), everything else
+      // uses the original mp4. A scene whose matte hasn't been produced yet falls
+      // back to the mp4, so the preview shows the same mixed state the render will.
+      const sceneBg = scene.avatar_bg ?? project.avatar_bg ?? null;
+      const useMatte = Boolean(avatarBgWantsCutout(sceneBg) && scene.has_matte);
+      let avatarUrl: string | undefined = undefined;
+      if (scene.avatar_video_path) {
+        const avatarFilename = `avatar_scene_${scene.order}.${useMatte ? "webm" : "mp4"}`;
+        const matchingAvatars = avatarAssets.filter((a) => a.filename === avatarFilename);
+        const latestAvatar = matchingAvatars.length > 0
+          ? matchingAvatars.sort((a, b) => (b.id ?? 0) - (a.id ?? 0))[0]
+          : null;
+        if (latestAvatar) {
+          avatarUrl = resolveUrl(latestAvatar, String(latestAvatar.id));
+        } else {
+          const isLocalDev = !BACKEND_URL ||
+                             BACKEND_URL.includes('localhost') ||
+                             BACKEND_URL.includes('127.0.0.1');
+          const localPath = `/media/projects/${project.id}/avatars/${avatarFilename}`;
+          avatarUrl = isLocalDev ? localPath : `${BACKEND_URL}${localPath}`;
+        }
+      }
+
       const onScreenText = scene.display_text ?? scene.narration_text;
 
       if (!isCustom) {
@@ -2053,6 +2149,28 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
           return Number.isFinite(raw) && raw > 0 ? raw : undefined;
         })(),
         voiceoverUrl,
+        avatarUrl,
+        // Per-scene avatar overrides. Undefined means "inherit", which is what the
+        // adapters pass through to AvatarOverlay so the context default wins.
+        avatarShape: scene.avatar_shape ?? undefined,
+        avatarSize: scene.avatar_size ?? undefined,
+        avatarPosition: scene.avatar_position ?? undefined,
+        // Only claim a background once the clip can actually honour it — an
+        // un-matted mp4 is opaque, so a fill behind it would be invisible anyway
+        // and the "transparent" branch would wrongly strip the frame chrome.
+        //
+        // AVATAR_BG_ORIGINAL rather than undefined when no cutout is wanted:
+        // undefined makes the overlay fall back to the PROJECT context, so a
+        // scene set to Original under a transparent project inherited
+        // "transparent" anyway — which zeroed borderRadius and rendered a circle
+        // as a hard square. Passing the sentinel states the scene's own answer
+        // explicitly, and the overlay collapses it to "no fill" internally.
+        avatarBg: useMatte ? sceneBg : AVATAR_BG_ORIGINAL,
+        avatarOpacity: scene.avatar_opacity ?? undefined,
+        // Frame focus is per-scene only — it describes a region of THIS clip.
+        avatarFocusX: scene.avatar_focus_x ?? undefined,
+        avatarFocusY: scene.avatar_focus_y ?? undefined,
+        avatarZoom: scene.avatar_zoom ?? undefined,
       };
     });
 
@@ -2136,7 +2254,10 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
   const mediaSources = useMemo(
     () =>
       scenes
-        .flatMap((s) => [s.imageUrl, s.voiceoverUrl, s.videoUrl])
+        // avatarUrl is included so a talking-head clip is buffered BEFORE the
+        // player starts. Without it the mp4 streams on first paint and the
+        // avatar visibly pops in a beat after its scene appears.
+        .flatMap((s) => [s.imageUrl, s.voiceoverUrl, s.avatarUrl, s.videoUrl])
         .filter(Boolean) as string[],
     [scenes],
   );
@@ -2208,9 +2329,9 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
         }),
     );
 
-    // Stock clips: resolve on `canplaythrough`, NOT `loadedmetadata`. Metadata
-    // only means headers arrived — the buffer is still empty, which is exactly
-    // the state that stalls the Player's timeline once playback reaches the clip.
+    // Avatar clips and stock footage are mp4/webm — matched by neither the
+    // image nor the audio pattern above, so they need their own branch or they
+    // would silently never be preloaded.
     const videoPromises = videoUrls.map(
       (src) =>
         new Promise<void>((resolve) => {
@@ -2221,7 +2342,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
           video.crossOrigin = "anonymous";
           video.preload = "auto";
           video.muted = true;
-          // Required for the buffer to actually fill on iOS Safari.
+          // Required for the browser to buffer without a user gesture.
           video.playsInline = true;
           let settled = false;
           const done = () => {
@@ -2229,18 +2350,21 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
             settled = true;
             resolve();
           };
+          // canplaythrough means enough is buffered to play without stalling —
+          // the condition that actually prevents a visible pop-in.
+          video.addEventListener("loadedmetadata", done);
+          video.addEventListener("canplay", done);
           video.addEventListener("canplaythrough", done);
-          video.addEventListener("error", done); // don't block on error
+          video.addEventListener("error", done); // never block on a bad clip
           video.src = src;
-          video.load();
-          // Clips are larger than voiceover; allow more headroom before giving up.
-          const timeoutId = window.setTimeout(done, 30000);
+          const timeoutId = window.setTimeout(done, 15000);
           cleanupFns.push(() => {
             window.clearTimeout(timeoutId);
+            video.removeEventListener("loadedmetadata", done);
+            video.removeEventListener("canplay", done);
             video.removeEventListener("canplaythrough", done);
             video.removeEventListener("error", done);
             video.src = "";
-            video.load(); // release the pending fetch
           });
         }),
     );
@@ -2317,11 +2441,81 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     ? Object.keys(compiledScenes).filter((k) => k.startsWith("content_")).length
     : 0;
 
-  const Composition = (isCustom && compiledScenes)
+  const BaseComposition = (isCustom && compiledScenes)
     ? StableCustomComposition
     : (isCrafted && compiledCrafted)
       ? compiledCrafted
       : config.component;
+
+  // PROJECT-LEVEL avatar presentation, published via context rather than threaded
+  // through ~24 adapter call sites. Per-SCENE overrides are passed to AvatarOverlay
+  // as explicit props (which win over context), so this stays the inherited default.
+  // The Player mounts its own React root, so the provider has to live INSIDE the
+  // composition, not around <Player>.
+  const avatarSettings: AvatarSettings = useMemo(
+    () => ({
+      shape: project.avatar_shape,
+      size: project.avatar_size,
+      position: project.avatar_position,
+      bg: project.avatar_bg,
+      opacity: project.avatar_opacity,
+    }),
+    [
+      project.avatar_shape,
+      project.avatar_size,
+      project.avatar_position,
+      project.avatar_bg,
+      project.avatar_opacity,
+    ],
+  );
+
+  // Part of the Player key — the Player owns its own root, so a settings change
+  // has to remount it for the new context value to take effect mid-playback.
+  // Per-scene overrides are folded in too: they reach the overlay as props rather
+  // than context, but the Player still needs remounting to pick them up, or
+  // editing one scene's avatar would leave the preview showing the old values.
+  // Same filter the `scenes` memo applies; recomputed here because that one is
+  // scoped inside the memo. Cheap — project.assets is a short array.
+  const avatarAssetsForKey = (project.assets ?? []).filter(
+    (a) => a.asset_type === "avatar",
+  );
+  const avatarSettingsKey = [
+    avatarSettings.shape ?? "",
+    avatarSettings.size ?? "",
+    avatarSettings.position ?? "",
+    avatarSettings.bg ?? "",
+    avatarSettings.opacity ?? "",
+    ...(project.scenes ?? []).map((s) =>
+      [
+        s.avatar_shape ?? "",
+        s.avatar_size ?? "",
+        s.avatar_position ?? "",
+        s.avatar_bg ?? "",
+        s.avatar_opacity ?? "",
+        s.avatar_focus_x ?? "",
+        s.avatar_focus_y ?? "",
+        s.avatar_zoom ?? "",
+        s.has_matte ? "m" : "",
+        // WHICH clip file this scene resolves to. Without it a scene going from
+        // "no avatar" to "avatar rendered" produced a byte-identical key, so the
+        // Player never remounted and a freshly generated presenter stayed
+        // invisible until something else forced a refresh. Asset id, not mere
+        // presence, because a re-render replaces the clip with a NEW asset at
+        // the SAME path — keying on presence alone would keep the stale URL.
+        avatarClipToken(s, project, avatarAssetsForKey),
+      ].join(","),
+    ),
+  ].join("_");
+
+  const Composition = useMemo(() => {
+    const Base = BaseComposition as React.ComponentType<Record<string, unknown>>;
+    const Wrapped: React.FC<Record<string, unknown>> = (props) => (
+      <AvatarSettingsContext.Provider value={avatarSettings}>
+        <Base {...props} />
+      </AvatarSettingsContext.Provider>
+    );
+    return Wrapped;
+  }, [BaseComposition, avatarSettings]);
 
   // When a precompiled/owner-scoped crafted detail is supplied (e.g. a collaborator
   // viewing an owner's crafted template they are NOT entitled to), the global,
@@ -2415,7 +2609,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
         }}
       >
         <Player
-          key={`preview-${project.id}-${isPortrait ? "p" : "l"}${safeInitialFrame !== undefined ? `-f${safeInitialFrame}` : ""}-ck${captionSettingsKey}`}
+          key={`preview-${project.id}-${isPortrait ? "p" : "l"}${safeInitialFrame !== undefined ? `-f${safeInitialFrame}` : ""}-ck${captionSettingsKey}-av${avatarSettingsKey}`}
           component={Composition}
           inputProps={{
             ...inputProps,
