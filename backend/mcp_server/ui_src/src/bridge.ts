@@ -60,7 +60,7 @@ async function _fetchTemplatesFromApi(): Promise<RenderData | null> {
   // renders even outside of claude.ai. The origin of the iframe URL is the
   // same as the backend, so no CORS issue.
   try {
-    const base = window.location.origin; // e.g. https://footrest-dweeb-silt.ngrok-free.dev
+    const base = window.location.origin;
     const res = await fetch(`${base}/api/templates`);
     if (!res.ok) return null;
     const templates = await res.json();
