@@ -884,7 +884,29 @@ const StableCustomComposition: React.FC<any> = ({
                     KEEP IDENTICAL to GeneratedVideo.tsx. */}
                 <TypeTierProvider
                   value={{
-                    ...resolveTypeExactness(s.layoutConfig),
+                    // Exactness is decided on the scene's own layoutConfig OR the
+                    // template's stored per-scene default — whichever supplied the
+                    // size that sceneProps above actually resolved to.
+                    //
+                    // It used to read layoutConfig alone. But the pipeline stores
+                    // layoutConfig as `{}` for a custom-template scene (see
+                    // projects.py, "one batch extraction call and stores
+                    // layoutConfig as {}"), so a template whose sliders were set
+                    // to 125 passed 125 down as the size and then declared it
+                    // NOT exact — FitText was free to overrule it and auto-fit the
+                    // title back down. The editor's slider read "125 (default)"
+                    // while the frame rendered a title smaller than its own
+                    // eyebrow.
+                    //
+                    // A stored scene_font_defaults entry is written by the
+                    // template editor's sliders and by nothing else, so its
+                    // presence is a person's choice and must render literally —
+                    // the same rule the gallery preview applies.
+                    ...resolveTypeExactness({
+                      titleFontSize: sceneProps.titleFontSize,
+                      descriptionFontSize: sceneProps.descriptionFontSize,
+                      ...((s.layoutConfig as Record<string, unknown> | undefined) ?? {}),
+                    }),
                     // The two RESOLVED sizes, so a FitText can tell which tier it
                     // is. Generated code passes a bare number and cannot label
                     // itself without regenerating every stored template; these are

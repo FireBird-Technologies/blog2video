@@ -931,7 +931,23 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
                     dissolving into. KEEP IDENTICAL to VideoPreview.tsx. */}
                 <TypeTierProvider
                   value={{
-                    ...resolveTypeExactness(scene.layoutConfig),
+                    // Exactness is decided on the scene's own layoutConfig OR the
+                    // size sceneProps actually resolved to (which includes the
+                    // template's stored per-scene default, injected by
+                    // services/remotion.py).
+                    //
+                    // Reading layoutConfig alone under-reported: the pipeline
+                    // stores it as `{}` for a custom-template scene, so a template
+                    // whose sliders were set to 125 rendered the title at
+                    // whatever FitText auto-fitted to instead. A stored
+                    // scene_font_defaults entry comes from the template editor's
+                    // sliders and nothing else, so it is a person's choice and
+                    // must render literally. KEEP IDENTICAL to VideoPreview.tsx.
+                    ...resolveTypeExactness({
+                      titleFontSize: sceneProps.titleFontSize,
+                      descriptionFontSize: sceneProps.descriptionFontSize,
+                      ...((scene.layoutConfig as Record<string, unknown> | undefined) ?? {}),
+                    }),
                     // The two RESOLVED sizes, so a FitText can tell which tier it
                     // is. Generated code passes a bare number and cannot label
                     // itself without regenerating every stored template; these are

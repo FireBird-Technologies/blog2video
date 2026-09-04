@@ -3,6 +3,7 @@ Shared DSPy configuration. Called once at import time so all modules
 share the same LM instance and thread context.
 """
 import asyncio
+import contextlib
 import logging
 import random
 import threading
@@ -242,13 +243,43 @@ def _is_rate_limit(exc: Exception) -> bool:
 # code path issues the call: codegen, prop extraction, the critic and the design
 # docs all queue against the same gate.
 #
-# 4 is below Z.AI's observed threshold with headroom for the retry traffic that
-# a burst generates. Raise it only with 429 counts to show it is safe.
-_PROVIDER_MAX_INFLIGHT = 4
+# 7 is below Z.AI's observed threshold (429s appeared at 11) with headroom for
+# the retry traffic that a burst generates. Raise it only with 429 counts to
+# show it is safe.
+#
+# ── Why the budget is SPLIT ──────────────────────────────────────────────────
+# A semaphore has no notion of priority: waiters are just threads blocked on a
+# counter, so a user's scene edit and a batch job's sixteenth call are
+# indistinguishable. And a batch SATURATES the gate — a template generation runs
+# SCENE_CONCURRENCY (8) scenes at once and each issues more than one call, so it
+# always has more work queued than there are permits. An interactive edit landing
+# mid-generation therefore waited behind the whole batch, long enough that the
+# editor's poll gave up while the backend was still working.
+#
+# So the budget is split by WORKLOAD rather than raised for everyone:
+#
+#   * batch work (generation, design docs, theme/brand extraction) may take at
+#     most _PROVIDER_BATCH_INFLIGHT permits, and
+#   * the remainder is reachable ONLY by interactive calls — an LM built with
+#     interactive=True (see get_scene_edit_lm).
+#
+# Batch throughput is unchanged: it was already bounded at 4 in practice, and it
+# keeps 5 here. What the reserve buys is that a click can always get through.
+_PROVIDER_MAX_INFLIGHT = 7
+# Permits an interactive call may use that batch work can never hold.
+_PROVIDER_INTERACTIVE_RESERVE = 2
+_PROVIDER_BATCH_INFLIGHT = _PROVIDER_MAX_INFLIGHT - _PROVIDER_INTERACTIVE_RESERVE
+
+# Two gates rather than one counter with a rule, because "batch may take at most
+# N" is exactly a second, smaller semaphore: batch acquires BOTH (so it is capped
+# by the smaller one), interactive acquires only the total. Nothing has to inspect
+# a queue or count waiters, and a batch call can never starve the reserve.
 _provider_gate = threading.BoundedSemaphore(_PROVIDER_MAX_INFLIGHT)
-# The async side needs its own primitive, created lazily: asyncio.Semaphore
+_provider_batch_gate = threading.BoundedSemaphore(_PROVIDER_BATCH_INFLIGHT)
+# The async side needs its own primitives, created lazily: asyncio.Semaphore
 # binds to the running loop, and this module is imported long before one exists.
 _provider_agate: "asyncio.Semaphore | None" = None
+_provider_batch_agate: "asyncio.Semaphore | None" = None
 _provider_agate_lock = threading.Lock()
 
 
@@ -261,6 +292,48 @@ def _get_provider_agate() -> "asyncio.Semaphore":
     return _provider_agate
 
 
+def _get_provider_batch_agate() -> "asyncio.Semaphore":
+    global _provider_batch_agate
+    if _provider_batch_agate is None:
+        with _provider_agate_lock:
+            if _provider_batch_agate is None:
+                _provider_batch_agate = asyncio.Semaphore(_PROVIDER_BATCH_INFLIGHT)
+    return _provider_batch_agate
+
+
+@contextlib.contextmanager
+def _provider_slot(interactive: bool):
+    """Hold a provider permit for the duration of one call.
+
+    Batch work takes the batch gate FIRST and then the total gate; interactive
+    work takes only the total. Acquiring in that fixed order (never the reverse)
+    is what keeps the pair deadlock-free — no path holds the total while waiting
+    for the batch gate.
+
+    The effect: at most _PROVIDER_BATCH_INFLIGHT batch calls are ever in flight,
+    so _PROVIDER_INTERACTIVE_RESERVE permits of the total remain reachable only
+    by an interactive caller.
+    """
+    if interactive:
+        with _provider_gate:
+            yield
+    else:
+        with _provider_batch_gate, _provider_gate:
+            yield
+
+
+@contextlib.asynccontextmanager
+async def _aprovider_slot(interactive: bool):
+    """Async mirror of :func:`_provider_slot`, same ordering rule."""
+    if interactive:
+        async with _get_provider_agate():
+            yield
+    else:
+        async with _get_provider_batch_agate():
+            async with _get_provider_agate():
+                yield
+
+
 class _ProviderLoggingLM(dspy.LM):
     """dspy.LM subclass that logs each call's served-by provider, fallback usage, and failures.
 
@@ -270,7 +343,18 @@ class _ProviderLoggingLM(dspy.LM):
     Also absorbs provider rate limits with jittered exponential backoff, so a 429
     costs latency rather than one of dspy.Refine's rollouts. See
     _RATE_LIMIT_RETRIES for why that distinction is load-bearing.
+
+    `interactive=True` marks an LM whose calls a PERSON is waiting on, which lets
+    them draw from the reserved permits a batch job cannot hold. See
+    _PROVIDER_INTERACTIVE_RESERVE. Default False: batch is the safe assumption,
+    since mislabelling batch work as interactive would defeat the reserve.
     """
+
+    def __init__(self, *args, interactive: bool = False, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Not a dspy.LM field — kept off the kwargs dspy round-trips so it can
+        # never leak into a request payload.
+        self._interactive = interactive
 
     @property
     def _log_tag(self) -> str:
@@ -288,7 +372,7 @@ class _ProviderLoggingLM(dspy.LM):
                 # Held only for the duration of the call, so a backoff sleep
                 # RELEASES the slot rather than blocking a waiting scene behind
                 # a request that is not even in flight.
-                with _provider_gate:
+                with _provider_slot(self._interactive):
                     return self._report(super().forward(*args, **kwargs))
             except Exception as e:
                 if attempt < _RATE_LIMIT_RETRIES and _is_rate_limit(e):
@@ -307,7 +391,7 @@ class _ProviderLoggingLM(dspy.LM):
     async def aforward(self, *args, **kwargs):
         for attempt in range(_RATE_LIMIT_RETRIES + 1):
             try:
-                async with _get_provider_agate():
+                async with _aprovider_slot(self._interactive):
                     return self._report(await super().aforward(*args, **kwargs))
             except Exception as e:
                 if attempt < _RATE_LIMIT_RETRIES and _is_rate_limit(e):
@@ -417,6 +501,7 @@ def _make_zai_lm(
     *,
     thinking: bool = False,
     reasoning_effort: str | None = None,
+    interactive: bool = False,
 ) -> dspy.LM:
     """GLM via Z.AI's own API directly (LiteLLM's `zai/` provider). This is the local/dev
     default for every GLM call site (global default LM, scene descriptors, theme
@@ -493,6 +578,7 @@ def _make_zai_lm(
         temperature=temperature,
         max_tokens=max_tokens,
         extra_body=extra_body,
+        interactive=interactive,
     )
 
 
@@ -616,6 +702,11 @@ def get_scene_edit_lm() -> dspy.LM:
     routes any `glm-5.3*` value through `reasoning_effort` rather than the
     `thinking: {type: disabled}` form that line rejects (Z.AI error 1210), so a
     change of slug needs no change here.
+
+    Marked INTERACTIVE: this is the one LM whose calls a person is sitting and
+    waiting for, so it may use the reserved provider permits that batch work
+    cannot hold. Without that, an edit started during a template generation
+    queued behind the whole batch.
     """
     global _scene_edit_lm
     if _scene_edit_lm is not None:
@@ -629,6 +720,10 @@ def get_scene_edit_lm() -> dspy.LM:
             max_tokens=_CODEGEN_MAX_TOKENS,
             thinking=_CODEGEN_THINKING,
             reasoning_effort=_CODEGEN_REASONING_EFFORT,
+            # A person is watching this one. Editing a scene is a click, not a
+            # batch job, so it draws on the reserved permits that a running
+            # generation cannot hold — see _PROVIDER_INTERACTIVE_RESERVE.
+            interactive=True,
         )
         # Same reason as get_custom_lm: DSPy's disk cache would replay a stored
         # completion for an identical prompt signature, which makes "edit this

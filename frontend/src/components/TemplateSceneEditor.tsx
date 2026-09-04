@@ -61,8 +61,16 @@ function deriveBg2(bg: string): string {
   return isDarkColor(bg) ? blend(bg, "#FFFFFF", 0.1) : blend(bg, "#000000", 0.12);
 }
 /** A scene edit is one scene, so it is far quicker than a regeneration — but
- *  still bounded so a hung job cannot poll forever. */
-const POLL_TIMEOUT_MS = 4 * 60 * 1000;
+ *  still bounded so a hung job cannot poll forever.
+ *
+ *  8 minutes, not 4. A single edit is ~3 minutes of model time on its own, and
+ *  it can still queue behind other provider traffic, so 4 minutes was close
+ *  enough to the real duration that the poll gave up on edits that were running
+ *  perfectly well. The backend then finished and wrote the draft that the editor
+ *  had already declared failed — the user saw an error for work that succeeded.
+ *  The timeout exists to catch a HUNG job, so it should sit well clear of the
+ *  slowest healthy one. */
+const POLL_TIMEOUT_MS = 8 * 60 * 1000;
 
 interface Props {
   template: CustomTemplateItem;

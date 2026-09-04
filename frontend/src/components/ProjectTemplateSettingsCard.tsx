@@ -80,6 +80,7 @@ export function TemplateAssignPreview({
           contentArchetypeIds={ct.content_archetype_ids || undefined}
           designVersion={(ct.design_blueprint as { version?: number } | null)?.version}
           sceneSampleContent={ct.scene_sample_content}
+          sceneFontDefaults={ct.scene_font_defaults}
           logoUrls={ct.logo_urls}
           ogImage={ct.og_image}
           thumbnailMode={isMobile}
@@ -95,6 +96,7 @@ export function TemplateAssignPreview({
           contentArchetypeIds={ct.content_archetype_ids || undefined}
           designVersion={(ct.design_blueprint as { version?: number } | null)?.version}
           sceneSampleContent={ct.scene_sample_content}
+          sceneFontDefaults={ct.scene_font_defaults}
           previewImageUrl={ct.preview_image_url}
           logoUrls={ct.logo_urls}
           ogImage={ct.og_image}

@@ -1,7 +1,7 @@
 import { themeSurface, themeMuted } from "../../utils/themeColors";
 import { useState, useEffect, useRef } from "react";
 import type { CustomTemplateTheme } from "../../api/client";
-import CustomPreview from "./CustomPreview";
+import CustomPreview, { type SceneFontEntry } from "./CustomPreview";
 import StaticPreviewImage from "./StaticPreviewImage";
 
 const W = 640;
@@ -382,6 +382,14 @@ interface Props {
     content?: (Record<string, unknown> | null)[] | null;
     outro?: Record<string, unknown> | null;
   } | null;
+  /** Per-scene default type sizes, indexed like `sceneSampleContent`. Without it
+   *  every scene falls back to one hardcoded pair, so a thumbnail shows type at a
+   *  size the template does not actually use — and disagrees with the gallery. */
+  sceneFontDefaults?: {
+    intro?: SceneFontEntry | null;
+    content?: (SceneFontEntry | null)[] | null;
+    outro?: SceneFontEntry | null;
+  } | null;
   validLayouts?: string[] | null;
   frontendFiles?: Record<string, string> | null;
   frontendEntryRel?: string | null;
@@ -409,6 +417,7 @@ export default function CustomPreviewLandscape({
   contentArchetypeIds,
   designVersion,
   sceneSampleContent,
+  sceneFontDefaults,
   validLayouts,
   frontendFiles,
   frontendEntryRel,
@@ -442,6 +451,7 @@ export default function CustomPreviewLandscape({
         contentArchetypeIds={contentArchetypeIds}
         designVersion={designVersion}
         sceneSampleContent={sceneSampleContent}
+        sceneFontDefaults={sceneFontDefaults}
         validLayouts={validLayouts}
         frontendFiles={frontendFiles}
         frontendEntryRel={frontendEntryRel}
