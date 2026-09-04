@@ -1,12 +1,16 @@
 import type { ReactNode } from "react";
 
-export type ProjectTabId = "script" | "scenes" | "images" | "audio" | "settings";
+export type ProjectTabId = "script" | "scenes" | "images" | "audio" | "avatar" | "settings";
 
 export interface ProjectTabItem {
   id: ProjectTabId;
   label: string;
   /** Optional leading icon rendered before the label (e.g. a pencil on "Edit Scenes"). */
   icon?: ReactNode;
+  /** Short uppercase tag rendered after the label (e.g. "BETA"). Kept separate
+   *  from `label` so it can be styled as a pill and so the label stays the plain
+   *  tab name for anything that reads it. */
+  badge?: string;
 }
 
 type TabSize = "sm" | "lg";
@@ -46,10 +50,21 @@ export default function ProjectTabs({ tabs, active, onChange, containerDataTour,
               : "text-gray-400 hover:text-gray-600"
           }`}
         >
-          {tab.icon ? (
+          {tab.icon || tab.badge ? (
             <span className="inline-flex items-center gap-1.5">
               {tab.icon}
               {tab.label}
+              {tab.badge && (
+                <span
+                  className={`${
+                    size === "lg"
+                      ? "px-1.5 py-0.5 text-[10px]"
+                      : "px-1 py-px text-[8px] sm:text-[9px]"
+                  } font-bold tracking-wide rounded bg-purple-100 text-purple-600 leading-none`}
+                >
+                  {tab.badge}
+                </span>
+              )}
             </span>
           ) : (
             tab.label

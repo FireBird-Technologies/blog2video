@@ -17,7 +17,16 @@ if IS_SQLITE:
 else:
     # PostgreSQL connection pool settings
     engine_kwargs["poolclass"] = QueuePool
-    engine_kwargs["pool_size"] = 5
+    # 15 + 10 = 25 borrowable connections. Raised from 5 + 10 because avatar
+    # jobs borrow far more often than the rest of the app (a per-job heartbeat
+    # every 30s, plus a read at the start and a write at the end), and at
+    # AVATAR_CONCURRENCY=5 that starved the API: renders that had already
+    # succeeded on the GPU then failed to save their result, and enqueue POSTs
+    # timed out so scenes silently never started. Free on Neon, which is reached
+    # through its pgbouncer pooler endpoint and bills compute/storage, not
+    # connections. NOTE: this is per PROCESS — the app deliberately runs
+    # --workers 1 (avatar_queue's FIFO depends on it), so this is the real total.
+    engine_kwargs["pool_size"] = 15
     engine_kwargs["max_overflow"] = 10
     engine_kwargs["pool_pre_ping"] = True  # reconnect on stale connections
     engine_kwargs["pool_recycle"] = 300  # recycle connections after 5 min to avoid SSL drops
@@ -69,7 +78,16 @@ def get_db():
     try:
         yield db
     finally:
-        db.close()
+        try:
+            db.close()
+        except Exception:
+            # Neon can drop an idle/checked-out connection between pre-ping and
+            # use, especially under many overlapping requests (e.g. multiple
+            # scenes polling avatar-status at once). The request's own work is
+            # already done by this point, so a failed close is harmless — the
+            # pool discards the dead connection and the next checkout gets a
+            # fresh one. Not worth an ugly traceback in the logs.
+            pass
 
 
 def _migrate_sqlite(eng) -> None:
@@ -669,6 +687,7 @@ def init_db():
         PrebuiltVoice,
         Review,
         TemplateRating,
+        AvatarReview,
         ProjectTemplateChangeJob,
         ProjectRegenerateScriptJob,
         ProjectVoiceChangeJob,

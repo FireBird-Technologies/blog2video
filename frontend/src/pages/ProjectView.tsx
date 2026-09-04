@@ -57,9 +57,11 @@ import {
   type CustomTemplateItem,
   getBgmTracks,
   type BgmTrack,
+  AVATAR_PRESETS,
   getAddSceneStatus,
   type AddSceneJob,
 } from "../api/client";
+import { AVATAR_CUSTOM_PRESET_ID } from "../api/types";
 import Joyride, { CallBackProps, STATUS, Step } from "react-joyride";
 import { useAuth } from "../hooks/useAuth";
 import { isPaidPlan } from "../lib/plan";
@@ -86,6 +88,8 @@ import SceneEditModal, {
   resolveDefaultFontSizesForScene,
 } from "../components/SceneEditModal";
 import GenerateSceneImageModal, { AI_IMAGE_CREDIT_COST } from "../components/GenerateSceneImageModal";
+import AvatarEditModal from "../components/AvatarEditModal";
+import AvatarPresetMedia from "../components/AvatarPresetMedia";
 import RecordVoiceoverModal from "../components/RecordVoiceoverModal";
 import AddSceneModal, { ADD_SCENE_CREDIT_COST } from "../components/AddSceneModal";
 import AddScenePlaceholderRow from "../components/AddScenePlaceholderRow";
@@ -102,6 +106,7 @@ import VerifyScriptModal from "../components/VerifyScriptModal";
 import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge, NewScenesTemplateBadge, PopularTemplateBadge } from "../components/templatePreviewRegistry";
 import ProjectTemplateSettingsCard, { TemplateAssignPreview } from "../components/ProjectTemplateSettingsCard";
 import ProjectVoiceLanguageSettingsCard from "../components/ProjectVoiceLanguageSettingsCard";
+import ProjectAvatarSettingsCard from "../components/ProjectAvatarSettingsCard";
 import { BgmTrackDropdown } from "../components/BgmTrackDropdown";
 import VoiceOperationModal from "../components/VoiceOperationModal";
 import LanguageChangeTracker, {
@@ -1234,6 +1239,9 @@ export default function ProjectView() {
   const [expandedScene, setExpandedScene] = useState<number | null>(
     project?.scenes?.[0]?.id ?? null
   );
+  // Scenes tab: scenes are clustered into groups of 5, accordion-style (one group open at a time).
+  const SCENE_GROUP_SIZE = 5;
+  const [expandedGroupIndex, setExpandedGroupIndex] = useState<number | null>(0);
   const firstSceneAutoExpandedRef = useRef(false);
   useEffect(() => {
     if (firstSceneAutoExpandedRef.current) return;
@@ -1244,6 +1252,7 @@ export default function ProjectView() {
     }
   }, [project?.scenes?.[0]?.id]);
   const [sceneEditModal, setSceneEditModal] = useState<Scene | null>(null);
+  const [avatarEditScene, setAvatarEditScene] = useState<Scene | null>(null);
   const [commentScene, setCommentScene] = useState<Scene | null>(null);
   const [commentCounts, setCommentCounts] = useState<Record<number, number>>({});
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -3412,6 +3421,10 @@ export default function ProjectView() {
     pendingRecordings.size > 0
       ? [{ id: "audio" as Tab, label: "Audio" }]
       : []),
+    // Always shown, unlike the Audio gate above: this is the only entry point to
+    // the avatar feature, so hiding it until an avatar exists would leave the user
+    // no way to discover it. The card itself explains what to do when empty.
+    { id: "avatar", label: "Avatar", badge: "BETA" },
     { id: "settings", label: "Settings" },
   ];
 
@@ -6526,8 +6539,11 @@ export default function ProjectView() {
           </svg>
           Edit history
         </button>
-        {/* AI-edit credits remaining — monthly allowance + purchased pool (owner on shared projects). */}
-        {(() => {
+        {/* AI-edit credits remaining — monthly allowance + purchased pool (owner on shared projects).
+            Hidden on the avatar tab: that flow states its own price per scene and
+            the running total on the Generate button, so a second, differently
+            scoped credit figure beside it just reads as a contradiction. */}
+        {activeTab !== "avatar" && (() => {
           const total = useOwnerScopedAssets
             ? (project.owner_ai_edit_credits ?? 0) + (project.owner_ai_edit_allowance_remaining ?? 0)
             : (user?.ai_edit_credits ?? 0) + (user?.ai_edit_allowance_remaining ?? 0);
@@ -6566,6 +6582,7 @@ export default function ProjectView() {
             </span>
           );
         })()}
+
       </div>
 
       {/* Tab content */}
@@ -6627,8 +6644,63 @@ export default function ProjectView() {
                       <p className="mt-3 text-sm font-medium text-gray-700">Saving order…</p>
                     </div>
                   )}
-                  <div className="space-y-2">
-                  {project.scenes.map((scene, idx) => {
+                  {(() => {
+                    const sceneGroups: { scene: Scene; idx: number }[][] = [];
+                    project.scenes.forEach((scene, idx) => {
+                      const groupIdx = Math.floor(idx / SCENE_GROUP_SIZE);
+                      if (!sceneGroups[groupIdx]) sceneGroups[groupIdx] = [];
+                      sceneGroups[groupIdx].push({ scene, idx });
+                    });
+                    return sceneGroups.map((groupScenes, groupIdx) => {
+                      const isGroupExpanded = expandedGroupIndex === groupIdx;
+                      const rangeStart = groupScenes[0].scene.order;
+                      const rangeEnd = groupScenes[groupScenes.length - 1].scene.order;
+                      return (
+                        <div key={groupIdx} className="mb-2">
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => {
+                              if (isGroupExpanded) {
+                                setExpandedGroupIndex(null);
+                                return;
+                              }
+                              setExpandedGroupIndex(groupIdx);
+                              if (
+                                expandedScene != null &&
+                                !groupScenes.some(({ scene }) => scene.id === expandedScene)
+                              ) {
+                                setExpandedScene(null);
+                              }
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                (e.currentTarget as HTMLElement).click();
+                              }
+                            }}
+                            className="w-full flex items-center justify-between gap-2 glass-card px-4 py-3 border-l-2 border-l-purple-300 hover:border-l-purple-500 transition-all rounded-lg border cursor-pointer select-none"
+                          >
+                            <span className="flex items-baseline gap-2">
+                              <span className="text-sm font-medium text-gray-900">
+                                Scenes {rangeStart}–{rangeEnd}
+                              </span>
+                              {!isGroupExpanded && (
+                                <span className="text-xs text-gray-400">Expand to view scenes</span>
+                              )}
+                            </span>
+                            <svg
+                              className={`w-4 h-4 text-gray-400 transition-transform ${isGroupExpanded ? "rotate-180" : ""}`}
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </div>
+                          {isGroupExpanded && (
+                  <div className="space-y-2 mt-2 ml-4 max-h-[70vh] overflow-y-auto pr-1">
+                  {groupScenes.map(({ scene, idx }) => {
                     const isExpanded = expandedScene === scene.id;
                     const sceneImages = sceneImageMap[idx] || [];
                     // Use latest audio asset by id (regenerated scene = new asset) and cache-bust so new voiceover loads
@@ -6996,7 +7068,8 @@ export default function ProjectView() {
                                   );
                                 })()}
 
-                                {/* Scene images — same add/remove as manual edit in modal */}
+                                {/* Scene images + avatar side by side */}
+                                <div className="flex items-start gap-6">
                                 {(() => {
                                   const sceneLayout = (() => {
                                     try {
@@ -7069,7 +7142,7 @@ export default function ProjectView() {
                                     (stockAudioDraft.muted !== sceneClip.muted ||
                                       Math.abs(stockAudioDraft.volume - sceneClip.volume) > 0.001);
                                   return (
-                                    <div data-tour={idx === 0 ? "scene-visuals-first" : undefined}>
+                                    <div className="min-w-0" data-tour={idx === 0 ? "scene-visuals-first" : undefined}>
                                       <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
                                         {sceneClip
                                           ? "Stock footage"
@@ -7457,6 +7530,134 @@ export default function ProjectView() {
                                     </div>
                                   );
                                 })()}
+
+                                {/* Scene avatar — a compact status row, not a full
+                                    editor. A scene that already has a clip opens the
+                                    per-scene AvatarEditModal; a scene with none yet
+                                    jumps to the project-wide Avatar tab instead, since
+                                    generating an avatar is a whole-video decision (one
+                                    presenter for every scene), not a per-scene one. */}
+                                {(() => {
+                                  const preset = AVATAR_PRESETS.find(
+                                    (p) => p.id === scene.avatar_preset,
+                                  );
+                                  const hasAvatar = !!scene.avatar_video_path;
+                                  // A user-uploaded portrait is the CUSTOM sentinel, which
+                                  // is deliberately absent from AVATAR_PRESETS — so `preset`
+                                  // is undefined here and /avatars/custom.jpg does not exist.
+                                  // Its photo lives on the project instead. Without this the
+                                  // thumbnail fell through to the empty dashed placeholder
+                                  // and the label to a bare "Presenter".
+                                  const isCustomPreset =
+                                    scene.avatar_preset === AVATAR_CUSTOM_PRESET_ID;
+                                  const avatarImgSrc = isCustomPreset
+                                    ? project.avatar_custom_image_url ?? null
+                                    : preset
+                                      ? `/avatars/${preset.id}.jpg`
+                                      : null;
+                                  const avatarLabel = isCustomPreset
+                                    ? "Your portrait"
+                                    : (preset?.label ?? "Presenter");
+                                  // Compares VALUES, not null-ness: saving the
+                                  // project-wide Avatar tab stamps its settings
+                                  // onto every scene, so `!= null` would report
+                                  // "custom" on every scene of any project saved
+                                  // even once. A scene is custom iff it actually
+                                  // looks different from the project.
+                                  const overrides =
+                                    (scene.avatar_shape != null &&
+                                      scene.avatar_shape !== project.avatar_shape) ||
+                                    (scene.avatar_size != null &&
+                                      scene.avatar_size !== project.avatar_size) ||
+                                    (scene.avatar_position != null &&
+                                      scene.avatar_position !== project.avatar_position) ||
+                                    (scene.avatar_bg != null &&
+                                      scene.avatar_bg !== project.avatar_bg) ||
+                                    // Opacity is a per-scene override like the rest;
+                                    // omitting it labelled a scene that differs ONLY
+                                    // in opacity as "Project default".
+                                    (scene.avatar_opacity != null &&
+                                      scene.avatar_opacity !== project.avatar_opacity);
+                                  const shape =
+                                    scene.avatar_shape ?? project.avatar_shape ?? "circle";
+                                  const bg = scene.avatar_bg ?? project.avatar_bg ?? null;
+                                  return (
+                                    <div className="flex-shrink-0">
+                                      <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                                        Avatar
+                                      </h4>
+                                      {!scene.voiceover_path ? (
+                                        <p className="text-xs text-gray-400 italic">
+                                          An avatar is lip-synced to the narration — add narration audio first.
+                                        </p>
+                                      ) : (
+                                        <div className="flex items-center gap-3">
+                                          <div className="relative group flex-shrink-0">
+                                            {hasAvatar && avatarImgSrc ? (
+                                              <div
+                                                style={{
+                                                  width: 80,
+                                                  height: shape === "rounded" ? 96 : 80,
+                                                  borderRadius:
+                                                    shape === "circle" ? "50%" : shape === "square" ? 0 : 8,
+                                                  overflow: "hidden",
+                                                  backgroundColor:
+                                                    bg && bg !== "transparent" ? bg : undefined,
+                                                }}
+                                                className="border border-gray-200/60"
+                                              >
+                                                <img
+                                                  src={avatarImgSrc}
+                                                  alt={avatarLabel}
+                                                  className="w-full h-full object-cover"
+                                                />
+                                              </div>
+                                            ) : (
+                                              <div className="w-20 h-20 rounded-full bg-gray-50 border border-dashed border-gray-300" />
+                                            )}
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                hasAvatar
+                                                  ? setAvatarEditScene(scene)
+                                                  : handleTabChange("avatar")
+                                              }
+                                              className="absolute top-1 right-1 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/95 text-purple-700 shadow-sm hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+                                              title={hasAvatar ? "Edit avatar" : "Generate avatar"}
+                                            >
+                                              {/* A pencil promises in-place editing, but with no clip
+                                                  to edit this button navigates to the Avatar tab — so
+                                                  show the generate icon instead and let the affordance
+                                                  match the "Generate avatar" title it already carries. */}
+                                              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+                                                {hasAvatar ? (
+                                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M16.5 3.964a2.5 2.5 0 113.536 3.536L7 20.5H3v-4L16.5 3.964z" />
+                                                ) : (
+                                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                                                )}
+                                              </svg>
+                                            </button>
+                                          </div>
+                                          <div className="min-w-0 flex-1">
+                                            <p className="text-xs text-gray-600 truncate">
+                                              {hasAvatar ? avatarLabel : "No avatar"}
+                                            </p>
+                                            {hasAvatar && (
+                                              <span className="text-[10px] text-gray-400">
+                                                {overrides ? "Custom" : "Project default"}
+                                                {/* BG-REMOVAL-DISABLED: no cutout is ever owed now, so this
+                                                    would flag every scene with a legacy avatar_bg forever.
+                                                    TO RE-ENABLE: uncomment.
+                                                {bg && !scene.has_matte ? " · needs cutout" : ""} */}
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
+                                </div>
                               </div>
                             )}
                       </SceneListRow>
@@ -7466,13 +7667,19 @@ export default function ProjectView() {
                       </Fragment>
                     );
                   })}
-                  {/* Placeholder for an append (position past the last scene). */}
-                  {addSceneRunning &&
+                  {/* Placeholder for an append (position past the last scene), shown at the end of the last group. */}
+                  {groupIdx === sceneGroups.length - 1 &&
+                    addSceneRunning &&
                     addScenePosition != null &&
                     addScenePosition > project.scenes.length && (
                       <AddScenePlaceholderRow />
                     )}
-                </div>
+                  </div>
+                          )}
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
 
                 <input
@@ -7922,6 +8129,7 @@ export default function ProjectView() {
           <SceneEditModal
             open={!!sceneEditModal}
             onClose={() => setSceneEditModal(null)}
+            onGoToAvatarTab={() => handleTabChange("avatar")}
             // Re-derive from the freshly-loaded project rather than using the
             // snapshot captured when the modal opened. Actions that persist
             // server-side while the modal stays open (stock footage assignment)
@@ -8036,6 +8244,22 @@ export default function ProjectView() {
           document.body
         )}
 
+        {/* Avatar edit modal — dedicated to avatar editing only, opened from the
+            pencil icon on the scene list's avatar row (kept separate from the
+            much larger Scene Edit modal). */}
+        {avatarEditScene && (
+          <AvatarEditModal
+            open={!!avatarEditScene}
+            onClose={() => setAvatarEditScene(null)}
+            scene={avatarEditScene}
+            project={project}
+            onSaved={loadProject}
+            ownerScopedProjectId={useOwnerScopedAssets ? projectId : undefined}
+            precompiledCraftedDetail={ownerScopedCraftedDetail}
+            precompiledTemplateData={currentCustomTemplateCode}
+          />
+        )}
+
         {recordModalScene && (
           <RecordVoiceoverModal
             open={!!recordModalScene}
@@ -8067,6 +8291,75 @@ export default function ProjectView() {
           onError={(err) => showError(getErrorMessage(err, "Failed to add scene."))}
           onUpgradeNow={() => navigate("/subscription")}
         />
+
+       {activeTab === "avatar" && (
+        // Full width, unlike the two-column Settings grid: this tab holds a single
+        // card whose controls (preview row, sliders, swatches) all read better with
+        // room, and there is no second card to sit beside it.
+        <div className="overflow-visible">
+          <ProjectAvatarSettingsCard
+            projectId={project.id}
+            hasAnyAvatar={(project.scenes ?? []).some((s) => !!s.avatar_video_path)}
+            avatarShape={project.avatar_shape}
+            avatarSize={project.avatar_size}
+            avatarPosition={project.avatar_position}
+            avatarBg={project.avatar_bg}
+            avatarOpacity={project.avatar_opacity}
+            avatarCustomImageUrl={project.avatar_custom_image_url}
+            aspectRatio={project.aspect_ratio}
+            // A custom background only renders on scenes whose clip has been cut
+            // out, so the card can offer to do the ones still missing it.
+            scenesNeedingMatte={(project.scenes ?? [])
+              .filter((s) => !!s.avatar_video_path && !s.has_matte)
+              .map((s) => ({ id: s.id, order: s.order }))}
+            // Refunded scenes are dropped OUTRIGHT rather than passed with
+            // hasVoiceover:false. That flag renders a scene as "skipped (no
+            // narration yet)", which is both wrong and misleading here — the
+            // narration is fine; the scene is closed because its render failed
+            // for good and the credits were returned.
+            batchScenes={(project.scenes ?? [])
+              .filter((s) => !s.avatar_credits_refunded)
+              .map((s) => ({
+                id: s.id,
+                order: s.order,
+                hasVoiceover: !!s.voiceover_path,
+              }))}
+            // Scenes a pencil-icon click can land here for (no clip yet, but
+            // at least one sibling scene already has one) — lets the card
+            // offer to generate just these rather than stranding the user.
+            // Refunded scenes are EXCLUDED: they failed for good, the credits
+            // went back, and the server refuses to generate them again. Listing
+            // them here made the banner advertise scenes that could not be
+            // rendered — the batch was then either silently short-changed or
+            // rejected for falling under the minimum.
+            scenesMissingAvatar={(project.scenes ?? [])
+              .filter(
+                (s) =>
+                  !!s.voiceover_path &&
+                  !s.avatar_video_path &&
+                  !s.avatar_credits_refunded,
+              )
+              .map((s) => ({ id: s.id, order: s.order, hasVoiceover: true }))}
+            // Refunded scenes are excluded from the generatable list above (the
+            // backend closes them permanently), which left them unaccounted for
+            // in the UI — they simply vanished from the banner with no reason
+            // given. Passed separately so they can be NAMED without being
+            // offered for generation.
+            scenesRefunded={(project.scenes ?? [])
+              .filter((s) => !s.avatar_video_path && !!s.avatar_credits_refunded)
+              .map((s) => ({ id: s.id, order: s.order }))}
+            avatarBatchUnlocked={!!project.avatar_batch_unlocked}
+            disabled={anyJobRunning}
+            pipelineRunning={pipelineRunning}
+            onError={(msg) => showError(msg)}
+            onSaved={async () => { await loadProject(); }}
+            project={project}
+            ownerScopedProjectId={useOwnerScopedAssets ? projectId : undefined}
+            precompiledCraftedDetail={ownerScopedCraftedDetail}
+            precompiledTemplateData={currentCustomTemplateCode}
+          />
+        </div>
+      )}
 
        {activeTab === "settings" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-visible">
@@ -8376,7 +8669,9 @@ export default function ProjectView() {
                 }}
               />
 
-              {/* 3. Playback Speed */}
+              {/* Avatar overlay settings now live in their own Avatar tab. */}
+
+              {/* 4. Playback Speed */}
               <div>
                 <h2 className="text-base font-medium text-gray-900 mb-1">Playback Speed</h2>
                 <p className="text-xs text-gray-400 mb-5">

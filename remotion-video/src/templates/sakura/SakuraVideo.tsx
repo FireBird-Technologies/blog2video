@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { AvatarOverlay } from "../../components/AvatarOverlay";
 import {
   AbsoluteFill,
   Audio,
@@ -32,6 +33,17 @@ interface SceneData {
   /** Spoken-audio length in seconds (scene duration minus trailing pad) — for caption timing. */
   speechDurationSeconds?: number;
   voiceoverFile: string | null;
+  avatarVideoFile?: string | null;
+  /** Per-scene avatar presentation, already resolved by the backend
+   *  (scene override ?? project ?? default). See services/remotion.py. */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
   images: string[];
   /** Stock-footage filename in public/. Mutually exclusive with `images`. */
   video?: string;
@@ -63,6 +75,15 @@ interface VideoData {
   captionFontFamily?: string;
   captionFontSize?: string;
   captionOffset?: number;
+  /** Avatar overlay presentation (see components/AvatarOverlay.tsx). */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
   scenes: SceneData[];
 }
 
@@ -351,6 +372,9 @@ export const SakuraVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             durationInFrames={r.durationFrames}
           >
             <Audio src={staticFile(r.scene.voiceoverFile)} playbackRate={playbackSpeed} />
+            {r.scene.avatarVideoFile && (
+              <AvatarOverlay src={staticFile(r.scene.avatarVideoFile)} aspectRatio={data.aspectRatio || "landscape"} shape={r.scene.avatarShape ?? data.avatarShape} size={r.scene.avatarSize ?? data.avatarSize} position={r.scene.avatarPosition ?? data.avatarPosition} bg={r.scene.avatarBg ?? data.avatarBg} opacity={r.scene.avatarOpacity ?? data.avatarOpacity} focusX={r.scene.avatarFocusX} focusY={r.scene.avatarFocusY} zoom={r.scene.avatarZoom} />
+            )}
           </Sequence>
         );
       })}

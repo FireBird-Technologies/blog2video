@@ -1,4 +1,5 @@
 import React from "react";
+import { AvatarOverlay } from "./AvatarOverlay";
 import { AbsoluteFill, Audio, Sequence, useCurrentFrame, delayRender, continueRender } from "remotion";
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import { LogoOverlay } from "./default/../LogoOverlay";
@@ -181,6 +182,16 @@ const RemotionNewscastSequenceInner: React.FC<{
   layoutProps: RemotionNewscastLayoutProps;
   LayoutComponent: React.ComponentType<RemotionNewscastLayoutProps>;
   voiceoverUrl?: string;
+  avatarUrl?: string;
+  /** Per-scene avatar overrides; undefined = inherit the project setting. */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
 }> = ({
   startFrame,
   durationInFrames,
@@ -190,6 +201,11 @@ const RemotionNewscastSequenceInner: React.FC<{
   layoutProps,
   LayoutComponent,
   voiceoverUrl,
+  avatarUrl,
+  avatarShape,
+  avatarSize,
+  avatarPosition,
+  avatarBg,
 }) => {
   const localFrame = useCurrentFrame();
   const rotationFrame = startFrame + localFrame;
@@ -222,6 +238,7 @@ const RemotionNewscastSequenceInner: React.FC<{
         <LayoutComponent {...layoutProps} />
       </NewscastSceneZTransition>
       {voiceoverUrl ? <Audio src={voiceoverUrl} /> : null}
+      {avatarUrl ? <AvatarOverlay src={avatarUrl} aspectRatio={(layoutProps.aspectRatio as string) || "landscape"} shape={avatarShape} size={avatarSize} position={avatarPosition} bg={avatarBg} /> : null}
     </AbsoluteFill>
   );
 };
@@ -235,6 +252,16 @@ export interface RemotionDefaultSceneInput {
   durationSeconds: number;
   imageUrl?: string;
   voiceoverUrl?: string;
+  avatarUrl?: string;
+  /** Per-scene avatar overrides; undefined = inherit the project setting. */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
 }
 
 export interface RemotionDefaultVideoCompositionProps {
@@ -348,6 +375,7 @@ export const RemotionDefaultVideoComposition: React.FC<
           >
             <LayoutComponent {...layoutProps} />
             {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
+            {scene.avatarUrl && <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />}
           </Sequence>
         );
       })}
@@ -375,6 +403,16 @@ export interface RemotionNightfallSceneInput {
   durationSeconds: number;
   imageUrl?: string;
   voiceoverUrl?: string;
+  avatarUrl?: string;
+  /** Per-scene avatar overrides; undefined = inherit the project setting. */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
 }
 
 export interface RemotionNightfallVideoCompositionProps {
@@ -487,6 +525,7 @@ export const RemotionNightfallVideoComposition: React.FC<
           >
             <LayoutComponent {...layoutProps} />
             {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
+            {scene.avatarUrl && <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />}
           </Sequence>
         );
       })}
@@ -514,6 +553,16 @@ export interface RemotionGridcraftSceneInput {
   durationSeconds: number;
   imageUrl?: string;
   voiceoverUrl?: string;
+  avatarUrl?: string;
+  /** Per-scene avatar overrides; undefined = inherit the project setting. */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
 }
 
 export interface RemotionGridcraftVideoCompositionProps {
@@ -588,6 +637,7 @@ export const RemotionGridcraftVideoComposition: React.FC<
               <LayoutComponent {...layoutProps} />
             </AbsoluteFill>
             {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
+            {scene.avatarUrl && <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />}
             {index < scenes.length - 1 && (
               <Sequence from={durationFrames - 15} durationInFrames={15}>
                 <AbsoluteFill
@@ -627,6 +677,16 @@ export interface RemotionSpotlightSceneInput {
   durationSeconds: number;
   imageUrl?: string;
   voiceoverUrl?: string;
+  avatarUrl?: string;
+  /** Per-scene avatar overrides; undefined = inherit the project setting. */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
 }
 
 export interface RemotionSpotlightVideoCompositionProps {
@@ -742,6 +802,7 @@ export const RemotionSpotlightVideoComposition: React.FC<
             durationInFrames={sceneFrames[index]}
           >
             <Audio src={scene.voiceoverUrl} />
+            {scene.avatarUrl ? <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} /> : null}
           </Sequence>
         ) : null,
       )}
@@ -769,6 +830,16 @@ export interface RemotionMatrixSceneInput {
   durationSeconds: number;
   imageUrl?: string;
   voiceoverUrl?: string;
+  avatarUrl?: string;
+  /** Per-scene avatar overrides; undefined = inherit the project setting. */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
 }
 
 export interface RemotionBlackswanSceneInput {
@@ -781,6 +852,16 @@ export interface RemotionBlackswanSceneInput {
   durationSeconds: number;
   imageUrl?: string;
   voiceoverUrl?: string;
+  avatarUrl?: string;
+  /** Per-scene avatar overrides; undefined = inherit the project setting. */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
 }
 
 export interface RemotionBlackswanVideoCompositionProps {
@@ -848,6 +929,7 @@ export const RemotionBlackswanVideoComposition: React.FC<
           >
             <LayoutComponent {...layoutProps} />
             {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
+            {scene.avatarUrl && <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />}
           </Sequence>
         );
       })}
@@ -978,6 +1060,7 @@ export const RemotionMatrixVideoComposition: React.FC<
             durationInFrames={sceneFrames[index]}
           >
             <Audio src={scene.voiceoverUrl} />
+            {scene.avatarUrl ? <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} /> : null}
           </Sequence>
         ) : null,
       )}
@@ -1005,6 +1088,16 @@ export interface RemotionMosaicSceneInput {
   durationSeconds: number;
   imageUrl?: string;
   voiceoverUrl?: string;
+  avatarUrl?: string;
+  /** Per-scene avatar overrides; undefined = inherit the project setting. */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
 }
 
 export interface RemotionMosaicVideoCompositionProps {
@@ -1071,6 +1164,7 @@ export const RemotionMosaicVideoComposition: React.FC<
           >
             <LayoutComponent {...layoutProps} />
             {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
+            {scene.avatarUrl && <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />}
           </Sequence>
         );
       })}
@@ -1098,6 +1192,16 @@ export interface RemotionWhiteboardSceneInput {
   durationSeconds: number;
   imageUrl?: string;
   voiceoverUrl?: string;
+  avatarUrl?: string;
+  /** Per-scene avatar overrides; undefined = inherit the project setting. */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
 }
 
 export interface RemotionWhiteboardVideoCompositionProps {
@@ -1164,6 +1268,7 @@ export const RemotionWhiteboardVideoComposition: React.FC<
           >
             <LayoutComponent {...layoutProps} />
             {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
+            {scene.avatarUrl && <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />}
           </Sequence>
         );
       })}
@@ -1191,6 +1296,16 @@ export interface RemotionNewspaperSceneInput {
   durationSeconds: number;
   imageUrl?: string;
   voiceoverUrl?: string;
+  avatarUrl?: string;
+  /** Per-scene avatar overrides; undefined = inherit the project setting. */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
 }
 
 export interface RemotionNewspaperVideoCompositionProps {
@@ -1269,6 +1384,7 @@ export const RemotionNewspaperVideoComposition: React.FC<
             <AbsoluteFill>
               <LayoutComponent {...layoutProps} />
               {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
+              {scene.avatarUrl && <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />}
             </AbsoluteFill>
           </Sequence>
         );
@@ -1298,6 +1414,16 @@ export interface RemotionNewscastSceneInput {
   durationSeconds: number;
   imageUrl?: string;
   voiceoverUrl?: string;
+  avatarUrl?: string;
+  /** Per-scene avatar overrides; undefined = inherit the project setting. */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
 }
 
 export interface RemotionNewscastVideoCompositionProps {
@@ -1460,6 +1586,11 @@ export const RemotionNewscastVideoComposition: React.FC<
               layoutProps={layoutProps}
               LayoutComponent={LayoutComponent}
               voiceoverUrl={scene.voiceoverUrl}
+              avatarUrl={scene.avatarUrl}
+              avatarShape={scene.avatarShape}
+              avatarSize={scene.avatarSize}
+              avatarPosition={scene.avatarPosition}
+              avatarBg={scene.avatarBg}
             />
           </Sequence>
         );
@@ -1490,6 +1621,16 @@ export interface RemotionBloombergSceneInput {
   durationSeconds: number;
   imageUrl?: string;
   voiceoverUrl?: string;
+  avatarUrl?: string;
+  /** Per-scene avatar overrides; undefined = inherit the project setting. */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
 }
 
 export interface RemotionBloombergVideoCompositionProps {
@@ -1557,6 +1698,7 @@ export const RemotionBloombergVideoComposition: React.FC<
           >
             <LayoutComponent {...layoutProps} />
             {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
+            {scene.avatarUrl && <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />}
           </Sequence>
         );
       })}
@@ -1586,6 +1728,16 @@ export interface RemotionChronicleSceneInput {
   durationSeconds: number;
   imageUrl?: string;
   voiceoverUrl?: string;
+  avatarUrl?: string;
+  /** Per-scene avatar overrides; undefined = inherit the project setting. */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
 }
 
 export interface RemotionChronicleVideoCompositionProps {
@@ -1693,6 +1845,7 @@ export const RemotionChronicleVideoComposition: React.FC<
                 <LayoutComponent {...layoutProps} />
               </RemotionChronicleChrome>
               {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
+              {scene.avatarUrl && <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />}
             </AbsoluteFill>
           </Sequence>
         );
@@ -1723,6 +1876,16 @@ export interface RemotionEconomistSceneInput {
   durationSeconds: number;
   imageUrl?: string;
   voiceoverUrl?: string;
+  avatarUrl?: string;
+  /** Per-scene avatar overrides; undefined = inherit the project setting. */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
 }
 
 export interface RemotionEconomistVideoCompositionProps {
@@ -1912,6 +2075,7 @@ export const RemotionEconomistVideoComposition: React.FC<
             durationInFrames={s.durationFrames}
           >
             <Audio src={s.scene.voiceoverUrl} playbackRate={resolvedPlaybackSpeed} />
+            {s.scene.avatarUrl ? <AvatarOverlay src={s.scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={s.scene.avatarShape} size={s.scene.avatarSize} position={s.scene.avatarPosition} bg={s.scene.avatarBg} opacity={s.scene.avatarOpacity} focusX={s.scene.avatarFocusX} focusY={s.scene.avatarFocusY} zoom={s.scene.avatarZoom} /> : null}
           </Sequence>
         );
       })}
@@ -1941,6 +2105,16 @@ export interface RemotionStickman2SceneInput {
   durationSeconds: number;
   imageUrl?: string;
   voiceoverUrl?: string;
+  avatarUrl?: string;
+  /** Per-scene avatar overrides; undefined = inherit the project setting. */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
 }
 
 export interface RemotionStickman2VideoCompositionProps {
@@ -2014,6 +2188,7 @@ export const RemotionStickman2VideoComposition: React.FC<
           >
             <LayoutComponent {...layoutProps} />
             {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
+            {scene.avatarUrl && <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />}
           </Sequence>
         );
       })}
@@ -2043,6 +2218,16 @@ export interface RemotionMagazineSceneInput {
   durationSeconds: number;
   imageUrl?: string;
   voiceoverUrl?: string;
+  avatarUrl?: string;
+  /** Per-scene avatar overrides; undefined = inherit the project setting. */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
 }
 
 export interface RemotionMagazineVideoCompositionProps {
@@ -2166,6 +2351,7 @@ export const RemotionMagazineVideoComposition: React.FC<
             durationInFrames={s.durationFrames}
           >
             <Audio src={s.scene.voiceoverUrl} />
+            {s.scene.avatarUrl ? <AvatarOverlay src={s.scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={s.scene.avatarShape} size={s.scene.avatarSize} position={s.scene.avatarPosition} bg={s.scene.avatarBg} opacity={s.scene.avatarOpacity} focusX={s.scene.avatarFocusX} focusY={s.scene.avatarFocusY} zoom={s.scene.avatarZoom} /> : null}
           </Sequence>
         );
       })}
@@ -2195,6 +2381,16 @@ export interface RemotionSakuraSceneInput {
   durationSeconds: number;
   imageUrl?: string;
   voiceoverUrl?: string;
+  avatarUrl?: string;
+  /** Per-scene avatar overrides; undefined = inherit the project setting. */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
 }
 
 export interface RemotionSakuraVideoCompositionProps {
@@ -2381,6 +2577,7 @@ export const RemotionSakuraVideoComposition: React.FC<
             durationInFrames={s.durationFrames}
           >
             <Audio src={s.scene.voiceoverUrl} />
+            {s.scene.avatarUrl ? <AvatarOverlay src={s.scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={s.scene.avatarShape} size={s.scene.avatarSize} position={s.scene.avatarPosition} bg={s.scene.avatarBg} opacity={s.scene.avatarOpacity} focusX={s.scene.avatarFocusX} focusY={s.scene.avatarFocusY} zoom={s.scene.avatarZoom} /> : null}
           </Sequence>
         );
       })}
@@ -2410,6 +2607,16 @@ export interface RemotionStickmanFootballSceneInput {
   durationSeconds: number;
   imageUrl?: string;
   voiceoverUrl?: string;
+  avatarUrl?: string;
+  /** Per-scene avatar overrides; undefined = inherit the project setting. */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
 }
 
 export interface RemotionStickmanFootballVideoCompositionProps {
@@ -2483,6 +2690,7 @@ export const RemotionStickmanFootballVideoComposition: React.FC<
           >
             <LayoutComponent {...layoutProps} />
             {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
+            {scene.avatarUrl && <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />}
           </Sequence>
         );
       })}
