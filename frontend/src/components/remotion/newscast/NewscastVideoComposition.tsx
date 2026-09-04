@@ -1,4 +1,5 @@
 import React from "react";
+import { AvatarOverlay } from "../AvatarOverlay";
 import "../../../fonts/newspaper-defaults";
 import { AbsoluteFill, Audio, Sequence, useCurrentFrame, useVideoConfig } from "remotion";
 import { NEWSCAST_LAYOUT_REGISTRY } from "./layouts";
@@ -183,6 +184,16 @@ const NewscastSequenceInner: React.FC<{
   layoutProps: NewscastLayoutProps;
   LayoutComponent: React.ComponentType<NewscastLayoutProps>;
   voiceoverUrl?: string;
+  avatarUrl?: string;
+  /** Per-scene avatar overrides; undefined = inherit the project setting. */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
   playbackSpeed: number;
   captionsEnabled?: boolean;
   captionText?: string;
@@ -204,6 +215,15 @@ const NewscastSequenceInner: React.FC<{
   layoutProps,
   LayoutComponent,
   voiceoverUrl,
+  avatarUrl,
+  avatarShape,
+  avatarSize,
+  avatarPosition,
+  avatarBg,
+  avatarOpacity,
+  avatarFocusX,
+  avatarFocusY,
+  avatarZoom,
   playbackSpeed,
   captionsEnabled,
   captionText,
@@ -276,6 +296,7 @@ const NewscastSequenceInner: React.FC<{
         </div>
       </NewscastSceneZTransition>
       {voiceoverUrl ? <Audio src={voiceoverUrl} playbackRate={playbackSpeed} /> : null}
+      {avatarUrl ? <AvatarOverlay src={avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={avatarShape} size={avatarSize} position={avatarPosition} bg={avatarBg} opacity={avatarOpacity} focusX={avatarFocusX} focusY={avatarFocusY} zoom={avatarZoom} /> : null}
       {captionsEnabled && captionText && (
         <CaptionTrack
           text={captionText}
@@ -307,6 +328,16 @@ export interface NewscastSceneInput {
   speechDurationSeconds?: number;
   imageUrl?: string;
   voiceoverUrl?: string;
+  avatarUrl?: string;
+  /** Per-scene avatar overrides; undefined = inherit the project setting. */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
   /** Stock-footage clip URL. Mutually exclusive with `imageUrl`. */
   videoUrl?: string;
   videoMuted?: boolean;
@@ -459,6 +490,15 @@ export const NewscastVideoComposition: React.FC<NewscastVideoCompositionProps> =
               layoutProps={layoutProps}
               LayoutComponent={LayoutComponent}
               voiceoverUrl={scene.voiceoverUrl}
+              avatarUrl={scene.avatarUrl}
+              avatarShape={scene.avatarShape}
+              avatarSize={scene.avatarSize}
+              avatarPosition={scene.avatarPosition}
+              avatarBg={scene.avatarBg}
+              avatarOpacity={scene.avatarOpacity}
+              avatarFocusX={scene.avatarFocusX}
+              avatarFocusY={scene.avatarFocusY}
+              avatarZoom={scene.avatarZoom}
               playbackSpeed={resolvedPlaybackSpeed}
               captionsEnabled={captionsEnabled}
               captionText={scene.narrationText || scene.narration}

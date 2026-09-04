@@ -1,3 +1,85 @@
+/** Avatar overlay presentation — mirrors the projects.avatar_* columns. */
+export type AvatarShape = "circle" | "rounded" | "square";
+export type AvatarCorner =
+  | "top_left"
+  | "top_right"
+  | "bottom_left"
+  | "bottom_right";
+
+/**
+ * How much the rendered presenter moves. Project-wide only — unlike shape/
+ * size/position/opacity there is deliberately no per-scene override.
+ */
+export type AvatarMotionStyle = "subtle" | "natural" | "expressive";
+
+/**
+ * What sits behind the presenter.
+ *   null           PROJECT: keep the portrait's own photographic background.
+ *                  SCENE:   inherit whatever the project says.
+ *   "original"     keep the photographic background, explicitly (see below)
+ *   "transparent"  cut out, no fill — presenter sits directly on the scene
+ *   "#RRGGBB"      cut out, composited over this solid colour
+ *
+ * Only the last two require the scene's clip to have been matted first
+ * (Scene.has_matte) — the roster portraits have their rooms baked in.
+ */
+export type AvatarBg = string | null;
+
+/** avatar_bg value meaning "show the clip exactly as filmed, room and all".
+ *
+ *  Exists because null is already spoken for at SCENE scope, where it means
+ *  "inherit". Without this a scene could not say "original" while the project
+ *  default was a colour — clicking Original wrote null, which just re-inherited
+ *  the colour, so the cut-out kept showing.
+ *
+ *  Mirrors AVATAR_BG_ORIGINAL in backend/app/schemas/schemas.py. */
+export const AVATAR_BG_ORIGINAL = "original";
+
+/** Does this background require the MATTED clip rather than the plain mp4?
+ *
+ *  `bg` conflates two questions — "do we want a cutout?" and "what fill goes
+ *  behind it?" — and only the first decides which file to load. Ask through
+ *  here rather than testing `bg !== null`, which treats "original" as a request
+ *  to matte and would show the cut-out (and queue CPU work) for a user who
+ *  explicitly asked for the room.
+ *
+ *  BG-REMOVAL-DISABLED: HARD-WIRED TO false. Every consumer routes through this
+ *  one predicate, so returning false disables the whole cutout path client-side
+ *  from a single place:
+ *
+ *    - VideoPreview.tsx loads the .mp4 rather than the matted .webm
+ *    - AvatarBatchWizard.tsx never enters its matte phase (MattePhase stays "none")
+ *    - SceneAvatarSection.tsx queues no cutout on save
+ *
+ *  Twin of avatar_bg_wants_cutout() in backend/app/schemas/schemas.py — the two
+ *  must always agree, so flip them together. */
+export function avatarBgWantsCutout(bg: AvatarBg | undefined): boolean {
+  return false;
+  // TO RE-ENABLE: delete the `return false` above and restore this line.
+  // return bg != null && bg !== AVATAR_BG_ORIGINAL;
+}
+
+export const AVATAR_MIN_SIZE = 0.10;
+/** Twin of MAX_AVATAR_SIZE in backend/app/schemas/schemas.py — the two must
+ *  always agree, so flip them together. */
+export const AVATAR_MAX_SIZE = 0.42;
+/** Floor rather than 0: a fully invisible avatar reads as a broken render. */
+export const AVATAR_MIN_OPACITY = 0.2;
+
+/** Sentinel preset id meaning "use the portrait this user uploaded".
+ *  Mirrors CUSTOM_PRESET_ID in backend/app/services/avatar_presets.py. */
+export const AVATAR_CUSTOM_PRESET_ID = "custom";
+
+/** Curated background swatches offered next to the free-form colour picker. */
+export const AVATAR_BG_PRESETS: { value: string; label: string }[] = [
+  { value: "#1E293B", label: "Slate" },
+  { value: "#0F172A", label: "Ink" },
+  { value: "#7C3AED", label: "Purple" },
+  { value: "#0E7490", label: "Teal" },
+  { value: "#B91C1C", label: "Crimson" },
+  { value: "#F1F5F9", label: "Paper" },
+];
+
 export interface UserInfo {
   id: number;
   email: string;
@@ -29,6 +111,20 @@ export interface Scene {
   visual_description: string;
   remotion_code: string | null;
   voiceover_path: string | null;
+  avatar_video_path?: string | null;
+  avatar_preset?: string | null;
+  /** True once this scene's clip has been cut out — required for a custom background. */
+  has_matte?: boolean;
+  /** Per-scene overrides of the project avatar presentation; null = inherit. */
+  avatar_shape?: AvatarShape | null;
+  avatar_size?: number | null;
+  avatar_position?: AvatarCorner | null;
+  avatar_bg?: AvatarBg;
+  avatar_opacity?: number | null;
+  /** Which region of the rendered clip to show; null = default framing. */
+  avatar_focus_x?: number | null;
+  avatar_focus_y?: number | null;
+  avatar_zoom?: number | null;
   duration_seconds: number;
   extra_hold_seconds?: number | null;
   created_at: string;
@@ -78,8 +174,21 @@ export interface Project {
   caption_font_family?: string;
   caption_font_size?: string | number;
   caption_offset?: number;
+  avatar_shape?: AvatarShape;
+  avatar_size?: number;
+  avatar_position?: AvatarCorner;
+  avatar_bg?: AvatarBg;
+  avatar_opacity?: number;
+  /** URL of the presenter photo this user uploaded; null = using the roster. */
+  avatar_custom_image_url?: string | null;
+  /** Cleared the Avatar tab's whole-video batch-generation paywall. */
+  avatar_batch_unlocked?: boolean;
   custom_template_missing?: boolean;
   review_state?: ReviewState | null;
+  /** This user's avatar rating, or null when they have not rated. Rides on the
+   *  project payload so the Avatar tab (which unmounts on tab switch) can pick
+   *  the form vs. the saved-summary view on first paint, with no flicker. */
+  avatar_review?: AvatarReview | null;
   /** True when the project has ≥1 collaborator — gates the per-scene comment button. */
   is_shared?: boolean;
   /** True when the project OWNER is on a paid plan — collaborators gate Pro-only features on this. */
@@ -188,6 +297,22 @@ export interface SubmitProjectReviewPayload {
 export interface SubmitProjectReviewResponse {
   review: Review;
   review_state: ReviewState;
+}
+
+/** This user's star rating + message for a project's avatar overlays. */
+export interface AvatarReview {
+  id: number;
+  user_id: number;
+  project_id: number;
+  rating: number;
+  suggestion: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SubmitAvatarReviewPayload {
+  rating: 1 | 2 | 3 | 4 | 5;
+  suggestion?: string;
 }
 
 export interface ChatResponse {

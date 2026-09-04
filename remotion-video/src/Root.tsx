@@ -71,6 +71,10 @@ import {
   SakuraVideo,
   calculateSakuraMetadata,
 } from "./templates/sakura/SakuraVideo";
+import {
+  OldDocumentaryReelVideo,
+  calculateDocReelMetadata,
+} from "./templates/old-documentary-reel/OldDocumentaryReelVideo";
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -300,6 +304,18 @@ export const RemotionRoot: React.FC = () => {
           dataUrl: "/data.json",
         }}
         calculateMetadata={calculateSakuraMetadata}
+      />
+      <Composition
+        id="OldDocumentaryReelVideo"
+        component={OldDocumentaryReelVideo}
+        durationInFrames={30 * 300}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={{
+          dataUrl: "/data.json",
+        }}
+        calculateMetadata={calculateDocReelMetadata}
       />
     </>
   );

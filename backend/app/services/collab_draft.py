@@ -55,6 +55,9 @@ PROJECT_EDITABLE_FIELDS = {
     "logo_position",
     "logo_opacity",
     "logo_size",
+    "avatar_shape",
+    "avatar_size",
+    "avatar_position",
 }
 
 

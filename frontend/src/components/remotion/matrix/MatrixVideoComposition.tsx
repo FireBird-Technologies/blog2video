@@ -1,4 +1,5 @@
 import { resolveFontFamily } from "../../../fonts/registry";
+import { AvatarOverlay } from "../AvatarOverlay";
 import React from "react";
 import { AbsoluteFill, Audio, Sequence } from "remotion";
 import { TransitionSeries } from "@remotion/transitions";
@@ -32,6 +33,16 @@ export interface MatrixSceneInput {
   /** Start offset into the clip, in seconds (the adjust-modal trim). */
   videoStartSeconds?: number;
   voiceoverUrl?: string;
+  avatarUrl?: string;
+  /** Per-scene avatar overrides; undefined = inherit the project setting. */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
 }
 
 export interface MatrixVideoCompositionProps {
@@ -211,6 +222,7 @@ export const MatrixVideoComposition: React.FC<
             durationInFrames={sceneFrames[index]}
           >
             <Audio src={scene.voiceoverUrl} playbackRate={resolvedPlaybackSpeed} />
+            {scene.avatarUrl ? <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} /> : null}
             {captionsEnabled && (scene.narrationText || scene.narration) && (
               <CaptionTrack
                 text={scene.narrationText || scene.narration}

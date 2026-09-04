@@ -1,0 +1,688 @@
+{
+  "id": "old-documentary-reel",
+  "name": "Old Documentary Reel",
+  "new_template": true,
+  "description": "A raw, old-camera found-footage documentary template — clapperboard slates, archive photography, grain and tracking-roll damage, chipped-edge title cards. Not clean or modern; built for history, true-crime, and archival storytelling.",
+  "genres": [
+    "documentary",
+    "history",
+    "true-crime",
+    "retro",
+    "archival",
+    "essay"
+  ],
+  "preview_colors": {
+    "accent": "#f4f0e2",
+    "bg": "#171512",
+    "text": "#b6b0a1"
+  },
+  "composition_id": "OldDocumentaryReelVideo",
+  "hero_layout": "docreel_slate",
+  "fallback_layout": "docreel_title_card",
+  "valid_layouts": [
+    "docreel_countdown",
+    "docreel_slate",
+    "docreel_statistic",
+    "docreel_title_card",
+    "docreel_dossier",
+    "docreel_photo_pan",
+    "docreel_contact_sheet",
+    "docreel_interview",
+    "docreel_field_notes",
+    "docreel_essay_captions",
+    "ending_socials"
+  ],
+  "_incremental_build_note": "All 8 scene layouts are implemented end-to-end in both trees + all render-critical registries (Root.tsx, templateConfig.tsx, registry.json). Still pending: the 4 remaining named transitions (Countdown Wipe, Splice Jump-Cut, Light-Leak Dissolve, Vintage Motorcar Wipe — only Grain Crossfade is wired, used for every boundary), the full 10-effect archive-effects module (several primitives exist in docReelStyle.tsx already: grain, weave, tracking roll, sprockets, halation, scanlines, light leak, dust & scratches — Reel-Change Cue, Editor's Grease Pencil, Signal Ghost, Newsreel Wipe are not yet built as distinct effects), and preview-gallery thumbnail components (OldDocumentaryReelPreview + portrait variant) so the template appears in the template picker gallery.",
+  "layout_prop_schema": {
+    "docreel_countdown": {
+      "label": "Countdown Leader",
+      "scene_defaults": {
+        "title": "",
+        "narration": "3, 2, 1",
+        "durationSeconds": 3
+      },
+      "sample_props": {},
+      "defaults": {},
+      "fields": [
+        {
+          "key": "countdownFrom",
+          "label": "Count From",
+          "type": "number",
+          "min": 1,
+          "max": 10,
+          "step": 1,
+          "description": "Highest number the leader counts down from (3 = a 3-2-1 leader). Each number holds for one second, so this also sets the scene's length."
+        }
+      ]
+    },
+    "docreel_slate": {
+      "label": "Clapperboard Slate",
+      "scene_defaults": {
+        "title": "The Investigation Begins",
+        "narration": "Every case starts with a single frame, a name, a date, and the quiet certainty that something here was never fully explained.",
+        "durationSeconds": 8
+      },
+      "sample_props": {
+        "slateScene": "1",
+        "slateTake": "3",
+        "slateDate": "07.14.86",
+        "slateDirector": "M. HALLORAN",
+        "slateProduction": "COLD CASE FILES"
+      },
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 108,
+          "landscape": 74
+        },
+        "descriptionFontSize": {
+          "portrait": 60,
+          "landscape": 34
+        },
+        "slateProductionLabel": "PRODUCTION",
+        "slateSceneLabel": "SCENE",
+        "slateTakeLabel": "TAKE",
+        "slateDirectorLabel": "DIRECTOR",
+        "slateDateLabel": "DATE"
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 160,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Description Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 60,
+          "step": 1
+        },
+        {
+          "key": "slateScene",
+          "label": "Slate Scene",
+          "type": "string",
+          "description": "Scene number shown on the clapperboard."
+        },
+        {
+          "key": "slateTake",
+          "label": "Slate Take",
+          "type": "string",
+          "description": "Take number shown on the clapperboard."
+        },
+        {
+          "key": "slateDate",
+          "label": "Slate Date",
+          "type": "string",
+          "description": "Date shown on the clapperboard, in an old production-log style (e.g. 07.14.86)."
+        },
+        {
+          "key": "slateDirector",
+          "label": "Slate Director",
+          "type": "string",
+          "description": "Director name shown on the clapperboard."
+        },
+        {
+          "key": "slateProduction",
+          "label": "Slate Production",
+          "type": "string",
+          "description": "Production title shown on the clapperboard."
+        },
+        {
+          "key": "slateProductionLabel",
+          "label": "Production Field Label",
+          "type": "string",
+          "description": "Label word for the production row, defaults to \"PRODUCTION\"."
+        },
+        {
+          "key": "slateSceneLabel",
+          "label": "Scene Field Label",
+          "type": "string",
+          "description": "Label word for the scene row, defaults to \"SCENE\"."
+        },
+        {
+          "key": "slateTakeLabel",
+          "label": "Take Field Label",
+          "type": "string",
+          "description": "Label word for the take row, defaults to \"TAKE\"."
+        },
+        {
+          "key": "slateDirectorLabel",
+          "label": "Director Field Label",
+          "type": "string",
+          "description": "Label word for the director row, defaults to \"DIRECTOR\"."
+        },
+        {
+          "key": "slateDateLabel",
+          "label": "Date Field Label",
+          "type": "string",
+          "description": "Label word for the date row, defaults to \"DATE\"."
+        }
+      ]
+    },
+    "docreel_statistic": {
+      "label": "Statistic Overlay",
+      "scene_defaults": {
+        "title": "By the numbers",
+        "narration": "The scale of it only becomes clear once the individual files are laid side by side against the record investigators kept for nearly forty years.",
+        "durationSeconds": 7
+      },
+      "sample_props": {
+        "statValue": "47",
+        "statLabel": "Cases Reopened",
+        "statContext": "Each file was cross-referenced against the original 1986 archive, revealing a pattern of missed connections investigators had overlooked for nearly a decade."
+      },
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 285,
+          "landscape": 193
+        },
+        "descriptionFontSize": {
+          "portrait": 60,
+          "landscape": 37
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Number Size",
+          "type": "number",
+          "responsive": true,
+          "min": 40,
+          "max": 320,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Description Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 60,
+          "step": 1
+        },
+        {
+          "key": "statValue",
+          "label": "Stat Value",
+          "type": "string",
+          "description": "The large number or figure displayed, e.g. \"47\" or \"12%\"."
+        },
+        {
+          "key": "statLabel",
+          "label": "Stat Label",
+          "type": "string",
+          "description": "Short label describing what the statistic measures."
+        },
+        {
+          "key": "statContext",
+          "label": "Stat Context",
+          "type": "string",
+          "description": "One sentence of supporting context or source."
+        }
+      ]
+    },
+    "docreel_title_card": {
+      "label": "Establishing Title Card",
+      "scene_defaults": {
+        "title": "A Town Divided",
+        "narration": "Some places carry their history in plain sight, written into the storefronts and the silences of people who still remember exactly what happened.",
+        "durationSeconds": 9
+      },
+      "sample_props": {
+        "chapterTitle": "A Town Divided"
+      },
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 85,
+          "landscape": 90
+        },
+        "descriptionFontSize": {
+          "portrait": 60,
+          "landscape": 42
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Description Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 60,
+          "step": 1
+        },
+        {
+          "key": "chapterTitle",
+          "label": "Chapter Title",
+          "type": "string",
+          "description": "Overrides the on-screen title text if set."
+        }
+      ]
+    },
+    "docreel_dossier": {
+      "label": "Dossier Insert",
+      "scene_defaults": {
+        "title": "Field Report",
+        "narration": "The paperwork tells its own version of events, one filled with gaps, crossed-out names, and a timeline that never quite adds up.",
+        "durationSeconds": 10
+      },
+      "sample_props": {
+        "dossierHeading": "Incident Summary",
+        "dossierBody": "Subject was last confirmed seen departing the north gate at approximately 22:40. Security logs show no further contact after that point, and no forced entry was recorded at the residence.",
+        "dossierStamp": "UNRESOLVED",
+        "dossierClassification": "Incident Report"
+      },
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 58,
+          "landscape": 66
+        },
+        "descriptionFontSize": {
+          "portrait": 49,
+          "landscape": 27
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 16,
+          "max": 70,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Description Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 60,
+          "step": 1
+        },
+        {
+          "key": "dossierHeading",
+          "label": "Dossier Heading",
+          "type": "string",
+          "description": "Heading printed at the top of the report insert."
+        },
+        {
+          "key": "dossierBody",
+          "label": "Dossier Body",
+          "type": "string",
+          "description": "Typewritten body text of the report, revealed with a typing effect."
+        },
+        {
+          "key": "dossierStamp",
+          "label": "Dossier Stamp",
+          "type": "string",
+          "description": "This scene's actual verdict as a 1-2 word rubber stamp, derived from this scene's own title/narration/visual description and dossierBody — the outcome that body reports (e.g. \"FAILED\", \"SHIPPED\", \"RESOLVED\", \"DEPRECATED\"). Not generic officialdom like \"VERIFIED\"."
+        },
+        {
+          "key": "dossierClassification",
+          "label": "Classification",
+          "type": "string",
+          "description": "What kind of document dossierBody reads like, in the subject's own vocabulary (e.g. \"Benchmark\", \"Advisory\", \"Post-Mortem\", \"Specification\"). Derived from this scene's own content, not generic filler like \"Internal\" or \"Restricted\"."
+        }
+      ]
+    },
+    "docreel_photo_pan": {
+      "label": "Archive Photograph Pan",
+      "scene_defaults": {
+        "title": "The Photograph",
+        "narration": "A single frame, held just long enough to matter, capturing a street that would look completely different only a few years later.",
+        "durationSeconds": 11
+      },
+      "sample_props": {
+        "caption": "Main Street, looking east",
+        "subCaption": "Photographer unknown. The print was taken sometime in the early 1970s, most likely in autumn based on the shadows and the awnings visible over the storefronts. This stretch of Main Street was demolished within the decade to make way for the municipal parking structure, and no other photographs of the block are known to survive in any public or private collection. A handwritten note on the back of the original print, since lost, reportedly identified the corner as the site of a small dispute over a delivery route the previous winter.",
+        "photoPanLabel": "ARCHIVE PHOTOGRAPH"
+      },
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 47,
+          "landscape": 45
+        },
+        "descriptionFontSize": {
+          "portrait": 40,
+          "landscape": 34
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Caption Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 50,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Description Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 60,
+          "step": 1
+        },
+        {
+          "key": "caption",
+          "label": "Caption",
+          "type": "string",
+          "description": "Primary caption for the photograph."
+        },
+        {
+          "key": "subCaption",
+          "label": "Description",
+          "type": "string",
+          "description": "The main archival description of the photograph — write a genuinely long, detailed multi-sentence account (4+ sentences: what the image shows, when and where it was taken, who took it if known, and why it matters to the story). This is the layout's primary text content, not a short credit line."
+        },
+        {
+          "key": "imageFocusX",
+          "label": "Focus X",
+          "type": "number",
+          "min": 0,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "key": "imageFocusY",
+          "label": "Focus Y",
+          "type": "number",
+          "min": 0,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "key": "photoPanLabel",
+          "label": "Panel Heading",
+          "type": "string",
+          "description": "Small heading at the top of the record panel, defaults to \"ARCHIVE PHOTOGRAPH\". Leave unset unless the source calls for different terminology (e.g. \"HOME MOVIE STILL\")."
+        }
+      ]
+    },
+    "docreel_contact_sheet": {
+      "label": "Contact Sheet Montage",
+      "scene_defaults": {
+        "title": "The Negatives",
+        "narration": "Dozens of frames from that same afternoon, and only one that the investigators ever circled — the one nobody could fully explain.",
+        "durationSeconds": 9
+      },
+      "sample_props": {
+        "contactSheetNotes": "Dozens of frames from that same roll survive in the case file, most of them unremarkable — a stretch of road, a parked car, the same intersection shot three times from slightly different angles. Only one frame was ever circled by an investigator, and the report never explains why. The rest were logged, sleeved, and never looked at again until now."
+      },
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 47,
+          "landscape": 41
+        },
+        "descriptionFontSize": {
+          "portrait": 40,
+          "landscape": 28
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 50,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Description Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 60,
+          "step": 1
+        },
+        {
+          "key": "contactSheetImages",
+          "label": "Contact Sheet Images",
+          "type": "array",
+          "description": "Up to 9 image URLs shown as a contact-sheet grid."
+        },
+        {
+          "key": "contactSheetNotes",
+          "label": "Case Notes Body",
+          "type": "string",
+          "description": "The main body text of the CASE NOTES panel — write a genuinely long, detailed multi-sentence note. Falls back to the global narration if left empty."
+        }
+      ]
+    },
+    "docreel_interview": {
+      "label": "Interview Insert",
+      "scene_defaults": {
+        "title": "Eyewitness",
+        "narration": "She remembers it like it was yesterday, the sound before the sirens, and the strange quiet that followed for the rest of that week.",
+        "durationSeconds": 12
+      },
+      "sample_props": {
+        "interviewQuote": "I heard the sirens before I saw anything at all, and by the time I got to the window, half the street was already outside.",
+        "interviewSubject": "Margaret Doyle",
+        "interviewRole": "Former Resident"
+      },
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 64,
+          "landscape": 48
+        },
+        "descriptionFontSize": {
+          "portrait": 32,
+          "landscape": 25
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Quote Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 110,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Attribution Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 60,
+          "step": 1
+        },
+        {
+          "key": "interviewQuote",
+          "label": "Quote",
+          "type": "string",
+          "description": "The spoken quote shown in the lower-third."
+        },
+        {
+          "key": "interviewSubject",
+          "label": "Subject Name",
+          "type": "string",
+          "description": "Name of the person quoted."
+        },
+        {
+          "key": "interviewRole",
+          "label": "Subject Role",
+          "type": "string",
+          "description": "Their role or relation, e.g. \"Former Resident\"."
+        }
+      ]
+    },
+    "docreel_field_notes": {
+      "label": "Field Notes Checklist",
+      "scene_defaults": {
+        "title": "What We Know So Far",
+        "narration": "A short list of confirmed facts, ticked off one by one as investigators worked to separate what they actually knew from what people assumed.",
+        "durationSeconds": 11
+      },
+      "sample_props": {
+        "fieldNotesHeading": "What We Know So Far",
+        "fieldNotesItems": [
+          "Subject last confirmed seen 03.14.86, 22:40.",
+          "No forced entry found at the residence.",
+          "Vehicle recovered eight miles north, undamaged.",
+          "Two witnesses report the same description."
+        ]
+      },
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 60,
+          "landscape": 48
+        },
+        "descriptionFontSize": {
+          "portrait": 57,
+          "landscape": 36
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Heading Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 16,
+          "max": 60,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Item Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 60,
+          "step": 1
+        },
+        {
+          "key": "fieldNotesHeading",
+          "label": "Heading",
+          "type": "string",
+          "description": "Heading at the top of the notebook page. Falls back to the scene title if unset."
+        },
+        {
+          "key": "fieldNotesItems",
+          "label": "Checklist Items",
+          "type": "string_array",
+          "description": "Up to 7 short, independent facts, each shown as a ticked checklist row. Not a sequence or timeline — each item stands alone."
+        }
+      ]
+    },
+    "docreel_essay_captions": {
+      "label": "Essay Captions",
+      "scene_defaults": {
+        "title": "The Official Story Had a Problem",
+        "narration": "Every record that survived told a slightly different version of the same night.",
+        "durationSeconds": 12
+      },
+      "sample_props": {
+        "essayStatements": [
+          "The official story had a problem.",
+          "Nobody could agree on the timeline.",
+          "And the one witness who could was never interviewed."
+        ]
+      },
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 64,
+          "landscape": 54
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Statement Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 24,
+          "max": 90,
+          "step": 1
+        },
+        {
+          "key": "essayStatements",
+          "label": "Statements",
+          "type": "string_array",
+          "description": "Short, blunt declarative statements (2-6, sized to the argument—don't pad to a fixed count) that accumulate on screen one below the last, each staying visible. Each should stand alone as a complete assertion, not a fragment of a longer sentence."
+        }
+      ]
+    },
+    "ending_socials": {
+      "label": "Reel-Out & Credits",
+      "scene_defaults": {
+        "title": "THE END",
+        "narration": "",
+        "durationSeconds": 10
+      },
+      "sample_props": {
+        "brandName": "Cold Case Files"
+      },
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 153,
+          "landscape": 158
+        },
+        "descriptionFontSize": {
+          "portrait": 60,
+          "landscape": 42
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 24,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Description Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 12,
+          "max": 90,
+          "step": 1,
+          "description": "Drives the brand/credit line and the website button beneath the end card."
+        },
+        {
+          "key": "brandName",
+          "label": "Brand Name",
+          "type": "string",
+          "description": "Production/brand name shown beneath the end card."
+        }
+      ]
+    }
+  },
+  "layouts_without_image": [
+    "docreel_slate",
+    "docreel_countdown"
+  ],
+  "studio_only_layouts": [
+    "docreel_countdown"
+  ]
+}

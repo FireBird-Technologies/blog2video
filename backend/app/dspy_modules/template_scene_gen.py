@@ -1362,6 +1362,16 @@ class TemplateSceneGenerator:
         if len(clean) != len(stats):
             logger.info("[SCENE_GEN] Stripped %d example stats from %s layoutProps", len(stats) - len(clean), layout)
         if not clean:
+            # `deep_dive` keeps an EXPLICIT empty list rather than dropping the key.
+            # Deleting it makes the scene indistinguishable from one the LLM never
+            # wrote stats for, so the React default parameter fires and re-inserts
+            # the very sample bullets this function just stripped. An empty list
+            # survives the `{**defaults, **layout_props}` merge and renders blank.
+            #
+            # `data_impact` deliberately keeps the legacy drop-the-key behavior so
+            # its hero-number sample data still backfills.
+            if layout == "deep_dive":
+                return {**props, "stats": []}
             out = dict(props)
             del out["stats"]
             return out

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { AvatarOverlay } from "../../components/AvatarOverlay";
 import {
   AbsoluteFill,
   Audio,
@@ -33,6 +34,17 @@ interface SceneData {
   /** Spoken-audio length in seconds (scene duration minus trailing pad) — for caption timing. */
   speechDurationSeconds?: number;
   voiceoverFile: string | null;
+  avatarVideoFile?: string | null;
+  /** Per-scene avatar presentation, already resolved by the backend
+   *  (scene override ?? project ?? default). See services/remotion.py. */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
   images: string[];
   video?: string;
   videoMuted?: boolean;
@@ -61,6 +73,15 @@ interface VideoData {
   captionFontFamily?: string;
   captionFontSize?: string;
   captionOffset?: number;
+  /** Avatar overlay presentation (see components/AvatarOverlay.tsx). */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
   scenes: SceneData[];
 }
 
@@ -215,6 +236,7 @@ export const ChronicleVideo: React.FC<VideoProps> = ({ dataUrl }) => {
               layoutProps: {},
               durationSeconds: 6,
               voiceoverFile: null,
+              avatarVideoFile: null,
               images: [],
             },
           ],
@@ -355,6 +377,9 @@ export const ChronicleVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             durationInFrames={audioDurationFrames}
           >
             <Audio src={staticFile(s.scene.voiceoverFile)} playbackRate={playbackSpeed} />
+            {s.scene.avatarVideoFile && (
+              <AvatarOverlay src={staticFile(s.scene.avatarVideoFile)} aspectRatio={data.aspectRatio || "landscape"} shape={s.scene.avatarShape ?? data.avatarShape} size={s.scene.avatarSize ?? data.avatarSize} position={s.scene.avatarPosition ?? data.avatarPosition} bg={s.scene.avatarBg ?? data.avatarBg} opacity={s.scene.avatarOpacity ?? data.avatarOpacity} focusX={s.scene.avatarFocusX} focusY={s.scene.avatarFocusY} zoom={s.scene.avatarZoom} />
+            )}
             {data.captionsEnabled && (s.scene.narrationText || s.scene.narration) && (
               <CaptionTrack
                 text={s.scene.narrationText || s.scene.narration}

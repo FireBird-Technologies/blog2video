@@ -1,4 +1,5 @@
 import { resolveFontFamily } from "../../../fonts/registry";
+import { AvatarOverlay } from "../AvatarOverlay";
 import React from "react";
 import "../../../fonts/chronicle-defaults";
 import { CHRONICLE_BODY_FONT } from "../../../fonts/chronicle-defaults";
@@ -34,6 +35,16 @@ export interface ChronicleSceneInput {
   videoDurationSeconds?: number;
   videoStartSeconds?: number;
   voiceoverUrl?: string;
+  avatarUrl?: string;
+  /** Per-scene avatar overrides; undefined = inherit the project setting. */
+  avatarShape?: "circle" | "rounded" | "square";
+  avatarSize?: number;
+  avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
+  avatarBg?: string | null;
+  avatarOpacity?: number;
+  avatarFocusX?: number;
+  avatarFocusY?: number;
+  avatarZoom?: number;
 }
 
 export interface ChronicleVideoCompositionProps {
@@ -311,6 +322,7 @@ export const ChronicleVideoComposition: React.FC<ChronicleVideoCompositionProps>
             durationInFrames={audioDurationFrames}
           >
             <Audio src={s.scene.voiceoverUrl} playbackRate={resolvedPlaybackSpeed} />
+            {s.scene.avatarUrl ? <AvatarOverlay src={s.scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={s.scene.avatarShape} size={s.scene.avatarSize} position={s.scene.avatarPosition} bg={s.scene.avatarBg} opacity={s.scene.avatarOpacity} focusX={s.scene.avatarFocusX} focusY={s.scene.avatarFocusY} zoom={s.scene.avatarZoom} /> : null}
             {captionsEnabled && (s.scene.narrationText || s.scene.narration) && (
               <CaptionTrack
                 text={s.scene.narrationText || s.scene.narration}

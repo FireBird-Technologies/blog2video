@@ -78,23 +78,13 @@ export function useOutOfVideosOffer() {
     }
   }, [isOpen, isWindowLive, hasStarted]);
 
-  // Open the modal. Caller is responsible for confirming the user is walled
-  // (via a 403 from BE or fresh user.can_create_video === false). We only gate
-  // on the 5-minute window: past-window = silent no-op so the caller can fall
-  // back to the default upgrade flow.
+  // Disabled: the scarcity/urgency offer modal must never appear. Every call
+  // site already treats a `false` return as "fall back to the plain upgrade
+  // toast", so short-circuiting here suppresses the modal without touching
+  // any call site.
   const open = useCallback((): boolean => {
-    if (!user) return false;
-    if (wasDismissed) return false;
-    const existing = readStartedAt(user.id);
-    if (existing === null) {
-      writeStartedAt(user.id, Date.now());
-    } else if (Date.now() - existing >= WINDOW_MS) {
-      return false;
-    }
-    setNow(Date.now());
-    setIsOpen(true);
-    return true;
-  }, [user?.id, wasDismissed]);
+    return false;
+  }, []);
 
   // User-initiated re-open from the minimized pill — bypasses wasDismissed.
   const expand = useCallback(() => {

@@ -438,6 +438,29 @@ AVATAR_FALSE_CLAIM_RE = re.compile(
 )
 COMPETITORS = ["heygen", "synthesia", "pictory", "lumen5", "veed"]
 
+# blog2video.ai is a copycat with no relationship to us (the real product is
+# blog2video.app). A user asked to compare its pricing to ours and the bot answered
+# "There is no difference in pricing... because they are the same service" — treating
+# the imposter as us. The reply must call it out as unaffiliated, not merge the two.
+BRAND_DISAMBIGUATION_CASES: list[tuple[str, str | None]] = [
+    (
+        "what is difference between blog2video.app and blog2video.ai pricing?",
+        None,
+    ),
+    ("is blog2video.ai the same as blog2video.app?", None),
+    ("I signed up on blog2video.ai, why can't I log in here?", None),
+]
+
+# Must not trip on the CORRECT answer (calling .ai out as an unaffiliated copycat).
+_SAME_SERVICE_RE = re.compile(
+    r"(?i)\bsame\s+(?:service|company|product|thing|team)\b"
+    r"|\bno\s+(?:difference|affiliation\s+issue)\b.{0,30}\bsame\b"
+)
+_IMPOSTER_RE = re.compile(
+    r"(?i)\b(?:imposter|impostor|copycat|not\s+affiliated|no\s+affiliation"
+    r"|unaffiliated|different\s+(?:site|product|company|service)|not\s+(?:us|our)\b)\b"
+)
+
 
 # --- Runners ------------------------------------------------------------------
 
@@ -792,6 +815,20 @@ async def run_content() -> tuple[int, int]:
     else:
         passed += 1
         print("  [ok  ] competitor guard: no competitors named")
+
+    brand_answers = await asyncio.gather(
+        *[_answer(q, p) for q, p in BRAND_DISAMBIGUATION_CASES]
+    )
+    for (question, _), answer in zip(BRAND_DISAMBIGUATION_CASES, brand_answers):
+        total += 1
+        merged = _SAME_SERVICE_RE.search(answer)
+        disclaimed = _IMPOSTER_RE.search(answer)
+        ok = disclaimed is not None and merged is None
+        passed += ok
+        print(f"  [{'ok  ' if ok else 'FAIL'}] brand-disambiguation: {question[:52]!r}")
+        if not ok:
+            why = f"merged with imposter: {merged.group()!r}" if merged else "no disclaimer"
+            print(f"          {why} -> {answer[:120]}")
 
     print(f"  {passed}/{total} content checks passed")
     return passed, total

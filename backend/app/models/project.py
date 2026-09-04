@@ -137,7 +137,47 @@ class Project(Base):
 
     # Aspect ratio
     aspect_ratio: Mapped[str] = mapped_column(String(20), default="landscape")
-    
+
+    # Talking-head avatar overlay. Which scenes HAVE an avatar is per-scene and
+    # on-demand (see Scene.avatar_video_path / Scene.avatar_preset); the fields
+    # below describe only how any such overlay is PRESENTED, project-wide.
+    #
+    # Presentation of that overlay, editable post-creation from the Settings tab
+    # and consumed by both AvatarOverlay twins (preview player + render tree).
+    #   avatar_shape     circle | rounded | square
+    #   avatar_size      box width as a fraction of composition width (0.10-0.42)
+    #   avatar_position  same vocabulary as logo_position (top/bottom _ left/right)
+    avatar_shape: Mapped[str] = mapped_column(String(16), default="circle")
+    avatar_size: Mapped[float] = mapped_column(Float, default=0.16)
+    avatar_position: Mapped[str] = mapped_column(String(20), default="bottom_left")
+    # How the presenter's OWN background is treated. The roster portraits are
+    # ordinary photographs with real rooms baked in, so anything other than
+    # "keep it" requires cutting the presenter out first (services/avatar_matte.py).
+    #   NULL           keep the portrait's photographic background (default)
+    #   "transparent"  matted, no fill — presenter sits directly on the scene
+    #   "#RRGGBB"      matted, composited over this solid colour
+    avatar_bg: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # Overlay opacity, 0.2-1.0 (mirrors logo_opacity). 1.0 = fully opaque.
+    avatar_opacity: Mapped[float] = mapped_column(Float, default=1.0)
+    # How much the rendered presenter moves: subtle | natural | expressive — see
+    # services/avatar_motion_styles.py. Project-wide ONLY, unlike avatar_shape/
+    # _size/_position/_opacity above: there is deliberately no per-scene
+    # override, so this has no Scene-model counterpart and is read straight off
+    # this column when a batch/scene render job is created.
+    avatar_motion_style: Mapped[str] = mapped_column(String(16), default="natural")
+    # A presenter portrait the user uploaded instead of picking from the roster.
+    # Local MEDIA_DIR path; the R2 copy lives on an AssetType.AVATAR asset row.
+    # When set, a scene whose avatar_preset == CUSTOM_PRESET_ID renders from this
+    # photo — the backend uploads the bytes to the Space rather than sending a
+    # preset id (see services/avatar.py).
+    avatar_custom_image_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    avatar_custom_image_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    # Cleared the whole-video "generate an avatar for every scene" paywall from the
+    # Avatar tab's batch wizard. Persisted (rather than component state) so a
+    # mid-batch reload doesn't re-show the paywall while scene jobs are still
+    # running. Mirrors Project.studio_unlocked.
+    avatar_batch_unlocked: Mapped[bool] = mapped_column(Boolean, default=False)
+
     # AI-assisted editing usage tracking
     ai_assisted_editing_count: Mapped[int] = mapped_column(Integer, default=0)
 
@@ -175,7 +215,9 @@ class Project(Base):
     scene_edit_history = relationship("SceneEditHistory", back_populates="project", cascade="all, delete-orphan", passive_deletes=True,)
     scene_comments = relationship("SceneComment", back_populates="project", cascade="all, delete-orphan", passive_deletes=True,)
     reviews = relationship("Review", back_populates="project", cascade="all, delete-orphan")
+    avatar_reviews = relationship("AvatarReview", back_populates="project", cascade="all, delete-orphan")
     template_change_jobs = relationship("ProjectTemplateChangeJob", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
     regenerate_script_jobs = relationship("ProjectRegenerateScriptJob", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
     voice_change_jobs = relationship("ProjectVoiceChangeJob", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
+    scene_avatar_jobs = relationship("SceneAvatarJob", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
     language_change_jobs = relationship("ProjectLanguageChangeJob", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)

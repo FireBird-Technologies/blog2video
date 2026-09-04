@@ -1561,6 +1561,15 @@ export default function TemplateStudio() {
       delete next.imageFocusY;
       delete next.imageZoom;
     }
+    // Auto-fitting layouts pin their shrink floor to the chosen size only when
+    // these flags are set; without them the fitter treats a slider value as a
+    // mere starting point and shrinks it straight back down to fit the space,
+    // so the typography sliders looked inert in this editor. The app's other
+    // entry points already derive them the same way (remotion.py,
+    // mergeLayoutSchemaDefaults.ts, OldDocumentaryReelVideo.tsx).
+    for (const key of ["titleFontSize", "descriptionFontSize"]) {
+      if (next[key] !== undefined) next[`${key}IsUserSet`] = true;
+    }
     return next;
   }, [schema, layoutProps, isPortrait, layoutSupportsImage, imageUrl, imageFocusX, imageFocusY, imageZoom]);
 
@@ -2802,9 +2811,19 @@ export default function TemplateStudio() {
                     display: "flex", alignItems: "center", justifyContent: "center",
                   }}>
                     <div style={{
-                      width: "100%",
+                      // Portrait is sized from its HEIGHT, landscape from its
+                      // width. `width:100%` for both looked right for 16:9 but
+                      // broke 9:16: a full-width box at a 9:16 ratio computes an
+                      // enormous height, `maxHeight` then clamps the BOX without
+                      // narrowing it, and the player letterboxes the video into a
+                      // thin strip inside a mostly-empty white panel. Fixing the
+                      // height and letting width follow the ratio (`width:auto`)
+                      // makes the box hug the video in both orientations.
+                      height: isPortrait ? "min(70vh, 620px)" : "auto",
+                      width: isPortrait ? "auto" : "100%",
                       aspectRatio: isPortrait ? "9/16" : "16/9",
-                      maxHeight: isPortrait ? "420px" : "540px",
+                      maxWidth: "100%",
+                      maxHeight: isPortrait ? "none" : "540px",
                       borderRadius: "8px", overflow: "hidden",
                       boxShadow: `0 0 0 1px ${T.border}, 0 4px 16px rgba(147,51,234,0.07), 0 16px 48px rgba(0,0,0,0.08)`,
                     }}>

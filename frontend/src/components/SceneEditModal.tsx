@@ -1,6 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback, Fragment } from "react";
 import type { MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent, ReactNode, CSSProperties } from "react";
 import ReactDOM from "react-dom";
+import SceneAvatarSection from "./SceneAvatarSection";
 import {
   Scene,
   Project,
@@ -1518,7 +1519,7 @@ const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
   ],
   deep_dive: [
     { key: "category", label: "Eyebrow label", type: "string", placeholder: "e.g. Macro · Deep Dive" },
-    { key: "stats", label: "Fact rows", type: "object_array", subFields: [{ key: "label", label: "Tag (1–2 words)" }, { key: "value", label: "Supporting fact sentence" }], maxItems: 4 },
+    { key: "stats", label: "Fact rows", type: "object_array", subFields: [{ key: "value", label: "Supporting fact sentence" }], maxItems: 4 },
     { key: "footerNote", label: "Footer tag", type: "string", placeholder: "e.g. Source: Bloomberg · Apr 2026" },
     { key: "editorialWordmark", label: "Top-left brand strip", type: "string", placeholder: "LaDuc · Macro→Micro" },
     { key: "websiteDomain", label: "Domain (chrome footer)", type: "string", placeholder: "laductrading.com" },
@@ -2537,6 +2538,10 @@ export interface SceneImageItem {
 interface Props {
   open: boolean;
   onClose: () => void;
+  /** Switch the page to the project-wide Avatar tab. Used by the Avatar card for
+   *  a scene with no finished clip, which has nothing to edit here — see
+   *  SceneAvatarSection's onGoToAvatarTab. */
+  onGoToAvatarTab?: () => void;
   scene: Scene;
   project: Project;
   imageItems: SceneImageItem[];
@@ -2750,7 +2755,7 @@ export function SceneEditModalDemo({
   );
 }
 
-type ManualTab = "settings" | "props" | "chartdata";
+type ManualTab = "settings" | "props" | "chartdata" | "avatar";
 
 function ManualTabCard({
   title,
@@ -2795,6 +2800,7 @@ function ManualTabCard({
 export default function SceneEditModal({
   open,
   onClose,
+  onGoToAvatarTab,
   scene,
   project,
   imageItems,
@@ -7013,6 +7019,59 @@ export default function SceneEditModal({
                   </p>
                 );
               })()}
+              </ManualTabCard>
+
+              <ManualTabCard
+                title="Avatar"
+                open={openManualTab === "avatar"}
+                onToggle={() => setOpenManualTab(openManualTab === "avatar" ? null : "avatar")}
+              >
+                <SceneAvatarSection
+                  projectId={project.id}
+                  sceneId={scene.id}
+                  sceneOrder={scene.order}
+                  hasVoiceover={!!scene.voiceover_path}
+                  hasAvatar={!!scene.avatar_video_path}
+                  avatarPreset={scene.avatar_preset}
+                  hasMatte={!!scene.has_matte}
+                  customPortraitUrl={project.avatar_custom_image_url}
+                  aspectRatio={project.aspect_ratio}
+                  project={project}
+                  sceneFocus={{
+                    x: scene.avatar_focus_x,
+                    y: scene.avatar_focus_y,
+                    zoom: scene.avatar_zoom,
+                  }}
+                  sceneAppearance={{
+                    shape: scene.avatar_shape ?? null,
+                    size: scene.avatar_size ?? null,
+                    position: scene.avatar_position ?? null,
+                    bg: scene.avatar_bg ?? null,
+                    opacity: scene.avatar_opacity ?? null,
+                  }}
+                  projectAppearance={{
+                    shape: project.avatar_shape ?? "circle",
+                    size: project.avatar_size ?? 0.16,
+                    position: project.avatar_position ?? "bottom_left",
+                    bg: project.avatar_bg ?? null,
+                    opacity: project.avatar_opacity ?? 1,
+                  }}
+                  onChanged={onSaved}
+                  onGoToNarration={() => setOpenManualTab("settings")}
+                  // A scene with no FINISHED clip has nothing to edit here, so the
+                  // section sends the user to the project-wide Avatar tab instead —
+                  // the only priced entry point to a render, and the only view that
+                  // shows every scene's progress at once. Closing this modal first
+                  // is what makes the tab visible behind it.
+                  onGoToAvatarTab={
+                    onGoToAvatarTab
+                      ? () => {
+                          onClose();
+                          onGoToAvatarTab();
+                        }
+                      : undefined
+                  }
+                />
               </ManualTabCard>
 
               <div>

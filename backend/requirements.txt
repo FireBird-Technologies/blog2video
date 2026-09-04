@@ -70,6 +70,13 @@ PyYAML>=6.0
 # Stock data (for /api/stock-data tool)
 yfinance>=1.5.1
 
+# Avatar background removal (services/avatar_matte.py). Pulls onnxruntime and
+# downloads ~170MB of u2net_human_seg weights on FIRST USE — pre-warm at image
+# build if cold-start latency matters. Imported lazily so the backend still boots
+# without it; matting is opt-in, so a missing install degrades to a clear error
+# rather than a failure to start.
+rembg[cpu]==2.0.77
+
 # ─── Test & lint tooling (Tier A QA suite) ───────────────────────────────
 # Pinned to exact versions so local + CI runs are reproducible.
 pytest==9.0.2

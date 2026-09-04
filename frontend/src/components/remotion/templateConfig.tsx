@@ -25,6 +25,7 @@ import { Stickman2VideoComposition } from "./stickman_2/Stickman2VideoCompositio
 import { MagazineVideoComposition } from "./magazine/MagazineVideoComposition";
 import { StickmanFootballVideoComposition } from "./stickman_football/StickmanFootballVideoComposition";
 import { SakuraVideoComposition } from "./sakura/SakuraVideoComposition";
+import { OldDocumentaryReelVideoComposition } from "./old-documentary-reel/OldDocumentaryReelVideoComposition";
 import {
   RemotionDefaultVideoComposition,
   RemotionGridcraftVideoComposition,
@@ -376,6 +377,25 @@ const SAKURA_LAYOUTS = new Set([
   // hangs off the canonical "ending_socials" id, not the sakura_-prefixed alias.
 ]);
 
+const DOCREEL_LAYOUTS = new Set([
+  // System-owned opening leader, force-injected as scene 0 by the pipeline.
+  // Must be listed here so VideoPreview doesn't fall it back to another layout.
+  "docreel_countdown",
+  "docreel_slate",
+  "docreel_statistic",
+  "docreel_title_card",
+  "docreel_dossier",
+  "docreel_photo_pan",
+  "docreel_contact_sheet",
+  "docreel_interview",
+  "docreel_field_notes",
+  "docreel_essay_captions",
+  "docreel_reel_out",
+  // Canonical ending id the backend emits; aliased to docreel_reel_out in the
+  // layout registry. Must be a valid layout so VideoPreview doesn't fall it back.
+  "ending_socials",
+]);
+
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
   default: {
     component: DefaultVideoComposition as React.ComponentType<any>,
@@ -594,6 +614,19 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
       accent: "#C0143C",
       bg: "#FDF6F0",
       text: "#2A0A12",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
+  "old-documentary-reel": {
+    component: OldDocumentaryReelVideoComposition as React.ComponentType<any>,
+    heroLayout: "docreel_slate",
+    fallbackLayout: "docreel_title_card",
+    validLayouts: DOCREEL_LAYOUTS,
+    defaultColors: {
+      accent: "#f4f0e2",
+      bg: "#171512",
+      text: "#b6b0a1",
     },
     baseWidth: 1920,
     baseHeight: 1080,
