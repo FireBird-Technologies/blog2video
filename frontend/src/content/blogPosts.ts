@@ -17,6 +17,982 @@ function faq(primary: string, variant: string) {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "blog2video-september-2026-update",
+    title: "Blog2Video September 2026 Update: The Documentary Template, Auto-Adjust, Avatars, and Templates Built From Your Brand",
+    description:
+      "Four things just shipped on Blog2Video — a Documentary template with a 1960s film finish, Auto-Adjust that sizes every headline and image to its frame, Avatars in beta that lip-sync a photo to your narration, and custom templates generated from your website or brand document.",
+    category: "Product Update",
+    publishedAt: "2026-09-05",
+    readTime: "6 min read",
+    heroEyebrow: "Product Update - September 2026",
+    heroTitle: "Four updates. Four tracks. One stickman with an electric guitar.",
+    heroDescription:
+      "A brand new Documentary template, automatic sizing for every headline and image, Avatars in beta, and custom templates designed from your own website or brand document. All four are live now.",
+    primaryKeyword: "blog2video update",
+    keywordVariant: "blog2video new features september 2026",
+    relatedPaths: [
+      "/blog-to-video",
+      "/custom-branded-video-templates",
+      "/templates/chronicle",
+      "/blogs/blog2video-august-2026-update",
+      "/blogs/custom-video-template-from-your-website",
+    ],
+    sections: [
+      {
+        heading: "We let one stickman play the release like a gig",
+        paragraphs: [
+          "Four new things shipped this month, so rather than a feature tour we made a release video that treats them as a setlist. One stickman, one electric guitar, four tracks, and an encore.",
+          "The soundcheck opens on the numbers, because they are the part we are quietly proud of: 5,000 creators, 7,500 videos made, 600,000 scenes rendered, and 7,200 edits made inside the editor. Then it works through the four releases in order.",
+          "The video is embedded at the top of this post. Here is the written version of the same setlist.",
+        ],
+        bullets: [
+          "0:00 Soundcheck - the numbers",
+          "0:16 Track one - the Documentary template",
+          "0:31 Track two - Auto-Adjust",
+          "0:48 Track three - Avatars (Beta)",
+          "1:05 Track four - custom templates from your brand",
+          "1:24 Encore - blog2video.app",
+        ],
+      },
+      {
+        heading: "1. The Documentary template - a 1960s film finish",
+        paragraphs: [
+          "This is a brand new look, and it is the least software-shaped template we have built. It is a period film grade rather than a filter dropped over the top of a modern layout.",
+          "Hard grain, gate weave so the frame breathes the way a projected print does, sprocket edges down the side, bold archive-style titles, and a proper black and white grade rather than a desaturation pass. Everything is rendered programmatically, which is why the grain sits under the type instead of over it and the weave moves the whole frame together.",
+          "Point it at any story and it plays like it was shot decades ago. It suits history explainers, origin stories, obituaries and tributes, brand founding myths, and anything where the subject deserves weight rather than motion graphics. It is available in 16:9, 9:16 and 1:1 like every other template.",
+        ],
+        ctaPath: "/templates/chronicle",
+        ctaLabel: "Browse the template catalogue",
+      },
+      {
+        heading: "2. Auto-Adjust - every headline and image sized to its frame",
+        paragraphs: [
+          "This is the least glamorous item on the list and probably the one you will notice most.",
+          "Every headline and every image is now sized automatically to fit its frame. No more text spilling past the edge because a heading ran three words long. No more images that land slightly wrong because the aspect ratio of the source did not match the slot. What you see in the editor is exactly what renders.",
+          "It works across all three orientations, which is the part that actually mattered. A headline that fit comfortably in 16:9 used to be the same headline that broke in 9:16, so a vertical cut of a finished video needed a second pass by hand. Auto-Adjust resolves the fit per orientation, so the same project exports cleanly to landscape, vertical and square without you re-checking every scene.",
+        ],
+        bullets: [
+          "Headlines resize to fit their frame instead of overflowing it",
+          "Images are scaled and framed to their slot automatically",
+          "Resolved independently for 16:9, 9:16 and 1:1",
+          "The editor preview matches the rendered output",
+        ],
+      },
+      {
+        heading: "3. Avatars (Beta) - upload a photo, get a presenter",
+        paragraphs: [
+          "Upload any photo and Blog2Video brings it to life: your presenter, speaking your script, lip-synced to the narration, scene after scene. Or pick one of ours if you would rather not put your own face on it.",
+          "The lip sync is driven by the narration track that already exists in the project, so the avatar follows whatever voice you chose - a prebuilt voice, your cloned voice, or a recording you made yourself. It carries across scenes rather than being a single talking-head clip bolted to the front.",
+          "It is in beta, and we are calling it that honestly. It works well on clear, front-facing, well-lit portraits and gets less reliable as the source photo gets further from that. Try it, tell us where it breaks.",
+        ],
+      },
+      {
+        heading: "4. Custom templates, generated from your brand",
+        paragraphs: [
+          "Give it your website, a prompt, or a brand document. It reads your colours, your fonts and your whole feel, and designs a template around them.",
+          "The output is not a colour swap on a stock layout. It is a template - type scale, layout logic, accent treatment, motion - built from what it found, and it is fully editable afterwards, right down to the accent colour. If the generated palette is close but the accent is one shade off, change it and every scene follows.",
+          "A brand document is now a first-class input alongside a URL. If your brand lives in a PDF rather than on a website - which is true for most agencies working on behalf of a client - you can hand it the PDF instead.",
+        ],
+        ctaPath: "/custom-branded-video-templates",
+        ctaLabel: "Generate a template from your brand",
+      },
+      {
+        heading: "The numbers behind them",
+        paragraphs: [
+          "The soundcheck at the start of the video is not decoration. Those are the counts as of this release: 5,000 creators, 7,500 videos made, 600,000 scenes, and 7,200 edits.",
+          "The edit number is the one we watch most closely. It is the count of times somebody opened a generated video and changed something - a headline, an image, a scene order. A tool that generates video you never touch is a tool producing video nobody cares enough about to fix. Every one of those 7,200 edits is somebody deciding the video was worth getting right.",
+        ],
+      },
+      {
+        heading: "Got a PDF instead of a blog post?",
+        paragraphs: [
+          "Everything above works the same way when the source is a document rather than a URL. If PDFs are your main input - reports, whitepapers, lecture decks, research summaries - there is a dedicated build for exactly that job at pdf2vid.com.",
+          "You upload the PDF, it reads the structure, and it turns the pages into narrated scenes with the same templates, the same Auto-Adjust sizing, and the same export options. It is the shortest path from a document nobody opens to a video people actually watch.",
+        ],
+        ctaPath: "https://pdf2vid.com",
+        ctaLabel: "Turn a PDF into a video at pdf2vid.com",
+      },
+      {
+        heading: "Somewhere to put the video once it exists",
+        paragraphs: [
+          "Making the video is half the job. The other half is getting it in front of somebody, and that is a distribution problem rather than a production one.",
+          "If you publish a blog or a newsletter, bloghub.app is a directory built for exactly that - a place to list the publication, get discovered by readers who are browsing rather than searching, and pick up a real indexed link back to your site while you are there.",
+        ],
+        ctaPath: "https://bloghub.app",
+        ctaLabel: "List your blog on BlogHub",
+      },
+      {
+        heading: "Try it",
+        paragraphs: [
+          "All four are live right now at blog2video.app. Go make something worth watching.",
+          "Made with love, by Firebird Technologies.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video",
+      },
+    ],
+    faq: [
+      {
+        question: "What is the Documentary template?",
+        answer:
+          "It is a new Blog2Video template with a 1960s film finish - hard grain, gate weave, sprocket edges, bold archive-style titles, and a full black and white grade. The effects are rendered programmatically rather than applied as a filter, so the grain sits under the type and the weave moves the whole frame. It is available in 16:9, 9:16 and 1:1.",
+      },
+      {
+        question: "What does Auto-Adjust do?",
+        answer:
+          "It automatically sizes every headline and every image to fit its frame, so text no longer overflows the edge and images no longer land badly in their slot. The fit is resolved separately for 16:9, 9:16 and 1:1, which means the same project exports cleanly to all three orientations without a manual pass per scene. The editor preview matches what renders.",
+      },
+      {
+        question: "How do Avatars work in Blog2Video?",
+        answer:
+          "You upload a photo - your own or anyone you have the right to use - and Blog2Video animates it as a presenter that speaks your script, lip-synced to the narration track already in the project. You can also pick one of the built-in avatars. It runs across scenes rather than as a single clip, and it works with prebuilt voices, cloned voices, and your own recordings.",
+      },
+      {
+        question: "Are Avatars out of beta?",
+        answer:
+          "No. Avatars shipped in beta with this release. They work best on clear, front-facing, well-lit portrait photos and get less reliable as the source photo moves away from that. It is usable today, but treat it as beta and check the output.",
+      },
+      {
+        question: "Can Blog2Video build a template from a brand document instead of a website?",
+        answer:
+          "Yes. As of this release you can give it a website URL, a written prompt, or a brand document such as a PDF brand guide. It reads the colours, fonts and overall feel and designs a template around them, and the result stays fully editable afterwards including the accent colour.",
+      },
+      {
+        question: "When was the September 2026 Blog2Video update released?",
+        answer:
+          "5 September 2026. It shipped four features together: the Documentary template, Auto-Adjust sizing for headlines and images, Avatars in beta, and custom template generation from a website, prompt, or brand document.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Blog2Video September 2026 Update: The Documentary Template, Auto-Adjust, Avatars, and Templates Built From Your Brand",
+        angle:
+          "Product update post covering the four September releases, with the release video embedded and the usage numbers behind it.",
+      },
+      {
+        channel: "video",
+        title: "Four updates. Four tracks. One stickman with an electric guitar.",
+        angle:
+          "Release video structured as a gig - soundcheck on the numbers, then one track per feature, closing on the encore at blog2video.app.",
+      },
+      {
+        channel: "substack",
+        title: "What we shipped in September: a 1960s film look, and text that stops falling off the frame",
+        angle:
+          "Written-first creators get the practical read - what the Documentary template is for, and why Auto-Adjust matters most when you export the same video in three orientations.",
+      },
+      {
+        channel: "twitter",
+        title: "Four new things on Blog2Video",
+        angle:
+          "One post per feature with the matching chapter clipped from the release video, closing on the Documentary template as the visual hook.",
+      },
+    ],
+  },
+  {
+    slug: "can-chatgpt-make-videos",
+    title: "Can ChatGPT Make Videos? What Actually Lets ChatGPT and Claude Generate Real Video",
+    description:
+      "ChatGPT cannot render a finished video from a chat message on its own, and Claude has no video model at all. Here is what actually happens when you ask, what Sora and Veo really produce, and how an MCP connector lets either assistant return a real narrated MP4.",
+    category: "Comparison",
+    publishedAt: "2026-09-05",
+    readTime: "9 min read",
+    heroEyebrow: "AI video, honestly",
+    heroTitle: "ChatGPT cannot make you a video. It can operate something that does.",
+    heroDescription:
+      "The chat window is a text interface with an image model attached. Video is a separate system every time — a generative model like Sora or Veo, or a connected tool that renders. Knowing which one you are talking to is the whole answer.",
+    primaryKeyword: "can chatgpt make videos",
+    keywordVariant: "what tools let chatgpt or claude generate real videos",
+    relatedPaths: [
+      "/blogs/blog2video-mcp-server-chatgpt",
+      "/blogs/blog2video-mcp-server-claude",
+      "/blogs/blog2video-vs-chatgpt-vs-claude-for-making-videos",
+      "/blogs/claude-vs-chatgpt-for-video-editing",
+      "/blog-to-video",
+    ],
+    sections: [
+      {
+        heading: "The short answer",
+        paragraphs: [
+          "No. Typing \"make me a video about X\" into ChatGPT does not produce a video file, and typing it into Claude does not either. What you get back is a script, a shot list, a storyboard, or a polite explanation of what you could go and do next.",
+          "That is not a limitation people expect, because the same box will happily generate an image. The difference is that image generation is wired into the assistant and video generation is not. Video is always a separate system — either a generative video model with its own app and its own credits, or an external tool the assistant has been connected to.",
+          "So the useful question is not \"can ChatGPT make videos\". It is \"which system is actually rendering, and what does its output look like\". There are three real answers and they produce very different things.",
+        ],
+        bullets: [
+          "Generative video models (Sora, Veo, Runway, Kling) - separate products, hallucinated frames, seconds long, no narration by default",
+          "Connected tools via MCP - the assistant calls a real renderer and hands you back a finished file",
+          "Neither - the assistant writes you a script and you go and make it yourself",
+        ],
+      },
+      {
+        heading: "What ChatGPT actually does when you ask for a video",
+        paragraphs: [
+          "The assistant is a language model. Its native outputs are text, code, and - where an image model is wired in - images. There is no video decoder on the other end of the chat box waiting to render frames.",
+          "OpenAI does have a video model. Sora is a genuine text-to-video system, and it is good at what it does. But it is a separate product with its own interface and its own usage limits, it generates short clips, and it produces exactly the kind of output a generative video model produces: photoreal-ish footage of things that were never filmed, with no narration track and no relationship to a document you wrote.",
+          "Google's Veo sits in the same category, as do Runway and Kling. All of them are worth using for the job they are for, which is footage. None of them is what somebody means when they say \"turn my blog post into a video\".",
+        ],
+      },
+      {
+        heading: "Claude does not generate video at all",
+        paragraphs: [
+          "Anthropic does not ship a video model. Claude will not produce a clip, and it will tell you so rather than pretending otherwise, which is a small mercy compared with the confident non-answers you can get elsewhere.",
+          "What Claude is unusually good at is the part either side of the render. It reads a long document without losing the thread, it structures an argument into scenes, and it writes narration that sounds like a person rather than a press release. If you are going to have a model plan the video, Claude is a strong choice for that specific job.",
+          "It just cannot be the thing that renders. Nor can ChatGPT. Which brings us to the part that actually answers the question.",
+        ],
+      },
+      {
+        heading: "The real answer: connect a renderer with MCP",
+        paragraphs: [
+          "Model Context Protocol is an open standard that lets an AI assistant call an external tool over HTTP. Instead of every service building a bespoke plugin for every chat app, a service publishes one MCP server and any compatible host can drive it.",
+          "Both assistants support it. ChatGPT has remote MCP connector support on the Plus, Pro, Team and Enterprise plans. Claude supports MCP natively — it is Anthropic's own standard — in Claude Desktop and via custom connectors.",
+          "That is the mechanism by which \"ChatGPT made me a video\" becomes literally true. The assistant does not render anything. It calls a tool that renders, waits, and hands you back the result. From inside the chat window it is indistinguishable from the model having done it.",
+        ],
+      },
+      {
+        heading: "What that looks like in practice",
+        paragraphs: [
+          "Blog2Video publishes its whole pipeline as an MCP server. You connect the endpoint once with your account token, and from then on the tools show up inside the assistant like any other capability.",
+          "Then you type a normal sentence — \"turn this post into a video and give me a preview link\", with a URL. The assistant calls create_video, which scrapes the article, writes narration, builds scene layouts, and returns a project. It calls get_preview_url and gives you a link you can open in a browser. If you want the file, render_video returns a downloadable MP4.",
+          "The render takes a few minutes because it is doing real work — this is not a chat response, it is a video being built. But the entire instruction was one message, and the thing that comes back is a finished, narrated, branded video rather than a script you still have to produce.",
+        ],
+        bullets: [
+          "create_video - takes a URL or document, returns a project with scenes and narration",
+          "get_preview_url - returns a shareable preview link, no download needed",
+          "render_video - returns a downloadable MP4",
+          "Works the same from ChatGPT, Claude, or any other MCP-capable host",
+        ],
+        ctaPath: "/blogs/blog2video-mcp-server-chatgpt",
+        ctaLabel: "Connect the MCP server to ChatGPT",
+      },
+      {
+        heading: "Why the output is not AI slop",
+        paragraphs: [
+          "This is the part that decides whether the video is worth publishing, and it is a genuine architectural difference rather than a marketing claim.",
+          "A generative video model paints frames. Everything in the frame is a guess — including your text, which is why AI-generated video is famous for words that almost spell something. Nothing is consistent between frames because nothing is being tracked between frames.",
+          "Blog2Video renders programmatically instead. Text is real text, so it is crisp and correct. A chart is a chart, drawn from numbers. Layouts come from designed templates rather than from a diffusion process, so the same brand looks like the same brand in scene one and scene fourteen. Nothing warps, because nothing was hallucinated in the first place.",
+          "The practical result: it reads like a motion-designed explainer, not like AI video. That matters more than it sounds, because viewers have learned the generative look and they close the tab when they see it.",
+        ],
+        ctaPath: "/blogs/ai-video-generators-that-are-not-slop",
+        ctaLabel: "Why most AI video looks like slop",
+      },
+      {
+        heading: "So which should you use?",
+        paragraphs: [
+          "If you want three seconds of a drone shot over a coastline that does not exist, use Sora or Veo. That is what generative video is for and nothing else does it.",
+          "If you want a narrated video built from something you actually wrote — a blog post, a report, a newsletter, a PDF — a generative model is the wrong tool and no amount of prompting fixes that. You want a renderer, and you can drive it from the same chat window you were already in.",
+          "The strongest workflow uses both models for what they are good at: Claude or ChatGPT to sharpen the argument and tighten the script, then the connected renderer to turn it into something publishable. You are not choosing between the assistant and the video tool. You are giving the assistant hands.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try it without the chat window",
+      },
+    ],
+    faq: [
+      {
+        question: "Can ChatGPT make videos?",
+        answer:
+          "Not on its own. ChatGPT is a language model with an image model attached; it has no video renderer behind the chat box. OpenAI's Sora is a separate text-to-video product that generates short generative clips. To get a finished narrated video out of a ChatGPT conversation you connect an external video tool through an MCP connector, and the assistant calls that tool to do the rendering.",
+      },
+      {
+        question: "Can Claude make videos?",
+        answer:
+          "Claude has no video generation model at all — Anthropic does not ship one. Claude is very good at reading a long document and planning the video, and because MCP is Anthropic's own standard it connects cleanly to external video tools that do the actual rendering.",
+      },
+      {
+        question: "What tools let ChatGPT or Claude generate real videos?",
+        answer:
+          "Any tool that publishes an MCP server the assistant can connect to. Blog2Video exposes its full pipeline that way, so from inside ChatGPT or Claude you can send a URL or a document and get back a preview link or a downloadable MP4. ChatGPT needs a Plus, Pro, Team or Enterprise plan for connector support; Claude supports MCP natively.",
+      },
+      {
+        question: "Is Sora the same as ChatGPT making a video?",
+        answer:
+          "No. Sora is a separate OpenAI product with its own interface and limits. It generates short generative clips — footage of things that were never filmed — with no narration track and no connection to a document you wrote. It is not the tool for turning an article into an explainer.",
+      },
+      {
+        question: "Why does AI-generated video look fake?",
+        answer:
+          "Because generative models paint every frame, including the text, and nothing is tracked between frames. That is why on-screen words come out garbled and objects drift. A programmatic renderer avoids this entirely: text is real text, charts are drawn from data, and layouts come from designed templates, so nothing warps.",
+      },
+      {
+        question: "Do I need to pay for ChatGPT to use an MCP video connector?",
+        answer:
+          "For ChatGPT, yes — MCP connector configuration is available on Plus, Pro, Team and Enterprise, not on the free plan. Claude supports MCP natively. You will also need an account with whatever video service you are connecting, since it is the one doing the rendering.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Can ChatGPT Make Videos? What Actually Lets ChatGPT and Claude Generate Real Video",
+        angle:
+          "Answer the highest-volume question in the category honestly, then route the reader to the MCP connector guides that actually solve it.",
+      },
+      {
+        channel: "video",
+        title: "Can ChatGPT make videos? (the honest answer)",
+        angle:
+          "Open on the failed request in the chat window, then show the same request working once the MCP connector is enabled.",
+      },
+      {
+        channel: "substack",
+        title: "No, ChatGPT cannot make you a video. Here is what can.",
+        angle:
+          "Lead with the disappointment, land on the connector — written for people who have already tried and got a script back.",
+      },
+      {
+        channel: "twitter",
+        title: "\"Can ChatGPT make videos?\" - a thread",
+        angle:
+          "Three-part thread: what actually happens, why Sora is not the answer, and the one-message MCP version.",
+      },
+    ],
+  },
+  {
+    slug: "claude-vs-chatgpt-for-video-editing",
+    title: "Claude vs ChatGPT for Video Editing: What Each One Can Honestly Do",
+    description:
+      "Neither Claude nor ChatGPT is a video editor — neither can open a timeline, cut a clip, or export an MP4. Here is what each is genuinely good at around the edit, where they differ, and what to connect when you need something actually edited.",
+    category: "Comparison",
+    publishedAt: "2026-09-05",
+    readTime: "8 min read",
+    heroEyebrow: "Claude vs ChatGPT",
+    heroTitle: "Neither one edits video. They are very different at everything around the edit.",
+    heroDescription:
+      "No timeline, no cuts, no export — from either. What you are really choosing between is two assistants with different strengths at scripting, structuring, reviewing and driving the tool that does the editing.",
+    primaryKeyword: "claude vs chatgpt for video editing",
+    keywordVariant: "can chatgpt edit videos",
+    relatedPaths: [
+      "/blogs/can-chatgpt-make-videos",
+      "/blogs/blog2video-vs-chatgpt-vs-claude-for-making-videos",
+      "/blogs/blog2video-mcp-server-claude",
+      "/ai-scene-editor",
+      "/blog-to-video",
+    ],
+    sections: [
+      {
+        heading: "Start with what neither of them does",
+        paragraphs: [
+          "Can ChatGPT edit videos? No. It cannot open a file, scrub a timeline, trim a clip, adjust audio levels, or export anything. Upload an MP4 and it will not watch it back and hand you a tightened cut.",
+          "Claude cannot either, and is more direct about saying so. Neither assistant has a rendering engine, a timeline, or a video encoder behind the chat window.",
+          "So this is not a comparison of two video editors. It is a comparison of two assistants that sit either side of an edit — and on that, they genuinely differ.",
+        ],
+      },
+      {
+        heading: "Where they actually help around an edit",
+        paragraphs: [
+          "Roughly ninety percent of what makes a video good is decided before anyone touches a timeline: what it says, in what order, at what length. That is a text problem, and text problems are what these models are for.",
+          "Both will take a transcript and cut it to length, restructure a rambling explanation into a clear beat order, write a hook that does not sound like a hook, generate chapter markers, produce an SRT from a script, or read your description and tell you where a viewer would lose interest.",
+          "That is real editing work. It is just editorial work rather than timeline work, and it happens in a text box.",
+        ],
+        bullets: [
+          "Cutting a transcript to a target runtime without losing the argument",
+          "Reordering scenes so the payoff is not buried at 2:40",
+          "Rewriting narration to be spoken rather than read",
+          "Generating chapters, titles, descriptions and subtitle text",
+          "Reviewing a script and naming the exact line where attention drops",
+        ],
+      },
+      {
+        heading: "Where Claude is stronger",
+        paragraphs: [
+          "Long-form structure. Hand Claude a 4,000-word report and ask for a twelve-scene breakdown and it holds the whole argument, keeps the causal chain intact, and does not quietly drop the third of five points somewhere in the middle. That is the single most common failure mode when you compress a long document into a short video, and Claude fails at it least.",
+          "Narration voice. Claude's default register is noticeably closer to how people speak. Scripts come out with fewer of the stock connective phrases that make AI narration recognisable within two sentences. If the voiceover is going to be heard rather than read, this is worth more than it sounds.",
+          "Honesty about limits. Ask it to do something it cannot do and it says so, rather than producing a confident description of a video it has not made. When you are chaining steps together, a model that tells you the step failed saves more time than one that is marginally better at the steps that work.",
+        ],
+      },
+      {
+        heading: "Where ChatGPT is stronger",
+        paragraphs: [
+          "Anything touching a native image or video model. Sora is a real generative video system and it lives in OpenAI's world; if you want a generated B-roll clip or a title-card image inside the same session, that is a shorter path than assembling it elsewhere.",
+          "Ecosystem breadth. More third-party integrations assume ChatGPT first, and the plugin and connector directory is larger. If the tool you already use has an official chat integration, there is a good chance it is a ChatGPT one.",
+          "Fast iteration on short copy. Titles, thumbnail text, hooks, ten variations of a first line — ChatGPT is quick and productive here, and volume matters more than nuance when you are picking a thumbnail.",
+        ],
+      },
+      {
+        heading: "The comparison in one paragraph",
+        paragraphs: [
+          "Use Claude when the input is long and the output must preserve an argument: turning a report, a documentation set, a research paper or a 3,000-word post into a structured script. Use ChatGPT when you want breadth, generated visual assets in the same place, or a fast pile of short-copy variations.",
+          "Both are assistants to the edit. Neither is the edit. The moment you need a frame to change, you need something else in the loop.",
+        ],
+        bullets: [
+          "Long document to structured script - Claude",
+          "Natural spoken narration - Claude",
+          "Generated B-roll or title images in-session - ChatGPT",
+          "Titles, hooks, thumbnail text at volume - ChatGPT",
+          "Actually cutting, rendering or exporting - neither",
+        ],
+      },
+      {
+        heading: "What to connect when you need something genuinely edited",
+        paragraphs: [
+          "Both assistants support Model Context Protocol, which lets them call an external tool over HTTP. That is how you close the gap: the model keeps doing the editorial thinking, and a connected renderer does the part that produces frames.",
+          "With the Blog2Video MCP server connected, a message like \"turn this post into a video and give me a preview link\" causes the assistant to call create_video, then get_preview_url, and hand you back something you can watch. render_video returns a downloadable MP4. The assistant is not editing — it is operating an editor, which is the only version of this that has ever worked.",
+          "After that, the scene editor is where real edits happen: rewrite a headline, regenerate an image, change scene order, adjust timing, swap the template. Per scene, without rebuilding the video.",
+        ],
+        ctaPath: "/ai-scene-editor",
+        ctaLabel: "See the scene editor",
+      },
+      {
+        heading: "The workflow that actually holds up",
+        paragraphs: [
+          "1. Draft or refine the script with whichever assistant suits the input — Claude for a long document, ChatGPT for short punchy copy.",
+          "2. Hand the source URL or file to Blog2Video, directly or through the MCP connector from inside the same chat.",
+          "3. Edit the generated video scene by scene rather than starting over, and export to 16:9, 9:16 and 1:1 from the same project.",
+          "The assistants stay in the role they are good at. The renderer stays in the role it is good at. Nobody is asked to be a video editor who is not one.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try the full workflow",
+      },
+    ],
+    faq: [
+      {
+        question: "Can ChatGPT edit videos?",
+        answer:
+          "No. ChatGPT cannot open a video file, trim a clip, adjust audio, or export an MP4. It has no timeline and no encoder. It can help with everything textual around the edit — cutting a transcript to length, reordering scenes, writing narration, generating chapters and subtitles — and it can operate an external video tool if you connect one via an MCP connector.",
+      },
+      {
+        question: "Can Claude edit videos?",
+        answer:
+          "No. Claude has no video editing or rendering capability. It is unusually strong at the editorial half of the job — compressing a long document into a scene structure without losing the argument, and writing narration that sounds spoken — and it supports MCP natively, so it can drive an external renderer.",
+      },
+      {
+        question: "Claude or ChatGPT for video scripts?",
+        answer:
+          "Claude, in most cases. It holds long source documents better and keeps the causal chain intact when compressing a long piece into a short script, and its default narration voice needs less rewriting. ChatGPT is better when you want many short variations quickly, such as titles, hooks and thumbnail text.",
+      },
+      {
+        question: "Is there an AI that can actually edit a video?",
+        answer:
+          "Yes, but it is a different category of product from a chat assistant. Tools that render video programmatically let you edit at the scene level — change a headline, regenerate an image, reorder scenes, change the template — and export the result. Blog2Video's scene editor works this way, and it can be driven from inside Claude or ChatGPT through an MCP connector.",
+      },
+      {
+        question: "Can I upload a video to Claude or ChatGPT and ask for a shorter cut?",
+        answer:
+          "Neither will return an edited video file. At best you can supply a transcript and get back a shortened script or a list of timestamps to cut, which you then apply in an actual editor. The models work on the text, not the footage.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Claude vs ChatGPT for Video Editing: What Each One Can Honestly Do",
+        angle:
+          "Capture the head-to-head editing query with a truthful answer, then route to the scene editor and the MCP connector guides.",
+      },
+      {
+        channel: "video",
+        title: "Claude vs ChatGPT for video editing",
+        angle:
+          "Same prompt in both windows side by side, then the connected version that returns an actual file.",
+      },
+      {
+        channel: "medium",
+        title: "Neither Claude nor ChatGPT can edit video. Here is what they are for.",
+        angle:
+          "Reframe the comparison as editorial work versus timeline work for a writer audience.",
+      },
+      {
+        channel: "twitter",
+        title: "Claude vs ChatGPT for video editing",
+        angle:
+          "Lead with the blunt answer - neither edits video - then the five-line breakdown of who wins what.",
+      },
+    ],
+  },
+  {
+    slug: "blogs-with-videos",
+    title: "Blogs With Videos: Why They Rank Better, and How to Add Video to Yours",
+    description:
+      "Blogs with videos hold readers longer, win video results in Google, and get a second audience on YouTube. Here is what a video blog actually is, what the video should do on the page, and how to add one to a post you have already written.",
+    category: "Guide",
+    publishedAt: "2026-09-05",
+    readTime: "8 min read",
+    heroEyebrow: "Video blogging",
+    heroTitle: "A blog with videos is not a video blog. The difference decides whether it works.",
+    heroDescription:
+      "Embedding video in a written post is one of the few on-page changes that reliably improves both dwell time and search visibility — but only when the video does a job the text cannot. Here is how to add one without becoming a videographer.",
+    primaryKeyword: "blogs with videos",
+    keywordVariant: "blog with videos",
+    relatedPaths: [
+      "/blog-to-video",
+      "/blogs/what-is-a-blog-video",
+      "/blogs/video-seo-ranking-traffic-blog2video",
+      "/blogs/how-to-turn-a-blog-post-into-a-video",
+      "/blogs/blog-to-youtube-strategy-for-written-first-creators",
+    ],
+    sections: [
+      {
+        heading: "Two different things get called the same thing",
+        paragraphs: [
+          "\"Video blog\" is used for two formats that have almost nothing in common, and choosing the wrong one is why most attempts stall in month two.",
+          "A vlog is video-first. The video is the content; any text is a caption. It demands a camera, a presence on screen, and a publishing cadence that does not survive a busy week. Most written-first creators try this, hate it, and conclude video is not for them.",
+          "A blog with videos is text-first. The article is still the content and still the thing that ranks. The video sits inside it doing a specific job — demonstrating, summarising, or showing something the prose cannot show. Nobody has to be on camera and nothing collapses if you skip a week.",
+          "The second one is what almost everybody actually wants, and it is the one this guide is about.",
+        ],
+      },
+      {
+        heading: "Why video on a written post measurably helps",
+        paragraphs: [
+          "The effect is not mystical and it is not a ranking factor you can point at. It is three separate mechanisms that happen to stack.",
+          "Dwell time is the obvious one. A reader who plays a two-minute video spends two more minutes on the page, and a page people stay on is a page Google keeps testing in higher positions. It also cuts the pogo-stick back to the results — the single clearest signal that a page did not answer the query.",
+          "Then there is the video result itself. Google shows video thumbnails in normal results and runs a Videos tab that most written pages never compete in. A post with an embedded, properly marked-up video becomes eligible for a surface it was previously invisible on.",
+          "And the third is the one people forget: the video is a separate asset. Uploaded to YouTube it earns its own indexed watch page, its own audience, and a link back to the post. One piece of work, two front doors.",
+        ],
+        bullets: [
+          "Longer dwell time and fewer bounces back to the search results",
+          "Eligibility for video thumbnails and the Videos tab",
+          "A YouTube watch page that ranks and links back on its own",
+          "Something shareable on LinkedIn and social, where a text link dies",
+          "Accessibility and comprehension gains from a narrated summary of a dense post",
+        ],
+        ctaPath: "/blogs/video-seo-ranking-traffic-blog2video",
+        ctaLabel: "The video SEO argument in full",
+      },
+      {
+        heading: "What the video should actually do",
+        paragraphs: [
+          "A video that restates the first three paragraphs out loud adds nothing, and readers work that out in about eight seconds. The embed only earns its place when it does something the text cannot.",
+          "The reliable jobs are demonstration, compression, and structure. Demonstration is anything with a sequence — a workflow, a settings screen, a before and after. Compression is a ninety-second version of a long piece for people deciding whether to read it. Structure is a narrated walkthrough of something spatial, like a chart, a diagram, or a comparison table that is genuinely hard to read as prose.",
+          "Length follows from the job. A summary video wants sixty to ninety seconds. A walkthrough wants as long as the process takes and not a second more. Nobody has ever complained that an embedded video was too short.",
+        ],
+      },
+      {
+        heading: "Where to put it on the page",
+        paragraphs: [
+          "Directly under the introduction, above the first heading. That is high enough that a scanner sees it before deciding to leave, and late enough that the promise of the post has already been made.",
+          "Do not autoplay. Do not put it above the H1. Do not embed four of them in one article — one video that matters beats four that do not, and every additional embed costs load time.",
+          "Give it a real caption and real alt-adjacent context in the surrounding text, and add VideoObject structured data with a name, description, thumbnail and upload date. That markup is what makes the page eligible for video results; without it you have a video on a page rather than a page with a video, as far as a crawler is concerned.",
+        ],
+        bullets: [
+          "One video, placed under the intro and above the first H2",
+          "Never autoplay, never block the text behind it",
+          "A caption line saying what the video shows",
+          "VideoObject structured data - name, description, thumbnailUrl, uploadDate",
+          "Lazy-load the embed so it does not cost you the page speed you gained elsewhere",
+        ],
+      },
+      {
+        heading: "How to make the video without filming anything",
+        paragraphs: [
+          "This is where the plan usually dies. Producing a video per post means a camera, a room without an echo, three takes, and an hour in an editor — for a post you already published. So it never happens.",
+          "The way out is that the script already exists. It is the post. Blog2Video reads the article, breaks it into scenes, writes narration, applies a template, and renders a finished MP4 — typically in a few minutes rather than an afternoon. You paste the URL, skim the scenes, fix anything that reads oddly, and export.",
+          "It renders programmatically rather than generating frames, which is the reason the output is embeddable next to your own writing. Text on screen is real text, charts are drawn from data, and the same brand looks the same in scene one and scene fourteen. Generative AI video — the drifting camera, the melting hands, the garbled on-screen words — is the fastest way to make a good post look untrustworthy.",
+          "You can also narrate it yourself, or clone your voice once and reuse it on every post, which is what most people end up doing after the first few.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Turn a post into a video",
+      },
+      {
+        heading: "A workable cadence for a text-first blog",
+        paragraphs: [
+          "You do not need a video on every post and you should not try. Video belongs on the posts that already earn traffic, because that is where extra dwell time and a video result are worth something.",
+          "Start with your top five pages by impressions. Add a summary video to each, upload the same file to YouTube with the post linked in the first line of the description, and leave it for a month. Then look at what moved.",
+          "After that the rule is simple: any new post that is long, technical, or visual gets a video. Anything short and conversational does not. That is a sustainable amount of work, and it is the version that survives contact with a real publishing schedule.",
+        ],
+        bullets: [
+          "Retrofit your top five existing pages before touching new posts",
+          "Upload the same video to YouTube and link the post in the first description line",
+          "Give the YouTube upload real subtitles - your script exports as an SRT",
+          "Only add video to new posts that are long, technical, or visual",
+        ],
+      },
+      {
+        heading: "Getting the blog found in the first place",
+        paragraphs: [
+          "All of this assumes people arrive at the post. For a newer blog they mostly do not, and no amount of on-page work fixes a discovery problem.",
+          "Directories are the unglamorous fix that still works: a listing gets your publication in front of readers who are browsing by topic rather than searching for a phrase, and it leaves a real indexed link behind. bloghub.app is a directory built for this — a launch platform for blogs and newsletters, closer to Product Hunt for writing than to a 2009 link farm.",
+          "It is worth doing once, properly, early. A blog with videos that nobody has found is still a blog nobody has found.",
+        ],
+        ctaPath: "https://bloghub.app",
+        ctaLabel: "List your blog on BlogHub",
+      },
+    ],
+    faq: [
+      {
+        question: "What is a blog with videos?",
+        answer:
+          "A text-first blog where individual posts embed a video that does a job the writing cannot — demonstrating a process, summarising a long piece, or walking through something visual. It is different from a vlog, which is video-first and requires being on camera. The article still carries the content and still does the ranking.",
+      },
+      {
+        question: "Do blogs with videos rank better?",
+        answer:
+          "Video is not a direct ranking factor, but three effects stack in its favour: readers stay longer and bounce back to the search results less, the page becomes eligible for video thumbnails and the Videos tab if it carries VideoObject markup, and the video itself earns a separate YouTube watch page that ranks and links back. In practice pages with a relevant embedded video tend to hold higher positions than the same page without one.",
+      },
+      {
+        question: "Where should the video go in a blog post?",
+        answer:
+          "Directly below the introduction and above the first subheading. That places it where a scanner will see it before deciding to leave, but after the post has made its promise. Do not autoplay, do not place it above the H1, and use one video per post rather than several.",
+      },
+      {
+        question: "How long should a blog video be?",
+        answer:
+          "Sixty to ninety seconds for a summary video, and as long as the process genuinely takes for a walkthrough. Length should follow the job the video is doing. Nobody has ever complained that an embedded video was too short.",
+      },
+      {
+        question: "How do I add video to my blog without filming?",
+        answer:
+          "Generate it from the post you already wrote. Blog2Video reads the article, splits it into scenes, writes and narrates the script, applies a template, and renders an MP4 in a few minutes. It renders programmatically rather than generating frames, so on-screen text is real text and the branding stays consistent. You can use a prebuilt voice, record your own, or clone your voice once and reuse it.",
+      },
+      {
+        question: "What is the difference between a video blog and a vlog?",
+        answer:
+          "A vlog is video-first — the video is the content and text is incidental, which requires a camera and on-screen presence. A video blog in the sense most written-first creators mean is a written blog whose posts include supporting video. Only the second one is realistic to sustain alongside a writing schedule.",
+      },
+      {
+        question: "Do I need structured data for an embedded video?",
+        answer:
+          "If you want the page eligible for video results, yes. Add VideoObject schema with name, description, thumbnailUrl and uploadDate. Without it, crawlers largely see a page with an iframe on it rather than a page with a video.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Blogs With Videos: Why They Rank Better, and How to Add Video to Yours",
+        angle:
+          "Cover the whole blogs-with-videos cluster in one page - what it is, why it works, where the embed goes, and how to produce it without filming.",
+      },
+      {
+        channel: "video",
+        title: "How to add video to your blog without ever being on camera",
+        angle:
+          "Demonstrate the retrofit on a real published post: paste URL, skim scenes, export, embed under the intro.",
+      },
+      {
+        channel: "substack",
+        title: "Your five best posts should have video on them",
+        angle:
+          "The retrofit-first argument for writers - start with what already ranks rather than with new posts.",
+      },
+      {
+        channel: "twitter",
+        title: "A blog with videos is not a vlog",
+        angle:
+          "Lead with the distinction that stops people quitting, then the placement rules as a short list.",
+      },
+    ],
+  },
+  {
+    slug: "how-much-is-substack-worth",
+    title: "How Much Is Substack Worth? The $1.1B Valuation, the Revenue Behind It, and What It Means for Writers",
+    description:
+      "Substack was valued at $1.1 billion in its July 2025 Series C, on roughly $45M of annualised revenue. Here is where that number comes from, the multiple it implies, and why the number that matters to you is what your own newsletter is worth.",
+    category: "Analysis",
+    publishedAt: "2026-09-05",
+    readTime: "7 min read",
+    heroEyebrow: "Creator economy",
+    heroTitle: "Substack is worth $1.1 billion on about $45 million of revenue.",
+    heroDescription:
+      "A roughly 24x revenue multiple on a company that takes 10% of what its writers earn. The interesting part is not the headline number — it is what it implies about how the market prices a newsletter business, including yours.",
+    primaryKeyword: "how much is substack worth",
+    keywordVariant: "substack net worth",
+    relatedPaths: [
+      "/tools/substack-valuation-calculator",
+      "/blogs/how-much-is-my-substack-newsletter-worth",
+      "/blogs/newsletter-valuation-multiples-explained",
+      "/tools/substack-revenue-calculator",
+      "/blogs/how-to-grow-your-substack-newsletter",
+    ],
+    sections: [
+      {
+        heading: "The number: $1.1 billion",
+        paragraphs: [
+          "Substack raised $100 million in July 2025 in a Series C led by BOND and The Chernin Group, at a post-money valuation of $1.1 billion. That is the current figure, and it is the one to quote until the next round or an IPO changes it.",
+          "It roughly doubled the company's previous mark. The 2021 Series B, led by Andreessen Horowitz, valued Substack at $650 million. In between there was a widely-reported down period, a 2023 community round on Wefunder priced at $585 million, and a stretch where the whole newsletter category was assumed to have peaked.",
+          "Total funding since the 2017 founding is somewhere around $200 million across seed, Series A, B and C, with Y Combinator, Tiger Global, a16z, BOND and The Chernin Group among the investors. As of mid-2026 the company is privately held and pre-IPO.",
+        ],
+        bullets: [
+          "July 2025 Series C - $100M raised at a $1.1B post-money valuation",
+          "2021 Series B - $650M valuation, led by Andreessen Horowitz",
+          "2023 Wefunder community round - priced at $585M",
+          "Roughly $200M raised in total since 2017",
+          "Still private as of 2026; no IPO announced",
+        ],
+      },
+      {
+        heading: "What is actually underneath it",
+        paragraphs: [
+          "Substack's own revenue is a 10% cut of what paying subscribers send its writers. That is the whole model, and it makes the business unusually easy to reason about: the company's revenue is a fixed fraction of the creator economy running on top of it.",
+          "At the time of the Series C, Substack was running at roughly $45 million in annualised revenue, up from about $37 million in 2024 and $30 million in 2023. Writers on the platform had collectively grossed somewhere near $450 million by early 2025, and there were more than five million active paid subscriptions across the network. The company reported positive cash flow in the first quarter of 2025.",
+          "Which means the headline is a roughly 24x forward revenue multiple. That is a growth-software multiple, not a media multiple — and it is the single most interesting fact in this whole story.",
+        ],
+      },
+      {
+        heading: "Why a 24x multiple, when newsletters sell for 3x",
+        paragraphs: [
+          "If you sold your own newsletter tomorrow you would not get 24x revenue. Individual newsletters typically change hands somewhere between 2x and 5x annual revenue, occasionally higher for a category-leading list with unusually low churn.",
+          "The gap is not unfair; it reflects two genuinely different assets. Substack is priced as infrastructure — recurring revenue across thousands of publications, low churn at the aggregate level because no single writer leaving matters, and revenue that grows without proportional cost. Your newsletter is priced as a small media business whose revenue depends on one person continuing to show up.",
+          "That distinction is the useful takeaway. Everything that makes a newsletter valuable to a buyer is a step away from \"one person writing\" and towards \"a system that keeps producing\": diversified revenue, low churn, a list that is not dependent on one platform, and content that gets discovered by people who have never heard of the author.",
+        ],
+        ctaPath: "/blogs/newsletter-valuation-multiples-explained",
+        ctaLabel: "How newsletter multiples are set",
+      },
+      {
+        heading: "The number that actually affects you",
+        paragraphs: [
+          "Substack's valuation is trivia unless you hold equity in it. What is not trivia is what your own publication is worth, and that number is calculable rather than mystical.",
+          "It comes down to annual recurring revenue, monthly churn, the free-to-paid conversion rate, list growth, and how concentrated your revenue is across a handful of subscribers. Change any one of those and the multiple moves before the revenue does.",
+          "We built a calculator for it — put in your subscriber counts, price, and churn, and it gives you a valuation range with the assumptions visible rather than hidden inside a black box.",
+        ],
+        ctaPath: "/tools/substack-valuation-calculator",
+        ctaLabel: "Value your own Substack",
+      },
+      {
+        heading: "Is Substack going public?",
+        paragraphs: [
+          "There is no announced IPO. As of 2026 Substack is a private, venture-backed company that has recently raised, is reporting positive cash flow, and has no obvious pressure to list.",
+          "The honest read is that a company at $45 million of revenue is small for a public listing, and the usual expectation is a few more years of compounding first. Treat any specific IPO date you see quoted as speculation — the readiness scores published by pre-IPO tracking sites are models, not information.",
+          "For a writer, none of it changes anything day to day. The 10% cut is the 10% cut whether the company is worth $650 million or $1.1 billion.",
+        ],
+      },
+      {
+        heading: "What actually moves your own number",
+        paragraphs: [
+          "Growth is the input every valuation model weights hardest, and for a written newsletter the constraint is almost always discovery rather than quality. Good posts do not spread on their own; they need a surface that carries them to people who are not already subscribed.",
+          "Video is the most under-used of those surfaces for written-first publishers, because producing it traditionally costs an afternoon per post. Generating it from the post you already wrote changes the arithmetic — a narrated version of an essay becomes a YouTube upload, a LinkedIn post, and an embed on your own site, which is three discovery surfaces for a piece of work you had already finished.",
+          "It is the least glamorous growth lever and one of the few that compounds, because every video keeps working long after the email has been archived.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Turn a newsletter issue into a video",
+      },
+    ],
+    faq: [
+      {
+        question: "How much is Substack worth?",
+        answer:
+          "Substack was valued at $1.1 billion after a $100 million Series C in July 2025, led by BOND and The Chernin Group. That roughly doubled its previous $650 million mark from the 2021 Series B led by Andreessen Horowitz. It remains a private company with no announced IPO.",
+      },
+      {
+        question: "What is Substack's revenue?",
+        answer:
+          "Around $45 million in annualised revenue at the time of the 2025 Series C, up from roughly $37 million in 2024 and $30 million in 2023. Substack earns a 10% cut of what paying subscribers pay its writers, so its revenue is a fixed fraction of the creator earnings on the platform — writers had collectively grossed around $450 million by early 2025.",
+      },
+      {
+        question: "What multiple is Substack valued at?",
+        answer:
+          "Roughly 24 times annualised revenue, based on a $1.1 billion valuation against about $45 million of revenue. That is a software multiple rather than a media one, reflecting recurring revenue across thousands of publications rather than dependence on any single writer.",
+      },
+      {
+        question: "How many paid subscriptions does Substack have?",
+        answer:
+          "More than five million active paid subscriptions across the network as of early 2025, with over 50 creators earning more than $1 million a year at the time of the Series C.",
+      },
+      {
+        question: "Is Substack profitable?",
+        answer:
+          "Substack reported positive cash flow in the first quarter of 2025. Positive cash flow is not the same as accounting profitability, and as a private company it does not publish full financials, so treat anything more specific than that as an estimate.",
+      },
+      {
+        question: "Is Substack going public?",
+        answer:
+          "No IPO has been announced. As of 2026 it is private, recently funded, and at a revenue scale that is small for a public listing. Any specific IPO timing you see quoted comes from third-party prediction models rather than from the company.",
+      },
+      {
+        question: "How much is my own Substack worth?",
+        answer:
+          "Individual newsletters typically trade between roughly 2x and 5x annual revenue, well below Substack's own multiple, because the value depends on one person continuing to publish. The main inputs are annual recurring revenue, monthly churn, free-to-paid conversion, growth rate, and revenue concentration. The Substack valuation calculator on this site works through those inputs and shows the assumptions.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How Much Is Substack Worth? The $1.1B Valuation, the Revenue Behind It, and What It Means for Writers",
+        angle:
+          "Answer the company-valuation query factually, then pivot to the reader's own newsletter valuation and the calculator.",
+      },
+      {
+        channel: "video",
+        title: "Substack is worth $1.1B on $45M of revenue",
+        angle:
+          "Chart-led explainer on the multiple gap between a platform and a publication, ending on the calculator.",
+      },
+      {
+        channel: "substack",
+        title: "Substack is priced at 24x. Your newsletter is priced at 3x. Here is why.",
+        angle:
+          "The multiple-gap argument as the hook, written for people who publish on the platform being valued.",
+      },
+      {
+        channel: "twitter",
+        title: "Substack: $1.1B valuation, $45M revenue, 10% take rate",
+        angle:
+          "Numbers thread with the funding history, then the multiple comparison against private newsletter sales.",
+      },
+    ],
+  },
+  {
+    slug: "how-are-medium-earnings-calculated",
+    title: "How Are Medium Earnings Calculated? The Partner Program Formula, Explained",
+    description:
+      "Medium does not pay per view. Earnings come from paying-member reading time, engagement from members, boost status, member conversions, and bonuses for external and search traffic. Here is how each part works and which ones you can actually move.",
+    category: "Guide",
+    publishedAt: "2026-09-05",
+    readTime: "8 min read",
+    heroEyebrow: "Medium Partner Program",
+    heroTitle: "Medium does not pay per view. It pays for member attention.",
+    heroDescription:
+      "The Partner Program formula is engagement-weighted, member-gated, and revised often enough that most of the advice online is out of date. Here is what it currently rewards — including the bonuses most writers do not know exist.",
+    primaryKeyword: "how are medium earnings calculated",
+    keywordVariant: "medium partner program earnings",
+    relatedPaths: [
+      "/tools/medium-partner-program-earnings-calculator",
+      "/blogs/medium-post-to-video-workflow",
+      "/tools/substack-revenue-calculator",
+      "/tools/headline-analyzer",
+      "/blog-to-video",
+    ],
+    sections: [
+      {
+        heading: "The one-line answer",
+        paragraphs: [
+          "Medium pays you out of the subscription pool based on how much time paying members spend reading or listening to your stories, weighted by the engagement those members show, with additional bonuses when your story brings a new member in or pulls readers from outside Medium.",
+          "Views are not in that sentence anywhere. A story with 50,000 views from search traffic that never converts and never holds anyone can earn less than a story with 2,000 views read end-to-end by members. That single fact explains almost every confused post about Medium earnings you will ever read.",
+        ],
+      },
+      {
+        heading: "What counts as a read",
+        paragraphs: [
+          "A member read is counted when a paying Medium member reads or listens to your story for at least 30 seconds. Non-members do not generate reading-time earnings at all — their attention is worth nothing to the formula directly, though it can be worth something through the conversion and external-traffic bonuses covered below.",
+          "So the denominator that matters is not your view count. It is the subset of viewers who are members, multiplied by how far into the piece they actually got.",
+          "This is why headline-to-content honesty pays on Medium in a way it does not on an ad-funded site. A misleading headline gets the click, the member bounces at fifteen seconds, and you are paid for none of it.",
+        ],
+        bullets: [
+          "Only paying members generate reading-time earnings",
+          "30 seconds of reading or listening is the threshold for a member read",
+          "Reading time is weighted, not counted - finishing matters more than opening",
+          "Audio listening counts alongside reading",
+        ],
+      },
+      {
+        heading: "Engagement is a multiplier, not a bonus",
+        paragraphs: [
+          "On top of reading time, Medium factors in claps, highlights, and replies from members. These are not paid per action; they act as a signal that raises the engagement weighting of the story.",
+          "The practical reading is that a story members finish and then respond to earns disproportionately more than a story members finish silently. Highlights in particular are a strong signal, because a highlight means somebody stopped mid-read to mark a sentence.",
+          "There is no way to game this that survives. Engagement pods and clap exchanges fail because the accounts involved do not read, and reading time is still the base the multiplier applies to.",
+        ],
+      },
+      {
+        heading: "Boost, and what changed about it",
+        paragraphs: [
+          "Boosted stories accumulate engagement points at a higher rate than non-boosted ones. Boost is a human curation decision made by Medium's nominated curators, not something you apply for, and it remains the single largest swing factor in what a story earns.",
+          "The important recent change is that the gap narrowed. Non-boosted stories now take a larger share of the Partner Program pool than they used to, which makes consistent unboosted publishing meaningfully more viable than it was in 2024.",
+          "It is still worth writing for the boost criteria — depth, originality, evident expertise, no clickbait — but a strategy that only works if you get boosted is not a strategy.",
+        ],
+      },
+      {
+        heading: "Member conversions: the part people miss",
+        paragraphs: [
+          "The old referral program, which paid a recurring share of a referred member's subscription for as long as they stayed, is gone. It was replaced by a conversion model that works differently and is worth understanding properly.",
+          "Now, when a non-member hits your paywalled story and signs up for a paid membership in order to read it, that story earns a one-time additional amount from the Partner Program. After that, the member's subscription fees flow into the general pool like everyone else's. Members who cancel very shortly after joining are excluded, which is a reasonable anti-abuse measure.",
+          "The consequence for strategy: driving outside traffic to a paywalled story is directly monetised, but as a single payment per conversion rather than an annuity. Volume of conversions matters more than it used to; retaining any individual referred member matters less.",
+        ],
+      },
+      {
+        heading: "The bonuses for traffic you bring yourself",
+        paragraphs: [
+          "Through late 2025 and into 2026 Medium layered additional bonuses onto the base formula for stories that pull readers from outside the platform — external traffic, search discovery, and email shares.",
+          "This is the most under-exploited part of the current model. Most Medium writers publish and then rely entirely on Medium's own distribution to find readers, which means competing for internal feed placement against everyone else doing the same. A writer who sends a few hundred outside readers to a story is being paid for something the average publisher on the platform is not doing at all.",
+          "It also compounds with the conversion bonus, because outside readers are disproportionately non-members — exactly the people who trigger a conversion payment when they hit the paywall and sign up.",
+        ],
+        bullets: [
+          "Base: paying-member reading and listening time",
+          "Multiplier: member claps, highlights, and replies",
+          "Rate modifier: boosted versus non-boosted status",
+          "One-time bonus: a non-member converting to paid on your story",
+          "Additional bonuses: external traffic, search discovery, email shares",
+        ],
+      },
+      {
+        heading: "So what should you actually optimise?",
+        paragraphs: [
+          "Three things, in order. First, completion — because reading time is the base everything else multiplies. That means an honest headline, a first paragraph that delivers rather than teases, and cutting the throat-clearing at the top of the piece.",
+          "Second, outside traffic. Every reader you bring in yourself is worth more than a reader Medium's feed sends you, because of the external-traffic bonus and because outside readers convert.",
+          "Third, cadence over any single home run. Payouts are pooled and monthly, and the formula is revised often. A body of work that earns steadily is far more robust to a formula change than one story that got lucky.",
+        ],
+        ctaPath: "/tools/medium-partner-program-earnings-calculator",
+        ctaLabel: "Model your Medium earnings",
+      },
+      {
+        heading: "The practical way to bring outside traffic",
+        paragraphs: [
+          "Given that Medium now pays a bonus for external readers and a one-time payment for the ones who convert, the question becomes where outside readers come from without buying them.",
+          "Video is the most reliable answer for a written-first publisher, because YouTube is a search engine that will happily rank a page about your topic and let you link to the article from it. The reason most writers never do it is that filming a video per post costs an afternoon.",
+          "Generating the video from the Medium post you already published removes that cost. The article is the script; a few minutes later you have a narrated MP4 to upload with the story link in the first line of the description. It is the shortest path from work you have already done to the exact reader type Medium's current formula pays the most for.",
+        ],
+        ctaPath: "/blogs/medium-post-to-video-workflow",
+        ctaLabel: "The Medium post to video workflow",
+      },
+      {
+        heading: "Why nobody can give you an exact number",
+        paragraphs: [
+          "There is no published rate per reading minute. The pool is the subscription revenue Medium collects in a month, split across every eligible story according to the weighting above, so the value of a reading minute changes month to month depending on how many members paid and how much everyone else earned.",
+          "Anyone quoting you a fixed RPM for Medium is quoting a backwards-calculated average from their own account, which tells you about their audience rather than about the formula.",
+          "The honest approach is scenario modelling: take your own view counts, estimate the member share and the average read depth, and look at a low, base and high band rather than a single figure. That is what our calculator does, with every assumption visible so you can argue with it.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "How are Medium earnings calculated?",
+        answer:
+          "Medium pays from its subscription pool based on how much time paying members spend reading or listening to your stories, weighted by member engagement such as claps, highlights and replies. Boosted stories accumulate engagement points at a higher rate. On top of that, stories earn a one-time bonus when a non-member converts to a paid membership to read them, plus additional bonuses for external traffic, search discovery and email shares.",
+      },
+      {
+        question: "Does Medium pay per view?",
+        answer:
+          "No. Views from non-members generate no reading-time earnings at all. A member read only counts once a paying member has read or listened for at least 30 seconds, and longer reading time earns more. A story with far fewer views but high member completion regularly out-earns a high-traffic story.",
+      },
+      {
+        question: "How much does Medium pay per read?",
+        answer:
+          "There is no fixed rate. Earnings come out of a monthly pool of subscription revenue divided across all eligible stories by the weighting formula, so the effective value of a reading minute changes every month. Any specific RPM figure you see quoted is somebody's own backwards-calculated average, not a published rate.",
+      },
+      {
+        question: "Do claps increase Medium earnings?",
+        answer:
+          "Indirectly. Claps, highlights and replies from members raise a story's engagement weighting, which multiplies the reading-time base rather than paying a per-clap amount. Because reading time is still the base, engagement from accounts that do not actually read adds nothing — which is why clap exchanges do not work.",
+      },
+      {
+        question: "Does Medium still pay for referred members?",
+        answer:
+          "Not in the old form. The 2021-2025 referral program, which paid a recurring share of a referred member's subscription, has been replaced. Now, when a non-member converts to paid on one of your paywalled stories, that story earns a single one-time amount, after which the member's fees go into the general pool. Members who cancel shortly after joining are excluded.",
+      },
+      {
+        question: "Does boosting matter for earnings?",
+        answer:
+          "Yes, boosted stories earn engagement points at a higher rate and it remains the largest single swing factor. But the gap has narrowed — non-boosted stories now receive a larger share of Partner Program earnings than they previously did, which makes consistent publishing viable without depending on curation.",
+      },
+      {
+        question: "What is the fastest way to increase Medium earnings?",
+        answer:
+          "Improve completion rate first, since reading time is the base of the whole formula — an honest headline and a first paragraph that delivers do more than any other change. Then bring readers from outside Medium, because external traffic carries its own bonus and outside readers are the ones most likely to trigger a paid conversion.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How Are Medium Earnings Calculated? The Partner Program Formula, Explained",
+        angle:
+          "Definitive current explanation of the payout formula, correcting the out-of-date referral advice still dominating search results.",
+      },
+      {
+        channel: "video",
+        title: "How Medium actually pays you",
+        angle:
+          "Diagram the formula scene by scene - base, multiplier, boost modifier, conversion bonus, traffic bonus - and end on the calculator.",
+      },
+      {
+        channel: "medium",
+        title: "Medium does not pay per view, and that changes what you should write",
+        angle:
+          "Publish on the platform being explained, leaning on the completion-rate argument.",
+      },
+      {
+        channel: "twitter",
+        title: "How Medium earnings are actually calculated",
+        angle:
+          "Five-part breakdown thread, leading with the fact that non-member views pay nothing.",
+      },
+    ],
+  },
+  {
     slug: "youtube-backlink",
     title: "How to Get a YouTube Backlink (DR 99) in Minutes, Without Filming Anything",
     description:
@@ -5818,6 +6794,16 @@ export const blogPosts: BlogPost[] = [
         ctaPath: "/pdf-to-video",
         ctaLabel: "Convert a PDF to video free",
       },
+      {
+        heading: "If PDFs are your main input, there is a build for that",
+        paragraphs: [
+          "Blog2Video handles PDFs alongside URLs, documents and pasted text, which is right if your source material is mixed. If it is almost always a PDF — reports, whitepapers, lecture decks, handbooks, research summaries — pdf2vid.com is the same engine set up for exactly that job.",
+          "It takes the upload first rather than asking for a URL, reads the page structure directly, and maps sections and headings onto scenes without you re-pasting anything. Same templates, same automatic sizing across 16:9, 9:16 and 1:1, same MP4, PowerPoint, PDF and PNG exports.",
+          "It is the shortest route from a document that gets downloaded and forgotten to a video that gets watched, embedded, and shared.",
+        ],
+        ctaPath: "https://pdf2vid.com",
+        ctaLabel: "Generate a video from a PDF at pdf2vid.com",
+      },
     ],
     faq: [
       {
@@ -9861,6 +10847,15 @@ export const blogPosts: BlogPost[] = [
         ctaPath: "/pdf-to-video",
         ctaLabel: "Turn a PDF into a summary video",
       },
+      {
+        heading: "A dedicated home for document-first workflows",
+        paragraphs: [
+          "If nearly everything you convert starts life as a PDF, pdf2vid.com is the version of this workflow built around that assumption. You upload the document instead of pasting a link, and it reads the page structure — headings, sections, figures — to decide where the scene breaks belong.",
+          "The summary-first approach described above is the default there rather than something you have to steer it towards, which matters most for the long documents that make the worst full conversions: annual reports, dissertations, policy papers, training manuals.",
+        ],
+        ctaPath: "https://pdf2vid.com",
+        ctaLabel: "Summarise a PDF into video at pdf2vid.com",
+      },
     ],
     faq: [
       {
@@ -11409,7 +12404,33 @@ export const blogPosts: BlogPost[] = [
         ctaLabel: "Create your first Short from a blog post",
       },
     ],
-    faq: faq("blog to shorts", "short-form distribution from articles"),
+    faq: [
+      {
+        question: "How do I turn a blog post into a short video?",
+        answer:
+          "Pick the single sharpest moment in the post — a counterintuitive claim, a result, or a mistake — rather than trying to summarise the whole article. Paste the post URL into Blog2Video, switch the project to 9:16 portrait, keep the cut to the scenes covering that one moment, and export. The article supplies the script, so the work is selection rather than writing, and it takes a few minutes rather than an afternoon.",
+      },
+      {
+        question: "How long should a Short made from a blog post be?",
+        answer:
+          "Under 60 seconds, and usually between 20 and 45. A Short is a trailer for the article, not a compressed version of it. If the clip needs more than a minute to make sense, you have picked a moment that depends on too much surrounding context.",
+      },
+      {
+        question: "How many Shorts can one blog post produce?",
+        answer:
+          "A substantial post usually yields three to five that stand on their own, built around its separate hooks, examples and conclusions. Publish them across weeks rather than all at once, and point each back to the same article so the discovery compounds onto one destination.",
+      },
+      {
+        question: "Do Shorts cannibalise traffic to the original article?",
+        answer:
+          "Not when the Short deliberately withholds the depth. The clip should create enough curiosity that the article is the obvious next step. Measure it by whether branded search and clicks to the post rise, not by the view count on the clip.",
+      },
+      {
+        question: "Do I need to be on camera to make Shorts from my blog?",
+        answer:
+          "No. Vertical text-and-motion clips with narration perform well and are what Blog2Video produces from the post itself. You can use a prebuilt voice, record the narration yourself, or clone your voice once and reuse it on every clip afterwards.",
+      },
+    ],
     distributionPlan: [
       { channel: "site", title: "Canonical strategy post", angle: "Own the repurposing search term." },
       { channel: "substack", title: "Distribution note", angle: "Talk about discovery vs depth." },
