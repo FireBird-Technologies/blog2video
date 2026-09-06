@@ -7023,8 +7023,8 @@ export default function SceneEditModal({
 
               <ManualTabCard
                 title="Avatar"
-                open={openManualTab === "avatar"}
-                onToggle={() => setOpenManualTab(openManualTab === "avatar" ? null : "avatar")}
+                open={openManualTabs.has("avatar")}
+                onToggle={() => toggleManualTab("avatar")}
               >
                 <SceneAvatarSection
                   projectId={project.id}
@@ -7057,7 +7057,9 @@ export default function SceneEditModal({
                     opacity: project.avatar_opacity ?? 1,
                   }}
                   onChanged={onSaved}
-                  onGoToNarration={() => setOpenManualTab("settings")}
+                  onGoToNarration={() =>
+                    setOpenManualTabs((cur) => new Set(cur).add("settings"))
+                  }
                   // A scene with no FINISHED clip has nothing to edit here, so the
                   // section sends the user to the project-wide Avatar tab instead —
                   // the only priced entry point to a render, and the only view that
