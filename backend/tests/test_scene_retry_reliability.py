@@ -17,7 +17,15 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.code_validator import validate_component_code
+from app.services.code_validator import _find_esbuild, validate_component_code
+
+# _parse_check fails open (returns "parsed fine") when esbuild is absent, so the
+# assertions that a broken snippet does NOT parse are only meaningful where the
+# binary exists. Same convention as test_scene_runtime_check.py's babel guard.
+_needs_esbuild = pytest.mark.skipif(
+    _find_esbuild() is None,
+    reason="no esbuild in frontend/node_modules or PATH — _parse_check fails open",
+)
 
 _PAD = "\n".join(f"const p{i} = interpolate(f, [{i}, {i + 20}], [0, 1]);" for i in range(40))
 
@@ -163,6 +171,7 @@ def test_the_edit_id_encodes_template_and_scene() -> None:
 # ── serialization artifacts must not cost an attempt ─────────────────────────
 
 
+@_needs_esbuild
 def test_json_escaped_newlines_are_repaired() -> None:
     """The model sometimes emits a whole scene with literal backslash-n instead
     of real line breaks. esbuild reports `Syntax error "n"` and the attempt is
@@ -194,6 +203,7 @@ def test_legitimate_backslash_n_is_left_alone(code: str) -> None:
     assert clean_code(code) == code.strip()
 
 
+@_needs_esbuild
 def test_genuinely_broken_code_is_not_masked() -> None:
     from app.services.code_validator import _parse_check, clean_code
 

@@ -15,6 +15,7 @@ without failing anything else in the suite.
 from __future__ import annotations
 
 import asyncio
+import inspect
 
 import pytest
 
@@ -812,7 +813,12 @@ def test_the_scene_prompt_stays_within_its_token_budget() -> None:
     """
     from app.services.code_generator import GenerateSceneCode
 
-    doc = GenerateSceneCode.__doc__ or ""
+    # cleandoc, not raw __doc__: Python 3.13 dedents docstrings at compile time
+    # but 3.11/3.12 keep the 4-space class indent, which is ~900 chars over ~230
+    # lines — enough to swing this either side of the ceiling depending on the
+    # interpreter. dspy sends the CLEANED text (Signature.instructions applies
+    # cleandoc), so the dedented length is also the one that reflects real cost.
+    doc = inspect.cleandoc(GenerateSceneCode.__doc__ or "")
     assert len(doc) < 14_500, (
         f"scene prompt is {len(doc)} chars. Every scene pays this. Before adding, "
         f"check the rule is not already stated in THE TEN RULES."
