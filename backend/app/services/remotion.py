@@ -1252,8 +1252,11 @@ def write_remotion_data(
             )
             _custom_scene_types = []
 
-    for _i, scene in enumerate(scenes):
     for scene_index, scene in enumerate(scenes):
+        # `_i` is an alias for scene_index, kept because the body below refers to
+        # both names. A rename left two stacked `for` headers here — the file did
+        # not parse at all, so the backend could not boot.
+        _i = scene_index
         desc = None
         layout = fallback
         lp = {}

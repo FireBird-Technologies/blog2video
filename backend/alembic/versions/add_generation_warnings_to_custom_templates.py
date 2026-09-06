@@ -9,7 +9,7 @@ Nullable with no default: existing rows stay NULL and are treated as "no
 warnings", so this is a purely additive change.
 
 Revision ID: add_generation_warnings
-Revises: pdf_narration_usage
+Revises: scene_avatar_job_batch_id
 Create Date: 2026-08-20 00:00:00.000000
 
 """
@@ -25,7 +25,7 @@ revision: str = "add_generation_warnings"
 # batch applies cleanly with `alembic upgrade head` rather than requiring a
 # merge. The repo carries several other unmerged heads from older branches;
 # those are untouched here.
-down_revision: Union[str, None] = "pdf_narration_usage"
+down_revision: Union[str, None] = "scene_avatar_job_batch_id"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

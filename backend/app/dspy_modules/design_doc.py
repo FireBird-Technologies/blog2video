@@ -332,6 +332,29 @@ class GenerateTemplateDesignDocs(dspy.Signature):
     not an opening, it is a content slide in the wrong position. Give the title
     real focal presence — this is the frame that establishes the whole video.
 
+    BUT DO NOT DESIGN A BARE CENTRED TITLE. "No content props" is a rule about
+    DATA, not a licence to leave the frame empty. A title and a subtitle floating
+    in the middle of an empty canvas is the weakest opening you can draw, and it
+    is what this instruction keeps producing when read too literally. The opening
+    is the frame that sets the template's visual argument, so give it real
+    COMPOSITION — built from geometry and the palette, never from content:
+
+      * an asymmetric or offset placement — the title anchored to a third, set
+        against an edge, or dropped low — instead of dead centre;
+      * structural rules and bands — a heavy accent rule, a full-bleed colour
+        block, a divider the title sits on or breaks through;
+      * framing geometry — a corner bracket, an oversized numeral or letterform
+        bled off the canvas, a grid of hairlines, a large soft shape behind the
+        type;
+      * depth from the palette — a two-tone split, a tonal band, a gradient
+        wash — so the frame reads as designed rather than as default.
+
+    Use the ones that suit the template's identity; two or three deliberate
+    moves beat a pile of decoration. Every element here must come from the
+    palette and the geometry you have already defined — no data, no icons
+    standing in for information, and NO third type tier (the kicker rule above
+    is absolute: a label goes at BODY size or not at all).
+
     THE LAST SCENE MUST READ AS AN ENDING. Its title is a sign-off, and the
     closing call-to-action buttons and social handles are supplied to it at
     render time — design a closing scene that HOSTS them inside its own layout,
@@ -905,11 +928,13 @@ def fallback_design_docs(theme: dict | None, name: str = "") -> dict:
         _scene(
             "opening", "intro",
             "The opening. A full-bleed image sits behind everything with a heavy scrim "
-            "over it so the type stays legible. The brand logo sits top-left at a "
-            "generous size; the headline is set large and low in the frame, aligned "
-            "left, rising into place with a single spring. In portrait the headline "
-            "moves to the vertical centre and the logo shrinks. One accent rule draws "
-            "in beneath the headline as the scene settles.",
+            "over it so the type stays legible. The headline is set large and low in "
+            "the frame, aligned left against a wide accent rule that spans the lower "
+            "third, rising into place with a single spring; a tall block of the accent "
+            "colour runs down the left edge behind it, anchoring the composition off "
+            "centre. In portrait the headline moves to the vertical centre and the "
+            "edge block becomes a band across the top. One accent rule draws in "
+            "beneath the headline as the scene settles.",
             "background", None,
         ),
         _scene(

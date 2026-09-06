@@ -574,6 +574,12 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
         stopPolling(sceneKey);
         markRunning(sceneKey, false);
       };
+      // Consecutive failed ticks. One blip must not abandon a job the backend is
+      // still working on: the edit keeps running, the draft still lands, and the
+      // editor used to declare "lost contact" and stop watching — leaving the
+      // scene stuck mid-edit with no way back except reopening the modal.
+      let consecutiveErrors = 0;
+      const MAX_CONSECUTIVE_POLL_ERRORS = 5;
       const timer = setInterval(async () => {
         try {
           const status = await getSceneEditStatus(template.id, sceneKey, editId);
@@ -626,9 +632,20 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
               `${isOnScreen() ? "The edit" : label} is taking longer than expected. Check back shortly.`,
             );
           }
+          // A tick that got a real answer resets the tolerance below.
+          consecutiveErrors = 0;
         } catch {
-          finish();
-          setError("Lost contact with the server while editing.");
+          // Tolerate a blip. Only give up after several ticks in a row fail,
+          // and even then say the edit may still be running — because it is:
+          // the backend has no idea the browser stopped watching, and the draft
+          // will be waiting the next time the editor opens.
+          consecutiveErrors += 1;
+          if (consecutiveErrors >= MAX_CONSECUTIVE_POLL_ERRORS) {
+            finish();
+            setError(
+              `${isOnScreen() ? "The edit" : label} may still be running — reopen this template shortly to pick it up.`,
+            );
+          }
         }
       }, POLL_MS);
       pollsRef.current.set(sceneKey, { timer, startedAt });
@@ -973,16 +990,43 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
       draftCacheRef.current.delete(sceneKey);
       setSuccess("Scene applied — it's now live in this template.");
     } catch {
-      // ROLL BACK. The screen must never keep claiming a scene is live when the
-      // write failed — a reload would silently undo it.
-      if (optimistic) {
-        onTemplateUpdated(prevTemplate);
-        markDrafted(sceneKey, true);
-        draftCacheRef.current.set(sceneKey, prevDraft);
-        if (selectedRef.current === sceneKey) setDraft(prevDraft);
+      // A REJECTED REQUEST DOES NOT MEAN THE WRITE DID NOT HAPPEN.
+      //
+      // Apply is not idempotent and it is not fast — it snapshots every scene's
+      // code through _save_version before consuming the draft — so a dropped
+      // connection or a client-side timeout can abort the RESPONSE of a call the
+      // server went on to commit. Rolling back on that assumption put the editor
+      // back into a draft state for a draft that no longer existed: the banner
+      // and the Apply/Discard buttons stayed up forever, and Discard then 404'd.
+      //
+      // So confirm before deciding. The draft endpoint is the authority: 404
+      // means it was consumed (the apply DID land) and the optimistic update was
+      // right all along; a draft still there means the write really failed.
+      let draftStillExists = true;
+      try {
+        await getSceneDraft(template.id, sceneKey);
+      } catch (probeErr: any) {
+        if (probeErr?.response?.status === 404) draftStillExists = false;
+        // Any other probe failure (offline, another timeout) leaves it true, so
+        // we roll back — the safe direction, since the user keeps their draft.
       }
-      setError("Couldn't apply the draft — nothing was saved. Your draft is still here; try again.");
-      setErrorSticky(true);
+
+      if (!draftStillExists) {
+        // The apply landed. Keep the optimistic state and reconcile the parts we
+        // could not model locally on the next open.
+        setSuccess("Scene applied — it's now live in this template.");
+      } else {
+        // ROLL BACK. The screen must never keep claiming a scene is live when
+        // the write failed — a reload would silently undo it.
+        if (optimistic) {
+          onTemplateUpdated(prevTemplate);
+          markDrafted(sceneKey, true);
+          draftCacheRef.current.set(sceneKey, prevDraft);
+          if (selectedRef.current === sceneKey) setDraft(prevDraft);
+        }
+        setError("Couldn't apply the draft — nothing was saved. Your draft is still here; try again.");
+        setErrorSticky(true);
+      }
     } finally {
       applyingRef.current = false;
       markRunning(sceneKey, false);
