@@ -22,10 +22,8 @@ up on, its content type is one that layout can actually render.
 """
 from __future__ import annotations
 
-import pytest
 
 from app.services.content_classifier import (
-    _layout_hosts,
     _layout_hosts_kinds,
     match_scenes_to_archetypes,
     reconcile_layouts_and_content,

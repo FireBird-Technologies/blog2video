@@ -14,7 +14,6 @@ message, taking ~200s. Three causes, all pinned here:
 """
 from __future__ import annotations
 
-import re
 
 import pytest
 

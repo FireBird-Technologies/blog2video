@@ -545,7 +545,6 @@ def test_regeneration_failure_clears_is_regenerating() -> None:
 def test_orphan_sweep_also_frees_templates_with_no_run_row() -> None:
     """A run row is not guaranteed — _run_create returns None on a DB blip, and
     templates predating staging never had one. Without this they stay stuck."""
-    import ast
     import inspect
     import textwrap
 
