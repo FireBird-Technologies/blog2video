@@ -180,29 +180,78 @@ def _repo_root() -> str:
 
 def _kit_names() -> list[str]:
     """Read the shared export manifest — the same list the preview compiler and
-    the render wrapper use, so this harness can never drift from either."""
-    manifest = os.path.join(
-        _repo_root(),
-        "frontend", "src", "components", "remotion", "generated", "kit",
-        "exportManifest.generated.ts",
-    )
-    try:
-        with open(manifest, "r", encoding="utf-8") as fh:
-            body = fh.read()
-    except OSError:
-        return []
-    block = re.search(r"KIT_EXPORT_NAMES\s*=\s*\[(.*?)\]", body, re.DOTALL)
-    if not block:
-        return []
-    return re.findall(r'"([A-Za-z_$][\w$]*)"', block.group(1))
+    the render wrapper use, so this harness can never drift from either.
+
+    Probed in BOTH trees. The frontend copy is the one a dev checkout has;
+    remotion-video/ is the canonical source (scripts/sync-generated-kit.mjs
+    copies it outward) and is the only one present in the deployed image, which
+    does not ship frontend/. Reading only the frontend copy meant production
+    injected ZERO kit names, so every scene using FitText — which the prompt
+    REQUIRES — failed the gate for the wrong reason.
+    """
+    for root in (
+        os.path.join(_repo_root(), "frontend", "src", "components", "remotion", "generated"),
+        os.path.join(_repo_root(), "remotion-video", "src", "templates", "generated"),
+    ):
+        manifest = os.path.join(root, "kit", "exportManifest.generated.ts")
+        try:
+            with open(manifest, "r", encoding="utf-8") as fh:
+                body = fh.read()
+        except OSError:
+            continue
+        block = re.search(r"KIT_EXPORT_NAMES\s*=\s*\[(.*?)\]", body, re.DOTALL)
+        if not block:
+            continue
+        names = re.findall(r'"([A-Za-z_$][\w$]*)"', block.group(1))
+        if names:
+            return names
+    return []
 
 
 def _babel_path() -> str | None:
-    p = os.path.join(_repo_root(), "frontend", "node_modules", "@babel", "standalone", "babel.min.js")
-    if os.path.exists(p):
-        return p
-    p2 = os.path.join(_repo_root(), "frontend", "node_modules", "@babel", "standalone", "babel.js")
-    return p2 if os.path.exists(p2) else None
+    """Locate @babel/standalone, which the harness needs to compile the scene.
+
+    Returning None disables Level-2 validation entirely (runtime_check_scene
+    fails open), so a missing copy here is not a degraded check — it is NO
+    check. See _missing_toolchain_reason for why that is now reported.
+    """
+    for base in (
+        os.path.join(_repo_root(), "frontend", "node_modules"),
+        # The deployed image installs it here; it does not ship frontend/.
+        os.path.join(_repo_root(), "node_modules"),
+    ):
+        for fn in ("babel.min.js", "babel.js"):
+            p = os.path.join(base, "@babel", "standalone", fn)
+            if os.path.exists(p):
+                return p
+    return None
+
+
+_GATE_WARNED = False
+
+
+def _warn_gate_disabled(reason: str) -> None:
+    """Announce, once per process, that Level-2 validation is not running."""
+    global _GATE_WARNED
+    if _GATE_WARNED:
+        return
+    _GATE_WARNED = True
+    print(
+        f"[F7-DEBUG] [SCENE-RUNTIME] LEVEL-2 VALIDATION DISABLED ({reason}). "
+        "Generated scenes are NOT being executed before storage, so a scene that "
+        "throws on render (e.g. an undefined identifier) can reach the database. "
+        "Install @babel/standalone where _babel_path() probes to re-enable."
+    )
+
+
+def scene_runtime_gate_available() -> bool:
+    """Whether Level-2 validation can actually run in this environment.
+
+    Exposed so a deployment can assert the gate is live rather than discovering
+    from a broken template that it silently was not.
+    """
+    harness = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scene_runtime_harness.mjs")
+    return bool(_babel_path()) and os.path.exists(harness)
 
 
 def runtime_check_scene(
@@ -241,12 +290,17 @@ def runtime_check_scene(
     if not code or not code.strip():
         return False, "Code is empty"
 
+    # A missing toolchain disables this gate COMPLETELY, and it used to do so in
+    # silence — which is how it went unnoticed in production for every
+    # generation while passing in every dev checkout. Log it loudly (once per
+    # process, so a batch of scenes does not spam the log) so the next outage of
+    # this kind is visible in the logs instead of only in the shipped template.
     babel = _babel_path()
-    if not babel:
-        return True, None
-
     harness = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scene_runtime_harness.mjs")
-    if not os.path.exists(harness):
+    if not babel or not os.path.exists(harness):
+        _warn_gate_disabled(
+            "@babel/standalone not found" if not babel else "harness script missing"
+        )
         return True, None
 
     ratios = (aspect_ratio,) if aspect_ratio else ("landscape", "portrait")

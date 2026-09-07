@@ -70,6 +70,106 @@ def _parse_check(code: str) -> tuple[bool, str | None]:
         return False, f"Syntax error (esbuild): {proc.stderr.strip()[:500]}"
     return True, None
 
+
+# ─── Undefined-identifier gate ───────────────────────────────
+# A scene that READS a name nothing defines. The observed case:
+#
+#     const frame = useCurrentFrame();
+#     const o = interpolate(frame0, [0, 30], [0, 1]);   // frame0 never declared
+#
+# Nothing above catches it. It is valid JavaScript, so _parse_check (esbuild
+# transform) accepts it; esbuild's BUNDLER accepts it too, because an
+# unresolved identifier is assumed to be a runtime global; and no regex
+# contract here is looking for it. At runtime the sandbox binds only an
+# explicit allowlist as function parameters, so `frame0` is a genuine free
+# variable and throws ReferenceError on the first frame — blanking the scene in
+# the preview AND the export, since both evaluate the same stored code.
+#
+# The Level-2 runtime harness does catch this, but it cannot be relied on for
+# it: it runs LAST (only when every static gate has passed) and it fails open
+# when its toolchain is absent — which it was in production. So a scene with
+# this defect PLUS any ordinary contract failure never reached the harness at
+# all. This gate is static, runs early, and needs only the parser.
+_SCOPE_SCRIPT = "scene_scope_check.mjs"
+
+# Names the sandbox does NOT inject but that exist in any JS engine. The
+# harness gets these for free by running in node; a scope analysis has to be
+# told, or every `Math.round` reads as undefined.
+_JS_BUILTINS = frozenset({
+    "Math", "JSON", "Object", "Array", "String", "Number", "Boolean", "Date",
+    "RegExp", "Error", "Promise", "Symbol", "Set", "Map", "WeakMap", "WeakSet",
+    "Intl", "BigInt", "parseInt", "parseFloat", "isNaN", "isFinite",
+    "encodeURIComponent", "decodeURIComponent", "undefined", "NaN", "Infinity",
+    "console", "structuredClone", "queueMicrotask", "Proxy", "Reflect",
+})
+
+# The host components the harness injects by name (see hostNames in
+# scene_runtime_harness.mjs) plus the core Remotion API. Kept here rather than
+# derived, because these are the sandbox's own parameter list.
+_SANDBOX_GLOBALS = frozenset({
+    "React", "useCurrentFrame", "useVideoConfig", "interpolate", "spring",
+    "random", "Easing",
+    "AbsoluteFill", "Sequence", "Img", "Video", "OffthreadVideo", "Audio", "Series",
+})
+
+
+def _undefined_identifiers(code: str) -> list[tuple[str, int | None]]:
+    """Every identifier the scene reads but never binds, as (name, line).
+
+    Fails OPEN (returns []) on any toolchain problem — like every other
+    defence-in-depth gate in this module.
+    """
+    import json
+    import os
+
+    script = os.path.join(os.path.dirname(os.path.abspath(__file__)), _SCOPE_SCRIPT)
+    if not os.path.exists(script):
+        return []
+
+    # Shares @babel/standalone with the Level-2 harness — one artifact, one
+    # install, one place for it to be missing. NOT remotion-video's
+    # @babel/parser + @babel/traverse: those are transitive DEV deps there, and
+    # `npm ci --omit=dev` in the image keeps the parser but drops traverse, so
+    # this gate would fail open in production exactly as the runtime gate did.
+    try:
+        from app.services.scene_runtime_check import _babel_path, _kit_names
+
+        babel = _babel_path()
+        # The kit manifest is the same list the preview compiler and render
+        # wrapper inject, so this can never drift from what resolves at runtime.
+        kit = _kit_names()
+    except Exception:  # noqa: BLE001
+        return []
+    if not babel:
+        return []
+
+    allowed = sorted(set(kit) | _SANDBOX_GLOBALS | _JS_BUILTINS)
+    payload = json.dumps({"code": code, "allowed": allowed, "babelPath": babel})
+    try:
+        proc = subprocess.run(
+            ["node", script],
+            input=payload,
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return []
+    if proc.returncode != 0 or not proc.stdout.strip():
+        return []
+    try:
+        result = json.loads(proc.stdout)
+    except ValueError:
+        return []
+    if result.get("ok", True):
+        return []
+    return [
+        (str(u.get("name")), u.get("line"))
+        for u in (result.get("undefined") or [])
+        if u.get("name")
+    ]
+
+
 # ─── Dangerous APIs that must never appear ───────────────────
 # Only block things that are genuinely dangerous in a sandboxed
 # Remotion component.  Keep this list tight to avoid false positives.
@@ -1173,6 +1273,40 @@ def validate_component_code(
             "The browser discards the whole declaration, so the element silently "
             "loses that property and the layout collapses. Write "
             f"{_bad_css.group(2)}{_bad_css.group(3)[:-1]}{_bad_css.group(2)}."
+        )
+
+    # Undefined identifiers — see the note on _undefined_identifiers.
+    #
+    # A FAIL-FAST gate, deliberately. It reads as a content defect, so the
+    # instinct is to add it to the collect_all list below, but a scene that
+    # throws ReferenceError on its first frame draws NOTHING — every geometry,
+    # palette and contract finding gathered from it would describe a component
+    # that never renders. Reporting the crash alone is the actionable message.
+    #
+    # It also has to run before those gates for the reason this gate exists at
+    # all: the runtime harness that would otherwise catch this runs last, and
+    # only if everything else passed.
+    #
+    # GENERATION PATH ONLY (scene_doc present), matching the Level-2 gate at the
+    # bottom of this function and for the same reason: a stored scene is
+    # re-validated without a doc, and this must never retroactively fail code
+    # that is live in production. It is a gate on what may be WRITTEN, not a
+    # judgement on what already exists.
+    _undef = _undefined_identifiers(code) if scene_doc else []
+    if _undef:
+        _names = ", ".join(
+            f"`{n}`" + (f" (line {ln})" if ln else "") for n, ln in _undef[:5]
+        )
+        return False, (
+            f"Undefined identifier(s): {_names}. The scene reads "
+            f"{'these names' if len(_undef) > 1 else 'this name'} but never "
+            "declares "
+            f"{'them' if len(_undef) > 1 else 'it'}, and only the pre-injected "
+            "globals exist at runtime — so this throws ReferenceError on the "
+            "first frame and the scene renders blank. This is almost always a "
+            "typo for a variable that IS declared (e.g. `frame0` where `frame` "
+            "was defined). Use the declared name, or declare the value before "
+            "reading it. Change nothing else."
         )
 
     # Dangerous API check

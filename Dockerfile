@@ -44,6 +44,25 @@ RUN cd remotion-video && npx remotion browser ensure && \
     echo "WARNING: chrome-headless-shell not found; snapshot worker will fall back to Remotion still"; \
   fi
 
+# ── Scene runtime gate (@babel/standalone) ───────────────────
+# Level-2 validation (services/scene_runtime_check.py) COMPILES AND RUNS each
+# generated scene before it is stored, which is the only gate that catches a
+# scene referencing an undefined identifier — it parses fine, so esbuild and
+# every regex contract pass it, and it then throws ReferenceError in the
+# browser on first render.
+#
+# That gate fails open when @babel/standalone is missing, and this image only
+# ever copied remotion-video/ and backend/ — never frontend/, where the check
+# looks for it. So the gate was silently disabled in production for every
+# generation, while passing locally where frontend/node_modules exists. A
+# template shipped with `frame0 is not defined` because of exactly this.
+#
+# Installed standalone (not by copying frontend/node_modules, which is a
+# multi-hundred-MB dev tree) into the path _babel_path() probes.
+RUN mkdir -p /app/frontend && cd /app/frontend && \
+  npm install --no-save --no-package-lock @babel/standalone@^7.29.1 && \
+  test -f /app/frontend/node_modules/@babel/standalone/babel.min.js
+
 # ── Custom-template snapshot worker (puppeteer-core; reuses the Chrome above) ──
 # Standalone Node worker the backend invokes (CAPTURE_WORKER_CMD) to snapshot a
 # custom template's real preview after create/regenerate. Only needs puppeteer-core.
