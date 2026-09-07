@@ -293,27 +293,27 @@ class GenerateSceneCode(dspy.Signature):
       chartTable? chartType? chartSummary?
       titleFontSize? descriptionFontSize? headingFont? bodyFont?
       layoutProps?     YOUR OWN EDITABLE FIELDS — DECLARE 2-5 ON EVERY SCENE.
-                       Every string this scene invents — a kicker, a panel
-                       label, a caption, a footnote — is read as
+                       Every string this scene invents (kicker, panel label,
+                       caption, footnote) is read as
                          props.layoutProps?.kicker ?? "KEY POINTS"
-                       never inlined as a literal. Those become the only fields
-                       a user can edit; a hardcoded string is frozen forever.
-                       camelCase, naming MEANING not styling. A key you declare
-                       but never read this way is dropped.
+                       never inlined — a literal is frozen forever. camelCase,
+                       naming MEANING not styling. A key you declare but never
+                       read this way is dropped.
       ctaProps?        ENDING SCENE ONLY — see the ending contract in scene_doc
 
     CONTENT ARRAYS: when props.bullets / steps / metrics / timelineItems is
     present, render each item as its OWN row or cell — never one paragraph —
-    staggered by i*12 frames. When absent, fall back to splitting
-    props.displayText into sentences, or render it as one item. NEVER invent
-    example data, and never write `props.bullets || [{...}]`.
+    staggered by i*12 frames. When absent, split props.displayText into
+    sentences, or render it as one item. NEVER invent example data, and
+    never write `props.bullets || [{...}]`.
 
     STOCK FOOTAGE (props.hasVideo): a clip is already painted behind the
     component. Keep the image slot's geometry and its data-content-img="1"
     marker, leave it EMPTY (no <Img>, no backgroundColor, no nested
-    gradient div), and make the root transparent. props.imageUrl is
-    undefined here — never render the hasImage-false full-width branch,
-    which has nowhere for the clip.
+    gradient div), and make the root transparent. props.imageUrl is absent
+    here and in every template preview: never render the hasImage-false
+    full-width branch, which has nowhere for the clip, and never read
+    THROUGH it (.split/.endsWith/new URL) unguarded — that crashes it.
 
     AVAILABLE GLOBALS (do NOT import, do NOT redeclare):
       React · useCurrentFrame() · useVideoConfig() -> {fps, width, height,

@@ -2746,6 +2746,29 @@ def _draft_payload(draft) -> dict:
     }
 
 
+def _forget_finished_scene_edits(template_id: int, scene_key: str) -> None:
+    """Drop settled progress entries for a scene once its draft is resolved.
+
+    The draft lives in the DB but the job that produced it lives in
+    `_scene_edit_progress`, and applying or discarding used to clear only the
+    former. The stale entry still reported `status: "complete"` with a
+    `draft_version_id`, so `get_scene_edit_status` kept answering "a draft is
+    ready" for a row that no longer existed — the editor showed the banner and
+    the Apply/Discard buttons forever, while every `/draft` fetch behind them
+    404'd. Discarding again could not help: discard 404s too once the row is
+    gone, so the UI could never clear itself.
+
+    RUNNING jobs are deliberately left alone. A live entry is what the 409
+    concurrency guard scans for, and the thread still owns the refund
+    bookkeeping on it; deleting it would let a second edit start alongside the
+    first and could pay out twice.
+    """
+    prefix = f"{template_id}:{scene_key}:"
+    for eid, prog in list(_scene_edit_progress.items()):
+        if eid.startswith(prefix) and not prog.get("running"):
+            _scene_edit_progress.pop(eid, None)
+
+
 def _get_draft_or_404(db: Session, template_id: int, scene_key: str):
     from app.models.template_version import TemplateVersion
 
@@ -2904,6 +2927,10 @@ def apply_scene_draft(
     draft.label = f"AI edit: {scene_key}"
     db.commit()
     db.refresh(tpl)
+
+    # Published now, so the job that produced it must stop reporting a pending
+    # draft — otherwise the banner outlives the apply exactly as it did discard.
+    _forget_finished_scene_edits(template_id, scene_key)
 
     # The gallery thumbnail is a screenshot of the template's FIRST scene, so
     # only an intro edit can change it. This used to re-capture after EVERY
@@ -3094,4 +3121,5 @@ def discard_scene_draft(
     draft = _get_draft_or_404(db, template_id, scene_key)
     db.delete(draft)
     db.commit()
+    _forget_finished_scene_edits(template_id, scene_key)
     return {"detail": "Draft discarded"}
