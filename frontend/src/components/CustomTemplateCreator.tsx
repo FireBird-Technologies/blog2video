@@ -1,5 +1,13 @@
 import { useState, useRef, useEffect } from "react";
 import ReactDOM from "react-dom";
+import TemplateGenerationProgress, { useGenerationStatus } from "./TemplateGenerationProgress";
+import ErrorModal from "./ErrorModal";
+import {
+  FONT_OPTIONS,
+  fontIdFromName,
+  FONT_REGISTRY,
+  type FontId,
+} from "../fonts/registry";
 import {
   extractTheme,
   extractThemeFromPrompt,
@@ -7,6 +15,7 @@ import {
   createCustomTemplate,
   generateTemplateCode,
   getCodeGenerationStatus,
+  type CodeGenStatus,
   getCustomTemplate,
   type CustomTemplateTheme,
   type CustomTemplateItem,
@@ -16,6 +25,17 @@ import {
 type CreateMode = "url" | "prompt" | "doc";
 
 const ACCEPTED_DOC_EXTENSIONS = [".pdf", ".docx", ".md", ".txt"];
+
+/** Shown for ANY generation failure except hitting the plan limit.
+ *
+ * Deliberately generic: the backend's own error strings are pipeline internals
+ * ("dspy.Refine exhausted", a validator trace) that tell a user nothing they can
+ * act on, and the only useful action is the same in every case — try again, then
+ * contact support. The limit case is excluded because it HAS a specific action:
+ * the upgrade modal. */
+const GENERATION_ERROR_MESSAGE =
+  "We're sorry for the inconvenience caused. There is some issue with the generation. " +
+  "Please try again, or contact support if the issue persists.";
 const MIN_PROMPT_CHARS = 15;
 const MAX_PROMPT_CHARS = 5000;
 
@@ -34,7 +54,18 @@ export interface CustomTemplateCreatorDemoMode {
 
 interface Props {
   onCreated: (template: CustomTemplateItem) => void;
-  onCancel: () => void;
+  /**
+   * Closed without finishing. Carries the in-flight template when generation is
+   * still RUNNING, so the parent can put a live progress card on the page and
+   * keep polling.
+   *
+   * Without this the run was orphaned: `onCreated` fires only on a terminal
+   * state, so closing mid-generation left the template out of the parent's list
+   * entirely — no card, no page poller, and this component's own pollers gone
+   * with the unmount. The modal's copy promises the run continues in the
+   * background, and this is what makes that true.
+   */
+  onCancel: (inFlight?: CustomTemplateItem) => void;
   /** Called when create is blocked by the plan quota (403) — parent shows the upgrade modal. */
   onLimitReached?: () => void;
   /** When set, the modal renders read-only inside a help video (no API calls, inline render). */
@@ -42,7 +73,7 @@ interface Props {
 }
 
 const DEFAULT_THEME: CustomTemplateTheme = {
-  colors: { accent: "#7C3AED", bg: "#FFFFFF", text: "#1A1A2E", surface: "#F5F5F5", muted: "#9CA3AF" },
+  colors: { accent: "#7C3AED", bg: "#FFFFFF", text: "#1A1A2E" },
   fonts: { heading: "Inter", body: "Inter", mono: "JetBrains Mono" },
   borderRadius: 12,
   style: "minimal",
@@ -64,8 +95,6 @@ export function CustomTemplateCreatorDemoModal({ step = 1 }: { step?: 1 | 2 }) {
       accent: "#7C3AED",
       bg: "#FFFFFF",
       text: "#111827",
-      surface: "#F5F3FF",
-      muted: "#9CA3AF",
     },
     fonts: { heading: "Inter", body: "Inter", mono: "JetBrains Mono" },
   };
@@ -143,7 +172,7 @@ export function CustomTemplateCreatorDemoModal({ step = 1 }: { step?: 1 | 2 }) {
               }}
             >
               <div style={{ display: "flex", gap: 8 }}>
-                {(["accent", "bg", "text", "surface", "muted"] as const).map((key) => (
+                {(["accent", "bg", "text"] as const).map((key) => (
                   <div
                     key={key}
                     style={{
@@ -185,7 +214,7 @@ export function CustomTemplateCreatorDemoModal({ step = 1 }: { step?: 1 | 2 }) {
                   </label>
                   <span className="text-[10px] text-purple-500 font-medium">accent</span>
                 </div>
-                {(["bg", "text", "surface", "muted"] as const).map((key) => (
+                {(["bg", "text"] as const).map((key) => (
                   <div key={key} className="flex flex-col items-center gap-1.5">
                     <div className="w-8 h-8 rounded-full border-2 border-gray-200 shadow-sm" style={{ backgroundColor: theme.colors[key] }} />
                     <span className="text-[10px] text-gray-400 capitalize">{key}</span>
@@ -194,17 +223,39 @@ export function CustomTemplateCreatorDemoModal({ step = 1 }: { step?: 1 | 2 }) {
               </div>
             </div>
 
-            <div className="space-y-3">
-              <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Brand Identity</span>
-              <div className="flex flex-wrap gap-2">
-                <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-600">{theme.fonts.heading}</span>
-                <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-600 capitalize">Solid</span>
+            {/* Mirrors the real confirm step's two editable fields. Static here —
+                this is the marketing/demo preview, which takes no input. */}
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-400 mb-2 uppercase tracking-wider">
+                  Heading Font
+                </label>
+                <div className="w-full px-3 py-2.5 bg-white/80 border border-gray-200/60 rounded-xl text-sm text-gray-900 flex items-center justify-between">
+                  <span style={{ fontFamily: FONT_REGISTRY.playfair_display.cssFamily, fontSize: 15 }}>
+                    Playfair Display
+                  </span>
+                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
               </div>
-              <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block">Visual Patterns</span>
-              <div className="flex flex-wrap gap-2">
-                {["rounded cards", "balanced spacing", "rounded images", "centered"].map((tag) => (
-                  <span key={tag} className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-600 capitalize">{tag}</span>
-                ))}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                    Design Brief
+                  </label>
+                  <span className="flex items-center gap-1 text-[11px] font-medium text-purple-600">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Edit
+                  </span>
+                </div>
+                <p className="text-xs text-gray-600 leading-relaxed bg-gray-50/80 rounded-xl px-3 py-2.5">
+                  A composed editorial register — high-contrast display serif over
+                  generous white space, hairline rules, and motion that settles
+                  rather than bounces.
+                </p>
               </div>
             </div>
 
@@ -238,6 +289,27 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
   const [accentColor, setAccentColor] = useState(
     demoMode?.accentColor ?? demoMode?.themeOverride?.colors.accent ?? DEFAULT_THEME.colors.accent
   );
+  // Background and text, held as pending edits for the same reason as accent: a
+  // re-extract replaces `theme` wholesale, so editing it directly would lose
+  // them. `null` means "whatever the extractor found" — kept distinct from a
+  // chosen value so a re-extract's new background is adopted rather than being
+  // overwritten by a stale default the user never picked.
+  const [bgColorEdit, setBgColorEdit] = useState<string | null>(
+    demoMode?.themeOverride?.colors.bg ?? null,
+  );
+  const [textColorEdit, setTextColorEdit] = useState<string | null>(
+    demoMode?.themeOverride?.colors.text ?? null,
+  );
+  const bgColor = bgColorEdit ?? theme.colors.bg;
+  const textColor = textColorEdit ?? theme.colors.text;
+  // Heading font + design brief are edited on the confirm step, so they live
+  // beside accentColor as pending edits rather than mutating `theme` directly —
+  // a re-extract replaces `theme` wholesale and would otherwise silently discard
+  // them. Both are folded back in at save (see handleSave).
+  const [headingFontId, setHeadingFontId] = useState<FontId | null>(null);
+  const [brandDescription, setBrandDescription] = useState("");
+  const [descModalOpen, setDescModalOpen] = useState(false);
+  const [descDraft, setDescDraft] = useState("");
   const [templateName, setTemplateName] = useState(demoMode?.templateName ?? "");
   const [sourceUrl, setSourceUrl] = useState(demoMode?.sourceUrl ?? "");
   const [saving, setSaving] = useState(false);
@@ -250,7 +322,13 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
   const [extractedReason, setExtractedReason] = useState("");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [genStep, setGenStep] = useState<string>("");
+  const [genStatus, setGenStatus] = useState<CodeGenStatus | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Latches once the run reaches a terminal state, so the two independent
+  // observers of that state (handleGenerateCode's interval and the rail
+  // poller's effect below) cannot both fire the transition. Declared here,
+  // beside pollingRef, because handleGenerateCode reads it.
+  const finishedRef = useRef(false);
 
   // Elapsed timer for code generation
   useEffect(() => {
@@ -268,6 +346,12 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
     if (!data.theme) return;
     setTheme(data.theme);
     setAccentColor(data.theme.colors.accent);
+    // The extractor writes a font NAME ("Playfair Display"); the picker needs a
+    // registry id. An unmatched name means the face is not bundled and would
+    // render as the system sans — left null so the picker says so explicitly
+    // rather than showing a font the video will not use.
+    setHeadingFontId(fontIdFromName(data.theme.fonts?.heading));
+    setBrandDescription(data.theme.brand_description || "");
     setTemplateName(data.template_name || "");
     setSourceUrl(src);
     setScrapedLogoUrls(data.logo_urls || []);
@@ -341,7 +425,20 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
     setSaving(true);
     setError(null);
     try {
-      const updatedTheme = { ...theme, colors: { ...theme.colors, accent: accentColor } };
+      const updatedTheme: CustomTemplateTheme = {
+        ...theme,
+        colors: { ...theme.colors, accent: accentColor, bg: bgColor, text: textColor },
+        // A chosen heading font is stored as its REGISTRY ID, not its label:
+        // only ids resolve at render, and a label ("DM Sans") falls through to
+        // the system sans. Body follows heading unless the extractor picked a
+        // bundled body face of its own.
+        fonts: headingFontId
+          ? { ...theme.fonts, heading: headingFontId }
+          : theme.fonts,
+        ...(brandDescription.trim()
+          ? { brand_description: brandDescription.trim() }
+          : {}),
+      };
       const res = await createCustomTemplate({
         name: templateName.trim(),
         source_url: sourceUrl || undefined,
@@ -362,9 +459,10 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
         onLimitReached?.();
         return;
       }
-      setError(
-        typeof detail === "string" ? detail : "Failed to save template."
-      );
+      // Any other save failure is, from the user's side, the generation failing
+      // — the save is what kicks generation off — so it gets the same "Oops"
+      // modal rather than an inline banner with a backend string in it.
+      setCodeGenError(GENERATION_ERROR_MESSAGE);
       setSaving(false);
     }
   };
@@ -373,12 +471,18 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
     setGeneratingCode(true);
     setCodeGenError(null);
     setGenStep("Starting generation...");
+    // A retry is a fresh run — re-arm the terminal-transition latch, or the
+    // second attempt could never finish.
+    finishedRef.current = false;
     try {
       await generateTemplateCode(template.id);
       pollingRef.current = setInterval(async () => {
         try {
           const statusRes = await getCodeGenerationStatus(template.id);
           const s = statusRes.data;
+          // Keep the whole payload: the step list below reads the durable
+          // stage and the scene counter, not just this one label.
+          setGenStatus(s);
           if (s.step === "design_system") setGenStep("Generating design system...");
           else if (s.step === "generating_scenes") setGenStep("Generating scenes...");
           else if (s.step === "saving") setGenStep("Saving results...");
@@ -386,15 +490,29 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
           if (s.status === "complete") {
             if (pollingRef.current) clearInterval(pollingRef.current);
             pollingRef.current = null;
+            // Both this interval and the rail poller's effect can observe the
+            // terminal state; whichever gets there first owns the transition.
+            if (finishedRef.current) return;
+            finishedRef.current = true;
             const updated = await getCustomTemplate(template.id);
             setCreatedTemplate(updated.data);
             setGeneratingCode(false);
             setSaving(false);
             setGenStep("");
+            // Hand the finished template to the parent and close.
+            //
+            // The modal used to sit on an all-green rail waiting for a click on
+            // "Done" — but there is nothing left to review here, the finished
+            // template is already rendered on its card behind this dialog, and
+            // a user who walked away during the 5-10 minute run came back to a
+            // dialog whose only purpose was to be dismissed.
+            onCreated(updated.data);
           } else if (s.status === "error") {
             if (pollingRef.current) clearInterval(pollingRef.current);
             pollingRef.current = null;
-            setCodeGenError(s.error || "Code generation failed. You can retry or skip.");
+            if (finishedRef.current) return;
+            finishedRef.current = true;
+            setCodeGenError(GENERATION_ERROR_MESSAGE);
             setGeneratingCode(false);
             setSaving(false);
             setGenStep("");
@@ -402,25 +520,107 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
         } catch { /* ignore polling errors */ }
       }, 2000);
     } catch (err: any) {
-      setCodeGenError(err?.response?.data?.detail || "Code generation failed. You can retry or skip.");
       setGeneratingCode(false);
       setSaving(false);
+      // The plan limit keeps its own path — it is the one failure with a
+      // specific action (upgrade), so it must not collapse into the generic
+      // "try again" message. Reachable here as well as from handleSave, since
+      // the retry button re-enters this function.
+      const detail = err?.response?.data?.detail;
+      if (err?.response?.status === 403 && detail?.code === "custom_template_limit") {
+        onLimitReached?.();
+        return;
+      }
+      setCodeGenError(GENERATION_ERROR_MESSAGE);
     }
   };
 
   const isGenerating = saving || generatingCode;
   const isDone = !isGenerating && !codeGenError && createdTemplate?.intro_code;
 
+  /* Hand the in-flight template up so the run survives this modal closing.
+   *
+   * Bound as `() => handleClose()` at every call site, never passed directly to
+   * onClick: React would hand the MouseEvent through as `inFlight`.
+   *
+   * Only while GENERATING — a template that already finished reaches the parent
+   * through onCreated, and one that never started has nothing to poll. */
+  const handleClose = () => {
+    onCancel(isGenerating && createdTemplate ? createdTemplate : undefined);
+  };
+
+  // Second, independent poller for the step rail.
+  //
+  // handleGenerateCode's own interval drives the terminal transitions (complete
+  // / error), but it is created only on the save that starts the run — so a
+  // modal that is open across a re-render, or reopened on an in-flight
+  // template, had nothing refreshing the rail and it sat frozen on step 1.
+  // This hook keys off the template id, so it polls whenever there is a
+  // generating template to poll, regardless of how the modal got there.
+  const liveStatus = useGenerationStatus(createdTemplate?.id ?? 0, !!createdTemplate && isGenerating);
+  const railStatus = liveStatus ?? genStatus;
+
+  // Backstop for the terminal transition.
+  //
+  // handleGenerateCode's own interval is the primary path, but it is a single
+  // interval owned by one call — if it is cleared, never created (the modal was
+  // reopened on an in-flight template), or its poll happens to miss, the modal
+  // sits on an all-green rail forever with the elapsed timer still ticking.
+  // That is exactly what happened, so completion no longer depends on one
+  // specific poller: whichever observer sees the terminal state finishes the run.
+  useEffect(() => {
+    if (!createdTemplate || !isGenerating || !liveStatus) return;
+    if (finishedRef.current) return;
+
+    if (liveStatus.status === "complete") {
+      finishedRef.current = true;
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+      setGeneratingCode(false);
+      setSaving(false);
+      setGenStep("");
+      // Re-fetch so the parent receives the template WITH its generated code
+      // rather than the pre-generation row we created it from.
+      getCustomTemplate(createdTemplate.id)
+        .then((r) => onCreated(r.data))
+        .catch(() => onCreated(createdTemplate));
+    } else if (liveStatus.status === "error") {
+      finishedRef.current = true;
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+      setGeneratingCode(false);
+      setSaving(false);
+      setGenStep("");
+      setCodeGenError(GENERATION_ERROR_MESSAGE);
+    }
+    // onCreated is a parent callback and is not stable across renders; including
+    // it would re-run this effect on every parent render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveStatus?.status, createdTemplate?.id, isGenerating]);
+
   const modal = (
-    <div className={isDemo ? "absolute inset-0 z-10 flex items-center justify-center p-4" : "fixed inset-0 z-[60] flex items-center justify-center p-4"}>
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCancel} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+    <div className={isDemo ? "absolute inset-0 z-10 flex items-center justify-center p-4" : "fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-4"}>
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => handleClose()} />
+      {/* Wider on the REVIEW step only.
+          That step has two independent groups — the identity fields and the
+          design brief — and at max-w-lg they stacked into a tall scroll where
+          the brief (the field that most rewards reading) sat below the fold.
+          Every other step is a single narrow column and stays that way. */}
+      <div
+        className={`relative bg-white rounded-2xl shadow-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto ${
+          step === 2 && !createdTemplate ? "max-w-lg lg:max-w-3xl" : "max-w-lg"
+        }`}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="text-lg font-semibold text-gray-900">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900">
             {step === 1 ? "Extract Theme" : "Review & Save"}
           </h2>
-          <button onClick={onCancel} className="text-gray-400 hover:text-gray-600 transition-colors">
+          <button onClick={() => handleClose()} className="text-gray-400 hover:text-gray-600 transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -447,7 +647,7 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
           </div>
         </div>
 
-        <div className="px-6 py-5 space-y-5">
+        <div className="px-4 sm:px-6 py-4 sm:py-5 space-y-4 sm:space-y-5">
           {error && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">{error}</div>
           )}
@@ -596,16 +796,73 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
           {/* Step 2: Review form (pre-save) */}
           {step === 2 && !createdTemplate && (
             <div className="space-y-5">
-              {/* Brand color palette preview */}
-              <div className="rounded-xl overflow-hidden border border-gray-200 shadow-sm" style={{ background: theme.colors.bg, aspectRatio: "16/9", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 10 }}>
-                <div style={{ display: "flex", gap: 8 }}>
-                  {(["accent", "bg", "text", "surface", "muted"] as const).map((key) => (
-                    <div key={key} style={{ width: 24, height: 24, borderRadius: 6, backgroundColor: key === "accent" ? accentColor : theme.colors[key], border: `1.5px solid ${theme.colors.text}15` }} />
+              {/* Two columns from `lg` up: identity on the left at 35%, the
+                  design brief on the right at 65%. Below that breakpoint this
+                  collapses to a single stack, so the phone layout is unchanged.
+                  `items-start` keeps each column its own height rather than
+                  stretching the shorter one.
+
+                  fr units, not percentages: the gap is subtracted first and the
+                  remainder split 35/65, so the two columns actually land on
+                  those proportions. `35%_65%` would total 100% BEFORE the gap
+                  and overflow the row by exactly the gap width.
+
+                  There was a 16:9 palette preview above this. It restated the
+                  three swatches and the name that are already right here, in a
+                  frame big enough to push the brief below the fold — the field
+                  that most rewards reading. The swatches ARE the preview. */}
+              <div className="grid grid-cols-1 lg:grid-cols-[35fr_65fr] gap-5 lg:gap-6 items-start">
+                {/* Left column — colours, name, font, in that order: the palette
+                    is what identifies the template at a glance, so it leads. */}
+                <div className="space-y-5 min-w-0">
+              {/* Extracted colors — all three editable.
+                  These are exactly the three the renderer reads (colorsFromBrand
+                  takes accent/bg/text); panel, muted and border are derived from
+                  them, so there is nothing else here worth exposing. */}
+              <div>
+                <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+                  Extracted Colors
+                </label>
+                {/* Centred while the layout is a single stack, left-aligned once
+                    it splits into two columns at `lg`.
+
+                    Stacked, this column is the full width of the modal, so three
+                    32px circles left-aligned under a left-aligned label leave a
+                    wide empty gutter and read as unfinished. In the two-column
+                    layout the column is 35% and the row nearly fills it, where
+                    centring would instead break the left edge the name and font
+                    fields below it share. */}
+                <div className="flex items-center gap-3 flex-wrap justify-center lg:justify-start">
+                  {([
+                    ["accent", accentColor, setAccentColor],
+                    ["bg", bgColor, setBgColorEdit],
+                    ["text", textColor, setTextColorEdit],
+                  ] as const).map(([key, value, set]) => (
+                    <div key={key} className="flex flex-col items-center gap-1.5">
+                      {/* All three carry the same purple affordance — they are
+                          equally editable, and singling out the accent implied
+                          the other two were read-only, which is what they used
+                          to be. */}
+                      <label className="relative cursor-pointer">
+                        <div
+                          className="w-8 h-8 rounded-full border-2 border-purple-400 shadow-sm ring-2 ring-purple-200"
+                          style={{ backgroundColor: value }}
+                        />
+                        <input
+                          type="color"
+                          value={value}
+                          onChange={(e) => set(e.target.value)}
+                          className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                          aria-label={`${key} colour`}
+                        />
+                      </label>
+                      <span className="text-[10px] capitalize text-purple-500 font-medium">
+                        {key} ✎
+                      </span>
+                    </div>
                   ))}
                 </div>
-                <p style={{ fontFamily: `${theme.fonts.heading}, sans-serif`, fontSize: 14, fontWeight: 700, color: theme.colors.text, margin: 0 }}>
-                  {templateName || "Your Template"}
-                </p>
+                <p className="text-[10px] text-gray-400 mt-2 text-center lg:text-left">Click any swatch to change that colour</p>
               </div>
 
               {/* Template name */}
@@ -623,95 +880,115 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
                 />
               </div>
 
-              {/* Extracted colors — accent editable */}
-              <div>
-                <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
-                  Extracted Colors
-                </label>
-                <div className="flex items-center gap-3 flex-wrap">
-                  <div className="flex flex-col items-center gap-1.5">
-                    <label className="relative cursor-pointer">
-                      <div
-                        className="w-8 h-8 rounded-full border-2 border-purple-400 shadow-sm ring-2 ring-purple-200"
-                        style={{ backgroundColor: accentColor }}
-                      />
-                      <input
-                        type="color"
-                        value={accentColor}
-                        onChange={(e) => setAccentColor(e.target.value)}
-                        className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
-                      />
-                    </label>
-                    <span className="text-[10px] text-purple-500 font-medium">accent ✎</span>
+              {/* Heading font.
+
+                  This column replaced a row of read-only pills (motion energy,
+                  decor system, chart style, a four-way "scene mix"). Those were
+                  derived by keyword matching, were not editable, and after the
+                  design-doc refactor several no longer described what the
+                  template would contain — the scene mix in particular advertised
+                  a decision the design stage now makes for itself. */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-400 mb-2 uppercase tracking-wider">
+                    Heading Font
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={headingFontId ?? ""}
+                      onChange={(e) =>
+                        setHeadingFontId((e.target.value || null) as FontId | null)
+                      }
+                      className="w-full appearance-none pl-3 pr-9 py-2.5 bg-white/80 border border-gray-200/60 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all cursor-pointer"
+                      style={{
+                        fontFamily: headingFontId
+                          ? FONT_REGISTRY[headingFontId].cssFamily
+                          : undefined,
+                      }}
+                    >
+                      {/* Only shown while the extractor's pick is unbundled — see
+                          fontIdFromName. Selecting a real font clears it. */}
+                      {!headingFontId && (
+                        <option value="">
+                          {theme.fonts?.heading
+                            ? `${theme.fonts.heading} — not available, pick one`
+                            : "Choose a font"}
+                        </option>
+                      )}
+                      {FONT_OPTIONS.map((f) => (
+                        // Each option is rendered IN its own face, so the list is
+                        // browsable by eye rather than by name. Native <option>
+                        // styling is honoured on macOS/Windows; where a platform
+                        // ignores it the preview below still shows the real face.
+                        <option
+                          key={f.id}
+                          value={f.id}
+                          style={{ fontFamily: f.cssFamily, fontSize: 15 }}
+                        >
+                          {f.label}
+                        </option>
+                      ))}
+                    </select>
+                    <svg
+                      className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+                      fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
                   </div>
-                  {(["bg", "text", "surface", "muted"] as const).map((key) => (
-                    <div key={key} className="flex flex-col items-center gap-1.5">
-                      <div className="w-8 h-8 rounded-full border-2 border-gray-200 shadow-sm" style={{ backgroundColor: theme.colors[key] }} />
-                      <span className="text-[10px] text-gray-400 capitalize">{key}</span>
-                    </div>
-                  ))}
                 </div>
-                <p className="text-[10px] text-gray-400 mt-2">Click the accent swatch to change the brand color</p>
+
+
+                </div>
+                {/* Right column — the design brief, given room to breathe. It is
+                    the field that most rewards reading and editing, and it used
+                    to sit at the bottom of a tall scroll. 65% of the row: it is
+                    prose, and prose is what needs the measure. */}
+                <div className="min-w-0">
+                {/* Design brief */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                      Design Brief
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDescDraft(brandDescription);
+                        setDescModalOpen(true);
+                      }}
+                      className="flex items-center gap-1 text-[11px] font-medium text-purple-600 hover:text-purple-700 transition-colors"
+                      aria-label="Edit design brief"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                      Edit
+                    </button>
+                  </div>
+                  {/* min-h so an empty brief still reads as a sizeable field worth
+                      filling; max-h so a long one scrolls rather than pushing
+                      Save Template below the fold. */}
+                  <p
+                    className="text-xs text-gray-600 leading-relaxed bg-gray-50/80 rounded-xl px-3 py-2.5 min-h-[13rem] max-h-80 overflow-y-auto whitespace-pre-wrap cursor-pointer hover:bg-gray-100/80 transition-colors"
+                    onClick={() => {
+                      setDescDraft(brandDescription);
+                      setDescModalOpen(true);
+                    }}
+                  >
+                    {brandDescription.trim() || (
+                      <span className="text-gray-400 italic">
+                        No design brief — click to describe how this template should look.
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-[10px] text-gray-400 mt-1.5">
+                    This drives every scene’s layout. The more specific, the more
+                    distinctive the template.
+                  </p>
+                </div>
+                </div>
               </div>
 
-              {/* Brand info */}
-              <div className="space-y-3">
-                <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Brand Identity</span>
-                <div className="flex flex-wrap gap-2">
-                  <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-600">{theme.fonts.heading}</span>
-                  <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-600 capitalize">
-                    {theme.colors.bg2 ? "Gradient" : "Solid"}
-                  </span>
-                  {/* style + animationPreset — internal AI signals, not user-facing */}
-                  {/* <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-600">{theme.style}</span> */}
-                  {/* <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-600">{theme.animationPreset}</span> */}
-                </div>
-                {/* Visual Patterns — hidden: the corner/spacing/image/alignment chips
-                    were confusing to users without changing what they could act on. */}
-                {/* {theme.patterns && (
-                  <>
-                    <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block">Visual Patterns</span>
-                    <div className="flex flex-wrap gap-2">
-                      {[
-                        `${theme.patterns.cards?.corners || "rounded"} cards`,
-                        `${theme.patterns.spacing?.density || "balanced"} spacing`,
-                        `${theme.patterns.images?.treatment || "rounded"} images`,
-                        theme.patterns.layout?.direction || "centered",
-                      ].map((tag) => (
-                        <span key={tag} className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-600 capitalize">{tag}</span>
-                      ))}
-                    </div>
-                  </>
-                )} */}
-
-                {/* Motion / decor / charts — first-class craft signals derived from the brand */}
-                {(theme.motion?.energy || theme.decor?.system || theme.charts?.style) && (
-                  <>
-                    <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block">Motion &amp; Style</span>
-                    <div className="flex flex-wrap gap-2">
-                      {[
-                        theme.motion?.energy ? `${theme.motion.energy} motion` : null,
-                        theme.decor?.system && theme.decor.system !== "none" ? `${theme.decor.system} decor` : null,
-                        theme.charts?.style ? `${theme.charts.style} charts` : null,
-                      ].filter(Boolean).map((tag) => (
-                        <span key={tag as string} className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-indigo-50 text-indigo-600 capitalize">{tag}</span>
-                      ))}
-                    </div>
-                  </>
-                )}
-
-                {/* Scene mix — preferred content archetypes for this brand */}
-                {theme.sceneBias && theme.sceneBias.length > 0 && (
-                  <>
-                    <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block">Scene Mix</span>
-                    <div className="flex flex-wrap gap-2">
-                      {theme.sceneBias.map((s) => (
-                        <span key={s} className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-emerald-50 text-emerald-700 capitalize">{s}</span>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
 
               {/* Actions */}
               <div className="flex gap-3">
@@ -741,26 +1018,51 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
           {step === 2 && createdTemplate && (
             <div className="space-y-6">
               {/* Large generation preview */}
-              <div className="rounded-xl overflow-hidden border border-gray-200 shadow-sm" style={{ background: theme.colors.bg, aspectRatio: "16/9", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12 }}>
+              {/* While generating, this panel is WHITE with black text rather
+                  than the brand palette — the theme is the one thing not yet
+                  proven at this point, and a dark brand background made the
+                  status text unreadable. */}
+              <div
+                className="rounded-xl overflow-hidden border border-gray-200 shadow-sm"
+                style={{
+                  background: isGenerating ? "#FFFFFF" : theme.colors.bg,
+                  // 16/9 is the right shape for the finished preview — it stands
+                  // in for the video. While GENERATING there is no video yet,
+                  // and forcing that ratio on a narrow phone made a short, wide
+                  // box the step rail could not fit into. Size to content there
+                  // and keep a minimum so it doesn't look collapsed.
+                  ...(isGenerating
+                    ? { minHeight: 190, paddingTop: 20, paddingBottom: 4 }
+                    : { aspectRatio: "16/9" }),
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexDirection: "column",
+                  gap: 12,
+                }}
+              >
                 {isGenerating ? (
                   <>
-                    <div className="w-10 h-10 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: `${accentColor}40`, borderTopColor: accentColor }} />
-                    <p className="text-sm font-medium" style={{ color: theme.colors.text }}>
-                      {genStep || "Generating template..."}
+                    <TemplateGenerationProgress status={railStatus} variant="modal" />
+                    <p
+                      className="text-[11px] sm:text-xs px-4 sm:px-6 mb-3 sm:mb-4 text-center"
+                      style={{ color: "#9CA3AF" }}
+                    >
+                      {elapsedSeconds}s elapsed · you can close this and let it finish in the background.
                     </p>
-                    <p className="text-xs px-6 text-center" style={{ color: theme.colors.muted }}>
-                      This usually takes 5–10 minutes — please be patient. You can close this and let it finish in the background.
-                    </p>
-                    <p className="text-xs" style={{ color: theme.colors.muted }}>{elapsedSeconds}s elapsed</p>
                   </>
                 ) : codeGenError ? (
+                  // The failure itself is reported by the "Oops" ErrorModal
+                  // below, which is the app's standard failure surface. This
+                  // panel only offers the retry, so the message is not stated
+                  // twice in two different styles.
                   <div className="flex flex-col items-center gap-3 px-6 text-center">
-                    <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-8 h-8 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                     </svg>
-                    <p className="text-sm text-red-500">{codeGenError}</p>
-                    <button onClick={() => handleGenerateCode(createdTemplate)} className="px-4 py-2 text-xs font-medium bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors">
-                      Retry
+                    <p className="text-sm text-gray-500">Generation didn't finish.</p>
+                    <button onClick={() => handleGenerateCode(createdTemplate)} className="px-4 py-2 text-xs font-medium bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg transition-colors">
+                      Try again
                     </button>
                   </div>
                 ) : (
@@ -776,23 +1078,99 @@ export default function CustomTemplateCreator({ onCreated, onCancel, onLimitReac
               {/* Template summary */}
               <div className="flex items-center gap-3 px-1">
                 <div className="w-8 h-8 rounded-full shrink-0" style={{ backgroundColor: accentColor }} />
-                <div>
-                  <p className="text-sm font-semibold text-gray-900">{createdTemplate.name}</p>
-                  <p className="text-xs text-gray-400">{theme.fonts.heading}</p>
+                {/* min-w-0 + truncate so a long brand name cannot widen the row
+                    past the dialog on a narrow screen. */}
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 truncate">{createdTemplate.name}</p>
+                  <p className="text-xs text-gray-400 truncate">{theme.fonts.heading}</p>
                 </div>
               </div>
 
               {/* Action */}
               <button
                 onClick={() => onCreated(createdTemplate)}
-                className="w-full px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-xl transition-colors"
+                className="w-full px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-[13px] sm:text-sm font-medium rounded-xl transition-colors"
               >
-                {isGenerating ? "Close & Generate in Background" : "Done"}
+                {/* Shorter label on phones — "Close & Generate in Background" is
+                    the widest element in the dialog and wrapped to two lines. */}
+                {isGenerating ? (
+                  <>
+                    <span className="sm:hidden">Close &amp; run in background</span>
+                    <span className="hidden sm:inline">Close &amp; Generate in Background</span>
+                  </>
+                ) : (
+                  "Done"
+                )}
               </button>
             </div>
           )}
         </div>
       </div>
+
+      {/* Design-brief editor. Rendered inside the same portal as the creator so
+          it stacks above it, and above the creator's own backdrop. */}
+      {descModalOpen && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+          onClick={() => setDescModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-lg bg-white rounded-2xl shadow-xl p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-base font-semibold text-gray-900">Design Brief</h3>
+            <p className="text-xs text-gray-500 mt-1 mb-3 leading-relaxed">
+              Describe how this template should look and feel — its design
+              register, mood, typography and motion. Every scene’s layout is
+              designed from this, so specifics beat adjectives.
+            </p>
+            <textarea
+              value={descDraft}
+              onChange={(e) => setDescDraft(e.target.value)}
+              rows={13}
+              maxLength={4000}
+              autoFocus
+              placeholder="e.g. A hand-drawn animatic zine: photocopy grain, wobbly marker borders, warm toner-on-kraft palette. Type is handwritten and informal. Motion is loose and slightly off-beat. Never slick or corporate."
+              className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-300 leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
+            />
+            <div className="flex items-center justify-between mt-3">
+              <span className="text-[10px] text-gray-400">
+                {descDraft.trim().length}/4000
+              </span>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDescModalOpen(false)}
+                  className="px-4 py-2 border border-gray-200 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBrandDescription(descDraft);
+                    setDescModalOpen(false);
+                  }}
+                  className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-xl hover:bg-purple-700 transition-colors"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Generation failure — the app's standard "Oops 😢" dialog.
+          Not rendered in demo mode, which never calls the API. */}
+      {!isDemo && (
+        <ErrorModal
+          open={!!codeGenError}
+          variant="warning"
+          message={codeGenError || ""}
+          onClose={() => setCodeGenError(null)}
+        />
+      )}
     </div>
   );
   return isDemo ? modal : ReactDOM.createPortal(modal, document.body);

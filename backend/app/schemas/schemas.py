@@ -672,6 +672,15 @@ class ProjectOut(BaseModel):
     custom_theme: Optional[dict] = None
     custom_image_box_aspect_ratios: Optional[dict] = None
     custom_template_missing: bool = False
+    # Resolved layout id per scene, in scene order (custom templates only).
+    # The frontend cannot derive this for a scene whose stored variant index is
+    # null — the variant comes from archetype matching, which only the backend
+    # runs — so it is computed once here and both scene surfaces read it.
+    custom_scene_layouts: Optional[list[Optional[str]]] = None
+    # Whether each scene's layout takes an image, in scene order. Resolved
+    # server-side so the UI does not have to wait on GET /projects/{id}/layouts
+    # to decide whether to show the image controls.
+    custom_scene_supports_image: Optional[list[bool]] = None
     brand_logo_url: Optional[str] = None
     review_state: Optional[ReviewStateOut] = None
     # This user's avatar rating for this project, or null when they have not rated.

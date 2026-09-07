@@ -9,7 +9,9 @@
     "render:newscast": "npx remotion render NewscastVideo out/video.mp4",
     "render:docreel": "npx remotion render OldDocumentaryReelVideo out/docreel.mp4 --scale=1",
     "build": "npx remotion render DefaultVideo out/video.mp4",
-    "build:newscast": "npx remotion render NewscastVideo out/video.mp4"
+    "build:newscast": "npx remotion render NewscastVideo out/video.mp4",
+    "kit:sync": "node ../scripts/sync-generated-kit.mjs",
+    "kit:check": "node ../scripts/sync-generated-kit.mjs --check"
   },
   "dependencies": {
     "@fontsource/archivo-black": "^5.2.7",

@@ -13,7 +13,8 @@
     "thumbs:custom": "npx tsx scripts/capture-custom-thumbnails.ts",
     "thumbs:crafted": "npx tsx scripts/capture-crafted-thumbnails.ts",
     "typecheck": "tsc -b",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "kit:check": "node ../scripts/sync-generated-kit.mjs --check"
   },
   "dependencies": {
     "@babel/standalone": "^7.29.1",
