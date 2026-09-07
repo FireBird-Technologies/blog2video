@@ -2078,19 +2078,26 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
       }
       return;
     }
+    console.log("[DEBUG-TRACE] crafted compile effect firing", {
+      hasFiles: !!effectiveCraftedDetail.frontend_files,
+      entryRel: effectiveCraftedDetail.frontend_entry_rel,
+    });
     if (!effectiveCraftedDetail.frontend_files || !effectiveCraftedDetail.frontend_entry_rel) {
+      console.log("[DEBUG-TRACE] bailing early: missing files or entry rel");
       setCompiledCrafted(null);
       setIsCompilingCrafted(false);
       return;
     }
     let cancelled = false;
     setIsCompilingCrafted(true);
+    console.log("[DEBUG-TRACE] calling compileModuleGraphEntry now");
     compileModuleGraphEntry(
       effectiveCraftedDetail.frontend_files,
       effectiveCraftedDetail.frontend_entry_rel,
       effectiveCraftedDetail.public_asset_urls,
     )
       .then((result) => {
+        console.log("[DEBUG-TRACE] compileModuleGraphEntry resolved", { success: result.success, cancelled });
         if (cancelled) return;
         if (result.success) {
           setCompiledCrafted(() => result.component);
@@ -2101,6 +2108,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
         setIsCompilingCrafted(false);
       })
       .catch((err) => {
+        console.log("[DEBUG-TRACE] compileModuleGraphEntry threw", { cancelled, err: String(err) });
         if (cancelled) return;
         console.error("[VideoPreview] Crafted bundle compile threw:", err);
         setCompiledCrafted(null);

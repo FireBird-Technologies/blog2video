@@ -194,25 +194,40 @@ export function CraftedTemplatesProvider({ children }: { children: ReactNode }) 
 
   const ensureCraftedTemplateDetail = useCallback(
     async (templateId: string): Promise<CraftedTemplateDetail | null> => {
-      if (!user?.id || !templateId || !templateId.startsWith("crafted_")) return null;
+      console.log("[DEBUG-TRACE] ensureCraftedTemplateDetail called", { templateId, userId: user?.id });
+      if (!user?.id || !templateId || !templateId.startsWith("crafted_")) {
+        console.log("[DEBUG-TRACE] ensureCraftedTemplateDetail early-return: guard failed");
+        return null;
+      }
       const existing = detailsById[templateId];
-      if (existing) return existing;
+      if (existing) {
+        console.log("[DEBUG-TRACE] ensureCraftedTemplateDetail early-return: existing found", { hasFiles: !!existing.frontend_files });
+        return existing;
+      }
       const inFlight = detailInFlightRef.current.get(templateId);
-      if (inFlight) return inFlight;
+      if (inFlight) {
+        console.log("[DEBUG-TRACE] ensureCraftedTemplateDetail early-return: already in flight");
+        return inFlight;
+      }
       // First detail fetch for this template after a page reload bypasses
       // the backend bundle cache so a freshly uploaded R2 bundle is picked
       // up without a server restart. Subsequent fetches in the same SPA
       // session reuse the warmed backend cache.
       const forceFresh = shouldForceFreshDetail(templateId);
+      console.log("[DEBUG-TRACE] ensureCraftedTemplateDetail firing fetch", { forceFresh });
       const req = getCraftedTemplateDetail(templateId, { forceFresh })
         .then((res) => {
           const detail = res.data;
+          console.log("[DEBUG-TRACE] getCraftedTemplateDetail resolved", { hasId: !!detail?.id, hasFiles: !!detail?.frontend_files });
           if (detail?.id) {
             setDetailsById((prev) => ({ ...prev, [detail.id]: detail }));
           }
           return detail ?? null;
         })
-        .catch(() => null)
+        .catch((err) => {
+          console.log("[DEBUG-TRACE] getCraftedTemplateDetail threw", String(err));
+          return null;
+        })
         .finally(() => {
           detailInFlightRef.current.delete(templateId);
         });
