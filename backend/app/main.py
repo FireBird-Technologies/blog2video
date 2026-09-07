@@ -498,6 +498,19 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"[STARTUP] Could not raise RLIMIT_NOFILE: {e}")
 
+    # Report whether the code-generation quality gates are actually armed HERE.
+    # They all fail open, so a missing toolchain silently degrades every
+    # generated template with no other symptom — which is exactly what happened
+    # when the image shipped without @babel/standalone and Level-2 validation
+    # quietly stopped running. Best-effort and never fatal: this is a report,
+    # not a gate on boot.
+    try:
+        from app.services.codegen_preflight import log_preflight
+
+        log_preflight()
+    except Exception as e:  # noqa: BLE001
+        print(f"[STARTUP] codegen preflight could not run: {e}")
+
     try:
         print("[STARTUP] Initializing database...")
         init_db()
@@ -522,6 +535,15 @@ async def lifespan(app: FastAPI):
             reap_orphaned_avatar_jobs()
         except Exception as e:
             print(f"[STARTUP] Orphaned-job recovery failed: {e}")
+        # Same idea for staged template-generation runs: a run left "running" by
+        # a dead process would otherwise strand its template in a permanent
+        # "generating..." state, since only that thread ever clears the flag.
+        try:
+            from app.routers.custom_templates import fail_orphaned_gen_runs
+
+            fail_orphaned_gen_runs()
+        except Exception as e:
+            print(f"[STARTUP] Orphaned gen-run sweep failed: {e}")
     except Exception as e:
         print(f"[STARTUP] Database initialization failed: {e}")
         import traceback

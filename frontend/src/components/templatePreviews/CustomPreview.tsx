@@ -1,16 +1,34 @@
-import { lazy, Suspense, Fragment, useState, useCallback, useMemo, useEffect, useRef } from "react";
-import { AbsoluteFill } from "remotion";
+import { themeMuted } from "../../utils/themeColors";
+import { lazy, Suspense, Fragment, useState, useCallback, useMemo, useEffect, useLayoutEffect, useRef } from "react";
+import { AbsoluteFill, useCurrentFrame } from "remotion";
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import type { CustomTemplateTheme } from "../../api/client";
 import { compileComponentCode, compileModuleGraphEntry, type SceneProps } from "../../utils/compileComponent";
-import { DataChartScene, DataTableScene } from "../remotion/generated/kit";
+import { DataChartScene, DataTableScene, derivePalette, backgroundCss, colorsFromBrand, enforceTheme, resolveTypeSizes, TYPE_BANDS, sanitizeSceneProps, TypeTierProvider, BodySizeScope } from "../remotion/generated/kit";
 import { CtaOverlay } from "../remotion/CtaOverlay";
 import { pickGeneratedTransition } from "../remotion/generated/generatedTransitions";
 import StaticPreviewImage from "./StaticPreviewImage";
+import {
+  HeroLogo,
+  CORNER_LOGO_MARGIN_RATIO,
+  CORNER_LOGO_WIDTH_RATIO,
+  CORNER_LOGO_HEIGHT_RATIO,
+} from "./HeroLogo";
+import { cssFamilyFromName } from "../../fonts/registry";
 
 const RemotionPreviewPlayer = lazy(() => import("../RemotionPreviewPlayer"));
 
-type ContentSampleData = Partial<SceneProps> & { displayText: string; narrationText: string };
+/** Sample copy is TWO text fields: a short `sceneTitle` kicker and `displayText`,
+ *  which carries the body length a separate narration field used to hold. The
+ *  voiceover is a different thing entirely (Scene.narration_text) and scene code
+ *  is contractually forbidden from painting it. */
+type ContentSampleData = Partial<SceneProps> & { displayText: string };
+
+/** One scene's default type sizes, per orientation. */
+export type SceneFontEntry = {
+  title?: { landscape?: number; portrait?: number } | null;
+  description?: { landscape?: number; portrait?: number } | null;
+};
 
 /** One scene in the preview carousel. Code scenes (intro/content) compile from AI
  *  source; data-viz scenes render the kit chart/table; the outro renders the same
@@ -20,10 +38,27 @@ type PreviewScene =
   | { kind: "dataviz_chart" | "dataviz_table"; label: string }
   | { kind: "cta_outro"; label: string };
 
+/** The bookends — the scenes that carry the hero logo in the template preview.
+ *  A v1 outro is the `cta_outro` overlay rather than a code scene, so it is
+ *  matched by kind as well as by label. */
+const isBookendScene = (sc: PreviewScene): boolean =>
+  sc.label === "Intro" || sc.label === "Outro" || sc.kind === "cta_outro";
+
 /** Ordered scene labels for the carousel/strip — intro → content variants (named
- *  from their archetype id) → Data Chart, Data Table → outro. Kept in sync with the
- *  `sceneCodes` builder below; exported so the editor can render the scene strip
- *  above the template name without re-deriving the order. */
+ *  from their archetype id) → outro. Exported so the editor can render the scene
+ *  strip above the template name without re-deriving the order.
+ *
+ *  MUST stay index-for-index with the `sceneCodes` builder below: the editor
+ *  highlights `sceneLabels[i]` using the index `sceneCodes` reports through
+ *  onLiveSceneChange, so an extra label here does not just inflate the count —
+ *  it shifts every label off its scene.
+ *
+ *  This appended a "Data Chart" and a "Data Table" on the premise that the
+ *  pipeline always injects them. It does not: `_build_custom_dataviz_scenes` in
+ *  pipeline.py injects the pair only when the ARTICLE being rendered contains a
+ *  chartable table, and a template has no article. `sceneCodes` was corrected
+ *  for this; these labels were left behind, so a 9-scene template reported
+ *  "1 / 11". */
 export function buildCustomSceneLabels(args: {
   introCode?: string;
   outroCode?: string;
@@ -41,10 +76,6 @@ export function buildCustomSceneLabels(args: {
         ?.replace(/\b\w/g, (ch: string) => ch.toUpperCase());
       labels.push(archetypeLabel || `Content ${i + 1}`);
     });
-  }
-  if (labels.length > 0) {
-    labels.push("Data Chart");
-    labels.push("Data Table");
   }
   if (args.outroCode) labels.push("Outro");
   return labels;
@@ -97,6 +128,15 @@ interface ContinuousCompositionProps {
   sampleProps: Partial<SceneProps>[];
   brandColors: SceneProps["brandColors"];
   transitionFamily?: string[];
+  /** Scenes branch their layout on this, so it must match the canvas. */
+  orientation?: "landscape" | "portrait";
+  /** The template's body face — the ground font for scenes that fall back to
+   *  `inherit`, matching what GeneratedVideo sets at render time. */
+  bodyFont?: string;
+  /** Brand-kit logo, drawn as a HERO over the intro/outro only (see HeroLogo).
+   *  Absent when the template has no logo, in which case the bookends render
+   *  exactly as they otherwise would. */
+  heroLogoUrl?: string;
 }
 
 const ContinuousCustomComposition: React.FC<ContinuousCompositionProps> = ({
@@ -105,10 +145,41 @@ const ContinuousCustomComposition: React.FC<ContinuousCompositionProps> = ({
   sampleProps,
   brandColors,
   transitionFamily,
+  orientation = "landscape",
+  bodyFont,
+  heroLogoUrl,
 }) => {
+  const canvasW = orientation === "portrait" ? 1080 : PREVIEW_CANVAS_W;
+  const canvasH = orientation === "portrait" ? 1920 : PREVIEW_CANVAS_H;
   const total = sceneCodes.length;
+
+  /* Snap off-theme colours back onto the brand palette, exactly as
+   * GeneratedVideo does at render time — this is the surface the gallery and
+   * the editor show, so a template that looks corrected in the export must look
+   * corrected here too. One pass over the whole series covers every scene. */
+  const seriesRef = useRef<HTMLDivElement | null>(null);
+  const enforceFrame = useCurrentFrame();
+  useLayoutEffect(() => {
+    const el = seriesRef.current;
+    if (!el) return;
+    const p = derivePalette(colorsFromBrand(brandColors));
+    enforceTheme(el, {
+      palette: [
+        p.accent, p.accentText, p.bg, p.bg2, p.text,
+        p.panel, p.header, p.muted, p.border, p.grid,
+      ].filter((c): c is string => Boolean(c)),
+      background: p.bg,
+      text: p.text,
+    });
+  }, [enforceFrame, brandColors]);
   return (
-    <AbsoluteFill>
+    <AbsoluteFill ref={seriesRef}>
+      {/* Neutralise a scene's own root fill and any full-bleed backdrop layer
+        * nested inside it, so the brand canvas painted on the wrapper below is
+        * what shows. KEEP IDENTICAL to the rule in GeneratedVideo.tsx — the
+        * gallery preview and the exported video must not diverge. Sized panels
+        * (width:48%) deliberately do not match and keep their own fills. */}
+      <style>{`[data-scene-wrapper] [data-scenecomp-layer]{background:transparent !important;}[data-scene-wrapper] [data-scenecomp-layer]>*{background:transparent !important;}[data-scene-wrapper] [data-scenecomp-layer] div[style*="width:100%"][style*="height:100%"][style*="position:absolute"]{background:transparent !important;background-color:transparent !important;}`}</style>
       <TransitionSeries>
         {sceneCodes.map((sc, idx) => {
           // Data-viz/outro scenes render the deterministic kit/CTA components; code
@@ -122,24 +193,73 @@ const ContinuousCustomComposition: React.FC<ContinuousCompositionProps> = ({
                   ? OutroCtaScene
                   : undefined;
           const Comp = kitComp ?? compiledMap.get(idx);
-          const props = {
-            aspectRatio: "landscape" as const,
+          // Sanitised: sample content is model-generated and has shipped wrong
+          // shapes (quoteAuthor as {name,role}, bullets as [{lead,detail}]),
+          // which crash correct scene code and take down the whole preview.
+          const rawProps = {
+            aspectRatio: orientation,
             ...(sampleProps[idx] || {}),
             brandColors,
-          } as SceneProps;
+          } as Record<string, unknown>;
+          // Which sizes the user is dragging, stamped on by persistedFonts.
+          // Lifted off before sanitising so it never reaches the scene as a prop.
+          const exactness = (rawProps.__exact as
+            | { titleIsExact: boolean; descriptionIsExact: boolean }
+            | undefined) ?? { titleIsExact: false, descriptionIsExact: false };
+          delete rawProps.__exact;
+          const props = sanitizeSceneProps(rawProps) as unknown as SceneProps;
           const isLast = idx === total - 1;
           // Failed compile → render a blank window (rare; full-fail caught upstream).
           // We must NOT return null mid-TransitionSeries or the Sequence/Transition
           // alternation breaks, so an empty AbsoluteFill holds the slot.
           const t = isLast
             ? null
-            : pickGeneratedTransition(idx, transitionFamily, PREVIEW_CANVAS_W, PREVIEW_CANVAS_H, brandColors?.accent);
+            : pickGeneratedTransition(idx, transitionFamily, canvasW, canvasH, brandColors?.accent);
           const sequence = (
             <TransitionSeries.Sequence
               key={`seq-${idx}`}
               durationInFrames={PREVIEW_SCENE_FRAMES + (t ? t.frames : 0)}
             >
-              <AbsoluteFill>{Comp ? <Comp {...props} /> : null}</AbsoluteFill>
+              {/* Same canvas + font enforcement as GeneratedVideo/VideoPreview.
+                * This surface had none, so a scene painting its own near-black
+                * backdrop showed black here even once the render was corrected —
+                * and this is the surface the gallery and the editor show. */}
+              <AbsoluteFill
+                data-scene-wrapper
+                style={{
+                  background: backgroundCss(derivePalette(colorsFromBrand(brandColors))),
+                  ...(bodyFont ? { fontFamily: bodyFont } : {}),
+                }}
+              >
+                <div data-scenecomp-layer style={{ position: "absolute", inset: 0 }}>
+                  {/* A size the user just dragged renders EXACTLY, the way the
+                    * project editor's sliders already do. Without this the
+                    * template editor's sliders stopped responding past the
+                    * point where FitText's auto-fit caps bind — the same "grows
+                    * to a limit then refuses" defect, on the one surface that
+                    * had not been converted. A stored default is left on
+                    * auto-fit so short copy still grows to fill its box. */}
+                  <TypeTierProvider
+                    value={{
+                      ...exactness,
+                      titleSize: (props as { titleFontSize?: number }).titleFontSize,
+                      descriptionSize: (props as { descriptionFontSize?: number })
+                        .descriptionFontSize,
+                    }}
+                  >
+                    <BodySizeScope>{Comp ? <Comp {...props} /> : null}</BodySizeScope>
+                  </TypeTierProvider>
+                </div>
+                {/* Hero logo on the bookends only. A SIBLING of the scene layer,
+                  * never inside it: the <style> rule above forces every descendant
+                  * of [data-scenecomp-layer] transparent, and more importantly the
+                  * size must be ours rather than whatever the generated scene
+                  * hardcodes. Inside the wrapper (not outside TransitionSeries) so
+                  * the logo travels through the transition with its scene. */}
+                {heroLogoUrl && isBookendScene(sc) && (
+                  <HeroLogo src={heroLogoUrl} aspectRatio={orientation} />
+                )}
+              </AbsoluteFill>
             </TransitionSeries.Sequence>
           );
           if (!t) return sequence;
@@ -154,6 +274,20 @@ const ContinuousCustomComposition: React.FC<ContinuousCompositionProps> = ({
           );
         })}
       </TransitionSeries>
+
+      {/* NO CORNER WATERMARK ON THIS SURFACE, deliberately.
+        *
+        * The project player and the headless render both composite a corner
+        * LogoOverlay over every scene, using the PROJECT's logo at the position
+        * the user picked. A template has no project and no chosen position, so
+        * that treatment does not belong here.
+        *
+        * What this surface DOES show is a hero logo on the intro/outro only,
+        * rendered per-sequence above — the brand up front while browsing the
+        * gallery. It is composited by us rather than passed to the scene as
+        * props.logoUrl, because a generated scene draws props.logoUrl at its own
+        * hardcoded 28-44px (the "logo is very small" defect). Content scenes
+        * still carry no logo at all. */}
     </AbsoluteFill>
   );
 };
@@ -173,12 +307,28 @@ const SAMPLE_CHART_TABLE: { headers: string[]; rows: (string | number)[][] } = {
 /** Mirror of the GeneratedTransition default family (remotion-video). The preview
  *  approximates these brand exit flourishes in CSS so transitions are visible
  *  before render — the real video uses the Remotion GeneratedTransition. */
-const DEFAULT_TRANSITION_FAMILY = ["fade", "accent_wash", "rule_sweep", "ink_wash", "whip_blur"] as const;
+const DEFAULT_TRANSITION_FAMILY = [
+  "parallax_push",
+  "accent_bar",
+  "page_fold",
+  "rule_sweep",
+  "ink_bleed",
+  "clock_sweep",
+  "whip_pan",
+  "page_flip",
+  "fade",
+] as const;
 
 /** Map archetype best_for tags to rich sample data so previews look realistic */
 function buildArchetypeSampleData(
   brandName: string,
   bestFor?: string[],
+  /** Scene position — varies the copy for layouts with no distinct content type. */
+  index = 0,
+  /** Brand-derived offset, so two templates with the same archetype sequence do
+   *  not land on the same copy at the same position. 0 keeps legacy callers on
+   *  the original rotation. */
+  seed = 0,
 ): ContentSampleData {
   const n = brandName || "Our Brand";
   const tag = bestFor?.[0] || "plain";
@@ -186,11 +336,15 @@ function buildArchetypeSampleData(
   switch (tag) {
     case "metrics":
       return {
-        displayText: `${n} by the Numbers`,
-        narrationText: `Here's a look at the key metrics that define ${n}'s success and growth trajectory.`,
+        displayText: `Here's a look at the key metrics that define ${n}'s success and growth trajectory.`,
         contentType: "metrics",
+        // `suffix` is a UNIT ("/5"), not a delta. The kit renders it as a
+        // sibling span on the value's baseline, so a 4-char "+12%" beside a
+        // 4-char "3.2M" overran the cell and read as one run — the reported
+        // "3.2M+12" with "%" wrapped below. The growth signal moves into the
+        // label, where it has room.
         metrics: [
-          { value: "3.2M", label: "Active Users", suffix: "+12%" },
+          { value: "3.2M", label: "Active Users" },
           { value: "99.9%", label: "Uptime SLA" },
           { value: "4.8", label: "Rating", suffix: "/5" },
           { value: "150+", label: "Countries" },
@@ -198,8 +352,7 @@ function buildArchetypeSampleData(
       };
     case "bullets":
       return {
-        displayText: `What Makes ${n} Different`,
-        narrationText: `From cutting-edge technology to world-class support, here's what sets ${n} apart from the competition.`,
+        displayText: `From cutting-edge technology to world-class support, here's what sets ${n} apart from the competition.`,
         contentType: "bullets",
         bullets: [
           "Enterprise-grade security and compliance built in",
@@ -210,24 +363,25 @@ function buildArchetypeSampleData(
       };
     case "quote":
       return {
-        displayText: `What People Say About ${n}`,
-        narrationText: `Industry leaders share their experience working with ${n} and the impact it has had.`,
+        displayText: `Industry leaders share their experience working with ${n} and the impact it has had.`,
         contentType: "quote",
-        quote: `${n} completely transformed how we approach our workflow. The results speak for themselves.`,
+        // Kept short deliberately. A quote renders at headline scale, and the
+        // previous two-sentence sample (~105 chars with a brand name) ran past
+        // the bottom of the frame and was clipped mid-sentence. Sample copy
+        // should show the layout working, not stress-test it.
+        quote: `${n} changed how our whole team works.`,
         quoteAuthor: "Industry Leader",
       };
     case "comparison":
       return {
-        displayText: `${n} vs Traditional`,
-        narrationText: `See how ${n} stacks up against the traditional approach across key dimensions.`,
+        displayText: `See how ${n} stacks up against the traditional approach across key dimensions.`,
         contentType: "comparison",
         comparisonLeft: { label: "Traditional", description: "Manual processes, slow iteration, limited visibility" },
         comparisonRight: { label: n, description: "Automated workflows, real-time insights, full transparency" },
       };
     case "timeline":
       return {
-        displayText: `The ${n} Journey`,
-        narrationText: `From inception to industry leadership, here's how ${n} has evolved over the years.`,
+        displayText: `From inception to industry leadership, here's how ${n} has evolved over the years.`,
         contentType: "timeline",
         timelineItems: [
           { label: "Founded", description: "Started with a vision to transform the industry" },
@@ -238,8 +392,7 @@ function buildArchetypeSampleData(
       };
     case "steps":
       return {
-        displayText: `How ${n} Works`,
-        narrationText: `Getting started with ${n} is simple. Follow these steps to unlock the full potential.`,
+        displayText: `Getting started with ${n} is simple. Follow these steps to unlock the full potential.`,
         contentType: "steps",
         steps: [
           "Connect your existing tools and data sources",
@@ -250,8 +403,7 @@ function buildArchetypeSampleData(
       };
     case "code":
       return {
-        displayText: `Get Started with ${n}`,
-        narrationText: `Integrating ${n} into your workflow takes just a few lines of code.`,
+        displayText: `Integrating ${n} into your workflow takes just a few lines of code.`,
         contentType: "code",
         codeLines: [
           `import { ${n.replace(/\s/g, "")} } from '${n.toLowerCase().replace(/\s/g, "-")}';`,
@@ -267,27 +419,118 @@ function buildArchetypeSampleData(
       // dedicated kit scenes). Keep a sensible fallback so a legacy archetype id that
       // still says "dataviz" never renders a blank scene.
       return {
-        displayText: `${n} by the Numbers`,
-        narrationText: `The data behind ${n}'s momentum, at a glance.`,
+        displayText: `The data behind ${n}'s momentum, at a glance.`,
         contentType: "plain",
       };
-    default:
-      return {
-        displayText: `The ${n} Experience`,
-        narrationText: `Discover what makes ${n} a trusted choice for teams and organizations worldwide. Built with quality and innovation at its core.`,
-        contentType: "plain",
-      };
+    default: {
+      // "plain" is the single most common tag — a layout with no distinct
+      // content type. Returning ONE fixed string here made every such scene
+      // render "The <brand> Experience", so a whole template read as the same
+      // slide repeated. Rotate by scene position instead.
+      const plain = PLAIN_SAMPLES(n);
+      return { ...rotate(plain, index, seed), contentType: "plain" };
+    }
   }
 }
+
+
+/** Short label above the headline, per content type.
+ *
+ * `sceneTitle` used to be assigned `sample.displayText`, so a scene's title and
+ * its headline were the SAME STRING — a layout rendering both showed the
+ * sentence twice. These are deliberately terse: a title is a kicker over a
+ * headline, not a second headline. */
+const TAG_TITLES: Record<string, string[]> = {
+  metrics: ["By the Numbers", "Impact", "Measured", "At Scale"],
+  bullets: ["Highlights", "Essentials", "Included", "Key Features"],
+  quote: ["Testimonial", "Customer Voice", "Feedback"],
+  timeline: ["The Journey", "Milestones", "Our Story"],
+  steps: ["How It Works", "The Process", "Step by Step"],
+  comparison: ["The Difference", "Compared", "Head to Head"],
+  code: ["Quick Start", "Integration", "In Practice"],
+  plain: ["Overview", "In Focus", "Closer Look", "Why It Matters"],
+};
+
+/** Eyebrow/headline pairs for the two BOOKEND scenes.
+ *
+ * These exist for the same reason TAG_TITLES does, and were the one gap in it:
+ * the intro and outro both used to be fed `sceneTitle: n, displayText: n` — the
+ * brand name in BOTH fields. A scene that renders an eyebrow above a headline
+ * (which the intro contract now asks for) then painted the brand name twice,
+ * once small and once large. That is the reported "title and display text are
+ * not distinct" defect, visible in the shipped FireBird, Careem and ChatGPT
+ * previews.
+ *
+ * The eyebrow is a KICKER — a short category label. The headline is the brand
+ * name itself, because on a title card that is the thing that should be
+ * largest. The two must never be equal. */
+const INTRO_EYEBROWS = ["Introducing", "Presenting", "Meet", "This Is"];
+const OUTRO_EYEBROWS = ["Get Started", "Next Steps", "Come Say Hi", "Start Today"];
+
+/** FNV-1a. Turns the brand name into a stable per-template rotation offset.
+ *
+ * Without this, sample copy varied ONLY by scene position and content type, so
+ * two templates with the same archetype sequence rendered byte-identical text —
+ * the "every template says the same thing" problem. Seeding the rotation by
+ * brand means two brands land on different entries at the same position, while
+ * one brand stays stable across reloads (this is preview copy, so it must not
+ * change under the user between renders). */
+function brandSeed(name: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < name.length; i++) {
+    h ^= name.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h;
+}
+
+/** Pick from `list`, rotated by both the scene's position and the brand. */
+function rotate<T>(list: T[], index: number, seed: number, salt = 0): T {
+  // The salt decorrelates the title rotation from the headline one; without it
+  // both would advance in lockstep and every brand would pair the same title
+  // with the same headline.
+  const offset = Math.floor(seed / 7 ** salt) + salt;
+  return list[Math.abs(index + offset) % list.length];
+}
+
+
+/** Copy for layouts with no distinct content type, varied by scene position.
+ *  Two fields: a short kicker and the body copy that fills the block. */
+const PLAIN_SAMPLES = (n: string): { sceneTitle: string; displayText: string }[] => [
+  {
+    sceneTitle: `Why Teams Choose Us`,
+    displayText: `${n} was built for the people who rely on it every day — and it shows in the details, the defaults, and the things you never have to think about.`,
+  },
+  {
+    sceneTitle: `Built for What Comes Next`,
+    displayText: `Every decision at ${n} is made with the next decade in mind, not just the next quarter — which is why the product gets quieter as it gets more capable.`,
+  },
+  {
+    sceneTitle: `The Difference`,
+    displayText: `Quality, consistency and care — the things that are hard to copy and easy to feel, and the reason people stay with ${n} once they have tried it.`,
+  },
+  {
+    sceneTitle: `Designed Around You`,
+    displayText: `From the first interaction onward, ${n} adapts to how you actually work rather than asking you to rearrange your day around it.`,
+  },
+  {
+    sceneTitle: `Where We Go From Here`,
+    displayText: `The next chapter is already taking shape, and it starts with the people we serve — their workflows, their constraints, and the work they have not started yet.`,
+  },
+  {
+    sceneTitle: `A Closer Look`,
+    displayText: `Behind every result at ${n} is a process worth understanding: how the work gets scoped, who reviews it, and what happens when something goes wrong.`,
+  },
+];
 
 function buildFallbackSamples(brandName: string): ContentSampleData[] {
   const n = brandName || "Our Brand";
   return [
-    { displayText: `Why ${n} Stands Out`, narrationText: `Here's what makes ${n} different from the rest.` },
-    { displayText: `The ${n} Experience`, narrationText: `Discover what sets ${n} apart in the industry.` },
-    { displayText: `Built for You by ${n}`, narrationText: `Everything at ${n} is designed with our customers in mind.` },
-    { displayText: `${n} at a Glance`, narrationText: `A closer look at what ${n} has to offer.` },
-    { displayText: `The Future of ${n}`, narrationText: `See where ${n} is headed next.` },
+    { sceneTitle: `Why We Stand Out`, displayText: `Here's what makes ${n} different from the rest — not the feature list, but the judgement behind it.` },
+    { sceneTitle: `The Experience`, displayText: `Discover what sets ${n} apart in the industry, and why the people who use it every day describe it the way they do.` },
+    { sceneTitle: `Built for You`, displayText: `Everything at ${n} is designed with our customers in mind, from the first run through to the workflows you grow into.` },
+    { sceneTitle: `At a Glance`, displayText: `A closer look at what ${n} has to offer, and how the pieces fit together once you start using them in earnest.` },
+    { sceneTitle: `The Road Ahead`, displayText: `See where ${n} is headed next — deeper integrations, faster answers, and fewer things you have to hold in your head.` },
   ];
 }
 
@@ -298,6 +541,52 @@ interface CustomPreviewProps {
   outroCode?: string;
   contentCodes?: string[];
   contentArchetypeIds?: (string | { id: string; best_for?: string[] })[];
+  /**
+   * Which generation drew this template's design (design_blueprint.version).
+   * Absent or 1 = blueprint era, whose outro was generated on the promise that a
+   * CTA overlay would REPLACE it — so the preview must show that overlay, or it
+   * would show an ending the final video never renders. 2 = design docs, whose
+   * outro composes the CTA itself and must be rendered as its own scene.
+   */
+  designVersion?: number;
+  /**
+   * Showcase copy generated with the template, shaped
+   * {intro, content[], outro} — the same indexing as contentCodes.
+   *
+   * Preferred over the client-side sample generator below, which stays as the
+   * fallback for templates created before this was stored. Merged per field, so
+   * a partial entry still gets the generated headline while the rest comes from
+   * the fallback.
+   */
+  sceneSampleContent?: {
+    intro?: Record<string, unknown> | null;
+    content?: (Record<string, unknown> | null)[] | null;
+    outro?: Record<string, unknown> | null;
+  } | null;
+  /**
+   * Per-scene default type sizes, indexed like `sceneSampleContent`.
+   *
+   * The gallery used to apply one hardcoded pair to every scene, so a template
+   * whose copy needed small type rendered it at the same size as one that
+   * needed large — and neither matched what the exported video would use.
+   * These are the sizes the render resolves, so the card now previews the real
+   * thing. Absent on older templates, which keep the old fixed pair.
+   */
+  /**
+   * Sizes the USER has dragged, as `"<sceneKey>:<orientation>"` keys.
+   *
+   * A stored default is a number the generator produced for copy nobody had
+   * seen, so FitText may overrule it to fit the box. A number a person dragged
+   * while looking at this preview may not: overruling it is what made the
+   * slider stop responding past a point. Presence here switches that scene to
+   * exact sizing.
+   */
+  fontSizeEdits?: Record<string, { title?: number; description?: number }>;
+  sceneFontDefaults?: {
+    intro?: SceneFontEntry | null;
+    content?: (SceneFontEntry | null)[] | null;
+    outro?: SceneFontEntry | null;
+  } | null;
   validLayouts?: string[] | null;
   frontendFiles?: Record<string, string> | null;
   frontendEntryRel?: string | null;
@@ -321,6 +610,14 @@ interface CustomPreviewProps {
    * holds no Players (iOS Safari OOMs and reloads the tab otherwise).
    */
   staticThumb?: boolean;
+  /** Preview orientation. Scenes branch their layout on `aspectRatio`, so this
+   *  drives both the canvas size and the prop the components receive. */
+  orientation?: "landscape" | "portrait";
+  /** @deprecated No-op. Its only effect was suppressing a hardcoded Data Chart /
+   *  Data Table pair that this preview no longer appends — the carousel now always
+   *  shows exactly the scenes passed in. Retained so existing callers keep
+   *  compiling; safe to drop from call sites. */
+  scenesOnly?: boolean;
 }
 
 export default function CustomPreview({
@@ -330,6 +627,10 @@ export default function CustomPreview({
   outroCode,
   contentCodes,
   contentArchetypeIds,
+  designVersion,
+  fontSizeEdits,
+  sceneSampleContent,
+  sceneFontDefaults,
   validLayouts,
   frontendFiles,
   frontendEntryRel,
@@ -343,6 +644,7 @@ export default function CustomPreview({
   onAllScenesEnded,
   onLiveSceneChange,
   thumbnailMode = false,
+  orientation = "landscape",
   staticThumb = false,
 }: CustomPreviewProps) {
   const [activeScene, setActiveScene] = useState(0);
@@ -363,9 +665,17 @@ export default function CustomPreview({
     onLiveSceneChange?.(continuousScene);
   }, [continuousScene, onLiveSceneChange]);
 
-  // Build ordered carousel: intro → content variants → data chart, data table → outro.
-  // The 2 data-viz scenes mirror what the pipeline always injects into custom videos
-  // at render time, so the template preview matches the final video.
+  // Build ordered carousel: intro → content variants → outro.
+  //
+  // The preview shows EXACTLY the scenes this template generated. It used to also
+  // append a Data Chart and a Data Table, on the premise that "the pipeline always
+  // injects" them — that premise was wrong. `_build_custom_dataviz_scenes` in
+  // pipeline.py only injects the pair when the ARTICLE being rendered contains a
+  // chartable table, and returns [] otherwise. A template has no article, so at
+  // preview time the pair could never be accurate; they were rendered from a
+  // hardcoded SAMPLE_CHART_TABLE and showed users two scenes their template does
+  // not contain. (Data Chart / Data Table remain available per-scene in the editor
+  // — meta still lists custom_chart/custom_table as selectable layouts.)
   const sceneCodes = useMemo<PreviewScene[]>(() => {
     const codes: PreviewScene[] = [];
     if (introCode) codes.push({ kind: "code", code: introCode, label: "Intro" });
@@ -379,19 +689,26 @@ export default function CustomPreview({
         codes.push({ kind: "code", code: c, label: archetypeLabel || `Content ${i + 1}` });
       });
     }
-    // Only show the data-viz pair when there's a real generated template (at least one
-    // code scene) — they sit just before the outro, matching pipeline insertion order.
-    if (codes.length > 0) {
-      codes.push({ kind: "dataviz_chart", label: "Data Chart" });
-      codes.push({ kind: "dataviz_table", label: "Data Table" });
+    // v1: the outro renders the CTA overlay, matching the final video, which
+    // replaces that template's own outro at render time.
+    // v2: the outro IS the template's own scene and draws the CTA itself, so it
+    // compiles like any other scene.
+    if (outroCode) {
+      codes.push(
+        (designVersion ?? 1) >= 2
+          ? { kind: "code", code: outroCode, label: "Outro" }
+          : { kind: "cta_outro", label: "Outro" },
+      );
     }
-    // Outro renders the CTA overlay (matching the final video), not the AI outro code.
-    if (outroCode) codes.push({ kind: "cta_outro", label: "Outro" });
     return codes;
-  }, [introCode, outroCode, contentCodes, contentArchetypeIds]);
+  }, [introCode, outroCode, contentCodes, contentArchetypeIds, designVersion]);
 
   const hasCode = sceneCodes.length > 0;
   const hasMultipleScenes = sceneCodes.length > 1;
+  // Scenes that render from the kit (the CTA outro and the data-viz pair) need
+  // no Babel compilation, so an empty compiledMap is a legitimate success state
+  // for them — not a compile failure.
+  const needsCompiledScenes = sceneCodes.some((sc) => sc.kind === "code");
   const hasFrontendRuntime = !!(
     frontendFiles &&
     Object.keys(frontendFiles).length > 0 &&
@@ -402,17 +719,138 @@ export default function CustomPreview({
   // between re-renders (avoids Remotion Player restarting animation mid-playback)
   const fallbackSamples = useMemo(() => buildFallbackSamples(name || ""), [name]);
 
-  const sceneSampleProps = useMemo(() => {
-    // The og image is only fed to the intro/hero scene (added per-scene below).
-    // Never use previewImageUrl as an image prop — it's the template's own thumbnail
-    // and causes a broken recursive image load. Content scenes get NO imageUrl so they
-    // render their full-width (no-image) branch instead of a split with an empty panel.
-    const logoProps = logoUrls && logoUrls.length > 0 ? { logoUrl: logoUrls[0] } : {};
-    const brandImageProps = logoUrls && logoUrls.length > 0 ? { brandImages: logoUrls } : ogImage ? { brandImages: [ogImage] } : {};
-    const fontProps = { titleFontSize: 88, descriptionFontSize: 44 };
+  // The stored theme font is a raw extractor value ("merriweather",
+  // "playfair_display"), not a CSS family. Passed through verbatim it names a
+  // face the browser never loaded — RemotionPreviewPlayer's Google Fonts
+  // request 400s on exactly these — so every scene silently rendered in the
+  // system sans. Resolve once here so the family the scene sets and the family
+  // the page loads are the same thing.
+  const headingFamily = useMemo(
+    () => cssFamilyFromName(theme.fonts.heading),
+    [theme.fonts.heading],
+  );
+  const bodyFamily = useMemo(
+    () => cssFamilyFromName(theme.fonts.body),
+    [theme.fonts.body],
+  );
 
+  const sceneSampleProps = useMemo(() => {
+    // Never use previewImageUrl as an image prop — it's the template's own thumbnail
+    // and causes a broken recursive image load.
+    //
+    // Content scenes DO get an imageUrl. They used to be given none, on the theory
+    // that a split layout with an empty panel looks worse than a full-width one.
+    // But scenes branch their whole layout on `imageUrl`:
+    //     const hasImage = !!(props.imageUrl && ...)
+    //     const colWidth = showVisualSlot ? canvasW * 0.52 : canvasW * 0.84;
+    // and the real player (VideoPreview) always passes the scene's image. So the
+    // preview was rendering the *other arm* of that conditional — a layout the
+    // finished video never shows. Feed the og image here so scene-by-scene preview
+    // exercises the same branch the render does.
+    // The generated copy for a scene, addressed by ROLE — never by raw carousel
+    // index. `sceneCodes` is assembled conditionally (a template may have no
+    // intro or no outro), so position N in the carousel is not position N in the
+    // stored arrays. Returns {} when nothing was stored, which leaves the
+    // client-side sample generator in charge.
+    const persistedSample = (label: string, contentIdx: number): Record<string, unknown> => {
+      if (!sceneSampleContent) return {};
+      if (label === "Intro") return sceneSampleContent.intro ?? {};
+      if (label === "Outro") return sceneSampleContent.outro ?? {};
+      const list = sceneSampleContent.content;
+      if (!Array.isArray(list) || contentIdx < 0 || contentIdx >= list.length) return {};
+      return list[contentIdx] ?? {};
+    };
+
+    // The scene's stored default type sizes, addressed by ROLE for the same
+    // reason persistedSample is. The gallery canvas is 16:9, so landscape.
+    // Falls back to the old fixed pair when a template predates these.
+    const persistedFonts = (label: string, contentIdx: number) => {
+      let entry: SceneFontEntry | null | undefined;
+      if (label === "Intro") entry = sceneFontDefaults?.intro;
+      else if (label === "Outro") entry = sceneFontDefaults?.outro;
+      else {
+        const list = sceneFontDefaults?.content;
+        if (Array.isArray(list) && contentIdx >= 0 && contentIdx < list.length) {
+          entry = list[contentIdx];
+        }
+      }
+      const t = entry?.title?.[orientation] ?? entry?.title?.landscape;
+      const d = entry?.description?.[orientation] ?? entry?.description?.landscape;
+      // Same resolver the render and the project preview use, so the gallery
+      // cannot disagree with them about size. It clamps to the USER bands and,
+      // on a v3 template, returns no eyebrow size at all — v3 has two type
+      // tiers and its scenes never read props.sceneTitleFontSize.
+      const resolved = resolveTypeSizes(
+        {
+          titleFontSize: typeof t === "number" && t > 0 ? t : undefined,
+          descriptionFontSize: typeof d === "number" && d > 0 ? d : undefined,
+        },
+        orientation,
+        designVersion ?? 1,
+      );
+      // The fallback stays the GENERATION ceiling, not the user one: this is
+      // what a scene with no stored default shows, and it stands in for a size
+      // the generator would have produced — 200px would not be that.
+      const bands = TYPE_BANDS;
+      // A size a PERSON set renders literally — while they drag it, after they
+      // save, and here in the gallery. Auto-fit is a GENERATION-time behaviour:
+      // it exists so copy nobody had seen still fits its box, and it must not
+      // overrule a number a human chose while looking at the frame.
+      //
+      // This honoured only the live drag (`fontSizeEdits`), which made saving
+      // undo the edit: saving is precisely what MOVES a dragged size out of
+      // `fontSizeEdits` and into `scene_font_defaults` (TemplateSceneEditor
+      // clears the edit map once every write lands). So a title dragged to 119
+      // rendered at 119, then snapped back to a fitted size on save — the number
+      // was correct in the DB and correctly read here; FitText was simply told
+      // it was free to overrule it.
+      //
+      // On THIS surface a stored default is not a generator guess.
+      // `scene_font_defaults` is written by the editor's sliders and by nothing
+      // else, so its presence IS the user's choice. That also matches the
+      // project and render paths, where these same defaults are merged into
+      // `layoutConfig` (remotion.py) and therefore already count as exact via
+      // resolveTypeExactness — this makes the gallery agree with them.
+      const sceneKey =
+        label === "Intro" ? "intro" : label === "Outro" ? "outro" : `content_${contentIdx}`;
+      const edit = fontSizeEdits?.[`${sceneKey}:${orientation}`];
+      return {
+        titleFontSize: resolved.titleFontSize ?? bands.headline[orientation][1],
+        descriptionFontSize: resolved.descriptionFontSize ?? bands.body[orientation][1],
+        sceneTitleFontSize: resolved.sceneTitleFontSize,
+        __exact: {
+          // `resolved.*` is defined only when a size was actually stored for
+          // this scene — the `?? bands…` fallback above is the unstored case,
+          // which must keep auto-fitting.
+          titleIsExact:
+            typeof edit?.title === "number" || resolved.titleFontSize !== undefined,
+          descriptionIsExact:
+            typeof edit?.description === "number" ||
+            resolved.descriptionFontSize !== undefined,
+        },
+      };
+    };
+
+    const contentImageProps = ogImage ? { imageUrl: ogImage } : {};
+    // Still NO logoUrl on any scene. Do not re-add it: passing it here made the
+    // preview draw an in-scene logo at whatever fixed size the scene hardcoded —
+    // 28-44px on a 1920px frame, which is the "logo is very small" report. The
+    // render blanks props.logoUrl on every scene for the same reason.
+    //
+    // The logo now DOES appear on this surface, but as a hero the composition
+    // composites over the intro/outro at a size we control (see HeroLogo and the
+    // per-sequence render above), never as a scene prop.
+    const brandImageProps = logoUrls && logoUrls.length > 0 ? { brandImages: logoUrls } : ogImage ? { brandImages: [ogImage] } : {};
     return sceneCodes.map((sc, idx) => {
-      const base = { sceneIndex: idx, totalScenes: sceneCodes.length, ...logoProps, ...brandImageProps, ...fontProps };
+      // Same content index the sample lookup uses, so a scene's copy and the
+      // type sized FOR that copy always come from the same entry.
+      const fontIdx = idx - (introCode ? 1 : 0);
+      const base = {
+        sceneIndex: idx,
+        totalScenes: sceneCodes.length,
+        ...brandImageProps,
+        ...persistedFonts(sc.label, fontIdx),
+      };
       const n = name || "Our Brand";
 
       // Data-viz scenes: feed the deterministic kit chart/table sample data + brand fonts.
@@ -422,8 +860,8 @@ export default function CustomPreview({
           narrationText: `The data behind ${n}'s momentum.`,
           chartTable: SAMPLE_CHART_TABLE,
           chartType: "line",
-          headingFont: theme.fonts.heading,
-          bodyFont: theme.fonts.body,
+          headingFont: headingFamily,
+          bodyFont: bodyFamily,
           ...base,
         };
       }
@@ -432,42 +870,91 @@ export default function CustomPreview({
           displayText: "The Full Breakdown",
           narrationText: `${n}'s figures in full.`,
           chartTable: SAMPLE_CHART_TABLE,
-          headingFont: theme.fonts.heading,
-          bodyFont: theme.fonts.body,
+          headingFont: headingFamily,
+          bodyFont: bodyFamily,
           ...base,
         };
       }
-      // Outro CTA overlay: brand name as the title + brand fonts.
+      // Outro CTA overlay: brand name as the title + brand fonts. OutroCtaScene
+      // passes props.logoUrl straight to CtaOverlay, so this is a bookend too.
       if (sc.kind === "cta_outro") {
         return {
           displayText: n,
           narrationText: `Learn more about ${n}.`,
-          headingFont: theme.fonts.heading,
-          bodyFont: theme.fonts.body,
+          headingFont: headingFamily,
+          bodyFont: bodyFamily,
           ...base,
         };
       }
 
       if (sc.label === "Intro") {
-        // Intro/hero is the only scene that gets the og image (matches the render).
         const introImageProps = ogImage ? { imageUrl: ogImage } : {};
-        return { displayText: n, narrationText: `Discover what makes ${n} special.`, ...base, ...introImageProps };
+        return {
+          // A short kicker over the brand name — never the brand name itself in
+          // both fields. See INTRO_EYEBROWS.
+          sceneTitle: rotate(INTRO_EYEBROWS, 0, brandSeed(n)),
+          displayText: n,
+          narrationText: `Discover what makes ${n} special.`,
+          // Copy written for THIS template wins over the generic strings above.
+          ...persistedSample("Intro", -1),
+          ...base,
+          ...introImageProps,
+        };
       }
       if (sc.label === "Outro") {
-        return { displayText: n, narrationText: `Learn more at ${n}. Thank you for watching.`, ...base };
+        return {
+          sceneTitle: rotate(OUTRO_EYEBROWS, 0, brandSeed(n), 1),
+          displayText: n,
+          narrationText: `Learn more at ${n}. Thank you for watching.`,
+          // A v2 outro renders the CTA and socials itself, so the preview must
+          // feed it representative ones — otherwise the gallery thumbnail and the
+          // editor would show an ending with an empty CTA area that the real
+          // video fills. (A v1 outro is the cta_outro overlay and ignores these.)
+          ctaProps: SAMPLE_CTA_PROPS,
+          ...persistedSample("Outro", -1),
+          ...base,
+        };
       }
       // Use archetype-aware sample data when available
       const contentIdx = idx - (introCode ? 1 : 0);
       const rawArch = contentArchetypeIds?.[contentIdx];
       const bestFor = typeof rawArch === "object" ? rawArch?.best_for : undefined;
       if (bestFor && bestFor.length > 0) {
-        const sample = buildArchetypeSampleData(n, bestFor);
-        return { ...sample, ...base };
+        // Rotate by how many EARLIER content scenes share this tag, so a
+        // template with four metrics layouts gets four different headlines
+        // rather than the same one repeated.
+        const tag = bestFor[0];
+        let sameTagBefore = 0;
+        for (let i = 0; i < contentIdx; i++) {
+          const prev = contentArchetypeIds?.[i];
+          const prevTag = typeof prev === "object" ? prev?.best_for?.[0] : undefined;
+          if (prevTag === tag) sameTagBefore++;
+        }
+        const seed = brandSeed(n);
+        const sample = buildArchetypeSampleData(n, bestFor, contentIdx, seed);
+        // sceneTitle is a KICKER over the copy, so it must not simply repeat
+        // displayText — a layout rendering both showed the same sentence twice.
+        // Rotated per brand and per repeated archetype, so a template with four
+        // metrics scenes gets four different kickers.
+        const titles = TAG_TITLES[tag] ?? TAG_TITLES.plain;
+        return {
+          ...sample,
+          sceneTitle: rotate(titles, sameTagBefore, seed, 1),
+          ...persistedSample(sc.label, contentIdx),
+          ...base,
+          ...contentImageProps,
+        };
       }
       const fallback = fallbackSamples[contentIdx % fallbackSamples.length];
-      return { ...fallback, ...base };
+      return {
+        ...fallback,
+        sceneTitle: rotate(TAG_TITLES.plain, contentIdx, brandSeed(n), 1),
+        ...persistedSample(sc.label, contentIdx),
+        ...base,
+        ...contentImageProps,
+      };
     });
-  }, [sceneCodes, name, ogImage, previewImageUrl, logoUrls, introCode, contentArchetypeIds, fallbackSamples, theme.fonts.heading, theme.fonts.body]);
+  }, [sceneCodes, name, ogImage, previewImageUrl, logoUrls, introCode, contentArchetypeIds, fallbackSamples, sceneSampleContent, sceneFontDefaults, theme.fonts.heading, theme.fonts.body]);
 
   const compositionSampleProps = useMemo(() => {
     const layoutList =
@@ -494,8 +981,12 @@ export default function CustomPreview({
       bgColor: theme.colors.bg,
       textColor: theme.colors.text,
       logo: logoUrls?.[0] || undefined,
-      aspectRatio: "landscape",
-      fontFamily: theme.fonts.body,
+      // Match the render's default. Omitting this let the watermark fall back
+      // to 100% here while the render uses the project column's 70% default —
+      // the same logo at two different sizes in preview and video.
+      logoSize: 70,
+      aspectRatio: orientation,
+      fontFamily: bodyFamily,
       playbackSpeed: 1,
     };
   }, [validLayouts, name, ogImage, theme, logoUrls]);
@@ -505,10 +996,14 @@ export default function CustomPreview({
   const brandColors = useMemo<SceneProps["brandColors"]>(
     () => ({
       primary: theme.colors.accent,
-      secondary: theme.colors.surface,
       accent: theme.colors.accent,
       background: theme.colors.bg,
       text: theme.colors.text,
+      // The gradient's second stop. Without this the preview built a solid
+      // palette and every gradient template previewed flat — the render path
+      // (remotion.py's brandColors["bg2"]) has always passed it, so the gallery
+      // and the exported video disagreed.
+      bg2: theme.colors.bg2,
     }),
     [theme.colors],
   );
@@ -523,8 +1018,11 @@ export default function CustomPreview({
       brandColors,
       transitionFamily: (theme as unknown as { motion?: { transitionFamily?: string[] } })
         .motion?.transitionFamily,
+      orientation,
+      bodyFont: bodyFamily,
+      heroLogoUrl: logoUrls?.[0] || undefined,
     }),
-    [sceneCodes, compiledMap, sceneSampleProps, brandColors, theme],
+    [sceneCodes, compiledMap, sceneSampleProps, brandColors, theme, orientation, bodyFamily, logoUrls],
   );
 
   // [V3] Log the resolved transition plan once per template (component render, not
@@ -733,7 +1231,7 @@ export default function CustomPreview({
       >
         <div
           style={{
-            fontFamily: `${theme.fonts.heading}, sans-serif`,
+            fontFamily: headingFamily,
             fontSize: 34,
             fontWeight: 700,
             color: theme.colors.text,
@@ -744,9 +1242,9 @@ export default function CustomPreview({
         </div>
         <div
           style={{
-            fontFamily: `${theme.fonts.body}, sans-serif`,
+            fontFamily: bodyFamily,
             fontSize: 20,
-            color: theme.colors.muted,
+            color: themeMuted(theme),
             textAlign: "center",
           }}
         >
@@ -786,7 +1284,14 @@ export default function CustomPreview({
   }
 
   // ─── Compile error / timeout ────────────────────────────────
-  if (compileError || (!compiledComposition && !isCompiling && compiledMap.size === 0)) {
+  // Only treat an empty compiledMap as a failure when something actually
+  // required compiling. Previewing the outro alone (kit-rendered) previously
+  // fell in here and, with showLoaderOnEmptyOrError set, rendered a spinner
+  // forever — it looked like an endless load rather than a finished scene.
+  if (
+    compileError ||
+    (needsCompiledScenes && !compiledComposition && !isCompiling && compiledMap.size === 0)
+  ) {
     if (showLoaderOnEmptyOrError) {
       return (
         <div
@@ -848,8 +1353,8 @@ export default function CustomPreview({
             compositionProps={compositionSampleProps}
             durationInFrames={30 * 16}
             fps={30}
-            compositionWidth={1920}
-            compositionHeight={1080}
+            compositionWidth={orientation === "portrait" ? 1080 : 1920}
+            compositionHeight={orientation === "portrait" ? 1920 : 1080}
             loop={!thumbnailMode}
             thumbnailMode={thumbnailMode}
             thumbnailFrame={thumbnailFrame}
@@ -877,8 +1382,8 @@ export default function CustomPreview({
             compositionProps={continuousCompositionProps}
             durationInFrames={Math.max(1, sceneCodes.length) * PREVIEW_SCENE_FRAMES}
             fps={30}
-            compositionWidth={1920}
-            compositionHeight={1080}
+            compositionWidth={orientation === "portrait" ? 1080 : 1920}
+            compositionHeight={orientation === "portrait" ? 1920 : 1080}
             loop
             onFrameUpdate={(frame) => {
               const idx = Math.min(
@@ -900,10 +1405,37 @@ export default function CustomPreview({
   // settled state; the inactive state is the "from" each family animates out of.
   const transitionFamily =
     (theme as unknown as { motion?: { transitionFamily?: string[] } }).motion?.transitionFamily;
+
+  // Logo for the carousel/thumbnail path, as percentages of the wrapper — there
+  // is no useVideoConfig out here.
+  //
+  // Always the CORNER placement, never the centred hero. HeroLogo picks between
+  // the two by measuring what the scene painted, and it cannot measure here:
+  // each scene sits in its own nested player, so this path has no access to the
+  // laid-out scene DOM. The corner is the placement that cannot collide with
+  // scene content, so it is the correct choice to make blind.
+  const heroLogoUrl = logoUrls?.[0] || undefined;
+  const heroKey = orientation === "portrait" ? "portrait" : "landscape";
+  const carouselHeroLogoStyle: React.CSSProperties = {
+    position: "absolute",
+    top: `${CORNER_LOGO_MARGIN_RATIO[heroKey] * 100}%`,
+    right: `${CORNER_LOGO_MARGIN_RATIO[heroKey] * 100}%`,
+    width: `${CORNER_LOGO_WIDTH_RATIO[heroKey] * 100}%`,
+    height: `${CORNER_LOGO_HEIGHT_RATIO[heroKey] * 100}%`,
+    zIndex: 100,
+    pointerEvents: "none",
+  };
   const familyPool =
     Array.isArray(transitionFamily) && transitionFamily.length > 0
       ? transitionFamily
       : (DEFAULT_TRANSITION_FAMILY as unknown as string[]);
+  // Every one of the 14 GeneratedTransitionFamily names needs a case here.
+  //
+  // This handled only 5 of them, so the other 9 fell to `default:` — a plain
+  // fade. A template whose family was ["parallax_push","accent_bar","page_fold",
+  // "rule_sweep"] therefore previewed as TWO distinct visuals across four cuts,
+  // three of them identical fades, which reads as "all scenes use the same
+  // transition" even though the stored data is correctly varied.
   const transitionStyleFor = (idx: number, active: boolean): React.CSSProperties => {
     switch (familyPool[Math.abs(idx) % familyPool.length]) {
       case "accent_wash":
@@ -918,6 +1450,56 @@ export default function CustomPreview({
         return { opacity: 1, clipPath: active ? "inset(0 0 0 0)" : "inset(0 100% 0 0)" };
       case "ink_wash":
         return { opacity: active ? 1 : 0, transform: active ? "scale(1)" : "scale(0.96)" };
+      // ── the nine that used to fall through to a plain fade ──
+      case "parallax_push":
+        // Deep push from behind — the signature "camera moves in" cut.
+        return {
+          opacity: active ? 1 : 0,
+          transform: active ? "scale(1) translateX(0)" : "scale(1.12) translateX(4%)",
+        };
+      case "whip_pan":
+        // Fast horizontal whip, blurred along the direction of travel.
+        return {
+          opacity: active ? 1 : 0,
+          transform: active ? "translateX(0)" : "translateX(14%)",
+          filter: active ? "blur(0px)" : "blur(14px)",
+        };
+      case "accent_bar":
+        // A bar wipes across from the left.
+        return { opacity: 1, clipPath: active ? "inset(0 0 0 0)" : "inset(0 0 0 100%)" };
+      case "page_fold":
+        // Paper folding in — perspective rotation on the vertical axis.
+        return {
+          opacity: active ? 1 : 0,
+          transform: active
+            ? "perspective(1600px) rotateY(0deg)"
+            : "perspective(1600px) rotateY(-26deg)",
+          transformOrigin: "left center",
+        };
+      case "page_flip":
+        // The same idea flipped, so consecutive folds do not look identical.
+        return {
+          opacity: active ? 1 : 0,
+          transform: active
+            ? "perspective(1600px) rotateY(0deg)"
+            : "perspective(1600px) rotateY(26deg)",
+          transformOrigin: "right center",
+        };
+      case "ink_bleed":
+        // Bleeds outward from the centre.
+        return {
+          opacity: active ? 1 : 0,
+          clipPath: active ? "circle(140% at 50% 50%)" : "circle(18% at 50% 50%)",
+        };
+      case "clock_sweep":
+        // Wipes downward like a hand sweeping.
+        return { opacity: 1, clipPath: active ? "inset(0 0 0 0)" : "inset(0 0 100% 0)" };
+      case "cover_wipe":
+        // The incoming scene slides up over the outgoing one.
+        return { opacity: 1, transform: active ? "translateY(0)" : "translateY(100%)" };
+      case "push_slide":
+        // Lateral push, no blur — the plainest directional cut.
+        return { opacity: active ? 1 : 0, transform: active ? "translateX(0)" : "translateX(-100%)" };
       case "fade":
       default:
         return { opacity: active ? 1 : 0 };
@@ -970,6 +1552,26 @@ export default function CustomPreview({
                     onRetry={onRetry}
                     onEnded={!thumbnailMode && isActive ? handleSceneEnded : undefined}
                   />
+                )}
+                {/* The bookend logo for the carousel/thumbnail path. Outside a
+                  * Remotion frame context here, so it is a plain img sized off the
+                  * same exported ratios rather than the HeroLogo component (no
+                  * useVideoConfig/useCurrentFrame) — and always cornered, per the
+                  * note on carouselHeroLogoStyle. */}
+                {shouldRenderPlayer && heroLogoUrl && isBookendScene(sc) && (
+                  <div style={carouselHeroLogoStyle}>
+                    <img
+                      src={heroLogoUrl}
+                      alt=""
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "contain",
+                        objectPosition: "center",
+                        filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.18))",
+                      }}
+                    />
+                  </div>
                 )}
               </div>
             );

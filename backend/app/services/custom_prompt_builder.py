@@ -3,7 +3,10 @@ Custom Prompt Builder — Generates prompt.md and meta.json equivalents
 for custom templates using the universal layout engine.
 """
 
+import re
 from typing import Any
+
+from app.services.scene_content_schema import FIELD_DEFS_BY_TYPE
 
 
 # Valid arrangements for the universal layout engine
@@ -284,6 +287,9 @@ def build_custom_meta(
     name: str,
     content_codes_count: int = 0,
     content_archetype_ids: list | None = None,
+    design_blueprint: dict | None = None,
+    layout_prop_schemas: dict | None = None,
+    scene_font_defaults: dict | None = None,
 ) -> dict[str, Any]:
     """
     Generate a meta.json equivalent for a custom template.
@@ -301,6 +307,15 @@ def build_custom_meta(
     colors = theme.get("colors", {})
 
     # When generated code exists, expose variant-based layouts instead of arrangements
+    # Per-layout "what this scene is for", surfaced in the editor's layout
+    # dropdown. Sourced from the design docs, so it describes the template's own
+    # scenes rather than a generic label.
+    layout_descriptions: dict[str, str] = {}
+    # layout id -> the SENTENCE describing what content belongs here.
+    layout_best_for: dict[str, str] = {}
+    # layout id -> the taxonomy key, for the machine-readable routing fallback.
+    layout_content_types: dict[str, str] = {}
+
     if content_codes_count > 0:
         variant_layouts = ["intro"]
         layout_names = {"intro": "Intro Scene"}
@@ -316,6 +331,35 @@ def build_custom_meta(
                 arch_id = raw.get("id") if isinstance(raw, dict) else raw
                 if isinstance(arch_id, str) and arch_id.strip():
                     label = arch_id.replace("_", " ").title()
+                # What this layout is FOR, in the designer's own words. Built-in
+                # templates describe each layout's best fit; custom ones showed
+                # only an index, so the layout dropdown gave no way to tell one
+                # content style from another.
+                if isinstance(raw, dict):
+                    desc = raw.get("description")
+                    if isinstance(desc, str) and desc.strip():
+                        layout_descriptions[key] = desc.strip()
+                    # `best_for` is now a SENTENCE saying what article content
+                    # belongs in this layout — the same voice a built-in
+                    # template's layout_prompt.md uses ("Best for: Ordered or
+                    # grouped lists."). It reads as prose for whoever assigns
+                    # content, and is what distinguishes three layouts that all
+                    # happen to hold lists.
+                    #
+                    # Older templates stored a ranked taxonomy LIST here
+                    # instead; those still work — the list is joined so the
+                    # picker sees something, and `content_type` carries the
+                    # machine-readable key either way.
+                    _bf = raw.get("best_for")
+                    if isinstance(_bf, str) and _bf.strip():
+                        layout_best_for[key] = _bf.strip()
+                    elif isinstance(_bf, list):
+                        _kinds = [k for k in _bf if isinstance(k, str)]
+                        if _kinds:
+                            layout_best_for[key] = ", ".join(_kinds)
+                    _ct = raw.get("content_type")
+                    if isinstance(_ct, str) and _ct.strip():
+                        layout_content_types[key] = _ct.strip()
             layout_names[key] = label or f"Content Style {i + 1}"
         # Data-viz scenes are always injected into custom videos by the pipeline; expose
         # them as selectable, named layouts so the user can switch a scene to a
@@ -329,7 +373,61 @@ def build_custom_meta(
         layout_names["outro"] = "Outro Scene"
 
         valid_layouts = variant_layouts
+        # Per-layout image capability (P2).
+        #
+        # This list is the SINGLE mechanism the whole product already uses to
+        # express "this layout takes no image": get_layouts_without_image() feeds
+        # image generation, stock-clip assignment, the pipeline's image
+        # selection, render data, and the three SceneEditModal surfaces (image
+        # controls, the layout dropdown note, and the expanded scene row). It was
+        # hardcoded to the data-viz scenes; driving it from the blueprint gives
+        # custom templates the same behaviour built-in and crafted templates have.
         no_image_layouts: list[str] = ["custom_chart", "custom_table"]
+        if design_blueprint:
+            # v2 stores per-scene design docs under `scenes`; v1 (blueprint-era)
+            # templates store `layouts`. Both carry `supports_image` per scene
+            # with the same meaning, so read whichever is present.
+            _layouts = (
+                design_blueprint.get("scenes")
+                or design_blueprint.get("layouts")
+                or []
+            )
+            _content = [l for l in _layouts if l.get("role") not in ("intro", "outro")]
+            for _i, _lay in enumerate(_content):
+                if _i < content_codes_count and not _lay.get("supports_image", True):
+                    no_image_layouts.append(f"content_{_i}")
+            for _role in ("intro", "outro"):
+                _lay = next((l for l in _layouts if l.get("role") == _role), None)
+                if _lay is not None and not _lay.get("supports_image", True):
+                    no_image_layouts.append(_role)
+
+            # Bookend descriptions. The bookends carry no archetype entry —
+            # content_archetype_ids is strictly parallel to content_codes, and
+            # adding to it would corrupt variant indexing — so their "what this
+            # is for" comes straight from their design doc.
+            for _role in ("intro", "outro"):
+                _lay = next((l for l in _layouts if l.get("role") == _role), None)
+                _doc = (_lay or {}).get("doc")
+                if isinstance(_doc, str) and _doc.strip():
+                    layout_descriptions[_role] = re.split(
+                        r"(?<=[.!?])\s", _doc.strip()
+                    )[0].strip()[:200]
+
+        # THE OUTRO NEVER TAKES AN IMAGE, in any custom template.
+        #
+        # A v1 outro is replaced by GeneratedCtaOverlay at render, so anything it
+        # drew was discarded anyway. A v2 outro renders its own layout, and for a
+        # while its capability was allowed to follow its design doc — but an
+        # ending is a call to action, not a picture: a still or a clip behind the
+        # CTA and the socials competes with exactly the elements the scene exists
+        # to present, and it made custom videos spend a stock clip on the one
+        # scene a built-in template never gives one to.
+        #
+        # Forcing it here is what makes the whole downstream chain agree:
+        # get_layouts_without_image feeds the image cascade, the stock-clip
+        # coverage arithmetic, and the image controls in both scene editors.
+        if "outro" not in no_image_layouts:
+            no_image_layouts.append("outro")
     else:
         valid_layouts = list(CUSTOM_ARRANGEMENTS)
         layout_names = {}
@@ -346,12 +444,119 @@ def build_custom_meta(
             "text": colors.get("text", "#1A1A2E"),
         },
         "composition_id": "GeneratedVideo",
-        "hero_layout": HERO_ARRANGEMENT,
-        "fallback_layout": FALLBACK_ARRANGEMENT,
+        # Hero/fallback must be MEMBERS of this meta's own valid_layouts.
+        #
+        # They were hardcoded to the arrangement constants ("full-center" /
+        # "top-bottom") even in the generated branch, where valid_layouts is
+        # intro / content_0..N / outro. Callers that clamp against valid_layouts
+        # (notably _sanitize_script_layouts' `hero_layout in valid` check) then
+        # silently skipped the hero rule, so scene 0 was never pinned to `intro`.
+        "hero_layout": "intro" if content_codes_count > 0 else HERO_ARRANGEMENT,
+        "fallback_layout": (
+            "content_0" if content_codes_count > 0 else FALLBACK_ARRANGEMENT
+        ),
         # valid_layouts is used by SceneEditModal's layout dropdown
         "valid_layouts": valid_layouts,
         "layouts_without_image": no_image_layouts,
     }
     if layout_names:
         meta["layout_names"] = layout_names
+    if layout_descriptions:
+        meta["layout_descriptions"] = layout_descriptions
+    if layout_best_for:
+        meta["layout_best_for"] = layout_best_for
+    if layout_content_types:
+        meta["layout_content_types"] = layout_content_types
+
+    # Per-layout editable props (P3).
+    #
+    # SceneEditModal already has a complete generic renderer for this shape and
+    # reads it for built-in and crafted templates; it was never populated for
+    # custom templates because build_custom_meta simply did not emit the key.
+    # Emitting it here makes custom-template scenes editable with no frontend
+    # change. Omitted entirely when there are no schemas, so templates generated
+    # before P3 fall through to the existing structured-content fields exactly
+    # as they do today.
+    schema: dict[str, Any] = {}
+    if layout_prop_schemas and content_codes_count > 0:
+        from app.services.code_generator import build_layout_prop_schema
+
+        intro_fields = layout_prop_schemas.get("intro") or []
+        if intro_fields:
+            schema["intro"] = build_layout_prop_schema(
+                intro_fields, layout_names.get("intro", "Intro Scene")
+            )
+        outro_fields = layout_prop_schemas.get("outro") or []
+        if outro_fields:
+            schema["outro"] = build_layout_prop_schema(
+                outro_fields, layout_names.get("outro", "Outro Scene")
+            )
+        for i, fields in enumerate(layout_prop_schemas.get("content") or []):
+            if not fields or i >= content_codes_count:
+                continue
+            key = f"content_{i}"
+            schema[key] = build_layout_prop_schema(
+                fields, layout_names.get(key, f"Content Style {i + 1}")
+            )
+
+    # Per-scene DEFAULT type sizes, folded into the SAME `defaults` slot the
+    # editors already resolve from.
+    #
+    # `getDefaultFontSizesFromSchema` on the frontend and the render's per-scene
+    # merge both read `layout_prop_schema[layout].defaults.titleFontSize`, and
+    # both already understand the {landscape, portrait} shape — so routing the
+    # stored sizes here makes every slider start from the right number with no
+    # new resolution code anywhere.
+    #
+    # Deliberately OUTSIDE the block above: a scene can have no editable layout
+    # props at all and still need its type sized, so gating this on
+    # `layout_prop_schemas` would leave most templates on the hardcoded pair.
+    if scene_font_defaults and content_codes_count > 0:
+        def _defaults_for(entry: Any) -> dict | None:
+            if not isinstance(entry, dict):
+                return None
+            out: dict[str, Any] = {}
+            for prop, key in (("title", "titleFontSize"), ("description", "descriptionFontSize")):
+                sizes = entry.get(prop)
+                if isinstance(sizes, dict) and (sizes.get("landscape") or sizes.get("portrait")):
+                    out[key] = {
+                        "landscape": sizes.get("landscape"),
+                        "portrait": sizes.get("portrait"),
+                    }
+            return out or None
+
+        _by_key: dict[str, Any] = {
+            "intro": scene_font_defaults.get("intro"),
+            "outro": scene_font_defaults.get("outro"),
+        }
+        for i, entry in enumerate(scene_font_defaults.get("content") or []):
+            if i < content_codes_count:
+                _by_key[f"content_{i}"] = entry
+
+        for key, entry in _by_key.items():
+            fonts = _defaults_for(entry)
+            if not fonts:
+                continue
+            slot = schema.setdefault(
+                key, {"label": layout_names.get(key, key), "fields": []}
+            )
+            # Font defaults go UNDER anything the layout declared itself, so a
+            # scene that named its own default keeps it.
+            slot["defaults"] = {**fonts, **(slot.get("defaults") or {})}
+
+    if schema:
+        meta["layout_prop_schema"] = schema
+
+    # The per-CONTENT-TYPE field definitions (bullets, steps, metrics, …).
+    #
+    # Served so the scene editor renders these from the SAME definition the
+    # extractor writes against. SceneEditModal had its own hardcoded copy
+    # (CUSTOM_CONTENT_FIELDS) that drifted from it: the frontend declared
+    # `steps` a flat string_array while a scene rendered objects, so every row
+    # printed "[object Object]". One definition, no drift.
+    meta["content_prop_schema"] = {
+        ctype: [dict(f) for f in defs]
+        for ctype, defs in FIELD_DEFS_BY_TYPE.items()
+    }
+
     return meta

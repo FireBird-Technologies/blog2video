@@ -1,3 +1,4 @@
+import json
 import secrets
 from typing import Optional
 from datetime import datetime
@@ -112,6 +113,7 @@ def get_embed_project(token: str, db: Session = Depends(get_db)) -> JSONResponse
             "fallback_layout": meta.get("fallback_layout"),
             "hero_layout": meta.get("hero_layout"),
             "layout_prop_schema": meta.get("layout_prop_schema"),
+            "content_prop_schema": meta.get("content_prop_schema") or {},
             "preview_colors": meta.get("preview_colors"),
             "intro_code": package.get("intro_code"),
             "outro_code": package.get("outro_code"),
@@ -128,10 +130,39 @@ def get_embed_project(token: str, db: Session = Depends(get_db)) -> JSONResponse
         data = _load_custom_template_data(project.template, db=db, user_id=project.user_id)
         project.custom_theme = data["theme"] if data else None
         if data:
+            # Everything the player reads off this payload must be here.
+            #
+            # It carried only the three code fields, and the embed page hands it
+            # straight to VideoPreview as `precompiledTemplateData` — which then
+            # SKIPS the fetch that would otherwise supply the rest. Each missing
+            # field failed silently and differently: no `design_version` meant
+            # the built-in CTA overlay replaced a v2/v3 template's own ending; no
+            # `scene_font_defaults` meant type fell back to the literal baked
+            # into the generated code; no `image_modes` meant a "half" scene was
+            # indistinguishable from a legacy null, so media sitting BESIDE the
+            # copy got the full-bleed blur+scrim.
+            #
+            # Derived from the blueprint this loader already returns, so no extra
+            # query. The two helpers read it off an ORM attribute as JSON, hence
+            # the re-encode rather than a second DB round-trip.
+            from types import SimpleNamespace
+
+            from app.routers.custom_templates import (
+                _design_version,
+                _image_modes_by_layout,
+            )
+
+            _bp = data.get("design_blueprint")
+            _shim = SimpleNamespace(
+                design_blueprint=json.dumps(_bp) if _bp else None
+            )
             custom_template_code = {
                 "intro_code": data.get("intro_code"),
                 "outro_code": data.get("outro_code"),
                 "content_codes": data.get("content_codes"),
+                "design_version": _design_version(_shim),
+                "scene_font_defaults": data.get("scene_font_defaults"),
+                "image_modes": _image_modes_by_layout(_shim),
             }
     else:
         project.custom_theme = None

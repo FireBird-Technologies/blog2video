@@ -21,6 +21,8 @@ import {
 } from "../api/client";
 import {
   baseLayoutId,
+  customSceneLayoutId,
+  customSceneSupportsImage,
   variantsFor,
   variantLabel,
   isSameLayoutFamily,
@@ -62,6 +64,8 @@ import {
   getEconomistChartExampleTable,
 } from "./sceneEditBuiltinDataViz";
 import * as XLSX from "xlsx";
+import { USER_BANDS, bodySizeForHeadline, sanitizeSceneProps } from "./remotion/generated/kit";
+import { sceneFontConfig } from "../utils/sceneFontDefaults";
 
 type CraftedImageBoxEntry = string | { landscape?: string; portrait?: string } | undefined;
 
@@ -437,6 +441,11 @@ export function resolveDefaultFontSizesForScene(args: {
   aspectRatio: string;
   layoutPropSchema?: Record<string, { defaults?: Record<string, unknown> }>;
   craftedFrontendFiles?: Record<string, string> | null;
+  /**
+   * The custom template's stored per-scene defaults, already resolved to THIS
+   * scene by utils/sceneFontDefaults.ts. Wins over everything below it.
+   */
+  sceneFontDefaults?: { titleFontSize?: number; descriptionFontSize?: number } | null;
 }): { title: number; desc: number } {
   const {
     template,
@@ -444,7 +453,26 @@ export function resolveDefaultFontSizesForScene(args: {
     aspectRatio,
     layoutPropSchema,
     craftedFrontendFiles,
+    sceneFontDefaults,
   } = args;
+  // A CUSTOM template's own stored default is the most specific answer there
+  // is, and it is the number the render and both previews use — so it wins.
+  //
+  // Without it this fell all the way through to `getDefaultFontSizes`, which
+  // normalises `custom_123` to the "custom" table whose keys are legacy
+  // arrangement names ("full-center", "split-left") that generated scenes never
+  // use. The lookup missed, landed on LAYOUT_FONT_DEFAULTS.default, and every
+  // custom scene reported a default of 72/30 regardless of the template. That
+  // is not just a wrong readout: saveManualChanges DELETES a value equal to the
+  // default, so a user deliberately choosing 72 had it silently discarded.
+  const cts = sceneFontDefaults;
+  if (cts && (cts.titleFontSize !== undefined || cts.descriptionFontSize !== undefined)) {
+    const fallback = getDefaultFontSizes(template, layoutId, aspectRatio);
+    return {
+      title: cts.titleFontSize ?? fallback.title,
+      desc: cts.descriptionFontSize ?? fallback.desc,
+    };
+  }
   const craftedDefaults = _resolveCraftedFontDefaultsFromFiles(
     craftedFrontendFiles || null,
     layoutId,
@@ -2520,6 +2548,17 @@ interface Props {
   availableImageItems: SceneImageItem[];
   onSaved: () => void;
   /**
+   * The project's layout metadata, already fetched by the parent.
+   *
+   * Without it this modal fetches `GET /projects/{id}/layouts` on EVERY open,
+   * uncached — and until that lands the layout label renders the raw
+   * de-underscored id ("content 0") before snapping to the real name. The
+   * parent already holds this response, so passing it through makes the name
+   * correct on first paint. Optional: a caller that cannot supply it falls back
+   * to the modal's own fetch.
+   */
+  prefetchedLayouts?: LayoutInfo | null;
+  /**
    * True while an AI image generation for THIS scene is in flight (owned by the parent
    * ProjectView, so it survives this modal being closed). Shows a loader on the AI card.
    */
@@ -2622,9 +2661,14 @@ export function SceneEditModalDemo({
               <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
                 Display text
               </h4>
+              {/* NOT `display_text ?? narration_text` — that showed the
+                  VOICEOVER SCRIPT as though it were the on-screen copy whenever
+                  a scene had no display text. The render falls back to the
+                  TITLE here, never to narration. */}
               <textarea
                 readOnly
-                value={scene.display_text ?? scene.narration_text}
+                value={scene.display_text || ""}
+                placeholder="Not set — the title is shown instead"
                 className={textareaClass}
                 rows={2}
               />
@@ -2769,12 +2813,25 @@ export default function SceneEditModal({
   registerStageImage,
   openImageAdjustOnOpen = false,
   demoMode,
+  prefetchedLayouts,
 }: Props) {
   const isDemo = !!demoMode;
   const [editMode, setEditMode] = useState<EditMode>(demoMode?.editMode ?? "ai");
-  const [openManualTab, setOpenManualTab] = useState<ManualTab | null>("settings");
+  // A SET, not a single value: these cards open independently rather than as an
+  // accordion, so Settings and Props can both be open at once — which is how the
+  // modal opens, since between them they hold nearly everything a manual edit
+  // touches and having to expand one (closing the other) made every edit a
+  // two-step. "chartdata" stays closed by default: it only exists for data-viz
+  // scenes and is bulky when it does.
+  const [openManualTabs, setOpenManualTabs] = useState<Set<ManualTab>>(
+    () => new Set<ManualTab>(["settings", "props"]),
+  );
   const toggleManualTab = (tab: ManualTab) =>
-    setOpenManualTab((cur) => (cur === tab ? null : tab));
+    setOpenManualTabs((cur) => {
+      const next = new Set(cur);
+      if (!next.delete(tab)) next.add(tab);
+      return next;
+    });
   const [title, setTitle] = useState(scene.title);
   const [description, setDescription] = useState("");
   const [displayText, setDisplayText] = useState("");
@@ -2856,6 +2913,15 @@ export default function SceneEditModal({
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [imageFocusX, setImageFocusX] = useState(50);
   const [imageFocusY, setImageFocusY] = useState(50);
+  // What the server already has for image framing, so a save can tell whether
+  // the framing actually changed and skip the focus round-trip when it did not.
+  // Seeded from the descriptor when the modal loads (see below) and updated
+  // after each successful focus write.
+  const savedImageFocusRef = useRef<{ x: number; y: number; zoom: number | undefined }>({
+    x: 50,
+    y: 50,
+    zoom: undefined,
+  });
   const [imageAdjustOpen, setImageAdjustOpen] = useState(false);
   const [imageAdjustSrc, setImageAdjustSrc] = useState<string | null>(null);
   const [isAdjustDragging, setIsAdjustDragging] = useState(false);
@@ -2868,7 +2934,10 @@ export default function SceneEditModal({
   // scene shows. Ignored for stills.
   const [imageAdjustStartSeconds, setImageAdjustStartSeconds] = useState(0);
   const [savingImageFraming, setSavingImageFraming] = useState(false);
-  const [layouts, setLayouts] = useState<LayoutInfo | null>(null);
+  // Seeded from the parent when it has already fetched them, so the layout name
+  // is right on the first paint instead of flashing a raw id.
+  const [layouts, setLayouts] = useState<LayoutInfo | null>(prefetchedLayouts ?? null);
+  const [layoutsLoading, setLayoutsLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [removingAssetId, setRemovingAssetId] = useState<number | null>(null);
   const [layoutOpen, setLayoutOpen] = useState(false);
@@ -3004,6 +3073,22 @@ export default function SceneEditModal({
 
   const isCustomTemplate = (project.template || "").startsWith("custom_");
   const isCraftedTemplate = (project.template || "").startsWith("crafted_");
+  // Slider bounds for the typography controls.
+  //
+  // USER_BANDS, not TYPE_BANDS. The type bands bound what the GENERATOR may
+  // bake into a scene; these bound what a PERSON may set. They were the same
+  // map, and that made the sliders stop mattering at the generator's ceiling
+  // (88px on a landscape title) — the user dragged further and the read-time
+  // clamp silently put it back. Mirrors the clamp applied on save below.
+  const _oUI: "landscape" | "portrait" = project.aspect_ratio === "portrait" ? "portrait" : "landscape";
+  // Design v3 binds titleFontSize to the scene TITLE and descriptionFontSize to
+  // the display text and every content prop; v1/v2 bound titleFontSize to the
+  // display text and gave the title a separate eyebrow size. The two sliders
+  // drive different text in the two generations, so they are labelled from this
+  // rather than carrying one label that is wrong for half the templates.
+  const isTwoTierType = isCustomTemplate && (layouts?.design_version ?? 1) >= 3;
+  const _headBandUI = isCustomTemplate ? USER_BANDS.title[_oUI] : ([20, 200] as const);
+  const _bodyBandUI = isCustomTemplate ? USER_BANDS.description[_oUI] : ([12, 80] as const);
   const normalizedTemplateId = (project.template || "default").toLowerCase();
   const isNewscastTemplate = normalizedTemplateId === "newscast" || normalizedTemplateId === "newsreport";
   const isNightfallTemplate = normalizedTemplateId === "nightfall";
@@ -3035,18 +3120,42 @@ export default function SceneEditModal({
   const savedLayoutId = (() => {
     // Dedicated/converted data-viz scenes route by scene type, not descriptor layout.
     if (dataVizKind) return dataVizKind === "chart" ? "custom_chart" : "custom_table";
+    // Custom templates route by scene type + content variant, and their
+    // intro/outro descriptors may carry no marker at all (older projects), so
+    // the shared resolver's positional fallback is what keeps them from
+    // resolving to null and rendering as "Current layout".
+    if (isCustomTemplate) {
+      // Prefer the scene's OWN order field over locating it in project.scenes:
+      // findIndex returns -1 whenever the list has not loaded yet or this scene
+      // object came from a different fetch than the list, and -1 suppresses the
+      // positional fallback entirely — which is how intro/outro ended up with a
+      // null layout id and rendered a placeholder instead of their name.
+      //
+      // Scene.order is ONE-BASED (pipeline.py creates scenes with `order=i + 1`)
+      // while customSceneLayoutId takes a ZERO-BASED index, so it is converted
+      // here. Passing it raw made the intro look like index 1 and never match
+      // the `sceneIndex === 0` rule.
+      const ownOrder = typeof scene.order === "number" ? scene.order - 1 : -1;
+      const foundOrder = project.scenes?.findIndex((s) => s.id === scene.id) ?? -1;
+      const order = ownOrder >= 0 ? ownOrder : foundOrder;
+      // The BACKEND's resolution wins where present — it ran the archetype
+      // matching, so it knows the content variant a descriptor with a null
+      // contentVariantIndex cannot name. Same precedence as ProjectView.
+      const fromServer =
+        order >= 0 ? project.custom_scene_layouts?.[order] : undefined;
+      if (fromServer) return fromServer;
+      // The total has no safe fallback — deriving it from this scene's own order
+      // would make every scene look like the last one, i.e. the outro.
+      return customSceneLayoutId(
+        scene.remotion_code,
+        order >= 0 ? order : undefined,
+        project.scenes?.length,
+      );
+    }
+    // Crafted + built-in templates map by explicit layout id.
     try {
       if (scene.remotion_code) {
         const desc = JSON.parse(scene.remotion_code);
-        // Only custom templates use sceneType/content variant routing.
-        // Crafted + built-in templates should map by explicit layout id.
-        if (isCustomTemplate && desc.sceneTypeOverride) {
-          if (desc.sceneTypeOverride === "content" && typeof desc.contentVariantIndex === "number") {
-            return `content_${desc.contentVariantIndex}`;
-          }
-          return desc.sceneTypeOverride; // "intro" or "outro"
-        }
-        // Custom templates store arrangement in layoutConfig
         if (desc.layoutConfig?.arrangement) return desc.layoutConfig.arrangement;
         return desc.layout || null;
       }
@@ -3078,7 +3187,7 @@ export default function SceneEditModal({
         currentLayoutId,
         layouts?.layout_names[currentLayoutId] || currentLayoutId.replace(/[-_]/g, " ")
       )
-    : "Current layout";
+    : "Default layout";
   // Label for the scene's REAL current layout — used by the dropdown's "Keep
   // current" row so it names the saved layout even while a new one is picked.
   const savedLayoutLabel = savedLayoutId
@@ -3087,22 +3196,54 @@ export default function SceneEditModal({
         savedLayoutId,
         layouts?.layout_names[savedLayoutId] || savedLayoutId.replace(/[-_]/g, " ")
       )
-    : "Current layout";
+    : "Default layout";
 
   // Keyed by BASE layout, so every membership test resolves the layout first —
   // `pull_quote__v2` inherits `pull_quote`'s no-image status.
   const layoutsWithoutImage = new Set<string>(layouts?.layouts_without_image ?? []);
+  // Shared with ProjectView so the two surfaces cannot disagree about whether a
+  // scene takes an image. Fails CLOSED on both "not loaded yet" and "layout
+  // unknown" — the second case used to read as capable, so a custom scene whose
+  // variant index was null offered an upload the render path would discard.
   const layoutSupportsImage = (layoutId: string | null) =>
-    !layoutId || !layoutsWithoutImage.has(baseLayoutId(layoutId));
+    customSceneSupportsImage(layoutId, layoutsWithoutImage, !layoutsLoading && !!layouts);
+  // The server's answer for THIS scene as it currently stands, resolved against
+  // the same metadata the render path uses and delivered with the project — so
+  // it is right on first paint rather than after the /layouts fetch lands.
+  // Only applies while the user has not switched layouts in the dropdown; a
+  // hypothetical layout has no server answer and must use the lookup.
+  const serverSupportsImage = (() => {
+    const order = typeof scene.order === "number" ? scene.order - 1 : -1;
+    const v = order >= 0 ? project.custom_scene_supports_image?.[order] : undefined;
+    return typeof v === "boolean" ? v : null;
+  })();
   // `supportsImage` follows the EFFECTIVE layout so switching into an image-less
   // layout hides the image controls before saving.
-  const supportsImage = layoutSupportsImage(currentLayoutId);
+  const supportsImage =
+    currentLayoutId === savedLayoutId && serverSupportsImage !== null
+      ? serverSupportsImage
+      : layoutSupportsImage(currentLayoutId);
   // Per the scene's SAVED layout — for the "Keep current" dropdown row's note.
-  const savedSupportsImage = layoutSupportsImage(savedLayoutId);
+  const savedSupportsImage =
+    serverSupportsImage !== null ? serverSupportsImage : layoutSupportsImage(savedLayoutId);
   // Offered on any image-capable layout, for every template (builtin, custom,
   // and crafted). The backend still rejects scenes/layouts that can't render
   // a clip (e.g. dataviz scenes), see upload_stock_footage in app/routers/projects.py.
   const stockFootageSupported = supportsImage;
+
+  // Per-layout editable props this custom-template layout declared at
+  // generation time (P3). When present, the scene saves them to layoutProps
+  // like built-in and crafted templates instead of falling back to the fixed
+  // structured-content fields.
+  const customLayoutPropFields = isCustomTemplate
+    ? pickLayoutPropSchemaFieldDefs(
+        layouts?.layout_prop_schema as unknown as
+          | Record<string, LayoutPropSchema>
+          | undefined,
+        currentLayoutId,
+      )
+    : undefined;
+  const customLayoutHasPropSchema = !!customLayoutPropFields?.length;
 
   /**
    * This scene's image box as a CSS aspect string, passed to the stock picker so
@@ -3261,12 +3402,50 @@ export default function SceneEditModal({
   const [craftedLayoutFieldsReady, setCraftedLayoutFieldsReady] = useState(true);
   const { craftedTemplates, ensureCraftedTemplateDetail } = useCraftedTemplates();
 
+  // THIS scene's stored default type sizes, resolved by the same role + variant
+  // lookup the render and both previews use. Null for a non-custom template, or
+  // for one generated before these existed.
+  const sceneFontDefaultsForScene = useMemo(() => {
+    if (!isCustomTemplate || !layouts?.scene_font_defaults) return null;
+    let sceneType: string | null = scene.scene_type ?? null;
+    let contentVariantIndex: number | null = null;
+    if (scene.remotion_code) {
+      try {
+        const d = JSON.parse(scene.remotion_code);
+        if (typeof d.sceneTypeOverride === "string") sceneType = d.sceneTypeOverride;
+        if (typeof d.contentVariantIndex === "number") {
+          contentVariantIndex = d.contentVariantIndex;
+        }
+      } catch { /* a malformed descriptor just falls back to position */ }
+    }
+    const index = project.scenes?.findIndex((x) => x.id === scene.id) ?? -1;
+    return sceneFontConfig(
+      layouts.scene_font_defaults,
+      {
+        sceneType,
+        contentVariantIndex,
+        index: index >= 0 ? index : 0,
+        total: project.scenes?.length ?? 0,
+      },
+      project.aspect_ratio === "portrait" ? "portrait" : "landscape",
+    );
+  }, [
+    isCustomTemplate,
+    layouts?.scene_font_defaults,
+    scene.id,
+    scene.scene_type,
+    scene.remotion_code,
+    project.scenes,
+    project.aspect_ratio,
+  ]);
+
   const defaultFontSizes = resolveDefaultFontSizesForScene({
     template: project.template || "default",
     layoutId: currentLayoutId,
     aspectRatio: project.aspect_ratio || "landscape",
     layoutPropSchema: layouts?.layout_prop_schema,
     craftedFrontendFiles,
+    sceneFontDefaults: sceneFontDefaultsForScene,
   });
 
   const aiHasChanges =
@@ -3296,6 +3475,11 @@ export default function SceneEditModal({
 
   useEffect(() => {
     if (!open) return;
+    // Re-open both cards on every open, not just the first. The modal is hidden
+    // with `return null` rather than unmounted, so state survives closing it —
+    // without this, collapsing a card once would leave it collapsed for every
+    // scene edited afterwards.
+    setOpenManualTabs(new Set<ManualTab>(["settings", "props"]));
     setTitle(scene.title);
     setDescription("");
     // Prefer dedicated display_text when available; otherwise fall back to narration_text.
@@ -3310,6 +3494,9 @@ export default function SceneEditModal({
     setPendingExistingImage(null);
     setImageFocusX(50);
     setImageFocusY(50);
+    // Reset alongside the state it shadows; re-seeded from the descriptor below
+    // when this scene has stored framing.
+    savedImageFocusRef.current = { x: 50, y: 50, zoom: undefined };
     setShowAiImageUpgradeModal(false);
     shouldAutoOpenAdjustRef.current = openImageAdjustOnOpen;
     let layoutId: string | null = null;
@@ -3319,12 +3506,29 @@ export default function SceneEditModal({
     if (scene.remotion_code) {
       try {
         const desc = JSON.parse(scene.remotion_code);
-        // Custom templates: extract arrangement from layoutConfig
-        if (desc.layoutConfig?.arrangement) {
-          layoutId = desc.layoutConfig.arrangement;
-        } else {
-          layoutId = desc.layout || null;
-        }
+        // Resolve the layout the SAME way ProjectView does.
+        //
+        // `layoutConfig.arrangement` is a legacy key custom templates rarely
+        // write — a generated custom scene stores an EMPTY layoutConfig — so
+        // this used to resolve to null and every schema lookup keyed off it
+        // (layout name, per-scene font defaults, image capability) silently
+        // missed. The server-resolved id is authoritative because it knows the
+        // archetype-matched content variant; the shared client resolver is the
+        // fallback.
+        const _order =
+          typeof scene.order === "number"
+            ? scene.order - 1
+            : (project.scenes?.findIndex((s) => s.id === scene.id) ?? -1);
+        layoutId =
+          (_order >= 0 ? project.custom_scene_layouts?.[_order] : undefined) ||
+          desc.layoutConfig?.arrangement ||
+          desc.layout ||
+          customSceneLayoutId(
+            scene.remotion_code,
+            _order >= 0 ? _order : undefined,
+            project.scenes?.length,
+          ) ||
+          null;
         // Custom templates: font sizes live in layoutConfig, not layoutProps
         if (desc.layoutConfig) {
           if (typeof desc.layoutConfig.titleFontSize === "number") ts = String(desc.layoutConfig.titleFontSize);
@@ -3337,6 +3541,16 @@ export default function SceneEditModal({
         lpCopy = { ...lp };
         if (typeof lp.imageFocusX === "number") setImageFocusX(Math.max(0, Math.min(100, lp.imageFocusX)));
         if (typeof lp.imageFocusY === "number") setImageFocusY(Math.max(0, Math.min(100, lp.imageFocusY)));
+        // Baseline for the "did the framing change?" check in saveManualChanges.
+        // Mirrors the clamping above so an unchanged scene compares equal.
+        savedImageFocusRef.current = {
+          x: typeof lp.imageFocusX === "number" ? Math.max(0, Math.min(100, lp.imageFocusX)) : 50,
+          y: typeof lp.imageFocusY === "number" ? Math.max(0, Math.min(100, lp.imageFocusY)) : 50,
+          zoom:
+            typeof lp.imageZoom === "number"
+              ? Math.max(IMAGE_ADJUST_ZOOM_MIN, Number(lp.imageZoom))
+              : undefined,
+        };
         // data_visualization charts: convert stored shapes to editable form
         if (layoutId === "data_visualization") {
           const lpAny = lp as Record<string, unknown>;
@@ -3643,7 +3857,18 @@ export default function SceneEditModal({
       try {
         const desc = JSON.parse(scene.remotion_code);
         if (desc.structuredContent && typeof desc.structuredContent === "object") {
-          scInit = { ...desc.structuredContent };
+          // Coerce to the shapes GeneratedSceneProps declares BEFORE editing.
+          //
+          // The editor binds each entry of a string_array straight into a text
+          // input, so an array of objects rendered "[object Object]" per row —
+          // and saving would have written that literal back over real content.
+          // The render path already sanitises on read; the editor read the raw
+          // descriptor instead, so the same stored row was correct in the video
+          // and corrupt in the modal.
+          //
+          // Same function the render uses, so the editor cannot show a shape
+          // the video would not.
+          scInit = { ...sanitizeSceneProps(desc.structuredContent as Record<string, unknown>) };
           // Flatten comparison objects for dot-key editing
           if (scInit.comparisonLeft && typeof scInit.comparisonLeft === "object") {
             const cl = scInit.comparisonLeft as Record<string, string>;
@@ -3658,6 +3883,21 @@ export default function SceneEditModal({
         }
       } catch { /* ignore */ }
     }
+    // A scene whose structuredContent is empty (or stuck at "plain" with no
+    // other fields — e.g. right after a layout switch whose content refill
+    // silently failed) shows nothing useful: the content-type selector falls
+    // back to "plain", so no array/object fields render at all and the modal
+    // reads as broken rather than "not yet filled in". When this layout has a
+    // known expected content type (chronology -> "timeline", etc.), default
+    // the selector to it so the correct EMPTY fields appear immediately —
+    // never overwrites real saved content.
+    const scHasOwnContent = Object.keys(scInit).some((k) => k !== "contentType");
+    if (!scHasOwnContent && layoutId) {
+      const expectedType = layouts?.layout_content_types?.[layoutId];
+      if (expectedType && expectedType !== "plain") {
+        scInit = { ...scInit, contentType: expectedType };
+      }
+    }
     setEditableStructuredContent(scInit);
     const defaults = resolveDefaultFontSizesForScene({
       template: project.template || "default",
@@ -3665,6 +3905,7 @@ export default function SceneEditModal({
       aspectRatio: project.aspect_ratio || "landscape",
       layoutPropSchema: layouts?.layout_prop_schema,
       craftedFrontendFiles,
+      sceneFontDefaults: sceneFontDefaultsForScene,
     });
     // Track whether each value is an explicit descriptor value or a default, so the
     // async-schema merge effect below can refresh a stale default without clobbering
@@ -3713,6 +3954,20 @@ export default function SceneEditModal({
       aspectRatio: project.aspect_ratio || "landscape",
       layoutPropSchema: layouts?.layout_prop_schema,
       craftedFrontendFiles,
+      // MUST be passed here too, not only in the open/init effect.
+      //
+      // Omitting it made this refresh recompute a WORSE default than the one it
+      // was replacing: with no stored per-scene sizes to return early on,
+      // resolveDefaultFontSizesForScene falls through to
+      // LAYOUT_FONT_DEFAULTS.default (72/30) for every custom template. Because
+      // the setters below only skip values the user set explicitly, and this
+      // effect re-runs as soon as layout_prop_schema arrives — always, for a
+      // custom template — it reliably clobbered the correct value the init
+      // effect had just written. See the note on the early return in
+      // resolveDefaultFontSizesForScene: the readout is the visible half, but
+      // saveManualChanges DELETES a value equal to "the default", so a wrong
+      // default silently discards a real user choice.
+      sceneFontDefaults: sceneFontDefaultsForScene,
     });
     // The initial value may have been a default computed BEFORE the layout schema
     // loaded (hence wrong). Now that the schema is here, refresh values that are only
@@ -3732,6 +3987,7 @@ export default function SceneEditModal({
     project.template,
     project.aspect_ratio,
     normalizedTemplateId,
+    sceneFontDefaultsForScene,
   ]);
 
   useEffect(() => {
@@ -3806,14 +4062,34 @@ export default function SceneEditModal({
   }, [open, isCraftedTemplate, project.template, craftedTemplates]);
 
   // Fetch layouts when modal opens (needed for manual mode: image support check and layout names)
+  //
+  // `layoutsLoading` exists because this is async with no cached value: until it
+  // resolves, `layouts` is null, so the dropdown renders an EMPTY option list,
+  // every label falls back to a raw id ("content_0"), and `layouts_without_image`
+  // reads as [] — which briefly shows image controls on image-free layouts.
+  // Callers use the flag to render a loading row and to hold back the image
+  // controls rather than defaulting them to "supported".
+  // Adopt the parent's layouts whenever they arrive.
+  //
+  // The useState initializer above only runs on mount, so a modal mounted
+  // before the parent's fetch resolved would keep its null forever. This also
+  // means the network request below is skipped entirely in the normal case.
+  useEffect(() => {
+    if (prefetchedLayouts) setLayouts(prefetchedLayouts);
+  }, [prefetchedLayouts]);
+
   useEffect(() => {
     if (isDemo) return;
-    if (open && !layouts) {
+    // Fallback only — a caller that supplies `prefetchedLayouts` never reaches
+    // this, which is what removes the per-open round trip.
+    if (open && !layouts && !prefetchedLayouts) {
+      setLayoutsLoading(true);
       getValidLayouts(project.id)
         .then((res) => setLayouts(res.data))
-        .catch(() => showError("Failed to load layouts"));
+        .catch(() => showError("Failed to load layouts"))
+        .finally(() => setLayoutsLoading(false));
     }
-  }, [open, project.id, layouts, isDemo]);
+  }, [open, project.id, layouts, isDemo, prefetchedLayouts]);
 
   useEffect(() => {
     if (!open || !shouldAutoOpenAdjustRef.current || imageAdjustOpen) return;
@@ -3926,8 +4202,17 @@ export default function SceneEditModal({
           const n = parseInt(s.trim(), 10);
           return !isNaN(n) ? Math.min(max, Math.max(min, n)) : null;
         };
-        const tsNum = parseNum(titleFontSize, 20, 200);
-        const dsNum = parseNum(descriptionFontSize, 12, 80);
+        // Custom templates clamp to the USER bands (kit/typeBands.ts) — what a
+        // person may set, which the render clamps to identically on read. NOT
+        // the generation bands: those bound what the model may bake in and are
+        // checked at generation time. Built-ins keep the historical wide range
+        // — their scenes are hand-written and not bound by the generated-scene
+        // contract.
+        const _o: "landscape" | "portrait" = project.aspect_ratio === "portrait" ? "portrait" : "landscape";
+        const _headBand = isCustomTemplate ? USER_BANDS.title[_o] : ([20, 200] as const);
+        const _bodyBand = isCustomTemplate ? USER_BANDS.description[_o] : ([12, 80] as const);
+        const tsNum = parseNum(titleFontSize, _headBand[0], _headBand[1]);
+        const dsNum = parseNum(descriptionFontSize, _bodyBand[0], _bodyBand[1]);
         const defTitle = defaultFontSizes.title;
         const defDesc = defaultFontSizes.desc;
         const layoutIsChanging = selectedLayout && selectedLayout !== "__keep__" && selectedLayout !== "__auto__";
@@ -3940,6 +4225,24 @@ export default function SceneEditModal({
           }
           // Custom templates use layoutConfig — skip layoutProps editing
           if (isCustomTemplate) {
+            // When this layout declared its own editable props (P3), persist
+            // them to layoutProps — the same location built-in and crafted
+            // templates use, and what GeneratedVideo passes to the component.
+            // Spreading the previous value first preserves keys written
+            // elsewhere (notably imageBoxAspectRatio, stamped at render time).
+            if (customLayoutHasPropSchema) {
+              const prevLp = (desc.layoutProps as Record<string, unknown>) || {};
+              const schemaKeys = new Set(
+                (customLayoutPropFields ?? []).map((f) => f.key),
+              );
+              const editedSchemaProps: Record<string, unknown> = {};
+              for (const [k, v] of Object.entries(
+                editableLayoutProps as Record<string, unknown>,
+              )) {
+                if (schemaKeys.has(k)) editedSchemaProps[k] = v;
+              }
+              desc.layoutProps = { ...prevLp, ...editedSchemaProps };
+            }
             // Exception: dedicated data-viz scenes persist their edited chart data
             // into layoutProps (the location GeneratedVideo's kit scenes read).
             if (dataVizKind) {
@@ -3962,8 +4265,28 @@ export default function SceneEditModal({
             else delete config.titleFontSize;
             if (dsNum !== null && dsNum !== defDesc) config.descriptionFontSize = dsNum;
             else delete config.descriptionFontSize;
-            // Merge edited structured content back
-            if (editableStructuredContent.contentType && editableStructuredContent.contentType !== "plain") {
+            // Headline moved but body left at its default: derive the body from
+            // the headline so the hierarchy cannot invert. Mirrors ProjectView's
+            // inline slider.
+            if (tsNum !== null && tsNum !== defTitle && (dsNum === null || dsNum === defDesc)) {
+              config.descriptionFontSize = bodySizeForHeadline(tsNum, _o);
+            }
+            // Merge edited structured content back. Skip while a layout switch
+            // is still PENDING (picked in the dropdown but not yet confirmed
+            // via the AI-tab save): editableStructuredContent may already
+            // reflect the NEW layout's expected contentType (pre-seeded by
+            // applySelectedLayout) while contentVariantIndex here still names
+            // the OLD layout — writing it now would save a mismatched
+            // identity/content pair. The AI-tab save (saveAiChanges ->
+            // regenerateScene) is what actually commits a layout switch and
+            // its own structuredContent refill; if the user only saves from
+            // the Manual tab, the switch itself never lands, so neither should
+            // its provisional content-type guess.
+            if (
+              !layoutIsChanging &&
+              editableStructuredContent.contentType &&
+              editableStructuredContent.contentType !== "plain"
+            ) {
               const sc = { ...editableStructuredContent };
               // Rebuild comparison objects from dot-key fields
               if (sc.contentType === "comparison") {
@@ -4359,8 +4682,17 @@ export default function SceneEditModal({
         // above has no assignedImage/assignedVideo, so the focus endpoint would
         // reject it — and there is nothing left to frame anyway.
         const stagedRemoval = Boolean(editableLayoutProps.hideImage);
-        if (supportsImage && !stagedRemoval && hasAssignedVisual) {
+        // Skip when the framing did not actually change. This used to fire on
+        // EVERY save that had a visual attached, so editing only a font size
+        // cost a second serialized round-trip that wrote back the values it had
+        // just read — a visible chunk of the "saving takes forever" complaint.
+        const focusUnchanged =
+          focusXToSave === savedImageFocusRef.current.x &&
+          focusYToSave === savedImageFocusRef.current.y &&
+          zoomToPatch === savedImageFocusRef.current.zoom;
+        if (supportsImage && !stagedRemoval && hasAssignedVisual && !focusUnchanged) {
           await updateSceneImageFocus(project.id, scene.id, focusXToSave, focusYToSave, zoomToPatch);
+          savedImageFocusRef.current = { x: focusXToSave, y: focusYToSave, zoom: zoomToPatch };
         }
   };
 
@@ -4444,6 +4776,22 @@ export default function SceneEditModal({
   const applySelectedLayout = (next: string) => {
     setSelectedLayout(next);
     if (next === "__keep__" || next === "__auto__") return;
+
+    // Mirror the modal-open default: when the scene has no structured content
+    // of its own (still "plain" with nothing else set) and the NEW layout
+    // expects a specific content type, pre-select it so the right empty
+    // fields (e.g. timeline items) appear immediately instead of the modal
+    // looking blank until the AI-tab save round-trips through the backend
+    // refill. Never overwrites content the user already entered.
+    setEditableStructuredContent((prev) => {
+      const hasOwnContent = Object.keys(prev).some((k) => k !== "contentType");
+      if (hasOwnContent) return prev;
+      const expectedType = layouts?.layout_content_types?.[next];
+      if (!expectedType || expectedType === "plain" || prev.contentType === expectedType) {
+        return prev;
+      }
+      return { ...prev, contentType: expectedType };
+    });
 
     // Switching layout rebuilds the layout-content portion of editableLayoutProps
     // so the modal (and the saved descriptor) carry ONLY the new layout's fields —
@@ -4811,338 +5159,22 @@ export default function SceneEditModal({
     transformOrigin: framingZoom < 1 ? "center center" : `${imageFocusX}% ${imageFocusY}%`,
   };
 
-  const renderLayoutContentBlock = (): { node: ReactNode; hasTables: boolean } => {
-    let __layoutHasTables = false;
-    const __node = (() => {
-                if (isEndingScene) {
-                  const updateCta = (idx: number, patch: Partial<CtaDraft>) => {
-                    setCtas((prev) =>
-                      prev.map((c, i) => (i === idx ? { ...c, ...patch } : c)),
-                    );
-                  };
-                  const removeCta = (idx: number) => {
-                    setCtas((prev) =>
-                      prev.length <= 1 ? prev : prev.filter((_, i) => i !== idx),
-                    );
-                  };
-                  const addCta = () => {
-                    setCtas((prev) =>
-                      prev.length >= MAX_CTAS ? prev : [...prev, makeDefaultCta()],
-                    );
-                  };
-                  const endingHeadingFields: Array<{ key: string; label: string; placeholder: string }> = [
-                    { key: "followLabel", label: "Follow heading", placeholder: "Follow" },
-                    { key: "onlineLabel", label: "Online heading", placeholder: "Online" },
-                    { key: "issueLabel", label: "Colophon line", placeholder: "Thank you for reading" },
-                  ];
-                  return (
-                    <div className="space-y-3">
-                      {/* Editable back-cover section headings (magazine + any template
-                          whose closing layout reads these props; harmless elsewhere). */}
-                      <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                        Section headings
-                      </h4>
-                      <div className="space-y-3">
-                        {endingHeadingFields.map((field) => (
-                          <div key={field.key}>
-                            <label className="block text-[11px] font-medium text-gray-500 mb-1">
-                              {field.label}
-                            </label>
-                            <input
-                              type="text"
-                              value={(editableLayoutProps[field.key] as string) ?? ""}
-                              onChange={(e) =>
-                                setEditableLayoutProps((prev) => ({ ...prev, [field.key]: e.target.value }))
-                              }
-                              className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                              placeholder={field.placeholder}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                      <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                        Social media Links
-                      </h4>
-                      <div className="space-y-3">
-                        {ctas.map((cta, idx) => (
-                          <div
-                            key={idx}
-                            className="space-y-2 border border-gray-200 rounded-lg p-3 bg-gray-50/40"
-                          >
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="text-sm font-medium text-gray-800">
-                                {idx === 0 ? "Call to Action Button" : `Call to Action Button ${idx + 1}`}
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    updateCta(idx, { showWebsiteButton: !cta.showWebsiteButton })
-                                  }
-                                  className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ${
-                                    cta.showWebsiteButton ? "bg-purple-600" : "bg-gray-200"
-                                  }`}
-                                  role="switch"
-                                  aria-checked={cta.showWebsiteButton}
-                                  aria-label="Toggle website call to action"
-                                >
-                                  <span
-                                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
-                                      cta.showWebsiteButton ? "translate-x-4" : "translate-x-0"
-                                    }`}
-                                  />
-                                </button>
-                                {idx > 0 ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => removeCta(idx)}
-                                    className="text-gray-400 hover:text-red-500 text-base leading-none w-5 h-5 flex items-center justify-center"
-                                    aria-label={`Remove CTA ${idx + 1}`}
-                                  >
-                                    ×
-                                  </button>
-                                ) : null}
-                              </div>
-                            </div>
-                            <div>
-                              <label className="block text-[11px] font-medium text-gray-500 mb-1">
-                                CTA button label
-                              </label>
-                              <input
-                                type="text"
-                                value={cta.ctaButtonText}
-                                onChange={(e) =>
-                                  updateCta(idx, { ctaButtonText: e.target.value })
-                                }
-                                className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                placeholder="e.g. Read the full article"
-                              />
-                              <p className="mt-1 text-[11px] text-gray-500">
-                                Short text on the pill above the link (matches the project font in the video).
-                              </p>
-                            </div>
-                            {cta.showWebsiteButton ? (
-                              <div>
-                                <label className="block text-[11px] font-medium text-gray-500 mb-1">
-                                  Website URL
-                                </label>
-                                <input
-                                  type="text"
-                                  value={cta.websiteLink}
-                                  onChange={(e) =>
-                                    updateCta(idx, { websiteLink: e.target.value })
-                                  }
-                                  className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                  placeholder="https://example.com/article"
-                                />
-                                <p className="mt-1 text-[11px] text-gray-500">
-                                  Shown under the CTA pill when the toggle is on.
-                                </p>
-                              </div>
-                            ) : null}
-                          </div>
-                        ))}
-                        {ctas.length < MAX_CTAS ? (
-                          <button
-                            type="button"
-                            onClick={addCta}
-                            className="w-full px-3 py-2 text-sm font-medium text-purple-600 hover:text-purple-700 border border-dashed border-gray-300 hover:border-purple-400 rounded-lg bg-white/50 transition-colors"
-                          >
-                            + Add another CTA
-                          </button>
-                        ) : null}
-                        {ENDING_SOCIALS_KEYS.map((k) => {
-                          const item = endingSocials[k];
-                          const enabled = Boolean(item?.enabled ?? false);
-                          const label = (item?.label ?? ENDING_SOCIALS_DEFAULT[k].label) as string;
-                          const platformLabel = ENDING_SOCIALS_DEFAULT[k].label;
-                          return (
-                            <div key={k} className="space-y-2">
-                              <div className="flex items-center gap-3">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setEndingSocials((prev) => ({
-                                      ...prev,
-                                      [k]: { ...(prev[k] ?? ENDING_SOCIALS_DEFAULT[k]), enabled: !enabled },
-                                    }));
-                                  }}
-                                  className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ${
-                                    enabled ? "bg-purple-600" : "bg-gray-200"
-                                  }`}
-                                  role="switch"
-                                  aria-checked={enabled}
-                                  aria-label={`Toggle ${platformLabel}`}
-                                >
-                                  <span
-                                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
-                                      enabled ? "translate-x-4" : "translate-x-0"
-                                    }`}
-                                  />
-                                </button>
-                                <div className="text-sm font-medium text-gray-800">
-                                  {platformLabel}
-                                </div>
-                              </div>
-
-                              {enabled ? (
-                                <div>
-                                  <input
-                                    type="text"
-                                    value={label}
-                                    onChange={(e) => {
-                                      const next = e.target.value;
-                                      setEndingSocials((prev) => ({
-                                        ...prev,
-                                        [k]: { ...(prev[k] ?? ENDING_SOCIALS_DEFAULT[k]), label: next },
-                                      }));
-                                    }}
-                                    className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                    placeholder={`Enter ${k} link or text`}
-                                  />
-                                </div>
-                              ) : null}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                }
-
-                // Crafted templates: prefer fields shipped in the bundle's
-                // `frontend/layoutFields.ts`. Fall back to LAYOUT_TEXT_FIELDS
-                // (keyed by layout id) for any layout the bundle hasn't
-                // declared, so unknown crafted layouts still render *some*
-                // controls instead of being blank.
-                const craftedTemplateEntry = isCraftedTemplate
-                  ? craftedTemplates.find((ct) => ct.id === project.template)
-                  : undefined;
-                const craftedFields =
-                  isCraftedTemplate && currentLayoutId
-                    ? pickCraftedCompiledLayoutFields(craftedLayoutFieldsByLayout, currentLayoutId)
-                    : undefined;
-                const schemaBackedFields =
-                  isCraftedTemplate && currentLayoutId
-                    ? pickLayoutPropSchemaFieldDefs(craftedTemplateEntry?.layout_prop_schema, currentLayoutId)
-                    : undefined;
-                // Built-in (bundled) data-viz templates (matrix/spotlight/chronicle)
-                // source their chart/ticker editor fields from meta.json
-                // (layout_prop_schema), the same way crafted templates do — scoped
-                // to the registered chart + ticker layouts so other layouts keep
-                // using LAYOUT_TEXT_FIELDS.
-                const builtinDataVizSchemaFields =
-                  (isBuiltinDataVizChartLayout(normalizedTemplateId, currentLayoutId) ||
-                    isBuiltinTickerLayout(normalizedTemplateId, currentLayoutId) ||
-                    isChartTickerDataVizLayout(normalizedTemplateId, currentLayoutId))
-                    ? pickLayoutPropSchemaFieldDefs(
-                        layouts?.layout_prop_schema as unknown as
-                          | Record<string, LayoutPropSchema>
-                          | undefined,
-                        currentLayoutId,
-                      )
-                    : undefined;
-                const bundledMetaSchemaFields =
-                  !isCraftedTemplate && currentLayoutId
-                    ? pickLayoutPropSchemaFieldDefs(
-                        layouts?.layout_prop_schema as unknown as
-                          | Record<string, LayoutPropSchema>
-                          | undefined,
-                        currentLayoutId,
-                      )
-                    : undefined;
-                const rawLayoutFields =
-                  (dataVizKind ? CUSTOM_DATAVIZ_FIELDS[dataVizKind] : undefined) ??
-                  craftedFields ??
-                  schemaBackedFields ??
-                  builtinDataVizSchemaFields ??
-                  getLayoutFields(project.template || "default", currentLayoutId) ??
-                  bundledMetaSchemaFields;
-                let layoutFields = (rawLayoutFields ?? []).filter((f) => !isHiddenLayoutPropKey(f.key));
-                __layoutHasTables = fieldsHaveTable(layoutFields);
-
-                if (isNewscastTemplate && currentBaseLayoutId === "data_visualization") {
-                  const chartTable = normalizeChartTableValue((editableLayoutProps as Record<string, unknown>).chartTable);
-                  const mode = inferDataVizTableMode(editableLayoutProps as Record<string, unknown>);
-                  const numericSeriesCount = Math.max(1, getNumericColumnIndexes(chartTable).length || 1);
-                  const barSeriesCount = mode === "bar" ? Math.min(3, numericSeriesCount) : 0;
-                  const lineSeriesCount = mode === "line" ? Math.min(3, numericSeriesCount) : 0;
-
-                  layoutFields = layoutFields.filter((field) => {
-                    if (field.key === "barPrimaryColor") return mode === "bar";
-                    if (field.key === "barSecondaryColor") return mode === "bar";
-                    if (field.key === "barTertiaryColor") return mode === "bar";
-                    if (field.key === "lineUpColor") return mode === "line";
-                    if (field.key === "lineDownColor") return mode === "line";
-                    if (field.key === "lineThirdColor") return mode === "line";
-                    return true;
-                  });
-                }
-
-                const knownKeys = new Set(layoutFields.map((f) => f.key));
-                const suppressExtraKeysForDataViz =
-                  (isNewscastTemplate || isNightfallTemplate || isDefaultTemplate) &&
-                  currentBaseLayoutId === "data_visualization";
-                const suppressExtraKeysForBloombergChart =
-                  isBloombergTemplate && currentBaseLayoutId === "terminal_chart";
-                const suppressExtraKeysForBloombergDataViz =
-                  isBloombergTemplate && currentBaseLayoutId === "terminal_dataviz";
-                // Built-in data-viz chart + ticker layouts (newspaper, whiteboard,
-                // gridcraft, stickman_2, blackswan, matrix, spotlight, chronicle, …)
-                // fully define their editable fields from meta.json's
-                // layout_prop_schema. Don't surface other scenes' leftover props
-                // (e.g. chartTable on a ticker scene, tickerTable/CSV/raw JSON on a
-                // chart scene) as raw "extra" fields.
-                const suppressExtraKeysForBuiltinDataViz =
-                  isBuiltinDataVizChartLayout(normalizedTemplateId, currentLayoutId) ||
-                  isBuiltinTickerLayout(normalizedTemplateId, currentLayoutId) ||
-                  isChartTickerDataVizLayout(normalizedTemplateId, currentLayoutId);
-                const craftedHasLayoutFieldsSource =
-                  isCraftedTemplate &&
-                  Boolean(
-                    String(
-                      (craftedTemplateEntry as { layout_fields?: string | null } | undefined)?.layout_fields ?? "",
-                    ).trim(),
-                  );
-                const deferCraftedExtraKeys = craftedHasLayoutFieldsSource && !craftedLayoutFieldsReady;
-                // A concrete layout switch is in flight — show ONLY the new
-                // layout's declared fields, not the previous scene's leftover /
-                // orphan props (heading/body/issueLabel/… from the old layout).
-                // `extraKeys` is meant to surface stored props that lack a curated
-                // FieldDef when editing a scene in its native layout; after a
-                // deliberate switch it's just noise. Load-order independent, and
-                // catches orphan keys the FieldDef registry doesn't know about.
-                const suppressExtraKeysForLayoutSwitch =
-                  pendingLayout != null && pendingLayout !== savedLayoutId;
-                const extraKeys =
-                  (suppressExtraKeysForDataViz || suppressExtraKeysForBloombergChart || suppressExtraKeysForBloombergDataViz || suppressExtraKeysForBuiltinDataViz || suppressExtraKeysForLayoutSwitch)
-                    ? []
-                    : deferCraftedExtraKeys
-                      ? []
-                    : currentLayoutId && editableLayoutProps
-                      ? Object.keys(editableLayoutProps).filter(
-                          (key) =>
-                            !knownKeys.has(key) &&
-                            !isHiddenLayoutPropKey(key) &&
-                            !isDeprecatedLayoutPropKey(
-                              project.template,
-                              currentLayoutId,
-                              key,
-                            ),
-                        )
-                      : [];
-                if (!currentLayoutId || (layoutFields.length === 0 && extraKeys.length === 0)) return null;
-                const humanLabel = (key: string) =>
-                  key
-                    .replace(/[_-]+/g, " ")
-                    .replace(/\b\w/g, (m) => m.toUpperCase());
-                return (
-                <div>
-                  <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                    Layout content
-                  </h4>
-                  <div className="space-y-4">
-                    {layoutFields?.map((field) => {
+  /**
+   * Render the editable inputs for a list of declared layout fields.
+   *
+   * Extracted verbatim from the "Layout content" group so the ENDING-scene
+   * branch can use it too. That branch returns early and used to render a
+   * hardcoded magazine field list instead, which meant a custom template
+   * declaring its own outro props (kicker/signoff/ctaCaption) got no editor
+   * for them at all — the values were saved and rendered, but unreachable.
+   *
+   * Closes over component state only (editableLayoutProps / setEditableLayoutProps
+   * / normalizedTemplateId / currentLayoutId / isCustomTemplate), so both call
+   * sites behave identically and cannot drift apart.
+   */
+  const renderLayoutFieldInputs = (fields: FieldDef[]): ReactNode => (
+    <>
+      {fields.map((field) => {
                       const inputClass = "w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500";
                       const textareaClass = "w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden";
                       if (field.type === "color") {
@@ -5705,7 +5737,371 @@ export default function SceneEditModal({
                         );
                       }
                       return null;
-                    })}
+      })}
+    </>
+  );
+
+  const renderLayoutContentBlock = (): { node: ReactNode; hasTables: boolean } => {
+    let __layoutHasTables = false;
+    const __node = (() => {
+                if (isEndingScene) {
+                  const updateCta = (idx: number, patch: Partial<CtaDraft>) => {
+                    setCtas((prev) =>
+                      prev.map((c, i) => (i === idx ? { ...c, ...patch } : c)),
+                    );
+                  };
+                  const removeCta = (idx: number) => {
+                    setCtas((prev) =>
+                      prev.length <= 1 ? prev : prev.filter((_, i) => i !== idx),
+                    );
+                  };
+                  const addCta = () => {
+                    setCtas((prev) =>
+                      prev.length >= MAX_CTAS ? prev : [...prev, makeDefaultCta()],
+                    );
+                  };
+                  const endingHeadingFields: Array<{ key: string; label: string; placeholder: string }> = [
+                    { key: "followLabel", label: "Follow heading", placeholder: "Follow" },
+                    { key: "onlineLabel", label: "Online heading", placeholder: "Online" },
+                    { key: "issueLabel", label: "Colophon line", placeholder: "Thank you for reading" },
+                  ];
+                  // The props this ending layout actually DECLARED, rendered with
+                  // the same inputs every other scene gets.
+                  //
+                  // This branch returns early, so the schema-driven group further
+                  // down never ran for an ending scene: a custom template whose
+                  // outro declares its own props (Dawn's kicker/signoff/ctaCaption)
+                  // showed no editor for them at all, while the hardcoded magazine
+                  // headings below wrote keys its code never reads. The values were
+                  // saved and rendered correctly — they were simply unreachable.
+                  const endingSchemaFields = (customLayoutPropFields ?? []).filter(
+                    (f) => !isHiddenLayoutPropKey(f.key),
+                  );
+                  return (
+                    <div className="space-y-3">
+                      {endingSchemaFields.length > 0 && (
+                        <>
+                          <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                            Layout content
+                          </h4>
+                          <div className="space-y-4">
+                            {renderLayoutFieldInputs(endingSchemaFields)}
+                          </div>
+                        </>
+                      )}
+                      {/* Editable back-cover section headings (magazine + any template
+                          whose closing layout reads these props; harmless elsewhere).
+                          Suppressed when the layout declares its own props, so a
+                          custom outro shows ITS fields rather than three inputs
+                          nothing on the frame reads. */}
+                      {!customLayoutHasPropSchema && (
+                        <>
+                          <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                            Section headings
+                          </h4>
+                          <div className="space-y-3">
+                            {endingHeadingFields.map((field) => (
+                              <div key={field.key}>
+                                <label className="block text-[11px] font-medium text-gray-500 mb-1">
+                                  {field.label}
+                                </label>
+                                <input
+                                  type="text"
+                                  value={(editableLayoutProps[field.key] as string) ?? ""}
+                                  onChange={(e) =>
+                                    setEditableLayoutProps((prev) => ({ ...prev, [field.key]: e.target.value }))
+                                  }
+                                  className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                  placeholder={field.placeholder}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                      <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                        Social media Links
+                      </h4>
+                      <div className="space-y-3">
+                        {ctas.map((cta, idx) => (
+                          <div
+                            key={idx}
+                            className="space-y-2 border border-gray-200 rounded-lg p-3 bg-gray-50/40"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="text-sm font-medium text-gray-800">
+                                {idx === 0 ? "Call to Action Button" : `Call to Action Button ${idx + 1}`}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    updateCta(idx, { showWebsiteButton: !cta.showWebsiteButton })
+                                  }
+                                  className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ${
+                                    cta.showWebsiteButton ? "bg-purple-600" : "bg-gray-200"
+                                  }`}
+                                  role="switch"
+                                  aria-checked={cta.showWebsiteButton}
+                                  aria-label="Toggle website call to action"
+                                >
+                                  <span
+                                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
+                                      cta.showWebsiteButton ? "translate-x-4" : "translate-x-0"
+                                    }`}
+                                  />
+                                </button>
+                                {idx > 0 ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => removeCta(idx)}
+                                    className="text-gray-400 hover:text-red-500 text-base leading-none w-5 h-5 flex items-center justify-center"
+                                    aria-label={`Remove CTA ${idx + 1}`}
+                                  >
+                                    ×
+                                  </button>
+                                ) : null}
+                              </div>
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-medium text-gray-500 mb-1">
+                                CTA button label
+                              </label>
+                              <input
+                                type="text"
+                                value={cta.ctaButtonText}
+                                onChange={(e) =>
+                                  updateCta(idx, { ctaButtonText: e.target.value })
+                                }
+                                className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                placeholder="e.g. Read the full article"
+                              />
+                              <p className="mt-1 text-[11px] text-gray-500">
+                                Short text on the pill above the link (matches the project font in the video).
+                              </p>
+                            </div>
+                            {cta.showWebsiteButton ? (
+                              <div>
+                                <label className="block text-[11px] font-medium text-gray-500 mb-1">
+                                  Website URL
+                                </label>
+                                <input
+                                  type="text"
+                                  value={cta.websiteLink}
+                                  onChange={(e) =>
+                                    updateCta(idx, { websiteLink: e.target.value })
+                                  }
+                                  className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                  placeholder="https://example.com/article"
+                                />
+                                <p className="mt-1 text-[11px] text-gray-500">
+                                  Shown under the CTA pill when the toggle is on.
+                                </p>
+                              </div>
+                            ) : null}
+                          </div>
+                        ))}
+                        {ctas.length < MAX_CTAS ? (
+                          <button
+                            type="button"
+                            onClick={addCta}
+                            className="w-full px-3 py-2 text-sm font-medium text-purple-600 hover:text-purple-700 border border-dashed border-gray-300 hover:border-purple-400 rounded-lg bg-white/50 transition-colors"
+                          >
+                            + Add another CTA
+                          </button>
+                        ) : null}
+                        {ENDING_SOCIALS_KEYS.map((k) => {
+                          const item = endingSocials[k];
+                          const enabled = Boolean(item?.enabled ?? false);
+                          const label = (item?.label ?? ENDING_SOCIALS_DEFAULT[k].label) as string;
+                          const platformLabel = ENDING_SOCIALS_DEFAULT[k].label;
+                          return (
+                            <div key={k} className="space-y-2">
+                              <div className="flex items-center gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEndingSocials((prev) => ({
+                                      ...prev,
+                                      [k]: { ...(prev[k] ?? ENDING_SOCIALS_DEFAULT[k]), enabled: !enabled },
+                                    }));
+                                  }}
+                                  className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ${
+                                    enabled ? "bg-purple-600" : "bg-gray-200"
+                                  }`}
+                                  role="switch"
+                                  aria-checked={enabled}
+                                  aria-label={`Toggle ${platformLabel}`}
+                                >
+                                  <span
+                                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
+                                      enabled ? "translate-x-4" : "translate-x-0"
+                                    }`}
+                                  />
+                                </button>
+                                <div className="text-sm font-medium text-gray-800">
+                                  {platformLabel}
+                                </div>
+                              </div>
+
+                              {enabled ? (
+                                <div>
+                                  <input
+                                    type="text"
+                                    value={label}
+                                    onChange={(e) => {
+                                      const next = e.target.value;
+                                      setEndingSocials((prev) => ({
+                                        ...prev,
+                                        [k]: { ...(prev[k] ?? ENDING_SOCIALS_DEFAULT[k]), label: next },
+                                      }));
+                                    }}
+                                    className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                    placeholder={`Enter ${k} link or text`}
+                                  />
+                                </div>
+                              ) : null}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Crafted templates: prefer fields shipped in the bundle's
+                // `frontend/layoutFields.ts`. Fall back to LAYOUT_TEXT_FIELDS
+                // (keyed by layout id) for any layout the bundle hasn't
+                // declared, so unknown crafted layouts still render *some*
+                // controls instead of being blank.
+                const craftedTemplateEntry = isCraftedTemplate
+                  ? craftedTemplates.find((ct) => ct.id === project.template)
+                  : undefined;
+                const craftedFields =
+                  isCraftedTemplate && currentLayoutId
+                    ? pickCraftedCompiledLayoutFields(craftedLayoutFieldsByLayout, currentLayoutId)
+                    : undefined;
+                const schemaBackedFields =
+                  isCraftedTemplate && currentLayoutId
+                    ? pickLayoutPropSchemaFieldDefs(craftedTemplateEntry?.layout_prop_schema, currentLayoutId)
+                    : undefined;
+                // Built-in (bundled) data-viz templates (matrix/spotlight/chronicle)
+                // source their chart/ticker editor fields from meta.json
+                // (layout_prop_schema), the same way crafted templates do — scoped
+                // to the registered chart + ticker layouts so other layouts keep
+                // using LAYOUT_TEXT_FIELDS.
+                const builtinDataVizSchemaFields =
+                  (isBuiltinDataVizChartLayout(normalizedTemplateId, currentLayoutId) ||
+                    isBuiltinTickerLayout(normalizedTemplateId, currentLayoutId) ||
+                    isChartTickerDataVizLayout(normalizedTemplateId, currentLayoutId))
+                    ? pickLayoutPropSchemaFieldDefs(
+                        layouts?.layout_prop_schema as unknown as
+                          | Record<string, LayoutPropSchema>
+                          | undefined,
+                        currentLayoutId,
+                      )
+                    : undefined;
+                const bundledMetaSchemaFields =
+                  !isCraftedTemplate && currentLayoutId
+                    ? pickLayoutPropSchemaFieldDefs(
+                        layouts?.layout_prop_schema as unknown as
+                          | Record<string, LayoutPropSchema>
+                          | undefined,
+                        currentLayoutId,
+                      )
+                    : undefined;
+                const rawLayoutFields =
+                  (dataVizKind ? CUSTOM_DATAVIZ_FIELDS[dataVizKind] : undefined) ??
+                  craftedFields ??
+                  schemaBackedFields ??
+                  builtinDataVizSchemaFields ??
+                  getLayoutFields(project.template || "default", currentLayoutId) ??
+                  bundledMetaSchemaFields;
+                let layoutFields = (rawLayoutFields ?? []).filter((f) => !isHiddenLayoutPropKey(f.key));
+                __layoutHasTables = fieldsHaveTable(layoutFields);
+
+                if (isNewscastTemplate && currentBaseLayoutId === "data_visualization") {
+                  const chartTable = normalizeChartTableValue((editableLayoutProps as Record<string, unknown>).chartTable);
+                  const mode = inferDataVizTableMode(editableLayoutProps as Record<string, unknown>);
+                  const numericSeriesCount = Math.max(1, getNumericColumnIndexes(chartTable).length || 1);
+                  const barSeriesCount = mode === "bar" ? Math.min(3, numericSeriesCount) : 0;
+                  const lineSeriesCount = mode === "line" ? Math.min(3, numericSeriesCount) : 0;
+
+                  layoutFields = layoutFields.filter((field) => {
+                    if (field.key === "barPrimaryColor") return mode === "bar";
+                    if (field.key === "barSecondaryColor") return mode === "bar";
+                    if (field.key === "barTertiaryColor") return mode === "bar";
+                    if (field.key === "lineUpColor") return mode === "line";
+                    if (field.key === "lineDownColor") return mode === "line";
+                    if (field.key === "lineThirdColor") return mode === "line";
+                    return true;
+                  });
+                }
+
+                const knownKeys = new Set(layoutFields.map((f) => f.key));
+                const suppressExtraKeysForDataViz =
+                  (isNewscastTemplate || isNightfallTemplate || isDefaultTemplate) &&
+                  currentBaseLayoutId === "data_visualization";
+                const suppressExtraKeysForBloombergChart =
+                  isBloombergTemplate && currentBaseLayoutId === "terminal_chart";
+                const suppressExtraKeysForBloombergDataViz =
+                  isBloombergTemplate && currentBaseLayoutId === "terminal_dataviz";
+                // Built-in data-viz chart + ticker layouts (newspaper, whiteboard,
+                // gridcraft, stickman_2, blackswan, matrix, spotlight, chronicle, …)
+                // fully define their editable fields from meta.json's
+                // layout_prop_schema. Don't surface other scenes' leftover props
+                // (e.g. chartTable on a ticker scene, tickerTable/CSV/raw JSON on a
+                // chart scene) as raw "extra" fields.
+                const suppressExtraKeysForBuiltinDataViz =
+                  isBuiltinDataVizChartLayout(normalizedTemplateId, currentLayoutId) ||
+                  isBuiltinTickerLayout(normalizedTemplateId, currentLayoutId) ||
+                  isChartTickerDataVizLayout(normalizedTemplateId, currentLayoutId);
+                const craftedHasLayoutFieldsSource =
+                  isCraftedTemplate &&
+                  Boolean(
+                    String(
+                      (craftedTemplateEntry as { layout_fields?: string | null } | undefined)?.layout_fields ?? "",
+                    ).trim(),
+                  );
+                const deferCraftedExtraKeys = craftedHasLayoutFieldsSource && !craftedLayoutFieldsReady;
+                // A concrete layout switch is in flight — show ONLY the new
+                // layout's declared fields, not the previous scene's leftover /
+                // orphan props (heading/body/issueLabel/… from the old layout).
+                // `extraKeys` is meant to surface stored props that lack a curated
+                // FieldDef when editing a scene in its native layout; after a
+                // deliberate switch it's just noise. Load-order independent, and
+                // catches orphan keys the FieldDef registry doesn't know about.
+                const suppressExtraKeysForLayoutSwitch =
+                  pendingLayout != null && pendingLayout !== savedLayoutId;
+                const extraKeys =
+                  (suppressExtraKeysForDataViz || suppressExtraKeysForBloombergChart || suppressExtraKeysForBloombergDataViz || suppressExtraKeysForBuiltinDataViz || suppressExtraKeysForLayoutSwitch)
+                    ? []
+                    : deferCraftedExtraKeys
+                      ? []
+                    : currentLayoutId && editableLayoutProps
+                      ? Object.keys(editableLayoutProps).filter(
+                          (key) =>
+                            !knownKeys.has(key) &&
+                            !isHiddenLayoutPropKey(key) &&
+                            !isDeprecatedLayoutPropKey(
+                              project.template,
+                              currentLayoutId,
+                              key,
+                            ),
+                        )
+                      : [];
+                if (!currentLayoutId || (layoutFields.length === 0 && extraKeys.length === 0)) return null;
+                const humanLabel = (key: string) =>
+                  key
+                    .replace(/[_-]+/g, " ")
+                    .replace(/\b\w/g, (m) => m.toUpperCase());
+                return (
+                <div>
+                  <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                    Layout content
+                  </h4>
+                  <div className="space-y-4">
+                    {renderLayoutFieldInputs(layoutFields ?? [])}
                     {extraKeys.length > 0 && (
                       <div className="space-y-3">
                         {extraKeys.map((key) => {
@@ -6271,7 +6667,7 @@ export default function SceneEditModal({
             <div className="mt-4 space-y-3">
               <ManualTabCard
                 title="Scene Settings"
-                open={openManualTab === "settings"}
+                open={openManualTabs.has("settings")}
                 onToggle={() => toggleManualTab("settings")}
               >
               <div>
@@ -6325,7 +6721,7 @@ export default function SceneEditModal({
                 <div className="space-y-3">
                   <div>
                     <div className="flex justify-between items-baseline">
-                      <label className="text-xs text-gray-400">Title font size</label>
+                      <label className="text-xs text-gray-400" title={isTwoTierType ? "Sizes the scene title — the largest text on the frame." : "Sizes the large on-screen display text (the headline)."}>{isTwoTierType ? "Title" : "Display text (headline)"}</label>
                       {(() => {
                         const parsed = parseInt(titleFontSize, 10);
                         const isOverride = Number.isFinite(parsed);
@@ -6342,17 +6738,17 @@ export default function SceneEditModal({
                     </div>
                     <input
                       type="range"
-                      min={20}
-                      max={200}
+                      min={_headBandUI[0]}
+                      max={_headBandUI[1]}
                       step={1}
-                      value={Math.min(200, Math.max(20, parseInt(titleFontSize, 10) || defaultFontSizes.title))}
+                      value={Math.min(_headBandUI[1], Math.max(_headBandUI[0], parseInt(titleFontSize, 10) || defaultFontSizes.title))}
                       onChange={(e) => { titleFontIsExplicitRef.current = true; setTitleFontSize(e.target.value); }}
                       className="w-full h-1 bg-gray-200 rounded-full appearance-none cursor-pointer accent-purple-600"
                     />
                   </div>
                   <div>
                     <div className="flex justify-between items-baseline ">
-                      <label className="text-xs text-gray-400">Description font size</label>
+                      <label className="text-xs text-gray-400" title={isTwoTierType ? "Sizes the display text, bullets, content props and every label." : "Sizes body copy, bullets and content props."}>{isTwoTierType ? "Display text & content" : "Body text"}</label>
                       {(() => {
                         const parsed = parseInt(descriptionFontSize, 10);
                         const isOverride = Number.isFinite(parsed);
@@ -6369,10 +6765,10 @@ export default function SceneEditModal({
                     </div>
                     <input
                       type="range"
-                      min={12}
-                      max={80}
+                      min={_bodyBandUI[0]}
+                      max={_bodyBandUI[1]}
                       step={1}
-                      value={Math.min(80, Math.max(12, parseInt(descriptionFontSize, 10) || defaultFontSizes.desc))}
+                      value={Math.min(_bodyBandUI[1], Math.max(_bodyBandUI[0], parseInt(descriptionFontSize, 10) || defaultFontSizes.desc))}
                       onChange={(e) => { descFontIsExplicitRef.current = true; setDescriptionFontSize(e.target.value); }}
                       className="w-full h-1 bg-gray-200 rounded-full appearance-none cursor-pointer accent-purple-600"
                     />
@@ -6385,7 +6781,7 @@ export default function SceneEditModal({
               {layoutHasTables && (
                 <ManualTabCard
                   title="Chart data"
-                  open={openManualTab === "chartdata"}
+                  open={openManualTabs.has("chartdata")}
                   onToggle={() => toggleManualTab("chartdata")}
                 >
                   {layoutContentNode}
@@ -6395,7 +6791,7 @@ export default function SceneEditModal({
               {/* ── Layout content fields (dynamic per layout type, with extras) ── */}
               <ManualTabCard
                 title="Scene Props"
-                open={openManualTab === "props"}
+                open={openManualTabs.has("props")}
                 onToggle={() => toggleManualTab("props")}
               >
               {(() => {
@@ -6408,7 +6804,24 @@ export default function SceneEditModal({
               (() => {
                 if (!isCustomTemplate) return null;
                 const ct = (editableStructuredContent.contentType as string) || "plain";
-                const scFields = CUSTOM_CONTENT_FIELDS[ct];
+                // Prefer the SERVER's definition over the local copy below.
+                //
+                // CUSTOM_CONTENT_FIELDS and the backend's schema described the
+                // same thing in two places and drifted: this file declared
+                // `steps` a flat string_array while a generated scene rendered
+                // objects, so every row printed "[object Object]". The server
+                // now sends the field defs from the one definition the
+                // extractor also writes against. The local map stays as the
+                // fallback for a template whose meta predates it.
+                const servedFields = layoutPropSchemaToFieldDefs(
+                  (layouts?.content_prop_schema as
+                    | Record<string, LayoutPropSchema["fields"]>
+                    | undefined)?.[ct]
+                    ? ({ fields: (layouts?.content_prop_schema as
+                        Record<string, LayoutPropSchema["fields"]>)[ct] } as LayoutPropSchema)
+                    : undefined,
+                );
+                const scFields = servedFields ?? CUSTOM_CONTENT_FIELDS[ct];
                 const inputClass = "w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500";
                 const textareaClass = "w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden";
                 const contentTypeOptions = [
@@ -6610,8 +7023,8 @@ export default function SceneEditModal({
 
               <ManualTabCard
                 title="Avatar"
-                open={openManualTab === "avatar"}
-                onToggle={() => setOpenManualTab(openManualTab === "avatar" ? null : "avatar")}
+                open={openManualTabs.has("avatar")}
+                onToggle={() => toggleManualTab("avatar")}
               >
                 <SceneAvatarSection
                   projectId={project.id}
@@ -6644,7 +7057,9 @@ export default function SceneEditModal({
                     opacity: project.avatar_opacity ?? 1,
                   }}
                   onChanged={onSaved}
-                  onGoToNarration={() => setOpenManualTab("settings")}
+                  onGoToNarration={() =>
+                    setOpenManualTabs((cur) => new Set(cur).add("settings"))
+                  }
                   // A scene with no FINISHED clip has nothing to edit here, so the
                   // section sends the user to the project-wide Avatar tab instead —
                   // the only priced entry point to a render, and the only view that
@@ -7292,6 +7707,11 @@ export default function SceneEditModal({
                         Only the exact saved layout is filtered out — filtering by
                         FAMILY would hide the current layout's sibling variants,
                         which are precisely what we want to offer here. */}
+                    {layoutsLoading && (
+                      <div className="px-3 py-2.5 text-xs text-gray-400 italic">
+                        Loading layouts…
+                      </div>
+                    )}
                     {(layouts?.layouts ?? layouts?.selectable_layouts)
                       ?.filter((id) => id !== savedLayoutId)
                       .map((layoutId) => {

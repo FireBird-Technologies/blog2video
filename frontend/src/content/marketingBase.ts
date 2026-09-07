@@ -463,6 +463,21 @@ export const templateProfiles: TemplateProfile[] = [
     ],
   },
   {
+    slug: "old-documentary-reel",
+    name: "Old Documentary Reel",
+    description:
+      "A raw, old-camera found-footage documentary template with clapperboard slates, archive photography, film grain, tracking-roll damage, and chipped-edge title cards.",
+    bestFor: "History deep dives, true-crime breakdowns, retro retrospectives, and archival-style essays.",
+    differentiator:
+      "Trades clean and modern for deliberately rough: grain, weave, tracking roll, sprockets, halation, scanlines, dust, and scratches make the video feel like a found reel rather than a generated one.",
+    styleFit: "Best when the story benefits from feeling unearthed rather than produced.",
+    previewSceneKey: "preview-old-documentary-reel",
+    layouts: ["docreel_slate", "docreel_title_card", "docreel_countdown", "docreel_statistic", "docreel_dossier", "docreel_photo_pan", "docreel_contact_sheet", "docreel_interview", "docreel_field_notes", "docreel_essay_captions", "ending_socials"],
+    longDescription: "Old Documentary Reel is built for history, true-crime, and archival storytelling — content where a clean, modern look would actually undercut the story. Clapperboard slates, dossier inserts, contact-sheet montages, and archive photo pans stand in for the polished layouts other templates use, all wrapped in authentic film damage: grain, tracking roll, sprockets, halation, scanlines, and dust and scratches. Every boundary crossfades like a spliced reel, so the finished video reads like a found artifact instead of a slideshow.",
+    idealFor: ["Cold case and true-crime breakdowns", "Historical deep dives and retrospectives", "Investigative essays with a documentary tone", "Retro or nostalgia-driven storytelling", "Archival photo and interview compilations"],
+    exampleTopics: ["The cold case that took thirty years to reopen", "What really happened on Main Street in 1986", "Inside the archive: photos that changed the investigation"],
+  },
+  {
     slug: "custom",
     name: "Custom Templates",
     description:

@@ -118,6 +118,31 @@ export function staggerEntrance(
 }
 
 /**
+ * The frame rate to spring with when the caller did not supply a usable one.
+ *
+ * These two helpers are the only kit exports that take `fps` as an ARGUMENT
+ * rather than reading it from `useVideoConfig()` themselves, which makes them
+ * the one place a generated scene can hand Remotion a bad value. A scene that
+ * never destructured `fps` — or read it off `props`, which carries none —
+ * passes `undefined` straight through, and Remotion VALIDATES spring's
+ * arguments: it throws `"fps" must be a number` mid-render, which unwinds past
+ * the scene into the Player and blanks the whole preview rather than degrading
+ * one animation. The boundary catches it, recompilation remounts, and it throws
+ * again, so the scene sits in a crash loop.
+ *
+ * Coercing keeps the animation CORRECT rather than merely alive: every preview
+ * Player and the render composition run at 30fps, so 30 is the value the scene
+ * would have read from the hook.
+ *
+ * The generation-time runtime gate rejects this pattern (see the spring stub in
+ * backend/app/services/scene_runtime_harness.mjs), but nothing re-validates a
+ * scene that was STORED before that gate existed — hence the recovery here.
+ */
+const FALLBACK_FPS = 30;
+const usableFps = (fps: number): number =>
+  typeof fps === "number" && Number.isFinite(fps) && fps > 0 ? fps : FALLBACK_FPS;
+
+/**
  * Headline pop: scale overshoot + rise, for titles/key words. Spring-backed so
  * it feels organic; pass `fps` from useVideoConfig().
  */
@@ -129,7 +154,7 @@ export function headlinePop(
   const start = opts?.start ?? 0;
   const s = spring({
     frame: frame - start,
-    fps,
+    fps: usableFps(fps),
     config: {
       damping: opts?.damping ?? 14,
       stiffness: opts?.stiffness ?? 200,
@@ -149,7 +174,7 @@ export function panelRise(
 ): EntranceStyle {
   const s = spring({
     frame: frame - (opts?.start ?? 0),
-    fps,
+    fps: usableFps(fps),
     config: { damping: 20, stiffness: 90, mass: 1 },
   });
   return {
@@ -201,4 +226,127 @@ export function countUpString(
     ? cur.toFixed(parsed.decimals)
     : Math.round(cur).toLocaleString();
   return `${parsed.prefix}${body}${parsed.suffix}`;
+}
+
+// ─── Camera / depth ───────────────────────────────────────────
+//
+// Generated scenes were strictly flat 2D: the kit had no 3D primitive at all,
+// while the hand-built templates (bloomberg, newscast, fj_research) lean on
+// perspective and camera moves for much of their polish. These are the same
+// techniques, packaged so a generated scene gets them without re-deriving the
+// math — and so the perspective values stay in a range that cannot distort text
+// or push content out of frame.
+//
+// All frame-driven, so renders stay deterministic.
+
+export type CameraStyle = {
+  /** Apply to the OUTER wrapper — establishes the 3D viewing volume. */
+  perspective: string;
+  transformStyle: "preserve-3d";
+};
+
+export type CameraTransform = {
+  transform: string;
+  transformStyle: "preserve-3d";
+};
+
+/**
+ * The 3D stage. Put this on the element that WRAPS the moving layers; children
+ * then share one viewing volume, which is what makes their motion read as depth
+ * rather than as independent scaling.
+ *
+ * Larger depth = weaker perspective. 1400-2000 is the usable band: below ~900
+ * the distortion becomes obvious on wide text.
+ */
+export function cameraStage(depth = 1600): CameraStyle {
+  return {
+    perspective: `${Math.max(900, Math.min(2600, depth))}px`,
+    transformStyle: "preserve-3d",
+  };
+}
+
+/**
+ * A slow, continuous camera push with a settling tilt — the move that makes a
+ * static composition feel filmed. Runs across the WHOLE scene rather than as an
+ * entrance beat, so the shot never freezes.
+ *
+ * `intensity` 0..1 scales the whole move; keep it low (0.3-0.6) behind text.
+ */
+export function cameraPush(
+  frame: number,
+  durationInFrames: number,
+  intensity = 0.5,
+): CameraTransform {
+  const k = clamp01(intensity);
+  const span = Math.max(1, durationInFrames);
+  const t = clamp01(frame / span);
+  // Continuous push, plus a tilt that settles out over the first ~40 frames so
+  // the scene arrives with motion and then steadies.
+  const scale = 1 + 0.06 * k * t;
+  const rotX = interpolate(frame, [0, 40], [2.4 * k, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const translateZ = 40 * k * t;
+  return {
+    transform: `scale(${scale.toFixed(4)}) rotateX(${rotX.toFixed(3)}deg) translateZ(${translateZ.toFixed(2)}px)`,
+    transformStyle: "preserve-3d",
+  };
+}
+
+/**
+ * A layer that drifts at its own rate inside a cameraStage. Give the backdrop a
+ * NEGATIVE depth and the foreground a positive one so they separate — opposing
+ * directions at different speeds is what reads as parallax.
+ */
+export function parallaxLayer(
+  frame: number,
+  durationInFrames: number,
+  depth = 1,
+  intensity = 0.5,
+): CameraTransform {
+  const k = clamp01(intensity);
+  const span = Math.max(1, durationInFrames);
+  const t = frame / span;
+  const x = -26 * depth * k * t;
+  const y = -14 * depth * k * t;
+  const z = 30 * depth * k;
+  return {
+    transform: `translate3d(${x.toFixed(2)}px, ${y.toFixed(2)}px, ${z.toFixed(2)}px)`,
+    transformStyle: "preserve-3d",
+  };
+}
+
+/**
+ * A panel that rises with a forward tilt that settles — the newscast glass-panel
+ * move, generalised. Use for cards and surfaces entering the frame.
+ */
+export function panelTilt(
+  frame: number,
+  delayFrames = 0,
+  intensity = 0.5,
+): CameraTransform & { opacity: number } {
+  const k = clamp01(intensity);
+  const f = frame - delayFrames;
+  const y = interpolate(f, [0, 12, 26, 38], [70 * k, -10 * k, 5 * k, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const rotX = interpolate(f, [0, 14, 30], [13 * k, -2.6 * k, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const scale = interpolate(f, [0, 10, 24], [1 - 0.06 * k, 1 + 0.02 * k, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const opacity = interpolate(f, [0, 10], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  return {
+    transform: `translateY(${y.toFixed(2)}px) rotateX(${rotX.toFixed(3)}deg) scale(${scale.toFixed(4)})`,
+    transformStyle: "preserve-3d",
+    opacity,
+  };
 }

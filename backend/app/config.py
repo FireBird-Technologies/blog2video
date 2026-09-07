@@ -68,8 +68,29 @@ class Settings(BaseSettings):
     IMAGE_PROVIDER: str = os.environ.get("IMAGE_PROVIDER", "openai")
     DSPY_IMAGE_LM: str =  "openai/gpt-4o-mini"
 
-    # Custom-template Remotion codegen in local/dev: GLM via OpenRouter (prod still uses Claude).
-    CUSTOM_TEMPLATE_LM: str = os.environ.get("CUSTOM_TEMPLATE_LM", "openrouter/z-ai/glm-5.2")
+    # Custom-template Remotion codegen in local/dev: GLM via Z.AI (prod still uses Claude).
+    #
+    # This setting is the ONLY place the codegen model line is named — every call
+    # site reads it rather than hardcoding a slug, so reverting to the previous
+    # line is a one-line env change with no deploy:
+    #     CUSTOM_TEMPLATE_LM=openrouter/z-ai/glm-5.2
+    # _make_zai_lm branches on the slug, so 5.2's `thinking: {type: disabled}`
+    # path is restored automatically with no other edit. Keep it that way.
+    #
+    # The one deliberate exception is get_custom_lm_fallback(), which pins 5.2
+    # explicitly — it is the fallback FOR this setting and must not follow it.
+    CUSTOM_TEMPLATE_LM: str = os.environ.get("CUSTOM_TEMPLATE_LM", "openrouter/z-ai/glm-5.3")
+
+    # Model for EDITING one scene of an existing custom template — not for
+    # generating a template. Editing is a smaller, better-constrained task than
+    # generation (the scene already exists and its design doc is fixed), so it
+    # runs on the cheaper/faster Flash line while generation keeps its own model.
+    #
+    # Named here rather than hardcoded for the same reason as CUSTOM_TEMPLATE_LM:
+    # if the vendor slug differs from what we expect, it is an env change and no
+    # deploy. `_make_zai_lm` branches on the slug prefix, so any `glm-5.3*` value
+    # automatically takes the reasoning_effort path (5.3 cannot disable thinking).
+    SCENE_EDIT_LM: str = os.environ.get("SCENE_EDIT_LM", "glm-5.3-flash")
 
     # Google OAuth
     GOOGLE_CLIENT_ID: str = ""

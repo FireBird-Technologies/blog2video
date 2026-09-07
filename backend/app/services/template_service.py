@@ -146,6 +146,13 @@ def _build_template_result(tpl) -> dict[str, Any]:
         "content_codes": content_codes,
         "content_archetype_ids": json.loads(tpl.content_archetype_ids) if getattr(tpl, "content_archetype_ids", None) else [],
         "image_box_aspect_ratios": json.loads(tpl.image_box_aspect_ratios) if getattr(tpl, "image_box_aspect_ratios", None) else None,
+        # P2 design blueprint — drives per-layout image capability in meta.
+        "design_blueprint": json.loads(tpl.design_blueprint) if getattr(tpl, "design_blueprint", None) else None,
+        "layout_prop_schemas": json.loads(tpl.layout_prop_schemas) if getattr(tpl, "layout_prop_schemas", None) else None,
+        # Per-scene default type sizes. Read by the render path's per-scene
+        # defaults merge and folded into meta.layout_prop_schema, which is what
+        # the editor's font sliders resolve their starting values from.
+        "scene_font_defaults": json.loads(tpl.scene_font_defaults) if getattr(tpl, "scene_font_defaults", None) else None,
         "brand_kit": brand_kit_data,
         "og_image": og_image,
     }
@@ -186,6 +193,46 @@ def _build_crafted_template_result(package: dict[str, Any]) -> dict[str, Any]:
         "public_r2_relpaths": package.get("public_r2_relpaths") or [],
         "crafted_r2_prefix": package.get("crafted_r2_prefix") or "",
     }
+
+
+def apply_blueprint_to_theme(theme: dict | None, design_blueprint: dict | None) -> dict | None:
+    """Fold the blueprint's design decisions into the theme dict.
+
+    THREE surfaces render a custom template — the Remotion export, the project
+    player, and the template preview — and each reads the theme, not the
+    blueprint. Without this they disagree on the two most visible properties a
+    template has:
+
+      * `motion.transitionFamily` — the blueprint's own choice was written and
+        never read, so every template fell back to a 3-bucket energy preset and
+        each cut used the same transition;
+      * `fonts.heading` / `fonts.body` — theme fonts are free-form names the
+        extractor guessed, often not bundled, which render as the system default.
+        The blueprint's ids are registry-validated.
+
+    Kept here rather than in a router so all three surfaces share ONE
+    implementation; duplicating it is how they drifted in the first place.
+    Returns a new dict — never mutates the caller's theme.
+    """
+    if not theme or not isinstance(design_blueprint, dict):
+        return theme
+
+    out = theme
+    tfam = design_blueprint.get("transition_family")
+    if isinstance(tfam, list) and tfam:
+        motion = dict(out.get("motion") or {})
+        motion["transitionFamily"] = tfam
+        out = {**out, "motion": motion}
+
+    ident = design_blueprint.get("identity") or {}
+    if isinstance(ident, dict) and (ident.get("heading_font") or ident.get("body_font")):
+        fonts = dict(out.get("fonts") or {})
+        if ident.get("heading_font"):
+            fonts["heading"] = ident["heading_font"]
+        if ident.get("body_font"):
+            fonts["body"] = ident["body_font"]
+        out = {**out, "fonts": fonts}
+    return out
 
 
 def _load_custom_template_data(
@@ -270,6 +317,9 @@ def _get_custom_meta(template_id: str, db: Session | None = None, user_id: int |
         data["name"],
         content_codes_count=len(content_codes),
         content_archetype_ids=data.get("content_archetype_ids"),
+        design_blueprint=data.get("design_blueprint"),
+        layout_prop_schemas=data.get("layout_prop_schemas"),
+        scene_font_defaults=data.get("scene_font_defaults"),
     )
 
 
@@ -365,7 +415,23 @@ def get_layout_prompt(template_id: str, db: Session | None = None, user_id: int 
 
     if is_custom_template(template_id):
         # Custom templates do not have layout_prompt.md files on disk; use their full prompt.
-        return _get_custom_prompt(template_id, db=db, user_id=user_id)
+        #
+        # But that prompt is `generated_prompt`, STORED AT TEMPLATE-CREATION TIME —
+        # before any scene code exists — so it describes the legacy arrangement
+        # vocabulary (full-center, split-left, grid-3, ...). Meanwhile the
+        # template's real layouts, once code has been generated, are
+        # intro / content_0..N / outro, and those are what get_valid_layouts()
+        # and the renderer actually use.
+        #
+        # Feeding the script LLM the stale catalog made it pick arrangement names
+        # for every scene — names nothing downstream consumes — which is why
+        # project scene lists showed "split-left" and "grid-3" instead of the
+        # template's own layouts. Append the authoritative catalog so the LLM
+        # picks real ids. (Regenerating generated_prompt is not an option: it is
+        # also consumed by the DSPy scene generator for narration/visual hints.)
+        base = _get_custom_prompt(template_id, db=db, user_id=user_id)
+        catalog = _custom_layout_catalog(template_id)
+        return f"{base}\n\n{catalog}" if catalog else base
 
     layout_path = _TEMPLATES_DIR / template_id / "layout_prompt.md"
     if layout_path.exists():
@@ -374,6 +440,69 @@ def get_layout_prompt(template_id: str, db: Session | None = None, user_id: int 
 
     # Fallback: use full prompt.md
     return _load_prompt(template_id, db=db, user_id=user_id)
+
+
+def _custom_layout_catalog(template_id: str) -> str:
+    """The authoritative layout catalog for a generated custom template.
+
+    Returns "" for legacy theme-only templates (no generated scene code), whose
+    stored prompt's arrangement vocabulary is still the correct one for them.
+    """
+    meta = _load_meta(template_id)
+    if not meta:
+        return ""
+    layouts = [x for x in (meta.get("valid_layouts") or []) if isinstance(x, str)]
+    # Arrangement-based metas are the legacy shape — leave those alone.
+    if not any(x == "intro" or x.startswith("content_") for x in layouts):
+        return ""
+    studio_only = set(meta.get("studio_only_layouts") or [])
+    names = meta.get("layout_names") or {}
+    # What each layout is BUILT FOR. Without this the catalog listed names only,
+    # so the script LLM was choosing between "Everything List" and "Milestone
+    # Track" on the strength of the words alone — and the layout it picked bore
+    # no relation to the shape of the scene's content. Every downstream stage
+    # then inherited that guess.
+    best_for = meta.get("layout_best_for") or {}
+    # Mirrors a built-in template's layout_prompt.md, which is prose:
+    #
+    #   - `mosaic_stream`
+    #     - Best for: Ordered or grouped lists.
+    #
+    # A taxonomy list ("bullets, steps") could not break a tie: eight layouts in
+    # one template routinely share a content type, so it said only "any of these
+    # three" and the choice fell to position. A sentence distinguishes "a dense
+    # scannable list" from "three items given equal weight", which is what
+    # actually decides where a scene belongs.
+    rows = []
+    for lid in layouts:
+        if lid in studio_only:
+            continue
+        rows.append(f"- `{lid}` — {names.get(lid, lid.replace('_', ' ').title())}")
+        _bf = best_for.get(lid)
+        if isinstance(_bf, list):  # legacy taxonomy list
+            _bf = ", ".join(str(k) for k in _bf) if _bf else ""
+        if isinstance(_bf, str) and _bf.strip():
+            rows.append(f"  - Best for: {_bf.strip()}")
+    if not rows:
+        return ""
+    return (
+        "## Layout catalog (AUTHORITATIVE — overrides any arrangement list above)\n\n"
+        "This template's scenes were generated as code. Its real layouts are the ids\n"
+        "below. Use ONE of these exact ids as each scene's layout. Arrangement names\n"
+        "such as `full-center`, `split-left`, `grid-3` or `stacked` belong to an older\n"
+        "vocabulary, are NOT valid here, and will be discarded.\n\n"
+        + "\n".join(rows)
+        + "\n\n- `intro` is the opening scene and `outro` the closing scene; use each once.\n"
+        "- MATCH THE CONTENT TO THE LAYOUT. Read each layout's \"Best for\" line and pick\n"
+        "  the one whose description fits what THIS scene actually says — its title, its\n"
+        "  narration, how many items it names and how much text each carries. Where two\n"
+        "  layouts could both hold it, the Best for lines are what tell them apart.\n"
+        "  This choice decides which props the scene is given, so a mismatch leaves the\n"
+        "  layout half-empty.\n"
+        "- Prefer not to repeat a layout in consecutive scenes, but NEVER at the cost of\n"
+        "  the match above: two neighbouring list scenes on the same list layout beat one\n"
+        "  of them on a layout built for something else.\n"
+    )
 
 
 def get_valid_layouts(template_id: str) -> set[str]:
@@ -498,9 +627,20 @@ def get_composition_id(template_id: str) -> str:
     return meta.get("composition_id", "DefaultVideo")
 
 
-def get_preview_colors(template_id: str) -> dict[str, str] | None:
-    """Get preview_colors (accent, bg, text) for template. None = use request defaults."""
-    meta = _load_meta(template_id)
+def get_preview_colors(
+    template_id: str,
+    db: Session | None = None,
+    user_id: int | None = None,
+) -> dict[str, str] | None:
+    """Get preview_colors (accent, bg, text) for template. None = use request defaults.
+
+    `db`/`user_id` are REQUIRED for a custom template: its meta is built from the
+    DB, not read off disk, so without a session `_load_meta` returns None and this
+    reports "no colours" for every custom template. Callers then fell back to the
+    app default accent (#7C3AED) and persisted it on the project — which is how a
+    Careem video rendered purple.
+    """
+    meta = _load_meta(template_id, db=db, user_id=user_id)
     if not meta:
         return None
     pc = meta.get("preview_colors")
@@ -521,6 +661,21 @@ def validate_template_id(template_id: str | None, db: Session | None = None, use
         data = _load_custom_template_data(tid, db=db, user_id=user_id)
         if data is not None:
             return tid
+        # Loud fallback, mirroring the crafted-template branch below: a
+        # project whose `template` column names a custom_N id that cannot be
+        # loaded (deleted, not found, a transient DB/session issue) silently
+        # rendered as the generic 'default' template with NO signal anywhere
+        # — every custom-only field (headingFont, bodyFont, layoutConfig,
+        # contentVariantCount, ...) simply never got written, and the only
+        # symptom was the video looking wrong with nothing in the logs to
+        # explain why.
+        logger.warning(
+            "[TEMPLATE] Custom template '%s' could not be loaded (user_id=%s); "
+            "falling back to 'default'. The render will use generic layouts "
+            "and fonts instead of this template's own.",
+            tid,
+            user_id,
+        )
         return "default"
 
     if is_crafted_template(tid):

@@ -574,6 +574,8 @@ const StableCustomComposition: React.FC<any> = ({
         ) : null,
       )}
 
+      {/* One corner watermark across EVERY scene, sized as a fraction of the
+        * canvas so it scales with the frame. No scene draws its own logo. */}
       {project.logo_r2_url && (
         <AbsoluteFill style={{ zIndex: 20, pointerEvents: "none" }}>
           <LogoOverlay
