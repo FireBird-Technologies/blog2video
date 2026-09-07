@@ -18,10 +18,11 @@ export interface RevealTextProps {
    * Reveal granularity / personality. `fade` is a plain opacity rise; `word`/
    * `char`/`line` are the smooth (calm) personality; `blur` is the snappy
    * (energetic) personality; `typewriter` types characters in with a blinking
-   * cursor (editorial / terminal feel) — pick by the brand signature's
-   * motionEnergy.
+   * cursor (editorial / terminal feel); `mask_up` wipes each line up from
+   * behind a hard edge, the way a title card is revealed in print — pick by the
+   * brand signature's motionEnergy.
    */
-  mode?: "word" | "char" | "line" | "fade" | "blur" | "typewriter";
+  mode?: "word" | "char" | "line" | "fade" | "blur" | "typewriter" | "mask_up";
   start?: number;
   /** Frames per unit (word/char/line). Auto-scaled if omitted. */
   stepFrames?: number;
@@ -92,6 +93,48 @@ export const RevealText: React.FC<RevealTextProps> = ({
     );
   }
 
+  if (mode === "mask_up") {
+    // Each LINE rises out from behind a hard clip edge — no fade, no blur. The
+    // reveal is the mask, which is what separates it from `line`: the type is
+    // already at full opacity the instant any of it is visible.
+    //
+    // Previously `mask_up` was a blueprint-selectable value with no
+    // implementation at all in either this component or IntroStage, so it fell
+    // through to the plain word reveal and a template that asked for it got
+    // something else.
+    const lines = content.split(/\n+/);
+    const lineStep = stepFrames ?? 8;
+    return (
+      <Tag style={style}>
+        {lines.map((ln, i) => {
+          const t = easeOutQuint(progressAt(frame, start + i * lineStep, 18));
+          return (
+            <span
+              key={i}
+              style={{
+                display: "block",
+                overflow: "hidden",
+                // The clip travels with the text so descenders are not shaved
+                // once the line has fully arrived.
+                clipPath: `inset(${(1 - t) * 100}% 0% 0% 0%)`,
+              }}
+            >
+              <span
+                style={{
+                  display: "block",
+                  transform: `translateY(${(1 - t) * 100}%)`,
+                  willChange: "transform",
+                }}
+              >
+                {ln}
+              </span>
+            </span>
+          );
+        })}
+      </Tag>
+    );
+  }
+
   const units =
     mode === "char"
       ? content.split("")
@@ -137,7 +180,12 @@ export const HighlightPhrase: React.FC<{
 }> = ({ text, phrase, start = 12, color, style }) => {
   const frame = useCurrentFrame();
   const { palette } = useKit();
+  // Two roles, two colours. The underline and glow are FILLS and keep the
+  // brand's true accent; the highlighted words are TYPE and must clear contrast
+  // against the canvas — an unclamped accent made the most important phrase in
+  // the sentence the least readable part of it.
   const accent = color ?? palette.accent;
+  const accentType = color ?? palette.accentText;
   const body = text ?? "";
   const hl = (phrase ?? "").trim();
 
@@ -153,7 +201,7 @@ export const HighlightPhrase: React.FC<{
   return (
     <span style={style}>
       {before}
-      <span style={{ position: "relative", color: accent, fontWeight: 700, display: "inline-block" }}>
+      <span style={{ position: "relative", color: accentType, fontWeight: 700, display: "inline-block" }}>
         {mid}
         <span
           style={{

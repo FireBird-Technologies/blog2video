@@ -3035,9 +3035,9 @@
     "keep": false,
     "reason": "Article discusses Substack and other platforms, not Blog2Video."
   },
-  "blog:ai-video-generators-that-are-not-slop@717167ff5878ce7f@20aaebd1": {
+  "blog:headline-score@2ffa5694cda27a72@20aaebd1": {
     "keep": false,
-    "reason": "Discusses AI video generators generally without focusing on Blog2Video"
+    "reason": "Compares Blog2Video against multiple headline tool competitors."
   },
   "blog:youtube-title-score-checker@7131da36b2445d56@20aaebd1": {
     "keep": false,
@@ -3047,13 +3047,13 @@
     "keep": false,
     "reason": "Primarily describes Substack growth, not Blog2Video features."
   },
-  "blog:headline-score@2ffa5694cda27a72@20aaebd1": {
-    "keep": false,
-    "reason": "Compares Blog2Video against multiple headline tool competitors."
-  },
   "blog:blog-title-checker@8c72649017e09216@20aaebd1": {
     "keep": false,
     "reason": "Compares Blog2Video against multiple SEO competitors."
+  },
+  "blog:ai-video-generators-that-are-not-slop@717167ff5878ce7f@20aaebd1": {
+    "keep": false,
+    "reason": "Discusses AI video generators generally, not Blog2Video specifically."
   },
   "blog:youtube-backlink@418fb49a27ada96f@20aaebd1": {
     "keep": false,

@@ -239,6 +239,24 @@ export interface Project {
   avatar_batch_unlocked?: boolean;
   ai_assisted_editing_count?: number;
   custom_theme?: CustomTemplateTheme | null;
+  /**
+   * Resolved layout id per scene, in scene order (custom templates only).
+   *
+   * Authoritative: it comes from the same resolver the render path uses, so it
+   * knows the archetype-matched content variant that a descriptor with a null
+   * `contentVariantIndex` cannot express. Prefer it over
+   * `customSceneLayoutId`, which is the client-side fallback.
+   */
+  custom_scene_layouts?: (string | null)[] | null;
+  /**
+   * Whether each scene's layout takes an image, in scene order.
+   *
+   * Resolved server-side against the same metadata the render path uses, so it
+   * is available on the FIRST paint — the `/projects/{id}/layouts` fetch is
+   * non-blocking, and deciding the image controls before it landed is what made
+   * them flicker or resolve wrongly. Prefer this over the client-side lookup.
+   */
+  custom_scene_supports_image?: boolean[] | null;
   custom_image_box_aspect_ratios?: {
     intro?: string | { landscape?: string; portrait?: string };
     content?: (string | { landscape?: string; portrait?: string })[];
@@ -277,10 +295,27 @@ export interface Project {
 
 export interface EmbedProjectResponse extends Project {
   crafted_template?: CraftedTemplateDetail | null;
+  /**
+   * Handed straight to VideoPreview as `precompiledTemplateData`, which SKIPS
+   * the fetch that would otherwise supply the non-code fields — so every one of
+   * them has to be here or it silently degrades: the built-in CTA replaces the
+   * template's own ending (design_version), type falls back to the literal in
+   * the generated code (scene_font_defaults), or media beside the copy gets the
+   * full-bleed blur (image_modes). Structurally the same as
+   * PrecompiledTemplateData in VideoPreview; kept inline because this is the API
+   * layer and must not depend on a component.
+   */
   custom_template_code?: {
     intro_code: string | null;
     outro_code: string | null;
     content_codes: string[] | null;
+    design_version?: number;
+    scene_font_defaults?: {
+      intro?: SceneFontDefaultEntry | null;
+      content?: (SceneFontDefaultEntry | null)[] | null;
+      outro?: SceneFontDefaultEntry | null;
+    } | null;
+    image_modes?: Record<string, "background" | "half" | null>;
   } | null;
   layout_prop_schema?: Record<string, LayoutPropSchemaEntry> | null;
 }
@@ -714,6 +749,11 @@ export interface CraftedTemplateItem extends CraftedTemplateSummary {
   outro_code?: string | null;
   content_codes?: string[] | null;
   content_archetype_ids?: (string | { id: string; best_for?: string[] })[] | null;
+  /** design_blueprint.version — decides who renders the ending. v2 outros
+   *  compose their own CTA; v1 outros expect the built-in overlay to replace
+   *  them. Travels with the scene code so a caller using this list as
+   *  precompiled data does not silently fall back to v1. */
+  design_version?: number;
   frontend_files?: Record<string, string> | null;
   frontend_entry_rel?: string | null;
   frontend_layout_index_rel?: string | null;
@@ -1777,10 +1817,44 @@ export interface LayoutInfo {
   layouts_without_image?: string[];
   /** Keyed by BASE layout — variants share their base's schema entry. */
   layout_prop_schema?: Record<string, LayoutPropSchemaEntry>;
+  /**
+   * Field defs per CONTENT TYPE (bullets, steps, metrics, …), from the one
+   * backend definition the content extractor also writes against. The editor
+   * renders structured content from this rather than a local copy, which had
+   * drifted — `steps` was declared a flat string_array while scenes stored
+   * objects, printing "[object Object]" per row.
+   */
+  content_prop_schema?: Record<string, LayoutPropSchemaEntry["fields"]>;
   /** base layout id -> [base, ...variants], base always first. */
   layout_variants?: Record<string, string[]>;
   /** layout id -> short chip label, e.g. `news_headline__v2` -> "Broadsheet". */
   layout_variant_labels?: Record<string, string>;
+  /**
+   * Custom templates only — layout id -> expected structuredContent.contentType
+   * (e.g. `content_6` -> "timeline"). Lets the editor pre-select the right
+   * content type — and show its (empty) fields — the moment a scene lands on a
+   * layout it has no structuredContent for yet, instead of defaulting to "plain".
+   */
+  layout_content_types?: Record<string, string>;
+  /**
+   * Custom templates only — absent for built-in and crafted ones.
+   *
+   * `design_version` decides which text each Typography slider drives, and so
+   * how the two are labelled: v3 binds titleFontSize to the scene TITLE and
+   * descriptionFontSize to the display text and every content prop; v1/v2 bound
+   * titleFontSize to the display text with a third eyebrow tier.
+   */
+  design_version?: number;
+  /**
+   * The per-scene DEFAULT type sizes a slider opens on, indexed like the
+   * template's content codes. Resolve one scene's entry with
+   * utils/sceneFontDefaults.ts — the same role + variant lookup the render uses.
+   */
+  scene_font_defaults?: {
+    intro?: SceneFontDefaultEntry | null;
+    content?: (SceneFontDefaultEntry | null)[] | null;
+    outro?: SceneFontDefaultEntry | null;
+  } | null;
 }
 
 export const getValidLayouts = (projectId: number) =>
@@ -2317,12 +2391,37 @@ export type TransitionStyle =
   | "ink_bleed";
 
 export interface CustomTemplateTheme {
-  colors: { accent: string; bg: string; text: string; surface: string; muted: string; bg2?: string };
+  /** EXACTLY three brand colours. Panels, borders and muted label text are
+   *  DERIVED from bg+text by the render kit (derivePalette), so storing more
+   *  only invited off-brand hues that nothing rendered.
+   *
+   *  `surface`/`muted` are optional ONLY for backward compatibility: themes
+   *  extracted before this change still carry them, and must keep loading.
+   *  Never read them — use `themeSurface()` / `themeMuted()` in
+   *  utils/themeColors.ts, which derive the same values from bg+text. */
+  colors: {
+    accent: string;
+    bg: string;
+    text: string;
+    bg2?: string;
+    /** @deprecated legacy — derived now. */ surface?: string;
+    /** @deprecated legacy — derived now. */ muted?: string;
+  };
   fonts: { heading: string; body: string; mono: string };
   borderRadius: number;
   style: string;
   animationPreset: string;
   category: string;
+  /**
+   * The narrative design brief for this brand — its register, emotional
+   * temperature, typographic and compositional character.
+   *
+   * This is the PRIMARY input to template design: the design-doc stage builds
+   * every scene's layout from it, so its quality sets the ceiling on how
+   * distinct a template can be. Editable at create time for exactly that
+   * reason. Optional — themes extracted before it existed have none.
+   */
+  brand_description?: string;
   patterns: {
     cards: { corners: string; shadowDepth: string; borderStyle: string };
     spacing: { density: string; gridGap: number };
@@ -2356,6 +2455,12 @@ export interface CustomTemplateTheme {
   brief?: string;
 }
 
+/** One scene's default type sizes, per orientation. */
+export interface SceneFontDefaultEntry {
+  title?: { landscape?: number; portrait?: number } | null;
+  description?: { landscape?: number; portrait?: number } | null;
+}
+
 export interface CustomTemplateItem {
   id: number;
   name: string;
@@ -2368,12 +2473,48 @@ export interface CustomTemplateItem {
   intro_code: string | null;
   outro_code: string | null;
   content_codes: string[] | null;
+  /** design_blueprint.version — decides who renders the ending. Travels with
+   *  the scene code above, because a caller that uses this list as precompiled
+   *  preview data skips the fetch that would otherwise supply it. */
+  design_version?: number;
   content_archetype_ids: (string | { id: string; best_for?: string[] })[] | null;
   current_version_id: number | null;
   preview_image_url: string | null;
   logo_urls?: string[];
   og_image?: string;
   generation_failed: boolean;
+  /** Scenes that fell back to the simplified stub design during generation. */
+  generation_warnings?: string[];
+  /** The per-brand design this template was generated from (P2), when present. */
+  design_blueprint?: Record<string, unknown> | null;
+  /**
+   * Showcase copy generated with the template, one entry per scene and indexed
+   * like content_codes. NULL on templates generated before this existed, which
+   * the preview reads as "synthesise sample copy in the browser" (the old path).
+   */
+  scene_sample_content?: {
+    intro?: Record<string, unknown> | null;
+    content?: (Record<string, unknown> | null)[] | null;
+    outro?: Record<string, unknown> | null;
+  } | null;
+  /**
+   * Per-scene DEFAULT type sizes, indexed like scene_sample_content. Computed
+   * from that copy's length, so a scene is sized for the text it actually
+   * holds. NULL on templates generated before this existed.
+   */
+  scene_font_defaults?: {
+    intro?: SceneFontDefaultEntry | null;
+    content?: (SceneFontDefaultEntry | null)[] | null;
+    outro?: SceneFontDefaultEntry | null;
+  } | null;
+  /**
+   * Each layout's image mode, keyed intro / content_N / outro.
+   *
+   * "background" fills the frame behind the type and needs a scrim for the copy
+   * to stay readable; "half" sits beside the type, where a scrim would only
+   * mute the picture. Empty for a template with no design blueprint.
+   */
+  image_modes?: Record<string, "background" | "half" | null>;
   is_regenerating: boolean;
   my_rating?: number | null;
   my_rating_comment?: string | null;
@@ -2461,6 +2602,17 @@ export interface CodeGenStatus {
   step: string;
   running: boolean;
   error: string | null;
+  /** Durable run fields — present once a template has a staged generation run.
+   *  Absent for templates generated before staging, so all are optional. */
+  stage?: string;
+  run_id?: number;
+  scenes_done?: number;
+  scenes_total?: number;
+  /** False while `scenes_total` is the PROVISIONAL count published ~8s in,
+   *  before the blueprint authors its own layouts. The blueprint picks a
+   *  brand-seeded 6-8 content layouts, so the authoritative total can differ —
+   *  showing the early figure made the counter visibly jump (8 -> 9) mid-run. */
+  scenes_total_final?: boolean;
 }
 
 export const getCodeGenerationStatus = (templateId: number) =>
@@ -2538,6 +2690,153 @@ export const submitTemplateRating = (
   templateId: number,
   data: { rating: 1 | 2 | 3 | 4 | 5; suggestion?: string }
 ) => api.post<TemplateRating>(`/custom-templates/${templateId}/rating`, data);
+
+// ─── Per-scene AI editing (P4) ────────────────────────────────
+//
+// A scene key is "intro" | "outro" | "content_<n>". Editing produces a DRAFT
+// that can be previewed side by side with the published scene before it is
+// applied, so a bad edit never lands on the live template. Editing does NOT
+// consume a custom-template slot — it costs roughly a ninth of a regeneration.
+
+export interface SceneEditStatus {
+  status: "queued" | "generating" | "complete" | "error" | "unknown";
+  step: string;
+  running: boolean;
+  /** User-facing text. For an exhausted retry this is plain language, NOT the
+   *  validator trace — that is on `detail`, for support. */
+  error: string | null;
+  /** Raw diagnostic. Never render this; keep it for a title attribute / logs. */
+  detail?: string | null;
+  /** True when every repair attempt was used without producing valid code. */
+  exhausted?: boolean;
+  draft_version_id: number | null;
+  /** Echoed back so a client that polled WITHOUT an id (re-attaching after the
+   *  modal was closed) can keep polling the same job. */
+  edit_id?: string;
+}
+
+export interface SceneDraft {
+  version_id: number;
+  scene_key: string;
+  label: string;
+  code: string;
+  aspect_ratio?: { landscape: string; portrait: string } | null;
+  prop_schema: LayoutPropField[];
+  created_at: string;
+}
+
+/** Fire-and-poll: returns 202 with an edit_id to pass to getSceneEditStatus. */
+export const aiEditScene = (
+  templateId: number,
+  sceneKey: string,
+  /** `prompt` may be empty ONLY with from_blueprint, which rebuilds the scene
+   *  from its stored blueprint layout instead of editing the current code. */
+  data: { prompt: string; keep_geometry?: boolean; from_blueprint?: boolean }
+) =>
+  api.post<{ edit_id: string; template_id: number; scene_key: string }>(
+    `/custom-templates/${templateId}/scenes/${sceneKey}/ai-edit`,
+    data
+  );
+
+/** `editId` is optional: omit it to ask "is anything running for this scene?",
+ *  which is how a reopened modal re-attaches to a retry it already started. */
+export const getSceneEditStatus = (
+  templateId: number,
+  sceneKey: string,
+  editId?: string,
+) =>
+  api.get<SceneEditStatus>(
+    `/custom-templates/${templateId}/scenes/${sceneKey}/ai-edit/status` +
+      (editId ? `?edit_id=${encodeURIComponent(editId)}` : "")
+  );
+
+/**
+ * Editor requests that must FAIL rather than hang.
+ *
+ * The shared `api` instance sets no `timeout`, so axios waits forever and a
+ * stalled request only ends when the server or a proxy drops the socket — which
+ * axios reports as ERR_NETWORK, i.e. the "system is being updated" modal, for
+ * what was really one slow call. These four are all small, fast, interactive
+ * operations backing a button the user is watching, so a bounded wait is
+ * strictly better: the handler can roll its optimistic update back and say so.
+ *
+ * Deliberately NOT applied to the instance: several calls on it legitimately run
+ * for minutes with no timeout of their own (uploads, generate-script,
+ * generate-image, render-layout), and a global default would break them.
+ */
+const EDITOR_REQUEST_TIMEOUT_MS = 30000;
+
+export const getSceneDraft = (templateId: number, sceneKey: string) =>
+  api.get<SceneDraft>(`/custom-templates/${templateId}/scenes/${sceneKey}/draft`, {
+    timeout: EDITOR_REQUEST_TIMEOUT_MS,
+  });
+
+export interface SceneDraftsSummary {
+  /** Scene keys with a pending draft awaiting apply/discard. */
+  drafts: string[];
+  /** Scene keys with an edit currently regenerating. */
+  running: string[];
+}
+
+/** Draft + in-flight state for EVERY scene in one call — what the editor needs
+ *  on open to put a status dot on each row, instead of one 404-prone request
+ *  per scene. */
+export const getSceneDrafts = (templateId: number) =>
+  api.get<SceneDraftsSummary>(`/custom-templates/${templateId}/scene-drafts`);
+
+export const applySceneDraft = (templateId: number, sceneKey: string) =>
+  api.post<CustomTemplateItem>(
+    `/custom-templates/${templateId}/scenes/${sceneKey}/draft/apply`,
+    undefined,
+    { timeout: EDITOR_REQUEST_TIMEOUT_MS }
+  );
+
+/**
+ * Set ONE scene's default type sizes. Omitted orientations are left as they
+ * are, and values outside the renderable bands are clamped server-side rather
+ * than rejected.
+ */
+export interface SceneFontSizes {
+  title?: { landscape?: number; portrait?: number };
+  description?: { landscape?: number; portrait?: number };
+}
+
+export const setSceneFontDefaults = (
+  templateId: number,
+  sceneKey: string,
+  body: SceneFontSizes
+) =>
+  api.patch<CustomTemplateItem>(
+    `/custom-templates/${templateId}/scenes/${sceneKey}/font-defaults`,
+    body
+  );
+
+/**
+ * The same write for MANY scenes, in one request and one commit.
+ *
+ * Saving used to send one PATCH per edited scene, and they had to run in
+ * sequence: every one re-reads, merges and rewrites the same
+ * `scene_font_defaults` column, so parallel calls would let the last response
+ * win and drop the others. Batching removes that constraint at the source.
+ *
+ * `scenes` is keyed by scene key ("intro" / "content_2" / "outro"). A key the
+ * server cannot parse is skipped rather than failing the batch.
+ */
+export const setSceneFontDefaultsBulk = (
+  templateId: number,
+  scenes: Record<string, SceneFontSizes>
+) =>
+  api.patch<CustomTemplateItem>(
+    `/custom-templates/${templateId}/scenes/font-defaults`,
+    { scenes }
+  );
+
+export const discardSceneDraft = (templateId: number, sceneKey: string) =>
+  api.post<{ detail: string }>(
+    `/custom-templates/${templateId}/scenes/${sceneKey}/draft/discard`,
+    undefined,
+    { timeout: EDITOR_REQUEST_TIMEOUT_MS }
+  );
 
 // ─── ElevenLabs voices (default / available) ─────────────────
 

@@ -28,7 +28,7 @@ export interface SceneFrameProps {
   };
   aspectRatio?: "landscape" | "portrait";
   fonts?: KitFonts;
-  overrides?: { title?: number; body?: number };
+  overrides?: { title?: number; body?: number; label?: number };
   /** Small uppercase kicker at the top of the scene. */
   eyebrow?: string;
   /** Small footer label (e.g. brand domain / section). */
@@ -80,7 +80,10 @@ const Chrome: React.FC<{ eyebrow?: string; footer?: string; edge: SceneFrameProp
             fontWeight: 700,
             letterSpacing: "0.18em",
             textTransform: "uppercase",
-            color: palette.accent,
+            // accentText, not accent: this is TYPE, so it must clear contrast
+            // against the canvas. A brand whose accent is a pale yellow rendered
+            // an effectively invisible eyebrow on every scene using SceneFrame.
+            color: palette.accentText,
             opacity: reveal,
           }}
         >
@@ -182,6 +185,16 @@ const ContextBackground: React.FC<{
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
+          // Centers on BOTH axes so content expands outward from the middle.
+          //
+          // `center` rather than `stretch` means a child with no explicit width
+          // shrink-wraps to its content instead of filling the frame — which is
+          // exactly the "expand from the centre" behaviour we want, and why the
+          // kit's own full-width blocks (StatGrid's arrangements, MetricRow)
+          // all set width:100% explicitly. `textAlign` is inherited by those
+          // children so their internal copy centres too.
+          alignItems: "center",
+          textAlign: "center",
           ...style,
         }}
       >

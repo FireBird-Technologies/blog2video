@@ -4,11 +4,18 @@ Takes HTML/CSS + markdown and produces a structured theme JSON.
 """
 
 import colorsys
+import hashlib
 import json
 import logging
 import dspy
 
-from app.dspy_modules import ensure_dspy_configured, get_theme_lm
+from app.dspy_modules import ensure_dspy_configured, get_brand_extraction_lm
+from app.services.render_registry import (
+    DEFAULT_BODY_FONT,
+    DEFAULT_HEADING_FONT,
+    FONT_IDS,
+    snap,
+)
 from app.services.theme_scraper import (
     ScrapedThemeData,
     USER_THEME_AI_ERROR,
@@ -16,6 +23,30 @@ from app.services.theme_scraper import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# The narrative half of brand extraction, shared by the URL and brief paths so
+# link / prompt / doc all produce it.
+#
+# The structured fields (colours, fonts, patterns) say WHAT a brand uses; they
+# cannot say what it FEELS like, and a template designed from hexes and font
+# names alone is a recolour. This field is the design brief a human art director
+# would write before drawing anything, and it is the primary input to the design
+# doc stage — so its quality sets the ceiling on how distinct templates can be.
+#
+# Deliberately open-ended: naming a fixed list of styles here would recreate, one
+# stage earlier, exactly the menu-driven convergence this refactor removed.
+_BRAND_DESCRIPTION_DESC = (
+    "2-4 sentences of VISUAL DESIGN CONTEXT for this brand, written for a "
+    "designer who will build a video template from it. Name the design register "
+    "(animatic, modernist, classical, editorial, brutalist, hand-drawn, "
+    "cinematic, technical, playful, austere — or any other that genuinely fits), "
+    "the emotional temperature, the typographic and compositional character, how "
+    "motion should feel, and what this brand would NEVER look like. Write prose, "
+    "not keywords. Do NOT restrict yourself to the examples listed here — if the "
+    "brand is something else, say what it actually is. Be specific to THIS brand: "
+    "a description that would fit any company in its industry is useless."
+)
 
 
 class ExtractThemeFromContent(dspy.Signature):
@@ -53,11 +84,12 @@ class ExtractThemeFromContent(dspy.Signature):
     Not limited to any preset list.
 
     ═══ COLOR EXTRACTION ═══
-    - accent: The primary brand/CTA color (buttons, links, highlights)
+    EXACTLY THREE colours. Everything else the renderer derives from them
+    (panels, borders, muted label text and a readable accent-on-background) —
+    supplying more only invited off-brand hues into the video.
+    - accent: The primary brand/CTA color (buttons, links, highlights, rules)
     - bg: Main background color
-    - text: Primary text color
-    - surface: Secondary background (cards, panels) — must visibly contrast with bg
-    - muted: Subtle text / disabled state color
+    - text: Primary text color — must be readable on bg
     Extract from CSS/HTML. If not enough CSS data, INFER from the website's industry and mood.
     A restaurant → warm oranges/reds. A finance site → deep blues/greens. A creative agency → vibrant accent.
 
@@ -153,13 +185,23 @@ class ExtractThemeFromContent(dspy.Signature):
         desc="Brief explanation: what was extracted, the website's personality, and key design choices made"
     )
     theme_json: str = dspy.OutputField(
-        desc='Valid JSON: {"colors":{"accent":"#hex","bg":"#hex","text":"#hex","surface":"#hex","muted":"#hex"},"fonts":{"heading":"Name","body":"Name","mono":"Name"},"borderRadius":number,"style":"free-form string describing visual identity","animationPreset":"free-form string describing motion feel","category":"free-form string for industry/niche"}. Do NOT include patterns here. Return "{}" if not extractable.'
+        desc='Valid JSON: {"colors":{"accent":"#hex","bg":"#hex","text":"#hex"},"fonts":{"heading":"Name","body":"Name","mono":"Name"},"borderRadius":number,"style":"free-form string describing visual identity","animationPreset":"free-form string describing motion feel","category":"free-form string for industry/niche"}. Do NOT include patterns here. Return "{}" if not extractable.'
     )
     patterns_json: str = dspy.OutputField(
-        desc='Valid JSON with visual design patterns. Schema: {"cards":{"corners":"string","shadowDepth":"string","borderStyle":"string"},"spacing":{"density":"string","gridGap":number},"images":{"treatment":"string","overlay":"string","captionStyle":"string"},"layout":{"direction":"string","decorativeElements":["string"]}}. Values are descriptive — use your best judgment. decorativeElements MUST have at least one value. Return "{}" if not extractable.'
+        desc='Valid JSON with visual design patterns. Schema: {"cards":{"corners":"string","shadowDepth":"string","borderStyle":"string"},"spacing":{"density":"string","gridGap":number},"images":{"treatment":"string","overlay":"string","captionStyle":"string"},"layout":{"direction":"string","decorativeElements":["string"]}}. Values are descriptive — use your best judgment. decorativeElements MUST have at least one value. Return "{}" if not extractable.',
+        default="{}",
     )
     template_name: str = dspy.OutputField(
-        desc='The actual brand or company name from the website (e.g. "Careem", "Nike", "Stripe", "The New York Times"). Extract the real name, not a creative description. Return "" if not extractable.'
+        desc='The actual brand or company name from the website (e.g. "Careem", "Nike", "Stripe", "The New York Times"). Extract the real name, not a creative description. Return "" if not extractable.',
+        default="",
+    )
+    # Optional: JSONAdapter compares parsed keys to the signature with STRICT
+    # equality, so one truncated trailing field discards an otherwise complete
+    # extraction. Every consumer of these three already falls back
+    # (`or ""`, `or "Custom Theme"`, patterns_json defaults to "{}"), so a
+    # default costs nothing and buys back the whole result.
+    brand_description: str = dspy.OutputField(
+        desc=_BRAND_DESCRIPTION_DESC, default=""
     )
 
 
@@ -195,8 +237,8 @@ class ExtractThemeFromBrief(dspy.Signature):
     "sharp snappy slide", "energetic scale-pop". Not limited to any preset list.
 
     ═══ COLORS ═══
+    EXACTLY THREE colours; the renderer derives panels/borders/muted from them.
     - accent: primary brand/CTA color   - bg: main background   - text: primary text
-    - surface: secondary bg (cards) — must visibly contrast with bg   - muted: subtle text
     Use any colors the brief states; otherwise INFER from the stated industry/mood.
     (Restaurant → warm oranges/reds. Finance → deep blues/greens. Creative → vibrant accent.)
 
@@ -253,45 +295,118 @@ class ExtractThemeFromBrief(dspy.Signature):
         desc="Brief explanation: the personality read from the brief and key design choices made"
     )
     theme_json: str = dspy.OutputField(
-        desc='Valid JSON: {"colors":{"accent":"#hex","bg":"#hex","text":"#hex","surface":"#hex","muted":"#hex"},"fonts":{"heading":"Name","body":"Name","mono":"Name"},"borderRadius":number,"style":"free-form string describing visual identity","animationPreset":"free-form string describing motion feel","category":"free-form string for industry/niche"}. Do NOT include patterns here. Return "{}" if not extractable.'
+        desc='Valid JSON: {"colors":{"accent":"#hex","bg":"#hex","text":"#hex"},"fonts":{"heading":"Name","body":"Name","mono":"Name"},"borderRadius":number,"style":"free-form string describing visual identity","animationPreset":"free-form string describing motion feel","category":"free-form string for industry/niche"}. Do NOT include patterns here. Return "{}" if not extractable.'
     )
     patterns_json: str = dspy.OutputField(
-        desc='Valid JSON with visual design patterns. Schema: {"cards":{"corners":"string","shadowDepth":"string","borderStyle":"string"},"spacing":{"density":"string","gridGap":number},"images":{"treatment":"string","overlay":"string","captionStyle":"string"},"layout":{"direction":"string","decorativeElements":["string"]}}. decorativeElements MUST have at least one value. Return "{}" if not extractable.'
+        desc='Valid JSON with visual design patterns. Schema: {"cards":{"corners":"string","shadowDepth":"string","borderStyle":"string"},"spacing":{"density":"string","gridGap":number},"images":{"treatment":"string","overlay":"string","captionStyle":"string"},"layout":{"direction":"string","decorativeElements":["string"]}}. decorativeElements MUST have at least one value. Return "{}" if not extractable.',
+        default="{}",
     )
     template_name: str = dspy.OutputField(
-        desc='The brand name if the brief states one, else a short fitting name for the template. Return "" if not extractable.'
+        desc='The brand name if the brief states one, else a short fitting name for the template. Return "" if not extractable.',
+        default="",
+    )
+    # Optional: JSONAdapter compares parsed keys to the signature with STRICT
+    # equality, so one truncated trailing field discards an otherwise complete
+    # extraction. Every consumer of these three already falls back
+    # (`or ""`, `or "Custom Theme"`, patterns_json defaults to "{}"), so a
+    # default costs nothing and buys back the whole result.
+    brand_description: str = dspy.OutputField(
+        desc=_BRAND_DESCRIPTION_DESC, default=""
     )
 
 
 
 
 def _decide_gradient(theme: dict) -> bool:
-    """Decide whether this brand warrants a gradient background.
+    """Whether to give this brand a gradient background. Always False.
 
-    Only trusts decorativeElements — the most direct signal for background treatment.
-    borderStyle/overlay are too generic (e.g. image overlays on white-bg sites) and
-    produce false positives for solid-identity brands like Careem.
+    SOLID IS THE DEFAULT, and a gradient is now something the user turns on in
+    the editor's background control (which writes `colors.bg2` directly).
+
+    This used to return `"gradients" in decorativeElements`, which fired for
+    NINE OF TWELVE recent templates — the extractor lists "gradients" for almost
+    any modern site, because almost any modern site has a gradient somewhere.
+    That is far too weak a signal to change a template's whole background
+    treatment, and a gradient nobody asked for is the more surprising outcome.
+
+    Kept as a function rather than inlined so the decision has one home if it
+    ever becomes a real (e.g. user-set) flag again.
     """
-    patterns = theme.get("patterns", {})
-    decorative = patterns.get("layout", {}).get("decorativeElements", [])
-
-    return "gradients" in decorative
+    return False
 
 
-def _compute_bg2(bg_hex: str) -> str:
-    """Compute a subtle gradient endpoint from a bg color — stays on-brand, never jarring."""
+def _relative_luminance(hex_str: str) -> float:
+    """WCAG relative luminance. Mirrors kit/theme.ts so poles agree."""
+    h = hex_str.lstrip("#")
+    if len(h) == 3:
+        h = "".join(c * 2 for c in h)
+    r, g, b = (int(h[i : i + 2], 16) / 255 for i in (0, 2, 4))
+
+    def _lin(c: float) -> float:
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+
+    return 0.2126 * _lin(r) + 0.7152 * _lin(g) + 0.0722 * _lin(b)
+
+
+def _contrast(a: str, b: str) -> float:
+    la, lb = _relative_luminance(a), _relative_luminance(b)
+    hi, lo = max(la, lb), min(la, lb)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def _readable_pole(hex_str: str) -> str:
+    """Which foreground this colour wants — the exact test kit/theme.ts uses.
+
+    Two colours sharing a pole can carry the SAME text colour, which is what
+    makes a two-stop gradient safe.
+    """
+    return "#FFFFFF" if _contrast(hex_str, "#FFFFFF") >= _contrast(hex_str, "#0A0A0A") else "#0A0A0A"
+
+
+def _compute_bg2(bg_hex: str, accent_hex: str | None = None) -> str:
+    """The gradient's second stop: `bg` tinted TOWARD THE BRAND ACCENT.
+
+    Why not simply the accent itself, which is what "a gradient between the
+    accent and the background" literally asks for: measured over five real
+    brands, FOUR have an accent on the opposite side of the light/dark divide
+    from their background (NVIDIA #0B0B0B -> #76B900, Stripe #FFFFFF -> #635BFF,
+    a red brand #FAFAFA -> #E4002B). A gradient spanning that divide has no
+    legible text colour at all — kit/theme.ts records the measurement: "49% of
+    unconstrained two-stop gradients admit no colour clearing AA on both ends",
+    white reading 17:1 on one stop and 1.18:1 on the other.
+
+    So the stop walks from `bg` toward the accent and stops at the last point
+    where BOTH ENDS STILL WANT THE SAME TEXT COLOUR. The result is visibly the
+    brand's accent — a green-tinted black for NVIDIA — and the copy stays
+    readable across the whole sweep.
+
+    Falls back to the previous lightness-nudge when no accent is available.
+    """
     try:
-        bg_hex = bg_hex.lstrip("#")
-        r, g, b = int(bg_hex[0:2], 16) / 255, int(bg_hex[2:4], 16) / 255, int(bg_hex[4:6], 16) / 255
+        bg_hex = "#" + bg_hex.lstrip("#")
+        pole = _readable_pole(bg_hex)
+
+        if accent_hex:
+            accent_hex = "#" + accent_hex.lstrip("#")
+            br, bgc, bb = (int(bg_hex.lstrip("#")[i : i + 2], 16) for i in (0, 2, 4))
+            ar, ag, ab = (int(accent_hex.lstrip("#")[i : i + 2], 16) for i in (0, 2, 4))
+            # Walk down from a strong tint; take the strongest that keeps the pole.
+            for step in (0.55, 0.45, 0.35, 0.28, 0.22, 0.16, 0.12, 0.08):
+                mixed = "#{:02x}{:02x}{:02x}".format(
+                    round(br + (ar - br) * step),
+                    round(bgc + (ag - bgc) * step),
+                    round(bb + (ab - bb) * step),
+                )
+                if _readable_pole(mixed) == pole:
+                    return mixed
+            # Every tint crossed the divide (a bg sitting right on it). Fall
+            # through to the lightness nudge rather than shipping a stop that
+            # would force the text colour to move.
+
+        h_ = bg_hex.lstrip("#")
+        r, g, b = int(h_[0:2], 16) / 255, int(h_[2:4], 16) / 255, int(h_[4:6], 16) / 255
         h, l, s = colorsys.rgb_to_hls(r, g, b)
-
-        if l > 0.5:
-            # Light bg: darken slightly (-12% lightness) for a subtle gradient
-            l2 = max(0.0, l - 0.12)
-        else:
-            # Dark bg: lighten slightly (+10% lightness)
-            l2 = min(1.0, l + 0.10)
-
+        l2 = max(0.0, l - 0.12) if l > 0.5 else min(1.0, l + 0.10)
         r2, g2, b2 = colorsys.hls_to_rgb(h, l2, s)
         return "#{:02x}{:02x}{:02x}".format(int(r2 * 255), int(g2 * 255), int(b2 * 255))
     except Exception:
@@ -319,170 +434,29 @@ _DECOR_BY_ELEMENT = {
 }
 _INTENSITY_BY_DENSITY = {"compact": 0.3, "balanced": 0.45, "spacious": 0.6}
 
-# ── Brand-signature engine (v3) ────────────────────────────────────────────
-# The load-bearing answer to "won't every scraped brand look like a recolored
-# copy?": identity is carried mostly by decor + surface + type + motion, NOT
-# geometry. We deterministically map each brand's category/style to a SIGNATURE
-# bundle across those axes, so two different sites (e.g. fintech vs editorial)
-# provably diverge. The kit exposes the matching decor systems / surface
-# variants / reveal personalities; code generation is told the signature so the
-# AI threads it into each scene. decorSystem values MUST exist in kit/Decor.tsx;
-# surfaceStyle in kit/cards.tsx cardStyle(); typeTreatment guides the prompt.
+# ── Brand buckets ──────────────────────────────────────────────────────────
+# A coarse category classifier, kept for ONE purpose: motion energy needs a prior
+# so that two brands diverge (data->smooth vs editorial->calm vs bold->energetic)
+# instead of every brand collapsing to "calm" off vague preset wording.
 #
-# surfaceStyle values MUST be kit/cards.tsx SurfaceVariant (panel/glass/outline/
-# flat-hairline/embossed/soft/flat); typeTreatment values MUST be keys of the
-# `_type_hint` map in code_generator. `surface`/`type` are POOLS (not scalars) so
-# two brands in the SAME bucket still diverge on those axes — otherwise every
-# fintech would share surface+type and read as a recolor of the last one.
-_SIGNATURE_BUCKETS: dict[str, dict] = {
-    "data": {
-        "keywords": ("fintech", "finance", "data", "tech", "saas", "dashboard", "market", "crypto", "stock", "developer", "platform", "analytics", "software"),
-        "decor": ["mesh", "ticker", "grid"],
-        "surface": ["glass", "outline", "panel"],
-        "type": ["tight-sans", "clean-sans"],
-    },
-    "editorial": {
-        "keywords": ("editorial", "news", "magazine", "journal", "media", "blog", "publication", "press", "story", "report"),
-        "decor": ["hairlines", "concentric", "rules"],
-        "surface": ["flat-hairline", "flat", "outline"],
-        "type": ["editorial-serif", "clean-sans"],
-    },
-    "luxury": {
-        "keywords": ("luxury", "fashion", "beauty", "jewel", "premium", "couture", "boutique", "elegant", "spa"),
-        "decor": ["wash", "vignette", "concentric"],
-        "surface": ["embossed", "soft", "panel"],
-        "type": ["display-serif", "editorial-serif"],
-    },
-    "lifestyle": {
-        "keywords": ("food", "travel", "lifestyle", "wellness", "health", "creative", "restaurant", "recipe", "fitness wellness", "home"),
-        "decor": ["orbs", "dots", "wash"],
-        "surface": ["soft", "panel", "embossed"],
-        "type": ["rounded-sans", "clean-sans"],
-    },
-    "bold": {
-        "keywords": ("sports", "gaming", "game", "music", "entertainment", "fitness", "esports", "athletic", "energy"),
-        "decor": ["starfield", "rules", "mesh"],
-        "surface": ["outline", "glass", "panel"],
-        "type": ["display-bold", "tight-sans"],
-    },
-    "default": {
-        "keywords": (),
-        "decor": ["rules", "dots", "grid"],
-        "surface": ["flat", "panel", "outline"],
-        "type": ["clean-sans", "tight-sans"],
-    },
+# This used to anchor a much larger "signature engine" that also assigned each
+# brand a decor system, a surface variant, a type treatment and an artifact
+# motion from fixed pools. That bundle was a primary cause of template
+# convergence: brands differed only by which cell of a fixed grid they hashed
+# into, which is a permutation, not a design. The design doc now authors all of
+# it in prose, so only the keywords survive.
+_BUCKET_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "data": ("fintech", "finance", "data", "tech", "saas", "dashboard", "market", "crypto", "stock", "developer", "platform", "analytics", "software"),
+    "editorial": ("editorial", "news", "magazine", "journal", "media", "blog", "publication", "press", "story", "report"),
+    "luxury": ("luxury", "fashion", "beauty", "jewel", "premium", "couture", "boutique", "elegant", "spa"),
+    "lifestyle": ("food", "travel", "lifestyle", "wellness", "health", "creative", "restaurant", "recipe", "fitness wellness", "home"),
+    "bold": ("sports", "gaming", "game", "music", "entertainment", "fitness", "esports", "athletic", "energy"),
 }
 
-
-# Per-bucket SIGNATURE ARTIFACT motion treatments. The brand's `decorSystem`
-# motif is its recurring artifact; this is HOW that motif animates — picked per
-# brand so two brands sharing a motif still move it differently. Evocative motion
-# words the codegen model interprets into spring/interpolate beats on the motif.
-# Woven through every scene where it fits (hero take in intro, echoes in content,
-# callback in outro) — this is what gives a custom template a nightfall/bloomberg-
-# style signature beat without a per-brand hand-built component.
-# Widened pools (each motion is rendered by a distinct kit artifact via the
-# SignatureArtifact dispatcher). More options per bucket → two same-bucket brands
-# collide on the headline artifact far less often. Every value here MUST exist as
-# a case in kit/Artifacts.tsx SignatureArtifact, or it falls through to the
-# default StreakField.
-# Order matters: the FIRST entries are the bolder / more legible artifacts, so the
-# deterministic pick favours something visible over the faintest motif. streak /
-# drift / dust are the subtlest (low-opacity background shimmer) — kept in the
-# pools for variety but demoted so a loud brand doesn't land on an invisible motif.
-_ARTIFACT_MOTION_BY_BUCKET = {
-    "data": ["sweep", "build", "tick", "orbit", "halftone"],
-    "editorial": ["draw-in", "rule-slide", "orbit", "halftone", "dust"],
-    "luxury": ["bloom", "orbit", "halftone", "drift", "dust"],
-    "lifestyle": ["bloom", "halftone", "sweep", "float", "dust"],
-    "bold": ["shards", "slam", "pulse", "spin", "stamp", "streak"],
-    "default": ["sweep", "shards", "orbit", "halftone", "drift"],
-}
-
-
-def _classify_brand_bucket(style: str, category: str) -> str:
-    """Pick the signature bucket whose keywords best match the brand text."""
-    hay = f"{style} {category}".lower()
-    best, best_hits = "default", 0
-    for name, spec in _SIGNATURE_BUCKETS.items():
-        if name == "default":
-            continue
-        hits = sum(1 for kw in spec["keywords"] if kw in hay)
-        if hits > best_hits:
-            best, best_hits = name, hits
-    return best
-
-
-def _stable_pick(options: list, seed: str):
-    """Deterministically choose one option from a stable hash of `seed`.
-
-    Lets two brands in the SAME bucket still diverge (mesh vs ticker) while
-    staying stable across regenerations of the same brand.
-    """
-    if not options:
-        return None
-    import hashlib
-
-    h = int(hashlib.md5(seed.encode("utf-8")).hexdigest(), 16)
-    return options[h % len(options)]
-
-
-def _stable_order(options: list, seed: str) -> list:
-    """Deterministic brand-seeded ordering of `options` (Fisher–Yates from a stable
-    hash). Two different brands get different orders; the same brand is stable."""
-    import hashlib
-
-    out = list(options)
-    rng = int(hashlib.md5(seed.encode("utf-8")).hexdigest(), 16)
-    for k in range(len(out) - 1, 0, -1):
-        rng, j = divmod(rng, k + 1)
-        out[k], out[j] = out[j], out[k]
-    return out
-
-
-def _derive_brand_signature(theme: dict, energy: str, motion: dict) -> dict:
-    """Deterministic per-brand signature bundle. See _SIGNATURE_BUCKETS."""
-    style = (theme.get("style") or "").lower()
-    category = (theme.get("category") or "").lower()
-    bucket = _classify_brand_bucket(style, category)
-    spec = _SIGNATURE_BUCKETS[bucket]
-    # Fold the accent colour into the seed so two same-bucket brands with the same
-    # name/category/style but different palettes still diverge on the signature
-    # picks (more inter-brand entropy, still deterministic per brand).
-    accent = (theme.get("colors", {}) or {}).get("accent", "")
-    seed = f"{theme.get('category', '')}|{theme.get('style', '')}|{theme.get('name', '')}|{accent}"
-    # Independent seed suffixes so decor/surface/type vary on separate axes —
-    # two same-bucket brands shouldn't move in lockstep across all three.
-    decor_system = _stable_pick(spec["decor"], seed)
-    surface_style = _stable_pick(spec["surface"], seed + "|surface")
-    type_treatment = _stable_pick(spec["type"], seed + "|type")
-    pool = _ARTIFACT_MOTION_BY_BUCKET.get(bucket, _ARTIFACT_MOTION_BY_BUCKET["default"])
-    artifact_motion = _stable_pick(pool, seed + "|artifactMotion")
-    # A small per-brand artifact SET (the primary pick + up to 2 more from the same
-    # bucket, brand-seeded order) so scenes can ROTATE through a related family
-    # instead of repeating one motif everywhere — variety within a coherent brand.
-    artifact_set = [artifact_motion]
-    for cand in _stable_order(pool, seed + "|artifactSet"):
-        if cand not in artifact_set:
-            artifact_set.append(cand)
-        if len(artifact_set) >= 3:
-            break
-    return {
-        "bucket": bucket,
-        "decorSystem": decor_system,
-        "surfaceStyle": surface_style,
-        "typeTreatment": type_treatment,
-        "artifactMotion": artifact_motion,
-        "artifactSet": artifact_set,
-        "motionEnergy": energy,
-        "transitionFamily": list(motion.get("transitionFamily") or []),
-    }
-
-
-# Each signature bucket has a default motion energy so the inter-brand motion
-# axis actually MOVES. Keyword matching alone collapsed nearly every brand to
-# "calm" (any "fade"/"soft"/"editorial" in the preset triggered it), making all
-# brands share the quietest transition family — a recolor in motion terms.
+# Each bucket has a default motion energy so the inter-brand motion axis actually
+# MOVES. Keyword matching alone collapsed nearly every brand to "calm" (any
+# "fade"/"soft"/"editorial" in the preset triggered it), making all brands share
+# the quietest transition family — a recolour in motion terms.
 _ENERGY_BY_BUCKET = {
     "data": "smooth",
     "editorial": "calm",
@@ -491,6 +465,17 @@ _ENERGY_BY_BUCKET = {
     "bold": "energetic",
     "default": "smooth",
 }
+
+
+def _classify_brand_bucket(style: str, category: str) -> str:
+    """Pick the bucket whose keywords best match the brand text."""
+    hay = f"{style} {category}".lower()
+    best, best_hits = "default", 0
+    for name, keywords in _BUCKET_KEYWORDS.items():
+        hits = sum(1 for kw in keywords if kw in hay)
+        if hits > best_hits:
+            best, best_hits = name, hits
+    return best
 
 
 def _derive_motion_energy(animation_preset: str, bucket: str = "default") -> str:
@@ -536,7 +521,22 @@ def _derive_extended_theme_fields(theme: dict) -> None:
         motion = {}
     motion.setdefault("energy", energy)
     motion.setdefault("easing", easing)
-    motion.setdefault("transitionFamily", list(_TRANSITION_FAMILY_BY_ENERGY[energy]))
+    # Shuffled per brand, not handed out as a fixed preset list.
+    #
+    # There are only three energy buckets, so every "energetic" brand received a
+    # byte-identical family in a fixed order — and the renderer picks by
+    # `index % len(pool)`, so identical order means identical transition on every
+    # cut. Two unrelated brands (Yango, LaDucTrading) demonstrably shared a whole
+    # rhythm. The bucket still decides WHICH moves a brand gets (that is the
+    # motion personality); the seed decides the order it gets them in.
+    _tf_seed = f"{category}|{style}|{(theme.get('colors') or {}).get('accent', '')}"
+    motion.setdefault(
+        "transitionFamily",
+        sorted(
+            _TRANSITION_FAMILY_BY_ENERGY[energy],
+            key=lambda t: hashlib.md5(f"{_tf_seed}|tf|{t}".encode()).hexdigest(),
+        ),
+    )
     theme["motion"] = motion
 
     # charts
@@ -550,21 +550,20 @@ def _derive_extended_theme_fields(theme: dict) -> None:
     charts.setdefault("gridStyle", "horizontal" if is_editorial else "none" if is_minimal else "dashed")
     theme["charts"] = charts
 
-    # signature — the deterministic per-brand identity bundle (v3). Computed
-    # before decor so the brand's signature decor system drives the backdrop
-    # (richer + brand-distinct) instead of the old element-only mapping.
-    signature = theme.get("signature")
-    if not isinstance(signature, dict):
-        signature = _derive_brand_signature(theme, energy, motion)
-        theme["signature"] = signature
-
-    # decor — prefer the signature decor system; fall back to the element-based
-    # mapping only if the signature somehow yielded nothing.
+    # decor — derived from the brand's own decorative elements.
+    #
+    # This used to prefer `signature.decorSystem`, one field of a deterministic
+    # per-brand "identity bundle" that also picked a surface style, a type
+    # treatment and an artifact motion from fixed enum lists. That bundle was
+    # the seed of template convergence — brands differed by which cell of a
+    # fixed grid they hashed into — and it is gone. The design doc now authors
+    # all of that in prose; only this decor fallback, which the render path
+    # still reads, survives.
     decor = theme.get("decor")
     if not isinstance(decor, dict):
         decor = {}
     element_system = next((_DECOR_BY_ELEMENT[d] for d in decoratives if d in _DECOR_BY_ELEMENT), "none")
-    decor.setdefault("system", signature.get("decorSystem") or element_system)
+    decor.setdefault("system", element_system)
     decor.setdefault("intensity", _INTENSITY_BY_DENSITY.get(density, 0.45))
     theme["decor"] = decor
 
@@ -604,7 +603,7 @@ class ThemeExtractor:
             }
         """
         # Use dedicated theme LM (lower temp, smaller token budget)
-        theme_lm = get_theme_lm()
+        theme_lm = get_brand_extraction_lm()
 
         try:
             with dspy.context(lm=theme_lm):
@@ -637,7 +636,7 @@ class ThemeExtractor:
         Returns:
             {"extractable": bool, "reason": str, "theme": dict | None, "template_name": str}
         """
-        theme_lm = get_theme_lm()
+        theme_lm = get_brand_extraction_lm()
 
         try:
             with dspy.context(lm=theme_lm):
@@ -718,12 +717,22 @@ class ThemeExtractor:
         )
         if use_gradient:
             bg_hex = theme["colors"].get("bg", "#000000")
-            bg2 = _compute_bg2(bg_hex)
+            bg2 = _compute_bg2(bg_hex, theme["colors"].get("accent"))
             theme["colors"]["bg2"] = bg2
             print(f"[F7-DEBUG] [GRADIENT-DECISION] bg={theme['colors'].get('bg')} → bg2={bg2}")
 
+        # The narrative design brief. Primary input to the design-doc stage, so
+        # it is carried on the theme rather than being logged and discarded.
+        brand_description = (getattr(result, "brand_description", "") or "").strip()
+        if brand_description:
+            theme["brand_description"] = brand_description
+        else:
+            # Not fatal — the design doc still has colours, fonts and style to
+            # work from — but it is the strongest signal it gets, so say so.
+            logger.warning("No brand_description returned for %s", label)
+
         # Derive first-class motion / charts / decor / sceneBias fields from the
-        # extracted signals so the craft kit + codegen get explicit brand cues.
+        # extracted signals so the renderer gets explicit brand cues.
         _derive_extended_theme_fields(theme)
         _motion = theme.get("motion", {})
         print(
@@ -731,13 +740,9 @@ class ThemeExtractor:
             f"decor={theme.get('decor', {}).get('system')}@{theme.get('decor', {}).get('intensity')}, "
             f"charts={theme.get('charts', {}).get('style')}, sceneBias={theme.get('sceneBias')}"
         )
-        _sig = theme.get("signature", {}) or {}
         print(
-            f"[F7-DEBUG] [V3][SIGNATURE] bucket={_sig.get('bucket')} | "
-            f"decorSystem={_sig.get('decorSystem')} | surfaceStyle={_sig.get('surfaceStyle')} | "
-            f"typeTreatment={_sig.get('typeTreatment')} | artifactMotion={_sig.get('artifactMotion')} | "
-            f"artifactSet={_sig.get('artifactSet')} | "
-            f"motionEnergy={_sig.get('motionEnergy')} | transitionFamily={_sig.get('transitionFamily')}"
+            f"[F7-DEBUG] [THEME] brand_description ({len(brand_description)} chars): "
+            f"{brand_description[:240]}"
         )
 
         colors = theme.get("colors", {})
@@ -787,9 +792,16 @@ class ThemeExtractor:
         colors = theme.get("colors")
         if not isinstance(colors, dict):
             return None
-        for key in ("accent", "bg", "text", "surface", "muted"):
+        # Three required keys, not five. This guard returns None — discarding
+        # the ENTIRE extraction — so leaving surface/muted here while removing
+        # them from the prompt would fail every extraction outright.
+        for key in ("accent", "bg", "text"):
             if key not in colors or not isinstance(colors[key], str):
                 return None
+        # Older callers and stored themes may still carry these; drop them so a
+        # freshly extracted theme is exactly the three brand colours.
+        for legacy in ("surface", "muted"):
+            colors.pop(legacy, None)
 
         fonts = theme.get("fonts")
         if not isinstance(fonts, dict):
@@ -797,6 +809,26 @@ class ThemeExtractor:
         for key in ("heading", "body", "mono"):
             if key not in fonts or not isinstance(fonts[key], str):
                 return None
+
+        # Snap font names onto faces the app actually ships.
+        #
+        # Whatever the model saw on the site was stored verbatim, and that is not
+        # a usable font identifier: templates carry "merriweather", "oswald",
+        # "playfair_display", "dm_sans". The preview builds a Google Fonts URL
+        # from this value, and Google Fonts is case-sensitive and rejects
+        # snake_case — `family=merriweather` returns HTTP 400 (verified live), so
+        # the stylesheet never loaded and every scene fell back to the system
+        # sans. Measured across the 12 most recent templates, 4 stored at least
+        # one name that 400s.
+        #
+        # snap() normalises case and separators, so "Playfair Display",
+        # "playfair_display" and "PLAYFAIR-DISPLAY" all land on the real id. A
+        # name outside FONT_IDS is a face nothing can load, so it falls back to
+        # the default rather than being stored as an unrenderable string.
+        fonts["heading"] = snap(fonts["heading"], FONT_IDS, DEFAULT_HEADING_FONT)
+        fonts["body"] = snap(fonts["body"], FONT_IDS, DEFAULT_BODY_FONT)
+        # Mono has no dedicated default — fira_code is the only mono face bundled.
+        fonts["mono"] = snap(fonts["mono"], FONT_IDS, "fira_code")
 
         if not isinstance(theme.get("borderRadius"), (int, float)):
             return None

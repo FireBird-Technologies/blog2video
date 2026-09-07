@@ -27,25 +27,191 @@ import { AvatarOverlay } from "../components/remotion/AvatarOverlay";
 import { SmartVideo } from "../components/remotion/SmartVideo";
 import * as Kit from "../components/remotion/generated/kit";
 
-// Craft-kit exports injected into JIT-compiled AI scene code, mirroring the
-// import list in the backend's _wrap_generated_code so preview === render.
-const KIT_EXPORTS = [
-  "SceneFrame", "useKit", "CountUpValue", "StatCard", "StatGrid", "MetricRow",
-  "RevealText", "HighlightPhrase", "FitText", "CodeBlock", "KenBurnsImage", "Decor", "CustomChart",
-  "CustomTable", "cardStyle", "derivePalette", "withAlpha", "staggerEntrance",
-  "headlinePop", "panelRise", "masterOpacity", "countUpString", "drawProgress", "seededRand",
-  // Layout skeletons (intra-video structural variety)
-  "CenteredFocal", "AsymmetricSplit", "FullBleedHero", "OffsetCardStack", "SideRail",
-  // Intro scaffold (bookend richness)
-  "IntroStage",
-  // Signature artifacts — the brand's recurring animated motif
-  "SignatureArtifact", "CornerFrame", "StreakField", "KineticTicker",
-  "BigGlyphBackdrop", "PulseRing", "AccentSweep",
-  "DiagonalShards", "HalftoneField", "StarburstBadge", "LightDust", "OrbitRings",
-] as const;
+// Craft-kit exports injected into JIT-compiled AI scene code.
+//
+// Generated from the canonical kit/index.ts by scripts/sync-generated-kit.mjs
+// and shared with the backend's _wrap_generated_code, so the preview and the
+// render inject exactly the same set. This used to be a hand-maintained array
+// duplicated on both sides, which had already drifted in production —
+// `CustomTable` was listed here but missing from the backend, so a scene using
+// it previewed fine and then failed to render.
+import { KIT_EXPORT_NAMES } from "../components/remotion/generated/kit/exportManifest.generated";
+
+const KIT_EXPORTS = KIT_EXPORT_NAMES;
+
+/**
+ * Strip an `easing` option that is not callable, so interpolate falls back to
+ * Remotion's default (linear) instead of throwing.
+ *
+ * Remotion's `Easing` has NO flat combined members — no `inOutCubic`, no
+ * `easeInOut`, no `inOutQuad`. The only way to combine is
+ * `Easing.inOut(Easing.cubic)`. Generated scenes write the flat form anyway,
+ * and reading a missing member yields `undefined`, which Remotion then CALLS:
+ * "TypeError: easing is not a function", thrown during render.
+ *
+ * That throw is why the whole templates page FROZE rather than showing one
+ * broken card. It unwinds into Remotion's own ErrorBoundary inside PlayerUI,
+ * which responds by re-creating the component tree — which re-runs the same
+ * crash. crash -> catch -> remount -> crash pins the main thread, and the outer
+ * PlayerErrorBoundary never gets a chance to settle.
+ *
+ * A validator gate now rejects the bad member at generation time, but every
+ * ALREADY-STORED scene still carries it, so this recovers at preview time: the
+ * animation loses its curve, the page stays alive, and every other scene on it
+ * still renders. Shared by both compile paths in this file.
+ */
+function safeEasingOptions(
+  options?: Parameters<typeof interpolate>[3],
+): Parameters<typeof interpolate>[3] {
+  if (!options || typeof options !== "object") return options;
+  if (!("easing" in options)) return options;
+  const easing = (options as { easing?: unknown }).easing;
+
+  // A `typeof === "function"` check is NOT enough, and that is the whole
+  // subtlety here. The common shape is `Easing.out(Easing.quint)` — and
+  // `quint` does not exist, so the argument is `undefined`. But the
+  // COMBINATOR still returns a closure:
+  //
+  //     static out(easing) { return (t) => 1 - easing(1 - t); }
+  //
+  // That closure IS a function, so a type check waves it through, and the
+  // TypeError only surfaces when Remotion finally invokes it mid-render.
+  //
+  // So probe it: call it once on a value in its own domain. If it throws (or
+  // returns something non-numeric), drop the key and let Remotion fall back to
+  // its own default — `options?.easing ?? ((num) => num)`, i.e. linear.
+  if (typeof easing === "function") {
+    try {
+      const probe = (easing as (t: number) => unknown)(0.5);
+      if (typeof probe === "number" && Number.isFinite(probe)) return options;
+    } catch {
+      // falls through to the strip below
+    }
+  }
+  const { easing: _dropped, ...rest } = options as Record<string, unknown>;
+  return rest as Parameters<typeof interpolate>[3];
+}
+
+/** Default frame rate, matching the Player's `fps={30}` in every preview. */
+const FALLBACK_FPS = 30;
+
+/**
+ * Safe wrapper around spring — survives a missing or non-numeric `fps`.
+ *
+ * Remotion VALIDATES spring's arguments and throws
+ * `"fps" must be a number, but you passed a value of type undefined`. That
+ * throw happens during render, so it unwinds past the scene into the Player
+ * and takes the whole preview down rather than degrading one animation. The
+ * error boundary catches it, but recompilation remounts and it throws again,
+ * so the scene is stuck in a crash loop with nothing on screen.
+ *
+ * The mistake is easy for a generator to make and invisible to static checks:
+ * `spring({ frame, fps })` where `fps` was never destructured from
+ * `useVideoConfig()`, or was read off `props` (which carries no fps).
+ *
+ * The runtime gate now rejects this at generation time — see the spring stub in
+ * backend/app/services/scene_runtime_harness.mjs, which validates the same
+ * fields for the same reason — but scenes STORED before that gate existed still
+ * carry it, and nothing re-validates a stored scene. So recover here instead of
+ * taking the preview down, exactly as `safeInterpolate` already does for the
+ * config-object form of interpolate.
+ *
+ * 30 is not a guess: every preview Player in this codebase is mounted with
+ * `fps={30}`, so it is the value the scene would have read from the hook.
+ */
+/**
+ * Safe wrapper around interpolate — keeps inputRange strictly monotonic even
+ * when generated code produces dynamic ranges that resolve to equal values.
+ *
+ * Module scope, and shared by all three runtimes: the two scene factories AND
+ * the module-graph `require("remotion")` namespace below. It used to be
+ * declared twice, once inside each scene factory, which left the module-graph
+ * path — the one crafted-bundle templates compile through — with no protection
+ * at all.
+ */
+const safeInterpolate: typeof interpolate = (frame, inputRange, outputRange, options?) => {
+  // Generated code sometimes calls the React-Native/Framer form,
+  // `interpolate(frame, { inputRange, outputRange })`, passing a CONFIG
+  // OBJECT where an array belongs. `.map()` on it threw
+  // "inputRange.map is not a function" DURING RENDER, which unwinds past
+  // the scene into the Player and blanks the entire preview — template
+  // 181's intro shipped three such calls and showed an empty frame.
+  //
+  // A validator gate now rejects that shape at generation time, but stored
+  // scenes still carry it, so recover here instead of taking the preview
+  // down: read the ranges back off the object when they are there.
+  if (!Array.isArray(inputRange)) {
+    const cfg = inputRange as unknown as {
+      inputRange?: number[];
+      outputRange?: number[];
+    } | null;
+    if (cfg && Array.isArray(cfg.inputRange)) {
+      return safeInterpolate(
+        frame,
+        cfg.inputRange,
+        (Array.isArray(cfg.outputRange) ? cfg.outputRange : outputRange) as number[],
+        (cfg as unknown as Parameters<typeof interpolate>[3]) ?? options,
+      );
+    }
+    // Nothing usable — return the first output rather than throwing, so one
+    // bad call costs one static value and not the whole preview.
+    return Array.isArray(outputRange) ? (outputRange[0] as number) : 0;
+  }
+  // The MIRROR of the guard above, for the output side.
+  //
+  // Remotion throws "inputRange (N) and outputRange (undefined) must have
+  // the same length" when outputRange is missing or not an array — most
+  // often because the generated code destructured a prop that does not
+  // exist, or spread a value it expected to be a tuple. That throw happens
+  // DURING RENDER, so it unwinds past the scene into the Player and blanks
+  // the WHOLE preview, not just the offending scene.
+  //
+  // A length mismatch is equally fatal and equally recoverable: pad with the
+  // last value, or trim, so the animation degrades to something static
+  // rather than taking the preview down.
+  if (!Array.isArray(outputRange)) {
+    return 0;
+  }
+  const safe = (inputRange as number[]).map((v, i) =>
+    i === 0 ? v : Math.max(v, (inputRange as number[])[i - 1] + 1)
+  ) as typeof inputRange;
+  const out = outputRange as number[];
+  if (out.length !== safe.length) {
+    if (out.length === 0) return 0;
+    const matched =
+      out.length > safe.length
+        ? out.slice(0, safe.length)
+        : [...out, ...Array(safe.length - out.length).fill(out[out.length - 1])];
+    return interpolate(
+      frame,
+      safe,
+      matched as typeof outputRange,
+      safeEasingOptions(options),
+    );
+  }
+  return interpolate(frame, safe, outputRange, safeEasingOptions(options));
+};
+
+const safeSpring: typeof spring = (options) => {
+  const opts = (options ?? {}) as Record<string, unknown>;
+  const num = (v: unknown) => typeof v === "number" && Number.isFinite(v);
+  // `frame` is validated by Remotion too, and misses the same way — a scene
+  // that forgot `useCurrentFrame()` throws before it can draw anything.
+  if (num(opts.fps) && num(opts.frame)) return spring(options);
+  return spring({
+    ...opts,
+    fps: num(opts.fps) ? opts.fps : FALLBACK_FPS,
+    frame: num(opts.frame) ? opts.frame : 0,
+  } as Parameters<typeof spring>[0]);
+};
 
 export interface SceneProps {
+  /** The scene's short title (Scene.title) — a label, not a sentence. */
+  sceneTitle?: string;
+  /** The on-screen copy (Scene.display_text). NOT the voiceover. */
   displayText: string;
+  /** The voiceover script (Scene.narration_text) — usually a paragraph, and
+   *  usually NOT what belongs on screen as a headline. */
   narrationText: string;
   imageUrl?: string;
   imageObjectPosition?: string;
@@ -61,7 +227,10 @@ export interface SceneProps {
   brandImages?: string[];
   brandColors: {
     primary: string;
-    secondary: string;
+    /** @deprecated Never read by any component. It carried
+     *  theme.colors.surface, which no longer exists — panels are derived
+     *  from bg+text by derivePalette. Optional so callers may omit it. */
+    secondary?: string;
     accent: string;
     background: string;
     text: string;
@@ -83,10 +252,41 @@ export interface SceneProps {
   chartTable?: { headers?: string[]; rows?: (string | number)[][] };
   chartType?: string;
   chartSummary?: string;
+  /** Size for the HEADLINE (props.displayText) — fed by the editor's *Display
+   *  text* slider. Named "title" for backward compatibility with every stored
+   *  generated scene, which binds `props.titleFontSize ?? N` on the headline. */
   titleFontSize?: number;
+  /** Size for body copy — fed by the same *Display text* slider. */
   descriptionFontSize?: number;
+  /** Size for the scene's short title / eyebrow (props.sceneTitle) — fed by the
+   *  editor's *Title* slider, applied by the kit rather than by scene code. */
+  sceneTitleFontSize?: number;
   headingFont?: string;
   bodyFont?: string;
+  /** Free-form per-layout props declared by this layout's prop schema (P3).
+   *  Read defensively: props.layoutProps?.chapterNumber ?? "01". */
+  layoutProps?: Record<string, unknown>;
+  /** The closing CTA + social handles, present only on the FINAL scene.
+   *
+   *  The generated outro composes these into its OWN layout — it renders
+   *  <SocialIcons> and maps `ctas` itself. Previously GeneratedVideo replaced
+   *  the outro entirely with GeneratedCtaOverlay, so every template ended with
+   *  the same generic card.
+   *
+   *  MUST mirror GeneratedCtaProps in
+   *  remotion-video/src/templates/generated/types.ts — these two declarations
+   *  are maintained by hand and have drifted before (see `bg2`). */
+  ctaProps?: {
+    socials?: Record<string, { enabled?: boolean; label?: string }>;
+    showWebsiteButton?: boolean;
+    websiteLink?: string;
+    ctaButtonText?: string;
+    ctas?: Array<{
+      ctaButtonText?: string;
+      websiteLink?: string;
+      showWebsiteButton?: boolean;
+    }>;
+  };
 }
 
 export type CompileResult =
@@ -143,14 +343,6 @@ export async function compileComponentCode(
       return { success: false, error: "Babel transform returned empty code" };
     }
 
-    // Safe wrapper around interpolate — ensures inputRange is strictly monotonic
-    // even when the LLM generates dynamic ranges that resolve to equal values at runtime.
-    const safeInterpolate: typeof interpolate = (frame, inputRange, outputRange, options?) => {
-      const safe = (inputRange as number[]).map((v, i) =>
-        i === 0 ? v : Math.max(v, (inputRange as number[])[i - 1] + 1)
-      ) as typeof inputRange;
-      return interpolate(frame, safe, outputRange, options);
-    };
 
     // Create factory function that receives Remotion APIs + craft kit as parameters
     // eslint-disable-next-line no-new-func
@@ -174,7 +366,7 @@ export async function compileComponentCode(
       useCurrentFrame,
       useVideoConfig,
       safeInterpolate,
-      spring,
+      safeSpring,
       Easing,
       AbsoluteFill,
       Sequence,
@@ -234,14 +426,6 @@ export async function compilePreviewComponent(
     if (!transformed?.code) {
       return { success: false, error: "Babel transform returned empty code" };
     }
-    // Mirror the safe-interpolate wrapper from compileComponentCode so
-    // dynamic inputRanges that resolve to equal values don't crash at runtime.
-    const safeInterpolate: typeof interpolate = (frame, inputRange, outputRange, options?) => {
-      const safe = (inputRange as number[]).map((v, i) =>
-        i === 0 ? v : Math.max(v, (inputRange as number[])[i - 1] + 1)
-      ) as typeof inputRange;
-      return interpolate(frame, safe, outputRange, options);
-    };
     // eslint-disable-next-line no-new-func
     const factory = new Function(
       "React",
@@ -275,7 +459,7 @@ export async function compilePreviewComponent(
       useCurrentFrame,
       useVideoConfig,
       safeInterpolate,
-      spring,
+      safeSpring,
       Easing,
       AbsoluteFill,
       Sequence,
@@ -465,6 +649,18 @@ export async function compileModuleGraphEntry(
       staticFile: resolveStaticFile,
       Video: SmartVideo as unknown as typeof Remotion.Video,
       OffthreadVideo: SmartVideo as unknown as typeof Remotion.OffthreadVideo,
+      // The spread above hands bundled code the REAL remotion module, so a file
+      // doing `import { spring } from "remotion"` got the raw function and none
+      // of the hardening the two scene factories apply. Both of these throw
+      // mid-render on input generated code routinely produces — spring on a
+      // non-numeric `fps`, interpolate on a config object where an array
+      // belongs — and a throw here unwinds past the scene into the Player,
+      // blanking the whole preview instead of degrading one animation.
+      //
+      // Overriding after the spread means crafted-bundle templates get exactly
+      // the same protection as stored scenes.
+      spring: safeSpring,
+      interpolate: safeInterpolate,
     } as typeof Remotion;
     const moduleCache = new Map<string, Record<string, unknown>>();
     const compiling = new Set<string>();

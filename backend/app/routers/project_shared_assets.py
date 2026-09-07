@@ -87,11 +87,27 @@ def get_project_custom_template_code(
     )
     if not tpl:
         raise HTTPException(status_code=404, detail="Custom template not found")
+    # Must stay in step with GET /api/custom-templates/{id}/code — a collaborator
+    # renders the same preview as the owner, so a field missing here shows up as
+    # the two seeing different videos. Both `layout_prop_schemas` (per-scene prop
+    # defaults) and `design_version` (who renders the ending) were absent, so a
+    # collaborator got empty prop slots and the built-in CTA overlay on a v2
+    # template the owner saw correctly.
+    from app.routers.custom_templates import _design_version, _image_modes_by_layout
+
     return {
         "component_code": None,
         "intro_code": tpl.intro_code,
         "outro_code": tpl.outro_code,
         "content_codes": json.loads(tpl.content_codes) if tpl.content_codes else None,
+        "layout_prop_schemas": (
+            json.loads(tpl.layout_prop_schemas) if tpl.layout_prop_schemas else None
+        ),
+        "design_version": _design_version(tpl),
+        "image_modes": _image_modes_by_layout(tpl),
+        "scene_font_defaults": (
+            json.loads(tpl.scene_font_defaults) if tpl.scene_font_defaults else None
+        ),
     }
 
 
@@ -152,6 +168,9 @@ def get_project_crafted_template_detail(
         "valid_layouts": meta.get("valid_layouts"),
         "layouts_without_image": meta.get("layouts_without_image"),
         "layout_prop_schema": meta.get("layout_prop_schema"),
+        # Must stay in step with GET /projects/{id}/layouts — a collaborator
+        # edits the same scene as the owner.
+        "content_prop_schema": meta.get("content_prop_schema") or {},
         "template_type": "crafted",
         "crafted": True,
         "composition_id": "GeneratedVideo",

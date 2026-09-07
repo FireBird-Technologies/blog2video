@@ -60,7 +60,10 @@ export interface SceneProps {
   brandImages?: string[];
   brandColors: {
     primary: string;
-    secondary: string;
+    /** @deprecated Never read by any component. It carried
+     *  theme.colors.surface, which no longer exists — panels are derived
+     *  from bg+text by derivePalette. Optional so callers may omit it. */
+    secondary?: string;
     accent: string;
     background: string;
     text: string;
