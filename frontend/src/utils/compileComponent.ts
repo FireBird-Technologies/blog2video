@@ -23,6 +23,7 @@ import { Player } from "@remotion/player";
 import { getTemplateConfig } from "../components/remotion/templateConfig";
 import { CaptionTrack } from "../components/remotion/CaptionTrack";
 import { BackgroundMusic } from "../components/remotion/BackgroundMusic";
+import { AvatarOverlay } from "../components/remotion/AvatarOverlay";
 import { SmartVideo } from "../components/remotion/SmartVideo";
 import * as Kit from "../components/remotion/generated/kit";
 
@@ -582,6 +583,18 @@ export async function compileModuleGraphEntry(
           __esModule: true,
           default: BackgroundMusic,
           BackgroundMusic,
+        };
+      }
+      // Avatar overlay: crafted compositions import "../AvatarOverlay", another
+      // shared component not shipped inside the bundle. Provide the real one so the
+      // talking-head clip renders in the editor preview, matching the final render.
+      // Without this, the generic fallback below silently resolves it to a no-op —
+      // the avatar clip data is all correct, it just never mounts.
+      if (spec.toLowerCase().includes("avataroverlay")) {
+        return {
+          __esModule: true,
+          default: AvatarOverlay,
+          AvatarOverlay,
         };
       }
       if (spec === "react/jsx-runtime" || spec === "react/jsx-dev-runtime") {

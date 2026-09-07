@@ -5685,8 +5685,10 @@ def authorize_avatar_batch(
     project.avatar_batch_unlocked = True
     db.add_all(jobs)
     db.commit()
-    # The in-process dispatcher (services/avatar_queue) claims queued rows on its
-    # own ~2s tick, so nothing further has to be triggered from here.
+    # The in-process dispatcher (services/avatar_queue) sleeps once idle, so it
+    # must be woken explicitly whenever a new job is queued.
+    from app.services import avatar_queue
+    avatar_queue.wake()
 
     return {
         "authorized": True,
@@ -5788,6 +5790,8 @@ def generate_scene_avatar(
     db.add(job)
     db.commit()
     db.refresh(job)
+    from app.services import avatar_queue
+    avatar_queue.wake()
 
     return {
         "started": True,
@@ -5998,6 +6002,9 @@ def matte_scene_avatar(
     scene.avatar_matte_failed_at = None
     job_id = _queue_matte(project_id, scene, user.id, db)
     db.commit()
+    if job_id is not None:
+        from app.services import avatar_queue
+        avatar_queue.wake()
     return {"started": True, "queued": True, "job_id": job_id}
 
 
@@ -6051,6 +6058,9 @@ def matte_all_scene_avatars(
         if (job_id := _queue_matte(project_id, scene, user.id, db)) is not None
     ]
     db.commit()
+    if job_ids:
+        from app.services import avatar_queue
+        avatar_queue.wake()
     return {"started": len(job_ids), "queued": True, "job_ids": job_ids}
 
 
@@ -6143,6 +6153,9 @@ def retry_failed_scene_avatars(
         db.flush()
         retried.append({"scene_id": scene_id, "job_id": job.id, "kind": latest.kind})
     db.commit()
+    if retried:
+        from app.services import avatar_queue
+        avatar_queue.wake()
     return {
         "retried": len(retried),
         "jobs": retried,

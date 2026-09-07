@@ -107,6 +107,10 @@ _running_job_ids: set[int] = set()
 # discard, so the two can never desynchronise and leak a slot.
 _running_kinds: dict[int, str] = {}
 _dispatcher_task: "asyncio.Task | None" = None
+# Wake signal so the dispatcher can sleep indefinitely while idle instead of
+# polling the DB every _POLL_INTERVAL_SECONDS forever. Created in start() (needs
+# a running event loop). See wake().
+_wake_event: "asyncio.Event | None" = None
 
 
 def _job_kind(job: SceneAvatarJob) -> str:
@@ -168,6 +172,16 @@ def is_running() -> bool:
     """True while at least one job is in flight. Informational only — the real
     single-writer guarantee comes from the dispatcher being one asyncio task."""
     return bool(_running_job_ids)
+
+
+def wake() -> None:
+    """Nudge the dispatcher to check the queue now instead of waiting for its
+    next scheduled tick. Call this right after committing a new
+    SceneAvatarJob(status="queued") row — without it, an enqueue that lands
+    while the dispatcher is idle would sit unclaimed until something else
+    happens to wake the loop."""
+    if _wake_event is not None:
+        _wake_event.set()
 
 
 def _kind_filter(kind: str):
@@ -421,6 +435,9 @@ def _run_scene_avatar_job(
         # finished — precisely the case the refund exists for.
         _on_batch_settled(project_id, batch_id, db)
         db.commit()
+        # Any matte jobs _on_batch_settled just queued are only durable now —
+        # wake the dispatcher in case it went idle waiting for this render.
+        wake()
     except Exception:
         # Recording the job's outcome is the critical write here; everything the
         # settle hook does is best-effort. Roll back rather than leave the session
@@ -815,6 +832,9 @@ def _chain_matte_if_background_chosen(project_id: int, db) -> None:
                 project_id,
                 queued,
             )
+            # No wake() here: this function takes the caller's session and does
+            # not commit (see docstring) — the caller wakes the dispatcher once
+            # these rows are actually durable. See _write_terminal below.
     except Exception:
         logger.exception(
             "[AVATAR_QUEUE] Could not auto-queue mattes for project %s", project_id
@@ -939,16 +959,28 @@ async def _dispatcher_loop() -> None:
             raise
         except Exception:
             logger.exception("[AVATAR_QUEUE] Dispatcher tick failed")
-        await asyncio.sleep(_POLL_INTERVAL_SECONDS)
+
+        if _running_job_ids:
+            # Work in flight — keep the tight cadence so a freed slot gets
+            # refilled quickly.
+            await asyncio.sleep(_POLL_INTERVAL_SECONDS)
+        else:
+            # Nothing running and nothing claimable this tick — go fully idle
+            # until wake() fires instead of polling an empty queue forever.
+            assert _wake_event is not None
+            _wake_event.clear()
+            await _wake_event.wait()
 
 
 def start() -> None:
     """Start the dispatcher task. Call once from the FastAPI lifespan, after
     reap_orphaned_avatar_jobs() has cleaned up any rows left `running` by a
     previous process."""
-    global _dispatcher_task
+    global _dispatcher_task, _wake_event
     _running_job_ids.clear()
     _running_kinds.clear()
+    if _wake_event is None:
+        _wake_event = asyncio.Event()
     if _dispatcher_task is None or _dispatcher_task.done():
         _dispatcher_task = asyncio.create_task(_dispatcher_loop())
 
