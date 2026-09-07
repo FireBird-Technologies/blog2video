@@ -422,6 +422,39 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
   const scenesRef = useRef<HTMLDivElement>(null);
   /** Synchronous double-click guard for apply/discard — see handleApply. */
   const applyingRef = useRef(false);
+  /** Scenes whose draft is being applied or discarded RIGHT NOW.
+   *
+   *  Clearing the interval is not enough on its own: a tick already parked on
+   *  `await getSceneEditStatus(...)` still resumes afterwards, holding a
+   *  "complete" answer that predates the decision. Writing it would re-flag the
+   *  scene and bring the draft back seconds after it was applied or discarded.
+   *  A tick checks this on resume and drops its result instead.
+   *
+   *  A ref, not state: the poll callback closes over its creation-time render,
+   *  so only a mutable box is visible to a tick already in flight. */
+  const resolvingRef = useRef<Set<string>>(new Set());
+  /** Which decision is in flight for the selected scene, for the button label.
+   *
+   *  `isRunning` cannot say this: it is also true while a scene REGENERATES, so
+   *  it can disable the buttons but cannot tell the user which of Apply or
+   *  Discard they are waiting on. State (not a ref) because it must re-render
+   *  the button; the ref above is what the poll reads. */
+  const [resolving, setResolving] = useState<"apply" | "discard" | null>(null);
+  /** Is there a decision to offer for the SELECTED scene?
+   *
+   *  `selectedHasDraft` is only the summary FLAG, and it arrives before the
+   *  draft payload is fetched. Gating the Apply/Discard pair on it put those
+   *  buttons on screen next to NO Original/Draft toggle (that renders on
+   *  `draft`), and clicking them did nothing whatsoever — both handlers open
+   *  with `if (!draft) return`. So require the loaded draft, exactly like the
+   *  toggle does, and the two appear together or not at all.
+   *
+   *  `resolving` keeps the pair mounted for the duration of the write. Apply
+   *  clears the draft OPTIMISTICALLY, which used to unmount these buttons in
+   *  the very same commit that set the loading state — destroying the spinner
+   *  before it could paint, so an apply landed with no feedback at all. */
+  const canResolveDraft =
+    selected !== ALL_SCENES && (Boolean(draft) || resolving !== null);
   /** `selected`, readable from inside a poll callback. The interval closes over
    *  its creation-time render, so reading `selected` directly there would see a
    *  stale value and write a finished draft onto the wrong scene. */
@@ -583,6 +616,13 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
       const timer = setInterval(async () => {
         try {
           const status = await getSceneEditStatus(template.id, sceneKey, editId);
+          // The user decided while this request was in flight. The answer in
+          // hand describes a draft that is now being applied or discarded, so
+          // acting on it would resurrect what they just resolved.
+          if (resolvingRef.current.has(sceneKey)) {
+            finish();
+            return;
+          }
           if (status.data.status === "complete") {
             finish();
             // The dot in the left column is driven by this, for every scene.
@@ -958,7 +998,17 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
     // "Could not apply the draft" even though the apply succeeded.
     if (!draft || isRunning(selected) || applyingRef.current) return;
     applyingRef.current = true;
+    // STOP THE POLL FIRST. Its tick is async: one can be parked on `await
+    // getSceneEditStatus(...)` at the moment Apply is clicked, and it resolves
+    // AFTER the state below is cleared — with the "complete" answer it was
+    // already given, so it calls markDrafted(key, true) and puts the draft
+    // straight back. That is the draft reappearing for a second or two after
+    // the write has already landed. `resolvingRef` closes the same gap from the
+    // other side, for a tick that is mid-flight right now.
+    resolvingRef.current.add(selected);
+    stopPolling(selected);
     markRunning(selected, true);
+    setResolving("apply");
     setError(null);
 
     // Everything needed to put the UI back if the write fails.
@@ -1029,6 +1079,10 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
       }
     } finally {
       applyingRef.current = false;
+      // Released only now: the server has answered (or been probed), so a later
+      // poll reflects the resolved state rather than the one being replaced.
+      resolvingRef.current.delete(sceneKey);
+      setResolving(null);
       markRunning(sceneKey, false);
     }
   };
@@ -1036,7 +1090,12 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
   const handleDiscard = async () => {
     if (!draft || isRunning(selected) || applyingRef.current) return;
     applyingRef.current = true;
+    // Same race as handleApply — see the note there.
+    resolvingRef.current.add(selected);
+    stopPolling(selected);
     markRunning(selected, true);
+    setResolving("discard");
+    setError(null);
 
     const prevDraft = draft;
     const sceneKey = selected;
@@ -1060,6 +1119,8 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
       setErrorSticky(true);
     } finally {
       applyingRef.current = false;
+      resolvingRef.current.delete(sceneKey);
+      setResolving(null);
       markRunning(sceneKey, false);
     }
   };
@@ -1577,7 +1638,7 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
                         !showDraft ? "bg-violet-600 text-white" : "text-gray-600 hover:bg-gray-50"
                       }`}
                     >
-                      Published
+                      Original
                     </button>
                     <button
                       onClick={() => setShowDraft(true)}
@@ -1590,31 +1651,63 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
                   </div>
                 )}
                 {/* At the far right of the row, opposite the scene name — the
-                    action is now visually paired with the Published/Draft
+                    action is now visually paired with the Original/Draft
                     toggle it produces, rather than crowding the scene label.
 
                     While a draft is pending, this slot swaps to the decision
                     the user actually needs to make (Apply/Discard) instead of
                     offering to start ANOTHER edit on top of an undecided one. */}
-                {selected !== ALL_SCENES && sceneLocked ? (
+                {canResolveDraft ? (
                   <div className="flex shrink-0 items-center gap-1.5">
+                    {/* Both stay disabled while EITHER is in flight: the two
+                        act on the same draft, so the losing click would hit a
+                        row the winner already consumed and report a failure for
+                        a decision that actually succeeded. The label says which
+                        one is working, because `isRunning` alone is also true
+                        for a regeneration and cannot distinguish them. */}
                     <button
                       type="button"
                       onClick={() => void handleApply()}
-                      disabled={isRunning(selected)}
-                      className="rounded-lg bg-violet-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={isRunning(selected) || resolving !== null}
+                      className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      Apply
+                      {resolving === "apply" && (
+                        <span
+                          aria-hidden="true"
+                          className="h-3 w-3 animate-spin rounded-full border-2 border-white/40 border-t-white"
+                        />
+                      )}
+                      {resolving === "apply" ? "Applying…" : "Apply"}
                     </button>
                     <button
                       type="button"
                       onClick={() => void handleDiscard()}
-                      disabled={isRunning(selected)}
-                      className="rounded-lg border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={isRunning(selected) || resolving !== null}
+                      className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      Discard
+                      {resolving === "discard" && (
+                        <span
+                          aria-hidden="true"
+                          className="h-3 w-3 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600"
+                        />
+                      )}
+                      {resolving === "discard" ? "Discarding…" : "Discard"}
                     </button>
                   </div>
+                ) : selected !== ALL_SCENES && sceneLocked ? (
+                  /* The flag says a draft exists but its payload is still in
+                     flight. Offering "Edit with AI" here would invite a second
+                     edit on top of an undecided draft — the very thing this
+                     slot swaps away from — and the decision buttons cannot be
+                     shown yet because there is nothing to apply. So hold the
+                     space and say what is happening. */
+                  <span className="inline-flex shrink-0 items-center gap-1.5 px-2 py-1 text-xs text-gray-500">
+                    <span
+                      aria-hidden="true"
+                      className="h-3 w-3 animate-spin rounded-full border-2 border-gray-300 border-t-gray-500"
+                    />
+                    Loading draft…
+                  </span>
                 ) : selected !== ALL_SCENES ? (
                   <button
                     type="button"
@@ -1623,7 +1716,7 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
                     title={isRunning(selected) ? "This scene is regenerating" : "Rewrite this scene with AI"}
                     className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-violet-200 bg-violet-50 px-2 py-1 text-xs font-medium text-violet-700 transition-colors hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    
+
                     Edit with AI
                   </button>
                 ) : null}

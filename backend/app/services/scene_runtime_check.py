@@ -85,6 +85,7 @@ def _sample_props(
     aspect_ratio: str = "landscape",
     role: str = "content",
     with_cta: bool = True,
+    with_image: bool = True,
 ) -> dict:
     """Realistic props for one scene, matching what GeneratedVideo.tsx passes."""
     props: dict = {
@@ -115,7 +116,7 @@ def _sample_props(
         "descriptionFontSize": 34,
         "layoutProps": {},
         "logoUrl": "https://example.invalid/logo.png",
-        "imageUrl": "https://example.invalid/image.jpg",
+        # imageUrl / hasImage / hasVideo are set below — see the note there.
     }
     # Exactly ONE structured prop is filled per scene, chosen by content_type —
     # mirroring GeneratedVideo.tsx. Filling them all would hide precisely the
@@ -137,6 +138,29 @@ def _sample_props(
     elif content_type == "comparison":
         props["comparisonLeft"] = {"label": "Before", "description": "Manual, slow, brittle"}
         props["comparisonRight"] = {"label": "After", "description": "Automated and observable"}
+
+    # An ABSENT image is a first-class state, not an edge case: it is what the
+    # stock-footage path passes (the clip is painted behind the scene and the
+    # render must not hand a video URL to <Img>, which cancelRender()s), and it
+    # is what the template editor's own preview passes for every scene.
+    #
+    # Leaving it always populated meant any scene that reads through the URL —
+    # `props.imageUrl.split(...)`, `.endsWith(...)`, `new URL(props.imageUrl)` —
+    # rendered fine here and threw a TypeError in the browser the moment it met
+    # the state the contract actually requires it to survive. Observed on a
+    # "Stage Image" scene that crashed the editor's Remotion player.
+    #
+    # `hasImage`/`hasVideo` move with it so the flags and the data agree; a
+    # scene that trusts hasImage and dereferences imageUrl anyway is exactly the
+    # defect this state exists to surface.
+    if with_image:
+        props["imageUrl"] = "https://example.invalid/image.jpg"
+        props["hasImage"] = True
+        props["hasVideo"] = False
+    else:
+        props["imageUrl"] = None
+        props["hasImage"] = False
+        props["hasVideo"] = True
 
     # Only the ending scene receives a CTA payload, mirroring the render path.
     # `with_cta=False` covers the other half of the contract the outro prompt
@@ -202,6 +226,12 @@ def runtime_check_scene(
     fine, and this gate passed it because it only ever ran landscape. Pass an
     explicit "landscape"/"portrait" to check just one.
 
+    Every scene is additionally run with NO IMAGE (props.imageUrl null,
+    hasVideo true) — the state the stock-footage path and every template-editor
+    preview pass. A scene that reads through the URL without checking it passed
+    the with-image pass and then threw a TypeError in the browser, which is how
+    a "Stage Image" scene crashed the editor's player.
+
     An outro scene is additionally run with a real CTA payload and with none.
     The prompt requires it to survive both, and each state exercises code the
     other never reaches — the with-CTA pass is what catches array operations on
@@ -221,33 +251,53 @@ def runtime_check_scene(
 
     ratios = (aspect_ratio,) if aspect_ratio else ("landscape", "portrait")
     cta_states = (True, False) if role == "outro" else (True,)
-    for ratio in ratios:
-        for with_cta in cta_states:
-            ok, err = _run_once(
-                code,
-                harness=harness,
-                babel=babel,
-                content_type=content_type,
-                aspect_ratio=ratio,
-                role=role,
-                with_cta=with_cta,
-                timeout=timeout,
-            )
-            if not ok:
-                if role == "outro" and not with_cta:
-                    err = (
-                        f"{err}\n\nThis failure is from rendering the ending scene with NO CTA "
-                        "configured (props.ctaProps is undefined) — the state every template "
-                        "preview and every CTA-less project uses. The scene must still look "
-                        "finished and deliberate with none of it present."
-                    )
-                if len(ratios) > 1:
-                    err = (
-                        f"{err}\n\nThis failure is from the {ratio.upper()} rendering "
-                        f"(props.aspectRatio === '{ratio}'). Both orientations must work: "
-                        "fix this branch without changing the one that already renders."
-                    )
-                return False, err
+
+    # Each case is one harness invocation. Built as an explicit list rather than
+    # nested loops because the no-image pass is deliberately NOT a full product:
+    # a missing-image crash is a dereference, not a layout defect, so it fires in
+    # whichever orientation runs first and repeating it per orientation would
+    # only double the node invocations for the same finding.
+    cases = [
+        (ratio, with_cta, True) for ratio in ratios for with_cta in cta_states
+    ]
+    cases += [(ratios[0], with_cta, False) for with_cta in cta_states]
+
+    for ratio, with_cta, with_image in cases:
+        ok, err = _run_once(
+            code,
+            harness=harness,
+            babel=babel,
+            content_type=content_type,
+            aspect_ratio=ratio,
+            role=role,
+            with_cta=with_cta,
+            with_image=with_image,
+            timeout=timeout,
+        )
+        if not ok:
+            if not with_image:
+                err = (
+                    f"{err}\n\nThis failure is from rendering with NO IMAGE "
+                    "(props.imageUrl is null and props.hasVideo is true) — the state "
+                    "used when stock footage plays behind the scene, and the state "
+                    "every template-editor preview uses. Read props.imageUrl only "
+                    "after checking it exists, and keep the image slot's geometry and "
+                    "its data-content-img=\"1\" marker so the clip has somewhere to go."
+                )
+            if role == "outro" and not with_cta:
+                err = (
+                    f"{err}\n\nThis failure is from rendering the ending scene with NO CTA "
+                    "configured (props.ctaProps is undefined) — the state every template "
+                    "preview and every CTA-less project uses. The scene must still look "
+                    "finished and deliberate with none of it present."
+                )
+            if len(ratios) > 1:
+                err = (
+                    f"{err}\n\nThis failure is from the {ratio.upper()} rendering "
+                    f"(props.aspectRatio === '{ratio}'). Both orientations must work: "
+                    "fix this branch without changing the one that already renders."
+                )
+            return False, err
     return True, None
 
 
@@ -261,11 +311,14 @@ def _run_once(
     role: str,
     with_cta: bool,
     timeout: int,
+    with_image: bool = True,
 ) -> tuple[bool, str | None]:
     """One harness invocation against a single set of props. See runtime_check_scene."""
     payload = {
         "code": code,
-        "props": _sample_props(content_type, aspect_ratio, role=role, with_cta=with_cta),
+        "props": _sample_props(
+            content_type, aspect_ratio, role=role, with_cta=with_cta, with_image=with_image,
+        ),
         "kitNames": _kit_names(),
         "babelPath": babel,
         "frame": 30,
