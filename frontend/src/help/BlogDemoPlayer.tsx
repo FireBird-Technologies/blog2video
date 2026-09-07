@@ -2281,6 +2281,91 @@ const SCENE_SETS: Record<string, SceneSet> = {
       },
     ],
   },
+
+  "preview-old-documentary-reel": {
+    template: "old-documentary-reel",
+    scenes: [
+      {
+        id: 1, order: 1, title: "Clapperboard Slate", durationSeconds: 8,
+        narration: "Clapperboard Slate opens every scene with a hand-marked production slate — scene, take, date, and director — before the frame settles into grain and tracking-roll damage.",
+        layout: "docreel_slate",
+        layoutProps: {
+          slateScene: "1",
+          slateTake: "3",
+          slateDate: "07.14.86",
+          slateDirector: "M. HALLORAN",
+          slateProduction: "COLD CASE FILES",
+        },
+      },
+      {
+        id: 2, order: 2, title: "A Town Divided", durationSeconds: 9,
+        narration: "Establishing Title Card sets the chapter with a chipped-edge headline over archive footage, giving each new thread of the story its own found-reel opening.",
+        layout: "docreel_title_card",
+        layoutProps: { chapterTitle: "A Town Divided" },
+      },
+      {
+        id: 3, order: 3, title: "Field Report", durationSeconds: 10,
+        narration: "Dossier Insert types out a report on screen line by line, complete with a rubber-stamped verdict, for the paperwork that never quite explains the full timeline.",
+        layout: "docreel_dossier",
+        layoutProps: {
+          dossierHeading: "Incident Summary",
+          dossierBody: "Subject was last confirmed seen departing the north gate at approximately 22:40. Security logs show no further contact after that point, and no forced entry was recorded at the residence.",
+          dossierStamp: "UNRESOLVED",
+          dossierClassification: "Incident Report",
+        },
+      },
+      {
+        id: 4, order: 4, title: "The Photograph", durationSeconds: 11,
+        narration: "Archive Photograph Pan holds a single still just long enough to matter, panning slowly across a print while a detailed archival caption unfolds beside it.",
+        layout: "docreel_photo_pan",
+        layoutProps: {
+          caption: "Main Street, looking east",
+          subCaption: "Photographer unknown. The print was taken sometime in the early 1970s, most likely in autumn based on the shadows and the awnings visible over the storefronts. This stretch of Main Street was demolished within the decade to make way for the municipal parking structure.",
+          photoPanLabel: "ARCHIVE PHOTOGRAPH",
+        },
+      },
+      {
+        id: 5, order: 5, title: "Eyewitness", durationSeconds: 12,
+        narration: "Interview Insert drops in a lower-third quote and attribution, styled like a spliced-in talking-head clip from an old documentary interview.",
+        layout: "docreel_interview",
+        layoutProps: {
+          interviewQuote: "I heard the sirens before I saw anything at all, and by the time I got to the window, half the street was already outside.",
+          interviewSubject: "Margaret Doyle",
+          interviewRole: "Former Resident",
+        },
+      },
+      {
+        id: 6, order: 6, title: "By the Numbers", durationSeconds: 7,
+        narration: "Statistic Overlay stamps a single large figure over the frame with supporting context, for the moment a story needs to make its scale undeniable.",
+        layout: "docreel_statistic",
+        layoutProps: {
+          statValue: "47",
+          statLabel: "Cases Reopened",
+          statContext: "Each file was cross-referenced against the original 1986 archive, revealing a pattern of missed connections investigators had overlooked for nearly a decade.",
+        },
+      },
+      {
+        id: 7, order: 7, title: "What We Know So Far", durationSeconds: 11,
+        narration: "Field Notes Checklist ticks off confirmed facts one by one on a notebook page, separating what investigators actually knew from what people assumed.",
+        layout: "docreel_field_notes",
+        layoutProps: {
+          fieldNotesHeading: "What We Know So Far",
+          fieldNotesItems: [
+            "Subject last confirmed seen 03.14.86, 22:40.",
+            "No forced entry found at the residence.",
+            "Vehicle recovered eight miles north, undamaged.",
+            "Two witnesses report the same description.",
+          ],
+        },
+      },
+      {
+        id: 8, order: 8, title: "THE END", durationSeconds: 10,
+        narration: "Reel-Out & Credits closes the video like a spliced final reel, fading to black on the brand name and a quiet crossfade.",
+        layout: "ending_socials",
+        layoutProps: { brandName: "Cold Case Files" },
+      },
+    ],
+  },
 };
 
 const TEMPLATE_COLORS: Record<string, { accent: string; bg: string; text: string }> = {
@@ -2301,6 +2386,7 @@ const TEMPLATE_COLORS: Record<string, { accent: string; bg: string; text: string
   magazine: { accent: "#E63946", bg: "#FDFCFB", text: "#1A1A1A" },
   stickman_football: { accent: "#869358", bg: "#FFFFFF", text: "#111111" },
   stickman_2: { accent: "#FFFFFF", bg: "#000000", text: "#FFFFFF" },
+  "old-documentary-reel": { accent: "#f4f0e2", bg: "#171512", text: "#b6b0a1" },
 };
 
 const TEMPLATE_LABELS: Record<string, string> = {
@@ -2321,6 +2407,7 @@ const TEMPLATE_LABELS: Record<string, string> = {
   magazine: "Magazine",
   stickman_football: "Stickman Football",
   stickman_2: "Stickman 2",
+  "old-documentary-reel": "Old Documentary Reel",
 };
 
 interface BlogDemoPlayerProps {
