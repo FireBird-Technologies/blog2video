@@ -333,7 +333,24 @@ def _bind_dataviz_layout_props(scene, descriptor: dict) -> bool:
 def _descriptor_layout_name(template_id: str, descriptor: dict) -> str | None:
     """Extract effective layout from descriptor payload."""
     if is_custom_template(template_id):
-        cfg = descriptor.get("layoutConfig") if isinstance(descriptor, dict) else None
+        if not isinstance(descriptor, dict):
+            return None
+        # A GENERATED custom template's real layouts are intro / content_N / outro,
+        # and that is what the renderer dispatches on (sceneType +
+        # contentVariantIndex) and what SceneEditModal's dropdown lists. Prefer
+        # them over layoutConfig.arrangement, which is a legacy arrangement name
+        # ("full-center", "split-left") that nothing downstream consumes — using
+        # it here re-stamped preferred_layout with a name outside the template's
+        # own valid_layouts, which is why project scene lists showed arrangement
+        # names and why the outro was never recognised as image-free.
+        scene_type = descriptor.get("sceneTypeOverride") or descriptor.get("sceneType")
+        if isinstance(scene_type, str) and scene_type in ("intro", "outro"):
+            return scene_type
+        if scene_type == "content":
+            idx = descriptor.get("contentVariantIndex")
+            if isinstance(idx, int) and idx >= 0:
+                return f"content_{idx}"
+        cfg = descriptor.get("layoutConfig")
         if isinstance(cfg, dict):
             name = cfg.get("arrangement")
             return name if isinstance(name, str) else None
@@ -391,9 +408,13 @@ def _sanitize_script_layouts(
     """
     if not scenes_raw:
         return scenes_raw
-    if is_custom_template(template_id):
-        return scenes_raw
 
+    # Custom templates used to return here unsanitised, so whatever the script LLM
+    # produced was stored verbatim — including names outside ANY vocabulary (a
+    # hallucinated "comparison" was observed in production). They now go through
+    # the same clamp as everything else; `valid` for a generated custom template
+    # is intro / content_0..N / outro, and `supports_ending` below is naturally
+    # False for them since they have no `ending_socials` layout.
     valid = {x for x in get_valid_layouts(template_id) if isinstance(x, str) and x.strip()}
     if not valid:
         return scenes_raw
@@ -403,7 +424,16 @@ def _sanitize_script_layouts(
     if fallback_layout not in valid:
         fallback_layout = next(iter(valid))
 
-    supports_ending = "ending_socials" in valid and include_ending_socials
+    # The closing layout. Built-ins call it `ending_socials`; a generated custom
+    # template calls it `outro`. Without this the custom closing scene fell
+    # through to the generic diverse-pick and became a content layout, so the
+    # video ended on an ordinary scene instead of the CTA/socials treatment.
+    ending_layout = (
+        "ending_socials"
+        if "ending_socials" in valid
+        else ("outro" if "outro" in valid else "")
+    )
+    supports_ending = bool(ending_layout) and include_ending_socials
     last_idx = len(scenes_raw) - 1
     usage: dict[str, int] = {}
     prev_layout: str | None = None
@@ -427,10 +457,10 @@ def _sanitize_script_layouts(
         if i == 0 and hero_layout in valid:
             desired = hero_layout
         elif supports_ending and i == last_idx:
-            desired = "ending_socials"
+            desired = ending_layout
         elif desired not in valid:
             desired = ""
-        elif desired == "ending_socials":
+        elif desired == ending_layout:
             # ending_socials is reserved for final scene only.
             desired = ""
         elif hero_layout and desired == hero_layout:
@@ -445,7 +475,7 @@ def _sanitize_script_layouts(
             if prev_layout:
                 excludes.add(prev_layout)
             if supports_ending:
-                excludes.add("ending_socials")
+                excludes.add(ending_layout)
             # Hero/cover layout is scene-0-only — never let the fallback re-pick it.
             if i != 0 and hero_layout:
                 excludes.add(hero_layout)
@@ -454,9 +484,31 @@ def _sanitize_script_layouts(
         # Try to avoid consecutive duplicates even when valid was provided.
         # Data-bound scenes (data_table_index set) must keep their assigned layout — two
         # chartable tables legitimately produce two consecutive market_annotation scenes.
+        #
+        # A GENERATED CUSTOM TEMPLATE IS EXEMPT, and that exemption is the point
+        # of the layout catalog carrying `best_for`.
+        #
+        # For those templates the LLM is now told what each layout is designed to
+        # hold and picks the one matching the scene's content. Overriding that
+        # here with `_pick_diverse` — least-used-first, content-blind — threw the
+        # match away whenever two neighbouring scenes were both lists, which is
+        # the normal case for an article of lists. The scene then received props
+        # its layout was not built for, and rendered a fallback branch.
+        #
+        # Variety is still preferred, but it is expressed in the catalog as a
+        # soft preference the model weighs against the match. It is no longer
+        # imposed after the fact on a choice that was made for a reason.
         is_data_bound = isinstance(scene.get("data_table_index"), int)
-        if prev_layout and desired == prev_layout and i != 0 and not (supports_ending and i == last_idx) and not is_data_bound:
-            alt = _pick_diverse({prev_layout, "ending_socials"} if supports_ending else {prev_layout})
+        _content_routed = is_custom_template(template_id) and desired.startswith("content_")
+        if (
+            prev_layout
+            and desired == prev_layout
+            and i != 0
+            and not (supports_ending and i == last_idx)
+            and not is_data_bound
+            and not _content_routed
+        ):
+            alt = _pick_diverse({prev_layout, ending_layout} if supports_ending else {prev_layout})
             desired = alt or desired
 
         scene["preferred_layout"] = desired
@@ -855,6 +907,25 @@ def get_pipeline_status(
         running = False
         step = max(step, 3)
 
+    # The DB is authoritative about whether generation FINISHED.
+    #
+    # ``running`` comes from ``_pipeline_progress``, a module-level in-memory
+    # dict that is best-effort by construction: nothing ever pops from it, and a
+    # worker that dies between "set running=True" and "set running=False"
+    # strands the flag for the life of the process. The frontend's poll only
+    # exits on ``running: false``, so a stranded flag means the editor polls
+    # /status + /projects + /layouts every 2s forever on a project that has been
+    # finished for hours — observed on project 1212, DB status GENERATED.
+    #
+    # Same reasoning as the two gate branches above, which already let DB status
+    # overrule a stale in-memory value; this extends it to the terminal states.
+    if project.status in (
+        ProjectStatus.GENERATED,
+        ProjectStatus.DONE,
+        ProjectStatus.ERROR,
+    ):
+        running = False
+
     # If in-memory progress is lost (e.g. Cloud Run cold start / new container)
     # but the project is still mid-generation, infer the step from project status
     # so the frontend keeps showing the loading screen.
@@ -1250,7 +1321,17 @@ def _outro_scene_ids(project: Project, db: Session) -> set[int]:
     scene of a multi-scene project, which Step 3 treats as an implicit outro.
 
     An outro neither consumes an image nor can display a clip, so both the
-    coverage prediction and the stock fetch must exclude it.
+    coverage prediction and the stock fetch must exclude it. This holds for
+    EVERY template kind, custom included.
+
+    A v2 custom outro was briefly exempted here, on the reasoning that it renders
+    its own designed layout rather than being replaced by the CTA overlay and so
+    could carry a visual. That made custom videos diverge from built-in ones in
+    two visible ways: one extra clip was fetched and paid for in every
+    under-covered case, and when images outnumbered scenes the guaranteed clip
+    landed on the ENDING rather than on the last content scene. An ending is a
+    call to action; the outro is now image-free by construction (see
+    build_custom_meta), so the blanket exclusion is correct again.
     """
     all_scenes = (
         db.query(Scene)
@@ -2754,10 +2835,15 @@ async def _generate_script(
             cta = (scene_data.get("cta_button_text") or "").strip()
             if cta:
                 vd = prepend_b2v_cta_to_visual(cta, vd)
-            # Custom templates don't have an ending_socials layout — clear it so
-            # archetype matching assigns the outro slot during scene generation.
+            # Custom templates have no `ending_socials` layout — their closing
+            # scene is `outro`. This used to clear the value to None and rely on
+            # archetype matching, but nothing downstream reads preferred_layout
+            # for custom templates, so the intent was lost and the scene ended up
+            # re-stamped with an arrangement name. Naming `outro` explicitly keeps
+            # it in the template's own vocabulary and lets the layouts_without_image
+            # policy (which lists `outro`) actually match.
             if is_custom:
-                preferred = None
+                preferred = "outro"
         elif (
             (
                 scene_data.get("preferred_layout") in {
@@ -3037,10 +3123,56 @@ async def _generate_scenes(
 
         if is_custom_template(template_id):
             # NEW: Single batch call replaces 16 per-scene DSPy calls
-            from app.services.content_classifier import extract_structured_content_batch
+            from app.services.content_classifier import (
+                extract_structured_content_batch,
+                reconcile_layouts_and_content,
+            )
+
+            # What each layout is BUILT FOR, so extraction can produce the shape
+            # the scene's ALREADY-CHOSEN layout needs rather than guessing a
+            # content type and letting a matcher pick a layout afterwards.
+            _layout_best_for: dict = {}
+            _layout_content_types: dict = {}
+            _meta: dict = {}
+            try:
+                from app.services.template_service import get_meta
+
+                _meta = get_meta(template_id) or {}
+                _layout_best_for = _meta.get("layout_best_for") or {}
+                _layout_content_types = _meta.get("layout_content_types") or {}
+            except Exception:  # noqa: BLE001 — a missing meta must not block generation
+                _layout_best_for = {}
+                _layout_content_types = {}
+
+            # The per-scene declared prop schema, so the same call can also
+            # give those fields article-derived values. Without it every project
+            # on a template ships the designer's literal — one real template put
+            # "Everything, in one app" on every video made from it.
+            _layout_prop_schemas: dict = {}
+            try:
+                _lps = (_meta.get("layout_prop_schema") or {}) if _meta else {}
+                _layout_prop_schemas = {
+                    lid: (entry.get("fields") or [])
+                    for lid, entry in _lps.items()
+                    if isinstance(entry, dict)
+                }
+            except Exception:  # noqa: BLE001 — metadata must not block generation
+                _layout_prop_schemas = {}
+
             structured_contents = await extract_structured_content_batch(
                 scenes_data,
                 content_language=content_lang,
+                layout_best_for=_layout_best_for,
+                layout_prop_schemas=_layout_prop_schemas,
+            )
+
+            # Make the layout and the props agree, ONCE, before anything is
+            # written. Forces the bookends to "plain" (the intro carries the
+            # title, the outro the CTA) and moves a content scene whose
+            # narration could not fill its assigned layout onto one built for
+            # what it actually has. Returns the final layout per scene.
+            _reconciled = reconcile_layouts_and_content(
+                scenes_data, structured_contents, _layout_content_types
             )
 
             # Build descriptors in the format the rest of the pipeline expects
@@ -3048,11 +3180,38 @@ async def _generate_scenes(
             # Note: imageBoxAspectRatio is injected per-scene later in remotion.py once
             # the actual content variant index is known (via match_scenes_to_archetypes).
             descriptors = []
-            for sc in structured_contents:
-                descriptors.append({
+            for _i, sc in enumerate(structured_contents):
+                # Values for the scene's own declared props ride under a private
+                # key on the extraction result; lift them into layoutProps,
+                # which is where the scene reads them, and drop the marker.
+                _filled_props = sc.pop("__layoutProps", None)
+                _d = {
                     "structuredContent": sc,
                     "layoutConfig": {},
-                })
+                }
+                if isinstance(_filled_props, dict) and _filled_props:
+                    # UNDER whatever a later stage writes: image/video
+                    # assignment, framing and chart binding all land in the same
+                    # bag and must win over a generated value.
+                    _d["layoutProps"] = dict(_filled_props)
+                # Record the decision on the descriptor too, so every downstream
+                # reader (render, preview, editor) resolves the SAME layout
+                # instead of re-deriving one. Without contentVariantIndex here,
+                # _descriptor_layout_name returns None for content scenes and
+                # the render falls back to archetype matching.
+                _lid = (
+                    _reconciled[_i].get("preferred_layout")
+                    if _i < len(_reconciled) else None
+                ) or ""
+                if _lid in ("intro", "outro"):
+                    _d["sceneTypeOverride"] = _lid
+                elif _lid.startswith("content_"):
+                    try:
+                        _d["contentVariantIndex"] = int(_lid.split("_", 1)[1])
+                        _d["sceneTypeOverride"] = "content"
+                    except (ValueError, IndexError):
+                        pass
+                descriptors.append(_d)
 
             # Chart data for the 2 dedicated data-viz scenes is bound separately
             # (into layoutProps) in the descriptor-application loop below, where
@@ -3255,6 +3414,32 @@ async def _generate_scenes(
                     },
                 }
 
+        # Custom templates: stamp the scene TYPE so the descriptor is
+        # self-describing from its very first write.
+        #
+        # These used to carry only structuredContent + an empty layoutConfig, so
+        # write_remotion_data could not tell an intro from an outro and fell back
+        # to one layout id for the entire video — which is what made the image
+        # cascade strip every scene's image and clip at the end of generation.
+        # The renderer resolves this itself now (see _resolve_custom_scene_types,
+        # which also repairs projects already in the DB), but stamping it here
+        # means a freshly generated descriptor is never ambiguous.
+        #
+        # scene.scene_type WINS where set — it is how the injected data-viz
+        # scenes are marked, and a positional guess would relabel them as plain
+        # content. Only the TYPE is decided here; the content variant comes from
+        # archetype matching in remotion.py.
+        if is_custom_template(template_id):
+            _db_type = getattr(scene, "scene_type", None)
+            if _db_type in ("intro", "content", "outro", "dataviz_chart", "dataviz_table"):
+                descriptor["sceneTypeOverride"] = _db_type
+            elif i == 0:
+                descriptor["sceneTypeOverride"] = "intro"
+            elif i == len(scenes) - 1 and len(scenes) > 1:
+                descriptor["sceneTypeOverride"] = "outro"
+            else:
+                descriptor["sceneTypeOverride"] = "content"
+
         # Custom templates: inject CTA props into the last (outro) scene
         if is_custom_template(template_id) and i == len(scenes) - 1 and len(scenes) > 1:
             cta_from_visual, _ = strip_b2v_cta_from_visual(scene.visual_description or "")
@@ -3270,11 +3455,31 @@ async def _generate_scenes(
                 pass
             if not cta:
                 cta = "Get started"
+            # `ctas` IS WHAT THE OUTRO ACTUALLY RENDERS FROM.
+            #
+            # The ending contract tells every generated outro to map
+            # `(props.ctaProps?.ctas ?? [])` and draw a button per entry, with
+            # the singular pair only as a fallback. The pipeline never wrote
+            # that array, so a contract-compliant outro mapped an empty list and
+            # drew NOTHING — the CTA button was simply missing from the video
+            # while ctaButtonText sat correctly in the descriptor.
+            #
+            # Both shapes are written: the array for the documented path, the
+            # singular pair for outros generated before it and for the
+            # fallback the contract still describes.
+            _cta_entry = {"ctaButtonText": cta}
+            if source_link:
+                _cta_entry["websiteLink"] = source_link
             descriptor["ctaProps"] = {
                 "socials": ending_socials_default,
-                "showWebsiteButton": bool(source_link),
+                # A CTA with a label is worth showing even when there is no link
+                # to attach — this was `bool(source_link)`, which is false for
+                # every `upload://` project, so uploaded-document videos lost
+                # their button entirely.
+                "showWebsiteButton": bool(source_link or cta),
                 "websiteLink": source_link,
                 "ctaButtonText": cta,
+                "ctas": [_cta_entry],
             }
 
         has_layout_config = "layoutConfig" in descriptor

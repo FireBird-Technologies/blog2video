@@ -8,6 +8,7 @@ interface Props {
 
 interface State {
   hasError: boolean;
+  message: string;
 }
 
 /**
@@ -18,10 +19,18 @@ interface State {
  * scoped to the one card so the carousel — and the rest of the page — stays up.
  */
 export default class PreviewErrorBoundary extends Component<Props, State> {
-  state: State = { hasError: false };
+  state: State = { hasError: false, message: "" };
 
-  static getDerivedStateFromError(): State {
-    return { hasError: true };
+  static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, message: error?.message || "Unknown error" };
+  }
+
+  componentDidCatch(error: Error) {
+    // The default fallback used to be a bare grey box with NO message, so a
+    // scene that threw in the browser looked identical to one that simply had
+    // nothing to show — a broken template gave no diagnostic at all, and
+    // tracking one down took a live HTTP probe. Log it and show it.
+    console.error("[PreviewErrorBoundary] preview threw:", error);
   }
 
   render() {
@@ -34,8 +43,31 @@ export default class PreviewErrorBoundary extends Component<Props, State> {
               aspectRatio: "16/9",
               background: "#f3f4f6",
               borderRadius: 12,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+              padding: 16,
+              textAlign: "center",
             }}
-          />
+          >
+            <span style={{ color: "#b91c1c", fontSize: 13, fontWeight: 600 }}>
+              Preview failed to render
+            </span>
+            <span
+              style={{
+                color: "#6b7280",
+                fontSize: 11,
+                maxWidth: "90%",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {this.state.message}
+            </span>
+          </div>
         )
       );
     }

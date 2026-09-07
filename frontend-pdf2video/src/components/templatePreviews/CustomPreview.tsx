@@ -154,6 +154,11 @@ const ContinuousCustomComposition: React.FC<ContinuousCompositionProps> = ({
           );
         })}
       </TransitionSeries>
+
+      {/* NO LOGO ON THIS SURFACE, deliberately — see the blog2video copy. A
+        * template has no project, and its brand-kit logo is whatever the
+        * scraper ranked first. The logo belongs to the project built from the
+        * template, where the player and the render composite it. */}
     </AbsoluteFill>
   );
 };
@@ -407,12 +412,20 @@ export default function CustomPreview({
     // Never use previewImageUrl as an image prop — it's the template's own thumbnail
     // and causes a broken recursive image load. Content scenes get NO imageUrl so they
     // render their full-width (no-image) branch instead of a split with an empty panel.
-    const logoProps = logoUrls && logoUrls.length > 0 ? { logoUrl: logoUrls[0] } : {};
+    // NO logoUrl on any scene, and no corner watermark on this surface either —
+    // the template preview shows no logo at all (see the composition above).
+    // This used to be spread into `base`, so the preview drew an in-scene logo
+    // on EVERY scene at a hardcoded size while the render drew none on any.
     const brandImageProps = logoUrls && logoUrls.length > 0 ? { brandImages: logoUrls } : ogImage ? { brandImages: [ogImage] } : {};
     const fontProps = { titleFontSize: 88, descriptionFontSize: 44 };
 
     return sceneCodes.map((sc, idx) => {
-      const base = { sceneIndex: idx, totalScenes: sceneCodes.length, ...logoProps, ...brandImageProps, ...fontProps };
+      const base = {
+        sceneIndex: idx,
+        totalScenes: sceneCodes.length,
+        ...brandImageProps,
+        ...fontProps,
+      };
       const n = name || "Our Brand";
 
       // Data-viz scenes: feed the deterministic kit chart/table sample data + brand fonts.
