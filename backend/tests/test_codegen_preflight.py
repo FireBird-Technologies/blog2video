@@ -38,8 +38,33 @@ def test_a_probe_that_raises_reports_down_rather_than_exploding() -> None:
         codegen_preflight.CHECKS = original
 
 
-def test_all_gates_are_armed_in_this_checkout() -> None:
-    """A dev checkout has the full toolchain, so anything DOWN here is a real
-    regression in the probes themselves."""
+def test_the_report_agrees_with_the_toolchain_it_found() -> None:
+    """The report must be CONSISTENT, not green.
+
+    Asserting `ok is True` here was wrong: it encoded "this machine has npm
+    dependencies installed", which is true of a dev checkout and false of the
+    backend CI job (Python only — no esbuild, no babel) and of any environment
+    that legitimately runs without them. Failing open there is the designed
+    behaviour, so a green report is not what this test is for.
+
+    What must hold everywhere is that the summary matches the lines: the report
+    claims all-armed only when every individual probe is armed. That catches a
+    real regression in the aggregation while staying true in every environment.
+    """
     ok, lines = codegen_preflight.preflight_report()
-    assert ok, "gates down in a dev checkout:\n" + "\n".join(lines)
+    assert ok == all("[OK ]" in line for line in lines)
+
+
+def test_a_down_toolchain_takes_the_summary_down_with_it() -> None:
+    """One dead gate must not be averaged away into an all-clear."""
+    original = codegen_preflight.CHECKS
+    codegen_preflight.CHECKS = [
+        ("armed", lambda: (True, "fine")),
+        ("dead", lambda: (False, "NOT FOUND")),
+    ]
+    try:
+        ok, lines = codegen_preflight.preflight_report()
+        assert ok is False
+        assert any("[DOWN]" in line for line in lines)
+    finally:
+        codegen_preflight.CHECKS = original

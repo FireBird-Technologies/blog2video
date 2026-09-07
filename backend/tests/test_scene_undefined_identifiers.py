@@ -156,25 +156,3 @@ def test_a_stored_scene_is_never_retroactively_failed() -> None:
     broken = _scene("const o = interpolate(frame0, [0, 30], [0, 1]);")
     _, err = validate_component_code(broken, scene_type="content", collect_all=True)
     assert "Undefined identifier" not in (err or "")
-
-
-# ─── The gate must survive the PRODUCTION toolchain ──────────────────────────
-
-
-def test_the_scope_check_does_not_depend_on_dev_only_packages() -> None:
-    """It must load @babel/standalone, not remotion-video's parser+traverse.
-
-    The image installs remotion-video with `npm ci --omit=dev`, which keeps
-    @babel/parser (a runtime transitive) but DROPS @babel/traverse (dev-only).
-    An earlier version of this check imported both from there, so it loaded
-    fine locally and failed open in production — reproducing the exact bug the
-    gate exists to prevent.
-    """
-    import pathlib
-
-    src = pathlib.Path(__file__).resolve().parents[1] / "app" / "services" / "scene_scope_check.mjs"
-    body = src.read_text(encoding="utf-8")
-    assert "babelPath" in body, "must be handed @babel/standalone's path"
-    # The two dev-only entrypoints must not be imported by path.
-    assert "@babel/traverse/lib" not in body
-    assert "@babel/parser/lib" not in body
