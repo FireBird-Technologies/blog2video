@@ -984,6 +984,25 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         })}
       </TransitionSeries>
 
+      {/* Per-scene talking-head overlay. Like the voiceover below it rides a
+          parallel absolute timeline rather than sitting inside the
+          TransitionSeries, so a transition's overlap can't stretch or clip the
+          clip. It is deliberately NOT nested in the voiceover Sequence below:
+          a scene can carry an avatar clip without a voiceover file, and that
+          scene must still show the avatar on export the way the editor
+          preview does. */}
+      {data.scenes.map((scene, index) =>
+        scene.avatarVideoFile ? (
+          <Sequence
+            key={`avatar-${scene.id}-${index}`}
+            from={sceneStartFrames[index]}
+            durationInFrames={sceneFrames[index]}
+          >
+            <AvatarOverlay src={staticFile(scene.avatarVideoFile)} aspectRatio={data.aspectRatio || "landscape"} shape={scene.avatarShape ?? data.avatarShape} size={scene.avatarSize ?? data.avatarSize} position={scene.avatarPosition ?? data.avatarPosition} bg={scene.avatarBg ?? data.avatarBg} opacity={scene.avatarOpacity ?? data.avatarOpacity} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />
+          </Sequence>
+        ) : null,
+      )}
+
       {/* Voiceover lives on a parallel absolute timeline (NOT inside the
           TransitionSeries) so the transition overlap never warps audio sync —
           sceneStartFrames is the plain back-to-back schedule. */}
@@ -995,9 +1014,6 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             durationInFrames={sceneFrames[index]}
           >
             <Audio src={staticFile(scene.voiceoverFile)} playbackRate={playbackSpeed} />
-            {scene.avatarVideoFile && (
-              <AvatarOverlay src={staticFile(scene.avatarVideoFile)} aspectRatio={data.aspectRatio || "landscape"} shape={scene.avatarShape ?? data.avatarShape} size={scene.avatarSize ?? data.avatarSize} position={scene.avatarPosition ?? data.avatarPosition} bg={scene.avatarBg ?? data.avatarBg} opacity={scene.avatarOpacity ?? data.avatarOpacity} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />
-            )}
             {data.captionsEnabled && (scene.narrationText || scene.narration) && (
               <CaptionTrack
                 text={scene.narrationText || scene.narration}
