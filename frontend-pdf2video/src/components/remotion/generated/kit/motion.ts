@@ -118,6 +118,31 @@ export function staggerEntrance(
 }
 
 /**
+ * The frame rate to spring with when the caller did not supply a usable one.
+ *
+ * These two helpers are the only kit exports that take `fps` as an ARGUMENT
+ * rather than reading it from `useVideoConfig()` themselves, which makes them
+ * the one place a generated scene can hand Remotion a bad value. A scene that
+ * never destructured `fps` — or read it off `props`, which carries none —
+ * passes `undefined` straight through, and Remotion VALIDATES spring's
+ * arguments: it throws `"fps" must be a number` mid-render, which unwinds past
+ * the scene into the Player and blanks the whole preview rather than degrading
+ * one animation. The boundary catches it, recompilation remounts, and it throws
+ * again, so the scene sits in a crash loop.
+ *
+ * Coercing keeps the animation CORRECT rather than merely alive: every preview
+ * Player and the render composition run at 30fps, so 30 is the value the scene
+ * would have read from the hook.
+ *
+ * The generation-time runtime gate rejects this pattern (see the spring stub in
+ * backend/app/services/scene_runtime_harness.mjs), but nothing re-validates a
+ * scene that was STORED before that gate existed — hence the recovery here.
+ */
+const FALLBACK_FPS = 30;
+const usableFps = (fps: number): number =>
+  typeof fps === "number" && Number.isFinite(fps) && fps > 0 ? fps : FALLBACK_FPS;
+
+/**
  * Headline pop: scale overshoot + rise, for titles/key words. Spring-backed so
  * it feels organic; pass `fps` from useVideoConfig().
  */
@@ -129,7 +154,7 @@ export function headlinePop(
   const start = opts?.start ?? 0;
   const s = spring({
     frame: frame - start,
-    fps,
+    fps: usableFps(fps),
     config: {
       damping: opts?.damping ?? 14,
       stiffness: opts?.stiffness ?? 200,
@@ -149,7 +174,7 @@ export function panelRise(
 ): EntranceStyle {
   const s = spring({
     frame: frame - (opts?.start ?? 0),
-    fps,
+    fps: usableFps(fps),
     config: { damping: 20, stiffness: 90, mass: 1 },
   });
   return {
