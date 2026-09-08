@@ -31,18 +31,18 @@ ELEVENLABS_TTS_WITH_TIMESTAMPS_URL = (
     "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/with-timestamps"
 )
 
-# ElevenLabs premade voices -- narrator / documentary style
-# Verified against the official premade voice list:
-# https://elevenlabs-sdk.mintlify.app/voices/premade-voices
+# Curated shared-library voices (added to this account's voice collection via
+# POST /v1/voices/add/{public_owner_id}/{voice_id}) -- not ElevenLabs "premade"
+# voices, so their IDs only resolve for accounts that have added them.
 VOICE_MAP = {
-    ("female", "american"): "21m00Tcm4TlvDq8ikWAM",  # Rachel  -- american, calm, narration
-    ("male", "american"): "pqHfZKP75CvOlQylNhV4",    # Bill    -- american, strong, documentary
-    ("female", "british"): "Xb7hH8MSUJpSbSDYk0k2",   # Alice   -- british, confident, news
-    ("male", "british"): "onwK4e9ZLuTAKqWW03F9",     # Daniel  -- british, deep, news presenter
+    ("female", "american"): "dfeOmy6Uay63tNhyO99j",  # Kristen -- american, upbeat, advertisement
+    ("male", "american"): "dXtC3XhB9GtPusIpNtQx",    # Hale    -- american, confident, advertisement
+    ("female", "british"): "19STyYD15bswVz51nqLf",   # Samara X -- british, calm, social media
+    ("male", "british"): "xtw8E1CXDMtNKx4sgP7u",     # Connor  -- british, upbeat, advertisement/sports
 }
 
-# Fallback: Bill (american male documentary voice) if no match
-DEFAULT_VOICE_ID = "pqHfZKP75CvOlQylNhV4"
+# Fallback: Hale (american male advertisement voice) if no match
+DEFAULT_VOICE_ID = "dXtC3XhB9GtPusIpNtQx"
 ELEVENLABS_VOICE_META_URL = "https://api.elevenlabs.io/v1/voices/{voice_id}"
 
 # TTS models. Default narration stays on v2. The paid "Advanced Options" path (any project with

@@ -3,39 +3,39 @@ import VoiceItem, { formatVoiceSubtitle } from "./VoiceItem";
 
 const FEATURED_VOICES = [
   {
-    id: "21m00Tcm4TlvDq8ikWAM",
-    name: "Rachel",
+    id: "dfeOmy6Uay63tNhyO99j",
+    name: "Kristen",
     gender: "Female",
     accent: "American",
-    description: "Calm and professional",
-    previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/21m00Tcm4TlvDq8ikWAM/b4928a68-c03b-411f-8533-3d5c299fd451.mp3",
+    description: "Upbeat and engaging",
+    previewUrl: "https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/marketing/voice-previews/kristen.mp3",
   },
   {
-    id: "onwK4e9ZLuTAKqWW03F9",
-    name: "Daniel",
+    id: "xtw8E1CXDMtNKx4sgP7u",
+    name: "Connor",
     gender: "Male",
     accent: "British",
-    description: "Steady broadcaster",
-    previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/onwK4e9ZLuTAKqWW03F9/7eee0236-1a72-4b86-b303-5dcadc007ba9.mp3",
+    description: "Energetic and dynamic",
+    previewUrl: "https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/marketing/voice-previews/connor.mp3",
   },
 ];
 
 const MORE_FREE_VOICES = [
   {
-    id: "Xb7hH8MSUJpSbSDYk0k2",
-    name: "Alice",
+    id: "19STyYD15bswVz51nqLf",
+    name: "Samara X",
     gender: "Female",
     accent: "British",
-    description: "Clear and engaging",
-    previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/Xb7hH8MSUJpSbSDYk0k2/d10f7534-11f6-41fe-a012-2de1e482d336.mp3",
+    description: "Smooth and classy",
+    previewUrl: "https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/marketing/voice-previews/samara-x.mp3",
   },
   {
-    id: "pqHfZKP75CvOlQylNhV4",
-    name: "Bill",
+    id: "dXtC3XhB9GtPusIpNtQx",
+    name: "Hale",
     gender: "Male",
     accent: "American",
-    description: "Wise and balanced",
-    previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/pqHfZKP75CvOlQylNhV4/d782b3ff-84ba-4029-848c-acf01285524d.mp3",
+    description: "Confident and persuasive",
+    previewUrl: "https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/marketing/voice-previews/hale.mp3",
   },
 ];
 

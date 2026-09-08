@@ -3058,5 +3058,9 @@
   "blog:youtube-backlink@418fb49a27ada96f@20aaebd1": {
     "keep": false,
     "reason": "Describes SEO strategy for YouTube, not Blog2Video features."
+  },
+  "marketing:/templates/old-documentary-reel@96f6555ffffc3b24@20aaebd1": {
+    "keep": true,
+    "reason": "Describes a specific Blog2Video template feature."
   }
 }

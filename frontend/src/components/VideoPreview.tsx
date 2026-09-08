@@ -2708,6 +2708,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
         // explicitly, and the overlay collapses it to "no fill" internally.
         avatarBg: useMatte ? sceneBg : AVATAR_BG_ORIGINAL,
         avatarOpacity: scene.avatar_opacity ?? undefined,
+        avatarShadow: scene.avatar_shadow ?? undefined,
         // Frame focus is per-scene only — it describes a region of THIS clip.
         avatarFocusX: scene.avatar_focus_x ?? undefined,
         avatarFocusY: scene.avatar_focus_y ?? undefined,
@@ -3008,6 +3009,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
       position: project.avatar_position,
       bg: project.avatar_bg,
       opacity: project.avatar_opacity,
+      shadow: project.avatar_shadow,
     }),
     [
       project.avatar_shape,
@@ -3015,6 +3017,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
       project.avatar_position,
       project.avatar_bg,
       project.avatar_opacity,
+      project.avatar_shadow,
     ],
   );
 
@@ -3034,6 +3037,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     avatarSettings.position ?? "",
     avatarSettings.bg ?? "",
     avatarSettings.opacity ?? "",
+    avatarSettings.shadow ?? "",
     ...(project.scenes ?? []).map((s) =>
       [
         s.avatar_shape ?? "",
@@ -3041,6 +3045,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
         s.avatar_position ?? "",
         s.avatar_bg ?? "",
         s.avatar_opacity ?? "",
+        s.avatar_shadow ?? "",
         s.avatar_focus_x ?? "",
         s.avatar_focus_y ?? "",
         s.avatar_zoom ?? "",
