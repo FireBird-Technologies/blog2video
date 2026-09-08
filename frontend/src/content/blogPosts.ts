@@ -22,6 +22,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Four things just shipped on Blog2Video — a Documentary template with a 1960s film finish, Auto-Adjust that sizes every headline and image to its frame, Avatars in beta that lip-sync a photo to your narration, and custom templates generated from your website or brand document.",
     category: "Product Update",
+    heroImage: "/blog/blog-cover-blog2video-september-2026-update.png",
+    heroImageAlt:
+      "Vintage documentary film camera, sprocketed film strip, talking-head avatar portrait, auto-sized headline frames, and brand color swatches on a violet studio backdrop.",
     publishedAt: "2026-09-05",
     readTime: "6 min read",
     heroEyebrow: "Product Update - September 2026",
@@ -196,6 +199,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "ChatGPT cannot render a finished video from a chat message on its own, and Claude has no video model at all. Here is what actually happens when you ask, what Sora and Veo really produce, and how an MCP connector lets either assistant return a real narrated MP4.",
     category: "Comparison",
+    heroImage: "/blog/blog-cover-can-chatgpt-make-videos.png",
+    heroImageAlt:
+      "A frosted chat window connected by a glowing cable to a separate video player and MP4 file, showing that chat assistants operate a renderer rather than making video themselves.",
     publishedAt: "2026-09-05",
     readTime: "9 min read",
     heroEyebrow: "AI video, honestly",
@@ -352,6 +358,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Neither Claude nor ChatGPT is a video editor — neither can open a timeline, cut a clip, or export an MP4. Here is what each is genuinely good at around the edit, where they differ, and what to connect when you need something actually edited.",
     category: "Comparison",
+    heroImage: "/blog/blog-cover-claude-vs-chatgpt-for-video-editing.png",
+    heroImageAlt:
+      "Two assistant orbs — warm terracotta and cool teal — flanking an empty video timeline they cannot actually cut or export.",
     publishedAt: "2026-09-05",
     readTime: "8 min read",
     heroEyebrow: "Claude vs ChatGPT",
@@ -503,6 +512,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Blogs with videos hold readers longer, win video results in Google, and get a second audience on YouTube. Here is what a video blog actually is, what the video should do on the page, and how to add one to a post you have already written.",
     category: "Guide",
+    heroImage: "/blog/blog-cover-blogs-with-videos.png",
+    heroImageAlt:
+      "A blog article page with an embedded video player, a search result showing a video thumbnail, and a second screen playing the same video.",
     publishedAt: "2026-09-05",
     readTime: "8 min read",
     heroEyebrow: "Video blogging",
@@ -675,6 +687,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Substack was valued at $1.1 billion in its July 2025 Series C, on roughly $45M of annualised revenue. Here is where that number comes from, the multiple it implies, and why the number that matters to you is what your own newsletter is worth.",
     category: "Analysis",
+    heroImage: "/blog/blog-cover-how-much-is-substack-worth.png",
+    heroImageAlt:
+      "Orange valuation dashboard with a $1.1B badge, stacked newsletter envelopes, and an upward chart representing Substack's company scale.",
     publishedAt: "2026-09-05",
     readTime: "7 min read",
     heroEyebrow: "Creator economy",
@@ -823,6 +838,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Medium does not pay per view. Earnings come from paying-member reading time, engagement from members, boost status, member conversions, and bonuses for external and search traffic. Here is how each part works and which ones you can actually move.",
     category: "Guide",
+    heroImage: "/blog/blog-cover-how-are-medium-earnings-calculated.png",
+    heroImageAlt:
+      "Green earnings formula board connecting reading time, member engagement, and a crossed-out eye icon, showing Medium pays for member attention rather than views.",
     publishedAt: "2026-09-05",
     readTime: "8 min read",
     heroEyebrow: "Medium Partner Program",
@@ -998,6 +1016,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "YouTube is a DR 99 domain that will host a page about your topic, with your link on it, for free. The only reason most writers never collect one is that making the video used to cost a day. Here is the two-minute version — and an honest account of what a nofollow description link is actually worth.",
     category: "SEO Strategy",
+    heroImage: "/blog/blog-cover-youtube-backlink.png",
+    heroImageAlt:
+      "A dark video watch page with a red play button, a chain-link wrapping to a website globe, an authority badge, and an unused camera sitting off to the side.",
     publishedAt: "2026-08-27",
     readTime: "8 min read",
     heroEyebrow: "SEO Strategy",

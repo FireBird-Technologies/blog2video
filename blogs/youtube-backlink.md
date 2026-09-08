@@ -3,6 +3,8 @@ title: "How to Get a YouTube Backlink (DR 99) in Minutes, Without Filming Anythi
 slug: youtube-backlink
 primary_keyword: youtube backlink
 description: YouTube is a DR 99 domain that will host a page about your topic, with your link on it, for free. The only reason most writers never collect one is that making the video used to cost a day. Here is the two-minute version.
+hero_image: /blog/blog-cover-youtube-backlink.png
+hero_image_alt: "A dark video watch page with a red play button, a chain-link wrapping to a website globe, an authority badge, and an unused camera sitting off to the side."
 ---
 
 # How to Get a YouTube Backlink (DR 99) in Minutes, Without Filming Anything
