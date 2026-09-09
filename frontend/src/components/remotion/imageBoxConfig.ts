@@ -641,6 +641,14 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
     portrait:  { w: 1.0,  h: 0.391 }, // 720 × 500
   },
 
+  // Variants need their OWN entry: normalizeLayoutId() does NOT strip the `__vN`
+  // suffix, so a missing key falls through to the video default.
+  // marker_story__v2 "Framed Photo": a wide rectangular band across the TOP of
+  // the frame, full width minus a 7% side margin, at a fixed height fraction.
+  marker_story__v2: {
+    landscape: { w: 0.86, h: 0.46 }, // ~1101 × 331 on 1280×720
+    portrait:  { w: 0.86, h: 0.32 }, // ~619 × 410 on 720×1280
+  },
 
   // ─────────────────────────────────────────────────────────────────────────
   // CHRONICLE template  (canvas 1920 × 1080)

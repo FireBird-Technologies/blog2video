@@ -199,10 +199,17 @@ const MOSAIC_LAYOUTS = new Set([
 // Includes the `__vN` motion variants (see backend/templates/whiteboard/meta.json
 // `layout_variants`). This is the STATIC fallback used before /projects/:id/layouts
 // resolves; omitting variants here makes the first paint flash the fallback layout.
+// Includes the `__vN` visual variants (see backend/templates/whiteboard/meta.json
+// `layout_variants`). This is the STATIC fallback used before /projects/:id/layouts
+// resolves — a variant missing here renders as the fallback layout on first paint.
 const WHITEBOARD_LAYOUTS = new Set([
   "drawn_title",
+  "drawn_title__v2",
+  "drawn_title__v3",
   "marker_story",
+  "marker_story__v2",
   "stick_figure_scene",
+  "stick_figure_scene__v2",
   "stats_figures",
   "stats_chart",
   "comparison",
@@ -212,6 +219,7 @@ const WHITEBOARD_LAYOUTS = new Set([
   "data_visualisation",
   "ticker_table",
   "ending_socials",
+  "ending_socials__v2",
 ]);
 
 // Includes the `__vN` visual variants (see backend/templates/newspaper/meta.json
