@@ -48,45 +48,72 @@ const BODY_X = FIG_VIEWBOX_W / 2;
  * one is being caught. Deriving all three from one arc is what keeps them in
  * sync; three independently-tuned curves drift apart within a few seconds.
  *
- * Slow. At 30fps a 54-frame throw is nearly two seconds hand-to-hand, which is
- * a lazy, readable juggle rather than a blur. The scene is background action
- * behind a board of copy, so legibility beats virtuosity.
+ * SLOW, deliberately. At 30fps a 58-frame throw is nearly two seconds
+ * hand-to-hand — a lazy, readable juggle rather than a blur. The scene is
+ * background action behind a board of copy, so legibility beats virtuosity.
+ *
+ * This is the master clock for the whole rig, not just the balls: the hands'
+ * reach, the body's sway and its knee bounce are all derived from
+ * `frame / THROW_PERIOD`, so raising this number slows the figure and the
+ * pattern together and they stay in step. Every one of those is a ratio of the
+ * period, so the SHAPE of the motion is unchanged — only its rate.
  */
-const THROW_PERIOD = 54;
+const THROW_PERIOD = 58;
 /**
  * ── Where the hands are ────────────────────────────────────────────────
- * The catch/throw points. CLOSE IN and just below the shoulders: a juggler's
- * hands work in front of the ribs, not out at arm's length. The arms are
- * correspondingly short — each is one straight-ish stroke barely longer than
- * the head is wide.
+ * The catch/throw points, and the full width of the pattern.
+ *
+ * NARROW — about shoulder width. The figure faces the camera and works the
+ * pattern in front of its chest, which is what a front-on juggler looks like;
+ * hands flung out sideways read as someone being searched, not juggling.
+ *
+ * The width is what it costs to keep the balls large (see BALL_R). Three r=22
+ * balls in a span this narrow necessarily pass close to one another and to the
+ * head — they are kept legible by being opaque and outlined, not by being held
+ * apart, which at this size is geometrically impossible.
  *
  * The balls are thrown between exactly these two points, so a catch always
  * lands in a hand.
  */
-const HAND_SPREAD = 80;
+const HAND_SPREAD = 52;
 const HAND_Y = 150;
 
-/** Shoulder height. Each arm is ONE gently bowed stroke from here to the hand —
- *  no elbow. Articulated rigs kinked or collapsed at some phase of the throw;
- *  a single curve reads correctly at every hand position. */
+/** Shoulder height — where both arms leave the SPINE. There is no drawn
+ *  shoulder bar: a crossbar reads as a T hung on the figure rather than as
+ *  shoulders, so each arm starts on the body's centreline. */
 const SHOULDER_Y = 126;
 
 /**
- * How much of the shoulder→hand span the arm actually covers, and how far the
- * hand is pulled FORWARD (in toward the body's centreline) from the throw
- * point.
- *
- * The balls are thrown between the HAND_SPREAD points, but the drawn hand sits
- * inboard of them by ARM_TUCK: the arms therefore read as held in front of the
- * ribs rather than flung out sideways, while the pattern keeps its width. The
- * arm is then drawn 1.2× the distance to that tucked point, so it is a
- * reasonable limb length rather than a stub.
+ * The drawn hand sits exactly ON the throw point — no inboard tuck. An earlier
+ * rig pulled it in by 22 units, so the hand never arrived where the ball did:
+ * catches happened in mid-air beside a stationary arm. Putting the hand on the
+ * ball is what makes the throw and the catch legible.
  */
-const ARM_TUCK = 22;
-const ARM_LENGTH = 1.2;
-/** How far the arm bows outward at its midpoint. A suggestion of a bend on what
- *  is otherwise a short, near-straight stroke. */
-const ARM_BOW = 7;
+
+/** Segment lengths, used only to decide how bent the elbow should be: when the
+ *  hand is closer than UPPER_ARM + FOREARM the arm has slack and folds; at full
+ *  stretch it straightens out. */
+const UPPER_ARM = 46;
+const FOREARM = 46;
+
+/** How far the elbow sits outboard of the shoulder→hand chord, and how far it
+ *  hangs below it. Elbows out and down is the juggler's working posture. */
+const ELBOW_OUT = 12;
+const ELBOW_DROP = 16;
+
+/**
+ * How far a hand rises from HAND_Y toward an incoming ball as it arrives.
+ *
+ * The hands do not sit still: each one lifts to meet the ball that is about to
+ * land in it and sinks back as it throws. Without this the arms hang at a fixed
+ * height while the balls fly overhead, and the two read as unrelated — the ball
+ * appears to bounce off nothing.
+ *
+ * Kept well under the arc height on purpose. The hand meets the ball near the
+ * BOTTOM of its flight, so it only needs to reach a little; lifting it further
+ * inverts the elbow and the arm folds backwards over the shoulder.
+ */
+const HAND_REACH = 34;
 
 /**
  * Apex height above the hands. BOTH directions use this same height, so every
@@ -98,16 +125,31 @@ const ARM_BOW = 7;
  * above and below it (see below), so the tallest throw peaks at
  * HAND_Y − ARC_H − ARC_STAGGER.
  *
- * The tallest throw must stay INSIDE the 370-tall viewBox: `ink-sfv2` has a
- * bounded filter region and clips what leaves it, so a ball past y=0 simply
- * vanishes and the pattern looks like it has lost one. With hands at 150,
- * ARC_H 128 and ARC_STAGGER 40, the highest ball peaks at y=-18 and its top
- * edge at y=-40 — just outside, which the `overflow: visible` box still draws.
+ * The throws go well ABOVE the head. That takes headroom the original box did
+ * not have: with the old `0 0 420 370` viewBox the ceiling capped ARC_H at 126,
+ * which peaked the top ball at y=26 against a crown at y=36 — ten units, so the
+ * balls hovered level with the head instead of arcing over it.
+ *
+ * The viewBox is therefore extended UPWARD to `0 -80 420 450` (see the svg
+ * below). Shifting the origin rather than the height keeps every existing
+ * coordinate valid — the feet stay at y=308 — and puts all the new room above
+ * the figure. The svg's `bottom` offsets are shifted by the same amount to keep
+ * the feet planted on the ground line; the two are coupled, so changing one
+ * means recomputing the other.
+ *
+ * With hands at 150, ARC_H 182 and ARC_STAGGER 16, the tallest ball peaks at
+ * y=-48 — about 84 units, or nearly two ball-diameters, clear of the crown —
+ * and its top edge sits at y=-70, just inside the extended box's -80 ceiling.
+ * `ink-sfv2` has a bounded filter region and clips what leaves it, so a ball
+ * outside the box would simply vanish and the pattern would look like it had
+ * dropped one. ARC_H and HAND_Y trade against each other here: the arc is
+ * measured up from the hands, so raising the hands must lower ARC_H by the same
+ * amount or the top ball clips.
  *
  * No ball ever dips below HAND_Y, by construction — the arc is a sine that
  * returns to zero at the catch.
  */
-const ARC_H = 128;
+const ARC_H = 182;
 
 /**
  * Phase spacing between the three balls, in throw-periods.
@@ -115,30 +157,44 @@ const ARC_H = 128;
  * The balls are NEVER held — each is always in flight, launching again the
  * instant it lands, so the pattern juggles continuously.
  *
- * Balls may freely OVERLAP as they pass one another; that is not a constraint,
- * which is what lets them be drawn large and readable. What must never happen
- * is two balls landing on EXACTLY the same point, because then only two are
- * visible and the pattern looks like it has dropped one. Putting all three on
- * one identical path does exactly that: with a 2-lap direction cycle, every
- * simple phase fraction (1/3, 1/2, 2/3 …) superimposes a pair perfectly, and a
- * fine sweep over phase alone never gets the closest approach above ~6 units.
- *
- * ARC_STAGGER is what actually fixes it — see below.
+ * 2/3 spaces the three THROWS evenly in time: at any instant one ball is
+ * leaving a hand, one is near its apex and one is arriving — which is what a
+ * three-ball cascade actually is, and what the eye reads as the rhythm of
+ * juggling.
  */
 const BALL_PHASE = 2 / 3;
 
 /**
- * How much taller/shorter the outer two balls' arcs are than the middle one's.
+ * How much taller/shorter the outer two balls' arcs are than the middle one's,
+ * so the three trace NESTED arcs instead of one identical path.
  *
- * The three balls trace NESTED paths rather than sharing one, so no two are
- * ever at the same point no matter the phase. That is the only reliable way to
- * keep all three visible: it removes the coincidence geometrically instead of
- * trying to dodge it by timing.
+ * This does not stop pairs from meeting, and cannot: in a cascade every ball
+ * crosses the centreline, so pairs pass through the same region by
+ * construction. A sweep over phase, spread, arc height and per-ball lanes never
+ * got three balls even one ball-diameter apart while staying inside the
+ * viewBox. What keeps a crossing readable is that each ball is filled with the
+ * background colour and outlined, so one passing another reads as in-front-of.
  *
- * A real cascade has exactly this quality — the throws are not all identical —
- * so it reads correctly as well as rendering correctly.
+ * Its real job is variety — identical arcs look mechanical.
  */
-const ARC_STAGGER = 40;
+const ARC_STAGGER = 16;
+
+/**
+ * Ball radius. Deliberately LARGE — about 0.73 of the head's diameter — so the
+ * balls are unmistakably the subject of the shot rather than three dots.
+ *
+ * Balls this large in a pattern this narrow WILL overlap each other and the
+ * head — measured, roughly 60% of frames have a ball crossing the head, and the
+ * closest pair approach is a few units. That is inherent to a front-facing
+ * cascade at this size, not a tuning failure, and no combination of phase,
+ * spread, arc height or per-ball lanes avoids it inside this viewBox.
+ *
+ * What carries it is OCCLUSION: every ball is filled with the background colour
+ * and outlined, and the balls are drawn LAST, so a crossing reads as one object
+ * passing in front of another rather than as a merged blob.
+ */
+const BALL_R = 22;
+
 
 /**
  * Front-facing stickman running a three-ball cascade.
@@ -174,48 +230,86 @@ const JugglingStickman: React.FC<{
     const rightward = lap % 2 === 0;
     const fromX = rightward ? handLX : handRX;
     const toX = rightward ? handRX : handLX;
+    /* Squash on the two contact beats. A ball leaving or arriving at a hand
+       flattens briefly; in the air it is round. Borrowed from the football
+       template's BallControl, which uses the same trick to sell a strike. */
+    const launchPop = t < 0.12 ? Math.sin((t / 0.12) * Math.PI) : 0;
+    const catchPop = t > 0.88 ? Math.sin(((t - 0.88) / 0.12) * Math.PI) : 0;
+    const pop = Math.max(launchPop, catchPop);
     return {
       i,
       // Straight hand to hand — a ball always leaves from and lands in a hand.
       x: fromX + (toX - fromX) * t,
+      // Kept so the hands can tell which ball is coming to them (see below).
+      t,
+      fromX,
+      toX,
       /* Same height in BOTH directions, so every ball lifts the same way and
-         comes back to exactly HAND_Y — but each BALL gets its own height, so
-         the three trace nested arcs and never coincide. */
+         comes back to exactly HAND_Y. Each ball gets its own height on top of
+         that, so the three trace nested arcs rather than one identical path. */
       y: HAND_Y - (ARC_H + (i - 1) * ARC_STAGGER) * Math.sin(Math.PI * t),
+      sqX: 1 + 0.22 * pop,
+      sqY: 1 - 0.2 * pop,
     };
   });
 
-  /* Hands dip on the catch beat, driven by the SAME phase the balls are — so a
-     hand is at its lowest exactly when a ball reaches it, rather than bobbing on
-     a rhythm of its own. A ball lands in a given hand once per period, and the
-     two hands are half a period apart.
+  /* Each hand rises to meet the ball arriving in it and sinks again as it
+     throws the next one away. A hand that sat at a fixed height while the balls
+     flew overhead read as an arm hanging by the body, with the balls floating
+     on their own.
 
-     The dip is generous (16 units) because it is the arm's whole visible
-     motion: it is what makes the hand read as absorbing a catch and pushing the
-     next throw away, rather than sitting at a fixed point while balls teleport
-     in and out of it. */
-  const catchDip = (offset: number) =>
-    Math.max(0, Math.sin(Math.PI * 2 * (frame / THROW_PERIOD) + offset)) * 16;
-  const dipL = catchDip(0);
-  const dipR = catchDip(Math.PI);
-  const handLY = HAND_Y + dipL;
-  const handRY = HAND_Y + dipR;
-  /* Each arm's control point: the midpoint of shoulder→hand, pushed OUTWARD
-     (away from the body) and slightly down, which is what gives the single line
-     its bow. Derived from the hand's live position, so the curve keeps its
-     shape as the hand dips on the catch rather than the bend being pinned to a
-     fixed point. */
-  const armCurve = (handX: number, handY: number, dir: -1 | 1) => {
-    /* Pull the drawn hand IN from the throw point, then extend the arm 1.2×
-       along that shortened direction. The result is a limb of believable length
-       held close to the front of the body — not one stretched out to wherever
-       the balls happen to be caught. */
-    const tuckedX = handX - dir * ARM_TUCK;
-    const endX = BODY_X + (tuckedX - BODY_X) * ARM_LENGTH;
-    const endY = SHOULDER_Y + (handY - SHOULDER_Y) * ARM_LENGTH;
-    const midX = (BODY_X + endX) / 2;
-    const midY = (SHOULDER_Y + endY) / 2;
-    return `M${BODY_X},${SHOULDER_Y} Q${midX + dir * ARM_BOW},${midY + ARM_BOW * 0.5} ${endX},${endY}`;
+     SMOOTHNESS is the whole point of the shape of this function. An earlier
+     pass picked out "the ball closest to landing" and ramped the hand linearly
+     over the last third of that ball's flight. That jerked, for two reasons:
+     a linear ramp changes the hand's VELOCITY instantly at the moment the ramp
+     starts and again at the catch, and taking a max across the three balls let
+     the value snap from one ball's ramp onto another's partway through.
+
+     A raised cosine has neither problem. It is one continuous expression over
+     the whole cycle — no thresholds, no per-ball search, no max — and its slope
+     is zero at both the top and the bottom, so the hand eases into the catch
+     and out of the throw instead of arriving at a constant speed and stopping
+     dead. A ball lands in a given hand once per THROW_PERIOD, and the two hands
+     are half a period out of step, which is the `offset` below. */
+  const handReach = (offset: number) =>
+    (1 - Math.cos(Math.PI * 2 * (frame / THROW_PERIOD) + offset)) / 2;
+  const reachL = handReach(0);
+  const reachR = handReach(Math.PI);
+  /* How far up toward the ball's own height the hand travels. Not all the way:
+     the hand meets the ball late, near the bottom of the arc, so a fraction
+     reads as reaching while keeping the elbow from inverting. */
+  const handLY = HAND_Y - reachL * HAND_REACH;
+  const handRY = HAND_Y - reachR * HAND_REACH;
+  /* ── Arms: shoulder → ELBOW → hand ────────────────────────────────────
+     Two segments, not one bowed stroke. The previous single curve ran from the
+     shoulder to a point tucked in toward the ribs, so the hand never actually
+     arrived where the ball did and the arm barely moved across the whole cycle
+     — the balls looked like they were teleporting in and out of a static pose.
+
+     Now the hand IS the throw/catch point, and the elbow is solved for: it
+     hangs below the shoulder→hand chord, pushed outward from the body, so the
+     forearm swings up to meet a catch and drops through the throw. That swing
+     is the motion that sells the juggle; the balls alone never could. */
+  const armPath = (handX: number, handY: number, dir: -1 | 1) => {
+    /* Both arms hang off the SPINE itself. There is no shoulder bar to hang
+       them from — a drawn crossbar reads as a T rather than as shoulders. */
+    const shoulderX = BODY_X;
+    /* Elbow: midway along the chord, pushed OUT from the body and DOWN a
+       little, so the forearm comes back up to the hand. The bend is deepest
+       when the hand is close (a folded arm waiting under a ball) and flattens
+       as the hand reaches out, which is what makes the limb look like it is
+       working rather than hanging.
+
+       The drop is measured from the SHOULDER, not from the chord midpoint: the
+       hands sit above the shoulder line here, and dropping from the midpoint
+       sagged both arms into a scarecrow droop at every phase. */
+    const midX = (shoulderX + handX) / 2;
+    const midY = (SHOULDER_Y + handY) / 2;
+    const reach = Math.hypot(handX - shoulderX, handY - SHOULDER_Y);
+    const slack = Math.max(0, 1 - reach / (UPPER_ARM + FOREARM));
+    const elbowX = midX + dir * (ELBOW_OUT + slack * 14);
+    const elbowY = Math.max(midY, SHOULDER_Y) + ELBOW_DROP * (0.4 + slack);
+    return `M${shoulderX},${SHOULDER_Y} Q${elbowX},${elbowY} ${handX},${handY}`;
   };
 
   /* ── Body motion ───────────────────────────────────────────────────────
@@ -258,9 +352,11 @@ const JugglingStickman: React.FC<{
         <circle cx={BODY_X} cy={66} r={30} />
         <line x1={BODY_X} y1={98} x2={BODY_X} y2={218} />
 
-        {/* Arms — one curved line each, shoulder straight out to hand. */}
-        <path d={armCurve(handLX, handLY, -1)} />
-        <path d={armCurve(handRX, handRY, 1)} />
+        {/* Arms — one bent limb each, straight off the SPINE. No shoulder bar:
+            a drawn crossbar reads as a T-shape hung on the figure rather than
+            as shoulders, so both arms start at the body's centreline. */}
+        <path d={armPath(handLX, handLY, -1)} />
+        <path d={armPath(handRX, handRY, 1)} />
       </g>
 
       {/* Legs — a symmetric planted stance, not a stride: the figure is
@@ -270,15 +366,24 @@ const JugglingStickman: React.FC<{
       <path d={`M${BODY_X + sway * 0.6},218 L${BODY_X - 35},308`} />
       <path d={`M${BODY_X + sway * 0.6},218 L${BODY_X + 35},308`} />
 
-      {/* === THE THREE BALLS === */}
+      {/* === THE THREE BALLS ===
+          Filled with the BACKGROUND colour, not left hollow: in a cascade the
+          balls cross both each other and the figure constantly, and an opaque
+          fill is what makes a crossing read as one ball passing in FRONT of
+          another. Hollow circles merge into a tangle of arcs instead.
+
+          Drawn last, so they pass in front of the body — the eye reads the
+          nearer object as the one doing the work. */}
       {balls.map((b) => (
-        <g key={b.i}>
-          <circle cx={b.x} cy={b.y} r={22} stroke={accent} strokeWidth={5} fill={bgColor} />
+        <g key={b.i} transform={`translate(${b.x}, ${b.y}) scale(${b.sqX}, ${b.sqY})`}>
+          <circle cx={0} cy={0} r={BALL_R} stroke={accent} strokeWidth={4} fill={bgColor} />
+          {/* Highlight, scaled with the ball so it squashes along with it. */}
           <path
-            d={`M${b.x - 9},${b.y - 7} Q${b.x},${b.y - 1} ${b.x + 9},${b.y - 7}`}
+            d={`M${-BALL_R * 0.42},${-BALL_R * 0.34} Q0,${BALL_R * 0.04} ${BALL_R * 0.42},${-BALL_R * 0.34}`}
             stroke={accent}
-            strokeWidth={3}
+            strokeWidth={2}
             strokeOpacity={0.5}
+            fill="none"
           />
         </g>
       ))}
@@ -573,20 +678,34 @@ export const StickFigureSceneV2: React.FC<WhiteboardLayoutProps> = ({
       </div>
 
       {/* ── Juggling figure, standing beside the board ──────────────────
-          The viewBox is the base `stick_figure_scene`'s own 420×370, kept so
-          the feet stay at y=308 and the offsets below remain valid. 16.8% of
-          the box sits BELOW the feet, so `bottom` is offset to put them
-          exactly on the scene's ground line rather than the svg's own lower
-          edge. */}
+          The viewBox keeps the base `stick_figure_scene`'s 420-wide coordinates
+          and its feet at y=308, but is extended UPWARD by 80 units (origin
+          y=-80, height 450) to give the throws room to clear the head. Because
+          only the origin moved, every coordinate in the rig is unchanged.
+
+          13.8% of the taller box now sits BELOW the feet (62 of 450, down from
+          16.8% of 370), so `bottom` is offset to put them exactly on the
+          scene's ground line rather than the svg's own lower edge. */}
       <svg
         style={{
           position: "absolute",
-          // Coupled to the ground line's `bottom` below: the base rig puts the
-          // feet at y=308 of its 370-tall viewBox, i.e. 16.8% of the box sits
-          // BELOW the feet, so this offset is (ground% − 16.8% of svg height)
-          // to plant the feet exactly on that line. Change one, recompute the
-          // other.
-          bottom: p ? "4.6%" : "0.5%",
+          // Coupled to the ground line's `bottom` below. The feet sit at y=308
+          // of the -80..370 viewBox, so 62/450 = 13.8% of the box is BELOW
+          // them; since the svg scales off its WIDTH, that margin is 13.8% of
+          // the svg's rendered height, and the feet land at
+          //     bottom% + 13.8% × svgHeight%
+          // above the frame's bottom. Setting that equal to the ground line's
+          // own `bottom` gives the values here.
+          //
+          // Landscape is NEGATIVE on purpose: at width 38% the svg renders
+          // ~521px tall, so its below-feet margin alone is ~10% of the frame —
+          // more than the ground line's 8.4% — and the box has to hang off the
+          // bottom edge for the feet to reach the line.
+          //
+          // Extending the viewBox upward made the svg taller, which lifts the
+          // feet for a given `bottom`; these went DOWN to compensate, not up.
+          // Change the viewBox or the ground line, recompute both.
+          bottom: p ? "3.52%" : "-1.57%",
           right: p ? "2%" : "4%",
           // The figure scales with this width (the box is `meet` on a fixed
           // viewBox), so this is the size control. The rig is symmetric about
@@ -599,7 +718,7 @@ export const StickFigureSceneV2: React.FC<WhiteboardLayoutProps> = ({
           pointerEvents: "none",
           zIndex: 10,
         }}
-        viewBox={`0 0 ${FIG_VIEWBOX_W} 370`}
+        viewBox={`0 -80 ${FIG_VIEWBOX_W} 450`}
         fill="none"
         aria-hidden
       >

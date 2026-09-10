@@ -324,7 +324,11 @@ export const DropletIntroV2: React.FC<BlackswanLayoutProps> = (props) => {
           opacity: swanOp,
         }}
       >
-        <Swan size={swanSize} water={false} reflection={false} uid="div2-swan" accentColor={accentColor} />
+        {/* `trimBaseRules`: this scene puts the swan on a live water surface,
+            where the two flat rules along the base of the traced outline read
+            as stray lines lying under the bird. Scoped to this layout — every
+            other blackswan scene keeps the shape it has always drawn. */}
+        <Swan size={swanSize} water={false} reflection={false} trimBaseRules uid="div2-swan" accentColor={accentColor} />
       </div>
 
       {/* ── Copy: title and narration together at the top ───────────────── */}
