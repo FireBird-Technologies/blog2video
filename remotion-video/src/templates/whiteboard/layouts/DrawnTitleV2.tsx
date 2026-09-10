@@ -5,11 +5,13 @@ import type { WhiteboardLayoutProps } from "../types";
 import { useFitText } from "../components/useFitText";
 
 /**
- * drawn_title__v2 — "Shoulder Carry".
+ * drawn_title__v2 — "Sign Raise".
  *
- * Variant of `drawn_title`. Same props, different composition: TWO stick figures
- * carry the title/narration board in from the left on their shoulders, walk it
- * to centre, then turn to face front and press it overhead.
+ * Variant of `drawn_title`. Same props, different composition: the title board
+ * is a PRE-BUILT sign — it does not draw itself into being — carried on two
+ * thin handles, one at each end. TWO stick figures walk in from the left
+ * holding those handles at waist height, stop at centre, and raise the sign up
+ * overhead.
  *
  * ── How the board stays glued to the carriers ──────────────────────────
  * The board's copy is real HTML (it has to be — `useFitText` measures DOM nodes
@@ -25,18 +27,15 @@ import { useFitText } from "../components/useFitText";
  *   - The board's REST position is already its CSS position, so the transform
  *     delta is naturally 0 on arrival — no magic centring constant.
  *
- * Contact is an invariant, not a tuned number: the board's underside Y and the
- * hands' Y are interpolated from the SAME `lift` scalar, so the hands cannot
- * drift off the board mid-press.
+ * Contact is an invariant, not a tuned number: the sign's tilt and the hands'
+ * position are interpolated from the SAME `raise` scalar, so the hands cannot
+ * drift off the post mid-lift.
  *
  * Filter IDs carry a `-dtv2` suffix: SVG filter IDs are document-global, and
  * two scenes mounted in the same Player would otherwise collide.
  */
 
 const CHARS_PER_SEC = 30;
-
-/** Perimeter of the board rect in viewBox units, for the draw-on dash. */
-const BOARD_PERIMETER = 2 * (1000 + 460);
 
 /** Width of the carry track in viewBox units (the svg spans the full frame). */
 const FIG_TRACK_W = 300;
@@ -52,13 +51,57 @@ const WALK_FROM = -70;
 const WALK_TO = FIG_TRACK_W / 2;
 
 /**
- * How far in from each end of the board the carriers stand, as a fraction of
- * the board's width. Two figures huddled under the middle of a wide board reads
- * as the board floating; standing near the ends is where you would actually
- * grip a load this size. The gap itself is derived per-orientation from the
- * board's real width — see `pairHalfGap` below.
+ * ── The board's CSS box, as fractions of the frame ─────────────────────
+ * Named because they are read in three places that must agree: the wrapper's
+ * own style, the handle-length derivation, and the `useFitText` budgets.
  */
-const CARRY_INSET = 0.1;
+const BOARD_TOP_L = 0.16;
+const BOARD_TOP_P = 0.08;
+const BOARD_H_FRAC_L = 0.4;
+const BOARD_H_FRAC_P = 0.38;
+
+/** Where the ground line sits, as a fraction of frame height from the bottom. */
+const GROUND_BOTTOM_L = 0.054;
+const GROUND_BOTTOM_P = 0.194;
+
+/**
+ * Height of the carriers' svg box, as a fraction of frame height. This is what
+ * sets the figures' on-screen size (under `meet` the scale is
+ * min(boxW/300, boxH/124)) AND, through `s`, the rig-unit → px conversion the
+ * sign's transform depends on — so it is named rather than repeated, and the
+ * style below reads it instead of carrying its own literal.
+ *
+ * Landscape runs larger than portrait: the 16:9 frame gives the pair far more
+ * horizontal room than vertical, so at the portrait fraction they read as small
+ * against a board that spans most of the width.
+ */
+const FIG_BOX_H_L = 0.36;
+const FIG_BOX_H_P = 0.223;
+
+/**
+ * How far in from each end of the board its handle is mounted, as a fraction of
+ * the board's width. The carriers stand under their own handle, so this also
+ * sets how far apart the pair walks. Handles right at the corners would look
+ * like the board is being pinched; a tenth in reads as a mounted grip.
+ */
+const HANDLE_INSET = 0.2;
+
+/**
+ * ── Carry geometry, in rig-local units ─────────────────────────────────
+ * The board's UNDERSIDE while walking, and once raised.
+ *
+ * Both are above the head's crown (y=8): a board carried by handles hangs from
+ * the fists but its panel rides ABOVE the carriers, and one at head height
+ * would simply occlude them. Walking, it clears the crown by a few units;
+ * raised, it lifts clear of the figures entirely.
+ *
+ * The handles bridge the gap from the board's underside down to the fist, so
+ * their length is (grip handY − board Y) — see `handleLenPx`. Both ends of that
+ * subtraction move on the same `raise`, which is what keeps the fist on the end
+ * of the handle rather than floating off it.
+ */
+const CARRY_BOARD_Y = 44;
+const HOLD_BOARD_Y = -30;
 
 /**
  * Stride cadence copied verbatim from the base `drawn_title`: `frame * 0.22 *
@@ -67,12 +110,16 @@ const CARRY_INSET = 0.1;
  * The GROUND speed is faster than the base's shuffle. The base drifts its figure
  * about half a body-width per stride, which never crosses a frame; carrying the
  * board in at that rate would take ~6s and a scene can be as short as 5s
- * (`FPS * 5` in WhiteboardVideo). At 2.8 body-widths per stride the reused leg
- * cycle still reads as a real walk — brisk and purposeful, which suits two
- * people carrying a load — and the whole entrance-and-press lands by frame 135.
- * Much past ~3 body-widths it would start to skate, which is why the budget was
- * bought by starting closer in (WALK_FROM) rather than by lengthening the
- * stride further.
+ * (`FPS * 5` in WhiteboardVideo).
+ *
+ * The stride length is what buys the schedule. The whole beat — walk in, turn,
+ * raise, settle — has to finish inside 150 frames with margin, and at 2.8
+ * body-widths the walk alone ate 89 of them, pushing the raise past frame 129.
+ * At 4.2 the pair arrives around frame 60 and the sign is up by ~100, leaving
+ * the last third of even the shortest scene to read the finished board. The
+ * reused leg cycle still tracks: this is a brisk, purposeful carry rather than
+ * a skate, because the cadence is unchanged and only the distance per cycle
+ * grows.
  */
 const WALK_SPEED = 0.9;
 const WALK_CYCLE_RATE = 0.22 * WALK_SPEED;
@@ -80,7 +127,7 @@ const WALK_CYCLE_RATE = 0.22 * WALK_SPEED;
 const STRIDE_FRAMES = (2 * Math.PI) / WALK_CYCLE_RATE;
 /** Rig body width in track units, and how far one stride carries it. */
 const BODY_W = 28;
-const UNITS_PER_STRIDE = BODY_W * 2.8;
+const UNITS_PER_STRIDE = BODY_W * 4.2;
 
 /** Frame the pair finishes walking and comes to rest in the centre. */
 const ARRIVE_FRAME = Math.round(
@@ -88,32 +135,28 @@ const ARRIVE_FRAME = Math.round(
 );
 /** How long the walk→face-forward turn takes once they have arrived. */
 const TURN_BLEND = 16;
-/** Beat after the turn before the press begins. */
-const PRESS_DELAY = 2;
-/** How long the overhead press takes. */
-const PRESS_DUR = 18;
+/** Beat after the turn before the lift begins. */
+const RAISE_DELAY = 2;
+/** How long the pivot-up takes. */
+const RAISE_DUR = 22;
 
-const PRESS_START = ARRIVE_FRAME + TURN_BLEND + PRESS_DELAY;
-const PRESS_END = PRESS_START + PRESS_DUR;
+const RAISE_START = ARRIVE_FRAME + TURN_BLEND + RAISE_DELAY;
+const RAISE_END = RAISE_START + RAISE_DUR;
 
 /**
- * ── Carry geometry, in rig-local units ─────────────────────────────────
- * The board rests ON the shoulder (y≈44, just above the 48 shoulder pivot) and
- * the hands steady its edge from just underneath.
+ * ── Grip geometry, in rig-local units ──────────────────────────────────
+ * Where the carriers' hands are on their handle. Both ends of the motion are
+ * expressed here, and the HANDLE'S BOTTOM is placed from the same numbers, so
+ * hands and sign are two views of one scalar (`raise`) and cannot drift apart.
  *
- * CARRY_Y is the board's underside while walking. HOLD_Y is its underside once
- * pressed overhead — and it is DERIVED from where the hands end up, not chosen:
- * at full extension the hands reach y=2, so the board sits there plus a hair of
- * ink clearance. LIFT_RISE therefore falls out of the two poses rather than
- * being a number that has to be re-tuned whenever the arms change.
- *
- * The head's crown is at y=8, so holding at y=2 still puts the board clearly
- * ABOVE the head — while keeping the raised arm to a believable ~59 units
- * rather than the ~73 a higher hold would need on a rig only 124 tall.
+ * Carry (raise=0): hands down at the side, about waist height — how you carry
+ * something heavy by a handle while walking.
+ * Raised (raise=1): arms extended up and slightly out, sign held overhead. The
+ * head spans x=36..64 at r=14, so a hand at x≈76 clears it comfortably;
+ * pressing straight up would drive the forearms through the skull.
  */
-const CARRY_Y = 42.5;
-const HOLD_Y = 3.5;
-const LIFT_RISE = CARRY_Y - HOLD_Y; // 39
+const GRIP_DOWN = { upperX: 66, upperY: 58, handX: 74, handY: 78 };
+const GRIP_UP = { upperX: 70, upperY: 30, handX: 74, handY: 4 };
 
 /**
  * One carrier. Authored entirely in UNMIRRORED local space; `side` only decides
@@ -123,12 +166,12 @@ const LIFT_RISE = CARRY_Y - HOLD_Y; // 39
  *  - `walk`   1 → 0 across the arrival, so legs, bob and lean settle together.
  *  - `facing` 0 → 1 squares the body to camera (spine straightens, feet spread).
  *             The head stays featureless throughout, as in the base rig.
- *  - `lift`   0 → 1 presses the arms from the shoulder-carry pose to overhead.
+ *  - `lift`   0 → 1 sweeps the arms from the low grip up the raised post.
  *
- * Note the arms do NOT swing during the walk. You cannot swing your arms while
- * steadying a board on your shoulder, and a carrier whose arms pump while the
- * board floats above them is exactly the incoherence this layout is meant to
- * avoid. Legs, cadence and bob still match the base rig exactly.
+ * Note the arms do NOT swing during the walk. They are held ready to take the
+ * post, and a carrier whose arms pump while walking up to a sign they are about
+ * to lift reads as two unrelated actions. Legs, cadence and bob still match the
+ * base rig exactly.
  */
 const Carrier: React.FC<{
   color: string;
@@ -137,8 +180,20 @@ const Carrier: React.FC<{
   facing: number;
   lift: number;
   bob: number;
+  /** Which way the BODY points. */
   side: -1 | 1;
-}> = ({ color, cycle, walk, facing, lift, bob, side }) => {
+  /**
+   * Which way the CARRYING ARM reaches, relative to the body. +1 = the rig's
+   * own forward side, -1 = across the body.
+   *
+   * Separate from `side` because the front and back carrier face OPPOSITE
+   * directions while both still gripping the same load between them: the front
+   * one looks out along the direction of travel and reaches back, the back one
+   * looks in at the load and reaches forward. Folding the two into one flag
+   * forced both figures to face the same way to keep hold of their handles.
+   */
+  gripSide: -1 | 1;
+}> = ({ color, cycle, walk, facing, lift, bob, side, gripSide }) => {
   const getLegPoints = (phaseOffset: number) => {
     const ph = cycle + phaseOffset;
     return {
@@ -149,31 +204,33 @@ const Carrier: React.FC<{
   const legL = getLegPoints(0);
   const legR = getLegPoints(Math.PI);
 
-  // Walking the rig is in profile (spine leans, legs hang off one hip); facing
-  // forward it straightens and the feet plant either side of centre.
-  const hipX = interpolate(facing, [0, 1], [52, 50]);
-  const footSpread = 12 * facing;
+  /* The rig stays in PROFILE throughout — it never squares up to camera. A
+     carrier who turns to face front has to hold the sign across their body,
+     which is not what either pose here is doing; staying side-on keeps the
+     carrying arm reading as a carrying arm. `facing` therefore only settles the
+     stance (feet plant slightly apart when stopped) rather than rotating the
+     body. */
+  const hipX = 52;
+  const footSpread = 4 * facing;
 
-  /* ── Arms: shoulder-carry → overhead press ────────────────────────────
-     Both arms take the same pose, mirrored into a symmetric pair about the
-     shoulder, so the board is supported evenly at both edges.
+  /* ── Arms: ONE carries, one swings ────────────────────────────────────
+     The FORWARD arm holds the handle the whole time, sweeping from a low carry
+     up to a raised hold on the same `lift` the sign moves on — so the fist
+     stays on the end of the handle.
 
-     Carry (lift=0): forearm up to (70,41) — just under the board's underside at
-     CARRY_Y=42.5, i.e. fingers curled over the edge.
-     Press (lift=1): arm straightens up and OUT to (84,2) — which is what
-     defines HOLD_Y above.
+     The BACK arm is free. It swings with the gait like the base rig's does,
+     and settles to the side once the pair stops. Carrying something one-handed
+     is exactly why the other arm can swing at all: the earlier two-handed
+     version had to freeze both arms, which made the walk read as stiff. */
+  const upperX = interpolate(lift, [0, 1], [GRIP_DOWN.upperX, GRIP_UP.upperX]);
+  const upperY = interpolate(lift, [0, 1], [GRIP_DOWN.upperY, GRIP_UP.upperY]);
+  const handX = interpolate(lift, [0, 1], [GRIP_DOWN.handX, GRIP_UP.handX]);
+  const handY = interpolate(lift, [0, 1], [GRIP_DOWN.handY, GRIP_UP.handY]);
 
-     The head spans x=36..64 at r=14, so the hands clear it by a wide margin.
-     Pressing straight up from the shoulder would drive both forearms through
-     the skull, and merely grazing it still reads as arms clamped around the
-     face — hence the generous outward reach. The limb also EXTENDS as it lifts
-     (shoulder→hand grows from ~22 to ~59 units), so the raised arm is one long
-     diagonal rather than a short folded elbow, which is what actually sets the
-     width of the press. */
-  const upperX = interpolate(lift, [0, 1], [62, 72]);
-  const upperY = interpolate(lift, [0, 1], [42, 30]);
-  const handX = interpolate(lift, [0, 1], [70, 84]);
-  const handY = interpolate(lift, [0, 1], [41, 2]);
+  /* Free arm's swing, in degrees about the shoulder. Same `sin(cycle) * 30`
+     amplitude the base `drawn_title` uses, faded out with `walk` so it comes to
+     rest rather than stopping mid-swing. */
+  const freeSwing = Math.sin(cycle) * 30 * walk;
 
   return (
     <g transform={side === 1 ? undefined : "translate(100 0) scale(-1 1)"}>
@@ -191,10 +248,12 @@ const Carrier: React.FC<{
         {/* Spine */}
         <line x1="50" y1="38" x2={hipX} y2="72" stroke={color} strokeWidth="4.5" />
 
-        {/* Back arm — mirrored about the shoulder so the pair opens symmetrically */}
-        <g transform="translate(50 48) scale(-1 1) translate(-50 -48)">
-          <line x1="50" y1="48" x2={upperX} y2={upperY} stroke={color} strokeWidth="4.5" strokeLinecap="round" />
-          <line x1={upperX} y1={upperY} x2={handX} y2={handY} stroke={color} strokeWidth="4.5" strokeLinecap="round" />
+        {/* FREE arm — hangs at the far side of the body and swings with the
+            gait. Drawn before the legs so it sits behind them, which is what
+            puts it on the figure's far side in profile. */}
+        <g transform={`rotate(${freeSwing} 50 48)`}>
+          <line x1="50" y1="48" x2="46" y2="62" stroke={color} strokeWidth="4.5" strokeLinecap="round" />
+          <line x1="46" y1="62" x2="44" y2="78" stroke={color} strokeWidth="4.5" strokeLinecap="round" />
         </g>
 
         {/* Legs */}
@@ -227,8 +286,11 @@ const Carrier: React.FC<{
           </g>
         </g>
 
-        {/* Front arm */}
-        <g>
+        {/* CARRYING arm, gripping the handle. Drawn last so it reads as
+            nearest the camera. `gripSide` mirrors it about the shoulder when it
+            has to reach ACROSS the body — which is what lets this figure face
+            one way while its hand stays on the load. */}
+        <g transform={gripSide === 1 ? undefined : "translate(100 0) scale(-1 1)"}>
           <line x1="50" y1="48" x2={upperX} y2={upperY} stroke={color} strokeWidth="4.5" strokeLinecap="round" />
           <line x1={upperX} y1={upperY} x2={handX} y2={handY} stroke={color} strokeWidth="4.5" strokeLinecap="round" />
         </g>
@@ -276,96 +338,159 @@ export const DrawnTitleV2: React.FC<WhiteboardLayoutProps> = ({
   });
   const facing = 1 - walk;
 
-  const lift = interpolate(frame, [PRESS_START, PRESS_END], [0, 1], {
+  const raise = interpolate(frame, [RAISE_START, RAISE_END], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
     easing: Easing.out(Easing.cubic),
   });
 
   /* Each carrier bobs on its own slightly-offset phase — exactly in step reads
-     mechanical, and a half-cycle apart would see-saw the board between them.
-     0.35 rad is a natural "two people walking together" offset.
-
-     The BOARD takes the MEAN of the two bobs. The mean of two sines of equal
-     frequency is itself a clean sine (slightly reduced amplitude, shifted
-     phase), so the board rides smoothly rather than fighting two masters. The
-     residual difference between either shoulder and the board stays under half
-     a unit, which is invisible at this stroke width and reads as the give you'd
-     actually see in a shared carry. */
+     mechanical. 0.35 rad is a natural "two people walking together" offset.
+     Both fade out with `walk`, so the pair is steady once they take the post. */
   const bobA = Math.sin(cycle * 2) * 3 * walk;
   const bobB = Math.sin((cycle + 0.35) * 2) * 3 * walk;
+
+  /* The sign takes the MEAN of the two carriers' bobs. The mean of two sines of
+     equal frequency is itself a clean sine, so the sign rides smoothly rather
+     than fighting two masters, and the residual gap to either hand stays well
+     under a stroke width — which reads as the give in a shared carry. */
   const carryBob = (bobA + bobB) / 2;
 
-  /* Settle: a small overshoot as the press tops out, then a slow breathing
-     strain so the held pose isn't frozen. Both are tiny — the board carries the
+  /* Settle: a small overshoot as the raise tops out, so the sign arrives with
+     some weight rather than easing to a dead stop. Tiny — the board carries the
      copy, so legibility beats liveliness. */
   const settle =
     Math.sin(
-      interpolate(frame, [PRESS_END, PRESS_END + 10], [0, Math.PI], {
+      interpolate(frame, [RAISE_END, RAISE_END + 12], [0, Math.PI], {
         extrapolateLeft: "clamp",
         extrapolateRight: "clamp",
       }),
-    ) * -1.2;
-  const strain = ((1 - Math.cos(frame * 0.06)) / 2) * 0.8 * lift;
+    ) * -1.4;
+  /* A slow breathing strain on the held pose so it isn't frozen. */
+  const strain = ((1 - Math.cos(frame * 0.06)) / 2) * 0.9 * raise;
 
   /* ── Rig-unit → page-px scale ─────────────────────────────────────────
      The figure svg spans the full frame on a 300×124 viewBox under
      `xMidYMax meet`, so its scale is min(boxW/300, boxH/124) px per rig unit.
      Everything above is authored in rig units; this is what carries those
      numbers over to the DOM board. */
-  const figBoxH = height * (p ? 0.223 : 0.287);
+  const figBoxH = height * (p ? FIG_BOX_H_P : FIG_BOX_H_L);
   const s = Math.min(width / FIG_TRACK_W, figBoxH / FIG_TRACK_H);
-  /* MUST match the figure svg's own `bottom` below — the board's contact point
-     is derived from it, so the two drifting apart would float the board off the
-     carriers' hands. Portrait sits the whole staging higher up the tall frame. */
+  /* MUST match the figure svg's own `bottom` below — the post's foot is derived
+     from it, so the two drifting apart would float the sign off the ground.
+     Portrait sits the whole staging higher up the tall frame. */
   const figBottomPx = height * (p ? 0.2 : 0.06);
 
   /* Half the distance between the carriers, in track units. Derived from the
-     board's real width so they stand near its ends in BOTH orientations — the
-     board is far wider than the figure track, and the two differ enough between
-     landscape and portrait that a single constant would put the pair under the
-     board's middle in one of them. */
+     board's real width so each stands under its own END of the sign — the board
+     is far wider than the figure track, and the two differ enough between
+     orientations that a single constant would put the pair under the board's
+     middle in one of them. The handles then follow the fists (see
+     `handleFracBack` / `handleFracFront`), rather than the fists having to find
+     fixed handles. */
   const boardWidthPx = width * (p ? 0.86 : 0.64);
-  const pairHalfGap = (boardWidthPx * (0.5 - CARRY_INSET)) / s;
+  /* Each figure stands OUTBOARD of its own handle by exactly the reach of its
+     carrying arm, and is mirrored to face inward — so the near one reaches
+     right and the far one reaches left, both landing on the handle between
+     them. Subtracting the reach here is what puts the fist ON the handle
+     rather than a body-width past it. */
+  /* Each figure stands OUTBOARD of its own handle by exactly the reach of its
+     carrying arm, and is mirrored to face inward — so the near one reaches
+     right and the far one reaches left, both landing on the handle between
+     them. The reach is subtracted because each rig's carrying arm reaches
+     inboard; the fist then lands exactly on its own handle. */
+  const armReachRig = GRIP_DOWN.handX - 50;
+  const handleHalfGapRig = (boardWidthPx * (0.5 - HANDLE_INSET)) / s;
+  const pairHalfGap = handleHalfGapRig - armReachRig;
 
-  /* Where the board's underside should be this frame, in rig units. */
+  /* ── The sign as ONE box ───────────────────────────────────────────────
+     Board, copy and both handles live inside a single wrapper running from the
+     board's top edge down past the handles' bottom ends. That wrapper is what
+     moves, so the sign is rigid by construction rather than by three siblings
+     agreeing on a transform. */
+  const boardHeightPx = height * (p ? BOARD_H_FRAC_P : BOARD_H_FRAC_L);
+  /* Handle length: from the board's underside down to the carrying fist. Both
+     ends move on `raise` by the same amount (the board rises by
+     CARRY_BOARD_Y − HOLD_BOARD_Y, the hand by GRIP_DOWN.handY − GRIP_UP.handY),
+     so the handle is a CONSTANT length and the fist stays on its end throughout
+     — which is the whole point of deriving it rather than picking a number. */
+  const handleLenPx = (GRIP_DOWN.handY - CARRY_BOARD_Y) * s;
+  const signHeightPx = boardHeightPx + handleLenPx;
+
+  /* Where each handle sits across the board, as a fraction of its width.
+     Derived from where the FISTS are, not chosen: the carriers stand
+     `pairHalfGap` either side of centre and their fists are a few rig units
+     outboard of their own centreline, so this is that position expressed in the
+     board's own coordinates. Deriving it is what guarantees the handle lands in
+     the hand in both orientations, where the board's width differs. */
+  /* Where each handle sits across the board, as a fraction of its width.
+     DERIVED from where the fist actually is, not chosen: the carrier's body
+     centre is at `pairHalfGap` from the sign's centre and its fist reaches
+     `armReachRig` inboard of that, so the fist — and therefore the handle — is
+     at (pairHalfGap − armReachRig) rig units in. Converting that to the board's
+     own width is what guarantees the handle lands in the hand in BOTH
+     orientations, where the board's width differs. Setting the two from
+     independent constants left the fists visibly inboard of the handles. */
+  /* Each handle sits where ITS OWN carrier's fist lands, so the two are not
+     necessarily symmetric about the board's centre.
+
+     The fist's offset from the body centre depends on BOTH mirrors: `side`
+     flips the whole rig and `gripSide` flips the carrying arm within it, so the
+     net direction is their product. The back figure (side=+1, gripSide=+1)
+     reaches +armReach; the front one (side=-1, gripSide=-1) also nets +1 in its
+     own frame but is drawn mirrored, so in page space it reaches the other way.
+     Expressing each handle from its own carrier's net reach is what keeps both
+     fists ON their handle — a single symmetric inset put one of them off. */
+  const handleFracFor = (bodyX: number, netReach: number) =>
+    0.5 + ((bodyX - WALK_TO + netReach) * s) / boardWidthPx;
+  /* Back carrier is at −pairHalfGap and reaches inboard (+); front carrier is
+     at +pairHalfGap and, being mirrored, also reaches inboard (−). */
+  /* Both carriers stand identically, so both fists land the same way relative
+     to their own body and one reach sign serves both. The two fractions are
+     still computed separately because each is anchored to its OWN carrier's
+     position, which is what keeps the handles on the hands as the pair walks
+     in. */
+  /* Trimmed by the stroke half-width so the handle passes through the middle
+     of the drawn fist rather than just past its outer edge. */
+  const gripNudge = 3;
+  const handleFracBack = handleFracFor(WALK_TO - pairHalfGap, armReachRig - gripNudge);
+  const handleFracFront = handleFracFor(WALK_TO + pairHalfGap, armReachRig - gripNudge);
+
+  /* Where the sign's UNDERSIDE (the board's bottom edge) should be this frame,
+     in rig units — interpolated on the same `raise` as the hands, so the
+     handles' lower ends stay in the carriers' fists throughout. */
   const boardTargetY =
-    interpolate(lift, [0, 1], [CARRY_Y, HOLD_Y]) + carryBob + settle - strain;
+    interpolate(raise, [0, 1], [CARRY_BOARD_Y, HOLD_BOARD_Y]) + carryBob + settle - strain;
 
   /* Where the board's underside sits AT REST, in rig units.
      The box is positioned by CSS percentages of the frame, so this is a pure
      function of the frame size — no DOM measurement needed, and crucially none
      wanted: `getBoundingClientRect()` reports the element AFTER its transform,
      and since that transform is what we are computing, feeding the rect back in
-     would form a feedback loop that walks the board off-screen every frame. */
+     would form a feedback loop that walks the sign off-screen every frame. */
+  const boardTopPx = height * (p ? BOARD_TOP_P : BOARD_TOP_L);
   const boardBottomRigY =
-    FIG_TRACK_H -
-    (height - figBottomPx - height * ((p ? 0.06 : 0.17) + (p ? 0.42 : 0.46))) / s;
+    FIG_TRACK_H - (height - figBottomPx - (boardTopPx + boardHeightPx)) / s;
 
-  /* The board's transform delta. x is 0 on arrival by construction (the pair
-     stops at track centre, which is where the board's CSS box already is), so
+  /* The sign's transform delta. x is 0 on arrival by construction (the pair
+     stops at track centre, which is where the sign's CSS box already is), so
      only the entrance offset and the vertical carry need expressing. */
-  const boardDX = (midX - WALK_TO) * s;
-  const boardDYRaw = (boardTargetY - boardBottomRigY) * s;
-  /* Clamp so the press can never drive the board off the top of the frame. */
-  const boardTopPx = height * (p ? 0.06 : 0.17);
-  const boardDY = Math.max(boardDYRaw, -(boardTopPx - height * 0.02));
-  const boardTransform = `translate(${boardDX}px, ${boardDY}px)`;
+  const signDX = (midX - WALK_TO) * s;
+  const signDYRaw = (boardTargetY - boardBottomRigY) * s;
+  /* Clamp so the raise can never drive the sign off the top of the frame. The
+     board's CSS top is where it sits at REST, and the raise lifts it from
+     there, so the ceiling is that top less a small margin. */
+  const signDY = Math.max(signDYRaw, -(boardTopPx - height * 0.015));
 
   /* ── Copy reveal ───────────────────────────────────────────────────────
-     The board draws and writes itself WHILE being carried in, not after it
-     lands: it is a physical object the figures are already holding, so it
-     should arrive finished rather than materialising once parked. */
-  const boardProgress = interpolate(frame, [0, 14], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-  const groundProgress = interpolate(frame, [2, ARRIVE_FRAME * 0.7], [0, 1], {
+     The sign is PRE-BUILT — it does not draw itself — so the copy can start
+     writing on immediately rather than waiting for a frame to appear first. */
+  const groundProgress = interpolate(frame, [0, 12], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  const titleStart = 22;
+  const titleStart = 8;
   const titleDur = Math.ceil(title.length * (fps / CHARS_PER_SEC));
   const titleChars = Math.min(
     title.length,
@@ -399,19 +524,18 @@ export const DrawnTitleV2: React.FC<WhiteboardLayoutProps> = ({
      Both live INSIDE the board, sharing its fixed inner height, so their budgets
      are split shares of the board rather than each assuming the whole box —
      otherwise a long title and a long narration would each fit their own check
-     and still overflow the board together. Board height is 46% of the frame in
-     landscape, 42% in portrait; padding and the divider take ~18% of that,
-     leaving roughly 55/27 to split between title and narration.
+     and still overflow the board together. Padding and the divider take ~18% of
+     the board, leaving roughly 55/27 to split between title and narration.
 
      NOTE: `frame` must never enter these dep arrays. The hook probes layout and
      gates on delayRender; re-running it per frame would thrash the renderer.
      The board is animated purely by `transform`, which does not affect layout,
      so the measurements below stay valid for the whole scene. */
-  const boardH = height * (p ? 0.42 : 0.46);
+  const boardH = boardHeightPx;
   const fitTitleRef = React.useRef<HTMLDivElement>(null);
   const fitNoteRef = React.useRef<HTMLDivElement>(null);
-  const fitTitleTarget = titleFontSize ?? (p ? 73 : 59);
-  const fitNoteTarget = descriptionFontSize ?? (p ? 33 : 27);
+  const fitTitleTarget = titleFontSize ?? (p ? 62 : 51);
+  const fitNoteTarget = descriptionFontSize ?? (p ? 32 : 27);
   const { px: fitTitlePx } = useFitText(
     fitTitleRef,
     fitTitleTarget,
@@ -427,17 +551,33 @@ export const DrawnTitleV2: React.FC<WhiteboardLayoutProps> = ({
     Math.round(boardH * 0.27),
   );
 
-  /* The board frame svg and the copy box must move as ONE rigid object, so they
-     share this box geometry and the same transform.
-     The box is centred horizontally (left = (100 - width) / 2): the carriers
-     stop at track centre and the board rides on them, so any left/right bias in
-     the box would show up as the board hanging off the pair. */
-  const boardBox: React.CSSProperties = {
+  /* The board frame svg, its copy box and the post must all move as ONE rigid
+     object — they are a single physical sign — so they share this box geometry,
+     the same transform and the same pivot origin.
+     The box is centred horizontally: the post rises from its bottom-centre and
+     the carriers stand either side of that post, so any left/right bias in the
+     box would put the sign off the pair. */
+  /* The ONE box that moves: board + copy + both handles, translated as a rigid
+     unit. The box is centred horizontally, since the pair stops at track centre
+     and the sign rides between them. */
+  const signWrapper: React.CSSProperties = {
     position: "absolute",
     left: p ? "7%" : "18%",
-    top: p ? "6%" : "17%",
+    top: `${(p ? BOARD_TOP_P : BOARD_TOP_L) * 100}%`,
     width: p ? "86%" : "64%",
-    height: p ? "42%" : "46%",
+    height: signHeightPx,
+    transform: `translate(${signDX}px, ${signDY}px)`,
+    willChange: "transform",
+    zIndex: 6,
+  };
+  /* The board's own slot INSIDE that wrapper: full width, occupying the top
+     `boardHeightPx` and leaving the rest for the handles. */
+  const boardBox: React.CSSProperties = {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    width: "100%",
+    height: boardHeightPx,
   };
 
   return (
@@ -480,23 +620,70 @@ export const DrawnTitleV2: React.FC<WhiteboardLayoutProps> = ({
         <rect width="100%" height="100%" filter="url(#grain-dtv2)" fill="none" />
       </svg>
 
-      {/* Hand-drawn board frame, carried in with the copy */}
-      <svg
+      {/* ── The sign: board + copy + two thin carrying handles ──────────
+          One wrapper holds all three, so they move as a rigid object. */}
+      <div style={signWrapper}>
+        {/* Two thin handles, one under each end of the board, running down to
+            the carriers' fists. Deliberately THIN — they are grips, not posts;
+            a thick shaft reads as a signpost planted in the ground, which is
+            not what is happening here.
+
+            Their inset matches HANDLE_INSET, the same constant that decides how
+            far apart the pair walks, so each carrier is always directly under
+            the handle they are holding. */}
+        <svg
+          style={{
+            position: "absolute",
+            left: 0,
+            top: boardHeightPx,
+            width: "100%",
+            height: handleLenPx,
+            overflow: "visible",
+            pointerEvents: "none",
+            zIndex: 1,
+          }}
+          viewBox="0 0 1000 100"
+          preserveAspectRatio="none"
+          aria-hidden
+        >
+          <g filter="url(#inkBoard-dtv2)" fill="none" strokeLinecap="round">
+            {[handleFracBack, handleFracFront].map((f) => (
+              <line
+                key={f}
+                x1={f * 1000}
+                // Starts above 0 so it tucks up behind the board's bottom rail
+                // with no seam at the join.
+                y1={-8}
+                x2={f * 1000}
+                y2={100}
+                stroke={textColor}
+                strokeWidth={4}
+                strokeOpacity={0.8}
+                // The box is stretched by preserveAspectRatio="none", so a
+                // stroke drawn here would be scaled unevenly; this keeps the
+                // handle the same visual thickness in both orientations.
+                vectorEffect="non-scaling-stroke"
+              />
+            ))}
+          </g>
+        </svg>
+
+        {/* Hand-drawn board face. PRE-BUILT — it does not draw itself on; it
+            is a finished object the figures are already carrying. */}
+        <svg
         style={{
           ...boardBox,
           overflow: "visible",
           pointerEvents: "none",
-          transform: boardTransform,
-          willChange: "transform",
+          zIndex: 2,
         }}
         viewBox="0 0 1000 460"
         preserveAspectRatio="none"
         aria-hidden
       >
         <g filter="url(#inkBoard-dtv2)" strokeLinecap="round">
-          {/* Solid white face, so the board reads as a physical panel being
-              carried rather than an outline the paper shows through. Fades in
-              with the frame's draw-on. */}
+          {/* Solid white face, so the board reads as a physical panel rather
+              than an outline the paper shows through. */}
           <rect
             x={6}
             y={6}
@@ -504,7 +691,7 @@ export const DrawnTitleV2: React.FC<WhiteboardLayoutProps> = ({
             height={448}
             rx={10}
             fill="#FFFFFF"
-            fillOpacity={0.96 * boardProgress}
+            fillOpacity={0.96}
             stroke="none"
           />
           <rect
@@ -517,8 +704,6 @@ export const DrawnTitleV2: React.FC<WhiteboardLayoutProps> = ({
             stroke={textColor}
             strokeWidth={9}
             strokeOpacity={0.22}
-            strokeDasharray={BOARD_PERIMETER}
-            strokeDashoffset={BOARD_PERIMETER * (1 - boardProgress)}
           />
           <rect
             x={6}
@@ -529,27 +714,19 @@ export const DrawnTitleV2: React.FC<WhiteboardLayoutProps> = ({
             fill="none"
             stroke={textColor}
             strokeWidth={5}
-            strokeDasharray={BOARD_PERIMETER}
-            strokeDashoffset={BOARD_PERIMETER * (1 - boardProgress)}
           />
         </g>
-        {/* Accent tick marks in the board's top corners, drawn last */}
-        <g
-          stroke={accentColor}
-          strokeWidth={5}
-          strokeLinecap="round"
-          fill="none"
-          opacity={interpolate(boardProgress, [0.75, 1], [0, 0.5], { extrapolateLeft: "clamp" })}
-        >
+        {/* Accent tick marks in the board's top corners */}
+        <g stroke={accentColor} strokeWidth={5} strokeLinecap="round" fill="none" opacity={0.5}>
           <path d="M40,44 L82,44 M40,44 L40,86" />
           <path d="M960,44 L918,44 M960,44 L960,86" />
         </g>
       </svg>
 
-      {/* Title + narration, both written INSIDE the board and moving with it.
-          Position/size MUST stay in lockstep with the board frame svg above —
-          this box is the frame's interior, hence the shared `boardBox`. */}
-      <div
+        {/* Title + narration, both written INSIDE the board. Position/size MUST
+            stay in lockstep with the board frame svg above — this box is the
+            frame's interior, hence the shared `boardBox`. */}
+        <div
         style={{
           ...boardBox,
           display: "flex",
@@ -560,9 +737,7 @@ export const DrawnTitleV2: React.FC<WhiteboardLayoutProps> = ({
           padding: p ? "5% 7%" : "4% 6%",
           boxSizing: "border-box",
           textAlign: "center",
-          zIndex: 10,
-          transform: boardTransform,
-          willChange: "transform",
+          zIndex: 3,
         }}
       >
         {/* Hidden full-title mirror — titleChars slices the visible copy in
@@ -639,20 +814,22 @@ export const DrawnTitleV2: React.FC<WhiteboardLayoutProps> = ({
         >
           {narration}
         </div>
+        </div>
       </div>
 
       {/* The two carriers. The svg spans the FULL frame width so the walk can be
-          expressed in frame-relative units — the same reason and the same
-          sizing as the base rig, so the figures render at `drawn_title` scale.
-          Under `meet` the scale is min(boxW/300, boxH/124); these percentages
-          make that resolve to the base's own scale in both orientations. */}
+          expressed in frame-relative units. Under `meet` the scale is
+          min(boxW/300, boxH/124), so this height is what sets the figures' size
+          — and it is the SAME value `figBoxH` reads to build `s`, which is what
+          converts the rig-unit choreography into the sign's page-px transform.
+          The two must not diverge or the sign will float off the hands. */}
       <svg
         style={{
           position: "absolute",
           bottom: p ? "20%" : "6%",
           left: 0,
           width: "100%",
-          height: p ? "22.3%" : "28.7%",
+          height: `${(p ? FIG_BOX_H_P : FIG_BOX_H_L) * 100}%`,
           overflow: "visible",
           pointerEvents: "none",
           zIndex: 20,
@@ -662,17 +839,28 @@ export const DrawnTitleV2: React.FC<WhiteboardLayoutProps> = ({
         fill="none"
         aria-hidden
       >
-        {/* Each carrier is translated to its own side of the pair midpoint. The
-            rig is drawn about local x=50, so subtracting 50 centres it. */}
+        {/* Each carrier is translated to its own side of the post. The rig is
+            drawn about local x=50, so subtracting 50 centres it.
+
+            The two face OPPOSITE ways, as a real pair carrying a load between
+            them does: the FRONT (left) one faces outward in the direction of
+            travel, the BACK (right) one faces inward toward the load. Both
+            still reach the handle, because each rig's carrying arm is on its
+            own inboard side either way — the mirror decides which way the body
+            points, not where the fist lands. */}
         <g transform={`translate(${midX - pairHalfGap - 50}, 0)`}>
           <Carrier
             color={textColor}
             cycle={cycle}
             walk={walk}
             facing={facing}
-            lift={lift}
+            lift={raise}
             bob={bobA}
+            /* BACK of the pair (they walk rightward, so the LEFT figure
+               trails). It faces IN — rightward, at the load ahead of it — and
+               its carrying arm reaches forward on its own natural side. */
             side={1}
+            gripSide={1}
           />
         </g>
         <g transform={`translate(${midX + pairHalfGap - 50}, 0)`}>
@@ -681,18 +869,26 @@ export const DrawnTitleV2: React.FC<WhiteboardLayoutProps> = ({
             cycle={cycle + 0.35}
             walk={walk}
             facing={facing}
-            lift={lift}
+            lift={raise}
             bob={bobB}
-            side={-1}
+            /* FRONT of the pair. Identical stance to the back one — same body
+               orientation, same carrying arm — because both are walking the
+               same way and holding the same load the same way. Mirroring this
+               figure threw its arm out in front of it, which read as a
+               different action rather than the same one. */
+            side={1}
+            gripSide={1}
           />
         </g>
       </svg>
 
-      {/* Ground line under the figures */}
+      {/* Ground line under the figures and the post's foot. Both the post's
+          length and the figure svg's own `bottom` are derived from this, so it
+          is the scene's single ground reference. */}
       <svg
         style={{
           position: "absolute",
-          bottom: p ? "19.4%" : "5.4%",
+          bottom: `${(p ? GROUND_BOTTOM_P : GROUND_BOTTOM_L) * 100}%`,
           left: 0,
           width: "100%",
           height: 24,

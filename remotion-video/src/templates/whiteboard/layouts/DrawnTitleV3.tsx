@@ -371,8 +371,8 @@ export const DrawnTitleV3: React.FC<WhiteboardLayoutProps> = ({
      above. */
   const fitTitleRef = React.useRef<HTMLDivElement>(null);
   const fitNarrationRef = React.useRef<HTMLDivElement>(null);
-  const fitTitleTarget = titleFontSize ?? (p ? 81 : 65);
-  const fitNarrationTarget = descriptionFontSize ?? (p ? 37 : 30);
+  const fitTitleTarget = titleFontSize ?? (p ? 77 : 66);
+  const fitNarrationTarget = descriptionFontSize ?? (p ? 37 : 27);
   const { px: fitTitlePx } = useFitText(
     fitTitleRef,
     fitTitleTarget,

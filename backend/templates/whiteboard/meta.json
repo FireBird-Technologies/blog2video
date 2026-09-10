@@ -934,6 +934,45 @@
           "landscape": 24
         }
       }
+    },
+    "drawn_title__v2": {
+      "label": "Sketch Board",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 62,
+          "landscape": 51
+        },
+        "descriptionFontSize": {
+          "portrait": 32,
+          "landscape": 27
+        }
+      }
+    },
+    "drawn_title__v3": {
+      "label": "Marker Sweep",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 77,
+          "landscape": 66
+        },
+        "descriptionFontSize": {
+          "portrait": 37,
+          "landscape": 27
+        }
+      }
+    },
+    "stick_figure_scene__v2": {
+      "label": "Chalk Talk",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 63,
+          "landscape": 54
+        },
+        "descriptionFontSize": {
+          "portrait": 31,
+          "landscape": 28
+        }
+      }
     }
   },
   "features": [
