@@ -3,8 +3,6 @@ import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remo
 import { useFitText } from "../components/useFitText";
 import { Swan } from "../components/Swan";
 import type { BlackswanLayoutProps } from "../types";
-import { ZoomCropImg } from "../components/ZoomCropImg";
-import { ZoomCropVideo } from "../components/ZoomCropVideo";
 import { NeonWater } from "./neonWater";
 import { neonTitleTubeStyle, StarField } from "./scenePrimitives";
 import { blackswanNeonPalette } from "./blackswanAccent";
@@ -181,31 +179,9 @@ export const NeonNarrative: React.FC<BlackswanLayoutProps> = (props) => {
 
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor, overflow: "hidden" }}>
-      {/* Background image — full screen, very low opacity with black overlay so all content remains legible */}
-      {(props.imageUrl || props.videoUrl) && (
-        <div style={{ position: "absolute", inset: 0, zIndex: 0, opacity: 0.18, overflow: "hidden" }}>
-          {props.videoUrl ? (
-            <ZoomCropVideo
-              src={props.videoUrl}
-              imageObjectPosition={props.imageObjectPosition}
-              imageZoom={props.imageZoom}
-              muted={props.videoMuted ?? true}
-              volume={props.videoVolume ?? 0.35}
-              durationInFrames={props.videoDurationInFrames}
-              startInFrames={props.videoStartInFrames}
-            />
-          ) : (
-            <ZoomCropImg
-              src={props.imageUrl!}
-              imageObjectPosition={props.imageObjectPosition}
-              imageZoom={props.imageZoom}
-              alt=""
-            />
-          )}
-          {/* Modified: Reduced the opacity of the dark overlay from 0.5 to 0.35 */}
-          <div style={{ position: "absolute", inset: 0, backgroundColor: bgColor, opacity: 0.35 }} />
-        </div>
-      )}
+      {/* No scene photo/clip: `neon_narrative` is listed in this template's
+          `layouts_without_image` (backend/templates/blackswan/meta.json), so the
+          pipeline never assigns one and the scene is its own artwork. */}
       <StarField accentColor={accentColor} />
       <ShootingStarsLayer seed={`${title}\u0000${narration}`} accentColor={accentColor} />
 

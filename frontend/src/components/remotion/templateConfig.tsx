@@ -272,13 +272,20 @@ const NEWSCAST_LAYOUTS = new Set([
   "ending_socials",
   "ending_socials__v2",
 ]);
+// Includes the `__vN` visual variants (see backend/templates/blackswan/meta.json
+// `layout_variants`). This is the STATIC fallback used before /projects/:id/layouts
+// resolves — a variant missing here renders as the fallback layout on first paint.
 const BLACKSWAN_LAYOUTS = new Set([
   "droplet_intro",
+  "droplet_intro__v2",
   "neon_narrative",
+  "neon_narrative__v2",
   "arc_features",
+  "arc_features__v2",
   "pulse_metric",
   "signal_split",
   "dive_insight",
+  "dive_insight__v2",
   "reactor_code",
   "flight_path",
   "data_visualisation",

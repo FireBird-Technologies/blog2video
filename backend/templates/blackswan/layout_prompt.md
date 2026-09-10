@@ -3,6 +3,8 @@ Layout catalog for BLACKSWAN template
 
 **Never output `assignedVideo`, `videoUrl`, `videoMuted`, or `videoVolume`** — stock-footage clips are chosen by the user in the editor after generation, and inventing one breaks rendering.
 
+**Never output a layout ID containing `__v`** (e.g. `neon_narrative__v2`) — those are visual variants assigned automatically by the system. Always output the plain base ID listed below.
+
 Use these layout IDs exactly for `preferred_layout`:
 
 - `droplet_intro`    — opening hero (scene 0 only)

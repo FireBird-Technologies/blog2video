@@ -55,10 +55,15 @@ const WALK_TO = FIG_TRACK_W / 2;
  * Named because they are read in three places that must agree: the wrapper's
  * own style, the handle-length derivation, and the `useFitText` budgets.
  */
-const BOARD_TOP_L = 0.16;
+/* Landscape's top edge is raised (0.16 → 0.10) to buy the taller board its
+   room. The board's bottom edge must stay ABOVE the carriers' svg box top
+   (frame − GROUND_BOTTOM − FIG_BOX_H), or the panel sits over their heads
+   instead of riding above them — so top and height are constrained together
+   and cannot be tuned independently. */
+const BOARD_TOP_L = 0.10;
 const BOARD_TOP_P = 0.08;
-const BOARD_H_FRAC_L = 0.4;
-const BOARD_H_FRAC_P = 0.38;
+const BOARD_H_FRAC_L = 0.48;
+const BOARD_H_FRAC_P = 0.46;
 
 /** Where the ground line sits, as a fraction of frame height from the bottom. */
 const GROUND_BOTTOM_L = 0.054;
@@ -101,7 +106,12 @@ const HANDLE_INSET = 0.2;
  * of the handle rather than floating off it.
  */
 const CARRY_BOARD_Y = 44;
-const HOLD_BOARD_Y = -30;
+/* The raised height. Its distance from CARRY_BOARD_Y is the board's TRAVEL, and
+   that travel must equal the hand's (GRIP_DOWN.handY − GRIP_UP.handY) — the
+   handle is a rigid, constant-length link, so if the two disagree the fist
+   slides off its end mid-lift. Change this and GRIP_UP.handY together, by the
+   same amount, or the linkage breaks. */
+const HOLD_BOARD_Y = -6;
 
 /**
  * Stride cadence copied verbatim from the base `drawn_title`: `frame * 0.22 *
@@ -156,7 +166,11 @@ const RAISE_END = RAISE_START + RAISE_DUR;
  * pressing straight up would drive the forearms through the skull.
  */
 const GRIP_DOWN = { upperX: 66, upperY: 58, handX: 74, handY: 78 };
-const GRIP_UP = { upperX: 70, upperY: 30, handX: 74, handY: 4 };
+/* handY moves in lockstep with HOLD_BOARD_Y (see the note there): both travel
+   50 units, so the handle stays a fixed length and the fist stays on it.
+   upperY (the elbow) is scaled to the SAME proportion of the hand's travel it
+   had before — a fixed offset would straighten the arm out as the lift shrank. */
+const GRIP_UP = { upperX: 70, upperY: 39, handX: 74, handY: 28 };
 
 /**
  * One carrier. Authored entirely in UNMIRRORED local space; `side` only decides

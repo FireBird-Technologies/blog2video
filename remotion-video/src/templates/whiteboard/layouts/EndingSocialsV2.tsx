@@ -69,14 +69,18 @@ const GROUND_BOTTOM_P = 0.2;
  * the wheel cannot slip against the ground — the same principle that keeps the
  * template's walking figures from skating.
  *
- * The crossing is paced to fill nearly the whole scene rather than darting
- * across it: it starts almost immediately and finishes at frame 145, just
- * inside the 150-frame floor a scene can be cut to (`FPS * 5` in
- * WhiteboardVideo). That is an unhurried amble — the rider is background
- * texture behind the signs, and a fast one pulls the eye off the copy.
+ * The crossing is paced to fill the whole scene rather than darting across it:
+ * it starts almost immediately and finishes at frame 290. The rider is
+ * background texture behind the signs, and a fast one pulls the eye off the
+ * copy.
+ *
+ * Note the crossing may now outlast a scene cut to the 150-frame floor
+ * (`FPS * 5` in WhiteboardVideo) — the rider simply exits mid-stride on a very
+ * short scene, which reads fine, rather than the whole scene being paced around
+ * the shortest possible cut.
  */
 const RIDE_START = 4;
-const RIDE_END = 145;
+const RIDE_END = 290;
 /** Rider track viewBox. Wide enough that both ends sit fully off-stage. */
 const RIDE_VIEW_W = 1000;
 const RIDE_VIEW_H = 260;
@@ -294,11 +298,15 @@ export const EndingSocialsV2: React.FC<WhiteboardLayoutProps> = ({
     extrapolateRight: "clamp",
   });
   /* Rotation DERIVED from distance travelled: a wheel of radius r rolling a
-     distance d turns d/r radians. Travelling left means turning anticlockwise,
-     which the negative sign of (rideX - RIDE_FROM) already gives. Deriving it
-     rather than picking a spin rate is what guarantees the wheel never slips
-     against the ground, however the timing is retuned. */
-  const wheelSpin = ((rideX - RIDE_FROM) / WHEEL_R) * (180 / Math.PI);
+     distance d turns d/r radians. Deriving it rather than picking a spin rate
+     is what guarantees the wheel never slips against the ground, however the
+     timing is retuned.
+
+     NEGATED because the rider is rendered mirrored (`scale(-1, …)`) so it faces
+     its direction of travel. A mirror flips apparent rotation, so the raw value
+     — correct for an unmirrored figure moving left — would spin the wheel
+     backwards against the ground once flipped. */
+  const wheelSpin = -((rideX - RIDE_FROM) / WHEEL_R) * (180 / Math.PI);
   /* Balance wobble — a rider on one wheel is never perfectly still. Stops once
      the rider is off-stage so there is nothing animating off-frame. */
   const riding = rideX > RIDE_TO && rideX < RIDE_FROM;
@@ -530,11 +538,19 @@ export const EndingSocialsV2: React.FC<WhiteboardLayoutProps> = ({
               changes the rider's size: the box is `xMidYMax meet` on a
               full-width track, so its rendered scale is set by the WIDTH and a
               taller box just adds slack above. Portrait needs the boost because
-              the same track spans a much narrower frame. */}
+              the same track spans a much narrower frame.
+
+              The NEGATIVE x scale mirrors the rider to face its direction of
+              travel. The figure is drawn facing right (arm forward, knees
+              ahead of the hip) but the crossing runs right → left, so without
+              this it rides backwards — leaning and reaching away from where it
+              is going. Mirroring about x=0 works because `Unicyclist` is
+              authored about a local x=0; the outer `translate(rideX)` places
+              it afterwards and is unaffected. */}
           <g
             transform={`translate(${rideX}, 0) translate(0, ${RIDE_GROUND_Y}) scale(${
-              p ? 1.9 : 1
-            }) translate(0, ${-RIDE_GROUND_Y})`}
+              -(p ? 1.9 : 1)
+            }, ${p ? 1.9 : 1}) translate(0, ${-RIDE_GROUND_Y})`}
           >
             <Unicyclist
               ink={ink}
