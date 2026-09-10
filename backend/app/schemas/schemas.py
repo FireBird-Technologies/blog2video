@@ -110,6 +110,15 @@ def _normalize_avatar_opacity(v: Optional[float]) -> Optional[float]:
     return round(max(MIN_AVATAR_OPACITY, min(1.0, float(v))), 2)
 
 
+def _normalize_avatar_shadow(v: Optional[float]) -> Optional[float]:
+    """Clamp like _normalize_avatar_opacity. Unlike opacity, 0.0 (no shadow at
+    all) is a legitimate choice rather than a broken-looking state, so there
+    is no floor."""
+    if v is None:
+        return None
+    return round(max(0.0, min(1.0, float(v))), 2)
+
+
 def _normalize_avatar_bg(v: Optional[str]) -> Optional[str]:
     """NULL | "original" | "transparent" | "#RRGGBB".
 
@@ -184,6 +193,7 @@ class ProjectCreate(BaseModel):
     avatar_position: Optional[str] = "bottom_left"
     avatar_bg: Optional[str] = None              # None | "transparent" | "#RRGGBB"
     avatar_opacity: Optional[float] = 1.0        # 0.2 - 1.0
+    avatar_shadow: Optional[float] = 0.4         # 0.0 - 1.0
     avatar_motion_style: Optional[str] = "natural"  # subtle | natural | expressive
 
     @field_validator("avatar_shape")
@@ -215,6 +225,11 @@ class ProjectCreate(BaseModel):
     @classmethod
     def validate_create_avatar_opacity(cls, v: Optional[float]) -> Optional[float]:
         return _normalize_avatar_opacity(v)
+
+    @field_validator("avatar_shadow")
+    @classmethod
+    def validate_create_avatar_shadow(cls, v: Optional[float]) -> Optional[float]:
+        return _normalize_avatar_shadow(v)
 
     @field_validator("bgm_volume")
     @classmethod
@@ -263,6 +278,7 @@ class ProjectUpdate(BaseModel):
     # fields allowed to be nulled — see the field loop in routers/projects.py.
     avatar_bg: Optional[str] = None
     avatar_opacity: Optional[float] = None
+    avatar_shadow: Optional[float] = None
     avatar_motion_style: Optional[str] = None  # subtle | natural | expressive
     # Set once the placeholder $5 batch-generation paywall has been cleared.
     avatar_batch_unlocked: Optional[bool] = None
@@ -296,6 +312,11 @@ class ProjectUpdate(BaseModel):
     @classmethod
     def validate_update_avatar_opacity(cls, v: Optional[float]) -> Optional[float]:
         return _normalize_avatar_opacity(v)
+
+    @field_validator("avatar_shadow")
+    @classmethod
+    def validate_update_avatar_shadow(cls, v: Optional[float]) -> Optional[float]:
+        return _normalize_avatar_shadow(v)
 
     @field_validator("caption_font_size", mode="before")
     @classmethod
@@ -438,6 +459,7 @@ class SceneOut(BaseModel):
     avatar_position: Optional[str] = None
     avatar_bg: Optional[str] = None
     avatar_opacity: Optional[float] = None
+    avatar_shadow: Optional[float] = None
     # Which part of the rendered avatar frame to keep. NULL = default framing.
     avatar_focus_x: Optional[float] = None
     avatar_focus_y: Optional[float] = None
@@ -661,6 +683,7 @@ class ProjectOut(BaseModel):
     avatar_position: str = "bottom_left"
     avatar_bg: Optional[str] = None
     avatar_opacity: float = 1.0
+    avatar_shadow: float = 0.4
     avatar_motion_style: str = "natural"
     # The user's uploaded presenter portrait (URL only — the server path is not
     # the client's business). Null means they are using the built-in roster.
@@ -871,6 +894,7 @@ class SceneAvatarAppearanceUpdate(BaseModel):
     avatar_position: Optional[str] = None
     avatar_bg: Optional[str] = None
     avatar_opacity: Optional[float] = None
+    avatar_shadow: Optional[float] = None
 
     @field_validator("avatar_shape")
     @classmethod
@@ -896,6 +920,11 @@ class SceneAvatarAppearanceUpdate(BaseModel):
     @classmethod
     def validate_scene_avatar_opacity(cls, v: Optional[float]) -> Optional[float]:
         return _normalize_avatar_opacity(v)
+
+    @field_validator("avatar_shadow")
+    @classmethod
+    def validate_scene_avatar_shadow(cls, v: Optional[float]) -> Optional[float]:
+        return _normalize_avatar_shadow(v)
 
 
 # ─── Scene Editing ──────────────────────────────────────────

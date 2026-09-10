@@ -1002,13 +1002,13 @@ export default function AvatarBatchWizard({
             of which tile is clicked. It's a "here's what this looks like"
             demo, not tied to the selection; picking a tile opens the setup
             modal directly rather than swapping this preview. */}
-        <div className="max-w-md mx-auto rounded-2xl overflow-hidden border border-gray-200/70 bg-gray-50">
+        <div className="max-w-2xl mx-auto rounded-2xl overflow-hidden border border-gray-200/70 bg-gray-50">
           <iframe
             width="560"
             height="315"
-            src="https://www.youtube.com/embed/B67hdVtYWxI?si=GLWGFrNyrbGUEgO1"
+            src="https://www.youtube.com/embed/BKm2_U3laCk?si=W6-IEFqU-vTp4d6D"
             title="YouTube video player"
-            className="w-full aspect-[4/3] bg-black border-0"
+            className="w-full aspect-video bg-black border-0"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             referrerPolicy="strict-origin-when-cross-origin"
             allowFullScreen
