@@ -349,6 +349,35 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
     portrait:  { w: 0.70, h: 0.115 }, // 756 × 220
   },
 
+  // Variants need their OWN entry: normalizeLayoutId() does NOT strip the `__vN`
+  // suffix, so a missing key falls through to the video default.
+  // matrix_title__v2 "Boot Sequence": full-height column bled to the right edge
+  // (landscape) / full-width band across the top 44% of the frame (portrait).
+  matrix_title__v2: {
+    landscape: { w: 0.34, h: 1.0  }, // ~653 × 1080
+    portrait:  { w: 1.0,  h: 0.44 }, // 1080 × ~845
+  },
+
+  // cipher_metric__v2 "Readout Grid": wide band across the TOP of the frame.
+  cipher_metric__v2: {
+    landscape: { w: 0.86, h: 0.30 }, // ~1651 × 324
+    portrait:  { w: 0.86, h: 0.20 }, // ~929 × 384
+  },
+
+  // transmission__v2 "Signal Log": tall panel down the right side beside the
+  // signal log (landscape) / band across the top above it (portrait).
+  transmission__v2: {
+    landscape: { w: 0.32, h: 0.62 }, // ~614 × 670
+    portrait:  { w: 0.84, h: 0.26 }, // ~907 × 499
+  },
+
+  // awakening__v2 "System Exit": wide band across the BOTTOM third (landscape) /
+  // full-bleed low-opacity backdrop (portrait).
+  awakening__v2: {
+    landscape: { w: 0.86, h: 0.32 }, // ~1651 × 346
+    portrait:  { w: 1.0,  h: 1.0 },  // full bleed
+  },
+
   cipher_metric: {
     landscape: { w: 0.35, h: 0.324 }, // ~672 × 350
     portrait:  { w: 0.70, h: 0.104 }, // 756 × 200

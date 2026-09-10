@@ -325,6 +325,86 @@ export const CipherRing: React.FC<{
   );
 };
 
+// ─── SignalPing ──────────────────────────────────────────────────────────────
+// Concentric rings expanding out of a fixed origin on a slow repeating cycle,
+// like a radar ping outward from a transmitter. The linear counterpart to
+// CipherRing's counter-rotating glyph dials: same "live signal" idea, opposite
+// geometry — CipherRing spins in place at the centre, this one travels outward
+// from wherever the layout anchors it (typically off to one side, so the rings
+// sweep THROUGH the composition rather than sitting behind it).
+//
+// `originX`/`originY` are percentages of the frame, so a layout can pin the
+// origin to its own focal point.
+
+export const SignalPing: React.FC<{
+  accentColor?: string;
+  /** Ping origin as a percentage of frame width / height. */
+  originX?: number;
+  originY?: number;
+  /** Frames between successive pings. */
+  every?: number;
+  /** How many pings are in flight at once. */
+  rings?: number;
+  /** Peak ring radius as a fraction of the frame's LARGER side. */
+  reach?: number;
+  startFrame?: number;
+}> = ({
+  accentColor = "#00FF41",
+  originX = 50,
+  originY = 50,
+  every = 66,
+  rings = 3,
+  reach = 1.15,
+  startFrame = 0,
+}) => {
+  const frame = useCurrentFrame();
+  const { width, height } = useVideoConfig();
+  const local = frame - startFrame;
+  if (local < 0) return null;
+
+  const cx = (originX / 100) * width;
+  const cy = (originY / 100) * height;
+  const maxR = Math.max(width, height) * reach;
+
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none", overflow: "hidden" }}>
+      <svg width={width} height={height} style={{ position: "absolute", inset: 0 }}>
+        {Array.from({ length: rings }).map((_, i) => {
+          // Stagger the ring phases evenly across one cycle so the pings are
+          // continuous rather than arriving in a burst.
+          const phase = ((local + (i * every) / rings) % every) / every;
+          const r = easeOutCubic(phase) * maxR;
+          // Fade in quickly, then out as the ring reaches its limit, so no ring
+          // ever pops at the frame edge.
+          // Peak 0.34 with a 0.15 tail — bright enough for the ping to read as
+          // deliberate motion rather than a faint artifact. Still under half
+          // opacity so it stays behind the copy it travels past.
+          const opacity = interpolate(phase, [0, 0.08, 0.7, 1], [0, 0.34, 0.15, 0], {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          });
+          if (r <= 0 || opacity <= 0) return null;
+          return (
+            <circle
+              key={i}
+              cx={cx}
+              cy={cy}
+              r={r}
+              fill="none"
+              stroke={accentColor}
+              strokeWidth={1.6}
+              opacity={opacity}
+            />
+          );
+        })}
+        {/* A steady inner marker at the origin, so the pings read as coming FROM
+            something rather than out of empty space. */}
+        <circle cx={cx} cy={cy} r={3} fill={accentColor} opacity={0.5} />
+      </svg>
+    </AbsoluteFill>
+  );
+};
+
 // ─── GridTunnel ──────────────────────────────────────────────────────────────
 // A faint wireframe floor receding to a vanishing point, drifting slowly toward
 // the camera — "inside the construct" depth without touching the focal area.

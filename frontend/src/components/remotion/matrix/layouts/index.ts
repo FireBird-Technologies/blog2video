@@ -10,6 +10,11 @@ import { Awakening } from "./Awakening";
 import { MatrixDataChart } from "./MatrixDataChart";
 import { MatrixTicker } from "./MatrixTicker";
 import { EndingSocials } from "./EndingSocials";
+import { MatrixTitleV2 } from "./MatrixTitleV2";
+import { CipherMetricV2 } from "./CipherMetricV2";
+import { TransmissionV2 } from "./TransmissionV2";
+import { AwakeningV2 } from "./AwakeningV2";
+import { EndingSocialsV2 } from "./EndingSocialsV2";
 import type { MatrixLayoutType, MatrixLayoutProps } from "../types";
 
 export type { MatrixLayoutType, MatrixLayoutProps };
@@ -32,4 +37,9 @@ export const MATRIX_LAYOUT_REGISTRY: Record<
   ending_socials: EndingSocials,
 
   // ── Visual variants — same props as their base, different composition ──
+  matrix_title__v2: MatrixTitleV2,
+  cipher_metric__v2: CipherMetricV2,
+  transmission__v2: TransmissionV2,
+  awakening__v2: AwakeningV2,
+  ending_socials__v2: EndingSocialsV2,
 };

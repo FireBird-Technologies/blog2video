@@ -28,6 +28,40 @@
     "matrix_ticker",
     "ending_socials"
   ],
+  "layout_variants": {
+    "matrix_title": [
+      "matrix_title",
+      "matrix_title__v2"
+    ],
+    "cipher_metric": [
+      "cipher_metric",
+      "cipher_metric__v2"
+    ],
+    "transmission": [
+      "transmission",
+      "transmission__v2"
+    ],
+    "awakening": [
+      "awakening",
+      "awakening__v2"
+    ],
+    "ending_socials": [
+      "ending_socials",
+      "ending_socials__v2"
+    ]
+  },
+  "layout_variant_labels": {
+    "matrix_title": "Classic",
+    "matrix_title__v2": "Boot Sequence",
+    "cipher_metric": "Classic",
+    "cipher_metric__v2": "Readout Grid",
+    "transmission": "Classic",
+    "transmission__v2": "Signal Log",
+    "awakening": "Classic",
+    "awakening__v2": "System Exit",
+    "ending_socials": "Classic",
+    "ending_socials__v2": "Sign-Off Terminal"
+  },
   "layout_prop_schema": {
     "matrix_title": {
       "label": "Matrix Title",
@@ -318,12 +352,12 @@
       "label": "Transmission",
       "defaults": {
         "titleFontSize": {
-          "portrait": 84,
-          "landscape": 78
+          "portrait": 75,
+          "landscape": 68
         },
         "descriptionFontSize": {
-          "portrait": 53,
-          "landscape": 27
+          "portrait": 41,
+          "landscape": 36
         },
         "phrases": [
           "Incoming signal",
@@ -766,6 +800,58 @@
           "placeholder": "https://yourwebsite.com"
         }
       ]
+    },
+    "matrix_title__v2": {
+      "label": "Boot Sequence",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 128,
+          "landscape": 90
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 44
+        }
+      }
+    },
+    "cipher_metric__v2": {
+      "label": "Readout Grid",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 182,
+          "landscape": 117
+        },
+        "descriptionFontSize": {
+          "portrait": 48,
+          "landscape": 45
+        }
+      }
+    },
+    "transmission__v2": {
+      "label": "Signal Log",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 111,
+          "landscape": 98
+        },
+        "descriptionFontSize": {
+          "portrait": 39,
+          "landscape": 32
+        }
+      }
+    },
+    "ending_socials__v2": {
+      "label": "Sign-Off Terminal",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 87,
+          "landscape": 70
+        },
+        "descriptionFontSize": {
+          "portrait": 42,
+          "landscape": 37
+        }
+      }
     }
   },
   "layouts_without_image": [
