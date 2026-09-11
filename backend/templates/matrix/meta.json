@@ -28,6 +28,8 @@
     "matrix_ticker",
     "ending_socials"
   ],
+  "layout_variants": {},
+  "layout_variant_labels": {},
   "layout_prop_schema": {
     "matrix_title": {
       "label": "Matrix Title",
@@ -318,12 +320,12 @@
       "label": "Transmission",
       "defaults": {
         "titleFontSize": {
-          "portrait": 84,
-          "landscape": 78
+          "portrait": 75,
+          "landscape": 68
         },
         "descriptionFontSize": {
-          "portrait": 53,
-          "landscape": 27
+          "portrait": 41,
+          "landscape": 36
         },
         "phrases": [
           "Incoming signal",
@@ -452,9 +454,7 @@
         },
         "chartYAxisTicks": [],
         "subtitle": "Cycle",
-        "yAxisLabel": "Magnitude",
-        "barPrimaryColor": "#00FF41",
-        "barSecondaryColor": "#00B82E"
+        "yAxisLabel": "Magnitude"
       },
       "scene_defaults": {
         "title": "Signal analysis",
@@ -530,12 +530,17 @@
         },
         {
           "key": "barPrimaryColor",
-          "label": "Series color 1",
+          "label": "Series color 1 (defaults to accent)",
           "type": "color"
         },
         {
           "key": "barSecondaryColor",
-          "label": "Series color 2",
+          "label": "Series color 2 (defaults to accent shade)",
+          "type": "color"
+        },
+        {
+          "key": "barTertiaryColor",
+          "label": "Series color 3",
           "type": "color"
         }
       ]
