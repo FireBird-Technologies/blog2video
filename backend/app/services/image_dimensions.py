@@ -46,6 +46,12 @@ LAYOUT_IMAGE_ASPECT: dict[tuple[str, str], dict[str, str]] = {
     # the image in a TALL 3:4 plate beside the copy (the bases use wide cards).
     ("spotlight", "impact_title__v2"): {"landscape": "3:4", "portrait": "16:9"},
     ("spotlight", "statement__v2"): {"landscape": "3:4", "portrait": "16:9"},
+    # ── whiteboard marker_story variant slots ──
+    # Base `marker_story` has no entry (its 0.309×0.88 panel is close enough to
+    # the video default). __v2 "Framed Photo" reshapes the slot into a wide
+    # rectangular band across the top of the frame (~3.3:1 landscape, ~1.5:1
+    # portrait), so it needs its own.
+    ("whiteboard", "marker_story__v2"): {"landscape": "16:9", "portrait": "3:2"},
     # Mosaic: mosaic_text uses 46% width for image panel (vertical orientation)
     ("mosaic", "mosaic_text"): {"landscape": "9:16", "portrait": "9:16"},
     # Chronicle: page-shaped and banner image slots

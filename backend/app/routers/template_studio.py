@@ -392,7 +392,39 @@ def _update_meta_defaults(
         return None
     layout_schema = schema.get(layout_id)
     if not isinstance(layout_schema, dict):
-        return None
+        # A visual VARIANT (e.g. `drawn_title__v2`) normally has no entry of its
+        # own — it shares the base layout's editable fields. But typography
+        # defaults are stored per EXACT layout id (Studio reads them back the
+        # same way), so without an entry a variant's font sizes had nowhere to
+        # be written and the save was silently dropped.
+        #
+        # Create the entry on demand, carrying only `label` + `defaults`. Studio
+        # merges such an entry over the base, so the base keeps supplying the
+        # prop fields and only the typography is overridden here.
+        #
+        # Seed `defaults` with the base's TYPOGRAPHY ONLY. Copying every base
+        # default would freeze a snapshot of unrelated props (socials, links,
+        # …) into the variant, and because the variant wins the merge those
+        # would then stop tracking later edits to the base.
+        base_id = layout_id.split("__", 1)[0]
+        base_schema = schema.get(base_id)
+        if not isinstance(base_schema, dict):
+            return None
+        variant_labels = data.get("layout_variant_labels")
+        label = None
+        if isinstance(variant_labels, dict):
+            label = variant_labels.get(layout_id)
+        base_defaults = base_schema.get("defaults") or {}
+        seeded = {
+            k: base_defaults[k]
+            for k in ("titleFontSize", "descriptionFontSize")
+            if k in base_defaults
+        }
+        layout_schema = {
+            "label": label or base_schema.get("label", layout_id),
+            "defaults": seeded,
+        }
+        schema[layout_id] = layout_schema
 
     defaults = layout_schema.get("defaults")
     if not isinstance(defaults, dict):

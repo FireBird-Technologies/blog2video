@@ -3,7 +3,6 @@ import type { SocialsMap } from "../SocialIcons";
 
 export type MatrixLayoutType =
   | "matrix_title"
-  // Visual variants — same props as their base, different composition.
   | "terminal_text"
   | "glitch_punch"
   | "data_stream"
@@ -74,6 +73,7 @@ export interface MatrixLayoutProps {
   /** Chart color overrides. */
   barPrimaryColor?: string;
   barSecondaryColor?: string;
+  barTertiaryColor?: string;
 
   // ── matrix_ticker (data table) — uses the shared tickerTable contract ──
   tickerTable?: { headers: string[]; rows: string[][] };

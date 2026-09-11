@@ -23,6 +23,7 @@ function seededRandom(seed: number): number {
 
 const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
 
+
 const charAt = (seed: number, pool: string): string =>
   pool[Math.floor(seededRandom(seed) * pool.length)];
 
@@ -305,21 +306,101 @@ export const CipherRing: React.FC<{
         style={{ opacity: 0.2 * s, overflow: "visible" }}
       >
         <defs>
-          <path id="cipher-ring-outer" d="M 100,100 m -88,0 a 88,88 0 1,1 176,0 a 88,88 0 1,1 -176,0" />
-          <path id="cipher-ring-inner" d="M 100,100 m -64,0 a 64,64 0 1,1 128,0 a 64,64 0 1,1 -128,0" />
+          <path id={`cipher-ring-outer-${seed}`} d="M 100,100 m -88,0 a 88,88 0 1,1 176,0 a 88,88 0 1,1 -176,0" />
+          <path id={`cipher-ring-inner-${seed}`} d="M 100,100 m -64,0 a 64,64 0 1,1 128,0 a 64,64 0 1,1 -128,0" />
         </defs>
         <g style={{ transformOrigin: "100px 100px", transform: `rotate(${local * 0.25}deg)` }}>
           <circle cx={100} cy={100} r={88} fill="none" stroke={accentColor} strokeWidth={0.6} opacity={0.5} />
           <text fill={accentColor} fontSize={9} fontFamily={MATRIX_DEFAULT_FONT_FAMILY} letterSpacing={2}>
-            <textPath href="#cipher-ring-outer">{ringText(34, 1)}</textPath>
+            <textPath href={`#cipher-ring-outer-${seed}`}>{ringText(34, 1)}</textPath>
           </text>
         </g>
         <g style={{ transformOrigin: "100px 100px", transform: `rotate(${-local * 0.4}deg)` }}>
           <circle cx={100} cy={100} r={64} fill="none" stroke={accentColor} strokeWidth={0.6} opacity={0.5} />
           <text fill={accentColor} fontSize={8} fontFamily={MATRIX_DEFAULT_FONT_FAMILY} letterSpacing={2}>
-            <textPath href="#cipher-ring-inner">{ringText(26, 2)}</textPath>
+            <textPath href={`#cipher-ring-inner-${seed}`}>{ringText(26, 2)}</textPath>
           </text>
         </g>
+      </svg>
+    </AbsoluteFill>
+  );
+};
+
+// ─── SignalPing ──────────────────────────────────────────────────────────────
+// Concentric rings expanding out of a fixed origin on a slow repeating cycle,
+// like a radar ping outward from a transmitter. The linear counterpart to
+// CipherRing's counter-rotating glyph dials: same "live signal" idea, opposite
+// geometry — CipherRing spins in place at the centre, this one travels outward
+// from wherever the layout anchors it (typically off to one side, so the rings
+// sweep THROUGH the composition rather than sitting behind it).
+//
+// `originX`/`originY` are percentages of the frame, so a layout can pin the
+// origin to its own focal point.
+
+export const SignalPing: React.FC<{
+  accentColor?: string;
+  /** Ping origin as a percentage of frame width / height. */
+  originX?: number;
+  originY?: number;
+  /** Frames between successive pings. */
+  every?: number;
+  /** How many pings are in flight at once. */
+  rings?: number;
+  /** Peak ring radius as a fraction of the frame's LARGER side. */
+  reach?: number;
+  startFrame?: number;
+}> = ({
+  accentColor = "#00FF41",
+  originX = 50,
+  originY = 50,
+  every = 66,
+  rings = 3,
+  reach = 1.15,
+  startFrame = 0,
+}) => {
+  const frame = useCurrentFrame();
+  const { width, height } = useVideoConfig();
+  const local = frame - startFrame;
+  if (local < 0) return null;
+
+  const cx = (originX / 100) * width;
+  const cy = (originY / 100) * height;
+  const maxR = Math.max(width, height) * reach;
+
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none", overflow: "hidden" }}>
+      <svg width={width} height={height} style={{ position: "absolute", inset: 0 }}>
+        {Array.from({ length: rings }).map((_, i) => {
+          // Stagger the ring phases evenly across one cycle so the pings are
+          // continuous rather than arriving in a burst.
+          const phase = ((local + (i * every) / rings) % every) / every;
+          const r = easeOutCubic(phase) * maxR;
+          // Fade in quickly, then out as the ring reaches its limit, so no ring
+          // ever pops at the frame edge.
+          // Peak 0.34 with a 0.15 tail — bright enough for the ping to read as
+          // deliberate motion rather than a faint artifact. Still under half
+          // opacity so it stays behind the copy it travels past.
+          const opacity = interpolate(phase, [0, 0.08, 0.7, 1], [0, 0.34, 0.15, 0], {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          });
+          if (r <= 0 || opacity <= 0) return null;
+          return (
+            <circle
+              key={i}
+              cx={cx}
+              cy={cy}
+              r={r}
+              fill="none"
+              stroke={accentColor}
+              strokeWidth={1.6}
+              opacity={opacity}
+            />
+          );
+        })}
+        {/* A steady inner marker at the origin, so the pings read as coming FROM
+            something rather than out of empty space. */}
+        <circle cx={cx} cy={cy} r={3} fill={accentColor} opacity={0.5} />
       </svg>
     </AbsoluteFill>
   );

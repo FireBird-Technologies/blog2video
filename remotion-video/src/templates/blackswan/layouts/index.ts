@@ -9,6 +9,9 @@ import { NeonNarrative } from "./NeonNarrative";
 import { PulseMetric } from "./PulseMetric";
 import { ReactorCode } from "./ReactorCode";
 import { SignalSplit } from "./SignalSplit";
+import { DropletIntroV2 } from "./DropletIntroV2";
+import { NeonNarrativeV2 } from "./NeonNarrativeV2";
+import { ArcFeaturesV2 } from "./ArcFeaturesV2";
 import type { BlackswanLayoutProps, BlackswanLayoutType } from "../types";
 
 export type { BlackswanLayoutType, BlackswanLayoutProps };
@@ -28,4 +31,9 @@ export const BLACKSWAN_LAYOUT_REGISTRY: Record<
   data_visualisation: BlackswanDataViz,
   ending_socials: EndingSocials,
   ticker_table: BlackswanTickerTable,
+
+  // ── Visual variants — same props as their base, different composition ──
+  droplet_intro__v2: DropletIntroV2,
+  neon_narrative__v2: NeonNarrativeV2,
+  arc_features__v2: ArcFeaturesV2,
 };

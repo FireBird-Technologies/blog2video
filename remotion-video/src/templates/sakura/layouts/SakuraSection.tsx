@@ -51,6 +51,16 @@ export const SakuraSection: React.FC<SceneLayoutProps> = (props) => {
 
   const crimson = accentColor || SAKURA.crimson;
   const ink = textColor || SAKURA.ink;
+  const hasVisual = Boolean(imageUrl || videoUrl);
+
+  // Panel geometry, computed up front (moved ahead of the body fit call below)
+  // so the body's available-height budget can subtract the image panel's real
+  // height in portrait, where the two share one flex column instead of sitting
+  // side by side.
+  const panelW = p ? width - 160 : 620;
+  const vPad = p ? 130 : 90; // matches the container's top/bottom padding below
+  const panelH = Math.min(p ? 620 : 700, height - vPad * 2);
+  const columnGap = p ? 50 : 90; // matches the flex container's `gap` below
 
   const titleTargetPx = titleFontSize ?? (p ? 58 : 64);
   const bodyTargetPx = descriptionFontSize ?? (p ? 26 : 22);
@@ -59,16 +69,37 @@ export const SakuraSection: React.FC<SceneLayoutProps> = (props) => {
   const { px: titlePx } = useFitText(
     headlineRef,
     titleTargetPx,
-    Math.max(26, Math.round(titleTargetPx * 0.55)),
+    titleFontSizeIsUserSet ? titleTargetPx : Math.max(26, Math.round(titleTargetPx * 0.55)),
     [headline, titleTargetPx, titleFontSizeIsUserSet, p, height, imageUrl, videoUrl],
     Math.round(height * (p ? 0.2 : 0.3)),
   );
+  // In portrait, text and image share one flex column (see the container
+  // below) with no flex/overflow reconciling their combined height, so the
+  // body's own budget must subtract the image panel's real height (+ the gap
+  // between them) or the two can jointly exceed the frame — the fitter would
+  // otherwise approve a body height that looks fine alone but overflows once
+  // the image panel beneath it is accounted for.
+  // The old static fraction (height * 0.34/0.48) already stood in for "how
+  // much of the frame the body alone should ever need" — it was never meant
+  // to represent the FULL container height, so subtracting the image's full
+  // height from it directly double-counts the constraint and starves the body
+  // down to almost nothing whenever an image is present. Instead derive the
+  // real total column height available inside the container's own padding,
+  // reserve the image (+ gap) and a fixed allowance for the eyebrow/headline/
+  // underline above the body from THAT total, and only fall back to the old
+  // static fraction when there's no image to reconcile against.
+  const totalColumnHeight = height - vPad * 2;
+  const titleBlockAllowance = Math.round(height * (p ? 0.24 : 0.26));
+  const reservedForImage = p && hasVisual ? panelH + columnGap : 0;
+  const bodyAvailPx = hasVisual
+    ? Math.max(60, totalColumnHeight - reservedForImage - titleBlockAllowance)
+    : Math.round(height * (p ? 0.34 : 0.48));
   const { px: bodyPx } = useFitText(
     bodyRef,
     bodyTargetPx,
-    Math.max(18, Math.round(bodyTargetPx * 0.58)),
-    [body, bodyTargetPx, descriptionFontSizeIsUserSet, titlePx, p, height, imageUrl, videoUrl],
-    Math.round(height * (p ? 0.34 : 0.48)),
+    descriptionFontSizeIsUserSet ? bodyTargetPx : Math.max(18, Math.round(bodyTargetPx * 0.58)),
+    [body, bodyTargetPx, descriptionFontSizeIsUserSet, titlePx, p, height, imageUrl, videoUrl, reservedForImage],
+    bodyAvailPx,
   );
   // Chapter eyebrow (vertical kanji + roman label) scales off the body size so
   // it tracks the display-text slider.
@@ -120,12 +151,7 @@ export const SakuraSection: React.FC<SceneLayoutProps> = (props) => {
     easing: (t) => 1 - Math.pow(1 - t, 3),
   });
 
-  const panelW = p ? width - 160 : 620;
-  // Cap the panel to the height actually available inside the scene padding so a
-  // SHORTENED scene never overflows / "amplifies" the image past the frame — the
-  // panel shrinks with the canvas instead of staying a fixed 700px box.
-  const vPad = p ? 130 : 90; // matches the container's top/bottom padding below
-  const panelH = Math.min(p ? 620 : 700, height - vPad * 2);
+  // panelW/vPad/panelH now computed earlier (needed by the body fit call above).
 
   // Twin windswept cherry trees root in the two bottom corners and grow inward
   // on a slant across the frame.

@@ -168,7 +168,7 @@ export const SakuraDataChart: React.FC<SceneLayoutProps> = ({
   const { px: titleSize } = useFitText(
     titleRef,
     titleTargetSize,
-    Math.max(28, Math.round(titleTargetSize * 0.55)),
+    titleFontSizeIsUserSet ? titleTargetSize : Math.max(28, Math.round(titleTargetSize * 0.55)),
     [title, titleTargetSize, titleFontSizeIsUserSet, p, height],
     Math.round(height * (p ? 0.17 : 0.2)),
   );
@@ -176,7 +176,7 @@ export const SakuraDataChart: React.FC<SceneLayoutProps> = ({
   const { px: summarySize } = useFitText(
     summaryRef,
     summaryTargetSize,
-    Math.max(18, Math.round(summaryTargetSize * 0.58)),
+    descriptionFontSizeIsUserSet ? summaryTargetSize : Math.max(18, Math.round(summaryTargetSize * 0.58)),
     [summaryText, summaryTargetSize, descriptionFontSizeIsUserSet, titleSize, p, height],
     Math.round(height * (p ? 0.22 : 0.38)),
   );
@@ -184,7 +184,7 @@ export const SakuraDataChart: React.FC<SceneLayoutProps> = ({
   const { px: narrationSize } = useFitText(
     narrationRef,
     narrationTargetSize,
-    Math.max(18, Math.round(narrationTargetSize * 0.58)),
+    descriptionFontSizeIsUserSet ? narrationTargetSize : Math.max(18, Math.round(narrationTargetSize * 0.58)),
     [narration, narrationTargetSize, descriptionFontSizeIsUserSet, summarySize, p, height],
     Math.round(height * (p ? 0.15 : 0.16)),
   );

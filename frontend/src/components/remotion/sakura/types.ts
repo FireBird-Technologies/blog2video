@@ -3,9 +3,18 @@ import type { SocialsMap, SocialsRow } from "../SocialIcons";
 export type SakuraLayoutType =
   // "ending_socials" is the canonical id the backend emits for the ending scene;
   // it is aliased to the sakura_ending_socials component in SAKURA_LAYOUT_REGISTRY.
-  | "sakura_intro" | "sakura_section" | "sakura_quote" | "sakura_two_column_detail" | "sakura_stat_highlight" | "sakura_list_scene" | "sakura_text_narration" | "sakura_ending_socials" | "ending_socials" | "sakura_data_visualization" | "sakura_ticker";
-  // Visual variants — same props as their base, different composition. The ending
-  // variant hangs off "ending_socials" (the id the backend emits), NOT the legacy
+  | "sakura_intro" | "sakura_intro__v2" | "sakura_section" | "sakura_quote" | "sakura_two_column_detail" | "sakura_stat_highlight" | "sakura_list_scene" | "sakura_text_narration" | "sakura_text_narration__v2" | "sakura_ending_socials" | "ending_socials" | "ending_socials__v2" | "sakura_data_visualization" | "sakura_ticker";
+  // Visual variants — same props as their base, different composition, sharing
+  // the base's layout_prop_schema entry in meta.json (see its layout_variants
+  // key, the source of truth this union mirrors). IDs containing "__v" are
+  // assigned automatically at generation time / switchable in the editor; the
+  // layout planner only ever picks base IDs. "sakura_text_narration__v2" is
+  // the "Lantern Grove" night-hanami treatment of sakura_text_narration;
+  // "sakura_intro__v2" is the "Blooming Tree" treatment of sakura_intro (a
+  // large procedural cherry tree grows behind the centered title);
+  // "ending_socials__v2" is the "Tsukimi Farewell" moon-viewing treatment of
+  // ending_socials. The base ending variant hangs off
+  // "ending_socials" (the id the backend emits), NOT the legacy
   // "sakura_ending_socials" alias.
 
 export interface SceneLayoutProps {
