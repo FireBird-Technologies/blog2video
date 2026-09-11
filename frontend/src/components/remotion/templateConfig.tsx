@@ -377,20 +377,25 @@ const STICKMAN_FOOTBALL_LAYOUTS = new Set([
 
 const SAKURA_LAYOUTS = new Set([
   "sakura_intro",
+  "sakura_intro__v2",
   "sakura_section",
   "sakura_quote",
   "sakura_two_column_detail",
   "sakura_stat_highlight",
   "sakura_list_scene",
   "sakura_text_narration",
+  "sakura_text_narration__v2",
   "sakura_ending_socials",
   // Canonical ending id the backend emits; aliased to sakura_ending_socials in the
   // layout registry. Must be a valid layout so VideoPreview doesn't fall it back.
   "ending_socials",
+  // Visual variant of the ending scene ("Tsukimi Farewell"). Hangs off the
+  // canonical "ending_socials" id, not the sakura_-prefixed alias — was
+  // previously missing from this Set, which silently rewrote any scene saved
+  // with this layout back to the fallback (sakura_section) before render.
+  "ending_socials__v2",
   "sakura_data_visualization",
   "sakura_ticker",
-  // Visual variants — see the note on GRIDCRAFT_LAYOUTS above. The ending variant
-  // hangs off the canonical "ending_socials" id, not the sakura_-prefixed alias.
 ]);
 
 const DOCREEL_LAYOUTS = new Set([

@@ -399,13 +399,16 @@ export const templateProfiles: TemplateProfile[] = [
     previewSceneKey: "preview-sakura",
     layouts: [
       "sakura_intro",
+      "sakura_intro__v2",
       "sakura_section",
       "sakura_quote",
       "sakura_two_column_detail",
       "sakura_stat_highlight",
       "sakura_list_scene",
       "sakura_text_narration",
+      "sakura_text_narration__v2",
       "sakura_ending_socials",
+      "ending_socials__v2",
       "sakura_data_visualization",
     ],
     longDescription:

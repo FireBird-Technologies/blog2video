@@ -12,6 +12,12 @@ const NEWSCAST_LAYOUT_LABELS: Record<string, string> = {
   ending_socials: "Ending / Follow along",
 };
 
+const SAKURA_LAYOUT_LABELS: Record<string, string> = {
+  sakura_intro__v2: "Sakura Intro — Blooming Tree",
+  sakura_text_narration__v2: "Text Narration — Lantern Grove",
+  ending_socials__v2: "Outro / Socials — Tsukimi Farewell",
+};
+
 const LEGACY_NEWSCAST_LAYOUT_ALIASES: Record<string, string> = {
   newscast_cinematic_title: "opening",
   newscast_glass_narrative: "anchor_narrative",
@@ -35,6 +41,10 @@ function isNewscastTemplate(templateId: string | null | undefined): boolean {
   return normalized === "newscast" || normalized === "newsreport";
 }
 
+function isSakuraTemplate(templateId: string | null | undefined): boolean {
+  return (templateId ?? "").trim().toLowerCase() === "sakura";
+}
+
 /**
  * Returns a user-facing scene layout label.
  * For Newscast, prefer Template Studio labels from the hardcoded map.
@@ -53,6 +63,10 @@ export function getSceneLayoutLabel(
   if (isNewscastTemplate(templateId)) {
     const canonicalId = LEGACY_NEWSCAST_LAYOUT_ALIASES[layoutId] ?? layoutId;
     return NEWSCAST_LAYOUT_LABELS[canonicalId] ?? fallbackLabel ?? humanizeLayoutId(layoutId);
+  }
+
+  if (isSakuraTemplate(templateId) && SAKURA_LAYOUT_LABELS[layoutId]) {
+    return SAKURA_LAYOUT_LABELS[layoutId];
   }
 
   return fallbackLabel ?? humanizeLayoutId(layoutId);
