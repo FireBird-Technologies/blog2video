@@ -531,17 +531,20 @@
         {
           "key": "barPrimaryColor",
           "label": "Series color 1 (defaults to accent)",
-          "type": "color"
+          "type": "color",
+          "accentShade": 0
         },
         {
           "key": "barSecondaryColor",
           "label": "Series color 2 (defaults to accent shade)",
-          "type": "color"
+          "type": "color",
+          "accentShade": -0.28
         },
         {
           "key": "barTertiaryColor",
           "label": "Series color 3",
-          "type": "color"
+          "type": "color",
+          "accentShade": 0.42
         }
       ]
     },
