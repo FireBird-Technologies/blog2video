@@ -3062,5 +3062,29 @@
   "marketing:/templates/old-documentary-reel@96f6555ffffc3b24@20aaebd1": {
     "keep": true,
     "reason": "Describes a specific Blog2Video template feature."
+  },
+  "blog:can-chatgpt-make-videos@ce642f43b52d6911@20aaebd1": {
+    "keep": false,
+    "reason": "Primarily describes ChatGPT and Claude, not Blog2Video"
+  },
+  "blog:blogs-with-videos@715564c116758204@20aaebd1": {
+    "keep": true,
+    "reason": "Discusses adding video to blog posts, a Blog2Video feature."
+  },
+  "blog:blog2video-september-2026-update@3edecc7166dd8269@20aaebd1": {
+    "keep": false,
+    "reason": "Describes AI avatars, a capability Blog2Video lacks."
+  },
+  "blog:how-are-medium-earnings-calculated@9708286084501e4f@20aaebd1": {
+    "keep": false,
+    "reason": "Document is about Medium, not Blog2Video"
+  },
+  "blog:how-much-is-substack-worth@df78f3c10af4a3ab@20aaebd1": {
+    "keep": false,
+    "reason": "Document is about Substack, not Blog2Video"
+  },
+  "blog:claude-vs-chatgpt-for-video-editing@786f92dd841c80ce@20aaebd1": {
+    "keep": false,
+    "reason": "Primarily describes Claude and ChatGPT, not Blog2Video."
   }
 }
