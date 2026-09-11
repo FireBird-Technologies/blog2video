@@ -539,6 +539,14 @@ interface FieldDef {
   step?: number;
   /** Display/render default when the value hasn't been saved yet. */
   default?: string | number;
+  /**
+   * For color fields with no explicit `default`/`placeholder`: derive the
+   * unsaved-swatch fallback from the project's accent color instead of the
+   * generic blue. 0 = accent itself, negative = darken, positive = lighten
+   * (same convention as the render-time `shadeHex` helpers templates use to
+   * spin sibling series colors out of one accent).
+   */
+  accentShade?: number;
 }
 
 function normalizeColorValue(input: unknown, fallback: string): string {
@@ -578,6 +586,21 @@ function normalizeColorValue(input: unknown, fallback: string): string {
     }
   }
   return fallback;
+}
+
+/** Shift a hex toward black (t<0) or white (t>0). Mirrors the render-time
+ *  `shadeHex` helpers templates (e.g. Matrix, Blackswan) use to spin sibling
+ *  series colors out of one accent — kept local since this file can't
+ *  cross-import from a template's Remotion component. */
+function shadeHex(hex: string, t: number): string {
+  const v = hex.trim().replace("#", "");
+  const full = v.length === 3 ? v.split("").map((c) => c + c).join("") : v;
+  const n = Number.parseInt(full, 16);
+  if (!Number.isFinite(n) || full.length !== 6) return hex;
+  const mix = (c: number) =>
+    Math.max(0, Math.min(255, Math.round(t >= 0 ? c + (255 - c) * t : c * (1 + t))));
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(mix);
+  return `#${[r, g, b].map((c) => c.toString(16).padStart(2, "0")).join("")}`;
 }
 
 function normalizeChartTableValue(input: unknown): { headers: string[]; rows: string[][] } {
@@ -2400,6 +2423,7 @@ function layoutPropSchemaToFieldDefs(schema: LayoutPropSchema | undefined): Fiel
       step: f.step,
       options: f.options?.map((o) => ({ value: o.value, label: o.label })),
       subFields: f.subFields,
+      accentShade: f.accentShade,
     });
   }
   return out.length ? out : undefined;
@@ -5185,8 +5209,16 @@ export default function SceneEditModal({
                         // colors) would wrongly show the #1E5FD4 blue fallback.
                         const fieldDefaultColor =
                           typeof field.default === "string" ? field.default : undefined;
+                        let accentFallback: string | undefined;
+                        if (fieldDefaultColor === undefined && !field.placeholder && typeof field.accentShade === "number") {
+                          const projectAccent = normalizeColorValue(
+                            project.accent_color || getTemplateConfig(project.template || "default").defaultColors.accent,
+                            "#1E5FD4",
+                          );
+                          accentFallback = field.accentShade === 0 ? projectAccent : shadeHex(projectAccent, field.accentShade);
+                        }
                         const fallbackColor = normalizeColorValue(
-                          fieldDefaultColor ?? field.placeholder ?? "#1E5FD4",
+                          fieldDefaultColor ?? field.placeholder ?? accentFallback ?? "#1E5FD4",
                           "#1E5FD4",
                         );
                         const currentColor = normalizeColorValue(editableLayoutProps[field.key], fallbackColor);
