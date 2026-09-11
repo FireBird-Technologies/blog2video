@@ -354,28 +354,48 @@ export const EndingSocialsV2: React.FC<WhiteboardLayoutProps> = ({
   // sign now occupies the left column rather than the full stage width.
   const fitTitleTarget = titleFontSize ?? (p ? 46 : 43);
   const fitSubtextTarget = descriptionFontSize ?? (p ? 29 : 24);
+  /* ── The copy box, measured rather than guessed ──────────────────────
+     `useFitText` checks ONE element against ONE budget; it has no idea what
+     else shares the board. So two budgets that each "fit" can still burst the
+     box once the padding and the gap between them are counted — which is
+     exactly what happened here: 0.42 + 0.34 of the board, plus 0.1 padding top
+     AND bottom, came to 0.96 of it before the gap was even considered.
+
+     The gap was the invisible part. `gap: "4%"` on a COLUMN resolves against
+     the container's WIDTH, not its height — on a ~990px-wide board that is
+     ~33px of vertical space nothing budgeted for. (The padding below already
+     carries a comment warning about this exact trap for `padding`; the gap
+     slipped through it.) Landscape needed 509px inside a 495px board, portrait
+     549px inside 535px — hence copy spilling past the frame.
+
+     So: derive the space that actually exists, once, and split THAT. */
+  const boardPadYPx = Math.round(signBoardHPx * 0.1);
+  const boardGapPx = Math.round(signBoardHPx * 0.06);
+  const copyInnerHPx = Math.max(1, signBoardHPx - boardPadYPx * 2 - boardGapPx);
   const { px: fitTitlePx } = useFitText(
     fitTitleRef,
     fitTitleTarget,
     titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.4),
     [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
-    /* Budget is a share of the BOARD's own height, not of the frame's — so
-       deepening the board (BOARD_H) actually lets the copy grow into the extra
-       room instead of leaving it empty. Title and subtext take split shares of
-       one box, so a long title and long subtext cannot each pass their own
-       check and still overflow the board together. */
-    Math.round(signBoardHPx * 0.42),
+    /* Shares of the USABLE inner height summing to 0.96, not 1.0. The 4% slack
+       absorbs per-term `Math.round` drift (four roundings can land 1-2px over)
+       and line-height rounding in the browser, so the pair lands inside the box
+       rather than exactly on its edge. */
+    Math.round(copyInnerHPx * 0.54),
   );
   const { px: fitSubtextPx } = useFitText(
     fitSubtextRef,
     fitSubtextTarget,
     descriptionFontSizeIsUserSet ? fitSubtextTarget : Math.round(fitSubtextTarget * 0.5),
     [subtext, fitSubtextTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
-    Math.round(signBoardHPx * 0.34),
+    Math.round(copyInnerHPx * 0.42),
   );
 
 
-  const cardScale = cards.length >= 3 ? 0.62 : cards.length === 2 ? 0.8 : 1;
+  /* Cards stack one per row now, so they no longer compete for horizontal
+     space and do not need to shrink as the count grows. A mild step is kept for
+     three cards only, where the STACK's own height starts to matter. */
+  const cardScale = cards.length >= 3 ? 0.86 : 1;
   const ctaButtonPx = Math.round(
     Math.max(11, Math.min(p ? 50 : 43, fitSubtextTarget * (p ? 1.05 : 1.15)) * cardScale),
   );
@@ -396,6 +416,61 @@ export const EndingSocialsV2: React.FC<WhiteboardLayoutProps> = ({
   const cardBlockPx = Math.round(
     ctaButtonPx * 1.15 + ctaLinkPx * 1.25 + ctaButtonPx * 0.9 + 12,
   );
+  /* Button label auto-fit — ONE fixed hook per card slot (cards cap at 3, via
+     `resolveCtas().slice(0, 3)`), not a hook inside `.map`, since hooks cannot
+     be called conditionally or a variable number of times.
+
+     Without this, a long button label WRAPS (no `nowrap` on that div, by
+     design, so it doesn't force the card wider than its column) to two or more
+     lines at `ctaButtonPx`. `cardBlockPx` above only budgets for one line of
+     button text, so a wrapped label renders the card taller than every other
+     measurement in this file assumes — the CTA stack's own reserved height,
+     the board's push-down offset, the post length — all still think the card
+     is `cardBlockPx` tall. The real, taller card then spills past whichever
+     boundary those numbers were guarding, which is what let a 3-card stack's
+     bottom card overlap the socials footer below the ground line.
+
+     Fitting the label against a ONE-LINE height budget makes the font shrink
+     instead of wrap, so the card's real rendered height stays at what
+     `cardBlockPx` already assumes. */
+  const ctaBtnRef0 = React.useRef<HTMLDivElement>(null);
+  const ctaBtnRef1 = React.useRef<HTMLDivElement>(null);
+  const ctaBtnRef2 = React.useRef<HTMLDivElement>(null);
+  const ctaBtnRefs = [ctaBtnRef0, ctaBtnRef1, ctaBtnRef2] as const;
+  const ctaBtnText0 = cards[0]?.ctaButtonText.trim() || "";
+  const ctaBtnText1 = cards[1]?.ctaButtonText.trim() || "";
+  const ctaBtnText2 = cards[2]?.ctaButtonText.trim() || "";
+  const ctaBtnOneLinePx = Math.round(ctaButtonPx * 1.15 * 1.08);
+  const fitBtn0 = useFitText(
+    ctaBtnRef0,
+    ctaButtonPx,
+    Math.round(ctaButtonPx * 0.55),
+    [ctaBtnText0, ctaButtonPx],
+    ctaBtnOneLinePx,
+  );
+  const fitBtn1 = useFitText(
+    ctaBtnRef1,
+    ctaButtonPx,
+    Math.round(ctaButtonPx * 0.55),
+    [ctaBtnText1, ctaButtonPx],
+    ctaBtnOneLinePx,
+  );
+  const fitBtn2 = useFitText(
+    ctaBtnRef2,
+    ctaButtonPx,
+    Math.round(ctaButtonPx * 0.55),
+    [ctaBtnText2, ctaButtonPx],
+    ctaBtnOneLinePx,
+  );
+  const ctaBtnFits = [fitBtn0, fitBtn1, fitBtn2] as const;
+  /* The STACK's height, not one card's. Cards are one-per-row now, so in
+     portrait (where the stack sits above the board) the space reserved for it
+     has to cover every card plus the gaps between them — using just
+     `cardBlockPx` for a 3-card stack left two cards' worth of height
+     unaccounted for and the top card rendered off the top of the frame. */
+  const ctaStackBlockPx = hasCards
+    ? cardBlockPx * cards.length + (p ? 14 : 18) * Math.max(0, cards.length - 1)
+    : 0;
 
   /* How long each CTA stake is: the drop from the bottom of the card down to
      the ground line.
@@ -425,9 +500,16 @@ export const EndingSocialsV2: React.FC<WhiteboardLayoutProps> = ({
      the post-length derivation read it — expressing it as a percentage in one
      place and a guess in the other is exactly what left the posts short of the
      ground. */
-  const portraitColGapPx = height * 0.14;
+  /* Was 0.14 — a 269px void at 1920 tall. That figure was set when the CTAs sat
+     SIDE BY SIDE in one short row; stacked one per row the block is now three
+     times deeper, so the same gap on top of it pushed the cards to the ceiling
+     and left a dead band between them and the board.
+     Because `signTopOffsetPx` and `signPostLenPx` both derive from this, closing
+     the gap automatically lengthens the board's posts to keep their feet on the
+     same ground line. */
+  const portraitColGapPx = height * 0.05;
   const signTopOffsetPx = p
-    ? stagePadTopPx + cardBlockPx + portraitColGapPx
+    ? stagePadTopPx + ctaStackBlockPx + portraitColGapPx
     : stagePadTopPx;
   /* No cap: the post is exactly the gap between the board's underside and the
      ground, whatever that works out to. In portrait the board's own offset
@@ -437,6 +519,34 @@ export const EndingSocialsV2: React.FC<WhiteboardLayoutProps> = ({
     24,
     stageHeightPx - signTopOffsetPx - signBoardHPx,
   );
+  /* Landscape only: how tall the CTA column's box is, measured down from the
+     stage top (`alignSelf: flex-start` on that column) — which is also where
+     its `justifyContent: flex-end` anchor ends up, i.e. where a lone card
+     sits and where 2nd/3rd cards stack upward FROM.
+
+     A LITTLE PAST the sign column's half height (0.58, not 0.5), not the
+     full thing: the full height put the anchor at the very foot of the sign,
+     right next to the ground and the socials footer below it — a single card
+     already sat low, and each extra card pushed the stack further down
+     toward the footer instead of away from it. The extra 0.08 over an exact
+     half nudges the whole stack down a bit further from centre — enough to
+     clear the stage's top padding with a 3-card stack (`overflow: visible`
+     above lets it extend slightly past this box if it still needs to,
+     instead of clipping) — while staying well clear of the ground. Stopping
+     the box at roughly the MIDDLE puts a lone card near level with the
+     board's centre and gives a growing stack the box's other half — all of
+     it above that middle — to extend upward into, well clear of the ground
+     under normal copy.
+
+     Single-card case: a lone CTA has no stack growing above it, so parking
+     it at the same mid-height anchor as a multi-card stack leaves it looking
+     low relative to the sign board beside it. Halving the anchor puts a lone
+     card's bottom edge halfway between that mid-height position and the
+     stage top, i.e. noticeably higher, without touching the 2/3-card anchor
+     multi-card stacks still rely on. */
+  const CTA_ANCHOR_FROM_TOP_L_BASE = (signBoardHPx + signPostLenPx) * 0.58;
+  const CTA_ANCHOR_FROM_TOP_L =
+    cards.length === 1 ? CTA_ANCHOR_FROM_TOP_L_BASE * 0.5 : CTA_ANCHOR_FROM_TOP_L_BASE;
 
   return (
     <AbsoluteFill style={{ overflow: "hidden", backgroundColor: bgColor, fontFamily: markerFont }}>
@@ -627,7 +737,14 @@ export const EndingSocialsV2: React.FC<WhiteboardLayoutProps> = ({
                instead (as it was) left it floating above the ground and the
                stands ended in mid-air. */
             flex: 1,
-            justifyContent: p ? "flex-end" : "center",
+            /* Portrait uses `column-reverse`, so its main-start is the BOTTOM
+               and main-end is the TOP. `flex-start` packs the row against the
+               bottom (the ground line), letting the CTA stack grow upward from
+               there into the stage's top padding rather than being pushed
+               flush against the literal top of the frame (`flex-end`, which is
+               main-end in a reversed column) and clipping off-screen when the
+               stack has more than one card. */
+            justifyContent: p ? "flex-start" : "center",
           }}
         >
           {/* ── LEFT: signboard on two posts + subtext ──────────────── */}
@@ -712,12 +829,18 @@ export const EndingSocialsV2: React.FC<WhiteboardLayoutProps> = ({
                     flexDirection: "column",
                     alignItems: "center",
                     justifyContent: "center",
-                    gap: "4%",
+                    /* Gap in PX for the same reason the padding is — a
+                       percentage gap on a column resolves against WIDTH, so on
+                       this board `4%` silently ate ~33px of VERTICAL space that
+                       no text budget accounted for, and the copy overflowed.
+                       Both values now feed `copyInnerHPx` above, so the budgets
+                       and the box can no longer disagree. */
+                    gap: `${boardGapPx}px`,
                     /* Vertical padding in PX from the board's own height rather
                        than a percentage: percentage padding resolves against
                        WIDTH, so on a board this wide a single figure gives very
                        different insets vertically and horizontally. */
-                    padding: `${Math.round(signBoardHPx * 0.1)}px 8%`,
+                    padding: `${boardPadYPx}px 8%`,
                     boxSizing: "border-box",
                     opacity: titleOp,
                   }}
@@ -762,13 +885,27 @@ export const EndingSocialsV2: React.FC<WhiteboardLayoutProps> = ({
                     units, and this box's units are stretched by
                     preserveAspectRatio="none" across the whole post, so the
                     filter smears a thin line out of its own region and nothing
-                    draws. */}
+                    draws.
+
+                    `overflow: hidden` — NOT visible. The line is drawn with a
+                    little slack past both ends of its own viewBox (y runs from
+                    -10 to 300 against a 0-300 box) so its rounded caps land
+                    cleanly ON the board's underside and the ground line rather
+                    than a hair short. With `overflow: visible` that slack drew
+                    unclipped: when the board gets pushed down further than the
+                    stage has room for (a tall CTA stack pushes the sign's top
+                    offset down, and `signPostLenPx` bottoms out at its 24px
+                    floor), the post kept drawing at its full un-stretched
+                    length and ran straight through the ground line instead of
+                    stopping at it. Hidden overflow means the post is always
+                    cut off exactly at the ground, however short the computed
+                    length gets, instead of spilling past it. */}
                 <svg
                   style={{
                     width: "100%",
                     height: signPostLenPx,
                     marginTop: -4,
-                    overflow: "visible",
+                    overflow: "hidden",
                     pointerEvents: "none",
                     flexShrink: 0,
                   }}
@@ -822,14 +959,32 @@ export const EndingSocialsV2: React.FC<WhiteboardLayoutProps> = ({
             style={{
               position: "relative",
               display: "flex",
-              flexDirection: "row",
-              /* CENTRE, not bottom-align: the cards have no stakes tying them
-                 to the ground, so they should sit at the vertical middle of the
-                 row — which is the board's own height (see `height` below) —
-                 rather than hanging from its lower edge. */
-              alignItems: "center",
-              justifyContent: "center",
-              gap: p ? "4%" : "6%",
+              /* ONE CARD PER ROW. Side by side, three cards had to share the
+                 column's width and each shrank until its copy was unreadable
+                 (that is what `cardScale` was compensating for). Stacked, every
+                 card gets the full width and keeps its type size. */
+              flexDirection: "column",
+              /* Stretch, not centre: each card should span the column so they
+                 read as a stack of equal signs rather than a ragged pile. */
+              alignItems: "stretch",
+              /* `flex-end` again — the stack's bottom card always sits at the
+                 box's OWN bottom edge, and every extra card stacks upward
+                 from there. What changed is WHERE that bottom edge is: it
+                 used to sit almost on the ground (`signBoardHPx +
+                 signPostLenPx`, minus a thin clearance), so growth had almost
+                 no headroom and one extra card was already crowding the
+                 footer. Now the box's bottom edge sits much higher —
+                 `CTA_ANCHOR_FROM_TOP_L` below, roughly the sign column's
+                 vertical middle — so a single card lands near that middle
+                 (reading as "centred" for the common 1-card case) and a 2nd
+                 or 3rd card stacks purely upward into the tall headroom above
+                 it, never approaching the ground or the socials footer under
+                 normal copy. */
+              justifyContent: "flex-end",
+              /* px, not a percentage — a `%` gap resolves against WIDTH even on
+                 a column, which is the same trap that made the board copy
+                 overflow above. */
+              gap: p ? 14 : 18,
               width: p ? "100%" : "45%",
               /* Height is the BOARD's height, not the whole stage's: the cards
                  should centre against the board beside them, and the stage runs
@@ -845,10 +1000,45 @@ export const EndingSocialsV2: React.FC<WhiteboardLayoutProps> = ({
                  In portrait the CTAs are their own row ABOVE the board, with
                  nothing beside them to centre against, so the height is left to
                  the content. */
-              height: p ? undefined : signBoardHPx + signPostLenPx,
+              /* The box's BOTTOM edge is where the stack anchors
+                 (`justifyContent: flex-end`) and therefore where it starts
+                 growing upward FROM. Matching the sign column's full height
+                 (`signBoardHPx + signPostLenPx`, which reaches all the way to
+                 the ground) put that anchor right ON the ground line: a
+                 single card already sat low, at the very foot of the sign,
+                 and every extra card pushed the stack further down toward
+                 the socials footer instead of up and away from it.
+
+                 `CTA_ANCHOR_FROM_TOP_L` instead stops the box at roughly the
+                 sign column's vertical MIDDLE, so the anchor — and a lone
+                 card — sits at mid-height beside the board, and 2nd/3rd
+                 cards stack upward from there into the headroom above,
+                 nowhere near the ground or the footer under normal copy. */
+              height: p ? undefined : CTA_ANCHOR_FROM_TOP_L,
+              /* NOT `overflow: hidden`. A 3-card stack can genuinely be taller
+                 than this box (the box is only half the sign column's
+                 height), and clipping it here cut the top card's text off at
+                 the frame edge instead of just letting the box's own height
+                 be a soft target. Visible overflow means the stack pushes up
+                 past the box's top edge in that case — still fully on-screen,
+                 just extending into the stage's top padding — rather than
+                 slicing a card in half. */
+              overflow: "visible",
             }}
           >
-            {cards.map((card, idx) => (
+            {/* Reversed: the FIRST card (idx 0) renders LAST in the DOM, which
+               puts it at the bottom of this column — nearest the board — with
+               each following card stacking above it. Rendered in prop order
+               instead, card 0 landed at the far end (top in portrait, where
+               this column sits above the board) and the stack grew DOWN toward
+               the board as more cards were added, the opposite of what a stack
+               anchored at the bottom (`justifyContent: flex-end`) should read
+               as. `idx` below is still the ORIGINAL index (for `cardIn` /
+               `cardWave` staggering and the `key`), only the render order is
+               flipped. */}
+            {[...cards].reverse().map((card, revIdx) => {
+              const idx = cards.length - 1 - revIdx;
+              return (
               <div
                 key={idx}
                 style={{
@@ -861,12 +1051,14 @@ export const EndingSocialsV2: React.FC<WhiteboardLayoutProps> = ({
                      them against the middle of the board beside them. */
                   justifyContent: "center",
                   minWidth: 0,
-                  /* Shrink-to-fit, capped at an even share. With `flex:1 1 0`
-                     each column claimed an equal slice whether or not its card
-                     needed it, so a lone CTA sat off-centre in an over-wide
-                     column. */
-                  flex: "0 1 auto",
-                  maxWidth: `${100 / Math.max(1, cards.length)}%`,
+                  /* FULL WIDTH of the column. The old
+                     `maxWidth: 100/cards.length%` split the width between the
+                     cards — correct when they sat side by side in a row, but
+                     once stacked it capped three cards at a third of the column
+                     each and left two thirds of it empty beside them. Stacked
+                     cards do not share width; each gets all of it. */
+                  flex: "0 0 auto",
+                  width: "100%",
                 }}
               >
                 {/* The card, sitting on top of its post */}
@@ -887,12 +1079,13 @@ export const EndingSocialsV2: React.FC<WhiteboardLayoutProps> = ({
                     borderRadius: 10,
                     backgroundColor: "#FFFFFF",
                     boxShadow: `6px 6px 0px ${accentColor}44`,
-                    /* Sized to its CONTENT, capped at its share of the row.
-                       A single CTA then reads as a compact card centred over
-                       the sign rather than a full-width banner; several share
-                       the row evenly and stay centred as a group, because the
-                       row itself is `justify-content: center`. `width:100%`
-                       stretched one card across the whole column. */
+                    /* Fills its holder, which is the column's full width. The
+                       card used to be sized to its CONTENT so several could
+                       share one row; stacked, that made each card only as wide
+                       as its own label, so a three-card pile came out as three
+                       different widths ragged down the column. One width for
+                       all of them reads as a stack of matching signs. */
+                    width: "100%",
                     maxWidth: "100%",
                     boxSizing: "border-box",
                     /* The card settles onto its post as the post draws in.
@@ -911,15 +1104,19 @@ export const EndingSocialsV2: React.FC<WhiteboardLayoutProps> = ({
                   }}
                 >
                   <div
+                    ref={ctaBtnRefs[idx]}
                     style={{
                       color: ink,
-                      fontSize: ctaButtonPx,
+                      // Auto-fit, shrunk against a ONE-LINE height budget
+                      // (`ctaBtnOneLinePx`) instead of the flat `ctaButtonPx`.
+                      // A long label now shrinks to fit its line rather than
+                      // wrapping to a second one and inflating the card past
+                      // what `cardBlockPx` budgets for elsewhere in this file.
+                      fontSize: ctaBtnFits[idx]?.px ?? ctaButtonPx,
                       fontWeight: 800,
                       fontFamily: markerFont,
                       textAlign: "center",
-                      // NOT nowrap: with one holder per CTA the cards share the
-                      // column, so a long label has to wrap rather than force
-                      // the card wider than its share and clip.
+                      width: "100%",
                       lineHeight: 1.15,
                     }}
                   >
@@ -953,7 +1150,8 @@ export const EndingSocialsV2: React.FC<WhiteboardLayoutProps> = ({
                     made the stage read as a hedge of identical posts and buried
                     the one sign that actually is planted. */}
               </div>
-            ))}
+              );
+            })}
 
           </div>
           ) : null}
@@ -973,9 +1171,20 @@ export const EndingSocialsV2: React.FC<WhiteboardLayoutProps> = ({
           right: 0,
           /* Pinned to the FOOTER of the frame, not floated inside the ground
              strip: the icons are a footer, so they sit at the very bottom with
-             a small margin, below everything planted on the ground. */
+             a small margin, below everything planted on the ground.
+
+             The band has an explicit HEIGHT and bottom-aligns its content. The
+             box grows upward from `bottom`, and `SocialIcons` wraps at
+             `maxPerRow` — so with more socials than fit one row (5 against a
+             maxPerRow of 4 was the reported case) the second row pushed the
+             whole stack up over the ground line and into the figure. Fixing the
+             height and aligning to the end makes a wrapped row grow DOWNWARD
+             inside the band instead. The band still clears the ground line at
+             GROUND_BOTTOM_L/P (0.22 / 0.20). */
           bottom: `${(p ? 7 : 8)}%`,
+          height: `${(p ? 11 : 10)}%`,
           display: "flex",
+          alignItems: "flex-end",
           justifyContent: "center",
           padding: "0 7%",
           boxSizing: "border-box",

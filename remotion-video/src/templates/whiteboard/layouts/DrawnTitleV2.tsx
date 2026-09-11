@@ -550,19 +550,36 @@ export const DrawnTitleV2: React.FC<WhiteboardLayoutProps> = ({
   const fitNoteRef = React.useRef<HTMLDivElement>(null);
   const fitTitleTarget = titleFontSize ?? (p ? 62 : 51);
   const fitNoteTarget = descriptionFontSize ?? (p ? 32 : 27);
+  /* ── The copy box, measured rather than guessed ──────────────────────
+     `useFitText` checks ONE element against ONE budget and cannot know what
+     else shares the board, so two budgets that each pass can still overflow it
+     together. Here 0.55 + 0.27 of the board left only 0.18 for padding — but
+     the copy box below pads `4%` and gaps `2.5%`, and BOTH resolve against the
+     container's WIDTH, not its height. On an ~1536px-wide board that is ~123px
+     of vertical space unaccounted for: landscape needed 530px inside a 497px
+     board, so long copy spilled past the frame.
+
+     Derive the usable height once, from the same px values the box uses, and
+     split that. */
+  const boardPadYPx = Math.round(boardH * (p ? 0.06 : 0.05));
+  const boardGapPx = Math.round(boardH * (p ? 0.04 : 0.035));
+  const copyInnerHPx = Math.max(1, boardH - boardPadYPx * 2 - boardGapPx);
   const { px: fitTitlePx } = useFitText(
     fitTitleRef,
     fitTitleTarget,
     titleFontSizeIsUserSet ? fitTitleTarget : Math.round(fitTitleTarget * 0.4),
     [title, fitTitleTarget, titleFontSizeIsUserSet, p, height],
-    Math.round(boardH * 0.55),
+    /* Shares of the USABLE inner height summing to 0.96, not 1.0. The 4% slack
+       absorbs per-term `Math.round` drift and browser line-height rounding, so
+       the pair lands inside the box rather than exactly on its edge. */
+    Math.round(copyInnerHPx * 0.64),
   );
   const { px: fitNotePx } = useFitText(
     fitNoteRef,
     fitNoteTarget,
     descriptionFontSizeIsUserSet ? fitNoteTarget : Math.round(fitNoteTarget * 0.5),
     [narration, fitNoteTarget, descriptionFontSizeIsUserSet, fitTitlePx, p, height],
-    Math.round(boardH * 0.27),
+    Math.round(copyInnerHPx * 0.32),
   );
 
   /* The board frame svg, its copy box and the post must all move as ONE rigid
@@ -747,8 +764,14 @@ export const DrawnTitleV2: React.FC<WhiteboardLayoutProps> = ({
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          gap: p ? "3%" : "2.5%",
-          padding: p ? "5% 7%" : "4% 6%",
+          /* Vertical gap and padding in PX, horizontal stays a percentage: a
+             percentage resolves against WIDTH for BOTH axes, so on a board far
+             wider than it is tall the vertical insets came out much larger than
+             intended and the text budgets above could not see them. These are
+             the same values `copyInnerHPx` subtracts, so the box and the
+             budgets can no longer disagree. */
+          gap: `${boardGapPx}px`,
+          padding: `${boardPadYPx}px ${p ? "7%" : "6%"}`,
           boxSizing: "border-box",
           textAlign: "center",
           zIndex: 3,

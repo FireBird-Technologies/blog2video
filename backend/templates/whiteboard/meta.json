@@ -3,6 +3,7 @@
   "name": "Stick Man",
   "new_template": false,
   "popular_template": true,
+  "new_scenes": true,
   "description": "Storytelling-first template with hand-drawn marker motion, line-draw text reveals, and stick-figure visual metaphors.",
   "genres": [
     "Technology",
