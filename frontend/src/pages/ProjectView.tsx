@@ -78,6 +78,7 @@ import { useNoticeModal } from "../contexts/NoticeModalContext";
 import { trackGoogleAdsPurchaseConversion } from "../gtag";
 import StatusBadge from "../components/StatusBadge";
 import ScriptPanel from "../components/ScriptPanel";
+import SceneGroupAccordion, { SCENE_GROUP_SIZE } from "../components/SceneGroupAccordion";
 import { StockFootageModal, STOCK_FOOTAGE_CREDIT_COST } from "../components/StockFootageModal";
 import { StockFootageVerifyModal } from "../components/StockFootageVerifyModal";
 import { StockFootageVerifyModalLegacy } from "../components/StockFootageVerifyModalLegacy";
@@ -1294,8 +1295,11 @@ export default function ProjectView() {
     project?.scenes?.[0]?.id ?? null
   );
   // Scenes tab: scenes are clustered into groups of 5, accordion-style (one group open at a time).
-  const SCENE_GROUP_SIZE = 5;
   const [expandedGroupIndex, setExpandedGroupIndex] = useState<number | null>(0);
+  // Audio tab: independent accordion over the same group-of-5 scenes.
+  const [expandedAudioGroupIndex, setExpandedAudioGroupIndex] = useState<number | null>(0);
+  // Images tab: independent accordion over the same group-of-5 scenes.
+  const [expandedImagesGroupIndex, setExpandedImagesGroupIndex] = useState<number | null>(0);
   const firstSceneAutoExpandedRef = useRef(false);
   useEffect(() => {
     if (firstSceneAutoExpandedRef.current) return;
@@ -6759,62 +6763,25 @@ export default function ProjectView() {
                       <p className="mt-3 text-sm font-medium text-gray-700">Saving order…</p>
                     </div>
                   )}
-                  {(() => {
-                    const sceneGroups: { scene: Scene; idx: number }[][] = [];
-                    project.scenes.forEach((scene, idx) => {
-                      const groupIdx = Math.floor(idx / SCENE_GROUP_SIZE);
-                      if (!sceneGroups[groupIdx]) sceneGroups[groupIdx] = [];
-                      sceneGroups[groupIdx].push({ scene, idx });
-                    });
-                    return sceneGroups.map((groupScenes, groupIdx) => {
-                      const isGroupExpanded = expandedGroupIndex === groupIdx;
-                      const rangeStart = groupScenes[0].scene.order;
-                      const rangeEnd = groupScenes[groupScenes.length - 1].scene.order;
-                      return (
-                        <div key={groupIdx} className="mb-2">
-                          <div
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => {
-                              if (isGroupExpanded) {
-                                setExpandedGroupIndex(null);
-                                return;
-                              }
-                              setExpandedGroupIndex(groupIdx);
-                              if (
-                                expandedScene != null &&
-                                !groupScenes.some(({ scene }) => scene.id === expandedScene)
-                              ) {
-                                setExpandedScene(null);
-                              }
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault();
-                                (e.currentTarget as HTMLElement).click();
-                              }
-                            }}
-                            className="w-full flex items-center justify-between gap-2 glass-card px-4 py-3 border-l-2 border-l-purple-300 hover:border-l-purple-500 transition-all rounded-lg border cursor-pointer select-none"
-                          >
-                            <span className="flex items-baseline gap-2">
-                              <span className="text-sm font-medium text-gray-900">
-                                Scenes {rangeStart}–{rangeEnd}
-                              </span>
-                              {!isGroupExpanded && (
-                                <span className="text-xs text-gray-400">Expand to view scenes</span>
-                              )}
-                            </span>
-                            <svg
-                              className={`w-4 h-4 text-gray-400 transition-transform ${isGroupExpanded ? "rotate-180" : ""}`}
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </div>
-                          {isGroupExpanded && (
-                  <div className="space-y-2 mt-2 ml-4 max-h-[70vh] overflow-y-auto pr-1">
+                  <SceneGroupAccordion
+                    items={project.scenes.map((scene, idx) => ({ scene, idx }))}
+                    getOrder={({ scene }) => scene.order}
+                    expandedGroupIndex={expandedGroupIndex}
+                    onToggleGroup={(groupIdx, groupScenes) => {
+                      if (expandedGroupIndex === groupIdx) {
+                        setExpandedGroupIndex(null);
+                        return;
+                      }
+                      setExpandedGroupIndex(groupIdx);
+                      if (
+                        expandedScene != null &&
+                        !groupScenes.some(({ scene }) => scene.id === expandedScene)
+                      ) {
+                        setExpandedScene(null);
+                      }
+                    }}
+                    renderGroupBody={(groupScenes, groupIdx) => (
+                      <>
                   {groupScenes.map(({ scene, idx }) => {
                     const isExpanded = expandedScene === scene.id;
                     const sceneImages = sceneImageMap[idx] || [];
@@ -7934,18 +7901,15 @@ export default function ProjectView() {
                     );
                   })}
                   {/* Placeholder for an append (position past the last scene), shown at the end of the last group. */}
-                  {groupIdx === sceneGroups.length - 1 &&
+                  {groupScenes.some(({ idx }) => idx === project.scenes.length - 1) &&
                     addSceneRunning &&
                     addScenePosition != null &&
                     addScenePosition > project.scenes.length && (
                       <AddScenePlaceholderRow />
                     )}
-                  </div>
-                          )}
-                        </div>
-                      );
-                    });
-                  })()}
+                      </>
+                    )}
+                  />
                 </div>
 
                 <input
@@ -9197,8 +9161,14 @@ export default function ProjectView() {
                   Images will appear here once scraped.
                 </p>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                  {mediaAssets.map((asset) => {
+                (() => {
+                  const usedAssetIds = new Set<number>();
+                  Object.values(sceneImageAssetsMap).forEach((sceneItems) =>
+                    sceneItems.forEach((item) => usedAssetIds.add(item.asset.id)),
+                  );
+                  const unassignedAssets = mediaAssets.filter((asset) => !usedAssetIds.has(asset.id));
+
+                  const renderMediaCard = (asset: import("../api/client").Asset) => {
                     const url = resolveAssetUrl(asset, project.id);
                     const isDeleting = deletingImageAssetId === asset.id;
                     const isClip = asset.asset_type === "video";
@@ -9273,8 +9243,55 @@ export default function ProjectView() {
                         </button>
                       </div>
                     );
-                  })}
-                </div>
+                  };
+
+                  return (
+                    <>
+                      <SceneGroupAccordion
+                        items={project.scenes}
+                        getOrder={(scene) => scene.order}
+                        expandedGroupIndex={expandedImagesGroupIndex}
+                        onToggleGroup={(groupIdx) =>
+                          setExpandedImagesGroupIndex(expandedImagesGroupIndex === groupIdx ? null : groupIdx)
+                        }
+                        renderGroupBody={(groupScenes) => (
+                          <>
+                            {groupScenes.map((scene, i) => {
+                              const idx = project.scenes.findIndex((s) => s.id === scene.id);
+                              const sceneAssets = sceneImageAssetsMap[idx] || [];
+                              return (
+                                <div key={scene.id} className={i > 0 ? "pt-3 mt-3 border-t border-gray-100" : ""}>
+                                  <p className="text-xs font-medium text-gray-600 mb-2">
+                                    Scene {scene.order}
+                                    {scene.title ? ` — ${scene.title}` : ""}
+                                  </p>
+                                  {sceneAssets.length === 0 ? (
+                                    <p className="text-xs text-gray-400 italic py-4">No image assigned</p>
+                                  ) : (
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                      {sceneAssets.map(({ asset }) => renderMediaCard(asset))}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </>
+                        )}
+                      />
+
+                      {unassignedAssets.length > 0 && (
+                        <div className="mt-4">
+                          <p className="text-xs font-medium text-gray-600 mb-2">
+                            Unassigned <span className="text-gray-400 font-normal">— not used in any scene</span>
+                          </p>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                            {unassignedAssets.map((asset) => renderMediaCard(asset))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()
               )}
             </div>
 
@@ -9553,25 +9570,35 @@ export default function ProjectView() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  {project.scenes.map((scene) => (
-                    <AudioRow
-                      key={scene.id}
-                      scene={scene}
-                      projectId={projectId}
-                      audioAssets={audioAssets}
-                      hasBgm={!!project.bgm_track_id}
-                      bgmTrackUrl={project.bgm_track_url ?? null}
-                      projectBgmVolume={project.bgm_volume ?? 0.10}
-                      onBgmSaved={loadProject}
-                      pendingUrl={pendingRecordings.get(scene.id)?.url ?? null}
-                      onRecord={() => setRecordModalScene(scene)}
-                      onDiscard={() => handleDiscardRecording(scene.id)}
-                      onSaveRecording={() => handleSaveRecording(scene.id)}
-                      savingRecording={savingRecordingSceneId === scene.id}
-                    />
-                  ))}
-                </div>
+                <SceneGroupAccordion
+                  items={project.scenes}
+                  getOrder={(scene) => scene.order}
+                  expandedGroupIndex={expandedAudioGroupIndex}
+                  onToggleGroup={(groupIdx) =>
+                    setExpandedAudioGroupIndex(expandedAudioGroupIndex === groupIdx ? null : groupIdx)
+                  }
+                  renderGroupBody={(groupScenes) => (
+                    <>
+                      {groupScenes.map((scene) => (
+                        <AudioRow
+                          key={scene.id}
+                          scene={scene}
+                          projectId={projectId}
+                          audioAssets={audioAssets}
+                          hasBgm={!!project.bgm_track_id}
+                          bgmTrackUrl={project.bgm_track_url ?? null}
+                          projectBgmVolume={project.bgm_volume ?? 0.10}
+                          onBgmSaved={loadProject}
+                          pendingUrl={pendingRecordings.get(scene.id)?.url ?? null}
+                          onRecord={() => setRecordModalScene(scene)}
+                          onDiscard={() => handleDiscardRecording(scene.id)}
+                          onSaveRecording={() => handleSaveRecording(scene.id)}
+                          savingRecording={savingRecordingSceneId === scene.id}
+                        />
+                      ))}
+                    </>
+                  )}
+                />
               </div>
             )}
           </div>

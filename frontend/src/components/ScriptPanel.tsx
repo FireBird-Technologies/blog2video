@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Scene } from "../api/client";
 import { updateScene } from "../api/projects";
+import SceneGroupAccordion from "./SceneGroupAccordion";
 
 interface Props {
   scenes: Scene[];
@@ -47,6 +48,7 @@ export default function ScriptPanel({
     display_text: "",
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [expandedGroupIndex, setExpandedGroupIndex] = useState<number | null>(0);
 
   const isDisabled = disabled || isRegenerating;
 
@@ -136,8 +138,16 @@ export default function ScriptPanel({
       </div>
 
       {/* Scene cards */}
-      <div className="space-y-2">
-        {scenes.map((scene) => {
+      <SceneGroupAccordion
+        items={scenes}
+        getOrder={(scene) => scene.order}
+        expandedGroupIndex={expandedGroupIndex}
+        onToggleGroup={(groupIdx) =>
+          setExpandedGroupIndex(expandedGroupIndex === groupIdx ? null : groupIdx)
+        }
+        renderGroupBody={(groupScenes) => (
+          <>
+        {groupScenes.map((scene) => {
           const layout = resolveLayout(scene);
           const isEditing = editingSceneId === scene.id;
 
@@ -249,7 +259,9 @@ export default function ScriptPanel({
             </div>
           );
         })}
-      </div>
+          </>
+        )}
+      />
     </div>
   );
 }
