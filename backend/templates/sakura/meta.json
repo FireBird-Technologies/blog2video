@@ -92,6 +92,19 @@
         }
       ]
     },
+    "sakura_intro__v2": {
+      "label": "Sakura Intro — Blooming Tree",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 132
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 67
+        }
+      }
+    },
     "sakura_section": {
       "label": "Content Section",
       "scene_defaults": {
@@ -564,6 +577,20 @@
         }
       ]
     },
+    "ending_socials__v2": {
+      "label": "Outro / Socials — Tsukimi Farewell",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 108,
+          "landscape": 96
+        },
+        "descriptionFontSize": {
+          "portrait": 41,
+          "landscape": 43
+        },
+        "socialHandles": []
+      }
+    },
     "sakura_data_visualization": {
       "label": "Data Visualisation",
       "defaults": {
@@ -813,7 +840,42 @@
           "type": "string"
         }
       ]
+    },
+    "sakura_text_narration__v2": {
+      "label": "Text Narration — Lantern Grove",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 84,
+          "landscape": 87
+        },
+        "descriptionFontSize": {
+          "portrait": 42,
+          "landscape": 39
+        }
+      }
     }
+  },
+  "layout_variants": {
+    "sakura_intro": [
+      "sakura_intro",
+      "sakura_intro__v2"
+    ],
+    "sakura_text_narration": [
+      "sakura_text_narration",
+      "sakura_text_narration__v2"
+    ],
+    "ending_socials": [
+      "ending_socials",
+      "ending_socials__v2"
+    ]
+  },
+  "layout_variant_labels": {
+    "sakura_intro": "Classic",
+    "sakura_intro__v2": "Blooming Tree",
+    "sakura_text_narration": "Classic",
+    "sakura_text_narration__v2": "Lantern Grove",
+    "ending_socials": "Classic",
+    "ending_socials__v2": "Tsukimi Farewell"
   },
   "layouts_without_image": [
     "sakura_quote",
