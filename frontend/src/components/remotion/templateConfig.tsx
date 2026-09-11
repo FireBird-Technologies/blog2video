@@ -279,7 +279,6 @@ const BLACKSWAN_LAYOUTS = new Set([
   "pulse_metric",
   "signal_split",
   "dive_insight",
-  "dive_insight__v2",
   "reactor_code",
   "flight_path",
   "data_visualisation",

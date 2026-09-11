@@ -454,9 +454,7 @@
         },
         "chartYAxisTicks": [],
         "subtitle": "Cycle",
-        "yAxisLabel": "Magnitude",
-        "barPrimaryColor": "#00FF41",
-        "barSecondaryColor": "#00B82E"
+        "yAxisLabel": "Magnitude"
       },
       "scene_defaults": {
         "title": "Signal analysis",
@@ -532,12 +530,17 @@
         },
         {
           "key": "barPrimaryColor",
-          "label": "Series color 1",
+          "label": "Series color 1 (defaults to accent)",
           "type": "color"
         },
         {
           "key": "barSecondaryColor",
-          "label": "Series color 2",
+          "label": "Series color 2 (defaults to accent shade)",
+          "type": "color"
+        },
+        {
+          "key": "barTertiaryColor",
+          "label": "Series color 3",
           "type": "color"
         }
       ]

@@ -20,11 +20,11 @@ const PL = 18000;
  * Removed HERE and not in `swanPaths.ts`, for two reasons:
  *   - that file is auto-generated and marked "do not hand-edit"; a hand edit
  *     would be silently undone the next time it is regenerated.
- *   - `DiveInsightV2` imports `SWAN_PM` raw and resamples it for its dissolve
- *     particles, and its `parseCubicPath` only understands `M`/`C`/`Z`. The
+ *   - `SwanParticles` imports `SWAN_PM` raw and resamples it for its assemble /
+ *     dissolve motes, and its `parseCubicPath` only understands `M`/`C`/`Z`. The
  *     bridges below are `L` commands, which that parser would skip — mangling
  *     the outline it traces. Keeping the trim local to this component leaves
- *     that scene reading exactly the path it always has.
+ *     those particles reading exactly the path they always have.
  *
  * The runs are identified by GEOMETRY, not by hardcoded indices: any cubic
  * lying wholly below `BASE_Y` is dropped. Indices would rot the moment the

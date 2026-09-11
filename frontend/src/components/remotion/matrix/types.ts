@@ -73,6 +73,7 @@ export interface MatrixLayoutProps {
   /** Chart color overrides. */
   barPrimaryColor?: string;
   barSecondaryColor?: string;
+  barTertiaryColor?: string;
 
   // ── matrix_ticker (data table) — uses the shared tickerTable contract ──
   tickerTable?: { headers: string[]; rows: string[][] };

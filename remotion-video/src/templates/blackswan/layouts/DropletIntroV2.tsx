@@ -5,6 +5,7 @@ import { Swan } from "../components/Swan";
 import type { BlackswanLayoutProps } from "../types";
 import { neonTitleTubeStyle, StarField } from "./scenePrimitives";
 import { blackswanNeonPalette } from "./blackswanAccent";
+import { SwanParticles, SWAN_VB_H, SWAN_VB_W } from "../components/SwanParticles";
 
 /**
  * droplet_intro__v2 — "Open Water".
@@ -191,7 +192,7 @@ export const DropletIntroV2: React.FC<BlackswanLayoutProps> = (props) => {
   } = props;
 
   const frame = useCurrentFrame();
-  const { fps, height } = useVideoConfig();
+  const { fps, durationInFrames, height } = useVideoConfig();
   const t = frame / fps;
   const portrait = aspectRatio === "portrait";
   const pal = useMemo(() => blackswanNeonPalette(accentColor), [accentColor]);
@@ -238,12 +239,69 @@ export const DropletIntroV2: React.FC<BlackswanLayoutProps> = (props) => {
   // (the horizon rules it draws when `water` is on). Aligning that fraction to
   // the pond's waterline is what puts the bird ON the water rather than beside
   // it. `water={false}` as everywhere else — the pond supplies the water.
+  // ── Particle assemble / dissolve ──────────────────────────────────────
+  // The swan forms out of motes at the head of the scene and comes apart into
+  // them at the tail. Both windows are GUARDED: `interpolate()` throws on a
+  // non-ascending range, which a
+  // pathologically short scene would otherwise produce, and a start that is not
+  // floored lets the swan dissolve before it has finished arriving.
+  const ASSEMBLE_FRAMES = Math.round(fps * 1.4);
+  const assembleEnd = Math.max(1, Math.min(ASSEMBLE_FRAMES, Math.round(durationInFrames * 0.4)));
+  /**
+   * 0 → 1 as the motes settle onto the outline.
+   *
+   * Both modes take progress in the SAME direction: `SwanParticles` plays its
+   * one dissolve timeline backwards internally for `assemble`, so a call site
+   * that also inverted would cancel it out and scatter the bird at the top of
+   * the scene instead of forming it.
+   */
+  const assembleZ = interpolate(frame, [0, assembleEnd], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  // Leave room for the outgoing transition so the last mote is not cut mid-air.
+  //
+  // The window has to CLOSE well before the scene does. A mote's own opacity
+  // ramps back to 0 as its `q` reaches 1, so a dissolve that finishes on the
+  // final frame spends its last stretch drawing nothing — the bird vanishes and
+  // the frame sits empty. Ending it around three quarters through leaves the
+  // scatter visible and gives the scene a beat of open water before the cut.
+  const TRANSITION_RESERVE = 15;
+  const dissolveEnd = Math.max(assembleEnd + 2, Math.round(durationInFrames * 0.78));
+  const dissolveStartRaw = Math.max(assembleEnd + 1, dissolveEnd - Math.round(fps * 1.6));
+  const dissolveStart = Math.min(dissolveStartRaw, dissolveEnd - 1);
+  /** 0 → 1 as the bird comes apart. */
+  const dissolveZ = interpolate(frame, [dissolveStart, dissolveEnd], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  // The solid bird is only present between the two particle phases, so motes and
+  // outline never both read at full strength.
+  //
+  // Both terms take progress in the same direction now: `assembleZ` rises 0→1 as
+  // the motes arrive (so it IS the solid bird's fade-in), while `dissolveZ`
+  // rises 0→1 as they leave (so `1 - dissolveZ` is its fade-out).
+  const swanSolid = Math.min(assembleZ, 1 - dissolveZ);
+
   const swanSize = portrait ? 1150 : 980;
   const swanH = (swanSize * 480) / 700;
   const waterlinePx = (band.waterline / VB_H) * height;
   // Ride the swell: sample the crest the swan sits on, at frame centre.
   const bob = ((strandSurfaceY(strands[1], t, band.waterline, VB_W / 2) - band.waterline) / VB_H) * height * 0.5;
-  const swanTop = waterlinePx - swanH * (357 / 480) + bob;
+  /**
+   * How far the bird is pushed DOWN into the swell, as a fraction of its own
+   * height.
+   *
+   * `357 / 480` alone puts the swan's designed waterline exactly on the pond's,
+   * which floats it on the surface. Sinking it by a further slice seats the hull
+   * in the water — and because the gradient above fades out well before the
+   * body's base, the submerged part is also the faded part, so the two read as
+   * one effect rather than a masked cutout sitting on a line.
+   */
+  const SWAN_SUBMERGE = 0.035;
+  const swanTop = waterlinePx - swanH * (357 / 480 - SWAN_SUBMERGE) + bob;
 
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor, overflow: "hidden" }}>
@@ -314,21 +372,75 @@ export const DropletIntroV2: React.FC<BlackswanLayoutProps> = (props) => {
         </g>
       </svg>
 
-      {/* ── Swan, riding the waterline ──────────────────────────────────── */}
+      {/* ── Swan, riding the waterline ────────────────────────────────────
+          Two layers share one box: the solid bird, and the particle field that
+          forms it and later takes it apart. Both sit in the same 700×480 space
+          (`SwanParticles` pre-transforms its samples into `Swan`'s own viewBox),
+          so the motes land exactly on the outline with no alignment maths. */}
       <div
         style={{
           position: "absolute",
           left: "50%",
           top: swanTop,
           transform: "translateX(-50%)",
-          opacity: swanOp,
+          // NO `swanOp` here. It ramps over t 0.5→1.4s, i.e. frames 15→42, which
+          // is precisely the assemble window — gating the wrapper multiplied the
+          // incoming motes to zero and the whole intro effect was invisible.
+          // The solid bird carries its own fade via `swanSolid` below; the
+          // particles must not inherit one.
+          width: swanSize,
+          height: swanH,
         }}
       >
-        {/* `trimBaseRules`: this scene puts the swan on a live water surface,
-            where the two flat rules along the base of the traced outline read
-            as stray lines lying under the bird. Scoped to this layout — every
-            other blackswan scene keeps the shape it has always drawn. */}
-        <Swan size={swanSize} water={false} reflection={false} trimBaseRules uid="div2-swan" accentColor={accentColor} />
+        {/* The BASE of the bird fades into the water.
+            `Swan`'s 700×480 box puts its designed waterline at y=357, i.e. 74.4%
+            down — so the mask holds full opacity to just above that and is gone
+            by the time it reaches it, which reads as the hull sitting in the
+            swell rather than on top of it. Applied to this wrapper only: the
+            shared `Swan` component is untouched, so the six other blackswan
+            scenes that mount it are unaffected. */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            // The solid bird keeps the scene's original entrance fade, on top of
+            // the particle cross-fade.
+            opacity: swanSolid * swanOp,
+            maskImage:
+              "linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 60%, rgba(0,0,0,0.45) 69%, rgba(0,0,0,0.08) 75%, rgba(0,0,0,0) 79%)",
+            WebkitMaskImage:
+              "linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 60%, rgba(0,0,0,0.45) 69%, rgba(0,0,0,0.08) 75%, rgba(0,0,0,0) 79%)",
+          }}
+        >
+          {/* `trimBaseRules`: this scene puts the swan on a live water surface,
+              where the two flat rules along the base of the traced outline read
+              as stray lines lying under the bird. Scoped to this layout — every
+              other blackswan scene keeps the shape it has always drawn. */}
+          <Swan size={swanSize} water={false} reflection={false} trimBaseRules uid="div2-swan" accentColor={accentColor} />
+        </div>
+
+        {/* Motes: converging at the head of the scene, scattering at the tail.
+            Carries the same base gradient, so a particle low on the body fades
+            into the water exactly as the outline does. */}
+        <svg
+          viewBox={`0 0 ${SWAN_VB_W} ${SWAN_VB_H}`}
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            overflow: "visible",
+            pointerEvents: "none",
+            maskImage:
+              "linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 60%, rgba(0,0,0,0.45) 69%, rgba(0,0,0,0.08) 75%, rgba(0,0,0,0) 79%)",
+            WebkitMaskImage:
+              "linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 60%, rgba(0,0,0,0.45) 69%, rgba(0,0,0,0.08) 75%, rgba(0,0,0,0) 79%)",
+          }}
+          aria-hidden
+        >
+          <SwanParticles dz={assembleZ} pal={pal} mode="assemble" uid="div2-in" />
+          <SwanParticles dz={dissolveZ} pal={pal} mode="dissolve" uid="div2-out" />
+        </svg>
       </div>
 
       {/* ── Copy: title and narration together at the top ───────────────── */}

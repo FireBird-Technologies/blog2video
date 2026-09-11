@@ -12,7 +12,6 @@ import { SignalSplit } from "./SignalSplit";
 import { DropletIntroV2 } from "./DropletIntroV2";
 import { NeonNarrativeV2 } from "./NeonNarrativeV2";
 import { ArcFeaturesV2 } from "./ArcFeaturesV2";
-import { DiveInsightV2 } from "./DiveInsightV2";
 import type { BlackswanLayoutProps, BlackswanLayoutType } from "../types";
 
 export type { BlackswanLayoutType, BlackswanLayoutProps };
@@ -37,5 +36,4 @@ export const BLACKSWAN_LAYOUT_REGISTRY: Record<
   droplet_intro__v2: DropletIntroV2,
   neon_narrative__v2: NeonNarrativeV2,
   arc_features__v2: ArcFeaturesV2,
-  dive_insight__v2: DiveInsightV2,
 };

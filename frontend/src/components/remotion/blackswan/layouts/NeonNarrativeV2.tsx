@@ -1,7 +1,6 @@
 import React, { useMemo } from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { useFitText } from "../components/useFitText";
-import { Swan } from "../components/Swan";
 import type { BlackswanLayoutProps } from "../types";
 import { neonTitleTubeStyle, StarField } from "./scenePrimitives";
 import { blackswanNeonPalette, rgbaFromHex } from "./blackswanAccent";
@@ -296,8 +295,8 @@ export const NeonNarrativeV2: React.FC<BlackswanLayoutProps> = (props) => {
   // matches the literal token `p` with bare integer literals. Keep this exact
   // shape — no `portrait ? …`, no arithmetic inside the ternary — or saving
   // typography from the editor fails with "No matching font-size defaults".
-  const titleTarget = titleFontSize ?? (p ? 93 : 77);
-  const descTarget = descriptionFontSize ?? (p ? 50 : 38);
+  const titleTarget = titleFontSize ?? (p ? 102 : 93);
+  const descTarget = descriptionFontSize ?? (p ? 55 : 50);
   const titleRef = React.useRef<HTMLHeadingElement>(null);
   const descRef = React.useRef<HTMLDivElement>(null);
   // Budgets are tighter than the base's (0.18/0.24 and 0.30/0.42): the swan
@@ -319,7 +318,6 @@ export const NeonNarrativeV2: React.FC<BlackswanLayoutProps> = (props) => {
   );
 
   const marbleOp = interpolate(frame, [0, 25], [0, 1], { extrapolateRight: "clamp" });
-  const swanOp = interpolate(frame, [8, 38], [0, 1], { extrapolateRight: "clamp" });
   const eyebrowOp = interpolate(frame, [0, 20], [0, 1], { extrapolateRight: "clamp" });
   const titleOp = interpolate(frame, [10, 35], [0, 1], { extrapolateRight: "clamp" });
   const titleY = interpolate(frame, [10, 35], [14, 0], { extrapolateRight: "clamp" });
@@ -328,25 +326,6 @@ export const NeonNarrativeV2: React.FC<BlackswanLayoutProps> = (props) => {
 
   const blocks = narrationBlocks(narration);
 
-  // Two of them, and they are a top band rather than the base's single hero
-  // swan, so each is far smaller than the base's 900/1050.
-  // Portrait runs the pair larger than landscape in absolute px: the 9:16 frame
-  // has height to spare and the swans are the only thing occupying its upper
-  // two thirds, so the landscape size reads as small against all that space.
-  // Portrait is width-limited, landscape is not. Size and gap are ONE decision:
-  // the Swan box is far wider than the bird inside it (the glyph fills ~49% of
-  // the 700-wide viewBox) AND the svg is `overflow: visible` with a wide glow
-  // filter, so neither the box nor the path alone predicts where the lit bird
-  // actually lands.
-  //
-  // These numbers are therefore set from OBSERVED renders, not calculated:
-  //   860 / -280  clipped both edges
-  //   720 / -120  fit
-  //   640 / -160  fit, with visible room to spare
-  // 760 / -240 steps up inside that bracket — larger and closer than 640/-160,
-  // still below the size that was seen to clip. If it clips, step back toward
-  // 720; do not trust a computed margin here.
-  const swanSize = p ? 760 : 880;
 
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor, overflow: "hidden" }}>
@@ -370,11 +349,12 @@ export const NeonNarrativeV2: React.FC<BlackswanLayoutProps> = (props) => {
         <StarField accentColor={accentColor} />
       </div>
 
-      {/* ── Swans on top, copy beneath ──────────────────────────────────────
-          One column in normal flow, so the space left for the copy is whatever
-          the swan row does not take. Text is LAST in the DOM: everything here
-          is z-index auto, so paint order is DOM order and the copy stays on
-          top of the artwork. */}
+      {/* ── Copy, centred in the frame ──────────────────────────────────────
+          The facing swan pair that used to sit above this block is gone, and
+          with it the `space-between` scaffolding that pinned the row to the top
+          and the text to the bottom. A single centred child is all that is left,
+          so the copy is simply centred — the same treatment in both aspect
+          ratios, with the marble field carrying the frame on its own. */}
       <div
         style={{
           position: "absolute",
@@ -382,64 +362,13 @@ export const NeonNarrativeV2: React.FC<BlackswanLayoutProps> = (props) => {
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          // Swan row pinned to the top, copy block pinned to the bottom, open
-          // marble between them.
-          justifyContent: "space-between",
-          // The bottom padding is what lifts the copy off the floor: under
-          // `space-between` the text block sits against this inset, so growing
-          // it moves the whole group upward.
-          // The bottom padding is what lifts the copy off the floor: under
-          // `space-between` the text block sits against this inset, so growing
-          // it moves the whole group upward. Portrait needs far more of it —
-          // the 9:16 frame is tall, and the player's own controls overlay the
-          // bottom of it, which was clipping the last narration line.
-          padding: p ? "72px 44px 360px" : "48px 96px 132px",
+          justifyContent: "center",
+          padding: p ? "72px 44px" : "48px 96px",
           pointerEvents: "none",
         }}
       >
-        {/* The facing pair. `Swan` has no mirror prop — this is the template's
-            first mirrored figure — so the right one is flipped on its wrapper.
-            The transform order is load-bearing: CSS applies right-to-left, so
-            this mirrors THEN centres. Writing `scaleX(-1) translate(...)` would
-            mirror the translation too and throw the swan a full width sideways.
-
-            The two uids MUST differ: `uid` is the sole namespace for the swan's
-            six filter/clip ids, and two instances sharing one would silently
-            make the second reuse the first's filters — which looks almost
-            right, so it would ship unnoticed. */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-end",
-            justifyContent: "center",
-            // Portrait overlaps the boxes: each Swan box carries empty padding
-            // on its facing side (the glyph fills only ~49% of the 700-wide
-            // viewBox), so a negative gap closes dead space rather than
-            // bringing the drawn birds together.
-            //
-            // Paired with `swanSize` 760 above — see the note there. These two
-            // move together, and only against what a render actually shows.
-            gap: p ? -240 : 24,
-            flexShrink: 0,
-            // The row is the FIRST child under `space-between`, so it sits
-            // against the container's top inset. A margin here is what walks
-            // the pair down the frame; portrait only, since the 9:16 frame has
-            // the headroom and landscape does not.
-            marginTop: p ? 90 : 0,
-            opacity: swanOp,
-          }}
-        >
-          <div style={{ display: "block" }}>
-            <Swan size={swanSize} water={false} reflection={false} uid="nnv2-swan-l" accentColor={accentColor} />
-          </div>
-          <div style={{ display: "block", transform: "scaleX(-1)" }}>
-            <Swan size={swanSize} water={false} reflection={false} uid="nnv2-swan-r" accentColor={accentColor} />
-          </div>
-        </div>
-
         {/* Eyebrow + title + rule + narration travel together as ONE block, so
-            `space-between` puts the whole group at the bottom rather than
-            spreading the four apart down the frame. */}
+            the four stay grouped rather than spreading down the frame. */}
         <div
           style={{
             display: "flex",

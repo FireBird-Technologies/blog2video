@@ -13,8 +13,7 @@ export type BlackswanLayoutType =
   // ── Visual variants — same props as their base, different composition ──
   | "droplet_intro__v2"
   | "neon_narrative__v2"
-  | "arc_features__v2"
-  | "dive_insight__v2";
+  | "arc_features__v2";
 
 export interface BlackswanMetric {
   value: string;
