@@ -1420,7 +1420,7 @@ def update_project(
     # describes a region of THAT clip and has no project-level counterpart.
     _AVATAR_SCENE_FIELDS = (
         "avatar_shape", "avatar_size", "avatar_position",
-        "avatar_bg", "avatar_opacity",
+        "avatar_bg", "avatar_opacity", "avatar_shadow",
     )
     stamped = {f: update_data[f] for f in _AVATAR_SCENE_FIELDS if f in update_data}
     if stamped:

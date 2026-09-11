@@ -43,6 +43,7 @@ interface SceneData {
   avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
   avatarBg?: string | null;
   avatarOpacity?: number;
+  avatarShadow?: number;
   avatarFocusX?: number;
   avatarFocusY?: number;
   avatarZoom?: number;
@@ -80,6 +81,7 @@ interface VideoData {
   avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
   avatarBg?: string | null;
   avatarOpacity?: number;
+  avatarShadow?: number;
   avatarFocusX?: number;
   avatarFocusY?: number;
   avatarZoom?: number;
@@ -437,7 +439,7 @@ export const MagazineVideo: React.FC<VideoProps> = ({ dataUrl }) => {
                 <Audio src={staticFile(only.scene.voiceoverFile)} playbackRate={playbackSpeed} />
               )}
               {only.scene.avatarVideoFile && (
-                <AvatarOverlay src={staticFile(only.scene.avatarVideoFile)} aspectRatio={data.aspectRatio} shape={only.scene.avatarShape ?? data.avatarShape} size={only.scene.avatarSize ?? data.avatarSize} position={only.scene.avatarPosition ?? data.avatarPosition} bg={only.scene.avatarBg ?? data.avatarBg} opacity={only.scene.avatarOpacity ?? data.avatarOpacity} focusX={only.scene.avatarFocusX} focusY={only.scene.avatarFocusY} zoom={only.scene.avatarZoom} />
+                <AvatarOverlay src={staticFile(only.scene.avatarVideoFile)} aspectRatio={data.aspectRatio} shape={only.scene.avatarShape ?? data.avatarShape} size={only.scene.avatarSize ?? data.avatarSize} position={only.scene.avatarPosition ?? data.avatarPosition} bg={only.scene.avatarBg ?? data.avatarBg} opacity={only.scene.avatarOpacity ?? data.avatarOpacity} shadow={only.scene.avatarShadow ?? data.avatarShadow} focusX={only.scene.avatarFocusX} focusY={only.scene.avatarFocusY} zoom={only.scene.avatarZoom} />
               )}
             </Sequence>
           );

@@ -7048,6 +7048,7 @@ export default function SceneEditModal({
                     position: scene.avatar_position ?? null,
                     bg: scene.avatar_bg ?? null,
                     opacity: scene.avatar_opacity ?? null,
+                    shadow: scene.avatar_shadow ?? null,
                   }}
                   projectAppearance={{
                     shape: project.avatar_shape ?? "circle",
@@ -7055,6 +7056,7 @@ export default function SceneEditModal({
                     position: project.avatar_position ?? "bottom_left",
                     bg: project.avatar_bg ?? null,
                     opacity: project.avatar_opacity ?? 1,
+                    shadow: project.avatar_shadow ?? 0.4,
                   }}
                   onChanged={onSaved}
                   onGoToNarration={() =>

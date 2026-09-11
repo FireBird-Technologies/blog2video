@@ -8574,6 +8574,7 @@ export default function ProjectView() {
             avatarPosition={project.avatar_position}
             avatarBg={project.avatar_bg}
             avatarOpacity={project.avatar_opacity}
+            avatarShadow={project.avatar_shadow}
             avatarCustomImageUrl={project.avatar_custom_image_url}
             aspectRatio={project.aspect_ratio}
             // A custom background only renders on scenes whose clip has been cut

@@ -327,6 +327,7 @@ interface SceneData {
   avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
   avatarBg?: string | null;
   avatarOpacity?: number;
+  avatarShadow?: number;
   avatarFocusX?: number;
   avatarFocusY?: number;
   avatarZoom?: number;
@@ -368,6 +369,7 @@ interface VideoData {
   avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
   avatarBg?: string | null;
   avatarOpacity?: number;
+  avatarShadow?: number;
   avatarFocusX?: number;
   avatarFocusY?: number;
   avatarZoom?: number;
@@ -565,6 +567,7 @@ export const NewscastVideo: React.FC<VideoProps> = ({ dataUrl }) => {
                 position: scene.avatarPosition ?? data.avatarPosition,
                 bg: scene.avatarBg ?? data.avatarBg,
                 opacity: scene.avatarOpacity ?? data.avatarOpacity,
+                shadow: scene.avatarShadow ?? data.avatarShadow,
               }}
               playbackSpeed={playbackSpeed}
               captionsEnabled={data.captionsEnabled}
