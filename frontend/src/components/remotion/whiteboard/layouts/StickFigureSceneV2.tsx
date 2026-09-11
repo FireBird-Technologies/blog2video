@@ -112,12 +112,19 @@ const ELBOW_OUT = 12;
 const ELBOW_DROP = 16;
 
 /**
- * How far the DRAWN hand is pulled inboard of the throw point.
+ * How far the wrist is pulled inboard of the raw `HAND_SPREAD` point.
  *
- * The balls are still thrown between the full `HAND_SPREAD` points, so the
- * pattern keeps its width; only the wrist comes back toward the body. Without
- * this a long arm ends at full stretch and the two limbs read as a flat bar
- * across the figure rather than as arms working in front of the chest.
+ * A long arm drawn all the way out to `HAND_SPREAD` ends at full stretch, and
+ * the two limbs read as a flat bar across the figure rather than as arms
+ * working in front of the chest. Tucking the wrist back fixes that.
+ *
+ * The catch points are built from this too — `handLX`/`handRX` below are
+ * `BODY_X ∓ (HAND_SPREAD − WRIST_TUCK)`, and `armPath` draws straight to the
+ * point it is handed. That single definition is load-bearing: an earlier pass
+ * tucked the wrist INSIDE `armPath` while the balls still flew to the untucked
+ * ±HAND_SPREAD, so every catch landed a tuck's width outboard of the visible
+ * hand and the ball clipped the edge of the palm. Tuck in one place only, or
+ * the ball and the hand drift apart again.
  */
 const WRIST_TUCK = 16;
 
