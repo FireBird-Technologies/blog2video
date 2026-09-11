@@ -406,7 +406,19 @@ export const DrawnTitleV3: React.FC<WhiteboardLayoutProps> = ({
       const measure = (el: HTMLElement | null, px: number) => {
         if (!el) return { lines: 1, height: 0 };
         const lh = parseFloat(getComputedStyle(el).lineHeight) || px;
-        const height = el.getBoundingClientRect().height;
+        // offsetHeight, NOT getBoundingClientRect().height: the Player scales
+        // the whole composition with a CSS transform for on-screen preview
+        // (full size in the expanded panel, much smaller in a thumbnail), and
+        // a transform never changes layout box sizes — only the visual rect.
+        // Every other measurement in this file (fitTitlePx, ropeGapPx,
+        // copyTopPct * height, ...) is in unscaled composition-space px, so
+        // reading a post-transform rect here mixes unit spaces: at a small
+        // preview scale this height comes back far smaller than the real
+        // title block, and underlinePx (which adds this height to a
+        // composition-space top) lands under an earlier line instead of the
+        // last one. offsetHeight is unaffected by ancestor transforms and
+        // matches every other quantity here.
+        const height = el.offsetHeight;
         return { lines: Math.max(1, Math.round(height / lh)), height };
       };
       const t = measure(fitTitleRef.current, fitTitlePx);
