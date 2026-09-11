@@ -53,6 +53,17 @@ export const SakuraTextNarration: React.FC<SceneLayoutProps> = (props) => {
   const crimson = accentColor || SAKURA.crimson;
   const ink = textColor || SAKURA.ink;
 
+  // Panel geometry, computed up front (needed by the body fit call below) so
+  // the body's available-height budget can subtract the image panel's real
+  // height in portrait, where text and image share one flex column instead of
+  // sitting side by side. Also caps panelH to the height actually available
+  // inside the scene padding, matching SakuraSection's own panel cap, so the
+  // panel itself can never be forced taller than the frame has room for.
+  const panelVPad = p ? 130 : 110; // matches the container's top/bottom padding below
+  const panelW = p ? width - 160 : 620;
+  const panelH = Math.min(p ? 620 : 700, height - panelVPad * 2);
+  const columnGap = p ? 50 : 80; // matches the flex container's `gap` below
+
   const titleTargetPx = titleFontSize ?? (p ? 60 : 58);
   const bodyTargetPx = descriptionFontSize ?? (p ? 28 : 24);
   const headlineRef = React.useRef<HTMLHeadingElement>(null);
@@ -60,16 +71,33 @@ export const SakuraTextNarration: React.FC<SceneLayoutProps> = (props) => {
   const { px: titlePx } = useFitText(
     headlineRef,
     titleTargetPx,
-    Math.max(26, Math.round(titleTargetPx * 0.55)),
+    titleFontSizeIsUserSet ? titleTargetPx : Math.max(26, Math.round(titleTargetPx * 0.55)),
     [headline, titleTargetPx, titleFontSizeIsUserSet, p, height, hasVisual],
     Math.round(height * (p ? 0.2 : 0.3)),
   );
+  // The old static fraction (height * 0.34/0.5) already stood in for "how much
+  // of the frame the body alone should ever need" — it was never meant to
+  // represent the FULL container height, so subtracting the image's full
+  // height from it (as an earlier version of this fix did) double-counts the
+  // constraint and starves the body down to almost nothing whenever an image
+  // is present. Instead derive the real total column height available inside
+  // the container's own padding, reserve the image (+ gap) and a fixed
+  // allowance for the eyebrow/title/underline above the body from THAT total,
+  // and only fall back to the old static fraction when there's no image to
+  // reconcile against.
+  const containerVPad = hasVisual ? (p ? 130 : 110) : p ? 160 : 110;
+  const totalColumnHeight = height - containerVPad * 2;
+  const titleBlockAllowance = Math.round(height * (p ? 0.22 : 0.24));
+  const reservedForImage = p && hasVisual ? panelH + columnGap : 0;
+  const bodyAvailPx = hasVisual
+    ? Math.max(60, totalColumnHeight - reservedForImage - titleBlockAllowance)
+    : Math.round(height * (p ? 0.34 : 0.5));
   const { px: bodyPx } = useFitText(
     bodyRef,
     bodyTargetPx,
-    Math.max(18, Math.round(bodyTargetPx * 0.58)),
-    [body, bodyTargetPx, descriptionFontSizeIsUserSet, titlePx, p, height, hasVisual],
-    Math.round(height * (p ? 0.34 : 0.5)),
+    descriptionFontSizeIsUserSet ? bodyTargetPx : Math.max(18, Math.round(bodyTargetPx * 0.58)),
+    [body, bodyTargetPx, descriptionFontSizeIsUserSet, titlePx, p, height, hasVisual, reservedForImage],
+    bodyAvailPx,
   );
   // Eyebrow (gold caps kicker) scales off the body size so it tracks the
   // display-text slider.
@@ -131,8 +159,9 @@ export const SakuraTextNarration: React.FC<SceneLayoutProps> = (props) => {
     extrapolateRight: "clamp",
     easing: (t) => 1 - Math.pow(1 - t, 3),
   });
-  const panelW = p ? width - 160 : 620;
-  const panelH = p ? 620 : 700;
+  // panelW/panelH now computed earlier (needed by the body fit call above);
+  // panelH is also now capped to the height actually available inside the
+  // scene padding so a shortened scene never forces the panel past the frame.
 
   // Feathered edge so the photo dissolves into the washi backdrop instead of
   // sitting in a hard-edged frame — reads as part of the scene, not a paste-in.
