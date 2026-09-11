@@ -6,7 +6,7 @@ import shutil
 from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Header, HTTPException
 
 # Ensure app loggers (e.g. app.services.elevenlabs_voice_design) emit INFO to console
 logging.basicConfig(level=logging.INFO)
@@ -476,6 +476,96 @@ async def _periodic_update_email_sender():
             await asyncio.sleep(3600)
 
 
+async def _run_get_started_email_batch(window_start: datetime, window_end: datetime):
+    """Send the weekly onboarding email to free-plan users who signed up in
+    [window_start, window_end) and haven't created a video yet."""
+    db = SessionLocal()
+    try:
+        users = (
+            db.query(User)
+            .filter(
+                User.plan == PlanTier.FREE,
+                User.videos_used_this_period == 0,
+                User.get_started_email_sent_at.is_(None),
+                User.created_at >= window_start,
+                User.created_at < window_end,
+            )
+            .order_by(User.created_at.asc())
+            .all()
+        )
+
+        if not users:
+            print("[GET_STARTED_EMAIL] no eligible users this week")
+            return
+
+        print(f"[GET_STARTED_EMAIL] sending to {len(users)} users signed up {window_start} .. {window_end}")
+
+        for i, user in enumerate(users):
+            try:
+                email_service.send_get_started_email(user.email, user.name or "")
+                print(f"[GET_STARTED_EMAIL] ✓ {user.email}")
+            except Exception as exc:
+                print(f"[GET_STARTED_EMAIL] ✗ {user.email}: {exc}")
+                continue
+
+            user.get_started_email_sent_at = datetime.utcnow()
+            db.commit()
+
+            if i + 1 < len(users):
+                await asyncio.sleep(0.25)  # stay under Resend 5/sec limit
+
+    except Exception as exc:
+        print(f"[GET_STARTED_EMAIL] batch error: {exc}")
+        db.rollback()
+    finally:
+        db.close()
+
+
+async def _check_and_maybe_send_get_started_email(last_run_date):
+    """Run the Friday send if today is Friday, we're at/past send_hour, and we
+    haven't already run today. Returns the (possibly updated) last_run_date."""
+    now_utc = datetime.utcnow()
+    if (
+        now_utc.weekday() == 4
+        and now_utc.hour >= settings.UPDATE_EMAIL_SEND_HOUR
+        and last_run_date != now_utc.date()
+    ):
+        last_run_date = now_utc.date()
+        window_end = datetime(now_utc.year, now_utc.month, now_utc.day)
+        window_start = window_end - timedelta(days=7)
+        await _run_get_started_email_batch(window_start, window_end)
+    return last_run_date
+
+
+async def _periodic_get_started_email_sender():
+    """Every Friday, email new free-plan users from the prior 7 days who
+    haven't created a video. Each user is only ever eligible for the one
+    weekly window they signed up in, so get_started_email_sent_at alone
+    guarantees the email is sent at most once per user.
+
+    Checks are hour->=send_hour (not ==) so a restart any time after
+    send_hour on Friday still catches same-day, and there's an extra check
+    shortly after startup so a restart *during* send_hour doesn't have to
+    wait up to an hour for the top-of-hour loop to notice."""
+    last_run_date = None
+
+    # Catch a restart that lands inside (or just before the end of) send_hour
+    # on a Friday without waiting for the next hourly tick.
+    await asyncio.sleep(50)
+    try:
+        last_run_date = await _check_and_maybe_send_get_started_email(last_run_date)
+    except Exception as exc:
+        print(f"[GET_STARTED_EMAIL] startup check error: {exc}")
+
+    while True:
+        try:
+            last_run_date = await _check_and_maybe_send_get_started_email(last_run_date)
+        except Exception as exc:
+            print(f"[GET_STARTED_EMAIL] periodic check error: {exc}")
+        finally:
+            await asyncio.sleep(3600)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan: init DB and start background tasks."""
@@ -551,12 +641,14 @@ async def lifespan(app: FastAPI):
         raise
 
     update_email_sender = None
+    get_started_email_sender = None
     elevenlabs_quota_check = None
     try:
         free_cleanup = asyncio.create_task(_periodic_free_tier_cleanup())
         paid_cleanup = asyncio.create_task(_periodic_paid_tier_cleanup())
         monthly_reset = asyncio.create_task(_periodic_monthly_allotment_reset())
         update_email_sender = asyncio.create_task(_periodic_update_email_sender())
+        get_started_email_sender = asyncio.create_task(_periodic_get_started_email_sender())
         elevenlabs_quota_check = asyncio.create_task(_periodic_elevenlabs_quota_check())
         from app.support.cleanup import periodic_support_cleanup
         support_cleanup = asyncio.create_task(periodic_support_cleanup())
@@ -610,6 +702,8 @@ async def lifespan(app: FastAPI):
             monthly_reset.cancel()
         if update_email_sender:
             update_email_sender.cancel()
+        if get_started_email_sender:
+            get_started_email_sender.cancel()
         if elevenlabs_quota_check:
             elevenlabs_quota_check.cancel()
         if support_cleanup:
@@ -762,6 +856,78 @@ app.mount("/mcp", mcp_oauth.build_sdk_starlette_app(
 @app.get("/api/health")
 def health_check():
     return {"status": "ok", "version": "0.2.0"}
+
+
+@app.post("/internal/get-started-email/trigger")
+async def trigger_get_started_email(
+    email: str | None = None,
+    limit: int = 1,
+    x_capture_secret: str | None = Header(default=None),
+):
+    """Testing-only trigger for the weekly 'get started' onboarding email.
+    Guarded by the same shared secret as the other internal endpoints — not
+    user auth.
+
+    - `email`: send to this one user regardless of plan/video-count/signup
+      date/already-sent status (bypasses all eligibility filters — this is
+      for testing, not a way to force-send to a real ineligible user in prod).
+    - `limit` (default 1, no email given): run the real eligibility query
+      over the last 7 days but only send to the first `limit` matches, so a
+      real cohort test can't accidentally blast everyone eligible.
+    """
+    secret = settings.CAPTURE_SECRET
+    if not secret:
+        raise HTTPException(status_code=404, detail="Internal endpoints are disabled")
+    if not x_capture_secret or x_capture_secret != secret:
+        raise HTTPException(status_code=401, detail="Invalid secret")
+
+    db = SessionLocal()
+    try:
+        if email:
+            user = db.query(User).filter(User.email == email).first()
+            if not user:
+                raise HTTPException(status_code=404, detail=f"No user with email {email}")
+            # Deliberately does NOT stamp get_started_email_sent_at — this is a
+            # content/deliverability test send, not a real one-time send, so it
+            # shouldn't make the user ineligible for the actual weekly email.
+            email_service.send_get_started_email(user.email, user.name or "")
+            return {"status": "ok", "sent_to": [user.email]}
+
+        now_utc = datetime.utcnow()
+        window_end = datetime(now_utc.year, now_utc.month, now_utc.day, now_utc.hour, now_utc.minute, now_utc.second)
+        window_start = window_end - timedelta(days=7)
+        users = (
+            db.query(User)
+            .filter(
+                User.plan == PlanTier.FREE,
+                User.videos_used_this_period == 0,
+                User.get_started_email_sent_at.is_(None),
+                User.created_at >= window_start,
+                User.created_at < window_end,
+            )
+            .order_by(User.created_at.asc())
+            .limit(max(0, limit))
+            .all()
+        )
+        sent = []
+        for user in users:
+            try:
+                email_service.send_get_started_email(user.email, user.name or "")
+            except Exception as exc:
+                print(f"[GET_STARTED_EMAIL] test-trigger send failed for {user.email}: {exc}")
+                continue
+            user.get_started_email_sent_at = datetime.utcnow()
+            db.commit()
+            sent.append(user.email)
+        return {
+            "status": "ok",
+            "window_start": window_start.isoformat(),
+            "window_end": window_end.isoformat(),
+            "limit": limit,
+            "sent_to": sent,
+        }
+    finally:
+        db.close()
 
 
 @app.get("/api/config/public")

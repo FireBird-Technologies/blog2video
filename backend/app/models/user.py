@@ -140,6 +140,10 @@ class User(Base):
     # the abandoned-checkout email when a user spawns several Stripe sessions.
     last_coupon_email_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
+    # Set once the weekly "get started" onboarding email has been sent to this
+    # user; also doubles as the guard that it is never sent more than once.
+    get_started_email_sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
     # Lifetime referral counter — never reset on delete/reactivate so the cap cannot be bypassed
     referrals_given: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
