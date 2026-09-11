@@ -13,14 +13,7 @@ export type MatrixLayoutType =
   | "awakening"
   | "matrix_data"
   | "matrix_ticker"
-  | "ending_socials"
-  // ── Visual variants — same props as their base, different composition ──
-  // Source of truth: `backend/templates/matrix/meta.json` `layout_variants`.
-  | "matrix_title__v2"
-  | "cipher_metric__v2"
-  | "transmission__v2"
-  | "awakening__v2"
-  | "ending_socials__v2";
+  | "ending_socials";
 
 export interface MatrixLayoutProps {
   title: string;

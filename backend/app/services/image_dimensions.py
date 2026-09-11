@@ -41,21 +41,6 @@ LAYOUT_IMAGE_ASPECT: dict[tuple[str, str], dict[str, str]] = {
     ("matrix", "glitch_punch"): {"landscape": "3:2", "portrait": "2:3"},
     ("matrix", "awakening"): {"landscape": "3:2", "portrait": "2:3"},
     ("matrix", "fork_choice"): {"landscape": "3:2", "portrait": "2:3"},
-    # ── matrix variant slots that differ in SHAPE from their base ──
-    # matrix_title__v2 "Boot Sequence" moves the image to a TALL full-height
-    # column down the right edge in landscape; portrait instead gets a full-width
-    # band across the top 44% of the frame, which is ~1.28:1 — near 4:3, NOT the
-    # 9:16 the earlier full-bleed portrait treatment called for.
-    ("matrix", "matrix_title__v2"): {"landscape": "3:4", "portrait": "4:3"},
-    # cipher_metric__v2 "Readout Grid" and awakening__v2 "System Exit" both put
-    # the image in a WIDE band (top / bottom third respectively) rather than the
-    # bases' roughly-square side panels.
-    ("matrix", "cipher_metric__v2"): {"landscape": "16:9", "portrait": "3:2"},
-    ("matrix", "awakening__v2"): {"landscape": "16:9", "portrait": "9:16"},
-    # transmission__v2 "Signal Log": a near-square panel down the right side
-    # beside the log (614×670, ~0.92) in landscape, and a wide band across the
-    # top (907×499, ~1.82) in portrait.
-    ("matrix", "transmission__v2"): {"landscape": "1:1", "portrait": "16:9"},
     # ── spotlight variant slots that differ in SHAPE from their base ──
     # spotlight impact_title__v2 "Marquee" and statement__v2 "Pull Quote" both put
     # the image in a TALL 3:4 plate beside the copy (the bases use wide cards).

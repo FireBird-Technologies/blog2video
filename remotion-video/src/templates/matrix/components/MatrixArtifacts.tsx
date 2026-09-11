@@ -23,6 +23,7 @@ function seededRandom(seed: number): number {
 
 const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
 
+
 const charAt = (seed: number, pool: string): string =>
   pool[Math.floor(seededRandom(seed) * pool.length)];
 
@@ -305,19 +306,19 @@ export const CipherRing: React.FC<{
         style={{ opacity: 0.2 * s, overflow: "visible" }}
       >
         <defs>
-          <path id="cipher-ring-outer" d="M 100,100 m -88,0 a 88,88 0 1,1 176,0 a 88,88 0 1,1 -176,0" />
-          <path id="cipher-ring-inner" d="M 100,100 m -64,0 a 64,64 0 1,1 128,0 a 64,64 0 1,1 -128,0" />
+          <path id={`cipher-ring-outer-${seed}`} d="M 100,100 m -88,0 a 88,88 0 1,1 176,0 a 88,88 0 1,1 -176,0" />
+          <path id={`cipher-ring-inner-${seed}`} d="M 100,100 m -64,0 a 64,64 0 1,1 128,0 a 64,64 0 1,1 -128,0" />
         </defs>
         <g style={{ transformOrigin: "100px 100px", transform: `rotate(${local * 0.25}deg)` }}>
           <circle cx={100} cy={100} r={88} fill="none" stroke={accentColor} strokeWidth={0.6} opacity={0.5} />
           <text fill={accentColor} fontSize={9} fontFamily={MATRIX_DEFAULT_FONT_FAMILY} letterSpacing={2}>
-            <textPath href="#cipher-ring-outer">{ringText(34, 1)}</textPath>
+            <textPath href={`#cipher-ring-outer-${seed}`}>{ringText(34, 1)}</textPath>
           </text>
         </g>
         <g style={{ transformOrigin: "100px 100px", transform: `rotate(${-local * 0.4}deg)` }}>
           <circle cx={100} cy={100} r={64} fill="none" stroke={accentColor} strokeWidth={0.6} opacity={0.5} />
           <text fill={accentColor} fontSize={8} fontFamily={MATRIX_DEFAULT_FONT_FAMILY} letterSpacing={2}>
-            <textPath href="#cipher-ring-inner">{ringText(26, 2)}</textPath>
+            <textPath href={`#cipher-ring-inner-${seed}`}>{ringText(26, 2)}</textPath>
           </text>
         </g>
       </svg>

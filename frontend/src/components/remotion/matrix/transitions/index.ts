@@ -25,18 +25,10 @@ import { rainWall, decodeWipe, neonWhip, derez } from "./presentations";
  * real useVideoConfig() dimensions.
  */
 
-// The `__vN` visual variants must be listed alongside their bases: these sets are
-// matched on the EXACT layout id, so a variant left out here would silently lose
-// its signature hero cut and fall through to the mid-roll pool.
-export const HERO_LAYOUTS_FROM = new Set<MatrixLayoutType>([
-  "matrix_title",
-  "matrix_title__v2",
-]);
+export const HERO_LAYOUTS_FROM = new Set<MatrixLayoutType>(["matrix_title"]);
 export const HERO_LAYOUTS_TO = new Set<MatrixLayoutType>([
   "awakening",
-  "awakening__v2",
   "ending_socials",
-  "ending_socials__v2",
 ]);
 
 export interface MatrixTransitionChoice {

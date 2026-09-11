@@ -168,27 +168,21 @@ const SPOTLIGHT_LAYOUTS = new Set([
   "ending_socials__v2",
 ]);
 
-// Includes the `__vN` visual variants (see backend/templates/matrix/meta.json
-// `layout_variants`). This is the STATIC fallback used before /projects/:id/layouts
-// resolves — a variant missing here renders as the fallback layout on first paint.
+// This is the STATIC fallback used before /projects/:id/layouts resolves.
+// The matrix template has no `__vN` visual variants.
 const MATRIX_LAYOUTS = new Set([
   "matrix_title",
-  "matrix_title__v2",
   "terminal_text",
   "glitch_punch",
   "data_stream",
   "cipher_metric",
-  "cipher_metric__v2",
   "fork_choice",
   "matrix_image",
   "transmission",
-  "transmission__v2",
   "awakening",
-  "awakening__v2",
   "matrix_data",
   "matrix_ticker",
   "ending_socials",
-  "ending_socials__v2",
 ]);
 
 const MOSAIC_LAYOUTS = new Set([
