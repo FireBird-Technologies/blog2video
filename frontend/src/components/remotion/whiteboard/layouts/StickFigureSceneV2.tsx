@@ -63,19 +63,21 @@ const THROW_PERIOD = 58;
  * ── Where the hands are ────────────────────────────────────────────────
  * The catch/throw points, and the full width of the pattern.
  *
- * NARROW — about shoulder width. The figure faces the camera and works the
- * pattern in front of its chest, which is what a front-on juggler looks like;
- * hands flung out sideways read as someone being searched, not juggling.
+ * This is ALSO the arm length. The limb is drawn as one quadratic from the
+ * spine straight to the hand, so the spine→hand distance IS the arm — widening
+ * this is the only way to lengthen it. `UPPER_ARM`/`FOREARM` sound like they
+ * would, and do not: they only set how much the elbow bows.
  *
- * The width is what it costs to keep the balls large (see BALL_R). Three r=22
- * balls in a span this narrow necessarily pass close to one another and to the
- * head — they are kept legible by being opaque and outlined, not by being held
- * apart, which at this size is geometrically impossible.
+ * Widening has a second, unavoidable effect: the balls are thrown between
+ * exactly these two points, so the juggling pattern widens with the arms. At 72
+ * the arms run ~76 units and the pattern ~144 wide, against ~57 and ~104 at the
+ * previous 52. Pull this back if the cascade starts to read as too spread out
+ * for a front-facing juggler.
  *
  * The balls are thrown between exactly these two points, so a catch always
  * lands in a hand.
  */
-const HAND_SPREAD = 52;
+const HAND_SPREAD = 72;
 const HAND_Y = 150;
 
 /** Shoulder height — where both arms leave the SPINE. There is no drawn
@@ -90,16 +92,34 @@ const SHOULDER_Y = 126;
  * ball is what makes the throw and the catch legible.
  */
 
-/** Segment lengths, used only to decide how bent the elbow should be: when the
- *  hand is closer than UPPER_ARM + FOREARM the arm has slack and folds; at full
- *  stretch it straightens out. */
-const UPPER_ARM = 46;
-const FOREARM = 46;
+/**
+ * Segment lengths, used ONLY to decide how bent the elbow should be: when the
+ * hand is closer than UPPER_ARM + FOREARM the arm has slack and folds; at full
+ * stretch it straightens out.
+ *
+ * These do NOT set how long the arm is. The limb is drawn as one quadratic from
+ * the spine straight to the hand, so its rendered length is the spine→hand
+ * distance — which is `HAND_SPREAD` and `HAND_Y`, not these. Raising these two
+ * only flattens the elbow bulge, so reaching for "longer arms" here changes
+ * almost nothing visible; widen `HAND_SPREAD` instead.
+ */
+const UPPER_ARM = 64;
+const FOREARM = 64;
 
 /** How far the elbow sits outboard of the shoulder→hand chord, and how far it
  *  hangs below it. Elbows out and down is the juggler's working posture. */
 const ELBOW_OUT = 12;
 const ELBOW_DROP = 16;
+
+/**
+ * How far the DRAWN hand is pulled inboard of the throw point.
+ *
+ * The balls are still thrown between the full `HAND_SPREAD` points, so the
+ * pattern keeps its width; only the wrist comes back toward the body. Without
+ * this a long arm ends at full stretch and the two limbs read as a flat bar
+ * across the figure rather than as arms working in front of the chest.
+ */
+const WRIST_TUCK = 16;
 
 /**
  * How far a hand rises from HAND_Y toward an incoming ball as it arrives.
@@ -130,16 +150,16 @@ const HAND_REACH = 34;
  * which peaked the top ball at y=26 against a crown at y=36 — ten units, so the
  * balls hovered level with the head instead of arcing over it.
  *
- * The viewBox is therefore extended UPWARD to `0 -80 420 450` (see the svg
+ * The viewBox is therefore extended UPWARD to `0 -160 420 530` (see the svg
  * below). Shifting the origin rather than the height keeps every existing
  * coordinate valid — the feet stay at y=308 — and puts all the new room above
  * the figure. The svg's `bottom` offsets are shifted by the same amount to keep
  * the feet planted on the ground line; the two are coupled, so changing one
  * means recomputing the other.
  *
- * With hands at 150, ARC_H 182 and ARC_STAGGER 16, the tallest ball peaks at
- * y=-48 — about 84 units, or nearly two ball-diameters, clear of the crown —
- * and its top edge sits at y=-70, just inside the extended box's -80 ceiling.
+ * With hands at 150, ARC_H 240 and ARC_STAGGER 16, the tallest ball peaks at
+ * y=-106 — about 142 units clear of the crown — and its top edge sits at
+ * y=-124, inside the extended box's -160 ceiling with room to spare.
  * `ink-sfv2` has a bounded filter region and clips what leaves it, so a ball
  * outside the box would simply vanish and the pattern would look like it had
  * dropped one. ARC_H and HAND_Y trade against each other here: the arc is
@@ -149,7 +169,7 @@ const HAND_REACH = 34;
  * No ball ever dips below HAND_Y, by construction — the arc is a sine that
  * returns to zero at the catch.
  */
-const ARC_H = 182;
+const ARC_H = 240;
 
 /**
  * Phase spacing between the three balls, in throw-periods.
@@ -180,7 +200,7 @@ const BALL_PHASE = 2 / 3;
 const ARC_STAGGER = 16;
 
 /**
- * Ball radius. Deliberately LARGE — about 0.73 of the head's diameter — so the
+ * Ball radius. Deliberately LARGE — about 0.6 of the head's diameter — so the
  * balls are unmistakably the subject of the shot rather than three dots.
  *
  * Balls this large in a pattern this narrow WILL overlap each other and the
@@ -193,7 +213,7 @@ const ARC_STAGGER = 16;
  * and outlined, and the balls are drawn LAST, so a crossing reads as one object
  * passing in front of another rather than as a merged blob.
  */
-const BALL_R = 22;
+const BALL_R = 18;
 
 
 /**
@@ -211,8 +231,18 @@ const JugglingStickman: React.FC<{
   frame: number;
   progress: number;
 }> = ({ color, accent, bgColor, frame, progress }) => {
-  const handLX = BODY_X - HAND_SPREAD;
-  const handRX = BODY_X + HAND_SPREAD;
+  /* The catch/throw points are the DRAWN wrists, not the raw `HAND_SPREAD`
+     points.
+
+     `armPath` pulls the wrist inboard by `WRIST_TUCK` so a long arm ends in
+     front of the ribs rather than at full stretch. The balls have to land on
+     that same tucked point: flying them to the untucked ±HAND_SPREAD dropped
+     every catch a tuck's width OUTBOARD of the visible hand, so the ball
+     clipped the edge of the palm instead of settling into it.
+
+     One expression for both, so the two can no longer drift apart. */
+  const handLX = BODY_X - HAND_SPREAD + WRIST_TUCK;
+  const handRX = BODY_X + HAND_SPREAD - WRIST_TUCK;
 
   /* Each ball's own phase, a third of a period apart.
      `lap` counts completed throws and its PARITY picks the direction, so
@@ -303,13 +333,32 @@ const JugglingStickman: React.FC<{
        The drop is measured from the SHOULDER, not from the chord midpoint: the
        hands sit above the shoulder line here, and dropping from the midpoint
        sagged both arms into a scarecrow droop at every phase. */
-    const midX = (shoulderX + handX) / 2;
-    const midY = (SHOULDER_Y + handY) / 2;
     const reach = Math.hypot(handX - shoulderX, handY - SHOULDER_Y);
     const slack = Math.max(0, 1 - reach / (UPPER_ARM + FOREARM));
-    const elbowX = midX + dir * (ELBOW_OUT + slack * 14);
-    const elbowY = Math.max(midY, SHOULDER_Y) + ELBOW_DROP * (0.4 + slack);
-    return `M${shoulderX},${SHOULDER_Y} Q${elbowX},${elbowY} ${handX},${handY}`;
+
+    /* The wrist IS the point passed in — no further tuck here.
+       `handLX`/`handRX` already carry `WRIST_TUCK` (see where they are built),
+       and the balls fly to those same points. Tucking a second time inside this
+       function would pull the drawn hand another tuck's width inboard and put
+       the catch back off the palm, which is the bug that motivated moving the
+       tuck upstream in the first place. */
+    const wristX = handX;
+
+    /* A CUBIC, not a quadratic. One control point can only bow the limb one way,
+       which is why the arms read as straight bars flung out sideways: the elbow
+       pushed outward along the very axis the hand already lay on, so the whole
+       arm was one flat sweep.
+
+       Two control points give the limb an S: the first pushes the ELBOW out and
+       down away from the ribs, the second pulls the WRIST back in toward the
+       centreline. That is the shape of an arm cradling something in front of
+       the chest — upper arm out, forearm turning forward. */
+    const elbowX = shoulderX + dir * (ELBOW_OUT + slack * 14 + reach * 0.34);
+    const elbowY = SHOULDER_Y + ELBOW_DROP * (0.4 + slack);
+    const wristCtlX = wristX + dir * reach * 0.12;
+    const wristCtlY = handY + ELBOW_DROP * 0.5;
+
+    return `M${shoulderX},${SHOULDER_Y} C${elbowX},${elbowY} ${wristCtlX},${wristCtlY} ${wristX},${handY}`;
   };
 
   /* ── Body motion ───────────────────────────────────────────────────────
@@ -447,8 +496,8 @@ export const StickFigureSceneV2: React.FC<WhiteboardLayoutProps> = ({
   const boardH = height * boardHeightFrac;
   const fitTitleRef = React.useRef<HTMLDivElement>(null);
   const fitNarrationRef = React.useRef<HTMLDivElement>(null);
-  const fitTitleTarget = titleFontSize ?? (p ? 63 : 54);
-  const fitNarrationTarget = descriptionFontSize ?? (p ? 31 : 28);
+  const fitTitleTarget = titleFontSize ?? (p ? 52 : 54);
+  const fitNarrationTarget = descriptionFontSize ?? (p ? 29 : 28);
   const { px: fitTitlePx } = useFitText(
     fitTitleRef,
     fitTitleTarget,
@@ -679,21 +728,24 @@ export const StickFigureSceneV2: React.FC<WhiteboardLayoutProps> = ({
 
       {/* ── Juggling figure, standing beside the board ──────────────────
           The viewBox keeps the base `stick_figure_scene`'s 420-wide coordinates
-          and its feet at y=308, but is extended UPWARD by 80 units (origin
-          y=-80, height 450) to give the throws room to clear the head. Because
+          and its feet at y=308, but is extended UPWARD by 160 units (origin
+          y=-160, height 530) to give the throws room to clear the head. Because
           only the origin moved, every coordinate in the rig is unchanged.
 
-          13.8% of the taller box now sits BELOW the feet (62 of 450, down from
-          16.8% of 370), so `bottom` is offset to put them exactly on the
-          scene's ground line rather than the svg's own lower edge. */}
+          11.7% of the taller box now sits BELOW the feet (62 of 530), so
+          `bottom` is offset to put them exactly on the scene's ground line
+          rather than the svg's own lower edge. Note the offsets themselves do
+          NOT change when the box is extended: the below-feet margin is a fixed
+          62 units, so as the box grows its FRACTION shrinks in exact step with
+          the svg's rendered height, and the two cancel. */}
       <svg
         style={{
           position: "absolute",
           // Coupled to the ground line's `bottom` below. The feet sit at y=308
-          // of the -80..370 viewBox, so 62/450 = 13.8% of the box is BELOW
-          // them; since the svg scales off its WIDTH, that margin is 13.8% of
+          // of the -160..370 viewBox, so 62/530 = 11.7% of the box is BELOW
+          // them; since the svg scales off its WIDTH, that margin is 11.7% of
           // the svg's rendered height, and the feet land at
-          //     bottom% + 13.8% × svgHeight%
+          //     bottom% + 11.7% × svgHeight%
           // above the frame's bottom. Setting that equal to the ground line's
           // own `bottom` gives the values here.
           //
@@ -718,7 +770,7 @@ export const StickFigureSceneV2: React.FC<WhiteboardLayoutProps> = ({
           pointerEvents: "none",
           zIndex: 10,
         }}
-        viewBox={`0 -80 ${FIG_VIEWBOX_W} 450`}
+        viewBox={`0 -160 ${FIG_VIEWBOX_W} 530`}
         fill="none"
         aria-hidden
       >

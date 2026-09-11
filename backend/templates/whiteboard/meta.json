@@ -965,11 +965,11 @@
       "label": "Chalk Talk",
       "defaults": {
         "titleFontSize": {
-          "portrait": 63,
+          "portrait": 52,
           "landscape": 54
         },
         "descriptionFontSize": {
-          "portrait": 31,
+          "portrait": 29,
           "landscape": 28
         }
       }
