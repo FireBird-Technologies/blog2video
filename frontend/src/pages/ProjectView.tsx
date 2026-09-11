@@ -9256,15 +9256,22 @@ export default function ProjectView() {
                         }
                         renderGroupBody={(groupScenes) => (
                           <>
-                            {groupScenes.map((scene, i) => {
+                            {groupScenes.map((scene) => {
                               const idx = project.scenes.findIndex((s) => s.id === scene.id);
                               const sceneAssets = sceneImageAssetsMap[idx] || [];
                               return (
-                                <div key={scene.id} className={i > 0 ? "pt-3 mt-3 border-t border-gray-100" : ""}>
-                                  <p className="text-xs font-medium text-gray-600 mb-2">
-                                    Scene {scene.order}
-                                    {scene.title ? ` — ${scene.title}` : ""}
-                                  </p>
+                                <div key={scene.id} className="glass-card p-4">
+                                  <div className="flex items-center gap-3 mb-3">
+                                    {/* Scene number */}
+                                    <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center flex-shrink-0">
+                                      <span className="text-xs font-semibold text-purple-600">
+                                        {scene.order}
+                                      </span>
+                                    </div>
+                                    <span className="text-xs font-medium text-gray-900 truncate">
+                                      {scene.title}
+                                    </span>
+                                  </div>
                                   {sceneAssets.length === 0 ? (
                                     <p className="text-xs text-gray-400 italic py-4">No image assigned</p>
                                   ) : (
