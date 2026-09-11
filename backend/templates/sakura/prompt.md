@@ -77,9 +77,11 @@ Field pairings (Japanese ⇄ its paired line):
 **Visual:** A full-bleed deep-plum tsukimi (moon-viewing) scene. A large pale-gold harvest moon rises low behind the quote, with drifting kasumi mist bands crossing it. The quote itself is framed like a mounted tanzaku poetry card / kakejiku hanging scroll — a tall narrow washi panel with a faint asanoha lattice ground and thin gold mounting rails top and bottom that draw on as the panel unrolls. Inside, the single large Japanese quote is brushed in one glyph at a time as sumi-e calligraphy (Noto Serif JP 700, washi color), with the romanized reading in decorative 《 angle brackets 》 below it, a calligraphic brush underline, and an italic English translation stacked beneath, closed by a vermillion hanko seal. Oversized 「 」 kagi-kakko brackets frame the composition and staggered soft-petal strips drift across the top and bottom edges.
 
 **Props:**
-  - `quote` (string) — The Japanese phrase displayed large and centered at heavy weight (keep concise — a short aphorism or phrase, not a paragraph). **ALWAYS Japanese** (see "Japanese-Script Fields" above) — the same phrase as `quoteTranslation`, expressed in Japanese, regardless of content language.
-  - `quoteRoman` (string) — Romanized reading shown in 《 angle brackets 》 below the quote (Shippori Mincho, gold, wide letter-spacing). This is the **Rōmaji reading of `quote`** — it must match the Japanese exactly.
-  - `quoteTranslation` (string) — English translation rendered in italic washi beneath the romanized line. `quote`, `quoteRoman`, and `quoteTranslation` are the **same phrase expressed three ways (Japanese ⇄ Rōmaji ⇄ English)** and must stay consistent.
+  - `quote` (string) — **REQUIRED.** The Japanese phrase displayed large and centered at heavy weight (keep concise — a short aphorism or phrase, not a paragraph). **ALWAYS Japanese** (see "Japanese-Script Fields" above) — the same phrase as `quoteTranslation`, expressed in Japanese, regardless of content language.
+  - `quoteRoman` (string) — **REQUIRED.** Romanized reading shown in 《 angle brackets 》 below the quote (Shippori Mincho, gold, wide letter-spacing). This is the **Rōmaji reading of `quote`** — it must match the Japanese exactly.
+  - `quoteTranslation` (string) — **REQUIRED.** English translation rendered in italic washi beneath the romanized line. `quote`, `quoteRoman`, and `quoteTranslation` are the **same phrase expressed three ways (Japanese ⇄ Rōmaji ⇄ English)** and must stay consistent.
+
+**All three fields are REQUIRED and must always be emitted together for this layout** — derive them from this scene's own narration/title (never leave any blank, never copy another scene's or the template's example values, and never leave stray fields from a different layout in this scene's props).
 
 **When to Use:** Use `sakura_quote` for cinematic, contemplative moments where a single Japanese aphorism, poem, or phrase is the sole focus of the scene.
 
