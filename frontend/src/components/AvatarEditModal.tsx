@@ -95,6 +95,7 @@ export default function AvatarEditModal({
               position: scene.avatar_position ?? null,
               bg: scene.avatar_bg ?? null,
               opacity: scene.avatar_opacity ?? null,
+              shadow: scene.avatar_shadow ?? null,
             }}
             projectAppearance={{
               shape: project.avatar_shape ?? "circle",
@@ -102,6 +103,7 @@ export default function AvatarEditModal({
               position: project.avatar_position ?? "bottom_left",
               bg: project.avatar_bg ?? null,
               opacity: project.avatar_opacity ?? 1,
+              shadow: project.avatar_shadow ?? 0.4,
             }}
             onChanged={onSaved}
             // NOTE the two are different things despite the names: this modal's

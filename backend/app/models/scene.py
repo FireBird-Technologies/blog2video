@@ -70,6 +70,7 @@ class Scene(Base):
     avatar_position: Mapped[str | None] = mapped_column(String(20), nullable=True)
     avatar_bg: Mapped[str | None] = mapped_column(String(16), nullable=True)
     avatar_opacity: Mapped[float | None] = mapped_column(Float, nullable=True)
+    avatar_shadow: Mapped[float | None] = mapped_column(Float, nullable=True)
     # Which part of the rendered avatar frame to keep, as a percentage focal point
     # plus a zoom — the same model scene images use (imageFocusX/Y + imageZoom).
     #

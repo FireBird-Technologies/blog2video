@@ -159,6 +159,11 @@ class Project(Base):
     avatar_bg: Mapped[str | None] = mapped_column(String(16), nullable=True)
     # Overlay opacity, 0.2-1.0 (mirrors logo_opacity). 1.0 = fully opaque.
     avatar_opacity: Mapped[float] = mapped_column(Float, default=1.0)
+    # Drop-shadow intensity behind the overlay box, 0.0 (none) - 1.0 (strongest).
+    # Suppressed automatically when avatar_bg is "transparent" (no box edge to
+    # cast one) regardless of this value — see AvatarOverlay's isCutout
+    # handling in both render trees.
+    avatar_shadow: Mapped[float] = mapped_column(Float, default=0.4)
     # How much the rendered presenter moves: subtle | natural | expressive — see
     # services/avatar_motion_styles.py. Project-wide ONLY, unlike avatar_shape/
     # _size/_position/_opacity above: there is deliberately no per-scene

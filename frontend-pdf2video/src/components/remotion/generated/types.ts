@@ -171,6 +171,7 @@ export interface GeneratedVideoData {
   avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
   avatarBg?: string | null;
   avatarOpacity?: number;
+  avatarShadow?: number;
   avatarFocusX?: number;
   avatarFocusY?: number;
   avatarZoom?: number;
@@ -248,6 +249,7 @@ export interface GeneratedSceneData {
   avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
   avatarBg?: string | null;
   avatarOpacity?: number;
+  avatarShadow?: number;
   avatarFocusX?: number;
   avatarFocusY?: number;
   avatarZoom?: number;

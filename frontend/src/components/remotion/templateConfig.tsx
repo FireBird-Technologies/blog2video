@@ -168,6 +168,8 @@ const SPOTLIGHT_LAYOUTS = new Set([
   "ending_socials__v2",
 ]);
 
+// This is the STATIC fallback used before /projects/:id/layouts resolves.
+// The matrix template has no `__vN` visual variants.
 const MATRIX_LAYOUTS = new Set([
   "matrix_title",
   "terminal_text",
@@ -199,10 +201,17 @@ const MOSAIC_LAYOUTS = new Set([
 // Includes the `__vN` motion variants (see backend/templates/whiteboard/meta.json
 // `layout_variants`). This is the STATIC fallback used before /projects/:id/layouts
 // resolves; omitting variants here makes the first paint flash the fallback layout.
+// Includes the `__vN` visual variants (see backend/templates/whiteboard/meta.json
+// `layout_variants`). This is the STATIC fallback used before /projects/:id/layouts
+// resolves — a variant missing here renders as the fallback layout on first paint.
 const WHITEBOARD_LAYOUTS = new Set([
   "drawn_title",
+  "drawn_title__v2",
+  "drawn_title__v3",
   "marker_story",
+  "marker_story__v2",
   "stick_figure_scene",
+  "stick_figure_scene__v2",
   "stats_figures",
   "stats_chart",
   "comparison",
@@ -212,6 +221,7 @@ const WHITEBOARD_LAYOUTS = new Set([
   "data_visualisation",
   "ticker_table",
   "ending_socials",
+  "ending_socials__v2",
 ]);
 
 // Includes the `__vN` visual variants (see backend/templates/newspaper/meta.json
@@ -256,10 +266,16 @@ const NEWSCAST_LAYOUTS = new Set([
   "ending_socials",
   "ending_socials__v2",
 ]);
+// Includes the `__vN` visual variants (see backend/templates/blackswan/meta.json
+// `layout_variants`). This is the STATIC fallback used before /projects/:id/layouts
+// resolves — a variant missing here renders as the fallback layout on first paint.
 const BLACKSWAN_LAYOUTS = new Set([
   "droplet_intro",
+  "droplet_intro__v2",
   "neon_narrative",
+  "neon_narrative__v2",
   "arc_features",
+  "arc_features__v2",
   "pulse_metric",
   "signal_split",
   "dive_insight",
@@ -361,20 +377,25 @@ const STICKMAN_FOOTBALL_LAYOUTS = new Set([
 
 const SAKURA_LAYOUTS = new Set([
   "sakura_intro",
+  "sakura_intro__v2",
   "sakura_section",
   "sakura_quote",
   "sakura_two_column_detail",
   "sakura_stat_highlight",
   "sakura_list_scene",
   "sakura_text_narration",
+  "sakura_text_narration__v2",
   "sakura_ending_socials",
   // Canonical ending id the backend emits; aliased to sakura_ending_socials in the
   // layout registry. Must be a valid layout so VideoPreview doesn't fall it back.
   "ending_socials",
+  // Visual variant of the ending scene ("Tsukimi Farewell"). Hangs off the
+  // canonical "ending_socials" id, not the sakura_-prefixed alias — was
+  // previously missing from this Set, which silently rewrote any scene saved
+  // with this layout back to the fallback (sakura_section) before render.
+  "ending_socials__v2",
   "sakura_data_visualization",
   "sakura_ticker",
-  // Visual variants — see the note on GRIDCRAFT_LAYOUTS above. The ending variant
-  // hangs off the canonical "ending_socials" id, not the sakura_-prefixed alias.
 ]);
 
 const DOCREEL_LAYOUTS = new Set([

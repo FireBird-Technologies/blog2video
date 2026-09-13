@@ -46,6 +46,7 @@ interface SceneData {
   avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
   avatarBg?: string | null;
   avatarOpacity?: number;
+  avatarShadow?: number;
   avatarFocusX?: number;
   avatarFocusY?: number;
   avatarZoom?: number;
@@ -83,6 +84,7 @@ interface VideoData {
   avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
   avatarBg?: string | null;
   avatarOpacity?: number;
+  avatarShadow?: number;
   avatarFocusX?: number;
   avatarFocusY?: number;
   avatarZoom?: number;
@@ -419,7 +421,7 @@ export const OldDocumentaryReelVideo: React.FC<VideoProps> = ({ dataUrl }) => {
                 size={r.scene.avatarSize ?? data.avatarSize}
                 position={r.scene.avatarPosition ?? data.avatarPosition}
                 bg={r.scene.avatarBg ?? data.avatarBg}
-                opacity={r.scene.avatarOpacity ?? data.avatarOpacity}
+                opacity={r.scene.avatarOpacity ?? data.avatarOpacity} shadow={r.scene.avatarShadow ?? data.avatarShadow}
                 focusX={r.scene.avatarFocusX}
                 focusY={r.scene.avatarFocusY}
                 zoom={r.scene.avatarZoom}

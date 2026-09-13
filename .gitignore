@@ -93,3 +93,11 @@ modal-service/omniavatar/run_benchmark.sh
 # task, not an input to anything (see backend/scratch_assign_avatars.py).
 avatar_scene_examples/
 avatar_video_examples/
+
+# Scratch bulk-UPDATE variants of the default-voice migration scripts (faster
+# reruns of replace_saved_voice_defaults.py / fix_new_voice_preview_urls.py /
+# shorten_new_voice_descriptions.py) — one-off, not meant to be committed.
+backend/scripts/replace_saved_voice_defaults_fast.py
+backend/scripts/replace_saved_voice_defaults_bulk.py
+backend/scripts/fix_new_voice_preview_urls_bulk.py
+backend/scripts/shorten_new_voice_descriptions_bulk.py

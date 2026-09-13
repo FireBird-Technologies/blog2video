@@ -1,6 +1,8 @@
 Layout catalog for Matrix template
 ==================================
 
+**Never output a layout ID containing `__v`** (e.g. `cipher_metric__v2`) — those are visual variants assigned automatically by the system. Always output the plain base ID listed below.
+
 Use these layout IDs **exactly** when suggesting `preferred_layout` for scenes using the `matrix` template. Matrix is terminal/cyberpunk digital-rain style.
 
 - `matrix_title`  

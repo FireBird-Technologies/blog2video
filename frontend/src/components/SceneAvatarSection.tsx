@@ -245,7 +245,7 @@ export default function SceneAvatarSection({
   // clip — five simultaneously-decoding videos is real CPU for a glance.
   const portraitInputRef = useRef<HTMLInputElement>(null);
   const emptyAppearance: AvatarAppearanceValue = {
-    shape: null, size: null, position: null, bg: null, opacity: null,
+    shape: null, size: null, position: null, bg: null, opacity: null, shadow: null,
   };
   // Per-scene overrides. A null field means "inherit the project value".
   // This is a DRAFT — edits only reach the server via the explicit Save
@@ -304,6 +304,7 @@ export default function SceneAvatarSection({
         avatar_position: appearance.position as AvatarCorner | null,
         avatar_bg: appearance.bg as AvatarBg,
         avatar_opacity: appearance.opacity,
+        avatar_shadow: appearance.shadow,
       });
       if (ready && sceneOrder != null && zoom !== savedZoom) {
         await updateSceneAvatarFocus(projectId, sceneId, {
@@ -650,14 +651,19 @@ export default function SceneAvatarSection({
               picker. Switching presenters means removing this avatar (above)
               and generating a fresh one. */}
           <div className="flex items-center gap-3 rounded-xl bg-gray-50/80 border border-gray-200/60 px-3.5 py-3">
-            <div className="w-11 h-11 rounded-lg overflow-hidden flex-shrink-0 bg-gray-200">
-              <AvatarPresetMedia
-                presetId={preset}
-                label={presetLabel}
-                srcOverride={preset === AVATAR_CUSTOM_PRESET_ID ? customPortraitUrl : undefined}
-                className="w-full h-full object-cover"
-                style={{ objectPosition: "50% 28%" }}
-              />
+            <div
+              className="w-11 h-11 rounded-lg flex-shrink-0"
+              style={{ boxShadow: "0 16px 48px 4px rgba(0,0,0,0.75)" }}
+            >
+              <div className="w-full h-full rounded-lg overflow-hidden bg-gray-200">
+                <AvatarPresetMedia
+                  presetId={preset}
+                  label={presetLabel}
+                  srcOverride={preset === AVATAR_CUSTOM_PRESET_ID ? customPortraitUrl : undefined}
+                  className="w-full h-full object-cover"
+                  style={{ objectPosition: "50% 28%" }}
+                />
+              </div>
             </div>
             <div className="min-w-0">
               <p className="text-xs font-medium text-gray-900">{presetLabel}</p>

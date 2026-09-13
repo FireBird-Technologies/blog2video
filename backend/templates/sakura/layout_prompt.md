@@ -2,6 +2,8 @@
 
 **Never output `assignedVideo`, `videoUrl`, `videoMuted`, or `videoVolume`** — stock-footage clips are chosen by the user in the editor after generation, and inventing one breaks rendering.
 
+**Never output a layout ID containing `__v`** (e.g. `sakura_text_narration__v2`) — those are visual variants assigned automatically by the system. Always output the plain base ID listed below.
+
 Use this list when picking the `preferred_layout` for each scene.
 
 - `sakura_intro`  

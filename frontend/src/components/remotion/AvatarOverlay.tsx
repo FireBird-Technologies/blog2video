@@ -30,6 +30,10 @@ export interface AvatarOverlayProps {
   /** Overlay opacity 0.2-1.0. Applied to the CLIP, not the wrapper, so a solid
    *  background colour stays solid while the presenter fades. */
   opacity?: number;
+  /** Drop-shadow intensity behind the overlay box, 0 (none) - 1 (strongest).
+   *  Suppressed regardless of this value when the background is transparent —
+   *  there is no box edge to cast a shadow against. */
+  shadow?: number;
   /**
    * Which region of the clip to show: a focal point in percent plus a zoom.
    *
@@ -58,6 +62,8 @@ export interface AvatarSettings {
   /** Overlay opacity 0.2-1.0. Applied to the CLIP, not the wrapper, so a solid
    *  background colour stays solid while the presenter fades. */
   opacity?: number;
+  /** Drop-shadow intensity behind the overlay box, 0 (none) - 1 (strongest). */
+  shadow?: number;
   /**
    * Which region of the clip to show: a focal point in percent plus a zoom.
    *
@@ -99,6 +105,7 @@ export const AvatarOverlay: React.FC<AvatarOverlayProps> = ({
   position: positionProp,
   bg: bgProp,
   opacity: opacityProp,
+  shadow: shadowProp,
   focusX: focusXProp,
   focusY: focusYProp,
   zoom: zoomProp,
@@ -114,6 +121,7 @@ export const AvatarOverlay: React.FC<AvatarOverlayProps> = ({
   // (remotion-video/src/components/AvatarOverlay.tsx).
   const fill = bg === "original" ? null : bg;
   const opacity = opacityProp ?? ctx.opacity ?? 1;
+  const shadow = shadowProp ?? ctx.shadow ?? 0.4;
   // 50/35 reproduces the previous hardcoded anchor, so an unset scene is unchanged.
   const focusX = focusXProp ?? ctx.focusX ?? 50;
   const focusY = focusYProp ?? ctx.focusY ?? 35;
@@ -167,52 +175,78 @@ export const AvatarOverlay: React.FC<AvatarOverlayProps> = ({
       ? "circle(50% at 50% 50%)"
       : `inset(0 round ${typeof radius === "number" ? `${radius}px` : radius})`;
 
-  const style: React.CSSProperties = {
+  // Split into an outer positioning/shadow box and an inner clipping box.
+  // `overflow: hidden` on the SAME element as `boxShadow` clips the shadow
+  // too — a box-shadow paints just outside the border edge, and hidden
+  // overflow hides anything outside the element's own bounds, including its
+  // own shadow. So the shadow must live on a wrapper with no overflow clip,
+  // while the rounding/masking stays on the inner element around the video.
+  // The outer box still needs `borderRadius` (not clip-path/overflow, which
+  // would clip the shadow again) so the shadow itself follows the avatar's
+  // shape — circle/rounded/square — instead of always being a square smear
+  // behind a circular avatar.
+  const outerStyle: React.CSSProperties = {
     position: "absolute",
     zIndex: 90, // below logo (100) / captions, above scene content
     [vert === "top" ? "top" : "bottom"]: margin,
     [horiz === "right" ? "right" : "left"]: margin,
     width: boxWidth,
     height: boxHeight,
+    borderRadius: isCutout ? 0 : radius,
+    // Offset/blur/spread grow with intensity too, not just alpha — a flat
+    // alpha-only ramp still looked barely different at the top of the slider,
+    // since 18px of blur is already soft at 0.28 opacity. At shadow=1 this
+    // reaches 0 16px 48px + a 4px spread at 0.75 alpha, a strong, clearly
+    // separated shadow — well beyond the old fixed "0 4px 18px rgba(0,0,0,0.28)".
+    boxShadow:
+      isCutout || shadow <= 0
+        ? undefined
+        : `0 ${Math.round(4 + 12 * shadow)}px ${Math.round(18 + 30 * shadow)}px ${Math.round(4 * shadow)}px rgba(0,0,0,${(0.28 + 0.47 * shadow).toFixed(2)})`,
+  };
+
+  const innerStyle: React.CSSProperties = {
+    width: "100%",
+    height: "100%",
     overflow: "hidden",
     borderRadius: isCutout ? 0 : radius,
     clipPath,
-    boxShadow: isCutout ? undefined : "0 4px 18px rgba(0,0,0,0.28)",
     backgroundColor: fill && !isCutout ? fill : undefined,
   };
 
   return (
-    <div style={style}>
-      <Video
-        src={src}
-        muted
-        // Hold the whole composition while this clip buffers rather than letting
-        // it play silently-blank and drift out of sync with the voiceover it is
-        // lip-synced to. VideoPreview also preloads avatarUrl up front, so this
-        // should rarely trigger — it is the safety net for a cold cache.
-        pauseWhenBuffering
-        style={{
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-          // The clip's aspect follows its SOURCE PORTRAIT, not this box: a 16:9
-          // photo gives 720x400, a 2:3 photo gives 400x720. Centre-cropping a
-          // portrait clip into the square box keeps only the middle band and cuts
-          // off the mouth, so the focal point defaults ABOVE centre (50/35) to keep
-          // the whole face. The user can override it per scene via the frame picker.
-          objectPosition: `${focusX}% ${focusY}%`,
-          // Zoom pushes further into the frame than `cover` already does. The
-          // transform-origin follows the focal point so zooming magnifies what the
-          // user chose rather than drifting toward the middle.
-          transform: zoom !== 1 ? `scale(${zoom})` : undefined,
-          transformOrigin: `${focusX}% ${focusY}%`,
-          opacity,
-          // Round the clip in its OWN paint too, so the shape does not rely on
-          // the wrapper successfully masking a promoted compositor layer. See
-          // the clipPath note above. Harmless where the wrapper already works.
-          borderRadius: isCutout ? 0 : radius,
-        }}
-      />
+    <div style={outerStyle}>
+      <div style={innerStyle}>
+        <Video
+          src={src}
+          muted
+          // Hold the whole composition while this clip buffers rather than letting
+          // it play silently-blank and drift out of sync with the voiceover it is
+          // lip-synced to. VideoPreview also preloads avatarUrl up front, so this
+          // should rarely trigger — it is the safety net for a cold cache.
+          pauseWhenBuffering
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            // The clip's aspect follows its SOURCE PORTRAIT, not this box: a 16:9
+            // photo gives 720x400, a 2:3 photo gives 400x720. Centre-cropping a
+            // portrait clip into the square box keeps only the middle band and cuts
+            // off the mouth, so the focal point defaults ABOVE centre (50/35) to keep
+            // the whole face. The user can override it per scene via the frame picker.
+            objectPosition: `${focusX}% ${focusY}%`,
+            // Zoom pushes further into the frame than `cover` already does. The
+            // transform-origin follows the focal point so zooming magnifies what the
+            // user chose rather than drifting toward the middle.
+            transform: zoom !== 1 ? `scale(${zoom})` : undefined,
+            transformOrigin: `${focusX}% ${focusY}%`,
+            opacity,
+            // Round the clip in its OWN paint too, so the shape does not rely on
+            // the wrapper successfully masking a promoted compositor layer. See
+            // the clipPath note above. Harmless where the wrapper already works.
+            borderRadius: isCutout ? 0 : radius,
+          }}
+        />
+      </div>
     </div>
   );
 };

@@ -265,6 +265,7 @@ interface SceneData {
   avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
   avatarBg?: string | null;
   avatarOpacity?: number;
+  avatarShadow?: number;
   avatarFocusX?: number;
   avatarFocusY?: number;
   avatarZoom?: number;
@@ -304,6 +305,7 @@ interface VideoData {
   avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
   avatarBg?: string | null;
   avatarOpacity?: number;
+  avatarShadow?: number;
   avatarFocusX?: number;
   avatarFocusY?: number;
   avatarZoom?: number;
@@ -499,7 +501,7 @@ export const BloombergVideo: React.FC<VideoProps> = ({ dataUrl }) => {
               <Audio src={staticFile(scene.voiceoverFile)} playbackRate={playbackSpeed} />
             )}
             {scene.avatarVideoFile && (
-              <AvatarOverlay src={staticFile(scene.avatarVideoFile)} aspectRatio={data.aspectRatio} shape={scene.avatarShape ?? data.avatarShape} size={scene.avatarSize ?? data.avatarSize} position={scene.avatarPosition ?? data.avatarPosition} bg={scene.avatarBg ?? data.avatarBg} opacity={scene.avatarOpacity ?? data.avatarOpacity} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />
+              <AvatarOverlay src={staticFile(scene.avatarVideoFile)} aspectRatio={data.aspectRatio} shape={scene.avatarShape ?? data.avatarShape} size={scene.avatarSize ?? data.avatarSize} position={scene.avatarPosition ?? data.avatarPosition} bg={scene.avatarBg ?? data.avatarBg} opacity={scene.avatarOpacity ?? data.avatarOpacity} shadow={scene.avatarShadow ?? data.avatarShadow} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />
             )}
             {data.captionsEnabled && (scene.narrationText || scene.narration) && (
               <CaptionTrack

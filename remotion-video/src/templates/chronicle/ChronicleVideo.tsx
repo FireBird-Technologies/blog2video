@@ -42,6 +42,7 @@ interface SceneData {
   avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
   avatarBg?: string | null;
   avatarOpacity?: number;
+  avatarShadow?: number;
   avatarFocusX?: number;
   avatarFocusY?: number;
   avatarZoom?: number;
@@ -79,6 +80,7 @@ interface VideoData {
   avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
   avatarBg?: string | null;
   avatarOpacity?: number;
+  avatarShadow?: number;
   avatarFocusX?: number;
   avatarFocusY?: number;
   avatarZoom?: number;
@@ -378,7 +380,7 @@ export const ChronicleVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           >
             <Audio src={staticFile(s.scene.voiceoverFile)} playbackRate={playbackSpeed} />
             {s.scene.avatarVideoFile && (
-              <AvatarOverlay src={staticFile(s.scene.avatarVideoFile)} aspectRatio={data.aspectRatio || "landscape"} shape={s.scene.avatarShape ?? data.avatarShape} size={s.scene.avatarSize ?? data.avatarSize} position={s.scene.avatarPosition ?? data.avatarPosition} bg={s.scene.avatarBg ?? data.avatarBg} opacity={s.scene.avatarOpacity ?? data.avatarOpacity} focusX={s.scene.avatarFocusX} focusY={s.scene.avatarFocusY} zoom={s.scene.avatarZoom} />
+              <AvatarOverlay src={staticFile(s.scene.avatarVideoFile)} aspectRatio={data.aspectRatio || "landscape"} shape={s.scene.avatarShape ?? data.avatarShape} size={s.scene.avatarSize ?? data.avatarSize} position={s.scene.avatarPosition ?? data.avatarPosition} bg={s.scene.avatarBg ?? data.avatarBg} opacity={s.scene.avatarOpacity ?? data.avatarOpacity} shadow={s.scene.avatarShadow ?? data.avatarShadow} focusX={s.scene.avatarFocusX} focusY={s.scene.avatarFocusY} zoom={s.scene.avatarZoom} />
             )}
             {data.captionsEnabled && (s.scene.narrationText || s.scene.narration) && (
               <CaptionTrack

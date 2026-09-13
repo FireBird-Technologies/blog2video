@@ -145,6 +145,7 @@ export interface Scene {
   avatar_position?: AvatarCorner | null;
   avatar_bg?: AvatarBg;
   avatar_opacity?: number | null;
+  avatar_shadow?: number | null;
   /** Which region of the rendered clip to show; null = default framing. */
   avatar_focus_x?: number | null;
   avatar_focus_y?: number | null;
@@ -231,6 +232,7 @@ export interface Project {
   avatar_position?: AvatarCorner;
   avatar_bg?: AvatarBg;
   avatar_opacity?: number;
+  avatar_shadow?: number;
   /** Project-wide only — no per-scene override, unlike the fields above. */
   avatar_motion_style?: AvatarMotionStyle;
   /** URL of the presenter photo this user uploaded; null = using the roster. */
@@ -685,6 +687,10 @@ export interface LayoutPropField {
   minItems?: number;
   options?: Array<{ label: string; value: string }>;
   subFields?: LayoutPropSubField[];
+  /** For "color" fields with no `default`/`placeholder`: derive the unsaved
+   *  swatch from the project's accent color instead of a generic blue.
+   *  0 = accent itself, negative = darken, positive = lighten. */
+  accentShade?: number;
 }
 
 export interface LayoutSceneDefaults {
@@ -1435,6 +1441,7 @@ export const updateProject = (
     avatar_position?: AvatarCorner;
     avatar_bg?: AvatarBg;
     avatar_opacity?: number | null;
+    avatar_shadow?: number | null;
     avatar_motion_style?: AvatarMotionStyle;
     avatar_batch_unlocked?: boolean;
     }
@@ -2243,6 +2250,7 @@ export const updateSceneAvatarAppearance = (
     avatar_position?: AvatarCorner | null;
     avatar_bg?: AvatarBg;
     avatar_opacity?: number | null;
+    avatar_shadow?: number | null;
   }
 ) =>
   api.patch<Scene>(

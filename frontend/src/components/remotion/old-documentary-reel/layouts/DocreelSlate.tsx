@@ -203,7 +203,16 @@ export const DocreelSlate: React.FC<SceneLayoutProps> = (props) => {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const clapFlash = interpolate(frame, [6, 8, 16], [0, 0.9, 0], {
+  // Timed to start at frame 10 — after useSceneFade's enter ramp (frames 0-10)
+  // has reached full opacity — and capped at 0.3 rather than 0.9. Firing the
+  // flash while the scene's own master opacity was still ramping up combined
+  // a near-invisible frame with a near-white `mixBlendMode: screen` frame a
+  // few frames later, reading as a hard black/white flicker whenever this
+  // scene has nothing playing before it to mask its opening frames (i.e.
+  // whenever it is the video's true first scene, which is the common case
+  // once the countdown leader is removed — see docReelStyle.tsx's
+  // useSceneFade for the enter ramp this is timed against).
+  const clapFlash = interpolate(frame, [10, 12, 20], [0, 0.3, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });

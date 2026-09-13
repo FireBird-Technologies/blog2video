@@ -182,15 +182,23 @@ export const useFitText = (
       requestAnimationFrame(() => release());
     };
 
-    // Try to measure synchronously — if the element has real dimensions (i.e.
-    // the custom fonts are already loaded, as is always the case in the Player
-    // after the first scene), reveal immediately at frame 0 so the content is
-    // visible from the first paint and there is no mid-entrance pop-in. Only
-    // fall back to the async fonts.ready path if the element has zero height
-    // (unmeasurable = fonts not yet loaded), which happens on very first load or
-    // in headless render before fonts are ready.
+    // Try to measure synchronously — but only once the real webfonts
+    // (Oswald / Courier Prime) have actually swapped in. `el.clientHeight > 0`
+    // used to gate this alone, but a nonzero height is satisfied just as well
+    // by the CSS fallback font (Arial Narrow / Courier New) while the real
+    // @fontsource file is still loading — so this hook could measure and
+    // reveal against FALLBACK metrics, then the real font would swap in later
+    // with no re-measurement (nothing in `deps` changes when a font finishes
+    // loading). Each headless-render browser instance hits that swap at a
+    // slightly different moment, which is what produced a persistent ~1px
+    // text jitter across an entire scene whenever it was the first thing that
+    // instance ever rendered (scene 2+ never showed it: by the time a later
+    // scene mounts, fonts are already loaded from rendering everything before
+    // it). Gating on `document.fonts.status === "loaded"` — the same
+    // real-font-is-in signal `useDocReelFontsLoaded` waits on — makes the
+    // first measurement pass deterministic instead of racing the swap.
     const fontsObj = (document as Document & { fonts?: FontFaceSet }).fonts;
-    if (el.clientHeight > 0) {
+    if (el.clientHeight > 0 && fontsObj?.status === "loaded") {
       measure();
     } else if (fontsObj?.ready) {
       fontsObj.ready.then(() => {

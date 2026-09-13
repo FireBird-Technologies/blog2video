@@ -189,6 +189,7 @@ const RemotionNewscastSequenceInner: React.FC<{
   avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
   avatarBg?: string | null;
   avatarOpacity?: number;
+  avatarShadow?: number;
   avatarFocusX?: number;
   avatarFocusY?: number;
   avatarZoom?: number;
@@ -259,6 +260,7 @@ export interface RemotionDefaultSceneInput {
   avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
   avatarBg?: string | null;
   avatarOpacity?: number;
+  avatarShadow?: number;
   avatarFocusX?: number;
   avatarFocusY?: number;
   avatarZoom?: number;
@@ -375,7 +377,7 @@ export const RemotionDefaultVideoComposition: React.FC<
           >
             <LayoutComponent {...layoutProps} />
             {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
-            {scene.avatarUrl && <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />}
+            {scene.avatarUrl && <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} shadow={scene.avatarShadow} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />}
           </Sequence>
         );
       })}
@@ -410,6 +412,7 @@ export interface RemotionNightfallSceneInput {
   avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
   avatarBg?: string | null;
   avatarOpacity?: number;
+  avatarShadow?: number;
   avatarFocusX?: number;
   avatarFocusY?: number;
   avatarZoom?: number;
@@ -525,7 +528,7 @@ export const RemotionNightfallVideoComposition: React.FC<
           >
             <LayoutComponent {...layoutProps} />
             {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
-            {scene.avatarUrl && <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />}
+            {scene.avatarUrl && <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} shadow={scene.avatarShadow} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />}
           </Sequence>
         );
       })}
@@ -560,6 +563,7 @@ export interface RemotionGridcraftSceneInput {
   avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
   avatarBg?: string | null;
   avatarOpacity?: number;
+  avatarShadow?: number;
   avatarFocusX?: number;
   avatarFocusY?: number;
   avatarZoom?: number;
@@ -637,7 +641,7 @@ export const RemotionGridcraftVideoComposition: React.FC<
               <LayoutComponent {...layoutProps} />
             </AbsoluteFill>
             {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
-            {scene.avatarUrl && <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />}
+            {scene.avatarUrl && <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} shadow={scene.avatarShadow} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />}
             {index < scenes.length - 1 && (
               <Sequence from={durationFrames - 15} durationInFrames={15}>
                 <AbsoluteFill
@@ -684,6 +688,7 @@ export interface RemotionSpotlightSceneInput {
   avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
   avatarBg?: string | null;
   avatarOpacity?: number;
+  avatarShadow?: number;
   avatarFocusX?: number;
   avatarFocusY?: number;
   avatarZoom?: number;
@@ -802,7 +807,7 @@ export const RemotionSpotlightVideoComposition: React.FC<
             durationInFrames={sceneFrames[index]}
           >
             <Audio src={scene.voiceoverUrl} />
-            {scene.avatarUrl ? <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} /> : null}
+            {scene.avatarUrl ? <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} shadow={scene.avatarShadow} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} /> : null}
           </Sequence>
         ) : null,
       )}
@@ -837,6 +842,7 @@ export interface RemotionMatrixSceneInput {
   avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
   avatarBg?: string | null;
   avatarOpacity?: number;
+  avatarShadow?: number;
   avatarFocusX?: number;
   avatarFocusY?: number;
   avatarZoom?: number;
@@ -859,6 +865,7 @@ export interface RemotionBlackswanSceneInput {
   avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
   avatarBg?: string | null;
   avatarOpacity?: number;
+  avatarShadow?: number;
   avatarFocusX?: number;
   avatarFocusY?: number;
   avatarZoom?: number;
@@ -929,7 +936,7 @@ export const RemotionBlackswanVideoComposition: React.FC<
           >
             <LayoutComponent {...layoutProps} />
             {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
-            {scene.avatarUrl && <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />}
+            {scene.avatarUrl && <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} shadow={scene.avatarShadow} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />}
           </Sequence>
         );
       })}
@@ -1060,7 +1067,7 @@ export const RemotionMatrixVideoComposition: React.FC<
             durationInFrames={sceneFrames[index]}
           >
             <Audio src={scene.voiceoverUrl} />
-            {scene.avatarUrl ? <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} /> : null}
+            {scene.avatarUrl ? <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} shadow={scene.avatarShadow} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} /> : null}
           </Sequence>
         ) : null,
       )}
@@ -1095,6 +1102,7 @@ export interface RemotionMosaicSceneInput {
   avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
   avatarBg?: string | null;
   avatarOpacity?: number;
+  avatarShadow?: number;
   avatarFocusX?: number;
   avatarFocusY?: number;
   avatarZoom?: number;
@@ -1164,7 +1172,7 @@ export const RemotionMosaicVideoComposition: React.FC<
           >
             <LayoutComponent {...layoutProps} />
             {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
-            {scene.avatarUrl && <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />}
+            {scene.avatarUrl && <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} shadow={scene.avatarShadow} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />}
           </Sequence>
         );
       })}
@@ -1199,6 +1207,7 @@ export interface RemotionWhiteboardSceneInput {
   avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
   avatarBg?: string | null;
   avatarOpacity?: number;
+  avatarShadow?: number;
   avatarFocusX?: number;
   avatarFocusY?: number;
   avatarZoom?: number;
@@ -1268,7 +1277,7 @@ export const RemotionWhiteboardVideoComposition: React.FC<
           >
             <LayoutComponent {...layoutProps} />
             {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
-            {scene.avatarUrl && <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />}
+            {scene.avatarUrl && <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} shadow={scene.avatarShadow} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />}
           </Sequence>
         );
       })}
@@ -1303,6 +1312,7 @@ export interface RemotionNewspaperSceneInput {
   avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
   avatarBg?: string | null;
   avatarOpacity?: number;
+  avatarShadow?: number;
   avatarFocusX?: number;
   avatarFocusY?: number;
   avatarZoom?: number;
@@ -1384,7 +1394,7 @@ export const RemotionNewspaperVideoComposition: React.FC<
             <AbsoluteFill>
               <LayoutComponent {...layoutProps} />
               {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
-              {scene.avatarUrl && <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />}
+              {scene.avatarUrl && <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} shadow={scene.avatarShadow} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />}
             </AbsoluteFill>
           </Sequence>
         );
@@ -1421,6 +1431,7 @@ export interface RemotionNewscastSceneInput {
   avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
   avatarBg?: string | null;
   avatarOpacity?: number;
+  avatarShadow?: number;
   avatarFocusX?: number;
   avatarFocusY?: number;
   avatarZoom?: number;
@@ -1628,6 +1639,7 @@ export interface RemotionBloombergSceneInput {
   avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
   avatarBg?: string | null;
   avatarOpacity?: number;
+  avatarShadow?: number;
   avatarFocusX?: number;
   avatarFocusY?: number;
   avatarZoom?: number;
@@ -1698,7 +1710,7 @@ export const RemotionBloombergVideoComposition: React.FC<
           >
             <LayoutComponent {...layoutProps} />
             {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
-            {scene.avatarUrl && <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />}
+            {scene.avatarUrl && <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} shadow={scene.avatarShadow} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />}
           </Sequence>
         );
       })}
@@ -1735,6 +1747,7 @@ export interface RemotionChronicleSceneInput {
   avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
   avatarBg?: string | null;
   avatarOpacity?: number;
+  avatarShadow?: number;
   avatarFocusX?: number;
   avatarFocusY?: number;
   avatarZoom?: number;
@@ -1845,7 +1858,7 @@ export const RemotionChronicleVideoComposition: React.FC<
                 <LayoutComponent {...layoutProps} />
               </RemotionChronicleChrome>
               {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
-              {scene.avatarUrl && <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />}
+              {scene.avatarUrl && <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} shadow={scene.avatarShadow} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />}
             </AbsoluteFill>
           </Sequence>
         );
@@ -1883,6 +1896,7 @@ export interface RemotionEconomistSceneInput {
   avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
   avatarBg?: string | null;
   avatarOpacity?: number;
+  avatarShadow?: number;
   avatarFocusX?: number;
   avatarFocusY?: number;
   avatarZoom?: number;
@@ -2075,7 +2089,7 @@ export const RemotionEconomistVideoComposition: React.FC<
             durationInFrames={s.durationFrames}
           >
             <Audio src={s.scene.voiceoverUrl} playbackRate={resolvedPlaybackSpeed} />
-            {s.scene.avatarUrl ? <AvatarOverlay src={s.scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={s.scene.avatarShape} size={s.scene.avatarSize} position={s.scene.avatarPosition} bg={s.scene.avatarBg} opacity={s.scene.avatarOpacity} focusX={s.scene.avatarFocusX} focusY={s.scene.avatarFocusY} zoom={s.scene.avatarZoom} /> : null}
+            {s.scene.avatarUrl ? <AvatarOverlay src={s.scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={s.scene.avatarShape} size={s.scene.avatarSize} position={s.scene.avatarPosition} bg={s.scene.avatarBg} opacity={s.scene.avatarOpacity} shadow={s.scene.avatarShadow} focusX={s.scene.avatarFocusX} focusY={s.scene.avatarFocusY} zoom={s.scene.avatarZoom} /> : null}
           </Sequence>
         );
       })}
@@ -2112,6 +2126,7 @@ export interface RemotionStickman2SceneInput {
   avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
   avatarBg?: string | null;
   avatarOpacity?: number;
+  avatarShadow?: number;
   avatarFocusX?: number;
   avatarFocusY?: number;
   avatarZoom?: number;
@@ -2188,7 +2203,7 @@ export const RemotionStickman2VideoComposition: React.FC<
           >
             <LayoutComponent {...layoutProps} />
             {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
-            {scene.avatarUrl && <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />}
+            {scene.avatarUrl && <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} shadow={scene.avatarShadow} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />}
           </Sequence>
         );
       })}
@@ -2225,6 +2240,7 @@ export interface RemotionMagazineSceneInput {
   avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
   avatarBg?: string | null;
   avatarOpacity?: number;
+  avatarShadow?: number;
   avatarFocusX?: number;
   avatarFocusY?: number;
   avatarZoom?: number;
@@ -2351,7 +2367,7 @@ export const RemotionMagazineVideoComposition: React.FC<
             durationInFrames={s.durationFrames}
           >
             <Audio src={s.scene.voiceoverUrl} />
-            {s.scene.avatarUrl ? <AvatarOverlay src={s.scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={s.scene.avatarShape} size={s.scene.avatarSize} position={s.scene.avatarPosition} bg={s.scene.avatarBg} opacity={s.scene.avatarOpacity} focusX={s.scene.avatarFocusX} focusY={s.scene.avatarFocusY} zoom={s.scene.avatarZoom} /> : null}
+            {s.scene.avatarUrl ? <AvatarOverlay src={s.scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={s.scene.avatarShape} size={s.scene.avatarSize} position={s.scene.avatarPosition} bg={s.scene.avatarBg} opacity={s.scene.avatarOpacity} shadow={s.scene.avatarShadow} focusX={s.scene.avatarFocusX} focusY={s.scene.avatarFocusY} zoom={s.scene.avatarZoom} /> : null}
           </Sequence>
         );
       })}
@@ -2388,6 +2404,7 @@ export interface RemotionSakuraSceneInput {
   avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
   avatarBg?: string | null;
   avatarOpacity?: number;
+  avatarShadow?: number;
   avatarFocusX?: number;
   avatarFocusY?: number;
   avatarZoom?: number;
@@ -2577,7 +2594,7 @@ export const RemotionSakuraVideoComposition: React.FC<
             durationInFrames={s.durationFrames}
           >
             <Audio src={s.scene.voiceoverUrl} />
-            {s.scene.avatarUrl ? <AvatarOverlay src={s.scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={s.scene.avatarShape} size={s.scene.avatarSize} position={s.scene.avatarPosition} bg={s.scene.avatarBg} opacity={s.scene.avatarOpacity} focusX={s.scene.avatarFocusX} focusY={s.scene.avatarFocusY} zoom={s.scene.avatarZoom} /> : null}
+            {s.scene.avatarUrl ? <AvatarOverlay src={s.scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={s.scene.avatarShape} size={s.scene.avatarSize} position={s.scene.avatarPosition} bg={s.scene.avatarBg} opacity={s.scene.avatarOpacity} shadow={s.scene.avatarShadow} focusX={s.scene.avatarFocusX} focusY={s.scene.avatarFocusY} zoom={s.scene.avatarZoom} /> : null}
           </Sequence>
         );
       })}
@@ -2614,6 +2631,7 @@ export interface RemotionStickmanFootballSceneInput {
   avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
   avatarBg?: string | null;
   avatarOpacity?: number;
+  avatarShadow?: number;
   avatarFocusX?: number;
   avatarFocusY?: number;
   avatarZoom?: number;
@@ -2690,7 +2708,7 @@ export const RemotionStickmanFootballVideoComposition: React.FC<
           >
             <LayoutComponent {...layoutProps} />
             {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
-            {scene.avatarUrl && <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />}
+            {scene.avatarUrl && <AvatarOverlay src={scene.avatarUrl} aspectRatio={aspectRatio || "landscape"} shape={scene.avatarShape} size={scene.avatarSize} position={scene.avatarPosition} bg={scene.avatarBg} opacity={scene.avatarOpacity} shadow={scene.avatarShadow} focusX={scene.avatarFocusX} focusY={scene.avatarFocusY} zoom={scene.avatarZoom} />}
           </Sequence>
         );
       })}

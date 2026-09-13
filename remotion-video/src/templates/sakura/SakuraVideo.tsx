@@ -41,6 +41,7 @@ interface SceneData {
   avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
   avatarBg?: string | null;
   avatarOpacity?: number;
+  avatarShadow?: number;
   avatarFocusX?: number;
   avatarFocusY?: number;
   avatarZoom?: number;
@@ -81,6 +82,7 @@ interface VideoData {
   avatarPosition?: "top_left" | "top_right" | "bottom_left" | "bottom_right";
   avatarBg?: string | null;
   avatarOpacity?: number;
+  avatarShadow?: number;
   avatarFocusX?: number;
   avatarFocusY?: number;
   avatarZoom?: number;
@@ -373,7 +375,7 @@ export const SakuraVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           >
             <Audio src={staticFile(r.scene.voiceoverFile)} playbackRate={playbackSpeed} />
             {r.scene.avatarVideoFile && (
-              <AvatarOverlay src={staticFile(r.scene.avatarVideoFile)} aspectRatio={data.aspectRatio || "landscape"} shape={r.scene.avatarShape ?? data.avatarShape} size={r.scene.avatarSize ?? data.avatarSize} position={r.scene.avatarPosition ?? data.avatarPosition} bg={r.scene.avatarBg ?? data.avatarBg} opacity={r.scene.avatarOpacity ?? data.avatarOpacity} focusX={r.scene.avatarFocusX} focusY={r.scene.avatarFocusY} zoom={r.scene.avatarZoom} />
+              <AvatarOverlay src={staticFile(r.scene.avatarVideoFile)} aspectRatio={data.aspectRatio || "landscape"} shape={r.scene.avatarShape ?? data.avatarShape} size={r.scene.avatarSize ?? data.avatarSize} position={r.scene.avatarPosition ?? data.avatarPosition} bg={r.scene.avatarBg ?? data.avatarBg} opacity={r.scene.avatarOpacity ?? data.avatarOpacity} shadow={r.scene.avatarShadow ?? data.avatarShadow} focusX={r.scene.avatarFocusX} focusY={r.scene.avatarFocusY} zoom={r.scene.avatarZoom} />
             )}
           </Sequence>
         );

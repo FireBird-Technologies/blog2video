@@ -254,6 +254,15 @@ export const SAKURA_ENTRANCE: Record<string, SakuraEntrance> = {
   sakura_list_scene: "rise",
   sakura_text_narration: "rise",
   sakura_ending_socials: "slide_panel",
+  // Warm night scene — the lantern glow itself is the reveal, so a gentle
+  // bloom-from-center reads more like a light being lit than a hard wipe.
+  sakura_text_narration__v2: "bloom",
+  // Same centered composition as the base — the tree backdrop is the
+  // differentiator, not the entrance choreography.
+  sakura_intro__v2: "petal_settle",
+  // A quiet moon-viewing close — settle in gently rather than the base's
+  // energetic slide-panel wipe.
+  ending_socials__v2: "petal_settle",
   // Variants. Each takes the entrance family that matches its own composition
   // rather than its base's: the scroll settles, the folding screen wipes, the
   // seal blooms from the centre.
@@ -1222,6 +1231,15 @@ export const SAKURA_BACKDROP: Record<string, SakuraBackdropVariant> = {
   sakura_list_scene: "ink_corner",
   sakura_text_narration: "washi_radial",
   sakura_ending_socials: "celebration",
+  // Night hanami: same dark dusk-radial ground as the hero intro, so the warm
+  // lantern glow reads as the only light source in the frame.
+  sakura_text_narration__v2: "plum_radial",
+  // Same dark radial ground as the base sakura_intro — the growing tree is
+  // the differentiator here, not backdrop geometry.
+  sakura_intro__v2: "plum_radial",
+  // Same dark celebration wash as the base — the moon + mist are the
+  // differentiator, not backdrop geometry.
+  ending_socials__v2: "celebration",
   // Variants pass `backdrop` explicitly to <SakuraScene>, so these entries are not
   // strictly load-bearing today — they are here so any future lookup by layout id
   // agrees with what the components actually render.
@@ -1821,6 +1839,118 @@ export const TanzakuPanel: React.FC<{
       <div style={{ position: "absolute", bottom: -2, left: w * 0.06, width: w * 0.88 }}>
         <KintsugiLine width={w * 0.88} progress={progress} color={railColor} opacity={0.9} strokeWidth={1.6} />
       </div>
+    </div>
+  );
+};
+
+// ─── PaperLantern — glowing hanging bonbori with warm light bloom ────────────
+
+/**
+ * A hanging paper lantern (雪洞, bonbori) — a hexagonal warm-lit paper shade
+ * on a lacquered wood top/bottom ring, hung by a cord from above, with a
+ * soft warm glow bleeding outward (the scene's actual light source on a dark
+ * ground). Ribs are thin gold verticals; the paper itself is a warm gradient
+ * from bright core to ember edge. `flicker` adds a gentle candle-like glow
+ * pulse; `litProgress` (0..1) fades/scales the glow in, like the lantern
+ * being lit. Static shade fill + one soft blurred-gradient halo (no CSS
+ * blur filters on anything that moves) — cheap to paint every frame.
+ */
+export const PaperLantern: React.FC<{
+  cx: number;
+  cy: number;
+  width: number;
+  height: number;
+  color?: string;
+  glowColor?: string;
+  ribColor?: string;
+  cordColor?: string;
+  litProgress?: number;
+  cordLength?: number;
+  opacity?: number;
+  glowStrength?: number;
+  haloScale?: number;
+}> = ({
+  cx,
+  cy,
+  width: w,
+  height: h,
+  color = SAKURA.gold,
+  glowColor = "#FFD9A0",
+  ribColor = SAKURA.gold,
+  cordColor = SAKURA.ink,
+  litProgress = 1,
+  cordLength = 60,
+  opacity = 1,
+  glowStrength = 1,
+  haloScale = 1.9,
+}) => {
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
+  const frame = useSakuraFrame();
+  const flicker = 1 + Math.sin(frame * 0.09) * 0.035 + Math.sin(frame * 0.21) * 0.02;
+  const glow = litProgress * flicker * glowStrength;
+  const capH = h * 0.1;
+  const halo = Math.max(w, h) * haloScale;
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: cx - halo / 2,
+        top: cy - halo / 2 - cordLength,
+        width: halo,
+        height: halo + cordLength,
+        opacity,
+        pointerEvents: "none",
+      }}
+    >
+      <svg width={halo} height={halo + cordLength} viewBox={`0 0 ${halo} ${halo + cordLength}`} style={{ overflow: "visible" }}>
+        <defs>
+          <radialGradient id={`lantern-halo-${uid}`} cx="50%" cy="46%" r="52%">
+            <stop offset="0%" stopColor={hexToRgba(glowColor, Math.min(0.82, 0.55 * glow))} />
+            <stop offset="45%" stopColor={hexToRgba(glowColor, Math.min(0.42, 0.22 * glow))} />
+            <stop offset="100%" stopColor="transparent" />
+          </radialGradient>
+          <linearGradient id={`lantern-paper-${uid}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={hexToRgba(glowColor, Math.min(1, 0.98 * glow))} />
+            <stop offset="55%" stopColor={hexToRgba(color, Math.min(1, 0.92 * glow))} />
+            <stop offset="100%" stopColor={hexToRgba(SAKURA.crimson, Math.min(0.72, 0.5 * glow))} />
+          </linearGradient>
+        </defs>
+        {/* soft ambient halo behind everything */}
+        <ellipse cx={halo / 2} cy={cordLength + halo / 2} rx={halo / 2} ry={halo / 2} fill={`url(#lantern-halo-${uid})`} />
+        {/* hanging cord */}
+        <line
+          x1={halo / 2} y1={0}
+          x2={halo / 2} y2={cordLength}
+          stroke={cordColor} strokeWidth={2} opacity={0.55}
+        />
+        {/* lantern body */}
+        <g transform={`translate(${(halo - w) / 2}, ${cordLength})`}>
+          {/* top lacquered ring */}
+          <rect x={w * 0.18} y={0} width={w * 0.64} height={capH} rx={capH * 0.3} fill={SAKURA.ink} opacity={0.75} />
+          {/* barrel — bulges slightly at the middle like a real bonbori */}
+          <path
+            d={`M ${w * 0.06} ${capH} Q ${-w * 0.08} ${h / 2} ${w * 0.06} ${h - capH} L ${w * 0.94} ${h - capH} Q ${w * 1.08} ${h / 2} ${w * 0.94} ${capH} Z`}
+            fill={`url(#lantern-paper-${uid})`}
+            style={{ filter: `drop-shadow(0 0 ${14 * glow}px ${hexToRgba(glowColor, 0.6 * glow)})` }}
+          />
+          {/* gold ribs */}
+          {[0.22, 0.5, 0.78].map((f, i) => (
+            <path
+              key={i}
+              d={`M ${w * (0.06 + f * 0.0)} ${capH} Q ${w * f - w * 0.02 * (f - 0.5) * 2} ${h / 2} ${w * f} ${h - capH}`}
+              fill="none"
+              stroke={ribColor}
+              strokeWidth={1.4}
+              opacity={0.4}
+            />
+          ))}
+          {/* bottom lacquered ring + tassel */}
+          <rect x={w * 0.18} y={h - capH} width={w * 0.64} height={capH} rx={capH * 0.3} fill={SAKURA.ink} opacity={0.75} />
+          <line x1={w / 2} y1={h} x2={w / 2} y2={h + capH * 1.4} stroke={cordColor} strokeWidth={1.6} opacity={0.55} />
+          <circle cx={w / 2} cy={h + capH * 1.7} r={capH * 0.32} fill={SAKURA.crimson} opacity={0.7} />
+        </g>
+      </svg>
     </div>
   );
 };

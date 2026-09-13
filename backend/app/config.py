@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     # quota drops to/below this percent. Checked once daily (see
     # _periodic_elevenlabs_quota_check in main.py) plus reactively on quota errors.
     ELEVENLABS_FAILOVER_THRESHOLD_PERCENT: float = 2.0
-    ELEVENLABS_VOICE_ID: str = "21m00Tcm4TlvDq8ikWAM"
+    ELEVENLABS_VOICE_ID: str = "dfeOmy6Uay63tNhyO99j"
     EXA_API_KEY: str = ""
     FIRECRAWL_API_KEY: str = ""
     # Stock-footage providers. Each is optional and independently skipped when

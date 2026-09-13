@@ -55,6 +55,7 @@ export default function ProjectAvatarSettingsCard({
   avatarPosition,
   avatarBg,
   avatarOpacity,
+  avatarShadow,
   avatarCustomImageUrl,
   aspectRatio,
   scenesNeedingMatte = [],
@@ -79,6 +80,8 @@ export default function ProjectAvatarSettingsCard({
   avatarPosition?: AvatarCorner;
   avatarBg?: AvatarBg;
   avatarOpacity?: number;
+  /** Shadow intensity, 0 (none) - 1 (strongest). */
+  avatarShadow?: number;
   /** The user's uploaded presenter photo, if any. */
   avatarCustomImageUrl?: string | null;
   /** "landscape" | "portrait" — the preview frame mirrors the real video shape. */
@@ -121,6 +124,7 @@ export default function ProjectAvatarSettingsCard({
   );
   const [bg, setBg] = useState<AvatarBg>(avatarBg ?? null);
   const [opacity, setOpacity] = useState<number>(avatarOpacity ?? 1);
+  const [shadow, setShadow] = useState<number>(avatarShadow ?? 0.4);
   const [saving, setSaving] = useState(false);
   // Seeded from the cached rollup for the same reason as matteRows below: a tab
   // switch unmounts this card, and starting at false meant a live cutout showed
@@ -443,7 +447,8 @@ export default function ProjectAvatarSettingsCard({
     setPosition(avatarPosition ?? "bottom_left");
     setBg(avatarBg ?? null);
     setOpacity(avatarOpacity ?? 1);
-  }, [avatarShape, avatarSize, avatarPosition, avatarBg, avatarOpacity]);
+    setShadow(avatarShadow ?? 0.4);
+  }, [avatarShape, avatarSize, avatarPosition, avatarBg, avatarOpacity, avatarShadow]);
 
   // No `dirty` flag: Save is a "push these to every scene" action, not just a
   // project write, so it is always available (see the button below).
@@ -459,6 +464,7 @@ export default function ProjectAvatarSettingsCard({
         // background" — and updateProject is allowed to null this field.
         avatar_bg: bg,
         avatar_opacity: opacity,
+        avatar_shadow: shadow,
       });
       await onSaved();
       // Picking a background IS the request to see it. The cutout is a required
@@ -551,7 +557,7 @@ export default function ProjectAvatarSettingsCard({
   // Deliberately NOT gated on hasAnyAvatar — the settings are editable before any
   // avatar exists so the user can set their preference up front.
   const controlsDisabled = disabled || saving || matting;
-  const value: AvatarAppearanceValue = { shape, size, position, bg, opacity };
+  const value: AvatarAppearanceValue = { shape, size, position, bg, opacity, shadow };
   // Scenes whose cutout FAILED. Kept visible after a pass ends because that is
   // what the Retry button acts on — without it a failure would just leave those
   // scenes silently showing the original background.
@@ -599,6 +605,8 @@ export default function ProjectAvatarSettingsCard({
     if (patch.bg !== undefined) setBg(patch.bg);
     if (patch.opacity !== undefined && patch.opacity !== null)
       setOpacity(patch.opacity);
+    if (patch.shadow !== undefined && patch.shadow !== null)
+      setShadow(patch.shadow);
   };
 
   return (
@@ -831,6 +839,7 @@ export default function ProjectAvatarSettingsCard({
                 position: position ?? "bottom_left",
                 bg,
                 opacity,
+                shadow,
               }}
               previewPresetId={previewScene?.avatar_preset}
               customPortraitUrl={avatarCustomImageUrl}

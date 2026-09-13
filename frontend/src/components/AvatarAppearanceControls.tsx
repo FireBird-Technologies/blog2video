@@ -52,13 +52,15 @@ function ShapeGlyph({ shape, className = "w-2.5 h-2.5" }: { shape: AvatarShape; 
   );
 }
 
-/** The four settings, as stored. NULL in scene scope means "inherit". */
+/** The settings, as stored. NULL in scene scope means "inherit". */
 export interface AvatarAppearanceValue {
   shape: AvatarShape | null;
   size: number | null;
   position: AvatarCorner | null;
   bg: AvatarBg;
   opacity: number | null;
+  /** Shadow intensity, 0 (none) - 1 (strongest). */
+  shadow: number | null;
 }
 
 /** Concrete project-level values a scene falls back to. */
@@ -68,6 +70,7 @@ export interface AvatarAppearanceInherited {
   position: AvatarCorner;
   bg: AvatarBg;
   opacity: number;
+  shadow: number;
 }
 
 const DEFAULT_COLOR = "#1E293B";
@@ -147,6 +150,7 @@ export default function AvatarAppearanceControls({
   const position = value.position ?? inherited.position;
   const bg = value.bg !== undefined && value.bg !== null ? value.bg : inherited.bg;
   const opacity = value.opacity ?? inherited.opacity ?? 1;
+  const shadow = value.shadow ?? inherited.shadow ?? 0.4;
 
   // null and "original" both select the Original swatch. They are stored
   // differently — project-scope null has always meant Original, while a scene
@@ -205,6 +209,7 @@ export default function AvatarAppearanceControls({
             avatar_position: position,
             avatar_bg: bg,
             avatar_opacity: opacity,
+            avatar_shadow: shadow,
           }),
       scenes: project.scenes.map((s, i) =>
         i === sceneIndex
@@ -219,12 +224,13 @@ export default function AvatarAppearanceControls({
               avatar_position: isScene ? position : null,
               avatar_bg: isScene ? bg : null,
               avatar_opacity: isScene ? opacity : null,
+              avatar_shadow: isScene ? shadow : null,
               avatar_zoom: framing ? framing.zoom : s.avatar_zoom,
             }
           : s
       ),
     };
-  }, [project, sceneIndex, isScene, shape, size, position, bg, opacity, framing]);
+  }, [project, sceneIndex, isScene, shape, size, position, bg, opacity, shadow, framing]);
 
   const beforeFrame =
     sceneIndex >= 0 && project
@@ -376,33 +382,51 @@ export default function AvatarAppearanceControls({
                   </div>
                 )}
                 <div
-                  className="absolute overflow-hidden"
+                  className="absolute"
                   style={{
                     width: boxW,
                     height: boxH,
                     [vert === "top" ? "top" : "bottom"]: mockMargin,
                     [horiz === "right" ? "right" : "left"]: mockMargin,
-                    // Radius follows the SHAPE even for a transparent background.
-                    // This mock draws a rectangular preset photo (nothing has been
-                    // rendered or matted yet), so zeroing the radius here made the
-                    // Shape control look broken: picking "rounded" changed only the
-                    // box's height and left hard corners. The drop-shadow stays
-                    // suppressed for a cutout, where there is no box edge to cast one.
+                    // `overflow: hidden` on the SAME box as boxShadow clips the
+                    // shadow too (it paints just outside the border edge), so the
+                    // shadow lives here on the un-clipped outer box while
+                    // rounding/clipping moves to the inner box around the media.
+                    // borderRadius alone (no clip-path/overflow) still shapes the
+                    // shadow itself, so a circular avatar casts a circular shadow.
                     borderRadius: boxRadius,
-                    boxShadow: isCutout ? undefined : "0 2px 8px rgba(0,0,0,0.28)",
-                    backgroundColor:
-                      bgMode === "color" && bg && !isCutout ? bg : undefined,
+                    // Same offset/blur/alpha ramp as AvatarOverlay's real shadow,
+                    // scaled down to this smaller mock box, so Preview matches
+                    // what Save will actually produce.
+                    boxShadow:
+                      isCutout || shadow <= 0
+                        ? undefined
+                        : `0 ${Math.round(2 + 6 * shadow)}px ${Math.round(8 + 14 * shadow)}px ${Math.round(2 * shadow)}px rgba(0,0,0,${(0.28 + 0.47 * shadow).toFixed(2)})`,
                     opacity,
                   }}
                 >
-                  <AvatarPresetMedia
-                    presetId={previewPresetId ?? AVATAR_CUSTOM_PRESET_ID}
-                    label={previewPresetId ?? "Your photo"}
-                    srcOverride={previewPresetId ? undefined : customPortraitUrl}
-                    playing
-                    className="w-full h-full object-cover"
-                    style={{ objectPosition: "50% 28%" }}
-                  />
+                  <div
+                    className="w-full h-full overflow-hidden"
+                    style={{
+                      // Radius follows the SHAPE even for a transparent background.
+                      // This mock draws a rectangular preset photo (nothing has been
+                      // rendered or matted yet), so zeroing the radius here made the
+                      // Shape control look broken: picking "rounded" changed only the
+                      // box's height and left hard corners.
+                      borderRadius: boxRadius,
+                      backgroundColor:
+                        bgMode === "color" && bg && !isCutout ? bg : undefined,
+                    }}
+                  >
+                    <AvatarPresetMedia
+                      presetId={previewPresetId ?? AVATAR_CUSTOM_PRESET_ID}
+                      label={previewPresetId ?? "Your photo"}
+                      srcOverride={previewPresetId ? undefined : customPortraitUrl}
+                      playing
+                      className="w-full h-full object-cover"
+                      style={{ objectPosition: "50% 28%" }}
+                    />
+                  </div>
                 </div>
               </div>
             );
@@ -525,6 +549,25 @@ export default function AvatarAppearanceControls({
               value={Math.round(opacity * 100)}
               disabled={disabled}
               onChange={(e) => onChange({ opacity: parseInt(e.target.value, 10) / 100 })}
+              className="w-full h-1.5 bg-gray-300 rounded-full appearance-none cursor-pointer accent-purple-600 disabled:opacity-50"
+            />
+          </div>
+
+          <div>
+            <label className="flex items-center gap-1.5 text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+              Drop shadow{" "}
+              <span className="text-gray-500 normal-case tracking-normal">
+                {shadow <= 0 ? "Off" : `${Math.round(shadow * 100)}%`}
+              </span>
+            </label>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={1}
+              value={Math.round(shadow * 100)}
+              disabled={disabled}
+              onChange={(e) => onChange({ shadow: parseInt(e.target.value, 10) / 100 })}
               className="w-full h-1.5 bg-gray-300 rounded-full appearance-none cursor-pointer accent-purple-600 disabled:opacity-50"
             />
           </div>
