@@ -2,6 +2,7 @@
   "id": "chronicle",
   "name": "Chronicle",
   "new_template": false,
+  "new_scenes": true,
   "description": "Old history-book tome with parchment pages, illuminated drop caps, wax seals and quill-written text. Perfect for history, heritage, mythology and long-form storytelling.",
   "genres": [
     "History"
@@ -68,11 +69,11 @@
       "defaults": {
         "titleFontSize": {
           "portrait": 66,
-          "landscape": 62
+          "landscape": 98
         },
         "descriptionFontSize": {
           "portrait": 34,
-          "landscape": 28
+          "landscape": 41
         },
         "category": "",
         "illuminatedLetter": "",
@@ -208,7 +209,65 @@
         },
         {
           "key": "highlightPhrase",
-          "label": "Phrase to Highlight in Red",
+          "label": "Phrase to Highlight",
+          "type": "string"
+        },
+        {
+          "key": "attribution",
+          "label": "Attribution",
+          "type": "string"
+        }
+      ]
+    },
+    "illuminated_quote__v2": {
+      "label": "Illuminated Quote — Witnessed Passage",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 66,
+          "landscape": 75
+        },
+        "descriptionFontSize": {
+          "portrait": 77,
+          "landscape": 40
+        },
+        "quote": "",
+        "highlightPhrase": "",
+        "attribution": "",
+        "rubricLabel": "A witnessed passage"
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Quote Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 200,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Attribution Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "key": "rubricLabel",
+          "label": "Passage Label",
+          "type": "string",
+          "placeholder": "A witnessed passage"
+        },
+        {
+          "key": "quote",
+          "label": "Quote (overrides narration)",
+          "type": "text"
+        },
+        {
+          "key": "highlightPhrase",
+          "label": "Phrase to Highlight",
           "type": "string"
         },
         {
@@ -861,7 +920,156 @@
           "placeholder": "https://yourwebsite.com"
         }
       ]
+    },
+    "book_open__v2": {
+      "label": "Book Open — The Scroll",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 138,
+          "landscape": 125
+        },
+        "descriptionFontSize": {
+          "portrait": 64,
+          "landscape": 50
+        },
+        "hideImage": true
+      }
+    },
+    "parchment_scroll__v2": {
+      "label": "Parchment Scroll — Facing Folio",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 81,
+          "landscape": 80
+        },
+        "descriptionFontSize": {
+          "portrait": 62,
+          "landscape": 51
+        }
+      }
+    },
+    "ending_socials__v2": {
+      "label": "Ending — Colophon Plate",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 107,
+          "landscape": 116
+        },
+        "descriptionFontSize": {
+          "portrait": 71,
+          "landscape": 51
+        },
+        "hideImage": true,
+        "closingLeafLabel": "The closing leaf",
+        "passageLabel": "Passage {number}"
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Subtext Size",
+          "type": "number",
+          "responsive": true,
+          "min": 12,
+          "max": 120,
+          "step": 1
+        },
+        {
+          "key": "closingLeafLabel",
+          "label": "Closing Leaf Label",
+          "type": "string",
+          "placeholder": "The closing leaf"
+        },
+        {
+          "key": "passageLabel",
+          "label": "Passage Label",
+          "type": "string",
+          "placeholder": "Passage {number}"
+        },
+        {
+          "key": "ctaButtonText",
+          "label": "CTA Ribbon Text",
+          "type": "string"
+        },
+        {
+          "key": "socials",
+          "label": "Social Platforms",
+          "type": "object_array",
+          "maxItems": 7,
+          "subFields": [
+            {
+              "key": "platform",
+              "label": "Platform"
+            },
+            {
+              "key": "enabled",
+              "label": "Enabled (true/false)"
+            },
+            {
+              "key": "label",
+              "label": "Label / handle / URL"
+            }
+          ]
+        },
+        {
+          "key": "showWebsiteButton",
+          "label": "Show Website Ribbon",
+          "type": "select",
+          "options": [
+            {
+              "label": "Enabled",
+              "value": "true"
+            },
+            {
+              "label": "Disabled",
+              "value": "false"
+            }
+          ]
+        },
+        {
+          "key": "websiteLink",
+          "label": "Website Link",
+          "type": "string",
+          "placeholder": "https://yourwebsite.com"
+        }
+      ]
     }
+  },
+  "layout_variants": {
+    "book_open": [
+      "book_open",
+      "book_open__v2"
+    ],
+    "parchment_scroll": [
+      "parchment_scroll",
+      "parchment_scroll__v2"
+    ],
+    "illuminated_quote": [
+      "illuminated_quote",
+      "illuminated_quote__v2"
+    ],
+    "ending_socials": [
+      "ending_socials",
+      "ending_socials__v2"
+    ]
+  },
+  "layout_variant_labels": {
+    "book_open": "Classic",
+    "book_open__v2": "The Scroll",
+    "parchment_scroll": "Classic",
+    "parchment_scroll__v2": "Facing Folio",
+    "illuminated_quote": "Classic",
+    "illuminated_quote__v2": "Witnessed Passage",
+    "ending_socials": "Classic",
+    "ending_socials__v2": "Colophon Plate"
   },
   "layouts_without_image": [
     "book_open",

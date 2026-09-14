@@ -422,7 +422,7 @@ export const GlowMetric: React.FC<NightfallLayoutProps> = ({
                     >
                       <div
                         style={{
-                          fontSize: titleFontSize ?? (p ? 86 : 50),
+                          fontSize: descriptionFontSize ?? (p ? 42 : 30),
                           fontWeight: 700,
                           color: accentColor,
                           fontFamily: fontFamily ?? "'Playfair Display', Georgia, serif",

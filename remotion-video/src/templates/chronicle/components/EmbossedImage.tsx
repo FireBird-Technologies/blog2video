@@ -12,14 +12,23 @@ interface EmbossedImageProps {
   videoStartInFrames?: number;
   objectPosition?: string;
   zoom?: number;
+  /** Rotation in degrees applied to the card (daguerreotype pasted feel). */
   rotate?: number;
+  /** Scene-frame at which the reveal animation should start. */
   revealStart?: number;
+  /** Disable the sepia / reveal animations (full opacity from frame 0). */
   instant?: boolean;
+  /** Optional style overrides for the outer card. */
   style?: React.CSSProperties;
+  /** Controls how thick the cream paper mat is, in px (default 14). */
   matSize?: number;
+  /** Add a faint ink-bordered frame inside the mat. */
   inkFrame?: boolean;
 }
 
+/**
+ * EmbossedImage — reusable aged-photo card used across Chronicle layouts.
+ */
 export const EmbossedImage: React.FC<EmbossedImageProps> = ({
   src,
   videoUrl,

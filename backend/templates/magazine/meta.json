@@ -2,6 +2,7 @@
   "id": "magazine",
   "name": "Magazine",
   "new_template": false,
+  "new_scenes": true,
   "description": "An authentic print-editorial magazine template: cream paper, serif headlines and book-serif body, a single red accent, hairline rules, page folios and a masthead. Purely typographic — no photographs. Folios, kicker labels, pull quotes, Q&A blocks and crisp infographic ledgers for features, interviews and brand content.",
   "genres": [
     "Business",
@@ -57,7 +58,7 @@
       "fields": [
         {
           "key": "titleFontSize",
-          "label": "Cover Line Size (max)",
+          "label": "Cover Line Size",
           "type": "number",
           "responsive": true,
           "min": 18,
@@ -1262,13 +1263,152 @@
           "description": "Small-caps running-head label in the top-right page corner, e.g. 'ANALYSIS'"
         }
       ]
+    },
+    "magazine_cover__v2": {
+      "label": "Magazine Cover — Newsstand Edition",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 100,
+          "landscape": 96
+        },
+        "descriptionFontSize": {
+          "portrait": 44,
+          "landscape": 34
+        },
+        "sectionLabel": "Feature",
+        "issueLabel": "No. 01",
+        "byline": "The Editors",
+        "newsstandLabel": "On the newsstand",
+        "leadStoryText": "One lead story.",
+        "editionText": "A whole edition."
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Cover Line Size (max)",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1,
+          "description": "Exact size of the large cover headline when adjusted manually; untouched defaults auto-fit."
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Deck Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 90,
+          "step": 1,
+          "description": "Exact size of the italic cover deck and the landscape or portrait editorial copy when adjusted manually."
+        },
+        {
+          "key": "sectionLabel",
+          "label": "Section Label",
+          "type": "string",
+          "description": "Small-caps label at the top-left of the cover, defaulting to 'Feature'."
+        },
+        {
+          "key": "issueLabel",
+          "label": "Issue Label",
+          "type": "string",
+          "description": "Small-caps issue number at the top-right of the cover, defaulting to 'No. 01'."
+        },
+        {
+          "key": "newsstandLabel",
+          "label": "Newsstand Label",
+          "type": "string",
+          "description": "Red small-caps label above the landscape-side headline, defaulting to 'On the newsstand'."
+        },
+        {
+          "key": "leadStoryText",
+          "label": "Lead Story Line",
+          "type": "string",
+          "description": "First line of the editorial statement beside the cover, defaulting to 'One lead story.'."
+        },
+        {
+          "key": "editionText",
+          "label": "Edition Line",
+          "type": "string",
+          "description": "Red italic second line of the editorial statement beside the cover, defaulting to 'A whole edition.'."
+        },
+        {
+          "key": "byline",
+          "label": "Byline",
+          "type": "string",
+          "description": "Credit line at the bottom-left of the cover; rendered as 'By {value}' and defaulting to 'The Editors'. Leave blank to hide it."
+        }
+      ]
+    },
+    "by_the_numbers__v2": {
+      "label": "By the Numbers — Annual Report Insert",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 120,
+          "landscape": 124
+        },
+        "descriptionFontSize": {
+          "portrait": 76,
+          "landscape": 42
+        },
+        "stats": [],
+        "sectionLabel": "Annual Report",
+        "displayTitle": "By the Numbers",
+        "issueLabel": "Annual Report",
+        "kickerPrefix": "Data",
+        "hideImage": true
+      }
+    },
+    "ending_socials__v2": {
+      "label": "Closing Page — Subscription Insert",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 100,
+          "landscape": 88
+        },
+        "descriptionFontSize": {
+          "portrait": 60,
+          "landscape": 48
+        },
+        "ctaButtonText": "Read the next issue",
+        "showWebsiteButton": true,
+        "websiteLink": "https://yourwebsite.com",
+        "sectionLabel": "Final Page",
+        "issueLabel": "Subscriber Edition",
+        "hideImage": true
+      }
     }
+  },
+  "layout_variants": {
+    "magazine_cover": [
+      "magazine_cover",
+      "magazine_cover__v2"
+    ],
+    "by_the_numbers": [
+      "by_the_numbers",
+      "by_the_numbers__v2"
+    ],
+    "ending_socials": [
+      "ending_socials",
+      "ending_socials__v2"
+    ]
+  },
+  "layout_variant_labels": {
+    "magazine_cover": "Classic",
+    "magazine_cover__v2": "Newsstand Edition",
+    "by_the_numbers": "Classic",
+    "by_the_numbers__v2": "Annual Report Insert",
+    "ending_socials": "Classic",
+    "ending_socials__v2": "Subscription Insert"
   },
   "layouts_without_image": [
     "by_the_numbers",
+    "by_the_numbers__v2",
     "interview_qa",
     "magazine_data_visualization",
     "ending_socials",
+    "ending_socials__v2",
     "magazine_ticker",
     "comparison"
   ]

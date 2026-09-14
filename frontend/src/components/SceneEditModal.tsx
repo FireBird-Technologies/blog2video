@@ -2183,7 +2183,10 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
     ],
   },
   magazine: {
-    magazine_cover: [],
+    magazine_cover: [
+      { key: "leadStoryText", label: "Lead story line", type: "string", placeholder: "One lead story." },
+      { key: "editionText", label: "Edition line", type: "string", placeholder: "A whole edition." },
+    ],
     editorial_quote: [
       { key: "attribution", label: "Attribution", type: "string", placeholder: "— Mara Voss, Editor" },
     ],

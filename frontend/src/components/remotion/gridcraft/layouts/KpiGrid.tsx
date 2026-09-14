@@ -13,51 +13,29 @@ const NUMBER_COUNT_DURATION = 25; // frames for the number to count up
 const LABEL_FADE_DELAY_AFTER_NUMBER = 5; // frames delay for label after number finishes counting
 const LABEL_FADE_IN_DURATION = 10; // frames for label to fade in
 
-// Helper to parse numeric value and its suffix from a string
-const parseValueAndSuffix = (value: string) => {
-  const numMatch = value.match(/^(\d+(\.\d+)?)/); // Captures leading number, possibly with decimal
-  if (numMatch && numMatch[1]) {
-    const num = parseFloat(numMatch[1]);
-    const suffix = value.substring(numMatch[1].length);
-    return { num: isNaN(num) ? 0 : num, suffix };
-  }
-  return { num: 0, suffix: value }; // Default to 0 and original value as suffix if no number
+type ParsedMetric = { prefix: string; value: number; suffix: string; precision: number; grouped: boolean; explicitPlus: boolean };
+
+const parseMetric = (raw: string): ParsedMetric | null => {
+  const match = raw.trim().match(/^([^0-9+\-]*)([+\-]?\d[\d,]*(?:\.\d+)?)(.*)$/);
+  if (!match) return null;
+  const numeric = match[2].replace(/,/g, "");
+  const value = Number(numeric);
+  if (!Number.isFinite(value)) return null;
+  return { prefix: match[1], value, suffix: match[3], precision: numeric.split(".")[1]?.length ?? 0, grouped: match[2].includes(","), explicitPlus: match[2].startsWith("+") };
 };
 
-// Helper to format the animated number back to a string with its suffix,
-// trying to preserve the original value's implied precision.
-const formatAnimatedValue = (animatedNum: number, targetNum: number, suffix: string, originalValueString: string) => {
-    // If animated number is very small (approaching 0), just show 0 to avoid -0 or tiny floats
-    if (animatedNum < 0.001) {
-        return `0${suffix}`;
-    }
-
-    let formattedNum;
-    const originalHasDecimal = originalValueString.includes('.');
-
-    if (originalHasDecimal) {
-        // Count decimal places in the original string to match precision
-        const decimalPartMatch = originalValueString.match(/\.(\d+)/);
-        const precision = decimalPartMatch ? decimalPartMatch[1].length : 0;
-        formattedNum = animatedNum.toFixed(precision);
-    } else if (suffix.includes('M') || suffix.includes('K')) { 
-        // For Millions/Thousands, often displayed with one decimal if targetNum is not a round integer, e.g., "1.2M", "1M"
-        if (targetNum % 1 !== 0 || animatedNum % 1 !== 0) { // If target or current animated has a decimal component
-            formattedNum = animatedNum.toFixed(1);
-        } else {
-            formattedNum = Math.round(animatedNum).toString();
-        }
-    } else if (Math.abs(targetNum) < 1 && targetNum !== 0) { // For numbers like "0.5", keep one decimal
-        formattedNum = animatedNum.toFixed(1);
-    } else { // Original was integer-like and no specific suffix implying decimals
-        formattedNum = Math.round(animatedNum).toString();
-    }
-
-    // Remove trailing .0 if it results from toFixed, for cleaner integer representation
-    if (formattedNum.endsWith('.0')) {
-        formattedNum = formattedNum.slice(0, -2);
-    }
-    return `${formattedNum}${suffix}`;
+const displayMetric = (raw: string, progress: number): string => {
+  const parsed = parseMetric(raw);
+  // Text-only KPI values must remain text-only—never prepend an artificial 0.
+  if (!parsed) return raw;
+  const current = parsed.value * progress;
+  let number = parsed.precision > 0 ? Math.abs(current).toFixed(parsed.precision) : Math.round(Math.abs(current)).toString();
+  if (parsed.grouped) {
+    const [whole, decimal] = number.split(".");
+    number = `${Number(whole).toLocaleString("en-US")}${decimal == null ? "" : `.${decimal}`}`;
+  }
+  const sign = current < 0 ? "-" : parsed.explicitPlus && progress > 0 ? "+" : "";
+  return `${parsed.prefix}${sign}${number}${parsed.suffix}`;
 };
 
 /**
@@ -219,23 +197,22 @@ export const KpiGrid: React.FC<GridcraftLayoutProps> = ({
           const cardScale = interpolate(cardSpringProgress, [0, 1], [0.8, 1]);
           
           // --- Number counting animation ---
-          const { num: targetValue, suffix: valueSuffix } = parseValueAndSuffix(item.value || "0");
           const numberStartFrame = cardStartFrame;
           const numberEndFrame = numberStartFrame + NUMBER_COUNT_DURATION;
 
-          const animatedNumber = interpolate(
+          const countProgress = interpolate(
             frame,
             [numberStartFrame, numberEndFrame],
-            [0, targetValue],
+            [0, 1],
             {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",
             }
           );
-          const finalDisplayedValue = formatAnimatedValue(animatedNumber, targetValue, valueSuffix, item.value || "0");
+          const finalDisplayedValue = displayMetric(item.value || "0", countProgress);
           // Stable string to fit against — the fully-counted-up value, so the
           // font size doesn't recompute (and jitter) every frame of count-up.
-          const finalValueForFit = formatAnimatedValue(targetValue, targetValue, valueSuffix, item.value || "0");
+          const finalValueForFit = displayMetric(item.value || "0", 1);
 
           // --- Label fade-in animation ---
           const labelStartFrame = numberEndFrame + LABEL_FADE_DELAY_AFTER_NUMBER;
@@ -321,4 +298,3 @@ export const KpiGrid: React.FC<GridcraftLayoutProps> = ({
     </div>
   );
 };
-

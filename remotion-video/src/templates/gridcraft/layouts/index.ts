@@ -9,6 +9,7 @@ import { PullQuote } from "./PullQuote";
 import { BentoSteps } from "./BentoSteps";
 import { GridcraftDataViz } from "./GridcraftDataViz";
 import { EndingSocials } from "./EndingSocials";
+import { EndingSocialsV2 } from "./EndingSocialsV2";
 import { GridcraftTickerTable } from "./GridcraftTickerTable";
 import { GridcraftLayoutType } from "../types";
 
@@ -37,6 +38,7 @@ export const GRIDCRAFT_LAYOUT_REGISTRY: Record<
   ticker_table: GridcraftTickerTable,
 
   // Visual variants — same props as their base, different composition.
+  ending_socials__v2: EndingSocialsV2,
 
   // Backward compatibility alias if needed
   intro: BentoHero,

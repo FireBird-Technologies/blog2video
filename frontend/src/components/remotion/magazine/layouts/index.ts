@@ -10,6 +10,9 @@ import { MagazineTickerTable } from "./MagazineTickerTable";
 import { Colorblock } from "./Colorblock";
 import { Feature } from "./Feature";
 import { Comparison } from "./Comparison";
+import { MagazineCoverV2 } from "./MagazineCoverV2";
+import { ByTheNumbersV2 } from "./ByTheNumbersV2";
+import { EndingSocialsV2 } from "./EndingSocialsV2";
 import type { MagazineLayoutType, SceneLayoutProps } from "../types";
 
 export type { MagazineLayoutType, SceneLayoutProps };
@@ -29,4 +32,7 @@ export const MAGAZINE_LAYOUT_REGISTRY: Record<MagazineLayoutType, React.FC<Scene
   comparison: Comparison,
 
   // ── Visual variants — same props as their base, different composition ──
+  magazine_cover__v2: MagazineCoverV2,
+  by_the_numbers__v2: ByTheNumbersV2,
+  ending_socials__v2: EndingSocialsV2,
 };

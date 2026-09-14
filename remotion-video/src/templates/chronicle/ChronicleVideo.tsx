@@ -96,6 +96,7 @@ const LAYOUTS_WITHOUT_CHROME_FADE = new Set<ChronicleLayoutType>(["book_open"]);
 const SCRIPTURE_LAYOUTS = new Set<ChronicleLayoutType>([
   "book_open",
   "illuminated_quote",
+  "illuminated_quote__v2",
   "parchment_scroll",
   "decree_seal",
 ]);
@@ -127,7 +128,9 @@ const SCRIPTURE_LAYOUTS = new Set<ChronicleLayoutType>([
 // shorter cuts off the subtitle mid-typing and the title barely holds.
 const LAYOUT_MIN_FRAMES: Record<ChronicleLayoutType, number> = {
   book_open: 300,
+  book_open__v2: 300, // same Act 4 timing constants as book_open
   ending_socials: 200, // 6.7s — staggered title/narration/socials reveals + hold
+  ending_socials__v2: 200, // same reveal cadence as ending_socials
   chronicle_timeline: 200, // staggered timeline items
   ledger_stats: 200, // staggered stat cells
   versus_folio: 200, // two staggered halves
@@ -135,7 +138,9 @@ const LAYOUT_MIN_FRAMES: Record<ChronicleLayoutType, number> = {
   chronicle_table: 200, // staggered ledger rows
   chapter_plate: 170,
   illuminated_quote: 170,
+  illuminated_quote__v2: 190, // illuminated initial + quote + signed attribution
   parchment_scroll: 170,
+  parchment_scroll__v2: 170, // same reveal cadence as parchment_scroll
   decree_seal: 170,
   map_reveal: 170,
 };

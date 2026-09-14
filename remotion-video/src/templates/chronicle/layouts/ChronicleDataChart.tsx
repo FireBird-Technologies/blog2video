@@ -17,11 +17,11 @@ import {
 import type { ChronicleLayoutProps } from "../types";
 import {
   CHRONICLE_BODY_FONT,
-  CHRONICLE_HEADING_FONT,
 } from "../../../fonts/chronicle-defaults";
 import { OrnamentalCorner } from "../components/OrnamentalBorder";
 import { QuillText } from "../components/QuillInk";
 import { useFitText } from "../components/useFitText";
+import { chronicleHeroHeadingStyle, chronicleHeroHeadingTypography } from "../components/ChronicleHeading";
 import {
   toNumber,
   formatAxisTick,
@@ -622,10 +622,8 @@ export const ChronicleDataChart: React.FC<ChronicleLayoutProps> = ({
                 visibility: "hidden",
                 position: "absolute",
                 inset: 0,
-                fontFamily: CHRONICLE_HEADING_FONT,
-                fontWeight: 700,
+                ...chronicleHeroHeadingTypography(fontFamily),
                 fontSize: fitTitlePx,
-                lineHeight: 1.05,
                 width: "100%",
               }}
             >
@@ -633,12 +631,8 @@ export const ChronicleDataChart: React.FC<ChronicleLayoutProps> = ({
             </div>
             <div
               style={{
-                fontFamily: CHRONICLE_HEADING_FONT,
-                fontWeight: 700,
+                ...chronicleHeroHeadingStyle(accent, fontFamily),
                 fontSize: fitTitlePx,
-                lineHeight: 1.05,
-                color: ink,
-                textShadow: "1px 1px 0 rgba(184,134,11,0.15)",
               }}
             >
               <QuillText text={title} startFrame={5} durationFrames={25} mode="char" showCursor={false} />

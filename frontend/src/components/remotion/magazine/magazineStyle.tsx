@@ -162,6 +162,11 @@ export const SceneExit: React.FC<{ variant?: SceneExitVariant; frames?: number; 
   if (variant === "page_turn_back") {
     return <AbsoluteFill><FlipSheet angle={-180 * e} axis="y" origin="0% 50%" zIndex={2} lift={Math.sin(e * Math.PI)} front={children} /></AbsoluteFill>;
   }
+  // REVERSE PAGE TURN BACK — hinge at the bottom and fold through the opposite
+  // side of the X axis, so the black desk is uncovered from the TOP downward.
+  if (variant === "page_turn_back_reverse") {
+    return <AbsoluteFill><FlipSheet angle={180 * e} axis="x" origin="50% 100%" zIndex={2} lift={Math.sin(e * Math.PI)} front={children} /></AbsoluteFill>;
+  }
   // FLIP UP / PAGE TURN UP — one sheet flips around the BOTTOM edge (rotateX) → desk.
   if (variant === "flip_up" || variant === "page_turn_up") {
     return <AbsoluteFill><FlipSheet angle={-180 * e} axis="x" origin="50% 100%" zIndex={2} lift={Math.sin(e * Math.PI)} front={children} /></AbsoluteFill>;
@@ -242,6 +247,9 @@ const EXIT_ANIM_BY_LAYOUT: Record<MagazineLayoutType, SceneExitVariant> = {
   // variant reads as its own shot rather than a restyle of the same one. ──
   // Bookends the cover variant: same rack, so the same lateral language rather than a
   // spread mechanic (this scene renders a standalone booklet, not a MagazinePage).
+  magazine_cover__v2: "page_slide",
+  by_the_numbers__v2: "page_turn_back_reverse",
+  ending_socials__v2: "lift",
 };
 export const exitAnimFor = (layout: MagazineLayoutType): SceneExitVariant =>
   EXIT_ANIM_BY_LAYOUT[layout] ?? "lift";
@@ -250,7 +258,7 @@ export const exitAnimFor = (layout: MagazineLayoutType): SceneExitVariant =>
 export const exitFramesFor = (layout: MagazineLayoutType): number => {
   const v = exitAnimFor(layout);
   if (v === "riffle_left" || v === "riffle_zoom") return 64;
-  if (v === "flip_up" || v === "page_turn_up") return 52;
+  if (v === "flip_up" || v === "page_turn_up" || v === "page_turn_back_reverse") return 52;
   return 56;
 };
 
@@ -815,6 +823,11 @@ const CAMERA_SIGNATURES: Record<MagazineLayoutType, MagazineCameraMove[]> = {
   // ── Visual variants ──
   // Stays PINNED like its base: the sidebar spread self-animates (ink wipe, staggered
   // marginalia), and layering a moving camera over that jitters on CPU.
+  magazine_cover__v2: ["low_hero"],
+  // Match V1's perspective-heavy focus settle; the boundary transition itself
+  // remains the V2-only bottom-to-top reverse page turn.
+  by_the_numbers__v2: ["whip_settle"],
+  ending_socials__v2: ["dolly_out"],
 };
 
 /** The default cinematic move for a scene, varied by its folio so repeats of a
@@ -2095,6 +2108,8 @@ interface MagazinePageProps {
   page?: string;
   aspectRatio?: string;
   fontFamily?: string;
+  /** Optional type size for the folio and issue text in the running head. */
+  runningHeadFontSize?: number;
   /** kept for source compatibility; the sheet always draws its own edge */
   keyline?: boolean;
   /** suppress the centre spine/gutter — used when a full-width photo sits centred on the page */
@@ -2174,6 +2189,7 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
   page,
   aspectRatio,
   fontFamily,
+  runningHeadFontSize,
   hideGutter = false,
   singlePage = false,
   raisedRightLeaf = false,
@@ -2510,10 +2526,10 @@ export const MagazinePage: React.FC<MagazinePageProps> = ({
         {/* Running head */}
         <div style={{ position: "absolute", top: p ? "4.5%" : "5%", left: padX, right: padX, opacity: headOpacity, zIndex: 10 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
-            <span style={{ fontFamily: MAG_SANS, fontWeight: 700, fontSize: p ? 19 : 14, letterSpacing: "0.04em", color: text }}>
+            <span style={{ fontFamily: MAG_SANS, fontWeight: 700, fontSize: runningHeadFontSize ?? (p ? 19 : 14), letterSpacing: "0.04em", color: text }}>
               {page ?? "01"}
             </span>
-            <span style={{ fontFamily: MAG_SANS, fontWeight: 700, fontSize: p ? 18 : 13, letterSpacing: "0.26em", textTransform: "uppercase", color: hexToRgba(text, 0.62) }}>
+            <span style={{ fontFamily: MAG_SANS, fontWeight: 700, fontSize: runningHeadFontSize ?? (p ? 18 : 13), letterSpacing: "0.26em", textTransform: "uppercase", color: hexToRgba(text, 0.62) }}>
               {issue ?? section ?? ""}
             </span>
           </div>
@@ -2684,7 +2700,6 @@ export const MagPlate: React.FC<{
   zoom?: number;
   opacity?: number;
   rotate?: number;
-  caption?: string;
   style?: React.CSSProperties;
 }> = ({
   src,
@@ -2698,7 +2713,6 @@ export const MagPlate: React.FC<{
   zoom = 1,
   opacity = 1,
   rotate = 0,
-  caption,
   style,
 }) => {
   if (!src && !videoUrl) return null;
@@ -2751,20 +2765,6 @@ export const MagPlate: React.FC<{
           <div style={{ position: "absolute", inset: 0, background: hexToRgba(bg, 0.06), pointerEvents: "none" }} />
         </div>
       </div>
-      {caption && (
-        <div
-          style={{
-            fontFamily: MAG_SERIF,
-            fontStyle: "italic",
-            fontSize: 13,
-            lineHeight: 1.3,
-            color: hexToRgba(text, 0.6),
-            marginTop: 8,
-          }}
-        >
-          {caption}
-        </div>
-      )}
     </div>
   );
 };
