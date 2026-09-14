@@ -46,25 +46,66 @@ import {
  */
 
 // ─── Matrix neon chart palette ────────────────────────────────────────────────
-const NEON = {
-  primary: "#00FF41",
-  secondary: "#00B82E",
-  tertiary: "#7CFFB0",
-  axisTxt: "#00FF41",
-  grid: "rgba(0,255,65,0.16)",
-  panelBg: "rgba(0,18,4,0.78)",
-  panelBorder: "rgba(0,255,65,0.35)",
-  white: "#E8FFE8",
-} as const;
+/**
+ * The scene's ink is DERIVED from `accentColor`, not hardcoded.
+ *
+ * This used to be a frozen `NEON` object of literal matrix-greens which every
+ * axis, gridline, legend, panel and series default read from directly. The
+ * result was a chart that could not change colour: editing the project's accent
+ * moved the surrounding chrome but left the graphic itself green, because none
+ * of these 20-odd references looked at a prop. The same chart in the blackswan
+ * template derives everything from its accent, which is the behaviour copied
+ * here.
+ *
+ * `MATRIX_GREEN` remains only as the FALLBACK for a missing accent, so an
+ * un-themed project still looks like the Matrix.
+ */
+const MATRIX_GREEN = "#00FF41";
 
-const DEFAULT_BAR_COLORS = [NEON.primary, NEON.secondary, NEON.tertiary] as const;
+/** Local hex→rgba. Deliberately not imported from another template: the backend
+ *  copies only `src/templates/<id>/` into each render workspace, so a
+ *  cross-template import compiles in the Player and then fails the headless
+ *  render with an unresolved module. */
+function rgbaFromHex(hex: string, alpha: number): string {
+  const v = hex.trim().replace("#", "");
+  const full = v.length === 3 ? v.split("").map((c) => c + c).join("") : v;
+  const n = Number.parseInt(full, 16);
+  if (!Number.isFinite(n) || full.length !== 6) return `rgba(0,255,65,${alpha})`;
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+}
+
+/** Shift a hex toward black (t<0) or white (t>0) — used to spin sibling series
+ *  colours out of the one accent, so a 2- or 3-series chart stays legible
+ *  whatever the accent is. */
+function shadeHex(hex: string, t: number): string {
+  const v = hex.trim().replace("#", "");
+  const full = v.length === 3 ? v.split("").map((c) => c + c).join("") : v;
+  const n = Number.parseInt(full, 16);
+  if (!Number.isFinite(n) || full.length !== 6) return hex;
+  const mix = (c: number) =>
+    Math.max(0, Math.min(255, Math.round(t >= 0 ? c + (255 - c) * t : c * (1 + t))));
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(mix);
+  return `#${[r, g, b].map((c) => c.toString(16).padStart(2, "0")).join("")}`;
+}
+
+/** Every ink the chart uses, built from one accent. */
+function buildChartInk(accent: string) {
+  return {
+    primary: accent,
+    secondary: shadeHex(accent, -0.28),
+    tertiary: shadeHex(accent, 0.42),
+    axisTxt: accent,
+    grid: rgbaFromHex(accent, 0.16),
+    panelBg: rgbaFromHex(shadeHex(accent, -0.86), 0.78),
+    panelBorder: rgbaFromHex(accent, 0.35),
+    white: shadeHex(accent, 0.88),
+  };
+}
+
 const VALUE_LABEL_FW = 600;
-const AXIS_LINE_STYLE = { stroke: NEON.axisTxt, strokeWidth: 1.4, strokeOpacity: 0.5 };
-const TICK_LINE_STYLE = { stroke: NEON.axisTxt, strokeWidth: 1.0, strokeOpacity: 0.45 };
 
 // Histogram look — tight bins, faint edges
 const HIST_BIN_RADIUS: [number, number, number, number] = [0, 0, 0, 0];
-const HIST_BIN_STROKE = "rgba(0,255,65,0.55)";
 const HIST_BIN_STROKE_W = 1.0;
 const HIST_MAX_BAR_SINGLE = 120;
 const HIST_MAX_BAR_GROUPED = 52;
@@ -82,19 +123,25 @@ function buildXAxisProps(
   descSize = 18,
   forceAllLabels = false,
   chartAreaPx = 0,
-  opts?: { largerXTicks?: boolean },
+  opts?: { largerXTicks?: boolean; axisTextColor?: string },
 ) {
   return buildXAxisPropsShared(labels, isPortrait, descSize, forceAllLabels, chartAreaPx, {
     largerXTicks: opts?.largerXTicks,
-    axisTextColor: NEON.axisTxt,
+    axisTextColor: opts?.axisTextColor ?? MATRIX_GREEN,
     fontFamily: MONO,
   });
 }
 
-const LegendDot: React.FC<{ color: string; label: string }> = ({ color, label }) => (
+/** `labelColor` is threaded in rather than read from a module constant, so the
+ *  legend follows the scene's accent like everything else. */
+const LegendDot: React.FC<{ color: string; label: string; labelColor: string }> = ({
+  color,
+  label,
+  labelColor,
+}) => (
   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
     <div style={{ width: 9, height: 9, borderRadius: 1, background: color, boxShadow: `0 0 8px ${color}` }} />
-    <span style={{ color: NEON.primary, fontSize: 13, fontWeight: 500, fontFamily: MONO }}>
+    <span style={{ color: labelColor, fontSize: 13, fontWeight: 500, fontFamily: MONO }}>
       {label}
     </span>
   </div>
@@ -103,9 +150,9 @@ const LegendDot: React.FC<{ color: string; label: string }> = ({ color, label })
 export const MatrixDataChart: React.FC<MatrixLayoutProps> = ({
   title = "Signal analysis",
   narration = "Decoded dataset from intercepted transmission.",
-  accentColor = NEON.primary,
+  accentColor = MATRIX_GREEN,
   bgColor = "#000000",
-  textColor = NEON.primary,
+  textColor = MATRIX_GREEN,
   aspectRatio = "landscape",
   fontFamily,
   titleFontSize,
@@ -117,6 +164,7 @@ export const MatrixDataChart: React.FC<MatrixLayoutProps> = ({
   chartTable,
   barPrimaryColor,
   barSecondaryColor,
+  barTertiaryColor,
   yAxisLabel,
 }) => {
   const frame = useCurrentFrame();
@@ -189,10 +237,17 @@ export const MatrixDataChart: React.FC<MatrixLayoutProps> = ({
     return { lo, hi };
   }, [chartInputs]);
 
+  /* Every ink in the chart, derived from the scene's accent. Per-series
+     overrides still win; they just fall back to the accent-derived palette
+     instead of to a frozen matrix-green. */
+  const ink = React.useMemo(() => buildChartInk(normalizeHex(accentColor, MATRIX_GREEN)), [accentColor]);
+  const AXIS_LINE_STYLE = { stroke: ink.axisTxt, strokeWidth: 1.4, strokeOpacity: 0.5 };
+  const TICK_LINE_STYLE = { stroke: ink.axisTxt, strokeWidth: 1.0, strokeOpacity: 0.45 };
+
   const barColors = [
-    normalizeHex(barPrimaryColor, DEFAULT_BAR_COLORS[0]),
-    normalizeHex(barSecondaryColor, DEFAULT_BAR_COLORS[1]),
-    DEFAULT_BAR_COLORS[2],
+    normalizeHex(barPrimaryColor, ink.primary),
+    normalizeHex(barSecondaryColor, ink.secondary),
+    normalizeHex(barTertiaryColor, ink.tertiary),
   ] as const;
   const defaultBarColor = barColors[0];
 
@@ -375,16 +430,16 @@ export const MatrixDataChart: React.FC<MatrixLayoutProps> = ({
   const showHistTopLabels = histCategoryN <= 14;
 
   const estChartAreaPx = Math.round((p ? width : width * 0.84) * 0.9 - 170);
-  const lineXAxisProps = buildXAxisProps(chartInputs.labels, p, descSize, true, estChartAreaPx, { largerXTicks: true });
+  const lineXAxisProps = buildXAxisProps(chartInputs.labels, p, descSize, true, estChartAreaPx, { largerXTicks: true, axisTextColor: ink.axisTxt });
   const barXAxisProps = (() => {
     const base = buildXAxisProps(
       hasComparisonBars ? comparisonBarData.map((d) => d.label) : chartInputs.barRows.map((r) => r.label),
-      p, descSize, false, estChartAreaPx, { largerXTicks: true },
+      p, descSize, false, estChartAreaPx, { largerXTicks: true, axisTextColor: ink.axisTxt },
     );
     return { ...base, interval: 0 as const, minTickGap: 0 };
   })();
   const histXLabels = hasComparisonBars ? chartInputs.labels : chartInputs.histogramRows.map((r) => r.label);
-  const histXAxisProps = buildXAxisProps(histXLabels, p, descSize, false, estChartAreaPx, { largerXTicks: true });
+  const histXAxisProps = buildXAxisProps(histXLabels, p, descSize, false, estChartAreaPx, { largerXTicks: true, axisTextColor: ink.axisTxt });
 
   const resolvedYAxisCaption = (yAxisLabel || tableAxisHeaders.value || "").trim();
   const xCaptionText = (subtitle || tableAxisHeaders.category || "").trim();
@@ -397,14 +452,14 @@ export const MatrixDataChart: React.FC<MatrixLayoutProps> = ({
   const chartMarginLeft = chartLeft + 10;
   const chartBottom = p ? 70 : 56;
 
-  const yTickStyle = { fill: NEON.axisTxt, fontSize: Math.max(9, chartTickSize), fontWeight: 400, fontFamily: MONO };
+  const yTickStyle = { fill: ink.axisTxt, fontSize: Math.max(9, chartTickSize), fontWeight: 400, fontFamily: MONO };
   const yLabelProp = hasYLabel
     ? {
         value: resolvedYAxisCaption,
         angle: -90 as const,
         position: "left" as const,
         offset: 10,
-        style: { fill: NEON.axisTxt, fontSize: chartAxisLabelSize, fontWeight: 400, textAnchor: "middle" as const, fontFamily: MONO },
+        style: { fill: ink.axisTxt, fontSize: chartAxisLabelSize, fontWeight: 400, textAnchor: "middle" as const, fontFamily: MONO },
       }
     : undefined;
   const yAxisTickFmt = customYAxis?.tickFormatter ?? formatAxisTick;
@@ -414,7 +469,7 @@ export const MatrixDataChart: React.FC<MatrixLayoutProps> = ({
           value: xCaptionText,
           position: "bottom" as const,
           offset: 8,
-          style: { fill: NEON.axisTxt, fontSize: chartAxisLabelSize, fontWeight: 400, fontFamily: MONO, letterSpacing: "0.06em" },
+          style: { fill: ink.axisTxt, fontSize: chartAxisLabelSize, fontWeight: 400, fontFamily: MONO, letterSpacing: "0.06em" },
         }
       : undefined;
   const xCaption = buildXCaption();
@@ -429,7 +484,7 @@ export const MatrixDataChart: React.FC<MatrixLayoutProps> = ({
               <stop offset="95%" stopColor={barColors[0]} stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid stroke={NEON.grid} vertical={false} />
+          <CartesianGrid stroke={ink.grid} vertical={false} />
           <XAxis dataKey="label" axisLine={AXIS_LINE_STYLE} label={xCaption} {...lineXAxisProps} tickLine={false} />
           <YAxis
             yAxisId="left" axisLine={AXIS_LINE_STYLE} tickLine={TICK_LINE_STYLE} tick={yTickStyle} width={yAxisWidth}
@@ -444,7 +499,7 @@ export const MatrixDataChart: React.FC<MatrixLayoutProps> = ({
             yAxisId={axisForKey("s0")} type="monotone" dataKey="s0"
             stroke={barColors[0]} strokeWidth={linePointCount >= 14 ? 2.7 : 3.1}
             fill="url(#matrix-line-fill)" fillOpacity={0.28} isAnimationActive={false}
-            dot={showDots0 ? { r: lineDotR0, fill: NEON.white, stroke: barColors[0], strokeWidth: 1.4 } : false}
+            dot={showDots0 ? { r: lineDotR0, fill: ink.white, stroke: barColors[0], strokeWidth: 1.4 } : false}
             activeDot={false}
           >
             {showDots0 && (
@@ -457,7 +512,7 @@ export const MatrixDataChart: React.FC<MatrixLayoutProps> = ({
           {chartInputs.lineSeries[1] && (
             <Line yAxisId={axisForKey("s1")} type="monotone" dataKey="s1"
               stroke={barColors[1]} strokeWidth={linePointCount >= 14 ? 1.9 : 2.2} strokeOpacity={lineOp1}
-              dot={showDots1 ? { r: lineDotR12, fill: NEON.white, stroke: barColors[1], strokeWidth: 1.1 } : false}
+              dot={showDots1 ? { r: lineDotR12, fill: ink.white, stroke: barColors[1], strokeWidth: 1.1 } : false}
               activeDot={false} strokeDasharray="4 4" isAnimationActive={false}
             >
               {showDots1 && (
@@ -471,7 +526,7 @@ export const MatrixDataChart: React.FC<MatrixLayoutProps> = ({
           {chartInputs.lineSeries[2] && (
             <Line yAxisId={axisForKey("s2")} type="monotone" dataKey="s2"
               stroke={barColors[2]} strokeWidth={linePointCount >= 14 ? 1.9 : 2.2} strokeOpacity={lineOp2}
-              dot={showDots2 ? { r: lineDotR12, fill: NEON.white, stroke: barColors[2], strokeWidth: 1.1 } : false}
+              dot={showDots2 ? { r: lineDotR12, fill: ink.white, stroke: barColors[2], strokeWidth: 1.1 } : false}
               activeDot={false} isAnimationActive={false}
             >
               {showDots2 && (
@@ -481,15 +536,15 @@ export const MatrixDataChart: React.FC<MatrixLayoutProps> = ({
               )}
             </Line>
           )}
-          {showDots0 && lastS0 && <ReferenceDot yAxisId={axisForKey("s0")} x={lastS0.x} y={lastS0.y} r={linePointCount >= 16 ? 3 : 4} fill={NEON.white} stroke={barColors[0]} strokeWidth={2} />}
-          {showDots1 && lastS1 && <ReferenceDot yAxisId={axisForKey("s1")} x={lastS1.x} y={lastS1.y} r={linePointCount >= 16 ? 2.8 : 3.5} fill={NEON.white} stroke={barColors[1]} strokeWidth={1.8} />}
-          {showDots2 && lastS2 && <ReferenceDot yAxisId={axisForKey("s2")} x={lastS2.x} y={lastS2.y} r={linePointCount >= 16 ? 2.8 : 3.5} fill={NEON.white} stroke={barColors[2]} strokeWidth={1.8} />}
+          {showDots0 && lastS0 && <ReferenceDot yAxisId={axisForKey("s0")} x={lastS0.x} y={lastS0.y} r={linePointCount >= 16 ? 3 : 4} fill={ink.white} stroke={barColors[0]} strokeWidth={2} />}
+          {showDots1 && lastS1 && <ReferenceDot yAxisId={axisForKey("s1")} x={lastS1.x} y={lastS1.y} r={linePointCount >= 16 ? 2.8 : 3.5} fill={ink.white} stroke={barColors[1]} strokeWidth={1.8} />}
+          {showDots2 && lastS2 && <ReferenceDot yAxisId={axisForKey("s2")} x={lastS2.x} y={lastS2.y} r={linePointCount >= 16 ? 2.8 : 3.5} fill={ink.white} stroke={barColors[2]} strokeWidth={1.8} />}
         </ComposedChart>
       );
     }
 
     if (resolvedChartType === "histogram") {
-      const histBarStroke = { stroke: HIST_BIN_STROKE, strokeWidth: HIST_BIN_STROKE_W };
+      const histBarStroke = { stroke: rgbaFromHex(ink.axisTxt, 0.55), strokeWidth: HIST_BIN_STROKE_W };
       if (hasComparisonBars) {
         return (
           <BarChart data={animatedCompBarData as BarDatum[]}
@@ -521,7 +576,7 @@ export const MatrixDataChart: React.FC<MatrixLayoutProps> = ({
           <XAxis dataKey="label" axisLine={AXIS_LINE_STYLE} label={xCaption} {...histXAxisProps} tickLine={false} />
           <YAxis axisLine={AXIS_LINE_STYLE} tickLine={TICK_LINE_STYLE} tick={yTickStyle} width={yAxisWidth}
             domain={customYAxis ? customYAxis.domain : [0, histAxisTop]} ticks={customYAxis?.ticks} tickFormatter={yAxisTickFmt} label={yLabelProp} />
-          <Bar dataKey="value" fill={defaultBarColor} radius={HIST_BIN_RADIUS} maxBarSize={histMaxSingleScaled} isAnimationActive={false} stroke={HIST_BIN_STROKE} strokeWidth={HIST_BIN_STROKE_W}>
+          <Bar dataKey="value" fill={defaultBarColor} radius={HIST_BIN_RADIUS} maxBarSize={histMaxSingleScaled} isAnimationActive={false} stroke={rgbaFromHex(ink.axisTxt, 0.55)} strokeWidth={HIST_BIN_STROKE_W}>
             {showHistTopLabels ? <LabelList dataKey="value" position="top" offset={10} fill={defaultBarColor} fontSize={VALUE_LABEL_FS} fontWeight={VALUE_LABEL_FW} fontFamily={MONO} formatter={(v) => formatBarLabel(v, useCompact)} /> : null}
           </Bar>
         </BarChart>
@@ -534,7 +589,7 @@ export const MatrixDataChart: React.FC<MatrixLayoutProps> = ({
         margin={{ top: chartMarginTop, right: chartMarginRight, left: chartMarginLeft, bottom: chartBottom }}
         barGap={hasComparisonBars ? barGapGroupedPx : 4}
         barCategoryGap={hasComparisonBars ? barCatGapGroupedPct : barCatGapSinglePct}>
-        <CartesianGrid stroke={NEON.grid} vertical={false} />
+        <CartesianGrid stroke={ink.grid} vertical={false} />
         <XAxis dataKey="label" axisLine={AXIS_LINE_STYLE} label={xCaption} {...barXAxisProps} tickLine={false} />
         <YAxis axisLine={AXIS_LINE_STYLE} tickLine={TICK_LINE_STYLE} tick={yTickStyle} width={yAxisWidth}
           domain={customYAxis ? customYAxis.domain : [0, barAxisTop]} ticks={customYAxis?.ticks} tickFormatter={yAxisTickFmt} label={yLabelProp} />
@@ -577,7 +632,7 @@ export const MatrixDataChart: React.FC<MatrixLayoutProps> = ({
       {/* Scanline overlay */}
       <AbsoluteFill
         style={{
-          backgroundImage: "repeating-linear-gradient(0deg, rgba(0,255,65,0.05) 0px, rgba(0,255,65,0.05) 1px, transparent 1px, transparent 3px)",
+          backgroundImage: `repeating-linear-gradient(0deg, ${rgbaFromHex(ink.axisTxt, 0.05)} 0px, ${rgbaFromHex(ink.axisTxt, 0.05)} 1px, transparent 1px, transparent 3px)`,
           pointerEvents: "none",
           mixBlendMode: "screen",
         }}
@@ -613,9 +668,9 @@ export const MatrixDataChart: React.FC<MatrixLayoutProps> = ({
               borderRadius: 8,
               overflow: "hidden",
               opacity: ra,
-              background: NEON.panelBg,
-              border: `1px solid ${NEON.panelBorder}`,
-              boxShadow: `0 0 28px rgba(0,255,65,0.18), inset 0 0 40px rgba(0,255,65,0.05)`,
+              background: ink.panelBg,
+              border: `1px solid ${ink.panelBorder}`,
+              boxShadow: `0 0 28px ${rgbaFromHex(ink.axisTxt, 0.18)}, inset 0 0 40px ${rgbaFromHex(ink.axisTxt, 0.05)}`,
             }}
           >
             {hasRealChart ? (
@@ -631,9 +686,9 @@ export const MatrixDataChart: React.FC<MatrixLayoutProps> = ({
                 {(resolvedChartType === "line" ||
                   ((resolvedChartType === "bar" || resolvedChartType === "histogram") && hasComparisonBars)) && (
                   <div style={{ position: "absolute", top: 10, right: 20, zIndex: 2, display: "flex", gap: 10, maxWidth: "46%", flexWrap: "wrap", justifyContent: "flex-end" }}>
-                    <LegendDot color={barColors[0]} label={chartInputs.lineSeries[0]?.label || "Series 1"} />
-                    {chartInputs.lineSeries[1] && <LegendDot color={barColors[1]} label={chartInputs.lineSeries[1].label} />}
-                    {chartInputs.lineSeries[2] && <LegendDot color={barColors[2]} label={chartInputs.lineSeries[2].label} />}
+                    <LegendDot labelColor={ink.primary} color={barColors[0]} label={chartInputs.lineSeries[0]?.label || "Series 1"} />
+                    {chartInputs.lineSeries[1] && <LegendDot labelColor={ink.primary} color={barColors[1]} label={chartInputs.lineSeries[1].label} />}
+                    {chartInputs.lineSeries[2] && <LegendDot labelColor={ink.primary} color={barColors[2]} label={chartInputs.lineSeries[2].label} />}
                   </div>
                 )}
                 <ResponsiveContainer width="100%" height="100%">
@@ -641,7 +696,7 @@ export const MatrixDataChart: React.FC<MatrixLayoutProps> = ({
                 </ResponsiveContainer>
               </div>
             ) : (
-              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: font, color: NEON.secondary, fontSize: descSize, fontStyle: "italic", opacity: ra }}>
+              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: font, color: ink.secondary, fontSize: descSize, fontStyle: "italic", opacity: ra }}>
                 {"> NO_DATA :: add data by editing this scene"}
               </div>
             )}

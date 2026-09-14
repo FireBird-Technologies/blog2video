@@ -687,6 +687,10 @@ export interface LayoutPropField {
   minItems?: number;
   options?: Array<{ label: string; value: string }>;
   subFields?: LayoutPropSubField[];
+  /** For "color" fields with no `default`/`placeholder`: derive the unsaved
+   *  swatch from the project's accent color instead of a generic blue.
+   *  0 = accent itself, negative = darken, positive = lighten. */
+  accentShade?: number;
 }
 
 export interface LayoutSceneDefaults {

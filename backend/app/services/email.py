@@ -1113,6 +1113,52 @@ class EmailService:
         # if response.error:
         #     raise EmailServiceError(f"Unosend error sending to {user_email}: {response.error.message}")
 
+    def send_get_started_email(self, to_email: str, user_name: str) -> None:
+        """Weekly onboarding nudge for new free-plan users who haven't created a video yet."""
+        first_name = (user_name or "").split()[0] if user_name else "there"
+        unsubscribe_url = self._make_unsubscribe_url(to_email)
+        dashboard_url = getattr(settings, "FRONTEND_URL", "https://blog2video.app").rstrip("/")
+        subject = "Here's how to make your first video on Blog2Video"
+
+        steps_text = (
+            f"Hi {first_name},\n\n"
+            f"You signed up for Blog2Video but haven't made your first video yet — here's how to get started in a few minutes.\n\n"
+            f"1. Click \"New\" on your dashboard to start a project.\n\n"
+            f"2. Add your source content. Paste a URL (a blog post or article) or upload a PDF, DOCX, or slide deck — that's what your video will be based on.\n\n"
+            f"3. Choose a template. Pick a look for your video, like stickman, Documentry Reel, Newspaper, Newscast, and many more, or select your own custom or specially crafted template.\n\n"
+            f"4. Choose a voice. Pick a voice by gender and accent, use a saved custom voice, or skip voiceover entirely. You can even clone your own voice and use it as your narrator.\n\n"
+            f"5. Generate your project. Blog2Video builds your video, and you can review and tweak each scene in the Scenes tab before rendering.\n\n"
+            f"Once it's generated, you can keep editing it — adjust scenes, swap the template or voice, then render and export the final video whenever you're ready.\n\n"
+            f"Want your videos to match your brand? From the Templates tab in your dashboard, you can create your own custom template using just a website link, a text prompt describing the look you want, or a design document — it's ready in about 5 minutes, fully automatic. "
+            f"Or, if you'd rather have it done for you, request a crafted template from the same Templates tab and connect with us — our own design team will build it specially for you.\n\n"
+            f"Ready to make your first video? Get started: {dashboard_url}\n\n"
+            f"Team Blog2Video"
+        )
+
+        text_content = steps_text + f"\n\n---\nTo unsubscribe from these emails, visit: {unsubscribe_url}\n"
+
+        # HTML mirrors the plain-text look (no card/logo/button — see
+        # send_referral_invite_email for the same <pre>-wrapped pattern), with
+        # "Get started" as a real underlined link instead of a bare URL.
+        html_steps = html.escape(steps_text).replace(
+            html.escape(f"Get started: {dashboard_url}"),
+            f'<a href="{dashboard_url}" style="color:inherit;text-decoration:underline;">Get started</a>',
+        )
+        html_content = (
+            f"<pre style='font-family:inherit;font-size:15px;white-space:pre-wrap;margin:0;'>"
+            f"{html_steps}"
+            f"</pre>"
+        )
+
+        self.provider.send_email(
+            to=to_email,
+            subject=subject,
+            html_content=html_content,
+            text_content=text_content,
+            from_email="Arslan Shahid <arslan@send.blog2video.app>",
+            reply_to="arslan@blog2video.app",
+        )
+
     def _make_unsubscribe_url(self, email: str) -> str:
         token = hmac.new(
             settings.JWT_SECRET.encode(),

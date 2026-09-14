@@ -30,6 +30,4 @@ export const MATRIX_LAYOUT_REGISTRY: Record<
   matrix_data: MatrixDataChart,
   matrix_ticker: MatrixTicker,
   ending_socials: EndingSocials,
-
-  // ── Visual variants — same props as their base, different composition ──
 };
