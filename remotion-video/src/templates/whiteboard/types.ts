@@ -17,7 +17,13 @@ export type WhiteboardLayoutType =
   | "speech_bubble_dialogue"
   | "data_visualisation"
   | "ending_socials"
-  | "ticker_table";
+  | "ticker_table"
+  // ── Visual variants — same props as their base, different composition ──
+  | "drawn_title__v2"
+  | "drawn_title__v3"
+  | "marker_story__v2"
+  | "stick_figure_scene__v2"
+  | "ending_socials__v2";
 
 export interface WhiteboardStatItem {
   label: string;

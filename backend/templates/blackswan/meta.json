@@ -2,6 +2,7 @@
   "id": "blackswan",
   "name": "Black Swan",
   "new_template": false,
+  "new_scenes": true,
   "description": "Neon cyan on pure black cinematic theme with elliptical water ripples, swan/bird motifs, and data-forward explainer layouts.",
   "genres": [
     "Finance",
@@ -28,6 +29,28 @@
     "ticker_table",
     "ending_socials"
   ],
+  "layout_variants": {
+    "droplet_intro": [
+      "droplet_intro",
+      "droplet_intro__v2"
+    ],
+    "neon_narrative": [
+      "neon_narrative",
+      "neon_narrative__v2"
+    ],
+    "arc_features": [
+      "arc_features",
+      "arc_features__v2"
+    ]
+  },
+  "layout_variant_labels": {
+    "droplet_intro": "Classic",
+    "droplet_intro__v2": "Variant 2",
+    "neon_narrative": "Classic",
+    "neon_narrative__v2": "Variant 2",
+    "arc_features": "Classic",
+    "arc_features__v2": "Variant 2"
+  },
   "layout_prop_schema": {
     "droplet_intro": {
       "label": "Droplet Intro",
@@ -744,9 +767,50 @@
           "type": "string"
         }
       ]
+    },
+    "droplet_intro__v2": {
+      "label": "Variant 2",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 84,
+          "landscape": 71
+        },
+        "descriptionFontSize": {
+          "portrait": 43,
+          "landscape": 42
+        }
+      }
+    },
+    "neon_narrative__v2": {
+      "label": "Variant 2",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 102,
+          "landscape": 93
+        },
+        "descriptionFontSize": {
+          "portrait": 55,
+          "landscape": 50
+        }
+      }
+    },
+    "arc_features__v2": {
+      "label": "Variant 2",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 79,
+          "landscape": 72
+        },
+        "descriptionFontSize": {
+          "portrait": 46,
+          "landscape": 36
+        }
+      }
     }
   },
   "layouts_without_image": [
+    "neon_narrative",
+    "neon_narrative__v2",
     "signal_split",
     "pulse_metric",
     "reactor_code",

@@ -5,6 +5,106 @@ import { blackswanNeonPalette } from "../layouts/blackswanAccent";
 
 const PL = 18000;
 
+/**
+ * ── Trimming the two rules at the swan's base ────────────────────────────
+ * `SWAN_PM` carries two long, flat runs along the very bottom of the traced
+ * shape — a pair of horizontal rules flanking the bird, left over from the
+ * HTML reference this path was extracted from.
+ *
+ * They are only removed for callers that pass `trimBaseRules` — currently just
+ * `droplet_intro__v2`, where the swan rides an open water surface and the rules
+ * read as stray lines lying under it. Everywhere else the shape is unchanged:
+ * six other layouts have always drawn those rules, and quietly dropping them
+ * from all of them is a much bigger edit than the one being asked for.
+ *
+ * Removed HERE and not in `swanPaths.ts`, for two reasons:
+ *   - that file is auto-generated and marked "do not hand-edit"; a hand edit
+ *     would be silently undone the next time it is regenerated.
+ *   - `SwanParticles` imports `SWAN_PM` raw and resamples it for its assemble /
+ *     dissolve motes, and its `parseCubicPath` only understands `M`/`C`/`Z`. The
+ *     bridges below are `L` commands, which that parser would skip — mangling
+ *     the outline it traces. Keeping the trim local to this component leaves
+ *     those particles reading exactly the path they always have.
+ *
+ * The runs are identified by GEOMETRY, not by hardcoded indices: any cubic
+ * lying wholly below `BASE_Y` is dropped. Indices would rot the moment the
+ * path is regenerated with a different segment count, whereas "the flat bits
+ * along the bottom" stays true. At the time of writing this removes 30 of 236
+ * segments, leaving the body bbox at x −233..99, y 0..342 (from −285..272,
+ * 0..345) — i.e. only the outboard rules go.
+ *
+ * The excisions leave gaps of ~6.6 and ~3.6 units, closed with a straight
+ * bridge. Both are well under a pixel once the 0.614 scale is applied.
+ */
+const BASE_Y = 330;
+
+function trimSwanBaseRules(d: string): string {
+  const toks = d.match(/[MCZmcz]|-?[0-9]*\.?[0-9]+(?:e-?[0-9]+)?/g);
+  if (!toks) return d;
+
+  type Cubic = { from: [number, number]; c1: [number, number]; c2: [number, number]; to: [number, number] };
+  const segs: Cubic[] = [];
+  let start: [number, number] | null = null;
+  let cur: [number, number] = [0, 0];
+  let cmd = "";
+  let i = 0;
+
+  while (i < toks.length) {
+    const tk = toks[i];
+    if (/^[MCZmcz]$/.test(tk)) {
+      cmd = tk.toUpperCase();
+      i += 1;
+      continue;
+    }
+    if (cmd === "M") {
+      cur = [Number(toks[i]), Number(toks[i + 1])];
+      start = cur;
+      i += 2;
+      // SVG treats coordinates following an M as implicit L; this path only
+      // ever has one M followed by cubics, so switching to C is correct here.
+      cmd = "C";
+      continue;
+    }
+    if (cmd === "C") {
+      const c1: [number, number] = [Number(toks[i]), Number(toks[i + 1])];
+      const c2: [number, number] = [Number(toks[i + 2]), Number(toks[i + 3])];
+      const to: [number, number] = [Number(toks[i + 4]), Number(toks[i + 5])];
+      segs.push({ from: cur, c1, c2, to });
+      cur = to;
+      i += 6;
+      continue;
+    }
+    break; // Z
+  }
+
+  if (!start || segs.length === 0) return d;
+
+  // A segment is part of a base rule when the whole cubic — endpoints AND
+  // control points — sits below BASE_Y. Requiring all four keeps the strokes
+  // that merely dip toward the base on their way somewhere else.
+  const isBaseRule = (s: Cubic) =>
+    Math.min(s.from[1], s.c1[1], s.c2[1], s.to[1]) > BASE_Y;
+
+  const kept = segs.filter((s) => !isBaseRule(s));
+  if (kept.length === segs.length) return d;
+
+  const n = (v: number) => Number(v.toFixed(4));
+  let out = `M${n(start[0])} ${n(start[1])}`;
+  let pen = start;
+  for (const s of kept) {
+    // Bridge the hole left where a run was cut out.
+    if (Math.hypot(s.from[0] - pen[0], s.from[1] - pen[1]) > 0.01) {
+      out += ` L${n(s.from[0])} ${n(s.from[1])}`;
+    }
+    out += ` C${n(s.c1[0])} ${n(s.c1[1])} ${n(s.c2[0])} ${n(s.c2[1])} ${n(s.to[0])} ${n(s.to[1])}`;
+    pen = s.to;
+  }
+  return `${out} Z`;
+}
+
+/** Body outline with the two stray base rules removed. Computed once. */
+const SWAN_BODY = trimSwanBaseRules(SWAN_PM);
+
 /** 11s neon flicker cycle (matches former `bsw-flicker` keyframes). */
 function flickerMul(t: number, flickerDelay: number, animate: boolean): number {
   if (!animate || t < flickerDelay) return 1;
@@ -33,6 +133,16 @@ export type SwanProps = {
   uid?: string;
   /** Theme accent — body, water ripples, and horizon lines derive from this */
   accentColor?: string;
+  /**
+   * Drop the two flat rules along the base of the traced outline (see
+   * `trimSwanBaseRules`).
+   *
+   * OFF by default, deliberately. The rules are part of the shape every other
+   * blackswan scene has always drawn, and removing them everywhere changes six
+   * other layouts. Only `droplet_intro__v2` opts in, where the swan sits on an
+   * open water surface and the rules read as stray lines under the bird.
+   */
+  trimBaseRules?: boolean;
 };
 
 /**
@@ -47,7 +157,10 @@ export const Swan: React.FC<SwanProps> = ({
   reflection = true,
   uid: uidProp,
   accentColor = "#00E5FF",
+  trimBaseRules = false,
 }) => {
+  // Both variants are precomputed at module load, so this is a pick, not work.
+  const bodyPath = trimBaseRules ? SWAN_BODY : SWAN_PM;
   const reactId = useId().replace(/:/g, "");
   const uid = uidProp ?? reactId;
   const frame = useCurrentFrame();
@@ -123,7 +236,7 @@ export const Swan: React.FC<SwanProps> = ({
       <g clipPath={`url(#bswan-cp-${uid})`}>
         <g transform="translate(12,10) scale(0.614)">
           <path
-            d={SWAN_PM}
+            d={bodyPath}
             transform="translate(588,218)"
             stroke={accentColor}
             strokeWidth={4.5}
@@ -136,7 +249,7 @@ export const Swan: React.FC<SwanProps> = ({
             opacity={0.54 * flick}
           />
           <path
-            d={SWAN_PM}
+            d={bodyPath}
             transform="translate(588,218)"
             stroke={innerStroke}
             strokeWidth={0.7}
@@ -231,7 +344,7 @@ export const Swan: React.FC<SwanProps> = ({
           <g transform="translate(0,714) scale(1,-1)" opacity={reflGroupOp}>
             <g transform="translate(12,10) scale(0.614)">
               <path
-                d={SWAN_PM}
+                d={bodyPath}
                 transform="translate(588,218)"
                 stroke={reflectionStroke}
                 strokeWidth={0.8}

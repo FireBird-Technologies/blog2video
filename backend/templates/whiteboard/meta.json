@@ -3,6 +3,7 @@
   "name": "Stick Man",
   "new_template": false,
   "popular_template": true,
+  "new_scenes": true,
   "description": "Storytelling-first template with hand-drawn marker motion, line-draw text reveals, and stick-figure visual metaphors.",
   "genres": [
     "Technology",
@@ -30,6 +31,36 @@
     "ticker_table",
     "ending_socials"
   ],
+  "layout_variants": {
+    "drawn_title": [
+      "drawn_title",
+      "drawn_title__v2",
+      "drawn_title__v3"
+    ],
+    "marker_story": [
+      "marker_story",
+      "marker_story__v2"
+    ],
+    "stick_figure_scene": [
+      "stick_figure_scene",
+      "stick_figure_scene__v2"
+    ],
+    "ending_socials": [
+      "ending_socials",
+      "ending_socials__v2"
+    ]
+  },
+  "layout_variant_labels": {
+    "drawn_title": "Classic",
+    "drawn_title__v2": "Sketch Board",
+    "drawn_title__v3": "Marker Sweep",
+    "marker_story": "Classic",
+    "marker_story__v2": "Framed Photo",
+    "stick_figure_scene": "Classic",
+    "stick_figure_scene__v2": "Chalk Talk",
+    "ending_socials": "Classic",
+    "ending_socials__v2": "Signboard"
+  },
   "layouts_without_image": [
     "drawn_title",
     "stick_figure_scene",
@@ -47,8 +78,8 @@
     "drawn_title": {
       "label": "Drawn Title",
       "scene_defaults": {
-        "title": "Hello World!",
-        "narration": "A beautiful animated title card for your next video"
+        "title": "Every Big Idea Starts on a Blank Page",
+        "narration": "Before the polish and the pitch decks, there was a scribble in a notebook that nobody else believed in yet."
       },
       "defaults": {
         "titleFontSize": {
@@ -84,8 +115,8 @@
     "marker_story": {
       "label": "Marker Story",
       "scene_defaults": {
-        "title": "The Big Idea",
-        "narration": "Sometimes the simplest ideas are the most powerful ones that change everything."
+        "title": "The Simplest Ideas Travel the Furthest",
+        "narration": "Complexity is easy to manufacture and hard to explain. The ideas that spread are the ones a stranger can repeat correctly after hearing them once."
       },
       "defaults": {
         "titleFontSize": {
@@ -121,8 +152,8 @@
     "stick_figure_scene": {
       "label": "Stick Figure Scene",
       "scene_defaults": {
-        "title": "Keep Going!",
-        "narration": "Consistency beats perfection every single time."
+        "title": "Show Up Long Enough to Get Good",
+        "narration": "Consistency beats perfection every single time, because the work you actually finish is the only work anyone ever gets to see."
       },
       "defaults": {
         "titleFontSize": {
@@ -158,8 +189,8 @@
     "stats_figures": {
       "label": "Stats Figures",
       "scene_defaults": {
-        "title": "Our Impact",
-        "narration": "Numbers that speak for themselves"
+        "title": "The Numbers Behind the Story",
+        "narration": "Every figure below represents thousands of small decisions, and together they explain more than any headline could on its own."
       },
       "defaults": {
         "titleFontSize": {
@@ -229,8 +260,8 @@
     "stats_chart": {
       "label": "Stats Chart",
       "scene_defaults": {
-        "title": "Comparison",
-        "narration": "See how the options stack up"
+        "title": "How the Options Really Stack Up",
+        "narration": "Side by side, the trade-offs become obvious in a way that no amount of description manages to capture."
       },
       "defaults": {
         "titleFontSize": {
@@ -296,8 +327,8 @@
     "comparison": {
       "label": "Comparison",
       "scene_defaults": {
-        "title": "The Debate",
-        "narration": "Which side are you on?"
+        "title": "Two Ways of Looking at the Same Problem",
+        "narration": "Neither side is arguing in bad faith. They are optimising for different things, and that is what makes the debate worth having."
       },
       "defaults": {
         "titleFontSize": {
@@ -345,8 +376,8 @@
     "countdown_timer": {
       "label": "Countdown Timer",
       "scene_defaults": {
-        "title": "Get Ready!",
-        "narration": "until launch"
+        "title": "The Clock Is Already Running",
+        "narration": "until the window closes for good"
       },
       "defaults": {
         "titleFontSize": {
@@ -404,8 +435,8 @@
     "handwritten_equation": {
       "label": "Handwritten Equation",
       "scene_defaults": {
-        "title": "The Formula",
-        "narration": "Breaking it down step by step"
+        "title": "Breaking the Formula Down Piece by Piece",
+        "narration": "Once you see which term does the heavy lifting, the rest of the equation stops looking intimidating and starts looking obvious."
       },
       "defaults": {
         "titleFontSize": {
@@ -475,7 +506,7 @@
     "speech_bubble_dialogue": {
       "label": "Speech Bubble Dialogue",
       "scene_defaults": {
-        "title": "Conversation",
+        "title": "The Conversation Everyone Is Having",
         "narration": ""
       },
       "defaults": {
@@ -602,8 +633,8 @@
         "barTertiaryColor": "#2F7D5B"
       },
       "scene_defaults": {
-        "title": "By the numbers",
-        "narration": "Here's how the figures stack up on the board.",
+        "title": "What the Data Actually Says",
+        "narration": "Here is how the figures stack up on the board, once you strip away the framing and let the numbers speak plainly for themselves.",
         "durationSeconds": 6
       },
       "fields": [
@@ -844,8 +875,8 @@
         }
       },
       "scene_defaults": {
-        "title": "The numbers at a glance",
-        "narration": "Key figures from the story.",
+        "title": "Key Figures From the Story",
+        "narration": "The numbers at a glance, pulled straight from the reporting so you can scan the whole picture without losing the detail.",
         "durationSeconds": 6
       },
       "fields": [
@@ -891,6 +922,58 @@
           "type": "string"
         }
       ]
+    },
+    "ending_socials__v2": {
+      "label": "Signboard",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 46,
+          "landscape": 43
+        },
+        "descriptionFontSize": {
+          "portrait": 29,
+          "landscape": 24
+        }
+      }
+    },
+    "drawn_title__v2": {
+      "label": "Sketch Board",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 62,
+          "landscape": 51
+        },
+        "descriptionFontSize": {
+          "portrait": 32,
+          "landscape": 27
+        }
+      }
+    },
+    "drawn_title__v3": {
+      "label": "Marker Sweep",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 77,
+          "landscape": 66
+        },
+        "descriptionFontSize": {
+          "portrait": 37,
+          "landscape": 27
+        }
+      }
+    },
+    "stick_figure_scene__v2": {
+      "label": "Chalk Talk",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 52,
+          "landscape": 54
+        },
+        "descriptionFontSize": {
+          "portrait": 29,
+          "landscape": 28
+        }
+      }
     }
   },
   "features": [
