@@ -374,8 +374,10 @@ export const MagazineVideo: React.FC<VideoProps> = ({ dataUrl }) => {
       // First scene cranes in; otherwise use the per-layout signature move,
       // unless the scene explicitly sets its own cameraMove.
       cameraMove:
-        (rawProps?.cameraMove as MagazineCameraMove | undefined) ??
-        (index === 0 ? "crane_down" : signatureMoveFor(layoutKey, pageNum)),
+        layoutKey === "by_the_numbers__v2"
+          ? "whip_settle"
+          : (rawProps?.cameraMove as MagazineCameraMove | undefined) ??
+            (index === 0 ? "crane_down" : signatureMoveFor(layoutKey, pageNum)),
     };
   };
 

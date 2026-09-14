@@ -1,5 +1,7 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import React from "react";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, spring } from "remotion";
 import { DarkBackground } from "../DarkBackground";
+import { useFitText } from "../components/useFitText";
 import type { NightfallLayoutProps } from "../types";
 
 /**
@@ -24,14 +26,46 @@ export const KineticInsight: React.FC<NightfallLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  descriptionFontSizeIsUserSet,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const fps = 30;
   const p = aspectRatio === "portrait";
-  
+
   const text = quote || narration || "";
   const words = text ? text.split(/\s+/) : [];
+
+  /* ── Auto-fit ──────────────────────────────────────────────
+     The word-wrap block has no height/overflow constraint of its own (it's
+     centered on the full viewport and simply grows downward — and upward,
+     since it's vertically centered), so with a long quote the text overflows
+     both the top and bottom of the frame instead of ever shrinking. Give it
+     a real height budget (a fraction of the frame, leaving room for the
+     quote marks) and fit the description size to it directly, matching
+     GlassNarrative's pattern: a user-set size is the floor, not just a
+     starting point, so a deliberate editor choice is never silently
+     discarded.
+
+     The floor is intentionally the same 0.4 ratio GlassNarrative uses (not a
+     lower one) — a lower floor let very long quotes get crushed down near
+     ~20px while still overflowing the height budget at that size, reading as
+     thin, clustered text with unused space around it rather than a
+     reasonably sized block that clips cleanly. Matching GlassNarrative's
+     floor means long quotes bottom out at a still-readable size and rely on
+     the box's own overflow:hidden as the backstop, same as every other
+     fitted layout in this template. */
+  const textMaxHeight = Math.round(height * (p ? 0.7 : 0.72));
+  const textRef = React.useRef<HTMLDivElement>(null);
+  const descriptionTarget = descriptionFontSize ?? (p ? 83 : 91);
+  const { px: fittedDescriptionPx } = useFitText(
+    textRef,
+    descriptionTarget,
+    descriptionFontSizeIsUserSet ? descriptionTarget : Math.round(descriptionTarget * 0.4),
+    [text, descriptionTarget, descriptionFontSizeIsUserSet, p, height],
+    textMaxHeight,
+  );
 
   // Background accent elements
   const bgAccent1 = interpolate(frame, [0, 120], [0, 360], {
@@ -117,12 +151,15 @@ export const KineticInsight: React.FC<NightfallLayoutProps> = ({
         }}
       >
         <div
+          ref={textRef}
           style={{
             display: "flex",
             flexWrap: "wrap",
             justifyContent: "center",
             gap: p ? "1em" : "1.25em",
             maxWidth: p ? "100%" : 1300,
+            maxHeight: textMaxHeight,
+            overflow: "hidden",
             alignItems: "baseline",
           }}
         >
@@ -155,7 +192,7 @@ export const KineticInsight: React.FC<NightfallLayoutProps> = ({
               <span
                 key={i}
                 style={{
-                  fontSize: descriptionFontSize ?? (p ? 83 : 92),
+                  fontSize: fittedDescriptionPx,
                   fontWeight: 700,
                   color: isHighlight ? accentColor : textColor,
                   opacity: wordOpacity,

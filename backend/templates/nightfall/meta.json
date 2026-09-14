@@ -64,6 +64,19 @@
         }
       ]
     },
+    "cinematic_title__v2": {
+      "label": "Cinematic Title — Signal Lock",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 113,
+          "landscape": 140
+        },
+        "descriptionFontSize": {
+          "portrait": 43,
+          "landscape": 36
+        }
+      }
+    },
     "glass_narrative": {
       "label": "Glass Narrative",
       "defaults": {
@@ -96,6 +109,19 @@
           "step": 1
         }
       ]
+    },
+    "glass_narrative__v2": {
+      "label": "Glass Narrative — Data Readout",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 76,
+          "landscape": 93
+        },
+        "descriptionFontSize": {
+          "portrait": 40,
+          "landscape": 45
+        }
+      }
     },
     "glow_metric": {
       "label": "Glow Metric",
@@ -230,7 +256,7 @@
         },
         "descriptionFontSize": {
           "portrait": 83,
-          "landscape": 92
+          "landscape": 91
         },
         "quote": "Complexity is the enemy of execution.",
         "highlightWord": "execution"
@@ -238,7 +264,7 @@
       "fields": [
         {
           "key": "titleFontSize",
-          "label": "Primary Font Size",
+          "label": "Quote Mark Size",
           "type": "number",
           "responsive": true,
           "min": 20,
@@ -247,7 +273,7 @@
         },
         {
           "key": "descriptionFontSize",
-          "label": "Secondary Font Size",
+          "label": "Quote Text Size",
           "type": "number",
           "responsive": true,
           "min": 12,
@@ -745,7 +771,8 @@
           }
         ],
         "showWebsiteButton": true,
-        "websiteLink": "https://yourwebsite.com"
+        "websiteLink": "https://yourwebsite.com",
+        "ctaButtonText": "Get started"
       },
       "fields": [
         {
@@ -806,9 +833,31 @@
           "label": "Website Link",
           "type": "string",
           "placeholder": "https://yourwebsite.com"
+        },
+        {
+          "key": "ctaButtonText",
+          "label": "CTA Button Text",
+          "type": "string",
+          "placeholder": "Get started"
         }
       ]
     }
+  },
+  "layout_variants": {
+    "cinematic_title": [
+      "cinematic_title",
+      "cinematic_title__v2"
+    ],
+    "glass_narrative": [
+      "glass_narrative",
+      "glass_narrative__v2"
+    ]
+  },
+  "layout_variant_labels": {
+    "cinematic_title": "Classic",
+    "cinematic_title__v2": "Signal Lock",
+    "glass_narrative": "Classic",
+    "glass_narrative__v2": "Data Readout"
   },
   "layouts_without_image": [
     "split_glass",

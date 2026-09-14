@@ -216,6 +216,10 @@ type FittableLayoutProps = {
   narration?: string;
   titleFontSize?: number;
   descriptionFontSize?: number;
+  /** True only when the user explicitly chose this size (vs. a schema default). */
+  titleFontSizeIsUserSet?: boolean;
+  /** True only when the user explicitly chose this size (vs. a schema default). */
+  descriptionFontSizeIsUserSet?: boolean;
   aspectRatio?: string;
 };
 type ResponsiveDefault = number | { portrait: number; landscape: number };
@@ -238,7 +242,7 @@ export const withAutoFitLayout = <P extends FittableLayoutProps>(
     const descriptionTarget = props.descriptionFontSize ?? resolveDefault(defaults.description);
     const [sizes, setSizes] = React.useState<{ title?: number; description?: number }>({ title: props.titleFontSize, description: props.descriptionFontSize });
     const extra = props as P & Record<string, unknown>;
-    const bodyCopies = [props.narration, extra.subtitle, extra.quote, extra.cta, extra.leftLabel, extra.rightLabel, extra.leftDescription, extra.rightDescription, extra.items, extra.metrics, extra.code, extra.codeLines]
+    const bodyCopies = [props.narration, extra.subtitle, extra.quote, extra.cta, extra.leftLabel, extra.rightLabel, extra.leftDescription, extra.rightDescription, extra.items, extra.metrics, extra.code, extra.codeLines, extra.chartSummary, extra.tickerFootnote]
       .flatMap((value) => Array.isArray(value) ? value : [value])
       .map((value) => typeof value === "string" ? value : value && typeof value === "object" ? Object.values(value as Record<string, unknown>).filter((item) => typeof item === "string").join(" ") : "")
       .filter(Boolean);
@@ -274,12 +278,19 @@ export const withAutoFitLayout = <P extends FittableLayoutProps>(
         if (cancelled || !root.isConnected) return release();
         const titleOverflow = mirrorOverflows("title");
         const bodyOverflow = mirrorOverflows("body");
-        const canShrinkTitle = titleOverflow && (sizes.title ?? titleTarget) > 12;
-        const canShrinkBody = bodyOverflow && (sizes.description ?? descriptionTarget) > 10;
+        // A user-set size is the floor, not just a starting point: shrinking
+        // past it would silently discard an explicit choice made in the
+        // editor (the whole point of the titleFontSizeIsUserSet flag —
+        // without honoring it, the slider looked inert since this effect
+        // shrunk any value straight back down to fit the space).
+        const titleFloor = props.titleFontSizeIsUserSet ? titleTarget : 12;
+        const descriptionFloor = props.descriptionFontSizeIsUserSet ? descriptionTarget : 10;
+        const canShrinkTitle = titleOverflow && (sizes.title ?? titleTarget) > titleFloor;
+        const canShrinkBody = bodyOverflow && (sizes.description ?? descriptionTarget) > descriptionFloor;
         if (canShrinkTitle || canShrinkBody) {
           setSizes((current) => ({
-            title: canShrinkTitle ? Math.max(12, Math.floor((current.title ?? titleTarget) * 0.96)) : current.title,
-            description: canShrinkBody ? Math.max(10, Math.floor((current.description ?? descriptionTarget) * 0.96)) : current.description,
+            title: canShrinkTitle ? Math.max(titleFloor, Math.floor((current.title ?? titleTarget) * 0.96)) : current.title,
+            description: canShrinkBody ? Math.max(descriptionFloor, Math.floor((current.description ?? descriptionTarget) * 0.96)) : current.description,
           }));
           return;
         }
@@ -292,14 +303,14 @@ export const withAutoFitLayout = <P extends FittableLayoutProps>(
         cancelled = true;
         release();
       };
-    }, [sizes, titleTarget, descriptionTarget, props.title, bodyCopyKey]);
+    }, [sizes, titleTarget, descriptionTarget, props.title, bodyCopyKey, props.titleFontSizeIsUserSet, props.descriptionFontSizeIsUserSet]);
 
     return React.createElement(
       "div",
       { ref: rootRef, style: { position: "absolute", inset: 0, overflow: "hidden" } },
       props.title ? React.createElement("div", { "data-auto-fit-mirror": "title", style: { position: "absolute", visibility: "hidden", width: "82%", height: "38%", overflow: "hidden", fontSize: sizes.title ?? titleTarget, lineHeight: 1.12, overflowWrap: "anywhere" } }, props.title) : null,
       ...bodyCopies.map((copy, index) => React.createElement("div", { key: `body-fit-${index}`, "data-auto-fit-mirror": "body", style: { position: "absolute", visibility: "hidden", width: "82%", height: "45%", overflow: "hidden", fontSize: sizes.description ?? descriptionTarget, lineHeight: 1.45, whiteSpace: "pre-wrap", overflowWrap: "anywhere" } }, copy)),
-      React.createElement(Layout, { ...props, titleFontSize: sizes.title, descriptionFontSize: sizes.description }),
+      React.createElement(Layout, { ...props, titleFontSize: sizes.title, descriptionFontSize: sizes.description, titleFontSizeIsUserSet: props.titleFontSizeIsUserSet, descriptionFontSizeIsUserSet: props.descriptionFontSizeIsUserSet }),
     );
   };
   AutoFitLayout.displayName = `AutoFit(${Layout.displayName || Layout.name || "Layout"})`;

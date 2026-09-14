@@ -198,7 +198,6 @@ export const EndingSocials: React.FC<NightfallLayoutProps> = ({
                     }}
                   >
                     <span>{card.ctaButtonText.trim() || "Get started"}</span>
-                    <span>→</span>
                   </div>
 
                   {/* Website Link Below CTA — cursor anim only on the first card */}

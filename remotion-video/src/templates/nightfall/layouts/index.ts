@@ -1,5 +1,7 @@
 import { CinematicTitle } from "./CinematicTitle";
+import { CinematicTitleSignalLock } from "./CinematicTitleSignalLock";
 import { GlassNarrative } from "./GlassNarrative";
+import { GlassNarrativeReadout } from "./GlassNarrativeReadout";
 import { GlowMetric } from "./GlowMetric";
 import { GlassCode } from "./GlassCode";
 import { KineticInsight } from "./KineticInsight";
@@ -20,7 +22,15 @@ export const NIGHTFALL_LAYOUT_REGISTRY: Record<
   React.FC<NightfallLayoutProps>
 > = {
   cinematic_title: withAutoFitLayout(CinematicTitle, { title: { portrait: 113, landscape: 140 }, description: { portrait: 43, landscape: 36 } }),
+  // Visual variant of cinematic_title ("Signal Lock" — escalated starfield
+  // + title bracketed by two accent lines); shares the base's props/schema,
+  // see types.ts and meta.json's layout_variants.
+  cinematic_title__v2: withAutoFitLayout(CinematicTitleSignalLock, { title: { portrait: 113, landscape: 140 }, description: { portrait: 43, landscape: 36 } }),
   glass_narrative: withAutoFitLayout(GlassNarrative, { title: { portrait: 76, landscape: 63 }, description: { portrait: 43, landscape: 36 } }),
+  // Visual variant of glass_narrative ("Data Readout" — off-center
+  // telemetry-panel composition); shares the base's props/schema, see
+  // types.ts and meta.json's layout_variants.
+  glass_narrative__v2: withAutoFitLayout(GlassNarrativeReadout, { title: { portrait: 76, landscape: 63 }, description: { portrait: 40, landscape: 32 } }),
   glow_metric: withAutoFitLayout(GlowMetric, { title: { portrait: 86, landscape: 50 }, description: { portrait: 42, landscape: 30 } }),
   glass_code: withAutoFitLayout(GlassCode, { title: { portrait: 51, landscape: 55 }, description: 22 }),
   kinetic_insight: withAutoFitLayout(KineticInsight, { title: { portrait: 169, landscape: 112 }, description: { portrait: 83, landscape: 92 } }),

@@ -1,7 +1,7 @@
 import type { SocialsMap, SocialsRow } from "../SocialIcons";
 
 export type MagazineLayoutType =
-  | "magazine_cover" | "editorial_quote" | "by_the_numbers" | "interview_qa" | "magazine_data_visualization" | "timeline_journey" | "text_narration" | "ending_socials" | "magazine_ticker" | "colorblock" | "feature" | "comparison";
+  | "magazine_cover" | "magazine_cover__v2" | "editorial_quote" | "by_the_numbers" | "by_the_numbers__v2" | "interview_qa" | "magazine_data_visualization" | "timeline_journey" | "text_narration" | "ending_socials" | "ending_socials__v2" | "magazine_ticker" | "colorblock" | "feature" | "comparison";
   // Visual variants — same props as their base, different composition.
 
 // Cinematic camera move applied to a scene's 3D spread. Each maps to a frame-
@@ -31,6 +31,7 @@ export type SceneExitVariant =
   | "riffle_left"    // blank sheets flip R→L around the left spine, staggered (riffle)
   | "page_turn"      // one sheet turns around the right edge
   | "page_turn_back" // one sheet turns around the left edge
+  | "page_turn_back_reverse" // mirrored back-turn: bottom hinge clears toward the top
   | "page_turn_up"   // one sheet flips around the bottom edge, turns up
   | "flip_up"        // alias of page_turn_up (rotateX around the bottom edge)
   | "spread_close"   // two cover panels swing shut at the centre spine
@@ -52,6 +53,7 @@ export type MagazineTransitionName =
   | "window_open"   // new revealed through a growing rectangular window (rect die-cut)
   | "page_turn"     // single sheet hinged at the spine swings forward
   | "page_turn_back" // single sheet hinged the opposite way (distinct from the cover turn)
+  | "page_turn_back_reverse" // mirrored back-turn that exposes the black desk above
   | "page_turn_up"  // single sheet hinged at the bottom edge, turns up to reveal
   | "page_slide"    // clean horizontal push — new slides in, old slides off
   | "slide_down"    // new slides straight down from the top
@@ -64,6 +66,7 @@ export type MagazineTransitionName =
   | "lift"          // old page lifts off to reveal the next underneath
   | "diagonal"      // a hard diagonal edge sweeps the next page in
   | "press"         // printing-press roller sweeps down, printing the next page top→down
+  | "press_reverse" // reverse press: roller rises, printing the next page bottom→top
   | "stack"         // a magazine stack drops in and the top page opens to the next scene
   | "sweep_up"      // page sweeps up from the bottom (gap-free)
   | "sweep_left"    // page sweeps in from the left (gap-free)
@@ -111,6 +114,11 @@ export interface SceneLayoutProps {
   subtitle?: string;
   issueLabel?: string;
   sectionLabel?: string;
+  // magazine_cover__v2 — landscape-side kicker above the edition headline.
+  newsstandLabel?: string;
+  // magazine_cover__v2 — editable two-line editorial statement beside the cover.
+  leadStoryText?: string;
+  editionText?: string;
   // interview_qa — small-caps eyebrow prefix before the speaker names ("In Conversation")
   conversationLabel?: string;
   // by_the_numbers — word before the section label in the top eyebrow ("Data · …")
@@ -139,7 +147,6 @@ export interface SceneLayoutProps {
   // magazine_cover — editable byline shown bottom-left ("By …"). Blank hides the line.
   byline?: string;
   attribution?: string;
-  caption?: string;
   stats?: Array<{ label?: string; value?: string }>;
   leftSpeaker?: string;
   rightSpeaker?: string;

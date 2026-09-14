@@ -228,9 +228,9 @@ export const GlassCode: React.FC<NightfallLayoutProps> = (props) => {
     return {
       x: s1 * compWidth,
       y: s2 * compHeight,
-      size: 3 + s3 * 9,          // arm length of the sparkle cross
+      size: 3 + s3 * 9,
       twinkleOffset: i * 11,
-      isPlus: s4 > 0.5,           // mix of × and + orientations
+      isPlus: s4 > 0.5,
     };
   }) : [];
 
@@ -249,22 +249,18 @@ export const GlassCode: React.FC<NightfallLayoutProps> = (props) => {
           {sparkles.map((s, i) => {
             const brightness = 0.3 + 0.65 * Math.abs(Math.sin((frame + s.twinkleOffset) * 0.05));
             const rot = s.isPlus ? 0 : 45;
-            const hs = s.size;       // half arm length
-            const dot = s.size * 0.18; // tiny center dot radius
-            // 4-point sparkle: two crossing lines + tiny dot
+            const hs = s.size;
+            const dot = s.size * 0.18;
             return (
               <g
                 key={i}
                 transform={`translate(${s.x}, ${s.y}) rotate(${rot})`}
                 opacity={brightness}
               >
-                {/* Long arms */}
                 <line x1={0} y1={-hs}     x2={0} y2={hs}     stroke={safeAccentColor} strokeWidth={1.1} strokeLinecap="round" />
                 <line x1={-hs} y1={0}     x2={hs} y2={0}     stroke={safeAccentColor} strokeWidth={1.1} strokeLinecap="round" />
-                {/* Short diagonal arms (half length, finer) */}
                 <line x1={-hs*0.55} y1={-hs*0.55} x2={hs*0.55} y2={hs*0.55} stroke={safeAccentColor} strokeWidth={0.6} strokeLinecap="round" />
                 <line x1={hs*0.55}  y1={-hs*0.55} x2={-hs*0.55} y2={hs*0.55} stroke={safeAccentColor} strokeWidth={0.6} strokeLinecap="round" />
-                {/* Center dot */}
                 <circle cx={0} cy={0} r={dot} fill="white" fillOpacity={0.9} />
               </g>
             );

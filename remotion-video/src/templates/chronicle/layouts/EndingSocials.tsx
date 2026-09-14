@@ -12,6 +12,7 @@ import { WaxSeal } from "../components/WaxSeal";
 import { QuillText } from "../components/QuillInk";
 import { resolveCtas } from "../../shared/resolveCtas";
 import { useFitText } from "../components/useFitText";
+import { chronicleHeroHeadingStyle, chronicleHeroHeadingTypography } from "../components/ChronicleHeading";
 
 /**
  * EndingSocials — "The End" colophon page.
@@ -22,7 +23,7 @@ import { useFitText } from "../components/useFitText";
  * - Website CTA on a ribbon
  */
 export const EndingSocials: React.FC<ChronicleLayoutProps> = ({
-  title = "Finis",
+  title = "The Shape of Things to Come",
   narration,
   socials,
   websiteLink,
@@ -141,12 +142,8 @@ export const EndingSocials: React.FC<ChronicleLayoutProps> = ({
             visibility: "hidden",
             position: "absolute",
             inset: 0,
-            fontFamily: CHRONICLE_HEADING_FONT,
+            ...chronicleHeroHeadingTypography(fontFamily),
             fontSize: fitTitlePx,
-            fontWeight: 900,
-            textAlign: "center",
-            letterSpacing: "0.08em",
-            lineHeight: 1,
             width: "100%",
           }}
         >
@@ -154,15 +151,9 @@ export const EndingSocials: React.FC<ChronicleLayoutProps> = ({
         </div>
         <div
           style={{
-            fontFamily: CHRONICLE_HEADING_FONT,
+            ...chronicleHeroHeadingStyle(accentColor, fontFamily),
             fontSize: fitTitlePx,
-            fontWeight: 900,
-            color: textColor,
-            textAlign: "center",
-            letterSpacing: "0.08em",
             opacity: titleOp,
-            textShadow: "2px 2px 0 rgba(184,134,11,0.3)",
-            lineHeight: 1,
           }}
         >
           <QuillText text={title} startFrame={5} durationFrames={28} mode="char" showCursor={false} />
