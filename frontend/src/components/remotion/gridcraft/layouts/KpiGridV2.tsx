@@ -1,0 +1,135 @@
+import React from "react";
+import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
+import type { DataPoint, GridcraftLayoutProps } from "../types";
+import { GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY } from "../constants";
+import { COLORS, gridcraftV2Surface } from "../utils/styles";
+import { GridcraftV2Frame } from "../components/GridcraftV2Frame";
+import { ZoomCropImg } from "../components/ZoomCropImg";
+import { useFitText } from "../components/useFitText";
+
+type ParsedMetric = { prefix: string; value: number; suffix: string; precision: number; grouped: boolean; explicitPlus: boolean };
+
+const parseMetric = (raw: string): ParsedMetric | null => {
+  const match = raw.trim().match(/^([^0-9+\-]*)([+\-]?\d[\d,]*(?:\.\d+)?)(.*)$/);
+  if (!match) return null;
+  const numeric = match[2].replace(/,/g, "");
+  const value = Number(numeric);
+  if (!Number.isFinite(value)) return null;
+  return { prefix: match[1], value, suffix: match[3], precision: numeric.split(".")[1]?.length ?? 0, grouped: match[2].includes(","), explicitPlus: match[2].startsWith("+") };
+};
+
+const displayMetric = (raw: string, progress: number) => {
+  const parsed = parseMetric(raw);
+  if (!parsed) return raw;
+  const current = parsed.value * progress;
+  let number = parsed.precision > 0 ? Math.abs(current).toFixed(parsed.precision) : Math.round(Math.abs(current)).toString();
+  if (parsed.grouped) {
+    const [whole, decimal] = number.split(".");
+    number = `${Number(whole).toLocaleString("en-US")}${decimal == null ? "" : `.${decimal}`}`;
+  }
+  const sign = current < 0 ? "-" : parsed.explicitPlus && progress > 0 ? "+" : "";
+  return `${parsed.prefix}${sign}${number}${parsed.suffix}`;
+};
+
+const MetricCell: React.FC<{
+  item: DataPoint;
+  featured: boolean;
+  index: number;
+  accent: string;
+  ink: string;
+  font: string;
+  valueSize: number;
+  labelSize: number;
+  valueLocked?: boolean;
+  labelLocked?: boolean;
+  portrait: boolean;
+}> = ({ item, featured, index, accent, ink, font, valueSize, labelSize, valueLocked, labelLocked, portrait }) => {
+  const frame = useCurrentFrame();
+  const { fps, height } = useVideoConfig();
+  const start = 5 + index * 6;
+  const entrance = spring({ frame: Math.max(0, frame - start), fps, config: { damping: 18, stiffness: 175, mass: 0.7 } });
+  const countProgress = interpolate(frame, [start + 4, start + 29], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const rawValue = item.value?.trim() || "—";
+  const valueRef = React.useRef<HTMLDivElement>(null);
+  const labelRef = React.useRef<HTMLDivElement>(null);
+  // Budget scales with valueSize itself (not just a fixed fraction of canvas
+  // height) so raising "Metric Value Size" actually grows supporting cells
+  // too — a budget that stayed fixed regardless of valueSize just clamped
+  // the bigger target font right back down to fit the old, unchanged box.
+  const valueBudget = Math.max(height * (featured ? 0.19 : 0.12), valueSize * 1.3);
+  const { px: valuePx } = useFitText(valueRef, valueSize, valueLocked ? valueSize : portrait ? 28 : 32, [rawValue, valueSize, valueLocked, featured, portrait, valueBudget], valueBudget);
+  const labelBudget = Math.max(height * 0.07, labelSize * 2.2);
+  const { px: labelPx } = useFitText(labelRef, labelSize, labelLocked ? labelSize : 13, [item.label, labelSize, labelLocked, featured, portrait, labelBudget], labelBudget);
+  const trend = item.trend === "up" || item.trend === "down" || item.trend === "neutral" ? item.trend : null;
+  const trendGlyph = trend === "up" ? "↗" : trend === "down" ? "↘" : trend === "neutral" ? "→" : "";
+
+  return (
+    <div style={{ ...gridcraftV2Surface(featured, accent, ink), minWidth: 0, minHeight: 0, overflow: "hidden", padding: featured ? (portrait ? 28 : 40) : (portrait ? 20 : 26), display: "flex", flexDirection: "column", justifyContent: "space-between", opacity: interpolate(entrance, [0, 1], [0, 1]), transform: `translateY(${interpolate(entrance, [0, 1], [16, 0])}px) scale(${interpolate(entrance, [0, 1], [0.92, 1])})`, fontFamily: font }}>
+      <div ref={labelRef} style={{ fontSize: labelPx, fontWeight: 600, letterSpacing: "0.11em", lineHeight: 1.15, textTransform: "uppercase", color: featured ? COLORS.WHITE : ink, opacity: featured ? 0.82 : 0.64, overflowWrap: "anywhere" }}>{item.label}</div>
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12 }}>
+        <div ref={valueRef} style={{ minWidth: 0, fontSize: valuePx, fontWeight: 700, letterSpacing: "-0.05em", lineHeight: 0.92, color: featured ? COLORS.WHITE : ink, fontVariantNumeric: "tabular-nums", overflowWrap: "anywhere" }}>{displayMetric(rawValue, countProgress)}</div>
+        {trendGlyph && <span style={{ flexShrink: 0, fontSize: featured ? 30 : 22, fontWeight: 700, color: featured ? COLORS.WHITE : trend === "up" ? "#15803D" : trend === "down" ? "#B91C1C" : ink }}>{trendGlyph}</span>}
+      </div>
+    </div>
+  );
+};
+
+export const KpiGridV2: React.FC<GridcraftLayoutProps> = ({
+  title, narration, dataPoints, highlightIndex = 0, imageUrl, imageObjectPosition,
+  imageZoom, videoUrl, videoMuted, videoVolume, videoDurationInFrames,
+  videoStartInFrames, accentColor, bgColor, textColor, aspectRatio,
+  titleFontSize, descriptionFontSize, titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet, fontFamily,
+}) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const portrait = aspectRatio === "portrait";
+  const accent = accentColor || COLORS.ACCENT;
+  const ink = textColor || COLORS.DARK;
+  const font = fontFamily || GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY;
+  const source = dataPoints?.length ? dataPoints.slice(0, 4) : [
+    { label: "Growth", value: "42%", trend: "up" },
+    { label: "CAC", value: "$18", trend: "down" },
+    { label: "Users", value: "1.2M", trend: "up" },
+  ];
+  const selected = Math.max(0, Math.min(source.length - 1, Math.round(highlightIndex)));
+  const ordered = [source[selected], ...source.filter((_, index) => index !== selected)];
+  const featured = ordered[0];
+  const supporting = ordered.slice(1);
+  const contextMotion = spring({ frame, fps, config: { damping: 18, stiffness: 170, mass: 0.7 } });
+
+  // The context title and its narration caption have no dedicated size
+  // control, so they scale with "Metric Label Size" (descriptionFontSize)
+  // proportionally — at the default slider position this is a no-op.
+  const labelSizeDefault = portrait ? 132 : 88;
+  const titleBasePx = portrait ? 36 : 44;
+  const narrationBasePx = portrait ? 19 : 21;
+  const titleSizeRatio = (descriptionFontSize ?? labelSizeDefault) / labelSizeDefault;
+  const titlePx = Math.round(titleBasePx * titleSizeRatio);
+  const narrationPx = Math.round(narrationBasePx * titleSizeRatio);
+  const metricValueSize = titleFontSize ?? (portrait ? 144 : 160);
+  const metricLabelSize = descriptionFontSize ?? (portrait ? 132 : 88);
+
+  return (
+    <GridcraftV2Frame bgColor={bgColor}>
+      <div style={{ width: portrait ? "88%" : "90%", height: portrait ? "88%" : "82%", margin: "auto", display: "grid", gridTemplateColumns: portrait ? "1fr" : "3fr 9fr", gridTemplateRows: portrait ? "2.2fr 5.8fr" : "1fr", gap: 12, fontFamily: font }}>
+        <div style={{ ...gridcraftV2Surface(false, accent, ink), padding: portrait ? 28 : 34, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: portrait ? "row" : "column", gap: 20, opacity: interpolate(contextMotion, [0, 1], [0, 1]), transform: `translateY(${interpolate(contextMotion, [0, 1], [16, 0])}px) scale(${interpolate(contextMotion, [0, 1], [0.92, 1])})` }}>
+          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+            <span style={{ width: 34, height: 6, borderRadius: 3, backgroundColor: accent }} />
+            <div>
+              <div style={{ color: ink, fontWeight: 700, fontSize: titlePx, lineHeight: 1.04, letterSpacing: "-0.035em", overflowWrap: "anywhere" }}>{title}</div>
+              {narration?.trim() && <div style={{ color: ink, opacity: 0.62, fontSize: narrationPx, lineHeight: 1.35, marginTop: 14 }}>{narration}</div>}
+            </div>
+          </div>
+          {(imageUrl || videoUrl) && <div style={{ width: portrait ? "34%" : "100%", height: portrait ? "100%" : "34%", minHeight: 0, overflow: "hidden", borderRadius: 14 }}><ZoomCropImg src={imageUrl} videoUrl={videoUrl} videoMuted={videoMuted} videoVolume={videoVolume} videoDurationInFrames={videoDurationInFrames} videoStartInFrames={videoStartInFrames} imageObjectPosition={imageObjectPosition} imageZoom={imageZoom} /></div>}
+        </div>
+        <div style={{ minWidth: 0, minHeight: 0, display: "grid", gridTemplateColumns: portrait ? "1fr" : "1.15fr 1fr", gridTemplateRows: portrait ? "1.15fr 1fr" : "1fr", gap: 12 }}>
+          <MetricCell item={featured} featured index={1} accent={accent} ink={ink} font={font} valueSize={metricValueSize} labelSize={metricLabelSize} valueLocked={titleFontSizeIsUserSet} labelLocked={descriptionFontSizeIsUserSet} portrait={portrait} />
+          <div style={{ minWidth: 0, minHeight: 0, display: "grid", gridTemplateColumns: portrait && supporting.length > 1 ? "repeat(2, minmax(0, 1fr))" : "1fr", gridTemplateRows: portrait ? "1fr" : `repeat(${Math.max(1, supporting.length)}, minmax(0, 1fr))`, gap: 12 }}>
+            {supporting.map((item, index) => <MetricCell key={`${item.label}-${index}`} item={item} featured={false} index={index + 2} accent={accent} ink={ink} font={font} valueSize={metricValueSize} labelSize={metricLabelSize} valueLocked={titleFontSizeIsUserSet} labelLocked={descriptionFontSizeIsUserSet} portrait={portrait} />)}
+          </div>
+        </div>
+      </div>
+    </GridcraftV2Frame>
+  );
+};

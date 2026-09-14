@@ -1,8 +1,9 @@
 import React from "react";
-import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
+import { AbsoluteFill, Img, interpolate, useCurrentFrame, useVideoConfig, spring } from "remotion";
 import { DarkBackground } from "../DarkBackground";
 import { glassCardStyle } from "../GlassCard";
 import { NightfallClip } from "../components/NightfallClip";
+import { useFitText } from "../components/useFitText";
 import type { NightfallLayoutProps } from "../types";
 
 /**
@@ -35,9 +36,12 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  titleFontSizeIsUserSet,
+  descriptionFontSizeIsUserSet,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
   const fps = 30;
   const p = aspectRatio === "portrait";
 
@@ -106,6 +110,36 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
   const paragraphs = narration.split('\n').filter(p => p.trim());
   const hasImage = !!(imageUrl || videoUrl);
 
+  /* ── Auto-fit ──────────────────────────────────────────────
+     The glass card has no height/overflow constraint of its own (it grows
+     to fit its content), so with a lot of narration the card simply grew
+     taller than the frame instead of the text ever shrinking — the
+     scene-wide withAutoFitLayout HOC's shrink never had anything to
+     trigger it, since nothing overflowed a fixed box. Give the card a real
+     height budget (a fraction of the frame) and fit title/narration to it
+     directly, matching GlassNarrativeReadout's pattern. Title has two
+     conditional render sites (with-image vs. no-image/portrait) but only
+     one is ever mounted at a time, so one ref/fit pair covers both. */
+  const cardMaxHeight = Math.round(height * (p ? 0.82 : 0.78));
+  const titleRef = React.useRef<HTMLHeadingElement>(null);
+  const narrationRef = React.useRef<HTMLDivElement>(null);
+  const titleTarget = titleFontSize ?? (hasImage && !p ? 63 : p ? (hasImage ? 40 : 36) : 46);
+  const narrationTarget = descriptionFontSize ?? (p ? 43 : 36);
+  const { px: fittedTitlePx } = useFitText(
+    titleRef,
+    titleTarget,
+    titleFontSizeIsUserSet ? titleTarget : Math.round(titleTarget * 0.4),
+    [title, titleTarget, titleFontSizeIsUserSet, p, hasImage, height],
+    Math.round(cardMaxHeight * 0.16),
+  );
+  const { px: fittedNarrationPx } = useFitText(
+    narrationRef,
+    narrationTarget,
+    descriptionFontSizeIsUserSet ? narrationTarget : Math.round(narrationTarget * 0.4),
+    [narration, narrationTarget, descriptionFontSizeIsUserSet, p, hasImage, height],
+    Math.round(cardMaxHeight * (hasImage ? 0.4 : 0.6)),
+  );
+
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
       <DarkBackground bgColor={bgColor} />
@@ -140,8 +174,10 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
             ...glassCardStyle(accentColor, 0.1),
             width: p ? "95%" : hasImage ? "92%" : "75%",
             maxWidth: hasImage ? 1400 : 950,
+            maxHeight: cardMaxHeight,
+            overflow: "hidden",
             // Adjust padding based on portrait and image presence
-            padding: p ? (hasImage ? 60 : 44) : (hasImage ? 72 : 64), 
+            padding: p ? (hasImage ? 60 : 44) : (hasImage ? 72 : 64),
             transform: `translateY(${(1 - cardY) * 50 + floatY}px)`,
             opacity: cardOpacity,
             position: "relative",
@@ -153,7 +189,7 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
             display: "flex",
             flexDirection: "column",
             // Adjust gap within the card based on image and portrait
-            gap: hasImage ? (p ? 32 : 32) : 0, 
+            gap: hasImage ? (p ? 32 : 32) : 0,
           }}
         >
           {/* Top accent line */}
@@ -172,8 +208,9 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
           {/* Title - shown at top when image exists AND NOT IN PORTRAIT */}
           {hasImage && !p && (
             <h2
+              ref={titleRef}
               style={{
-                fontSize: titleFontSize ?? (p ? 76 : 63), // Default for landscape with image
+                fontSize: fittedTitlePx,
                 fontWeight: 700,
                 color: textColor,
                 fontFamily: fontFamily ?? "'Playfair Display', Georgia, serif",
@@ -266,9 +303,9 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
               {/* Title - shown here when no image OR in portrait mode (below image) */}
               {(!hasImage || p) && (
                 <h2
+                  ref={titleRef}
                   style={{
-                    // Adjust font size for title based on portrait, image presence
-                    fontSize: titleFontSize ?? (p ? (hasImage ? 40 : 36) : 46), 
+                    fontSize: fittedTitlePx,
                     fontWeight: 700,
                     color: textColor,
                     fontFamily: fontFamily ?? "'Playfair Display', Georgia, serif",
@@ -285,14 +322,16 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
 
               {/* Narration Content */}
               <div
+                ref={narrationRef}
                 style={{
                   opacity: narrationOpacity,
                   transform: `translateY(${narrationY}px)`,
-                  // Adjust font size for narration based on portrait, image presence
-                  fontSize: descriptionFontSize ?? (p ? 43 : 36), 
+                  fontSize: fittedNarrationPx,
                   lineHeight: 1.8,
                   color: "rgba(226,232,240,0.8)",
                   fontFamily: fontFamily ?? "'Playfair Display', Georgia, serif",
+                  minHeight: 0,
+                  overflow: "hidden",
                 }}
               >
                 {paragraphs.length > 1 ? (
@@ -311,7 +350,7 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
                           <span
                             style={{
                               float: "left",
-                              fontSize: p ? 120 : 140,
+                              fontSize: fittedNarrationPx * (p ? 2.8 : 3.9),
                               lineHeight: 0.85,
                               fontFamily: fontFamily ?? "'Playfair Display', Georgia, serif",
                               color: accentColor,
@@ -339,7 +378,7 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
                         <span
                           style={{
                             float: "left",
-                            fontSize: p ? 120 : 140,
+                            fontSize: fittedNarrationPx * (p ? 2.8 : 3.9),
                             lineHeight: 0.85,
                             fontFamily: fontFamily ?? "'Playfair Display', Georgia, serif",
                             color: accentColor,

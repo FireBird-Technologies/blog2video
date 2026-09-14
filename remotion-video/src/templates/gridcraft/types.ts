@@ -14,6 +14,7 @@ export type GridcraftLayoutType =
   | "bento_steps"
   | "data_visualisation"
   | "ending_socials"
+  | "ending_socials__v2"
   | "ticker_table"
   // Backward-compat alias routed to BentoHero in GRIDCRAFT_LAYOUT_REGISTRY. It is a
   // union member so the registry can be an EXHAUSTIVE Record (see layouts/index.ts):
@@ -33,6 +34,7 @@ export interface DataPoint {
 export interface GridcraftLayoutProps {
   title: string;
   subtitle?: string;
+  tagline?: string;
   narration: string;
   imageUrl?: string;
   imageObjectPosition?: string;

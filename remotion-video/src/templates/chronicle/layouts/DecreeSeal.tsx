@@ -2,7 +2,6 @@ import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { ChronicleLayoutProps } from "../types";
 import {
-  CHRONICLE_BLACKLETTER_FONT,
   CHRONICLE_BODY_FONT,
   CHRONICLE_HEADING_FONT,
   CHRONICLE_SMALLCAPS_FONT,
@@ -11,9 +10,10 @@ import { WaxSeal } from "../components/WaxSeal";
 import { EmberSparks } from "../components/ChronicleArtifacts";
 import { InkSplatter, QuillText } from "../components/QuillInk";
 import { useFitText } from "../components/useFitText";
+import { chronicleHeroHeadingStyle, chronicleHeroHeadingTypography } from "../components/ChronicleHeading";
 
 /**
- * DecreeSeal — single punch-line layout. Blackletter keyword,
+ * DecreeSeal — single punch-line layout. Chronicle hero-styled keyword,
  * red wax seal stamps down with a dust puff, small CTA below.
  * Used for one-word beats or royal-decree-style conclusions.
  */
@@ -45,7 +45,7 @@ export const DecreeSeal: React.FC<ChronicleLayoutProps> = ({
   // The word writes in
   const wordText = (word ?? highlightWord ?? title ?? "DECREED").toUpperCase();
 
-  /* ── Auto-fit (blackletter word) ──────────────────────────────
+  /* ── Auto-fit (hero heading) ──────────────────────────────────
      Designed for a single word/short phrase, but it's unbounded user input
      rendered at a huge fixed size (180-220px) — long custom copy would blow
      past the frame. QuillText's mode="char" reveals characters progressively,
@@ -118,7 +118,7 @@ export const DecreeSeal: React.FC<ChronicleLayoutProps> = ({
         </div>
       )}
 
-      {/* The blackletter word */}
+      {/* The primary hero-styled word */}
       <div
         style={{
           position: "relative",
@@ -152,12 +152,8 @@ export const DecreeSeal: React.FC<ChronicleLayoutProps> = ({
             visibility: "hidden",
             position: "absolute",
             inset: 0,
-            fontFamily: CHRONICLE_BLACKLETTER_FONT,
+            ...chronicleHeroHeadingTypography(fontFamily),
             fontSize: fitWordPx,
-            fontWeight: 400,
-            lineHeight: 0.9,
-            letterSpacing: "0.02em",
-            textAlign: "center",
             width: "100%",
           }}
         >
@@ -165,14 +161,8 @@ export const DecreeSeal: React.FC<ChronicleLayoutProps> = ({
         </div>
         <div
           style={{
-            fontFamily: CHRONICLE_BLACKLETTER_FONT,
+            ...chronicleHeroHeadingStyle(accentColor, fontFamily),
             fontSize: fitWordPx,
-            fontWeight: 400,
-            color: textColor,
-            lineHeight: 0.9,
-            letterSpacing: "0.02em",
-            textAlign: "center",
-            textShadow: "3px 3px 0 rgba(184,134,11,0.25), 5px 5px 15px rgba(40,25,12,0.45)",
             position: "relative",
             zIndex: 1,
             width: "100%",

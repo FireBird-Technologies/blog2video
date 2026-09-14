@@ -5,7 +5,9 @@ import type { SocialsMap } from "../SocialIcons";
 // between them must never require a prop migration.
 export type NightfallLayoutType =
   | "cinematic_title"
+  | "cinematic_title__v2"
   | "glass_narrative"
+  | "glass_narrative__v2"
   | "glow_metric"
   | "glass_code"
   | "kinetic_insight"
@@ -66,6 +68,10 @@ export interface NightfallLayoutProps {
   // typography overrides
   titleFontSize?: number;
   descriptionFontSize?: number;
+  /** Derived at render time; true only when the user explicitly changed it. */
+  titleFontSizeIsUserSet?: boolean;
+  /** Derived at render time; true only when the user explicitly changed it. */
+  descriptionFontSizeIsUserSet?: boolean;
   socials?: SocialsMap;
   websiteLink?: string;
   showWebsiteButton?: boolean;

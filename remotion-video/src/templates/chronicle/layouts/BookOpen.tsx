@@ -21,6 +21,7 @@ import { WaxSeal } from "../components/WaxSeal";
 import { EmberSparks } from "../components/ChronicleArtifacts";
 import { QuillText } from "../components/QuillInk";
 import { stripChapterPrefix } from "./ChapterPlate";
+import { chronicleHeroHeadingGlow } from "../components/ChronicleHeading";
 
 /**
  * BookOpen — scene 0 opener.
@@ -745,12 +746,6 @@ export const BookOpen: React.FC<ChronicleLayoutProps> = ({
           );
           const burnLevel = burnIn * burnPeak;
           const heat = burnLevel;
-          const A = hexToRgb(accentColor);
-          const innerGlow = `rgba(${Math.min(255, A.r + 95)}, ${Math.min(255, A.g + 75)}, ${Math.min(255, A.b + 55)}, ${0.88 * heat})`;
-          const midGold = `rgba(${Math.min(255, A.r + 48)}, ${Math.min(255, A.g + 38)}, ${Math.min(255, A.b + 22)}, ${0.72 * heat})`;
-          const outerGold = `rgba(${A.r}, ${A.g}, ${A.b}, ${0.58 * heat})`;
-          const distantGold = `rgba(${Math.round(A.r * 0.42)}, ${Math.round(A.g * 0.38)}, ${Math.round(A.b * 0.28)}, ${0.32 * heat})`;
-          const edgeGold = `rgba(${A.r}, ${A.g}, ${A.b}, 0.28)`;
           const titleColor = burnLevel > 0.38 ? accentColor : textColor;
           return (
             <div
@@ -765,13 +760,7 @@ export const BookOpen: React.FC<ChronicleLayoutProps> = ({
                 textAlign: "center",
                 width: "100%",
                 maxWidth: "90%",
-                textShadow: `
-                  0 0 6px ${innerGlow},
-                  0 0 14px ${midGold},
-                  0 0 28px ${outerGold},
-                  0 0 52px ${distantGold},
-                  1px 1px 0 ${edgeGold}
-                `,
+                textShadow: chronicleHeroHeadingGlow(accentColor, heat),
               }}
             >
               <QuillText
@@ -858,14 +847,6 @@ function coverTitleSize(title: string, bookW: number): number {
   if (len <= 28) return bookW * 0.055;
   if (len <= 42) return bookW * 0.045;
   return bookW * 0.038;
-}
-
-function hexToRgb(hex: string): { r: number; g: number; b: number } {
-  const h = hex.replace("#", "");
-  const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
-  const num = parseInt(full, 16);
-  if (Number.isNaN(num)) return { r: 184, g: 134, b: 11 };
-  return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
 }
 
 function darkenHex(hex: string, amt: number): string {
