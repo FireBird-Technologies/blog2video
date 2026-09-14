@@ -81,10 +81,16 @@ export const EndingSocialsV2: React.FC<ChronicleLayoutProps> = ({
   // the page instead of reading like a landscape block scaled down in place.
   // useFitText still protects long/user-authored titles.
   const titleTarget = titleFontSize ?? (p ? 107 : 116);
+  // Untouched defaults may shrink far enough to fit a long generated title.
+  // A user-selected size remains exact, even when that deliberate choice
+  // overflows the parchment.
+  const titleFloor = titleFontSizeIsUserSet
+    ? titleTarget
+    : Math.min(titleTarget, Math.max(portrait ? 32 : 28, Math.round(titleTarget * 0.28)));
   const { px: titlePx } = useFitText(
     titleRef,
     titleTarget,
-    titleFontSizeIsUserSet ? titleTarget : Math.round(titleTarget * 0.44),
+    titleFloor,
     [title, titleTarget, titleFontSizeIsUserSet, portrait, pageW],
     Math.round(pageH * 0.17),
   );
@@ -94,18 +100,24 @@ export const EndingSocialsV2: React.FC<ChronicleLayoutProps> = ({
   // the hierarchy intact while allowing every non-title label to scale with
   // the narration instead of leaving fixed-size CTA/footer copy behind.
   const narrationTarget = descriptionFontSize ?? (p ? 71 : 51);
-  const supportingSize = (ratio: number, minimum = 10) =>
-    Math.max(minimum, Math.round(narrationTarget * ratio));
-  const eyebrowPx = supportingSize(0.55);
-  const socialLabelPx = supportingSize(0.55);
   const narrationBudget = Math.round(pageH * (portrait ? 0.2 : 0.18));
+  const narrationFloor = descriptionFontSizeIsUserSet
+    ? narrationTarget
+    : Math.min(narrationTarget, Math.max(portrait ? 18 : 16, Math.round(narrationTarget * 0.4)));
   const { px: narrationPx } = useFitText(
     narrationRef,
     narrationTarget,
-    descriptionFontSizeIsUserSet ? narrationTarget : Math.round(narrationTarget * 0.56),
+    narrationFloor,
     [narration, narrationTarget, descriptionFontSizeIsUserSet, titlePx, portrait, pageW],
     narrationBudget,
   );
+  // Supporting labels and CTA rows follow auto-fit for untouched defaults, but
+  // preserve the user's exact supporting-type choice when explicitly set.
+  const supportingTarget = descriptionFontSizeIsUserSet ? narrationTarget : narrationPx;
+  const supportingSize = (ratio: number, minimum = 10) =>
+    Math.max(minimum, Math.round(supportingTarget * ratio));
+  const eyebrowPx = supportingSize(0.55);
+  const socialLabelPx = supportingSize(0.55);
 
   return (
     <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", overflow: "hidden", opacity: fadeOut, fontFamily: body }}>
@@ -244,7 +256,7 @@ export const EndingSocialsV2: React.FC<ChronicleLayoutProps> = ({
                       textColor={textColor}
                       portrait={portrait}
                       reveal={reveal}
-                      descriptionSize={narrationTarget}
+                      descriptionSize={supportingTarget}
                       passageLabel={passageLabel}
                     />
                   );

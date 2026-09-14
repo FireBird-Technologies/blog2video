@@ -357,32 +357,6 @@ export const BookOpenV2: React.FC<ChronicleLayoutProps> = ({
             />
             <WaxSeal size={p ? 96 : 112} instant monogram={monogram} color={WAX_RED} />
           </div>
-
-          {/* Seal crack lines */}
-          {sealCrack > 0.15 && (
-            <svg
-              viewBox="0 0 100 100"
-              style={{
-                position: "absolute",
-                left: "50%",
-                top: "50%",
-                width: p ? 96 : 112,
-                height: p ? 96 : 112,
-                transform: "translate(-50%, -50%)",
-                opacity: sealCrack,
-                pointerEvents: "none",
-                zIndex: 5,
-              }}
-            >
-              <path
-                d="M50,22 L47,38 L53,44 L46,55 L52,68 L48,82"
-                stroke="#1A0604"
-                strokeWidth="1.5"
-                fill="none"
-                strokeLinecap="round"
-              />
-            </svg>
-          )}
         </div>
       </AbsoluteFill>
 
