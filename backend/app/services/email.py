@@ -1131,22 +1131,23 @@ class EmailService:
             f"Once it's generated, you can keep editing it — adjust scenes, swap the template or voice, then render and export the final video whenever you're ready.\n\n"
             f"Want your videos to match your brand? From the Templates tab in your dashboard, you can create your own custom template using just a website link, a text prompt describing the look you want, or a design document — it's ready in about 5 minutes, fully automatic. "
             f"Or, if you'd rather have it done for you, request a crafted template from the same Templates tab and connect with us — our own design team will build it specially for you.\n\n"
-            f"Ready to make your first video?\n\n"
+            f"Ready to make your first video? Get started: {dashboard_url}\n\n"
             f"Team Blog2Video"
         )
 
         text_content = steps_text + f"\n\n---\nTo unsubscribe from these emails, visit: {unsubscribe_url}\n"
 
-        html_content = self._build_blast_html(subject, steps_text, unsubscribe_url)
-        # Swap the plain closing line for a real CTA button, consistent with other onboarding emails
-        html_content = html_content.replace(
-            f"<p style=\"margin:0 0 16px;font-size:15px;color:#4b5563;line-height:1.65;\">{html.escape('Ready to make your first video?')}</p>",
-            (
-                f"<p style=\"margin:0 0 16px;font-size:15px;color:#4b5563;line-height:1.65;\">Ready to make your first video?</p>"
-                f"<table cellpadding=\"0\" cellspacing=\"0\" style=\"margin:0 0 16px;\"><tr><td style=\"background:#9333EA;border-radius:6px;\">"
-                f"<a href=\"{dashboard_url}\" style=\"display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;\">Start your first video</a>"
-                f"</td></tr></table>"
-            ),
+        # HTML mirrors the plain-text look (no card/logo/button — see
+        # send_referral_invite_email for the same <pre>-wrapped pattern), with
+        # "Get started" as a real underlined link instead of a bare URL.
+        html_steps = html.escape(steps_text).replace(
+            html.escape(f"Get started: {dashboard_url}"),
+            f'<a href="{dashboard_url}" style="color:inherit;text-decoration:underline;">Get started</a>',
+        )
+        html_content = (
+            f"<pre style='font-family:inherit;font-size:15px;white-space:pre-wrap;margin:0;'>"
+            f"{html_steps}"
+            f"</pre>"
         )
 
         self.provider.send_email(
