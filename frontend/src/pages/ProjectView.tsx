@@ -3702,6 +3702,89 @@ export default function ProjectView() {
     }
   }
 
+  const unassignedAssetIds = new Set<number>();
+  Object.values(sceneImageAssetsMap).forEach((sceneItems) =>
+    sceneItems.forEach((item) => unassignedAssetIds.add(item.asset.id)),
+  );
+  const unassignedAssets = mediaAssets.filter((asset) => !unassignedAssetIds.has(asset.id));
+
+  const renderMediaCard = (asset: import("../api/client").Asset) => {
+    const url = resolveAssetUrl(asset, project.id);
+    const isDeleting = deletingImageAssetId === asset.id;
+    const isClip = asset.asset_type === "video";
+
+    return (
+      <div
+        key={`${asset.asset_type}-${asset.id}`}
+        className="relative group rounded-xl overflow-hidden border border-gray-200/40 hover:border-gray-300 transition-all"
+      >
+        {isClip ? (
+          <>
+            <video
+              src={url}
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              className="w-full aspect-[4/3] object-cover bg-black"
+              onMouseEnter={(e) => {
+                void (e.currentTarget as HTMLVideoElement).play().catch(() => {});
+              }}
+              onMouseLeave={(e) => (e.currentTarget as HTMLVideoElement).pause()}
+            />
+            <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-black/70 text-white text-[9px] font-medium uppercase tracking-wide">
+              Clip
+            </span>
+          </>
+        ) : (
+          <img
+            src={url}
+            alt={asset.filename}
+            className="w-full aspect-[4/3] object-cover"
+            loading="lazy"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src =
+                "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='150'><rect fill='%23f3f4f6' width='200' height='150'/><text x='50%25' y='50%25' fill='%239ca3af' font-size='12' text-anchor='middle' dy='.3em'>No preview</text></svg>";
+            }}
+          />
+        )}
+
+        {/* Info bar */}
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-2 pt-6">
+          <p className="text-[10px] text-white/80 truncate">
+            {asset.filename}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => handleRequestDeleteBlogImage(asset)}
+          disabled={isDeleting}
+          className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center transition-all border border-red-200/90 text-red-600 bg-white/90 hover:bg-red-600 hover:text-white hover:border-red-600 opacity-0 group-hover:opacity-100 disabled:opacity-60"
+          title="Delete this image from the project"
+        >
+          {isDeleting ? (
+            <span className="w-2.5 h-2.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+          ) : (
+            <svg
+              className="w-3.5 h-3.5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+              />
+            </svg>
+          )}
+        </button>
+      </div>
+    );
+  };
+
   const handleRemoveSceneImage = async (scene: Scene, assetId: number) => {
     setRemovingAssetId(assetId);
     try {
@@ -9162,89 +9245,6 @@ export default function ProjectView() {
                 </p>
               ) : (
                 (() => {
-                  const usedAssetIds = new Set<number>();
-                  Object.values(sceneImageAssetsMap).forEach((sceneItems) =>
-                    sceneItems.forEach((item) => usedAssetIds.add(item.asset.id)),
-                  );
-                  const unassignedAssets = mediaAssets.filter((asset) => !usedAssetIds.has(asset.id));
-
-                  const renderMediaCard = (asset: import("../api/client").Asset) => {
-                    const url = resolveAssetUrl(asset, project.id);
-                    const isDeleting = deletingImageAssetId === asset.id;
-                    const isClip = asset.asset_type === "video";
-
-                    return (
-                      <div
-                        key={`${asset.asset_type}-${asset.id}`}
-                        className="relative group rounded-xl overflow-hidden border border-gray-200/40 hover:border-gray-300 transition-all"
-                      >
-                        {isClip ? (
-                          <>
-                            <video
-                              src={url}
-                              muted
-                              loop
-                              playsInline
-                              preload="metadata"
-                              className="w-full aspect-[4/3] object-cover bg-black"
-                              onMouseEnter={(e) => {
-                                void (e.currentTarget as HTMLVideoElement).play().catch(() => {});
-                              }}
-                              onMouseLeave={(e) => (e.currentTarget as HTMLVideoElement).pause()}
-                            />
-                            <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-black/70 text-white text-[9px] font-medium uppercase tracking-wide">
-                              Clip
-                            </span>
-                          </>
-                        ) : (
-                          <img
-                            src={url}
-                            alt={asset.filename}
-                            className="w-full aspect-[4/3] object-cover"
-                            loading="lazy"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src =
-                                "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='150'><rect fill='%23f3f4f6' width='200' height='150'/><text x='50%25' y='50%25' fill='%239ca3af' font-size='12' text-anchor='middle' dy='.3em'>No preview</text></svg>";
-                            }}
-                          />
-                        )}
-
-                        {/* Info bar */}
-                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-2 pt-6">
-                          <p className="text-[10px] text-white/80 truncate">
-                            {asset.filename}
-                          </p>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => handleRequestDeleteBlogImage(asset)}
-                          disabled={isDeleting}
-                          className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center transition-all border border-red-200/90 text-red-600 bg-white/90 hover:bg-red-600 hover:text-white hover:border-red-600 opacity-0 group-hover:opacity-100 disabled:opacity-60"
-                          title="Delete this image from the project"
-                        >
-                          {isDeleting ? (
-                            <span className="w-2.5 h-2.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-                          ) : (
-                            <svg
-                              className="w-3.5 h-3.5"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth={2}
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                              />
-                            </svg>
-                          )}
-                        </button>
-                      </div>
-                    );
-                  };
-
                   return (
                     <>
                       <SceneGroupAccordion
@@ -9286,16 +9286,6 @@ export default function ProjectView() {
                         )}
                       />
 
-                      {unassignedAssets.length > 0 && (
-                        <div className="mt-4">
-                          <p className="text-xs font-medium text-gray-600 mb-2">
-                            Unassigned <span className="text-gray-400 font-normal">— not used in any scene</span>
-                          </p>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                            {unassignedAssets.map((asset) => renderMediaCard(asset))}
-                          </div>
-                        </div>
-                      )}
                     </>
                   );
                 })()
@@ -9420,6 +9410,17 @@ export default function ProjectView() {
                     >
                       {logoUploading ? "Uploading…" : "Choose file"}
                     </button>
+                  </div>
+                </div>
+              )}
+
+              {unassignedAssets.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-xs font-medium text-gray-600 mb-2">
+                    Unassigned <span className="text-gray-400 font-normal">— not used in any scene</span>
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {unassignedAssets.map((asset) => renderMediaCard(asset))}
                   </div>
                 </div>
               )}

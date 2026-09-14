@@ -841,7 +841,14 @@ export default function Landing() {
         <UserReviewsSection />
       </div>
 
-       {/* ─── Coverflow template carousel ─── */}
+       {/* ─── AI Avatar showcase ─── */}
+      <section className="py-20 border-t border-gray-100">
+        <div className="max-w-5xl mx-auto px-6">
+          <AvatarShowcase onExplore={handleExploreAvatar} />
+        </div>
+      </section>
+
+      {/* ─── Coverflow template carousel ─── */}
       <section id="templates" className="py-20 border-t border-gray-100 overflow-x-clip">
         <div className="max-w-6xl mx-auto px-6">
           <p className="text-xs font-medium text-purple-600 text-center mb-4 tracking-widest uppercase">
@@ -875,13 +882,6 @@ export default function Landing() {
       <section className="py-14 border-t border-gray-100">
         <div className="max-w-5xl mx-auto px-6">
           <MCPConnectorShowcase onExplore={handleExploreMcp} />
-        </div>
-      </section>
-
-      {/* ─── AI Avatar showcase ─── */}
-      <section className="py-20 border-t border-gray-100">
-        <div className="max-w-5xl mx-auto px-6">
-          <AvatarShowcase onExplore={handleExploreAvatar} />
         </div>
       </section>
 
