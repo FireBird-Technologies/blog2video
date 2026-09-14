@@ -231,6 +231,7 @@ export const NewsHeadline: React.FC<
      unconditionally, as the Rules of Hooks require. */
   const narrationRef = React.useRef<HTMLDivElement>(null);
   const titleRef = React.useRef<HTMLDivElement>(null);
+  const categoryRef = React.useRef<HTMLDivElement>(null);
 
   const actualTitleFontSize = titleFontSize ?? (p ? 77 : 68);
 
@@ -264,12 +265,49 @@ export const NewsHeadline: React.FC<
      output creates a multi-render convergence that Remotion's per-frame
      headless capture can settle at different points on different frames
      (confirmed via a real render — frame-to-frame scene-change score hit
-     1.0, i.e. maximum, twice in the first ten frames, in this scene). */
+     1.0, i.e. maximum, twice in the first ten frames, in this scene).
+
+     The narration wrapper is `flex:"0 1 auto"` inside a `justifyContent`
+     center/flex-end column, so its own clientHeight (and even
+     useAvailableHeight's offsetTop-based measurement of the wrapper) is NOT
+     the real leftover space: centering positions the whole stack (category +
+     title + narration) using narration's OWN current height, so measuring
+     "where narration starts" is circular — it reflects the stack's current
+     (possibly still-overflowing) layout, not the space left if narration
+     were sized correctly. Confirmed via a real render: with a long title +
+     long narration, this measured budget came out at 75px on a 720px-tall
+     frame, when the true leftover was ~200px+.
+
+     Compute the budget arithmetically instead, the same way titleBudgetPx
+     is: container inner height minus the category block's and title's own
+     (trustworthy, because both are flexShrink:0) rendered heights. Neither
+     of those is affected by centering. */
+  const [categoryH, setCategoryH] = React.useState(0);
+  const [titleH, setTitleH] = React.useState(0);
+  React.useLayoutEffect(() => {
+    setCategoryH(categoryRef.current?.offsetHeight ?? 0);
+    setTitleH(titleRef.current?.offsetHeight ?? 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [titlePx, cat, stats, title]);
+
+  const narrationBudgetPx = React.useMemo(() => {
+    if (portraitNoImage) return undefined; // that variant's own clientHeight IS the true budget (single flex:1 child).
+    const padFrac = p ? 0.15 : 0.14;
+    const inner = videoHeight * (1 - padFrac);
+    const categoryMargin = p ? 20 : 30;
+    const titleMargin = p ? 40 : 36;
+    const used = categoryH + categoryMargin + titleH + titleMargin;
+    // Leave ~90% of the true remainder as breathing room rather than fitting
+    // to the exact last pixel.
+    return Math.max(1, (inner - used) * 0.92);
+  }, [videoHeight, p, portraitNoImage, categoryH, titleH]);
+
   const { px: narrationPx } = useFitText(
     narrationRef,
     actualDescriptionFontSize,
     descriptionFontSizeIsUserSet ? actualDescriptionFontSize : p ? 18 : 14,
-    [narration, actualDescriptionFontSize, descriptionFontSizeIsUserSet, titlePx, p, portraitNoImage, hasVisual],
+    [narration, actualDescriptionFontSize, descriptionFontSizeIsUserSet, titlePx, p, portraitNoImage, hasVisual, narrationBudgetPx],
+    narrationBudgetPx,
   );
 
   return (
@@ -381,6 +419,7 @@ export const NewsHeadline: React.FC<
       >
         {/* CATEGORY + AUTHOR (from stats) */}
         <div
+          ref={categoryRef}
           style={{
             marginBottom: portraitNoImage ? 24 : p ? 20 : 30,
             display: "flex",
@@ -487,12 +526,26 @@ export const NewsHeadline: React.FC<
                     paddingTop: 24,
                     paddingBottom: 24,
                   }
-                : // `flex-shrink:1` + `min-height:0` lets this shrink BELOW its
-                  // content height once the column overflows, which is what
-                  // gives the fitter a real band to measure. It never grows, so
-                  // short narration stays exactly where it sits today and the
-                  // parent's justifyContent semantics are untouched.
-                  { flex: "0 1 auto", minHeight: 0, overflow: "hidden", display: "flex" }
+                : // Fixed `height: narrationBudgetPx` (not `flex:"0 1 auto"` +
+                  // clientHeight self-measurement): inside a `justifyContent:
+                  // "center"` column, flex-shrink distributes space by each
+                  // child's OWN flex-basis/content height, not by "what's left
+                  // after fixed siblings" — so a flex-shrunk wrapper's real
+                  // clientHeight routinely came out smaller than the budget
+                  // useFitText was told to fit into (confirmed via a real
+                  // render: budget=141 but the flex-computed box only got
+                  // clientHeight=75, so text measured as "fits in 141" was
+                  // still clipped by ~60px). An explicit height dictated by our
+                  // own arithmetic (narrationBudgetPx, computed from the
+                  // category/title's real measured heights) sidesteps flexbox's
+                  // shrink algorithm entirely — the box IS the budget, no
+                  // second system disagreeing about it.
+                  {
+                      flexShrink: 0,
+                      height: narrationBudgetPx,
+                      overflow: "hidden",
+                      display: "flex",
+                    }
             }
           >
             <div
@@ -502,6 +555,10 @@ export const NewsHeadline: React.FC<
                 fontWeight: 600,
                 color: textColor,
                 lineHeight: 1.4,
+                // Explicit `width` (not just maxWidth) pins this flex item to
+                // the same column width on every measurement pass, matching
+                // the wrapper's now-fixed `height` below.
+                width: p ? "100%" : (imageUrl ? "50%" : "70%"),
                 maxWidth: p ? "100%" : (imageUrl ? "50%" : "70%"),
                 opacity: 0.9,
                 textAlign: portraitNoImage ? "center" : undefined,

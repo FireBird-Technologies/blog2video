@@ -17,6 +17,7 @@ import ContactModal from "../components/ContactModal";
 import VoiceShowcaseSection from "../components/VoiceShowcaseSection";
 import CustomTemplateShowcase from "../components/CustomTemplateShowcase";
 import MCPConnectorShowcase from "../components/MCPConnectorShowcase";
+import AvatarShowcase from "../components/AvatarShowcase";
 // import FeaturedUserTemplates from "../components/FeaturedUserTemplates";
 import GoogleAuthButton from "../components/public/GoogleAuthButton";
 import { detectInAppBrowser } from "../lib/inAppBrowser";
@@ -618,6 +619,18 @@ export default function Landing() {
     handleGenerateClick();
   };
 
+  // "Try AI presenters" CTA: avatars are configured per-project, there's no
+  // standalone avatar page to deep-link to, so send signed-in users straight
+  // to the dashboard; /dashboard is already usePostLoginRedirect's fallback,
+  // so no pending-flag is needed for the signed-out path either.
+  const handleExploreAvatar = () => {
+    if (user) {
+      navigate("/dashboard");
+      return;
+    }
+    handleGenerateClick();
+  };
+
   const handleGoogleSuccess = async (response: CredentialResponse) => {
     if (!response.credential) return;
     setSigningIn(true);
@@ -828,7 +841,14 @@ export default function Landing() {
         <UserReviewsSection />
       </div>
 
-       {/* ─── Coverflow template carousel ─── */}
+       {/* ─── AI Avatar showcase ─── */}
+      <section className="py-20 border-t border-gray-100">
+        <div className="max-w-5xl mx-auto px-6">
+          <AvatarShowcase onExplore={handleExploreAvatar} />
+        </div>
+      </section>
+
+      {/* ─── Coverflow template carousel ─── */}
       <section id="templates" className="py-20 border-t border-gray-100 overflow-x-clip">
         <div className="max-w-6xl mx-auto px-6">
           <p className="text-xs font-medium text-purple-600 text-center mb-4 tracking-widest uppercase">
