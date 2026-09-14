@@ -51,6 +51,21 @@ function coverBox(isPortrait: boolean) {
   return asFrac(cardW, cardH, canvasW, canvasH);
 }
 
+/** Lead issue in the layered newsstand cover variant. */
+function coverV2Box(isPortrait: boolean) {
+  const canvasW = isPortrait ? PORTRAIT.w : LANDSCAPE.w;
+  const canvasH = isPortrait ? PORTRAIT.h : LANDSCAPE.h;
+  const cardAspect = 0.75;
+  let cardH = canvasH * (isPortrait ? 0.74 : 0.86);
+  let cardW = cardH * cardAspect;
+  const maxCardW = canvasW * (isPortrait ? 0.78 : 0.42);
+  if (cardW > maxCardW) {
+    cardW = maxCardW;
+    cardH = cardW / cardAspect;
+  }
+  return asFrac(cardW, cardH, canvasW, canvasH);
+}
+
 /** MagPlate on the feature spread. */
 function featureBox(isPortrait: boolean) {
   const { canvasW, canvasH, innerW, innerH } = sheetContent(isPortrait);
@@ -93,6 +108,10 @@ export function buildMagazineImageBoxDims(): Record<string, ImageBoxDims> {
     magazine_cover: {
       landscape: coverBox(false),
       portrait: coverBox(true),
+    },
+    magazine_cover__v2: {
+      landscape: coverV2Box(false),
+      portrait: coverV2Box(true),
     },
     text_narration: FULL_BLEED,
     timeline_journey: FULL_BLEED,

@@ -26,8 +26,8 @@ import {
 // Variants occupy the same structural slots as their bases, so they belong in these
 // sets too — otherwise the cover-exit page turn and the ending-entry page slide
 // silently stop firing for them.
-export const HERO_LAYOUTS_FROM = new Set<MagazineLayoutType>(["magazine_cover"]);
-export const HERO_LAYOUTS_TO = new Set<MagazineLayoutType>(["ending_socials"]);
+export const HERO_LAYOUTS_FROM = new Set<MagazineLayoutType>(["magazine_cover", "magazine_cover__v2"]);
+export const HERO_LAYOUTS_TO = new Set<MagazineLayoutType>(["ending_socials", "ending_socials__v2"]);
 
 // Data scenes (charts / stats / table). Any boundary touching one plays the
 // zoom-blur dive: the outgoing page zooms in + softly blurs, then the incoming
@@ -37,6 +37,7 @@ export const HERO_LAYOUTS_TO = new Set<MagazineLayoutType>(["ending_socials"]);
 const DATA_LAYOUTS = new Set<MagazineLayoutType>([
   "magazine_data_visualization",
   "by_the_numbers",
+  "by_the_numbers__v2",
   "magazine_ticker",
 ]);
 
@@ -109,6 +110,7 @@ const TRANSITION_REGISTRY: Record<
   window_open: (a) => ({ presentation: cast(windowOpen({ accentColor: a })), frames: DUR.windowOpen }),
   page_turn: (a) => ({ presentation: cast(singlePageTurn({ direction: "forward", accentColor: a })), frames: DUR.singleTurn }),
   page_turn_back: (a) => ({ presentation: cast(singlePageTurn({ direction: "back", accentColor: a })), frames: DUR.singleTurn }),
+  page_turn_back_reverse: (a) => ({ presentation: cast(singlePageTurn({ direction: "back_reverse", accentColor: a })), frames: DUR.singleTurn }),
   page_turn_up: (a) => ({ presentation: cast(singlePageTurn({ direction: "up", accentColor: a })), frames: DUR.singleTurn }),
   page_slide: () => ({ presentation: cast(pageSlide()), frames: DUR.pageSlide }),
   slide_down: () => ({ presentation: cast(slideDownReveal()), frames: DUR.slideDown }),
@@ -121,6 +123,7 @@ const TRANSITION_REGISTRY: Record<
   lift: () => ({ presentation: cast(liftAway()), frames: DUR.lift }),
   diagonal: (a) => ({ presentation: cast(diagonalCut({ accentColor: a })), frames: DUR.diagonal }),
   press: (a) => ({ presentation: cast(pressPrint({ accentColor: a })), frames: DUR.press }),
+  press_reverse: (a) => ({ presentation: cast(pressPrint({ accentColor: a, direction: "up" })), frames: DUR.press }),
   stack: (a) => ({ presentation: cast(pageStackDrop({ accentColor: a })), frames: DUR.stack }),
   sweep_up: (a) => ({ presentation: cast(pageSweep({ direction: "up", accentColor: a })), frames: DUR.sweep }),
   sweep_left: (a) => ({ presentation: cast(pageSweep({ direction: "left", accentColor: a })), frames: DUR.sweep }),
@@ -143,12 +146,15 @@ const TRANSITION_REGISTRY: Record<
 // entrance); if it ever enters mid-deck it falls through to the POOL.
 const ENTER_BY_LAYOUT: Partial<Record<MagazineLayoutType, MagazineTransitionName>> = {
   magazine_cover: "page_turn",
+  magazine_cover__v2: "stack",
   editorial_quote: "zoom_blur",
   by_the_numbers: "page_turn_back",
+  by_the_numbers__v2: "page_turn_back_reverse",
   interview_qa: "lift",
   timeline_journey: "page_turn_up",
   text_narration: "lift",
   ending_socials: "page_slide",
+  ending_socials__v2: "lift",
   magazine_ticker: "die_cut",
   colorblock: "gatefold",
   feature: "sweep_br",
@@ -162,12 +168,15 @@ const ENTER_BY_LAYOUT: Partial<Record<MagazineLayoutType, MagazineTransitionName
 // neighbour's entrance. A per-scene `exitTransition` in layoutProps overrides this.
 const EXIT_BY_LAYOUT: Partial<Record<MagazineLayoutType, MagazineTransitionName>> = {
   magazine_cover: "page_turn",
+  magazine_cover__v2: "page_slide",
   editorial_quote: "page_turn",
   by_the_numbers: "riffle",
+  by_the_numbers__v2: "page_turn_up",
   interview_qa: "slide_down",
   timeline_journey: "page_turn",
   text_narration: "page_turn_up",
   ending_socials: "page_slide", // last scene has no exit; harmless default
+  ending_socials__v2: "lift",
   magazine_ticker: "riffle",
   colorblock: "center_doors",
   feature: "lift",
@@ -201,6 +210,11 @@ export const pickEnterTransition = (
   accentColor?: string,
   toEnter?: MagazineTransitionName,
 ): MagazineTransitionChoice => {
+  // This insert must physically rise from below with the black desk above it.
+  // Keep the direction stable even for older scenes that persisted another override.
+  if (toLayout === "by_the_numbers__v2") {
+    return slow(TRANSITION_REGISTRY.page_turn_back_reverse(accentColor));
+  }
   if (toEnter) return slow(TRANSITION_REGISTRY[toEnter](accentColor));
   const sig = ENTER_BY_LAYOUT[toLayout];
   return slow(TRANSITION_REGISTRY[sig ?? "page_turn"](accentColor));
@@ -230,6 +244,9 @@ export const pickMagazineTransition = (
   toEnter?: MagazineTransitionName,
   fromExit?: MagazineTransitionName,
 ): MagazineTransitionChoice => {
+  if (toLayout === "by_the_numbers__v2") {
+    return TRANSITION_REGISTRY.page_turn_back_reverse(accentColor);
+  }
   // 1. Explicit per-scene overrides always win (the entering scene's
   //    `enterTransition` beats the leaving scene's `exitTransition`).
   if (toEnter) return TRANSITION_REGISTRY[toEnter](accentColor);

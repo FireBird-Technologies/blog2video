@@ -1990,7 +1990,7 @@ export const slideDownReveal = (): TransitionPresentation<SlideDownRevealProps> 
 //   forward → hinge LEFT spine, swings off left (turn to the next page)
 //   back    → hinge RIGHT edge, swings off right (turn a page back)
 
-type SinglePageTurnProps = { direction?: "forward" | "back" | "up"; accentColor?: string };
+type SinglePageTurnProps = { direction?: "forward" | "back" | "up" | "back_reverse"; accentColor?: string };
 type TurnEdge = "left" | "right" | "top" | "bottom";
 
 const SinglePageTurnComponent: React.FC<
@@ -2000,7 +2000,8 @@ const SinglePageTurnComponent: React.FC<
   const cl = { extrapolateLeft: "clamp" as const, extrapolateRight: "clamp" as const };
   const accent = passedProps.accentColor ?? "#D71921";
   const dir = passedProps.direction ?? "forward";
-  const vertical = dir === "up"; // hinge the BOTTOM edge, sheet turns up about it
+  const vertical = dir === "up" || dir === "back_reverse"; // vertical turns hinge at the BOTTOM edge
+  const reverseVertical = dir === "back_reverse";
   const hingeLeft = dir === "forward";
   const hingeEdge: TurnEdge = vertical ? "bottom" : hingeLeft ? "left" : "right";
   const freeEdge: TurnEdge = vertical ? "top" : hingeLeft ? "right" : "left";
@@ -2016,6 +2017,27 @@ const SinglePageTurnComponent: React.FC<
   } as React.CSSProperties);
 
   if (presentationDirection === "entering") {
+    if (reverseVertical) {
+      // The new sheet rises from below. Until its top edge reaches a point, the
+      // uncovered desk stays ABOVE it — the vertical mirror of the old back turn.
+      const rise = easeCubic(p);
+      const tilt = (1 - rise) * 16;
+      return (
+        <AbsoluteFill style={{ zIndex: 5, perspective: "2200px", pointerEvents: "none" }}>
+          <AbsoluteFill
+            style={{
+              transform: `translateY(${((1 - rise) * 104).toFixed(3)}%) rotateX(${tilt.toFixed(2)}deg)`,
+              transformOrigin: "center bottom",
+              transformStyle: "preserve-3d",
+              willChange: "transform",
+            }}
+          >
+            {children}
+            <div style={band("top", 10, "bottom", `rgba(0,0,0,${(0.38 * (1 - rise)).toFixed(3)}) 0%, transparent 100%`)} />
+          </AbsoluteFill>
+        </AbsoluteFill>
+      );
+    }
     // Next scene sits beneath the turning page and eases up to rest. It's revealed
     // by the cover lifting away — not by fading up — and it paints its own opaque
     // page (dark room + sheet + print texture) from frame 0, so it sits on the dark
@@ -2041,10 +2063,15 @@ const SinglePageTurnComponent: React.FC<
     );
   }
 
+  // The outgoing page stays underneath while the reverse sheet rises over it.
+  if (reverseVertical) {
+    return <AbsoluteFill style={{ zIndex: 1 }}>{children}</AbsoluteFill>;
+  }
+
   // EXITING — the outgoing scene is the FRONT of a sheet that swings open about
   // the hinge edge, painted on top.
   const lift = easeCubic(interpolate(p, [0.05, 0.82], [0, 1], cl));
-  const dirSign = vertical ? -1 : hingeLeft ? -1 : 1; // up + forward swing toward the lens
+  const dirSign = vertical ? (reverseVertical ? 1 : -1) : hingeLeft ? -1 : 1;
   const antic = interpolate(p, [0, 0.1], [0, dirSign * 3], cl);
   const angle = dirSign * lift * 158 + antic; // 0° flat → ±158° open
   const sheen = interpolate(p, [0.12, 0.45, 0.78], [0, 0.42, 0], cl);
@@ -2804,12 +2831,13 @@ export const collageAssemble = (
 // is revealed by an animated clip-path inset only (no transform on the heavy page),
 // and the roller is baked gradients + solid bars moved on the compositor via
 // translateY — no blur / box-shadow ([[magazine-preview-paint-cost]]).
-type PressPrintProps = { accentColor?: string };
+type PressPrintProps = { accentColor?: string; direction?: "down" | "up" };
 
 const PressPrintComponent: React.FC<
   TransitionPresentationComponentProps<PressPrintProps>
 > = ({ children, presentationDirection, presentationProgress, passedProps }) => {
   const accent = passedProps.accentColor ?? "#D71921";
+  const upward = passedProps.direction === "up";
 
   if (presentationDirection === "exiting") {
     // The outgoing ticker sits static and full underneath; the printed page covers
@@ -2817,10 +2845,14 @@ const PressPrintComponent: React.FC<
     return <AbsoluteFill style={{ backgroundColor: TABLE_BG }}>{children}</AbsoluteFill>;
   }
 
-  // ENTERING — the new page is revealed top→down behind the descending roller.
+  // ENTERING — the normal press reveals top→bottom; the reverse press used by
+  // By the Numbers V2 reveals bottom→top behind the same physical roller.
   const p = easeCubic(presentationProgress);
-  const bottomInset = (1 - p) * 100; // 100 → 0 (reveal grows downward)
-  const clip = `inset(0 0 ${bottomInset.toFixed(3)}% 0)`;
+  const hiddenInset = (1 - p) * 100;
+  const clip = upward
+    ? `inset(${hiddenInset.toFixed(3)}% 0 0 0)`
+    : `inset(0 0 ${hiddenInset.toFixed(3)}% 0)`;
+  const rollerY = upward ? (1 - p) * 100 : p * 100;
   const rollerVisible = presentationProgress > 0.001 && presentationProgress < 0.999;
   return (
     <AbsoluteFill>
@@ -2831,7 +2863,7 @@ const PressPrintComponent: React.FC<
       {rollerVisible && (
         <AbsoluteFill
           style={{
-            transform: `translateY(${(p * 100).toFixed(3)}%)`,
+            transform: `translateY(${rollerY.toFixed(3)}%)`,
             willChange: "transform",
             pointerEvents: "none",
           }}
@@ -2842,9 +2874,11 @@ const PressPrintComponent: React.FC<
               position: "absolute",
               left: 0,
               right: 0,
-              top: 0,
+              top: upward ? -46 : 0,
               height: 46,
-              background: "linear-gradient(to bottom, rgba(0,0,0,0.22), rgba(0,0,0,0))",
+              background: upward
+                ? "linear-gradient(to top, rgba(0,0,0,0.22), rgba(0,0,0,0))"
+                : "linear-gradient(to bottom, rgba(0,0,0,0.22), rgba(0,0,0,0))",
             }}
           />
           {/* crisp accent ink-line laid at the contact edge */}
@@ -2867,7 +2901,7 @@ const PressPrintComponent: React.FC<
               right: 0,
               top: 0,
               height: 64,
-              transform: "translateY(-100%)",
+              transform: upward ? undefined : "translateY(-100%)",
               background:
                 "linear-gradient(to bottom, rgba(40,38,34,0.95) 0%, rgba(120,116,108,0.9) 30%, rgba(255,255,255,0.55) 50%, rgba(120,116,108,0.9) 70%, rgba(30,28,24,0.98) 100%)",
             }}

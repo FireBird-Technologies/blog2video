@@ -838,6 +838,15 @@ class ProjectListOut(BaseModel):
         from_attributes = True
 
 
+class ProjectListPage(BaseModel):
+    """One page of projects. Only returned when the caller passes ``page``; the
+    bare-list response is kept as the default for existing clients."""
+    items: list[ProjectListOut]
+    total: int
+    page: int
+    per_page: int
+
+
 # ─── Scene Update ──────────────────────────────────────────
 
 class SceneTypographyBulkUpdate(BaseModel):

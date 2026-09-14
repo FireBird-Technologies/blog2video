@@ -213,7 +213,7 @@ export const IlluminatedQuote: React.FC<ChronicleLayoutProps> = ({
           ref={fitQuoteRef}
           style={{
             fontFamily: CHRONICLE_HEADING_FONT,
-            fontStyle: "italic",
+            fontStyle: "normal",
             fontSize: fitQuotePx,
             color: textColor,
             lineHeight: 1.25,

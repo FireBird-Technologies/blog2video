@@ -335,6 +335,14 @@ export interface ProjectListItem {
   owner_name?: string | null;
 }
 
+/** One page of projects, returned only when `page` is passed to GET /projects. */
+export interface ProjectListPage {
+  items: ProjectListItem[];
+  total: number;
+  page: number;
+  per_page: number;
+}
+
 export interface ChatMessage {
   id: number;
   role: string;
@@ -1348,6 +1356,11 @@ export const updateProjectLogo = (
 
 export const listProjects = () =>
   api.get<ProjectListItem[]>("/projects");
+
+/** Paginated variant. `listProjects()` stays unpaginated — other callers (the
+ *  onboarding-tour project count) depend on the bare-array response. */
+export const listProjectsPaged = (page: number, perPage = 10) =>
+  api.get<ProjectListPage>("/projects", { params: { page, per_page: perPage } });
 
 export const getProject = (id: number) =>
   api.get<Project>(`/projects/${id}`);

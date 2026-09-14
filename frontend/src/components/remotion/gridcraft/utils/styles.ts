@@ -24,6 +24,19 @@ export const glass = (accent: boolean) => ({
   color: accent ? COLORS.WHITE : COLORS.DARK,
 });
 
+/** Crisp editorial surface used only by the second-generation Gridcraft layouts. */
+export const gridcraftV2Surface = (
+  accent: boolean,
+  accentColor: string,
+  textColor: string,
+): React.CSSProperties => ({
+  backgroundColor: accent ? accentColor : COLORS.WHITE,
+  border: accent ? `1px solid ${accentColor}` : "1px solid #E5E7EB",
+  boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+  borderRadius: 20,
+  color: accent ? COLORS.WHITE : textColor,
+});
+
 export const fitText = (text: string | undefined, maxChars: number = 50) => {
   if (!text) return 14;
   const length = text.length;

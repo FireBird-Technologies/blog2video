@@ -77,6 +77,7 @@ const LAYOUTS_WITHOUT_CHROME_FADE = new Set<ChronicleLayoutType>(["book_open"]);
 const SCRIPTURE_LAYOUTS = new Set<ChronicleLayoutType>([
   "book_open",
   "illuminated_quote",
+  "illuminated_quote__v2",
   "parchment_scroll",
   "decree_seal",
 ]);
@@ -93,7 +94,9 @@ const SCRIPTURE_LAYOUTS = new Set<ChronicleLayoutType>([
 // cut off the subtitle mid-typing.
 const LAYOUT_MIN_FRAMES: Record<ChronicleLayoutType, number> = {
   book_open: 300,
+  book_open__v2: 300,
   ending_socials: 200,
+  ending_socials__v2: 200,
   chronicle_timeline: 200,
   ledger_stats: 200,
   versus_folio: 200,
@@ -101,7 +104,9 @@ const LAYOUT_MIN_FRAMES: Record<ChronicleLayoutType, number> = {
   chronicle_table: 200,
   chapter_plate: 170,
   illuminated_quote: 170,
+  illuminated_quote__v2: 190,
   parchment_scroll: 170,
+  parchment_scroll__v2: 170,
   decree_seal: 170,
   map_reveal: 170,
 };

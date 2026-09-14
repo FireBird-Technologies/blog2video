@@ -3,7 +3,6 @@ import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remo
 import type { ChronicleLayoutProps } from "../types";
 import {
   CHRONICLE_BODY_FONT,
-  CHRONICLE_HEADING_FONT,
   CHRONICLE_SMALLCAPS_FONT,
 } from "../../../../fonts/chronicle-defaults";
 import { IlluminatedDropCap } from "../components/IlluminatedDropCap";
@@ -12,6 +11,7 @@ import { InkFlourish } from "../components/ChronicleArtifacts";
 import { EmbossedImage } from "../components/EmbossedImage";
 import { QuillText } from "../components/QuillInk";
 import { useFitText } from "../components/useFitText";
+import { chronicleHeroHeadingStyle, chronicleHeroHeadingTypography } from "../components/ChronicleHeading";
 
 /**
  * ParchmentScroll — main narrative body layout.
@@ -57,8 +57,14 @@ export const ParchmentScroll: React.FC<ChronicleLayoutProps> = ({
     extrapolateRight: "clamp",
   });
 
-  const dropCapChar = (illuminatedLetter ?? narration.charAt(0) ?? "A").toUpperCase();
-  const bodyRest = narration.slice(1);
+  const firstLetterIndex = narration.search(/[A-Za-z]/);
+  const automaticDropCap = firstLetterIndex >= 0 ? narration[firstLetterIndex] : "A";
+  // Schema defaults use an empty string for "auto". Treat it as absent and
+  // only accept the first character of a custom override.
+  const dropCapChar = (illuminatedLetter?.trim().charAt(0) || automaticDropCap).toUpperCase();
+  const bodyRest = firstLetterIndex >= 0
+    ? `${narration.slice(0, firstLetterIndex)}${narration.slice(firstLetterIndex + 1)}`.trimStart()
+    : narration;
 
   /* ── Auto-fit (title + body) ──────────────────────────────────
      Title and narration body are unbounded user input in the text column.
@@ -67,7 +73,7 @@ export const ParchmentScroll: React.FC<ChronicleLayoutProps> = ({
      characters progressively, so hidden full-text mirrors are measured for
      both instead of the animated elements themselves. */
   const fitTitleRef = React.useRef<HTMLDivElement>(null);
-  const fitTitleTarget = titleFontSize ?? (p ? 66 : 62);
+  const fitTitleTarget = titleFontSize ?? (p ? 66 : 98);
   const { px: fitTitlePx } = useFitText(
     fitTitleRef,
     fitTitleTarget,
@@ -76,7 +82,7 @@ export const ParchmentScroll: React.FC<ChronicleLayoutProps> = ({
     Math.round(height * 0.1),
   );
   const fitBodyRef = React.useRef<HTMLDivElement>(null);
-  const fitBodyTarget = descriptionFontSize ?? (p ? 34 : 28);
+  const fitBodyTarget = descriptionFontSize ?? (p ? 34 : 41);
   const { px: fitBodyPx } = useFitText(
     fitBodyRef,
     fitBodyTarget,
@@ -169,10 +175,8 @@ export const ParchmentScroll: React.FC<ChronicleLayoutProps> = ({
                 visibility: "hidden",
                 position: "absolute",
                 inset: 0,
-                fontFamily: CHRONICLE_HEADING_FONT,
-                fontWeight: 700,
+                ...chronicleHeroHeadingTypography(fontFamily),
                 fontSize: fitTitlePx,
-                lineHeight: 1.05,
                 width: "100%",
               }}
             >
@@ -180,13 +184,9 @@ export const ParchmentScroll: React.FC<ChronicleLayoutProps> = ({
             </div>
             <div
               style={{
-                fontFamily: CHRONICLE_HEADING_FONT,
-                fontWeight: 700,
+                ...chronicleHeroHeadingStyle(accentColor, fontFamily),
                 fontSize: fitTitlePx,
-                color: textColor,
-                lineHeight: 1.05,
                 opacity: titleOp,
-                textShadow: "1px 1px 0 rgba(184,134,11,0.15)",
               }}
             >
               <QuillText text={title} startFrame={12} durationFrames={28} mode="char" showCursor={false} />

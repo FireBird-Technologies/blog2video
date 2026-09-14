@@ -149,7 +149,9 @@ export const ChronicleChrome: React.FC<ChronicleChromeProps> = ({
             width: "100%",
             height: "100%",
             objectFit: "cover",
-            objectPosition: "50% 50%",
+            // The source is an open-book photo with a baked centre binding.
+            // Portrait is a single leaf, so crop from the left page only.
+            objectPosition: isPortrait ? "12% 50%" : "50% 50%",
             opacity: 0.14,
             filter: "sepia(0.55) contrast(1.05) saturate(0.6)",
             mixBlendMode: "multiply",
@@ -203,13 +205,16 @@ export const ChronicleChrome: React.FC<ChronicleChromeProps> = ({
         }}
       />
 
-      {/* Open-book spread — three-layer shading at zIndex 1, BEHIND content
+      {/* Open-book spread — landscape only. Portrait is a single page and must
+          never inherit a false centre binding from the shared chrome.
+          Three-layer shading sits at zIndex 1, BEHIND content
           at zIndex 10 so it can never interfere with layouts.
             1. Left page  — soft inner-shadow extending right from the spine
             2. Right page — mirror, extending left from the spine
             3. The fold itself — very thin deeper shadow at exact center
           Together these give the eye two distinct page surfaces with a
           gentle crease, without ever drawing a hard vertical seam. */}
+      {!isPortrait && <>
       <div
         style={{
           position: "absolute",
@@ -261,6 +266,7 @@ export const ChronicleChrome: React.FC<ChronicleChromeProps> = ({
           mixBlendMode: "multiply",
         }}
       />
+      </>}
 
       {/* Scene content — sits above all chrome textures, below spine shadows + dust. */}
       <AbsoluteFill style={{ opacity: contentOpacity, zIndex: 10 }}>
