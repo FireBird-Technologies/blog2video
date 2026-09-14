@@ -35,7 +35,7 @@ from app.models.crafted_template import CraftedTemplate
 from app.models.crafted_template_entitlement import CraftedTemplateEntitlement
 from app.models.custom_template import CustomTemplate
 from app.schemas.schemas import (
-    ProjectCreate, ProjectOut, ProjectListOut, ProjectLogoUpdate,
+    ProjectCreate, ProjectOut, ProjectListOut, ProjectListPage, ProjectLogoUpdate,
     BulkProjectItem, BulkCreateResponse,
     ReviewOut, ReviewStateOut, ReviewSubmit, ReviewSubmitResponse, SceneOut,
     AvatarReviewOut, AvatarReviewSubmit,
@@ -3728,12 +3728,19 @@ def delete_logo(
     return {"detail": "Logo removed"}
 
 
-@router.get("", response_model=list[ProjectListOut])
+@router.get("", response_model=list[ProjectListOut] | ProjectListPage)
 def list_projects(
+    page: int | None = None,
+    per_page: int = 10,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """List projects the user owns OR collaborates on. Scene count via subquery."""
+    """List projects the user owns OR collaborates on. Scene count via subquery.
+
+    Without ``page`` this returns the bare list, which existing clients (the MCP
+    server, the onboarding-tour project count) rely on. Passing ``page`` returns a
+    ``ProjectListPage`` envelope carrying the unpaginated ``total``.
+    """
     from app.models.project_member import ProjectMember, MemberStatus
     from app.models.user import User as _User
 
@@ -3754,7 +3761,7 @@ def list_projects(
         )
     }
 
-    rows = (
+    base_query = (
         db.query(
             Project,
             func.coalesce(scene_counts.c.cnt, 0).label("scene_count"),
@@ -3765,8 +3772,15 @@ def list_projects(
             or_(Project.user_id == user.id, Project.id.in_(shared_ids) if shared_ids else False),
         )
         .order_by(Project.created_at.desc())
-        .all()
     )
+
+    if page is not None:
+        page = max(1, page)
+        per_page = max(1, min(100, per_page))
+        total = base_query.count()
+        rows = base_query.limit(per_page).offset((page - 1) * per_page).all()
+    else:
+        rows = base_query.all()
 
     # Resolve owner display names for shared projects (for "Shared by X" labels).
     owner_ids = {p.user_id for p, _ in rows if p.user_id != user.id}
@@ -3775,7 +3789,7 @@ def list_projects(
         for u in db.query(_User).filter(_User.id.in_(owner_ids)).all()
     } if owner_ids else {}
 
-    return [
+    items = [
         ProjectListOut(
             id=p.id,
             name=p.name,
@@ -3789,6 +3803,10 @@ def list_projects(
         )
         for p, scene_count in rows
     ]
+
+    if page is not None:
+        return ProjectListPage(items=items, total=total, page=page, per_page=per_page)
+    return items
 
 
 @router.get("/{project_id}", response_model=ProjectOut)
@@ -4497,6 +4515,19 @@ def delete_scene(
     )
     if not scene:
         raise HTTPException(status_code=404, detail="Scene not found")
+
+    # A video must always keep at least one scene — deleting the last one would render
+    # an empty video. Soft-deleted scenes don't count toward the minimum.
+    active_scenes = (
+        db.query(func.count(Scene.id))
+        .filter(Scene.project_id == project_id, Scene.is_active == True)  # noqa: E712
+        .scalar()
+    )
+    if active_scenes <= 1:
+        raise HTTPException(
+            status_code=400,
+            detail="At least one scene is required for a video.",
+        )
 
     scene.is_active = False
     # Track the deletion in the GLOBAL (project) history, not the scene's own history —

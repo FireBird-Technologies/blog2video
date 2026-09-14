@@ -6888,7 +6888,18 @@ export default function ProjectView() {
                         isDropTarget={isDropTarget}
                         onToggleExpand={() => setExpandedScene(isExpanded ? null : scene.id)}
                         onEdit={() => setSceneEditModal(scene)}
-                        onDelete={() => setSceneToDelete(scene)}
+                        onDelete={() => {
+                          // A video must keep at least one scene, so the last one
+                          // gets an explanatory notice instead of the confirm modal.
+                          if (project.scenes.length <= 1) {
+                            showNotice(
+                              "At least one scene is required for a video.",
+                              { title: "Can't delete this scene" }
+                            );
+                            return;
+                          }
+                          setSceneToDelete(scene);
+                        }}
                         onAddAfter={() => { setAddSceneAnchor(scene); setAddSceneOpen(true); }}
                         addDisabled={addSceneRunning}
                         addDisabledReason="A scene is already being added."
