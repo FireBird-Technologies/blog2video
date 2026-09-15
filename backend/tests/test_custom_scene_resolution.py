@@ -481,3 +481,109 @@ def test_intro_keeps_its_image_capability_when_the_outro_is_forced():
     assert all(f"content_{i}" in no_image for i in range(7))
     # ...but the intro asked for an image and must still get one.
     assert "intro" not in no_image
+
+
+# ─── 5. The per-template data-visualisation scene ─────────────────────────
+#
+# Every custom template now DESIGNS its own chart layout (a required design-doc
+# role) instead of sharing one generic kit scene, and the pipeline injects a
+# chart scene for every video whether or not the article had a table. These pin
+# the three seams that makes possible.
+
+
+def _dataviz_custom_data(num_variants: int = 3, chart_at: int = 1) -> dict:
+    """Custom data whose archetype at `chart_at` is the data-viz layout."""
+    archetypes = [
+        {"id": f"content_{i}", "content_type": "bullets"} for i in range(num_variants)
+    ]
+    archetypes[chart_at] = {"id": "plotted", "content_type": "dataviz"}
+    return {"content_codes": ["code"] * num_variants,
+            "content_archetype_ids": archetypes}
+
+
+def test_the_chart_scene_binds_to_the_templates_own_dataviz_variant() -> None:
+    """Routing must reach the template's OWN chart layout, not the kit fallback.
+
+    "dataviz" is deliberately absent from CONTENT_TYPES so article prose can
+    never be routed into a chart layout — which also means archetype matching
+    will never select it. The binding is therefore explicit, and without it a
+    template's designed chart scene would never render.
+    """
+    scenes = [
+        _first_run_scene(),
+        _Scene(scene_type="dataviz_chart"),
+        _first_run_scene(),
+    ]
+    resolved = _resolve_custom_scene_types(
+        "custom_9", scenes, _dataviz_custom_data(chart_at=1)
+    )
+    assert resolved[1]["sceneType"] == "dataviz_chart"
+    assert resolved[1]["contentVariantIndex"] == 1, "must bind the dataviz variant"
+    assert resolved[1]["contentArchetype"] == "plotted"
+
+
+def test_a_template_without_a_dataviz_variant_keeps_the_kit_scene() -> None:
+    """Back-compat: templates generated before the chart role have no variant.
+
+    GeneratedVideo falls back to the generic DataChartScene when the index is
+    absent, so it must stay absent rather than binding an unrelated variant.
+    """
+    scenes = [_first_run_scene(), _Scene(scene_type="dataviz_chart")]
+    resolved = _resolve_custom_scene_types("custom_9", scenes, _custom_data())
+    assert resolved[1]["sceneType"] == "dataviz_chart"
+    assert resolved[1]["contentVariantIndex"] is None
+
+
+def test_prose_is_never_routed_into_the_chart_layout() -> None:
+    """A section routed to the chart layout would lose its content entirely.
+
+    The no-match path is a positional round-robin over every archetype, so
+    excluding the chart one is what keeps an unrecognised content type off it.
+    """
+    archetypes = [
+        {"id": "a", "content_type": "bullets"},
+        {"id": "plotted", "content_type": "dataviz"},
+        {"id": "c", "content_type": "metrics"},
+    ]
+    structured = [{"contentType": t} for t in
+                  ("plain", "plain", "somethingunknown", "bullets", "metrics")]
+    assert 1 not in match_scenes_to_archetypes(structured, archetypes)
+
+
+def test_the_chart_variant_is_not_offered_twice_in_the_layout_picker() -> None:
+    """It is pickable as "Data Chart"; its content_N twin would render a chart
+    for a scene the user meant to hold prose."""
+    blueprint = {
+        "scenes": [
+            {"role": "intro", "supports_image": True, "content_type": "plain"},
+            {"role": "content", "supports_image": False, "content_type": "bullets"},
+            {"role": "content", "supports_image": False, "content_type": "dataviz"},
+            {"role": "outro", "supports_image": False, "content_type": "plain"},
+        ],
+    }
+    meta = build_custom_meta(
+        {"colors": {"accent": "#000", "bg": "#FFF", "text": "#111"}, "fonts": {}},
+        "Acme",
+        content_codes_count=2,
+        content_archetype_ids=[
+            {"id": "listing", "content_type": "bullets"},
+            {"id": "plotted", "content_type": "dataviz"},
+        ],
+        design_blueprint=blueprint,
+    )
+    valid = meta["valid_layouts"]
+    assert "custom_chart" in valid
+    assert "content_1" not in valid, "the chart variant must not be pickable twice"
+    assert "content_0" in valid, "ordinary content layouts stay pickable"
+
+
+def test_the_chart_scene_never_takes_an_image() -> None:
+    """The plot is the focal element; an image slot would be a permanent hole."""
+    from app.dspy_modules.design_doc import DATAVIZ_CONTENT_TYPE, fallback_design_docs
+
+    docs = fallback_design_docs({"style": "editorial"}, "Acme")
+    chart = [s for s in docs["scenes"]
+             if s["content_type"] == DATAVIZ_CONTENT_TYPE]
+    assert len(chart) == 1
+    assert chart[0]["supports_image"] is False
+    assert chart[0]["image_mode"] is None

@@ -238,6 +238,35 @@ def _resolve_custom_scene_types(
                 out[idx]["contentVariantIndex"] = content_idx % num_variants
                 content_idx += 1
 
+    # Bind the CHART scene to the template's own data-visualisation variant.
+    #
+    # Since that layout became a required design role, a template generates a
+    # chart scene of its own — designed in its visual language, composing
+    # <CustomChart> for the plot. It is a content variant like any other, but it
+    # is never reached by archetype matching: "dataviz" is deliberately absent
+    # from CONTENT_TYPES so article prose can never be routed into it. So the
+    # binding is made explicitly here, by finding the variant whose archetype
+    # declares that content type.
+    #
+    # A template generated BEFORE this has no such variant; the index stays None
+    # and GeneratedVideo falls back to the generic kit scene.
+    _dataviz_variant = next(
+        (
+            i
+            for i, arch in enumerate(archetype_ids)
+            if isinstance(arch, dict) and arch.get("content_type") == "dataviz"
+        ),
+        None,
+    )
+    if _dataviz_variant is not None and _dataviz_variant < num_variants:
+        for idx in range(total):
+            if out[idx]["sceneType"] == "dataviz_chart" and idx not in overrides:
+                out[idx]["contentVariantIndex"] = _dataviz_variant
+                arch = archetype_ids[_dataviz_variant]
+                out[idx]["contentArchetype"] = (
+                    arch["id"] if isinstance(arch, dict) else arch
+                )
+
     # Explicit overrides win outright, applied last.
     for idx, variant in overrides.items():
         out[idx]["contentVariantIndex"] = variant % num_variants
@@ -1754,9 +1783,14 @@ def write_remotion_data(
                     _fields = _schemas.get("intro") or []
                 elif _stype == "outro" or (not _stype and _idx == _n - 1):
                     _fields = _schemas.get("outro") or []
-                elif _stype in ("dataviz_chart", "dataviz_table"):
-                    # Rendered by the deterministic kit, not by generated code,
-                    # so it declares no layout props of its own.
+                elif _stype in ("dataviz_chart", "dataviz_table") and not isinstance(
+                    _rt.get("contentVariantIndex"), int
+                ):
+                    # The GENERIC kit scene (DataChartScene/DataTableScene) —
+                    # rendered deterministically, not by generated code, so it
+                    # declares no layout props of its own. A template's OWN chart
+                    # scene DOES have a variant index and falls through below,
+                    # where it resolves its schema like any other content scene.
                     _fields = []
                 else:
                     _ci = _rt.get("contentVariantIndex")
@@ -1783,13 +1817,21 @@ def write_remotion_data(
                         _fd_entry = _font_defaults.get("intro")
                     elif _stype == "outro" or (not _stype and _idx == _n - 1):
                         _fd_entry = _font_defaults.get("outro")
-                    elif _stype not in ("dataviz_chart", "dataviz_table"):
-                        _fd_list = _font_defaults.get("content") or []
+                    else:
                         _ci2 = _rt.get("contentVariantIndex")
-                        if not isinstance(_ci2, int) or _ci2 < 0:
-                            _ci2 = _idx - 1
-                        if 0 <= _ci2 < len(_fd_list):
-                            _fd_entry = _fd_list[_ci2]
+                        _is_kit_dataviz = _stype in (
+                            "dataviz_chart",
+                            "dataviz_table",
+                        ) and not isinstance(_ci2, int)
+                        # The generic kit scene has no entry of its own and must
+                        # not borrow a neighbour's. A template's own chart scene
+                        # is a real content variant and resolves normally.
+                        if not _is_kit_dataviz:
+                            _fd_list = _font_defaults.get("content") or []
+                            if not isinstance(_ci2, int) or _ci2 < 0:
+                                _ci2 = _idx - 1
+                            if 0 <= _ci2 < len(_fd_list):
+                                _fd_entry = _fd_list[_ci2]
                 if isinstance(_fd_entry, dict):
                     for _prop, _key in (
                         ("title", "titleFontSize"),

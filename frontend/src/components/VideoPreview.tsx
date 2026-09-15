@@ -562,8 +562,38 @@ const StableCustomComposition: React.FC<any> = ({
     let variantIdx = 0;
 
     // Dedicated data-viz scenes route by scene_type (set on the DB scene).
+    //
+    // A template generated since the data-visualisation layout became a required
+    // design role has its OWN chart scene — a real content variant, so route to
+    // that compiled component rather than to the generic kit one. Templates
+    // generated before it carry no such variant and keep the kit scene. This
+    // MUST mirror GeneratedVideo.getSceneComponent or the preview and the
+    // exported MP4 disagree about which component draws the chart.
     if (scene?.scene_type === "dataviz_chart" || scene?.scene_type === "dataviz_table") {
-      allSceneAssignments.push({ type: scene.scene_type, variantKey: scene.scene_type });
+      let dvVariant: number | null = null;
+      if (scene.remotion_code) {
+        try {
+          const d = JSON.parse(scene.remotion_code);
+          if (typeof d.contentVariantIndex === "number" && d.contentVariantIndex >= 0) {
+            dvVariant = d.contentVariantIndex;
+          }
+        } catch { /* ignore */ }
+      }
+      if (dvVariant === null) {
+        // The server's own resolution, same source the MP4 uses.
+        const served = project.custom_scene_layouts?.[i];
+        const m = typeof served === "string" ? served.match(/^content_(\d+)$/) : null;
+        if (m) dvVariant = parseInt(m[1], 10);
+      }
+      if (dvVariant !== null && compiledScenes[`content_${dvVariant}`]) {
+        allSceneAssignments.push({
+          type: scene.scene_type,
+          variantKey: `content_${dvVariant}`,
+          variantIdx: dvVariant,
+        });
+      } else {
+        allSceneAssignments.push({ type: scene.scene_type, variantKey: scene.scene_type });
+      }
       continue;
     }
 
@@ -649,8 +679,12 @@ const StableCustomComposition: React.FC<any> = ({
       <TransitionSeries>
       {scenes.map((s: any, i: number) => {
         const assignment = sceneAssignments[i];
+        // Only the GENERIC kit scene is drawn by the kit. A template's own chart
+        // scene resolved to a `content_N` variantKey above and compiles like any
+        // other scene — see the assignment loop.
         const isDataViz =
-          assignment.type === "dataviz_chart" || assignment.type === "dataviz_table";
+          (assignment.type === "dataviz_chart" || assignment.type === "dataviz_table") &&
+          assignment.variantKey === assignment.type;
         const SceneComp: React.ComponentType<Record<string, unknown>> = isDataViz
           ? ((assignment.type === "dataviz_chart" ? DataChartScene : DataTableScene) as unknown as React.ComponentType<Record<string, unknown>>)
           : ((compiledScenes[assignment.variantKey] ||

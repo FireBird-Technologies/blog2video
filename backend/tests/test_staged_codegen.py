@@ -737,13 +737,20 @@ def test_the_design_docs_decide_the_scene_count() -> None:
     A template can legitimately be any length within the clamp, so the progress
     UI must take the authoritative figure rather than assuming a house count.
     """
-    from app.dspy_modules.design_doc import MAX_SCENES, MIN_SCENES
+    from app.dspy_modules.design_doc import (
+        MAX_SCENES,
+        MIN_SCENES,
+        REQUIRED_CONTENT_TYPES,
+    )
 
-    # Counts INCLUDE the bookends, so the model picks 6-9 content scenes.
-    assert MIN_SCENES == 8
-    assert MAX_SCENES == 11
-    # Room for the two bookends plus real content between them.
-    assert MIN_SCENES > 2
+    # Counts INCLUDE the bookends, so the model picks MIN-2 .. MAX-2 content
+    # scenes. The exact numbers are the design stage's to retune (they moved to
+    # 9/12 when the data-visualisation scene became a required role), so assert
+    # the PROPERTIES that the progress UI depends on rather than the literals.
+    assert MIN_SCENES < MAX_SCENES, "a range, not a fixed house count"
+    # Room for the two bookends, every required content type, and some choice
+    # of the director's own between them.
+    assert MIN_SCENES >= 2 + len(REQUIRED_CONTENT_TYPES)
 
 
 def test_verify_stage_repairs_scenes_concurrently() -> None:

@@ -72,6 +72,7 @@ from app.services.remotion import (
 from app.services import r2_storage
 from app.scene_cta import prepend_b2v_cta_to_visual, strip_b2v_cta_from_visual
 from app.services.social_content_signals import detect_social_platforms_in_text
+from app.services.scene_content_schema import SAMPLE_CHART_TABLE
 from app.dspy_modules.script_gen import ScriptGenerator
 from app.dspy_modules.template_scene_gen import TemplateSceneGenerator
 from app.dspy_modules.display_text_gen import DisplayTextGenerator
@@ -153,19 +154,15 @@ def _is_laduc_or_fj(template_id: str) -> bool:
     return ("laduc" in tid) or ("fj_research" in tid) or (tid in FJ_TEMPLATE_IDS)
 
 
-# Custom templates always get TWO dedicated, editable data-viz scenes (a chart +
-# a table), EXTRA to the content scenes — parity with the built-in templates.
-# Seed used only when the article has no chartable table, so the scenes still
-# render and are editable (mirrors the built-in editor's example tables).
-_CUSTOM_DATAVIZ_SEED: dict = {
-    "headers": ["Quarter", "Revenue", "Growth %"],
-    "rows": [
-        ["Q1", "120", "8"],
-        ["Q2", "145", "12"],
-        ["Q3", "170", "17"],
-        ["Q4", "210", "24"],
-    ],
-}
+# Custom templates always get a dedicated, editable data-viz CHART scene, EXTRA
+# to the content scenes — parity with the built-in templates. A TABLE scene is
+# added alongside it only when the article actually has tabular data.
+#
+# Seed used when the article has no chartable table, so the chart scene still
+# renders and is editable (mirrors the built-in editor's example tables). Shared
+# with the template sample-copy path so the editor preview and a seeded project
+# scene plot the same placeholder — see scene_content_schema.SAMPLE_CHART_TABLE.
+_CUSTOM_DATAVIZ_SEED: dict = SAMPLE_CHART_TABLE
 
 
 def _chartable_props_from_blog(blog_content: str) -> list[dict]:
@@ -262,17 +259,32 @@ def ensure_docreel_countdown_scene(db, project_id: int, template_id: str) -> boo
 
 
 def _build_custom_dataviz_scenes(blog_content: str) -> list[dict]:
-    """Build the 2 dedicated data-viz scene_raw dicts (chart + table) for custom
-    templates — but ONLY when the article actually has chartable tables. Returns
-    [] when there's no real data, so a video whose content doesn't warrant charts
-    never gets fabricated figures forced into it. The bound table is embedded in
-    visual_description so it round-trips into layoutProps.
+    """Build the dedicated data-viz scene_raw dicts for custom templates.
+
+    THE CHART SCENE IS ALWAYS BUILT. Every custom template now designs and
+    generates its own chart layout (a required design-doc role), so the scene
+    must exist for that layout to render — a template carrying a chart scene it
+    never shows is the defect this guarantees away. When the article has no
+    chartable table the chart is seeded from _CUSTOM_DATAVIZ_SEED, exactly as a
+    manual layout switch to `custom_chart` already does, so it renders and stays
+    editable.
+
+    THE TABLE SCENE IS STILL DATA-ONLY. It is a transcription of real figures,
+    so a seeded one would show the placeholder as though it were the article's
+    data. No table, no table scene.
+
+    The bound table is embedded in visual_description so it round-trips into
+    layoutProps.
     """
     chartable = _chartable_props_from_blog(blog_content)
-    if not chartable:
-        return []
-    chart_props = chartable[0]
-    table_props = chartable[1] if len(chartable) > 1 else chartable[0]
+    # Seeded chart props when the article has no chartable table. "line" matches
+    # the seed's time-like labels, which is also what "auto" would infer.
+    chart_props = (
+        chartable[0]
+        if chartable
+        else {"chartTable": _CUSTOM_DATAVIZ_SEED, "chartType": "line"}
+    )
+    table_props = chartable[1] if len(chartable) > 1 else (chartable[0] if chartable else None)
 
     def _mk(stype: str, layout: str, props: dict, title: str, narration: str) -> dict:
         table = props.get("chartTable") or {}
@@ -288,11 +300,15 @@ def _build_custom_dataviz_scenes(blog_content: str) -> list[dict]:
 
     chart_summary = (chart_props.get("chartSummary") or "").strip()
     chart_narr = chart_summary or "Here's what the numbers reveal at a glance."
-    return [
+    scenes = [
         _mk("dataviz_chart", "custom_chart", chart_props, "By the numbers", chart_narr),
-        _mk("dataviz_table", "custom_table", table_props, "The full breakdown",
-            "And here are the underlying figures in full."),
     ]
+    if table_props:
+        scenes.append(
+            _mk("dataviz_table", "custom_table", table_props, "The full breakdown",
+                "And here are the underlying figures in full.")
+        )
+    return scenes
 
 
 def _bind_dataviz_layout_props(scene, descriptor: dict) -> bool:
@@ -2758,11 +2774,12 @@ async def _generate_script(
         scenes_raw.insert(0, _build_docreel_countdown_scene())
         display_texts.insert(0, "")
 
-    # Custom templates get 2 dedicated data-viz scenes (chart + table), inserted
-    # just before the outro — EXTRA to the content scenes, mirroring the built-in
-    # templates' chart/table pair. Bound to real Firecrawl tables, and ONLY when
-    # the article actually has chartable data — articles with no figures get no
-    # fabricated charts forced into them.
+    # Custom templates get dedicated data-viz scenes inserted just before the
+    # outro — EXTRA to the content scenes, mirroring the built-in templates'
+    # chart/table pair. The CHART scene is always present (seeded when the
+    # article has no chartable table) because every custom template now designs
+    # its own chart layout; the TABLE scene is added only when there is real
+    # tabular data to transcribe. See _build_custom_dataviz_scenes.
     if is_custom_template(template_id):
         _dataviz_scenes = _build_custom_dataviz_scenes(getattr(project, "blog_content", None) or "")
         if _dataviz_scenes:
@@ -2770,9 +2787,11 @@ async def _generate_script(
             for _offset, _dv in enumerate(_dataviz_scenes):
                 scenes_raw.insert(_insert_at + _offset, _dv)
                 display_texts.insert(_insert_at + _offset, _dv["title"])
-            print(f"[F7-DEBUG] [CUSTOM-DATAVIZ] injected {len(_dataviz_scenes)} dedicated data-viz scenes at index {_insert_at}")
-        else:
-            print("[F7-DEBUG] [CUSTOM-DATAVIZ] no chartable tables in article — skipping dedicated data-viz scenes")
+            print(
+                f"[F7-DEBUG] [CUSTOM-DATAVIZ] injected {len(_dataviz_scenes)} dedicated "
+                f"data-viz scenes at index {_insert_at} "
+                f"({[s['_scene_type'] for s in _dataviz_scenes]})"
+            )
 
     # Re-attach the original project instance to a fresh connection.
     # add() on a detached-but-previously-persistent instance issues UPDATE on

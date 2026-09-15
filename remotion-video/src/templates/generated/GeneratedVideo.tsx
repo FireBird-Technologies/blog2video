@@ -499,9 +499,24 @@ function getSceneComponent(
 
   if (sceneType === "intro") return IntroScene;
   if (sceneType === "outro") return OutroScene;
-  // Dedicated data-viz scenes render via the kit (deterministic, not AI code).
-  if (sceneType === "dataviz_chart") return DataChartScene;
-  if (sceneType === "dataviz_table") return DataTableScene;
+
+  // Dedicated data-viz scenes.
+  //
+  // A template generated since the data-visualisation layout became a required
+  // design role has its OWN chart scene — a real content variant, designed in
+  // the template's visual language, which composes <CustomChart> for the plot
+  // itself. Route to it so the scene looks like the template it belongs to.
+  //
+  // Templates generated BEFORE that carry no such variant, and fall back to the
+  // generic kit scenes below. Both are deterministic about the plot: the kit
+  // component draws it either way.
+  if (sceneType === "dataviz_chart" || sceneType === "dataviz_table") {
+    const vi = scene.contentVariantIndex;
+    if (typeof vi === "number" && vi >= 0 && CONTENT_VARIANTS.length > 0) {
+      return CONTENT_VARIANTS[vi % CONTENT_VARIANTS.length];
+    }
+    return sceneType === "dataviz_chart" ? DataChartScene : DataTableScene;
+  }
 
   // Content scene — pick variant by contentVariantIndex (cycling through available variants)
   if (CONTENT_VARIANTS.length > 0) {

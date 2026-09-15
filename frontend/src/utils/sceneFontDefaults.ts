@@ -52,8 +52,19 @@ export interface SceneFontLookup {
 /**
  * The stored entry for one scene, or null when the template predates these.
  *
- * Dataviz scenes are drawn by the deterministic kit rather than by generated
- * code, so they have no entry and must not borrow a neighbour's.
+ * DATAVIZ SCENES COME IN TWO KINDS, and only one of them has an entry:
+ *
+ *   the generic KIT scene    — DataChartScene / DataTableScene, drawn
+ *     deterministically rather than by generated code. It has no stored entry
+ *     and must not borrow a neighbour's. Recognised by having NO
+ *     contentVariantIndex: nothing in `content[]` corresponds to it.
+ *   a template's OWN chart scene — since the data-visualisation layout became a
+ *     required design role, each template generates its own, which IS a content
+ *     variant with code, sample copy and a `content[i]` slot like any other. It
+ *     must resolve its entry, or its type sizes fall back to the literal baked
+ *     into the generated code and the editor's sliders have no default to show.
+ *
+ * So the discriminator is the variant index, not the scene type.
  */
 export function sceneFontEntry(
   defaults: SceneFontDefaults | null | undefined,
@@ -62,7 +73,16 @@ export function sceneFontEntry(
   if (!defaults) return null;
 
   const { sceneType, index = 0, total } = scene;
-  if (sceneType === "dataviz_chart" || sceneType === "dataviz_table") return null;
+  const isDataviz =
+    sceneType === "dataviz_chart" || sceneType === "dataviz_table";
+  if (isDataviz) {
+    const vi = scene.contentVariantIndex;
+    // The generic kit scene — no variant of its own, so no entry.
+    if (typeof vi !== "number" || vi < 0) return null;
+    const list = defaults.content;
+    if (!Array.isArray(list)) return null;
+    return vi < list.length ? list[vi] ?? null : null;
+  }
 
   if (sceneType === "intro" || (!sceneType && index === 0)) {
     return defaults.intro ?? null;

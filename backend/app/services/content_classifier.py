@@ -736,6 +736,23 @@ def match_scenes_to_archetypes(
 
     num_archetypes = len(normalized)
     archetype_id_list = [a["id"] for a in normalized]
+
+    # The data-visualisation layout is NOT a destination for article prose.
+    #
+    # It renders a bound table and nothing else, so a section routed here would
+    # lose its content entirely. Its content type is absent from CONTENT_TYPES,
+    # which keeps it out of `type_to_archetype` — but the no-match fallback below
+    # is a positional round-robin over EVERY archetype, so it could still land
+    # here. The pipeline binds the chart scene to this variant explicitly
+    # (see remotion.py `_dataviz_variant`); matching must leave it alone.
+    _dataviz_indices = {
+        i
+        for i, a in enumerate(archetypes)
+        if isinstance(a, dict) and a.get("content_type") == "dataviz"
+    }
+    _routable = [i for i in range(num_archetypes) if i not in _dataviz_indices] or list(
+        range(num_archetypes)
+    )
     assignments: list[int] = []
     last_assigned = -1  # Track last assignment to avoid adjacent repeats
 
@@ -760,7 +777,7 @@ def match_scenes_to_archetypes(
         # repeat is the better answer and is kept.
         if best is not None and best == last_assigned and num_archetypes > 1:
             _compatible = [
-                i for i in range(num_archetypes)
+                i for i in _routable
                 if i != last_assigned
                 and _layout_hosts_kinds(normalized[i].get("best_for") or [], content_type)
             ]
@@ -772,8 +789,9 @@ def match_scenes_to_archetypes(
         elif best is not None:
             print(f"[F7-DEBUG] [MATCH] Scene {scene_idx}: content={content_type} → archetype {best} ({archetype_id_list[best]})")
         else:
-            # No specific archetype for this type — round-robin
-            best = scene_idx % num_archetypes
+            # No specific archetype for this type — round-robin over the layouts
+            # that can actually host prose (never the data-viz one).
+            best = _routable[scene_idx % len(_routable)]
             print(f"[F7-DEBUG] [MATCH] Scene {scene_idx}: content={content_type}, no specific match → fallback archetype {best} ({archetype_id_list[best]})")
 
         assignments.append(best)

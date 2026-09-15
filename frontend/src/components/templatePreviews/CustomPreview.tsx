@@ -63,7 +63,12 @@ export function buildCustomSceneLabels(args: {
   introCode?: string;
   outroCode?: string;
   contentCodes?: string[];
-  contentArchetypeIds?: (string | { id: string; best_for?: string[] })[];
+  contentArchetypeIds?: (
+    | string
+    /** `content_type` is the machine-readable routing key — "dataviz" marks the
+     *  template's own chart scene, which previews from a sample chartTable. */
+    | { id: string; best_for?: string[]; content_type?: string }
+  )[];
 }): string[] {
   const labels: string[] = [];
   if (args.introCode) labels.push("Intro");
@@ -540,7 +545,12 @@ interface CustomPreviewProps {
   introCode?: string;
   outroCode?: string;
   contentCodes?: string[];
-  contentArchetypeIds?: (string | { id: string; best_for?: string[] })[];
+  contentArchetypeIds?: (
+    | string
+    /** `content_type` is the machine-readable routing key — "dataviz" marks the
+     *  template's own chart scene, which previews from a sample chartTable. */
+    | { id: string; best_for?: string[]; content_type?: string }
+  )[];
   /**
    * Which generation drew this template's design (design_blueprint.version).
    * Absent or 1 = blueprint era, whose outro was generated on the promise that a
@@ -667,15 +677,23 @@ export default function CustomPreview({
 
   // Build ordered carousel: intro → content variants → outro.
   //
-  // The preview shows EXACTLY the scenes this template generated. It used to also
-  // append a Data Chart and a Data Table, on the premise that "the pipeline always
-  // injects" them — that premise was wrong. `_build_custom_dataviz_scenes` in
-  // pipeline.py only injects the pair when the ARTICLE being rendered contains a
-  // chartable table, and returns [] otherwise. A template has no article, so at
-  // preview time the pair could never be accurate; they were rendered from a
-  // hardcoded SAMPLE_CHART_TABLE and showed users two scenes their template does
-  // not contain. (Data Chart / Data Table remain available per-scene in the editor
-  // — meta still lists custom_chart/custom_table as selectable layouts.)
+  // The preview shows EXACTLY the scenes this template generated — no appended
+  // GENERIC Data Chart / Data Table. It used to append both, on the premise that
+  // "the pipeline always injects" them, and that premise was wrong for the pair:
+  // `_build_custom_dataviz_scenes` adds the TABLE scene only when the article
+  // being rendered has a chartable table, so at preview time (a template has no
+  // article) it could never be accurate — it rendered a hardcoded
+  // SAMPLE_CHART_TABLE and showed a scene the template does not contain.
+  //
+  // The CHART scene is now different, and needs no special handling here: since
+  // the data-visualisation layout became a required design role, the template
+  // DESIGNS its own chart scene, so it is already one of `contentCodes` and
+  // appears in this carousel like any other content variant. Its sample
+  // `chartTable` comes from scene_sample_content (see persistedSample below), so
+  // it previews with the brand's own plotted figures.
+  //
+  // (Data Chart / Data Table remain available per-scene in the editor — meta
+  // still lists custom_chart/custom_table as selectable layouts.)
   const sceneCodes = useMemo<PreviewScene[]>(() => {
     const codes: PreviewScene[] = [];
     if (introCode) codes.push({ kind: "code", code: introCode, label: "Intro" });
@@ -919,6 +937,45 @@ export default function CustomPreview({
       const contentIdx = idx - (introCode ? 1 : 0);
       const rawArch = contentArchetypeIds?.[contentIdx];
       const bestFor = typeof rawArch === "object" ? rawArch?.best_for : undefined;
+
+      // THE CHART SCENE MUST NEVER PREVIEW AN EMPTY PLOT.
+      //
+      // A template's own data-visualisation scene renders <CustomChart>, which
+      // draws nothing at all without rows — so the scene shows its title, its
+      // caption and a blank panel where the chart should be. The stored sample
+      // carries a chartTable, but two cases legitimately have none: a template
+      // generated before the chart scene became a required role, and one whose
+      // sample generation returned an unusable table. Both fall back here.
+      //
+      // Spread UNDER persistedSample below, so a real stored table always wins.
+      const isChartScene =
+        (typeof rawArch === "object" && rawArch?.content_type === "dataviz") ||
+        bestFor?.[0] === "dataviz";
+      let chartFallback: Record<string, unknown> = {};
+      if (isChartScene) {
+        // A stored entry can carry a chartTable key that is empty or malformed
+        // (an older template, a partial write). That would override the fallback
+        // through the spread and blank the plot, so check the ROWS rather than
+        // the key's presence.
+        const stored = persistedSample(sc.label, contentIdx) as {
+          chartTable?: { rows?: unknown[] };
+          chartType?: string;
+        };
+        const storedHasRows =
+          !!stored?.chartTable &&
+          Array.isArray(stored.chartTable.rows) &&
+          stored.chartTable.rows.length > 0;
+        chartFallback = storedHasRows
+          ? {}
+          : {
+              chartTable: SAMPLE_CHART_TABLE,
+              // Only the TABLE is being stood in for. The chart KIND is the
+              // user's choice in the template editor, so carry it through —
+              // hardcoding "line" here would silently undo switching to bar or
+              // histogram on any scene whose table is seeded.
+              chartType: stored?.chartType ?? "line",
+            };
+      }
       if (bestFor && bestFor.length > 0) {
         // Rotate by how many EARLIER content scenes share this tag, so a
         // template with four metrics layouts gets four different headlines
@@ -941,6 +998,9 @@ export default function CustomPreview({
           ...sample,
           sceneTitle: rotate(titles, sameTagBefore, seed, 1),
           ...persistedSample(sc.label, contentIdx),
+          // AFTER the stored sample: it is empty unless the stored table has no
+          // rows, in which case it must win or the plot renders blank.
+          ...chartFallback,
           ...base,
           ...contentImageProps,
         };
@@ -950,6 +1010,7 @@ export default function CustomPreview({
         ...fallback,
         sceneTitle: rotate(TAG_TITLES.plain, contentIdx, brandSeed(n), 1),
         ...persistedSample(sc.label, contentIdx),
+        ...chartFallback,
         ...base,
         ...contentImageProps,
       };

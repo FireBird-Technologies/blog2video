@@ -762,7 +762,12 @@ export interface CraftedTemplateItem extends CraftedTemplateSummary {
   intro_code?: string | null;
   outro_code?: string | null;
   content_codes?: string[] | null;
-  content_archetype_ids?: (string | { id: string; best_for?: string[] })[] | null;
+  /** `content_type` is the routing key — "dataviz" marks the template's own
+   *  chart scene, which carries chart controls in the editor. */
+  content_archetype_ids?: (
+    | string
+    | { id: string; best_for?: string[]; content_type?: string }
+  )[] | null;
   /** design_blueprint.version — decides who renders the ending. v2 outros
    *  compose their own CTA; v1 outros expect the built-in overlay to replace
    *  them. Travels with the scene code so a caller using this list as
@@ -2498,7 +2503,12 @@ export interface CustomTemplateItem {
    *  the scene code above, because a caller that uses this list as precompiled
    *  preview data skips the fetch that would otherwise supply it. */
   design_version?: number;
-  content_archetype_ids: (string | { id: string; best_for?: string[] })[] | null;
+  /** `content_type` is the routing key — "dataviz" marks the template's own
+   *  chart scene, which carries chart controls in the editor. */
+  content_archetype_ids: (
+    | string
+    | { id: string; best_for?: string[]; content_type?: string }
+  )[] | null;
   current_version_id: number | null;
   preview_image_url: string | null;
   logo_urls?: string[];
@@ -2850,6 +2860,29 @@ export const setSceneFontDefaultsBulk = (
   api.patch<CustomTemplateItem>(
     `/custom-templates/${templateId}/scenes/font-defaults`,
     { scenes }
+  );
+
+/**
+ * Set a data-visualisation scene's chart kind and/or sample table.
+ *
+ * TEMPLATE-level sample data — what the chart scene shows in the gallery and
+ * the template editor. A project's chart scene is bound to the article's own
+ * table by the pipeline, so nothing here changes an existing video.
+ *
+ * Send only the field being changed: switching the chart kind must not require
+ * re-sending the table.
+ */
+export const setSceneChart = (
+  templateId: number,
+  sceneKey: string,
+  body: {
+    chartType?: "auto" | "line" | "bar" | "histogram";
+    chartTable?: { headers: string[]; rows: string[][] };
+  }
+) =>
+  api.patch<CustomTemplateItem>(
+    `/custom-templates/${templateId}/scenes/${sceneKey}/chart`,
+    body
   );
 
 export const discardSceneDraft = (templateId: number, sceneKey: string) =>

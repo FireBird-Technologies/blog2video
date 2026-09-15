@@ -2264,11 +2264,16 @@ const CUSTOM_DATAVIZ_FIELDS: Record<"chart" | "table", FieldDef[]> = {
       type: "select",
       default: "line",
       options: [
+        // "Auto" matches the built-in data-viz editor: CustomChart's
+        // selectChartType infers line/bar/histogram from the labels, which is
+        // what a pipeline-bound table already arrives as.
+        { label: "Auto (infer from data)", value: "auto" },
         { label: "Line", value: "line" },
         { label: "Bar", value: "bar" },
         { label: "Histogram", value: "histogram" },
       ],
     },
+    { key: "chartSummary", label: "Caption (optional)", type: "text" },
   ],
   table: [
     { key: "chartTable", label: "Table data (col 1: row labels; cols 2+: values; max 20 rows)", type: "chart_table" },
