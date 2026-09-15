@@ -1,6 +1,6 @@
 """
-Google OAuth authentication router.
-Frontend sends the Google ID token, backend verifies it and returns a JWT.
+Social authentication router (Google and Apple).
+Frontend sends the provider's ID token, backend verifies it and returns a JWT.
 """
 import os
 import shutil
@@ -12,7 +12,19 @@ from google.auth.transport import requests as google_requests
 
 from app.config import settings
 from app.database import get_db
-from app.models.user import User, PlanTier, PAID_TIERS, FREE_TIER_INCLUDED_VIDEOS, FREE_TIER_CUSTOM_TEMPLATES, FREE_AI_EDIT_CREDITS
+from app.models.user import User, AuthProvider, PlanTier, PAID_TIERS, FREE_TIER_INCLUDED_VIDEOS, FREE_TIER_CUSTOM_TEMPLATES, FREE_AI_EDIT_CREDITS
+from app.services.auth_identity import resolve_or_create_user
+from app.services.apple_auth import (
+    APPLE_PRIVATE_RELAY_DOMAIN,
+    AppleAuthError,
+    full_name_from_apple_payload,
+    verify_apple_identity_token,
+)
+from app.services.microsoft_auth import (
+    MicrosoftAuthError,
+    MicrosoftNoEmailError,
+    verify_microsoft_id_token,
+)
 from app.models.project import Project
 from app.models.subscription import Subscription
 from app.auth import create_access_token, get_current_user
@@ -28,6 +40,18 @@ logger = get_logger(__name__)
 
 class GoogleLoginRequest(BaseModel):
     credential: str  # Google ID token from frontend
+
+
+class AppleLoginRequest(BaseModel):
+    identity_token: str  # Apple identity token (JWT) from frontend
+    # Apple returns the user's name ONLY on the very first authorization, in a
+    # payload beside the token rather than inside it. The frontend forwards it
+    # when present; every subsequent sign-in has nothing here.
+    user: dict | None = None
+
+
+class MicrosoftLoginRequest(BaseModel):
+    id_token: str  # Microsoft ID token (JWT) from MSAL
 
 
 class AuthResponse(BaseModel):
@@ -52,6 +76,7 @@ class UserOut(BaseModel):
     can_create_custom_template: bool = True
     preferred_voice_emotion: str | None = None
     survey_submitted: bool = False
+    auth_provider: str = AuthProvider.GOOGLE.value
 
     class Config:
         from_attributes = True
@@ -138,89 +163,32 @@ def _delete_project_storage(project: Project) -> None:
         shutil.rmtree(project_media, ignore_errors=True)
 
 
-@router.post("/google", response_model=AuthResponse)
-def google_login(
-    body: GoogleLoginRequest,
-    reactivate: bool = Query(False, description="Confirm reactivation of a previously deleted account"),
-    ref_code: str | None = Query(None, description="Referral code from an invite link"),
-    db: Session = Depends(get_db),
-):
-    """
-    Verify Google ID token and create/login user.
-    Returns a JWT access token.
-    If user was soft-deleted (is_active=False), returns 403 with account_deleted
-    unless reactivate=true, in which case the account is reactivated as a free user.
-    """
-    try:
-        idinfo = id_token.verify_oauth2_token(
-            body.credential,
-            google_requests.Request(),
-            settings.GOOGLE_CLIENT_ID,
-        )
-    except ValueError as e:
-        logger.error("[AUTH ERROR] Google token verification failed: %s", e)
-        raise HTTPException(status_code=401, detail=f"Invalid Google token: {e}")
+def _serialize_user(user: User) -> UserOut:
+    """Build the user payload returned by login and /me."""
+    return UserOut(
+        id=user.id,
+        email=user.email,
+        name=user.name,
+        picture=user.picture,
+        plan=user.plan.value,
+        videos_used_this_period=user.videos_used_this_period,
+        video_limit=user.video_limit,
+        can_create_video=user.can_create_video,
+        ai_edit_credits=user.ai_edit_credits or 0,
+        ai_edit_allowance_remaining=user.ai_edit_allowance_remaining,
+        custom_templates_created=user.custom_templates_created,
+        custom_template_limit=user.custom_template_limit,
+        can_create_custom_template=user.can_create_custom_template,
+        preferred_voice_emotion=user.preferred_voice_emotion,
+        survey_submitted=user.survey_submitted,
+        auth_provider=user.auth_provider.value,
+    )
 
-    google_id = idinfo["sub"]
-    email = idinfo.get("email", "")
-    name = idinfo.get("name", email.split("@")[0])
-    picture = idinfo.get("picture")
 
-    if not email:
-        raise HTTPException(status_code=400, detail="Email not provided by Google")
-
-    # Find or create user
-    user = db.query(User).filter(User.google_id == google_id).first()
-    created_new_user = False
-
-    if not user:
-        # Check if email already exists (shouldn't happen with Google, but safe)
-        user = db.query(User).filter(User.email == email).first()
-        if user:
-            # Link Google ID to existing account
-            user.google_id = google_id
-            user.picture = picture or user.picture
-        else:
-            # Create new user
-            user = User(
-                email=email,
-                name=name,
-                picture=picture,
-                google_id=google_id,
-                plan=PlanTier.FREE,
-                videos_used_this_period=0,
-                video_limit_bonus=0,
-                is_active=True,
-            )
-            db.add(user)
-            db.flush()
-            created_new_user = True
-
-    # User exists — check if soft-deleted (from google_id or email lookup)
-    if not created_new_user and not user.is_active:
-        if not reactivate:
-            raise HTTPException(
-                status_code=403,
-                detail="account_deleted",
-                headers={"X-Account-Deleted": "true"},
-            )
-        # Reactivate: free user; keep videos_used_this_period (not reset on delete)
-        user.is_active = True
-        user.plan = PlanTier.FREE
-        user.video_limit_bonus = 0
-        user.referral_video_bonus = 0
-        # Reactivation = fresh FREE account: restore the free AI-edit grant. Purchased
-        # credits are already dropped on delete (capped to the free grant there); this
-        # also lifts any legacy account zeroed by an older delete path back to the grant.
-        user.ai_edit_credits = FREE_AI_EDIT_CREDITS
-        user.period_start = None
-        user.stripe_customer_id = None
-        user.stripe_subscription_id = None
-    else:
-        # Normal login: update name/picture
-        user.name = name
-        user.picture = picture or user.picture
-
+def _finalize_login(
+    db: Session, user: User, *, created_new_user: bool, ref_code: str | None
+) -> AuthResponse:
+    """Shared tail of every social login: commit, grant bonuses, issue a JWT."""
     # Local testing: override plan if DEFAULT_PLAN is set in .env
     if settings.DEFAULT_PLAN and user.is_active:
         override = settings.DEFAULT_PLAN.upper()
@@ -242,50 +210,135 @@ def google_login(
 
     ensure_free_voices_for_user(db, user.id)
 
-    token = create_access_token(user.id)
+    return AuthResponse(access_token=create_access_token(user.id), user=_serialize_user(user))
 
-    return AuthResponse(
-        access_token=token,
-        user=UserOut(
-            id=user.id,
-            email=user.email,
-            name=user.name,
-            picture=user.picture,
-            plan=user.plan.value,
-            videos_used_this_period=user.videos_used_this_period,
-            video_limit=user.video_limit,
-            can_create_video=user.can_create_video,
-            ai_edit_credits=user.ai_edit_credits or 0,
-            ai_edit_allowance_remaining=user.ai_edit_allowance_remaining,
-            custom_templates_created=user.custom_templates_created,
-            custom_template_limit=user.custom_template_limit,
-            can_create_custom_template=user.can_create_custom_template,
-            preferred_voice_emotion=user.preferred_voice_emotion,
-            survey_submitted=user.survey_submitted,
-        ),
+
+@router.post("/google", response_model=AuthResponse)
+def google_login(
+    body: GoogleLoginRequest,
+    reactivate: bool = Query(False, description="Confirm reactivation of a previously deleted account"),
+    ref_code: str | None = Query(None, description="Referral code from an invite link"),
+    db: Session = Depends(get_db),
+):
+    """
+    Verify Google ID token and create/login user.
+    Returns a JWT access token.
+    If the email belongs to an Apple account, returns 409 wrong_auth_provider.
+    If user was soft-deleted (is_active=False), returns 403 with account_deleted
+    unless reactivate=true, in which case the account is reactivated as a free user.
+    """
+    try:
+        idinfo = id_token.verify_oauth2_token(
+            body.credential,
+            google_requests.Request(),
+            settings.GOOGLE_CLIENT_ID,
+        )
+    except ValueError as e:
+        logger.error("[AUTH ERROR] Google token verification failed: %s", e)
+        raise HTTPException(status_code=401, detail=f"Invalid Google token: {e}")
+
+    email = idinfo.get("email", "")
+    if not email:
+        raise HTTPException(status_code=400, detail="Email not provided by Google")
+
+    user, created_new_user = resolve_or_create_user(
+        db,
+        provider=AuthProvider.GOOGLE,
+        provider_user_id=idinfo["sub"],
+        email=email,
+        name=idinfo.get("name") or email.split("@")[0],
+        picture=idinfo.get("picture"),
+        reactivate=reactivate,
     )
+
+    return _finalize_login(db, user, created_new_user=created_new_user, ref_code=ref_code)
+
+
+@router.post("/apple", response_model=AuthResponse)
+def apple_login(
+    body: AppleLoginRequest,
+    reactivate: bool = Query(False, description="Confirm reactivation of a previously deleted account"),
+    ref_code: str | None = Query(None, description="Referral code from an invite link"),
+    db: Session = Depends(get_db),
+):
+    """
+    Verify an Apple identity token and create/login user.
+    Mirrors the Google endpoint's contract exactly.
+
+    Rejects "Hide My Email" relay addresses with 400 apple_private_email: a relay
+    address is a different mailbox from the user's real one, so accepting it
+    would create a second account for the same person.
+    """
+    try:
+        identity = verify_apple_identity_token(body.identity_token)
+    except AppleAuthError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+
+    if identity.is_private_email:
+        raise HTTPException(status_code=400, detail="apple_private_email")
+
+    apple_name = full_name_from_apple_payload(body.user)
+
+    user, created_new_user = resolve_or_create_user(
+        db,
+        provider=AuthProvider.APPLE,
+        provider_user_id=identity.apple_id,
+        email=identity.email,
+        name=apple_name or identity.email.split("@")[0],
+        picture=None,  # Apple provides no profile picture
+        # Only overwrite an existing account's name when Apple actually sent one
+        # (first authorization only) — never with the email-derived fallback.
+        refresh_name=apple_name is not None,
+        reactivate=reactivate,
+    )
+
+    return _finalize_login(db, user, created_new_user=created_new_user, ref_code=ref_code)
+
+
+@router.post("/microsoft", response_model=AuthResponse)
+def microsoft_login(
+    body: MicrosoftLoginRequest,
+    reactivate: bool = Query(False, description="Confirm reactivation of a previously deleted account"),
+    ref_code: str | None = Query(None, description="Referral code from an invite link"),
+    db: Session = Depends(get_db),
+):
+    """
+    Verify a Microsoft ID token and create/login user.
+    Mirrors the Google endpoint's contract exactly. Accepts both personal
+    Microsoft accounts (outlook.com/hotmail.com/live.com) and work/school
+    accounts from any Microsoft 365 tenant.
+
+    Returns 400 microsoft_no_email when the account shares no usable email
+    address — without one we cannot enforce one-account-per-email.
+    """
+    try:
+        identity = verify_microsoft_id_token(body.id_token)
+    except MicrosoftNoEmailError:
+        # Valid token, but the account shares no email — a fixable settings
+        # problem rather than an untrusted token, so 400 with specific copy.
+        raise HTTPException(status_code=400, detail="microsoft_no_email")
+    except MicrosoftAuthError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+
+    user, created_new_user = resolve_or_create_user(
+        db,
+        provider=AuthProvider.MICROSOFT,
+        provider_user_id=identity.microsoft_id,
+        email=identity.email,
+        # Unlike Apple, Microsoft sends `name` on every sign-in, so the stored
+        # name can be refreshed normally.
+        name=identity.name or identity.email.split("@")[0],
+        picture=None,  # Graph photo needs a separate authenticated call
+        reactivate=reactivate,
+    )
+
+    return _finalize_login(db, user, created_new_user=created_new_user, ref_code=ref_code)
 
 
 @router.get("/me", response_model=UserOut)
 def get_me(user: User = Depends(get_current_user)):
     """Get the current authenticated user."""
-    return UserOut(
-        id=user.id,
-        email=user.email,
-        name=user.name,
-        picture=user.picture,
-        plan=user.plan.value,
-        videos_used_this_period=user.videos_used_this_period,
-        video_limit=user.video_limit,
-        can_create_video=user.can_create_video,
-        ai_edit_credits=user.ai_edit_credits or 0,
-        ai_edit_allowance_remaining=user.ai_edit_allowance_remaining,
-        custom_templates_created=user.custom_templates_created,
-        custom_template_limit=user.custom_template_limit,
-        can_create_custom_template=user.can_create_custom_template,
-        preferred_voice_emotion=user.preferred_voice_emotion,
-        survey_submitted=user.survey_submitted,
-    )
+    return _serialize_user(user)
 
 
 @router.post("/logout")

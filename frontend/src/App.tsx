@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { getMe } from "./api/client";
 import { CraftedTemplatesProvider } from "./contexts/CraftedTemplatesContext";
 import { ErrorModalProvider } from "./contexts/ErrorModalContext";
+import { LoginModalProvider } from "./contexts/LoginModalContext";
 import { NoticeModalProvider } from "./contexts/NoticeModalContext";
 import { SupportTourProvider } from "./components/support/SupportTourContext";
 import { SupportWidget } from "./components/support/SupportWidget";
@@ -297,11 +298,15 @@ function App() {
         <ErrorModalProvider>
           <NoticeModalProvider>
           <SupportTourProvider>
+            {/* Inside the Router (useSocialLogin redirects on success) and
+                inside ErrorModalProvider, whose helpers it reuses. */}
+            <LoginModalProvider>
               <AppRoutes />
             {/* The hidden /_capture route is screenshotted for template posters —
                 the support widget would otherwise be baked into every image. */}
             {!window.location.pathname.startsWith("/_capture") && <SupportWidget />}
             <UIHighlightOverlay />
+            </LoginModalProvider>
           </SupportTourProvider>
           </NoticeModalProvider>
         </ErrorModalProvider>

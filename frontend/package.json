@@ -17,6 +17,7 @@
     "kit:check": "node ../scripts/sync-generated-kit.mjs --check"
   },
   "dependencies": {
+    "@azure/msal-browser": "^5.21.0",
     "@babel/standalone": "^7.29.1",
     "@fontsource/archivo-black": "^5.2.8",
     "@fontsource/arimo": "^5.2.8",

@@ -30,6 +30,8 @@ opentelemetry-instrumentation-logging>=0.45b0
 
 # Auth & Billing
 PyJWT>=2.8.0
+# Required by PyJWT to verify Apple's RS256 identity tokens (services/apple_auth.py).
+cryptography>=42.0.0
 google-auth>=2.29.0
 stripe>=10.0.0
 

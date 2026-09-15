@@ -1,13 +1,12 @@
 import { lazy, Suspense, useState, useEffect, useCallback } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { type CredentialResponse } from "@react-oauth/google";
 import PublicHeader from "../components/public/PublicHeader";
 import PublicFooter from "../components/public/PublicFooter";
 import Seo from "../components/seo/Seo";
-import GoogleAuthButton from "../components/public/GoogleAuthButton";
 import { useAuth } from "../hooks/useAuth";
+import { useLoginModal } from "../contexts/LoginModalContext";
 import { useNavigate } from "react-router-dom";
-import { BACKEND_URL, googleLogin } from "../api/client";
+import { BACKEND_URL } from "../api/client";
 import { templateProfiles } from "../content/marketingBase";
 
 const BlogDemoPlayer = lazy(() => import("../help/BlogDemoPlayer"));
@@ -67,34 +66,19 @@ const TEMPLATE_DISPLAY: Record<string, string> = {
 };
 
 function DownloadModal({ slug, onClose, onDownloadStarted }: ModalProps) {
-  const { login } = useAuth();
-  const navigate = useNavigate();
-  const [signingIn, setSigningIn] = useState(false);
+  const { openLogin } = useLoginModal();
   const [error, setError] = useState<string | null>(null);
 
   const displayName = slug ? (TEMPLATE_DISPLAY[slug] ?? slug) : "";
 
-  const handleGoogleSuccess = async (response: CredentialResponse) => {
-    if (!response.credential || !slug) return;
-    setSigningIn(true);
-    setError(null);
-    try {
-      const res = await googleLogin(response.credential, false, localStorage.getItem("b2v_ref_code"));
-      localStorage.removeItem("b2v_ref_code");
-      login(res.data.access_token, res.data.user);
-
-      onClose();
-      onDownloadStarted(slug);
-
-      const ok = await triggerTemplateDownload(slug);
-      if (!ok) setError("Download failed. Please try again.");
-      else if (slug !== "all") {
-        navigate(`/tools/free-remotion-templates?downloaded=${encodeURIComponent(slug)}`);
-      }
-    } catch {
-      setError("Sign-in failed. Please try again.");
-      setSigningIn(false);
-    }
+  // Stash the slug so usePostLoginRedirect resumes the download after sign-in,
+  // then hand off to the shared login modal.
+  const handleSignIn = () => {
+    if (!slug) return;
+    localStorage.setItem(PENDING_DOWNLOAD_KEY, JSON.stringify(slug));
+    onDownloadStarted(slug);
+    onClose();
+    openLogin({ title: "Sign in to download", subtitle: "Your download starts right after you sign in." });
   };
 
   if (!slug) return null;
@@ -158,24 +142,14 @@ function DownloadModal({ slug, onClose, onDownloadStarted }: ModalProps) {
 
           <div className="mb-5 border-t border-gray-100" />
 
-          {/* Google auth */}
           <div className="flex justify-center mb-3">
-            {signingIn ? (
-              <div className="flex items-center gap-2 text-sm text-gray-500">
-                <svg className="w-4 h-4 animate-spin text-purple-600" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                </svg>
-                Starting download…
-              </div>
-            ) : (
-              <GoogleAuthButton
-                onSuccess={handleGoogleSuccess}
-                onError={() => setError("Sign-in failed. Please try again.")}
-                text="signup_with"
-                width="320"
-              />
-            )}
+            <button
+              type="button"
+              onClick={handleSignIn}
+              className="inline-flex h-11 items-center justify-center rounded-full bg-purple-600 px-8 text-sm font-medium text-white transition hover:bg-purple-700"
+            >
+              Sign in to download
+            </button>
           </div>
 
           {error && <p className="text-center text-xs text-red-500 mb-2">{error}</p>}

@@ -1,5 +1,6 @@
 export * from "./types";
 import type {
+  AuthProvider,
   AvatarBg,
   AvatarCorner,
   AvatarMotionStyle,
@@ -113,6 +114,9 @@ export interface UserInfo {
   can_create_custom_template: boolean;
   preferred_voice_emotion: string | null;
   survey_submitted: boolean;
+  /** The provider this account is permanently bound to. Optional for sessions
+   *  restored from localStorage before the backend added the field. */
+  auth_provider?: AuthProvider;
 }
 
 export interface AuthResponse {
@@ -473,6 +477,36 @@ export const googleLogin = (credential: string, reactivate = false, refCode?: st
   const params: Record<string, unknown> = { reactivate };
   if (refCode) params.ref_code = refCode;
   return api.post<AuthResponse>("/auth/google", { credential }, { params });
+};
+
+/** Name payload Apple sends on the FIRST authorization only. */
+export interface AppleUserPayload {
+  name?: { firstName?: string; lastName?: string };
+}
+
+export const appleLogin = (
+  identityToken: string,
+  user?: AppleUserPayload | null,
+  reactivate = false,
+  refCode?: string | null
+) => {
+  const params: Record<string, unknown> = { reactivate };
+  if (refCode) params.ref_code = refCode;
+  return api.post<AuthResponse>(
+    "/auth/apple",
+    { identity_token: identityToken, user: user ?? null },
+    { params }
+  );
+};
+
+export const microsoftLogin = (
+  idToken: string,
+  reactivate = false,
+  refCode?: string | null
+) => {
+  const params: Record<string, unknown> = { reactivate };
+  if (refCode) params.ref_code = refCode;
+  return api.post<AuthResponse>("/auth/microsoft", { id_token: idToken }, { params });
 };
 
 // Share B2V (referral/invite) disabled

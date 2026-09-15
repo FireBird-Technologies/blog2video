@@ -80,6 +80,20 @@ export const AVATAR_BG_PRESETS: { value: string; label: string }[] = [
   { value: "#F1F5F9", label: "Paper" },
 ];
 
+/** The sign-in provider an account is permanently bound to. */
+export type AuthProvider = "google" | "apple" | "microsoft";
+
+/**
+ * Human-facing provider names. An explicit map rather than a ternary: this
+ * string tells users which provider owns their account, so a missing entry must
+ * be visibly absent rather than silently naming the wrong one.
+ */
+export const AUTH_PROVIDER_LABELS: Record<AuthProvider, string> = {
+  google: "Google",
+  apple: "Apple",
+  microsoft: "Microsoft",
+};
+
 export interface UserInfo {
   id: number;
   email: string;
@@ -93,6 +107,7 @@ export interface UserInfo {
   custom_template_limit: number;
   can_create_custom_template: boolean;
   preferred_voice_emotion: string | null;
+  auth_provider?: AuthProvider;
 }
 
 export interface AuthResponse {

@@ -2,6 +2,7 @@ import enum
 from datetime import datetime, timedelta
 from sqlalchemy import String, Enum, DateTime, Integer, Boolean, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship, Session
+from sqlalchemy.types import TypeDecorator
 from app.database import Base
 
 
@@ -10,6 +11,63 @@ class PlanTier(str, enum.Enum):
     LITE = "lite"
     STANDARD = "standard"
     PRO = "pro"
+
+
+class AuthProvider(str, enum.Enum):
+    """The single sign-in provider an account is bound to.
+
+    An account is created by exactly one provider and stays bound to it for
+    life — we deliberately do not link providers, so an email registered with
+    Google can never be signed into with Apple or Microsoft (and vice versa).
+    Stored as a plain VARCHAR rather than a DB enum so adding a provider is a
+    code change, not a Postgres type migration.
+    """
+
+    GOOGLE = "google"
+    APPLE = "apple"
+    MICROSOFT = "microsoft"
+
+    @property
+    def label(self) -> str:
+        """Human-facing provider name, for user-visible error copy.
+
+        An explicit mapping rather than a ternary: this string is what the
+        wrong-provider error tells the user to sign in with, so a provider
+        missing from the map must fail loudly instead of silently claiming to
+        be one of the others.
+        """
+        return _PROVIDER_LABELS[self]
+
+
+_PROVIDER_LABELS: dict[AuthProvider, str] = {
+    AuthProvider.GOOGLE: "Google",
+    AuthProvider.APPLE: "Apple",
+    AuthProvider.MICROSOFT: "Microsoft",
+}
+
+
+class AuthProviderType(TypeDecorator):
+    """Store AuthProvider as a plain VARCHAR but read it back as the enum.
+
+    A bare ``mapped_column(String(16))`` typed as ``AuthProvider`` would hand
+    back raw strings on load, so ``user.auth_provider is AuthProvider.GOOGLE``
+    would silently be False and ``.label`` would not exist. Coercing here keeps
+    the column a VARCHAR (no Postgres enum type to migrate) while callers get a
+    real enum. Unknown values fail loudly rather than degrading to a string.
+    """
+
+    impl = String(16)
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        return AuthProvider(value).value
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        return AuthProvider(value)
 
 
 # Every tier that pays. Use this instead of literal (PRO, STANDARD) tuples so a
@@ -117,7 +175,20 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     picture: Mapped[str | None] = mapped_column(String(2048), nullable=True)
-    google_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+
+    # ─── Identity ────────────────────────────────────────────────────────────
+    # Exactly one of google_id / apple_id / microsoft_id is set, matching
+    # auth_provider. Each keeps a UNIQUE index; NULLs are not considered equal
+    # by Postgres or SQLite, so any number of rows may leave the others empty.
+    google_id: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True, index=True)
+    apple_id: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True, index=True)
+    microsoft_id: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True, index=True)
+    auth_provider: Mapped[AuthProvider] = mapped_column(
+        AuthProviderType(),
+        default=AuthProvider.GOOGLE,
+        server_default=AuthProvider.GOOGLE.value,
+        nullable=False,
+    )
 
     # Subscription
     plan: Mapped[PlanTier] = mapped_column(Enum(PlanTier), default=PlanTier.FREE)

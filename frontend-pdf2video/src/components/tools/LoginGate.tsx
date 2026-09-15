@@ -7,9 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { CredentialResponse } from "@react-oauth/google";
-import GoogleAuthButton from "../public/GoogleAuthButton";
-import { googleLogin } from "../../api/client";
+import { useLoginModal } from "../../contexts/LoginModalContext";
 import { useAuth } from "../../hooks/useAuth";
 
 /**
@@ -75,32 +73,20 @@ function AuthPanelBody({
   onSignedIn: () => void;
 }) {
   const { login } = useAuth();
-  const [signingIn, setSigningIn] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { openLogin } = useLoginModal();
 
-  const handleSuccess = useCallback(
-    async (response: CredentialResponse) => {
-      if (!response.credential) return;
-      setSigningIn(true);
-      setError(null);
-      try {
-        const res = await googleLogin(
-          response.credential,
-          false,
-          localStorage.getItem("b2v_ref_code")
-        );
-        localStorage.removeItem("b2v_ref_code");
-        // Stay on this page — `login()` writes the token to localStorage
-        // synchronously, so the resumed upload can call the API right away.
-        login(res.data.access_token, res.data.user);
+  // Stay on this page — login() writes the token to localStorage synchronously,
+  // so the resumed upload can call the API right away.
+  const handleOpenLogin = () =>
+    openLogin({
+      title: copy.headline,
+      subtitle: copy.blurb,
+      onSuccess: (token, user) => {
+        login(token, user);
         onSignedIn();
-      } catch {
-        setError("Sign-in failed. Please try again.");
-        setSigningIn(false);
-      }
-    },
-    [login, onSignedIn]
-  );
+      },
+    });
+
 
   return (
     <>
@@ -137,22 +123,14 @@ function AuthPanelBody({
       </ul>
 
       <div className="mt-7 flex justify-center">
-        {signingIn ? (
-          <div className="flex items-center gap-2 text-sm text-gray-500">
-            <span className="h-4 w-4 animate-spin rounded-full border-2 border-purple-500/30 border-t-purple-500" />
-            Signing you in…
-          </div>
-        ) : (
-          <GoogleAuthButton
-            onSuccess={handleSuccess}
-            onError={() => setError("Sign-in failed. Please try again.")}
-            text="signup_with"
-            width="320"
-          />
-        )}
+        <button
+              type="button"
+              onClick={handleOpenLogin}
+              className="inline-flex h-10 items-center justify-center rounded-full bg-purple-600 px-6 text-sm font-medium text-white transition hover:bg-purple-700"
+            >
+              Get started free
+            </button>
       </div>
-
-      {error ? <p className="mt-3 text-xs text-red-500">{error}</p> : null}
       <p className="mt-4 text-xs text-gray-400">
         Free account, no card. Your document is processed to produce your result and is not
         stored.
