@@ -647,17 +647,23 @@ function EmailAuthForm({
       // Only complain about a mismatch once they've actually started the second
       // field — flagging one they haven't reached yet reads as an error.
       const mismatch = signup && confirmPassword.length > 0 && confirmPassword !== password;
-      // Deliberately NOT gated on the password policy or the confirm match.
-      //
-      // The live checklist and the mismatch hint already guide someone writing a
-      // real new password. But when the address ALREADY has an account, none of
-      // that is the point: blocking submit means the request is never made, so
-      // the one thing the user needs to hear — "this account exists, sign in" —
-      // can never be said, and pressing the button appears to do nothing. Let it
-      // through and let the server answer; a genuine policy violation comes back
-      // as a 422 and renders inline under the field, which is the same place the
-      // checklist already points.
-      const canSubmit = !busy && Boolean(password);
+      /* Signup requires a policy-valid password that matches its confirmation;
+         login requires only that something was typed.
+
+         Login must NEVER apply the policy: a password predating a rule change
+         still has to reach the server, which is the authority on whether it is
+         valid. Gating sign-in client-side would lock those users out.
+
+         The gate is safe for the "this address already has an account" case that
+         needs to reach the server for its 409: a user who has satisfied the
+         checklist and matched both fields can still submit, so the request is
+         made and the 409 comes back exactly as before. Only genuinely invalid
+         input is blocked — and for that, the inline checklist and mismatch hint
+         already say what to fix, which a server round-trip would not improve. */
+      const canSubmit =
+        !busy &&
+        Boolean(password) &&
+        (!signup || (passwordMeetsPolicy(password) && confirmPassword === password));
       return (
         <form
           className={`${COLUMN_WIDTH_CLASS} max-w-full space-y-3`}
