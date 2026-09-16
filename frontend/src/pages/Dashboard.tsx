@@ -76,8 +76,11 @@ export default function Dashboard() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
   const [creating, setCreating] = useState(false);
   // Options the form can't pass through onSubmit's positional list (22 args).
+  // Seeded to match BlogUrlForm's own default: the form reports the real value
+  // via onExtraOptionsChange, but seeding `false` here would send the wrong
+  // value on a submit that beat that first effect.
   const [extraCreateOptions, setExtraCreateOptions] = useState<{ stockFootageEnabled: boolean }>({
-    stockFootageEnabled: false,
+    stockFootageEnabled: true,
   });
   const [loaded, setLoaded] = useState(false);
   const navigate = useNavigate();

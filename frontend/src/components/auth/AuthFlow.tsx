@@ -367,6 +367,13 @@ export default function AuthFlow({
 
   return (
     <>
+        {/* A social sign-in in flight takes over the whole surface: the heading,
+            subtitle and terms footer all describe a choice the user has already
+            made, and leaving "Create your Blog2Video account" above a spinner
+            that says "Signing you in…" states two different things at once. The
+            spinner's own caption is the only label worth keeping. */}
+        {!signingIn && (
+          <>
         {/* After a wrong-provider rejection the stage heading ("Enter your
             password") contradicts what is on screen, so fall back to the
             call site's own copy. */}
@@ -394,6 +401,8 @@ export default function AuthFlow({
         <p className={`mt-1 text-sm text-gray-600 ${isPage ? "text-center" : ""}`}>
           {stageCopy?.subtitle ?? resolvedSubtitle}
         </p>
+          </>
+        )}
 
         <div className="mt-6">
           {/* The spinner REPLACES the body only for social sign-in. Swapping the
@@ -403,8 +412,20 @@ export default function AuthFlow({
               email request the form stays mounted and disables itself instead. */}
           {signingIn ? (
             <div className="flex flex-col items-center gap-4 py-6">
-              <div className="h-7 w-7 animate-spin rounded-full border-2 border-gray-200 border-t-purple-600" />
-              <p className="text-sm text-gray-600">
+              {/* Purely decorative: the caption below is the status text, so
+                  labelling both would announce the same thing twice. */}
+              <div
+                className="h-7 w-7 animate-spin rounded-full border-2 border-gray-200 border-t-purple-600"
+                aria-hidden
+              />
+              {/* Carries the dialog's aria-labelledby id while the <h2> is
+                  hidden, so the modal keeps an accessible name instead of
+                  pointing at an element that no longer exists. */}
+              <p
+                id={isPage ? "auth-page-title" : "login-modal-title"}
+                role="status"
+                className="text-sm text-gray-600"
+              >
                 {reactivating ? "Reactivating your account…" : "Signing you in…"}
               </p>
             </div>
@@ -474,7 +495,9 @@ export default function AuthFlow({
           )}
         </div>
 
-      {!inApp && (
+      {/* Hidden mid-sign-in for the same reason as the heading: "By continuing"
+          is an invitation to act, and there is nothing left to act on. */}
+      {!inApp && !signingIn && (
         <p className="mt-6 text-center text-xs leading-relaxed text-gray-400">
           By continuing you agree to our{" "}
           <a href="/terms" className="underline hover:text-gray-600">Terms</a> and{" "}
