@@ -20,6 +20,7 @@ import {
   Invoice,
   DataSummary,
 } from "../api/client";
+import { AUTH_PROVIDER_LABELS } from "../api/types";
 import type { BillingCycle, PlanKey } from "../api/billing";
 import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
@@ -1016,6 +1017,11 @@ export default function Subscription() {
                 {user?.name}
               </p>
               <p className="text-xs text-gray-400">{user?.email}</p>
+              {user?.auth_provider && (
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Signed in with {AUTH_PROVIDER_LABELS[user.auth_provider] ?? "Google"}
+                </p>
+              )}
             </div>
             <span className="px-2.5 py-0.5 bg-green-50 text-green-600 text-xs font-medium rounded-full">
               Active

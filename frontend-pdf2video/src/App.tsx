@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { AuthProvider } from "./hooks/useAuth";
 import { CraftedTemplatesProvider } from "./contexts/CraftedTemplatesContext";
 import { ErrorModalProvider } from "./contexts/ErrorModalContext";
+import { LoginModalProvider } from "./contexts/LoginModalContext";
 import { NoticeModalProvider } from "./contexts/NoticeModalContext";
 import { SupportTourProvider } from "./components/support/SupportTourContext";
 import { SupportWidget } from "./components/support/SupportWidget";
@@ -100,9 +101,11 @@ function App() {
         <ErrorModalProvider>
           <NoticeModalProvider>
             <SupportTourProvider>
+            <LoginModalProvider>
               <AppRoutes />
               <SupportWidget />
               <UIHighlightOverlay />
+            </LoginModalProvider>
             </SupportTourProvider>
           </NoticeModalProvider>
         </ErrorModalProvider>

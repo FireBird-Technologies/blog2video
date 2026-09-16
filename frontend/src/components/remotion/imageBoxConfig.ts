@@ -562,10 +562,12 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
   // pull_quote__v2 / ending_socials__v2 are intentionally absent — they render
   // no image (both bases are in meta.json `layouts_without_image`).
 
-  // Polaroid-style card, tilted, pinned right (landscape) / centred (portrait).
+  // Polaroid-style card, tilted, pinned right (landscape) / bottom (portrait).
   news_headline: {
     landscape: { w: 0.435, h: 0.594 }, // measured 557 × 428
-    portrait:  { w: 0.841, h: 0.381 }, // measured 606 × 487
+    // Portrait card moved from top:15% to bottom:6% and 35%→34% tall so the
+    // copy no longer overlaps it; height re-derived accordingly.
+    portrait:  { w: 0.841, h: 0.370 }, // 0.34 frame height + the card's padding
   },
 
   // Tilted photo card beside the lead column.

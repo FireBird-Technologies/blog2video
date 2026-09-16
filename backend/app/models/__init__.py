@@ -40,6 +40,7 @@ from app.models.support_conversation import (
     SupportMessageRole,
 )
 from app.models.mcp_oauth import MCPClient, MCPAuthCode
+from app.models.email_verification import EmailVerificationCode, VerificationPurpose
 
 __all__ = [
 
@@ -54,4 +55,5 @@ __all__ = [
     "SupportConversation", "SupportMessage", "SupportMessageRole",
     "SupportConversation", "SupportMessage", "SupportMessageRole",
     "MCPClient", "MCPAuthCode",
+    "EmailVerificationCode", "VerificationPurpose",
 ]

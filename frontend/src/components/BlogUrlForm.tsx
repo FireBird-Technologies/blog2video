@@ -813,7 +813,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
   const bulkLogoInputRef = useRef<HTMLInputElement>(null);
   const [bulkApplyLengthAll, setBulkApplyLengthAll] = useState(true);
   const [bulkLengthMasterIndex, setBulkLengthMasterIndex] = useState(0);
-  const [bulkStockFootage, setBulkStockFootage] = useState<boolean[]>([false]);
+  // Defaults ON per row, matching the single-URL form's stockFootageEnabled.
+  const [bulkStockFootage, setBulkStockFootage] = useState<boolean[]>([true]);
   const [bulkApplyStockAll, setBulkApplyStockAll] = useState(true);
   const [bulkStockMasterIndex, setBulkStockMasterIndex] = useState(0);
   const [bulkApplyTemplateAll, setBulkApplyTemplateAll] = useState(true);
@@ -928,7 +929,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
   // Stock footage at generation time: available on every plan and every
   // template (builtin, custom, crafted). Free users get a clip on a single
   // scene (the backend caps it), paid users on all image-capable scenes.
-  const [stockFootageEnabled, setStockFootageEnabled] = useState(false);
+  // Defaults ON — it makes for a better first video, and it costs nothing to
+  // turn off.
+  const [stockFootageEnabled, setStockFootageEnabled] = useState(true);
   const stockFootageAvailable = true;
   useEffect(() => {
     onExtraOptionsChange?.({ stockFootageEnabled: stockFootageAvailable && stockFootageEnabled });
@@ -1532,7 +1535,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
         setBulkCustomVoiceId((prev) => resizeTo(prev, n, ""));
         setBulkContentLanguage((prev) => resizeTo(prev, n, "auto"));
         setBulkVideoLength((prev) => resizeTo(prev, n, "short"));
-        setBulkStockFootage((prev) => resizeTo(prev, n, false));
+        setBulkStockFootage((prev) => resizeTo(prev, n, true));
         setBulkAspectRatio((prev) => resizeTo(prev, n, "landscape"));
         setBulkVideoStyles((prev) =>
           resizeTo(
@@ -1577,7 +1580,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
     setBulkContentLanguage((prev) => [...prev, "auto"]);
     setBulkVideoLength((prev) => [...prev, "short"]);
     setBulkStockFootage((prev) => {
-      const next = [...prev, bulkApplyStockAll ? (prev[bulkStockMasterIndex] ?? false) : false];
+      // Not syncing: a new row starts ON, like the first one.
+      const next = [...prev, bulkApplyStockAll ? (prev[bulkStockMasterIndex] ?? true) : true];
       return next;
     });
     setBulkAspectRatio((prev) => [...prev, "landscape"]);
@@ -1755,7 +1759,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
       setBulkCustomVoiceId([]);
       setBulkContentLanguage(["auto"]);
       setBulkVideoLength(["short"]);
-      setBulkStockFootage([false]);
+      setBulkStockFootage([true]);
       setBulkAspectRatio(["landscape"]);
       setBulkVideoStyles([DEFAULT_VIDEO_STYLE]);
       setBulkAccentColors([""]);
@@ -1914,8 +1918,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
   const bulkStep1RowStockFootage = bulkStockFootage[bulkStep1ActiveIndex] ?? false;
   const applyStep1StockToAll = () => {
     setBulkStockFootage((prev) => {
-      const next = resizeTo(prev, bulkRows.length, false);
-      const value = next[bulkStep1ActiveIndex] ?? false;
+      // Pad with `true`: any row that has no value yet is a row the user never
+      // touched, and an untouched row is ON by default like every other.
+      const next = resizeTo(prev, bulkRows.length, true);
+      const value = next[bulkStep1ActiveIndex] ?? true;
       return next.map(() => value);
     });
   };
@@ -1925,18 +1931,19 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
     if (bulkApplyStockAll && bulkStep1ActiveIndex !== bulkStockMasterIndex) {
       setBulkApplyStockAll(false);
       setBulkStockFootage((prev) => {
-        const next = resizeTo(prev, bulkRows.length, false);
+        const next = resizeTo(prev, bulkRows.length, true);
         next[bulkStep1ActiveIndex] = value;
         return next;
       });
       return;
     }
     if (bulkApplyStockAll && bulkStep1ActiveIndex === bulkStockMasterIndex) {
+      // Every entry is overwritten below, so the pad value is irrelevant here.
       setBulkStockFootage((prev) => resizeTo(prev, bulkRows.length, false).map(() => value));
       return;
     }
     setBulkStockFootage((prev) => {
-      const next = resizeTo(prev, bulkRows.length, false);
+      const next = resizeTo(prev, bulkRows.length, true);
       next[bulkStep1ActiveIndex] = value;
       return next;
     });

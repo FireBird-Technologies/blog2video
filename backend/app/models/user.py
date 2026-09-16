@@ -2,6 +2,7 @@ import enum
 from datetime import datetime, timedelta
 from sqlalchemy import String, Enum, DateTime, Integer, Boolean, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship, Session
+from sqlalchemy.types import TypeDecorator
 from app.database import Base
 
 
@@ -10,6 +11,72 @@ class PlanTier(str, enum.Enum):
     LITE = "lite"
     STANDARD = "standard"
     PRO = "pro"
+
+
+class AuthProvider(str, enum.Enum):
+    """The single sign-in provider an account is bound to.
+
+    An account is created by exactly one provider and stays bound to it for
+    life — we deliberately do not link providers, so an email registered with
+    Google can never be signed into with a password (and vice versa). Stored as
+    a plain VARCHAR rather than a DB enum so adding a provider is a code change,
+    not a Postgres type migration.
+
+    EMAIL is our own built-in provider: no external identity provider, no
+    subject id — the credential is ``User.password_hash`` and mailbox control
+    is proven by a one-time code before the account is created at all. It is
+    therefore the one provider with no id column, and is deliberately absent
+    from ``_PROVIDER_ID_COLUMN`` in services/auth_identity.py.
+
+    Apple and Microsoft were removed in ``drop_apple_microsoft_auth``; that
+    migration refuses to run while any row still carries those values, so the
+    enum can safely omit them — a stray legacy row would now raise on load
+    (see AuthProviderType) rather than silently degrade to a string.
+    """
+
+    GOOGLE = "google"
+    EMAIL = "email"
+
+    @property
+    def label(self) -> str:
+        """Human-facing provider name, for user-visible error copy.
+
+        An explicit mapping rather than a ternary: this string is what the
+        wrong-provider error tells the user to sign in with, so a provider
+        missing from the map must fail loudly instead of silently claiming to
+        be one of the others.
+        """
+        return _PROVIDER_LABELS[self]
+
+
+_PROVIDER_LABELS: dict[AuthProvider, str] = {
+    AuthProvider.GOOGLE: "Google",
+    AuthProvider.EMAIL: "Email",
+}
+
+
+class AuthProviderType(TypeDecorator):
+    """Store AuthProvider as a plain VARCHAR but read it back as the enum.
+
+    A bare ``mapped_column(String(16))`` typed as ``AuthProvider`` would hand
+    back raw strings on load, so ``user.auth_provider is AuthProvider.GOOGLE``
+    would silently be False and ``.label`` would not exist. Coercing here keeps
+    the column a VARCHAR (no Postgres enum type to migrate) while callers get a
+    real enum. Unknown values fail loudly rather than degrading to a string.
+    """
+
+    impl = String(16)
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        return AuthProvider(value).value
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        return AuthProvider(value)
 
 
 # Every tier that pays. Use this instead of literal (PRO, STANDARD) tuples so a
@@ -117,7 +184,38 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     picture: Mapped[str | None] = mapped_column(String(2048), nullable=True)
-    google_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+
+    # ─── Identity ────────────────────────────────────────────────────────────
+    # google_id is set iff auth_provider is GOOGLE; an EMAIL account has none
+    # (its credential is password_hash below). It keeps a UNIQUE index, and
+    # NULLs are not considered equal by Postgres or SQLite, so any number of
+    # email accounts may leave it empty.
+    google_id: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True, index=True)
+    auth_provider: Mapped[AuthProvider] = mapped_column(
+        AuthProviderType(),
+        default=AuthProvider.GOOGLE,
+        server_default=AuthProvider.GOOGLE.value,
+        nullable=False,
+    )
+    # Argon2id encoded hash, set only for AuthProvider.EMAIL accounts — the
+    # social providers hold the credential themselves, so this stays NULL for
+    # them and verify_password() treats NULL as "never matches". A row only
+    # ever gets one once a one-time code has proven the mailbox (see
+    # services/email_verification.py), so an unverified email never puts a
+    # credential in this table.
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    # Bumped to invalidate every JWT already issued for this account. Our tokens
+    # are stateless, so without this there is no way to revoke one before it
+    # expires: signing out only clears the browser's copy, and changing a
+    # password would leave a thief's token working for the rest of its 72 hours.
+    # Every token carries the value current at issue (the "tv" claim) and
+    # get_current_user rejects any that no longer matches. Tokens minted before
+    # this column existed have no claim and are read as 0, which is the default,
+    # so adding it logs nobody out.
+    token_version: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
 
     # Subscription
     plan: Mapped[PlanTier] = mapped_column(Enum(PlanTier), default=PlanTier.FREE)
