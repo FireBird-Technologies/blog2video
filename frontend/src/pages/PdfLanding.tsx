@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useScrollReveal } from "../hooks/useScrollReveal";
-import { useLoginModal } from "../contexts/LoginModalContext";
 import { getBrand, markPdfOrigin, setSessionBrand } from "../brand/brand";
 import Seo from "../components/seo/Seo";
 import { homepageSchema } from "../seo/schema";
@@ -183,7 +182,6 @@ export default function PdfLanding() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { openLogin } = useLoginModal();
 
   const [navOpen, setNavOpen] = useState(false);
   const [accountDeletedOpen, setAccountDeletedOpen] = useState(false);
@@ -269,7 +267,7 @@ export default function PdfLanding() {
   );
 
   // The shared login modal owns provider choice and the in-app-browser escape.
-  const handleGenerateClick = () => openLogin();
+  const handleGenerateClick = () => navigate("/signin");
 
   /** Hero CTA: signed-in users go straight to the upload form, others sign in first. */
   const handleHeroStart = () => {
@@ -283,7 +281,7 @@ export default function PdfLanding() {
   const authButton = (width = "300") => (
     <button
       type="button"
-      onClick={() => openLogin()}
+      onClick={() => navigate("/signin")}
       style={{ width: `${width}px`, maxWidth: "100%" }}
       className="inline-flex h-11 items-center justify-center rounded-full bg-purple-600 px-6 text-sm font-medium text-white transition hover:bg-purple-700"
     >

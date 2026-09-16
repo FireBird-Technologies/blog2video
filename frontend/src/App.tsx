@@ -13,6 +13,7 @@ import Landing from "./pages/Landing";
 import PdfLanding from "./pages/PdfLanding";
 import { applyFavicon, isPdfBrand, useBrand, markPdfOrigin } from "./brand/brand";
 import Pricing from "./pages/Pricing";
+import AuthPage from "./pages/AuthPage";
 import Dashboard from "./pages/Dashboard";
 import ProjectView from "./pages/ProjectView";
 import Subscription from "./pages/Subscription";
@@ -189,6 +190,10 @@ function AppRoutes() {
             (corePages.ts) with inbound links from several others. */}
         <Route path="/pdf2video" element={<PdfLanding />} />
         <Route path="/pricing" element={<Pricing />} />
+        {/* Full-page sign-in / sign-up. Two paths, one component, so "Sign up"
+            is directly linkable rather than reachable only via a toggle. */}
+        <Route path="/signin" element={<AuthPage mode="signin" />} />
+        <Route path="/signup" element={<AuthPage mode="signup" />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/blogs" element={<Blog />} />
         <Route path="/blogs/:slug" element={<BlogPostPage />} />

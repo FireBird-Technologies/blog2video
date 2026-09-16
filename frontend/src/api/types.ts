@@ -80,8 +80,12 @@ export const AVATAR_BG_PRESETS: { value: string; label: string }[] = [
   { value: "#F1F5F9", label: "Paper" },
 ];
 
-/** The sign-in provider an account is permanently bound to. */
-export type AuthProvider = "google" | "apple" | "microsoft";
+/**
+ * The sign-in provider an account is permanently bound to. "email" is our own
+ * built-in provider (email + password), the only one with no external identity
+ * provider behind it.
+ */
+export type AuthProvider = "google" | "email";
 
 /**
  * Human-facing provider names. An explicit map rather than a ternary: this
@@ -90,9 +94,37 @@ export type AuthProvider = "google" | "apple" | "microsoft";
  */
 export const AUTH_PROVIDER_LABELS: Record<AuthProvider, string> = {
   google: "Google",
-  apple: "Apple",
-  microsoft: "Microsoft",
+  email: "Email",
 };
+
+/**
+ * Minimum password length, mirroring MIN_PASSWORD_LENGTH in the backend's
+ * services/password.py. Used for instant feedback only — the server is
+ * authoritative, and sign-in must never be blocked on it client-side, or a
+ * password predating a policy change would become unusable.
+ */
+export const MIN_PASSWORD_LENGTH = 8;
+
+/**
+ * The password policy, mirroring validate_password() in the backend's
+ * services/password.py. Shown as a live checklist while choosing a password.
+ *
+ * Feedback only, and only where a password is being SET (signup, reset). The
+ * login form must never apply these — an existing password that predates a rule
+ * still has to reach the server, which decides.
+ */
+export const PASSWORD_RULES: { test: (p: string) => boolean; label: string }[] = [
+  {
+    test: (p) => p.length >= MIN_PASSWORD_LENGTH,
+    label: `At least ${MIN_PASSWORD_LENGTH} characters`,
+  },
+  { test: (p) => /[A-Z]/.test(p), label: "One capital letter" },
+  // Matches the backend's deliberately broad definition: anything that is not a
+  // letter or digit, so non-ASCII punctuation counts too.
+  { test: (p) => /[^A-Za-z0-9]/.test(p), label: "One special character" },
+];
+
+export const passwordMeetsPolicy = (p: string) => PASSWORD_RULES.every((r) => r.test(p));
 
 export interface UserInfo {
   id: number;

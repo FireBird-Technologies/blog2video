@@ -4,7 +4,6 @@ import PublicHeader from "../components/public/PublicHeader";
 import PublicFooter from "../components/public/PublicFooter";
 import Seo from "../components/seo/Seo";
 import { useAuth } from "../hooks/useAuth";
-import { useLoginModal } from "../contexts/LoginModalContext";
 import { useNavigate } from "react-router-dom";
 import { BACKEND_URL } from "../api/client";
 import { templateProfiles } from "../content/marketingBase";
@@ -66,7 +65,7 @@ const TEMPLATE_DISPLAY: Record<string, string> = {
 };
 
 function DownloadModal({ slug, onClose, onDownloadStarted }: ModalProps) {
-  const { openLogin } = useLoginModal();
+  const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
 
   const displayName = slug ? (TEMPLATE_DISPLAY[slug] ?? slug) : "";
@@ -78,7 +77,7 @@ function DownloadModal({ slug, onClose, onDownloadStarted }: ModalProps) {
     localStorage.setItem(PENDING_DOWNLOAD_KEY, JSON.stringify(slug));
     onDownloadStarted(slug);
     onClose();
-    openLogin({ title: "Sign in to download", subtitle: "Your download starts right after you sign in." });
+    navigate("/signin");
   };
 
   if (!slug) return null;

@@ -96,17 +96,6 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
 
-    # Sign in with Apple. APPLE_CLIENT_ID is the *Services ID* (e.g.
-    # "com.firebird.blog2video.web"), which is the `aud` claim of the identity
-    # token the browser hands us. We verify that token directly rather than
-    # exchanging an auth code, so no Apple private key is needed server-side.
-    APPLE_CLIENT_ID: str = ""
-
-    # Sign in with Microsoft. MICROSOFT_CLIENT_ID is the Entra ID app
-    # registration's *Application (client) ID*, matched against the ID token's
-    # `aud`. No client secret: the SPA hands us an ID token we verify directly.
-    MICROSOFT_CLIENT_ID: str = ""
-
     # Stripe
     STRIPE_SECRET_KEY: str = ""
     STRIPE_PUBLISHABLE_KEY: str = ""

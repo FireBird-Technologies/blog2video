@@ -49,6 +49,18 @@ from app.models.mcp_oauth import MCPAuthCode, MCPClient
 AUTH_CODE_TTL_SECONDS = 600  # 10 minutes
 
 
+def _token_version(db, user_id: int) -> int:
+    """The account's current revocation counter, or 0 if it has no row.
+
+    Read at issue time so the token carries the value it must still match to be
+    accepted; see app/auth.py::token_version_is_current.
+    """
+    from app.models.user import User
+
+    value = db.query(User.token_version).filter(User.id == user_id).scalar()
+    return int(value or 0)
+
+
 class BlogVideoOAuthProvider(
     OAuthAuthorizationServerProvider[AuthorizationCode, RefreshToken, AccessToken]
 ):
@@ -176,8 +188,9 @@ class BlogVideoOAuthProvider(
             row.used = True
             db.commit()
 
-            access_token = create_access_token(row.user_id)
-            refresh_token = create_refresh_token(row.user_id)
+            tv = _token_version(db, row.user_id)
+            access_token = create_access_token(row.user_id, tv)
+            refresh_token = create_refresh_token(row.user_id, tv)
             return OAuthToken(
                 access_token=access_token,
                 token_type="Bearer",
@@ -215,8 +228,18 @@ class BlogVideoOAuthProvider(
         if not payload or payload.get("typ") != "refresh":
             raise ValueError("Invalid refresh token")
         user_id = int(payload["sub"])
-        new_access = create_access_token(user_id)
-        new_refresh = create_refresh_token(user_id)
+        # A revoked refresh token must not mint a fresh pair, or revocation
+        # would be undone by the next refresh — the 30-day credential would
+        # quietly reissue itself past a password change.
+        db = SessionLocal()
+        try:
+            tv = _token_version(db, user_id)
+        finally:
+            db.close()
+        if int(payload.get("tv", 0)) != tv:
+            raise ValueError("Invalid refresh token")
+        new_access = create_access_token(user_id, tv)
+        new_refresh = create_refresh_token(user_id, tv)
         return OAuthToken(
             access_token=new_access,
             token_type="Bearer",

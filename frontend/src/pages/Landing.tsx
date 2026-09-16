@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useScrollReveal } from "../hooks/useScrollReveal";
-import { useLoginModal } from "../contexts/LoginModalContext";
 import FullTemplateShowcase from "../components/FullTemplateShowcase";
 import CoverflowCarousel, { type CoverflowTemplate, type CoverflowOrientation } from "../components/CoverflowCarousel";
 import OrientationToggle from "../components/OrientationToggle";
@@ -456,7 +455,6 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
 export default function Landing() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { openLogin } = useLoginModal();
   const [searchParams] = useSearchParams();
   const [demos, setDemos] = useState<DemoVideo[]>(INITIAL_DEMOS);
   const [navOpen, setNavOpen] = useState(false);
@@ -543,8 +541,8 @@ export default function Landing() {
   // Auto-open sign-in when redirected here with ?signin=1
   useEffect(() => {
     if (searchParams.get("signin") !== "1") return;
-    openLogin();
-  }, [searchParams, openLogin]);
+    navigate("/signin");
+  }, [searchParams, navigate]);
 
   // Auto-fetch OG images for demos that don't have one; fall back to YouTube thumbnail
   useEffect(() => {
@@ -574,7 +572,7 @@ export default function Landing() {
 
   // Every sign-in CTA opens the shared login modal, which owns provider choice,
   // error recovery, and the in-app-browser escape flow.
-  const handleGenerateClick = () => openLogin();
+  const handleGenerateClick = () => navigate("/signin");
 
   // "Explore the MCP connector" CTA: go straight there if signed in, otherwise
   // sign in and route to /mcp-connector once authenticated.
@@ -584,7 +582,7 @@ export default function Landing() {
       return;
     }
     localStorage.setItem("b2v_pending_mcp", "1");
-    openLogin();
+    navigate("/signin");
   };
 
   // "Try AI presenters" CTA: avatars are configured per-project, there's no
@@ -596,7 +594,7 @@ export default function Landing() {
       navigate("/dashboard");
       return;
     }
-    openLogin();
+    navigate("/signin");
   };
 
   return (
@@ -1196,7 +1194,7 @@ export default function Landing() {
             <div className="flex flex-col items-center gap-3 px-8 py-6 rounded-2xl border border-white/70" style={{ background: "rgba(255,255,255,0.55)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: "0 4px 24px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.90)" }}>
               <button
                 type="button"
-                onClick={() => openLogin()}
+                onClick={() => navigate("/signin")}
                 className="inline-flex h-10 items-center justify-center rounded-full bg-purple-600 px-8 text-sm font-medium text-white transition hover:bg-purple-700"
               >
                 Get started free

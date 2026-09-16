@@ -479,35 +479,68 @@ export const googleLogin = (credential: string, reactivate = false, refCode?: st
   return api.post<AuthResponse>("/auth/google", { credential }, { params });
 };
 
-/** Name payload Apple sends on the FIRST authorization only. */
-export interface AppleUserPayload {
-  name?: { firstName?: string; lastName?: string };
+// ─── Email + password auth ────────────────────────────────
+// Built-in provider. Registration proves the mailbox with a one-time code before
+// the account exists; every later sign-in is password-only.
+//
+// These use `publicApi`, NOT `api`: the authed client's interceptor treats any
+// 401 as an expired session — it clears the stored token and hard-redirects to
+// "/". A mistyped password returns 401 by design, so on `api` it would log an
+// already-signed-in user out and reload the page out from under the modal,
+// and the redirect would race the error the form needs to display.
+
+/** Acknowledges a one-time code was issued. Carries no account information. */
+export interface CodeSentResponse {
+  status: string;
+  /** Seconds until the code expires. */
+  expires_in: number;
+  /** Seconds before a resend is allowed. */
+  resend_in: number;
 }
 
-export const appleLogin = (
-  identityToken: string,
-  user?: AppleUserPayload | null,
-  reactivate = false,
-  refCode?: string | null
-) => {
-  const params: Record<string, unknown> = { reactivate };
+export const emailRegisterStart = (email: string, password: string, name?: string | null) =>
+  publicApi.post<CodeSentResponse>("/auth/email/register/start", {
+    email,
+    password,
+    name: name ?? null,
+  });
+
+export const emailRegisterVerify = (email: string, code: string, refCode?: string | null) => {
+  const params: Record<string, unknown> = {};
   if (refCode) params.ref_code = refCode;
-  return api.post<AuthResponse>(
-    "/auth/apple",
-    { identity_token: identityToken, user: user ?? null },
-    { params }
-  );
+  return publicApi.post<AuthResponse>("/auth/email/register/verify", { email, code }, { params });
 };
 
-export const microsoftLogin = (
-  idToken: string,
-  reactivate = false,
-  refCode?: string | null
-) => {
-  const params: Record<string, unknown> = { reactivate };
-  if (refCode) params.ref_code = refCode;
-  return api.post<AuthResponse>("/auth/microsoft", { id_token: idToken }, { params });
-};
+export const emailRegisterResend = (email: string) =>
+  publicApi.post<CodeSentResponse>("/auth/email/register/resend", { email });
+
+export const emailLogin = (email: string, password: string, reactivate = false) =>
+  publicApi.post<AuthResponse>(
+    "/auth/email/login",
+    { email, password },
+    { params: { reactivate } }
+  );
+
+/** `reactivate` confirms revival of a soft-deleted account. It still only emails
+ *  a code — no token is issued, so the reset must be completed to get a session. */
+export const forgotPasswordStart = (email: string, reactivate = false) =>
+  publicApi.post<CodeSentResponse>(
+    "/auth/password/forgot/start",
+    { email },
+    { params: { reactivate } }
+  );
+
+/** Validate a reset code without spending it, so the UI can reject a wrong
+ *  code before advancing to the new-password step. */
+export const forgotPasswordCheck = (email: string, code: string) =>
+  publicApi.post<{ status: string }>("/auth/password/forgot/check", { email, code });
+
+export const forgotPasswordComplete = (email: string, code: string, newPassword: string) =>
+  publicApi.post<AuthResponse>("/auth/password/forgot/complete", {
+    email,
+    code,
+    new_password: newPassword,
+  });
 
 // Share B2V (referral/invite) disabled
 // export const getAffiliateStats = () => api.get<AffiliateStats>("/affiliate/stats");

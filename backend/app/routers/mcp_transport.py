@@ -574,6 +574,11 @@ async def _mcp_endpoint(request) -> None:
     """
     method = request.scope.get("method", "GET")
     token = _extract_token_from_scope(request.scope)
+    # A cheap signature/expiry pre-filter, not the authorization boundary: this
+    # layer has no DB session, and the tool handlers below call back into this
+    # same API over HTTP with the very same JWT, where get_current_user enforces
+    # the account's token_version. A revoked token therefore gets past this line
+    # and is then refused by every call it tries to make.
     user_id = decode_access_token(token) if token else None
     if user_id is None:
         from starlette.responses import JSONResponse

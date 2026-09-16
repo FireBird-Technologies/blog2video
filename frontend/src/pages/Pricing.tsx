@@ -12,7 +12,6 @@ import {
 import type { BillingCycle, PlanKey } from "../api/billing";
 import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
-import { useLoginModal } from "../contexts/LoginModalContext";
 import PublicHeader from "../components/public/PublicHeader";
 import PublicFooter from "../components/public/PublicFooter";
 import Seo from "../components/seo/Seo";
@@ -53,7 +52,6 @@ export default function Pricing() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { showError } = useErrorModal();
-  const { openLogin } = useLoginModal();
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
   const [subscription, setSubscription] = useState<SubscriptionDetail | null>(null);
@@ -363,7 +361,7 @@ export default function Pricing() {
               <div className="flex justify-center">
                 <button
                   type="button"
-                  onClick={() => openLogin({ title: "Get started with Blog2Video" })}
+                  onClick={() => navigate("/signin")}
                   className="inline-flex h-10 items-center justify-center rounded-full bg-purple-600 px-6 text-sm font-medium text-white transition hover:bg-purple-700"
                   style={{ width: "190px", maxWidth: "100%" }}
                 >
@@ -393,7 +391,7 @@ export default function Pricing() {
                 <div className="flex justify-center">
                   <button
                   type="button"
-                  onClick={() => openLogin({ title: "Get started with Blog2Video" })}
+                  onClick={() => navigate("/signin")}
                   className="inline-flex h-10 items-center justify-center rounded-full bg-purple-600 px-6 text-sm font-medium text-white transition hover:bg-purple-700"
                   style={{ width: "190px", maxWidth: "100%" }}
                 >
@@ -474,7 +472,7 @@ export default function Pricing() {
                 <div className="flex justify-center">
                   <button
                   type="button"
-                  onClick={() => openLogin({ title: "Get started with Blog2Video" })}
+                  onClick={() => navigate("/signin")}
                   className="inline-flex h-10 items-center justify-center rounded-full bg-purple-600 px-6 text-sm font-medium text-white transition hover:bg-purple-700"
                   style={{ width: "190px", maxWidth: "100%" }}
                 >
@@ -571,7 +569,7 @@ export default function Pricing() {
               <div className="flex justify-center">
                 <button
                   type="button"
-                  onClick={() => openLogin({ title: "Get started with Blog2Video" })}
+                  onClick={() => navigate("/signin")}
                   className="inline-flex h-10 items-center justify-center rounded-full bg-purple-600 px-6 text-sm font-medium text-white transition hover:bg-purple-700"
                   style={{ width: "190px", maxWidth: "100%" }}
                 >
@@ -682,7 +680,7 @@ export default function Pricing() {
               <div className="flex justify-center">
                 <button
                   type="button"
-                  onClick={() => openLogin({ title: "Get started with Blog2Video" })}
+                  onClick={() => navigate("/signin")}
                   className="inline-flex h-10 items-center justify-center rounded-full bg-purple-600 px-6 text-sm font-medium text-white transition hover:bg-purple-700"
                   style={{ width: "190px", maxWidth: "100%" }}
                 >
