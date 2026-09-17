@@ -7364,8 +7364,27 @@ export default function ProjectView() {
                                   );
                                 })()}
 
-                                {/* Scene images + avatar side by side */}
-                                <div className="flex items-start gap-6">
+                                {/* Scene images + avatar. Side by side when there is room,
+                                    stacked when there is not.
+
+                                    This row used to be an unconditional `flex` whose two
+                                    children pulled in opposite directions: the images block
+                                    is `min-w-0` (shrinks without limit) and the avatar block
+                                    is `flex-shrink-0` (never gives up a pixel). In a narrow
+                                    card the images column was therefore crushed toward zero
+                                    width while the avatar kept its full size — the "IMAGES
+                                    (n)" heading wrapped onto two lines inside a sliver of a
+                                    column and collided with "AVATAR", and the avatar's helper
+                                    text ran past the card edge.
+
+                                    `flex-wrap` is what fixes it: once the two columns cannot
+                                    both fit, the avatar drops to its own line instead of
+                                    squeezing its neighbour. `basis-*` on the images block
+                                    gives it a real preferred width so it is never the one
+                                    that collapses. Note this is NOT aspect-ratio specific —
+                                    the trigger is the card's width, which is why a landscape
+                                    project shows the same break once its column is narrow. */}
+                                <div className="flex flex-wrap items-start gap-x-6 gap-y-5">
                                 {(() => {
                                   // Read the layout through the shared resolver, which understands
                                   // the custom-template scene-type markers and falls back
@@ -7466,8 +7485,20 @@ export default function ProjectView() {
                                     sceneClip &&
                                     (stockAudioDraft.muted !== sceneClip.muted ||
                                       Math.abs(stockAudioDraft.volume - sceneClip.volume) > 0.001);
+                                  // One tile-width rule for every tile below. Portrait lays them
+                                  // out in a 2-col grid, so a tile fills its cell (w-full);
+                                  // landscape is a free-wrapping flex row, where a tile must keep
+                                  // its own fixed w-20 or it would stretch across the whole row.
+                                  const tileW =
+                                    project.aspect_ratio === "portrait" ? "w-full" : "w-20";
+                                  // basis-56 is a PREFERRED width, not a floor: the tiles inside
+                                  // are ~80px each, so this keeps the column wide enough to hold
+                                  // a row of them and makes the avatar wrap below rather than
+                                  // crushing this column to nothing. Deliberately not wider —
+                                  // the tiles are w-20 and a roomier column just stretches the
+                                  // mobile `grid-cols-2` cells into oversized boxes.
                                   return (
-                                    <div className="min-w-0" data-tour={idx === 0 ? "scene-visuals-first" : undefined}>
+                                    <div className="min-w-0 basis-56 grow" data-tour={idx === 0 ? "scene-visuals-first" : undefined}>
                                       <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
                                         {sceneClip
                                           ? "Stock footage"
@@ -7477,16 +7508,32 @@ export default function ProjectView() {
                                       </h4>
                                       {sceneSupportsImage ? (
                                         <>
-                                        {/* Two items per row on phones (grid), free-wrapping
-                                            fixed-width row from sm up. Children keep their own
-                                            w-20 at sm+; on mobile max-sm:w-full fills the cell. */}
-                                        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-start">
+                                        {/* Keyed off the project's aspect ratio, NOT a `sm:`
+                                            breakpoint: `sm:` reads the VIEWPORT, but what actually
+                                            constrains these tiles is the scene card's own width,
+                                            which is driven by the format. A narrow portrait card on
+                                            a desktop screen took the wide-screen branch and laid
+                                            its tiles out in one cramped, clipped row.
+
+                                            Landscape: one free-wrapping row — the card is wide, so
+                                            all three tiles fit side by side.
+                                            Portrait: two per row, capped at 184px so each tile
+                                            lands ~88px, close to the w-20 (80px) they used to be;
+                                            without the cap each grid cell is half the column and
+                                            the tiles inflate to ~220px. */}
+                                        <div
+                                          className={
+                                            project.aspect_ratio === "portrait"
+                                              ? "grid grid-cols-2 gap-2 items-start max-w-[184px]"
+                                              : "flex flex-wrap items-start gap-2"
+                                          }
+                                        >
                                           {/* When a clip is assigned it occupies the visual slot
                                               and renders first. Its own edit icon opens the shared
                                               framing modal (same positioning as images); picking any
                                               image/AI/upload below replaces the clip. */}
                                           {sceneClip && (
-                                            <div className="relative group rounded-lg overflow-hidden border-2 border-purple-400 max-sm:w-full w-20 h-24 flex-shrink-0 bg-black">
+                                            <div className={`relative group rounded-lg overflow-hidden border-2 border-purple-400 ${tileW} h-24 flex-shrink-0 bg-black`}>
                                               {(() => {
                                                 let focusX = 50; let focusY = 50; let zoom = 1;
                                                 let clipStartSec = 0;
@@ -7586,7 +7633,7 @@ export default function ProjectView() {
                                             </div>
                                           )}
                                           {isCustomTpl && !(sceneImageAssetsMap[idx] || []).length && ctOgImage && (
-                                            <div className="relative group rounded-lg overflow-hidden border border-gray-200/40 flex-shrink-0 max-sm:w-full">
+                                            <div className={`relative group rounded-lg overflow-hidden border border-gray-200/40 flex-shrink-0 ${tileW}`}>
                                               {(() => {
                                                 let focusX = 50; let focusY = 50; let zoom = 1;
                                                 try {
@@ -7601,7 +7648,7 @@ export default function ProjectView() {
                                                   <img
                                                     src={ctOgImage}
                                                     alt=""
-                                                    className="h-24 w-20 max-sm:w-full object-cover"
+                                                    className={`h-24 ${tileW} object-cover`}
                                                     style={{ objectPosition: `${focusX}% ${focusY}%`, transform: `scale(${zoom})`, transformOrigin: "center center" }}
                                                     loading="lazy"
                                                     onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
@@ -7623,7 +7670,7 @@ export default function ProjectView() {
                                           {(sceneImageAssetsMap[idx] || []).map(({ url, asset }) => (
                                             <div
                                               key={asset.id}
-                                              className="relative group rounded-lg overflow-hidden border border-gray-200/40 flex-shrink-0 max-sm:w-full"
+                                              className={`relative group rounded-lg overflow-hidden border border-gray-200/40 flex-shrink-0 ${tileW}`}
                                             >
                                               {(generatingImageSceneId === scene.id || uploadingSceneId === scene.id) && (
                                                 <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/60 backdrop-blur-[2px]">
@@ -7650,7 +7697,7 @@ export default function ProjectView() {
                                               <img
                                                 src={url}
                                                 alt=""
-                                                className="h-24 w-20 max-sm:w-full object-cover"
+                                                className={`h-24 ${tileW} object-cover`}
                                                 style={{
                                                   objectPosition: `${focusX}% ${focusY}%`,
                                                   transform: `scale(${zoom})`,
@@ -7698,13 +7745,13 @@ export default function ProjectView() {
                                           {/* Clip is being downloaded + transcoded in the
                                               background: show a loader card in its slot. */}
                                           {stockFootageBusySceneId === scene.id && (
-                                            <div className="flex flex-col items-center justify-center gap-1 max-sm:w-full w-20 h-24 rounded-lg border-2 border-purple-300 bg-purple-50/60 flex-shrink-0">
+                                            <div className={`flex flex-col items-center justify-center gap-1 ${tileW} h-24 rounded-lg border-2 border-purple-300 bg-purple-50/60 flex-shrink-0`}>
                                               <span className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
                                               <span className="text-[9px] font-medium text-purple-600 uppercase tracking-wide">Clip</span>
                                             </div>
                                           )}
                                           {(generatingImageSceneId === scene.id || uploadingSceneId === scene.id) && !(sceneImageAssetsMap[idx] || []).length && !(isCustomTpl && ctOgImage) && (
-                                            <div className="flex items-center justify-center max-sm:w-full w-20 h-24 rounded-lg border-2 border-purple-200 bg-purple-50/50 flex-shrink-0">
+                                            <div className={`flex items-center justify-center ${tileW} h-24 rounded-lg border-2 border-purple-200 bg-purple-50/50 flex-shrink-0`}>
                                               <span className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
                                             </div>
                                           )}
@@ -7712,7 +7759,7 @@ export default function ProjectView() {
                                             type="button"
                                             onClick={() => handleGenerateSceneImageClick(scene.id)}
                                             disabled={stockFootageBusySceneId === scene.id}
-                                            className="group relative flex items-center justify-center max-sm:w-full w-20 h-24 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50/50 hover:bg-purple-100/50 transition-colors text-purple-700 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            className={`group relative flex items-center justify-center ${tileW} h-24 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50/50 hover:bg-purple-100/50 transition-colors text-purple-700 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed`}
                                             title="Generate image with AI"
                                           >
                                             <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -7726,7 +7773,7 @@ export default function ProjectView() {
                                             type="button"
                                             onClick={() => handleOpenImageSourceChooser(scene.id)}
                                             disabled={uploadingSceneId === scene.id || stockFootageBusySceneId === scene.id}
-                                            className="flex flex-col items-center justify-center gap-1 max-sm:w-full w-20 h-24 border-2 border-dashed border-gray-300 bg-gray-50/50 hover:bg-gray-100/50 rounded-lg flex-shrink-0 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                            className={`flex flex-col items-center justify-center gap-1 ${tileW} h-24 border-2 border-dashed border-gray-300 bg-gray-50/50 hover:bg-gray-100/50 rounded-lg flex-shrink-0 transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
                                             title="Add image"
                                           >
                                             <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -7739,7 +7786,7 @@ export default function ProjectView() {
                                               type="button"
                                               onClick={() => handleChooseStockFootage(scene.id)}
                                               disabled={uploadingSceneId === scene.id || stockFootageBusySceneId === scene.id}
-                                              className="flex flex-col items-center justify-center gap-1 max-sm:w-full w-20 h-24 border-2 border-dashed border-gray-300 bg-gray-50/50 hover:bg-gray-100/50 rounded-lg flex-shrink-0 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                              className={`flex flex-col items-center justify-center gap-1 ${tileW} h-24 border-2 border-dashed border-gray-300 bg-gray-50/50 hover:bg-gray-100/50 rounded-lg flex-shrink-0 transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
                                               title="Add stock footage"
                                             >
                                               <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -7908,8 +7955,11 @@ export default function ProjectView() {
                                   const shape =
                                     scene.avatar_shape ?? project.avatar_shape ?? "circle";
                                   const bg = scene.avatar_bg ?? project.avatar_bg ?? null;
+                                  // min-w-0 + basis-56: was flex-shrink-0, which is what let this
+                                  // column keep its full width and crush the images column next
+                                  // to it. It now wraps to its own line instead.
                                   return (
-                                    <div className="flex-shrink-0">
+                                    <div className="min-w-0 basis-56 grow">
                                       <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
                                         Avatar
                                       </h4>

@@ -30,7 +30,16 @@ opentelemetry-instrumentation-logging>=0.45b0
 
 # Auth & Billing
 PyJWT>=2.8.0
+# Kept as an explicit pin rather than an implicit transitive of google-auth /
+# requests. Our own tokens are HS256 and need no asymmetric crypto, so nothing
+# here depends on it directly since Apple sign-in was removed.
+cryptography>=42.0.0
 google-auth>=2.29.0
+# Password hashing for built-in email/password sign-in (services/password.py).
+# Argon2id rather than bcrypt: bcrypt silently truncates input at 72 bytes, so two
+# different long passwords can collide, and the SHA-256 pre-hash workaround is a
+# format decision you can never reverse. Ships prebuilt wheels — no compiler needed.
+argon2-cffi>=23.1.0
 stripe>=10.0.0
 
 # PostgreSQL driver

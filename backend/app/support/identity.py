@@ -27,6 +27,15 @@ class SupportIdentity:
 
 
 def _extract_jwt_user(request: Request) -> Optional[int]:
+    """Best-effort user id from the bearer token, or None for anonymous visitors.
+
+    Signature and expiry only — this helper has no DB session, so unlike
+    get_current_user it cannot check the account's token_version. A revoked
+    token can therefore still attribute a support-chat message to its user until
+    it expires. Accepted deliberately: this identity only labels conversations
+    and gates sending a message, never reads or mutates account data. Anything
+    that touches user data must depend on get_current_user instead.
+    """
     auth = request.headers.get("authorization") or request.headers.get("Authorization")
     if not auth:
         return None

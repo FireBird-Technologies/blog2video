@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CredentialResponse } from "@react-oauth/google";
 import {
   Area,
   Bar,
@@ -15,8 +14,7 @@ import {
   YAxis,
 } from "recharts";
 import { useAuth } from "../../hooks/useAuth";
-import { googleLogin } from "../../api/client";
-import GoogleAuthButton from "../public/GoogleAuthButton";
+import { useLoginModal } from "../../contexts/LoginModalContext";
 import {
   BASE_REVENUE_MULTIPLE,
   COUNTRIES,
@@ -441,28 +439,11 @@ function ValuationBridgeChart({ steps }: { steps: BridgeDatum[] }) {
 // answer, which is also the moment the tool has proved it is worth an account.
 
 function SignInPrompt({ onCancel }: { onCancel: () => void }) {
-  const { login } = useAuth();
-  const [signingIn, setSigningIn] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleSuccess = async (response: CredentialResponse) => {
-    if (!response.credential) return;
-    setSigningIn(true);
-    setError(null);
-    try {
-      const res = await googleLogin(
-        response.credential,
-        false,
-        localStorage.getItem("b2v_ref_code")
-      );
-      localStorage.removeItem("b2v_ref_code");
-      login(res.data.access_token, res.data.user);
-      // login() flips `user`; the parent watches for that and runs the analysis.
-    } catch {
-      setError("Sign-in failed. Please try again.");
-      setSigningIn(false);
-    }
-  };
+  const { openLogin } = useLoginModal();
+  // Signing in flips `user`; the parent watches for that and runs the analysis,
+  // so stay on the page instead of taking the default redirect.
+  const handleOpenLogin = () =>
+    openLogin({ title: "Sign in to see your valuation", onSuccess: () => {} });
 
   return (
     <div className="rounded-3xl border border-purple-200 bg-gradient-to-b from-purple-50 via-white to-white p-8 text-center sm:p-12">
@@ -488,31 +469,14 @@ function SignInPrompt({ onCancel }: { onCancel: () => void }) {
         bridge, and every assumption behind the number. Free account, no credit card.
       </p>
       <div className="mt-7 flex justify-center">
-        {signingIn ? (
-          <div className="flex items-center gap-2 text-sm text-gray-500">
-            <svg className="h-4 w-4 animate-spin text-purple-600" fill="none" viewBox="0 0 24 24">
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-            </svg>
-            Signing you in…
-          </div>
-        ) : (
-          <GoogleAuthButton
-            onSuccess={handleSuccess}
-            onError={() => setError("Sign-in failed. Please try again.")}
-            text="continue_with"
-            width="320"
-          />
-        )}
+        <button
+              type="button"
+              onClick={handleOpenLogin}
+              className="inline-flex h-10 items-center justify-center rounded-full bg-purple-600 px-6 text-sm font-medium text-white transition hover:bg-purple-700"
+            >
+              Sign in to continue
+            </button>
       </div>
-      {error ? <p className="mt-3 text-xs text-red-500">{error}</p> : null}
       <button
         type="button"
         onClick={onCancel}
