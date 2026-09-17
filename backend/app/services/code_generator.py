@@ -3376,13 +3376,18 @@ def _build_stub_scene_code(
     # The chart scene's plot area, inserted after the copy. Its parent is a
     # column flex box, so flex:1 + minHeight:0 is what gives CustomChart a real
     # resolved height — without it the plot collapses to nothing.
+    #
+    # `brandColors` is load-bearing, not decoration: this stub does NOT wrap
+    # SceneFrame, so without it CustomChart falls back to a dark default palette
+    # and draws near-white on a light brand's panel — rendered and invisible.
+    # Matches the contract in _CONTENT_BODY["chart"].
     # Single braces: this is SUBSTITUTED INTO the f-string below as a value, so
     # its own braces are never re-scanned for interpolation.
     _is_chart = content_type == DATAVIZ_CONTENT_TYPE
     _chart_block = (
         """
-        <div style={{ flex: 1, minHeight: 0, width: '100%', marginTop: 24, opacity: enter }}>
-          <CustomChart chartTable={props.chartTable} chartType={props.chartType} />
+        <div style={{ flex: 1, minHeight: 0, width: '100%', position: 'relative', marginTop: 24, opacity: enter }}>
+          <CustomChart chartTable={props.chartTable} chartType={props.chartType} brandColors={props.brandColors} />
         </div>
 """
         if _is_chart
@@ -3690,20 +3695,26 @@ _CONTENT_BODY = {
         "  draws the chart. DO NOT build a chart yourself — no SVG paths, no divs\n"
         "  sized to values, no axis ticks, no bars, no recharts import. Hand the\n"
         "  data straight to <CustomChart> EXACTLY like this:\n"
-        "    <CustomChart chartTable={{props.chartTable}} chartType={{props.chartType}} />\n"
+        "    <CustomChart chartTable={{props.chartTable}} chartType={{props.chartType}}\n"
+        "      brandColors={{props.brandColors}} />\n"
+        "  ALWAYS PASS brandColors. Without it the chart themes itself from a DARK\n"
+        "  default, so on a light brand every axis, tick and bar draws near-white\n"
+        "  on your near-white panel — the chart is rendered and INVISIBLE, which\n"
+        "  reads as 'no data'. One template shipped exactly that.\n"
         "  It reads the table, PICKS THE RIGHT KIND ITSELF (line, bar or histogram)\n"
         "  and themes itself from the brand palette. You choose neither the kind\n"
         "  nor the colours, and you never read props.chartTable's contents.\n"
         "  IT MUST BE GIVEN REAL ROOM — it is this scene's focal element, so give\n"
         "  it the dominant area of the frame, not a strip. It fills its parent, so\n"
-        "  that parent MUST have a real resolved height and `minHeight: 0`:\n"
-        "    <div style={{{{ flex: 1, minHeight: 0, width: '100%' }}}}>\n"
-        "      <CustomChart chartTable={{props.chartTable}} chartType={{props.chartType}} />\n"
+        "  that parent MUST have a real resolved height and `minHeight: 0`. USE\n"
+        "  EXACTLY THIS WRAPPER — copy the style object as written:\n"
+        "    <div style={{{{ flex: 1, minHeight: 0, width: '100%', position: 'relative' }}}}>\n"
+        "      <CustomChart chartTable={{props.chartTable}} chartType={{props.chartType}}\n"
+        "        brandColors={{props.brandColors}} />\n"
         "    </div>\n"
         "  A parent with no height (a bare flex child without minHeight:0, or an\n"
-        "  auto-height div) collapses the plot to nothing and the scene renders\n"
-        "  empty. Do not wrap it in <FitText> and do not put overflow:'hidden' on\n"
-        "  the chart's own parent.\n"
+        "  auto-height div) collapses the plot to nothing. Do not wrap it in\n"
+        "  <FitText> and do not put overflow:'hidden' on the chart's own parent.\n"
         "  props.chartSummary is an OPTIONAL caption string — render it at bodySize\n"
         "  under the plot when present. The title and display text are laid out as\n"
         "  on any other scene. This scene NEVER carries an image: props.imageUrl is\n"

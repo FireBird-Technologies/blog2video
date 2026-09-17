@@ -464,3 +464,62 @@ def test_an_undrawable_chart_kind_is_rejected(kind: str) -> None:
     from app.services.scene_content_schema import CHART_TYPES
 
     assert kind not in CHART_TYPES
+
+
+# ─── The invisible chart (template 139) ──────────────────────────────────────
+#
+# A generated chart scene rendered an empty panel at EVERY frame, in the editor
+# preview and the exported video alike. Not data, not layout, not stale code:
+#
+#   Kit components take their colours from kit context, which only SceneFrame
+#   provides. The scene painted its own background from props.brandColors and
+#   composed <CustomChart> DIRECTLY, so there was no provider — and useKit()
+#   silently falls back to a DARK default palette (bg #0B0B0F, text #FFFFFF).
+#   The brand is WHITE (#FFFFFF bg, #1A1A1A text), so every axis, tick and bar
+#   drew #FFFFFF on a #FFFFFF panel. Rendered, and completely invisible.
+#
+# Nothing could catch it: the props were right, the code was right, the layout
+# measured correctly, and an invisible chart throws no error.
+#
+# Fixed on three fronts, each covered below: the contract tells scenes to pass
+# brandColors, the stub does, and GeneratedVideo/VideoPreview provide an ambient
+# palette so ALREADY-GENERATED templates are repaired with no regeneration.
+
+
+def test_the_chart_contract_requires_brand_colors() -> None:
+    """Without them a light-brand chart draws white-on-white."""
+    body = _chart_doc()
+    assert "brandColors={props.brandColors}" in body
+    # And says WHY, so the next reader does not "tidy" it away.
+    assert "invisible" in body.lower() or "near-white" in body.lower()
+
+
+def test_the_chart_stub_passes_brand_colors() -> None:
+    """The deterministic fallback wraps no SceneFrame either."""
+    from app.services.code_generator import _build_stub_scene_code
+
+    code = _build_stub_scene_code("content", {"colors": {}}, content_type="dataviz")
+    assert "brandColors={props.brandColors}" in code
+
+
+def test_customchart_accepts_brand_colors_directly() -> None:
+    """The kit component must be usable without a SceneFrame ancestor.
+
+    Pinned against the TSX because the failure it prevents is silent: if the
+    prop were dropped, charts would go back to rendering invisibly rather than
+    failing any test.
+    """
+    from pathlib import Path
+
+    src = Path(__file__).resolve().parents[2] / (
+        "remotion-video/src/templates/generated/kit/CustomChart.tsx"
+    )
+    if not src.exists():  # remotion-video not in this checkout
+        import pytest as _pytest
+
+        _pytest.skip("remotion-video not present")
+    text = src.read_text(encoding="utf-8")
+    assert "brandColors?:" in text, "CustomChart must accept brandColors"
+    assert "useHasKitContext" in text, (
+        "must distinguish real kit context from the silent dark default"
+    )

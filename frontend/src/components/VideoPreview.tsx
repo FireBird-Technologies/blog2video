@@ -56,6 +56,7 @@ import {
   DataChartScene,
   DataTableScene,
   EyebrowSizeProvider,
+  KitProvider,
   KitVariantProvider,
   backgroundCss,
   colorsFromBrand,
@@ -849,6 +850,26 @@ const StableCustomComposition: React.FC<any> = ({
           // defaults-under-stored, so the user's value wins wherever one exists
           // and the code's default still applies wherever one does not.
           layoutProps: s.layoutProps,
+          // THE CHART SCENE'S DATA, unwrapped to top level.
+          //
+          // The pipeline writes the bound table into layoutProps, and a chart
+          // scene reads `props.chartTable` — so it has to be lifted out, exactly
+          // as the export path does. This surface passed `layoutProps` whole and
+          // never unwrapped it, so `props.chartTable` was undefined, CustomChart
+          // took its `hasRealChart` early return, and the scene rendered its
+          // title, panel and NO PLOT — with the data sitting right there in
+          // layoutProps. The MP4 was unaffected, which is what made it look like
+          // a data problem rather than a missing prop.
+          //
+          // KEEP IDENTICAL to GeneratedVideo.tsx — prefer the editable
+          // layoutProps location (what SceneEditModal writes) and fall back to
+          // structuredContent from the content extractor.
+          chartTable: ((s.layoutProps as Record<string, unknown> | undefined)?.chartTable ??
+            sc.chartTable) as SceneProps["chartTable"],
+          chartType: ((s.layoutProps as Record<string, unknown> | undefined)?.chartType ??
+            sc.chartType) as string | undefined,
+          chartSummary: ((s.layoutProps as Record<string, unknown> | undefined)?.chartSummary ??
+            sc.chartSummary) as string | undefined,
           // The closing CTA + socials. Only the final scene carries these, and
           // only a v2 outro renders them itself — a v1 outro is replaced by
           // CtaOverlay below and would ignore them anyway. Without this a v2
@@ -956,7 +977,24 @@ const StableCustomComposition: React.FC<any> = ({
                     {/* Mirrors GeneratedVideo — preview and render must resolve
                         the same structural variant or the preview lies about
                         the video. */}
-                    <KitVariantProvider variant={kitVariant}>{visual}</KitVariantProvider>
+                    <KitVariantProvider variant={kitVariant}>
+                      {/* Ambient brand palette. Kit components (CustomChart,
+                          CustomTable) take their colours from kit context,
+                          which only SceneFrame provides — so a generated scene
+                          that composes one directly has none, and useKit()
+                          silently returns a DARK default: on a light brand the
+                          chart draws near-white on a near-white panel and is
+                          invisible. A scene that wraps SceneFrame is
+                          unaffected, its own provider nests below and wins.
+                          KEEP IDENTICAL to GeneratedVideo.tsx. */}
+                      <KitProvider
+                        colors={colorsFromBrand(brandColors)}
+                        isPortrait={aspectRatio === "portrait"}
+                        fonts={{ heading: headingFont, body: bodyFont }}
+                      >
+                        {visual}
+                      </KitProvider>
+                    </KitVariantProvider>
                   </BodySizeScope>
                 </TypeTierProvider>
               </EyebrowSizeProvider>

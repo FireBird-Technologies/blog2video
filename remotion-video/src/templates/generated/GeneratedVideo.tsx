@@ -52,6 +52,7 @@ import {
   DataChartScene,
   DataTableScene,
   EyebrowSizeProvider,
+  KitProvider,
   KitVariantProvider,
   backgroundCss,
   colorsFromBrand,
@@ -978,7 +979,34 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
                         same reason: a stored scene will never forward it, so
                         existing templates gain variety without being
                         regenerated. */}
-                    <KitVariantProvider variant={kitVariant}>{visual}</KitVariantProvider>
+                    <KitVariantProvider variant={kitVariant}>
+                      {/* AMBIENT BRAND PALETTE, for the same reason again.
+
+                          Kit components (CustomChart, CustomTable) read their
+                          colours from kit context, which only SceneFrame
+                          provides. A generated scene that paints its own
+                          background and composes one of them DIRECTLY has no
+                          provider, so useKit() silently returns its DARK
+                          default — and on a light brand the chart draws
+                          near-white ink on a near-white panel: rendered, and
+                          completely invisible. Template 139 shipped exactly
+                          that, and it reads as "the data never arrived".
+
+                          Providing the real palette here fixes every stored
+                          template with no regeneration. A scene that DOES wrap
+                          SceneFrame is unaffected — its own KitProvider is
+                          nested below this one and wins.
+                          KEEP IDENTICAL to VideoPreview.tsx. */}
+                      <KitProvider
+                        colors={colorsFromBrand(brandColors)}
+                        isPortrait={
+                          ((data.aspectRatio as string) || "landscape") === "portrait"
+                        }
+                        fonts={{ heading: headingFont, body: bodyFont }}
+                      >
+                        {visual}
+                      </KitProvider>
+                    </KitVariantProvider>
                   </BodySizeScope>
                 </TypeTierProvider>
               </EyebrowSizeProvider>

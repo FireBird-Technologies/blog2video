@@ -42,14 +42,29 @@ import {
   type ChartTableShape,
 } from "../../_shared/chartData";
 import { MeasuredChart } from "../../_shared/MeasuredChart";
-import { useKit } from "./context";
-import { withAlpha, type KitPalette } from "./theme";
+import { useKit, useHasKitContext, colorsFromBrand } from "./context";
+import { derivePalette, withAlpha, type KitPalette } from "./theme";
 
 export interface CustomChartProps {
   chartTable?: ChartTableShape;
   chartType?: string;
   /** Optional palette override; defaults to the SceneFrame context palette. */
   palette?: KitPalette;
+  /**
+   * The scene's brand colours, for a scene that does NOT wrap SceneFrame.
+   *
+   * THIS IS WHY A CHART CAN RENDER INVISIBLY. The palette normally arrives
+   * through kit context, which only SceneFrame provides. A generated scene that
+   * paints its own background from props.brandColors and composes <CustomChart>
+   * directly has no provider, so useKit() falls back to its DARK default
+   * (bg #0B0B0F, text #FFFFFF) — and on a light brand the axes, ticks and bars
+   * all draw in near-white on a white panel. The chart is there; you cannot see
+   * it. Template 139 shipped exactly that.
+   *
+   * Pass `brandColors={props.brandColors}` and the chart derives the same
+   * palette SceneFrame would. Ignored when `palette` or kit context is present.
+   */
+  brandColors?: { accent?: string; background?: string; text?: string };
   /** Override axis label font size. */
   descSize?: number;
   /** Custom Y-axis tick labels (e.g. ["0","2.5K","5K"]). */
@@ -63,6 +78,7 @@ export const CustomChart: React.FC<CustomChartProps> = ({
   chartTable,
   chartType,
   palette: paletteProp,
+  brandColors,
   descSize: descSizeProp,
   chartYAxisTicks = [],
   yAxisLabel,
@@ -70,10 +86,26 @@ export const CustomChart: React.FC<CustomChartProps> = ({
   fontFamily: fontProp,
 }) => {
   const frame = useCurrentFrame();
-  const { width, fps, durationInFrames } = useVideoConfig();
+  const { width, height, fps, durationInFrames } = useVideoConfig();
   const kit = useKit();
-  const palette = paletteProp ?? kit.palette;
-  const isPortrait = kit.isPortrait;
+  const hasKit = useHasKitContext();
+
+  // Palette precedence: explicit prop > kit context > the scene's own brand
+  // colours > the dark default. The third step is what keeps a chart visible in
+  // a generated scene that composes this directly, with no SceneFrame to
+  // provide context — see the `brandColors` prop note.
+  const palette = useMemo(() => {
+    if (paletteProp) return paletteProp;
+    if (hasKit) return kit.palette;
+    if (brandColors && (brandColors.background || brandColors.text || brandColors.accent)) {
+      return derivePalette(colorsFromBrand(brandColors));
+    }
+    return kit.palette;
+  }, [paletteProp, hasKit, kit.palette, brandColors]);
+
+  // Same fallback for orientation: without context `kit.isPortrait` is a
+  // hardcoded false, which would use landscape tick density on a portrait frame.
+  const isPortrait = hasKit ? kit.isPortrait : height > width;
   const font = fontProp ?? kit.fonts.body;
   const descSize = descSizeProp ?? kit.type.body;
 
@@ -261,7 +293,21 @@ export const CustomChart: React.FC<CustomChartProps> = ({
     );
 
   return (
-    <div style={{ width: "100%", height: "100%", position: "relative" }}>
+    // `flex`/`minWidth`/`alignSelf` make this fill a FLEX parent as well as a
+    // block one. A generated scene wrapped the chart in `display: 'flex'`, and
+    // while that turned out not to collapse it, an element whose only child is
+    // absolutely positioned has no intrinsic width — so stating the intent is
+    // cheap insurance. Inert inside a block parent.
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        position: "relative",
+        flex: "1 1 auto",
+        minWidth: 0,
+        alignSelf: "stretch",
+      }}
+    >
       <div style={{ position: "absolute", inset: 0 }}>
         <MeasuredChart>{chart}</MeasuredChart>
       </div>
