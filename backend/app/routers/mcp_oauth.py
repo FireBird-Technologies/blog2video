@@ -27,7 +27,8 @@ from starlette.routing import Route
 from app.config import settings
 from app.database import SessionLocal
 from app.models.mcp_oauth import MCPAuthCode
-from app.models.user import PlanTier, User
+from app.models.user import AuthProvider, User
+from app.services.auth_identity import resolve_or_create_user
 from app.services.mcp_provider import BlogVideoOAuthProvider
 from mcp.server.auth.routes import create_auth_routes
 from mcp.server.auth.settings import ClientRegistrationOptions, RevocationOptions
@@ -362,31 +363,18 @@ async def google_callback(request: Request):
         if row.expires_at < datetime.utcnow():
             raise HTTPException(status_code=400, detail="Authorization code expired")
 
-        # Find or create the user (same logic as POST /api/auth/google, minus the
-        # response payload and account-deleted reactivation flow which Claude
-        # cannot drive)
-        user = db.query(User).filter(User.google_id == google_id).first()
-        if not user:
-            user = db.query(User).filter(User.email == email).first()
-            if user:
-                user.google_id = google_id
-                user.picture = picture or user.picture
-            else:
-                user = User(
-                    email=email,
-                    name=name,
-                    picture=picture,
-                    google_id=google_id,
-                    plan=PlanTier.FREE,
-                    videos_used_this_period=0,
-                    video_limit_bonus=0,
-                    is_active=True,
-                )
-                db.add(user)
-                db.flush()
-
-        if not user.is_active:
-            raise HTTPException(status_code=403, detail="Account is deactivated")
+        # Find or create the user through the shared identity rules, so MCP can
+        # never mint an account the web app would reject. allow_reactivation is
+        # off because Claude cannot drive a reactivation confirmation prompt.
+        user, _created = resolve_or_create_user(
+            db,
+            provider=AuthProvider.GOOGLE,
+            provider_user_id=google_id,
+            email=email,
+            name=name,
+            picture=picture,
+            allow_reactivation=False,
+        )
 
         # Bind the auth code to this user
         row.user_id = user.id
@@ -481,29 +469,16 @@ async def google_oauth_callback(
         if row.expires_at < datetime.utcnow():
             raise HTTPException(status_code=400, detail="MCP authorization code expired")
 
-        # Find or create the Blog2Video user
-        user = db.query(User).filter(User.google_id == google_id).first()
-        if not user:
-            user = db.query(User).filter(User.email == email).first()
-            if user:
-                user.google_id = google_id
-                user.picture = picture or user.picture
-            else:
-                user = User(
-                    email=email,
-                    name=name,
-                    picture=picture,
-                    google_id=google_id,
-                    plan=PlanTier.FREE,
-                    videos_used_this_period=0,
-                    video_limit_bonus=0,
-                    is_active=True,
-                )
-                db.add(user)
-                db.flush()
-
-        if not user.is_active:
-            raise HTTPException(status_code=403, detail="Account is deactivated")
+        # Find or create the Blog2Video user under the shared identity rules.
+        user, _created = resolve_or_create_user(
+            db,
+            provider=AuthProvider.GOOGLE,
+            provider_user_id=google_id,
+            email=email,
+            name=name,
+            picture=picture,
+            allow_reactivation=False,
+        )
 
         row.user_id = user.id
         db.commit()

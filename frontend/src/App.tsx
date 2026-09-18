@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { getMe } from "./api/client";
 import { CraftedTemplatesProvider } from "./contexts/CraftedTemplatesContext";
 import { ErrorModalProvider } from "./contexts/ErrorModalContext";
+import { LoginModalProvider } from "./contexts/LoginModalContext";
 import { NoticeModalProvider } from "./contexts/NoticeModalContext";
 import { SupportTourProvider } from "./components/support/SupportTourContext";
 import { SupportWidget } from "./components/support/SupportWidget";
@@ -12,6 +13,7 @@ import Landing from "./pages/Landing";
 import PdfLanding from "./pages/PdfLanding";
 import { applyFavicon, isPdfBrand, useBrand, markPdfOrigin } from "./brand/brand";
 import Pricing from "./pages/Pricing";
+import AuthPage from "./pages/AuthPage";
 import Dashboard from "./pages/Dashboard";
 import ProjectView from "./pages/ProjectView";
 import Subscription from "./pages/Subscription";
@@ -188,6 +190,10 @@ function AppRoutes() {
             (corePages.ts) with inbound links from several others. */}
         <Route path="/pdf2video" element={<PdfLanding />} />
         <Route path="/pricing" element={<Pricing />} />
+        {/* Full-page sign-in / sign-up. Two paths, one component, so "Sign up"
+            is directly linkable rather than reachable only via a toggle. */}
+        <Route path="/signin" element={<AuthPage mode="signin" />} />
+        <Route path="/signup" element={<AuthPage mode="signup" />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/blogs" element={<Blog />} />
         <Route path="/blogs/:slug" element={<BlogPostPage />} />
@@ -297,11 +303,15 @@ function App() {
         <ErrorModalProvider>
           <NoticeModalProvider>
           <SupportTourProvider>
+            {/* Inside the Router (useSocialLogin redirects on success) and
+                inside ErrorModalProvider, whose helpers it reuses. */}
+            <LoginModalProvider>
               <AppRoutes />
             {/* The hidden /_capture route is screenshotted for template posters —
                 the support widget would otherwise be baked into every image. */}
             {!window.location.pathname.startsWith("/_capture") && <SupportWidget />}
             <UIHighlightOverlay />
+            </LoginModalProvider>
           </SupportTourProvider>
           </NoticeModalProvider>
         </ErrorModalProvider>

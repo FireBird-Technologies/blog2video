@@ -100,6 +100,8 @@ def kill_network(monkeypatch):
         "send_custom_template_request_email",
         "send_referral_invite_email",
         "send_support_escalation_email",
+        "send_verification_code_email",
+        "send_password_reset_code_email",
     ):
         monkeypatch.setattr(
             email_module.EmailService, method,

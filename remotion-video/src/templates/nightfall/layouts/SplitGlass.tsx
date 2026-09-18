@@ -79,10 +79,14 @@ export const SplitGlass: React.FC<NightfallLayoutProps> = ({
   // Portrait specific animation timings and values
   const pEntryStart = 15;
   const pEntrySettled = pEntryStart + 40; // When entry animation settles
-  const pHoldDuration = 60; // How long cards are visible and stable
+  // Cards hold well past the point the text is readable before leaving, so the
+  // exit reads as a deliberate beat rather than the cards drifting off mid-read.
+  const pHoldDuration = 85;
   const pHoldEnd = pEntrySettled + pHoldDuration;
   const pExitStart = pHoldEnd; // When exit animation starts
-  const pExitEnd = pExitStart + 30; // When exit animation finishes
+  // Short window: once they go, they go. A long exit made the cards hang
+  // around half-faded, which read as sinking rather than flowing away.
+  const pExitEnd = pExitStart + 20; // When exit animation finishes
 
   // Portrait card opacity (fade in, stay, fade out)
   const pCardOpacity = interpolate(
@@ -92,11 +96,13 @@ export const SplitGlass: React.FC<NightfallLayoutProps> = ({
     { extrapolateRight: "clamp" }
   );
 
-  // Portrait card Y position (start high, settle, stay, drop down)
+  // Portrait card Y position (start high, settle, stay, sweep away)
+  // Travels well past the old 300px so the cards clear frame while the fade
+  // is still running — they flow out instead of fading in place.
   const pCardTransformY = interpolate(
     frame,
     [pEntryStart, pEntrySettled, pExitStart, pExitEnd],
-    [-300, 0, 0, 300],
+    [-300, 0, 0, 700],
     { extrapolateRight: "clamp" }
   );
 
