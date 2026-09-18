@@ -30,20 +30,25 @@ const PageCurlComponent: React.FC<
   const perspective = passedProps.perspective ?? 2200;
 
   if (presentationDirection === "entering") {
+    // The next page is already lying flat underneath the lifted page.
+    // It just sits there, fading in slightly as the page above clears.
     const fadeIn = Math.min(1, presentationProgress * 1.4);
     return (
       <AbsoluteFill style={{ opacity: fadeIn }}>{children}</AbsoluteFill>
     );
   }
 
+  // Exiting page: rotate around an edge, with shadow + curl gradient.
   const isRightToLeft = direction === "right-to-left";
   const angle = presentationProgress * (isRightToLeft ? -180 : 180);
 
+  // Shadow under the lifting page peaks mid-flip then fades.
   const shadowAlpha =
     presentationProgress < 0.5
       ? presentationProgress * 0.7
       : (1 - presentationProgress) * 0.7;
 
+  // The curl-shadow gradient sweeps across the page as it lifts.
   const curlPos = presentationProgress * 100;
 
   return (
@@ -64,6 +69,7 @@ const PageCurlComponent: React.FC<
       >
         {children}
 
+        {/* Soft curl shadow that sweeps across the page surface */}
         <AbsoluteFill
           style={{
             background: isRightToLeft

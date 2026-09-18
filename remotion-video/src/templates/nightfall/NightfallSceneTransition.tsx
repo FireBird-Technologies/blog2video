@@ -15,9 +15,11 @@ type NightfallTransitionFamily =
 
 const LAYOUT_FAMILY: Record<string, NightfallTransitionFamily> = {
   cinematic_title: "thunder_break",
+  cinematic_title__v2: "thunder_break",
   chapter_break: "thunder_break",
   split_glass: "thunder_break",
   glass_narrative: "text_focus",
+  glass_narrative__v2: "falling_in",
   kinetic_insight: "text_focus",
   glass_code: "text_focus",
   ending_socials: "text_focus",

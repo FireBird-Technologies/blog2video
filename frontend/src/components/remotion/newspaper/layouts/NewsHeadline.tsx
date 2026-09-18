@@ -212,7 +212,7 @@ export const NewsHeadline: React.FC<
         : [words[0], words[Math.floor(words.length / 2)], words[words.length - 1]];
 
   // Calculate description font size for relative scaling
-  const actualDescriptionFontSize = descriptionFontSize ?? (p ? 35 : 28);
+  const actualDescriptionFontSize = descriptionFontSize ?? (p ? 37 : 28);
   const categoryBaseFontSize = p ? 28 : 24; // Base for category without descriptionFontSize
   const authorBaseFontSize = p ? 20 : 16; // Base for author without descriptionFontSize
   // A clip fills the same visual slot as a still, so it must not
@@ -231,8 +231,9 @@ export const NewsHeadline: React.FC<
      unconditionally, as the Rules of Hooks require. */
   const narrationRef = React.useRef<HTMLDivElement>(null);
   const titleRef = React.useRef<HTMLDivElement>(null);
+  const categoryRef = React.useRef<HTMLDivElement>(null);
 
-  const actualTitleFontSize = titleFontSize ?? (p ? 77 : 68);
+  const actualTitleFontSize = titleFontSize ?? (p ? 68 : 62);
 
   /* Stage 1 — the headline fits its own share of the column.
      The title is `flex-shrink:0`, so its clientHeight always equals its content
@@ -242,7 +243,11 @@ export const NewsHeadline: React.FC<
      fits inside its share is left completely alone. */
   const titleBudgetPx = React.useMemo(() => {
     // Container height minus its vertical padding (percentages of the frame).
-    const padFrac = portraitNoImage ? 0.12 + 0.1 : p ? 0.15 : 0.14;
+    // Portrait-with-image: 12% top pad + the picture's MINIMUM 25.5% band, so
+    // ~62.5% of the frame is available to copy. The original 0.15 overstated
+    // the column by ~493px on a 1280-tall frame, which is what let the auto-fit
+    // grow the headline straight down into the photo.
+    const padFrac = portraitNoImage ? 0.12 + 0.1 : p ? 0.375 : 0.14;
     const inner = videoHeight * (1 - padFrac);
     // The headline may claim at most this much of the usable column; the rest
     // is reserved for the category chip, byline and narration.
@@ -264,12 +269,85 @@ export const NewsHeadline: React.FC<
      output creates a multi-render convergence that Remotion's per-frame
      headless capture can settle at different points on different frames
      (confirmed via a real render — frame-to-frame scene-change score hit
-     1.0, i.e. maximum, twice in the first ten frames, in this scene). */
+     1.0, i.e. maximum, twice in the first ten frames, in this scene).
+
+     The narration wrapper is `flex:"0 1 auto"` inside a `justifyContent`
+     center/flex-end column, so its own clientHeight (and even
+     useAvailableHeight's offsetTop-based measurement of the wrapper) is NOT
+     the real leftover space: centering positions the whole stack (category +
+     title + narration) using narration's OWN current height, so measuring
+     "where narration starts" is circular — it reflects the stack's current
+     (possibly still-overflowing) layout, not the space left if narration
+     were sized correctly. Confirmed via a real render: with a long title +
+     long narration, this measured budget came out at 75px on a 720px-tall
+     frame, when the true leftover was ~200px+.
+
+     Compute the budget arithmetically instead, the same way titleBudgetPx
+     is: container inner height minus the category block's and title's own
+     (trustworthy, because both are flexShrink:0) rendered heights. Neither
+     of those is affected by centering. */
+  const [categoryH, setCategoryH] = React.useState(0);
+  const [titleH, setTitleH] = React.useState(0);
+  /* The narration's REAL rendered height, not its budget. Needed because a
+     user-set font size makes useFitText a no-op (minPx === targetPx), so the
+     copy keeps its chosen size and simply occupies more room — the case where
+     the picture has to give way instead of the text being clipped. */
+  const [narrationH, setNarrationH] = React.useState(0);
+  React.useLayoutEffect(() => {
+    setCategoryH(categoryRef.current?.offsetHeight ?? 0);
+    setTitleH(titleRef.current?.offsetHeight ?? 0);
+    setNarrationH(narrationRef.current?.offsetHeight ?? 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [titlePx, cat, stats, title, narration, actualDescriptionFontSize, descriptionFontSizeIsUserSet, videoHeight]);
+
+  const narrationBudgetPx = React.useMemo(() => {
+    if (portraitNoImage) return undefined; // that variant's own clientHeight IS the true budget (single flex:1 child).
+    // Mirrors titleBudgetPx: the picture's minimum band is not available to copy.
+    const padFrac = p ? 0.375 : 0.14;
+    const inner = videoHeight * (1 - padFrac);
+    const categoryMargin = p ? 20 : 30;
+    const titleMargin = p ? 40 : 36;
+    const used = categoryH + categoryMargin + titleH + titleMargin;
+    // Leave ~90% of the true remainder as breathing room rather than fitting
+    // to the exact last pixel.
+    return Math.max(1, (inner - used) * 0.92);
+  }, [videoHeight, p, portraitNoImage, categoryH, titleH]);
+
+  /* ── Portrait picture band ────────────────────────────────────────────────
+     The card's height is derived, not fixed. The copy is laid out first and the
+     picture takes whatever is left below it, so when the text grows — a long
+     headline, a long narration, or a user-set font size that useFitText is not
+     allowed to shrink — the IMAGE COMPRESSES instead of the copy being clipped
+     or running underneath the card.
+
+     Clamped at both ends: never taller than 42% (so the picture stays a
+     picture and not the whole page), never shorter than 16% (so heavy copy
+     leaves a photo that is still recognisable rather than a sliver). */
+  const PORTRAIT_CARD_MAX_FRAC = 0.42;
+  const PORTRAIT_CARD_MIN_FRAC = 0.16;
+  const PORTRAIT_CARD_BOTTOM_FRAC = 0.06;
+  const portraitCardHeightFrac = React.useMemo(() => {
+    if (!p || !hasVisual) return PORTRAIT_CARD_MAX_FRAC;
+    const topPad = 0.12 * videoHeight;
+    const categoryMargin = 20;
+    const titleMargin = 40;
+    const gap = 0.035 * videoHeight;
+    // Where the copy actually ends, measured rather than assumed.
+    const textBottom =
+      topPad + categoryH + categoryMargin + titleH + titleMargin + narrationH;
+    const leftover =
+      videoHeight - textBottom - gap - PORTRAIT_CARD_BOTTOM_FRAC * videoHeight;
+    const frac = leftover / videoHeight;
+    return Math.min(PORTRAIT_CARD_MAX_FRAC, Math.max(PORTRAIT_CARD_MIN_FRAC, frac));
+  }, [p, hasVisual, videoHeight, categoryH, titleH, narrationH]);
+
+
   const { px: narrationPx } = useFitText(
     narrationRef,
     actualDescriptionFontSize,
     descriptionFontSizeIsUserSet ? actualDescriptionFontSize : p ? 18 : 14,
-    [narration, actualDescriptionFontSize, descriptionFontSizeIsUserSet, titlePx, p, portraitNoImage, hasVisual],
+    [narration, actualDescriptionFontSize, descriptionFontSizeIsUserSet, titlePx, p, portraitNoImage, hasVisual, narrationBudgetPx],
+    narrationBudgetPx,
   );
 
   return (
@@ -298,12 +376,21 @@ export const NewsHeadline: React.FC<
         <div
           style={{
             position: "absolute",
-            // Portrait: Center Top | Landscape: Right Side
-            top: p ? "15%" : "18%",
+            // Portrait: pinned to the BOTTOM of the page, with the copy stacked
+            // above it. It used to sit at top:15% height:35% while the content
+            // container ran the full frame with justifyContent:"flex-end" — so
+            // any stack taller than ~448px grew up through the card and the
+            // headline painted straight over the photo (content is zIndex 10,
+            // card is 5). Reserving the lower band for the picture and ending
+            // the copy above it removes the collision by construction rather
+            // than relying on the text happening to be short enough.
+            // Landscape is unchanged: Right Side.
+            top: p ? "auto" : "18%",
+            bottom: p ? "6%" : "auto",
             right: p ? "auto" : "4%",
             left: p ? "50%" : "auto",
             width: p ? "80%" : "40%",
-            height: p ? "35%" : "50%",
+            height: p ? `${portraitCardHeightFrac * 100}%` : "50%",
             // ✅ physical styling: white paper background and padding
             background: "#fff",
             padding: "10px 10px 30px 10px", // extra bottom padding for 'pasted' look
@@ -370,8 +457,24 @@ export const NewsHeadline: React.FC<
           inset: 0,
           display: "flex",
           flexDirection: "column",
-          justifyContent: portraitNoImage ? "flex-start" : p ? "flex-end" : "center",
-          padding: portraitNoImage ? "12% 10% 10% 10%" : p ? "0 10% 15% 10%" : "7% 10%",
+          // Portrait-with-image anchors to the TOP: the copy starts below the
+          // masthead area and grows downward into its reserved band, while the
+          // picture owns the bottom. With "flex-end" the stack hugged its floor
+          // instead, so any extra height pushed UP — and, once the floor was
+          // raised, the last narration line still crossed the card's top edge.
+          // No picture: the copy is the only content, so centre the whole stack
+          // and let it grow symmetrically up and down from the middle.
+          justifyContent: portraitNoImage ? "center" : p ? "flex-start" : "center",
+          // Portrait-with-image: the copy's floor corresponds to the card at its
+          // MINIMUM height (16% + 6% bottom + 3.5% gap = 25.5%), not its maximum.
+          // The card compresses toward that floor as the copy grows, so
+          // reserving the full 34% band here would clip text that the picture
+          // was willing to make room for.
+          padding: portraitNoImage
+            ? "12% 10% 10% 10%"
+            : p
+              ? "12% 10% 25.5% 10%"
+              : "7% 10%",
           zIndex: 10,
           opacity: contentOpacity,
           // Let the narration shrink into the leftover space instead of
@@ -381,6 +484,7 @@ export const NewsHeadline: React.FC<
       >
         {/* CATEGORY + AUTHOR (from stats) */}
         <div
+          ref={categoryRef}
           style={{
             marginBottom: portraitNoImage ? 24 : p ? 20 : 30,
             display: "flex",
@@ -439,7 +543,7 @@ export const NewsHeadline: React.FC<
             fontSize: titlePx,
             fontWeight: 800,
             lineHeight: 1.0,
-            marginBottom: portraitNoImage ? 0 : p ? 40 : 36,
+            marginBottom: portraitNoImage ? 28 : p ? 40 : 36,
             maxWidth: p ? "100%" : (imageUrl ? "50%" : "60%"),
             flexShrink: 0,
           }}
@@ -479,20 +583,45 @@ export const NewsHeadline: React.FC<
             style={
               portraitNoImage
                 ? {
-                    flex: 1,
+                    // Content-sized, NOT flex:1 — stretching this to fill the
+                    // column is what pinned the title to the top and left the
+                    // body marooned near the bottom.
+                    flex: "0 1 auto",
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "center",
+                    justifyContent: "flex-start",
                     minHeight: 0,
                     paddingTop: 24,
                     paddingBottom: 24,
                   }
-                : // `flex-shrink:1` + `min-height:0` lets this shrink BELOW its
-                  // content height once the column overflows, which is what
-                  // gives the fitter a real band to measure. It never grows, so
-                  // short narration stays exactly where it sits today and the
-                  // parent's justifyContent semantics are untouched.
-                  { flex: "0 1 auto", minHeight: 0, overflow: "hidden", display: "flex" }
+                : // Fixed `height: narrationBudgetPx` (not `flex:"0 1 auto"` +
+                  // clientHeight self-measurement): inside a `justifyContent:
+                  // "center"` column, flex-shrink distributes space by each
+                  // child's OWN flex-basis/content height, not by "what's left
+                  // after fixed siblings" — so a flex-shrunk wrapper's real
+                  // clientHeight routinely came out smaller than the budget
+                  // useFitText was told to fit into (confirmed via a real
+                  // render: budget=141 but the flex-computed box only got
+                  // clientHeight=75, so text measured as "fits in 141" was
+                  // still clipped by ~60px). An explicit height dictated by our
+                  // own arithmetic (narrationBudgetPx, computed from the
+                  // category/title's real measured heights) sidesteps flexbox's
+                  // shrink algorithm entirely — the box IS the budget, no
+                  // second system disagreeing about it.
+                  {
+                      flexShrink: 0,
+                      // maxHeight, NOT height: a fixed height made this block
+                      // occupy the whole budget even for one short line, so the
+                      // text stack ended at ~71% of the frame in every case and
+                      // the picture below it always clamped to its floor. The
+                      // cap still preserves what the fixed height was for —
+                      // the box can never exceed the budget useFitText fitted
+                      // the copy into — but short copy now takes only the room
+                      // it needs, and the picture gets the rest.
+                      maxHeight: narrationBudgetPx,
+                      overflow: "hidden",
+                      display: "flex",
+                    }
             }
           >
             <div
@@ -502,12 +631,18 @@ export const NewsHeadline: React.FC<
                 fontWeight: 600,
                 color: textColor,
                 lineHeight: 1.4,
+                // Explicit `width` (not just maxWidth) pins this flex item to
+                // the same column width on every measurement pass, matching
+                // the wrapper's now-fixed `height` below.
+                width: p ? "100%" : (imageUrl ? "50%" : "70%"),
                 maxWidth: p ? "100%" : (imageUrl ? "50%" : "70%"),
                 opacity: 0.9,
-                textAlign: portraitNoImage ? "center" : undefined,
-                // Read the band, not the copy: without these the measured
-                // clientHeight would just be the text's own height.
-                height: "100%",
+                // Left-aligned like the category and headline above it, so the
+                // whole block reads as one column rather than a centred caption.
+                textAlign: undefined,
+                // Content-sized now that the wrapper is capped rather than
+                // fixed; height:100% here would re-inflate it to the full budget
+                // and reintroduce the always-at-the-floor picture.
                 minHeight: 0,
                 overflow: "hidden",
               }}

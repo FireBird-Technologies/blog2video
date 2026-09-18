@@ -1,9 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { CredentialResponse } from "@react-oauth/google";
 import {
-  googleLogin,
   createCheckoutSession,
   createPerVideoCheckout,
   createBulkCreditsCheckout,
@@ -14,8 +12,6 @@ import {
 import type { BillingCycle, PlanKey } from "../api/billing";
 import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
-import GoogleAuthButton from "../components/public/GoogleAuthButton";
-import AccountDeletedModal from "../components/AccountDeletedModal";
 import PublicHeader from "../components/public/PublicHeader";
 import PublicFooter from "../components/public/PublicFooter";
 import Seo from "../components/seo/Seo";
@@ -52,15 +48,12 @@ import {
 // import DiscountCodeBadge from "../components/DiscountCodeBadge";
 
 export default function Pricing() {
-  const { user, login } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { showError } = useErrorModal();
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
-  const [accountDeletedOpen, setAccountDeletedOpen] = useState(false);
-  const [pendingCredential, setPendingCredential] = useState<string | null>(null);
-  const [reactivating, setReactivating] = useState(false);
   const [subscription, setSubscription] = useState<SubscriptionDetail | null>(null);
   const [pendingSwitch, setPendingSwitch] = useState<{
     plan: PlanKey;
@@ -105,40 +98,6 @@ export default function Pricing() {
       setSubscription(res.data);
     } catch {
       // ignore
-    }
-  };
-
-  const handleGoogleSuccess = async (response: CredentialResponse) => {
-    if (!response.credential) return;
-    const refCode = localStorage.getItem("b2v_ref_code");
-    try {
-      const res = await googleLogin(response.credential, false, refCode);
-      localStorage.removeItem("b2v_ref_code");
-      login(res.data.access_token, res.data.user);
-      navigate("/dashboard");
-    } catch (err: any) {
-      if (err?.response?.status === 403 && err?.response?.data?.detail === "account_deleted") {
-        setPendingCredential(response.credential);
-        setAccountDeletedOpen(true);
-      } else {
-        showError(getErrorMessage(err, "Authentication failed. Please try again."));
-      }
-    }
-  };
-
-  const handleReactivate = async () => {
-    if (!pendingCredential) return;
-    setReactivating(true);
-    try {
-      const res = await googleLogin(pendingCredential, true);
-      login(res.data.access_token, res.data.user);
-      setAccountDeletedOpen(false);
-      setPendingCredential(null);
-      navigate("/dashboard");
-    } catch (err: any) {
-      showError(getErrorMessage(err, "Failed to reactivate account."));
-    } finally {
-      setReactivating(false);
     }
   };
 
@@ -400,12 +359,14 @@ export default function Pricing() {
               </button>
             ) : (
               <div className="flex justify-center">
-                <GoogleAuthButton
-                  onSuccess={handleGoogleSuccess}
-                  onError={() => showError("Google sign-in failed")}
-                  text="signup_with"
-                  width="190"
-                />
+                <button
+                  type="button"
+                  onClick={() => navigate("/signin")}
+                  className="inline-flex h-10 items-center justify-center rounded-full bg-purple-600 px-6 text-sm font-medium text-white transition hover:bg-purple-700"
+                  style={{ width: "190px", maxWidth: "100%" }}
+                >
+                  Get started
+                </button>
               </div>
             )}
           </div>
@@ -428,12 +389,14 @@ export default function Pricing() {
               onBuy={() => {}}
               customButton={
                 <div className="flex justify-center">
-                  <GoogleAuthButton
-                    onSuccess={handleGoogleSuccess}
-                    onError={() => showError("Google sign-in failed")}
-                    text="continue_with"
-                    width="190"
-                  />
+                  <button
+                  type="button"
+                  onClick={() => navigate("/signin")}
+                  className="inline-flex h-10 items-center justify-center rounded-full bg-purple-600 px-6 text-sm font-medium text-white transition hover:bg-purple-700"
+                  style={{ width: "190px", maxWidth: "100%" }}
+                >
+                  Get started
+                </button>
                 </div>
               }
             />
@@ -507,12 +470,14 @@ export default function Pricing() {
                 />
               ) : (
                 <div className="flex justify-center">
-                  <GoogleAuthButton
-                    onSuccess={handleGoogleSuccess}
-                    onError={() => showError("Google sign-in failed")}
-                    text="continue_with"
-                    width="190"
-                  />
+                  <button
+                  type="button"
+                  onClick={() => navigate("/signin")}
+                  className="inline-flex h-10 items-center justify-center rounded-full bg-purple-600 px-6 text-sm font-medium text-white transition hover:bg-purple-700"
+                  style={{ width: "190px", maxWidth: "100%" }}
+                >
+                  Get started
+                </button>
                 </div>
               )}
             </div>
@@ -602,12 +567,14 @@ export default function Pricing() {
               )
             ) : (
               <div className="flex justify-center">
-                <GoogleAuthButton
-                  onSuccess={handleGoogleSuccess}
-                  onError={() => showError("Google sign-in failed")}
-                  text="continue_with"
-                  width="190"
-                />
+                <button
+                  type="button"
+                  onClick={() => navigate("/signin")}
+                  className="inline-flex h-10 items-center justify-center rounded-full bg-purple-600 px-6 text-sm font-medium text-white transition hover:bg-purple-700"
+                  style={{ width: "190px", maxWidth: "100%" }}
+                >
+                  Get started
+                </button>
               </div>
             )}
           </div>
@@ -711,12 +678,14 @@ export default function Pricing() {
               )
             ) : (
               <div className="flex justify-center">
-                <GoogleAuthButton
-                  onSuccess={handleGoogleSuccess}
-                  onError={() => showError("Google sign-in failed")}
-                  text="continue_with"
-                  width="190"
-                />
+                <button
+                  type="button"
+                  onClick={() => navigate("/signin")}
+                  className="inline-flex h-10 items-center justify-center rounded-full bg-purple-600 px-6 text-sm font-medium text-white transition hover:bg-purple-700"
+                  style={{ width: "190px", maxWidth: "100%" }}
+                >
+                  Get started
+                </button>
               </div>
             )}
           </div>
@@ -986,12 +955,6 @@ export default function Pricing() {
 
       <PublicFooter />
 
-      <AccountDeletedModal
-        open={accountDeletedOpen}
-        onClose={() => { setAccountDeletedOpen(false); setPendingCredential(null); }}
-        onReactivate={handleReactivate}
-        reactivating={reactivating}
-      />
 
       <PlanSwitchConfirmModal
         open={Boolean(pendingSwitch)}

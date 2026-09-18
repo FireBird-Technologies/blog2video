@@ -1,10 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import type { CredentialResponse } from "@react-oauth/google";
 import { useAuth } from "../hooks/useAuth";
-import { googleLogin } from "../api/client";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
-import GoogleAuthButton from "../components/public/GoogleAuthButton";
+import { useLoginModal } from "../contexts/LoginModalContext";
 import { acceptInvite, rejectInvite, getInviteByToken, PendingInvite } from "../api/collaboration";
 
 /**
@@ -17,9 +15,10 @@ import { acceptInvite, rejectInvite, getInviteByToken, PendingInvite } from "../
  */
 export default function AcceptInvite() {
   const { token } = useParams<{ token: string }>();
-  const { user, loading: authLoading, login, logout } = useAuth();
+  const { user, loading: authLoading, logout } = useAuth();
   const navigate = useNavigate();
   const { showError } = useErrorModal();
+  const { openLogin } = useLoginModal();
 
   const [phase, setPhase] = useState<
     "loading" | "signed_out" | "decide" | "wrong_account" | "error"
@@ -27,7 +26,6 @@ export default function AcceptInvite() {
   const [invite, setInvite] = useState<PendingInvite | null>(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState<"accept" | "reject" | null>(null);
-  const [signingIn, setSigningIn] = useState(false);
   // Bumped by "Try again" to re-fetch the invite — recovers a stale error page
   // (e.g. the owner canceled then resent) without a full reload.
   const [reloadKey, setReloadKey] = useState(0);
@@ -73,20 +71,6 @@ export default function AcceptInvite() {
       cancelled = true;
     };
   }, [token, user, authLoading, navigate, reloadKey]);
-
-  const handleGoogleSuccess = async (response: CredentialResponse) => {
-    if (!response.credential) return;
-    setSigningIn(true);
-    try {
-      const res = await googleLogin(response.credential, false);
-      login(res.data.access_token, res.data.user);
-      // The user effect re-runs and moves us to decide / wrong_account.
-    } catch (err) {
-      showError(getErrorMessage(err, "Sign-in failed. Please try again."));
-    } finally {
-      setSigningIn(false);
-    }
-  };
 
   const handleAccept = async () => {
     if (!token) return;
@@ -159,18 +143,13 @@ export default function AcceptInvite() {
               <span className="text-sm font-medium text-purple-800 truncate">{invite.invited_email}</span>
             </div>
             <div className="flex justify-center">
-              {signingIn ? (
-                <div className="inline-flex items-center gap-2 text-sm text-gray-500 py-3">
-                  <span className="w-4 h-4 border-2 border-[#7C3AED] border-t-transparent rounded-full animate-spin" />
-                  Signing in…
-                </div>
-              ) : (
-                <GoogleAuthButton
-                  onSuccess={handleGoogleSuccess}
-                  onError={() => showError("Google sign-in was cancelled or failed.")}
-                  text="continue_with"
-                />
-              )}
+              <button
+                type="button"
+                onClick={() => openLogin({ title: "Sign in to accept this invitation" })}
+                className="inline-flex h-10 items-center justify-center rounded-full bg-purple-600 px-6 text-sm font-medium text-white transition hover:bg-purple-700"
+              >
+                Sign in to continue
+              </button>
             </div>
           </div>
         )}
@@ -229,18 +208,13 @@ export default function AcceptInvite() {
               <span className="text-sm font-medium text-purple-800 truncate">{invite.invited_email}</span>
             </div>
             <div className="flex flex-col items-center gap-3">
-              {signingIn ? (
-                <div className="inline-flex items-center gap-2 text-sm text-gray-500 py-3">
-                  <span className="w-4 h-4 border-2 border-[#7C3AED] border-t-transparent rounded-full animate-spin" />
-                  Signing in…
-                </div>
-              ) : (
-                <GoogleAuthButton
-                  onSuccess={handleGoogleSuccess}
-                  onError={() => showError("Google sign-in was cancelled or failed.")}
-                  text="signin_with"
-                />
-              )}
+              <button
+                type="button"
+                onClick={() => openLogin({ title: "Sign in to accept this invitation" })}
+                className="inline-flex h-10 items-center justify-center rounded-full bg-purple-600 px-6 text-sm font-medium text-white transition hover:bg-purple-700"
+              >
+                Sign in with a different account
+              </button>
               <button
                 type="button"
                 onClick={logout}

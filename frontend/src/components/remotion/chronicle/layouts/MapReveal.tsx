@@ -10,6 +10,7 @@ import { CompassRose, OrnamentalCorner } from "../components/OrnamentalBorder";
 import { EmbossedImage } from "../components/EmbossedImage";
 import { QuillText } from "../components/QuillInk";
 import { useFitText } from "../components/useFitText";
+import { chronicleHeroHeadingStyle, chronicleHeroHeadingTypography } from "../components/ChronicleHeading";
 
 /**
  * MapReveal — image layout styled as an unfurled cartographer's map.
@@ -129,10 +130,8 @@ export const MapReveal: React.FC<ChronicleLayoutProps> = ({
               visibility: "hidden",
               position: "absolute",
               inset: 0,
-              fontFamily: CHRONICLE_HEADING_FONT,
+              ...chronicleHeroHeadingTypography(fontFamily),
               fontSize: fitTitlePx,
-              fontWeight: 700,
-              textAlign: "center",
               width: "100%",
             }}
           >
@@ -140,11 +139,8 @@ export const MapReveal: React.FC<ChronicleLayoutProps> = ({
           </div>
           <div
             style={{
-              fontFamily: CHRONICLE_HEADING_FONT,
+              ...chronicleHeroHeadingStyle(accentColor, fontFamily),
               fontSize: fitTitlePx,
-              fontWeight: 700,
-              color: textColor,
-              textAlign: "center",
               opacity: mapOp,
             }}
           >

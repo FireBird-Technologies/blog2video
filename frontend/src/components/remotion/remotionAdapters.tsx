@@ -2334,6 +2334,9 @@ export const RemotionMagazineVideoComposition: React.FC<
             fontFamily,
             pageNumber: index + 1 < 10 ? `0${index + 1}` : String(index + 1),
             brandName: projectName,
+            cameraMove: layoutKey === "by_the_numbers__v2"
+              ? "whip_settle"
+              : rawProps.cameraMove as RemotionMagazineLayoutProps["cameraMove"],
           };
 
           const isLast = index === resolvedScenes.length - 1;

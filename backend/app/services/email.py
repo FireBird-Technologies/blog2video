@@ -1030,6 +1030,123 @@ class EmailService:
             from_email=getattr(settings, "NOREPLY_EMAIL", "noreply@blog2video.app"),
         )
 
+    # ─── Email/password auth codes ───────────────────────────────────────────
+    # Both are TRANSACTIONAL: no unsubscribe link, and callers must NOT check
+    # user.email_unsubscribed. Someone who opted out of product emails must still
+    # be able to verify their address and reset their password — suppressing
+    # these would lock them out of their own account.
+
+    def _build_code_html(self, headline: str, body_paragraph: str, code: str) -> str:
+        """Branded shell with the code shown large and selectable.
+
+        Deliberately not _build_html: that renders a CTA button, and a one-time
+        code has nothing to link to — the user reads it and types it back.
+        """
+        from app.services.email_verification import CODE_TTL_SECONDS
+
+        minutes = CODE_TTL_SECONDS // 60
+        return f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{html.escape(headline)}</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table width="560" cellpadding="0" cellspacing="0"
+               style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="background:#9333EA;padding:32px 40px;text-align:center;">
+              <span style="font-size:24px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">
+                Blog<span style="color:#c4b5fd;">2</span>Video
+              </span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:40px 40px 32px;">
+              <p style="margin:0 0 16px;font-size:18px;font-weight:600;color:#111827;">{html.escape(headline)}</p>
+              <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#4b5563;">{body_paragraph}</p>
+              <div style="margin:0 0 24px;padding:20px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;text-align:center;">
+                <span style="font-family:'SF Mono',Menlo,Consolas,monospace;font-size:32px;font-weight:700;letter-spacing:8px;color:#111827;">{html.escape(code)}</span>
+              </div>
+              <p style="margin:0;font-size:13px;line-height:1.6;color:#6b7280;">
+                This code expires in {minutes} minutes. If you didn't request it, you can safely ignore this email.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 40px 32px;">
+              <p style="margin:0;font-size:13px;color:#9ca3af;">Team Blog2Video</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+    def send_verification_code_email(self, to_email: str, code: str) -> None:
+        """Signup verification code — proves the user controls this mailbox."""
+        from app.services.email_verification import CODE_TTL_SECONDS
+
+        minutes = CODE_TTL_SECONDS // 60
+        subject = f"{code} is your Blog2Video verification code"
+        text_content = (
+            f"Your Blog2Video verification code is {code}\n\n"
+            f"Enter it to finish creating your account. "
+            f"This code expires in {minutes} minutes.\n\n"
+            f"If you didn't request it, you can safely ignore this email.\n\n"
+            f"Team Blog2Video\n"
+        )
+        html_content = self._build_code_html(
+            headline="Verify your email address",
+            body_paragraph=(
+                "Enter this code to finish creating your Blog2Video account."
+            ),
+            code=code,
+        )
+        self.provider.send_email(
+            to=to_email,
+            subject=subject,
+            html_content=html_content,
+            text_content=text_content,
+            from_email=getattr(settings, "NOREPLY_EMAIL", "noreply@blog2video.app"),
+        )
+
+    def send_password_reset_code_email(self, to_email: str, code: str) -> None:
+        """Password-reset code for an existing email/password account."""
+        from app.services.email_verification import CODE_TTL_SECONDS
+
+        minutes = CODE_TTL_SECONDS // 60
+        subject = f"{code} is your Blog2Video password reset code"
+        text_content = (
+            f"Your Blog2Video password reset code is {code}\n\n"
+            f"Enter it to choose a new password. "
+            f"This code expires in {minutes} minutes.\n\n"
+            f"If you didn't request a password reset, you can safely ignore this "
+            f"email — your password has not changed.\n\n"
+            f"Team Blog2Video\n"
+        )
+        html_content = self._build_code_html(
+            headline="Reset your password",
+            body_paragraph=(
+                "Enter this code to choose a new password. If you didn't request a "
+                "reset, your password has not changed."
+            ),
+            code=code,
+        )
+        self.provider.send_email(
+            to=to_email,
+            subject=subject,
+            html_content=html_content,
+            text_content=text_content,
+            from_email=getattr(settings, "NOREPLY_EMAIL", "noreply@blog2video.app"),
+        )
+
     def send_collab_invite_email(
         self, to_email: str, inviter_name: str, project_name: str, accept_link: str
     ) -> None:
@@ -1112,6 +1229,52 @@ class EmailService:
         # )
         # if response.error:
         #     raise EmailServiceError(f"Unosend error sending to {user_email}: {response.error.message}")
+
+    def send_get_started_email(self, to_email: str, user_name: str) -> None:
+        """Weekly onboarding nudge for new free-plan users who haven't created a video yet."""
+        first_name = (user_name or "").split()[0] if user_name else "there"
+        unsubscribe_url = self._make_unsubscribe_url(to_email)
+        dashboard_url = getattr(settings, "FRONTEND_URL", "https://blog2video.app").rstrip("/")
+        subject = "Here's how to make your first video on Blog2Video"
+
+        steps_text = (
+            f"Hi {first_name},\n\n"
+            f"You signed up for Blog2Video but haven't made your first video yet — here's how to get started in a few minutes.\n\n"
+            f"1. Click \"New\" on your dashboard to start a project.\n\n"
+            f"2. Add your source content. Paste a URL (a blog post or article) or upload a PDF, DOCX, or slide deck — that's what your video will be based on.\n\n"
+            f"3. Choose a template. Pick a look for your video, like stickman, Documentry Reel, Newspaper, Newscast, and many more, or select your own custom or specially crafted template.\n\n"
+            f"4. Choose a voice. Pick a voice by gender and accent, use a saved custom voice, or skip voiceover entirely. You can even clone your own voice and use it as your narrator.\n\n"
+            f"5. Generate your project. Blog2Video builds your video, and you can review and tweak each scene in the Scenes tab before rendering.\n\n"
+            f"Once it's generated, you can keep editing it — adjust scenes, swap the template or voice, then render and export the final video whenever you're ready.\n\n"
+            f"Want your videos to match your brand? From the Templates tab in your dashboard, you can create your own custom template using just a website link, a text prompt describing the look you want, or a design document — it's ready in about 5 minutes, fully automatic. "
+            f"Or, if you'd rather have it done for you, request a crafted template from the same Templates tab and connect with us — our own design team will build it specially for you.\n\n"
+            f"Ready to make your first video? Get started: {dashboard_url}\n\n"
+            f"Team Blog2Video"
+        )
+
+        text_content = steps_text + f"\n\n---\nTo unsubscribe from these emails, visit: {unsubscribe_url}\n"
+
+        # HTML mirrors the plain-text look (no card/logo/button — see
+        # send_referral_invite_email for the same <pre>-wrapped pattern), with
+        # "Get started" as a real underlined link instead of a bare URL.
+        html_steps = html.escape(steps_text).replace(
+            html.escape(f"Get started: {dashboard_url}"),
+            f'<a href="{dashboard_url}" style="color:inherit;text-decoration:underline;">Get started</a>',
+        )
+        html_content = (
+            f"<pre style='font-family:inherit;font-size:15px;white-space:pre-wrap;margin:0;'>"
+            f"{html_steps}"
+            f"</pre>"
+        )
+
+        self.provider.send_email(
+            to=to_email,
+            subject=subject,
+            html_content=html_content,
+            text_content=text_content,
+            from_email="Arslan Shahid <arslan@send.blog2video.app>",
+            reply_to="arslan@blog2video.app",
+        )
 
     def _make_unsubscribe_url(self, email: str) -> str:
         token = hmac.new(

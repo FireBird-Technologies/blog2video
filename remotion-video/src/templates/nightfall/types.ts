@@ -1,4 +1,3 @@
-/** Nightfall template layout types. */
 import type { SocialsMap } from "../SocialIcons";
 
 // The `__vN` members are visual variants (see backend/templates/nightfall/meta.json
@@ -6,7 +5,9 @@ import type { SocialsMap } from "../SocialIcons";
 // between them must never require a prop migration.
 export type NightfallLayoutType =
   | "cinematic_title"
+  | "cinematic_title__v2"
   | "glass_narrative"
+  | "glass_narrative__v2"
   | "glow_metric"
   | "glass_code"
   | "kinetic_insight"
@@ -39,22 +40,16 @@ export interface NightfallLayoutProps {
   textColor: string;
   aspectRatio?: string;
   fontFamily?: string;
-  // glow_metric
   metrics?: { value: string; label: string; suffix?: string }[];
-  // glass_code
   codeLines?: string[];
   codeLanguage?: string;
-  // kinetic_insight
   quote?: string;
   highlightWord?: string;
-  // glass_stack
   items?: string[];
-  // split_glass
   leftLabel?: string;
   rightLabel?: string;
   leftDescription?: string;
   rightDescription?: string;
-  // chapter_break
   chapterNumber?: number;
   subtitle?: string;
   // nightfall_data_visualization
@@ -73,7 +68,10 @@ export interface NightfallLayoutProps {
   // typography overrides
   titleFontSize?: number;
   descriptionFontSize?: number;
-  // ending_socials
+  /** Derived at render time; true only when the user explicitly changed it. */
+  titleFontSizeIsUserSet?: boolean;
+  /** Derived at render time; true only when the user explicitly changed it. */
+  descriptionFontSizeIsUserSet?: boolean;
   socials?: SocialsMap;
   websiteLink?: string;
   showWebsiteButton?: boolean;

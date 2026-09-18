@@ -6,9 +6,12 @@ import type { SocialsMap } from "../SocialIcons";
 
 export type ChronicleLayoutType =
   | "book_open"
+  | "book_open__v2"
   | "parchment_scroll"
+  | "parchment_scroll__v2"
   | "chapter_plate"
   | "illuminated_quote"
+  | "illuminated_quote__v2"
   | "ledger_stats"
   | "versus_folio"
   | "chronicle_timeline"
@@ -16,7 +19,8 @@ export type ChronicleLayoutType =
   | "decree_seal"
   | "chronicle_data"
   | "chronicle_table"
-  | "ending_socials";
+  | "ending_socials"
+  | "ending_socials__v2";
 
 export interface ChronicleStat {
   value: string;
@@ -60,6 +64,8 @@ export interface ChronicleLayoutProps {
   quote?: string;
   attribution?: string;
   highlightPhrase?: string;
+  /** Small-caps label above the Illuminated Quote V2 quotation. */
+  rubricLabel?: string;
 
   // chapter_plate
   chapterNumber?: number;
@@ -106,6 +112,10 @@ export interface ChronicleLayoutProps {
   websiteLink?: string;
   showWebsiteButton?: boolean;
   ctaButtonText?: string;
+  /** Small-caps heading at the top of Ending Socials V2. */
+  closingLeafLabel?: string;
+  /** CTA eyebrow template; `{number}` is replaced with a Roman numeral. */
+  passageLabel?: string;
   /** Optional multi-CTA array (up to 3). When present, renderer renders columns. */
   ctas?: Array<{ ctaButtonText?: string; websiteLink?: string; showWebsiteButton?: boolean }>;
 }

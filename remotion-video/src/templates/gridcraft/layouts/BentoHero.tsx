@@ -74,8 +74,8 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
      label / "Tagline" caption above it. */
   const titleRef = React.useRef<HTMLDivElement>(null);
   const taglineRef = React.useRef<HTMLDivElement>(null);
-  const actualTitleFontSize = titleFontSize ?? (p ? 72 : 85);
-  const actualDescriptionFontSize = descriptionFontSize ?? (p ? 30 : 28);
+  const actualTitleFontSize = titleFontSize ?? (p ? 72 : 128);
+  const actualDescriptionFontSize = descriptionFontSize ?? (p ? 30 : 41);
   const titleCellBudgetPx = Math.max(1, videoHeight * (p ? 0.32 : 0.34));
   const taglineCellBudgetPx = Math.max(1, videoHeight * (p ? 0.24 : 0.22));
 

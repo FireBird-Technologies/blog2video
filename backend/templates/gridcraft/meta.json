@@ -35,11 +35,11 @@
       "defaults": {
         "titleFontSize": {
           "portrait": 72,
-          "landscape": 85
+          "landscape": 128
         },
         "descriptionFontSize": {
           "portrait": 30,
-          "landscape": 28
+          "landscape": 41
         },
         "categoryFontSize": {
           "portrait": 24,
@@ -720,7 +720,8 @@
           }
         ],
         "showWebsiteButton": true,
-        "websiteLink": "https://yourwebsite.com"
+        "websiteLink": "https://yourwebsite.com",
+        "ctaButtonText": "Get started"
       },
       "fields": [
         {
@@ -740,6 +741,11 @@
           "min": 12,
           "max": 120,
           "step": 1
+        },
+        {
+          "key": "ctaButtonText",
+          "label": "CTA Button Text",
+          "type": "string"
         },
         {
           "key": "socials",
@@ -783,6 +789,60 @@
           "placeholder": "https://yourwebsite.com"
         }
       ]
+    },
+    "ending_socials__v2": {
+      "label": "Ending / Follow along — Action Footer",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 109,
+          "landscape": 108
+        },
+        "descriptionFontSize": {
+          "portrait": 46,
+          "landscape": 61
+        },
+        "hideImage": true,
+        "socials": [
+          {
+            "platform": "facebook",
+            "enabled": "true",
+            "label": "Facebook"
+          },
+          {
+            "platform": "instagram",
+            "enabled": "true",
+            "label": "Instagram"
+          },
+          {
+            "platform": "youtube",
+            "enabled": "true",
+            "label": "YouTube"
+          },
+          {
+            "platform": "medium",
+            "enabled": "false",
+            "label": "Medium"
+          },
+          {
+            "platform": "substack",
+            "enabled": "false",
+            "label": "Substack"
+          },
+          {
+            "platform": "linkedin",
+            "enabled": "false",
+            "label": "LinkedIn"
+          },
+          {
+            "platform": "tiktok",
+            "enabled": "false",
+            "label": "TikTok"
+          }
+        ],
+        "showWebsiteButton": true,
+        "websiteLink": "https://yourwebsite.com",
+        "ctaButtonText": "Get started"
+      }
     },
     "ticker_table": {
       "label": "Data Table",
@@ -872,6 +932,16 @@
         }
       ]
     }
+  },
+  "layout_variants": {
+    "ending_socials": [
+      "ending_socials",
+      "ending_socials__v2"
+    ]
+  },
+  "layout_variant_labels": {
+    "ending_socials": "Classic",
+    "ending_socials__v2": "Action Footer"
   },
   "layouts_without_image": [
     "bento_code",

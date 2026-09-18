@@ -192,6 +192,8 @@ export interface SocialIconsProps {
   aspectRatio?: string;
   /** Pixel size for every brand icon SVG. If omitted, uses 52 (portrait) or 40 (landscape). */
   iconSize?: number;
+  /** Pixel size for the label text under each icon. If omitted, uses 18. */
+  labelFontSize?: number;
 }
 
 export const SocialIcons: React.FC<SocialIconsProps> = ({
@@ -202,6 +204,7 @@ export const SocialIcons: React.FC<SocialIconsProps> = ({
   fontFamily,
   aspectRatio,
   iconSize,
+  labelFontSize,
 }) => {
   const frame = useCurrentFrame();
   const defaultSize =
@@ -300,7 +303,7 @@ export const SocialIcons: React.FC<SocialIconsProps> = ({
             {label ? (
               <div
                 style={{
-                  fontSize: 18,
+                  fontSize: labelFontSize ?? 18,
                   fontWeight: 600,
                   color: textColor,
                   lineHeight: 1.2,

@@ -78,6 +78,7 @@ import { useNoticeModal } from "../contexts/NoticeModalContext";
 import { trackGoogleAdsPurchaseConversion } from "../gtag";
 import StatusBadge from "../components/StatusBadge";
 import ScriptPanel from "../components/ScriptPanel";
+import SceneGroupAccordion, { SCENE_GROUP_SIZE } from "../components/SceneGroupAccordion";
 import { StockFootageModal, STOCK_FOOTAGE_CREDIT_COST } from "../components/StockFootageModal";
 import { StockFootageVerifyModal } from "../components/StockFootageVerifyModal";
 import { StockFootageVerifyModalLegacy } from "../components/StockFootageVerifyModalLegacy";
@@ -1294,8 +1295,11 @@ export default function ProjectView() {
     project?.scenes?.[0]?.id ?? null
   );
   // Scenes tab: scenes are clustered into groups of 5, accordion-style (one group open at a time).
-  const SCENE_GROUP_SIZE = 5;
   const [expandedGroupIndex, setExpandedGroupIndex] = useState<number | null>(0);
+  // Audio tab: independent accordion over the same group-of-5 scenes.
+  const [expandedAudioGroupIndex, setExpandedAudioGroupIndex] = useState<number | null>(0);
+  // Images tab: independent accordion over the same group-of-5 scenes.
+  const [expandedImagesGroupIndex, setExpandedImagesGroupIndex] = useState<number | null>(0);
   const firstSceneAutoExpandedRef = useRef(false);
   useEffect(() => {
     if (firstSceneAutoExpandedRef.current) return;
@@ -3697,6 +3701,89 @@ export default function ProjectView() {
       }
     }
   }
+
+  const unassignedAssetIds = new Set<number>();
+  Object.values(sceneImageAssetsMap).forEach((sceneItems) =>
+    sceneItems.forEach((item) => unassignedAssetIds.add(item.asset.id)),
+  );
+  const unassignedAssets = mediaAssets.filter((asset) => !unassignedAssetIds.has(asset.id));
+
+  const renderMediaCard = (asset: import("../api/client").Asset) => {
+    const url = resolveAssetUrl(asset, project.id);
+    const isDeleting = deletingImageAssetId === asset.id;
+    const isClip = asset.asset_type === "video";
+
+    return (
+      <div
+        key={`${asset.asset_type}-${asset.id}`}
+        className="relative group rounded-xl overflow-hidden border border-gray-200/40 hover:border-gray-300 transition-all"
+      >
+        {isClip ? (
+          <>
+            <video
+              src={url}
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              className="w-full aspect-[4/3] object-cover bg-black"
+              onMouseEnter={(e) => {
+                void (e.currentTarget as HTMLVideoElement).play().catch(() => {});
+              }}
+              onMouseLeave={(e) => (e.currentTarget as HTMLVideoElement).pause()}
+            />
+            <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-black/70 text-white text-[9px] font-medium uppercase tracking-wide">
+              Clip
+            </span>
+          </>
+        ) : (
+          <img
+            src={url}
+            alt={asset.filename}
+            className="w-full aspect-[4/3] object-cover"
+            loading="lazy"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src =
+                "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='150'><rect fill='%23f3f4f6' width='200' height='150'/><text x='50%25' y='50%25' fill='%239ca3af' font-size='12' text-anchor='middle' dy='.3em'>No preview</text></svg>";
+            }}
+          />
+        )}
+
+        {/* Info bar */}
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-2 pt-6">
+          <p className="text-[10px] text-white/80 truncate">
+            {asset.filename}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => handleRequestDeleteBlogImage(asset)}
+          disabled={isDeleting}
+          className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center transition-all border border-red-200/90 text-red-600 bg-white/90 hover:bg-red-600 hover:text-white hover:border-red-600 opacity-0 group-hover:opacity-100 disabled:opacity-60"
+          title="Delete this image from the project"
+        >
+          {isDeleting ? (
+            <span className="w-2.5 h-2.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+          ) : (
+            <svg
+              className="w-3.5 h-3.5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+              />
+            </svg>
+          )}
+        </button>
+      </div>
+    );
+  };
 
   const handleRemoveSceneImage = async (scene: Scene, assetId: number) => {
     setRemovingAssetId(assetId);
@@ -6759,62 +6846,25 @@ export default function ProjectView() {
                       <p className="mt-3 text-sm font-medium text-gray-700">Saving order…</p>
                     </div>
                   )}
-                  {(() => {
-                    const sceneGroups: { scene: Scene; idx: number }[][] = [];
-                    project.scenes.forEach((scene, idx) => {
-                      const groupIdx = Math.floor(idx / SCENE_GROUP_SIZE);
-                      if (!sceneGroups[groupIdx]) sceneGroups[groupIdx] = [];
-                      sceneGroups[groupIdx].push({ scene, idx });
-                    });
-                    return sceneGroups.map((groupScenes, groupIdx) => {
-                      const isGroupExpanded = expandedGroupIndex === groupIdx;
-                      const rangeStart = groupScenes[0].scene.order;
-                      const rangeEnd = groupScenes[groupScenes.length - 1].scene.order;
-                      return (
-                        <div key={groupIdx} className="mb-2">
-                          <div
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => {
-                              if (isGroupExpanded) {
-                                setExpandedGroupIndex(null);
-                                return;
-                              }
-                              setExpandedGroupIndex(groupIdx);
-                              if (
-                                expandedScene != null &&
-                                !groupScenes.some(({ scene }) => scene.id === expandedScene)
-                              ) {
-                                setExpandedScene(null);
-                              }
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault();
-                                (e.currentTarget as HTMLElement).click();
-                              }
-                            }}
-                            className="w-full flex items-center justify-between gap-2 glass-card px-4 py-3 border-l-2 border-l-purple-300 hover:border-l-purple-500 transition-all rounded-lg border cursor-pointer select-none"
-                          >
-                            <span className="flex items-baseline gap-2">
-                              <span className="text-sm font-medium text-gray-900">
-                                Scenes {rangeStart}–{rangeEnd}
-                              </span>
-                              {!isGroupExpanded && (
-                                <span className="text-xs text-gray-400">Expand to view scenes</span>
-                              )}
-                            </span>
-                            <svg
-                              className={`w-4 h-4 text-gray-400 transition-transform ${isGroupExpanded ? "rotate-180" : ""}`}
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </div>
-                          {isGroupExpanded && (
-                  <div className="space-y-2 mt-2 ml-4 max-h-[70vh] overflow-y-auto pr-1">
+                  <SceneGroupAccordion
+                    items={project.scenes.map((scene, idx) => ({ scene, idx }))}
+                    getOrder={({ scene }) => scene.order}
+                    expandedGroupIndex={expandedGroupIndex}
+                    onToggleGroup={(groupIdx, groupScenes) => {
+                      if (expandedGroupIndex === groupIdx) {
+                        setExpandedGroupIndex(null);
+                        return;
+                      }
+                      setExpandedGroupIndex(groupIdx);
+                      if (
+                        expandedScene != null &&
+                        !groupScenes.some(({ scene }) => scene.id === expandedScene)
+                      ) {
+                        setExpandedScene(null);
+                      }
+                    }}
+                    renderGroupBody={(groupScenes, groupIdx) => (
+                      <>
                   {groupScenes.map(({ scene, idx }) => {
                     const isExpanded = expandedScene === scene.id;
                     const sceneImages = sceneImageMap[idx] || [];
@@ -6838,7 +6888,18 @@ export default function ProjectView() {
                         isDropTarget={isDropTarget}
                         onToggleExpand={() => setExpandedScene(isExpanded ? null : scene.id)}
                         onEdit={() => setSceneEditModal(scene)}
-                        onDelete={() => setSceneToDelete(scene)}
+                        onDelete={() => {
+                          // A video must keep at least one scene, so the last one
+                          // gets an explanatory notice instead of the confirm modal.
+                          if (project.scenes.length <= 1) {
+                            showNotice(
+                              "At least one scene is required for a video.",
+                              { title: "Can't delete this scene" }
+                            );
+                            return;
+                          }
+                          setSceneToDelete(scene);
+                        }}
                         onAddAfter={() => { setAddSceneAnchor(scene); setAddSceneOpen(true); }}
                         addDisabled={addSceneRunning}
                         addDisabledReason="A scene is already being added."
@@ -7303,8 +7364,27 @@ export default function ProjectView() {
                                   );
                                 })()}
 
-                                {/* Scene images + avatar side by side */}
-                                <div className="flex items-start gap-6">
+                                {/* Scene images + avatar. Side by side when there is room,
+                                    stacked when there is not.
+
+                                    This row used to be an unconditional `flex` whose two
+                                    children pulled in opposite directions: the images block
+                                    is `min-w-0` (shrinks without limit) and the avatar block
+                                    is `flex-shrink-0` (never gives up a pixel). In a narrow
+                                    card the images column was therefore crushed toward zero
+                                    width while the avatar kept its full size — the "IMAGES
+                                    (n)" heading wrapped onto two lines inside a sliver of a
+                                    column and collided with "AVATAR", and the avatar's helper
+                                    text ran past the card edge.
+
+                                    `flex-wrap` is what fixes it: once the two columns cannot
+                                    both fit, the avatar drops to its own line instead of
+                                    squeezing its neighbour. `basis-*` on the images block
+                                    gives it a real preferred width so it is never the one
+                                    that collapses. Note this is NOT aspect-ratio specific —
+                                    the trigger is the card's width, which is why a landscape
+                                    project shows the same break once its column is narrow. */}
+                                <div className="flex flex-wrap items-start gap-x-6 gap-y-5">
                                 {(() => {
                                   // Read the layout through the shared resolver, which understands
                                   // the custom-template scene-type markers and falls back
@@ -7405,8 +7485,20 @@ export default function ProjectView() {
                                     sceneClip &&
                                     (stockAudioDraft.muted !== sceneClip.muted ||
                                       Math.abs(stockAudioDraft.volume - sceneClip.volume) > 0.001);
+                                  // One tile-width rule for every tile below. Portrait lays them
+                                  // out in a 2-col grid, so a tile fills its cell (w-full);
+                                  // landscape is a free-wrapping flex row, where a tile must keep
+                                  // its own fixed w-20 or it would stretch across the whole row.
+                                  const tileW =
+                                    project.aspect_ratio === "portrait" ? "w-full" : "w-20";
+                                  // basis-56 is a PREFERRED width, not a floor: the tiles inside
+                                  // are ~80px each, so this keeps the column wide enough to hold
+                                  // a row of them and makes the avatar wrap below rather than
+                                  // crushing this column to nothing. Deliberately not wider —
+                                  // the tiles are w-20 and a roomier column just stretches the
+                                  // mobile `grid-cols-2` cells into oversized boxes.
                                   return (
-                                    <div className="min-w-0" data-tour={idx === 0 ? "scene-visuals-first" : undefined}>
+                                    <div className="min-w-0 basis-56 grow" data-tour={idx === 0 ? "scene-visuals-first" : undefined}>
                                       <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
                                         {sceneClip
                                           ? "Stock footage"
@@ -7416,16 +7508,32 @@ export default function ProjectView() {
                                       </h4>
                                       {sceneSupportsImage ? (
                                         <>
-                                        {/* Two items per row on phones (grid), free-wrapping
-                                            fixed-width row from sm up. Children keep their own
-                                            w-20 at sm+; on mobile max-sm:w-full fills the cell. */}
-                                        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-start">
+                                        {/* Keyed off the project's aspect ratio, NOT a `sm:`
+                                            breakpoint: `sm:` reads the VIEWPORT, but what actually
+                                            constrains these tiles is the scene card's own width,
+                                            which is driven by the format. A narrow portrait card on
+                                            a desktop screen took the wide-screen branch and laid
+                                            its tiles out in one cramped, clipped row.
+
+                                            Landscape: one free-wrapping row — the card is wide, so
+                                            all three tiles fit side by side.
+                                            Portrait: two per row, capped at 184px so each tile
+                                            lands ~88px, close to the w-20 (80px) they used to be;
+                                            without the cap each grid cell is half the column and
+                                            the tiles inflate to ~220px. */}
+                                        <div
+                                          className={
+                                            project.aspect_ratio === "portrait"
+                                              ? "grid grid-cols-2 gap-2 items-start max-w-[184px]"
+                                              : "flex flex-wrap items-start gap-2"
+                                          }
+                                        >
                                           {/* When a clip is assigned it occupies the visual slot
                                               and renders first. Its own edit icon opens the shared
                                               framing modal (same positioning as images); picking any
                                               image/AI/upload below replaces the clip. */}
                                           {sceneClip && (
-                                            <div className="relative group rounded-lg overflow-hidden border-2 border-purple-400 max-sm:w-full w-20 h-24 flex-shrink-0 bg-black">
+                                            <div className={`relative group rounded-lg overflow-hidden border-2 border-purple-400 ${tileW} h-24 flex-shrink-0 bg-black`}>
                                               {(() => {
                                                 let focusX = 50; let focusY = 50; let zoom = 1;
                                                 let clipStartSec = 0;
@@ -7525,7 +7633,7 @@ export default function ProjectView() {
                                             </div>
                                           )}
                                           {isCustomTpl && !(sceneImageAssetsMap[idx] || []).length && ctOgImage && (
-                                            <div className="relative group rounded-lg overflow-hidden border border-gray-200/40 flex-shrink-0 max-sm:w-full">
+                                            <div className={`relative group rounded-lg overflow-hidden border border-gray-200/40 flex-shrink-0 ${tileW}`}>
                                               {(() => {
                                                 let focusX = 50; let focusY = 50; let zoom = 1;
                                                 try {
@@ -7540,7 +7648,7 @@ export default function ProjectView() {
                                                   <img
                                                     src={ctOgImage}
                                                     alt=""
-                                                    className="h-24 w-20 max-sm:w-full object-cover"
+                                                    className={`h-24 ${tileW} object-cover`}
                                                     style={{ objectPosition: `${focusX}% ${focusY}%`, transform: `scale(${zoom})`, transformOrigin: "center center" }}
                                                     loading="lazy"
                                                     onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
@@ -7562,7 +7670,7 @@ export default function ProjectView() {
                                           {(sceneImageAssetsMap[idx] || []).map(({ url, asset }) => (
                                             <div
                                               key={asset.id}
-                                              className="relative group rounded-lg overflow-hidden border border-gray-200/40 flex-shrink-0 max-sm:w-full"
+                                              className={`relative group rounded-lg overflow-hidden border border-gray-200/40 flex-shrink-0 ${tileW}`}
                                             >
                                               {(generatingImageSceneId === scene.id || uploadingSceneId === scene.id) && (
                                                 <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/60 backdrop-blur-[2px]">
@@ -7589,7 +7697,7 @@ export default function ProjectView() {
                                               <img
                                                 src={url}
                                                 alt=""
-                                                className="h-24 w-20 max-sm:w-full object-cover"
+                                                className={`h-24 ${tileW} object-cover`}
                                                 style={{
                                                   objectPosition: `${focusX}% ${focusY}%`,
                                                   transform: `scale(${zoom})`,
@@ -7637,13 +7745,13 @@ export default function ProjectView() {
                                           {/* Clip is being downloaded + transcoded in the
                                               background: show a loader card in its slot. */}
                                           {stockFootageBusySceneId === scene.id && (
-                                            <div className="flex flex-col items-center justify-center gap-1 max-sm:w-full w-20 h-24 rounded-lg border-2 border-purple-300 bg-purple-50/60 flex-shrink-0">
+                                            <div className={`flex flex-col items-center justify-center gap-1 ${tileW} h-24 rounded-lg border-2 border-purple-300 bg-purple-50/60 flex-shrink-0`}>
                                               <span className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
                                               <span className="text-[9px] font-medium text-purple-600 uppercase tracking-wide">Clip</span>
                                             </div>
                                           )}
                                           {(generatingImageSceneId === scene.id || uploadingSceneId === scene.id) && !(sceneImageAssetsMap[idx] || []).length && !(isCustomTpl && ctOgImage) && (
-                                            <div className="flex items-center justify-center max-sm:w-full w-20 h-24 rounded-lg border-2 border-purple-200 bg-purple-50/50 flex-shrink-0">
+                                            <div className={`flex items-center justify-center ${tileW} h-24 rounded-lg border-2 border-purple-200 bg-purple-50/50 flex-shrink-0`}>
                                               <span className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
                                             </div>
                                           )}
@@ -7651,7 +7759,7 @@ export default function ProjectView() {
                                             type="button"
                                             onClick={() => handleGenerateSceneImageClick(scene.id)}
                                             disabled={stockFootageBusySceneId === scene.id}
-                                            className="group relative flex items-center justify-center max-sm:w-full w-20 h-24 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50/50 hover:bg-purple-100/50 transition-colors text-purple-700 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            className={`group relative flex items-center justify-center ${tileW} h-24 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50/50 hover:bg-purple-100/50 transition-colors text-purple-700 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed`}
                                             title="Generate image with AI"
                                           >
                                             <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -7665,7 +7773,7 @@ export default function ProjectView() {
                                             type="button"
                                             onClick={() => handleOpenImageSourceChooser(scene.id)}
                                             disabled={uploadingSceneId === scene.id || stockFootageBusySceneId === scene.id}
-                                            className="flex flex-col items-center justify-center gap-1 max-sm:w-full w-20 h-24 border-2 border-dashed border-gray-300 bg-gray-50/50 hover:bg-gray-100/50 rounded-lg flex-shrink-0 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                            className={`flex flex-col items-center justify-center gap-1 ${tileW} h-24 border-2 border-dashed border-gray-300 bg-gray-50/50 hover:bg-gray-100/50 rounded-lg flex-shrink-0 transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
                                             title="Add image"
                                           >
                                             <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -7678,7 +7786,7 @@ export default function ProjectView() {
                                               type="button"
                                               onClick={() => handleChooseStockFootage(scene.id)}
                                               disabled={uploadingSceneId === scene.id || stockFootageBusySceneId === scene.id}
-                                              className="flex flex-col items-center justify-center gap-1 max-sm:w-full w-20 h-24 border-2 border-dashed border-gray-300 bg-gray-50/50 hover:bg-gray-100/50 rounded-lg flex-shrink-0 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                              className={`flex flex-col items-center justify-center gap-1 ${tileW} h-24 border-2 border-dashed border-gray-300 bg-gray-50/50 hover:bg-gray-100/50 rounded-lg flex-shrink-0 transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
                                               title="Add stock footage"
                                             >
                                               <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -7847,8 +7955,11 @@ export default function ProjectView() {
                                   const shape =
                                     scene.avatar_shape ?? project.avatar_shape ?? "circle";
                                   const bg = scene.avatar_bg ?? project.avatar_bg ?? null;
+                                  // min-w-0 + basis-56: was flex-shrink-0, which is what let this
+                                  // column keep its full width and crush the images column next
+                                  // to it. It now wraps to its own line instead.
                                   return (
-                                    <div className="flex-shrink-0">
+                                    <div className="min-w-0 basis-56 grow">
                                       <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
                                         Avatar
                                       </h4>
@@ -7934,18 +8045,15 @@ export default function ProjectView() {
                     );
                   })}
                   {/* Placeholder for an append (position past the last scene), shown at the end of the last group. */}
-                  {groupIdx === sceneGroups.length - 1 &&
+                  {groupScenes.some(({ idx }) => idx === project.scenes.length - 1) &&
                     addSceneRunning &&
                     addScenePosition != null &&
                     addScenePosition > project.scenes.length && (
                       <AddScenePlaceholderRow />
                     )}
-                  </div>
-                          )}
-                        </div>
-                      );
-                    });
-                  })()}
+                      </>
+                    )}
+                  />
                 </div>
 
                 <input
@@ -9197,84 +9305,51 @@ export default function ProjectView() {
                   Images will appear here once scraped.
                 </p>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                  {mediaAssets.map((asset) => {
-                    const url = resolveAssetUrl(asset, project.id);
-                    const isDeleting = deletingImageAssetId === asset.id;
-                    const isClip = asset.asset_type === "video";
-
-                    return (
-                      <div
-                        key={`${asset.asset_type}-${asset.id}`}
-                        className="relative group rounded-xl overflow-hidden border border-gray-200/40 hover:border-gray-300 transition-all"
-                      >
-                        {isClip ? (
+                (() => {
+                  return (
+                    <>
+                      <SceneGroupAccordion
+                        items={project.scenes}
+                        getOrder={(scene) => scene.order}
+                        expandedGroupIndex={expandedImagesGroupIndex}
+                        onToggleGroup={(groupIdx) =>
+                          setExpandedImagesGroupIndex(expandedImagesGroupIndex === groupIdx ? null : groupIdx)
+                        }
+                        renderGroupBody={(groupScenes) => (
                           <>
-                            <video
-                              src={url}
-                              muted
-                              loop
-                              playsInline
-                              preload="metadata"
-                              className="w-full aspect-[4/3] object-cover bg-black"
-                              onMouseEnter={(e) => {
-                                void (e.currentTarget as HTMLVideoElement).play().catch(() => {});
-                              }}
-                              onMouseLeave={(e) => (e.currentTarget as HTMLVideoElement).pause()}
-                            />
-                            <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-black/70 text-white text-[9px] font-medium uppercase tracking-wide">
-                              Clip
-                            </span>
+                            {groupScenes.map((scene) => {
+                              const idx = project.scenes.findIndex((s) => s.id === scene.id);
+                              const sceneAssets = sceneImageAssetsMap[idx] || [];
+                              return (
+                                <div key={scene.id} className="glass-card p-4">
+                                  <div className="flex items-center gap-3 mb-3">
+                                    {/* Scene number */}
+                                    <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center flex-shrink-0">
+                                      <span className="text-xs font-semibold text-purple-600">
+                                        {scene.order}
+                                      </span>
+                                    </div>
+                                    <span className="text-xs font-medium text-gray-900 truncate">
+                                      {scene.title}
+                                    </span>
+                                  </div>
+                                  {sceneAssets.length === 0 ? (
+                                    <p className="text-xs text-gray-400 italic py-4">No image assigned</p>
+                                  ) : (
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                      {sceneAssets.map(({ asset }) => renderMediaCard(asset))}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </>
-                        ) : (
-                          <img
-                            src={url}
-                            alt={asset.filename}
-                            className="w-full aspect-[4/3] object-cover"
-                            loading="lazy"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src =
-                                "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='150'><rect fill='%23f3f4f6' width='200' height='150'/><text x='50%25' y='50%25' fill='%239ca3af' font-size='12' text-anchor='middle' dy='.3em'>No preview</text></svg>";
-                            }}
-                          />
                         )}
+                      />
 
-                        {/* Info bar */}
-                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-2 pt-6">
-                          <p className="text-[10px] text-white/80 truncate">
-                            {asset.filename}
-                          </p>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => handleRequestDeleteBlogImage(asset)}
-                          disabled={isDeleting}
-                          className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center transition-all border border-red-200/90 text-red-600 bg-white/90 hover:bg-red-600 hover:text-white hover:border-red-600 opacity-0 group-hover:opacity-100 disabled:opacity-60"
-                          title="Delete this image from the project"
-                        >
-                          {isDeleting ? (
-                            <span className="w-2.5 h-2.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-                          ) : (
-                            <svg
-                              className="w-3.5 h-3.5"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth={2}
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                              />
-                            </svg>
-                          )}
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
+                    </>
+                  );
+                })()
               )}
             </div>
 
@@ -9396,6 +9471,17 @@ export default function ProjectView() {
                     >
                       {logoUploading ? "Uploading…" : "Choose file"}
                     </button>
+                  </div>
+                </div>
+              )}
+
+              {unassignedAssets.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-xs font-medium text-gray-600 mb-2">
+                    Unassigned <span className="text-gray-400 font-normal">— not used in any scene</span>
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {unassignedAssets.map((asset) => renderMediaCard(asset))}
                   </div>
                 </div>
               )}
@@ -9553,25 +9639,35 @@ export default function ProjectView() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  {project.scenes.map((scene) => (
-                    <AudioRow
-                      key={scene.id}
-                      scene={scene}
-                      projectId={projectId}
-                      audioAssets={audioAssets}
-                      hasBgm={!!project.bgm_track_id}
-                      bgmTrackUrl={project.bgm_track_url ?? null}
-                      projectBgmVolume={project.bgm_volume ?? 0.10}
-                      onBgmSaved={loadProject}
-                      pendingUrl={pendingRecordings.get(scene.id)?.url ?? null}
-                      onRecord={() => setRecordModalScene(scene)}
-                      onDiscard={() => handleDiscardRecording(scene.id)}
-                      onSaveRecording={() => handleSaveRecording(scene.id)}
-                      savingRecording={savingRecordingSceneId === scene.id}
-                    />
-                  ))}
-                </div>
+                <SceneGroupAccordion
+                  items={project.scenes}
+                  getOrder={(scene) => scene.order}
+                  expandedGroupIndex={expandedAudioGroupIndex}
+                  onToggleGroup={(groupIdx) =>
+                    setExpandedAudioGroupIndex(expandedAudioGroupIndex === groupIdx ? null : groupIdx)
+                  }
+                  renderGroupBody={(groupScenes) => (
+                    <>
+                      {groupScenes.map((scene) => (
+                        <AudioRow
+                          key={scene.id}
+                          scene={scene}
+                          projectId={projectId}
+                          audioAssets={audioAssets}
+                          hasBgm={!!project.bgm_track_id}
+                          bgmTrackUrl={project.bgm_track_url ?? null}
+                          projectBgmVolume={project.bgm_volume ?? 0.10}
+                          onBgmSaved={loadProject}
+                          pendingUrl={pendingRecordings.get(scene.id)?.url ?? null}
+                          onRecord={() => setRecordModalScene(scene)}
+                          onDiscard={() => handleDiscardRecording(scene.id)}
+                          onSaveRecording={() => handleSaveRecording(scene.id)}
+                          savingRecording={savingRecordingSceneId === scene.id}
+                        />
+                      ))}
+                    </>
+                  )}
+                />
               </div>
             )}
           </div>

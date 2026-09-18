@@ -1,8 +1,6 @@
 import { useCallback, useState } from "react";
-import type { CredentialResponse } from "@react-oauth/google";
-import { googleLogin } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
-import GoogleAuthButton from "./public/GoogleAuthButton";
+import { useLoginModal } from "../contexts/LoginModalContext";
 
 interface SupportAuthModalProps {
   onClose: () => void;
@@ -20,27 +18,20 @@ export default function SupportAuthModal({
   description = "Sign in so we can help you and keep your conversation saved to your account — free, no credit card required.",
 }: SupportAuthModalProps) {
   const { login } = useAuth();
-  const [signingIn, setSigningIn] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { openLogin } = useLoginModal();
 
-  const handleSuccess = useCallback(
-    async (response: CredentialResponse) => {
-      if (!response.credential) return;
-      setSigningIn(true);
-      setError(null);
-      try {
-        const res = await googleLogin(response.credential, false, localStorage.getItem("b2v_ref_code"));
-        localStorage.removeItem("b2v_ref_code");
-        login(res.data.access_token, res.data.user);
+  // Stay in place: login() writes the token synchronously so the conversation
+  // can resume right here.
+  const handleOpenLogin = () =>
+    openLogin({
+      title,
+      subtitle: description,
+      onSuccess: (token, user) => {
+        login(token, user);
         onSuccess();
-      } catch {
-        setError("Sign-in failed. Please try again.");
-      } finally {
-        setSigningIn(false);
-      }
-    },
-    [login, onSuccess],
-  );
+      },
+    });
+
 
   return (
     <div
@@ -68,19 +59,14 @@ export default function SupportAuthModal({
           <p className="mb-5 text-sm leading-relaxed text-gray-500">{description}</p>
 
           <div className="mb-3 flex justify-center">
-            {signingIn ? (
-              <div className="flex items-center gap-2 text-sm text-gray-500">
-                <svg className="h-4 w-4 animate-spin text-purple-600" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                </svg>
-                Signing in…
-              </div>
-            ) : (
-              <GoogleAuthButton onSuccess={handleSuccess} onError={() => setError("Sign-in failed. Please try again.")} text="signup_with" width="280" />
-            )}
+            <button
+              type="button"
+              onClick={handleOpenLogin}
+              className="inline-flex h-10 items-center justify-center rounded-full bg-purple-600 px-6 text-sm font-medium text-white transition hover:bg-purple-700"
+            >
+              Get started free
+            </button>
           </div>
-          {error && <p className="text-center text-xs text-red-500">{error}</p>}
         </div>
       </div>
     </div>

@@ -12,6 +12,7 @@ import { InkFlourish } from "../components/ChronicleArtifacts";
 import { EmbossedImage } from "../components/EmbossedImage";
 import { QuillText } from "../components/QuillInk";
 import { useFitText } from "../components/useFitText";
+import { chronicleHeroHeadingStyle, chronicleHeroHeadingTypography } from "../components/ChronicleHeading";
 
 /**
  * LedgerStats — aged-parchment ledger with up to 3 handwritten stat cells.
@@ -128,10 +129,8 @@ export const LedgerStats: React.FC<ChronicleLayoutProps> = ({
             visibility: "hidden",
             position: "absolute",
             inset: 0,
-            fontFamily: CHRONICLE_HEADING_FONT,
+            ...chronicleHeroHeadingTypography(fontFamily),
             fontSize: fitTitlePx,
-            fontWeight: 700,
-            textAlign: "center",
             width: "100%",
           }}
         >
@@ -139,13 +138,9 @@ export const LedgerStats: React.FC<ChronicleLayoutProps> = ({
         </div>
         <div
           style={{
-            fontFamily: CHRONICLE_HEADING_FONT,
+            ...chronicleHeroHeadingStyle(accentColor, fontFamily),
             fontSize: fitTitlePx,
-            fontWeight: 700,
-            color: textColor,
-            textAlign: "center",
             opacity: titleOp,
-            textShadow: "1px 1px 0 rgba(184,134,11,0.15)",
           }}
         >
           <QuillText text={title} startFrame={5} durationFrames={25} mode="char" showCursor={false} />

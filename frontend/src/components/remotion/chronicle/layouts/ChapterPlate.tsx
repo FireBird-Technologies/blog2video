@@ -10,8 +10,8 @@ import type { ChronicleLayoutProps } from "../types";
 import { useFitText } from "../components/useFitText";
 import {
   CHRONICLE_BODY_FONT,
-  CHRONICLE_HEADING_FONT,
 } from "../../../../fonts/chronicle-defaults";
+import { chronicleHeroHeadingStyle, chronicleHeroHeadingTypography } from "../components/ChronicleHeading";
 
 /**
  * ChapterPlate — section-title card, redesigned as an **Illuminated Incipit**.
@@ -22,7 +22,7 @@ import {
  *   - Four corner rosettes (gold discs with red/blue petals)
  *   - Inner gold-leaf panel with a sheen sweep and painted corner sprigs
  *   - Optional small-caps *kicker* (from `subtitle`) above the title
- *   - Title in red "rubric" ink with gold drop-shadow
+ *   - Main title in the Chronicle V1 hero's amber gold-bloom treatment
  *   - Painted sprig divider below the title
  *   - Body paragraph (the scene's `narration` / "display text") in italic
  *     brown ink, centered, with its first letter slightly enlarged in
@@ -137,7 +137,6 @@ export const ChapterPlate: React.FC<ChronicleLayoutProps> = ({
   const INK = textColor;
   const PARCH_BRIGHT = "#F7ECD0";
 
-  const heading = fontFamily ?? CHRONICLE_HEADING_FONT;
   const body = fontFamily ?? CHRONICLE_BODY_FONT;
 
   // Narration is the *body* of the illuminated page. Subtitle (if given and
@@ -414,27 +413,29 @@ export const ChapterPlate: React.FC<ChronicleLayoutProps> = ({
             </div>
           )}
 
-          {/* ─────── Title (rubric red with gold shadow) ─────── */}
+          {/* ─────── Title — exact Chronicle V1 hero treatment ─────── */}
           <div
             ref={fitTitleRef}
             style={{
-              fontFamily: heading,
-              fontWeight: 900,
+              ...chronicleHeroHeadingTypography(fontFamily),
               fontSize: titleFont,
-              lineHeight: 1.05,
-              letterSpacing: "0.02em",
-              textAlign: "center",
-              color: VERMILLION,
-              opacity: titleOp,
-              transform: `translateY(${titleRise}px)`,
-              textShadow: `
-                2px 2px 0 ${GOLD},
-                3px 3px 0 ${GOLD_DEEP},
-                4px 4px 6px rgba(0,0,0,0.25)
-              `,
+              position: "absolute",
+              visibility: "hidden",
               width: "100%",
               maxWidth: "92%",
-              textTransform: "uppercase",
+            }}
+            aria-hidden
+          >
+            {cleanTitle}
+          </div>
+          <div
+            style={{
+              ...chronicleHeroHeadingStyle(accentColor, fontFamily),
+              fontSize: titleFont,
+              opacity: titleOp,
+              transform: `translateY(${titleRise}px)`,
+              width: "100%",
+              maxWidth: "92%",
               zIndex: 2,
             }}
           >

@@ -3,12 +3,12 @@ import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remo
 import type { ChronicleLayoutProps } from "../types";
 import {
   CHRONICLE_BODY_FONT,
-  CHRONICLE_HEADING_FONT,
   CHRONICLE_SMALLCAPS_FONT,
 } from "../../../../fonts/chronicle-defaults";
 import { OrnamentalCorner } from "../components/OrnamentalBorder";
 import { QuillText } from "../components/QuillInk";
 import { useFitText } from "../components/useFitText";
+import { chronicleHeroHeadingStyle, chronicleHeroHeadingTypography } from "../components/ChronicleHeading";
 
 /**
  * ChronicleTable — data table / ledger page scene. Renders the shared
@@ -178,10 +178,8 @@ export const ChronicleTable: React.FC<ChronicleLayoutProps> = ({
                 visibility: "hidden",
                 position: "absolute",
                 inset: 0,
-                fontFamily: CHRONICLE_HEADING_FONT,
-                fontWeight: 700,
+                ...chronicleHeroHeadingTypography(fontFamily),
                 fontSize: fitTitlePx,
-                lineHeight: 1.08,
                 width: "100%",
               }}
             >
@@ -189,12 +187,8 @@ export const ChronicleTable: React.FC<ChronicleLayoutProps> = ({
             </div>
             <div
               style={{
-                fontFamily: CHRONICLE_HEADING_FONT,
-                fontWeight: 700,
+                ...chronicleHeroHeadingStyle(accent, fontFamily),
                 fontSize: fitTitlePx,
-                lineHeight: 1.08,
-                color: ink,
-                textShadow: "1px 1px 0 rgba(184,134,11,0.15)",
               }}
             >
               <QuillText text={title} startFrame={4} durationFrames={22} mode="char" showCursor={false} />

@@ -3,6 +3,8 @@ Layout catalog for Nightfall template
 
 **Never output `assignedVideo`, `videoUrl`, `videoMuted`, or `videoVolume`** — stock-footage clips are chosen by the user in the editor after generation, and inventing one breaks rendering.
 
+**Never output a layout ID containing `__v`** (e.g. `glass_narrative__v2`) — those are visual variants assigned automatically by the system. Always output the plain base ID.
+
 Use these layout IDs **exactly** when suggesting `preferred_layout` for scenes using the `nightfall` template. Nightfall is a dark cinematic glass style optimized for data-heavy tech content.
 
 - `cinematic_title`  

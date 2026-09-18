@@ -119,7 +119,9 @@ const DEFAULT_LAYOUTS = new Set([
 // resolves — a variant missing here renders as the fallback layout on first paint.
 const NIGHTFALL_LAYOUTS = new Set([
   "cinematic_title",
+  "cinematic_title__v2",
   "glass_narrative",
+  "glass_narrative__v2",
   "glow_metric",
   "glass_code",
   "kinetic_insight",
@@ -304,9 +306,12 @@ const BLOOMBERG_LAYOUTS = new Set([
 
 const CHRONICLE_LAYOUTS = new Set([
   "book_open",
+  "book_open__v2",
   "parchment_scroll",
+  "parchment_scroll__v2",
   "chapter_plate",
   "illuminated_quote",
+  "illuminated_quote__v2",
   "ledger_stats",
   "versus_folio",
   "chronicle_timeline",
@@ -315,6 +320,7 @@ const CHRONICLE_LAYOUTS = new Set([
   "chronicle_data",
   "chronicle_table",
   "ending_socials",
+  "ending_socials__v2",
 ]);
 
 const ECONOMIST_LAYOUTS = new Set([
@@ -347,13 +353,16 @@ const STICKMAN_2_LAYOUTS = new Set([
 
 const MAGAZINE_LAYOUTS = new Set([
   "magazine_cover",
+  "magazine_cover__v2",
   "editorial_quote",
   "by_the_numbers",
+  "by_the_numbers__v2",
   "interview_qa",
   "magazine_data_visualization",
   "timeline_journey",
   "text_narration",
   "ending_socials",
+  "ending_socials__v2",
   "magazine_ticker",
   "colorblock",
   "feature",

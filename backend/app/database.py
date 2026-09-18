@@ -172,8 +172,13 @@ def _migrate_sqlite(eng) -> None:
             "retention_offer_suppressed": "BOOLEAN DEFAULT 0",
             "email_unsubscribed": "BOOLEAN DEFAULT 0",
             "last_coupon_email_at": "DATETIME",
+            "get_started_email_sent_at": "DATETIME",
             "referrals_given": "INTEGER DEFAULT 0",
             "referral_video_bonus": "INTEGER DEFAULT 0",
+            # Built-in email/password auth. NULL for social accounts.
+            "password_hash": "VARCHAR(255)",
+            # JWT revocation counter; see app/auth.py.
+            "token_version": "INTEGER DEFAULT 0",
         }
         with eng.begin() as conn:
             for col_name, col_def in user_migrations.items():
@@ -715,6 +720,7 @@ def init_db():
         SupportConversation,
         SupportMessage,
         ProjectMember,
+        EmailVerificationCode,
     )
     from app.models.subscription import seed_plans
 

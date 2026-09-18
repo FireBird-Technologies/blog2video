@@ -35,11 +35,11 @@
       "label": "News Headline",
       "defaults": {
         "titleFontSize": {
-          "portrait": 66,
+          "portrait": 68,
           "landscape": 62
         },
         "descriptionFontSize": {
-          "portrait": 35,
+          "portrait": 37,
           "landscape": 28
         },
         "category": "News",
@@ -106,11 +106,11 @@
       "label": "News Headline — Broadsheet",
       "defaults": {
         "titleFontSize": {
-          "portrait": 54,
+          "portrait": 65,
           "landscape": 54
         },
         "descriptionFontSize": {
-          "portrait": 29,
+          "portrait": 32,
           "landscape": 27
         }
       }
@@ -119,11 +119,11 @@
       "label": "News Headline — Stacked Deck",
       "defaults": {
         "titleFontSize": {
-          "portrait": 54,
+          "portrait": 66,
           "landscape": 50
         },
         "descriptionFontSize": {
-          "portrait": 31,
+          "portrait": 33,
           "landscape": 26
         }
       }

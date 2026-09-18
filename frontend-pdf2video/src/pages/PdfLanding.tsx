@@ -1,15 +1,12 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import type { CredentialResponse } from "@react-oauth/google";
 import { useScrollReveal } from "../hooks/useScrollReveal";
 import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
-import { googleLogin } from "../api/client";
 import Seo from "../components/seo/Seo";
 import { homepageSchema } from "../seo/schema";
-import GoogleAuthButton from "../components/public/GoogleAuthButton";
+import { useLoginModal } from "../contexts/LoginModalContext";
 import PublicFooter from "../components/public/PublicFooter";
-import AccountDeletedModal from "../components/AccountDeletedModal";
 import ContactModal from "../components/ContactModal";
 import UserReviewsSection from "../components/UserReviewsSection";
 import PlatformShowcaseSection from "../components/PlatformShowcaseSection";
@@ -204,6 +201,7 @@ const FAQS = [
 export default function PdfLanding() {
   const [searchParams] = useSearchParams();
   const { showError } = useErrorModal();
+  const { openLogin } = useLoginModal();
   // A session CAN exist on this domain now: the /tools widgets sign in locally
   // (see components/tools/LoginGate.tsx) instead of handing off. Without this the
   // header kept offering "Sign in" to someone already signed in.
@@ -333,55 +331,18 @@ export default function PdfLanding() {
     window.location.href = buildBlog2VideoHandoffUrl(token);
   };
 
-  const handleGoogleSuccess = async (response: CredentialResponse) => {
-    if (!response.credential) return;
-    setSigningIn(true);
-    const refCode = localStorage.getItem("b2v_ref_code");
-    try {
-      const res = await googleLogin(response.credential, false, refCode);
-      localStorage.removeItem("b2v_ref_code");
-      redirectToBlog2Video(res.data.access_token);
-      // Intentionally no setSigningIn(false) on success — the page is
-      // navigating away; leaving the spinner up avoids a flash of the idle
-      // button during the redirect.
-    } catch (err: any) {
-      if (err?.response?.status === 403 && err?.response?.data?.detail === "account_deleted") {
-        setPendingCredential(response.credential);
-        setAccountDeletedOpen(true);
-      } else {
-        showError(getErrorMessage(err, "Authentication failed. Please try again."));
-      }
-      setSigningIn(false);
-    }
-  };
-
-  const handleReactivate = async () => {
-    if (!pendingCredential) return;
-    setReactivating(true);
-    try {
-      const res = await googleLogin(pendingCredential, true);
-      redirectToBlog2Video(res.data.access_token);
-    } catch (err: any) {
-      showError(getErrorMessage(err, "Failed to reactivate account."));
-      setReactivating(false);
-    }
-  };
+  const handleOpenLogin = () =>
+    openLogin({ onSuccess: (token) => redirectToBlog2Video(token) });
 
   const authButton = (width = "300") => (
     <div ref={authButtonRef} className="inline-flex flex-col items-center gap-2">
-      {signingIn ? (
-        <div className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-6 py-3 text-sm font-medium text-gray-500 shadow-sm">
-          <span className="h-4 w-4 animate-spin rounded-full border-2 border-purple-500/30 border-t-purple-500" />
-          Signing you in…
-        </div>
-      ) : (
-        <GoogleAuthButton
-          onSuccess={handleGoogleSuccess}
-          onError={() => showError("Authentication failed. Please try again.")}
-          text="continue_with"
-          width={width}
-        />
-      )}
+      <button
+              type="button"
+              onClick={handleOpenLogin}
+              className="inline-flex h-10 items-center justify-center rounded-full bg-purple-600 px-6 text-sm font-medium text-white transition hover:bg-purple-700"
+            >
+              Get started free
+            </button>
     </div>
   );
 
@@ -602,12 +563,13 @@ export default function PdfLanding() {
               button *inside* its cross-origin iframe, leaving nothing in the
               host DOM to click — which is what broke the CTA in production. */}
           <div ref={googleBtnRef} className={isInApp ? "mt-4 flex justify-center" : "hidden"}>
-            <GoogleAuthButton
-              onSuccess={handleGoogleSuccess}
-              onError={() => showError("Google sign-in failed")}
-              text="continue_with"
-              width="300"
-            />
+            <button
+              type="button"
+              onClick={handleOpenLogin}
+              className="inline-flex h-10 items-center justify-center rounded-full bg-purple-600 px-6 text-sm font-medium text-white transition hover:bg-purple-700"
+            >
+              Get started free
+            </button>
           </div>
 
           {/* Mirrors the blog2video hero's input + button, but this brand takes a
@@ -926,16 +888,6 @@ export default function PdfLanding() {
 
       <PublicFooter />
 
-      <AccountDeletedModal
-        open={accountDeletedOpen}
-        onClose={() => {
-          setAccountDeletedOpen(false);
-          setPendingCredential(null);
-          setSigningIn(false);
-        }}
-        onReactivate={handleReactivate}
-        reactivating={reactivating}
-      />
       <ContactModal open={contactOpen} onClose={() => setContactOpen(false)} />
 
       {signingIn && (
