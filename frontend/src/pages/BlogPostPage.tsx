@@ -12,6 +12,8 @@ import {
   getStructuredInternalLinks,
   siteUrl,
 } from "../content/siteContent";
+import { getLinkedSections } from "../content/inlineLinks";
+import { getClusterNav } from "../content/topicClusters";
 import NotFoundPage from "./NotFoundPage";
 import { blogPostSchema } from "../seo/schema";
 
@@ -46,6 +48,8 @@ export default function BlogPostPage() {
 
   const relatedLinks = getStructuredInternalLinks(post.relatedPaths);
   const morePosts = getRelatedBlogPosts(post, 4);
+  const linkedSections = getLinkedSections(post);
+  const clusterNav = getClusterNav(post);
 
   return (
     <div className="min-h-screen bg-white text-gray-900">
@@ -283,12 +287,26 @@ export default function BlogPostPage() {
             </div>
 
             <div className="mt-10 space-y-10">
-              {post.sections.map((section) => (
+              {post.sections.map((section, sectionIndex) => (
                 <section key={section.heading}>
                   <h2 className="text-2xl font-semibold text-gray-900">{section.heading}</h2>
                   <div className="mt-4 space-y-4 text-base leading-relaxed text-gray-600">
-                    {section.paragraphs.map((paragraph) => (
-                      <p key={paragraph}>{paragraph}</p>
+                    {linkedSections[sectionIndex].paragraphs.map((segments, paragraphIndex) => (
+                      <p key={section.paragraphs[paragraphIndex]}>
+                        {segments.map((segment, segmentIndex) =>
+                          segment.href ? (
+                            <Link
+                              key={segmentIndex}
+                              to={segment.href}
+                              className="font-medium text-purple-700 underline decoration-purple-300 underline-offset-2 hover:decoration-purple-600"
+                            >
+                              {segment.text}
+                            </Link>
+                          ) : (
+                            <span key={segmentIndex}>{segment.text}</span>
+                          )
+                        )}
+                      </p>
                     ))}
                   </div>
                   {section.bullets?.length ? (
@@ -318,6 +336,34 @@ export default function BlogPostPage() {
                 </section>
               ))}
             </div>
+
+            {clusterNav && (
+              <nav
+                aria-label={`More in ${clusterNav.name}`}
+                className="mt-14 rounded-2xl border border-purple-100 bg-purple-50/50 p-6"
+              >
+                <p className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-purple-600">
+                  More in {clusterNav.name}
+                </p>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Link to={`/blogs/${clusterNav.previous.slug}`} className="block rounded-xl bg-white p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-400">← Previous</p>
+                    <p className="mt-1 text-sm font-semibold text-gray-900">{clusterNav.previous.title}</p>
+                  </Link>
+                  <Link to={`/blogs/${clusterNav.next.slug}`} className="block rounded-xl bg-white p-4 md:text-right">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-400">Next →</p>
+                    <p className="mt-1 text-sm font-semibold text-gray-900">{clusterNav.next.title}</p>
+                  </Link>
+                </div>
+                <Link
+                  to={clusterNav.hubPath}
+                  className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-purple-700 hover:text-purple-900"
+                >
+                  {clusterNav.hubLabel}
+                  <span aria-hidden="true">→</span>
+                </Link>
+              </nav>
+            )}
 
             <section className="mt-14 rounded-2xl border border-gray-200 bg-gray-50/70 p-6">
               <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-purple-600">

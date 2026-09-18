@@ -9409,7 +9409,7 @@ export const blogPosts: BlogPost[] = [
     keywordVariant: "investment research video generator",
     relatedPaths: [
       "/blog-to-video",
-      "/templates",
+      "/blogs/best-templates-for-explainer-videos",
       "/blogs/whats-new-in-blog2video-six-features",
       "/article-to-video",
     ],
@@ -9561,7 +9561,7 @@ export const blogPosts: BlogPost[] = [
       "/tools/stock-visualizer",
       "/blog-to-video",
       "/blogs/new-template-finance-publication",
-      "/templates",
+      "/blogs/best-templates-for-explainer-videos",
     ],
     sections: [
       {
@@ -9698,8 +9698,8 @@ export const blogPosts: BlogPost[] = [
     keywordVariant: "blog2video june 2026 updates",
     relatedPaths: [
       "/blog-to-video",
-      "/mcp-server",
-      "/ai-voice-over",
+      "/mcp-connector",
+      "/blogs/how-to-use-ai-voiceover-for-blog-content",
       "/blog-to-youtube-video",
     ],
     sections: [
@@ -9722,7 +9722,7 @@ export const blogPosts: BlogPost[] = [
           "Drives scenes, voiceover, and render from a single instruction",
           "Drop Blog2Video into any existing AI or automation pipeline",
         ],
-        ctaPath: "/mcp-server",
+        ctaPath: "/mcp-connector",
         ctaLabel: "Explore the MCP server",
       },
       {
@@ -9737,7 +9737,7 @@ export const blogPosts: BlogPost[] = [
           "Control delivery speed independently from script length",
           "Adjust tonal exaggeration through the ElevenLabs API directly",
         ],
-        ctaPath: "/ai-voice-over",
+        ctaPath: "/blogs/how-to-use-ai-voiceover-for-blog-content",
         ctaLabel: "Try voice controls",
       },
       {
@@ -10746,6 +10746,7 @@ export const blogPosts: BlogPost[] = [
       "/blog-to-youtube-video",
       "/ai-video-generator-for-bloggers",
       "/blogs/blog-to-video-tools-compared",
+      "/blogs/blog2video-official-site-vs-copycats",
     ],
     sections: [
       {
@@ -12358,7 +12359,7 @@ export const blogPosts: BlogPost[] = [
     primaryKeyword: "manual blog to video workflow",
     keywordVariant: "blog to video time comparison",
     relatedPaths: [
-      "/how-to-turn-a-blog-post-into-a-video",
+      "/blogs/how-to-turn-a-blog-post-into-a-video",
       "/blog-to-video",
       "/blog-to-youtube-video",
     ],
@@ -12591,7 +12592,7 @@ export const blogPosts: BlogPost[] = [
       "Most article-to-video tools fall apart when the content is detailed, structured, or technical. The key is not just generating video quickly. It is preserving the parts that made the article good in the first place.",
     primaryKeyword: "best ai tools to convert articles into videos",
     keywordVariant: "article to video software comparison",
-    relatedPaths: ["/article-to-video", "/ai-video-generator-for-bloggers", "/measurement-playbook"],
+    relatedPaths: ["/article-to-video", "/ai-video-generator-for-bloggers", "/measurement-playbook", "/blogs/ai-video-generator-for-bloggers-buying-guide"],
     sections: [
       {
         heading: "What matters in a real evaluation",
@@ -12741,7 +12742,7 @@ export const blogPosts: BlogPost[] = [
       "The challenge is not generating ideas. It is turning detailed writing into a video format that still feels credible and useful.",
     primaryKeyword: "technical bloggers repurpose posts into youtube videos",
     keywordVariant: "technical blog to YouTube workflow",
-    relatedPaths: ["/for-technical-bloggers", "/blog-to-youtube-video", "/code-snippet-to-video"],
+    relatedPaths: ["/for-technical-bloggers", "/blog-to-youtube-video", "/code-snippet-to-video", "/blogs/how-to-preserve-code-snippets-in-ai-generated-videos"],
     sections: [
       {
         heading: "Pick posts with durable demand",
@@ -14586,7 +14587,7 @@ export const blogPosts: BlogPost[] = [
       "Custom templates are what turn repeated video generation into a brand system. The goal is not styling each asset from scratch. It is making every output feel coherent, recognizable, and faster to produce.",
     primaryKeyword: "how to create custom branded video templates",
     keywordVariant: "custom branded video template guide",
-    relatedPaths: ["/custom-branded-video-templates", "/ai-scene-editor", "/best-templates-for-explainer-videos"],
+    relatedPaths: ["/custom-branded-video-templates", "/ai-scene-editor", "/blogs/best-templates-for-explainer-videos"],
     sections: [
       {
         heading: "Start with the repeatable parts of the brand",
@@ -14666,6 +14667,7 @@ export const blogPosts: BlogPost[] = [
       "/article-to-video",
       "/blogs/best-ai-tools-to-convert-articles-into-videos",
       "/pricing",
+      "/blogs/ai-video-generator-for-bloggers-buying-guide",
     ],
     sections: [
       {
@@ -15437,7 +15439,7 @@ export const blogPosts: BlogPost[] = [
       "Developer relations teams do not need a separate content factory for every launch, tutorial, or onboarding flow. The strongest video workflow often begins with the docs you already maintain.",
     primaryKeyword: "devrel docs to video",
     keywordVariant: "developer relations documentation video",
-    relatedPaths: ["/for-technical-writers", "/docx-to-video", "/code-snippet-to-video"],
+    relatedPaths: ["/for-technical-writers", "/docx-to-video", "/code-snippet-to-video", "/blogs/how-to-preserve-code-snippets-in-ai-generated-videos"],
     sections: [
       {
         heading: "Documentation is one of DevRel's highest-leverage source assets",
@@ -16240,6 +16242,7 @@ export const blogPosts: BlogPost[] = [
       "/blogs/blog-to-video-tools-compared",
       "/blogs/blog2video-vs-heygen",
       "/blogs/blog2video-vs-veed",
+      "/blogs/blog2video-official-site-vs-copycats",
     ],
     sections: [
       {
@@ -17813,7 +17816,7 @@ export const blogPosts: BlogPost[] = [
       "Anthropic built MCP — so Claude has first-class support for it. Add the Blog2Video server to Claude Desktop or use it as a connector in claude.ai, and Claude can scrape articles, generate scripts, pick templates, and hand back preview links without leaving your conversation.",
     primaryKeyword: "blog2video mcp server claude",
     keywordVariant: "connect mcp server claude desktop blog to video",
-    relatedPaths: ["/blog-to-video", "/pricing", "/blogs/blog2video-mcp-server-n8n"],
+    relatedPaths: ["/blog-to-video", "/pricing", "/blogs/blog2video-mcp-server-n8n", "/blogs/claude-chat-to-video"],
     sections: [
       {
         heading: "Why Claude is the natural home for MCP tools",
@@ -18617,7 +18620,7 @@ export const blogPosts: BlogPost[] = [
     relatedPaths: [
       "/for-newsletters",
       "/blog-to-video",
-      "/templates",
+      "/blogs/best-templates-for-explainer-videos",
       "/blogs/new-template-finance-publication",
     ],
     sections: [

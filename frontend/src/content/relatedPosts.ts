@@ -42,11 +42,24 @@ function getTokens(post: BlogPost): Set<string> {
 /**
  * Returns the blog posts most relevant to `post`, ranked by:
  *   1. editorially curated links in `relatedPaths` (highest priority),
- *   2. shared category,
- *   3. keyword/title token overlap.
- * Deterministic: ties break alphabetically by slug so prerender output is stable.
+ *   2. posts that curate a link to `post` (so curated links run both ways),
+ *   3. shared category,
+ *   4. keyword/title token overlap.
+ * Deterministic: ties break on a stable per-pair hash, so prerender output is
+ * stable without funnelling every tie to the alphabetically first slugs.
  */
+function pairHash(a: string, b: string): number {
+  let hash = 2166136261;
+  const key = `${a}|${b}`;
+  for (let i = 0; i < key.length; i += 1) {
+    hash ^= key.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
 export function getRelatedBlogPosts(post: BlogPost, limit = 4): BlogPost[] {
+  const ownPath = `/blogs/${post.slug}`;
   const baseTokens = getTokens(post);
   const curatedSlugs = new Set(
     post.relatedPaths
@@ -65,9 +78,10 @@ export function getRelatedBlogPosts(post: BlogPost, limit = 4): BlogPost[] {
       }
       const sameCategory = entry.category.toLowerCase() === baseCategory ? 3 : 0;
       const curated = curatedSlugs.has(entry.slug) ? 100 : 0;
-      return { entry, score: curated + sameCategory + overlap };
+      const reciprocal = entry.relatedPaths.includes(ownPath) ? 50 : 0;
+      return { entry, score: curated + reciprocal + sameCategory + overlap, tie: pairHash(post.slug, entry.slug) };
     })
-    .sort((a, b) => b.score - a.score || a.entry.slug.localeCompare(b.entry.slug))
+    .sort((a, b) => b.score - a.score || a.tie - b.tie)
     .slice(0, limit)
     .map((scored) => scored.entry);
 }
