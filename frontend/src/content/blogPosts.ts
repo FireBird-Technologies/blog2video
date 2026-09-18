@@ -17,6 +17,330 @@ function faq(primary: string, variant: string) {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "four-new-tricks",
+    title: "Four New Tricks: Editable Custom Templates, Auto Font Size, More Scenes, and Avatars",
+    description:
+      "Blog2Video's latest update: custom templates rebuilt and now editable, automatic font sizing for long text, new scene variants across six templates, and Avatars, now live for everyone.",
+    category: "Product Update",
+    heroImage: "/blog/blog-cover-four-new-tricks.jpg",
+    heroImageAlt:
+      "The Blog2Video stickman playing a flute beside six refreshed templates: Stick Man, Black Swan, Chronicle, Sakura, Magazine and Nightfall.",
+    publishedAt: "2026-09-18",
+    readTime: "4 min read",
+    heroEyebrow: "Product Update",
+    heroTitle: "Blog2Video just learned four new tricks",
+    heroDescription:
+      "One stickman, one tricycle, one cape. Custom templates rebuilt and editable, auto font size, more scene variants across six templates, and Avatars, now live.",
+    primaryKeyword: "blog2video update",
+    keywordVariant: "blog2video new features",
+    relatedPaths: [
+      "/custom-branded-video-templates",
+      "/blog-to-video",
+      "/blogs/blog2video-september-2026-update",
+      "/blogs/stickman-v4-jetpack-update",
+      "/blogs/blog2video-august-2026-update",
+    ],
+    sections: [
+      {
+        heading: "One stickman, four new tricks",
+        paragraphs: [
+          "We shipped four things this month. To introduce them we made another stickman video. He rides in on a tricycle, paints, flies a kite, plays the flute, and ends by putting on a cape and flying off. Here is what each of those scenes is about.",
+        ],
+        bullets: [
+          "0:00 Four new tricks",
+          "0:10 Trick one: custom templates, rebuilt & editable",
+          "0:34 Trick two: auto font size",
+          "0:53 Trick three: more scene variants",
+          "1:09 Trick four: Avatars (+ private sign-in)",
+          "1:29 Up, up and away: blog2video.app",
+        ],
+      },
+      {
+        heading: "1. Custom templates, rebuilt and now editable",
+        paragraphs: [
+          "Custom templates let you turn your brand (your website, a prompt, or a brand document) into a video template of its own. We've rebuilt how those templates are made.",
+          "Custom template creation now runs on a brand new generation harness. We tested it against the old one internally, and people rated its videos 27% higher. The share of videos that got a zero rating dropped as well. That second number matters to us just as much: the new harness raises the average and also produces far fewer videos that miss completely.",
+          "Every custom template is now fully editable, too. When the generated template is close but not quite right, you don't need to start over. Open it and change the colors, fonts and layouts yourself, as often as you like. In the video, that's the stickman's second coat of paint: he repaints the canvas and the template changes color with it.",
+        ],
+        ctaPath: "/custom-branded-video-templates",
+        ctaLabel: "Build a custom template",
+      },
+      {
+        heading: "2. Auto font size",
+        paragraphs: [
+          "Long headlines used to be the easiest way to break a scene: a title that looks fine in the editor can spill over the edge or get cut off in the final render.",
+          "Now, text in templates sizes itself to fit. Write a long headline and the font scales down until it fits its frame. It takes both the screen the video plays on and your preferred proportions into account, so the same headline fits a landscape video and a portrait one. Nothing spills and nothing gets cut off. In the video, the headline keeps getting longer and fits both frames the whole time.",
+        ],
+      },
+      {
+        heading: "3. More scene variants, and six refreshed templates",
+        paragraphs: [
+          "Six templates have a fresh new look:",
+        ],
+        bullets: [
+          "Stick Man: hand-drawn figures on a clean page",
+          "Black Swan: neon cyan on black, with water ripples",
+          "Chronicle: a parchment history book with drop caps and quill-style text",
+          "Sakura: washi paper, crimson accents and falling blossoms",
+          "Magazine: print editorial with serif headlines and a single red accent",
+          "Nightfall: dark cinematic glass with neon-glow data",
+        ],
+      },
+      {
+        heading: "More ways to lay out every scene",
+        paragraphs: [
+          "Each of them also has more scene variants, so there are more ways to lay out a title, a split image-and-text scene, or a set of numbers. That makes it easier to find a layout that suits each part of your story, and a long video repeats itself less. (In the video, the stickman plays the flute and each note brings one of the templates on screen.)",
+        ],
+        ctaPath: "/templates/chronicle",
+        ctaLabel: "Browse the templates",
+      },
+      {
+        heading: "4. Avatars are live",
+        paragraphs: [
+          "Avatars are out of beta. Upload a photo and it becomes your presenter, speaking your script, lip-synced to the narration in every scene. You can also pick one of our presenters.",
+          "If you've used a talking photo AI tool before, it's the same idea, with one difference: instead of a single talking-head clip, the avatar presents the whole video, scene after scene, alongside the templates, charts and captions.",
+        ],
+      },
+      {
+        heading: "Also new: a private sign-in",
+        paragraphs: [
+          "You can now sign in with just your email and a password. We confirm your address with a 6-digit code sent to your email. Google sign-in still works exactly as before, but you no longer need a Google account to use Blog2Video.",
+        ],
+      },
+      {
+        heading: "Try them",
+        paragraphs: [
+          "All four are live now at blog2video.app. Paste in a blog post, choose one of the refreshed templates (or build your own and edit it), give it a long headline, add an avatar, and see what you get.",
+          "Go make something worth watching.",
+          "Made with love by Firebird Technologies.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video",
+      },
+      {
+        heading: "How we made the video",
+        paragraphs: [
+          "The video is built entirely in Remotion (React): every frame is code, with no stock footage and no AI video generation. The narration is ElevenLabs (\"Nova\"), over the same music bed as the rest of the stickman update series.",
+          "The stickman is the same shared character from our earlier update videos. For this one we taught him to ride a tricycle (the pedals turn exactly as fast as the wheel rolls), play the flute, and take off with one fist raised. Every cut between scenes moves the camera upward, so the video climbs from the stage to above the clouds. It ships in landscape (1920×1080) and portrait (1080×1920) from one composition.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "What changed in Blog2Video custom templates?",
+        answer:
+          "Custom templates are now generated on a brand new harness. In internal testing, people rated its videos 27% higher and far fewer videos got a zero rating. Every custom template is also fully editable: you can change its colors, fonts and layouts whenever you like.",
+      },
+      {
+        question: "What does auto font size do?",
+        answer:
+          "Text in templates now shrinks to fit its frame. It accounts for the screen the video plays on and your preferred proportions, so the same long headline fits both a landscape and a portrait video without spilling over or getting cut off.",
+      },
+      {
+        question: "Which templates got new scene variants?",
+        answer:
+          "Stick Man, Black Swan, Chronicle, Sakura, Magazine and Nightfall all have a fresh new look plus more scene variants for titles, split image-and-text scenes and numbers.",
+      },
+      {
+        question: "Are Blog2Video Avatars still in beta?",
+        answer:
+          "No. Avatars are now live for everyone. Upload a photo and it presents your script, lip-synced to the narration in every scene, or pick one of the built-in presenters.",
+      },
+      {
+        question: "Can Blog2Video make a talking photo from a picture?",
+        answer:
+          "Yes. Upload a clear, front-facing photo and Blog2Video animates it into a talking avatar that speaks your script, lip-synced to the narration. It works with prebuilt AI voices, a cloned voice, or your own recording.",
+      },
+      {
+        question: "Can I use Blog2Video without a Google account?",
+        answer:
+          "Yes. You can sign in with just your email and a password. Your address is confirmed with a 6-digit code sent to your email. Google sign-in still works as before.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Four New Tricks: Editable Custom Templates, Auto Font Size, More Scenes, and Avatars",
+        angle:
+          "Product update post covering the four releases, with the stickman release video embedded at the top.",
+      },
+      {
+        channel: "video",
+        title: "Blog2Video Just Learned 4 New Tricks",
+        angle:
+          "Stickman rides in on a tricycle, paints, flies a kite, plays the flute, and flies off in a cape, one trick per feature.",
+      },
+      {
+        channel: "twitter",
+        title: "Blog2Video just learned four new tricks",
+        angle:
+          "One post per feature with the matching chapter clipped from the release video, closing on blog2video.app.",
+      },
+    ],
+  },
+  {
+    slug: "finance-substack-distribution-problem",
+    title: "Finance Substacks Don't Have a Writing Problem. They Have a Distribution Problem.",
+    description:
+      "The bottleneck on a finance newsletter is almost never the quality of the analysis. It is that the analysis exists in one format, on one platform, for one kind of reader. Here is why finance writing converts to video better than almost any other category, and what to do about it.",
+    category: "Strategy",
+    heroImage: "/blog/blog-cover-why-finance-newsletters-are-switching-to-blog2video.png",
+    heroImageAlt:
+      "A finance newsletter post opening out into video scenes on YouTube, LinkedIn and a phone screen.",
+    publishedAt: "2026-09-13",
+    readTime: "6 min read",
+    heroEyebrow: "Strategy",
+    heroTitle: "Finance Substacks don't have a writing problem",
+    heroDescription:
+      "They have a distribution problem. The analysis is good. It just exists in exactly one format, on exactly one platform, for exactly one kind of reader.",
+    primaryKeyword: "finance substack",
+    keywordVariant: "how to grow a finance substack",
+    relatedPaths: [
+      "/for-finance-publishers",
+      "/blogs/newsletter-best-newsletter-is-a-video",
+      "/blogs/substack-newsletter-to-video-workflow",
+      "/blogs/best-ai-tools-for-substack-writers",
+      "/blog-to-video",
+    ],
+    sections: [
+      {
+        heading: "The loop most finance writers are stuck in",
+        paragraphs: [
+          "You publish something genuinely good. A teardown of a balance sheet. A thesis on where rates go next. An honest post-mortem on a trade that went against you. It lands with the existing list, a few people share it, and then nothing. The post slides into the archive and the subscriber count moves by single digits.",
+          "The instinct is to write more, or to write better. That instinct is usually wrong. The bottleneck is almost never the quality of the analysis. It is that the analysis exists in exactly one format, on exactly one platform, for exactly one kind of reader.",
+        ],
+      },
+      {
+        heading: "The reader you are never going to reach",
+        paragraphs: [
+          "There is a large population of people who are interested in markets and will never read 2,000 words about them. Not because they are lazy or unserious. They are commuting, or at the gym, or half watching something while the kids eat dinner. They consume ideas through audio and motion, and they are on YouTube, TikTok, Instagram and LinkedIn instead of in a newsletter inbox.",
+          "That group is not a lesser audience. It is the audience that has not been pre-selected by your existing distribution. Every finance writer already has a text funnel. Almost none have a second one. The writers who grew fastest over the last few years are not better analysts than the ones who did not. They showed up in more places.",
+          "There is also a compounding effect that text does not give you. A Substack post has a half life of about 48 hours. A video sits on a platform with a recommendation engine attached to it, and that engine will keep feeding your February explainer to strangers in October. Search and recommendation do the work while you sleep. Your inbox does not.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video",
+      },
+      {
+        heading: "Finance is unusually well suited to video",
+        paragraphs: [
+          "Some writing translates badly to video. Finance is not in that category. It is the opposite.",
+          "Finance writing is built on the exact things that video renders well. Numbers that should be seen rather than read. Charts with a shape that tells the story faster than a paragraph can. A claim, the evidence for the claim, and the counterargument. That structure is already a script. Most of the work of turning a finance post into a video is work you did when you wrote the post.",
+          "There is a trust dimension too. Money is a high trust purchase. People subscribe to a paid finance publication because they believe the person behind it knows what they are talking about. Text proves competence. Voice and face prove conviction. Readers who have heard you reason through a position out loud convert at a different rate than readers who have only skimmed you.",
+        ],
+        bullets: [
+          "Numbers that should be seen rather than read",
+          "Charts whose shape tells the story faster than a paragraph can",
+          "A claim, the evidence, and the counterargument - already a script",
+          "Voice and face prove conviction in a way text cannot",
+        ],
+      },
+      {
+        heading: "So why is nobody doing it",
+        paragraphs: [
+          "Because the traditional answer is brutal. Hire an editor at several hundred dollars a video, or learn a timeline editor yourself and spend four hours per post. Neither is compatible with publishing twice a week while also doing the research that makes the publication worth reading. So the video plan becomes a someday plan, and someday never arrives.",
+          "The newer answer is generative AI video, and for finance it is worse than doing nothing. Generative models invent. They will produce a chart that looks like a chart and means nothing. They will draw a candlestick pattern that never existed and put a number on an axis that was never in your post. If you publish financial analysis, you cannot ship a video that hallucinates a figure. Your entire product is that you are accurate.",
+        ],
+      },
+      {
+        heading: "What we built instead",
+        paragraphs: [
+          "Blog2Video came out of this exact problem. I had over 50 posts I wanted in video form, priced out editors, tried the generic AI tools, and found both unusable for finance content.",
+          "So the approach is different. Blog2Video renders video programmatically using React components rather than generating frames with a model. Your chart is your chart. Your number is your number. Nothing is invented, because nothing is being imagined in the first place. You paste a URL or a post, the system pulls the structure, writes a script that preserves your argument, narrates it in a voice you choose, and renders a finished video with scenes, captions and B-roll.",
+          "It takes minutes rather than hours, and it does not require you to be on camera.",
+          "The mix of who uses it tells the story better than I can. Around 70 percent of usage on the platform comes from finance and investment publishers. Roughly 5,000 creators have rendered more than 7,500 videos, and the people getting the most out of it are newsletter writers who already had good text and no second channel.",
+        ],
+        ctaPath: "/for-finance-publishers",
+        ctaLabel: "See how finance publishers use it",
+      },
+      {
+        heading: "The honest math",
+        paragraphs: [
+          "The free tier gives you a full-quality video with no watermark, which is enough to test whether your audience responds before you commit anything. Lite is $19.99 a month for 10 videos. Standard is $34.99 a month for 30. Pro is $59.99 a month for 100.",
+          "Compare that against one freelance editor invoice, or against four hours of your own time per post. For most paid finance publications, a single subscriber retained for a few months covers the year.",
+        ],
+        ctaPath: "/pricing",
+        ctaLabel: "See pricing",
+      },
+      {
+        heading: "The thing worth being honest about",
+        paragraphs: [
+          "Video is not going to save a publication that nobody wants to read. If the analysis is thin, more distribution just exposes the thinness to more people faster.",
+          "But that is not the situation most finance writers are in. Most of them are sitting on a genuinely good archive that only ever reached the people who were already subscribed. That archive is a content library. It is just sitting in the wrong format.",
+          "Start with your best post from last month. Turn it into a video. See what happens.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try it free",
+      },
+      {
+        heading: "Somewhere to put the publication once the video exists",
+        paragraphs: [
+          "Making the video solves half the distribution problem. The other half is the people who would subscribe to a finance newsletter if they knew it existed, and who are browsing rather than searching.",
+          "bloghub.app is a directory built for exactly that - a place to list the publication, get found by readers browsing a category, and pick up a real indexed link back to your site while you are there.",
+        ],
+        ctaPath: "https://bloghub.app",
+        ctaLabel: "List your publication on BlogHub",
+      },
+    ],
+    faq: [
+      {
+        question: "Why is video worth it for a finance Substack specifically?",
+        answer:
+          "Finance writing is already structured the way a video script is - a claim, the evidence for it, and the counterargument, carried by numbers and charts that read better on screen than on the page. It also reaches an audience your newsletter cannot: people who follow markets through audio and motion on YouTube, LinkedIn and TikTok and will never open 2,000 words. And unlike a post with a 48-hour half life, a video sits on a recommendation engine that keeps surfacing it months later.",
+      },
+      {
+        question: "Will an AI video tool hallucinate my numbers?",
+        answer:
+          "Generative video models can, which is why they are a bad fit for financial analysis. Blog2Video renders video programmatically with React components rather than generating frames with a model, so your chart is your chart and your number is your number. Nothing is invented because nothing is being imagined.",
+      },
+      {
+        question: "Do I have to be on camera to make finance videos?",
+        answer:
+          "No. The video is narrated in a voice you choose - a prebuilt voice, a clone of your own, or your own recording - over rendered scenes, captions and B-roll. If you want a presenter on screen, Avatars can animate a photo, but it is optional.",
+      },
+      {
+        question: "How long does it take to turn a finance newsletter into a video?",
+        answer:
+          "Minutes rather than hours. You paste a URL or the post itself; the system pulls the structure, writes a script that preserves your argument, narrates it and renders the scenes. The alternative is several hundred dollars to a freelance editor or roughly four hours per post in a timeline editor.",
+      },
+      {
+        question: "What does Blog2Video cost for a newsletter writer?",
+        answer:
+          "There is a free tier with no watermark so you can test whether your audience responds before committing. Paid plans run $19.99 a month for 10 videos, $34.99 for 30, and $59.99 for 100. For most paid finance publications a single subscriber retained for a few months covers the year.",
+      },
+      {
+        question: "Will video fix a newsletter nobody is reading?",
+        answer:
+          "No, and it is worth being honest about that. If the analysis is thin, more distribution only exposes the thinness to more people faster. Video works when the writing is already good and the only problem is that it never reached anyone who was not already subscribed.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Finance Substacks Don't Have a Writing Problem. They Have a Distribution Problem.",
+        angle:
+          "Argument post for finance newsletter writers: the bottleneck is format and platform, not analysis quality, and finance converts to video unusually well.",
+      },
+      {
+        channel: "substack",
+        title: "Your finance Substack doesn't have a writing problem",
+        angle:
+          "Lead with the publish-and-nothing-happens loop every finance writer recognises, then the reader they are structurally never going to reach.",
+      },
+      {
+        channel: "video",
+        title: "Why finance writing is the best possible source material for video",
+        angle:
+          "Walk the claim-evidence-counterargument structure and show the same post rendered as scenes with the real numbers intact.",
+      },
+      {
+        channel: "twitter",
+        title: "A Substack post has a half life of about 48 hours. A video does not.",
+        angle:
+          "Thread on the compounding asymmetry between an inbox send and a recommendation engine, closing on the hallucination problem with generative video for finance.",
+      },
+    ],
+  },
+  {
     slug: "blog2video-september-2026-update",
     title: "Blog2Video September 2026 Update: The Documentary Template, Auto-Adjust, Avatars, and Templates Built From Your Brand",
     description:
@@ -84,7 +408,7 @@ export const blogPosts: BlogPost[] = [
       {
         heading: "3. Avatars (Beta) - upload a photo, get a presenter",
         paragraphs: [
-          "Upload any photo and Blog2Video brings it to life: your presenter, speaking your script, lip-synced to the narration, scene after scene. Or pick one of ours if you would rather not put your own face on it.",
+          "Upload any photo and Blog2Video brings it to life as a talking photo avatar: your presenter, speaking your script, lip-synced to the narration, scene after scene. Or pick one of ours if you would rather not put your own face on it.",
           "The lip sync is driven by the narration track that already exists in the project, so the avatar follows whatever voice you chose - a prebuilt voice, your cloned voice, or a recording you made yourself. It carries across scenes rather than being a single talking-head clip bolted to the front.",
           "It is in beta, and we are calling it that honestly. It works well on clear, front-facing, well-lit portraits and gets less reliable as the source photo gets further from that. Try it, tell us where it breaks.",
         ],
@@ -195,15 +519,15 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: "can-chatgpt-make-videos",
-    title: "Can ChatGPT Make Videos? What Actually Lets ChatGPT and Claude Generate Real Video",
+    title: "Can ChatGPT Make Videos? No, But Here Is How to Make One With It (Free and Paid)",
     description:
-      "ChatGPT cannot render a finished video from a chat message on its own, and Claude has no video model at all. Here is what actually happens when you ask, what Sora and Veo really produce, and how an MCP connector lets either assistant return a real narrated MP4.",
+      "No, ChatGPT cannot make a video file on its own. Here are three ways to make a video with ChatGPT, step by step: free (script plus a text-to-video tool), with Sora, or in one message through an MCP connector. Plus whether it can make videos from photos.",
     category: "Comparison",
     heroImage: "/blog/blog-cover-can-chatgpt-make-videos.png",
     heroImageAlt:
       "A frosted chat window connected by a glowing cable to a separate video player and MP4 file, showing that chat assistants operate a renderer rather than making video themselves.",
     publishedAt: "2026-09-05",
-    readTime: "9 min read",
+    readTime: "11 min read",
     heroEyebrow: "AI video, honestly",
     heroTitle: "ChatGPT cannot make you a video. It can operate something that does.",
     heroDescription:
@@ -229,6 +553,36 @@ export const blogPosts: BlogPost[] = [
           "Generative video models (Sora, Veo, Runway, Kling) - separate products, hallucinated frames, seconds long, no narration by default",
           "Connected tools via MCP - the assistant calls a real renderer and hands you back a finished file",
           "Neither - the assistant writes you a script and you go and make it yourself",
+        ],
+      },
+      {
+        heading: "How to make a video with ChatGPT, step by step",
+        paragraphs: [
+          "There are three practical routes, from the most manual to the most automatic.",
+          "Route 1, script only (works on the free plan): ask ChatGPT for a script with a hook, three to five sections, and a closing line, then ask it to split the script into scenes with on-screen text for each. Paste that script into a text-to-video tool, pick a voice and a template, and render.",
+          "Route 2, generative clips: use OpenAI's Sora, a separate product from the chat window, to generate short clips from a prompt, then cut them together with narration in a video editor. This suits visual moods and b-roll, not explainers with accurate on-screen text.",
+          "Route 3, one message to a finished video: connect a video tool to ChatGPT through an MCP connector, then send a sentence like 'turn this article into a video' with a link. ChatGPT calls the tool, which writes the narration, builds the scenes, and returns a preview link or an MP4.",
+        ],
+        bullets: [
+          "Fastest free route: ChatGPT writes the script, a text-to-video tool renders it",
+          "Best for cinematic b-roll: Sora clips edited together",
+          "Best for explainers from an article or document: an MCP-connected renderer",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Turn a script or article into a video",
+      },
+      {
+        heading: "Can ChatGPT make videos for free?",
+        paragraphs: [
+          "Partly. On the free plan ChatGPT can write the script, the scene breakdown, the captions, and the title and description, and that is most of the thinking. The rendering has to happen somewhere else.",
+          "Pair the free script with a text-to-video tool that has a free tier and you can get a finished video without paying for either. MCP connectors are the exception: in ChatGPT they need a paid plan (Plus, Pro, Team or Enterprise), so the one-message route is not free.",
+        ],
+      },
+      {
+        heading: "Can ChatGPT make a video from photos?",
+        paragraphs: [
+          "Not by itself. ChatGPT can look at your photos, describe them, and write narration or captions for a slideshow, but it cannot animate them into a video file.",
+          "To make a video from photos, give those captions to a video tool, or use a talking-photo tool: upload a portrait and it animates the face to speak your script, lip-synced to the voiceover. Blog2Video's Avatars work this way, turning an uploaded photo into a presenter for the whole video.",
         ],
       },
       {
@@ -298,6 +652,16 @@ export const blogPosts: BlogPost[] = [
         question: "Can ChatGPT make videos?",
         answer:
           "Not on its own. ChatGPT is a language model with an image model attached; it has no video renderer behind the chat box. OpenAI's Sora is a separate text-to-video product that generates short generative clips. To get a finished narrated video out of a ChatGPT conversation you connect an external video tool through an MCP connector, and the assistant calls that tool to do the rendering.",
+      },
+      {
+        question: "How do I make a video with ChatGPT for free?",
+        answer:
+          "Ask ChatGPT for a script split into scenes with on-screen text, then paste it into a text-to-video tool with a free tier and render it there. The free ChatGPT plan cannot render video itself, and MCP connectors need a paid plan.",
+      },
+      {
+        question: "Can ChatGPT make a video from photos?",
+        answer:
+          "Not on its own. It can write captions and narration for your photos, but a separate tool has to turn them into a video. A talking-photo tool, such as Blog2Video's Avatars, can animate a portrait so it speaks your script.",
       },
       {
         question: "Can Claude make videos?",
@@ -2147,21 +2511,21 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: "2008-financial-crisis-stickman-explainer",
-    title: "The 2008 Financial Crisis, Explained in Four Steps with Stick Figures",
+    title: "The 2008 Financial Crisis Explained Simply: 4 Steps (With Stick Figures)",
     description:
-      "The whole thing nearly collapsed, and it started with a house. We stripped the 2008 crash down to four steps you can follow with a row of stick figures and a few charts — a documentary-style Remotion short.",
+      "What caused the 2008 financial crisis? The housing bubble, mortgage-backed securities, reckless lending, and the crash and bailout, explained simply in four steps with a narrated stick-figure animation.",
     category: "Behind the scenes",
     heroImage: "/blog/blog-cover-2008-financial-crisis-stickman-explainer.png",
     heroImageAlt:
       "The whole thing nearly collapsed, and it started with a house. We stripped the 2008 crash down to four steps you can follow with a row of stick figures and a few charts — a documentary-style Remotion short.",
     publishedAt: "2026-07-14",
     readTime: "3 min read",
-    heroEyebrow: "Behind the scenes",
-    heroTitle: "The 2008 Financial Crisis, Explained in Four Steps with Stick Figures",
+    heroEyebrow: "Economics, explained",
+    heroTitle: "The 2008 financial crisis, explained simply in four steps",
     heroDescription:
-      "The whole thing nearly collapsed, and it started with a house. We stripped the 2008 crash down to four steps you can follow with a row of stick figures and a few charts — a documentary-style Remotion short.",
+      "It started with a house. The housing bubble, the mortgage bonds, the lending nobody checked, and the crash, told with a row of stick figures and a few charts.",
     primaryKeyword: "2008 financial crisis explained",
-    keywordVariant: "subprime mortgage crisis explainer video",
+    keywordVariant: "what caused the 2008 financial crisis",
     relatedPaths: ["/for-finance-publishers", "/blogs/newsletter-market-breakdown-video", "/blog-to-video"],
     sections: [
       {
@@ -2202,7 +2566,28 @@ export const blogPosts: BlogPost[] = [
         ctaLabel: "Try Blog2Video free",
       },
     ],
-    faq: faq("2008 financial crisis explained", "subprime mortgage crisis explainer video"),
+    faq: [
+      {
+        question: "What caused the 2008 financial crisis, in simple terms?",
+        answer:
+          "Banks lent heavily to home buyers who could not afford to repay, bundled those loans into bonds rated as safe, and sold them worldwide. When house prices fell and borrowers defaulted, the bonds collapsed in value and the banks holding them failed or nearly failed.",
+      },
+      {
+        question: "What were mortgage-backed securities?",
+        answer:
+          "Bonds built from thousands of home loans bundled together. Investors received the loan repayments, and many of these bonds were rated AAA even though they contained risky subprime mortgages.",
+      },
+      {
+        question: "How big was the 2008 bank bailout?",
+        answer:
+          "The US Troubled Asset Relief Program (TARP), passed in October 2008, authorised up to $700 billion to stabilise the financial system.",
+      },
+      {
+        question: "How was this stick-figure explainer made?",
+        answer:
+          "It was built entirely in code with Remotion (React), with no stock footage and no AI-generated video, and narrated with ElevenLabs. It renders in both landscape and portrait from one composition.",
+      },
+    ],
     distributionPlan: [
       {
         channel: "site",
@@ -2992,32 +3377,52 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: "sisyphus-stickman-animation",
-    title: "The Myth of Sisyphus: We Ended the Film on the Reclimb, Not the Fall",
+    title: "The Myth of Sisyphus, Explained: The Myth, Camus, and Why He Is Happy",
     description:
-      "One must imagine Sisyphus happy. We animated the myth as a narrated stickman short with a physically honest boulder — and chose to end not on the stone thundering down, but on the man setting his hands to it again.",
+      "Who was Sisyphus, why was he punished, and what did Albert Camus mean by 'one must imagine Sisyphus happy'? The Greek myth and Camus's essay explained in plain words, with a narrated 80-second stickman animation.",
     category: "Behind the scenes",
     heroImage: "/blog/blog-cover-sisyphus-stickman-animation.png",
     heroImageAlt:
-      "One must imagine Sisyphus happy. We animated the myth as a narrated stickman short with a physically honest boulder — and chose to end not on the stone thundering down, but on the man setting his hands to it again.",
+      "A stickman pushing a boulder up a mountainside at dusk, from the Myth of Sisyphus stickman animation.",
     publishedAt: "2026-07-14",
-    readTime: "2 min read",
-    heroEyebrow: "Behind the scenes",
-    heroTitle: "The Myth of Sisyphus: We Ended the Film on the Reclimb, Not the Fall",
+    readTime: "5 min read",
+    heroEyebrow: "Myth & philosophy, explained",
+    heroTitle: "The Myth of Sisyphus, explained: the boulder, the gods, and Camus",
     heroDescription:
-      "One must imagine Sisyphus happy. We animated the myth as a narrated stickman short with a physically honest boulder — and chose to end not on the stone thundering down, but on the man setting his hands to it again.",
-    primaryKeyword: "myth of sisyphus animation",
-    keywordVariant: "sisyphus myth stickman short",
-    relatedPaths: ["/blogs/prometheus-stickman-animation", "/blogs/the-grind-stickman-animation", "/templates/stickman_2"],
+      "The Greek myth of the man condemned to push a boulder uphill forever, and Albert Camus's famous reading of it, explained in plain words, with a narrated stickman animation.",
+    primaryKeyword: "myth of sisyphus",
+    keywordVariant: "one must imagine sisyphus happy meaning",
+    relatedPaths: ["/blogs/ship-of-theseus-stickman-animation", "/blogs/prometheus-stickman-animation", "/blogs/the-grind-stickman-animation", "/templates/stickman_2"],
     sections: [
       {
-        heading: "Overview",
+        heading: "Who was Sisyphus?",
         paragraphs: [
-          "One must imagine Sisyphus happy.",
-          "The myth is usually remembered as futility — the endless push, the stone rolling back. We animated it as a narrated stickman short, about eighty-one seconds long, and made one deliberate choice about where to end.",
+          "In Greek mythology, Sisyphus was the king of Ephyra, the city later called Corinth. He was famous for being clever and for cheating the gods, above all for cheating death.",
+          "In the best-known version he chains up Thanatos, Death himself, so that nobody can die. Later, when he does reach the underworld, he tricks his way back out by persuading the gods to let him return to the living. He is finally dragged back for good.",
         ],
       },
       {
-        heading: "The story",
+        heading: "The punishment",
+        paragraphs: [
+          "As punishment, Sisyphus must roll a huge boulder up a hill. Every time it nears the top, it rolls back down, and he has to start again, forever. Homer describes him at this task in Book 11 of the Odyssey.",
+          "That is why a 'Sisyphean' task means work that is endless and can never be finished.",
+        ],
+      },
+      {
+        heading: "Camus: 'One must imagine Sisyphus happy'",
+        paragraphs: [
+          "In his 1942 essay The Myth of Sisyphus, the French writer Albert Camus uses the myth to describe what he calls the absurd: people keep looking for meaning in a universe that offers none.",
+          "Camus argues that we should neither give up nor escape into false hope. Instead we should live fully with our eyes open, and that choice is a kind of revolt. Sisyphus knows exactly how hopeless his task is, and he walks back down to the boulder anyway. For Camus, that lucid, deliberate return is where his freedom lies. That is why the essay ends: 'The struggle itself toward the heights is enough to fill a man's heart. One must imagine Sisyphus happy.'",
+        ],
+      },
+      {
+        heading: "Why the animation ends on the reclimb",
+        paragraphs: [
+          "Most retellings end on the stone rolling down. Our animation ends on the moment Camus cares about: Sisyphus walking back down and setting his hands to the stone again.",
+        ],
+      },
+      {
+        heading: "The story in the animation",
         paragraphs: [
           "A lone stickman heaves a great boulder up a mountainside at mythic dusk. Near the summit the stone slips and thunders all the way back down. He watches, walks the long walk down… and sets his hands to the stone again.",
           "A grave, measured narrator — a Morgan Freeman sort of cadence — tells the myth beat by beat and closes on Camus: \"One must imagine Sisyphus happy.\"",
@@ -3044,7 +3449,28 @@ export const blogPosts: BlogPost[] = [
         ctaLabel: "Try Blog2Video free",
       },
     ],
-    faq: faq("myth of sisyphus animation", "sisyphus myth stickman short"),
+    faq: [
+      {
+        question: "What is the Myth of Sisyphus about?",
+        answer:
+          "In Greek mythology, King Sisyphus cheated death and was punished by being made to roll a boulder up a hill for eternity, only for it to roll back down every time it neared the top.",
+      },
+      {
+        question: "Why was Sisyphus punished?",
+        answer:
+          "For his trickery against the gods, above all for cheating death: in the best-known version he chained up Thanatos (Death) and later tricked his way out of the underworld.",
+      },
+      {
+        question: "What does 'one must imagine Sisyphus happy' mean?",
+        answer:
+          "It is the last line of Albert Camus's 1942 essay The Myth of Sisyphus. Camus argues that life has no built-in meaning, but that accepting this lucidly and carrying on anyway is a form of freedom. The struggle itself can be enough.",
+      },
+      {
+        question: "How was this Sisyphus animation made?",
+        answer:
+          "It was built entirely in code with Remotion (React), with the boulder's rotation computed from the distance it travels along the slope. The same stickman style is available as a Blog2Video template.",
+      },
+    ],
     distributionPlan: [
       {
         channel: "site",
@@ -3464,32 +3890,58 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: "ship-of-theseus-stickman-animation",
-    title: "The Ship of Theseus: A Philosophy Puzzle in Stickman Animation",
+    title: "The Ship of Theseus Paradox, Explained (With a 90-Second Animation)",
     description:
-      "Replace every plank, and is it still your ship? We told the Ship of Theseus paradox as a narrated stickman short — a galley rebuilt plank by plank on screen, and a twist about a second ship. Here's how we built it in Remotion.",
+      "What is the Ship of Theseus? If you replace every plank of a ship, is it still the same ship? Here is the paradox in plain words, where it comes from, the main answers philosophers give, and a narrated stickman animation that shows it happen plank by plank.",
     category: "Behind the scenes",
     heroImage: "/blog/blog-cover-ship-of-theseus-stickman-animation.png",
     heroImageAlt:
-      "Replace every plank, and is it still your ship? We told the Ship of Theseus paradox as a narrated stickman short — a galley rebuilt plank by plank on screen, and a twist about a second ship. Here's how we built it in Remotion.",
+      "A stickman shipwright replacing the planks of a Greek galley one by one, from the Ship of Theseus stickman animation.",
     publishedAt: "2026-07-16",
-    readTime: "2 min read",
-    heroEyebrow: "Behind the scenes",
-    heroTitle: "The Ship of Theseus: A Philosophy Puzzle in Stickman Animation",
+    readTime: "5 min read",
+    heroEyebrow: "Philosophy, explained",
+    heroTitle: "The Ship of Theseus, explained: replace every plank, and is it still your ship?",
     heroDescription:
-      "Replace every plank, and is it still your ship? We told the Ship of Theseus paradox as a narrated stickman short — a galley rebuilt plank by plank on screen, and a twist about a second ship. Here's how we built it in Remotion.",
-    primaryKeyword: "ship of theseus explained",
-    keywordVariant: "ship of theseus stickman animation",
-    relatedPaths: ["/blogs/narcissus-stickman-animation", "/blogs/2008-financial-crisis-stickman-explainer", "/templates/stickman_2"],
+      "A two-thousand-year-old puzzle about identity and change, explained in plain words, with a narrated stickman animation that rebuilds the ship one plank at a time.",
+    primaryKeyword: "ship of theseus",
+    keywordVariant: "ship of theseus paradox explained",
+    relatedPaths: ["/blogs/sisyphus-stickman-animation", "/blogs/narcissus-stickman-animation", "/blogs/2008-financial-crisis-stickman-explainer", "/templates/stickman_2"],
     sections: [
       {
-        heading: "Overview",
+        heading: "What is the Ship of Theseus?",
         paragraphs: [
-          "Replace every plank, and is it still your ship?",
-          "The Ship of Theseus is a two-thousand-year-old thought experiment, so we made it something you can watch happen — about a hundred and five seconds, narrated end to end.",
+          "The Ship of Theseus is a thought experiment about identity: if every part of an object is replaced over time, is it still the same object?",
+          "The story goes like this. Theseus sails home to Athens a hero, and the Athenians keep his ship as a monument. Over the years the wood rots, so they pull out each decayed plank and put in a new one. Eventually not a single original plank is left. Is it still the ship of Theseus?",
+          "The animation at the top of this post shows it happen: a stickman shipwright swaps the planks one at a time until the counter reaches the last one.",
         ],
       },
       {
-        heading: "The story",
+        heading: "Where the paradox comes from",
+        paragraphs: [
+          "The earliest well-known version is in Plutarch's Life of Theseus, written in the first century AD. He says the Athenians preserved the ship by replacing its old timbers with new ones, and that philosophers used it as their standard example of things that grow and change: some said it stayed the same ship, others said it did not.",
+          "In the seventeenth century Thomas Hobbes added the twist that makes it hard. Suppose someone collected every discarded plank and rebuilt the original ship from them. Now there are two ships. Which one is the ship of Theseus?",
+        ],
+      },
+      {
+        heading: "The main answers",
+        paragraphs: [
+          "There is no single accepted solution, but most answers fall into a few camps:",
+        ],
+        bullets: [
+          "Same parts, same ship: identity lives in the material, so the ship rebuilt from the original planks is the real one.",
+          "Continuity: identity lives in an unbroken history of gradual change, so the ship that stayed in the harbour and was repaired is the real one.",
+          "Form and function: following Aristotle, what makes it that ship is its design and purpose, not its wood, so the repaired ship keeps its identity.",
+          "No fact of the matter: 'same ship' is a label we choose, and the paradox shows that everyday words for identity break down at the edges.",
+        ],
+      },
+      {
+        heading: "Why it still matters",
+        paragraphs: [
+          "The same question comes up well beyond ships: your body replaces most of its cells over time; a band can replace every member and keep its name; a company can keep its brand after every founder leaves. The Ship of Theseus is how philosophers ask what, if anything, stays the same through all that change.",
+        ],
+      },
+      {
+        heading: "The story in the animation",
         paragraphs: [
           "Theseus sails home a hero, and Athens vows to preserve his ship forever. But wood rots. A shipwright pulls one rotten plank and nails in a fresh one. Then another. Time-lapses by — day and night flicker, a growing pile of old planks, a counter ticking N of 36 — until not one original board remains.",
           "The philosophers argue: is it still the ship of Theseus? And then the twist: someone has kept every discarded plank and rebuilt a second ship from them. Now which one is real?",
@@ -3517,7 +3969,28 @@ export const blogPosts: BlogPost[] = [
         ctaLabel: "Try Blog2Video free",
       },
     ],
-    faq: faq("ship of theseus explained", "ship of theseus stickman animation"),
+    faq: [
+      {
+        question: "What is the Ship of Theseus paradox in simple terms?",
+        answer:
+          "If you replace every part of something one piece at a time, is it still the same thing? The Ship of Theseus asks this about a ship whose planks are all replaced until none of the originals remain.",
+      },
+      {
+        question: "Who came up with the Ship of Theseus?",
+        answer:
+          "The best-known early version comes from Plutarch's Life of Theseus (1st century AD). Thomas Hobbes later added the twist of rebuilding a second ship from the discarded original planks.",
+      },
+      {
+        question: "What is the answer to the Ship of Theseus?",
+        answer:
+          "There is no agreed answer. Some philosophers say the ship made of the original parts is the real one, others say the continuously repaired ship is, and others say 'the same ship' is a convention rather than a fact.",
+      },
+      {
+        question: "How was this Ship of Theseus animation made?",
+        answer:
+          "It was built entirely in code with Remotion (React), narrated with a synthetic voice, and rendered in landscape and portrait from one composition. The same stickman style is available as a Blog2Video template.",
+      },
+    ],
     distributionPlan: [
       {
         channel: "site",
@@ -3618,35 +4091,42 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: "american-psycho-stickman-parody",
-    title: "American Psycho: The Business Card Scene, Reimagined as a Stickman Ad",
+    title: "The American Psycho Business Card Scene, Explained (Plus a Stickman Parody)",
     description:
-      "Look at that subtle off-white coloring. We turned the American Psycho business-card scene into a stickman ad — execs one-upping each other with AI video tools, until Bateman lays down the one card nobody can stop staring at.",
+      "What happens in the American Psycho business card scene, what the cards say, and why it is really about status anxiety. The scene explained, plus our 67-second stickman parody where the cards are AI video tools.",
     category: "Behind the scenes",
     heroImage: "/blog/blog-cover-american-psycho-stickman-parody.png",
     heroImageAlt:
-      "Look at that subtle off-white coloring. We turned the American Psycho business-card scene into a stickman ad — execs one-upping each other with AI video tools, until Bateman lays down the one card nobody can stop staring at.",
+      "Stickman executives comparing business cards around a boardroom table, from the American Psycho business card scene parody.",
     publishedAt: "2026-07-16",
-    readTime: "2 min read",
-    heroEyebrow: "Behind the scenes",
-    heroTitle: "American Psycho: The Business Card Scene, Reimagined as a Stickman Ad",
+    readTime: "4 min read",
+    heroEyebrow: "Film scene, explained",
+    heroTitle: "The American Psycho business card scene, explained",
     heroDescription:
-      "Look at that subtle off-white coloring. We turned the American Psycho business-card scene into a stickman ad — execs one-upping each other with AI video tools, until Bateman lays down the one card nobody can stop staring at.",
+      "Bone, eggshell, pale nimbus white: why four near-identical business cards make one of the most quoted scenes in film, and our stickman parody of it.",
     primaryKeyword: "american psycho business card scene",
-    keywordVariant: "american psycho stickman parody",
-    relatedPaths: ["/blogs/reservoir-dogs-stickman-parody", "/blogs/neo-stops-ai-slop-stickman", "/templates/stickman_2"],
+    keywordVariant: "american psycho business card scene meaning",
+    relatedPaths: ["/blogs/reservoir-dogs-stickman-parody", "/blogs/matrix-red-dress-stickman", "/blogs/neo-stops-ai-slop-stickman", "/templates/stickman_2"],
     sections: [
       {
-        heading: "Overview",
+        heading: "What happens in the business card scene",
         paragraphs: [
-          "Look at that subtle off-white coloring.",
-          "The business-card comparison is one of the most quotable scenes in film, so we turned it into an ad — about sixty-seven seconds, five voices, and a lot of sweat over a wordmark.",
+          "In American Psycho (2000), directed by Mary Harron and adapted from Bret Easton Ellis's 1991 novel, Christian Bale plays Patrick Bateman, an investment banker at Pierce & Pierce in 1980s Manhattan.",
+          "In a meeting, Bateman proudly shows off his new business card: 'bone' coloured, with lettering 'called Silian Rail'. His colleagues answer with their own: one is 'eggshell with Romalian type', another has raised lettering on 'pale nimbus white'. Then someone says the line everyone remembers, 'Let's see Paul Allen's card', and Bateman is floored: 'Look at that subtle off-white coloring. The tasteful thickness of it. Oh my God, it even has a watermark.' (Paul Allen is called Paul Owen in the novel.)",
         ],
       },
       {
-        heading: "The story",
+        heading: "What the scene means",
+        paragraphs: [
+          "The joke is that the cards are almost identical. The men all have the same job, suits, haircuts and restaurants, so they compete over tiny differences in paper stock and typeface. Their status comes from surface detail, not from anything real.",
+          "For Bateman the scene is humiliating. He can't stand being outclassed on the one thing that sets him apart, and his envy of Paul Allen feeds into the violence later in the film. The scene works as satire because it makes that emptiness funny before it turns dark.",
+        ],
+      },
+      {
+        heading: "Our parody",
         paragraphs: [
           "A table of Pierce & Pierce executives one-up each other with their AI video generators — HeyGen, InVideo, Seedance — each card slid across the table with quiet menace.",
-          "Then Bateman lays down Paul Owen's card: blog2video. The tasteful thickness. The watermark. He can't stop staring at it, heartbeat pounding, sweat beading, as it plainly outclasses everything else on the table.",
+          "Then Bateman lays down Paul Allen's card: blog2video. The tasteful thickness. The watermark. He can't stop staring at it, heartbeat pounding, sweat beading, as it plainly outclasses everything else on the table.",
         ],
       },
       {
@@ -3671,7 +4151,28 @@ export const blogPosts: BlogPost[] = [
         ctaLabel: "Try Blog2Video free",
       },
     ],
-    faq: faq("american psycho business card scene", "american psycho stickman parody"),
+    faq: [
+      {
+        question: "What is the business card scene in American Psycho about?",
+        answer:
+          "Patrick Bateman and his colleagues compare near-identical business cards, competing over colour, typeface and paper thickness. It satirises 1980s Wall Street status obsession: the men are interchangeable, so they fight over trivial details.",
+      },
+      {
+        question: "What does Paul Allen's business card look like?",
+        answer:
+          "Bateman describes it as having a 'subtle off-white coloring', a 'tasteful thickness', and a watermark. It is the card that makes him most jealous. (In the novel the character is called Paul Owen.)",
+      },
+      {
+        question: "Who is in the American Psycho business card scene?",
+        answer:
+          "Christian Bale as Patrick Bateman, with Josh Lucas, Justin Theroux and Bill Sage as his colleagues. Jared Leto plays Paul Allen.",
+      },
+      {
+        question: "How was this American Psycho stickman parody made?",
+        answer:
+          "It was built entirely in code with Remotion (React), with five ElevenLabs voices for the executives. Instead of business cards, each executive slides across the name of an AI video tool.",
+      },
+    ],
     distributionPlan: [
       {
         channel: "site",
@@ -3849,32 +4350,39 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: "matrix-red-dress-stickman",
-    title: "The Woman in the Red Dress: The Matrix Distraction Scene as a Stickman Parody",
+    title: "The Woman in the Red Dress in The Matrix, Explained (Plus a Stickman Parody)",
     description:
-      "Were you listening, or looking at the woman in the red dress? We rebuilt the Matrix training-program scene as a stickman parody — a grey crowd, one red accent, and a freeze-reveal that turns the distraction into the danger.",
+      "What happens in The Matrix's 'woman in the red dress' scene, what Morpheus is teaching Neo, and why it is one of the film's key ideas. The scene explained, plus our stickman parody of it.",
     category: "Behind the scenes",
     heroImage: "/blog/blog-cover-matrix-red-dress-stickman.png",
     heroImageAlt:
-      "Were you listening, or looking at the woman in the red dress? We rebuilt the Matrix training-program scene as a stickman parody — a grey crowd, one red accent, and a freeze-reveal that turns the distraction into the danger.",
+      "A grey crowd of stickman pedestrians with one figure in a red dress, from the Matrix red dress stickman parody.",
     publishedAt: "2026-07-16",
-    readTime: "2 min read",
-    heroEyebrow: "Behind the scenes",
-    heroTitle: "The Woman in the Red Dress: The Matrix Distraction Scene as a Stickman Parody",
+    readTime: "4 min read",
+    heroEyebrow: "Film scene, explained",
+    heroTitle: "The woman in the red dress in The Matrix, explained",
     heroDescription:
-      "Were you listening, or looking at the woman in the red dress? We rebuilt the Matrix training-program scene as a stickman parody — a grey crowd, one red accent, and a freeze-reveal that turns the distraction into the danger.",
+      "'Were you listening to me, Neo, or were you looking at the woman in the red dress?' What the training-program scene means, and our stickman parody of it.",
     primaryKeyword: "woman in the red dress matrix",
-    keywordVariant: "matrix red dress stickman parody",
-    relatedPaths: ["/blogs/neo-stops-ai-slop-stickman", "/blogs/ai-videos-are-slop-unless-they-are-relevant", "/templates/stickman_2"],
+    keywordVariant: "matrix woman in the red dress scene meaning",
+    relatedPaths: ["/blogs/neo-first-dodge-stickman", "/blogs/neo-stops-ai-slop-stickman", "/blogs/american-psycho-stickman-parody", "/templates/stickman_2"],
     sections: [
       {
-        heading: "Overview",
+        heading: "What happens in the scene",
         paragraphs: [
-          "\"Were you listening… or were you looking at the woman in the red dress?\"",
-          "The training-program scene is a perfect metaphor for slick, empty content, so we rebuilt it — a desaturated crowd, one red accent, and a hard freeze.",
+          "In The Matrix (1999), after Neo is freed, Morpheus loads a training program: a simulated city street packed with people in dark business clothes. As they walk, Morpheus explains that the Matrix is a system, and that the people still plugged into it are part of that system.",
+          "Neo is distracted by a woman in a bright red dress who walks past and smiles at him. Morpheus asks, 'Were you listening to me, Neo, or were you looking at the woman in the red dress?' Then he says, 'Look again.' Neo turns around and the woman has become Agent Smith, pointing a gun at his head. Morpheus says, 'Freeze it,' and the whole simulation stops.",
         ],
       },
       {
-        heading: "The story",
+        heading: "What the scene means",
+        paragraphs: [
+          "It's a lesson in two parts. First, anyone still inside the Matrix can become an Agent at any moment, so nobody in the crowd can be trusted. Second, the danger works through distraction: the thing designed to catch your eye is the thing that gets you killed.",
+          "That's why the woman is the only splash of colour in a grey crowd. The film makes you look where Neo looks, so the audience gets caught out too.",
+        ],
+      },
+      {
+        heading: "Our parody",
         paragraphs: [
           "A crowd of identical grey stickman pedestrians shuffles down a street — and among them, impossible to miss, is the woman in the red dress. \"Look again,\" says Agent Smith.",
           "The crowd freezes; every grey figure snaps toward camera as a threat. The red dress was the distraction — the ordinary, generic content was the danger all along.",
@@ -3902,7 +4410,28 @@ export const blogPosts: BlogPost[] = [
         ctaLabel: "Try Blog2Video free",
       },
     ],
-    faq: faq("woman in the red dress matrix", "matrix red dress stickman parody"),
+    faq: [
+      {
+        question: "What is the woman in the red dress scene in The Matrix?",
+        answer:
+          "It is a training program Morpheus shows Neo. Neo is distracted by a woman in a red dress, who turns into Agent Smith pointing a gun at him, teaching Neo that anyone still plugged into the Matrix can become an Agent.",
+      },
+      {
+        question: "What does the woman in the red dress symbolise?",
+        answer:
+          "Distraction. She is designed to draw the eye, and while Neo looks at her he misses the danger. The scene warns that the system uses what you want to see to control you.",
+      },
+      {
+        question: "What does Morpheus say in the red dress scene?",
+        answer:
+          "'Were you listening to me, Neo, or were you looking at the woman in the red dress?', followed by 'Look again' and 'Freeze it'.",
+      },
+      {
+        question: "How was this Matrix stickman parody made?",
+        answer:
+          "It was built entirely in code with Remotion (React). The whole crowd is animated, then freezes on cue, and the red figure is the only colour in a fully desaturated scene.",
+      },
+    ],
     distributionPlan: [
       {
         channel: "site",
@@ -10044,9 +10573,9 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: "faceless-videos-for-writers-and-marketers",
-    title: "Faceless Videos for Writers and Marketers",
+    title: "How to Make Faceless Videos With AI (and Start a Faceless YouTube Channel)",
     description:
-      "How to create faceless videos from blog posts, newsletters, and explainers without becoming a full-time on-camera creator.",
+      "How to make faceless videos with AI: turn a script, blog post, or newsletter into a narrated video with no camera and no face on screen. Step by step, plus how to run a faceless YouTube channel that doesn't look like AI slop.",
     category: "Strategy",
     heroImage: "/blog/blog-cover-faceless-videos-for-writers-and-marketers.png",
     heroImageAlt:
@@ -10054,18 +10583,47 @@ export const blogPosts: BlogPost[] = [
     publishedAt: "2026-04-16",
     readTime: "8 min read",
     heroEyebrow: "Creator strategy",
-    heroTitle: "Faceless videos work best when the content is already strong",
+    heroTitle: "How to make faceless videos with AI, without making AI slop",
     heroDescription:
       "You do not need a talking-head workflow to build a real video channel. For many writers, educators, and B2B teams, faceless videos are the fastest way to turn existing content into something watchable and repeatable.",
     primaryKeyword: "faceless videos",
-    keywordVariant: "how to make faceless videos",
+    keywordVariant: "faceless youtube channel",
     relatedPaths: [
       "/blog-to-video",
       "/blog-to-youtube-video",
+      "/blogs/ai-video-generators-that-are-not-slop",
       "/article-to-video",
       "/distribution-flywheel",
     ],
     sections: [
+      {
+        heading: "How to make a faceless video with AI, step by step",
+        paragraphs: [
+          "A faceless video is narration over visuals: text, diagrams, charts, illustrations or animation, with nobody on camera. With an AI video generator the whole process takes minutes:",
+        ],
+        bullets: [
+          "1. Start from a script, blog post, newsletter, or URL. The stronger the writing, the better the video.",
+          "2. Paste it into a faceless video generator such as Blog2Video, which splits it into scenes and writes the narration.",
+          "3. Pick a voice: a prebuilt AI voice, a clone of your own voice, or your own recording.",
+          "4. Pick a template so every video on the channel looks consistent.",
+          "5. Review the scenes, fix anything that is off, and export in 16:9 for YouTube or 9:16 for Shorts, Reels and TikTok.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Make a faceless video",
+      },
+      {
+        heading: "How to start a faceless YouTube channel",
+        paragraphs: [
+          "Most faceless channels that fail do so for the same reason: they publish generic, prompt-generated videos that look like every other channel. Viewers recognise that look and leave, and YouTube's recommendations follow the viewers.",
+          "Channels that last pick a niche they can actually explain (finance, history, software, science, self-improvement), build every video from a real script or article rather than a one-line prompt, and keep one consistent visual style so the channel is recognisable. If you already write a blog or newsletter, you already have the backlog: every post is a video.",
+        ],
+        bullets: [
+          "Pick one niche and one visual template, and stick with both",
+          "Write or reuse a real script for every video; don't prompt from a one-liner",
+          "Publish on a schedule you can sustain, and cut each long video into Shorts",
+          "Put the full article link in the description to send viewers back to your site",
+        ],
+      },
       {
         heading: "Why faceless videos are attractive in the first place",
         paragraphs: [
@@ -10121,7 +10679,28 @@ export const blogPosts: BlogPost[] = [
         ctaLabel: "Try Blog2Video for faceless videos",
       },
     ],
-    faq: faq("faceless videos", "creating narration-led videos without being on camera"),
+    faq: [
+      {
+        question: "What is a faceless video?",
+        answer:
+          "A video where nobody appears on camera. The message is carried by narration over visuals such as text, diagrams, charts, illustrations, stock imagery or animation.",
+      },
+      {
+        question: "How do I make faceless videos with AI?",
+        answer:
+          "Start from a script, blog post or URL, paste it into an AI faceless video generator, pick a voice and a template, review the scenes, and export. Tools like Blog2Video write the narration and build the scenes from your text.",
+      },
+      {
+        question: "Can faceless YouTube channels make money?",
+        answer:
+          "Yes. Faceless channels can join the YouTube Partner Program like any other channel. YouTube's monetisation policies reward original, valuable content and can exclude repetitive or mass-produced videos, so each video needs a real script, not just a prompt.",
+      },
+      {
+        question: "What is the best faceless video niche?",
+        answer:
+          "One you can explain well and publish consistently. Educational niches such as finance, history, technology and science suit faceless video because the value is in the explanation, not the presenter.",
+      },
+    ],
     distributionPlan: [
       {
         channel: "site",
@@ -13648,9 +14227,9 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: "how-to-turn-a-powerpoint-into-a-video",
-    title: "How To Turn a PowerPoint Into a Video",
+    title: "How to Turn a PowerPoint Into a Video: 3 Ways (Including Free, Built Into PowerPoint)",
     description:
-      "A practical PPTX-to-video workflow for turning presentations and slide decks into publishable videos without rerecording the whole deck.",
+      "How to convert a PowerPoint to a video: export an MP4 straight from PowerPoint for free, record narration over your slides, or turn the deck into a narrated AI video without re-recording. Step by step for each.",
     category: "How-to",
     heroImage: "/blog/blog-cover-how-to-pptx-to-video.png",
     heroImageAlt:
@@ -13658,13 +14237,48 @@ export const blogPosts: BlogPost[] = [
     publishedAt: "2026-03-10",
     readTime: "8 min read",
     heroEyebrow: "Deck how-to",
-    heroTitle: "Turn a PowerPoint into a video by repackaging the lesson, not just replaying the slides",
+    heroTitle: "How to turn a PowerPoint into a video: three ways, from free to fully narrated",
     heroDescription:
       "A slide deck already contains sequence and intent. The best PPTX-to-video workflow keeps that structure while making the delivery easier to watch outside the original meeting or classroom.",
-    primaryKeyword: "how to turn a PowerPoint into a video",
-    keywordVariant: "pptx to video workflow",
-    relatedPaths: ["/pptx-to-video", "/for-educators", "/templates/whiteboard"],
+    primaryKeyword: "how to turn a powerpoint into a video",
+    keywordVariant: "powerpoint to video converter",
+    relatedPaths: ["/pptx-to-video", "/pdf-to-video", "/for-educators", "/templates/whiteboard"],
     sections: [
+      {
+        heading: "The three ways to turn a PowerPoint into a video",
+        paragraphs: [
+          "Which one you need depends on whether the slides can carry the message on their own, or whether they only made sense with a speaker in the room.",
+        ],
+        bullets: [
+          "Way 1, free: export the deck as an MP4 from PowerPoint itself. Best when the slides stand on their own.",
+          "Way 2, free: record your own narration over the slides, then export. Best when you are happy to present on mic.",
+          "Way 3, AI: turn the deck into a narrated video with generated voiceover and redesigned scenes. Best when you don't want to record anything, or the slides need a speaker to make sense.",
+        ],
+      },
+      {
+        heading: "Way 1: Export a PowerPoint as a video (free, built in)",
+        paragraphs: [
+          "PowerPoint can save any presentation as a video file, with no extra software.",
+          "In PowerPoint for Windows, go to File > Export > Create a Video. Choose a quality (up to Full HD or 4K, depending on your version), choose how long each slide stays on screen, and click Create Video to save an MP4. On a Mac, go to File > Export and choose MP4 as the file format.",
+          "Transitions and animations are kept. The limitation is that you get the slides exactly as they are: no voice unless you record one, and dense text-heavy slides are hard to read at video pace.",
+        ],
+      },
+      {
+        heading: "Way 2: Record narration over the slides",
+        paragraphs: [
+          "To add your voice, use the Record button (on the Record or Slide Show tab, depending on your version). Talk through each slide as you advance it; PowerPoint saves the audio and timing on every slide. Then export with Create a Video and choose Use Recorded Timings and Narrations.",
+          "This works well for lectures and internal training. It takes as long as the presentation itself, plus retakes, and a stumble on slide 14 usually means re-recording that slide.",
+        ],
+      },
+      {
+        heading: "Way 3: Turn the deck into a narrated AI video",
+        paragraphs: [
+          "If you don't want to record anything, a PowerPoint to video converter can read the deck and rebuild it as a video: it writes narration from your slides and speaker notes, voices it, and lays each point out as a scene sized for a screen instead of a projector.",
+          "That's what the rest of this guide covers. Most of the work is deciding what belonged to the speaker and what belongs on screen.",
+        ],
+        ctaPath: "/pptx-to-video",
+        ctaLabel: "Try the PowerPoint to video converter",
+      },
       {
         heading: "Start with a deck that teaches something clearly",
         paragraphs: [
@@ -13710,7 +14324,28 @@ export const blogPosts: BlogPost[] = [
         ctaLabel: "Turn a PowerPoint into video",
       },
     ],
-    faq: faq("PowerPoint to video", "turning decks into reusable video lessons"),
+    faq: [
+      {
+        question: "Can PowerPoint save a presentation as a video?",
+        answer:
+          "Yes. In PowerPoint for Windows use File > Export > Create a Video, and on a Mac use File > Export and choose MP4. It keeps transitions and animations, and can include narration and timings you recorded.",
+      },
+      {
+        question: "How do I turn a PowerPoint into a video with narration?",
+        answer:
+          "Either record your own voice with PowerPoint's Record feature and export with recorded timings and narrations, or use an AI PowerPoint to video converter that writes and voices the narration from your slides and speaker notes.",
+      },
+      {
+        question: "Is there a free PowerPoint to video converter?",
+        answer:
+          "PowerPoint's built-in Create a Video export is free if you already have PowerPoint. AI converters that add generated narration usually have a free tier or trial.",
+      },
+      {
+        question: "Why does my exported PowerPoint video look boring?",
+        answer:
+          "Because slides are designed for a live speaker. Exported as-is, text-heavy slides sit on screen with nothing explaining them. Moving the explanation into narration and splitting dense slides into several scenes fixes most of it.",
+      },
+    ],
     distributionPlan: [
       { channel: "site", title: "Canonical PowerPoint-to-video guide", angle: "Capture deck-to-video search demand." },
       { channel: "substack", title: "Asynchronous presentation note", angle: "Explain why recorded decks underperform compared to adapted videos." },
