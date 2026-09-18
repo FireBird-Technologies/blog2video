@@ -351,6 +351,14 @@ export const templateProfiles: TemplateProfile[] = [
   {
     slug: "stickman_2",
     name: "Stickmen 2: Night Edition",
+    seo: {
+      title: "Stickman Animation Maker: Turn Text Into Stick Figure Videos | Blog2Video",
+      description:
+        "Make stickman animation videos from text. Paste a blog post, script, or URL and Blog2Video turns it into a narrated stick figure animation, with no drawing and no keyframes. Free to start.",
+      heroTitle: "Stickman animation maker: turn any text into a narrated stick figure video",
+      primaryKeyword: "stickman animation maker",
+      keywordVariant: "stick figure animation from text",
+    },
     description:
       "A moody hand-drawn chalk template with glowing stickman characters telling stories under a starlit night sky.",
     bestFor: "Reflective storytelling, late-night explainers, creative narratives, and atmospheric content.",
