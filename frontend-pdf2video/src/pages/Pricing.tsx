@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   googleLogin,
   createCheckoutSession,
@@ -13,7 +13,6 @@ import {
 import type { BillingCycle, PlanKey } from "../api/billing";
 import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
-import { useLoginModal } from "../contexts/LoginModalContext";
 import PublicHeader from "../components/public/PublicHeader";
 import PublicFooter from "../components/public/PublicFooter";
 import Seo from "../components/seo/Seo";
@@ -47,7 +46,6 @@ import {
   PRO_AI_EDIT_ALLOWANCE,
   pricingFaq,
 } from "../content/pricingContent";
-import { buildBlog2VideoHandoffUrl } from "../config/urls";
 // import DiscountCodeBadge from "../components/DiscountCodeBadge";
 
 // Google sign-in on this page hands off to blog2video.app — see
@@ -56,8 +54,8 @@ import { buildBlog2VideoHandoffUrl } from "../config/urls";
 export default function Pricing() {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const { showError } = useErrorModal();
-  const { openLogin } = useLoginModal();
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
   const [accountDeletedOpen, setAccountDeletedOpen] = useState(false);
@@ -110,18 +108,10 @@ export default function Pricing() {
     }
   };
 
-  // Same cross-domain handoff as PdfLanding.tsx: no local dashboard exists on
-  // this deployment, and localStorage is per-origin, so the JWT has to travel
-  // as a one-time URL param to blog2video.app rather than a local navigate().
-  const redirectToBlog2Video = (token: string) => {
-    window.location.href = buildBlog2VideoHandoffUrl(token);
-  };
-
-  const handleOpenLogin = () =>
-    openLogin({
-      title: "Get started with PDF2Video",
-      onSuccess: (token) => redirectToBlog2Video(token),
-    });
+  // Plain marketing CTA, so it routes to the full sign-in page rather than
+  // opening the modal. The cross-domain handoff to blog2video.app still happens
+  // — it just lives on that page now (see pages/AuthPage.tsx).
+  const handleOpenLogin = () => navigate("/signin");
 
   const [perVideoLoading, setPerVideoLoading] = useState(false);
 
