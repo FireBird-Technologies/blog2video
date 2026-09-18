@@ -18,6 +18,7 @@ import TemplatePageView from "./pages/TemplatePageView";
 import ToolsHub from "./pages/ToolsHub";
 import ToolPage from "./pages/ToolPage";
 import HelpHub from "./pages/HelpHub";
+import AuthPage from "./pages/AuthPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import { marketingPages } from "./content/siteContent";
 import ScrollToTop from "./components/layout/ScrollToTop";
@@ -69,6 +70,12 @@ function AppRoutes() {
         <Route path="/help" element={<HelpHub />} />
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
+        {/* Full-page sign-in / sign-up. Two paths, one component, so "Sign up"
+            is directly linkable rather than reachable only via a toggle. Both
+            are noindex and deliberately absent from getPublicPaths(), so they
+            are neither prerendered nor listed in the sitemap. */}
+        <Route path="/signin" element={<AuthPage mode="signin" />} />
+        <Route path="/signup" element={<AuthPage mode="signup" />} />
         {/* No "template" category pages exist in this deployment's
             marketingPages (individual /templates/:slug pages were removed —
             see siteContent.ts), so every entry renders as MarketingPageView. */}
