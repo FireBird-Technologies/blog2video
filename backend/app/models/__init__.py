@@ -39,6 +39,8 @@ from app.models.support_conversation import (
     SupportMessage,
     SupportMessageRole,
 )
+from app.models.social_connection import SocialConnection
+from app.models.social_publish_job import SocialPublishJob
 from app.models.mcp_oauth import MCPClient, MCPAuthCode
 from app.models.email_verification import EmailVerificationCode, VerificationPurpose
 
@@ -54,6 +56,7 @@ __all__ = [
     "ProjectMember", "MemberRole", "MemberStatus", "ROLE_RANK",
     "SupportConversation", "SupportMessage", "SupportMessageRole",
     "SupportConversation", "SupportMessage", "SupportMessageRole",
+    "SocialConnection", "SocialPublishJob",
     "MCPClient", "MCPAuthCode",
     "EmailVerificationCode", "VerificationPurpose",
 ]

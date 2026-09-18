@@ -12,6 +12,7 @@ export * from "./auth";
 export * from "./billing";
 export * from "./projects";
 export * from "./enterprise";
+export * from "./integrations";
 
 import axios from "axios";
 import type { AxiosResponse } from "axios";

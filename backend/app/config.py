@@ -96,6 +96,36 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
 
+    # ─── Social publishing (YouTube / X) ──────────────────────────────────────
+    # Deliberately a SEPARATE OAuth client from GOOGLE_CLIENT_ID above. That one
+    # verifies sign-in ID tokens and holds no scopes; this one requests the
+    # restricted `youtube.upload` scope, which drags whichever client carries it
+    # into YouTube's API audit — and an unaudited client shows a verification
+    # interstitial to every user it touches. Keeping them apart means the audit
+    # can never put that interstitial in front of plain sign-in.
+    # Falls back to GOOGLE_CLIENT_ID only so a single-client dev setup works.
+    YOUTUBE_CLIENT_ID: str = ""
+    YOUTUBE_CLIENT_SECRET: str = ""
+    # Local ceiling on uploads/day, kept under YouTube's own ~100/day bucket
+    # (videos.insert bills to a bucket separate from the 10k unit pool, and it is
+    # app-wide across ALL users — not per-user). Headroom is for retries that
+    # re-spend quota. Hitting this parks jobs as `queued`, it does not fail them.
+    YOUTUBE_UPLOAD_DAILY_CAP: int = 90
+
+    # Empty X_CLIENT_ID IS the X feature flag: the publish endpoints refuse the
+    # platform and the frontend never renders the menu item. The full code path
+    # ships regardless, so enabling X is a config change, not a deploy.
+    X_CLIENT_ID: str = ""
+    X_CLIENT_SECRET: str = ""
+
+    # urlsafe-base64 32-byte Fernet key encrypting stored OAuth tokens. Unset =>
+    # social publishing is disabled (see services/token_crypto.py). Rotating it
+    # invalidates every stored token and forces all users to reconnect.
+    SOCIAL_TOKEN_ENC_KEY: str = ""
+    # Uploads run one at a time by default: sequential is gentler on the daily
+    # quota bucket and on the upload bandwidth of the box that just rendered.
+    SOCIAL_PUBLISH_CONCURRENCY: int = 1
+
     # Stripe
     STRIPE_SECRET_KEY: str = ""
     STRIPE_PUBLISHABLE_KEY: str = ""

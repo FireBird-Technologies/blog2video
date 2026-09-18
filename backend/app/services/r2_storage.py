@@ -403,6 +403,28 @@ def object_size(key: str) -> int | None:
         return None
 
 
+def download_to_file(key: str, dest_path: str) -> bool:
+    """Stream an object to a local path. Returns False if it isn't there.
+
+    Unlike ``download_bytes``, this never holds the object in memory — boto3's
+    ``download_file`` does a bounded multipart fetch. Use it for anything video
+    sized; a rendered MP4 can be hundreds of MB and the app runs in a container
+    sized for rendering, not for buffering its own output.
+    """
+    if not is_r2_configured():
+        return False
+    try:
+        os.makedirs(os.path.dirname(dest_path) or ".", exist_ok=True)
+        _get_client().download_file(settings.R2_BUCKET_NAME, key, dest_path)
+        return True
+    except ClientError:
+        # Missing key (the usual cause: a re-render replaced this version and
+        # deleted it) or no permission. Callers treat both as "gone".
+        return False
+    except Exception:
+        return False
+
+
 def download_render_progress_json(user_id: int, project_id: int) -> dict | None:
     """Download per-project render progress JSON from R2."""
     return download_json(render_progress_key(user_id, project_id))

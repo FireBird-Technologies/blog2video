@@ -226,3 +226,4 @@ class Project(Base):
     voice_change_jobs = relationship("ProjectVoiceChangeJob", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
     scene_avatar_jobs = relationship("SceneAvatarJob", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
     language_change_jobs = relationship("ProjectLanguageChangeJob", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
+    social_publish_jobs = relationship("SocialPublishJob", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)

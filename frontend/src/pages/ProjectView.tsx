@@ -71,6 +71,17 @@ import { CollabProvider } from "../components/CollabContext";
 import CollabToolbar from "../components/CollabToolbar";
 import EditHistoryPanel from "../components/EditHistoryPanel";
 import ShareProjectModal from "../components/ShareProjectModal";
+import PublishToSocialModal from "../components/PublishToSocialModal";
+import PublishStatusBanner from "../components/PublishStatusBanner";
+import {
+  getIntegrationsConfig,
+  getPublishStatus,
+  isPublishJobActive,
+  retryPublishJob,
+  type IntegrationsConfig,
+  type PublishJob,
+  type SocialPlatform,
+} from "../api/integrations";
 import type { CollabEdit } from "../hooks/useCollabSocket";
 import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useErrorModal, getErrorMessage, DEFAULT_ERROR_MESSAGE } from "../contexts/ErrorModalContext";
@@ -162,6 +173,13 @@ const TABS_GUIDE_SEEN_KEY = "blog2video_tabs_guide_seen";
  * on rather than an editor that polls forever. See pollTicksRef.
  */
 const MAX_PIPELINE_POLL_TICKS = 300;
+
+// Publish-status polling. The loop always reschedules (see the effect) and just
+// changes pace: fast while an upload is moving, slow otherwise so that starting
+// a publish is noticed without hammering the endpoint when nothing is going on.
+const PUBLISH_POLL_ACTIVE_MS = 3000;
+const PUBLISH_POLL_IDLE_MS = 15000;
+const PUBLISH_POLL_ERROR_MS = 30000;
 const TABS_CONTAINER_STEP: Step = {
   target: '[data-tour="tabs-container"]',
   content: "Use these tabs to work on your video: Script shows the full narration, Images manages your visuals and logo, Audio lets you preview voiceover for each scene, and Scenes lets you edit each scene’s text and layout.",
@@ -1204,6 +1222,12 @@ export default function ProjectView() {
   const [copyStatus, setCopyStatus] = useState<"idle" | "success" | "error">("idle");
   const [saving, setSaving] = useState(false); // "Saving to cloud" after render completes
   const [rendered, setRendered] = useState(false);
+  // ─── Social publishing ───────────────────────────────────
+  /** Which platform's publish modal is open, if any. */
+  const [publishPlatform, setPublishPlatform] = useState<SocialPlatform | null>(null);
+  /** What this deployment can offer; null until loaded. */
+  const [integrationsConfig, setIntegrationsConfig] = useState<IntegrationsConfig | null>(null);
+  const [publishJobs, setPublishJobs] = useState<PublishJob[]>([]);
   const [downloading, setDownloading] = useState(false);
   const [downloadingStudio, setDownloadingStudio] = useState(false);
   const [sceneExporting, setSceneExporting] = useState(false);
@@ -3037,6 +3061,157 @@ export default function ProjectView() {
     },
     [projectId, showRenderFailureError]
   );
+
+  // ─── Social publishing ───────────────────────────────────
+
+  // What this deployment offers. Fetched once; decides whether the Share menu
+  // shows the publish options at all.
+  useEffect(() => {
+    let cancelled = false;
+    getIntegrationsConfig()
+      .then((res) => {
+        if (!cancelled) setIntegrationsConfig(res.data);
+      })
+      .catch(() => {
+        // Publishing simply isn't offered if we can't ask.
+        if (!cancelled) setIntegrationsConfig({ youtube_enabled: false, x_enabled: false });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /**
+   * Bumped whenever a publish is started or retried, to restart the polling
+   * effect at its fast cadence. Without it a brand-new job would wait out the
+   * idle delay before the UI acknowledged it.
+   */
+  const [publishPollNonce, setPublishPollNonce] = useState(0);
+
+  const refreshPublishJobs = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      const res = await getPublishStatus(Number(projectId));
+      setPublishJobs(res.data.jobs);
+    } catch {
+      /* non-fatal: the pill and modal just won't update this tick */
+    } finally {
+      setPublishPollNonce((n) => n + 1);
+    }
+  }, [projectId]);
+
+  // Poll publish status. Lives here rather than in the modal, so closing the
+  // modal doesn't stop tracking — a publish started before a render can outlive
+  // several page visits.
+  //
+  // The loop NEVER stops while the project is open, it only slows down. An
+  // earlier version stopped as soon as nothing was active, which meant the very
+  // common case — open a project, then publish — polled once against an empty
+  // list, stopped forever, and never saw the job that was created a moment
+  // later. Both the modal and the banner then sat frozen on their last known
+  // state while the upload actually ran to completion server-side.
+  useEffect(() => {
+    if (!projectId) return;
+    let cancelled = false;
+    let timer: number | null = null;
+
+    const tick = async () => {
+      if (cancelled) return;
+      let delay = PUBLISH_POLL_IDLE_MS;
+      try {
+        const res = await getPublishStatus(Number(projectId));
+        if (cancelled) return;
+        setPublishJobs(res.data.jobs);
+        if (res.data.jobs.some(isPublishJobActive)) delay = PUBLISH_POLL_ACTIVE_MS;
+      } catch {
+        delay = PUBLISH_POLL_ERROR_MS;
+      }
+      if (!cancelled) timer = window.setTimeout(tick, delay);
+    };
+
+    void tick();
+    return () => {
+      cancelled = true;
+      if (timer !== null) window.clearTimeout(timer);
+    };
+  }, [projectId, publishPollNonce]);
+
+  /** The most recent job per platform — what the modal and the pill display. */
+  const latestPublishJobByPlatform = useMemo(() => {
+    const map = new Map<SocialPlatform, PublishJob>();
+    // An in-flight job always wins over a finished one, independently of list
+    // order. Ordering alone is not enough: re-uploading moments after a publish
+    // can produce two rows with the same created_at, and picking the wrong one
+    // shows "your video is on YouTube" while the new upload runs invisibly.
+    for (const job of publishJobs) {
+      const current = map.get(job.platform);
+      if (!current) {
+        map.set(job.platform, job);
+      } else if (isPublishJobActive(job) && !isPublishJobActive(current)) {
+        map.set(job.platform, job);
+      }
+    }
+    return map;
+  }, [publishJobs]);
+
+  const activePublishJob = useMemo(
+    () => publishJobs.find(isPublishJobActive) || null,
+    [publishJobs]
+  );
+
+  /**
+   * Jobs the banner has finished showing.
+   *
+   * A succeeded job stays succeeded forever, so "hidden after 3s" has to be
+   * remembered here — otherwise the next poll tick brings the banner straight
+   * back.
+   */
+  const [dismissedPublishJobIds, setDismissedPublishJobIds] = useState<Set<number>>(
+    () => new Set()
+  );
+  const dismissPublishJob = useCallback((jobId: number) => {
+    setDismissedPublishJobIds((prev) => new Set(prev).add(jobId));
+  }, []);
+
+  /** The single job the banner should show, if any. */
+  const visiblePublishJob = useMemo(() => {
+    const undismissed = publishJobs.filter(
+      (job) => !dismissedPublishJobIds.has(job.id)
+    );
+    // An upload in flight always wins. Ordering is newest-first, so without
+    // this a just-finished job would keep the banner while a fresh re-upload
+    // ran invisibly behind it.
+    return (
+      undismissed.find(
+        (job) => job.status === "queued" || job.status === "running"
+      ) ??
+      undismissed.find(
+        (job) => job.status === "succeeded" || job.status === "failed"
+      ) ??
+      null
+    );
+  }, [publishJobs, dismissedPublishJobIds]);
+
+  /** Platforms this project has already been published to at least once. */
+  const publishedPlatforms = useMemo(
+    () =>
+      new Set(
+        publishJobs
+          .filter((job) => job.status === "succeeded")
+          .map((job) => job.platform)
+      ),
+    [publishJobs]
+  );
+
+  const handleRetryPublish = useCallback(async () => {
+    if (!visiblePublishJob || !projectId) return;
+    try {
+      await retryPublishJob(Number(projectId), visiblePublishJob.id);
+      await refreshPublishJobs();
+    } catch (err) {
+      showError(getErrorMessage(err, DEFAULT_ERROR_MESSAGE));
+    }
+  }, [visiblePublishJob, projectId, refreshPublishJobs, showError]);
 
   // Resume render progress after refresh/navigation when the project is still rendering
   useEffect(() => {
@@ -5265,6 +5440,17 @@ export default function ProjectView() {
                         </div>
                       </div>
                     )}
+                    {/* Upload status — visible with the publish modal closed, so
+                        a background upload is never invisible. Deliberately says
+                        nothing while the job is `pending_render`: the render has
+                        its own progress UI and two bars would compete. */}
+                    {visiblePublishJob && (
+                      <PublishStatusBanner
+                        job={visiblePublishJob}
+                        onRetry={handleRetryPublish}
+                        onDismiss={() => dismissPublishJob(visiblePublishJob.id)}
+                      />
+                    )}
                     <div className={`flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between lg:gap-4${pendingRecordings.size > 0 ? " mt-2" : ""}`}>
                       <p className="text-[11px] text-gray-400 flex-shrink-0">
                         Preview · {project.scenes.length} scenes
@@ -6319,58 +6505,53 @@ export default function ProjectView() {
                 </svg>
                 Embed
               </button>
-              {project.r2_video_url && (
-                <>
-                  <div className="border-t border-gray-100 my-0.5" />
-                  <p className="px-4 pt-2 pb-1 text-[10px] font-medium uppercase tracking-wide text-gray-400">
-                    Rendered video
-                  </p>
-                  <div className="px-4 pb-2 flex gap-1 justify-start">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(project.r2_video_url!);
-                        setShowShareDropdown(false);
-                      }}
-                      className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-black/5 flex items-center justify-center transition-colors"
-                      title="Copy link for TikTok"
-                    >
-                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 0010.86 4.46v-7.15a8.16 8.16 0 005.58 2.18v-3.45a4.85 4.85 0 01-1.59-.27 4.83 4.83 0 01-1.41-.82V6.69h3z" />
-                      </svg>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(project.r2_video_url!);
-                        setShowShareDropdown(false);
-                      }}
-                      className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-red-50 flex items-center justify-center transition-colors"
-                      title="Copy link for YouTube"
-                    >
-                      <svg className="w-4 h-4 text-[#FF0000]" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-                      </svg>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        window.open(
-                          `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(project.r2_video_url!)}`,
-                          "_blank"
-                        );
-                        setShowShareDropdown(false);
-                      }}
-                      className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-blue-50 flex items-center justify-center transition-colors"
-                      title="Share on Facebook"
-                    >
-                      <svg className="w-4 h-4 text-[#1877F2]" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                      </svg>
-                    </button>
-                  </div>
-                </>
-              )}
+              {/* Publish — shown regardless of render state: the whole point of
+                  the unrendered flow is that you can ask for it before rendering.
+                  Owner only, because a social connection is a personal credential. */}
+              {project.user_id === user?.id &&
+                (integrationsConfig?.youtube_enabled || integrationsConfig?.x_enabled) && (
+                  <>
+                    <div className="border-t border-gray-100 my-0.5" />
+                    {integrationsConfig?.youtube_enabled && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowShareDropdown(false);
+                          setPublishPlatform("youtube");
+                        }}
+                        className="w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors flex items-center gap-2.5"
+                      >
+                        <svg className="w-3.5 h-3.5 text-[#FF0000] flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+                        </svg>
+                        {publishedPlatforms.has("youtube")
+                          ? "Re-upload to YouTube"
+                          : rendered
+                            ? "Publish to YouTube"
+                            : "Render & publish to YouTube"}
+                      </button>
+                    )}
+                    {integrationsConfig?.x_enabled && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowShareDropdown(false);
+                          setPublishPlatform("x");
+                        }}
+                        className="w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors flex items-center gap-2.5"
+                      >
+                        <svg className="w-3 h-3 text-black flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                        </svg>
+                        {publishedPlatforms.has("x")
+                          ? "Re-upload to X"
+                          : rendered
+                            ? "Publish to X"
+                            : "Render & publish to X"}
+                      </button>
+                    )}
+                  </>
+                )}
             </div>
           </>,
           document.body
@@ -6389,6 +6570,37 @@ export default function ProjectView() {
         onLeft={() => navigate("/dashboard", { replace: true })}
         successNote={showPostReviewInvite ? "Thanks for your review! You can also invite collaborators to help edit this video." : undefined}
       />
+
+      {/* Publish to YouTube / X — opened from the Share menu. */}
+      {publishPlatform && (
+        <PublishToSocialModal
+          open
+          platform={publishPlatform}
+          projectId={Number(projectId)}
+          projectName={project.name}
+          // The source of truth for "is there an MP4", not `rendered`, which is
+          // also true partway through a render.
+          hasRenderedVideo={Boolean(project.r2_video_url)}
+          job={latestPublishJobByPlatform.get(publishPlatform) ?? null}
+          jobs={publishJobs}
+          // The render's own percentage, so the modal's "Rendering" step can
+          // show it rather than being an indeterminate spinner.
+          renderProgress={rendering ? renderProgress : null}
+          onClose={() => setPublishPlatform(null)}
+          onJobChanged={() => void refreshPublishJobs()}
+          onRenderStarted={(runId) => {
+            // The publish endpoint already started the render, so adopt its run
+            // id and drive the existing progress UI rather than starting a
+            // second render.
+            if (runId) expectedRenderRunIdRef.current = runId;
+            setHasError(false);
+            setRendered(false);
+            setRendering(true);
+            setRenderProgress(0);
+            startRenderPollingLoop();
+          }}
+        />
+      )}
 
       {/* Edit history + comments (opens from any tab). */}
       <EditHistoryPanel
