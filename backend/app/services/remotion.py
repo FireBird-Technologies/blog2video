@@ -3851,7 +3851,48 @@ def upload_rendered_video_to_r2(project_id: int, local_path: str) -> Optional[st
             from app.models.project import ProjectStatus
             project.status = ProjectStatus.DONE
             user = db.query(User).filter(User.id == project.user_id).first()
+
+            # Hand off any "publish this when the render finishes" intents. This
+            # is what makes the unrendered publish flow survive the user closing
+            # the tab: the intent is a DB row, not client state.
+            #
+            # Deliberately inside this transaction and BEFORE the commit, so the
+            # promotion and the DONE transition land together — a job can never
+            # be queued for a render that did not actually complete.
+            #
+            # Its own try/except for the same reason the broadcast and email
+            # blocks below have one: a bug in publishing must never cost the user
+            # their finished render.
+            promoted = 0
+            try:
+                from app.services.publish_queue import promote_pending_jobs_sync
+                promoted = promote_pending_jobs_sync(
+                    project_id,
+                    get_render_progress(project_id).get("_run_id"),
+                    r2_key,
+                    db,
+                    local_path=local_path,
+                )
+            except Exception as publish_err:
+                logger.exception(
+                    "[REMOTION] Failed to promote pending publish jobs for project %s: %s",
+                    project_id, publish_err,
+                )
+
             db.commit()
+
+            # Wake the dispatcher only after the rows are durably committed, and
+            # only via the thread-safe path: this runs on the render's daemon
+            # thread, where asyncio.Event.set() would be unsafe. A missed wake
+            # costs latency, never the job.
+            if promoted:
+                try:
+                    from app.services.publish_queue import wake_threadsafe
+                    wake_threadsafe()
+                except Exception as wake_err:
+                    logger.warning(
+                        "[REMOTION] Could not wake the publish dispatcher: %s", wake_err
+                    )
             logger.info("[REMOTION] Video uploaded to R2 and project %s marked DONE", project_id)
 
             # Tell live collaborators the render finished so their client reloads and

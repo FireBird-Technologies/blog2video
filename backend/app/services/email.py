@@ -407,6 +407,81 @@ class EmailService:
             from_email=getattr(settings, "NOREPLY_EMAIL", "noreply@blog2video.app"),
         )
 
+    def send_publish_succeeded_email(
+        self,
+        user_email: str,
+        user_name: str,
+        project_name: str,
+        platform_label: str,
+        post_url: str,
+    ) -> None:
+        """Notify the user that their video is live on YouTube/X.
+
+        Transactional, like send_download_ready_email above: no unsubscribe link
+        and no email_unsubscribed check, because it is the completion receipt for
+        something the user explicitly started.
+        """
+        first_name = user_name.split()[0] if user_name else "there"
+        subject = f"Your video '{project_name}' is live on {platform_label}"
+        html = self._build_html(
+            headline=f"Hi {first_name}, your video is on {platform_label}!",
+            body_paragraph=(
+                f"Your Blog2Video project <strong style=\"color:#111827;\">\"{project_name}\"</strong> "
+                f"has finished uploading to {platform_label} and is ready to watch."
+            ),
+            cta_label=f"Watch on {platform_label}",
+            cta_url=post_url,
+        )
+        text = (
+            f"Hi {first_name},\n\n"
+            f"Your Blog2Video project '{project_name}' is now on {platform_label}!\n\n"
+            f"Watch it here: {post_url}\n\n"
+            f"— The Blog2Video Team\n"
+        )
+        self.provider.send_email(
+            to=user_email, subject=subject, html_content=html, text_content=text,
+            from_email=getattr(settings, "NOREPLY_EMAIL", "noreply@blog2video.app"),
+        )
+
+    def send_publish_failed_email(
+        self,
+        user_email: str,
+        user_name: str,
+        project_name: str,
+        platform_label: str,
+        reason: str,
+        project_url: str,
+    ) -> None:
+        """Tell the user an upload gave up, and why.
+
+        Sent only once the job is terminally failed — never between automatic
+        retries, which usually recover on their own.
+        """
+        first_name = user_name.split()[0] if user_name else "there"
+        subject = f"We couldn't publish '{project_name}' to {platform_label}"
+        html = self._build_html(
+            headline=f"Hi {first_name}, your upload didn't go through",
+            body_paragraph=(
+                f"We couldn't publish <strong style=\"color:#111827;\">\"{project_name}\"</strong> "
+                f"to {platform_label}.<br><br>"
+                f"<span style=\"color:#6b7280;\">{reason}</span><br><br>"
+                f"Your video is safe — open the project to try again."
+            ),
+            cta_label="Open project",
+            cta_url=project_url,
+        )
+        text = (
+            f"Hi {first_name},\n\n"
+            f"We couldn't publish '{project_name}' to {platform_label}.\n\n"
+            f"{reason}\n\n"
+            f"Your video is safe — open the project to try again: {project_url}\n\n"
+            f"— The Blog2Video Team\n"
+        )
+        self.provider.send_email(
+            to=user_email, subject=subject, html_content=html, text_content=text,
+            from_email=getattr(settings, "NOREPLY_EMAIL", "noreply@blog2video.app"),
+        )
+
 
     def _send_coupon_email(
         self,

@@ -283,6 +283,8 @@ class User(Base):
     voice_change_jobs = relationship("ProjectVoiceChangeJob", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
     scene_avatar_jobs = relationship("SceneAvatarJob", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
     language_change_jobs = relationship("ProjectLanguageChangeJob", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
+    social_connections = relationship("SocialConnection", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
+    social_publish_jobs = relationship("SocialPublishJob", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
     referrals = relationship("Referral", foreign_keys="Referral.referrer_id", cascade="all, delete-orphan", passive_deletes=True)
     survey_response = relationship("SurveyResponse", uselist=False, cascade="all, delete-orphan", passive_deletes=True)
 

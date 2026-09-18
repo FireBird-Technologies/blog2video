@@ -41,7 +41,7 @@ from app.models.update_email_send import UpdateEmailSend
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
 from app.services import r2_storage
 from app.services import elevenlabs_keys
-from app.routers import projects, pipeline, chat, auth, billing, contact, custom_templates, crafted_templates, saved_voices, template_studio, embed, unsubscribe, affiliate, support, mcp_oauth, mcp_transport, free_templates, free_tools, voice, background_music, stock_data, collaboration, collab_ws, collab_history, project_shared_assets
+from app.routers import projects, pipeline, chat, auth, billing, contact, custom_templates, crafted_templates, saved_voices, template_studio, embed, unsubscribe, affiliate, support, mcp_oauth, mcp_transport, free_templates, free_tools, voice, background_music, stock_data, collaboration, collab_ws, collab_history, project_shared_assets, integrations
 from app.observability.tracing import init_tracing
 from app.observability.logging import configure_logging
 
@@ -625,6 +625,15 @@ async def lifespan(app: FastAPI):
             reap_orphaned_avatar_jobs()
         except Exception as e:
             print(f"[STARTUP] Orphaned-job recovery failed: {e}")
+        # Social publish uploads left mid-flight by a dead process. Separate
+        # try/except so a failure here cannot skip the recovery above — and it
+        # must run BEFORE publish_queue.start() so the dispatcher never inherits
+        # a stale "running" row.
+        try:
+            from app.services.publish_queue import reap_orphaned_publish_jobs
+            reap_orphaned_publish_jobs()
+        except Exception as e:
+            print(f"[STARTUP] Publish-job recovery failed: {e}")
         # Same idea for staged template-generation runs: a run left "running" by
         # a dead process would otherwise strand its template in a permanent
         # "generating..." state, since only that thread ever clears the flag.
@@ -673,6 +682,11 @@ async def lifespan(app: FastAPI):
                 f"then raise AVATAR_CONCURRENCY."
             )
         avatar_queue.start()
+        # Social publish queue — uploads to YouTube/X, FIFO across every project
+        # (see services/publish_queue.py). Started after reap_orphaned_publish_jobs()
+        # above, for the same reason as the avatar queue.
+        from app.services import publish_queue
+        publish_queue.start()
         # Pre-load corpus + UI catalog so first request is fast and config errors fail loudly at boot.
         try:
             from app.support.corpus_loader import load_corpus
@@ -709,6 +723,7 @@ async def lifespan(app: FastAPI):
         if support_cleanup:
             support_cleanup.cancel()
         await avatar_queue.stop()
+        publish_queue.stop()
     except Exception:
         pass
 
@@ -834,6 +849,7 @@ app.include_router(unsubscribe.router)
 app.include_router(affiliate.router)
 app.include_router(stock_data.router)
 app.include_router(support.router)
+app.include_router(integrations.router)
 # Hosted MCP server: OAuth 2.1 + SSE transport
 app.include_router(mcp_oauth.router)
 # Root-level OAuth discovery endpoints (RFC 8414 + RFC 9728 require these to
