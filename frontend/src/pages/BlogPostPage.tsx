@@ -69,6 +69,19 @@ export default function BlogPostPage() {
                 loading="eager"
               />
             </div>
+            {post.slug === "four-new-tricks" && (
+              <div style={{ margin: "32px 0", borderRadius: 12, overflow: "hidden", aspectRatio: "16/9" }}>
+                <iframe
+                  width="100%"
+                  height="100%"
+                  src="https://www.youtube.com/embed/n4zJLb1GeDw"
+                  title="Blog2Video just learned 4 new tricks: editable custom templates, auto font size, new scenes and Avatars"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            )}
             {post.slug === "blog2video-september-2026-update" && (
               <div style={{ margin: "32px 0", borderRadius: 12, overflow: "hidden", aspectRatio: "16/9" }}>
                 <iframe

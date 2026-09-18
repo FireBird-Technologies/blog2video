@@ -69,6 +69,14 @@ export interface TemplateProfile {
   longDescription?: string;
   idealFor?: string[];
   exampleTopics?: string[];
+  /** Overrides the generated title/keywords when a template has its own search demand. */
+  seo?: {
+    title: string;
+    description: string;
+    heroTitle: string;
+    primaryKeyword: string;
+    keywordVariant: string;
+  };
 }
 
 export interface BlogSection {

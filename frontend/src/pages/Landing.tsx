@@ -600,8 +600,8 @@ export default function Landing() {
   return (
     <div ref={scrollRef} className="min-h-screen bg-white">
       <Seo
-        title="Blog to Video | Turn Posts Into Videos | Blog2Video"
-        description="Turn blog posts into videos in minutes. Blog2Video converts articles to narrated videos with code, diagrams, and templates. No prompts needed. Free to start."
+        title="Text to Video AI: Turn Blogs, URLs, PDFs & Scripts Into Videos | Blog2Video"
+        description="Turn text into narrated videos in minutes. Paste a blog URL, script, PDF, or PowerPoint and Blog2Video builds the scenes, voiceover, and captions. Avatars from a photo. Free to start."
         path="/"
         schema={homepageSchema()}
       />
@@ -722,7 +722,7 @@ export default function Landing() {
           </h1>
 
           <p className="text-lg text-gray-500 max-w-2xl mx-auto mb-10 leading-relaxed">
-            Turn blog posts and updates into narrated videos in minutes.
+            Turn blog posts, URLs, PDFs and scripts into narrated videos in minutes.
           </p>
 
           <form

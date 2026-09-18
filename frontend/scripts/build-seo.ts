@@ -258,9 +258,9 @@ function getSeoPayload(routePath: string): SeoPayload {
       };
     }
     return {
-      title: "Turn Blog Posts Into Videos",
+      title: "Text to Video AI: Turn Blogs, URLs, PDFs & Scripts Into Videos",
       description:
-        "Turn blog posts, articles, PDFs, and documents into narrated videos with templates, voiceover, scene editing, and cross-channel distribution workflows.",
+        "Turn text into narrated videos in minutes. Paste a blog URL, script, PDF, or PowerPoint and Blog2Video builds the scenes, voiceover, and captions. Avatars from a photo. Free to start.",
       path: routePath,
       schema: homepageSchema(),
     };
