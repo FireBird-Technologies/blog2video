@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { PublishJob } from "../api/integrations";
+import { platformLabel, type PublishJob } from "../api/integrations";
 
 interface Props {
   job: PublishJob;
@@ -17,10 +17,10 @@ const SUCCESS_VISIBLE_MS = 3000;
  */
 const FAILURE_VISIBLE_MS = 10000;
 
-const PLATFORM_LABEL: Record<string, string> = {
-  youtube: "YouTube",
-  x: "X",
-};
+/* Labels come from api/integrations so there is exactly one table. This file
+   used to keep its own, typed Record<string, string> with a `?? job.platform`
+   fallback — which rendered the raw slug and looked almost right, so a stale map
+   would never have been noticed. */
 
 /**
  * Inline upload status, shown under the video preview.
@@ -34,7 +34,7 @@ const PLATFORM_LABEL: Record<string, string> = {
  * would just compete with it.
  */
 export default function PublishStatusBanner({ job, onRetry, onDismiss }: Props) {
-  const label = PLATFORM_LABEL[job.platform] ?? job.platform;
+  const label = platformLabel(job.platform);
   const dismissRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Pointer over the banner holds it open, so it cannot vanish from under
   // someone reaching for "Try again".
@@ -107,7 +107,7 @@ export default function PublishStatusBanner({ job, onRetry, onDismiss }: Props) 
             {/* Wraps rather than truncating: these messages explain what went
                 wrong and what to do about it, and a clipped one is useless. */}
             <span className="text-[11px] text-red-600 leading-relaxed">
-              {job.error_message || `Couldn't publish to ${label}.`}
+              {job.error_message || `Couldn't upload to ${label}.`}
             </span>
             <span className="flex items-baseline gap-2 flex-shrink-0">
               {job.retryable && (

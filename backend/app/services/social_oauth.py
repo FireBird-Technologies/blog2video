@@ -15,12 +15,16 @@ from urllib.parse import urlencode, urlparse
 import jwt
 
 from app.config import settings
-from app.models.social_connection import PLATFORM_X, PLATFORM_YOUTUBE
+from app.models.social_connection import (
+    PLATFORM_LINKEDIN,
+    PLATFORM_X,
+    PLATFORM_YOUTUBE,
+)
 from app.services import token_crypto
 
 logger = logging.getLogger(__name__)
 
-SUPPORTED_PLATFORMS = (PLATFORM_YOUTUBE, PLATFORM_X)
+SUPPORTED_PLATFORMS = (PLATFORM_YOUTUBE, PLATFORM_X, PLATFORM_LINKEDIN)
 
 # Short: the state only has to survive one consent screen. A leaked authorize URL
 # (browser history, a shoulder-surfed address bar, a referrer header) stops being
@@ -34,6 +38,17 @@ YOUTUBE_SCOPES = (
 )
 # offline.access is what makes X return a refresh token at all.
 X_SCOPES = "tweet.read tweet.write users.read media.write offline.access"
+# Member posting only. `openid profile` come from the "Sign In with LinkedIn
+# using OpenID Connect" product and give us /v2/userinfo; `w_member_social` comes
+# from "Share on LinkedIn" and is the one that actually posts.
+#
+# Company-page posting (w_organization_social, r_organization_admin) is
+# deliberately NOT requested. Those belong to the Community Management API, which
+# LinkedIn grants only after a manual review — and requesting an unapproved scope
+# makes LinkedIn reject the ENTIRE authorize request with `invalid scope`, which
+# would take personal posting down with it. Adding pages later means adding the
+# scopes behind their own flag, not widening this constant.
+LINKEDIN_SCOPES = "openid profile w_member_social"
 
 GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
@@ -42,6 +57,12 @@ GOOGLE_REVOKE_URL = "https://oauth2.googleapis.com/revoke"
 X_AUTH_URL = "https://x.com/i/oauth2/authorize"
 X_TOKEN_URL = "https://api.x.com/2/oauth2/token"
 X_REVOKE_URL = "https://api.x.com/2/oauth2/revoke"
+
+LINKEDIN_AUTH_URL = "https://www.linkedin.com/oauth/v2/authorization"
+LINKEDIN_TOKEN_URL = "https://www.linkedin.com/oauth/v2/accessToken"
+# No LINKEDIN_REVOKE_URL: LinkedIn publishes no revocation endpoint for 3-legged
+# OAuth. Disconnecting deletes our copy of the grant; the member withdraws it at
+# linkedin.com/psettings/permitted-services if they want to.
 
 
 class OAuthConfigError(Exception):
@@ -56,16 +77,22 @@ class OAuthStateError(Exception):
 
 
 def youtube_client_id() -> str:
-    """The upload client id, falling back to the sign-in client for dev setups.
+    """The upload client id. No fallback to the sign-in client.
 
-    Production should set YOUTUBE_CLIENT_ID to a distinct client — see the note
-    in config.py about keeping the restricted upload scope away from sign-in.
+    These used to fall back to GOOGLE_CLIENT_ID/SECRET for dev convenience, but
+    that made YouTube publishing impossible to turn off: clearing YOUTUBE_* left
+    it enabled via the sign-in credentials, which every deploy sets. Requiring an
+    explicit upload client also matches the note in config.py about keeping the
+    restricted upload scope away from sign-in.
+
+    NOTE: any environment that relied on the fallback must now set YOUTUBE_CLIENT_ID
+    and YOUTUBE_CLIENT_SECRET explicitly, or YouTube publishing goes dark there.
     """
-    return settings.YOUTUBE_CLIENT_ID or settings.GOOGLE_CLIENT_ID
+    return settings.YOUTUBE_CLIENT_ID
 
 
 def youtube_client_secret() -> str:
-    return settings.YOUTUBE_CLIENT_SECRET or settings.GOOGLE_CLIENT_SECRET
+    return settings.YOUTUBE_CLIENT_SECRET
 
 
 def platform_enabled(platform: str) -> bool:
@@ -80,6 +107,10 @@ def platform_enabled(platform: str) -> bool:
         return bool(youtube_client_id() and youtube_client_secret())
     if platform == PLATFORM_X:
         return bool(settings.X_CLIENT_ID)
+    if platform == PLATFORM_LINKEDIN:
+        # Both halves required: LinkedIn is a confidential client with no PKCE,
+        # so the secret is the only thing authenticating the token exchange.
+        return bool(settings.LINKEDIN_CLIENT_ID and settings.LINKEDIN_CLIENT_SECRET)
     return False
 
 
@@ -213,19 +244,41 @@ def build_authorize_url(platform: str, user_id: int) -> str:
             }
         )
 
-    verifier, challenge = make_pkce_pair()
-    state = build_state(user_id, platform, code_verifier=verifier)
-    return f"{X_AUTH_URL}?" + urlencode(
-        {
-            "client_id": settings.X_CLIENT_ID,
-            "redirect_uri": redirect_uri(platform),
-            "response_type": "code",
-            "scope": X_SCOPES,
-            "state": state,
-            "code_challenge": challenge,
-            "code_challenge_method": "S256",
-        }
-    )
+    if platform == PLATFORM_X:
+        verifier, challenge = make_pkce_pair()
+        state = build_state(user_id, platform, code_verifier=verifier)
+        return f"{X_AUTH_URL}?" + urlencode(
+            {
+                "client_id": settings.X_CLIENT_ID,
+                "redirect_uri": redirect_uri(platform),
+                "response_type": "code",
+                "scope": X_SCOPES,
+                "state": state,
+                "code_challenge": challenge,
+                "code_challenge_method": "S256",
+            }
+        )
+
+    if platform == PLATFORM_LINKEDIN:
+        # No PKCE: LinkedIn's confidential flow is plain RFC 6749, closer to
+        # Google's than to X's. Sending a code_challenge here is not an error but
+        # buys nothing, since the secret already authenticates the exchange.
+        state = build_state(user_id, platform)
+        return f"{LINKEDIN_AUTH_URL}?" + urlencode(
+            {
+                "response_type": "code",
+                "client_id": settings.LINKEDIN_CLIENT_ID,
+                "redirect_uri": redirect_uri(platform),
+                "state": state,
+                "scope": LINKEDIN_SCOPES,
+            }
+        )
+
+    # Unreachable while SUPPORTED_PLATFORMS and this function agree. The explicit
+    # raise is what stops a future platform from silently inheriting whichever
+    # branch happens to be last — which is exactly what the previous
+    # fall-through-to-X shape did.
+    raise OAuthConfigError(f"No authorize URL builder for platform '{platform}'")
 
 
 # ─── Popup result page ───────────────────────────────────────────────────────

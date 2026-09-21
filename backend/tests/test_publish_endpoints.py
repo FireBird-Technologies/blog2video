@@ -12,6 +12,7 @@ from app.config import settings
 from app.models.project import Project, ProjectStatus
 from app.models.project_member import MemberRole, MemberStatus, ProjectMember
 from app.models.social_connection import (
+    PLATFORM_LINKEDIN,
     PLATFORM_YOUTUBE,
     STATUS_ACTIVE,
     SocialConnection,
@@ -38,9 +39,33 @@ def configured(monkeypatch):
     monkeypatch.setattr(settings, "YOUTUBE_CLIENT_ID", "yt-client")
     monkeypatch.setattr(settings, "YOUTUBE_CLIENT_SECRET", "yt-secret")
     monkeypatch.setattr(settings, "X_CLIENT_ID", "")
+    monkeypatch.setattr(settings, "LINKEDIN_CLIENT_ID", "")
+    monkeypatch.setattr(settings, "LINKEDIN_CLIENT_SECRET", "")
     token_crypto.reset_cache()
     yield
     token_crypto.reset_cache()
+
+
+@pytest.fixture()
+def linkedin_enabled(monkeypatch):
+    monkeypatch.setattr(settings, "LINKEDIN_CLIENT_ID", "li-client")
+    monkeypatch.setattr(settings, "LINKEDIN_CLIENT_SECRET", "li-secret")
+
+
+def _connect_linkedin(db, user, **kwargs):
+    conn = SocialConnection(
+        user_id=user.id,
+        platform=PLATFORM_LINKEDIN,
+        account_id="urn:li:person:abc",
+        account_name="Test Member",
+        scopes=kwargs.pop("scopes", "openid profile w_member_social"),
+        status=kwargs.pop("status", STATUS_ACTIVE),
+        **kwargs,
+    )
+    db.add(conn)
+    db.commit()
+    db.refresh(conn)
+    return conn
 
 
 @pytest.fixture(autouse=True)
@@ -262,6 +287,88 @@ def test_an_invalid_privacy_value_is_rejected(client, db_session, free_user, aut
     )
 
     assert resp.status_code == 400
+
+
+def test_linkedin_accepts_connections_visibility(
+    client, db_session, free_user, auth, linkedin_enabled
+):
+    project = _project(db_session, free_user)
+    _connect_linkedin(db_session, free_user)
+
+    resp = client.post(
+        f"/api/integrations/projects/{project.id}/publish",
+        json=_publish_body(platform="linkedin", privacy_status="connections"),
+        headers=auth(free_user),
+    )
+
+    assert resp.status_code == 200
+    assert resp.json()["job"]["privacy_status"] == "connections"
+
+
+def test_linkedin_accepts_public_visibility(
+    client, db_session, free_user, auth, linkedin_enabled
+):
+    project = _project(db_session, free_user)
+    _connect_linkedin(db_session, free_user)
+
+    resp = client.post(
+        f"/api/integrations/projects/{project.id}/publish",
+        json=_publish_body(platform="linkedin", privacy_status="public"),
+        headers=auth(free_user),
+    )
+
+    assert resp.status_code == 200
+
+
+@pytest.mark.parametrize("privacy", ["unlisted", "private"])
+def test_linkedin_rejects_youtube_only_visibilities(
+    client, db_session, free_user, auth, linkedin_enabled, privacy
+):
+    """LinkedIn has no unlisted/private notion — accepting them would store a
+    value the publisher then has to guess how to map."""
+    project = _project(db_session, free_user)
+    _connect_linkedin(db_session, free_user)
+
+    resp = client.post(
+        f"/api/integrations/projects/{project.id}/publish",
+        json=_publish_body(platform="linkedin", privacy_status=privacy),
+        headers=auth(free_user),
+    )
+
+    assert resp.status_code == 400
+
+
+def test_youtube_still_rejects_connections(client, db_session, free_user, auth):
+    """Proves the per-platform validator narrowed rather than widened the rule."""
+    project = _project(db_session, free_user)
+    _connect(db_session, free_user)
+
+    resp = client.post(
+        f"/api/integrations/projects/{project.id}/publish",
+        json=_publish_body(privacy_status="connections"),
+        headers=auth(free_user),
+    )
+
+    assert resp.status_code == 400
+
+
+def test_a_linkedin_connection_without_w_member_social_is_rejected_up_front(
+    client, db_session, free_user, auth, linkedin_enabled
+):
+    project = _project(db_session, free_user)
+    _connect_linkedin(db_session, free_user, scopes="openid profile")
+
+    resp = client.post(
+        f"/api/integrations/projects/{project.id}/publish",
+        # privacy_status must be set explicitly: PublishRequest defaults to
+        # "private", which is a YouTube-only value and is rejected for LinkedIn
+        # before the scope check is ever reached.
+        json=_publish_body(platform="linkedin", privacy_status="public"),
+        headers=auth(free_user),
+    )
+
+    assert resp.status_code == 409
+    assert resp.json()["detail"]["error_code"] == "insufficient_scope"
 
 
 def test_an_empty_title_is_rejected(client, db_session, free_user, auth):
