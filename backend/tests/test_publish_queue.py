@@ -454,7 +454,11 @@ def test_claims_strictly_oldest_first(db_session, free_user):
 
     assert claimed is not None
     assert claimed.id == first.id
+    assert claimed.id != second.id
     assert claimed.status == STATUS_RUNNING
+    # The younger job is left alone for the next sweep, not claimed alongside.
+    db_session.refresh(second)
+    assert second.status == STATUS_QUEUED
 
 
 def test_claiming_an_empty_queue_returns_none(db_session):
