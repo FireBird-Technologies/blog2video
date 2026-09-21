@@ -53,7 +53,12 @@ from sqlalchemy import or_
 
 from app.config import settings
 from app.database import SessionLocal
-from app.models.social_connection import PLATFORM_X, PLATFORM_YOUTUBE, SocialConnection
+from app.models.social_connection import (
+    PLATFORM_LINKEDIN,
+    PLATFORM_X,
+    PLATFORM_YOUTUBE,
+    SocialConnection,
+)
 from app.models.social_publish_job import (
     MAX_ATTEMPTS,
     SOURCE_RERENDER,
@@ -305,6 +310,8 @@ def _run_publish_job_sync(job_id: int) -> None:
                     path, is_temp = _publish_youtube(db, job, conn, work_dir)
                 elif job.platform == PLATFORM_X:
                     path, is_temp = _publish_x(db, job, conn, work_dir)
+                elif job.platform == PLATFORM_LINKEDIN:
+                    path, is_temp = _publish_linkedin(db, job, conn, work_dir)
                 else:
                     raise PublishError(
                         f"Unsupported platform '{job.platform}'.",
@@ -461,8 +468,71 @@ def _publish_x(db, job: SocialPublishJob, conn: SocialConnection, work_dir: str)
     return path, is_temp
 
 
+def _publish_linkedin(db, job: SocialPublishJob, conn: SocialConnection, work_dir: str):
+    from app.services import linkedin_publish as li
+    from app.services import youtube_publish as yt
+
+    path, is_temp = yt.resolve_local_video(job.project_id, job.r2_video_key, work_dir)
+    total_bytes = os.path.getsize(path)
+    if total_bytes <= 0:
+        raise PublishError(
+            "The rendered video is empty.", code="video_missing", retryable=False
+        )
+    # Checked here rather than left to initializeUpload so the user gets a real
+    # sentence with a way forward, instead of an opaque 400 arriving after a
+    # multi-minute render. LinkedIn's 500 MB feed ceiling is far below YouTube's.
+    if total_bytes > li.MAX_VIDEO_BYTES:
+        raise PublishError(
+            "LinkedIn accepts videos up to 500 MB. Try rendering at a lower "
+            "resolution and publishing again.",
+            code="video_too_large", retryable=False,
+        )
+
+    job.total_bytes = total_bytes
+    db.commit()
+
+    last_write = [0.0]
+
+    def on_progress(done: int, total: int) -> None:
+        now = time.time()
+        if now - last_write[0] < PROGRESS_WRITE_INTERVAL_SECONDS and done < total:
+            return
+        last_write[0] = now
+        job.uploaded_bytes = done
+        job.updated_at = datetime.utcnow()  # heartbeat for the stale sweep
+        db.commit()
+
+    result = li.publish_video(
+        conn=conn,
+        db=db,
+        file_path=path,
+        total_bytes=total_bytes,
+        text=li.compose_commentary(job.title, job.description),
+        visibility="CONNECTIONS" if job.privacy_status == "connections" else "PUBLIC",
+        title=job.title,
+        on_progress=on_progress,
+    )
+    job.platform_post_id = result["post_id"]
+    job.platform_post_url = result["post_url"]
+    _succeed(db, job)
+    return path, is_temp
+
+
+_PLATFORM_LABELS = {
+    PLATFORM_YOUTUBE: "YouTube",
+    PLATFORM_X: "X",
+    PLATFORM_LINKEDIN: "LinkedIn",
+}
+
+
 def _platform_label(platform: str) -> str:
-    return "YouTube" if platform == PLATFORM_YOUTUBE else "X"
+    """Human name for emails and copy.
+
+    Falls back to the raw slug rather than guessing: the previous
+    `"YouTube" if youtube else "X"` shape silently told every future platform's
+    users that their video had gone to X.
+    """
+    return _PLATFORM_LABELS.get(platform, platform)
 
 
 def _notify(db, job: SocialPublishJob, *, succeeded: bool) -> None:

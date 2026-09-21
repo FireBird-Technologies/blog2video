@@ -1,8 +1,9 @@
-"""Social publishing account connections (YouTube, X).
+"""Social publishing account connections (YouTube, X, LinkedIn).
 
 Owns the OAuth dance and the connection records. The uploads themselves live in
-services/youtube_publish.py and services/x_publish.py; the queue that runs them
-is services/publish_queue.py.
+services/youtube_publish.py, services/x_publish.py and
+services/linkedin_publish.py; the queue that runs them is
+services/publish_queue.py.
 
 The callback endpoint is intentionally unauthenticated: the provider redirects
 the user's browser here with no Authorization header. Its authenticity comes
@@ -11,6 +12,7 @@ started the flow.
 """
 import json
 import logging
+import re
 from datetime import datetime, timedelta
 
 import httpx
@@ -24,6 +26,7 @@ from app.auth import get_current_user
 from app.config import settings
 from app.database import get_db
 from app.models.social_connection import (
+    PLATFORM_LINKEDIN,
     PLATFORM_X,
     PLATFORM_YOUTUBE,
     STATUS_ACTIVE,
@@ -55,6 +58,7 @@ HTTP_TIMEOUT = httpx.Timeout(20.0)
 class IntegrationsConfig(BaseModel):
     youtube_enabled: bool
     x_enabled: bool
+    linkedin_enabled: bool
 
 
 class ConnectionOut(BaseModel):
@@ -68,6 +72,14 @@ class ConnectionOut(BaseModel):
     # a box, or the required scopes changed since they connected). Surfaced so
     # the UI can ask for a reconnect BEFORE they fill in a whole upload form.
     scopes_ok: bool = True
+    # When the ACCESS token dies. Only meaningful for a connection we cannot
+    # refresh on the user's behalf — hence expires_soon below.
+    expires_at: datetime | None = None
+    # True when this grant will expire shortly AND we have no refresh token to
+    # renew it with. LinkedIn is the case that matters: 60-day tokens with
+    # partner-gated refresh, so most connections simply run out. YouTube and X
+    # refresh silently and must never nag.
+    expires_soon: bool = False
 
 
 class ConnectUrlOut(BaseModel):
@@ -159,11 +171,41 @@ def _connection_out(conn: SocialConnection | None, platform: str) -> ConnectionO
         account_avatar_url=conn.account_avatar_url,
         status=conn.status,
         scopes_ok=_scopes_ok(conn),
+        expires_at=conn.token_expires_at,
+        expires_soon=_expires_soon(conn),
+    )
+
+
+# A week is long enough that the nudge is actionable rather than an emergency,
+# and short enough that it is not permanently on screen for a 60-day token.
+EXPIRY_WARNING_DAYS = 7
+
+
+def _expires_soon(conn: SocialConnection) -> bool:
+    """Whether to nudge the user to reconnect before their next upload fails.
+
+    Gated on having no refresh token: a connection we can renew ourselves is not
+    the user's problem, so YouTube and X never trip this. LinkedIn issues refresh
+    tokens only to approved partners, so for most deployments every LinkedIn
+    connection eventually lands here.
+    """
+    if conn.status != STATUS_ACTIVE or not conn.token_expires_at:
+        return False
+    if conn.refresh_token_enc:
+        return False
+    return conn.token_expires_at < datetime.utcnow() + timedelta(
+        days=EXPIRY_WARNING_DAYS
     )
 
 
 def _scopes_ok(conn: SocialConnection) -> bool:
-    granted = set((conn.scopes or "").split())
+    # Split on commas as well as whitespace: RFC 6749 specifies a space-delimited
+    # `scope`, and Google and X follow it, but LinkedIn returns its granted scopes
+    # comma-delimited ("openid,profile,w_member_social"). Splitting on whitespace
+    # alone left that as one unsplit blob, so the `w_member_social` check below
+    # missed and every LinkedIn connection looked like it was missing the upload
+    # permission — which reconnecting could not fix.
+    granted = {s for s in re.split(r"[,\s]+", conn.scopes or "") if s}
     if not granted:
         # Provider did not report scopes; assume the grant is what we asked for
         # rather than nagging the user about something we cannot verify.
@@ -172,6 +214,10 @@ def _scopes_ok(conn: SocialConnection) -> bool:
         return "https://www.googleapis.com/auth/youtube.upload" in granted
     if conn.platform == PLATFORM_X:
         return {"tweet.write", "media.write"} <= granted
+    if conn.platform == PLATFORM_LINKEDIN:
+        # w_member_social is the only load-bearing one — openid/profile just give
+        # us the display name, and a grant without them still publishes fine.
+        return "w_member_social" in granted
     return True
 
 
@@ -217,6 +263,7 @@ def get_integrations_config():
     return IntegrationsConfig(
         youtube_enabled=social_oauth.platform_enabled(PLATFORM_YOUTUBE),
         x_enabled=social_oauth.platform_enabled(PLATFORM_X),
+        linkedin_enabled=social_oauth.platform_enabled(PLATFORM_LINKEDIN),
     )
 
 
@@ -332,9 +379,17 @@ async def oauth_callback(
         if platform == PLATFORM_YOUTUBE:
             tokens = await _exchange_youtube_code(code)
             identity = await _fetch_youtube_identity(tokens["access_token"])
-        else:
+        elif platform == PLATFORM_X:
             tokens = await _exchange_x_code(code, payload.get("cv"))
             identity = await _fetch_x_identity(tokens["access_token"])
+        elif platform == PLATFORM_LINKEDIN:
+            tokens = await _exchange_linkedin_code(code)
+            identity = await _fetch_linkedin_identity(tokens["access_token"])
+        else:
+            # Explicit rather than an else-means-X fall-through: a platform added
+            # to SUPPORTED_PLATFORMS but not here should fail visibly, not quietly
+            # exchange its code against the wrong provider.
+            raise _ProviderError(f"Unsupported platform '{platform}'.")
     except _ProviderError as exc:
         logger.warning("[INTEGRATIONS] %s connect failed for user %s: %s", platform, user_id, exc)
         return HTMLResponse(
@@ -376,7 +431,13 @@ async def oauth_callback(
     conn.token_expires_at = (
         datetime.utcnow() + timedelta(seconds=int(expires_in)) if expires_in else None
     )
-    conn.scopes = tokens.get("scope")
+    granted_scope = tokens.get("scope")
+    if platform == PLATFORM_LINKEDIN and not granted_scope:
+        # LinkedIn's token response routinely omits `scope`. Recording what we
+        # asked for beats recording nothing: _scopes_ok reads an empty string as
+        # "assume the grant is fine", which would mask a genuinely partial grant.
+        granted_scope = social_oauth.LINKEDIN_SCOPES
+    conn.scopes = granted_scope
     conn.account_id = identity.get("account_id")
     conn.account_handle = identity.get("account_handle")
     conn.account_name = identity.get("account_name")
@@ -388,7 +449,12 @@ async def oauth_callback(
     if not conn.refresh_token_enc:
         # Uploads still work until the access token expires, so this is a warning
         # rather than a failure — but it means the connection is short-lived.
-        logger.warning(
+        # For LinkedIn this is the EXPECTED state, not an anomaly: refresh tokens
+        # go only to approved partners, so info-level keeps it out of the alert
+        # path while still recording it. ConnectionOut.expires_soon is what
+        # actually gets the user to reconnect in time.
+        log = logger.info if platform == PLATFORM_LINKEDIN else logger.warning
+        log(
             "[INTEGRATIONS] %s connection for user %s has no refresh token", platform, user_id
         )
 
@@ -428,11 +494,23 @@ async def disconnect(
                     await client.post(
                         social_oauth.GOOGLE_REVOKE_URL, params={"token": token}
                     )
-                else:
+                elif platform == PLATFORM_X:
                     await client.post(
                         social_oauth.X_REVOKE_URL,
                         data={"token": token, "client_id": settings.X_CLIENT_ID},
                         auth=_x_basic_auth(),
+                    )
+                elif platform == PLATFORM_LINKEDIN:
+                    # LinkedIn publishes no revocation endpoint for 3-legged
+                    # OAuth. Deleting our row is all we can do; the member
+                    # withdraws the grant at linkedin.com/psettings/permitted-services.
+                    logger.info(
+                        "[INTEGRATIONS] LinkedIn has no revoke endpoint; "
+                        "deleting the local connection only"
+                    )
+                else:
+                    logger.warning(
+                        "[INTEGRATIONS] No revoke path for platform %r", platform
                     )
         except Exception as exc:
             logger.warning(
@@ -581,9 +659,80 @@ async def _fetch_x_identity(access_token: str) -> dict:
         return {}
 
 
+async def _exchange_linkedin_code(code: str) -> dict:
+    """Trade the code for tokens.
+
+    Plain RFC 6749: credentials in the body, no Basic auth and no PKCE. Closer to
+    Google's exchange than to X's despite LinkedIn's flow looking X-shaped.
+    """
+    async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
+        resp = await client.post(
+            social_oauth.LINKEDIN_TOKEN_URL,
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "client_id": settings.LINKEDIN_CLIENT_ID,
+                "client_secret": settings.LINKEDIN_CLIENT_SECRET,
+                "redirect_uri": social_oauth.redirect_uri(PLATFORM_LINKEDIN),
+            },
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+    if resp.status_code >= 400:
+        logger.warning(
+            "[INTEGRATIONS] LinkedIn token exchange %s: %s",
+            resp.status_code, resp.text[:500],
+        )
+        raise _ProviderError("LinkedIn rejected the connection. Please try again.")
+    data = resp.json()
+    if not data.get("access_token"):
+        raise _ProviderError("LinkedIn did not return an access token.")
+    return data
+
+
+async def _fetch_linkedin_identity(access_token: str) -> dict:
+    """Who this grant belongs to, via the OIDC userinfo endpoint.
+
+    ``account_id`` holds the FULL member URN rather than the bare ``sub``,
+    because that is the value the publish path needs verbatim as the post author.
+    Storing the bare id would leave every consumer to re-derive the prefix, and
+    one of them would eventually get it wrong.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
+            resp = await client.get(
+                "https://api.linkedin.com/v2/userinfo",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+        if resp.status_code >= 400:
+            logger.warning(
+                "[INTEGRATIONS] LinkedIn userinfo %s: %s",
+                resp.status_code, resp.text[:300],
+            )
+            return {}
+        data = resp.json() or {}
+        sub = data.get("sub")
+        return {
+            "account_id": f"urn:li:person:{sub}" if sub else None,
+            "account_name": data.get("name"),
+            # LinkedIn has no @handle; the profile URL is not in userinfo either.
+            "account_handle": None,
+            "account_avatar_url": data.get("picture"),
+        }
+    except Exception as exc:
+        logger.warning("[INTEGRATIONS] LinkedIn identity lookup failed: %s", exc)
+        return {}
+
+
 # ─── Publishing ──────────────────────────────────────────────────────────────
 
 VALID_PRIVACY = ("public", "unlisted", "private")
+# Visibility is per-platform, not universal. LinkedIn has no unlisted/private
+# notion; it has "anyone" vs "your connections". Reusing privacy_status for that
+# keeps the column honest (it answers "who can see it" either way) and needs no
+# migration — "connections" is 11 chars and the column is String(12).
+VALID_PRIVACY_BY_PLATFORM = {
+    PLATFORM_LINKEDIN: ("public", "connections"),
+}
 
 
 @router.post("/projects/{project_id}/publish")
@@ -606,7 +755,8 @@ async def publish_project(
     except social_oauth.OAuthConfigError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
 
-    if body.privacy_status not in VALID_PRIVACY:
+    allowed_privacy = VALID_PRIVACY_BY_PLATFORM.get(platform, VALID_PRIVACY)
+    if body.privacy_status not in allowed_privacy:
         raise HTTPException(status_code=400, detail="Invalid privacy setting")
 
     project = get_accessible_project(project_id, user, db, required_role="owner")

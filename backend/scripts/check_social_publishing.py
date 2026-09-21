@@ -69,30 +69,19 @@ def main() -> int:
     yt_secret = social_oauth.youtube_client_secret()
     print()
     if yt_id and yt_secret:
-        source = (
-            "YOUTUBE_CLIENT_ID"
-            if settings.YOUTUBE_CLIENT_ID
-            else "GOOGLE_CLIENT_ID (fallback)"
-        )
-        print(f"{OK} YouTube client        {mask(yt_id)}  via {source}")
-        if not settings.YOUTUBE_CLIENT_ID:
-            print(
-                f"  {WARN} Falling back to the SIGN-IN client. Fine for local testing,\n"
-                "     but for production use a separate client: the restricted\n"
-                "     youtube.upload scope drags whichever client carries it into\n"
-                "     Google's audit, and an unaudited client shows a verification\n"
-                "     warning to everyone who signs in."
-            )
+        print(f"{OK} YouTube client        {mask(yt_id)}  via YOUTUBE_CLIENT_ID")
     else:
-        print(f"{BAD} YouTube client        not configured")
-        problems.append(
-            "Set YOUTUBE_CLIENT_ID and YOUTUBE_CLIENT_SECRET in backend/.env."
+        # Not a problem to fix — an unset upload client is how you turn YouTube
+        # publishing off, so report it the same way X and LinkedIn are reported.
+        print(
+            f"{WARN} YouTube client        not set  (intentionally off — set "
+            "YOUTUBE_CLIENT_ID and YOUTUBE_CLIENT_SECRET to enable)"
         )
 
     enabled = social_oauth.platform_enabled("youtube")
     print(
-        f"{OK if enabled else BAD} YouTube enabled       {enabled}"
-        f"{'' if enabled else '  (the menu item will not appear)'}"
+        f"{OK if enabled else WARN} YouTube enabled       {enabled}"
+        f"{'' if enabled else '  (the icon will not appear)'}"
     )
 
     # ─── X ───────────────────────────────────────────────────
@@ -102,12 +91,24 @@ def main() -> int:
         f"{'' if x_on else '  (intentionally off — set X_CLIENT_ID to enable)'}"
     )
 
+    # ─── LinkedIn ────────────────────────────────────────────
+    li_on = social_oauth.platform_enabled("linkedin")
+    print(
+        f"{OK if li_on else WARN} LinkedIn enabled      {li_on}"
+        f"{'' if li_on else '  (intentionally off — set LINKEDIN_CLIENT_ID and LINKEDIN_CLIENT_SECRET to enable)'}"
+    )
+    if li_on:
+        print(f"   LinkedIn-Version      {settings.LINKEDIN_API_VERSION or '202509'}")
+
     # ─── Redirect URIs ───────────────────────────────────────
     if backend:
-        print("\n\033[1mAuthorised redirect URI\033[0m (paste into Google Cloud console):")
-        print(f"   {backend}/api/integrations/youtube/callback")
+        print("\n\033[1mAuthorised redirect URIs\033[0m (paste into each provider's console):")
+        if enabled:
+            print(f"   {backend}/api/integrations/youtube/callback")
         if social_oauth.platform_enabled("x"):
             print(f"   {backend}/api/integrations/x/callback")
+        if li_on:
+            print(f"   {backend}/api/integrations/linkedin/callback")
 
     # ─── Summary ─────────────────────────────────────────────
     print()

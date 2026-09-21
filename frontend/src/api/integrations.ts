@@ -1,13 +1,31 @@
 import api, { BACKEND_URL } from "./http";
 
-// ─── Social publishing (YouTube / X) ──────────────────────
+// ─── Social publishing (YouTube / X / LinkedIn) ──────────────────────
 
-export type SocialPlatform = "youtube" | "x";
+export type SocialPlatform = "youtube" | "x" | "linkedin";
 
 export interface IntegrationsConfig {
   youtube_enabled: boolean;
   x_enabled: boolean;
+  linkedin_enabled: boolean;
 }
+
+/**
+ * The one place a platform's display name lives.
+ *
+ * Previously each component kept its own map, and the banner's fell back to the
+ * raw slug — which is exactly why nobody noticed it had gone stale: "linkedin"
+ * in lowercase looks almost right. Keep this exhaustive over SocialPlatform so
+ * adding a platform is a compile error rather than a silent wrong label.
+ */
+const PLATFORM_LABELS: Record<SocialPlatform, string> = {
+  youtube: "YouTube",
+  x: "X",
+  linkedin: "LinkedIn",
+};
+
+export const platformLabel = (platform: string): string =>
+  PLATFORM_LABELS[platform as SocialPlatform] ?? platform;
 
 export interface SocialConnection {
   platform: SocialPlatform;
@@ -18,6 +36,15 @@ export interface SocialConnection {
   status: string;
   /** False when the grant is missing a scope we need — ask for a reconnect. */
   scopes_ok: boolean;
+  /** When the access token dies. Null when the provider did not say. */
+  expires_at: string | null;
+  /**
+   * True when this grant expires shortly AND cannot be refreshed on the user's
+   * behalf. LinkedIn is the case that matters: 60-day tokens with partner-gated
+   * refresh, so the user has to reconnect by hand. YouTube and X refresh
+   * silently and never set this.
+   */
+  expires_soon: boolean;
 }
 
 export type PublishJobStatus =
@@ -53,12 +80,19 @@ export interface PublishJob {
   completed_at: string | null;
 }
 
+/**
+ * Who can see the post. Platform-specific: YouTube uses public/unlisted/private,
+ * LinkedIn public ("Anyone") or connections. The server validates per platform,
+ * so sending the wrong one is a 400 rather than a silent downgrade.
+ */
+export type PublishPrivacy = "public" | "unlisted" | "private" | "connections";
+
 export interface PublishRequest {
   platform: SocialPlatform;
   title: string;
   description?: string;
   tags?: string[];
-  privacy_status?: "public" | "unlisted" | "private";
+  privacy_status?: PublishPrivacy;
   made_for_kids?: boolean;
   category_id?: string;
   /** "auto" renders only when there is nothing to publish yet. */

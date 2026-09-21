@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactDOM from "react-dom";
+import { Link } from "react-router-dom";
 import {
   disconnectSocialAccount,
   getSocialConnectUrl,
@@ -8,10 +9,13 @@ import {
   publishProject,
   retryPublishJob,
   type PublishJob,
+  type PublishPrivacy,
   type PublishRequest,
   type SocialConnection,
   type SocialPlatform,
 } from "../api/integrations";
+import PlatformIcon from "./PlatformIcon";
+import ConfirmDeleteModal from "./ConfirmDeleteModal";
 
 interface Props {
   open: boolean;
@@ -26,6 +30,10 @@ interface Props {
   jobs?: PublishJob[];
   /** Live render percentage (0-100) while a render is running, else null. */
   renderProgress?: number | null;
+  /** Whether the viewer owns the project — i.e. whose quota a render spends.
+   *  Gates the upgrade CTA: on a shared project the owner pays, so upgrading
+   *  their own plan would not let a collaborator past the wall. */
+  isOwner?: boolean;
   onClose: () => void;
   /** Called after a publish that started a render, so the page can poll it. */
   onRenderStarted?: (renderRunId: string | null) => void;
@@ -43,19 +51,94 @@ type Step =
   | "progress"
   | "error";
 
-const PLATFORM_LABEL: Record<SocialPlatform, string> = {
-  youtube: "YouTube",
-  x: "X",
-};
-
-const TITLE_MAX = 100;
 const DESCRIPTION_MAX = 5000;
-const X_TEXT_MAX = 280;
 /** Long enough to register the green tick, short enough not to need dismissing. */
 const SUCCESS_AUTO_CLOSE_MS = 3000;
 
 /** YouTube rejects these outright with an opaque 400. */
 const stripAngleBrackets = (value: string) => value.replace(/[<>]/g, "");
+
+/**
+ * What one platform's compose form looks like.
+ *
+ * This replaces a single `isYouTube` boolean that used to drive eight separate
+ * decisions. Two platforms could be expressed as "YouTube or not"; three cannot
+ * — LinkedIn wants post text AND a visibility control, which is neither of the
+ * existing shapes. Being a Record over SocialPlatform means adding a platform
+ * without describing its form is a compile error rather than a form that
+ * silently looks like X's.
+ */
+interface PlatformForm {
+  label: string;
+  /** Is the single required text field a video title, or the post body? */
+  textField: "title" | "post-text";
+  textMax: number;
+  textPlaceholder: string;
+  hasDescription: boolean;
+  hasTags: boolean;
+  hasMadeForKids: boolean;
+  /** Empty = no visibility control at all (X posts are simply public). */
+  visibility: { value: PublishPrivacy; label: string }[];
+  defaultPrivacy: PublishPrivacy;
+  /** The platform can have an account with no publishable destination. */
+  requiresChannel: boolean;
+  /** Where to go and create that destination, when requiresChannel. */
+  createChannelUrl?: string;
+  /** Where the user fixes a forced-private upload, if that can happen. */
+  forcedPrivateFixUrl?: (postId: string) => string;
+}
+
+const PLATFORM_FORM: Record<SocialPlatform, PlatformForm> = {
+  youtube: {
+    label: "YouTube",
+    textField: "title",
+    textMax: 100,
+    textPlaceholder: "My video",
+    hasDescription: true,
+    hasTags: true,
+    hasMadeForKids: true,
+    visibility: [
+      { value: "public", label: "Public" },
+      { value: "unlisted", label: "Unlisted" },
+      { value: "private", label: "Private" },
+    ],
+    defaultPrivacy: "public",
+    // A Google account without a channel can connect and still have nowhere to
+    // upload to.
+    requiresChannel: true,
+    createChannelUrl: "https://www.youtube.com/create_channel",
+    forcedPrivateFixUrl: (postId) =>
+      `https://studio.youtube.com/video/${postId}/edit`,
+  },
+  x: {
+    label: "X",
+    textField: "post-text",
+    textMax: 280,
+    textPlaceholder: "What's this video about?",
+    hasDescription: false,
+    hasTags: false,
+    hasMadeForKids: false,
+    visibility: [],
+    defaultPrivacy: "public",
+    requiresChannel: false,
+  },
+  linkedin: {
+    label: "LinkedIn",
+    textField: "post-text",
+    textMax: 3000,
+    textPlaceholder: "What's this video about?",
+    hasDescription: false,
+    hasTags: false,
+    hasMadeForKids: false,
+    visibility: [
+      { value: "public", label: "Anyone" },
+      { value: "connections", label: "Connections only" },
+    ],
+    defaultPrivacy: "public",
+    // Every LinkedIn member has a feed, so there is no "no channel" state.
+    requiresChannel: false,
+  },
+};
 
 /** Header that names what is actually happening right now. */
 function headerTitle(
@@ -85,7 +168,7 @@ function headerTitle(
   }
   if (step === "confirm-render") return "Render before publishing?";
   if (step === "progress") return `Publishing to ${label}`;
-  return isReupload ? `Re-upload to ${label}` : `Publish to ${label}`;
+  return isReupload ? `Re-upload to ${label}` : `Upload to ${label}`;
 }
 
 function errorCopy(job: PublishJob): { message: string; action?: string } {
@@ -127,27 +210,29 @@ export default function PublishToSocialModal({
   job,
   jobs = [],
   renderProgress = null,
+  isOwner = true,
   onClose,
   onRenderStarted,
   onJobChanged,
   zIndexClass = "z-[9998]",
 }: Props) {
-  const label = PLATFORM_LABEL[platform];
-  const isYouTube = platform === "youtube";
+  const form = PLATFORM_FORM[platform];
+  const label = form.label;
 
   const [step, setStep] = useState<Step>("loading");
   const [connection, setConnection] = useState<SocialConnection | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmDisconnect, setConfirmDisconnect] = useState(false);
   const [fatalError, setFatalError] = useState<string | null>(null);
+  /** The last failure was a quota wall the viewer can clear by upgrading. */
+  const [quotaBlocked, setQuotaBlocked] = useState(false);
   const [popupBlockedUrl, setPopupBlockedUrl] = useState<string | null>(null);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [tagsText, setTagsText] = useState("");
-  const [privacy, setPrivacy] = useState<"public" | "unlisted" | "private">(
-    "public"
-  );
+  const [privacy, setPrivacy] = useState<PublishPrivacy>("public");
   const [madeForKids, setMadeForKids] = useState(false);
   const [source, setSource] = useState<"existing" | "rerender">("existing");
   /**
@@ -229,16 +314,22 @@ export default function PublishToSocialModal({
 
     setFatalError(null);
     setPopupBlockedUrl(null);
+    setConfirmDisconnect(false);
+    setQuotaBlocked(false);
     setStep("loading");
     // Prefill from the previous upload when there is one, so a re-upload after
     // an edit does not mean retyping the title and description.
     const previous = lastPublishedRef.current;
+    const prefill = previous?.title || projectName || "";
     setTitle(
-      stripAngleBrackets(previous?.title || projectName || "").slice(0, TITLE_MAX)
+      (form.textField === "title" ? stripAngleBrackets(prefill) : prefill).slice(
+        0,
+        form.textMax
+      )
     );
     setDescription(previous?.description ?? "");
     setTagsText((previous?.tags ?? []).join(", "));
-    setPrivacy("public");
+    setPrivacy(form.defaultPrivacy);
     setMadeForKids(false);
     // "existing" is meaningless without an MP4, and that option renders
     // disabled, so default to rendering first in that case.
@@ -255,7 +346,7 @@ export default function PublishToSocialModal({
         // the user back to connect, rather than letting them fill in a form and
         // wait through a render for a failure that was knowable up front.
         const noChannel =
-          found?.platform === "youtube" && found.connected && !found.account_name;
+          form.requiresChannel && !!found?.connected && !found.account_name;
         if (!found || !found.connected || !found.scopes_ok || noChannel) {
           setStep("not-connected");
         } else if (activeJobRef.current && isBusyRef.current) {
@@ -419,31 +510,43 @@ export default function PublishToSocialModal({
 
   // ─── Actions ────────────────────────────────────────────
 
+  /** Runs after the user confirms in the dialog. Errors are rethrown so
+   *  ConfirmDeleteModal keeps itself open and re-enables its button instead of
+   *  closing as though the disconnect had worked. */
   const handleDisconnect = useCallback(async () => {
-    try {
-      await disconnectSocialAccount(platform);
-      setConnection(null);
-      setStep("not-connected");
-    } catch (err) {
-      console.error("Disconnect failed:", err);
-    }
+    await disconnectSocialAccount(platform);
+    setConnection(null);
+    setStep("not-connected");
+    setConfirmDisconnect(false);
   }, [platform]);
 
   const handlePublish = useCallback(async () => {
     setSubmitting(true);
     try {
+      // Angle brackets are stripped only where the platform rejects them
+      // (YouTube). Doing it everywhere would quietly mangle legitimate post
+      // text — "I <3 this" is a normal thing to write on LinkedIn.
+      const clean = (value: string) =>
+        form.textField === "title" ? stripAngleBrackets(value) : value;
+
       const payload: PublishRequest = {
         platform,
-        title: stripAngleBrackets(title).trim() || projectName || "Untitled video",
-        description: stripAngleBrackets(description).trim() || undefined,
-        tags: tagsText
-          .split(",")
-          .map((t) => t.trim())
-          .filter(Boolean),
+        title: clean(title).trim() || projectName || "Untitled video",
         source: hasRenderedVideo ? source : "auto",
       };
-      if (isYouTube) {
+      if (form.hasDescription) {
+        payload.description = clean(description).trim() || undefined;
+      }
+      if (form.hasTags) {
+        payload.tags = tagsText
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean);
+      }
+      if (form.visibility.length) {
         payload.privacy_status = privacy;
+      }
+      if (form.hasMadeForKids) {
         payload.made_for_kids = madeForKids;
       }
 
@@ -459,13 +562,20 @@ export default function PublishToSocialModal({
       onJobChanged?.();
       setStep("progress");
     } catch (err) {
-      const detail = (err as { response?: { data?: { detail?: unknown } } })
-        ?.response?.data?.detail;
+      const response = (err as {
+        response?: { status?: number; data?: { detail?: unknown } };
+      })?.response;
+      const detail = response?.data?.detail;
       const message =
         typeof detail === "string"
           ? detail
           : (detail as { message?: string })?.message ||
             "Couldn't start publishing. Please try again.";
+      // A 403 from the render billing check is a quota wall, not a transient
+      // fault: "Try again" would hit the same wall. Offer the upgrade instead —
+      // but only to the payer. On a shared project the OWNER's limit is what
+      // ran out, and a collaborator upgrading their own plan fixes nothing.
+      setQuotaBlocked(response?.status === 403 && isOwner);
       setFatalError(message);
       setStep("error");
     } finally {
@@ -473,7 +583,7 @@ export default function PublishToSocialModal({
     }
   }, [
     platform, title, description, tagsText, privacy, madeForKids, source,
-    hasRenderedVideo, isYouTube, projectId, projectName, onRenderStarted, onJobChanged,
+    hasRenderedVideo, form, projectId, projectName, onRenderStarted, onJobChanged,
   ]);
 
   const handleRetry = useCallback(async () => {
@@ -535,16 +645,23 @@ export default function PublishToSocialModal({
                     Publishing as <span className="font-medium">{accountName}</span>
                   </>
                 ) : (
+                  // Only reachable where a connected account can lack a
+                  // publishable destination, which is YouTube's channel case.
+                  // Elsewhere a missing name means the identity lookup failed,
+                  // and claiming "no channel" would be a guess.
                   <span className="text-amber-600">
-                    No YouTube channel on
-                    {connection?.account_handle
-                      ? ` ${connection.account_handle}`
-                      : " this account"}
+                    {form.requiresChannel
+                      ? `No ${label} channel on${
+                          connection?.account_handle
+                            ? ` ${connection.account_handle}`
+                            : " this account"
+                        }`
+                      : `Connected to ${label}`}
                   </span>
                 )}
                 <button
                   type="button"
-                  onClick={handleDisconnect}
+                  onClick={() => setConfirmDisconnect(true)}
                   className="ml-2 text-purple-600 hover:text-purple-700 underline underline-offset-2"
                 >
                   Disconnect
@@ -568,18 +685,42 @@ export default function PublishToSocialModal({
           <p className="text-sm text-gray-600 py-6 text-center">Checking your account…</p>
         )}
 
+        {/* A connection we cannot refresh is about to run out. Prompting here
+            beats letting the user fill in a form, sit through a render and then
+            fail at the upload — which is what LinkedIn's 60-day tokens would
+            otherwise do every couple of months. */}
+        {connection?.expires_soon && !isBusy && step !== "not-connected" && (
+          <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+            <p className="text-xs text-amber-700 leading-relaxed">
+              Your {label} connection expires soon.{" "}
+              <button
+                type="button"
+                onClick={handleConnect}
+                disabled={connecting}
+                className="font-medium underline underline-offset-2 hover:text-amber-800 disabled:opacity-60"
+              >
+                Reconnect now
+              </button>{" "}
+              to avoid a failed upload.
+            </p>
+          </div>
+        )}
+
         {step === "not-connected" && (
           <NotConnected
             label={label}
             connecting={connecting}
             popupBlockedUrl={popupBlockedUrl}
             needsReconnect={Boolean(connection?.connected)}
+            createChannelUrl={form.createChannelUrl}
             noChannelAccount={
-              connection?.connected && !connection.account_name
+              form.requiresChannel &&
+              connection?.connected &&
+              !connection.account_name
                 ? connection.account_handle || "this account"
                 : null
             }
-            onDisconnect={handleDisconnect}
+            onDisconnect={() => setConfirmDisconnect(true)}
             onConnect={handleConnect}
             onClose={onClose}
           />
@@ -601,7 +742,7 @@ export default function PublishToSocialModal({
 
         {step === "form" && !isBusy && (
           <MetadataForm
-            isYouTube={isYouTube}
+            form={form}
             label={label}
             title={title}
             setTitle={setTitle}
@@ -640,6 +781,7 @@ export default function PublishToSocialModal({
           <Progress
             job={activeJob}
             label={label}
+            form={form}
             renderProgress={renderProgress}
             submitting={submitting}
             onRetry={handleRetry}
@@ -664,17 +806,50 @@ export default function PublishToSocialModal({
               >
                 Close
               </button>
-              <button
-                type="button"
-                onClick={() => setStep(hasRenderedVideo ? "choose-source" : "form")}
-                className="px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-              >
-                Try again
-              </button>
+              {/* A quota wall is not retryable — the same click hits the same
+                  limit — so send the user where they can actually clear it. */}
+              {quotaBlocked ? (
+                <Link
+                  to="/subscription"
+                  onClick={onClose}
+                  className="px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                >
+                  Upgrade
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setStep(hasRenderedVideo ? "choose-source" : "form")}
+                  className="px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                >
+                  Try again
+                </button>
+              )}
             </div>
           </div>
         )}
       </div>
+
+      {/* Disconnecting revokes a personal credential and cannot be undone
+          without going through OAuth again, so it asks first. The dialog owns
+          the in-flight spinner and closes itself once handleDisconnect
+          resolves; a failure leaves it open with the button live again.
+          z-index must clear this modal's own overlay (z-[9998]). */}
+      <ConfirmDeleteModal
+        open={confirmDisconnect}
+        onClose={() => setConfirmDisconnect(false)}
+        title={
+          accountName || connection?.account_handle
+            ? `Disconnect ${label} (${accountName || connection?.account_handle})?`
+            : `Disconnect ${label}?`
+        }
+        warningMessage={`You'll need to reconnect to upload to ${label} again. Videos already uploaded stay where they are.`}
+        confirmLabel="Disconnect"
+        confirmLoadingLabel="Disconnecting…"
+        iconVariant="warning"
+        onConfirm={handleDisconnect}
+        zIndexClass="z-[9999]"
+      />
     </div>,
     document.body
   );
@@ -684,7 +859,7 @@ export default function PublishToSocialModal({
 
 function NotConnected({
   label, connecting, popupBlockedUrl, needsReconnect, noChannelAccount,
-  onConnect, onClose, onDisconnect,
+  createChannelUrl, onConnect, onClose, onDisconnect,
 }: {
   label: string;
   connecting: boolean;
@@ -692,6 +867,8 @@ function NotConnected({
   needsReconnect: boolean;
   /** Email of a connected account that has no channel, else null. */
   noChannelAccount: string | null;
+  /** Where to create the missing channel — set only where one is required. */
+  createChannelUrl?: string;
   onConnect: () => void;
   onClose: () => void;
   onDisconnect: () => void;
@@ -703,16 +880,23 @@ function NotConnected({
           <>
             <span className="font-medium">{noChannelAccount}</span> doesn't have a{" "}
             {label} channel, so it can't upload videos. Connect a different
-            account, or create a channel at{" "}
-            <a
-              href="https://www.youtube.com/create_channel"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-purple-600 hover:text-purple-700 underline underline-offset-2"
-            >
-              youtube.com
-            </a>{" "}
-            and reconnect.
+            account
+            {createChannelUrl ? (
+              <>
+                , or create a channel at{" "}
+                <a
+                  href={createChannelUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-purple-600 hover:text-purple-700 underline underline-offset-2"
+                >
+                  {label}
+                </a>{" "}
+                and reconnect.
+              </>
+            ) : (
+              "."
+            )}
           </>
         ) : needsReconnect ? (
           `Your ${label} connection is missing permission to upload. Reconnect and allow uploads to continue.`
@@ -895,11 +1079,11 @@ function SourceOption({
 }
 
 function MetadataForm({
-  isYouTube, label, title, setTitle, description, setDescription,
+  form, label, title, setTitle, description, setDescription,
   tagsText, setTagsText, privacy, setPrivacy, madeForKids, setMadeForKids,
   willRender, isReupload, submitting, onBack, onSubmit,
 }: {
-  isYouTube: boolean;
+  form: PlatformForm;
   label: string;
   title: string;
   setTitle: (v: string) => void;
@@ -907,8 +1091,8 @@ function MetadataForm({
   setDescription: (v: string) => void;
   tagsText: string;
   setTagsText: (v: string) => void;
-  privacy: "public" | "unlisted" | "private";
-  setPrivacy: (v: "public" | "unlisted" | "private") => void;
+  privacy: PublishPrivacy;
+  setPrivacy: (v: PublishPrivacy) => void;
   madeForKids: boolean;
   setMadeForKids: (v: boolean) => void;
   willRender: boolean;
@@ -917,98 +1101,115 @@ function MetadataForm({
   onBack: () => void;
   onSubmit: () => void;
 }) {
-  const textMax = isYouTube ? TITLE_MAX : X_TEXT_MAX;
+  const isTitle = form.textField === "title";
+  // A 3000-character LinkedIn post in a single-line input is unusable; a
+  // 100-character YouTube title in a textarea invites newlines it will not keep.
+  const multiline = !isTitle && form.textMax > 500;
 
   return (
     <div>
       <label className="block mb-4">
         <span className="block text-xs font-medium text-gray-700 mb-1.5">
-          {isYouTube ? "Title" : "Post text"}
+          {isTitle ? "Title" : "Post text"}
         </span>
-        <input
-          type="text"
-          value={title}
-          maxLength={textMax}
-          onChange={(e) => setTitle(e.target.value)}
-          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-400"
-          placeholder={isYouTube ? "My video" : "What's this video about?"}
-        />
+        {multiline ? (
+          <textarea
+            value={title}
+            maxLength={form.textMax}
+            rows={4}
+            onChange={(e) => setTitle(e.target.value)}
+            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-400 resize-y"
+            placeholder={form.textPlaceholder}
+          />
+        ) : (
+          <input
+            type="text"
+            value={title}
+            maxLength={form.textMax}
+            onChange={(e) => setTitle(e.target.value)}
+            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-400"
+            placeholder={form.textPlaceholder}
+          />
+        )}
         <span className="block text-[10px] text-gray-400 mt-1 text-right">
-          {title.length}/{textMax}
+          {title.length}/{form.textMax}
         </span>
       </label>
 
-      {isYouTube && (
-        <>
-          <label className="block mb-4">
-            <span className="block text-xs font-medium text-gray-700 mb-1.5">
-              Description
-            </span>
-            <textarea
-              value={description}
-              maxLength={DESCRIPTION_MAX}
-              rows={4}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-400 resize-y"
-              placeholder="Tell viewers about your video"
-            />
-          </label>
+      {form.hasDescription && (
+        <label className="block mb-4">
+          <span className="block text-xs font-medium text-gray-700 mb-1.5">
+            Description
+          </span>
+          <textarea
+            value={description}
+            maxLength={DESCRIPTION_MAX}
+            rows={4}
+            onChange={(e) => setDescription(e.target.value)}
+            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-400 resize-y"
+            placeholder="Tell viewers about your video"
+          />
+        </label>
+      )}
 
-          <label className="block mb-4">
-            <span className="block text-xs font-medium text-gray-700 mb-1.5">
-              Tags <span className="text-gray-400 font-normal">(comma separated)</span>
-            </span>
-            <input
-              type="text"
-              value={tagsText}
-              onChange={(e) => setTagsText(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-400"
-              placeholder="marketing, explainer"
-            />
-          </label>
+      {form.hasTags && (
+        <label className="block mb-4">
+          <span className="block text-xs font-medium text-gray-700 mb-1.5">
+            Tags <span className="text-gray-400 font-normal">(comma separated)</span>
+          </span>
+          <input
+            type="text"
+            value={tagsText}
+            onChange={(e) => setTagsText(e.target.value)}
+            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-400"
+            placeholder="marketing, explainer"
+          />
+        </label>
+      )}
 
-          <div className="mb-4">
-            <span className="block text-xs font-medium text-gray-700 mb-1.5">
-              Visibility
-            </span>
-            <div className="flex gap-2">
-              {(["public", "unlisted", "private"] as const).map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setPrivacy(value)}
-                  className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg border capitalize transition-colors ${
-                    privacy === value
-                      ? "border-purple-400 bg-purple-50 text-purple-700"
-                      : "border-gray-200 text-gray-600 hover:bg-gray-50"
-                  }`}
-                >
-                  {value}
-                </button>
-              ))}
-            </div>
-            <p className="text-[11px] text-amber-600 mt-2 leading-relaxed">
-              YouTube may force new uploads to Private until our app finishes
-              their API review. If that happens we'll show you a link to switch
-              it in YouTube Studio.
-            </p>
+      {form.visibility.length > 0 && (
+        <div className="mb-4">
+          <span className="block text-xs font-medium text-gray-700 mb-1.5">
+            Visibility
+          </span>
+          <div className="flex gap-2">
+            {form.visibility.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setPrivacy(option.value)}
+                className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${
+                  privacy === option.value
+                    ? "border-purple-400 bg-purple-50 text-purple-700"
+                    : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
           </div>
+          {/* No upfront caveat about forced-private uploads: it warned everyone
+              about something that usually does not happen. The success screen
+              reports it from `job.forced_private` when it actually does, with a
+              link to fix it. */}
+        </div>
+      )}
 
-          {/* accent-purple-600 is what actually colours the tick: this project
-              has no @tailwindcss/forms, so `text-purple-600` alone leaves the
-              browser default blue. Matches the checkboxes in BlogUrlForm. */}
-          <label className="flex items-start gap-2 mb-5 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={madeForKids}
-              onChange={(e) => setMadeForKids(e.target.checked)}
-              className="mt-0.5 w-4 h-4 rounded border-gray-300 accent-purple-600 cursor-pointer focus:ring-purple-500/30"
-            />
-            <span className="text-xs text-gray-600">
-              This video is made for kids
-            </span>
-          </label>
-        </>
+      {form.hasMadeForKids && (
+        /* accent-purple-600 is what actually colours the tick: this project
+           has no @tailwindcss/forms, so `text-purple-600` alone leaves the
+           browser default blue. Matches the checkboxes in BlogUrlForm. */
+        <label className="flex items-start gap-2 mb-5 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={madeForKids}
+            onChange={(e) => setMadeForKids(e.target.checked)}
+            className="mt-0.5 w-4 h-4 rounded border-gray-300 accent-purple-600 cursor-pointer focus:ring-purple-500/30"
+          />
+          <span className="text-xs text-gray-600">
+            This video is made for kids
+          </span>
+        </label>
       )}
 
       <div className="flex gap-3 justify-end mt-6">
@@ -1029,10 +1230,10 @@ function MetadataForm({
           {submitting
             ? "Initiating…"
             : willRender
-              ? `Render & ${isReupload ? "re-upload" : "publish"} to ${label}`
+              ? `Render & ${isReupload ? "re-upload" : "upload"} to ${label}`
               : isReupload
                 ? `Re-upload to ${label}`
-                : `Publish to ${label}`}
+                : `Upload to ${label}`}
         </button>
       </div>
 
@@ -1095,10 +1296,11 @@ function ConfirmRender({
 }
 
 function Progress({
-  job, label, renderProgress, submitting, onRetry, onReconnect, onRepublish, onClose,
+  job, label, form, renderProgress, submitting, onRetry, onReconnect, onRepublish, onClose,
 }: {
   job: PublishJob | null;
   label: string;
+  form: PlatformForm;
   renderProgress: number | null;
   submitting: boolean;
   onRetry: () => void;
@@ -1106,6 +1308,27 @@ function Progress({
   onRepublish: () => void;
   onClose: () => void;
 }) {
+  // Highest render percentage seen for this job. `renderProgress` goes null the
+  // moment the frames finish — while the MP4 is still uploading to R2 — so the
+  // live prop alone cannot tell "not started yet" apart from "between steps".
+  // Latching the peak distinguishes them: null means nothing has arrived yet.
+  // Declared before any early return, as hooks must run in a stable order.
+  const renderPeakRef = useRef<{ jobId: number | null; pct: number | null }>({
+    jobId: null,
+    pct: null,
+  });
+  const jobId = job?.id ?? null;
+  if (renderPeakRef.current.jobId !== jobId) {
+    renderPeakRef.current = { jobId, pct: null };
+  }
+  if (renderProgress != null && renderProgress > 0) {
+    const rounded = Math.round(renderProgress);
+    if (rounded > (renderPeakRef.current.pct ?? 0)) {
+      renderPeakRef.current.pct = rounded;
+    }
+  }
+  const renderPctSeen = renderPeakRef.current.pct;
+
   if (!job) {
     return (
       <div>
@@ -1136,14 +1359,17 @@ function Progress({
           <p className="text-xs text-amber-600 mb-4 leading-relaxed">
             {label} published it as <strong>Private</strong> because our app is
             still under API review.{" "}
-            {job.post_id && (
+            {/* Only rendered where the platform actually has somewhere to fix
+                it. A YouTube Studio link under a LinkedIn success screen is the
+                sort of thing that ships unnoticed. */}
+            {job.post_id && form.forcedPrivateFixUrl && (
               <a
-                href={`https://studio.youtube.com/video/${job.post_id}/edit`}
+                href={form.forcedPrivateFixUrl(job.post_id)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline font-medium"
               >
-                Change the visibility in YouTube Studio
+                Change the visibility in {label} Studio
               </a>
             )}
           </p>
@@ -1240,9 +1466,17 @@ function Progress({
             <Stage
               state={rendering ? "active" : "done"}
               title={
-                rendering && renderProgress != null && renderProgress > 0
-                  ? `Rendering — ${Math.round(renderProgress)}%`
-                  : "Rendering"
+                rendering
+                  ? // Before the first progress tick there is no percentage to
+                    // show, so stay on a bare "Rendering" rather than inventing
+                    // one. Once frames have been counted the value is held at
+                    // 98% through the MP4's upload to R2, which reports no
+                    // progress of its own: a bare label there looked stalled,
+                    // and 100% would be a lie while a step is still running.
+                    renderPctSeen == null
+                    ? "Rendering"
+                    : `Rendering — ${Math.min(98, Math.max(1, renderPctSeen))}%`
+                  : "Rendering — 100%"
               }
               alignEnd
             />
@@ -1353,30 +1587,5 @@ function Stage({
         <span className="text-[10px] text-gray-400 leading-tight">{detail}</span>
       )}
     </div>
-  );
-}
-
-function PlatformIcon({ platform }: { platform: SocialPlatform }) {
-  if (platform === "youtube") {
-    return (
-      <svg
-        className="w-7 h-7 text-[#FF0000] flex-shrink-0"
-        viewBox="0 0 24 24"
-        fill="currentColor"
-        aria-hidden
-      >
-        <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-      </svg>
-    );
-  }
-  return (
-    <svg
-      className="w-6 h-6 text-black flex-shrink-0"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      aria-hidden
-    >
-      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-    </svg>
   );
 }

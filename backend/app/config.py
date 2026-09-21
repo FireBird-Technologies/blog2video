@@ -118,6 +118,16 @@ class Settings(BaseSettings):
     X_CLIENT_ID: str = ""
     X_CLIENT_SECRET: str = ""
 
+    # Same feature-flag contract as X: empty LINKEDIN_CLIENT_ID keeps the code
+    # dark. Unlike X (a public PKCE client), LinkedIn is confidential — both the
+    # id AND the secret are required, so platform_enabled checks for both.
+    LINKEDIN_CLIENT_ID: str = ""
+    LINKEDIN_CLIENT_SECRET: str = ""
+    # Versioned REST API moniker, YYYYMM. Each version sunsets roughly 12 months
+    # after release, so this is config rather than a constant: bumping it when
+    # LinkedIn retires a version is an env change, not a deploy.
+    LINKEDIN_API_VERSION: str = "202609"
+
     # urlsafe-base64 32-byte Fernet key encrypting stored OAuth tokens. Unset =>
     # social publishing is disabled (see services/token_crypto.py). Rotating it
     # invalidates every stored token and forces all users to reconnect.

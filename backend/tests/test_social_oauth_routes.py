@@ -19,6 +19,7 @@ from cryptography.fernet import Fernet
 
 from app.config import settings
 from app.models.social_connection import (
+    PLATFORM_LINKEDIN,
     PLATFORM_X,
     PLATFORM_YOUTUBE,
     STATUS_ACTIVE,
@@ -34,11 +35,13 @@ FRONTEND = "https://app.test.local"
 
 @pytest.fixture()
 def configured(monkeypatch):
-    """YouTube fully configured; X deliberately left off (the feature flag)."""
+    """YouTube fully configured; X and LinkedIn deliberately left off (the flags)."""
     monkeypatch.setattr(settings, "SOCIAL_TOKEN_ENC_KEY", Fernet.generate_key().decode())
     monkeypatch.setattr(settings, "YOUTUBE_CLIENT_ID", "yt-client-id")
     monkeypatch.setattr(settings, "YOUTUBE_CLIENT_SECRET", "yt-client-secret")
     monkeypatch.setattr(settings, "X_CLIENT_ID", "")
+    monkeypatch.setattr(settings, "LINKEDIN_CLIENT_ID", "")
+    monkeypatch.setattr(settings, "LINKEDIN_CLIENT_SECRET", "")
     monkeypatch.setattr(settings, "BACKEND_URL", BACKEND)
     monkeypatch.setattr(settings, "FRONTEND_URL", FRONTEND)
     token_crypto.reset_cache()
@@ -47,10 +50,20 @@ def configured(monkeypatch):
 
 
 @pytest.fixture()
+def linkedin_configured(monkeypatch, configured):
+    """LinkedIn on top of `configured` — both halves, since it is confidential."""
+    monkeypatch.setattr(settings, "LINKEDIN_CLIENT_ID", "li-client-id")
+    monkeypatch.setattr(settings, "LINKEDIN_CLIENT_SECRET", "li-client-secret")
+    yield
+
+
+@pytest.fixture()
 def unconfigured(monkeypatch):
     monkeypatch.setattr(settings, "SOCIAL_TOKEN_ENC_KEY", "")
     monkeypatch.setattr(settings, "YOUTUBE_CLIENT_ID", "")
     monkeypatch.setattr(settings, "X_CLIENT_ID", "")
+    monkeypatch.setattr(settings, "LINKEDIN_CLIENT_ID", "")
+    monkeypatch.setattr(settings, "LINKEDIN_CLIENT_SECRET", "")
     token_crypto.reset_cache()
     yield
     token_crypto.reset_cache()
@@ -60,7 +73,11 @@ def unconfigured(monkeypatch):
 
 def test_config_reports_disabled_when_unconfigured(client, unconfigured):
     body = client.get("/api/integrations/config").json()
-    assert body == {"youtube_enabled": False, "x_enabled": False}
+    assert body == {
+        "youtube_enabled": False,
+        "x_enabled": False,
+        "linkedin_enabled": False,
+    }
 
 
 def test_config_reports_youtube_only_when_x_flag_is_off(client, configured):
@@ -73,6 +90,19 @@ def test_x_enables_purely_from_client_id(client, configured, monkeypatch):
     """Turning X on is a config change, not a deploy."""
     monkeypatch.setattr(settings, "X_CLIENT_ID", "x-client-id")
     assert client.get("/api/integrations/config").json()["x_enabled"] is True
+
+
+def test_linkedin_enables_from_client_id_and_secret(client, linkedin_configured):
+    assert client.get("/api/integrations/config").json()["linkedin_enabled"] is True
+
+
+def test_linkedin_stays_off_without_a_secret(client, configured, monkeypatch):
+    """Unlike X's public PKCE client, LinkedIn is confidential — an id alone is
+    not enough to complete the token exchange, so offering it would strand users
+    at the callback."""
+    monkeypatch.setattr(settings, "LINKEDIN_CLIENT_ID", "li-client-id")
+    monkeypatch.setattr(settings, "LINKEDIN_CLIENT_SECRET", "")
+    assert client.get("/api/integrations/config").json()["linkedin_enabled"] is False
 
 
 def test_missing_encryption_key_disables_a_fully_configured_platform(
@@ -149,6 +179,98 @@ def test_x_authorize_url_uses_s256_pkce(client, configured, free_user, auth, mon
         hashlib.sha256(state["cv"].encode()).digest()
     ).decode().rstrip("=")
     assert params["code_challenge"] == [expected]
+
+
+def test_linkedin_authorize_url_shape(client, linkedin_configured, free_user, auth):
+    from urllib.parse import parse_qs, urlparse
+
+    resp = client.get("/api/integrations/linkedin/connect-url", headers=auth(free_user))
+    assert resp.status_code == 200
+    params = parse_qs(urlparse(resp.json()["authorize_url"]).query)
+
+    assert params["response_type"] == ["code"]
+    assert params["client_id"] == ["li-client-id"]
+    assert params["redirect_uri"] == [f"{BACKEND}/api/integrations/linkedin/callback"]
+    assert "w_member_social" in params["scope"][0]
+
+
+def test_linkedin_authorize_url_uses_no_pkce(client, linkedin_configured, free_user, auth):
+    """LinkedIn's confidential flow is plain RFC 6749.
+
+    Guards against someone 'fixing' LinkedIn by copying X's branch: the secret is
+    what authenticates the exchange, and a code_challenge with no verifier stored
+    would break the callback.
+    """
+    from urllib.parse import parse_qs, urlparse
+
+    resp = client.get("/api/integrations/linkedin/connect-url", headers=auth(free_user))
+    params = parse_qs(urlparse(resp.json()["authorize_url"]).query)
+
+    assert "code_challenge" not in params
+    assert "code_challenge_method" not in params
+    state = jwt.decode(
+        params["state"][0], settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM]
+    )
+    assert "cv" not in state
+
+
+def test_linkedin_never_requests_organization_scopes(
+    client, linkedin_configured, free_user, auth
+):
+    """The approval-risk regression test.
+
+    w_organization_social belongs to the Community Management API, which LinkedIn
+    grants only after a manual review. Requesting an unapproved scope makes
+    LinkedIn reject the ENTIRE authorize request — so adding it here would take
+    personal posting down with it for every user.
+    """
+    resp = client.get("/api/integrations/linkedin/connect-url", headers=auth(free_user))
+    url = resp.json()["authorize_url"]
+
+    assert "w_organization_social" not in url
+    assert "r_organization_admin" not in url
+
+
+def test_disabled_linkedin_refuses_connect(client, configured, free_user, auth):
+    resp = client.get("/api/integrations/linkedin/connect-url", headers=auth(free_user))
+    assert resp.status_code == 503
+
+
+def test_build_authorize_url_rejects_an_unknown_platform(configured, free_user, monkeypatch):
+    """Regression: build_authorize_url used to fall through to X.
+
+    A platform present in SUPPORTED_PLATFORMS but with no branch of its own would
+    silently receive X's authorize URL — sending users to consent to the wrong
+    provider entirely. It must raise instead.
+    """
+    monkeypatch.setattr(
+        social_oauth, "SUPPORTED_PLATFORMS", social_oauth.SUPPORTED_PLATFORMS + ("tiktok",)
+    )
+    monkeypatch.setattr(social_oauth, "platform_enabled", lambda p: True)
+
+    with pytest.raises(social_oauth.OAuthConfigError):
+        social_oauth.build_authorize_url("tiktok", free_user.id)
+
+
+def test_the_callback_rejects_an_unknown_platform_instead_of_treating_it_as_x(
+    client, configured, free_user, monkeypatch
+):
+    """Regression: oauth_callback's `else` branch used to mean 'X'.
+
+    An unknown platform reaching the callback must render the error page, not
+    exchange the code against X's token endpoint.
+    """
+    monkeypatch.setattr(
+        social_oauth, "SUPPORTED_PLATFORMS", social_oauth.SUPPORTED_PLATFORMS + ("tiktok",)
+    )
+    monkeypatch.setattr(social_oauth, "platform_enabled", lambda p: True)
+    state = social_oauth.build_state(free_user.id, "tiktok")
+
+    resp = client.get(
+        "/api/integrations/tiktok/callback", params={"code": "abc", "state": state}
+    )
+    assert resp.status_code == 200
+    assert "ok: false" in resp.text
 
 
 # ─── State token security ───────────────────────────────────────────────────
@@ -320,6 +442,126 @@ def test_missing_upload_scope_is_reported(client, configured, free_user, auth, d
     youtube = next(c for c in body["connections"] if c["platform"] == PLATFORM_YOUTUBE)
 
     assert youtube["scopes_ok"] is False
+
+
+def test_linkedin_scopes_ok_needs_only_w_member_social(
+    client, linkedin_configured, free_user, auth, db_session
+):
+    """openid/profile only supply the display name — a grant without them still
+    publishes, so demanding them would nag users over nothing."""
+    db_session.add(
+        SocialConnection(
+            user_id=free_user.id,
+            platform=PLATFORM_LINKEDIN,
+            scopes="w_member_social",
+            status=STATUS_ACTIVE,
+        )
+    )
+    db_session.commit()
+
+    body = client.get("/api/integrations/connections", headers=auth(free_user)).json()
+    linkedin = next(c for c in body["connections"] if c["platform"] == PLATFORM_LINKEDIN)
+
+    assert linkedin["scopes_ok"] is True
+
+
+def test_linkedin_scopes_ok_with_comma_delimited_grant(
+    client, linkedin_configured, free_user, auth, db_session
+):
+    """LinkedIn returns `scope` comma-delimited, not space-delimited as RFC 6749
+    specifies. Splitting on whitespace alone left the whole string as one token,
+    so a perfectly good grant looked like it was missing w_member_social and the
+    publish modal demanded a reconnect that could never fix it."""
+    db_session.add(
+        SocialConnection(
+            user_id=free_user.id,
+            platform=PLATFORM_LINKEDIN,
+            scopes="openid,profile,w_member_social",
+            status=STATUS_ACTIVE,
+        )
+    )
+    db_session.commit()
+
+    body = client.get("/api/integrations/connections", headers=auth(free_user)).json()
+    linkedin = next(c for c in body["connections"] if c["platform"] == PLATFORM_LINKEDIN)
+
+    assert linkedin["scopes_ok"] is True
+
+
+def test_linkedin_scopes_not_ok_when_comma_grant_lacks_posting(
+    client, linkedin_configured, free_user, auth, db_session
+):
+    """The comma fix must not turn the check into a rubber stamp: a sign-in-only
+    grant genuinely cannot post and still has to ask for a reconnect."""
+    db_session.add(
+        SocialConnection(
+            user_id=free_user.id,
+            platform=PLATFORM_LINKEDIN,
+            scopes="openid,profile",
+            status=STATUS_ACTIVE,
+        )
+    )
+    db_session.commit()
+
+    body = client.get("/api/integrations/connections", headers=auth(free_user)).json()
+    linkedin = next(c for c in body["connections"] if c["platform"] == PLATFORM_LINKEDIN)
+
+    assert linkedin["scopes_ok"] is False
+
+
+# ─── Expiry nudge ───────────────────────────────────────────────────────────
+
+def _add_conn(db, user, platform, *, expires_in_days, refresh_token_enc=None):
+    db.add(
+        SocialConnection(
+            user_id=user.id,
+            platform=platform,
+            status=STATUS_ACTIVE,
+            refresh_token_enc=refresh_token_enc,
+            token_expires_at=dt.datetime.utcnow() + dt.timedelta(days=expires_in_days),
+        )
+    )
+    db.commit()
+
+
+def test_a_soon_expiring_unrefreshable_connection_is_flagged(
+    client, linkedin_configured, free_user, auth, db_session
+):
+    """LinkedIn's 60-day tokens mostly cannot be refreshed, so the user has to
+    reconnect by hand — better prompted than discovered mid-upload."""
+    _add_conn(db_session, free_user, PLATFORM_LINKEDIN, expires_in_days=2)
+
+    body = client.get("/api/integrations/connections", headers=auth(free_user)).json()
+    linkedin = next(c for c in body["connections"] if c["platform"] == PLATFORM_LINKEDIN)
+
+    assert linkedin["expires_soon"] is True
+
+
+def test_a_connection_with_a_refresh_token_never_nags(
+    client, linkedin_configured, free_user, auth, db_session
+):
+    """We can renew it ourselves, so its expiry is not the user's problem.
+    This is what keeps YouTube and X out of the nudge entirely."""
+    _add_conn(
+        db_session, free_user, PLATFORM_LINKEDIN,
+        expires_in_days=1, refresh_token_enc="ciphertext",
+    )
+
+    body = client.get("/api/integrations/connections", headers=auth(free_user)).json()
+    linkedin = next(c for c in body["connections"] if c["platform"] == PLATFORM_LINKEDIN)
+
+    assert linkedin["expires_soon"] is False
+
+
+def test_a_long_lived_connection_is_not_flagged(
+    client, linkedin_configured, free_user, auth, db_session
+):
+    _add_conn(db_session, free_user, PLATFORM_LINKEDIN, expires_in_days=45)
+
+    body = client.get("/api/integrations/connections", headers=auth(free_user)).json()
+    linkedin = next(c for c in body["connections"] if c["platform"] == PLATFORM_LINKEDIN)
+
+    assert linkedin["expires_soon"] is False
 
 
 def test_disconnect_deletes_the_row_without_reaching_the_provider(

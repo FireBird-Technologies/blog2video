@@ -11,6 +11,7 @@ from app.database import Base
 # and the job tables' `status` columns are typed.
 PLATFORM_YOUTUBE = "youtube"
 PLATFORM_X = "x"
+PLATFORM_LINKEDIN = "linkedin"
 
 # Connection lifecycle.
 #   active  — usable; tokens decrypt and the provider still honours them

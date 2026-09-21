@@ -231,6 +231,121 @@ def test_quota_exhaustion_leaves_youtube_jobs_queued(db_session, free_user, monk
     assert waiting.status == STATUS_QUEUED
 
 
+def test_a_linkedin_job_is_claimed_while_the_youtube_quota_is_exhausted(
+    db_session, free_user, monkeypatch
+):
+    """The quota filter is YouTube's alone.
+
+    LinkedIn's limits are per-member and not knowable app-wide, so parking its
+    jobs behind YouTube's cap would stall uploads for no reason.
+    """
+    monkeypatch.setattr(settings, "YOUTUBE_UPLOAD_DAILY_CAP", 1)
+    project = _project(db_session, free_user)
+    _job(
+        db_session, project, free_user,
+        status=STATUS_SUCCEEDED, completed_at=datetime.utcnow(),
+    )
+    linkedin = _job(
+        db_session, project, free_user, platform="linkedin", status=STATUS_QUEUED
+    )
+
+    claimed = publish_queue._claim_next_job(db_session)
+
+    assert claimed is not None
+    assert claimed.id == linkedin.id
+
+
+# ─── Platform labels ────────────────────────────────────────────────────────
+
+def test_platform_label_covers_every_supported_platform():
+    """Regression: the label used to be `"YouTube" if youtube else "X"`.
+
+    That ternary silently told every non-YouTube platform's users their video had
+    gone to X — in the success email, the one place they would believe it.
+    """
+    from app.services import social_oauth
+
+    for platform in social_oauth.SUPPORTED_PLATFORMS:
+        label = publish_queue._platform_label(platform)
+        assert label != platform, f"{platform} has no human label"
+
+
+def test_platform_label_falls_back_to_the_slug_rather_than_lying():
+    assert publish_queue._platform_label("tiktok") == "tiktok"
+
+
+# ─── LinkedIn handler ───────────────────────────────────────────────────────
+
+def test_an_oversized_video_fails_before_any_network_call(
+    db_session, free_user, tmp_path, monkeypatch
+):
+    """LinkedIn's 500 MB ceiling is far below YouTube's.
+
+    Checked locally so the user gets a sentence they can act on, rather than an
+    opaque 400 arriving after a multi-minute render — and so no bytes move first.
+    """
+    from app.services import linkedin_publish as li
+
+    video = tmp_path / "video.mp4"
+    video.write_bytes(b"\0" * 2048)
+    monkeypatch.setattr(li, "MAX_VIDEO_BYTES", 1024)
+
+    def _boom(*a, **k):
+        raise AssertionError("publish_video must not be reached")
+
+    monkeypatch.setattr(li, "publish_video", _boom)
+    from app.services import youtube_publish as yt
+
+    monkeypatch.setattr(yt, "resolve_local_video", lambda *a, **k: (str(video), False))
+
+    project = _project(db_session, free_user)
+    job = _job(
+        db_session, project, free_user, platform="linkedin", status=STATUS_RUNNING
+    )
+
+    with pytest.raises(PublishError) as exc:
+        publish_queue._publish_linkedin(db_session, job, object(), str(tmp_path))
+
+    assert exc.value.code == "video_too_large"
+    assert exc.value.retryable is False
+
+
+@pytest.mark.parametrize(
+    "privacy,expected",
+    [("connections", "CONNECTIONS"), ("public", "PUBLIC"), (None, "PUBLIC")],
+)
+def test_privacy_status_maps_onto_linkedin_visibility(
+    db_session, free_user, tmp_path, monkeypatch, privacy, expected
+):
+    from app.services import linkedin_publish as li
+    from app.services import youtube_publish as yt
+
+    video = tmp_path / "video.mp4"
+    video.write_bytes(b"\0" * 32)
+    monkeypatch.setattr(yt, "resolve_local_video", lambda *a, **k: (str(video), False))
+
+    seen = {}
+
+    def _capture(**kwargs):
+        seen.update(kwargs)
+        return {"post_id": "urn:li:ugcPost:1", "post_url": "https://li.test/1"}
+
+    monkeypatch.setattr(li, "publish_video", _capture)
+
+    project = _project(db_session, free_user)
+    job = _job(
+        db_session, project, free_user,
+        platform="linkedin", status=STATUS_RUNNING, privacy_status=privacy,
+    )
+
+    publish_queue._publish_linkedin(db_session, job, object(), str(tmp_path))
+
+    assert seen["visibility"] == expected
+    db_session.refresh(job)
+    assert job.status == STATUS_SUCCEEDED
+    assert job.platform_post_url == "https://li.test/1"
+
+
 # ─── Reaping ────────────────────────────────────────────────────────────────
 
 def test_reaper_requeues_a_resumable_upload(db_session, free_user):

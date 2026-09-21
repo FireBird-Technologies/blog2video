@@ -73,10 +73,12 @@ import EditHistoryPanel from "../components/EditHistoryPanel";
 import ShareProjectModal from "../components/ShareProjectModal";
 import PublishToSocialModal from "../components/PublishToSocialModal";
 import PublishStatusBanner from "../components/PublishStatusBanner";
+import PlatformIcon from "../components/PlatformIcon";
 import {
   getIntegrationsConfig,
   getPublishStatus,
   isPublishJobActive,
+  platformLabel,
   retryPublishJob,
   type IntegrationsConfig,
   type PublishJob,
@@ -180,6 +182,14 @@ const MAX_PIPELINE_POLL_TICKS = 300;
 const PUBLISH_POLL_ACTIVE_MS = 3000;
 const PUBLISH_POLL_IDLE_MS = 15000;
 const PUBLISH_POLL_ERROR_MS = 30000;
+
+/** Nothing offered — used when the config call fails. Named so the next
+ *  platform has one place to update rather than an inline literal. */
+const INTEGRATIONS_DISABLED: IntegrationsConfig = {
+  youtube_enabled: false,
+  x_enabled: false,
+  linkedin_enabled: false,
+};
 const TABS_CONTAINER_STEP: Step = {
   target: '[data-tour="tabs-container"]',
   content: "Use these tabs to work on your video: Script shows the full narration, Images manages your visuals and logo, Audio lets you preview voiceover for each scene, and Scenes lets you edit each scene’s text and layout.",
@@ -2896,11 +2906,23 @@ export default function ProjectView() {
             renderStartWallRef.current = Date.now();
           }
 
-          if (progress >= renderHighWaterRef.current) {
-            renderHighWaterRef.current = progress;
-            setRenderProgress(progress);
-            if (progress > 0) {
-              sessionStorage.setItem(`render_hw_${projectId}`, String(progress));
+          // Frames are the more reliable signal: some snapshots carry a frame
+          // count with progress still at 0, which left the bar at 0% while
+          // "Frame 863 of 1,464" ticked up beside it. Derive the percentage
+          // from the frames in that case and take whichever is further along.
+          const framePct =
+            total_frames > 0
+              ? Math.round((rendered_frames / total_frames) * 100)
+              : 0;
+          const effectiveProgress = Math.max(progress || 0, framePct);
+          if (effectiveProgress >= renderHighWaterRef.current) {
+            renderHighWaterRef.current = effectiveProgress;
+            setRenderProgress(effectiveProgress);
+            if (effectiveProgress > 0) {
+              sessionStorage.setItem(
+                `render_hw_${projectId}`,
+                String(effectiveProgress),
+              );
             }
           }
           if (rendered_frames > 0) {
@@ -3074,12 +3096,30 @@ export default function ProjectView() {
       })
       .catch(() => {
         // Publishing simply isn't offered if we can't ask.
-        if (!cancelled) setIntegrationsConfig({ youtube_enabled: false, x_enabled: false });
+        if (!cancelled) setIntegrationsConfig(INTEGRATIONS_DISABLED);
       });
     return () => {
       cancelled = true;
     };
   }, []);
+
+  /**
+   * Platforms this server offers, in menu order.
+   *
+   * Derived rather than hand-written: the old code had a `(youtube_enabled ||
+   * x_enabled)` gate wrapping per-platform buttons, so adding a platform meant
+   * remembering to widen the disjunction too — and forgetting would hide the new
+   * platform whenever it was the only one enabled.
+   */
+  const enabledPublishPlatforms = useMemo<SocialPlatform[]>(() => {
+    if (!integrationsConfig) return [];
+    const order: [SocialPlatform, boolean][] = [
+      ["youtube", integrationsConfig.youtube_enabled],
+      ["x", integrationsConfig.x_enabled],
+      ["linkedin", integrationsConfig.linkedin_enabled],
+    ];
+    return order.filter(([, on]) => on).map(([platform]) => platform);
+  }, [integrationsConfig]);
 
   /**
    * Bumped whenever a publish is started or retried, to restart the polling
@@ -5108,19 +5148,33 @@ export default function ProjectView() {
           >
           <div className="glass-card overflow-hidden flex flex-col">
             {/* Header bar */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 sm:px-5 py-3 sm:py-3.5 border-b border-gray-200/30 gap-3">
-              <div className="flex items-center gap-3 min-w-0" style={{ maxWidth: "55%" }}>
-                <h2 className="text-sm font-medium text-gray-900 truncate min-w-0">
+            <div className="flex flex-col sm:flex-row sm:items-center px-3 sm:px-5 py-3 sm:py-3.5 border-b border-gray-200/30 gap-2 sm:gap-3 min-w-0 max-w-full overflow-x-hidden">
+              {/* Row 1 (narrow): the title alone, clipped to one line with an
+                  ellipsis. From sm up it takes the leftover width (`flex-1`) so
+                  the action groups stay packed against the right edge rather
+                  than being spread out by `justify-between`. */}
+              <div className="flex items-center gap-3 min-w-0 sm:flex-1">
+                <h2 className="text-sm font-medium text-gray-900 truncate min-w-0" title={project.name}>
                   {project.name}
                 </h2>
-                <StatusBadge status={statusForBadge} />
+                {/* From sm up the badge sits beside the title as before; narrow
+                    screens show it in row 2 instead. */}
+                <span className="hidden sm:block">
+                  <StatusBadge status={statusForBadge} />
+                </span>
               </div>
-              <div className="flex items-center gap-2 flex-wrap">
+              {/* Row 2 (narrow): status, format toggle, download. Stays a flex
+                  row from sm up too — `contents` here would promote each button
+                  to a child of the header and let it spread them apart. */}
+              <div className="flex items-center flex-wrap gap-1 sm:gap-2 min-w-0 max-w-full sm:flex-nowrap sm:shrink-0">
+                <span className="sm:hidden">
+                  <StatusBadge status={statusForBadge} variant="pill" />
+                </span>
                 {/* Collaboration header controls: presence + invite. */}
                 <CollabToolbar />
                 {/* Video format (landscape / portrait) — left of download */}
                 <div className="flex items-center shrink-0" data-action="aspect-ratio">
-                  <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
+                  <div className="flex gap-0.5 sm:gap-1 p-0.5 sm:p-1 bg-gray-100/60 rounded-xl">
                     <button
                       type="button"
                       title="Landscape for desktop / YouTube"
@@ -5140,7 +5194,7 @@ export default function ProjectView() {
                         setAspectFormatPending("landscape");
                         setShowAspectFormatConfirm(true);
                       }}
-                      className={`px-3 py-1.5 rounded-lg flex items-center transition-all disabled:opacity-40 disabled:pointer-events-none ${
+                      className={`px-3 sm:px-3 py-2 sm:py-1.5 rounded-lg flex items-center transition-all disabled:opacity-40 disabled:pointer-events-none ${
                         project && normalizeProjectAspectRatio(project.aspect_ratio) === "landscape"
                           ? "bg-white text-purple-600 shadow-sm"
                           : "text-gray-400 hover:text-gray-600"
@@ -5177,7 +5231,7 @@ export default function ProjectView() {
                         setAspectFormatPending("portrait");
                         setShowAspectFormatConfirm(true);
                       }}
-                      className={`px-3 py-1.5 rounded-lg flex items-center transition-all disabled:opacity-40 disabled:pointer-events-none ${
+                      className={`px-3 sm:px-3 py-2 sm:py-1.5 rounded-lg flex items-center transition-all disabled:opacity-40 disabled:pointer-events-none ${
                         project && normalizeProjectAspectRatio(project.aspect_ratio) === "portrait"
                           ? "bg-white text-purple-600 shadow-sm"
                           : "text-gray-400 hover:text-gray-600"
@@ -5248,7 +5302,7 @@ export default function ProjectView() {
                 )} */}
 
                 {/* Download — MP4 plus slide exports (PowerPoint, PDF, PNG) in one menu */}
-                <div className="relative" ref={slidesExportAnchorRef}>
+                <div className="relative min-w-0 shrink" ref={slidesExportAnchorRef}>
                   <button
                     type="button"
                     data-action="render-button"
@@ -5258,7 +5312,7 @@ export default function ProjectView() {
                     }}
                     disabled={missingCustomTemplate || sceneExporting || downloading}
                     title="MP4 video, or slides — PowerPoint, PDF, or one PNG per scene (pick the frame per scene before export; default ~85%)."
-                    className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5 ${
+                    className={`px-2.5 sm:px-4 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center gap-1 sm:gap-1.5 whitespace-nowrap ${
                       missingCustomTemplate
                         ? "bg-gray-300 text-white cursor-not-allowed"
                         : !rendered
@@ -5296,7 +5350,12 @@ export default function ProjectView() {
                     )}
                   </button>
                 </div>
+              </div>
 
+              {/* Row 3 (narrow): re-render, share, and the publish icons. On a
+                  wide header this sits flush against row 2, so the actions read
+                  as one cluster on the right. */}
+              <div className="flex items-center flex-wrap gap-1.5 sm:gap-2 min-w-0 max-w-full sm:flex-nowrap sm:shrink-0">
                 {rendered && (
                   <button
                     onClick={() => {
@@ -5307,9 +5366,9 @@ export default function ProjectView() {
                       setShowReRenderWarning(true);
                     }}
                     disabled={anyJobRunning || missingCustomTemplate}
-                    className="px-4 py-1.5 border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
+                    className="px-2.5 sm:px-4 py-1.5 border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-medium rounded-lg transition-colors flex items-center gap-1 sm:gap-1.5 whitespace-nowrap"
                   >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
                     Re-render
@@ -5326,18 +5385,59 @@ export default function ProjectView() {
                         setShowShareDropdown((v) => !v);
                       }}
                       disabled={embedLoading}
-                      className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
+                      className="px-2.5 sm:px-4 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1 sm:gap-1.5 whitespace-nowrap"
                     >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                       </svg>
                       {embedLoading ? "Loading..." : "Share & Invite"}
-                      <svg className="w-3 h-3 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-2.5 h-2.5 sm:w-3 sm:h-3 ml-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
                       </svg>
                     </button>
                   </div>
                 )}
+
+                {/* Publish — icon-only, to the right of Share & Invite rather
+                    than inside its menu, so a one-click action is one click.
+                    Same gating as the old menu entries: owner only, because a
+                    social connection is a personal credential, and still shown
+                    before a render since the unrendered flow starts one. */}
+                {project?.scenes &&
+                  project.scenes.length > 0 &&
+                  project.user_id === user?.id &&
+                  enabledPublishPlatforms.map((platform) => {
+                    const label = publishedPlatforms.has(platform)
+                      ? `Re-upload to ${platformLabel(platform)}`
+                      : rendered
+                        ? `Upload to ${platformLabel(platform)}`
+                        : `Render & upload to ${platformLabel(platform)}`;
+                    return (
+                      <button
+                        key={platform}
+                        type="button"
+                        onClick={() => {
+                          setShowShareDropdown(false);
+                          setShowSlidesExportMenu(false);
+                          setPublishPlatform(platform);
+                        }}
+                        title={label}
+                        aria-label={label}
+                        className="p-1.5 border border-gray-200 hover:bg-gray-50 rounded-lg transition-colors flex items-center justify-center shrink-0"
+                      >
+                        <PlatformIcon
+                          platform={platform}
+                          className={
+                            platform === "youtube"
+                              ? "w-4 h-4 text-[#FF0000]"
+                              : platform === "x"
+                                ? "w-3.5 h-3.5 text-black"
+                                : "w-4 h-4 text-[#0A66C2]"
+                          }
+                        />
+                      </button>
+                    );
+                  })}
               </div>
             </div>
 
@@ -6505,53 +6605,8 @@ export default function ProjectView() {
                 </svg>
                 Embed
               </button>
-              {/* Publish — shown regardless of render state: the whole point of
-                  the unrendered flow is that you can ask for it before rendering.
-                  Owner only, because a social connection is a personal credential. */}
-              {project.user_id === user?.id &&
-                (integrationsConfig?.youtube_enabled || integrationsConfig?.x_enabled) && (
-                  <>
-                    <div className="border-t border-gray-100 my-0.5" />
-                    {integrationsConfig?.youtube_enabled && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowShareDropdown(false);
-                          setPublishPlatform("youtube");
-                        }}
-                        className="w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors flex items-center gap-2.5"
-                      >
-                        <svg className="w-3.5 h-3.5 text-[#FF0000] flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-                        </svg>
-                        {publishedPlatforms.has("youtube")
-                          ? "Re-upload to YouTube"
-                          : rendered
-                            ? "Publish to YouTube"
-                            : "Render & publish to YouTube"}
-                      </button>
-                    )}
-                    {integrationsConfig?.x_enabled && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowShareDropdown(false);
-                          setPublishPlatform("x");
-                        }}
-                        className="w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors flex items-center gap-2.5"
-                      >
-                        <svg className="w-3 h-3 text-black flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                        </svg>
-                        {publishedPlatforms.has("x")
-                          ? "Re-upload to X"
-                          : rendered
-                            ? "Publish to X"
-                            : "Render & publish to X"}
-                      </button>
-                    )}
-                  </>
-                )}
+              {/* Publishing lives in the toolbar now, as icon buttons beside
+                  the Share & Invite trigger — see the header above. */}
             </div>
           </>,
           document.body
@@ -6586,6 +6641,7 @@ export default function ProjectView() {
           // The render's own percentage, so the modal's "Rendering" step can
           // show it rather than being an indeterminate spinner.
           renderProgress={rendering ? renderProgress : null}
+          isOwner={project.user_id === user?.id}
           onClose={() => setPublishPlatform(null)}
           onJobChanged={() => void refreshPublishJobs()}
           onRenderStarted={(runId) => {
