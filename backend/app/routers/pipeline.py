@@ -3813,6 +3813,30 @@ async def render_video_endpoint(
     When force_render=True, re-render even if already rendered (rebuilds workspace with latest DB data).
     """
     project = _get_project(project_id, user.id, db)
+    return await start_render_for_project(
+        project, resolution=resolution, force_render=force_render, user=user, db=db
+    )
+
+
+async def start_render_for_project(
+    project: Project,
+    *,
+    resolution: str,
+    force_render: bool,
+    user: User,
+    db: Session,
+) -> dict:
+    """Start (or join) a render for an already-authorised project.
+
+    Extracted from the endpoint so the publish flow can start a render on the
+    same path instead of duplicating it. Billing, the one-job-per-project lock,
+    the already-rendering join and the stale-progress cleanup are all decisions
+    that must not drift between the two callers — the return value carries
+    ``render_run_id`` so a publish job can bind itself to this exact run.
+
+    Assumes the caller has already checked access to ``project``.
+    """
+    project_id = project.id
 
     # Only one long-running job per project across all types: reject a render if a
     # template change / script regen / voice change is in progress (another user may
@@ -4097,6 +4121,20 @@ def cancel_render_endpoint(
             ProjectStatus.DONE if has_existing_video else ProjectStatus.GENERATED
         )
         db.commit()
+
+    # Any "publish when this render finishes" intent dies with the render. The
+    # periodic sweep would catch these eventually, but cancelling here means the
+    # user sees it immediately rather than up to ten minutes later. Best-effort:
+    # never let it turn a successful cancel into an error.
+    try:
+        from app.services.publish_queue import cancel_pending_jobs_sync
+        if cancel_pending_jobs_sync(project_id, db):
+            db.commit()
+    except Exception as publish_err:
+        logger.warning(
+            "[RENDER] Could not cancel pending publish jobs for project %s: %s",
+            project_id, publish_err,
+        )
     if cancelled:
         return {"detail": "Render cancelled", "cancelled": True}
     # Even if this instance didn't own the subprocess, forcing status to GENERATED

@@ -71,6 +71,19 @@ import { CollabProvider } from "../components/CollabContext";
 import CollabToolbar from "../components/CollabToolbar";
 import EditHistoryPanel from "../components/EditHistoryPanel";
 import ShareProjectModal from "../components/ShareProjectModal";
+import PublishToSocialModal from "../components/PublishToSocialModal";
+import PublishStatusBanner from "../components/PublishStatusBanner";
+import PlatformIcon from "../components/PlatformIcon";
+import {
+  getIntegrationsConfig,
+  getPublishStatus,
+  isPublishJobActive,
+  platformLabel,
+  retryPublishJob,
+  type IntegrationsConfig,
+  type PublishJob,
+  type SocialPlatform,
+} from "../api/integrations";
 import type { CollabEdit } from "../hooks/useCollabSocket";
 import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useErrorModal, getErrorMessage, DEFAULT_ERROR_MESSAGE } from "../contexts/ErrorModalContext";
@@ -162,6 +175,21 @@ const TABS_GUIDE_SEEN_KEY = "blog2video_tabs_guide_seen";
  * on rather than an editor that polls forever. See pollTicksRef.
  */
 const MAX_PIPELINE_POLL_TICKS = 300;
+
+// Publish-status polling. The loop always reschedules (see the effect) and just
+// changes pace: fast while an upload is moving, slow otherwise so that starting
+// a publish is noticed without hammering the endpoint when nothing is going on.
+const PUBLISH_POLL_ACTIVE_MS = 3000;
+const PUBLISH_POLL_IDLE_MS = 15000;
+const PUBLISH_POLL_ERROR_MS = 30000;
+
+/** Nothing offered — used when the config call fails. Named so the next
+ *  platform has one place to update rather than an inline literal. */
+const INTEGRATIONS_DISABLED: IntegrationsConfig = {
+  youtube_enabled: false,
+  x_enabled: false,
+  linkedin_enabled: false,
+};
 const TABS_CONTAINER_STEP: Step = {
   target: '[data-tour="tabs-container"]',
   content: "Use these tabs to work on your video: Script shows the full narration, Images manages your visuals and logo, Audio lets you preview voiceover for each scene, and Scenes lets you edit each scene’s text and layout.",
@@ -1204,6 +1232,12 @@ export default function ProjectView() {
   const [copyStatus, setCopyStatus] = useState<"idle" | "success" | "error">("idle");
   const [saving, setSaving] = useState(false); // "Saving to cloud" after render completes
   const [rendered, setRendered] = useState(false);
+  // ─── Social publishing ───────────────────────────────────
+  /** Which platform's publish modal is open, if any. */
+  const [publishPlatform, setPublishPlatform] = useState<SocialPlatform | null>(null);
+  /** What this deployment can offer; null until loaded. */
+  const [integrationsConfig, setIntegrationsConfig] = useState<IntegrationsConfig | null>(null);
+  const [publishJobs, setPublishJobs] = useState<PublishJob[]>([]);
   const [downloading, setDownloading] = useState(false);
   const [downloadingStudio, setDownloadingStudio] = useState(false);
   const [sceneExporting, setSceneExporting] = useState(false);
@@ -2872,11 +2906,23 @@ export default function ProjectView() {
             renderStartWallRef.current = Date.now();
           }
 
-          if (progress >= renderHighWaterRef.current) {
-            renderHighWaterRef.current = progress;
-            setRenderProgress(progress);
-            if (progress > 0) {
-              sessionStorage.setItem(`render_hw_${projectId}`, String(progress));
+          // Frames are the more reliable signal: some snapshots carry a frame
+          // count with progress still at 0, which left the bar at 0% while
+          // "Frame 863 of 1,464" ticked up beside it. Derive the percentage
+          // from the frames in that case and take whichever is further along.
+          const framePct =
+            total_frames > 0
+              ? Math.round((rendered_frames / total_frames) * 100)
+              : 0;
+          const effectiveProgress = Math.max(progress || 0, framePct);
+          if (effectiveProgress >= renderHighWaterRef.current) {
+            renderHighWaterRef.current = effectiveProgress;
+            setRenderProgress(effectiveProgress);
+            if (effectiveProgress > 0) {
+              sessionStorage.setItem(
+                `render_hw_${projectId}`,
+                String(effectiveProgress),
+              );
             }
           }
           if (rendered_frames > 0) {
@@ -3037,6 +3083,175 @@ export default function ProjectView() {
     },
     [projectId, showRenderFailureError]
   );
+
+  // ─── Social publishing ───────────────────────────────────
+
+  // What this deployment offers. Fetched once; decides whether the Share menu
+  // shows the publish options at all.
+  useEffect(() => {
+    let cancelled = false;
+    getIntegrationsConfig()
+      .then((res) => {
+        if (!cancelled) setIntegrationsConfig(res.data);
+      })
+      .catch(() => {
+        // Publishing simply isn't offered if we can't ask.
+        if (!cancelled) setIntegrationsConfig(INTEGRATIONS_DISABLED);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /**
+   * Platforms this server offers, in menu order.
+   *
+   * Derived rather than hand-written: the old code had a `(youtube_enabled ||
+   * x_enabled)` gate wrapping per-platform buttons, so adding a platform meant
+   * remembering to widen the disjunction too — and forgetting would hide the new
+   * platform whenever it was the only one enabled.
+   */
+  const enabledPublishPlatforms = useMemo<SocialPlatform[]>(() => {
+    if (!integrationsConfig) return [];
+    const order: [SocialPlatform, boolean][] = [
+      ["youtube", integrationsConfig.youtube_enabled],
+      ["x", integrationsConfig.x_enabled],
+      ["linkedin", integrationsConfig.linkedin_enabled],
+    ];
+    return order.filter(([, on]) => on).map(([platform]) => platform);
+  }, [integrationsConfig]);
+
+  /**
+   * Bumped whenever a publish is started or retried, to restart the polling
+   * effect at its fast cadence. Without it a brand-new job would wait out the
+   * idle delay before the UI acknowledged it.
+   */
+  const [publishPollNonce, setPublishPollNonce] = useState(0);
+
+  const refreshPublishJobs = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      const res = await getPublishStatus(Number(projectId));
+      setPublishJobs(res.data.jobs);
+    } catch {
+      /* non-fatal: the pill and modal just won't update this tick */
+    } finally {
+      setPublishPollNonce((n) => n + 1);
+    }
+  }, [projectId]);
+
+  // Poll publish status. Lives here rather than in the modal, so closing the
+  // modal doesn't stop tracking — a publish started before a render can outlive
+  // several page visits.
+  //
+  // The loop NEVER stops while the project is open, it only slows down. An
+  // earlier version stopped as soon as nothing was active, which meant the very
+  // common case — open a project, then publish — polled once against an empty
+  // list, stopped forever, and never saw the job that was created a moment
+  // later. Both the modal and the banner then sat frozen on their last known
+  // state while the upload actually ran to completion server-side.
+  useEffect(() => {
+    if (!projectId) return;
+    let cancelled = false;
+    let timer: number | null = null;
+
+    const tick = async () => {
+      if (cancelled) return;
+      let delay = PUBLISH_POLL_IDLE_MS;
+      try {
+        const res = await getPublishStatus(Number(projectId));
+        if (cancelled) return;
+        setPublishJobs(res.data.jobs);
+        if (res.data.jobs.some(isPublishJobActive)) delay = PUBLISH_POLL_ACTIVE_MS;
+      } catch {
+        delay = PUBLISH_POLL_ERROR_MS;
+      }
+      if (!cancelled) timer = window.setTimeout(tick, delay);
+    };
+
+    void tick();
+    return () => {
+      cancelled = true;
+      if (timer !== null) window.clearTimeout(timer);
+    };
+  }, [projectId, publishPollNonce]);
+
+  /** The most recent job per platform — what the modal and the pill display. */
+  const latestPublishJobByPlatform = useMemo(() => {
+    const map = new Map<SocialPlatform, PublishJob>();
+    // An in-flight job always wins over a finished one, independently of list
+    // order. Ordering alone is not enough: re-uploading moments after a publish
+    // can produce two rows with the same created_at, and picking the wrong one
+    // shows "your video is on YouTube" while the new upload runs invisibly.
+    for (const job of publishJobs) {
+      const current = map.get(job.platform);
+      if (!current) {
+        map.set(job.platform, job);
+      } else if (isPublishJobActive(job) && !isPublishJobActive(current)) {
+        map.set(job.platform, job);
+      }
+    }
+    return map;
+  }, [publishJobs]);
+
+  const activePublishJob = useMemo(
+    () => publishJobs.find(isPublishJobActive) || null,
+    [publishJobs]
+  );
+
+  /**
+   * Jobs the banner has finished showing.
+   *
+   * A succeeded job stays succeeded forever, so "hidden after 3s" has to be
+   * remembered here — otherwise the next poll tick brings the banner straight
+   * back.
+   */
+  const [dismissedPublishJobIds, setDismissedPublishJobIds] = useState<Set<number>>(
+    () => new Set()
+  );
+  const dismissPublishJob = useCallback((jobId: number) => {
+    setDismissedPublishJobIds((prev) => new Set(prev).add(jobId));
+  }, []);
+
+  /** The single job the banner should show, if any. */
+  const visiblePublishJob = useMemo(() => {
+    const undismissed = publishJobs.filter(
+      (job) => !dismissedPublishJobIds.has(job.id)
+    );
+    // An upload in flight always wins. Ordering is newest-first, so without
+    // this a just-finished job would keep the banner while a fresh re-upload
+    // ran invisibly behind it.
+    return (
+      undismissed.find(
+        (job) => job.status === "queued" || job.status === "running"
+      ) ??
+      undismissed.find(
+        (job) => job.status === "succeeded" || job.status === "failed"
+      ) ??
+      null
+    );
+  }, [publishJobs, dismissedPublishJobIds]);
+
+  /** Platforms this project has already been published to at least once. */
+  const publishedPlatforms = useMemo(
+    () =>
+      new Set(
+        publishJobs
+          .filter((job) => job.status === "succeeded")
+          .map((job) => job.platform)
+      ),
+    [publishJobs]
+  );
+
+  const handleRetryPublish = useCallback(async () => {
+    if (!visiblePublishJob || !projectId) return;
+    try {
+      await retryPublishJob(Number(projectId), visiblePublishJob.id);
+      await refreshPublishJobs();
+    } catch (err) {
+      showError(getErrorMessage(err, DEFAULT_ERROR_MESSAGE));
+    }
+  }, [visiblePublishJob, projectId, refreshPublishJobs, showError]);
 
   // Resume render progress after refresh/navigation when the project is still rendering
   useEffect(() => {
@@ -4933,19 +5148,33 @@ export default function ProjectView() {
           >
           <div className="glass-card overflow-hidden flex flex-col">
             {/* Header bar */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 sm:px-5 py-3 sm:py-3.5 border-b border-gray-200/30 gap-3">
-              <div className="flex items-center gap-3 min-w-0" style={{ maxWidth: "55%" }}>
-                <h2 className="text-sm font-medium text-gray-900 truncate min-w-0">
+            <div className="flex flex-col sm:flex-row sm:items-center px-3 sm:px-5 py-3 sm:py-3.5 border-b border-gray-200/30 gap-2 sm:gap-3 min-w-0 max-w-full overflow-x-hidden">
+              {/* Row 1 (narrow): the title alone, clipped to one line with an
+                  ellipsis. From sm up it takes the leftover width (`flex-1`) so
+                  the action groups stay packed against the right edge rather
+                  than being spread out by `justify-between`. */}
+              <div className="flex items-center gap-3 min-w-0 sm:flex-1">
+                <h2 className="text-sm font-medium text-gray-900 truncate min-w-0" title={project.name}>
                   {project.name}
                 </h2>
-                <StatusBadge status={statusForBadge} />
+                {/* From sm up the badge sits beside the title as before; narrow
+                    screens show it in row 2 instead. */}
+                <span className="hidden sm:block">
+                  <StatusBadge status={statusForBadge} />
+                </span>
               </div>
-              <div className="flex items-center gap-2 flex-wrap">
+              {/* Row 2 (narrow): status, format toggle, download. Stays a flex
+                  row from sm up too — `contents` here would promote each button
+                  to a child of the header and let it spread them apart. */}
+              <div className="flex items-center flex-wrap gap-1 sm:gap-2 min-w-0 max-w-full sm:flex-nowrap sm:shrink-0">
+                <span className="sm:hidden">
+                  <StatusBadge status={statusForBadge} variant="pill" />
+                </span>
                 {/* Collaboration header controls: presence + invite. */}
                 <CollabToolbar />
                 {/* Video format (landscape / portrait) — left of download */}
                 <div className="flex items-center shrink-0" data-action="aspect-ratio">
-                  <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
+                  <div className="flex gap-0.5 sm:gap-1 p-0.5 sm:p-1 bg-gray-100/60 rounded-xl">
                     <button
                       type="button"
                       title="Landscape for desktop / YouTube"
@@ -4965,7 +5194,7 @@ export default function ProjectView() {
                         setAspectFormatPending("landscape");
                         setShowAspectFormatConfirm(true);
                       }}
-                      className={`px-3 py-1.5 rounded-lg flex items-center transition-all disabled:opacity-40 disabled:pointer-events-none ${
+                      className={`px-3 sm:px-3 py-2 sm:py-1.5 rounded-lg flex items-center transition-all disabled:opacity-40 disabled:pointer-events-none ${
                         project && normalizeProjectAspectRatio(project.aspect_ratio) === "landscape"
                           ? "bg-white text-purple-600 shadow-sm"
                           : "text-gray-400 hover:text-gray-600"
@@ -5002,7 +5231,7 @@ export default function ProjectView() {
                         setAspectFormatPending("portrait");
                         setShowAspectFormatConfirm(true);
                       }}
-                      className={`px-3 py-1.5 rounded-lg flex items-center transition-all disabled:opacity-40 disabled:pointer-events-none ${
+                      className={`px-3 sm:px-3 py-2 sm:py-1.5 rounded-lg flex items-center transition-all disabled:opacity-40 disabled:pointer-events-none ${
                         project && normalizeProjectAspectRatio(project.aspect_ratio) === "portrait"
                           ? "bg-white text-purple-600 shadow-sm"
                           : "text-gray-400 hover:text-gray-600"
@@ -5073,7 +5302,7 @@ export default function ProjectView() {
                 )} */}
 
                 {/* Download — MP4 plus slide exports (PowerPoint, PDF, PNG) in one menu */}
-                <div className="relative" ref={slidesExportAnchorRef}>
+                <div className="relative min-w-0 shrink" ref={slidesExportAnchorRef}>
                   <button
                     type="button"
                     data-action="render-button"
@@ -5083,7 +5312,7 @@ export default function ProjectView() {
                     }}
                     disabled={missingCustomTemplate || sceneExporting || downloading}
                     title="MP4 video, or slides — PowerPoint, PDF, or one PNG per scene (pick the frame per scene before export; default ~85%)."
-                    className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5 ${
+                    className={`px-2.5 sm:px-4 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center gap-1 sm:gap-1.5 whitespace-nowrap ${
                       missingCustomTemplate
                         ? "bg-gray-300 text-white cursor-not-allowed"
                         : !rendered
@@ -5121,7 +5350,12 @@ export default function ProjectView() {
                     )}
                   </button>
                 </div>
+              </div>
 
+              {/* Row 3 (narrow): re-render, share, and the publish icons. On a
+                  wide header this sits flush against row 2, so the actions read
+                  as one cluster on the right. */}
+              <div className="flex items-center flex-wrap gap-1.5 sm:gap-2 min-w-0 max-w-full sm:flex-nowrap sm:shrink-0">
                 {rendered && (
                   <button
                     onClick={() => {
@@ -5132,9 +5366,9 @@ export default function ProjectView() {
                       setShowReRenderWarning(true);
                     }}
                     disabled={anyJobRunning || missingCustomTemplate}
-                    className="px-4 py-1.5 border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
+                    className="px-2.5 sm:px-4 py-1.5 border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-medium rounded-lg transition-colors flex items-center gap-1 sm:gap-1.5 whitespace-nowrap"
                   >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
                     Re-render
@@ -5151,18 +5385,59 @@ export default function ProjectView() {
                         setShowShareDropdown((v) => !v);
                       }}
                       disabled={embedLoading}
-                      className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
+                      className="px-2.5 sm:px-4 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1 sm:gap-1.5 whitespace-nowrap"
                     >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                       </svg>
                       {embedLoading ? "Loading..." : "Share & Invite"}
-                      <svg className="w-3 h-3 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-2.5 h-2.5 sm:w-3 sm:h-3 ml-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
                       </svg>
                     </button>
                   </div>
                 )}
+
+                {/* Publish — icon-only, to the right of Share & Invite rather
+                    than inside its menu, so a one-click action is one click.
+                    Same gating as the old menu entries: owner only, because a
+                    social connection is a personal credential, and still shown
+                    before a render since the unrendered flow starts one. */}
+                {project?.scenes &&
+                  project.scenes.length > 0 &&
+                  project.user_id === user?.id &&
+                  enabledPublishPlatforms.map((platform) => {
+                    const label = publishedPlatforms.has(platform)
+                      ? `Re-upload to ${platformLabel(platform)}`
+                      : rendered
+                        ? `Upload to ${platformLabel(platform)}`
+                        : `Render & upload to ${platformLabel(platform)}`;
+                    return (
+                      <button
+                        key={platform}
+                        type="button"
+                        onClick={() => {
+                          setShowShareDropdown(false);
+                          setShowSlidesExportMenu(false);
+                          setPublishPlatform(platform);
+                        }}
+                        title={label}
+                        aria-label={label}
+                        className="p-1.5 border border-gray-200 hover:bg-gray-50 rounded-lg transition-colors flex items-center justify-center shrink-0"
+                      >
+                        <PlatformIcon
+                          platform={platform}
+                          className={
+                            platform === "youtube"
+                              ? "w-4 h-4 text-[#FF0000]"
+                              : platform === "x"
+                                ? "w-3.5 h-3.5 text-black"
+                                : "w-4 h-4 text-[#0A66C2]"
+                          }
+                        />
+                      </button>
+                    );
+                  })}
               </div>
             </div>
 
@@ -5252,6 +5527,17 @@ export default function ProjectView() {
                           </button>
                         </div>
                       </div>
+                    )}
+                    {/* Upload status — visible with the publish modal closed, so
+                        a background upload is never invisible. Deliberately says
+                        nothing while the job is `pending_render`: the render has
+                        its own progress UI and two bars would compete. */}
+                    {visiblePublishJob && (
+                      <PublishStatusBanner
+                        job={visiblePublishJob}
+                        onRetry={handleRetryPublish}
+                        onDismiss={() => dismissPublishJob(visiblePublishJob.id)}
+                      />
                     )}
                     <div className={`flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between lg:gap-4${pendingRecordings.size > 0 ? " mt-2" : ""}`}>
                       <p className="text-[11px] text-gray-400 flex-shrink-0">
@@ -6307,58 +6593,8 @@ export default function ProjectView() {
                 </svg>
                 Embed
               </button>
-              {project.r2_video_url && (
-                <>
-                  <div className="border-t border-gray-100 my-0.5" />
-                  <p className="px-4 pt-2 pb-1 text-[10px] font-medium uppercase tracking-wide text-gray-400">
-                    Rendered video
-                  </p>
-                  <div className="px-4 pb-2 flex gap-1 justify-start">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(project.r2_video_url!);
-                        setShowShareDropdown(false);
-                      }}
-                      className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-black/5 flex items-center justify-center transition-colors"
-                      title="Copy link for TikTok"
-                    >
-                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 0010.86 4.46v-7.15a8.16 8.16 0 005.58 2.18v-3.45a4.85 4.85 0 01-1.59-.27 4.83 4.83 0 01-1.41-.82V6.69h3z" />
-                      </svg>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(project.r2_video_url!);
-                        setShowShareDropdown(false);
-                      }}
-                      className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-red-50 flex items-center justify-center transition-colors"
-                      title="Copy link for YouTube"
-                    >
-                      <svg className="w-4 h-4 text-[#FF0000]" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-                      </svg>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        window.open(
-                          `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(project.r2_video_url!)}`,
-                          "_blank"
-                        );
-                        setShowShareDropdown(false);
-                      }}
-                      className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-blue-50 flex items-center justify-center transition-colors"
-                      title="Share on Facebook"
-                    >
-                      <svg className="w-4 h-4 text-[#1877F2]" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                      </svg>
-                    </button>
-                  </div>
-                </>
-              )}
+              {/* Publishing lives in the toolbar now, as icon buttons beside
+                  the Share & Invite trigger — see the header above. */}
             </div>
           </>,
           document.body
@@ -6377,6 +6613,38 @@ export default function ProjectView() {
         onLeft={() => navigate("/dashboard", { replace: true })}
         successNote={showPostReviewInvite ? "Thanks for your review! You can also invite collaborators to help edit this video." : undefined}
       />
+
+      {/* Publish to YouTube / X — opened from the Share menu. */}
+      {publishPlatform && (
+        <PublishToSocialModal
+          open
+          platform={publishPlatform}
+          projectId={Number(projectId)}
+          projectName={project.name}
+          // The source of truth for "is there an MP4", not `rendered`, which is
+          // also true partway through a render.
+          hasRenderedVideo={Boolean(project.r2_video_url)}
+          job={latestPublishJobByPlatform.get(publishPlatform) ?? null}
+          jobs={publishJobs}
+          // The render's own percentage, so the modal's "Rendering" step can
+          // show it rather than being an indeterminate spinner.
+          renderProgress={rendering ? renderProgress : null}
+          isOwner={project.user_id === user?.id}
+          onClose={() => setPublishPlatform(null)}
+          onJobChanged={() => void refreshPublishJobs()}
+          onRenderStarted={(runId) => {
+            // The publish endpoint already started the render, so adopt its run
+            // id and drive the existing progress UI rather than starting a
+            // second render.
+            if (runId) expectedRenderRunIdRef.current = runId;
+            setHasError(false);
+            setRendered(false);
+            setRendering(true);
+            setRenderProgress(0);
+            startRenderPollingLoop();
+          }}
+        />
+      )}
 
       {/* Edit history + comments (opens from any tab). */}
       <EditHistoryPanel
