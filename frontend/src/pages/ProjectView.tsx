@@ -3128,6 +3128,64 @@ export default function ProjectView() {
    */
   const [publishPollNonce, setPublishPollNonce] = useState(0);
 
+  /**
+   * Jobs the banner has finished showing.
+   *
+   * A succeeded job stays succeeded forever, so "hidden after 3s" has to be
+   * remembered here — otherwise the next poll tick brings the banner straight
+   * back.
+   */
+  const [dismissedPublishJobIds, setDismissedPublishJobIds] = useState<Set<number>>(
+    () => new Set()
+  );
+  const dismissPublishJob = useCallback((jobId: number) => {
+    setDismissedPublishJobIds((prev) => new Set(prev).add(jobId));
+  }, []);
+
+  /**
+   * Whether the "what was already finished when we arrived" baseline has been
+   * taken for the project currently open.
+   *
+   * publish-status returns the last 20 jobs whatever their age, and a terminal
+   * job keeps its status forever, so without a baseline every visit to a
+   * previously-published project opens on a green "Published to X" banner for
+   * an upload that finished days ago. The banner reports what happened while
+   * you were watching, so jobs that were ALREADY terminal on the first poll are
+   * pre-dismissed as history.
+   *
+   * A ref rather than state: the poll effect re-runs on every publishPollNonce
+   * bump, and this must be taken once per project, not once per effect run.
+   */
+  const publishBaselineTakenRef = useRef(false);
+
+  /**
+   * Pre-dismiss jobs that were already finished before this page saw them.
+   *
+   * Only the first poll of a project seeds. Seeding on later ticks would
+   * immediately hide the success banner of a job that completed in front of the
+   * user — the exact arc this banner exists to show. An upload still in flight
+   * on arrival is deliberately NOT seeded, so it keeps its progress bar and
+   * then its green tick when it lands.
+   */
+  const seedDismissedPublishJobs = useCallback((jobs: PublishJob[]) => {
+    if (publishBaselineTakenRef.current) return;
+    publishBaselineTakenRef.current = true;
+    const alreadyFinished = jobs.filter((job) => !isPublishJobActive(job));
+    if (alreadyFinished.length === 0) return;
+    setDismissedPublishJobIds((prev) => {
+      const next = new Set(prev);
+      for (const job of alreadyFinished) next.add(job.id);
+      return next;
+    });
+  }, []);
+
+  // Switching projects within the SPA must retake the baseline, or the second
+  // project inherits the first's "already seeded" flag and shows a stale banner.
+  useEffect(() => {
+    publishBaselineTakenRef.current = false;
+    setDismissedPublishJobIds(new Set());
+  }, [projectId]);
+
   const refreshPublishJobs = useCallback(async () => {
     if (!projectId) return;
     try {
@@ -3161,6 +3219,9 @@ export default function ProjectView() {
       try {
         const res = await getPublishStatus(Number(projectId));
         if (cancelled) return;
+        // Before publishing the jobs, so the banner never renders a frame with
+        // a stale terminal job that is about to be seeded away.
+        seedDismissedPublishJobs(res.data.jobs);
         setPublishJobs(res.data.jobs);
         if (res.data.jobs.some(isPublishJobActive)) delay = PUBLISH_POLL_ACTIVE_MS;
       } catch {
@@ -3174,7 +3235,7 @@ export default function ProjectView() {
       cancelled = true;
       if (timer !== null) window.clearTimeout(timer);
     };
-  }, [projectId, publishPollNonce]);
+  }, [projectId, publishPollNonce, seedDismissedPublishJobs]);
 
   /** The most recent job per platform — what the modal and the pill display. */
   const latestPublishJobByPlatform = useMemo(() => {
@@ -3198,20 +3259,6 @@ export default function ProjectView() {
     () => publishJobs.find(isPublishJobActive) || null,
     [publishJobs]
   );
-
-  /**
-   * Jobs the banner has finished showing.
-   *
-   * A succeeded job stays succeeded forever, so "hidden after 3s" has to be
-   * remembered here — otherwise the next poll tick brings the banner straight
-   * back.
-   */
-  const [dismissedPublishJobIds, setDismissedPublishJobIds] = useState<Set<number>>(
-    () => new Set()
-  );
-  const dismissPublishJob = useCallback((jobId: number) => {
-    setDismissedPublishJobIds((prev) => new Set(prev).add(jobId));
-  }, []);
 
   /** The single job the banner should show, if any. */
   const visiblePublishJob = useMemo(() => {

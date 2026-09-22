@@ -4,7 +4,7 @@ import { AbsoluteFill, useCurrentFrame } from "remotion";
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import type { CustomTemplateTheme } from "../../api/client";
 import { compileComponentCode, compileModuleGraphEntry, type SceneProps } from "../../utils/compileComponent";
-import { DataChartScene, DataTableScene, derivePalette, backgroundCss, colorsFromBrand, enforceTheme, resolveTypeSizes, TYPE_BANDS, sanitizeSceneProps, TypeTierProvider, BodySizeScope } from "../remotion/generated/kit";
+import { DataChartScene, DataTableScene, derivePalette, backgroundCss, colorsFromBrand, enforceTheme, resolveTypeSizes, TYPE_BANDS, sanitizeSceneProps, TypeTierProvider, BodySizeScope, KitProvider } from "../remotion/generated/kit";
 import { CtaOverlay } from "../remotion/CtaOverlay";
 import { pickGeneratedTransition } from "../remotion/generated/generatedTransitions";
 import StaticPreviewImage from "./StaticPreviewImage";
@@ -141,7 +141,7 @@ interface ContinuousCompositionProps {
   /** Brand-kit logo, drawn as a HERO over the intro/outro only (see HeroLogo).
    *  Absent when the template has no logo, in which case the bookends render
    *  exactly as they otherwise would. */
-  heroLogoUrl?: string;
+  heroLogoUrl?: string | string[];
 }
 
 const ContinuousCustomComposition: React.FC<ContinuousCompositionProps> = ({
@@ -252,7 +252,34 @@ const ContinuousCustomComposition: React.FC<ContinuousCompositionProps> = ({
                         .descriptionFontSize,
                     }}
                   >
-                    <BodySizeScope>{Comp ? <Comp {...props} /> : null}</BodySizeScope>
+                    <BodySizeScope>
+                      {/* AMBIENT BRAND PALETTE.
+                        *
+                        * Kit components (CustomChart, CustomTable) read their
+                        * colours from kit context, which only SceneFrame
+                        * provides. A generated scene that paints its own
+                        * background and composes one DIRECTLY has no provider,
+                        * so useKit() silently returns its DARK default — and on
+                        * a light brand the chart's axes, ticks and captions draw
+                        * near-white on a near-white panel: rendered, and
+                        * invisible. That is why this surface showed a bar chart
+                        * with no axes while the project preview showed them.
+                        *
+                        * A scene that DOES wrap SceneFrame is unaffected: its
+                        * own KitProvider nests below this one and wins.
+                        * KEEP IDENTICAL to GeneratedVideo.tsx / VideoPreview.tsx —
+                        * these three surfaces must not drift again. */}
+                      <KitProvider
+                        colors={colorsFromBrand(brandColors)}
+                        isPortrait={orientation === "portrait"}
+                        fonts={{
+                          heading: (props as { headingFont?: string }).headingFont,
+                          body: (props as { bodyFont?: string }).bodyFont ?? bodyFont,
+                        }}
+                      >
+                        {Comp ? <Comp {...props} /> : null}
+                      </KitProvider>
+                    </BodySizeScope>
                   </TypeTierProvider>
                 </div>
                 {/* Hero logo on the bookends only. A SIBLING of the scene layer,
@@ -665,6 +692,13 @@ export default function CustomPreview({
   const [compiledMap, setCompiledMap] = useState<Map<number, React.FC<SceneProps>>>(new Map());
   const [compiledComposition, setCompiledComposition] = useState<React.ComponentType<any> | null>(null);
   const [isCompiling, setIsCompiling] = useState(true);
+  // Brand-kit logos that failed to load. They are RAW SCRAPED URLs — nothing
+  // mirrors them to R2 — so a site with hotlink protection returns 403 and the
+  // browser paints a broken-image box. The carousel walks the remaining
+  // candidates on error and shows nothing once they are exhausted, matching
+  // HeroLogo on the other preview path. (The exported video is unaffected: it
+  // downloads logos server-side.)
+  const [failedLogos, setFailedLogos] = useState<string[]>([]);
   const [compileError, setCompileError] = useState(false);
   const fadeTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const compileTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
@@ -1081,7 +1115,10 @@ export default function CustomPreview({
         .motion?.transitionFamily,
       orientation,
       bodyFont: bodyFamily,
-      heroLogoUrl: logoUrls?.[0] || undefined,
+      // The WHOLE list, not just the first: brand-kit logos are raw scraped
+      // URLs and the first one may 403 (hotlink protection). HeroLogo walks
+      // them on error and renders nothing once they are exhausted.
+      heroLogoUrl: logoUrls && logoUrls.length > 0 ? logoUrls : undefined,
     }),
     [sceneCodes, compiledMap, sceneSampleProps, brandColors, theme, orientation, bodyFamily, logoUrls],
   );
@@ -1475,7 +1512,10 @@ export default function CustomPreview({
   // each scene sits in its own nested player, so this path has no access to the
   // laid-out scene DOM. The corner is the placement that cannot collide with
   // scene content, so it is the correct choice to make blind.
-  const heroLogoUrl = logoUrls?.[0] || undefined;
+  // `failedLogos` is declared with the other hooks at the top of the component —
+  // several early returns sit above this line, so a hook here would break the
+  // rules-of-hooks ordering.
+  const heroLogoUrl = (logoUrls ?? []).find((u) => u && !failedLogos.includes(u));
   const heroKey = orientation === "portrait" ? "portrait" : "landscape";
   const carouselHeroLogoStyle: React.CSSProperties = {
     position: "absolute",
@@ -1622,8 +1662,14 @@ export default function CustomPreview({
                 {shouldRenderPlayer && heroLogoUrl && isBookendScene(sc) && (
                   <div style={carouselHeroLogoStyle}>
                     <img
+                      key={heroLogoUrl}
                       src={heroLogoUrl}
                       alt=""
+                      onError={() =>
+                        setFailedLogos((prev) =>
+                          prev.includes(heroLogoUrl) ? prev : [...prev, heroLogoUrl],
+                        )
+                      }
                       style={{
                         width: "100%",
                         height: "100%",

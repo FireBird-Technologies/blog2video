@@ -3,7 +3,7 @@ import { AbsoluteFill } from "remotion";
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import type { CustomTemplateTheme } from "../../api/client";
 import { compileComponentCode, compileModuleGraphEntry, type SceneProps } from "../../utils/compileComponent";
-import { DataChartScene, DataTableScene } from "../remotion/generated/kit";
+import { DataChartScene, DataTableScene, KitProvider, colorsFromBrand } from "../remotion/generated/kit";
 import { CtaOverlay } from "../remotion/CtaOverlay";
 import { pickGeneratedTransition } from "../remotion/generated/generatedTransitions";
 import StaticPreviewImage from "./StaticPreviewImage";
@@ -139,7 +139,26 @@ const ContinuousCustomComposition: React.FC<ContinuousCompositionProps> = ({
               key={`seq-${idx}`}
               durationInFrames={PREVIEW_SCENE_FRAMES + (t ? t.frames : 0)}
             >
-              <AbsoluteFill>{Comp ? <Comp {...props} /> : null}</AbsoluteFill>
+              <AbsoluteFill>
+                {/* Ambient brand palette. Kit components (CustomChart,
+                  * CustomTable) read their colours from kit context, which only
+                  * SceneFrame provides — so a generated scene that composes one
+                  * directly has none, and useKit() silently returns a DARK
+                  * default: on a light brand the chart's axes and ticks draw
+                  * near-white on a near-white panel and are invisible. A scene
+                  * that wraps SceneFrame is unaffected, its own provider nests
+                  * below and wins. KEEP IDENTICAL to GeneratedVideo.tsx. */}
+                <KitProvider
+                  colors={colorsFromBrand(brandColors)}
+                  isPortrait={false}
+                  fonts={{
+                    heading: (props as { headingFont?: string }).headingFont,
+                    body: (props as { bodyFont?: string }).bodyFont,
+                  }}
+                >
+                  {Comp ? <Comp {...props} /> : null}
+                </KitProvider>
+              </AbsoluteFill>
             </TransitionSeries.Sequence>
           );
           if (!t) return sequence;

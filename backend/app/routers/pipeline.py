@@ -39,6 +39,8 @@ from app.services.chart_planner import (
     get_chartable_tables_from_visual_hint,
     get_line_chartable_tables_from_visual_hint,
     _build_chart_props_from_table,
+    build_dataviz_chart_caption,
+    build_dataviz_scene_copy,
     is_candlestick_table,
     is_ticker_snapshot_table,
     is_laduc_ticker_table,
@@ -286,11 +288,24 @@ def _build_custom_dataviz_scenes(blog_content: str) -> list[dict]:
     )
     table_props = chartable[1] if len(chartable) > 1 else (chartable[0] if chartable else None)
 
-    def _mk(stype: str, layout: str, props: dict, title: str, narration: str) -> dict:
+    def _mk(stype: str, layout: str, props: dict, narration: str) -> dict:
         table = props.get("chartTable") or {}
         vd = append_tables_to_content(narration, [table])
+        # TITLE AND DISPLAY TEXT ARE BUILT FROM THE TABLE, and must differ.
+        #
+        # These scenes are injected AFTER DisplayTextGenerator has run, so they
+        # never reach it — and the title used to be reused as the display text,
+        # leaving both fields holding one string. The renderer then correctly
+        # blanks the duplicate (eyebrowRepeatsHeadline), so the scene showed one
+        # generic line where every other scene shows two. See
+        # chart_planner.build_dataviz_scene_copy, which falls back to the old
+        # fixed strings whenever the table offers nothing better.
+        title, display_text = build_dataviz_scene_copy(
+            props, is_table=(stype == "dataviz_table")
+        )
         return {
             "title": title,
+            "display_text": display_text,
             "narration": narration,
             "visual_description": vd,
             "duration_seconds": 8,
@@ -301,11 +316,11 @@ def _build_custom_dataviz_scenes(blog_content: str) -> list[dict]:
     chart_summary = (chart_props.get("chartSummary") or "").strip()
     chart_narr = chart_summary or "Here's what the numbers reveal at a glance."
     scenes = [
-        _mk("dataviz_chart", "custom_chart", chart_props, "By the numbers", chart_narr),
+        _mk("dataviz_chart", "custom_chart", chart_props, chart_narr),
     ]
     if table_props:
         scenes.append(
-            _mk("dataviz_table", "custom_table", table_props, "The full breakdown",
+            _mk("dataviz_table", "custom_table", table_props,
                 "And here are the underlying figures in full.")
         )
     return scenes
@@ -329,8 +344,21 @@ def _bind_dataviz_layout_props(scene, descriptor: dict) -> bool:
     lp = dict(descriptor.get("layoutProps") or {})
     lp["chartTable"] = props["chartTable"]
     lp["chartType"] = props.get("chartType", "auto")
-    if props.get("chartSummary"):
-        lp["chartSummary"] = props["chartSummary"]
+    summary = props.get("chartSummary")
+    if not summary and stype == "dataviz_chart":
+        # GIVE THE CAPTION SLOT REAL CONTENT, or the scene prints one line twice.
+        #
+        # Generated chart scenes commonly write
+        #     const caption = props.chartSummary ?? props.displayText;
+        # and render BOTH the display text and that caption. Nothing on the
+        # custom path ever populated chartSummary (only the built-ins do, via an
+        # LLM caption), so the fallback fired every time and the same sentence
+        # appeared twice on screen. This states a DIFFERENT fact from the display
+        # text — what is plotted and how, rather than the range — so the two
+        # lines complement each other.
+        summary = build_dataviz_chart_caption(props)
+    if summary:
+        lp["chartSummary"] = summary
     descriptor["layoutProps"] = lp
     return True
 
@@ -2786,7 +2814,11 @@ async def _generate_script(
             _insert_at = max(1, len(scenes_raw) - 1) if len(scenes_raw) > 1 else len(scenes_raw)
             for _offset, _dv in enumerate(_dataviz_scenes):
                 scenes_raw.insert(_insert_at + _offset, _dv)
-                display_texts.insert(_insert_at + _offset, _dv["title"])
+                # The scene's OWN display text, never a second copy of its title.
+                # These scenes are injected after DisplayTextGenerator has run,
+                # so this is where their on-screen copy comes from; reusing the
+                # title here is what made them render as a single line.
+                display_texts.insert(_insert_at + _offset, _dv["display_text"])
             print(
                 f"[F7-DEBUG] [CUSTOM-DATAVIZ] injected {len(_dataviz_scenes)} dedicated "
                 f"data-viz scenes at index {_insert_at} "

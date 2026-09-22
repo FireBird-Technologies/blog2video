@@ -523,3 +523,234 @@ def test_customchart_accepts_brand_colors_directly() -> None:
     assert "useHasKitContext" in text, (
         "must distinguish real kit context from the silent dark default"
     )
+
+
+# ─── Scene copy: title and display text must differ ──────────────────────────
+#
+# Both injected data-viz scenes carried title == display_text ("By the numbers"
+# twice, "The full breakdown" twice), so eyebrowRepeatsHeadline correctly blanked
+# the duplicate and each scene rendered ONE generic line where every other scene
+# shows two.
+#
+# The cause is step order: every ordinary scene gets its display text from
+# DisplayTextGenerator, and these scenes are injected AFTER that pass — so the
+# injection reused the title. Measured on the live DB at the time: of 190
+# built-in chart/table/ticker scenes, ZERO had the duplication, confirming it was
+# custom-template-only.
+#
+# build_dataviz_scene_copy gives them copy of their own, derived from the bound
+# table. Deterministic: no LLM, and a figure it cites came from the real rows.
+
+
+def _props(headers: list[str], rows: list[list[str]]) -> dict:
+    return {
+        "chartTable": {"headers": headers, "rows": rows},
+        "subtitle": headers[0] if headers else "",
+        "yAxisLabel": headers[1] if len(headers) > 1 else "",
+    }
+
+
+@pytest.mark.parametrize("is_table", [False, True])
+@pytest.mark.parametrize(
+    "headers,rows",
+    [
+        (["Quarter", "Revenue"], [["Q1", "120"], ["Q2", "145"], ["Q3", "210"]]),
+        (["Category", "Price"], [["A", "5"], ["B", "9"]]),          # weak x
+        (["Item", "Value"], [["A", "5"], ["B", "9"]]),               # both weak
+        (["Region", "Sales"], [["North", "42"]]),                    # single row
+        (["Region", "Sales"], [["N", "7"], ["S", "7"]]),             # flat values
+        (["Name", "City"], [["Ana", "Lisbon"], ["Bo", "Oslo"]]),     # no numbers
+        ([], []),                                                     # nothing
+    ],
+)
+def test_scene_copy_is_never_a_duplicate(headers, rows, is_table: bool) -> None:
+    """THE defect: a scene whose title and display text match renders one line."""
+    from app.services.chart_planner import build_dataviz_scene_copy
+
+    title, display = build_dataviz_scene_copy(_props(headers, rows), is_table=is_table)
+    assert title.strip(), "a scene always needs a title"
+    assert display.strip(), "a scene always needs display text"
+    assert title.strip().lower() != display.strip().lower()
+
+
+def test_a_good_table_names_its_own_axes() -> None:
+    """The point of deriving copy: it describes THIS article's data."""
+    from app.services.chart_planner import build_dataviz_scene_copy
+
+    title, display = build_dataviz_scene_copy(
+        _props(["Quarter", "Revenue"], [["Q1", "120"], ["Q3", "210"]])
+    )
+    assert title == "Revenue by Quarter"
+    # Cites the real range — impossible to write without the bound rows.
+    assert "120" in display and "210" in display and "Q1" in display
+
+
+def test_a_generic_header_falls_back_to_the_old_title() -> None:
+    """"Category" is a fine axis label and a poor title noun.
+
+    The fallbacks are the strings these scenes always used, so a weak table is
+    never made WORSE than before this existed.
+    """
+    from app.services.chart_planner import build_dataviz_scene_copy
+
+    chart_title, _ = build_dataviz_scene_copy(
+        _props(["Category", "Price"], [["A", "5"], ["B", "9"]])
+    )
+    assert chart_title == "Price at a glance", "x is weak, y is not"
+
+    both_weak, _ = build_dataviz_scene_copy(_props(["Item", "Value"], [["A", "5"]]))
+    assert both_weak == "By the numbers", "the original fixed title"
+
+    table_title, _ = build_dataviz_scene_copy(
+        _props(["Related", "Last"], [["x", "1"]]), is_table=True
+    )
+    assert table_title == "The full breakdown", "the original fixed title"
+
+
+def test_the_copy_reads_as_english() -> None:
+    """Guards the two grammar traps in the templating: a plural fallback noun
+    against a singular verb, and "All 1 rows"."""
+    from app.services.chart_planner import build_dataviz_scene_copy
+
+    _, weak = build_dataviz_scene_copy(_props(["Item", "Value"], [["A", "5"], ["B", "9"]]))
+    assert "Values ranges" not in weak
+
+    _, one_row = build_dataviz_scene_copy(
+        _props(["Region", "Last"], [["N", "1"]]), is_table=True
+    )
+    assert "All 1 rows" not in one_row
+
+
+def test_both_injected_scenes_get_distinct_copy() -> None:
+    """End to end through the injector, which is where the duplication lived."""
+    from app.services.table_extraction import append_tables_to_content
+
+    content = append_tables_to_content(
+        "Article body.",
+        [
+            _table(["Quarter", "Revenue"], [["Q1", "120"], ["Q2", "145"], ["Q3", "210"]]),
+            _table(["Region", "Last", "Prev"], [["North", "12", "10"], ["South", "30", "28"]]),
+        ],
+    )
+    scenes = _build_custom_dataviz_scenes(content)
+    assert [s["_scene_type"] for s in scenes] == ["dataviz_chart", "dataviz_table"]
+    for s in scenes:
+        assert s["title"].strip().lower() != s["display_text"].strip().lower(), s
+    # And the two scenes do not duplicate EACH OTHER either.
+    assert scenes[0]["title"] != scenes[1]["title"]
+
+
+# ─── The caption slot, and counting what is actually drawn ───────────────────
+#
+# Two defects seen on one frame of a real video:
+#
+#   1. The display text printed TWICE. Generated chart scenes commonly write
+#          const caption = props.chartSummary ?? props.displayText;
+#      and render both the display text and that caption. Nothing on the custom
+#      path ever populated chartSummary (only the built-ins do, via an LLM
+#      caption), so the fallback fired every time.
+#   2. The copy said "across 6 entries" under a chart showing 3 BARS. A bar chart
+#      drops every row with a negative value (filterBarChartNonNegativeRows in
+#      _shared/chartData.ts), so a 6-row table with 3 negatives plots 3.
+
+
+_SIGNED_TABLE = _props_signed = {
+    "chartTable": {
+        "headers": ["Change", "Amount", "%"],
+        "rows": [
+            ["Today", "-10.02", "-0.23%"],
+            ["30 Days", "-292.21", "-6.30%"],
+            ["6 Months", "-58.25", "-1.32%"],
+            ["1 Year", "+605.90", "+16.20%"],
+            ["5 Year", "+2,600.42", "+148.95%"],
+            ["20 Years", "+3,756.69", "+637.22%"],
+        ],
+    },
+    "subtitle": "Change",
+    "yAxisLabel": "Amount",
+    "chartType": "bar",
+}
+
+
+def test_the_chart_scene_gets_a_caption_of_its_own() -> None:
+    """Empty chartSummary is what made the scene print one line twice."""
+    from app.services.chart_planner import build_dataviz_chart_caption
+
+    caption = build_dataviz_chart_caption(_SIGNED_TABLE)
+    assert caption.strip(), "the caption slot must be filled"
+
+
+def test_the_caption_never_repeats_the_display_text() -> None:
+    """They sit on screen together, so they must say different things."""
+    from app.services.chart_planner import (
+        build_dataviz_chart_caption,
+        build_dataviz_scene_copy,
+    )
+
+    title, display = build_dataviz_scene_copy(_SIGNED_TABLE)
+    caption = build_dataviz_chart_caption(_SIGNED_TABLE)
+    assert len({title.lower(), display.lower(), caption.lower()}) == 3
+
+
+def test_a_bar_chart_counts_only_the_bars_it_draws() -> None:
+    """"across 6 entries" under 3 bars reads as a broken chart.
+
+    Three of these six rows are negative, so the bar chart plots three.
+    """
+    from app.services.chart_planner import (
+        build_dataviz_chart_caption,
+        build_dataviz_scene_copy,
+    )
+
+    _, display = build_dataviz_scene_copy(_SIGNED_TABLE)
+    caption = build_dataviz_chart_caption(_SIGNED_TABLE)
+    assert "3 entries" in display and "6 entries" not in display
+    assert "3 change entries" in caption
+    # The cited range must come from the PLOTTED rows, not the dropped negatives.
+    assert "-292" not in display and "605.9" in display
+
+
+def test_line_and_histogram_count_every_row() -> None:
+    """Only bar charts drop negatives; the others plot the lot."""
+    from app.services.chart_planner import build_dataviz_scene_copy
+
+    for kind in ("line", "histogram"):
+        props = {**_SIGNED_TABLE, "chartType": kind}
+        _, display = build_dataviz_scene_copy(props)
+        assert "6 entries" in display, kind
+
+
+def test_the_caption_is_bound_into_layout_props() -> None:
+    """End to end: the binding is what puts it where the scene reads it."""
+    import json
+
+    from app.routers.pipeline import _bind_dataviz_layout_props
+    from app.services.table_extraction import append_tables_to_content
+
+    class _Scene:
+        scene_type = "dataviz_chart"
+        visual_description = append_tables_to_content(
+            "narration",
+            [{"source": "md", **_SIGNED_TABLE["chartTable"]}],
+        )
+
+    descriptor: dict = {}
+    assert _bind_dataviz_layout_props(_Scene(), descriptor)
+    assert descriptor["layoutProps"].get("chartSummary"), "caption must be bound"
+    json.dumps(descriptor)  # must stay serialisable
+
+
+def test_a_table_scene_gets_no_chart_caption() -> None:
+    """The caption is the CHART's; a table scene has no plot to describe."""
+    from app.routers.pipeline import _bind_dataviz_layout_props
+    from app.services.table_extraction import append_tables_to_content
+
+    class _Scene:
+        scene_type = "dataviz_table"
+        visual_description = append_tables_to_content(
+            "narration", [{"source": "md", **_SIGNED_TABLE["chartTable"]}]
+        )
+
+    descriptor: dict = {}
+    _bind_dataviz_layout_props(_Scene(), descriptor)
+    assert not descriptor["layoutProps"].get("chartSummary")
