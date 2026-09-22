@@ -1235,6 +1235,13 @@ export default function ProjectView() {
   // ─── Social publishing ───────────────────────────────────
   /** Which platform's publish modal is open, if any. */
   const [publishPlatform, setPublishPlatform] = useState<SocialPlatform | null>(null);
+  /**
+   * Which paid-only platform a free user just tried to publish to, if any.
+   * Drives the upgrade modal in place of the publish modal, and names the
+   * platform in its copy so the prompt matches the button that was clicked.
+   */
+  const [publishUpgradePlatform, setPublishUpgradePlatform] =
+    useState<SocialPlatform | null>(null);
   /** What this deployment can offer; null until loaded. */
   const [integrationsConfig, setIntegrationsConfig] = useState<IntegrationsConfig | null>(null);
   const [publishJobs, setPublishJobs] = useState<PublishJob[]>([]);
@@ -3122,6 +3129,18 @@ export default function ProjectView() {
   }, [integrationsConfig]);
 
   /**
+   * Platforms that require a paid plan.
+   *
+   * The buttons stay VISIBLE to free users — hiding them would leave no way to
+   * discover the feature, and no surface to upsell from. Clicking one opens the
+   * upgrade modal instead of the publish modal; see the button's onClick.
+   */
+  const PAID_ONLY_PUBLISH_PLATFORMS: ReadonlySet<SocialPlatform> = useMemo(
+    () => new Set<SocialPlatform>(["youtube", "linkedin"]),
+    [],
+  );
+
+  /**
    * Bumped whenever a publish is started or retried, to restart the polling
    * effect at its fast cadence. Without it a brand-new job would wait out the
    * idle delay before the UI acknowledged it.
@@ -4061,6 +4080,12 @@ export default function ProjectView() {
       const layoutProps: Record<string, unknown> = {
         ...((descriptor.layoutProps as Record<string, unknown>) || {}),
         hideImage: true,
+        // "The user emptied this on purpose", which `hideImage` alone cannot
+        // say: write_remotion_data Step 5 stamps that flag on every empty
+        // image-capable scene. Without this marker a regenerate drops a spare
+        // clip straight back into the slot. See VISUAL_CLEARED_BY_USER in
+        // backend/app/routers/projects.py.
+        visualClearedByUser: true,
       };
       delete layoutProps.assignedImage;
       delete layoutProps.imageFocusX;
@@ -5454,11 +5479,17 @@ export default function ProjectView() {
                   project.scenes.length > 0 &&
                   project.user_id === user?.id &&
                   enabledPublishPlatforms.map((platform) => {
-                    const label = publishedPlatforms.has(platform)
-                      ? `Re-upload to ${platformLabel(platform)}`
-                      : rendered
-                        ? `Upload to ${platformLabel(platform)}`
-                        : `Render & upload to ${platformLabel(platform)}`;
+                    // Free users still SEE the button; it opens the upgrade
+                    // modal rather than the publish flow.
+                    const needsUpgrade =
+                      !isPro && PAID_ONLY_PUBLISH_PLATFORMS.has(platform);
+                    const label = needsUpgrade
+                      ? `Upload to ${platformLabel(platform)} — paid plans only`
+                      : publishedPlatforms.has(platform)
+                        ? `Re-upload to ${platformLabel(platform)}`
+                        : rendered
+                          ? `Upload to ${platformLabel(platform)}`
+                          : `Render & upload to ${platformLabel(platform)}`;
                     return (
                       <button
                         key={platform}
@@ -5466,7 +5497,8 @@ export default function ProjectView() {
                         onClick={() => {
                           setShowShareDropdown(false);
                           setShowSlidesExportMenu(false);
-                          setPublishPlatform(platform);
+                          if (needsUpgrade) setPublishUpgradePlatform(platform);
+                          else setPublishPlatform(platform);
                         }}
                         title={label}
                         aria-label={label}
@@ -6661,6 +6693,18 @@ export default function ProjectView() {
         successNote={showPostReviewInvite ? "Thanks for your review! You can also invite collaborators to help edit this video." : undefined}
       />
 
+      {/* Free user clicked a paid-only publish platform. Shown INSTEAD of the
+          publish modal, so no social connection is ever started. */}
+      {publishUpgradePlatform && (
+        <UpgradePlanModal
+          open
+          onClose={() => setPublishUpgradePlatform(null)}
+          projectId={projectId}
+          title={`Upgrade to upload to ${platformLabel(publishUpgradePlatform)}`}
+          subtitle={`Publishing straight to ${platformLabel(publishUpgradePlatform)} requires a paid plan. Pick a plan to continue.`}
+        />
+      )}
+
       {/* Publish to YouTube / X — opened from the Share menu. */}
       {publishPlatform && (
         <PublishToSocialModal
@@ -7788,20 +7832,73 @@ export default function ProjectView() {
                                     sceneClip &&
                                     (stockAudioDraft.muted !== sceneClip.muted ||
                                       Math.abs(stockAudioDraft.volume - sceneClip.volume) > 0.001);
-                                  // One tile-width rule for every tile below. Portrait lays them
-                                  // out in a 2-col grid, so a tile fills its cell (w-full);
-                                  // landscape is a free-wrapping flex row, where a tile must keep
-                                  // its own fixed w-20 or it would stretch across the whole row.
-                                  const tileW =
-                                    project.aspect_ratio === "portrait" ? "w-full" : "w-20";
-                                  // basis-56 is a PREFERRED width, not a floor: the tiles inside
-                                  // are ~80px each, so this keeps the column wide enough to hold
-                                  // a row of them and makes the avatar wrap below rather than
-                                  // crushing this column to nothing. Deliberately not wider —
-                                  // the tiles are w-20 and a roomier column just stretches the
-                                  // mobile `grid-cols-2` cells into oversized boxes.
+                                  // One tile-width rule for every tile below. Both formats are
+                                  // now a free-wrapping flex row, where a tile must keep its own
+                                  // fixed width or it would stretch across the whole row.
+                                  // (Portrait was `w-full` while it laid tiles out in a 2-col
+                                  // grid and each tile filled its cell.)
+                                  const tileW = "w-20";
+                                  // The column PREFERS to be wide enough to hold every tile on
+                                  // one row, so its width is COMPUTED from how many tiles this
+                                  // scene actually renders rather than fixed.
+                                  //
+                                  // A fixed width cannot work: the tile count varies per scene.
+                                  // The old basis-56 (224px) fitted two, so four tiles broke
+                                  // into a 2x2 block. Widening it to a flat 384px fixed the
+                                  // image-only case (4 tiles = 344px) but still wrapped a scene
+                                  // carrying a CLIP, because the clip tile does not replace the
+                                  // image tiles — it renders alongside them, so that scene shows
+                                  // 5+ tiles and needs 432px.
+                                  //
+                                  // Tiles are w-20 (80px) with gap-2 (8px): n tiles need
+                                  // n*80 + (n-1)*8 px. Counted below in render order.
+                                  const visualsTileCount =
+                                    (sceneClip ? 1 : 0) +
+                                    (isCustomTpl &&
+                                    !(sceneImageAssetsMap[idx] || []).length &&
+                                    ctOgImage
+                                      ? 1
+                                      : 0) +
+                                    (sceneImageAssetsMap[idx] || []).length +
+                                    (stockFootageBusySceneId === scene.id ? 1 : 0) +
+                                    // AI + Image plus-cards are always present; Stock Footage
+                                    // is gated on support.
+                                    2 +
+                                    (stockFootageSupported ? 1 : 0);
+                                  // The tile row's natural width.
+                                  const visualsRowPx =
+                                    visualsTileCount * 80 +
+                                    Math.max(0, visualsTileCount - 1) * 8;
+                                  const isPortraitProject =
+                                    project.aspect_ratio === "portrait";
+                                  // LANDSCAPE also pins `minWidth`. A basis is only a PREFERRED
+                                  // width, so with `min-w-0` this column was free to shrink to
+                                  // nothing; the avatar beside it is `flex-shrink-0` and gives up
+                                  // no space, so whenever basis + avatar exceeded the card, the
+                                  // visuals column absorbed the whole overflow and its tiles
+                                  // wrapped. Pinning `minWidth` makes it incompressible, so the
+                                  // parent's `flex-wrap` does the only thing left: drops the
+                                  // avatar to its own line. The card is wide enough to afford it.
+                                  //
+                                  // PORTRAIT DELIBERATELY DOES NOT PIN IT. Its card is narrow —
+                                  // often narrower than a full row of tiles — so an
+                                  // incompressible column would push the tiles straight out past
+                                  // the card edge. Portrait keeps `min-w-0` and only the basis:
+                                  // it fits everything on one row where the width allows, and
+                                  // where it does not, the last tile wraps to the next row
+                                  // instead of overflowing.
+                                  const visualsBasisStyle = isPortraitProject
+                                    ? { flexBasis: `${visualsRowPx}px` }
+                                    : {
+                                        flexBasis: `${visualsRowPx}px`,
+                                        minWidth: `${visualsRowPx}px`,
+                                      };
                                   return (
-                                    <div className="min-w-0 basis-56 grow" data-tour={idx === 0 ? "scene-visuals-first" : undefined}>
+                                    <div
+                                      className={`grow${isPortraitProject ? " min-w-0" : ""}`}
+                                      style={visualsBasisStyle}
+                                      data-tour={idx === 0 ? "scene-visuals-first" : undefined}
+                                    >
                                       <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
                                         {sceneClip
                                           ? "Stock footage"
@@ -7811,26 +7908,23 @@ export default function ProjectView() {
                                       </h4>
                                       {sceneSupportsImage ? (
                                         <>
-                                        {/* Keyed off the project's aspect ratio, NOT a `sm:`
-                                            breakpoint: `sm:` reads the VIEWPORT, but what actually
-                                            constrains these tiles is the scene card's own width,
-                                            which is driven by the format. A narrow portrait card on
-                                            a desktop screen took the wide-screen branch and laid
-                                            its tiles out in one cramped, clipped row.
+                                        {/* One free-wrapping row of w-20 tiles, in BOTH formats.
+                                            Nothing here is keyed off the aspect ratio any more;
+                                            what decides how many tiles land on a line is the
+                                            column's width, set above.
 
-                                            Landscape: one free-wrapping row — the card is wide, so
-                                            all three tiles fit side by side.
-                                            Portrait: two per row, capped at 184px so each tile
-                                            lands ~88px, close to the w-20 (80px) they used to be;
-                                            without the cap each grid cell is half the column and
-                                            the tiles inflate to ~220px. */}
-                                        <div
-                                          className={
-                                            project.aspect_ratio === "portrait"
-                                              ? "grid grid-cols-2 gap-2 items-start max-w-[184px]"
-                                              : "flex flex-wrap items-start gap-2"
-                                          }
-                                        >
+                                            Portrait used to branch to `grid-cols-2` capped at
+                                            184px, which HARD-CAPPED the row at two tiles: a
+                                            scene with four (clip + AI + Image + Stock Footage)
+                                            always broke into a 2x2 block with empty space to
+                                            its right, while a three-tile image scene happened
+                                            to fit. The cap existed to stop grid cells from
+                                            inflating to ~220px each — a `grid` problem that
+                                            does not arise here, because these tiles carry their
+                                            own fixed w-20 and never stretch. Portrait still
+                                            wraps when the card is genuinely too narrow; it just
+                                            wraps at the real width instead of always at two. */}
+                                        <div className="flex flex-wrap items-start gap-2">
                                           {/* When a clip is assigned it occupies the visual slot
                                               and renders first. Its own edit icon opens the shared
                                               framing modal (same positioning as images); picking any

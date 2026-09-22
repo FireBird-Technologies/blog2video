@@ -1631,7 +1631,26 @@ def write_remotion_data(
     #
     # Deliberately OUTSIDE the `all_image_files` block: a project can own clips
     # and no images at all, and those clips must still be placed.
-    if scenes and all_video_files:
+    #
+    # GATED ON `redistribute_images` — A PLAIN RE-RENDER MUST NOT RE-ASSIGN.
+    #
+    # This pass only has work to do after a REGENERATE, where the block at
+    # ~line 1364 has just released every clip and they need re-placing against a
+    # brand-new scene sequence. On a plain re-render nothing was released, so
+    # every assignment it makes is a change to state the render was only meant to
+    # READ — and `write_remotion_data` commits, so those changes persist.
+    #
+    # That is how removing a clip stopped sticking: the freed clip fell out of
+    # `placed_videos`, became a spare, and the `open_slots` filter below put it
+    # straight back into the scene the user had just emptied (popping their
+    # hideImage marker on the way). Every render repeated it.
+    #
+    # `redistribute_images` is the flag that already separates the two callers —
+    # True from _generate_scenes (generation / regen / template change), False
+    # from _rebuild_workspace_sync (plain re-render). It was previously consulted
+    # only for the spare-clip SORT ORDER a few lines below, never to decide
+    # whether the pass should run at all.
+    if scenes and all_video_files and redistribute_images:
         placed_videos = {
             scene_layout_props[i].get("assignedVideo") for i in video_scene_indices
         }
@@ -1674,6 +1693,14 @@ def write_remotion_data(
                 and scene_base_layouts[i] not in no_image_layouts
                 and not scene_image_map[i]
                 and not scene_layout_props[i].get("assignedImage")
+                # A slot the USER emptied is not an open slot. The gate above
+                # already stops a plain re-render from getting here, but a
+                # regenerate legitimately re-places clips — and it must not
+                # resurrect one the user deliberately removed. `hideImage` cannot
+                # be used for this: Step 5 sets it on every empty image-capable
+                # scene, so it says nothing about intent. See
+                # projects.VISUAL_CLEARED_BY_USER.
+                and not scene_layout_props[i].get("visualClearedByUser")
                 and i != _outro_idx
             ]
             for idx, filename in zip(open_slots, spare_videos):
@@ -1695,6 +1722,22 @@ def write_remotion_data(
                 )
 
     # Serialize modified descriptors back to scenes (single write per scene)
+    #
+    # THIS FUNCTION PERSISTS. It is named for writing data.json, but it also
+    # commits scene state — so anything above that mutates `scene_layout_props`
+    # changes the project, not just the render payload.
+    #
+    # `redistribute_images` is what separates the two callers, and any new
+    # assignment logic must respect it:
+    #   True   _generate_scenes — generation / regeneration / template change.
+    #          Visuals are being resolved for a new scene sequence; persisting
+    #          is the point.
+    #   False  _rebuild_workspace_sync — a plain re-render. Assignments are
+    #          already decided; this run should only READ them.
+    #
+    # Ignoring that distinction is a live bug, not a hypothetical: the
+    # spare-clip pass above used to run unconditionally, so every re-render put
+    # a clip the user had removed straight back into the scene they emptied.
     if dirty:
         is_custom = is_custom_template(template_id)
         for i in dirty:

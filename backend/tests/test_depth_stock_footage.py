@@ -2366,3 +2366,131 @@ def test_pixabay_search__overfetch_covers_the_whole_pool(monkeypatch):
     stock_footage._pixabay_search("q", stock_footage.AUTO_CANDIDATE_POOL_SIZE, 1, None)
 
     assert captured["per_page"] >= 80
+
+
+# ─── A removed clip stays removed ────────────────────────────────────────────
+#
+# Reported bug: unassign a stock clip from a scene, re-render, and the clip is
+# back. Two causes, both covered here.
+#
+# 1. `write_remotion_data` is not read-only — it commits scene descriptors. Its
+#    spare-clip pass ("re-place clips the project already owns") ran on EVERY
+#    call, including a plain re-render where nothing was released. The freed clip
+#    became a spare, the emptied scene looked like an open slot, and the pass put
+#    them back together — popping the user's hideImage marker on the way.
+#    Fixed by gating the pass on `redistribute_images`, the flag that already
+#    separates generation (True) from a plain re-render (False).
+#
+# 2. A REGENERATE legitimately re-places clips, so it needs to know the slot was
+#    emptied on purpose. `hideImage` cannot say that — Step 5 stamps it on every
+#    empty image-capable scene — hence the `visualClearedByUser` marker.
+
+
+def _run_write(project, db, tmp_path, monkeypatch, *, redistribute=False, ws="ws"):
+    from app.services import remotion as remotion_service
+
+    workspace = tmp_path / ws
+    (workspace / "public").mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(remotion_service, "provision_workspace", lambda *a, **k: str(workspace))
+    db.refresh(project)
+    remotion_service.write_remotion_data(
+        project,
+        db.query(Scene).filter(Scene.project_id == project.id).order_by(Scene.order).all(),
+        db,
+        redistribute_images=redistribute,
+    )
+    return json.loads((workspace / "public" / "data.json").read_text())
+
+
+def _clip_project(db, user, tmp_path, n_scenes=3):
+    """A project owning one clip that is NOT assigned to any scene."""
+    from app.models.asset import Asset, AssetType
+
+    project, scenes = _newscast_project(db, user, n_scenes=n_scenes)
+    clip = tmp_path / "freed.mp4"
+    clip.write_bytes(b"fake-mp4")
+    db.add(Asset(project_id=project.id, asset_type=AssetType.VIDEO,
+                 local_path=str(clip), filename="freed.mp4",
+                 duration_seconds=6.0, excluded=False))
+    db.commit()
+    return project, scenes
+
+
+def test_a_plain_rerender_does_not_assign_clips(db_session, paid_user, tmp_path, monkeypatch):
+    """THE BUG. A re-render must not hand out a clip the user just freed."""
+    project, scenes = _clip_project(db_session, paid_user, tmp_path)
+
+    _run_write(project, db_session, tmp_path, monkeypatch, redistribute=False)
+
+    for s in db_session.query(Scene).filter(Scene.project_id == project.id).all():
+        lp = json.loads(s.remotion_code)["layoutProps"]
+        assert not lp.get("assignedVideo"), "a plain re-render assigned a clip"
+
+
+def test_a_plain_rerender_does_not_change_stored_descriptors(
+    db_session, paid_user, tmp_path, monkeypatch
+):
+    """The root cause, stated directly: rendering must not rewrite the project.
+
+    Sharper than asserting on any single key — it catches the next thing that
+    starts persisting from the render path.
+    """
+    project, scenes = _clip_project(db_session, paid_user, tmp_path)
+
+    # Settle any first-run bookkeeping, then snapshot.
+    _run_write(project, db_session, tmp_path, monkeypatch, redistribute=False, ws="w1")
+    before = {
+        s.id: s.remotion_code
+        for s in db_session.query(Scene).filter(Scene.project_id == project.id).all()
+    }
+
+    _run_write(project, db_session, tmp_path, monkeypatch, redistribute=False, ws="w2")
+
+    after = {
+        s.id: s.remotion_code
+        for s in db_session.query(Scene).filter(Scene.project_id == project.id).all()
+    }
+    assert after == before, "a plain re-render mutated stored scene descriptors"
+
+
+def test_a_regenerate_still_places_owned_clips(db_session, paid_user, tmp_path, monkeypatch):
+    """The gate must not disable the behaviour the pass exists for.
+
+    A regenerate releases every clip against a brand-new scene sequence; those
+    clips are paid for and must be re-placed.
+    """
+    project, scenes = _clip_project(db_session, paid_user, tmp_path)
+
+    _run_write(project, db_session, tmp_path, monkeypatch, redistribute=True)
+
+    placed = [
+        json.loads(s.remotion_code)["layoutProps"].get("assignedVideo")
+        for s in db_session.query(Scene).filter(Scene.project_id == project.id).all()
+    ]
+    assert "freed.mp4" in placed, "a regenerate should re-place an owned clip"
+
+
+def test_a_regenerate_skips_a_slot_the_user_emptied(
+    db_session, paid_user, tmp_path, monkeypatch
+):
+    """`visualClearedByUser` is what survives a regenerate.
+
+    hideImage cannot carry this: Step 5 sets it on every empty image-capable
+    scene, so it says nothing about intent.
+    """
+    project, scenes = _clip_project(db_session, paid_user, tmp_path)
+
+    # Mark EVERY scene as user-cleared, so there is no slot the clip may take.
+    for s in db_session.query(Scene).filter(Scene.project_id == project.id).all():
+        desc = json.loads(s.remotion_code)
+        desc["layoutProps"]["visualClearedByUser"] = True
+        desc["layoutProps"]["hideImage"] = True
+        s.remotion_code = json.dumps(desc)
+    db_session.commit()
+
+    _run_write(project, db_session, tmp_path, monkeypatch, redistribute=True)
+
+    for s in db_session.query(Scene).filter(Scene.project_id == project.id).all():
+        lp = json.loads(s.remotion_code)["layoutProps"]
+        assert not lp.get("assignedVideo"), "a user-cleared slot was refilled"
+        assert lp.get("visualClearedByUser"), "the user's marker was dropped"
