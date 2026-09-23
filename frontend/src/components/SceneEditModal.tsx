@@ -7630,7 +7630,7 @@ export default function SceneEditModal({
                         {
                           exact: false,
                           label: "Rephrase with AI",
-                          desc: "AI lightly rephrases it to flow better when spoken.",
+                          desc: "AI lightly rephrases it to align better with overall context."
                         },
                       ] as const).map((opt) => {
                         const isActive = matchNarrationExactly === opt.exact;
