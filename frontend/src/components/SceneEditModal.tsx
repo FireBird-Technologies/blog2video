@@ -7140,13 +7140,13 @@ export default function SceneEditModal({
                 </h4>
                 {supportsImage ? (
                   <>
-                  {/* Two items per row on phones (grid), free-wrapping fixed-width
-                      row from sm up. Children keep their own w-20 at sm+; on
-                      mobile the grid cell drives width (see max-sm:w-full below). */}
-                  <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+                  {/* One free-wrapping row of fixed w-20 tiles at every width.
+                      Phones used a 2-col grid whose cells stretched each tile to
+                      half the modal — far wider than the tiles elsewhere. */}
+                  <div className="flex flex-wrap gap-2">
                     {/* Clip is being fetched + transcoded in the background. */}
                     {clipAssigning && (
-                      <div className="flex flex-col items-center justify-center gap-1 max-sm:w-full w-20 h-24 rounded-lg border-2 border-purple-300 bg-purple-50/60 flex-shrink-0">
+                      <div className="flex flex-col items-center justify-center gap-1 w-20 h-24 rounded-lg border-2 border-purple-300 bg-purple-50/60 flex-shrink-0">
                         <span className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
                         <span className="text-[9px] font-medium text-purple-600 uppercase tracking-wide">Clip</span>
                       </div>
@@ -7154,7 +7154,7 @@ export default function SceneEditModal({
                     {/* A stock clip occupies the scene's visual slot exclusively —
                         when one is set, the still thumbnails are not rendered. */}
                     {!clipAssigning && assignedVideoUrl && !selectedImageFile && !pendingExistingImage && (
-                      <div className="relative group rounded-lg overflow-hidden border-2 border-purple-400 max-sm:w-full w-20 h-24 flex-shrink-0 bg-black">
+                      <div className="relative group rounded-lg overflow-hidden border-2 border-purple-400 w-20 h-24 flex-shrink-0 bg-black">
                         {/* Plays the audio variant when unmuted so the clip is
                             actually audible here; falls back to the silent file.
                             volume is applied via ref since the attribute isn't
@@ -7233,7 +7233,7 @@ export default function SceneEditModal({
                       imageItems.map(({ url, asset }) => (
                       <div
                         key={asset.id}
-                        className="relative group rounded-lg overflow-hidden border border-gray-200/40 max-sm:w-full w-20 h-24 flex-shrink-0"
+                        className="relative group rounded-lg overflow-hidden border border-gray-200/40 w-20 h-24 flex-shrink-0"
                       >
                         <img
                           src={url}
@@ -7272,7 +7272,7 @@ export default function SceneEditModal({
                       </div>
                     ))}
                     {selectedImageFile && imagePreviewUrl && (
-                      <div className="relative group rounded-lg overflow-hidden border-2 border-purple-400 max-sm:w-full w-20 h-24 flex-shrink-0">
+                      <div className="relative group rounded-lg overflow-hidden border-2 border-purple-400 w-20 h-24 flex-shrink-0">
                         <img
                           src={imagePreviewUrl}
                           alt="New image"
@@ -7306,7 +7306,7 @@ export default function SceneEditModal({
                     {/* Staged existing image (reused, not yet saved). Preview + a ✕ to
                         cancel back to the current image. Committed on the modal's Save. */}
                     {pendingExistingImage && (
-                      <div className="relative group rounded-lg overflow-hidden border-2 border-purple-400 max-sm:w-full w-20 h-24 flex-shrink-0">
+                      <div className="relative group rounded-lg overflow-hidden border-2 border-purple-400 w-20 h-24 flex-shrink-0">
                         <img
                           src={pendingExistingImage.url}
                           alt="Replacement image"
@@ -7327,7 +7327,7 @@ export default function SceneEditModal({
                     )}
                     {imageGenerating ? (
                       <div
-                        className="flex items-center justify-center max-sm:w-full w-20 h-24 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50/50 text-purple-700"
+                        className="flex items-center justify-center w-20 h-24 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50/50 text-purple-700"
                         title="Generating image… this can take up to a minute"
                       >
                         <div className="w-6 h-6 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
@@ -7337,7 +7337,7 @@ export default function SceneEditModal({
                       type="button"
                       onClick={handleGenerateImageClick}
                       disabled={clipAssigning}
-                      className="group relative flex items-center justify-center max-sm:w-full w-20 h-24 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50/50 hover:bg-purple-100/50 transition-colors text-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="group relative flex items-center justify-center w-20 h-24 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50/50 hover:bg-purple-100/50 transition-colors text-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
                       title="Generate image with AI"
                     >
                       <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -7352,7 +7352,7 @@ export default function SceneEditModal({
                       type="button"
                       onClick={handleOpenImageSourceChooser}
                       disabled={clipAssigning}
-                      className="group relative flex flex-col items-center justify-center gap-1 max-sm:w-full w-20 h-24 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50/50 hover:bg-gray-100/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="group relative flex flex-col items-center justify-center gap-1 w-20 h-24 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50/50 hover:bg-gray-100/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       title="Add image"
                     >
                       <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -7365,7 +7365,7 @@ export default function SceneEditModal({
                         type="button"
                         onClick={handleChooseStockFootage}
                         disabled={clipAssigning}
-                        className="group relative flex flex-col items-center justify-center gap-1 max-sm:w-full w-20 h-24 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50/50 hover:bg-gray-100/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="group relative flex flex-col items-center justify-center gap-1 w-20 h-24 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50/50 hover:bg-gray-100/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Add stock footage"
                       >
                         <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
