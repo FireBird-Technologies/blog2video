@@ -11,7 +11,7 @@
  */
 
 import React from "react";
-import { useCurrentFrame } from "remotion";
+import { useCurrentFrame, useVideoConfig } from "remotion";
 import type { GeneratedSceneProps } from "../types";
 import { SceneFrame } from "./SceneFrame";
 import { useKit } from "./context";
@@ -85,15 +85,46 @@ export const DataChartScene: React.FC<GeneratedSceneProps> = (props) => {
   );
 };
 
-/** Table scene — title + themed CustomTable + optional footnote. */
+/** Table scene — title + themed CustomTable + optional footnote.
+ *
+ * A TABLE WANTS THE WHOLE FRAME. Two things used to stop it getting one, and
+ * both are corrected here rather than in the shared components:
+ *
+ *   * SceneFrame's content column is `alignItems: "center"`, so a child with no
+ *     explicit width SHRINK-WRAPS. This wrapper set none, so CustomTable's
+ *     `width: 100%` resolved against a shrink-to-fit parent and the table came
+ *     out narrow no matter what CustomTable asked for. Hence the explicit
+ *     width + alignSelf below.
+ *   * SceneFrame spends 8% horizontal padding per side — 16% of the frame — which
+ *     is right for prose and wasteful for a data grid. The `style` override
+ *     narrows it for THIS scene only (SceneFrame spreads `...style` last),
+ *     matching what the built-in SpotlightTable (4.5%/5%) and ChronicleTable
+ *     already do. The shared frame is untouched for every other scene.
+ */
 export const DataTableScene: React.FC<GeneratedSceneProps> = (props) => {
   const title = props.displayText || "The full picture";
+  // Same test SceneFrame itself uses — the dimension fallback matters, since a
+  // composition can be portrait without the prop saying so.
+  const { height, width } = useVideoConfig();
+  const isPortrait = props.aspectRatio === "portrait" || height > width;
   return (
-    <SceneFrame {...frameProps(props)} eyebrow="Breakdown">
+    <SceneFrame
+      {...frameProps(props)}
+      eyebrow="Breakdown"
+      style={{ padding: isPortrait ? "9% 5%" : "7% 4.5%" }}
+    >
       <DecorBg />
       <Title text={title} />
       <div
-        style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}
+        style={{
+          flex: 1,
+          minHeight: 0,
+          width: "100%",
+          alignSelf: "stretch",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+        }}
       >
         <CustomTable table={props.chartTable} />
       </div>

@@ -41,7 +41,7 @@ from app.models.social_publish_job import (
     STATUS_QUEUED,
     SocialPublishJob,
 )
-from app.models.user import User
+from app.models.user import PAID_TIERS, User
 from app.services import publish_queue, social_oauth, token_crypto
 from app.services.access import get_accessible_project
 
@@ -236,6 +236,12 @@ def _validate_platform(platform: str) -> str:
     if platform not in social_oauth.SUPPORTED_PLATFORMS:
         raise HTTPException(status_code=404, detail="Unknown platform")
     return platform
+
+
+# Publishing to these requires a paid plan. The frontend also hides the flow
+# behind an upgrade modal, but that gate is only cosmetic — a free user can post
+# to /publish directly, so the plan is enforced here too.
+PAID_ONLY_PUBLISH_PLATFORMS: frozenset[str] = frozenset({"youtube", "linkedin"})
 
 
 # Postgres raises ProgrammingError for an unknown relation, SQLite
@@ -755,6 +761,17 @@ async def publish_project(
     except social_oauth.OAuthConfigError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
 
+    # Before any connection or render work: a free user must not be able to
+    # start a paid-only upload by calling this endpoint directly.
+    if platform in PAID_ONLY_PUBLISH_PLATFORMS and user.plan not in PAID_TIERS:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "error_code": "upgrade_required",
+                "message": f"Publishing to {platform} requires a paid plan.",
+            },
+        )
+
     allowed_privacy = VALID_PRIVACY_BY_PLATFORM.get(platform, VALID_PRIVACY)
     if body.privacy_status not in allowed_privacy:
         raise HTTPException(status_code=400, detail="Invalid privacy setting")
@@ -969,6 +986,16 @@ def retry_publish(
     )
     if job is None:
         raise HTTPException(status_code=404, detail="Publish job not found")
+    # A retry starts a fresh upload, so it needs the same plan as the original
+    # publish did — the job may predate a downgrade.
+    if job.platform in PAID_ONLY_PUBLISH_PLATFORMS and user.plan not in PAID_TIERS:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "error_code": "upgrade_required",
+                "message": f"Publishing to {job.platform} requires a paid plan.",
+            },
+        )
     if job.status in ACTIVE_STATUSES:
         raise HTTPException(status_code=409, detail="This upload is still running.")
     if not job.retryable:

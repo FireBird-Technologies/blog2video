@@ -135,9 +135,21 @@ def test_an_unsalvageable_value_is_dropped_rather_than_stored() -> None:
 
 
 def test_every_content_type_has_an_entry() -> None:
-    """A type with no entry silently loses every prop it carries."""
-    assert set(FIELDS_BY_TYPE) == set(CONTENT_TYPES), (
+    """A type with no entry silently loses every prop it carries.
+
+    `dataviz` is the one entry NOT in CONTENT_TYPES, and deliberately so: that
+    taxonomy is what article sections are routed on, and the chart scene is
+    bound to a table instead. It still needs a field entry, because the template
+    editor renders its chart table from here.
+    """
+    from app.dspy_modules.design_doc import DATAVIZ_CONTENT_TYPE
+
+    assert set(FIELDS_BY_TYPE) == set(CONTENT_TYPES) | {DATAVIZ_CONTENT_TYPE}, (
         set(CONTENT_TYPES) ^ set(FIELDS_BY_TYPE)
+    )
+    assert DATAVIZ_CONTENT_TYPE not in CONTENT_TYPES, (
+        "dataviz must stay out of the routing taxonomy, or article prose can be "
+        "routed into the chart layout"
     )
 
 
@@ -227,9 +239,11 @@ def test_the_ending_contract_asks_for_the_link_to_be_drawn() -> None:
 
 
 def test_field_defs_cover_every_content_type() -> None:
+    from app.dspy_modules.design_doc import DATAVIZ_CONTENT_TYPE
     from app.services.scene_content_schema import FIELD_DEFS_BY_TYPE
 
-    assert set(FIELD_DEFS_BY_TYPE) == set(CONTENT_TYPES)
+    # Plus `dataviz` — see test_every_content_type_has_an_entry.
+    assert set(FIELD_DEFS_BY_TYPE) == set(CONTENT_TYPES) | {DATAVIZ_CONTENT_TYPE}
 
 
 def test_field_defs_and_key_names_cannot_disagree() -> None:
@@ -248,8 +262,10 @@ def test_every_field_def_is_renderable_by_the_editor() -> None:
     """The editor maps a fixed set of types; anything else silently renders nothing."""
     from app.services.scene_content_schema import FIELD_DEFS_BY_TYPE
 
+    # Must stay a subset of SceneEditModal's `FieldType` union. `chart_table` is
+    # the spreadsheet widget the built-in data-viz layouts already edit through.
     renderable = {"string", "text", "color", "number", "select",
-                  "string_array", "object_array"}
+                  "string_array", "object_array", "chart_table"}
     for ctype, defs in FIELD_DEFS_BY_TYPE.items():
         for f in defs:
             assert f.get("key"), (ctype, f)

@@ -146,3 +146,21 @@ export function useKit(): KitContextValue {
     variant: DEFAULT_VARIANT,
   };
 }
+
+/**
+ * Whether a real KitProvider is above this component.
+ *
+ * `useKit()` silently substitutes a DARK default palette when there is none,
+ * which is invisible rather than obviously broken: a component that themes
+ * itself from it draws near-white ink, so on a light brand it vanishes into the
+ * background instead of erroring. A generated scene that paints its own
+ * background and composes a kit component directly — with no SceneFrame — hits
+ * exactly that.
+ *
+ * Components that can accept brand colours directly use this to tell "themed by
+ * the scene" from "silently defaulted", and prefer the caller's colours in the
+ * second case. See CustomChart.
+ */
+export function useHasKitContext(): boolean {
+  return useContext(KitContext) !== null;
+}

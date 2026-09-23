@@ -29,6 +29,7 @@ import {
   getSceneDraft,
   getSceneDrafts,
   getSceneEditStatus,
+  setSceneChart,
   setSceneFontDefaultsBulk,
   updateCustomTemplate,
   type CustomTemplateItem,
@@ -36,6 +37,7 @@ import {
   type SceneFontSizes,
 } from "../api/client";
 import CustomPreview from "./templatePreviews/CustomPreview";
+import { CustomSelect } from "./CustomSelect";
 import { useAuth } from "../hooks/useAuth";
 import { formatAiEditCreditsDisplay } from "../lib/formatAiEditCredits";
 import { preloadBabel } from "../utils/compileComponent";
@@ -119,6 +121,17 @@ function imageCapabilityByKey(
 /** The "whole template" pseudo-scene. Not a real scene key, so every code path
  *  that regenerates or drafts a scene must exclude it. */
 const ALL_SCENES = "__all__";
+
+/** The kinds CustomChart can draw. "auto" lets it infer one from the labels —
+ *  a time series plots as a line, numeric bins as a histogram, named categories
+ *  as bars. Must stay in step with CHART_TYPES in
+ *  backend/app/services/scene_content_schema.py, which validates the write. */
+const CHART_KIND_OPTIONS = [
+  { value: "auto", label: "Auto (infer from data)" },
+  { value: "line", label: "Line" },
+  { value: "bar", label: "Bar" },
+  { value: "histogram", label: "Histogram" },
+];
 
 /** Credits one AI scene edit costs. MUST match SCENE_AI_EDIT_CREDIT_COST in
  *  backend/app/routers/custom_templates.py — this copy only drives what the
@@ -1283,6 +1296,52 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
 
   // The archetype metadata for the one scene being previewed, so its label and
   // best_for still drive the sample content CustomPreview feeds the component.
+  /* The selected scene's chart controls, present only on the template's own
+   * data-visualisation scene.
+   *
+   * That scene renders <CustomChart>, which picks line/bar/histogram from the
+   * data unless chartType names one. The kind is part of the TEMPLATE's design
+   * — "this brand plots bars" — so it is edited here rather than per video, and
+   * is stored with the scene's sample copy.
+   *
+   * Identified by the archetype's content_type, the same key the render path
+   * binds the chart scene on. */
+  const chartSceneKind = useMemo<string | null>(() => {
+    const m = /^content_(\d+)$/.exec(selected);
+    if (!m) return null;
+    const raw = template.content_archetype_ids?.[Number(m[1])];
+    const isChart = typeof raw === "object" && raw?.content_type === "dataviz";
+    if (!isChart) return null;
+    const sample = template.scene_sample_content?.content?.[Number(m[1])] as
+      | { chartType?: string }
+      | null
+      | undefined;
+    // "auto" is the honest default: with no stored kind CustomChart infers one.
+    return sample?.chartType ?? "auto";
+  }, [selected, template.content_archetype_ids, template.scene_sample_content]);
+
+  const [savingChart, setSavingChart] = useState(false);
+  const [chartError, setChartError] = useState<string | null>(null);
+
+  const handleChartTypeChange = useCallback(
+    async (kind: "auto" | "line" | "bar" | "histogram") => {
+      if (savingChart) return;
+      setSavingChart(true);
+      setChartError(null);
+      try {
+        const res = await setSceneChart(template.id, selected, { chartType: kind });
+        onTemplateUpdated(res.data);
+      } catch {
+        // The preview still shows the previous kind, so say so rather than
+        // leaving the select looking as though it took.
+        setChartError("Could not save the chart type. Try again.");
+      } finally {
+        setSavingChart(false);
+      }
+    },
+    [savingChart, template.id, selected, onTemplateUpdated],
+  );
+
   const previewArchetypes = useMemo(() => {
     // All-scenes mode passes the FULL list — the codes are index-matched to it,
     // so handing over one entry (or none) would feed every scene the wrong
@@ -2180,6 +2239,67 @@ export default function TemplateSceneEditor({ template, onClose, onTemplateUpdat
                 {savingTemplate ? "Saving…" : "Save changes"}
               </button>
             </div>
+
+            {/* Chart kind, on the data-visualisation scene only.
+                One scene draws all three kinds — the data decides unless this
+                names one — so this is a property of the scene, not a separate
+                layout to pick. */}
+            {chartSceneKind !== null && (
+              <div className="border-t border-gray-100 pt-4">
+                {/* A span, not a <label>: CustomSelect's trigger is a button,
+                    which htmlFor cannot bind to. The control carries its own
+                    aria-label instead. */}
+                <div className="mb-1.5 flex items-center gap-2">
+                  <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+                    Chart type
+                  </span>
+                  {savingChart && (
+                    <svg
+                      className="h-3 w-3 animate-spin text-violet-500"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      aria-hidden="true"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                      />
+                    </svg>
+                  )}
+                  {/* Announced for screen readers, which never see the spinner. */}
+                  <span className="sr-only" role="status" aria-live="polite">
+                    {savingChart ? "Saving chart type" : ""}
+                  </span>
+                </div>
+                <CustomSelect
+                  ariaLabel="Chart type"
+                  value={chartSceneKind}
+                  disabled={savingChart}
+                  options={CHART_KIND_OPTIONS}
+                  onChange={(v) =>
+                    handleChartTypeChange(
+                      v as "auto" | "line" | "bar" | "histogram",
+                    )
+                  }
+                />
+                {/* Only the ERROR gets a line here. The control is
+                    self-explanatory, and the standing hint said nothing the
+                    label does not — it just took two lines to do it. Saving
+                    shows as a spinner beside the label, so nothing reflows. */}
+                {chartError && (
+                  <p className="mt-1.5 text-xs text-red-600">{chartError}</p>
+                )}
+              </div>
+            )}
 
             {/* Per-scene AI editing. Hidden in All-scenes mode: there is no one
                 scene to regenerate, and offering the prompt there would beg the

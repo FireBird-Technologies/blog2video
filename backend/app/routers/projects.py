@@ -726,6 +726,92 @@ def _apply_default_focus(lp: dict) -> None:
     lp["imageFocusY"] = _clamp_image_focus(lp.get("imageFocusY", 50))
 
 
+# "The USER emptied this scene's visual slot", as opposed to "it happens to be
+# empty".
+#
+# `hideImage` cannot answer that question: write_remotion_data Step 5 stamps it
+# automatically on EVERY empty image-capable scene, so by the time any
+# assignment pass runs, a slot the user deliberately cleared is indistinguishable
+# from one the machine just flagged. An auto-assign that honoured `hideImage`
+# alone would either undo the user's choice or never fill a legitimately empty
+# scene.
+#
+# Only a deliberate user removal writes this, and only a deliberate user
+# assignment clears it — see _mark_visual_cleared_by_user / _clear_visual_cleared_by_user.
+VISUAL_CLEARED_BY_USER = "visualClearedByUser"
+
+
+def _mark_visual_cleared_by_user(lp: dict) -> None:
+    """Record that the user emptied this visual slot on purpose."""
+    lp[VISUAL_CLEARED_BY_USER] = True
+
+
+def _clear_visual_cleared_by_user(lp: dict) -> None:
+    """Drop the marker — the user has deliberately filled the slot again."""
+    lp.pop(VISUAL_CLEARED_BY_USER, None)
+
+
+def _exclude_freed_clip(db, project_id: int, filename: str) -> None:
+    """Take a user-removed clip out of the assignment pool, project-wide.
+
+    Removing a clip only edits the scene descriptor; the Asset row survives, so
+    the file stays in `all_video_files` and a later regenerate can place it in a
+    different scene. `excluded` is the flag the codebase already uses to hold an
+    asset back (the media picker toggles the same one), and every pool build
+    filters on it — so setting it is what makes "removed" mean removed.
+
+    Reversible: re-assigning the clip from the picker un-excludes it. Never
+    raises — a failure here must not take down the scene save that triggered it.
+    """
+    from app.models.asset import Asset, AssetType
+
+    try:
+        asset = (
+            db.query(Asset)
+            .filter(
+                Asset.project_id == project_id,
+                Asset.filename == filename,
+                Asset.asset_type == AssetType.VIDEO,
+            )
+            .first()
+        )
+        if asset and not asset.excluded:
+            asset.excluded = True
+    except Exception:  # noqa: BLE001
+        logger.exception(
+            "[SCENE-UPDATE] could not exclude freed clip %s on project %s",
+            filename, project_id,
+        )
+
+
+def _unexclude_assigned_clip(db, project_id: int, filename: str) -> None:
+    """Put a clip back in the pool because the user assigned it to a scene.
+
+    The inverse of _exclude_freed_clip. Without it a clip removed once would
+    render on the scene it was just assigned to while staying filtered out of
+    every pool build — and could never be placed again.
+    """
+    from app.models.asset import Asset, AssetType
+
+    try:
+        asset = (
+            db.query(Asset)
+            .filter(
+                Asset.project_id == project_id,
+                Asset.filename == filename,
+                Asset.asset_type == AssetType.VIDEO,
+            )
+            .first()
+        )
+        if asset and asset.excluded:
+            asset.excluded = False
+    except Exception:  # noqa: BLE001
+        logger.exception(
+            "[SCENE-UPDATE] could not un-exclude clip %s on project %s",
+            filename, project_id,
+        )
+
+
 def _clear_image_assignment(lp: dict) -> None:
     lp.pop("assignedImage", None)
     lp.pop("imageFocusX", None)
@@ -4352,6 +4438,24 @@ def update_scene(
             try:
                 parsed_descriptor = json.loads(value)
                 if isinstance(parsed_descriptor, dict):
+                    # A filled slot and "the user emptied this" cannot both be
+                    # true. The marker is normally cleared by whichever endpoint
+                    # made the assignment, but this path takes a whole descriptor
+                    # from the client — so reconcile it here rather than trusting
+                    # every caller to. A stale marker would make the scene look
+                    # user-cleared to the clip pass while visibly carrying a
+                    # visual.
+                    _lp = parsed_descriptor.get("layoutProps")
+                    if isinstance(_lp, dict) and (
+                        _lp.get("assignedVideo") or _lp.get("assignedImage")
+                    ):
+                        _clear_visual_cleared_by_user(_lp)
+                        # Symmetric with _exclude_freed_clip: assigning a clip
+                        # the user previously removed must put it back in play,
+                        # or it would render here while still being filtered out
+                        # of every pool — and could never be used again.
+                        if _lp.get("assignedVideo"):
+                            _unexclude_assigned_clip(db, project_id, _lp["assignedVideo"])
                     value = json.dumps(_sanitize_descriptor_for_data_viz(parsed_descriptor))
                     # Skip when the descriptor is semantically unchanged: the frontend
                     # always re-sends remotion_code even for a title-only edit, and
@@ -4366,6 +4470,29 @@ def update_scene(
                     new_parsed = json.loads(value)
                     if old_parsed == new_parsed:
                         continue
+
+                    # A CLIP THE USER JUST REMOVED LEAVES THE POOL ENTIRELY.
+                    #
+                    # Removing a clip only edits the descriptor — the Asset row
+                    # survives, so the file stays in `all_video_files` and a
+                    # later regenerate can drop it into some other scene. Per
+                    # product decision a removed clip should not reappear
+                    # anywhere, so mark it excluded (the flag the media picker
+                    # already uses, honoured wherever the pools are built).
+                    #
+                    # Only when the user actually cleared the slot: an edit that
+                    # SWAPS one clip for another must not exclude the outgoing
+                    # one, or swapping would quietly retire clips.
+                    _old_lp = (old_parsed or {}).get("layoutProps") if isinstance(old_parsed, dict) else None
+                    _new_lp = new_parsed.get("layoutProps") if isinstance(new_parsed, dict) else None
+                    if isinstance(_old_lp, dict) and isinstance(_new_lp, dict):
+                        _freed = _old_lp.get("assignedVideo")
+                        if (
+                            _freed
+                            and not _new_lp.get("assignedVideo")
+                            and _new_lp.get(VISUAL_CLEARED_BY_USER)
+                        ):
+                            _exclude_freed_clip(db, project_id, _freed)
             except Exception:
                 pass
 
@@ -4811,6 +4938,7 @@ async def update_scene_image(
     _clear_video_assignment(layout_props)
     layout_props["assignedImage"] = image_filename
     layout_props.pop("hideImage", None)
+    _clear_visual_cleared_by_user(layout_props)
     _apply_default_focus(layout_props)
     scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(descriptor))
 
@@ -6887,6 +7015,7 @@ def move_scene_image(
 
     to_lp["assignedImage"] = assigned
     to_lp["hideImage"] = False
+    _clear_visual_cleared_by_user(to_lp)
     to_lp["imageFocusX"] = _clamp_image_focus(from_lp.get("imageFocusX", 50))
     to_lp["imageFocusY"] = _clamp_image_focus(from_lp.get("imageFocusY", 50))
     _clear_image_assignment(from_lp)
@@ -6939,6 +7068,7 @@ def swap_scene_images(
     if second_assigned:
         first_lp["assignedImage"] = second_assigned
         first_lp["hideImage"] = False
+        _clear_visual_cleared_by_user(first_lp)
         first_lp["imageFocusX"], first_lp["imageFocusY"] = second_focus
     else:
         _clear_image_assignment(first_lp)
@@ -6947,6 +7077,7 @@ def swap_scene_images(
     if first_assigned:
         second_lp["assignedImage"] = first_assigned
         second_lp["hideImage"] = False
+        _clear_visual_cleared_by_user(second_lp)
         second_lp["imageFocusX"], second_lp["imageFocusY"] = first_focus
     else:
         _clear_image_assignment(second_lp)
@@ -6999,6 +7130,7 @@ def duplicate_scene_image(
 
     target_lp["assignedImage"] = source_filename
     target_lp["hideImage"] = False
+    _clear_visual_cleared_by_user(target_lp)
     target_lp["imageFocusX"] = _clamp_image_focus(source_lp.get("imageFocusX", 50))
     target_lp["imageFocusY"] = _clamp_image_focus(source_lp.get("imageFocusY", 50))
     target_scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(target_desc))
@@ -7050,6 +7182,7 @@ def assign_existing_image_to_scene(
     _clear_video_assignment(target_lp)
     target_lp["assignedImage"] = source_asset.filename
     target_lp["hideImage"] = False
+    _clear_visual_cleared_by_user(target_lp)
     target_lp["imageFocusX"] = 50
     target_lp["imageFocusY"] = 50
     target_scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(target_desc))
@@ -8083,6 +8216,7 @@ async def regenerate_scene(
             lp = descriptor["layoutProps"]
             lp["assignedImage"] = image_filename
             lp["hideImage"] = False
+            _clear_visual_cleared_by_user(lp)
             lp.pop("imageUrl", None)
             lp["imageFocusX"] = _clamp_image_focus((current_descriptor or {}).get("layoutProps", {}).get("imageFocusX", 50))
             lp["imageFocusY"] = _clamp_image_focus((current_descriptor or {}).get("layoutProps", {}).get("imageFocusY", 50))

@@ -1170,3 +1170,208 @@ def generate_chart_props_from_table_hints(
     if not best_table:
         return {}
     return _build_chart_props_from_table(best_table)
+
+
+# ─── Scene copy for the custom data-viz scenes ───────────────────────────────
+#
+# Every ordinary scene gets its on-screen copy from DisplayTextGenerator, an LLM
+# pass over the scene's content. The custom chart/table scenes are INJECTED after
+# that pass (pipeline._build_custom_dataviz_scenes), so they never reach it — and
+# the injection used to reuse the hardcoded title as the display text, leaving
+# both fields holding one string. The renderer then correctly blanks the
+# duplicate, so the scene showed a single generic line where every other scene
+# shows two.
+#
+# These build the copy instead, from the table itself. Deterministic on purpose:
+# the built-in chart scenes caption themselves the same way, it adds no latency
+# or cost, and a figure that comes from the bound rows cannot be invented.
+
+# First-column headers too generic to make a title noun. They are perfectly good
+# AXIS labels ("Category" under the x-axis reads fine); they just make a poor
+# subject — "Related breakdown" and "Category by Price" are worse than the plain
+# fallbacks, so these route to the generic title instead.
+_WEAK_HEADERS = frozenset({
+    "", "#", "id", "index", "no", "no.", "sr", "sr.", "rank",
+    "related", "category", "categories", "name", "names", "item", "items",
+    "label", "labels", "type", "types", "field", "fields",
+    "metric", "metrics", "value", "values", "data", "col 1", "column 1",
+})
+
+# What the scenes were titled before this existed. Still the fallback whenever
+# the table gives nothing better, so a weak table is never made worse.
+_DEFAULT_CHART_TITLE = "By the numbers"
+_DEFAULT_TABLE_TITLE = "The full breakdown"
+
+
+def _is_weak_header(header: str) -> bool:
+    return str(header or "").strip().lower() in _WEAK_HEADERS
+
+
+def _sentence_case(text: str) -> str:
+    """Capitalise the first letter, leaving the rest as the source wrote it.
+
+    `.title()` would mangle real headers ("BBL/D/1K" -> "Bbl/D/1K"), so only the
+    leading character is touched.
+    """
+    s = str(text or "").strip()
+    return s if not s or s[:1].isupper() else s[:1].upper() + s[1:]
+
+
+def _format_chart_value(value: float) -> str:
+    """Compact figure for scene copy. Mirrors formatCompact1dp in chartData.ts."""
+    if abs(value) >= 1_000_000:
+        return f"{value / 1_000_000:.1f}M".replace(".0M", "M")
+    if abs(value) >= 1_000:
+        return f"{value / 1_000:.1f}K".replace(".0K", "K")
+    return f"{value:g}"
+
+
+def build_dataviz_scene_copy(
+    props: dict[str, Any], is_table: bool = False
+) -> tuple[str, str]:
+    """(title, display_text) for one injected data-viz scene.
+
+    `props` is a `_build_chart_props_from_table` result — its `chartTable` plus
+    the `subtitle` / `yAxisLabel` already derived from the real column names.
+
+    Returns the generic strings when the table has nothing usable, so this can
+    never produce worse copy than the hardcoded pair it replaces. The two fields
+    are always DIFFERENT: a scene whose title and display text match renders as
+    one line, which is the defect this exists to fix.
+    """
+    table = props.get("chartTable") if isinstance(props, dict) else None
+    table = table if isinstance(table, dict) else {}
+    headers = [_clean_text_cell(h) for h in (table.get("headers") or [])]
+    headers = [h for h in headers if h]
+    rows = [r for r in (table.get("rows") or []) if isinstance(r, list)]
+
+    x_label = _sentence_case(props.get("subtitle") or (headers[0] if headers else ""))
+    y_label = _sentence_case(
+        props.get("yAxisLabel") or (headers[1] if len(headers) > 1 else "")
+    )
+    n = len(rows)
+
+    if is_table:
+        title = (
+            f"{x_label} in full"
+            if x_label and not _is_weak_header(x_label)
+            else _DEFAULT_TABLE_TITLE
+        )
+        value_cols = headers[1:]
+        # "All 1 rows" reads as a bug to a viewer, so singular gets its own shape.
+        subject = "Every row" if n == 1 else f"All {n} rows"
+        if n and len(value_cols) > 1:
+            listed = ", ".join(value_cols[:-1])
+            display = f"{subject}, with {listed} and {value_cols[-1]}."
+        elif n and value_cols:
+            display = f"{subject}, with {value_cols[0]}."
+        elif n:
+            display = f"{subject} in full."
+        else:
+            display = "Every figure behind the story."
+        return title, display
+
+    # ── Chart ──
+    if y_label and not _is_weak_header(y_label):
+        title = (
+            f"{y_label} by {x_label}"
+            if x_label and not _is_weak_header(x_label)
+            else f"{y_label} at a glance"
+        )
+    else:
+        title = _DEFAULT_CHART_TITLE
+
+    # Cite the data's real range, the way buildAutoChartSummary does on the TS
+    # side — it is the one line that could not have been written without the
+    # article's own figures.
+    pairs: list[tuple[str, float]] = []
+    for row in rows:
+        if len(row) < 2:
+            continue
+        label = _clean_text_cell(row[0])
+        value = _parse_number(row[1])
+        if label and value is not None:
+            pairs.append((label, value))
+
+    # COUNT WHAT THE CHART ACTUALLY PLOTS, not what the table holds.
+    #
+    # A bar chart drops every row with a negative value
+    # (filterBarChartNonNegativeRows in _shared/chartData.ts), so a 6-row table
+    # with 3 negatives renders 3 bars. Saying "across 6 entries" under a chart
+    # showing 3 reads as a bug in the chart. Line and histogram plot every row.
+    if str(props.get("chartType") or "").strip().lower() == "bar":
+        pairs = [p for p in pairs if p[1] >= 0]
+
+    if len(pairs) >= 2:
+        lo_label, lo = min(pairs, key=lambda p: p[1])
+        hi_label, hi = max(pairs, key=lambda p: p[1])
+        # The fallback noun has to agree with the singular verbs below —
+        # "Values ranges from" reads as broken English.
+        measure = y_label if y_label and not _is_weak_header(y_label) else "The range"
+        if lo == hi:
+            display = f"{measure} holds at {_format_chart_value(hi)} across {len(pairs)} entries."
+        else:
+            display = (
+                f"{measure} runs from {_format_chart_value(lo)} at {lo_label} "
+                f"to {_format_chart_value(hi)} at {hi_label}, across {len(pairs)} entries."
+            )
+    elif len(pairs) == 1:
+        label, value = pairs[0]
+        measure = y_label if y_label and not _is_weak_header(y_label) else "Value"
+        display = f"{measure} at {label}: {_format_chart_value(value)}."
+    else:
+        display = "Here's what the figures show at a glance."
+
+    return title, display
+
+
+def build_dataviz_chart_caption(props: dict[str, Any]) -> str:
+    """A short caption for the chart scene's `chartSummary`, or "".
+
+    WHY THIS EXISTS. Generated chart scenes commonly write
+
+        const caption = props.chartSummary ?? props.displayText;
+
+    and then render BOTH the display text and that caption. `chartSummary` was
+    never populated on the custom path — `_build_chart_props_from_table` does not
+    produce one, and only the built-in templates fill it (via an LLM caption in
+    TemplateSceneGenerator) — so the fallback fired every time and the scene
+    printed the same sentence twice.
+
+    This gives the slot real content instead. Deterministic, and deliberately a
+    DIFFERENT fact from the display text (which states the range): here it is
+    what is plotted and how, so the two lines complement rather than repeat.
+    Returns "" when the table says nothing worth captioning, which leaves the
+    scene to its own fallback.
+    """
+    table = props.get("chartTable") if isinstance(props, dict) else None
+    table = table if isinstance(table, dict) else {}
+    headers = [_clean_text_cell(h) for h in (table.get("headers") or [])]
+    headers = [h for h in headers if h]
+    rows = [r for r in (table.get("rows") or []) if isinstance(r, list)]
+    if not rows or len(headers) < 2:
+        return ""
+
+    x_label = _sentence_case(props.get("subtitle") or headers[0])
+    kind = str(props.get("chartType") or "").strip().lower()
+    shape = {
+        "line": "Plotted as a trend",
+        "histogram": "Plotted as a distribution",
+        "bar": "Compared side by side",
+    }.get(kind, "Plotted")
+
+    # Same correction as the display text: a bar chart omits negative rows, so
+    # count the bars that are actually drawn.
+    if kind == "bar":
+        rows = [
+            r for r in rows
+            if len(r) > 1 and (_parse_number(r[1]) or 0) >= 0
+        ]
+        if not rows:
+            return ""
+
+    n = len(rows)
+    noun = "entry" if n == 1 else "entries"
+    if x_label and not _is_weak_header(x_label):
+        return f"{shape} across {n} {x_label.lower()} {noun}."
+    return f"{shape} across {n} {noun}."

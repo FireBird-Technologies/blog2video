@@ -238,6 +238,35 @@ def _resolve_custom_scene_types(
                 out[idx]["contentVariantIndex"] = content_idx % num_variants
                 content_idx += 1
 
+    # Bind the CHART scene to the template's own data-visualisation variant.
+    #
+    # Since that layout became a required design role, a template generates a
+    # chart scene of its own — designed in its visual language, composing
+    # <CustomChart> for the plot. It is a content variant like any other, but it
+    # is never reached by archetype matching: "dataviz" is deliberately absent
+    # from CONTENT_TYPES so article prose can never be routed into it. So the
+    # binding is made explicitly here, by finding the variant whose archetype
+    # declares that content type.
+    #
+    # A template generated BEFORE this has no such variant; the index stays None
+    # and GeneratedVideo falls back to the generic kit scene.
+    _dataviz_variant = next(
+        (
+            i
+            for i, arch in enumerate(archetype_ids)
+            if isinstance(arch, dict) and arch.get("content_type") == "dataviz"
+        ),
+        None,
+    )
+    if _dataviz_variant is not None and _dataviz_variant < num_variants:
+        for idx in range(total):
+            if out[idx]["sceneType"] == "dataviz_chart" and idx not in overrides:
+                out[idx]["contentVariantIndex"] = _dataviz_variant
+                arch = archetype_ids[_dataviz_variant]
+                out[idx]["contentArchetype"] = (
+                    arch["id"] if isinstance(arch, dict) else arch
+                )
+
     # Explicit overrides win outright, applied last.
     for idx, variant in overrides.items():
         out[idx]["contentVariantIndex"] = variant % num_variants
@@ -1602,7 +1631,26 @@ def write_remotion_data(
     #
     # Deliberately OUTSIDE the `all_image_files` block: a project can own clips
     # and no images at all, and those clips must still be placed.
-    if scenes and all_video_files:
+    #
+    # GATED ON `redistribute_images` — A PLAIN RE-RENDER MUST NOT RE-ASSIGN.
+    #
+    # This pass only has work to do after a REGENERATE, where the block at
+    # ~line 1364 has just released every clip and they need re-placing against a
+    # brand-new scene sequence. On a plain re-render nothing was released, so
+    # every assignment it makes is a change to state the render was only meant to
+    # READ — and `write_remotion_data` commits, so those changes persist.
+    #
+    # That is how removing a clip stopped sticking: the freed clip fell out of
+    # `placed_videos`, became a spare, and the `open_slots` filter below put it
+    # straight back into the scene the user had just emptied (popping their
+    # hideImage marker on the way). Every render repeated it.
+    #
+    # `redistribute_images` is the flag that already separates the two callers —
+    # True from _generate_scenes (generation / regen / template change), False
+    # from _rebuild_workspace_sync (plain re-render). It was previously consulted
+    # only for the spare-clip SORT ORDER a few lines below, never to decide
+    # whether the pass should run at all.
+    if scenes and all_video_files and redistribute_images:
         placed_videos = {
             scene_layout_props[i].get("assignedVideo") for i in video_scene_indices
         }
@@ -1645,6 +1693,14 @@ def write_remotion_data(
                 and scene_base_layouts[i] not in no_image_layouts
                 and not scene_image_map[i]
                 and not scene_layout_props[i].get("assignedImage")
+                # A slot the USER emptied is not an open slot. The gate above
+                # already stops a plain re-render from getting here, but a
+                # regenerate legitimately re-places clips — and it must not
+                # resurrect one the user deliberately removed. `hideImage` cannot
+                # be used for this: Step 5 sets it on every empty image-capable
+                # scene, so it says nothing about intent. See
+                # projects.VISUAL_CLEARED_BY_USER.
+                and not scene_layout_props[i].get("visualClearedByUser")
                 and i != _outro_idx
             ]
             for idx, filename in zip(open_slots, spare_videos):
@@ -1666,6 +1722,22 @@ def write_remotion_data(
                 )
 
     # Serialize modified descriptors back to scenes (single write per scene)
+    #
+    # THIS FUNCTION PERSISTS. It is named for writing data.json, but it also
+    # commits scene state — so anything above that mutates `scene_layout_props`
+    # changes the project, not just the render payload.
+    #
+    # `redistribute_images` is what separates the two callers, and any new
+    # assignment logic must respect it:
+    #   True   _generate_scenes — generation / regeneration / template change.
+    #          Visuals are being resolved for a new scene sequence; persisting
+    #          is the point.
+    #   False  _rebuild_workspace_sync — a plain re-render. Assignments are
+    #          already decided; this run should only READ them.
+    #
+    # Ignoring that distinction is a live bug, not a hypothetical: the
+    # spare-clip pass above used to run unconditionally, so every re-render put
+    # a clip the user had removed straight back into the scene they emptied.
     if dirty:
         is_custom = is_custom_template(template_id)
         for i in dirty:
@@ -1754,9 +1826,14 @@ def write_remotion_data(
                     _fields = _schemas.get("intro") or []
                 elif _stype == "outro" or (not _stype and _idx == _n - 1):
                     _fields = _schemas.get("outro") or []
-                elif _stype in ("dataviz_chart", "dataviz_table"):
-                    # Rendered by the deterministic kit, not by generated code,
-                    # so it declares no layout props of its own.
+                elif _stype in ("dataviz_chart", "dataviz_table") and not isinstance(
+                    _rt.get("contentVariantIndex"), int
+                ):
+                    # The GENERIC kit scene (DataChartScene/DataTableScene) —
+                    # rendered deterministically, not by generated code, so it
+                    # declares no layout props of its own. A template's OWN chart
+                    # scene DOES have a variant index and falls through below,
+                    # where it resolves its schema like any other content scene.
                     _fields = []
                 else:
                     _ci = _rt.get("contentVariantIndex")
@@ -1783,13 +1860,21 @@ def write_remotion_data(
                         _fd_entry = _font_defaults.get("intro")
                     elif _stype == "outro" or (not _stype and _idx == _n - 1):
                         _fd_entry = _font_defaults.get("outro")
-                    elif _stype not in ("dataviz_chart", "dataviz_table"):
-                        _fd_list = _font_defaults.get("content") or []
+                    else:
                         _ci2 = _rt.get("contentVariantIndex")
-                        if not isinstance(_ci2, int) or _ci2 < 0:
-                            _ci2 = _idx - 1
-                        if 0 <= _ci2 < len(_fd_list):
-                            _fd_entry = _fd_list[_ci2]
+                        _is_kit_dataviz = _stype in (
+                            "dataviz_chart",
+                            "dataviz_table",
+                        ) and not isinstance(_ci2, int)
+                        # The generic kit scene has no entry of its own and must
+                        # not borrow a neighbour's. A template's own chart scene
+                        # is a real content variant and resolves normally.
+                        if not _is_kit_dataviz:
+                            _fd_list = _font_defaults.get("content") or []
+                            if not isinstance(_ci2, int) or _ci2 < 0:
+                                _ci2 = _idx - 1
+                            if 0 <= _ci2 < len(_fd_list):
+                                _fd_entry = _fd_list[_ci2]
                 if isinstance(_fd_entry, dict):
                     for _prop, _key in (
                         ("title", "titleFontSize"),

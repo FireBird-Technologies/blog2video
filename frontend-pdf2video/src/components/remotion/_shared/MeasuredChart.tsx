@@ -36,7 +36,30 @@ export const MeasuredChart: React.FC<{ children: React.ReactElement }> = ({ chil
       // (shrunken) size — which would make the chart fill only a fraction of the
       // panel. clientWidth/clientHeight are unaffected by CSS transforms, so the
       // chart gets its true coordinate-space size in both preview and render.
-      setSize({ w: el.clientWidth, h: el.clientHeight });
+      let w = el.clientWidth;
+      let h = el.clientHeight;
+
+      // A ZERO MEASUREMENT MUST NOT BLANK THE CHART SILENTLY.
+      //
+      // Returning null on a zero size is invisible: the scene renders its title,
+      // panel and caption, and only the plot is missing — which reads as "the
+      // data never arrived" and sends you looking in entirely the wrong place.
+      // It happens whenever an ancestor collapses this element, e.g. a chart
+      // wrapped in a flex container (see CustomChart's root note).
+      //
+      // Walk up to the nearest ancestor that HAS a size and use that instead.
+      // The chart is absolutely positioned within its parent, so borrowing the
+      // parent's box is the right size in the case this recovers.
+      if (w <= 0 || h <= 0) {
+        let parent = el.parentElement;
+        while (parent && (w <= 0 || h <= 0)) {
+          if (w <= 0) w = parent.clientWidth || parent.offsetWidth || 0;
+          if (h <= 0) h = parent.clientHeight || parent.offsetHeight || 0;
+          parent = parent.parentElement;
+        }
+      }
+
+      setSize({ w, h });
     }
     continueRender(handle);
   }, [handle]);

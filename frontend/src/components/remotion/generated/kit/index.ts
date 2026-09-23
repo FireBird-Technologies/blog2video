@@ -57,7 +57,7 @@ export {
 } from "./motion";
 
 // Theme context
-export { KitProvider, EyebrowSizeProvider, KitVariantProvider, useKit, colorsFromBrand, type KitFonts, type KitContextValue } from "./context";
+export { KitProvider, EyebrowSizeProvider, KitVariantProvider, useKit, useHasKitContext, colorsFromBrand, type KitFonts, type KitContextValue } from "./context";
 
 // Structural variants — which arrangement content components render.
 export {

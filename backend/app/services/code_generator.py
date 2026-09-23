@@ -29,13 +29,18 @@ from app.dspy_modules import (
     get_scene_type_lm,
 )
 from app.dspy_modules.design_doc import (
+    DATAVIZ_CONTENT_TYPE,
     MAX_SCENES,
     fallback_design_docs,
     generate_design_docs,
 )
 from app.models.custom_template import CustomTemplate
 from app.services.scene_code_critic import critique_scene_code
-from app.services.scene_content_schema import FIELDS_BY_TYPE, coerce_field
+from app.services.scene_content_schema import (
+    FIELDS_BY_TYPE,
+    SAMPLE_CHART_TABLE,
+    coerce_field,
+)
 from app.services.code_validator import (
     clean_code,
     validate_component_code,
@@ -2773,6 +2778,20 @@ class GenerateSceneSampleContent(dspy.Signature):
       comparison  comparisonLeft + comparisonRight, each {"label","description"}
       timeline    timelineItems: 3-4 {"label","description"}
       code        codeLines: 4-6 lines + codeLanguage
+      dataviz     chartTable + chartType (+ optional chartSummary caption).
+                  chartTable is {"headers": [...], "rows": [[...], ...]}:
+                  column 1 is the X-axis LABEL, columns 2-4 are NUMERIC series.
+                  Give it 4-6 rows and 2-3 columns, with every cell a string.
+                  WRITE REAL FIGURES ABOUT THIS BRAND'S OWN SUBJECT — a payments
+                  brand plots transaction volume by quarter, a cycling brand
+                  plots riders by route. Never "Category A / Category B", never
+                  "Q1 Revenue" for a brand that has nothing to do with revenue.
+                  Every value in a series column MUST parse as a number (write
+                  "1200", not "1.2k" or "~1200"); units belong in the HEADER.
+                  chartType is one of auto|line|bar|histogram — pick the one the
+                  data suits: line for a time series (quarters, months, years),
+                  histogram for numeric ranges ("0-10", "10-20"), bar for named
+                  categories. When unsure use "auto".
 
     Output ONE JSON object with EXACTLY TWO text fields:
       sceneTitle     THE SCENE'S TITLE — EXACTLY 5 TO 7 WORDS. Count them. A
@@ -2791,7 +2810,7 @@ class GenerateSceneSampleContent(dspy.Signature):
 
     brand_context: str = dspy.InputField(desc="The brand's identity, category and subject matter.")
     scene_doc: str = dspy.InputField(desc="This scene's design document — what it is FOR and how it is laid out.")
-    content_type: str = dspy.InputField(desc="plain|bullets|steps|metrics|code|quote|comparison|timeline")
+    content_type: str = dspy.InputField(desc="plain|bullets|steps|metrics|code|quote|comparison|timeline|dataviz")
     sample_json: str = dspy.OutputField(desc="One JSON object of on-screen copy for this scene.")
 
 
@@ -2863,6 +2882,15 @@ def _parse_sample_content(raw: str, content_type: str) -> dict:
     # what survives now; the display text is what drops.
     if out["displayText"].strip().lower() == out["sceneTitle"].strip().lower():
         out.pop("displayText", None)
+
+    # A chart scene MUST preview with something plottable. When the model's table
+    # was absent or failed coercion, seed it deterministically rather than
+    # returning {} — {} would discard the perfectly good title and copy above,
+    # and a chart scene previewing as an empty plot reads as a broken template in
+    # the gallery and the editor.
+    if content_type == DATAVIZ_CONTENT_TYPE and not out.get("chartTable"):
+        out["chartTable"] = dict(SAMPLE_CHART_TABLE)
+        out.setdefault("chartType", "line")
     return out
 
 
@@ -3309,7 +3337,9 @@ def build_layout_prop_schema(fields: list[dict], label: str) -> dict:
 # ─── Deterministic stub scene (§R Layer 3) ──────────────────────
 
 
-def _build_stub_scene_code(scene_type: str, theme: dict | None = None) -> str:
+def _build_stub_scene_code(
+    scene_type: str, theme: dict | None = None, content_type: str | None = None
+) -> str:
     """Build a valid, on-brand fallback scene WITHOUT calling an LLM.
 
     Used when a scene fails validation after every repair attempt. Because it is
@@ -3330,6 +3360,11 @@ def _build_stub_scene_code(scene_type: str, theme: dict | None = None) -> str:
 
     Covered by test_stub_scene_validates so a regression in the validator or in
     this string is caught in CI rather than at generation time.
+
+    `content_type` is read only to recognise the data-visualisation scene: a
+    stubbed chart scene must still PLOT, or the template ends up with a chart
+    layout that renders a headline and empty space. It composes <CustomChart>
+    exactly as a generated chart scene would.
     """
     colors = ((theme or {}).get("colors") or {}) if isinstance(theme, dict) else {}
     # Fall back to the props-provided brand colors at runtime; these literals are
@@ -3337,6 +3372,59 @@ def _build_stub_scene_code(scene_type: str, theme: dict | None = None) -> str:
     bg = colors.get("bg") or "#0F172A"
     text = colors.get("text") or "#F8FAFC"
     accent = colors.get("accent") or "#38BDF8"
+
+    # The chart scene's plot area, inserted after the copy. Its parent is a
+    # column flex box, so flex:1 + minHeight:0 is what gives CustomChart a real
+    # resolved height — without it the plot collapses to nothing.
+    #
+    # `brandColors` is load-bearing, not decoration: this stub does NOT wrap
+    # SceneFrame, so without it CustomChart falls back to a dark default palette
+    # and draws near-white on a light brand's panel — rendered and invisible.
+    # Matches the contract in _CONTENT_BODY["chart"].
+    # Single braces: this is SUBSTITUTED INTO the f-string below as a value, so
+    # its own braces are never re-scanned for interpolation.
+    _is_chart = content_type == DATAVIZ_CONTENT_TYPE
+    _chart_block = (
+        """
+        <div style={{ flex: 1, minHeight: 0, width: '100%', position: 'relative', marginTop: 24, opacity: enter }}>
+          <CustomChart chartTable={props.chartTable} chartType={props.chartType} brandColors={props.brandColors} />
+        </div>
+"""
+        if _is_chart
+        else ""
+    )
+    # The chart scene is image-less by design (build_custom_meta puts it in
+    # layouts_without_image), and the validator rejects an image slot on such a
+    # scene: it would leave a hole the render path never fills. `hasImage` is
+    # still declared below — the image-conditional gate checks for it.
+    _visual_slot_block = "" if _is_chart else """      {showVisualSlot && (
+        <div
+          data-content-img="1"
+          style={{
+            position: 'relative',
+            overflow: 'hidden',
+            background: 'transparent',
+            width: isPortrait ? '100%' : '45%',
+            height: isPortrait ? '45%' : '100%',
+            flexShrink: 0,
+          }}
+        >
+          {showImageContent && (
+            <Img
+              src={props.imageUrl}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                objectPosition: props.imageObjectPosition || '50% 50%',
+                transform: `scale(${props.imageZoom ?? 1})`,
+                transformOrigin: props.imageObjectPosition || '50% 50%',
+              }}
+            />
+          )}
+        </div>
+      )}
+"""
 
     return f"""const SceneComponent = (props) => {{
   const frame = useCurrentFrame();
@@ -3396,34 +3484,7 @@ def _build_stub_scene_code(scene_type: str, theme: dict | None = None) -> str:
         opacity: exit,
       }}}}
     >
-      {{showVisualSlot && (
-        <div
-          data-content-img="1"
-          style={{{{
-            position: 'relative',
-            overflow: 'hidden',
-            background: 'transparent',
-            width: isPortrait ? '100%' : '45%',
-            height: isPortrait ? '45%' : '100%',
-            flexShrink: 0,
-          }}}}
-        >
-          {{showImageContent && (
-            <Img
-              src={{props.imageUrl}}
-              style={{{{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                objectPosition: props.imageObjectPosition || '50% 50%',
-                transform: `scale(${{props.imageZoom ?? 1}})`,
-                transformOrigin: props.imageObjectPosition || '50% 50%',
-              }}}}
-            />
-          )}}
-        </div>
-      )}}
-
+{_visual_slot_block}
       <div
         style={{{{
           flex: 1,
@@ -3493,7 +3554,7 @@ def _build_stub_scene_code(scene_type: str, theme: dict | None = None) -> str:
             {{props.displayText}}
           </FitText>
         )}}
-      </div>
+{_chart_block}      </div>
     </AbsoluteFill>
   );
 }};"""
@@ -3572,6 +3633,10 @@ _CONTENT_PROP = {
     "timeline": ("timelineItems", "objects"), # {label, description}[]
     "quote": ("quote", "string"),             # string
     "comparison": ("comparisonLeft", "pair"), # {label, description} x2
+    # The plotted-chart scene. Unlike every other entry the scene does NOT read
+    # this prop itself — it hands it to <CustomChart>, which owns all the
+    # plotting. See the "chart" body below.
+    "dataviz": ("chartTable", "chart"),       # { headers: string[], rows: string[][] }
 }
 
 # The fields each object-shaped prop actually carries, per
@@ -3624,6 +3689,37 @@ _CONTENT_BODY = {
         "    ))}}\n"
         "  If it is empty the scene must STILL look finished — fall back to\n"
         "  props.displayText rather than rendering nothing.\n"
+    ),
+    "chart": (
+        "  THIS IS THE PLOTTED-CHART SCENE. You design the FRAME; a kit component\n"
+        "  draws the chart. DO NOT build a chart yourself — no SVG paths, no divs\n"
+        "  sized to values, no axis ticks, no bars, no recharts import. Hand the\n"
+        "  data straight to <CustomChart> EXACTLY like this:\n"
+        "    <CustomChart chartTable={{props.chartTable}} chartType={{props.chartType}}\n"
+        "      brandColors={{props.brandColors}} />\n"
+        "  ALWAYS PASS brandColors. Without it the chart themes itself from a DARK\n"
+        "  default, so on a light brand every axis, tick and bar draws near-white\n"
+        "  on your near-white panel — the chart is rendered and INVISIBLE, which\n"
+        "  reads as 'no data'. One template shipped exactly that.\n"
+        "  It reads the table, PICKS THE RIGHT KIND ITSELF (line, bar or histogram)\n"
+        "  and themes itself from the brand palette. You choose neither the kind\n"
+        "  nor the colours, and you never read props.chartTable's contents.\n"
+        "  IT MUST BE GIVEN REAL ROOM — it is this scene's focal element, so give\n"
+        "  it the dominant area of the frame, not a strip. It fills its parent, so\n"
+        "  that parent MUST have a real resolved height and `minHeight: 0`. USE\n"
+        "  EXACTLY THIS WRAPPER — copy the style object as written:\n"
+        "    <div style={{{{ flex: 1, minHeight: 0, width: '100%', position: 'relative' }}}}>\n"
+        "      <CustomChart chartTable={{props.chartTable}} chartType={{props.chartType}}\n"
+        "        brandColors={{props.brandColors}} />\n"
+        "    </div>\n"
+        "  A parent with no height (a bare flex child without minHeight:0, or an\n"
+        "  auto-height div) collapses the plot to nothing. Do not wrap it in\n"
+        "  <FitText> and do not put overflow:'hidden' on the chart's own parent.\n"
+        "  props.chartSummary is an OPTIONAL caption string — render it at bodySize\n"
+        "  under the plot when present. The title and display text are laid out as\n"
+        "  on any other scene. This scene NEVER carries an image: props.imageUrl is\n"
+        "  always undefined here, so design no image slot (keep rule 4's guarded\n"
+        "  logo block and the hasImage declaration, which are still checked).\n"
     ),
     "pair": (
         "  props.comparisonLeft and props.comparisonRight are OBJECTS, not arrays —\n"
@@ -4576,7 +4672,14 @@ async def generate_component_code(
                 f"[F7-DEBUG] [CODEGEN] Scene {i} ({scene_labels[i]}) STUBBED after "
                 f"{MAX_SCENE_RETRIES} repairs — last error: {err}"
             )
-            scenes[i] = _build_stub_scene_code(scene_types_simple[i], theme)
+            scenes[i] = _build_stub_scene_code(
+                scene_types_simple[i],
+                theme,
+                # A stubbed CHART scene must still plot, or the template
+                # keeps a chart layout that draws only a headline.
+                content_type=(scene_docs[i].get("content_type")
+                              if i < len(scene_docs) else None),
+            )
             scene_aspect_ratios[i] = {"landscape": "16 / 9", "portrait": "9 / 16"}
             scene_prop_schemas[i] = []
             generation_warnings.append(
@@ -4678,7 +4781,15 @@ async def generate_component_code(
             f"[F7-DEBUG] [CODEGEN] Scene {i} ({scene_labels[i]}) failed WRAPPED "
             f"validation after 1 repair — stubbing: {wrapped_err}"
         )
-        scenes[i] = _build_stub_scene_code(scene_types_simple[i], theme)
+        scenes[i] = _build_stub_scene_code(
+            scene_types_simple[i],
+            theme,
+            # A stubbed CHART scene must still plot, or the template keeps a
+            # chart layout that draws only a headline.
+            content_type=(
+                scene_docs[i].get("content_type") if i < len(scene_docs) else None
+            ),
+        )
         scene_aspect_ratios[i] = {"landscape": "16 / 9", "portrait": "9 / 16"}
         scene_prop_schemas[i] = []
         generation_warnings.append(

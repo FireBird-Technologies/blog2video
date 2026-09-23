@@ -65,7 +65,7 @@ from app.services.render_registry import validate_render_hints
 # tells the two contracts apart.
 DESIGN_DOC_VERSION = 3
 
-# Scene count, INCLUDING the intro and outro — so the model is choosing 6-9
+# Scene count, INCLUDING the intro and outro — so the model is choosing 7-10
 # content scenes between its bookends.
 #
 # The floor is high on purpose: a blog post has enough beats to fill it, and a
@@ -73,8 +73,13 @@ DESIGN_DOC_VERSION = 3
 # reads as repetition even when the layouts themselves are distinct. The ceiling
 # is where per-scene generation cost stops buying variety — past it the model
 # starts producing near-duplicates of scenes it already designed.
-MIN_SCENES = 8
-MAX_SCENES = 11
+#
+# Both were raised by one (8/11 -> 9/12) when the data-visualisation scene became
+# a required role: it is an ADDITIONAL scene every template must carry, so
+# holding the old ceiling would have bought it by dropping one of the director's
+# own scenes.
+MIN_SCENES = 9
+MAX_SCENES = 12
 
 # Prose docs shorter than this are not designs, they are labels ("a metrics
 # scene"), and a scene built from one falls back to the model's house style.
@@ -96,7 +101,20 @@ IMAGE_SIDES = LANDSCAPE_SIDES + PORTRAIT_SIDES
 # Not a design vocabulary. `plain`, `bullets`, `quote` and `code` are deliberately
 # NOT required: they are the director's to choose, and forcing a code scene onto a
 # brand that never shows code would be worse than omitting it.
-REQUIRED_CONTENT_TYPES = ("metrics", "timeline", "comparison", "steps")
+REQUIRED_CONTENT_TYPES = ("metrics", "timeline", "comparison", "steps", "dataviz")
+
+# The data-visualisation scene's content type.
+#
+# DESIGN-STAGE ONLY — deliberately NOT a member of content_classifier.CONTENT_TYPES.
+# That taxonomy is what `match_scenes_to_archetypes` routes ARTICLE SECTIONS on, and
+# this scene is bound to a table rather than to a section: adding it there would let
+# prose be routed into the chart layout. Keeping it out means the scene is designed
+# and built like any other, but is reached only by the pipeline's deterministic
+# data-viz injection.
+#
+# Every read path that validates a content_type against CONTENT_TYPES must therefore
+# admit this one explicitly — see _normalise_scenes.
+DATAVIZ_CONTENT_TYPE = "dataviz"
 
 # Which OTHER content kinds a layout built for one kind can still host well.
 #
@@ -251,12 +269,12 @@ class GenerateTemplateDesignDocs(dspy.Signature):
     visual thread that ties the scenes together. Every scene inherits it, and it
     is what makes the template read as one thing rather than a pile of slides.
 
-    Then produce ONE doc PER SCENE — 8 to 11 scenes INCLUDING the opening and
+    Then produce ONE doc PER SCENE — 9 to 12 scenes INCLUDING the opening and
     the ending. The FIRST scene is always the opening, the LAST always the
     ending.
 
-    BETWEEN THEM, FOUR SCENES ARE REQUIRED. A blog post routinely contains all
-    four kinds of content, and each needs a layout actually built for it —
+    BETWEEN THEM, FIVE SCENES ARE REQUIRED. A blog post routinely contains all
+    five kinds of content, and each needs a layout actually built for it —
     forcing a process into a layout designed for statistics is how a template
     starts looking generic:
 
@@ -266,6 +284,17 @@ class GenerateTemplateDesignDocs(dspy.Signature):
                   itself visible
       comparison  two things set against each other, given equal weight
       steps       an ordered process, numbered, read as a sequence
+      dataviz     A PLOTTED CHART of tabular data — a line, bar or histogram
+                  chart drawn from a table of figures. Design the FRAME around
+                  the plot: where the title and its supporting line sit, what
+                  rule or panel the plot sits on or within, where the caption
+                  goes, and how much of the frame the plot itself occupies. The
+                  chart IS the focal element, so give it the dominant area.
+                  Do NOT design the chart's internals — you do not choose the
+                  chart kind, the axes, the gridlines or the series colours: one
+                  chart component draws all three kinds from the data and picks
+                  the right one itself. Design everything AROUND it. This scene
+                  never carries an image.
 
     Then add 2 to 5 MORE scenes of your own choosing — a quote, a list, a plain
     narrative beat, a code sample, whatever this brand's story actually needs.
@@ -305,8 +334,8 @@ class GenerateTemplateDesignDocs(dspy.Signature):
     EVERY SCENE'S TITLE IS TREATED DIFFERENTLY. You can see the other scenes in
     this template; make each title's placement, alignment, and entrance its own
     — one flush left over a rule, one centred and large, one set against the
-    image edge. Nine scenes whose titles all sit top-left in the same weight is
-    one scene repeated nine times.
+    image edge. Ten scenes whose titles all sit top-left in the same weight is
+    one scene repeated ten times.
 
     IMAGES. Decide per scene whether it carries an image at all. A scene whose
     design is purely typographic SHOULD say no — a template where every scene
@@ -447,9 +476,11 @@ class GenerateTemplateDesignDocs(dspy.Signature):
              '{"id": short_slug, "role": "intro"|"content"|"outro", '
              '"doc": the full prose design document for this scene, '
              '"content_type": one of plain|bullets|steps|metrics|code|quote'
-             '|comparison|timeline — WHAT KIND OF CONTENT this scene is built '
-             'to hold. The four required scenes carry "metrics", "timeline", '
-             '"comparison" and "steps"; the bookends are "plain". This routes '
+             '|comparison|timeline|dataviz — WHAT KIND OF CONTENT this scene is '
+             'built to hold. The five required scenes carry "metrics", '
+             '"timeline", "comparison", "steps" and "dataviz" (the plotted '
+             'chart scene — exactly ONE scene carries it); the bookends are '
+             '"plain". This routes '
              'real article content to the right layout, so it must describe the '
              'scene honestly rather than flatter it. '
              '"best_for": ONE SENTENCE naming the kind of article content this '
@@ -619,7 +650,14 @@ def _normalise_scenes(raw: Any, repairs: list[str]) -> list[dict] | None:
             "doc": doc.strip(),
             # Unknown values fall to "plain" rather than being dropped: an
             # unroutable scene still renders, it just never wins a content match.
-            "content_type": _ct if _ct in CONTENT_TYPES else _BOOKEND_CONTENT_TYPE,
+            # DATAVIZ_CONTENT_TYPE is admitted explicitly — it is a real designed
+            # scene but deliberately absent from CONTENT_TYPES so prose is never
+            # routed into it.
+            "content_type": (
+                _ct
+                if _ct in CONTENT_TYPES or _ct == DATAVIZ_CONTENT_TYPE
+                else _BOOKEND_CONTENT_TYPE
+            ),
             # One sentence saying what article content belongs here. Several
             # scenes share a content_type, so this is what tells them apart when
             # the layout is chosen; `content_type` alone can only say "any of
@@ -647,9 +685,24 @@ def _normalise_scenes(raw: Any, repairs: list[str]) -> list[dict] | None:
 
     if len(scenes) > MAX_SCENES:
         # Keep the bookends; drop from the middle, which is where repetition
-        # collects anyway.
+        # collects anyway. The data-viz scene is kept too: it is a REQUIRED role
+        # with no fallback renderer of its own, so trimming it would leave the
+        # template unable to draw a chart at all.
         repairs.append(f"scene count {len(scenes)} -> {MAX_SCENES}")
-        scenes = scenes[: MAX_SCENES - 1] + [scenes[-1]]
+        head, last = scenes[:-1], scenes[-1]
+        _protected = [s for s in head if s.get("content_type") == DATAVIZ_CONTENT_TYPE]
+        if _protected:
+            _rest = [s for s in head if s.get("content_type") != DATAVIZ_CONTENT_TYPE]
+            # Drop from the middle of the unprotected scenes, preserving order.
+            _keep = set(id(s) for s in _rest[: MAX_SCENES - 1 - len(_protected)])
+            head = [
+                s
+                for s in head
+                if s.get("content_type") == DATAVIZ_CONTENT_TYPE or id(s) in _keep
+            ]
+        else:
+            head = head[: MAX_SCENES - 1]
+        scenes = head + [last]
 
     # Roles are decided by POSITION, not by what the model labelled them.
     # A model that forgets to mark its ending must still produce a template with
@@ -684,6 +737,17 @@ def _normalise_scenes(raw: Any, repairs: list[str]) -> list[dict] | None:
     scenes[-1]["supports_image"] = False
     scenes[-1]["image_mode"] = None
     scenes[-1]["image_side"] = None
+
+    # THE DATA-VISUALISATION SCENE NEVER CARRIES AN IMAGE, for the same reason.
+    # build_custom_meta puts it in layouts_without_image, so a doc that designs
+    # around a photo would ship a layout with a permanent hole where the backend
+    # declines to fill one — and the chart itself is this scene's focal element,
+    # which a background image only competes with.
+    for scene in scenes:
+        if scene.get("content_type") == DATAVIZ_CONTENT_TYPE:
+            scene["supports_image"] = False
+            scene["image_mode"] = None
+            scene["image_side"] = None
 
     # De-duplicate ids — they become layout ids downstream, where a collision
     # would silently make two scenes share prop schemas and image capability.
@@ -1007,6 +1071,18 @@ def fallback_design_docs(theme: dict | None, name: str = "") -> dict:
             "opposite edges and settle together, so the pairing reads as a balance "
             "rather than a sequence.",
             None, None, "comparison",
+        ),
+        _scene(
+            "plotted", "content",
+            "A data-visualisation scene with no image. The title sits top-left above a "
+            "single hairline, with one short supporting line beneath it, and the chart "
+            "itself fills the whole remaining area of the frame — it is the focal "
+            "element and is given the room to be one. In landscape the plot runs full "
+            "width below the heading block; in portrait the heading tightens to two "
+            "lines and the plot takes the lower two thirds. A short caption sits under "
+            "the plot in small muted type. The heading enters first on a single spring, "
+            "the plot area fades up beneath it, and the caption arrives last.",
+            None, None, DATAVIZ_CONTENT_TYPE,
         ),
         _scene(
             "closing", "outro",
