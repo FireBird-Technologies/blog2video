@@ -7944,15 +7944,22 @@ export default function ProjectView() {
                                   // it fits everything on one row where the width allows, and
                                   // where it does not, the last tile wraps to the next row
                                   // instead of overflowing.
+                                  //
+                                  // The landscape pin is capped at the card's own width
+                                  // (`min(rowPx, 100%)`). A bare px minWidth made the column
+                                  // wider than the card on narrow screens (phones, a squeezed
+                                  // window), so the tiles ran out past the card edge. With the
+                                  // cap it still stays on one row whenever the card can hold
+                                  // it, and wraps inside the card when it cannot.
                                   const visualsBasisStyle = isPortraitProject
                                     ? { flexBasis: `${visualsRowPx}px` }
                                     : {
                                         flexBasis: `${visualsRowPx}px`,
-                                        minWidth: `${visualsRowPx}px`,
+                                        minWidth: `min(${visualsRowPx}px, 100%)`,
                                       };
                                   return (
                                     <div
-                                      className={`grow${isPortraitProject ? " min-w-0" : ""}`}
+                                      className={`grow max-w-full${isPortraitProject ? " min-w-0" : ""}`}
                                       style={visualsBasisStyle}
                                       data-tour={idx === 0 ? "scene-visuals-first" : undefined}
                                     >
