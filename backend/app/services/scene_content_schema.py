@@ -24,6 +24,42 @@ asserts that.
 """
 from __future__ import annotations
 
+# Row cap for a sample chart table. Mirrors CHART_MAX_ROWS in
+# remotion-video/src/templates/_shared/chartData.ts, which truncates to the same
+# number at render — capping here keeps the stored sample honest about what the
+# preview will actually plot.
+CHART_MAX_ROWS = 20
+
+# Up to three numeric series plot; chartData.ts slices to the same number.
+CHART_MAX_SERIES = 3
+
+# The chart kinds CustomChart can draw. "auto" defers to selectChartType, which
+# infers line/bar/histogram from the labels.
+CHART_TYPES = ("auto", "line", "bar", "histogram")
+
+# THE canonical placeholder chart table.
+#
+# A chart scene must never render an empty plot, so this fills in wherever no
+# real table is available. Two distinct callers rely on it and must agree, which
+# is why it lives here rather than in either of them:
+#
+#   * template SAMPLE copy  — code_generator._parse_sample_content, when the
+#     model returned no usable table (gallery + scene-editor preview)
+#   * a PROJECT's scenes    — pipeline._CUSTOM_DATAVIZ_SEED, when the article
+#     has no chartable table at all
+#
+# Time-like labels on purpose: selectChartType infers "line" from them, so the
+# seeded scene plots as a line chart under chartType "auto" as well as "line".
+SAMPLE_CHART_TABLE: dict = {
+    "headers": ["Quarter", "Revenue", "Growth %"],
+    "rows": [
+        ["Q1", "120", "8"],
+        ["Q2", "145", "12"],
+        ["Q3", "170", "17"],
+        ["Q4", "210", "24"],
+    ],
+}
+
 # The FULL field definition per content type: key, label, editor type, and any
 # sub-fields or caps.
 #
@@ -83,6 +119,36 @@ FIELD_DEFS_BY_TYPE: dict[str, list[dict]] = {
     "code": [
         {"key": "codeLanguage", "label": "Language", "type": "string", "placeholder": "e.g. python"},
         {"key": "codeLines", "label": "Code lines", "type": "string_array"},
+    ],
+    # The plotted-chart scene. `chart_table` is the spreadsheet widget the
+    # built-in data-viz layouts already use in SceneEditModal, so this lights up
+    # the same editor with no new frontend field type.
+    #
+    # NOTE: for a PROJECT's scenes the real table is bound by the pipeline into
+    # layoutProps, not extracted from narration — this entry exists so the
+    # template's SAMPLE copy carries a plottable table (the editor/gallery
+    # preview would otherwise show an empty plot) and so the fields are editable.
+    "dataviz": [
+        {
+            "key": "chartTable",
+            "label": (
+                "Chart data — col 1: X labels; cols 2-4: up to 3 numeric series "
+                f"(max {CHART_MAX_ROWS} data rows)."
+            ),
+            "type": "chart_table",
+        },
+        {
+            "key": "chartType",
+            "label": "Chart Type",
+            "type": "select",
+            "options": [
+                {"value": "auto", "label": "Auto (infer from data)"},
+                {"value": "line", "label": "Line"},
+                {"value": "bar", "label": "Bar"},
+                {"value": "histogram", "label": "Histogram"},
+            ],
+        },
+        {"key": "chartSummary", "label": "Caption", "type": "text"},
     ],
 }
 
@@ -148,6 +214,7 @@ _TYPE_HINT: dict[str, str] = {
     "number": "number",
     "color": '"#RRGGBB"',
     "select": "string",
+    "chart_table": '{"headers": ["Label", "Series"], "rows": [["A", "12"], ["B", "18"]]}',
 }
 
 
@@ -299,7 +366,66 @@ def coerce_field(key: str, value):
             return None
         return {"label": label, "description": desc or ""}
 
-    if key in ("sceneTitle", "displayText", "quote", "quoteAuthor", "codeLanguage"):
+    def _chart_table(v) -> dict | None:
+        """{headers: [str], rows: [[str]]} — rectangular, capped, all strings.
+
+        A malformed table is DROPPED rather than repaired into something
+        plottable: the caller then falls back to the deterministic seed, which
+        always renders. A ragged or single-column table reaches recharts as
+        undefined values and plots an empty frame.
+        """
+        if not isinstance(v, dict):
+            return None
+        raw_headers = v.get("headers")
+        raw_rows = v.get("rows")
+        if not isinstance(raw_headers, list) or not isinstance(raw_rows, list):
+            return None
+
+        def _cell(c) -> str | None:
+            if isinstance(c, str):
+                return c.strip()
+            if isinstance(c, (int, float)) and not isinstance(c, bool):
+                return f"{c:g}"
+            return None
+
+        headers = [_cell(h) for h in raw_headers]
+        if any(h is None for h in headers):
+            return None
+        # A label column plus at least one series, capped at 1 + 3 series.
+        headers = [h for h in headers][: 1 + CHART_MAX_SERIES]
+        if len(headers) < 2 or not headers[0]:
+            return None
+
+        rows: list[list[str]] = []
+        for raw_row in raw_rows[:CHART_MAX_ROWS]:
+            if not isinstance(raw_row, list):
+                return None
+            row = [_cell(c) for c in raw_row][: len(headers)]
+            if any(c is None for c in row) or len(row) != len(headers):
+                return None
+            rows.append([c for c in row])
+        # Two rows is the floor for anything worth plotting.
+        if len(rows) < 2:
+            return None
+        # At least one column after the first must be numeric somewhere, or
+        # there is nothing to plot.
+        def _numeric(s: str) -> bool:
+            try:
+                float(str(s).replace(",", "").replace("%", "").strip())
+                return True
+            except ValueError:
+                return False
+
+        if not any(_numeric(r[c]) for r in rows for c in range(1, len(headers))):
+            return None
+        return {"headers": headers, "rows": rows}
+
+    if key == "chartTable":
+        return _chart_table(value)
+    if key == "chartType":
+        got = _string(value)
+        return got.lower() if got and got.lower() in CHART_TYPES else None
+    if key in ("sceneTitle", "displayText", "quote", "quoteAuthor", "codeLanguage", "chartSummary"):
         return _string(value)
     if key in ("bullets", "steps", "codeLines"):
         return _string_list(value)

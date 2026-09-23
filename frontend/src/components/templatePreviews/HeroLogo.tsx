@@ -1,5 +1,5 @@
 import React, { useLayoutEffect, useRef, useState } from "react";
-import { Img, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 
 /**
  * Brand logo for the TEMPLATE PREVIEW bookends (intro/outro) only.
@@ -97,12 +97,31 @@ function bandIsBusy(sceneLayer: Element, band: DOMRect, minOverlapPx = 6): boole
 }
 
 interface HeroLogoProps {
-  src: string;
+  /** Candidate logo URLs, best first. Each is tried in turn — see below. */
+  src: string | string[];
   /** Scenes branch their layout on this, so the hero follows the same signal. */
   aspectRatio?: Key;
 }
 
 export const HeroLogo: React.FC<HeroLogoProps> = ({ src, aspectRatio = "landscape" }) => {
+  // A BRAND-KIT LOGO IS A RAW SCRAPED URL, AND IT MAY NOT LOAD.
+  //
+  // Brand kits store the logo URLs exactly as scraped from the brand's site —
+  // nothing mirrors them to R2. Plenty of sites block hotlinking, so the browser
+  // gets a 403 and paints a broken-image box in the middle of the preview.
+  // (Real case: goldprice.org's logo 403s while the same kit's second logo is
+  // fine.) The VIDEO render never hits this because it downloads logos
+  // server-side, so the preview is the only surface that shows it.
+  //
+  // So walk the candidates on error and render nothing once they are exhausted
+  // — a template with no logo is a layout the bookends already handle, and the
+  // real video would not show a broken box either.
+  const candidates = React.useMemo(
+    () => (Array.isArray(src) ? src : [src]).filter((u): u is string => !!u),
+    [src],
+  );
+  const [failed, setFailed] = useState<string[]>([]);
+  const current = candidates.find((u) => !failed.includes(u));
   const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
   const isPortrait = aspectRatio === "portrait" || height > width;
@@ -175,7 +194,7 @@ export const HeroLogo: React.FC<HeroLogoProps> = ({ src, aspectRatio = "landscap
       cancelled = true;
       timers.forEach(clearTimeout);
     };
-  }, [key, src]);
+  }, [key, current]);
 
   const opacity = interpolate(frame, [0, 15], [0, 1], { extrapolateRight: "clamp" });
 
@@ -197,10 +216,23 @@ export const HeroLogo: React.FC<HeroLogoProps> = ({ src, aspectRatio = "landscap
           height: Math.round(height * CORNER_LOGO_HEIGHT_RATIO[key]),
         };
 
+  // Every candidate failed (or none was supplied) — draw nothing.
+  if (!current) return null;
+
   return (
     <div ref={ref} style={{ ...style, zIndex: 100, pointerEvents: "none", opacity }}>
-      <Img
-        src={src}
+      {/* A PLAIN <img>, NOT Remotion's <Img>.
+        *
+        * <Img> calls cancelRender() on a failed load with no onError handler,
+        * which would take down the whole preview for one unreachable logo — a
+        * far worse outcome than the broken box it replaces. A plain tag lets the
+        * error surface as an event so the next candidate can be tried. This is
+        * the preview only; the exported video uses a locally downloaded file. */}
+      <img
+        key={current}
+        src={current}
+        alt=""
+        onError={() => setFailed((prev) => (prev.includes(current) ? prev : [...prev, current]))}
         style={{
           width: "100%",
           height: "100%",

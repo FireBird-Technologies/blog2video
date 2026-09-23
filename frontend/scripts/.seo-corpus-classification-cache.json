@@ -3090,5 +3090,57 @@
   "blog:how-much-is-substack-worth@df78f3c10af4a3ab@20aaebd1": {
     "keep": false,
     "reason": "Document is about Substack, not Blog2Video"
+  },
+  "blog:2008-financial-crisis-stickman-explainer@423ad3a67fcc0511@20aaebd1": {
+    "keep": true,
+    "reason": "Describes Blog2Video's stick-figure animation feature."
+  },
+  "blog:ship-of-theseus-stickman-animation@a40434c17d25da7f@20aaebd1": {
+    "keep": true,
+    "reason": "Describes Blog2Video's stickman animation feature."
+  },
+  "blog:four-new-tricks@22ea7dd58b151a14@20aaebd1": {
+    "keep": false,
+    "reason": "Describes Avatars, a capability Blog2Video lacks."
+  },
+  "blog:american-psycho-stickman-parody@ed9d6d4856302b23@20aaebd1": {
+    "keep": false,
+    "reason": "Describes American Psycho scene, not Blog2Video features"
+  },
+  "blog:matrix-red-dress-stickman@7851f1d7c33a5378@20aaebd1": {
+    "keep": false,
+    "reason": "Describes a movie scene, not Blog2Video features."
+  },
+  "blog:sisyphus-stickman-animation@0e7feb27a13a8f41@20aaebd1": {
+    "keep": true,
+    "reason": "Describes Blog2Video's stickman animation feature."
+  },
+  "blog:faceless-videos-for-writers-and-marketers@3695a800985f60c2@20aaebd1": {
+    "keep": true,
+    "reason": "Describes Blog2Video's faceless video workflow and features."
+  },
+  "marketing:/templates/stickman_2@44dd2e30d0b0500c@20aaebd1": {
+    "keep": true,
+    "reason": "Describes Blog2Video stickman template feature"
+  },
+  "blog:how-to-turn-a-powerpoint-into-a-video@7614d2a28a2cfdfa@20aaebd1": {
+    "keep": true,
+    "reason": "Describes PPTX-to-video workflow, a Blog2Video feature."
+  },
+  "blog:finance-substack-distribution-problem@4de355cc7559d65d@20aaebd1": {
+    "keep": false,
+    "reason": "Primarily discusses Substack distribution, not Blog2Video features."
+  },
+  "marketing:/url-to-video@195931679acb42fc@20aaebd1": {
+    "keep": true,
+    "reason": "Describes Blog2Video URL-to-video feature and output platforms."
+  },
+  "marketing:/pptx-to-video@c01059c58000d48a@20aaebd1": {
+    "keep": true,
+    "reason": "Describes PPTX-to-video feature and output platforms."
+  },
+  "blog:can-chatgpt-make-videos@18ffa25ad94bcf1b@20aaebd1": {
+    "keep": true,
+    "reason": "unparseable classifier response — kept by default"
   }
 }

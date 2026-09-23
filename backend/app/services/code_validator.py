@@ -459,6 +459,23 @@ ALLOWED_KIT_NAMES = frozenset({
     "ensureContrast", # nudges a pairing until it clears AA
     "withAlpha",      # same hue at partial alpha, without minting a fourth colour
     "SocialIcons",    # shared glyph set + handle resolution for the ending
+    # The plot on the data-visualisation scene, and the clearest case of
+    # "something a scene cannot correctly reimplement inline".
+    #
+    # Template 139's chart scene proved it. Forbidden this name, the model built
+    # its own SVG line chart and opened with
+    #     const raw = Array.isArray(props.chartTable) ? props.chartTable : [];
+    # but chartTable is an OBJECT { headers, rows }, so raw was always [] and the
+    # scene rendered a permanently empty panel — in the editor and in every video
+    # made from that template. It passed every gate: it read the prop, it was
+    # valid JSX, and an empty <svg> neither throws nor yields an empty tree.
+    #
+    # CustomChart parses the table, picks line/bar/histogram from the data, and
+    # themes itself from the palette. The scene still designs the whole FRAME
+    # around it, so this does not make templates look alike — it only stops them
+    # each reinventing a chart parser. _design_doc_defects REQUIRES it on a
+    # dataviz scene.
+    "CustomChart",
 })
 
 # Names that are injected but off-limits to new scenes. Listed explicitly (rather
@@ -489,7 +506,10 @@ ALLOWED_KIT_NAMES = frozenset({
 _FORBIDDEN_KIT_COMPONENT_RE = re.compile(
     r"\b("
     r"SceneFrame|Decor|SignatureArtifact|StatGrid|StatCard|MetricRow|RevealText|"
-    r"HighlightPhrase|KenBurnsImage|IntroStage|CodeBlock|CustomChart|CustomTable|"
+    # CustomChart is deliberately ABSENT — see ALLOWED_KIT_NAMES. It is the
+    # one kit component a scene cannot correctly rebuild inline, and
+    # forbidding it is what produced a chart scene with an empty panel.
+    r"HighlightPhrase|KenBurnsImage|IntroStage|CodeBlock|CustomTable|"
     r"CountUpValue|DropCap|Kicker|Masthead|PanelNumber|SectionDivider|EditorialRule|"
     r"SafeArea|CenteredFocal|AsymmetricSplit|FullBleedHero|OffsetCardStack|SideRail|"
     r"CornerFrame|StreakField|KineticTicker|BigGlyphBackdrop|PulseRing|AccentSweep|"
@@ -523,7 +543,10 @@ _FORBIDDEN_KIT_HELPER_RE = re.compile(
 _RESERVED_KIT_NAME_RE = re.compile(
     r"\b("
     r"SceneFrame|Decor|SignatureArtifact|StatGrid|StatCard|MetricRow|RevealText|"
-    r"HighlightPhrase|KenBurnsImage|IntroStage|CodeBlock|CustomChart|CustomTable|"
+    # CustomChart is deliberately ABSENT — see ALLOWED_KIT_NAMES. It is the
+    # one kit component a scene cannot correctly rebuild inline, and
+    # forbidding it is what produced a chart scene with an empty panel.
+    r"HighlightPhrase|KenBurnsImage|IntroStage|CodeBlock|CustomTable|"
     r"CountUpValue|DropCap|Kicker|Masthead|PanelNumber|SectionDivider|EditorialRule|"
     r"SafeArea|CenteredFocal|AsymmetricSplit|FullBleedHero|OffsetCardStack|SideRail|"
     r"CornerFrame|StreakField|KineticTicker|BigGlyphBackdrop|PulseRing|AccentSweep|"
@@ -951,6 +974,47 @@ def _design_doc_defects(code: str, scene_type: str, scene_doc: str) -> list[str]
                 f"props.{_want} as the scene's content source: {_fix}. Keep the "
                 f"layout and motion exactly as they are — change only the data source."
             )
+
+        # ── The chart scene must PLOT, via the kit component ────────────────
+        #
+        # props.chartTable is an OBJECT — { headers: string[], rows: string[][] }
+        # — and CustomChart is the only thing that draws it. Template 139's
+        # chart scene hand-rolled an SVG line chart instead and opened with
+        #     const raw = Array.isArray(props.chartTable) ? props.chartTable : [];
+        # which is ALWAYS [] for an object, so `hasRows` never became true and
+        # the scene rendered a permanently empty panel — in the editor preview
+        # and in every video made from that template.
+        #
+        # Nothing caught it: the code read props.chartTable (so the gate above
+        # passed), it was syntactically valid, and an empty <svg> neither throws
+        # nor produces an empty tree. The generation contract already forbids
+        # this in prose; this is the machine check behind it.
+        if _want == "chartTable":
+            if not re.search(r"<\s*CustomChart\b", code):
+                out.append(
+                    "This is the data-visualisation scene, but the code does not "
+                    "render <CustomChart> — it is the ONLY thing that draws "
+                    "props.chartTable, and a hand-built chart (SVG paths, divs "
+                    "sized to values) renders an EMPTY panel in production. "
+                    "Replace the chart you drew with: <div style={{ flex: 1, "
+                    "minHeight: 0, width: '100%' }}><CustomChart "
+                    "chartTable={props.chartTable} chartType={props.chartType} />"
+                    "</div>. Keep the frame — the title, the caption, the rules, "
+                    "the panel and the motion — exactly as it is; change only "
+                    "what draws the plot."
+                )
+            # The shape error that made template 139 fail silently, caught even
+            # if a future scene keeps CustomChart and ALSO parses the table.
+            if re.search(r"Array\.isArray\s*\(\s*props\.chartTable\s*\)", code):
+                out.append(
+                    "props.chartTable is an OBJECT { headers, rows }, never an "
+                    "array — `Array.isArray(props.chartTable)` is always false, "
+                    "so this code path yields no data and the chart renders "
+                    "empty. Do not parse the table at all: hand it to "
+                    "<CustomChart chartTable={props.chartTable} "
+                    "chartType={props.chartType} />, which reads it and picks "
+                    "the right chart kind itself."
+                )
 
         # ── Object-shaped props must be read by FIELD ───────────────────────
         #

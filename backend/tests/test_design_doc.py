@@ -34,10 +34,15 @@ DOC = "d" * 120
 OK = MIN_SCENES
 
 
-# Cycled so any _scenes(n>=6) covers all four REQUIRED_CONTENT_TYPES. Tests that
-# are not ABOUT coverage should not have to think about it; the ones that are use
-# _typed() to state the types explicitly.
-_FILLER_TYPES = ("metrics", "timeline", "comparison", "steps", "quote", "bullets")
+# Cycled so any _scenes(n) covering the middle positions hits all of
+# REQUIRED_CONTENT_TYPES. Tests that are not ABOUT coverage should not have to
+# think about it; the ones that are use _typed() to state the types explicitly.
+#
+# Derived from REQUIRED_CONTENT_TYPES rather than restated, so adding a required
+# type (as "dataviz" was) cannot leave every unrelated fixture one short of the
+# coverage check. The bookends are overwritten to "plain", so the cycle has to
+# cover the required types within scenes[1:-1].
+_FILLER_TYPES = tuple(REQUIRED_CONTENT_TYPES) + ("quote", "bullets")
 
 
 def _scenes(n: int, overrides: dict[int, dict] | None = None) -> list[dict]:
@@ -378,7 +383,8 @@ def test_a_doc_set_missing_required_types_is_rejected() -> None:
 
 
 def test_a_covering_doc_set_is_accepted() -> None:
-    types = ["plain", "metrics", "timeline", "comparison", "steps", "quote", "bullets", "plain"]
+    types = ["plain", "metrics", "timeline", "comparison", "steps", "dataviz",
+             "quote", "bullets", "plain"]
     docs, _ = _validate(_typed(OK, types))
     assert docs is not None
     assert not _missing_required_types(docs["scenes"])
@@ -405,24 +411,34 @@ def test_the_last_attempt_accepts_and_grafts_instead_of_losing_the_run() -> None
 def test_bookends_are_never_content_routed() -> None:
     """The intro carries the title and the outro the CTA. Labelling either
     otherwise would let an article's metrics land on the title card."""
-    types = ["metrics", "metrics", "timeline", "comparison", "steps", "quote", "bullets", "timeline"]
+    types = ["metrics", "metrics", "timeline", "comparison", "steps", "dataviz",
+             "quote", "bullets", "timeline"]
     docs, _ = _validate(_typed(OK, types))
     assert docs["scenes"][0]["content_type"] == "plain"
     assert docs["scenes"][-1]["content_type"] == "plain"
 
 
 def test_an_unknown_content_type_falls_back_rather_than_dropping_the_scene() -> None:
-    types = ["plain", "metrics", "timeline", "comparison", "steps", "nonsense", "bullets", "plain"]
+    types = ["plain", "metrics", "timeline", "comparison", "steps", "dataviz",
+             "nonsense", "bullets", "plain"]
     docs, _ = _validate(_typed(OK, types))
     assert docs is not None
-    assert docs["scenes"][5]["content_type"] == "plain"
+    assert docs["scenes"][6]["content_type"] == "plain"
 
 
 def test_content_types_come_from_the_shared_taxonomy() -> None:
-    """Not a restated list — a duplicate would drift and break routing."""
+    """Not a restated list — a duplicate would drift and break routing.
+
+    `dataviz` is the ONE required type outside the routing taxonomy, and that is
+    the whole point of it: the chart scene is bound to a table by the pipeline,
+    never matched to an article section, so putting it in CONTENT_TYPES would let
+    prose be routed onto a layout that renders only a chart.
+    """
+    from app.dspy_modules.design_doc import DATAVIZ_CONTENT_TYPE
     from app.services.content_classifier import CONTENT_TYPES
 
-    assert set(REQUIRED_CONTENT_TYPES) <= set(CONTENT_TYPES)
+    assert set(REQUIRED_CONTENT_TYPES) - {DATAVIZ_CONTENT_TYPE} <= set(CONTENT_TYPES)
+    assert DATAVIZ_CONTENT_TYPE not in CONTENT_TYPES
 
 
 def test_the_fallback_can_donate_every_required_type() -> None:

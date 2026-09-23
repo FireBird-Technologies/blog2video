@@ -13,8 +13,8 @@
 
 import React from "react";
 import { useCurrentFrame, useVideoConfig } from "remotion";
-import { useKit } from "./context";
-import { withAlpha } from "./theme";
+import { useKit, useHasKitContext, colorsFromBrand } from "./context";
+import { derivePalette, withAlpha } from "./theme";
 import { progressAt, easeOutQuint } from "./motion";
 
 export interface CustomTableData {
@@ -29,6 +29,15 @@ export interface CustomTableProps {
   maxRows?: number;
   maxCols?: number;
   start?: number;
+  /**
+   * The scene's brand colours, for a scene that does NOT wrap SceneFrame.
+   *
+   * Without a provider `useKit()` silently returns a DARK palette, so on a light
+   * brand this table would draw near-white text on a near-white panel — present
+   * but invisible. Same failure CustomChart carries; see its `brandColors` note.
+   * Ignored when kit context is present.
+   */
+  brandColors?: { accent?: string; background?: string; text?: string };
 }
 
 function parseNumericCell(raw: string): number {
@@ -44,10 +53,19 @@ export const CustomTable: React.FC<CustomTableProps> = ({
   maxRows = 12,
   maxCols = 6,
   start = 0,
+  brandColors,
 }) => {
   const frame = useCurrentFrame();
   const { height } = useVideoConfig();
-  const { palette, type, fonts } = useKit();
+  const kit = useKit();
+  const hasKit = useHasKitContext();
+  const { type, fonts } = kit;
+  // Kit context wins; the scene's own brand colours are the fallback that keeps
+  // the table legible without a SceneFrame. See the `brandColors` prop note.
+  const palette =
+    !hasKit && brandColors && (brandColors.background || brandColors.text || brandColors.accent)
+      ? derivePalette(colorsFromBrand(brandColors))
+      : kit.palette;
 
   const headers = (table?.headers ?? []).slice(0, maxCols).map((h) => String(h ?? ""));
   const rows = (table?.rows ?? [])
@@ -57,8 +75,20 @@ export const CustomTable: React.FC<CustomTableProps> = ({
 
   const cellFs = Math.round(type.body * (nCols >= 5 ? 0.72 : nCols >= 4 ? 0.8 : 0.9));
   const headFs = Math.round(cellFs * 0.92);
-  const padV = nCols >= 5 ? 9 : 12;
-  const padH = nCols <= 4 ? 16 : 11;
+  // Cell padding. Raised from 9/12 and 11/16: the table now fills the frame
+  // width (see DataTableScene), so the room exists to let the grid breathe, and
+  // the old values read as cramped against the panel's own scale.
+  const padV = nCols >= 5 ? 14 : 16;
+  const padH = nCols <= 4 ? 22 : 18;
+
+  // The first column is the row LABEL — "United States API Crude Oil Stock
+  // Change" — while the rest are short figures. Every column being `flex: 1 1 0`
+  // gave them equal width, so the label wrapped to three lines beside columns of
+  // whitespace. It gets a larger share; the rest stay equal to each other.
+  //
+  // A deliberate, minimal divergence from the equal-width convention the
+  // built-in table renderers use, limited to the label column.
+  const colFlex = (ci: number) => (ci === 0 && nCols >= 3 ? "1.7 1 0" : "1 1 0");
 
   const POS = palette.isDark ? "#5BD08A" : "#1F8A4C";
   const NEG = palette.isDark ? "#FF7A6E" : "#C23B2E";
@@ -103,7 +133,7 @@ export const CustomTable: React.FC<CustomTableProps> = ({
             <div
               key={ci}
               style={{
-                flex: "1 1 0",
+                flex: colFlex(ci),
                 minWidth: 0,
                 padding: `${padV}px ${padH}px`,
                 fontFamily: fonts.body,
@@ -143,7 +173,7 @@ export const CustomTable: React.FC<CustomTableProps> = ({
                   <div
                     key={ci}
                     style={{
-                      flex: "1 1 0",
+                      flex: colFlex(ci),
                       minWidth: 0,
                       padding: `${padV}px ${padH}px`,
                       fontFamily: fonts.body,

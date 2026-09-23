@@ -491,6 +491,20 @@ const StableCustomComposition: React.FC<any> = ({
           comparisonRight: sc.comparisonRight as SceneProps["comparisonRight"],
           timelineItems: sc.timelineItems as SceneProps["timelineItems"],
           steps: sc.steps as string[] | undefined,
+          // THE CHART SCENE'S DATA, unwrapped to top level.
+          //
+          // The pipeline writes the bound table into layoutProps, and a chart
+          // scene reads `props.chartTable` — so it has to be lifted out, exactly
+          // as the export path does. Without this the prop is undefined,
+          // CustomChart takes its `hasRealChart` early return, and the scene
+          // renders its title, panel and NO PLOT while the data sits in
+          // layoutProps. KEEP IDENTICAL to GeneratedVideo.tsx.
+          chartTable: ((s.layoutProps as Record<string, unknown> | undefined)?.chartTable ??
+            sc.chartTable) as any,
+          chartType: ((s.layoutProps as Record<string, unknown> | undefined)?.chartType ??
+            sc.chartType) as string | undefined,
+          chartSummary: ((s.layoutProps as Record<string, unknown> | undefined)?.chartSummary ??
+            sc.chartSummary) as string | undefined,
           titleFontSize: (s.layoutConfig as any)?.titleFontSize as number | undefined,
           descriptionFontSize: (s.layoutConfig as any)?.descriptionFontSize as number | undefined,
           headingFont,
