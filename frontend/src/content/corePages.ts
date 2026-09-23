@@ -461,16 +461,16 @@ export const coreCommercialPages: MarketingPage[] = [
   }),
   createPage({
     path: "/url-to-video",
-    title: "URL To Video Generator for Published Content",
+    title: "URL to Video AI: Turn Any Webpage or Article Into a Video",
     description:
-      "Paste a public URL and turn the page into a narrated video with visuals, scenes, and shareable output formats.",
-    eyebrow: "Commercial workflow",
-    heroTitle: "Use any public URL as the starting point for a polished video",
+      "Paste a link to any article, blog post, or webpage and AI turns it into a narrated video with scenes, voiceover, and captions. Not a video downloader: this makes a new video from the page's content.",
+    eyebrow: "URL to video AI",
+    heroTitle: "Paste a link. Get a narrated video of the page.",
     heroDescription:
-      "If the content is already live, Blog2Video can scrape and structure it into a production-ready video workflow in minutes.",
+      "Blog2Video reads any public webpage, article, or blog post, writes the narration, and builds it into scenes with the page's own images. It turns the text into a new video; it does not download videos from links.",
     category: "commercial",
     primaryKeyword: "url to video",
-    keywordVariant: "turn url into video",
+    keywordVariant: "webpage to video ai",
     proofPoints: [
       "Useful for published blogs, landing pages, newsletters, and article archives.",
       "Pulls source structure and images directly from the page to accelerate the first draft.",
@@ -483,9 +483,9 @@ export const coreCommercialPages: MarketingPage[] = [
           "When the page already exists, there is no need to copy-paste everything into a new system. URL-first generation shortens time to first draft and makes video repurposing feel lightweight enough to do every week.",
         ],
         bullets: [
-          "Paste the live URL.",
-          "Let Blog2Video extract the content structure and assets.",
-          "Review the generated scenes before rendering.",
+          "Paste the link to any public article, blog post, or webpage.",
+          "Blog2Video reads the page, writes the narration, and pulls in its images.",
+          "Review the generated scenes, pick a voice and template, and render an MP4.",
         ],
       },
     ],
@@ -652,16 +652,16 @@ export const coreCommercialPages: MarketingPage[] = [
   }),
   createPage({
     path: "/pptx-to-video",
-    title: "PPTX To Video Creator for Presentations and Lessons",
+    title: "PowerPoint to Video Converter: Turn PPTX Into Narrated Videos",
     description:
-      "Convert slide decks and PPTX files into polished narrated videos for teams, educators, and explainers.",
+      "Convert a PowerPoint to video with AI narration. Upload a PPTX and get a narrated video with redesigned scenes, with no re-recording. For lessons, training decks, and webinars.",
     eyebrow: "Document workflow",
     heroTitle: "Turn presentation decks into publishable videos without re-recording every slide",
     heroDescription:
       "Blog2Video helps you take existing presentations and extend them into narrated content that works beyond the original meeting or classroom session.",
     category: "commercial",
-    primaryKeyword: "pptx to video",
-    keywordVariant: "convert powerpoint to video",
+    primaryKeyword: "powerpoint to video",
+    keywordVariant: "powerpoint to video converter",
     proofPoints: [
       "Ideal for course content, webinar decks, workshop material, and internal enablement.",
       "Makes it easier to reuse presentation assets across asynchronous channels.",

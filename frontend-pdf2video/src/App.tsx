@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { AuthProvider } from "./hooks/useAuth";
 import { CraftedTemplatesProvider } from "./contexts/CraftedTemplatesContext";
 import { ErrorModalProvider } from "./contexts/ErrorModalContext";
+import { LoginModalProvider } from "./contexts/LoginModalContext";
 import { NoticeModalProvider } from "./contexts/NoticeModalContext";
 import { SupportTourProvider } from "./components/support/SupportTourContext";
 import { SupportWidget } from "./components/support/SupportWidget";
@@ -17,6 +18,7 @@ import TemplatePageView from "./pages/TemplatePageView";
 import ToolsHub from "./pages/ToolsHub";
 import ToolPage from "./pages/ToolPage";
 import HelpHub from "./pages/HelpHub";
+import AuthPage from "./pages/AuthPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import { marketingPages } from "./content/siteContent";
 import ScrollToTop from "./components/layout/ScrollToTop";
@@ -68,6 +70,12 @@ function AppRoutes() {
         <Route path="/help" element={<HelpHub />} />
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
+        {/* Full-page sign-in / sign-up. Two paths, one component, so "Sign up"
+            is directly linkable rather than reachable only via a toggle. Both
+            are noindex and deliberately absent from getPublicPaths(), so they
+            are neither prerendered nor listed in the sitemap. */}
+        <Route path="/signin" element={<AuthPage mode="signin" />} />
+        <Route path="/signup" element={<AuthPage mode="signup" />} />
         {/* No "template" category pages exist in this deployment's
             marketingPages (individual /templates/:slug pages were removed —
             see siteContent.ts), so every entry renders as MarketingPageView. */}
@@ -100,9 +108,11 @@ function App() {
         <ErrorModalProvider>
           <NoticeModalProvider>
             <SupportTourProvider>
+            <LoginModalProvider>
               <AppRoutes />
               <SupportWidget />
               <UIHighlightOverlay />
+            </LoginModalProvider>
             </SupportTourProvider>
           </NoticeModalProvider>
         </ErrorModalProvider>

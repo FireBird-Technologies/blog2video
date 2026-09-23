@@ -4,7 +4,7 @@ import { AbsoluteFill, useCurrentFrame } from "remotion";
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import type { CustomTemplateTheme } from "../../api/client";
 import { compileComponentCode, compileModuleGraphEntry, type SceneProps } from "../../utils/compileComponent";
-import { DataChartScene, DataTableScene, derivePalette, backgroundCss, colorsFromBrand, enforceTheme, resolveTypeSizes, TYPE_BANDS, sanitizeSceneProps, TypeTierProvider, BodySizeScope } from "../remotion/generated/kit";
+import { DataChartScene, DataTableScene, derivePalette, backgroundCss, colorsFromBrand, enforceTheme, resolveTypeSizes, TYPE_BANDS, sanitizeSceneProps, TypeTierProvider, BodySizeScope, KitProvider } from "../remotion/generated/kit";
 import { CtaOverlay } from "../remotion/CtaOverlay";
 import { pickGeneratedTransition } from "../remotion/generated/generatedTransitions";
 import StaticPreviewImage from "./StaticPreviewImage";
@@ -63,7 +63,12 @@ export function buildCustomSceneLabels(args: {
   introCode?: string;
   outroCode?: string;
   contentCodes?: string[];
-  contentArchetypeIds?: (string | { id: string; best_for?: string[] })[];
+  contentArchetypeIds?: (
+    | string
+    /** `content_type` is the machine-readable routing key — "dataviz" marks the
+     *  template's own chart scene, which previews from a sample chartTable. */
+    | { id: string; best_for?: string[]; content_type?: string }
+  )[];
 }): string[] {
   const labels: string[] = [];
   if (args.introCode) labels.push("Intro");
@@ -136,7 +141,7 @@ interface ContinuousCompositionProps {
   /** Brand-kit logo, drawn as a HERO over the intro/outro only (see HeroLogo).
    *  Absent when the template has no logo, in which case the bookends render
    *  exactly as they otherwise would. */
-  heroLogoUrl?: string;
+  heroLogoUrl?: string | string[];
 }
 
 const ContinuousCustomComposition: React.FC<ContinuousCompositionProps> = ({
@@ -247,7 +252,34 @@ const ContinuousCustomComposition: React.FC<ContinuousCompositionProps> = ({
                         .descriptionFontSize,
                     }}
                   >
-                    <BodySizeScope>{Comp ? <Comp {...props} /> : null}</BodySizeScope>
+                    <BodySizeScope>
+                      {/* AMBIENT BRAND PALETTE.
+                        *
+                        * Kit components (CustomChart, CustomTable) read their
+                        * colours from kit context, which only SceneFrame
+                        * provides. A generated scene that paints its own
+                        * background and composes one DIRECTLY has no provider,
+                        * so useKit() silently returns its DARK default — and on
+                        * a light brand the chart's axes, ticks and captions draw
+                        * near-white on a near-white panel: rendered, and
+                        * invisible. That is why this surface showed a bar chart
+                        * with no axes while the project preview showed them.
+                        *
+                        * A scene that DOES wrap SceneFrame is unaffected: its
+                        * own KitProvider nests below this one and wins.
+                        * KEEP IDENTICAL to GeneratedVideo.tsx / VideoPreview.tsx —
+                        * these three surfaces must not drift again. */}
+                      <KitProvider
+                        colors={colorsFromBrand(brandColors)}
+                        isPortrait={orientation === "portrait"}
+                        fonts={{
+                          heading: (props as { headingFont?: string }).headingFont,
+                          body: (props as { bodyFont?: string }).bodyFont ?? bodyFont,
+                        }}
+                      >
+                        {Comp ? <Comp {...props} /> : null}
+                      </KitProvider>
+                    </BodySizeScope>
                   </TypeTierProvider>
                 </div>
                 {/* Hero logo on the bookends only. A SIBLING of the scene layer,
@@ -540,7 +572,12 @@ interface CustomPreviewProps {
   introCode?: string;
   outroCode?: string;
   contentCodes?: string[];
-  contentArchetypeIds?: (string | { id: string; best_for?: string[] })[];
+  contentArchetypeIds?: (
+    | string
+    /** `content_type` is the machine-readable routing key — "dataviz" marks the
+     *  template's own chart scene, which previews from a sample chartTable. */
+    | { id: string; best_for?: string[]; content_type?: string }
+  )[];
   /**
    * Which generation drew this template's design (design_blueprint.version).
    * Absent or 1 = blueprint era, whose outro was generated on the promise that a
@@ -655,6 +692,13 @@ export default function CustomPreview({
   const [compiledMap, setCompiledMap] = useState<Map<number, React.FC<SceneProps>>>(new Map());
   const [compiledComposition, setCompiledComposition] = useState<React.ComponentType<any> | null>(null);
   const [isCompiling, setIsCompiling] = useState(true);
+  // Brand-kit logos that failed to load. They are RAW SCRAPED URLs — nothing
+  // mirrors them to R2 — so a site with hotlink protection returns 403 and the
+  // browser paints a broken-image box. The carousel walks the remaining
+  // candidates on error and shows nothing once they are exhausted, matching
+  // HeroLogo on the other preview path. (The exported video is unaffected: it
+  // downloads logos server-side.)
+  const [failedLogos, setFailedLogos] = useState<string[]>([]);
   const [compileError, setCompileError] = useState(false);
   const fadeTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const compileTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
@@ -667,15 +711,23 @@ export default function CustomPreview({
 
   // Build ordered carousel: intro → content variants → outro.
   //
-  // The preview shows EXACTLY the scenes this template generated. It used to also
-  // append a Data Chart and a Data Table, on the premise that "the pipeline always
-  // injects" them — that premise was wrong. `_build_custom_dataviz_scenes` in
-  // pipeline.py only injects the pair when the ARTICLE being rendered contains a
-  // chartable table, and returns [] otherwise. A template has no article, so at
-  // preview time the pair could never be accurate; they were rendered from a
-  // hardcoded SAMPLE_CHART_TABLE and showed users two scenes their template does
-  // not contain. (Data Chart / Data Table remain available per-scene in the editor
-  // — meta still lists custom_chart/custom_table as selectable layouts.)
+  // The preview shows EXACTLY the scenes this template generated — no appended
+  // GENERIC Data Chart / Data Table. It used to append both, on the premise that
+  // "the pipeline always injects" them, and that premise was wrong for the pair:
+  // `_build_custom_dataviz_scenes` adds the TABLE scene only when the article
+  // being rendered has a chartable table, so at preview time (a template has no
+  // article) it could never be accurate — it rendered a hardcoded
+  // SAMPLE_CHART_TABLE and showed a scene the template does not contain.
+  //
+  // The CHART scene is now different, and needs no special handling here: since
+  // the data-visualisation layout became a required design role, the template
+  // DESIGNS its own chart scene, so it is already one of `contentCodes` and
+  // appears in this carousel like any other content variant. Its sample
+  // `chartTable` comes from scene_sample_content (see persistedSample below), so
+  // it previews with the brand's own plotted figures.
+  //
+  // (Data Chart / Data Table remain available per-scene in the editor — meta
+  // still lists custom_chart/custom_table as selectable layouts.)
   const sceneCodes = useMemo<PreviewScene[]>(() => {
     const codes: PreviewScene[] = [];
     if (introCode) codes.push({ kind: "code", code: introCode, label: "Intro" });
@@ -919,6 +971,45 @@ export default function CustomPreview({
       const contentIdx = idx - (introCode ? 1 : 0);
       const rawArch = contentArchetypeIds?.[contentIdx];
       const bestFor = typeof rawArch === "object" ? rawArch?.best_for : undefined;
+
+      // THE CHART SCENE MUST NEVER PREVIEW AN EMPTY PLOT.
+      //
+      // A template's own data-visualisation scene renders <CustomChart>, which
+      // draws nothing at all without rows — so the scene shows its title, its
+      // caption and a blank panel where the chart should be. The stored sample
+      // carries a chartTable, but two cases legitimately have none: a template
+      // generated before the chart scene became a required role, and one whose
+      // sample generation returned an unusable table. Both fall back here.
+      //
+      // Spread UNDER persistedSample below, so a real stored table always wins.
+      const isChartScene =
+        (typeof rawArch === "object" && rawArch?.content_type === "dataviz") ||
+        bestFor?.[0] === "dataviz";
+      let chartFallback: Record<string, unknown> = {};
+      if (isChartScene) {
+        // A stored entry can carry a chartTable key that is empty or malformed
+        // (an older template, a partial write). That would override the fallback
+        // through the spread and blank the plot, so check the ROWS rather than
+        // the key's presence.
+        const stored = persistedSample(sc.label, contentIdx) as {
+          chartTable?: { rows?: unknown[] };
+          chartType?: string;
+        };
+        const storedHasRows =
+          !!stored?.chartTable &&
+          Array.isArray(stored.chartTable.rows) &&
+          stored.chartTable.rows.length > 0;
+        chartFallback = storedHasRows
+          ? {}
+          : {
+              chartTable: SAMPLE_CHART_TABLE,
+              // Only the TABLE is being stood in for. The chart KIND is the
+              // user's choice in the template editor, so carry it through —
+              // hardcoding "line" here would silently undo switching to bar or
+              // histogram on any scene whose table is seeded.
+              chartType: stored?.chartType ?? "line",
+            };
+      }
       if (bestFor && bestFor.length > 0) {
         // Rotate by how many EARLIER content scenes share this tag, so a
         // template with four metrics layouts gets four different headlines
@@ -941,6 +1032,9 @@ export default function CustomPreview({
           ...sample,
           sceneTitle: rotate(titles, sameTagBefore, seed, 1),
           ...persistedSample(sc.label, contentIdx),
+          // AFTER the stored sample: it is empty unless the stored table has no
+          // rows, in which case it must win or the plot renders blank.
+          ...chartFallback,
           ...base,
           ...contentImageProps,
         };
@@ -950,6 +1044,7 @@ export default function CustomPreview({
         ...fallback,
         sceneTitle: rotate(TAG_TITLES.plain, contentIdx, brandSeed(n), 1),
         ...persistedSample(sc.label, contentIdx),
+        ...chartFallback,
         ...base,
         ...contentImageProps,
       };
@@ -1020,7 +1115,10 @@ export default function CustomPreview({
         .motion?.transitionFamily,
       orientation,
       bodyFont: bodyFamily,
-      heroLogoUrl: logoUrls?.[0] || undefined,
+      // The WHOLE list, not just the first: brand-kit logos are raw scraped
+      // URLs and the first one may 403 (hotlink protection). HeroLogo walks
+      // them on error and renders nothing once they are exhausted.
+      heroLogoUrl: logoUrls && logoUrls.length > 0 ? logoUrls : undefined,
     }),
     [sceneCodes, compiledMap, sceneSampleProps, brandColors, theme, orientation, bodyFamily, logoUrls],
   );
@@ -1414,7 +1512,10 @@ export default function CustomPreview({
   // each scene sits in its own nested player, so this path has no access to the
   // laid-out scene DOM. The corner is the placement that cannot collide with
   // scene content, so it is the correct choice to make blind.
-  const heroLogoUrl = logoUrls?.[0] || undefined;
+  // `failedLogos` is declared with the other hooks at the top of the component —
+  // several early returns sit above this line, so a hook here would break the
+  // rules-of-hooks ordering.
+  const heroLogoUrl = (logoUrls ?? []).find((u) => u && !failedLogos.includes(u));
   const heroKey = orientation === "portrait" ? "portrait" : "landscape";
   const carouselHeroLogoStyle: React.CSSProperties = {
     position: "absolute",
@@ -1561,8 +1662,14 @@ export default function CustomPreview({
                 {shouldRenderPlayer && heroLogoUrl && isBookendScene(sc) && (
                   <div style={carouselHeroLogoStyle}>
                     <img
+                      key={heroLogoUrl}
                       src={heroLogoUrl}
                       alt=""
+                      onError={() =>
+                        setFailedLogos((prev) =>
+                          prev.includes(heroLogoUrl) ? prev : [...prev, heroLogoUrl],
+                        )
+                      }
                       style={{
                         width: "100%",
                         height: "100%",

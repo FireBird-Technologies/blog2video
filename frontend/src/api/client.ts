@@ -1,5 +1,6 @@
 export * from "./types";
 import type {
+  AuthProvider,
   AvatarBg,
   AvatarCorner,
   AvatarMotionStyle,
@@ -11,6 +12,7 @@ export * from "./auth";
 export * from "./billing";
 export * from "./projects";
 export * from "./enterprise";
+export * from "./integrations";
 
 import axios from "axios";
 import type { AxiosResponse } from "axios";
@@ -115,6 +117,9 @@ export interface UserInfo {
   script_preferences: string | null;
   script_preferences_updated_at: string | null;
   survey_submitted: boolean;
+  /** The provider this account is permanently bound to. Optional for sessions
+   *  restored from localStorage before the backend added the field. */
+  auth_provider?: AuthProvider;
 }
 
 export interface AuthResponse {
@@ -340,6 +345,14 @@ export interface ProjectListItem {
   owner_name?: string | null;
 }
 
+/** One page of projects, returned only when `page` is passed to GET /projects. */
+export interface ProjectListPage {
+  items: ProjectListItem[];
+  total: number;
+  page: number;
+  per_page: number;
+}
+
 export interface ChatMessage {
   id: number;
   role: string;
@@ -471,6 +484,69 @@ export const googleLogin = (credential: string, reactivate = false, refCode?: st
   if (refCode) params.ref_code = refCode;
   return api.post<AuthResponse>("/auth/google", { credential }, { params });
 };
+
+// ─── Email + password auth ────────────────────────────────
+// Built-in provider. Registration proves the mailbox with a one-time code before
+// the account exists; every later sign-in is password-only.
+//
+// These use `publicApi`, NOT `api`: the authed client's interceptor treats any
+// 401 as an expired session — it clears the stored token and hard-redirects to
+// "/". A mistyped password returns 401 by design, so on `api` it would log an
+// already-signed-in user out and reload the page out from under the modal,
+// and the redirect would race the error the form needs to display.
+
+/** Acknowledges a one-time code was issued. Carries no account information. */
+export interface CodeSentResponse {
+  status: string;
+  /** Seconds until the code expires. */
+  expires_in: number;
+  /** Seconds before a resend is allowed. */
+  resend_in: number;
+}
+
+export const emailRegisterStart = (email: string, password: string, name?: string | null) =>
+  publicApi.post<CodeSentResponse>("/auth/email/register/start", {
+    email,
+    password,
+    name: name ?? null,
+  });
+
+export const emailRegisterVerify = (email: string, code: string, refCode?: string | null) => {
+  const params: Record<string, unknown> = {};
+  if (refCode) params.ref_code = refCode;
+  return publicApi.post<AuthResponse>("/auth/email/register/verify", { email, code }, { params });
+};
+
+export const emailRegisterResend = (email: string) =>
+  publicApi.post<CodeSentResponse>("/auth/email/register/resend", { email });
+
+export const emailLogin = (email: string, password: string, reactivate = false) =>
+  publicApi.post<AuthResponse>(
+    "/auth/email/login",
+    { email, password },
+    { params: { reactivate } }
+  );
+
+/** `reactivate` confirms revival of a soft-deleted account. It still only emails
+ *  a code — no token is issued, so the reset must be completed to get a session. */
+export const forgotPasswordStart = (email: string, reactivate = false) =>
+  publicApi.post<CodeSentResponse>(
+    "/auth/password/forgot/start",
+    { email },
+    { params: { reactivate } }
+  );
+
+/** Validate a reset code without spending it, so the UI can reject a wrong
+ *  code before advancing to the new-password step. */
+export const forgotPasswordCheck = (email: string, code: string) =>
+  publicApi.post<{ status: string }>("/auth/password/forgot/check", { email, code });
+
+export const forgotPasswordComplete = (email: string, code: string, newPassword: string) =>
+  publicApi.post<AuthResponse>("/auth/password/forgot/complete", {
+    email,
+    code,
+    new_password: newPassword,
+  });
 
 // Share B2V (referral/invite) disabled
 // export const getAffiliateStats = () => api.get<AffiliateStats>("/affiliate/stats");
@@ -759,7 +835,12 @@ export interface CraftedTemplateItem extends CraftedTemplateSummary {
   intro_code?: string | null;
   outro_code?: string | null;
   content_codes?: string[] | null;
-  content_archetype_ids?: (string | { id: string; best_for?: string[] })[] | null;
+  /** `content_type` is the routing key — "dataviz" marks the template's own
+   *  chart scene, which carries chart controls in the editor. */
+  content_archetype_ids?: (
+    | string
+    | { id: string; best_for?: string[]; content_type?: string }
+  )[] | null;
   /** design_blueprint.version — decides who renders the ending. v2 outros
    *  compose their own CTA; v1 outros expect the built-in overlay to replace
    *  them. Travels with the scene code so a caller using this list as
@@ -1358,6 +1439,11 @@ export const updateProjectLogo = (
 
 export const listProjects = () =>
   api.get<ProjectListItem[]>("/projects");
+
+/** Paginated variant. `listProjects()` stays unpaginated — other callers (the
+ *  onboarding-tour project count) depend on the bare-array response. */
+export const listProjectsPaged = (page: number, perPage = 10) =>
+  api.get<ProjectListPage>("/projects", { params: { page, per_page: perPage } });
 
 export const getProject = (id: number) =>
   api.get<Project>(`/projects/${id}`);
@@ -2545,7 +2631,12 @@ export interface CustomTemplateItem {
    *  the scene code above, because a caller that uses this list as precompiled
    *  preview data skips the fetch that would otherwise supply it. */
   design_version?: number;
-  content_archetype_ids: (string | { id: string; best_for?: string[] })[] | null;
+  /** `content_type` is the routing key — "dataviz" marks the template's own
+   *  chart scene, which carries chart controls in the editor. */
+  content_archetype_ids: (
+    | string
+    | { id: string; best_for?: string[]; content_type?: string }
+  )[] | null;
   current_version_id: number | null;
   preview_image_url: string | null;
   logo_urls?: string[];
@@ -2897,6 +2988,29 @@ export const setSceneFontDefaultsBulk = (
   api.patch<CustomTemplateItem>(
     `/custom-templates/${templateId}/scenes/font-defaults`,
     { scenes }
+  );
+
+/**
+ * Set a data-visualisation scene's chart kind and/or sample table.
+ *
+ * TEMPLATE-level sample data — what the chart scene shows in the gallery and
+ * the template editor. A project's chart scene is bound to the article's own
+ * table by the pipeline, so nothing here changes an existing video.
+ *
+ * Send only the field being changed: switching the chart kind must not require
+ * re-sending the table.
+ */
+export const setSceneChart = (
+  templateId: number,
+  sceneKey: string,
+  body: {
+    chartType?: "auto" | "line" | "bar" | "histogram";
+    chartTable?: { headers: string[]; rows: string[][] };
+  }
+) =>
+  api.patch<CustomTemplateItem>(
+    `/custom-templates/${templateId}/scenes/${sceneKey}/chart`,
+    body
   );
 
 export const discardSceneDraft = (templateId: number, sceneKey: string) =>

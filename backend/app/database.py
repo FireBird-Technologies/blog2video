@@ -179,6 +179,10 @@ def _migrate_sqlite(eng) -> None:
             "get_started_email_sent_at": "DATETIME",
             "referrals_given": "INTEGER DEFAULT 0",
             "referral_video_bonus": "INTEGER DEFAULT 0",
+            # Built-in email/password auth. NULL for social accounts.
+            "password_hash": "VARCHAR(255)",
+            # JWT revocation counter; see app/auth.py.
+            "token_version": "INTEGER DEFAULT 0",
             "script_preferences": "TEXT",
             "script_preferences_version": "INTEGER DEFAULT 0",
             "script_preferences_updated_at": "DATETIME",
@@ -724,6 +728,7 @@ def init_db():
         SupportConversation,
         SupportMessage,
         ProjectMember,
+        EmailVerificationCode,
     )
     from app.models.subscription import seed_plans
 

@@ -914,7 +914,15 @@ def test_the_templates_typeface_is_carried_on_the_docs() -> None:
     render time from design_blueprint.identity, so the identity must survive
     validation with renderable ids.
     """
-    from app.dspy_modules.design_doc import MIN_SCENES, validate_design_docs
+    from app.dspy_modules.design_doc import (
+        REQUIRED_CONTENT_TYPES,
+        MIN_SCENES,
+        validate_design_docs,
+    )
+
+    # Derived, so a newly required type cannot leave this fixture one short of
+    # the coverage check — this test is about fonts, not content coverage.
+    _cycle = tuple(REQUIRED_CONTENT_TYPES) + ("quote", "bullets")
 
     docs, _ = validate_design_docs(
         "g" * 200,
@@ -925,8 +933,7 @@ def test_the_templates_typeface_is_carried_on_the_docs() -> None:
                     "role": "content",
                     # Cycled so the set covers REQUIRED_CONTENT_TYPES; this test
                     # is about fonts, not content coverage.
-                    "content_type": ("metrics", "timeline", "comparison",
-                                     "steps", "quote", "bullets")[i % 6],
+                    "content_type": _cycle[i % len(_cycle)],
                     "doc": "d" * 120,
                     "supports_image": False,
                     "image_mode": None,

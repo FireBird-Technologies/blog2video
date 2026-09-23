@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
-import { useSearchParams } from "react-router-dom";
-import { CredentialResponse } from "@react-oauth/google";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   googleLogin,
   createCheckoutSession,
@@ -14,8 +13,6 @@ import {
 import type { BillingCycle, PlanKey } from "../api/billing";
 import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
-import GoogleAuthButton from "../components/public/GoogleAuthButton";
-import AccountDeletedModal from "../components/AccountDeletedModal";
 import PublicHeader from "../components/public/PublicHeader";
 import PublicFooter from "../components/public/PublicFooter";
 import Seo from "../components/seo/Seo";
@@ -49,7 +46,6 @@ import {
   PRO_AI_EDIT_ALLOWANCE,
   pricingFaq,
 } from "../content/pricingContent";
-import { buildBlog2VideoHandoffUrl } from "../config/urls";
 // import DiscountCodeBadge from "../components/DiscountCodeBadge";
 
 // Google sign-in on this page hands off to blog2video.app — see
@@ -58,6 +54,7 @@ import { buildBlog2VideoHandoffUrl } from "../config/urls";
 export default function Pricing() {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const { showError } = useErrorModal();
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
@@ -111,41 +108,10 @@ export default function Pricing() {
     }
   };
 
-  // Same cross-domain handoff as PdfLanding.tsx: no local dashboard exists on
-  // this deployment, and localStorage is per-origin, so the JWT has to travel
-  // as a one-time URL param to blog2video.app rather than a local navigate().
-  const redirectToBlog2Video = (token: string) => {
-    window.location.href = buildBlog2VideoHandoffUrl(token);
-  };
-
-  const handleGoogleSuccess = async (response: CredentialResponse) => {
-    if (!response.credential) return;
-    const refCode = localStorage.getItem("b2v_ref_code");
-    try {
-      const res = await googleLogin(response.credential, false, refCode);
-      localStorage.removeItem("b2v_ref_code");
-      redirectToBlog2Video(res.data.access_token);
-    } catch (err: any) {
-      if (err?.response?.status === 403 && err?.response?.data?.detail === "account_deleted") {
-        setPendingCredential(response.credential);
-        setAccountDeletedOpen(true);
-      } else {
-        showError(getErrorMessage(err, "Authentication failed. Please try again."));
-      }
-    }
-  };
-
-  const handleReactivate = async () => {
-    if (!pendingCredential) return;
-    setReactivating(true);
-    try {
-      const res = await googleLogin(pendingCredential, true);
-      redirectToBlog2Video(res.data.access_token);
-    } catch (err: any) {
-      showError(getErrorMessage(err, "Failed to reactivate account."));
-      setReactivating(false);
-    }
-  };
+  // Plain marketing CTA, so it routes to the full sign-in page rather than
+  // opening the modal. The cross-domain handoff to blog2video.app still happens
+  // — it just lives on that page now (see pages/AuthPage.tsx).
+  const handleOpenLogin = () => navigate("/signin");
 
   const [perVideoLoading, setPerVideoLoading] = useState(false);
 
@@ -405,12 +371,13 @@ export default function Pricing() {
               </button>
             ) : (
               <div className="flex justify-center">
-                <GoogleAuthButton
-                  onSuccess={handleGoogleSuccess}
-                  onError={() => showError("Google sign-in failed")}
-                  text="signup_with"
-                  width="190"
-                />
+                <button
+              type="button"
+              onClick={handleOpenLogin}
+              className="inline-flex h-10 items-center justify-center rounded-full bg-purple-600 px-6 text-sm font-medium text-white transition hover:bg-purple-700"
+            >
+              Get started free
+            </button>
               </div>
             )}
           </div>
@@ -433,12 +400,13 @@ export default function Pricing() {
               onBuy={() => {}}
               customButton={
                 <div className="flex justify-center">
-                  <GoogleAuthButton
-                    onSuccess={handleGoogleSuccess}
-                    onError={() => showError("Google sign-in failed")}
-                    text="continue_with"
-                    width="190"
-                  />
+                  <button
+              type="button"
+              onClick={handleOpenLogin}
+              className="inline-flex h-10 items-center justify-center rounded-full bg-purple-600 px-6 text-sm font-medium text-white transition hover:bg-purple-700"
+            >
+              Get started free
+            </button>
                 </div>
               }
             />
@@ -512,12 +480,13 @@ export default function Pricing() {
                 />
               ) : (
                 <div className="flex justify-center">
-                  <GoogleAuthButton
-                    onSuccess={handleGoogleSuccess}
-                    onError={() => showError("Google sign-in failed")}
-                    text="continue_with"
-                    width="190"
-                  />
+                  <button
+              type="button"
+              onClick={handleOpenLogin}
+              className="inline-flex h-10 items-center justify-center rounded-full bg-purple-600 px-6 text-sm font-medium text-white transition hover:bg-purple-700"
+            >
+              Get started free
+            </button>
                 </div>
               )}
             </div>
@@ -607,12 +576,13 @@ export default function Pricing() {
               )
             ) : (
               <div className="flex justify-center">
-                <GoogleAuthButton
-                  onSuccess={handleGoogleSuccess}
-                  onError={() => showError("Google sign-in failed")}
-                  text="continue_with"
-                  width="190"
-                />
+                <button
+              type="button"
+              onClick={handleOpenLogin}
+              className="inline-flex h-10 items-center justify-center rounded-full bg-purple-600 px-6 text-sm font-medium text-white transition hover:bg-purple-700"
+            >
+              Get started free
+            </button>
               </div>
             )}
           </div>
@@ -716,12 +686,13 @@ export default function Pricing() {
               )
             ) : (
               <div className="flex justify-center">
-                <GoogleAuthButton
-                  onSuccess={handleGoogleSuccess}
-                  onError={() => showError("Google sign-in failed")}
-                  text="continue_with"
-                  width="190"
-                />
+                <button
+              type="button"
+              onClick={handleOpenLogin}
+              className="inline-flex h-10 items-center justify-center rounded-full bg-purple-600 px-6 text-sm font-medium text-white transition hover:bg-purple-700"
+            >
+              Get started free
+            </button>
               </div>
             )}
           </div>
@@ -991,12 +962,6 @@ export default function Pricing() {
 
       <PublicFooter />
 
-      <AccountDeletedModal
-        open={accountDeletedOpen}
-        onClose={() => { setAccountDeletedOpen(false); setPendingCredential(null); }}
-        onReactivate={handleReactivate}
-        reactivating={reactivating}
-      />
 
       <PlanSwitchConfirmModal
         open={Boolean(pendingSwitch)}

@@ -244,3 +244,4 @@ class Project(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    social_publish_jobs = relationship("SocialPublishJob", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)

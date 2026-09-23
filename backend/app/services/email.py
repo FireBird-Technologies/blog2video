@@ -407,6 +407,81 @@ class EmailService:
             from_email=getattr(settings, "NOREPLY_EMAIL", "noreply@blog2video.app"),
         )
 
+    def send_publish_succeeded_email(
+        self,
+        user_email: str,
+        user_name: str,
+        project_name: str,
+        platform_label: str,
+        post_url: str,
+    ) -> None:
+        """Notify the user that their video is live on YouTube/X.
+
+        Transactional, like send_download_ready_email above: no unsubscribe link
+        and no email_unsubscribed check, because it is the completion receipt for
+        something the user explicitly started.
+        """
+        first_name = user_name.split()[0] if user_name else "there"
+        subject = f"Your video '{project_name}' is live on {platform_label}"
+        html = self._build_html(
+            headline=f"Hi {first_name}, your video is on {platform_label}!",
+            body_paragraph=(
+                f"Your Blog2Video project <strong style=\"color:#111827;\">\"{project_name}\"</strong> "
+                f"has finished uploading to {platform_label} and is ready to watch."
+            ),
+            cta_label=f"Watch on {platform_label}",
+            cta_url=post_url,
+        )
+        text = (
+            f"Hi {first_name},\n\n"
+            f"Your Blog2Video project '{project_name}' is now on {platform_label}!\n\n"
+            f"Watch it here: {post_url}\n\n"
+            f"— The Blog2Video Team\n"
+        )
+        self.provider.send_email(
+            to=user_email, subject=subject, html_content=html, text_content=text,
+            from_email=getattr(settings, "NOREPLY_EMAIL", "noreply@blog2video.app"),
+        )
+
+    def send_publish_failed_email(
+        self,
+        user_email: str,
+        user_name: str,
+        project_name: str,
+        platform_label: str,
+        reason: str,
+        project_url: str,
+    ) -> None:
+        """Tell the user an upload gave up, and why.
+
+        Sent only once the job is terminally failed — never between automatic
+        retries, which usually recover on their own.
+        """
+        first_name = user_name.split()[0] if user_name else "there"
+        subject = f"We couldn't publish '{project_name}' to {platform_label}"
+        html = self._build_html(
+            headline=f"Hi {first_name}, your upload didn't go through",
+            body_paragraph=(
+                f"We couldn't publish <strong style=\"color:#111827;\">\"{project_name}\"</strong> "
+                f"to {platform_label}.<br><br>"
+                f"<span style=\"color:#6b7280;\">{reason}</span><br><br>"
+                f"Your video is safe — open the project to try again."
+            ),
+            cta_label="Open project",
+            cta_url=project_url,
+        )
+        text = (
+            f"Hi {first_name},\n\n"
+            f"We couldn't publish '{project_name}' to {platform_label}.\n\n"
+            f"{reason}\n\n"
+            f"Your video is safe — open the project to try again: {project_url}\n\n"
+            f"— The Blog2Video Team\n"
+        )
+        self.provider.send_email(
+            to=user_email, subject=subject, html_content=html, text_content=text,
+            from_email=getattr(settings, "NOREPLY_EMAIL", "noreply@blog2video.app"),
+        )
+
 
     def _send_coupon_email(
         self,
@@ -1021,6 +1096,123 @@ class EmailService:
             f"Get started: {referral_link}\n\n"
             f"Team Blog2Video"
             f"</pre>"
+        )
+        self.provider.send_email(
+            to=to_email,
+            subject=subject,
+            html_content=html_content,
+            text_content=text_content,
+            from_email=getattr(settings, "NOREPLY_EMAIL", "noreply@blog2video.app"),
+        )
+
+    # ─── Email/password auth codes ───────────────────────────────────────────
+    # Both are TRANSACTIONAL: no unsubscribe link, and callers must NOT check
+    # user.email_unsubscribed. Someone who opted out of product emails must still
+    # be able to verify their address and reset their password — suppressing
+    # these would lock them out of their own account.
+
+    def _build_code_html(self, headline: str, body_paragraph: str, code: str) -> str:
+        """Branded shell with the code shown large and selectable.
+
+        Deliberately not _build_html: that renders a CTA button, and a one-time
+        code has nothing to link to — the user reads it and types it back.
+        """
+        from app.services.email_verification import CODE_TTL_SECONDS
+
+        minutes = CODE_TTL_SECONDS // 60
+        return f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{html.escape(headline)}</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table width="560" cellpadding="0" cellspacing="0"
+               style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="background:#9333EA;padding:32px 40px;text-align:center;">
+              <span style="font-size:24px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">
+                Blog<span style="color:#c4b5fd;">2</span>Video
+              </span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:40px 40px 32px;">
+              <p style="margin:0 0 16px;font-size:18px;font-weight:600;color:#111827;">{html.escape(headline)}</p>
+              <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#4b5563;">{body_paragraph}</p>
+              <div style="margin:0 0 24px;padding:20px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;text-align:center;">
+                <span style="font-family:'SF Mono',Menlo,Consolas,monospace;font-size:32px;font-weight:700;letter-spacing:8px;color:#111827;">{html.escape(code)}</span>
+              </div>
+              <p style="margin:0;font-size:13px;line-height:1.6;color:#6b7280;">
+                This code expires in {minutes} minutes. If you didn't request it, you can safely ignore this email.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 40px 32px;">
+              <p style="margin:0;font-size:13px;color:#9ca3af;">Team Blog2Video</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+    def send_verification_code_email(self, to_email: str, code: str) -> None:
+        """Signup verification code — proves the user controls this mailbox."""
+        from app.services.email_verification import CODE_TTL_SECONDS
+
+        minutes = CODE_TTL_SECONDS // 60
+        subject = f"{code} is your Blog2Video verification code"
+        text_content = (
+            f"Your Blog2Video verification code is {code}\n\n"
+            f"Enter it to finish creating your account. "
+            f"This code expires in {minutes} minutes.\n\n"
+            f"If you didn't request it, you can safely ignore this email.\n\n"
+            f"Team Blog2Video\n"
+        )
+        html_content = self._build_code_html(
+            headline="Verify your email address",
+            body_paragraph=(
+                "Enter this code to finish creating your Blog2Video account."
+            ),
+            code=code,
+        )
+        self.provider.send_email(
+            to=to_email,
+            subject=subject,
+            html_content=html_content,
+            text_content=text_content,
+            from_email=getattr(settings, "NOREPLY_EMAIL", "noreply@blog2video.app"),
+        )
+
+    def send_password_reset_code_email(self, to_email: str, code: str) -> None:
+        """Password-reset code for an existing email/password account."""
+        from app.services.email_verification import CODE_TTL_SECONDS
+
+        minutes = CODE_TTL_SECONDS // 60
+        subject = f"{code} is your Blog2Video password reset code"
+        text_content = (
+            f"Your Blog2Video password reset code is {code}\n\n"
+            f"Enter it to choose a new password. "
+            f"This code expires in {minutes} minutes.\n\n"
+            f"If you didn't request a password reset, you can safely ignore this "
+            f"email — your password has not changed.\n\n"
+            f"Team Blog2Video\n"
+        )
+        html_content = self._build_code_html(
+            headline="Reset your password",
+            body_paragraph=(
+                "Enter this code to choose a new password. If you didn't request a "
+                "reset, your password has not changed."
+            ),
+            code=code,
         )
         self.provider.send_email(
             to=to_email,

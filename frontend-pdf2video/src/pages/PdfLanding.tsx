@@ -1,15 +1,11 @@
-import { useEffect, useMemo, useState, useRef } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import type { CredentialResponse } from "@react-oauth/google";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useScrollReveal } from "../hooks/useScrollReveal";
 import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
-import { googleLogin } from "../api/client";
 import Seo from "../components/seo/Seo";
 import { homepageSchema } from "../seo/schema";
-import GoogleAuthButton from "../components/public/GoogleAuthButton";
 import PublicFooter from "../components/public/PublicFooter";
-import AccountDeletedModal from "../components/AccountDeletedModal";
 import ContactModal from "../components/ContactModal";
 import UserReviewsSection from "../components/UserReviewsSection";
 import PlatformShowcaseSection from "../components/PlatformShowcaseSection";
@@ -27,7 +23,6 @@ import {
 } from "../components/templatePreviewRegistry";
 import YourOwnBrandPreview from "../components/templatePreviews/YourOwnBrandPreview";
 import YourOwnBrandPreviewPortrait from "../components/templatePreviews/portrait/YourOwnBrandPreviewPortrait";
-import { detectInAppBrowser } from "../lib/inAppBrowser";
 import {
   LITE_MONTHLY_PRICE,
   STANDARD_MONTHLY_PRICE,
@@ -203,6 +198,7 @@ const FAQS = [
 
 export default function PdfLanding() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const { showError } = useErrorModal();
   // A session CAN exist on this domain now: the /tools widgets sign in locally
   // (see components/tools/LoginGate.tsx) instead of handing off. Without this the
@@ -210,26 +206,12 @@ export default function PdfLanding() {
   const { user, token, logout } = useAuth();
 
   const [navOpen, setNavOpen] = useState(false);
-  const [signingIn, setSigningIn] = useState(false);
-  const [accountDeletedOpen, setAccountDeletedOpen] = useState(false);
-  const [pendingCredential, setPendingCredential] = useState<string | null>(null);
-  const [reactivating, setReactivating] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [templatesOrientation, setTemplatesOrientation] =
     useState<CoverflowOrientation>("landscape");
   const [typedPlaceholder, setTypedPlaceholder] = useState("");
 
-  /**
-   * The hero's off-screen GIS button, clicked programmatically by the CTAs.
-   * Kept separate from {@link authButtonRef} (the visible button further down
-   * the page): both used to share one ref, so React pointed it at whichever
-   * mounted last and the CTA ended up clicking the wrong — unrendered — node.
-   */
-  const googleBtnRef = useRef<HTMLDivElement>(null);
-  /** The visible "continue with Google" button rendered by `authButton()`. */
-  const authButtonRef = useRef<HTMLDivElement>(null);
-  const isInApp = detectInAppBrowser().isInApp;
   // Required, not decorative: shared sections (e.g. VoiceShowcaseSection) mark
   // content with `.reveal`, which is opacity:0 until this observer adds
   // `.visible`. Without the hook those sections render as blank space.
@@ -293,96 +275,31 @@ export default function PdfLanding() {
     carouselTemplates.findIndex((t) => t.id === CAROUSEL_ANCHOR_ID)
   );
 
-  const handleGenerateClick = () => {
-    // Inside an in-app browser the hidden Google (GIS) button silently no-ops,
-    // because Google blocks OAuth in embedded webviews. Reveal the sign-in block
-    // so the GoogleAuthButton's escape/instructions UI is usable instead.
-    if (isInApp) {
-      googleBtnRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-      return;
-    }
-    // GIS renders a (0×0) div[role="button"] into the hidden wrapper; clicking
-    // it programmatically opens the Google popup in place. Fall back to the
-    // visible button further down only if the hero's hasn't mounted yet.
-    //
-    // Deliberately NO scrollIntoView fallback: if neither has rendered, doing
-    // nothing matches ../frontend/src/pages/Landing.tsx. Scrolling instead sent
-    // the user to the bottom of the page, which read as the CTA being broken.
-    const findBtn = (root: HTMLDivElement | null) =>
-      root?.querySelector("div[role='button']") as HTMLElement | null;
-    const btn = findBtn(googleBtnRef.current) ?? findBtn(authButtonRef.current);
-    btn?.click();
-  };
+  // The /signin page owns provider choice and the in-app-browser escape, so the
+  // CTAs are a plain navigation now. This replaced a hidden GIS button that the
+  // CTAs clicked programmatically, plus an in-app-browser branch that scrolled
+  // it into view — all of which AuthFlow handles on the page itself.
+  const handleGenerateClick = () => navigate("/signin");
 
   /** Hero CTA: there is no local session on this deployment, so it always starts sign-in. */
   const handleHeroStart = () => {
     handleGenerateClick();
   };
 
-  /**
-   * Cross-domain handoff: the JWT lives in localStorage, which is per-origin,
-   * so a plain redirect would land the user on blog2video.app logged out. The
-   * token travels as a one-time URL param instead; blog2video.app's AppRoutes
-   * reads it, writes it into its own localStorage, and strips it from the URL
-   * immediately (see ../frontend/src/App.tsx).
-   *
-   * pdf2vid.com never stores the token itself — there's nothing here for it
-   * to authenticate.
-   */
-  const redirectToBlog2Video = (token: string) => {
-    window.location.href = buildBlog2VideoHandoffUrl(token);
-  };
-
-  const handleGoogleSuccess = async (response: CredentialResponse) => {
-    if (!response.credential) return;
-    setSigningIn(true);
-    const refCode = localStorage.getItem("b2v_ref_code");
-    try {
-      const res = await googleLogin(response.credential, false, refCode);
-      localStorage.removeItem("b2v_ref_code");
-      redirectToBlog2Video(res.data.access_token);
-      // Intentionally no setSigningIn(false) on success — the page is
-      // navigating away; leaving the spinner up avoids a flash of the idle
-      // button during the redirect.
-    } catch (err: any) {
-      if (err?.response?.status === 403 && err?.response?.data?.detail === "account_deleted") {
-        setPendingCredential(response.credential);
-        setAccountDeletedOpen(true);
-      } else {
-        showError(getErrorMessage(err, "Authentication failed. Please try again."));
-      }
-      setSigningIn(false);
-    }
-  };
-
-  const handleReactivate = async () => {
-    if (!pendingCredential) return;
-    setReactivating(true);
-    try {
-      const res = await googleLogin(pendingCredential, true);
-      redirectToBlog2Video(res.data.access_token);
-    } catch (err: any) {
-      showError(getErrorMessage(err, "Failed to reactivate account."));
-      setReactivating(false);
-    }
-  };
+  /* The cross-domain handoff now lives on the /signin page (see
+     pages/AuthPage.tsx): the JWT is per-origin, so it travels to blog2video.app
+     as a one-time URL param rather than a plain redirect. This page only has to
+     get the user to that form. */
 
   const authButton = (width = "300") => (
-    <div ref={authButtonRef} className="inline-flex flex-col items-center gap-2">
-      {signingIn ? (
-        <div className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-6 py-3 text-sm font-medium text-gray-500 shadow-sm">
-          <span className="h-4 w-4 animate-spin rounded-full border-2 border-purple-500/30 border-t-purple-500" />
-          Signing you in…
-        </div>
-      ) : (
-        <GoogleAuthButton
-          onSuccess={handleGoogleSuccess}
-          onError={() => showError("Authentication failed. Please try again.")}
-          text="continue_with"
-          width={width}
-        />
-      )}
-    </div>
+    <button
+      type="button"
+      onClick={handleGenerateClick}
+      style={{ width: `${width}px`, maxWidth: "100%" }}
+      className="inline-flex h-10 items-center justify-center rounded-full bg-purple-600 px-6 text-sm font-medium text-white transition hover:bg-purple-700"
+    >
+      Get started free
+    </button>
   );
 
   return (
@@ -591,24 +508,6 @@ export default function PdfLanding() {
           <p className="text-lg text-gray-500 max-w-2xl mx-auto mb-10 leading-relaxed">
             Turn reports, whitepapers, and decks into narrated videos in minutes.
           </p>
-
-          {/* Hidden Google button — triggered programmatically by the CTAs.
-              In an in-app browser it's revealed so the escape/instructions UI shows.
-
-              Must stay `hidden` (display:none), matching
-              ../frontend/src/pages/Landing.tsx. GIS still renders a real (0×0)
-              `div[role="button"]` into the host DOM here, and a programmatic
-              .click() on it works. Under `sr-only` GIS instead renders the
-              button *inside* its cross-origin iframe, leaving nothing in the
-              host DOM to click — which is what broke the CTA in production. */}
-          <div ref={googleBtnRef} className={isInApp ? "mt-4 flex justify-center" : "hidden"}>
-            <GoogleAuthButton
-              onSuccess={handleGoogleSuccess}
-              onError={() => showError("Google sign-in failed")}
-              text="continue_with"
-              width="300"
-            />
-          </div>
 
           {/* Mirrors the blog2video hero's input + button, but this brand takes a
               file rather than a URL, so the field is a dropzone-styled affordance
@@ -926,24 +825,7 @@ export default function PdfLanding() {
 
       <PublicFooter />
 
-      <AccountDeletedModal
-        open={accountDeletedOpen}
-        onClose={() => {
-          setAccountDeletedOpen(false);
-          setPendingCredential(null);
-          setSigningIn(false);
-        }}
-        onReactivate={handleReactivate}
-        reactivating={reactivating}
-      />
       <ContactModal open={contactOpen} onClose={() => setContactOpen(false)} />
-
-      {signingIn && (
-        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm">
-          <div className="w-10 h-10 rounded-full border-2 border-purple-200 border-t-purple-600 animate-spin mb-4" />
-          <p className="text-sm font-medium text-gray-700">Signing you in…</p>
-        </div>
-      )}
     </div>
   );
 }

@@ -18,7 +18,9 @@ import {
   tools,
   toolsHub,
 } from "../src/content/siteContent";
+import { getLinkedSections, type TextSegment } from "../src/content/inlineLinks";
 import type { BlogPost, HelpPost, MarketingPage, ToolDefinition } from "../src/content/seoTypes";
+import { getClusterNav } from "../src/content/topicClusters";
 import {
   normalizeSchemaForJsonLd,
   SEO_JSON_LD_SCRIPT_ID,
@@ -69,13 +71,26 @@ function renderSectionCtaHtml(ctaPath?: string, ctaLabel?: string): string {
   return `<p><a href="${escapeHtml(ctaPath)}">${escapeHtml(ctaLabel || "Try Blog2Video free")}</a></p>`;
 }
 
+function renderSegmentsHtml(segments: TextSegment[]): string {
+  return segments
+    .map((segment) =>
+      segment.href
+        ? `<a href="${escapeHtml(segment.href)}">${escapeHtml(segment.text)}</a>`
+        : escapeHtml(segment.text)
+    )
+    .join("");
+}
+
 function renderBlogPostHtml(post: BlogPost): string {
   const heroImg = post.heroImage
     ? `<img src="${post.heroImage}" alt="${escapeHtml(post.heroImageAlt ?? "")}" />`
     : "";
+  const linkedSections = getLinkedSections(post);
   const sectionsHtml = post.sections
-    .map((s) => {
-      const paras = s.paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join("");
+    .map((s, sectionIndex) => {
+      const paras = linkedSections[sectionIndex].paragraphs
+        .map((segments) => `<p>${renderSegmentsHtml(segments)}</p>`)
+        .join("");
       const bullets = s.bullets?.length
         ? `<ul>${s.bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join("")}</ul>`
         : "";
@@ -88,7 +103,24 @@ function renderBlogPostHtml(post: BlogPost): string {
         .map((f) => `<div><h3>${escapeHtml(f.question)}</h3><p>${escapeHtml(f.answer)}</p></div>`)
         .join("")}</section>`
     : "";
-  return `<main><article>${heroImg}<p>${escapeHtml(post.heroEyebrow)}</p><h1>${escapeHtml(post.heroTitle)}</h1><p>${escapeHtml(post.heroDescription)}</p><time datetime="${post.publishedAt}">${post.publishedAt}</time>${sectionsHtml}${faqHtml}</article>${renderRelatedPostsHtml(post)}</main>`;
+  return `<main><article>${heroImg}<p>${escapeHtml(post.heroEyebrow)}</p><h1>${escapeHtml(post.heroTitle)}</h1><p>${escapeHtml(post.heroDescription)}</p><time datetime="${post.publishedAt}">${post.publishedAt}</time>${sectionsHtml}${renderClusterNavHtml(post)}${faqHtml}</article>${renderCuratedLinksHtml(post)}${renderRelatedPostsHtml(post)}</main>`;
+}
+
+function renderClusterNavHtml(post: BlogPost): string {
+  const nav = getClusterNav(post);
+  if (!nav) return "";
+  return `<nav aria-label="More in ${escapeHtml(nav.name)}"><h2>More in ${escapeHtml(nav.name)}</h2><ul><li><a href="/blogs/${nav.previous.slug}">${escapeHtml(nav.previous.title)}</a></li><li><a href="/blogs/${nav.next.slug}">${escapeHtml(nav.next.title)}</a></li><li><a href="${escapeHtml(nav.hubPath)}">${escapeHtml(nav.hubLabel)}</a></li></ul></nav>`;
+}
+
+// The React sidebar shows the post's curated relatedPaths; emit them here too
+// so the curated links exist for crawlers that don't execute JS.
+function renderCuratedLinksHtml(post: BlogPost): string {
+  const links = getStructuredInternalLinks(post.relatedPaths);
+  if (!links.length) return "";
+  const items = links
+    .map((link) => `<li><a href="${escapeHtml(link.path)}">${escapeHtml(link.label)}</a></li>`)
+    .join("");
+  return `<nav aria-label="Related pages"><h2>Related pages</h2><ul>${items}</ul></nav>`;
 }
 
 function renderRelatedPostsHtml(post: BlogPost): string {
@@ -258,9 +290,9 @@ function getSeoPayload(routePath: string): SeoPayload {
       };
     }
     return {
-      title: "Turn Blog Posts Into Videos",
+      title: "Text to Video AI: Turn Blogs, URLs, PDFs & Scripts Into Videos",
       description:
-        "Turn blog posts, articles, PDFs, and documents into narrated videos with templates, voiceover, scene editing, and cross-channel distribution workflows.",
+        "Turn text into narrated videos in minutes. Paste a blog URL, script, PDF, or PowerPoint and Blog2Video builds the scenes, voiceover, and captions. Avatars from a photo. Free to start.",
       path: routePath,
       schema: homepageSchema(),
     };

@@ -24,7 +24,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 from starlette.websockets import WebSocketState
 
 from app.database import SessionLocal
-from app.auth import decode_access_token
+from app.auth import decode_token_full, token_version_is_current
 from app.models.user import User
 from app.models.project import Project
 from app.services.access import get_member
@@ -214,13 +214,18 @@ def _authenticate(token: Optional[str], db) -> Optional[User]:
     if not token:
         return None
     try:
-        user_id = decode_access_token(token)
+        payload = decode_token_full(token)
+        user_id = int(payload["sub"]) if payload else 0
     except Exception:
         return None
     if not user_id:
         return None
     user = db.query(User).filter(User.id == user_id).first()
     if not user or not user.is_active:
+        return None
+    # Mirror get_current_user: a revoked token must not open a socket either,
+    # or logging out would leave a live collaboration session behind.
+    if not token_version_is_current(payload, user):
         return None
     return user
 

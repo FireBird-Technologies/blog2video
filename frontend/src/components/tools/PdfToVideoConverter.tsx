@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom";
 import { useNavigate } from "react-router-dom";
-import type { CredentialResponse } from "@react-oauth/google";
 import { useAuth } from "../../hooks/useAuth";
-import { googleLogin } from "../../api/client";
-import GoogleAuthButton from "../public/GoogleAuthButton";
+import { useLoginModal } from "../../contexts/LoginModalContext";
 
 /** Where a document continues — Step 1 of the create flow with the upload tab open. */
 const UPLOAD_STEP_PATH = "/dashboard?mode=upload";
@@ -26,7 +24,8 @@ function hasAllowedExtension(name: string) {
 }
 
 export default function PdfToVideoConverter() {
-  const { user, login } = useAuth();
+  const { user } = useAuth();
+  const { openLogin } = useLoginModal();
   const navigate = useNavigate();
   const docInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -35,10 +34,6 @@ export default function PdfToVideoConverter() {
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [docError, setDocError] = useState("");
-  /** Set by Continue — the sign-up prompt is a response to that click, not to picking a file. */
-  const [signUpRequested, setSignUpRequested] = useState(false);
-  const [signingIn, setSigningIn] = useState(false);
-  const [signInError, setSignInError] = useState("");
 
   const goToUpload = () => navigate(UPLOAD_STEP_PATH);
 
@@ -84,51 +79,13 @@ export default function PdfToVideoConverter() {
       goToUpload();
       return;
     }
-    setSignUpRequested(true);
-  };
-
-  const closeSignUp = () => {
-    if (signingIn) return;
-    setSignUpRequested(false);
-    setSignInError("");
-  };
-
-  // While the popup is open: close on Escape and lock background scroll.
-  useEffect(() => {
-    if (!signUpRequested || user) return;
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeSignUp();
-    };
-    document.addEventListener("keydown", onKeyDown);
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = previousOverflow;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [signUpRequested, user, signingIn]);
-
-  const handleGoogleSuccess = async (response: CredentialResponse) => {
-    if (!response.credential) return;
-    setSigningIn(true);
-    setSignInError("");
-    try {
-      const res = await googleLogin(
-        response.credential,
-        false,
-        localStorage.getItem("b2v_ref_code")
-      );
-      localStorage.removeItem("b2v_ref_code");
-      login(res.data.access_token, res.data.user);
-      goToUpload();
-    } catch {
-      setSignInError("Sign-up failed. Please try again.");
-      setSigningIn(false);
-    }
+    // Land straight on the upload step once signed in, instead of the dashboard.
+    openLogin({
+      title: "Create a free account to continue",
+      subtitle:
+        "No credit card required. You land straight on the upload step, where you can select your file and generate the video.",
+      onSuccess: goToUpload,
+    });
   };
 
   return (
@@ -286,71 +243,6 @@ export default function PdfToVideoConverter() {
         </div>
       </div>
 
-      {/* Sign-up popup — triggered by Continue. */}
-      {signUpRequested &&
-        !user &&
-        ReactDOM.createPortal(
-          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-            <div
-              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-              onClick={closeSignUp}
-            />
-            <div
-              role="dialog"
-              aria-modal="true"
-              aria-label="Create a free account to continue"
-              className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white p-8 text-center shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                type="button"
-                onClick={closeSignUp}
-                aria-label="Close"
-                className="absolute right-4 top-4 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-              >
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-purple-100 bg-purple-50">
-                <svg className="h-6 w-6 text-purple-600" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-              </div>
-
-              <h2 className="mt-5 text-xl font-semibold text-gray-900">
-                Create a free account to continue
-              </h2>
-              <p className="mx-auto mt-2.5 text-sm leading-relaxed text-gray-500">
-                Sign up with Google — no credit card required. You land straight on the upload
-                step, where you can select your file and generate the video.
-              </p>
-
-              <div className="mt-6 flex justify-center">
-                {signingIn ? (
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <svg className="h-4 w-4 animate-spin text-purple-600" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                    </svg>
-                    Setting up your account…
-                  </div>
-                ) : (
-                  <GoogleAuthButton
-                    onSuccess={handleGoogleSuccess}
-                    onError={() => setSignInError("Sign-up failed. Please try again.")}
-                    text="signup_with"
-                    width="320"
-                  />
-                )}
-              </div>
-
-              {signInError ? <p className="mt-3 text-xs text-red-500">{signInError}</p> : null}
-            </div>
-          </div>,
-          document.body
-        )}
     </div>
   );
 }

@@ -365,6 +365,17 @@ def build_custom_meta(
         # them as selectable, named layouts so the user can switch a scene to a
         # chart/table. Layout ids match SceneEditModal's convention (custom_chart /
         # custom_table — see currentLayoutId derivation). They never take an image.
+        #
+        # The CHART scene is now designed per template (a required design role),
+        # so its content variant is the thing that actually renders. Drop that
+        # variant from the pickable list — it is reachable as "Data Chart" and
+        # offering it twice would let a prose scene be switched onto a layout
+        # that renders a chart and nothing else.
+        _chart_variant_key = next(
+            (k for k, v in layout_content_types.items() if v == "dataviz"), None
+        )
+        if _chart_variant_key and _chart_variant_key in variant_layouts:
+            variant_layouts.remove(_chart_variant_key)
         variant_layouts.append("custom_chart")
         layout_names["custom_chart"] = "Data Chart"
         variant_layouts.append("custom_table")

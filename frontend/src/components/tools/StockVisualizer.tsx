@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "../../hooks/useAuth";
-import GoogleAuthButton from "../public/GoogleAuthButton";
-import { googleLogin } from "../../api/client";
-import type { CredentialResponse } from "@react-oauth/google";
+import { useLoginModal } from "../../contexts/LoginModalContext";
 import { getStockData } from "../../api/stockData";
 import type { StockDataResponse, StockMetricRow } from "../../api/stockData";
 
@@ -455,21 +453,10 @@ function FinancialTable({ rows, title, t }: { rows: StockMetricRow[]; title: str
 
 // ─── Signup modal (FreeTemplatesPage pattern, purple) ────
 function SignupModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
-  const { login } = useAuth();
-  const [signingIn, setSigningIn] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { openLogin } = useLoginModal();
+  const handleOpenLogin = () =>
+    openLogin({ title: "Unlock live market data", onSuccess });
 
-  const handleSuccess = useCallback(async (response: CredentialResponse) => {
-    if (!response.credential) return;
-    setSigningIn(true); setError(null);
-    try {
-      const res = await googleLogin(response.credential, false, localStorage.getItem("b2v_ref_code"));
-      localStorage.removeItem("b2v_ref_code");
-      login(res.data.access_token, res.data.user);
-      onSuccess();
-    } catch { setError("Sign-in failed. Please try again."); }
-    finally { setSigningIn(false); }
-  }, [login, onSuccess]);
 
   return (
     <div
@@ -515,19 +502,14 @@ function SignupModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
           <div className="mb-5 border-t border-gray-100" />
 
           <div className="mb-3 flex justify-center">
-            {signingIn ? (
-              <div className="flex items-center gap-2 text-sm text-gray-500">
-                <svg className="h-4 w-4 animate-spin text-purple-600" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                </svg>
-                Signing in…
-              </div>
-            ) : (
-              <GoogleAuthButton onSuccess={handleSuccess} onError={() => setError("Sign-in failed. Please try again.")} text="signup_with" width="320" />
-            )}
+            <button
+              type="button"
+              onClick={handleOpenLogin}
+              className="inline-flex h-10 items-center justify-center rounded-full bg-purple-600 px-6 text-sm font-medium text-white transition hover:bg-purple-700"
+            >
+              Sign in to continue
+            </button>
           </div>
-          {error && <p className="mb-2 text-center text-xs text-red-500">{error}</p>}
           <p className="text-center text-xs text-gray-400">No credit card required · Free forever</p>
         </div>
       </div>
@@ -537,7 +519,10 @@ function SignupModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
 
 // ─── Main component ───────────────────────────────────────
 export default function StockVisualizer() {
-  const { user, login } = useAuth();
+  const { user } = useAuth();
+  const { openLogin } = useLoginModal();
+  const handleOpenLogin = () =>
+    openLogin({ title: "Search any real ticker", subtitle: "Sign in to unlock live prices and financials." });
   const isAuthed = Boolean(user);
 
   const [themeId, setThemeId] = useState<ThemeId>("newscast");
@@ -845,19 +830,13 @@ export default function StockVisualizer() {
             B2V is a demo ticker. Sign in to search SPCX, AAPL, GOOGL, NVDA, TSLA, or any stock symbol — and view live 30-day price charts plus 3 years of annual income statements and balance sheets.
           </p>
           <div className="flex justify-center">
-            <GoogleAuthButton
-              onSuccess={async (response: CredentialResponse) => {
-                if (!response.credential) return;
-                try {
-                  const res = await googleLogin(response.credential, false, localStorage.getItem("b2v_ref_code"));
-                  localStorage.removeItem("b2v_ref_code");
-                  login(res.data.access_token, res.data.user);
-                } catch { /* silently ignore */ }
-              }}
-              onError={() => undefined}
-              text="signup_with"
-              width="300"
-            />
+            <button
+              type="button"
+              onClick={handleOpenLogin}
+              className="inline-flex h-10 items-center justify-center rounded-full bg-purple-600 px-6 text-sm font-medium text-white transition hover:bg-purple-700"
+            >
+              Sign in to continue
+            </button>
           </div>
         </div>
       )}

@@ -131,8 +131,8 @@ export const NewsHeadlineV2: React.FC<
      first ten frames, in the equivalent newspaper opening scene). */
   const titleRef = React.useRef<HTMLDivElement>(null);
   const narrationRef = React.useRef<HTMLDivElement>(null);
-  const titleTargetPx = titleFontSize ?? (p ? 54 : 54);
-  const narrationTargetPx = descriptionFontSize ?? (p ? 29 : 27);
+  const titleTargetPx = titleFontSize ?? (p ? 65 : 54);
+  const narrationTargetPx = descriptionFontSize ?? (p ? 32 : 27);
   const stackBudgetPx = Math.round(videoHeight * (hasVisual ? (p ? 0.34 : 0.32) : p ? 0.55 : 0.5));
   const titleBudgetPx = Math.round(stackBudgetPx * (narration ? 0.66 : 1));
 

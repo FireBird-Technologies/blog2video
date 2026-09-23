@@ -1,11 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { CredentialResponse } from "@react-oauth/google";
-import { googleLogin } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
-import { usePostLoginRedirect } from "../hooks/usePostLoginRedirect";
 import { useScrollReveal } from "../hooks/useScrollReveal";
-import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import FullTemplateShowcase from "../components/FullTemplateShowcase";
 import CoverflowCarousel, { type CoverflowTemplate, type CoverflowOrientation } from "../components/CoverflowCarousel";
 import OrientationToggle from "../components/OrientationToggle";
@@ -19,9 +15,6 @@ import CustomTemplateShowcase from "../components/CustomTemplateShowcase";
 import MCPConnectorShowcase from "../components/MCPConnectorShowcase";
 import AvatarShowcase from "../components/AvatarShowcase";
 // import FeaturedUserTemplates from "../components/FeaturedUserTemplates";
-import GoogleAuthButton from "../components/public/GoogleAuthButton";
-import { detectInAppBrowser } from "../lib/inAppBrowser";
-import AccountDeletedModal from "../components/AccountDeletedModal";
 import LandingResourceSection from "../components/public/LandingResourceSection";
 import PlatformShowcaseSection from "../components/PlatformShowcaseSection";
 import UserReviewsSection from "../components/UserReviewsSection";
@@ -460,16 +453,11 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
 }
 
 export default function Landing() {
-  const { login, user } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const redirectAfterLogin = usePostLoginRedirect();
   const [searchParams] = useSearchParams();
-  const { showError } = useErrorModal();
   const [demos, setDemos] = useState<DemoVideo[]>(INITIAL_DEMOS);
   const [navOpen, setNavOpen] = useState(false);
-  const [accountDeletedOpen, setAccountDeletedOpen] = useState(false);
-  const [pendingCredential, setPendingCredential] = useState<string | null>(null);
-  const [reactivating, setReactivating] = useState(false);
   const [heroUrl, setHeroUrl] = useState("");
   const [typedPlaceholder, setTypedPlaceholder] = useState("");
   const [designerOpen, setDesignerOpen] = useState(false);
@@ -550,21 +538,11 @@ export default function Landing() {
     if (ref) localStorage.setItem("b2v_ref_code", ref);
   }, [searchParams]);
 
-  // Auto-trigger Google sign-in when redirected here with ?signin=1
+  // Auto-open sign-in when redirected here with ?signin=1
   useEffect(() => {
     if (searchParams.get("signin") !== "1") return;
-    // Give the Google SDK ~800ms to mount the button, then click it. In an in-app
-    // browser the GIS button no-ops, so reveal the escape UI instead of clicking.
-    const t = setTimeout(() => {
-      if (detectInAppBrowser().isInApp) {
-        googleBtnRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-        return;
-      }
-      const btn = googleBtnRef.current?.querySelector("div[role='button']") as HTMLElement | null;
-      btn?.click();
-    }, 800);
-    return () => clearTimeout(t);
-  }, [searchParams]);
+    navigate("/signin");
+  }, [searchParams, navigate]);
 
   // Auto-fetch OG images for demos that don't have one; fall back to YouTube thumbnail
   useEffect(() => {
@@ -592,31 +570,19 @@ export default function Landing() {
     return () => { cancelled = true; };
   }, []);
 
-  const googleBtnRef = useRef<HTMLDivElement>(null);
-  const [signingIn, setSigningIn] = useState(false);
-  const isInApp = detectInAppBrowser().isInApp;
-
-  const handleGenerateClick = () => {
-    // Inside an in-app browser the hidden Google (GIS) button silently no-ops,
-    // because Google blocks OAuth in embedded webviews. Reveal the sign-in block
-    // so the GoogleAuthButton's escape/instructions UI is usable instead.
-    if (isInApp) {
-      googleBtnRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-      return;
-    }
-    const btn = googleBtnRef.current?.querySelector("div[role='button']") as HTMLElement | null;
-    btn?.click();
-  };
+  // Every sign-in CTA opens the shared login modal, which owns provider choice,
+  // error recovery, and the in-app-browser escape flow.
+  const handleGenerateClick = () => navigate("/signin");
 
   // "Explore the MCP connector" CTA: go straight there if signed in, otherwise
-  // start Google sign-in and route to /mcp-connector once authenticated.
+  // sign in and route to /mcp-connector once authenticated.
   const handleExploreMcp = () => {
     if (user) {
       navigate("/mcp-connector");
       return;
     }
     localStorage.setItem("b2v_pending_mcp", "1");
-    handleGenerateClick();
+    navigate("/signin");
   };
 
   // "Try AI presenters" CTA: avatars are configured per-project, there's no
@@ -628,51 +594,14 @@ export default function Landing() {
       navigate("/dashboard");
       return;
     }
-    handleGenerateClick();
-  };
-
-  const handleGoogleSuccess = async (response: CredentialResponse) => {
-    if (!response.credential) return;
-    setSigningIn(true);
-    const refCode = localStorage.getItem("b2v_ref_code");
-    try {
-      const res = await googleLogin(response.credential, false, refCode);
-      localStorage.removeItem("b2v_ref_code");
-      login(res.data.access_token, res.data.user);
-
-      await redirectAfterLogin();
-    } catch (err: any) {
-      if (err?.response?.status === 403 && err?.response?.data?.detail === "account_deleted") {
-        setPendingCredential(response.credential);
-        setAccountDeletedOpen(true);
-      } else {
-        showError(getErrorMessage(err, "Authentication failed. Please try again."));
-      }
-      setSigningIn(false);
-    }
-  };
-
-  const handleReactivate = async () => {
-    if (!pendingCredential) return;
-    setReactivating(true);
-    try {
-      const res = await googleLogin(pendingCredential, true);
-      login(res.data.access_token, res.data.user);
-      setAccountDeletedOpen(false);
-      setPendingCredential(null);
-      await redirectAfterLogin();
-    } catch (err: any) {
-      showError(getErrorMessage(err, "Failed to reactivate account."));
-    } finally {
-      setReactivating(false);
-    }
+    navigate("/signin");
   };
 
   return (
     <div ref={scrollRef} className="min-h-screen bg-white">
       <Seo
-        title="Blog to Video | Turn Posts Into Videos | Blog2Video"
-        description="Turn blog posts into videos in minutes. Blog2Video converts articles to narrated videos with code, diagrams, and templates. No prompts needed. Free to start."
+        title="Text to Video AI: Turn Blogs, URLs, PDFs & Scripts Into Videos | Blog2Video"
+        description="Turn text into narrated videos in minutes. Paste a blog URL, script, PDF, or PowerPoint and Blog2Video builds the scenes, voiceover, and captions. Avatars from a photo. Free to start."
         path="/"
         schema={homepageSchema()}
       />
@@ -793,19 +722,8 @@ export default function Landing() {
           </h1>
 
           <p className="text-lg text-gray-500 max-w-2xl mx-auto mb-10 leading-relaxed">
-            Turn blog posts and updates into narrated videos in minutes.
+            Turn blog posts, URLs, PDFs and scripts into narrated videos in minutes.
           </p>
-
-          {/* Hidden Google button — triggered programmatically on form submit.
-              In an in-app browser it's revealed so the escape/instructions UI shows. */}
-          <div ref={googleBtnRef} className={isInApp ? "mt-4 flex justify-center" : "hidden"}>
-            <GoogleAuthButton
-              onSuccess={handleGoogleSuccess}
-              onError={() => showError("Google sign-in failed")}
-              text="continue_with"
-              width="300"
-            />
-          </div>
 
           <form
             onSubmit={(e) => {
@@ -1274,12 +1192,13 @@ export default function Landing() {
           </p>
           <div className="flex justify-center">
             <div className="flex flex-col items-center gap-3 px-8 py-6 rounded-2xl border border-white/70" style={{ background: "rgba(255,255,255,0.55)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: "0 4px 24px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.90)" }}>
-              <GoogleAuthButton
-                onSuccess={handleGoogleSuccess}
-                onError={() => showError("Google sign-in failed")}
-                text="continue_with"
-                width="300"
-              />
+              <button
+                type="button"
+                onClick={() => navigate("/signin")}
+                className="inline-flex h-10 items-center justify-center rounded-full bg-purple-600 px-8 text-sm font-medium text-white transition hover:bg-purple-700"
+              >
+                Get started free
+              </button>
               <p className="text-xs text-gray-400">1 video free — no credit card required</p>
             </div>
           </div>
@@ -1287,20 +1206,6 @@ export default function Landing() {
       </section>
 
       <PublicFooter />
-
-      {signingIn && (
-        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm">
-          <div className="w-10 h-10 rounded-full border-2 border-purple-200 border-t-purple-600 animate-spin mb-4" />
-          <p className="text-sm font-medium text-gray-700">Signing you in…</p>
-        </div>
-      )}
-
-      <AccountDeletedModal
-        open={accountDeletedOpen}
-        onClose={() => { setAccountDeletedOpen(false); setPendingCredential(null); }}
-        onReactivate={handleReactivate}
-        reactivating={reactivating}
-      />
 
       <DesignerTemplateRequestModal open={designerOpen} onClose={() => setDesignerOpen(false)} />
       <ContactModal

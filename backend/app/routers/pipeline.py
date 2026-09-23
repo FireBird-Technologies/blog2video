@@ -39,6 +39,8 @@ from app.services.chart_planner import (
     get_chartable_tables_from_visual_hint,
     get_line_chartable_tables_from_visual_hint,
     _build_chart_props_from_table,
+    build_dataviz_chart_caption,
+    build_dataviz_scene_copy,
     is_candlestick_table,
     is_ticker_snapshot_table,
     is_laduc_ticker_table,
@@ -72,6 +74,7 @@ from app.services.remotion import (
 from app.services import r2_storage
 from app.scene_cta import prepend_b2v_cta_to_visual, strip_b2v_cta_from_visual
 from app.services.social_content_signals import detect_social_platforms_in_text
+from app.services.scene_content_schema import SAMPLE_CHART_TABLE
 from app.dspy_modules.script_gen import ScriptGenerator
 from app.dspy_modules.template_scene_gen import TemplateSceneGenerator
 from app.dspy_modules.display_text_gen import DisplayTextGenerator
@@ -153,19 +156,15 @@ def _is_laduc_or_fj(template_id: str) -> bool:
     return ("laduc" in tid) or ("fj_research" in tid) or (tid in FJ_TEMPLATE_IDS)
 
 
-# Custom templates always get TWO dedicated, editable data-viz scenes (a chart +
-# a table), EXTRA to the content scenes — parity with the built-in templates.
-# Seed used only when the article has no chartable table, so the scenes still
-# render and are editable (mirrors the built-in editor's example tables).
-_CUSTOM_DATAVIZ_SEED: dict = {
-    "headers": ["Quarter", "Revenue", "Growth %"],
-    "rows": [
-        ["Q1", "120", "8"],
-        ["Q2", "145", "12"],
-        ["Q3", "170", "17"],
-        ["Q4", "210", "24"],
-    ],
-}
+# Custom templates always get a dedicated, editable data-viz CHART scene, EXTRA
+# to the content scenes — parity with the built-in templates. A TABLE scene is
+# added alongside it only when the article actually has tabular data.
+#
+# Seed used when the article has no chartable table, so the chart scene still
+# renders and is editable (mirrors the built-in editor's example tables). Shared
+# with the template sample-copy path so the editor preview and a seeded project
+# scene plot the same placeholder — see scene_content_schema.SAMPLE_CHART_TABLE.
+_CUSTOM_DATAVIZ_SEED: dict = SAMPLE_CHART_TABLE
 
 
 def _chartable_props_from_blog(blog_content: str) -> list[dict]:
@@ -262,23 +261,51 @@ def ensure_docreel_countdown_scene(db, project_id: int, template_id: str) -> boo
 
 
 def _build_custom_dataviz_scenes(blog_content: str) -> list[dict]:
-    """Build the 2 dedicated data-viz scene_raw dicts (chart + table) for custom
-    templates — but ONLY when the article actually has chartable tables. Returns
-    [] when there's no real data, so a video whose content doesn't warrant charts
-    never gets fabricated figures forced into it. The bound table is embedded in
-    visual_description so it round-trips into layoutProps.
+    """Build the dedicated data-viz scene_raw dicts for custom templates.
+
+    THE CHART SCENE IS ALWAYS BUILT. Every custom template now designs and
+    generates its own chart layout (a required design-doc role), so the scene
+    must exist for that layout to render — a template carrying a chart scene it
+    never shows is the defect this guarantees away. When the article has no
+    chartable table the chart is seeded from _CUSTOM_DATAVIZ_SEED, exactly as a
+    manual layout switch to `custom_chart` already does, so it renders and stays
+    editable.
+
+    THE TABLE SCENE IS STILL DATA-ONLY. It is a transcription of real figures,
+    so a seeded one would show the placeholder as though it were the article's
+    data. No table, no table scene.
+
+    The bound table is embedded in visual_description so it round-trips into
+    layoutProps.
     """
     chartable = _chartable_props_from_blog(blog_content)
-    if not chartable:
-        return []
-    chart_props = chartable[0]
-    table_props = chartable[1] if len(chartable) > 1 else chartable[0]
+    # Seeded chart props when the article has no chartable table. "line" matches
+    # the seed's time-like labels, which is also what "auto" would infer.
+    chart_props = (
+        chartable[0]
+        if chartable
+        else {"chartTable": _CUSTOM_DATAVIZ_SEED, "chartType": "line"}
+    )
+    table_props = chartable[1] if len(chartable) > 1 else (chartable[0] if chartable else None)
 
-    def _mk(stype: str, layout: str, props: dict, title: str, narration: str) -> dict:
+    def _mk(stype: str, layout: str, props: dict, narration: str) -> dict:
         table = props.get("chartTable") or {}
         vd = append_tables_to_content(narration, [table])
+        # TITLE AND DISPLAY TEXT ARE BUILT FROM THE TABLE, and must differ.
+        #
+        # These scenes are injected AFTER DisplayTextGenerator has run, so they
+        # never reach it — and the title used to be reused as the display text,
+        # leaving both fields holding one string. The renderer then correctly
+        # blanks the duplicate (eyebrowRepeatsHeadline), so the scene showed one
+        # generic line where every other scene shows two. See
+        # chart_planner.build_dataviz_scene_copy, which falls back to the old
+        # fixed strings whenever the table offers nothing better.
+        title, display_text = build_dataviz_scene_copy(
+            props, is_table=(stype == "dataviz_table")
+        )
         return {
             "title": title,
+            "display_text": display_text,
             "narration": narration,
             "visual_description": vd,
             "duration_seconds": 8,
@@ -288,11 +315,15 @@ def _build_custom_dataviz_scenes(blog_content: str) -> list[dict]:
 
     chart_summary = (chart_props.get("chartSummary") or "").strip()
     chart_narr = chart_summary or "Here's what the numbers reveal at a glance."
-    return [
-        _mk("dataviz_chart", "custom_chart", chart_props, "By the numbers", chart_narr),
-        _mk("dataviz_table", "custom_table", table_props, "The full breakdown",
-            "And here are the underlying figures in full."),
+    scenes = [
+        _mk("dataviz_chart", "custom_chart", chart_props, chart_narr),
     ]
+    if table_props:
+        scenes.append(
+            _mk("dataviz_table", "custom_table", table_props,
+                "And here are the underlying figures in full.")
+        )
+    return scenes
 
 
 def _bind_dataviz_layout_props(scene, descriptor: dict) -> bool:
@@ -313,8 +344,21 @@ def _bind_dataviz_layout_props(scene, descriptor: dict) -> bool:
     lp = dict(descriptor.get("layoutProps") or {})
     lp["chartTable"] = props["chartTable"]
     lp["chartType"] = props.get("chartType", "auto")
-    if props.get("chartSummary"):
-        lp["chartSummary"] = props["chartSummary"]
+    summary = props.get("chartSummary")
+    if not summary and stype == "dataviz_chart":
+        # GIVE THE CAPTION SLOT REAL CONTENT, or the scene prints one line twice.
+        #
+        # Generated chart scenes commonly write
+        #     const caption = props.chartSummary ?? props.displayText;
+        # and render BOTH the display text and that caption. Nothing on the
+        # custom path ever populated chartSummary (only the built-ins do, via an
+        # LLM caption), so the fallback fired every time and the same sentence
+        # appeared twice on screen. This states a DIFFERENT fact from the display
+        # text — what is plotted and how, rather than the range — so the two
+        # lines complement each other.
+        summary = build_dataviz_chart_caption(props)
+    if summary:
+        lp["chartSummary"] = summary
     descriptor["layoutProps"] = lp
     return True
 
@@ -2822,21 +2866,28 @@ async def _generate_script(
         scenes_raw.insert(0, _build_docreel_countdown_scene())
         display_texts.insert(0, "")
 
-    # Custom templates get 2 dedicated data-viz scenes (chart + table), inserted
-    # just before the outro — EXTRA to the content scenes, mirroring the built-in
-    # templates' chart/table pair. Bound to real Firecrawl tables, and ONLY when
-    # the article actually has chartable data — articles with no figures get no
-    # fabricated charts forced into them.
+    # Custom templates get dedicated data-viz scenes inserted just before the
+    # outro — EXTRA to the content scenes, mirroring the built-in templates'
+    # chart/table pair. The CHART scene is always present (seeded when the
+    # article has no chartable table) because every custom template now designs
+    # its own chart layout; the TABLE scene is added only when there is real
+    # tabular data to transcribe. See _build_custom_dataviz_scenes.
     if is_custom_template(template_id):
         _dataviz_scenes = _build_custom_dataviz_scenes(getattr(project, "blog_content", None) or "")
         if _dataviz_scenes:
             _insert_at = max(1, len(scenes_raw) - 1) if len(scenes_raw) > 1 else len(scenes_raw)
             for _offset, _dv in enumerate(_dataviz_scenes):
                 scenes_raw.insert(_insert_at + _offset, _dv)
-                display_texts.insert(_insert_at + _offset, _dv["title"])
-            print(f"[F7-DEBUG] [CUSTOM-DATAVIZ] injected {len(_dataviz_scenes)} dedicated data-viz scenes at index {_insert_at}")
-        else:
-            print("[F7-DEBUG] [CUSTOM-DATAVIZ] no chartable tables in article — skipping dedicated data-viz scenes")
+                # The scene's OWN display text, never a second copy of its title.
+                # These scenes are injected after DisplayTextGenerator has run,
+                # so this is where their on-screen copy comes from; reusing the
+                # title here is what made them render as a single line.
+                display_texts.insert(_insert_at + _offset, _dv["display_text"])
+            print(
+                f"[F7-DEBUG] [CUSTOM-DATAVIZ] injected {len(_dataviz_scenes)} dedicated "
+                f"data-viz scenes at index {_insert_at} "
+                f"({[s['_scene_type'] for s in _dataviz_scenes]})"
+            )
 
     # Re-attach the original project instance to a fresh connection.
     # add() on a detached-but-previously-persistent instance issues UPDATE on
@@ -3904,6 +3955,30 @@ async def render_video_endpoint(
     When force_render=True, re-render even if already rendered (rebuilds workspace with latest DB data).
     """
     project = _get_project(project_id, user.id, db)
+    return await start_render_for_project(
+        project, resolution=resolution, force_render=force_render, user=user, db=db
+    )
+
+
+async def start_render_for_project(
+    project: Project,
+    *,
+    resolution: str,
+    force_render: bool,
+    user: User,
+    db: Session,
+) -> dict:
+    """Start (or join) a render for an already-authorised project.
+
+    Extracted from the endpoint so the publish flow can start a render on the
+    same path instead of duplicating it. Billing, the one-job-per-project lock,
+    the already-rendering join and the stale-progress cleanup are all decisions
+    that must not drift between the two callers — the return value carries
+    ``render_run_id`` so a publish job can bind itself to this exact run.
+
+    Assumes the caller has already checked access to ``project``.
+    """
+    project_id = project.id
 
     # Only one long-running job per project across all types: reject a render if a
     # template change / script regen / voice change is in progress (another user may
@@ -4188,6 +4263,20 @@ def cancel_render_endpoint(
             ProjectStatus.DONE if has_existing_video else ProjectStatus.GENERATED
         )
         db.commit()
+
+    # Any "publish when this render finishes" intent dies with the render. The
+    # periodic sweep would catch these eventually, but cancelling here means the
+    # user sees it immediately rather than up to ten minutes later. Best-effort:
+    # never let it turn a successful cancel into an error.
+    try:
+        from app.services.publish_queue import cancel_pending_jobs_sync
+        if cancel_pending_jobs_sync(project_id, db):
+            db.commit()
+    except Exception as publish_err:
+        logger.warning(
+            "[RENDER] Could not cancel pending publish jobs for project %s: %s",
+            project_id, publish_err,
+        )
     if cancelled:
         return {"detail": "Render cancelled", "cancelled": True}
     # Even if this instance didn't own the subprocess, forcing status to GENERATED

@@ -4,14 +4,14 @@ import type { MarketingPage } from "./seoTypes";
 export const templatePages: MarketingPage[] = templateProfiles.map((template) =>
   createPage({
     path: `/templates/${template.slug}`,
-    title: `${template.name} Video Template | Blog2Video`,
-    description: `${template.description} ${template.bestFor} See all ${template.layouts?.length ?? 0} layouts, watch a live preview, and learn when to use ${template.name}.`,
+    title: template.seo?.title ?? `${template.name} Video Template | Blog2Video`,
+    description: template.seo?.description ?? `${template.description} ${template.bestFor} See all ${template.layouts?.length ?? 0} layouts, watch a live preview, and learn when to use ${template.name}.`,
     eyebrow: "Template",
-    heroTitle: `${template.name}: ${template.styleFit.replace(/^Best /, "")}`,
+    heroTitle: template.seo?.heroTitle ?? `${template.name}: ${template.styleFit.replace(/^Best /, "")}`,
     heroDescription: template.longDescription || `${template.description} ${template.bestFor}`,
     category: "template",
-    primaryKeyword: `${template.slug.replace(/-/g, " ")} template`,
-    keywordVariant: `${template.name} video template`,
+    primaryKeyword: template.seo?.primaryKeyword ?? `${template.slug.replace(/-/g, " ")} template`,
+    keywordVariant: template.seo?.keywordVariant ?? `${template.name} video template`,
     proofPoints: [
       template.bestFor,
       template.differentiator,

@@ -828,6 +828,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
   const bulkLogoInputRef = useRef<HTMLInputElement>(null);
   const [bulkApplyLengthAll, setBulkApplyLengthAll] = useState(true);
   const [bulkLengthMasterIndex, setBulkLengthMasterIndex] = useState(0);
+  // Defaults ON per row, matching the single-URL form's stockFootageEnabled.
   const [bulkStockFootage, setBulkStockFootage] = useState<boolean[]>([true]);
   const [bulkApplyStockAll, setBulkApplyStockAll] = useState(true);
   const [bulkStockMasterIndex, setBulkStockMasterIndex] = useState(0);
@@ -1634,6 +1635,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
     setBulkContentLanguage((prev) => [...prev, "auto"]);
     setBulkVideoLength((prev) => [...prev, "short"]);
     setBulkStockFootage((prev) => {
+      // Not syncing: a new row starts ON, like the first one.
       const next = [...prev, bulkApplyStockAll ? (prev[bulkStockMasterIndex] ?? true) : true];
       return next;
     });
@@ -1964,8 +1966,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
   const bulkStep1RowStockFootage = bulkStockFootage[bulkStep1ActiveIndex] ?? false;
   const applyStep1StockToAll = () => {
     setBulkStockFootage((prev) => {
-      const next = resizeTo(prev, bulkRows.length, false);
-      const value = next[bulkStep1ActiveIndex] ?? false;
+      // Pad with `true`: any row that has no value yet is a row the user never
+      // touched, and an untouched row is ON by default like every other.
+      const next = resizeTo(prev, bulkRows.length, true);
+      const value = next[bulkStep1ActiveIndex] ?? true;
       return next.map(() => value);
     });
   };
@@ -1975,18 +1979,19 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
     if (bulkApplyStockAll && bulkStep1ActiveIndex !== bulkStockMasterIndex) {
       setBulkApplyStockAll(false);
       setBulkStockFootage((prev) => {
-        const next = resizeTo(prev, bulkRows.length, false);
+        const next = resizeTo(prev, bulkRows.length, true);
         next[bulkStep1ActiveIndex] = value;
         return next;
       });
       return;
     }
     if (bulkApplyStockAll && bulkStep1ActiveIndex === bulkStockMasterIndex) {
+      // Every entry is overwritten below, so the pad value is irrelevant here.
       setBulkStockFootage((prev) => resizeTo(prev, bulkRows.length, false).map(() => value));
       return;
     }
     setBulkStockFootage((prev) => {
-      const next = resizeTo(prev, bulkRows.length, false);
+      const next = resizeTo(prev, bulkRows.length, true);
       next[bulkStep1ActiveIndex] = value;
       return next;
     });

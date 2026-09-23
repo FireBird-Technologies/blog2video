@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import {
-  listProjects,
+  listProjectsPaged,
   createProject,
   createProjectFromDocs,
   createProjectsBulk,
@@ -32,6 +32,8 @@ import type { VideoStyleId } from "../constants/videoStyles";
 import { primeBlogUrlFormStep2Prefetch } from "../api/blogUrlFormStep2Prefetch";
 
 const BULK_PENDING_IDS_KEY = "b2v_bulk_pending_ids";
+/** Projects shown per dashboard page. */
+const PAGE_SIZE = 10;
 // `awaiting_stock_footage_review` (and the legacy `awaiting_footage`) are
 // terminal *for polling*: the project won't advance without the user opening
 // it and resolving the review, so we stop polling and surface it instead of
@@ -53,6 +55,13 @@ export default function Dashboard() {
   const { showError } = useErrorModal();
   const offer = useOutOfVideosOffer();
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
+  // Server-side pagination: `projects` holds only the current page, so the
+  // unpaginated `total` is what any "how many projects exist" check must use.
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  // Set while a page fetch is in flight so switching pages shows the skeleton
+  // instead of leaving the previous page's rows on screen.
+  const [pageLoading, setPageLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   /** Increment when opening + New so BlogUrlForm remounts and picks a new random template each time. */
   const [blogFormMountKey, setBlogFormMountKey] = useState(0);
@@ -72,7 +81,7 @@ export default function Dashboard() {
     stockFootageEnabled: boolean;
     scriptReviewEnabled: boolean;
   }>({
-    stockFootageEnabled: false,
+    stockFootageEnabled: true,
     scriptReviewEnabled: false,
   });
   const [loaded, setLoaded] = useState(false);
@@ -149,6 +158,17 @@ export default function Dashboard() {
       trackGoogleAdsPurchaseConversion(searchParams.get("session_id"));
     }
   }, []);
+
+  // Refetch when the user switches pages. The mount effect already loaded page 1,
+  // so skip the first run to avoid a duplicate request.
+  const pageInitRef = useRef(true);
+  useEffect(() => {
+    if (pageInitRef.current) {
+      pageInitRef.current = false;
+      return;
+    }
+    loadProjects(page);
+  }, [page]);
 
   useEffect(() => {
     if (bulkPendingIds.length > 0) loadProjects();
@@ -288,12 +308,29 @@ export default function Dashboard() {
   }, [activeTab]);
 
 
-  const loadProjects = async () => {
+  /** Loads one page. Pass the page explicitly so callers firing from effects with
+   *  stale closures (mount, bulk polling) always fetch the page they mean. */
+  const loadProjects = async (targetPage: number = page) => {
+    setPageLoading(true);
     try {
-      const res = await listProjects();
-      setProjects(res.data);
+      const res = await listProjectsPaged(targetPage, PAGE_SIZE);
+      const { items, total: totalCount } = res.data;
+      // The page can fall off the end (e.g. the last project on it was deleted);
+      // clamp back to the last page that still has rows and re-fetch.
+      const lastPage = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+      if (targetPage > lastPage) {
+        // The page-change effect re-fetches; stay in the loading state through it
+        // so the skeleton doesn't flicker off and back on between the two loads.
+        setPage(lastPage);
+        return;
+      }
+      setProjects(items);
+      setTotal(totalCount);
+      if (targetPage !== page) setPage(targetPage);
+      setPageLoading(false);
     } catch (err) {
       console.error("Failed to load projects:", err);
+      setPageLoading(false);
     } finally {
       setLoaded(true);
     }
@@ -313,6 +350,8 @@ export default function Dashboard() {
         localStorage.setItem(BULK_PENDING_IDS_KEY, JSON.stringify(ids));
         setBulkPendingIds(ids);
       }
+      // New projects sort newest-first, so jump back to page 1 to reveal them.
+      setPage(1);
       navigate("/dashboard");
     } catch (err: any) {
       const detail = err?.response?.data?.detail;
@@ -461,8 +500,11 @@ export default function Dashboard() {
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
     await deleteProject(deleteTarget.id);
+    // Drop it immediately for feedback, then refetch so the page backfills from the
+    // next one and `total` stays right (loadProjects clamps if this page is now empty).
     setProjects((prev) => prev.filter((p) => p.id !== deleteTarget.id));
     setDeleteTarget(null);
+    await loadProjects(page);
   };
 
   const handleUpgrade = async () => {
@@ -490,7 +532,7 @@ export default function Dashboard() {
   const emptyOnboarding =
     loaded &&
     !isWalled &&
-    projects.length === 0 &&
+    total === 0 &&
     searchParams.get("show_form") !== "0" &&
     searchParams.get("tab") !== "templates" &&
     searchParams.get("tab") !== "voices";
@@ -774,9 +816,15 @@ export default function Dashboard() {
 
       {/* Project list */}
       <div className="grid gap-3">
-        {!loaded ? (
-          // Skeleton loading
-          Array.from({ length: 5 }).map((_, i) => (
+        {!loaded || pageLoading ? (
+          // Skeleton loading — first load and every page switch. Once the total is
+          // known, match the row count to the incoming page so the list doesn't
+          // visibly jump between the placeholder and the real rows.
+          Array.from({
+            length: loaded
+              ? Math.max(1, Math.min(PAGE_SIZE, total - (page - 1) * PAGE_SIZE))
+              : 5,
+          }).map((_, i) => (
             <div
               key={i}
               className="glass-card px-5 py-4 animate-pulse"
@@ -873,6 +921,82 @@ export default function Dashboard() {
         ))
         )}
       </div>
+
+      {/* Pagination — only once there's more than one page to move between. */}
+      {loaded && total > PAGE_SIZE && (() => {
+        const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE));
+        // Window the numbers so a long history doesn't overflow the row on mobile:
+        // always first + last, plus a run of 3 around the current page ("…" for the
+        // gaps). The run slides inward at the edges so it stays 3 wide on page 1/last.
+        const runStart = Math.min(Math.max(1, page - 1), Math.max(1, lastPage - 2));
+        const shown = new Set<number>([
+          1,
+          lastPage,
+          runStart,
+          runStart + 1,
+          runStart + 2,
+        ]);
+        const pageNumbers: (number | "gap")[] = [];
+        for (let n = 1; n <= lastPage; n++) {
+          if (shown.has(n)) {
+            pageNumbers.push(n);
+          } else if (pageNumbers[pageNumbers.length - 1] !== "gap") {
+            pageNumbers.push("gap");
+          }
+        }
+        return (
+          <nav
+            className="flex items-center justify-center gap-1.5 mt-6"
+            aria-label="Project pages"
+          >
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              aria-label="Previous page"
+              title="Previous page"
+              className="inline-flex items-center justify-center min-w-[32px] px-2 py-1.5 text-gray-600 border border-gray-200 rounded-lg hover:border-gray-300 hover:text-gray-900 transition-colors disabled:opacity-40 disabled:pointer-events-none"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            {pageNumbers.map((n, i) =>
+              n === "gap" ? (
+                <span key={`gap-${i}`} className="px-1 text-xs text-gray-400" aria-hidden>
+                  …
+                </span>
+              ) : (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setPage(n)}
+                  aria-current={n === page ? "page" : undefined}
+                  className={`min-w-[32px] px-2 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                    n === page
+                      ? "bg-purple-600 border-purple-600 text-white"
+                      : "text-gray-600 border-gray-200 hover:border-gray-300 hover:text-gray-900"
+                  }`}
+                >
+                  {n}
+                </button>
+              )
+            )}
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.min(lastPage, p + 1))}
+              disabled={page >= lastPage}
+              aria-label="Next page"
+              title="Next page"
+              className="inline-flex items-center justify-center min-w-[32px] px-2 py-1.5 text-gray-600 border border-gray-200 rounded-lg hover:border-gray-300 hover:text-gray-900 transition-colors disabled:opacity-40 disabled:pointer-events-none"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </nav>
+        );
+      })()}
       </>
       )}
     </div>

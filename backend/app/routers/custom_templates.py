@@ -1110,6 +1110,32 @@ def _write_scene_indexed_field(
     setattr(tpl, field, json.dumps(data, ensure_ascii=False))
 
 
+def _read_scene_indexed_field(
+    tpl: "CustomTemplate", field: str, role: str, index: int
+) -> dict | None:
+    """Read ONE scene's entry from a {intro, content[], outro} JSON column.
+
+    The counterpart to `_write_scene_indexed_field`, addressing the entry the
+    same way, so a read-modify-write of one scene cannot disagree with the
+    writer about which slot it is. Returns None when nothing is stored.
+    """
+    raw = getattr(tpl, field, None)
+    try:
+        data = json.loads(raw) if raw else {}
+    except (json.JSONDecodeError, TypeError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    if role == "content":
+        entries = data.get("content")
+        if not isinstance(entries, list) or index < 0 or index >= len(entries):
+            return None
+        entry = entries[index]
+    else:
+        entry = data.get(role)
+    return entry if isinstance(entry, dict) else None
+
+
 def _update_blueprint(tpl: "CustomTemplate", mutate) -> bool:
     """Read-modify-write the template's design_blueprint JSON. Caller commits.
 
@@ -3104,6 +3130,81 @@ def set_scene_font_defaults(
 
     role, index, merged = resolved
     _write_scene_indexed_field(tpl, "scene_font_defaults", role, index, merged)
+    db.commit()
+    db.refresh(tpl)
+    return _serialize_template(tpl)
+
+
+class SceneChartRequest(BaseModel):
+    """The chart controls for ONE data-visualisation scene.
+
+    Both fields are optional so the editor can send just the one the user
+    touched — switching the chart kind must not require re-sending the table.
+    """
+
+    chartType: str | None = None
+    chartTable: dict | None = None
+
+
+@router.patch("/{template_id}/scenes/{scene_key}/chart")
+def set_scene_chart(
+    template_id: int,
+    scene_key: str,
+    body: SceneChartRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Set a chart scene's sample chartType / chartTable.
+
+    This is TEMPLATE-level sample data: what the scene shows in the gallery and
+    the template editor. A project's chart scene is bound to the article's own
+    table by the pipeline and is edited through the project scene editor
+    instead, so nothing here reaches an existing video.
+
+    A dedicated route for the same reason the font-defaults one exists: PUT
+    /custom-templates/{id} carries template identity, and folding per-scene
+    indexed data into it would round-trip the whole array on every rename.
+    """
+    from app.services.code_generator import parse_scene_key
+    from app.services.scene_content_schema import CHART_TYPES, coerce_field
+
+    tpl = _get_user_template(template_id, user.id, db)
+    try:
+        role, index = parse_scene_key(scene_key, _content_code_count(tpl))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    updates: dict = {}
+    if body.chartType is not None:
+        kind = body.chartType.strip().lower()
+        if kind not in CHART_TYPES:
+            raise HTTPException(
+                status_code=422,
+                detail=f"chartType must be one of {', '.join(CHART_TYPES)}",
+            )
+        updates["chartType"] = kind
+    if body.chartTable is not None:
+        # Same coercion the generated sample is held to, so a table typed in the
+        # editor cannot be stored in a shape the chart renders as empty.
+        table = coerce_field("chartTable", body.chartTable)
+        if table is None:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "chartTable must be {headers, rows}: a label column plus at "
+                    "least one numeric series, and at least 2 rows."
+                ),
+            )
+        updates["chartTable"] = table
+
+    if not updates:
+        raise HTTPException(status_code=422, detail="Nothing to update")
+
+    # Merge into the scene's existing sample so the copy written with the
+    # template is preserved — this route owns the chart fields only.
+    current = _read_scene_indexed_field(tpl, "scene_sample_content", role, index)
+    merged = {**(current if isinstance(current, dict) else {}), **updates}
+    _write_scene_indexed_field(tpl, "scene_sample_content", role, index, merged)
     db.commit()
     db.refresh(tpl)
     return _serialize_template(tpl)

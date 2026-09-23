@@ -102,6 +102,7 @@ export const KIT_EXPORT_NAMES = [
   "staggerEntrance",
   "typeScale",
   "useFitScale",
+  "useHasKitContext",
   "useKit",
   "useTypeTier",
   "variantFromSeed",
