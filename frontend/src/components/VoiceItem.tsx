@@ -51,6 +51,8 @@ export function subtitleForSavedVoice(saved: {
 export interface VoiceItemProps {
   /** Voice display name */
   name: string;
+  /** Optional badge rendered immediately beside the display name. */
+  nameBadge?: ReactNode;
   /** Subtitle line: "Gender • Accent — Descriptive qualities". Use formatVoiceSubtitle() or pass a string. */
   subtitle: string;
   /** Whether this voice has a playable preview */
@@ -69,12 +71,15 @@ export interface VoiceItemProps {
   disabled?: boolean;
   /** Optional badge (e.g. "Pro") */
   badge?: ReactNode;
+  /** Optional non-audio icon shown in the same leading circle as the play control. */
+  icon?: ReactNode;
   /** Tighter padding and a smaller play button, for the side-by-side settings card. */
   compact?: boolean;
 }
 
 export default function VoiceItem({
   name,
+  nameBadge,
   subtitle,
   hasPreview,
   isPlaying,
@@ -85,6 +90,7 @@ export default function VoiceItem({
   onClick,
   disabled = false,
   badge,
+  icon,
   compact = false,
 }: VoiceItemProps) {
   const base =
@@ -131,10 +137,15 @@ export default function VoiceItem({
           )}
         </button>
       ) : (
-        <div className={`flex-shrink-0 ${playSize} rounded-full bg-gray-50 flex items-center justify-center text-gray-300`} />
+        <div className={`flex-shrink-0 ${playSize} rounded-full bg-gray-100 flex items-center justify-center text-gray-500`}>
+          {icon}
+        </div>
       )}
       <div className="flex-1 min-w-0">
-        <div className={`${compact ? "text-xs" : "text-sm"} font-semibold text-gray-800 truncate`}>{name}</div>
+        <div className="flex min-w-0 items-center gap-2">
+          <div className={`${compact ? "text-xs" : "text-sm"} min-w-0 truncate font-semibold text-gray-800`}>{name}</div>
+          {nameBadge}
+        </div>
         <p className="text-[11px] text-gray-500 mt-0.5 leading-snug truncate" title={subtitle}>{subtitle}</p>
       </div>
       {badge}

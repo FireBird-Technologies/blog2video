@@ -140,6 +140,8 @@ export interface UserInfo {
   can_create_custom_template: boolean;
   preferred_voice_emotion: string | null;
   auth_provider?: AuthProvider;
+  script_preferences: string | null;
+  script_preferences_updated_at: string | null;
 }
 
 export interface AuthResponse {
@@ -197,6 +199,9 @@ export interface Project {
   blog_url: string;
   blog_content: string | null;
   status: string;
+  script_review_enabled?: boolean;
+  script_review_approved_at?: string | null;
+  script_preferences_version_used?: number | null;
   voice_gender: string;
   voice_accent: string;
   accent_color: string;

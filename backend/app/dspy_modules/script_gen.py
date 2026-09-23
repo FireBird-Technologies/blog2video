@@ -19,37 +19,21 @@ class BlogToScript(dspy.Signature):
     """
     Given blog content, a list of image URLs from the blog, and a hero image path,
     create a structured video script. The script tone and structure MUST match the
-    chosen video_style (explainer / promotional / storytelling). The script should be
+    authoritative style_guidance. The script should be
     engaging, clear, and organized into scenes suitable for a Remotion-based video.
 
-    ═══ STYLE-SPECIFIC RULES (CRITICAL — STRICTLY follow the given video_style) ═══
-    - Treat video_style as a HARD CONSTRAINT.
-    - Do NOT mix styles in the same output.
-    - If video_style is promotional, every scene must feel like an ad/promo beat.
-    - If video_style is explainer, every scene must feel like a documentary-style explanation.
-    - If video_style is storytelling, every scene must feel like a story beat in sequence.
-
-    EXPLAINER (DOCUMENTARY MODE):
-    - Cover the blog content thoroughly with a documentary narrator tone.
-    - Use structured, detailed, factual phrasing with context and insight (not classroom instruction style).
-    - Scenes should progress logically: context -> key idea -> evidence/example -> takeaway.
-    - Narrations: 1-2 polished documentary-style sentences, target medium length (12-25 words).
-    - Avoid ad copy, hype language, and fictional storytelling dramatization.
-
-    PROMOTIONAL:
-    - Tone must be strictly promotional/advertisement-like from start to end.
-    - Prioritize value proposition, benefits, transformation, and urgency over technical depth.
-    - Use persuasive sentence structures: hooks, benefit-led statements, social proof-style claims, and CTA language.
-    - Every scene should sound like a promo beat, not a neutral explanation.
-    - Narrations should be medium length (10-18 words), punchy but complete.
-    - Structure: hook -> problem -> solution/value -> key benefits/features -> CTA/closing push.
-
-    STORYTELLING:
-    - Narrative arc is mandatory: setup -> inciting moment -> progression -> tension/challenge -> resolution/payoff.
-    - Scenes must build on each other step by step (clear continuity from previous scene).
-    - Use narrative connectors and progression cues naturally (then, next, after that, finally) in the target language.
-    - Narrations should be medium length (15-30 words), sounding like a human narrator telling a story.
-    - Avoid lecture tone and ad-slogan tone unless explicitly required by the source story context.
+    ═══ WRITING STYLE (CRITICAL) ═══
+    - Treat style_guidance as the authoritative definition of tone, pacing,
+      structure, hooks, vocabulary, transitions, and narration length.
+    - Apply it consistently to the title, scene titles, key points, narration,
+      and visual descriptions. Do not mix in assumptions based on video_style's name.
+    - A current user_instruction_summary takes precedence when it conflicts with
+      the saved style guidance.
+    - Narration-length precedence: follow a specific numeric limit in the current
+      instruction first, then one in style_guidance. A request for brief/short
+      narration with no number means 10-18 words; a request for longer/more detailed
+      narration with no number means 15-30 words. If neither source provides any
+      length direction, keep each scene's narration between 12 and 25 words.
 
     GENERAL (all styles):
     - Scene count is controlled by `video_length`, not by `video_style`.
@@ -87,7 +71,8 @@ class BlogToScript(dspy.Signature):
     - For portrait flow diagrams: use VERTICAL flows (top to bottom), not horizontal.
     - For portrait comparisons: use STACKED layout (top vs bottom), not side-by-side.
     - Keep narrations punchy but still ensure minimum voiceover viability.
-    - Narrations: explainer 12-25 words max; promotional 10-18 words max; storytelling about 15-30 words per scene. Display texts shown on screen.
+    - Follow style_guidance for narration length; when it gives no length direction,
+      use 12-25 words per scene. Display texts are shown on screen.
 
     Duration calculation: Each scene's duration_seconds should be based on narration
     word count: roughly 1 second per 2.5 words, minimum 5 seconds per scene.
@@ -192,8 +177,12 @@ class BlogToScript(dspy.Signature):
       scene MUST surface each item; ideally weave them into the most relevant scenes naturally.
     - `must_avoid` (comma-separated) lists topics/phrases that MUST NOT appear in any scene title,
       key_point, narration, or visual_description — neither directly nor as a near-synonym.
-    - These constraints override stylistic defaults from video_style when they conflict.
+    - These current instructions override saved style_guidance when they conflict.
     - Empty strings for any of these three fields = no constraint of that kind; proceed normally.
+    - If `user_instruction_summary` asks for shorter or longer narrations without a specific
+      word count, use 10-18 words for brief/short or 15-30 words for longer/more detailed.
+      Otherwise follow style_guidance, falling back to 12-25 words when it provides no
+      length direction.
     """
 
     blog_content: str = dspy.InputField(
@@ -205,10 +194,14 @@ class BlogToScript(dspy.Signature):
     hero_image: str = dspy.InputField(desc="Path to the main hero/header image of the blog. Use this in the first (hero opening) scene.")
     aspect_ratio: str = dspy.InputField(desc="Video aspect ratio: 'landscape' (16:9, 1920x1080) or 'portrait' (9:16, 1080x1920). Adjust layouts accordingly.")
     video_style: str = dspy.InputField(
-        desc="Video style that defines tone and structure: 'explainer' = educational, clear, step-by-step; "
-        "'promotional' = persuasive, benefit-focused, call-to-action, product/solution sell; "
-        "'storytelling' = narrative arc, emotional hooks, character/journey, story-driven. "
-        "Write title, scene titles, narrations, and visual_description to match this style exactly."
+        desc="Stable style identifier for routing and diagnostics. Do not infer writing rules from its name."
+    )
+    style_guidance: str = dspy.InputField(
+        desc=(
+            "Authoritative saved writing rules for this project. Apply them to tone, pacing, "
+            "structure, hooks, vocabulary, transitions, and narration length. If they provide "
+            "no length direction, use 12-25 words per scene."
+        )
     )
     video_length: str = dspy.InputField(
         desc="Video length category controlling scene count: auto | short | medium | detailed | more_detailed."
@@ -244,9 +237,9 @@ class BlogToScript(dspy.Signature):
 
     template_style_hint: str = dspy.InputField(
         desc=(
-            "Optional template-specific narration style instructions that OVERRIDE the general rules above. "
-            "When non-empty, apply these instructions to EVERY scene's narration, not just data scenes. "
-            "Empty string means no special override — follow the standard rules."
+            "Optional template-specific flavor to apply to every scene's narration, not just data scenes. "
+            "It may complement style_guidance but must not override its tone, pacing, or length rules. "
+            "Empty string means no additional template flavor."
         )
     )
 
@@ -370,7 +363,7 @@ class BlogToScript(dspy.Signature):
         )
     )
 
-    title: str = dspy.OutputField(desc="A compelling title for the video (tone must match video_style)")
+    title: str = dspy.OutputField(desc="A compelling title whose tone follows style_guidance")
     narrative_summary: str = dspy.OutputField(
         desc=(
             "3-5 sentence summary of the ENTIRE video's narrative arc — what story or argument "
@@ -420,7 +413,10 @@ class PromptToSceneOutline(dspy.Signature):
     full_outline: str = dspy.InputField(
         desc="JSON array of the existing scene outlines (title + key_point) for continuity."
     )
-    video_style: str = dspy.InputField(desc="explainer | promotional | storytelling.")
+    video_style: str = dspy.InputField(desc="Stable style identifier for routing and diagnostics.")
+    style_guidance: str = dspy.InputField(
+        desc="Authoritative saved writing rules for tone, structure, pacing, and narration length."
+    )
     content_language: str = dspy.InputField(desc="Output language for all text fields.")
 
     scene_title: str = dspy.OutputField(
@@ -436,6 +432,31 @@ class SceneExpander(dspy.Signature):
     Expand a single scene outline into full scene content.
     You are given the blog content, the complete scene outline for context/continuity,
     and the specific scene to expand. Produce narration, visual description, layout, and images.
+    style_guidance is the authoritative saved writing profile for every style.
+    Do not infer tone from the style identifier. If the guidance provides no
+    narration-length direction, keep the scene's narration between 12 and 25 words.
+
+    ═══ NARRATION IS FINAL SPOKEN VOICEOVER (CRITICAL) ═══
+    - Write `narration` as the final spoken-voiceover line, not a draft — there is no later
+      rephrasing pass. Write it the way a narrator would actually say it out loud: natural,
+      speakable phrasing, clean transitions, no elaboration beyond what fits the style.
+
+    ═══ PRONUNCIATION RULE (CRITICAL) ═══
+    - If an abbreviation is popularly pronounced as a word (e.g. SaaS → "sass", NASA → "nasa",
+      NVIDIA → "en-vidia"), write it phonetically so TTS reads it as a word, not letter-by-letter.
+    - Decimal numbers must be written with "point" between the parts. For example,
+      3.5 → "three point five", 9.875 → "nine point eight seven five".
+
+    ═══ EMOTIONAL DELIVERY (ONLY when expressive is true) ═══
+    - Write the line to convey energy and excitement, like an enthusiastic narrator.
+    - Add light emphasis words where natural (really, so, absolutely, truly).
+    - End emphatic sentences with an exclamation mark ("!").
+    - Do NOT use capitalization for emphasis. Never write a whole word in all-capitals — the v3
+      model reads an all-caps word letter-by-letter like an acronym (F-O-R-E-V-E-R). Use normal
+      capitalization; let the emphasis words and "!" carry the energy.
+    - Do NOT add new facts and stay within the length rules — emphasis only changes delivery,
+      not content.
+    - When expressive is false, keep neutral phrasing (no added "!").
     """
 
     # ── context ──────────────────────────────────────────────────────────────
@@ -459,10 +480,19 @@ class SceneExpander(dspy.Signature):
     hero_image: str = dspy.InputField(desc="Path to hero/header image (used for scene 0 only).")
     # ── style / format ────────────────────────────────────────────────────────
     video_style: str = dspy.InputField(
-        desc="explainer | promotional | storytelling. Tone and structure must match exactly."
+        desc="Stable style identifier for routing and diagnostics; style_guidance defines the writing behavior."
+    )
+    style_guidance: str = dspy.InputField(
+        desc=(
+            "Authoritative saved writing rules. Follow them unless the current user instruction "
+            "conflicts. If neither provides length direction, use 12-25 narration words."
+        )
     )
     aspect_ratio: str = dspy.InputField(desc="landscape (16:9) or portrait (9:16).")
     content_language: str = dspy.InputField(desc="Output language for all text fields.")
+    expressive: bool = dspy.InputField(
+        desc="When true, write the narration with emotional energy (emphasis words + exclamation marks; no capitalization for emphasis). When false, keep neutral phrasing."
+    )
     # ── scene spec ────────────────────────────────────────────────────────────
     scene_title: str = dspy.InputField(desc="Title for this scene (from outline).")
     scene_key_point: str = dspy.InputField(desc="Key point / brief description from outline.")
@@ -502,8 +532,9 @@ class SceneExpander(dspy.Signature):
     # ── outputs ───────────────────────────────────────────────────────────────
     narration: str = dspy.OutputField(
         desc=(
-            "Scene narration. Match video_style word counts: explainer 12-25 words; "
-            "promotional 10-18 words; storytelling 15-30 words. "
+            "Scene narration. Follow a specific length in the current instruction first, "
+            "then style_guidance. Brief/short without a number means 10-18 words; "
+            "longer/more detailed means 15-30 words; no length direction means 12-25 words. "
             "Hero scene: 1 sentence hook, max 15 words. "
             "Ending scene: CTA tied to the article topic."
         )
@@ -589,6 +620,7 @@ class ScriptGenerator:
         hero_image: str = "",
         aspect_ratio: str = "landscape",
         video_style: str = "explainer",
+        style_guidance: str = "",
         video_length: str = "auto",
         layout_catalog: str = "",
         content_language: str = "English",
@@ -597,6 +629,7 @@ class ScriptGenerator:
         template_id: str = "",
         template_style_hint: str = "",
         user_instruction: str = "",
+        expressive: bool = False,
         progress_callback: Callable[[str], None] | None = None,
     ) -> dict:
         """
@@ -656,6 +689,7 @@ class ScriptGenerator:
             hero_image=hero,
             aspect_ratio=ar,
             video_style=style,
+            style_guidance=(style_guidance or "").strip(),
             video_length=length,
             layout_catalog=layout_catalog or "",
             content_language=lang,
@@ -709,8 +743,10 @@ class ScriptGenerator:
                     total_scenes=total,
                     hero_image=hero,
                     video_style=style,
+                    style_guidance=(style_guidance or "").strip(),
                     aspect_ratio=ar,
                     content_language=lang,
+                    expressive=expressive,
                     scene_title=outline["title"],
                     scene_key_point=outline.get("key_point", ""),
                     assigned_layout=outline.get("preferred_layout") or "",

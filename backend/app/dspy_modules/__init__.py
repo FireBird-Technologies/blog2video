@@ -62,6 +62,9 @@ _theme_lm_lock = threading.Lock()
 _scene_lm: dspy.LM | None = None
 _scene_lm_lock = threading.Lock()
 
+_preference_lm: dspy.LM | None = None
+_preference_lm_lock = threading.Lock()
+
 _scene_type_lm: dspy.LM | None = None
 _scene_type_lm_lock = threading.Lock()
 
@@ -951,6 +954,38 @@ def get_scene_lm() -> dspy.LM:
             return _scene_lm
         _scene_lm = _make_default_lm(_SCENE_MODEL, temperature=0.2, max_tokens=5000)
         return _scene_lm
+
+
+def get_preference_lm() -> dspy.LM:
+    """Flash LM for merging accepted edits into reusable style bullets.
+
+    This always uses Z.AI directly and is deliberately isolated from the scene
+    LM: preference extraction is short, constrained background work, while
+    script generation and Review Script rewrites keep the larger model. GLM 5.3
+    cannot disable thinking, so use its cheapest legal reasoning tier and leave
+    enough room for both that internal pass and the short structured answer.
+    """
+    global _preference_lm
+    if _preference_lm is not None:
+        return _preference_lm
+    with _preference_lm_lock:
+        if _preference_lm is not None:
+            return _preference_lm
+        bare_model = settings.SCRIPT_PREFERENCE_LM.rsplit("/", 1)[-1]
+        requires_thinking = bare_model.startswith("glm-5.3")
+        _preference_lm = _make_zai_lm(
+            settings.SCRIPT_PREFERENCE_LM,
+            temperature=0.1,
+            max_tokens=1200,
+            thinking=requires_thinking,
+            reasoning_effort="low" if requires_thinking else None,
+        )
+        # Never cache: current_profile is a different user's (or the same
+        # user's post-delete) profile text on every call. A stale disk-cache
+        # hit keyed on old profile text could silently replay a completion
+        # derived from a profile the user has since deleted.
+        _preference_lm.cache = False
+        return _preference_lm
 
 
 def get_theme_lm() -> dspy.LM:

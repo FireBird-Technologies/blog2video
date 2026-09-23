@@ -1259,6 +1259,7 @@ async def generate_all_voiceovers(
     scenes: list[Scene],
     db: Session,
     video_style: str | None = None,
+    style_guidance: str = "",
     content_language: str = "English",
     verbatim: bool = False,
     progress_cb: "Callable[[], None] | None" = None,
@@ -1280,7 +1281,7 @@ async def generate_all_voiceovers(
     ``progress_cb`` is invoked once per scene as its audio finishes, so callers
     can drive a scene-by-scene progress bar.
 
-    video_style (explainer | promotional | storytelling) shapes expansion tone.
+    style_guidance shapes expansion tone and length when narration is not verbatim.
     """
     from app.dspy_modules.voiceover_expand import expand_narration_to_voiceover
     from app.database import SessionLocal
@@ -1310,6 +1311,7 @@ async def generate_all_voiceovers(
             async with expand_sem:
                 return await expand_narration_to_voiceover(
                     scene.narration_text, scene.title, video_style=style,
+                    style_guidance=style_guidance,
                     content_language=content_language, expressive=expressive,
                 )
 

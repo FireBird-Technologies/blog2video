@@ -61,6 +61,8 @@ import {
   AVATAR_PRESETS,
   getAddSceneStatus,
   type AddSceneJob,
+  approveInitialScriptReview,
+  type InitialScriptReviewScene,
 } from "../api/client";
 import { AVATAR_CUSTOM_PRESET_ID } from "../api/types";
 import Joyride, { CallBackProps, STATUS, Step } from "react-joyride";
@@ -118,6 +120,7 @@ import VideoPreview, { type CaptionSettings } from "../components/VideoPreview";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import RegenerateScriptModal from "../components/RegenerateScriptModal";
 import VerifyScriptModal from "../components/VerifyScriptModal";
+import InitialScriptReviewModal from "../components/InitialScriptReviewModal";
 import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge, NewScenesTemplateBadge, PopularTemplateBadge } from "../components/templatePreviewRegistry";
 import ProjectTemplateSettingsCard, { TemplateAssignPreview } from "../components/ProjectTemplateSettingsCard";
 import ProjectVoiceLanguageSettingsCard from "../components/ProjectVoiceLanguageSettingsCard";
@@ -884,6 +887,7 @@ export default function ProjectView() {
   // job's prior instruction; on confirm it re-runs stage A instead of creating a new job.
   const [showRegenerateScriptRetry, setShowRegenerateScriptRetry] = useState(false);
   const [regenerateScriptVerifying, setRegenerateScriptVerifying] = useState(false);
+  const [initialScriptReviewSaving, setInitialScriptReviewSaving] = useState(false);
   // Previous (pre-regeneration) scenes for the verify popup's before/after comparison.
   // null = loading; [] = loaded with no previous scenes (treat all as new).
   const [regenScriptPreviousScenes, setRegenScriptPreviousScenes] =
@@ -1276,9 +1280,19 @@ export default function ProjectView() {
       return;
     }
 
-    // Target progress based on step (evenly spaced across 0-95%)
+    // A project page can first learn about a run after earlier stages already completed
+    // (for example status="scripted", step=3). Snap to the start of the reported stage
+    // immediately instead of animating all the way from 0, then keep the usual gradual fill.
+    // Math.max also prevents a stale poll response from moving the bar backwards.
+    const stepFloors: Record<number, number> = { 0: 0, 1: 3, 2: 20, 3: 48, 4: 100 };
     const stepTargets: Record<number, number> = { 0: 3, 1: 20, 2: 48, 3: 72, 4: 100 };
+    const floor = stepFloors[pipelineStep] ?? 0;
     const target = stepTargets[pipelineStep] ?? 100;
+
+    if (smoothProgressRef.current < floor) {
+      smoothProgressRef.current = floor;
+      setSmoothProgress(floor);
+    }
 
     // Animate towards target in small increments
     const timer = setInterval(() => {
@@ -2437,6 +2451,11 @@ export default function ProjectView() {
         setAwaitingStockFootageReview(true);
         return;
       }
+      if (proj.status === "awaiting_script_review") {
+        generationStarted.current = true;
+        setPipelineRunning(false);
+        return;
+      }
       // Legacy: a project still parked at the OLD pre-scene-gen gate.
       if (proj.status === "awaiting_footage") {
         generationStarted.current = true;
@@ -2500,6 +2519,44 @@ export default function ProjectView() {
     }
   };
 
+  const initialScriptReviewResultRef = useRef<{ project: Project; isBulk: boolean } | null>(null);
+
+  const handleApproveInitialScriptReview = async (
+    scenes: InitialScriptReviewScene[],
+    reportSaved: (learning: "queued" | "unchanged") => void,
+  ) => {
+    if (!project) return;
+    setInitialScriptReviewSaving(true);
+    try {
+      const res = await approveInitialScriptReview(project.id, scenes);
+      // Hold the result until the user dismisses the confirmation screen
+      // (handleInitialScriptReviewDone) instead of resuming on a timer.
+      initialScriptReviewResultRef.current = { project: res.data.project, isBulk: !!project.is_bulk };
+      reportSaved(res.data.preference_learning);
+    } finally {
+      setInitialScriptReviewSaving(false);
+    }
+  };
+
+  const handleInitialScriptReviewDone = () => {
+    const result = initialScriptReviewResultRef.current;
+    initialScriptReviewResultRef.current = null;
+    if (!result) return;
+    if (result.isBulk) {
+      navigate("/dashboard");
+      return;
+    }
+    setProject(result.project);
+    setPipelineRunning(true);
+    // Script review is already done at this point, so the resumed pipeline
+    // skips straight to scene generation (backend bumps _pipeline_progress
+    // to step 3 within moments). Set it optimistically here too — the UI's
+    // step index is pipelineStep - 1, so step 3 highlights "Scenes", the
+    // correct current stage, instead of showing "Script" until the first poll.
+    setPipelineStep(3);
+    startPolling();
+  };
+
   const startPolling = () => {
     stopPolling();
     pipelineTerminalFailureHandledRef.current = false;
@@ -2530,7 +2587,13 @@ export default function ProjectView() {
 
         setPipelineStep(step);
 
-        // Review gate: trust DB status even when in-memory running is stale.
+        // Review gates: trust DB status even when in-memory running is stale.
+        if (status === "awaiting_script_review") {
+          setPipelineRunning(false);
+          stopPolling();
+          await loadProject({ silent404: true });
+          return;
+        }
         if (status === "awaiting_stock_footage_review") {
           setPipelineRunning(false);
           stopPolling();
@@ -6209,6 +6272,20 @@ export default function ProjectView() {
         onProceed={handleVerifyRegenerateScript}
         onRegenerate={() => setShowRegenerateScriptRetry(true)}
       />
+
+      {/* The modal's own confirmation screen survives `open` flipping false (see
+          its sticky-render guard), but a `project` that goes falsy here would
+          still unmount it entirely — no current code path does that while this
+          modal could be showing, but keep it that way if this render gets touched. */}
+      {project && (
+        <InitialScriptReviewModal
+          open={project.status === "awaiting_script_review"}
+          project={project}
+          saving={initialScriptReviewSaving}
+          onSave={handleApproveInitialScriptReview}
+          onDone={handleInitialScriptReviewDone}
+        />
+      )}
 
       <ConfirmDeleteModal
         open={imageAssetDeletePending != null}

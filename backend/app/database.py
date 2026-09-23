@@ -132,6 +132,10 @@ def _migrate_sqlite(eng) -> None:
             "video_length": "VARCHAR(10) DEFAULT 'auto'",
             "playback_speed": "REAL DEFAULT 1.0",
             "stock_footage_enabled": "BOOLEAN DEFAULT 0",
+            "script_review_enabled": "BOOLEAN DEFAULT 0",
+            "script_review_approved_at": "DATETIME",
+            "script_style_snapshot": "TEXT",
+            "script_preferences_version_used": "INTEGER",
             "stock_footage_approved_at": "DATETIME",
             "is_bulk": "BOOLEAN DEFAULT 0",
             "captions_enabled": "BOOLEAN DEFAULT 0",
@@ -179,6 +183,9 @@ def _migrate_sqlite(eng) -> None:
             "password_hash": "VARCHAR(255)",
             # JWT revocation counter; see app/auth.py.
             "token_version": "INTEGER DEFAULT 0",
+            "script_preferences": "TEXT",
+            "script_preferences_version": "INTEGER DEFAULT 0",
+            "script_preferences_updated_at": "DATETIME",
         }
         with eng.begin() as conn:
             for col_name, col_def in user_migrations.items():
@@ -715,6 +722,7 @@ def init_db():
         ProjectRegenerateScriptJob,
         ProjectVoiceChangeJob,
         ProjectAddSceneJob,
+        ScriptPreferenceLearningJob,
         Referral,
         ReferralSignup,
         SupportConversation,

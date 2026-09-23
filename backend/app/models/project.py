@@ -9,6 +9,9 @@ class ProjectStatus(str, enum.Enum):
     CREATED = "created"
     SCRAPED = "scraped"
     SCRIPTED = "scripted"
+    # Initial generation has produced editable Scene rows, but the user opted to
+    # review them before any voiceover or final scene descriptors are created.
+    AWAITING_SCRIPT_REVIEW = "awaiting_script_review"
     GENERATED = "generated"
     RENDERING = "rendering"
     DONE = "done"
@@ -84,6 +87,12 @@ class Project(Base):
     stock_footage_enabled: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default="0", nullable=False
     )
+    script_review_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="0", nullable=False
+    )
+    script_review_approved_at: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True
+    )
     # When the user resolved the stock-footage review (approve, change-confirm,
     # or reject). Set once by the corresponding endpoint; also stamped for
     # bulk/unsupported-template projects at the point they'd otherwise have
@@ -117,8 +126,11 @@ class Project(Base):
     template: Mapped[str] = mapped_column(String(50), default="default")
     crafted_template_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("crafted_templates.id"), nullable=True, index=True)
 
-    # Video style: explainer (default), promotional, storytelling — drives script & voiceover tone
+    # Video style: a built-in preset, custom style, or "your_style". The
+    # effective guidance is snapshotted so later user edits never alter this project.
     video_style: Mapped[str] = mapped_column(String(30), default="explainer")
+    script_style_snapshot: Mapped[str | None] = mapped_column(Text, nullable=True)
+    script_preferences_version_used: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Video length selection controls how many scenes are generated.
     # Values: auto, short (4-5), medium (12-15), detailed (23-30), mdetailed (35-40)
@@ -226,4 +238,10 @@ class Project(Base):
     voice_change_jobs = relationship("ProjectVoiceChangeJob", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
     scene_avatar_jobs = relationship("SceneAvatarJob", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
     language_change_jobs = relationship("ProjectLanguageChangeJob", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
+    script_preference_learning_jobs = relationship(
+        "ScriptPreferenceLearningJob",
+        back_populates="project",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
     social_publish_jobs = relationship("SocialPublishJob", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
