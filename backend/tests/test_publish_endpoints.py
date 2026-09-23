@@ -854,70 +854,40 @@ def test_jobs_with_the_same_timestamp_are_ordered_newest_first(
     assert jobs[0]["status"] == STATUS_QUEUED
 
 
-# ─── Paid-plan gate ─────────────────────────────────────────────────────────
+# ─── No plan gate on publishing ─────────────────────────────────────────────
 #
-# Publishing to YouTube and LinkedIn is a paid feature. The frontend shows an
-# upgrade modal in place of the publish modal, but that is cosmetic — these
-# tests pin the server-side gate, which is what actually enforces it.
+# Publishing to YouTube and LinkedIn is available on every plan, exactly like
+# X. These tests pin that: a free user reaches the queue on both platforms, and
+# can retry a failed job.
 
 @pytest.mark.parametrize("platform", ["youtube", "linkedin"])
-def test_a_free_user_cannot_publish_to_a_paid_only_platform(
+def test_a_free_user_can_publish_to_any_platform(
     client, db_session, free_user, auth, linkedin_enabled, platform
 ):
     project = _project(db_session, free_user)
+    # LinkedIn has no unlisted/private notion; see VALID_PRIVACY_BY_PLATFORM.
     if platform == "youtube":
         _connect(db_session, free_user)
+        privacy = "public"
     else:
         _connect_linkedin(db_session, free_user)
+        privacy = "connections"
 
     resp = client.post(
         f"/api/integrations/projects/{project.id}/publish",
-        json=_publish_body(platform=platform),
+        json=_publish_body(platform=platform, privacy_status=privacy),
         headers=auth(free_user),
-    )
-
-    assert resp.status_code == 403
-    assert resp.json()["detail"]["error_code"] == "upgrade_required"
-    # Refused before anything was queued.
-    assert db_session.query(SocialPublishJob).count() == 0
-
-
-def test_the_gate_fires_before_the_connection_check(client, db_session, free_user, auth):
-    """A free user with NO connection still gets the upgrade prompt, not 409.
-
-    Ordering matters for the UI: "connect your account first" would send a user
-    down an OAuth flow that ends in a refusal anyway.
-    """
-    project = _project(db_session, free_user)
-
-    resp = client.post(
-        f"/api/integrations/projects/{project.id}/publish",
-        json=_publish_body(),
-        headers=auth(free_user),
-    )
-
-    assert resp.status_code == 403
-    assert resp.json()["detail"]["error_code"] == "upgrade_required"
-
-
-def test_a_paid_user_can_publish_to_a_paid_only_platform(
-    client, db_session, paid_user, auth
-):
-    project = _project(db_session, paid_user)
-    _connect(db_session, paid_user)
-
-    resp = client.post(
-        f"/api/integrations/projects/{project.id}/publish",
-        json=_publish_body(),
-        headers=auth(paid_user),
     )
 
     assert resp.status_code == 200
+    job = db_session.query(SocialPublishJob).one()
+    assert job.platform == platform
+    assert job.user_id == free_user.id
 
 
-def test_a_free_user_cannot_retry_a_paid_only_job(client, db_session, free_user, auth):
-    """Covers the downgrade case: the job was created while the user paid."""
+def test_a_free_user_can_retry_a_failed_job(client, db_session, free_user, auth):
     project = _project(db_session, free_user)
+    _connect(db_session, free_user)
     job = SocialPublishJob(
         project_id=project.id,
         user_id=free_user.id,
@@ -936,7 +906,6 @@ def test_a_free_user_cannot_retry_a_paid_only_job(client, db_session, free_user,
         headers=auth(free_user),
     )
 
-    assert resp.status_code == 403
-    assert resp.json()["detail"]["error_code"] == "upgrade_required"
+    assert resp.status_code == 200
     db_session.refresh(job)
-    assert job.status == STATUS_FAILED
+    assert job.status != STATUS_FAILED

@@ -6,9 +6,11 @@ import os
 import shutil
 import time
 import uuid
+import hashlib
+import hmac
 import requests
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Literal
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
@@ -110,6 +112,7 @@ _IN_FLIGHT_STATUSES = (
     ProjectStatus.CREATED,
     ProjectStatus.SCRAPED,
     ProjectStatus.SCRIPTED,
+    ProjectStatus.AWAITING_SCRIPT_REVIEW,
 )
 
 # URL → (expires_at_epoch, is_reachable). Avoids HEAD-ing the same brand-logo
@@ -444,7 +447,7 @@ _ALLOWED_MIME_TYPES = {
     "text/vtt",  # .vtt (WebVTT captions/transcripts)
 }
 _ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".md", ".markdown", ".txt", ".vtt"}
-_VALID_VIDEO_STYLES = {"auto", "explainer", "promotional", "storytelling"}
+_VALID_VIDEO_STYLES = {"auto", "explainer", "promotional", "storytelling", "your_style"}
 _VALID_VIDEO_LENGTHS = {"auto", "short", "medium", "detailed", "mdetailed"}
 # Long-form options reserved for paid plans; FREE users top out at "medium".
 _PAID_ONLY_VIDEO_LENGTHS = {"detailed", "mdetailed"}
@@ -519,10 +522,11 @@ def _normalize_video_style(video_style: str | None) -> str:
     style = (video_style or "").strip().lower()
     if not style:
         return "auto"
-    if style not in _VALID_VIDEO_STYLES:
+    from app.services.video_styles import parse_custom_style_ref
+    if style not in _VALID_VIDEO_STYLES and parse_custom_style_ref(style) is None:
         raise HTTPException(
             status_code=422,
-            detail="video_style must be one of: auto, explainer, promotional, storytelling",
+            detail="video_style must be a built-in style, your_style, or custom:<id>",
         )
     return style
 
@@ -751,6 +755,45 @@ def _clear_visual_cleared_by_user(lp: dict) -> None:
     lp.pop(VISUAL_CLEARED_BY_USER, None)
 
 
+def _clip_used_by_other_scene(
+    db, project_id: int, filename: str, exclude_scene_id: int
+) -> bool:
+    """True when any OTHER active scene still has this clip in its descriptor.
+
+    The caller runs BEFORE the edited scene's `remotion_code` is written back, so
+    the scene being edited is skipped by id rather than by reading its (still
+    stale) stored descriptor.
+
+    Errs on the side of True: if the scan fails we must not retire a clip that
+    might still be in use, because excluding it would blank it everywhere.
+    """
+    try:
+        rows = (
+            db.query(Scene)
+            .filter(Scene.project_id == project_id, Scene.id != exclude_scene_id)
+            .all()
+        )
+        for row in rows:
+            if not getattr(row, "is_active", True):
+                continue
+            raw = getattr(row, "remotion_code", None)
+            if not raw:
+                continue
+            try:
+                lp = (json.loads(raw) or {}).get("layoutProps")
+            except (json.JSONDecodeError, TypeError):
+                continue  # legacy / non-JSON descriptor
+            if isinstance(lp, dict) and lp.get("assignedVideo") == filename:
+                return True
+        return False
+    except Exception:  # noqa: BLE001
+        logger.exception(
+            "[SCENE-UPDATE] could not check other scenes for clip %s on project %s",
+            filename, project_id,
+        )
+        return True
+
+
 def _exclude_freed_clip(db, project_id: int, filename: str) -> None:
     """Take a user-removed clip out of the assignment pool, project-wide.
 
@@ -759,6 +802,14 @@ def _exclude_freed_clip(db, project_id: int, filename: str) -> None:
     different scene. `excluded` is the flag the codebase already uses to hold an
     asset back (the media picker toggles the same one), and every pool build
     filters on it — so setting it is what makes "removed" mean removed.
+
+    ONLY SAFE WHEN NO OTHER SCENE USES THE CLIP. `excluded` is project-wide and
+    matched by filename, while one clip may legitimately be assigned to several
+    scenes — so callers must gate this on _clip_used_by_other_scene. Excluding a
+    shared clip blanked it in every other scene: those scenes kept a valid
+    `assignedVideo`, but every resolver filters on `excluded`, so nothing
+    rendered. Stills never had this failure mode — removing one edits that
+    scene's descriptor and never touches the Asset row.
 
     Reversible: re-assigning the clip from the picker un-excludes it. Never
     raises — a failure here must not take down the scene save that triggered it.
@@ -1384,8 +1435,11 @@ def create_project(
         stock_footage_enabled=_resolve_stock_footage_flag(
             getattr(data, "stock_footage_enabled", False), user, template_id
         ),
+        script_review_enabled=bool(getattr(data, "script_review_enabled", False)),
         status=ProjectStatus.CREATED,
     )
+    from app.services.script_style import snapshot_style_for_project
+    snapshot_style_for_project(project, user, db)
     db.add(project)
     db.flush()  # assign project.id so the logo seed below can build an R2 key
 
@@ -3270,10 +3324,61 @@ async def verify_regenerate_script(
 ):
     """Approve the regenerated script and resume into scene/voiceover generation (stage B)."""
     job = _get_awaiting_review_job(project_id, user.id, db)
+    preference_job_id = None
+    try:
+        snapshot = json.loads(job.scene_snapshot or "[]")
+    except Exception:
+        snapshot = []
+    current_scenes = (
+        db.query(Scene)
+        .filter(Scene.project_id == project_id, Scene.is_active == True)  # noqa: E712
+        .order_by(Scene.order)
+        .all()
+    )
+    before = [
+        {"id": index, "title": scene.get("title", ""), "display_text": scene.get("display_text") or "", "narration": scene.get("narration_text") or ""}
+        for index, scene in enumerate(snapshot)
+        if isinstance(scene, dict)
+    ]
+    after = [
+        {"id": index, "title": scene.title, "display_text": scene.display_text or "", "narration": scene.narration_text or ""}
+        for index, scene in enumerate(current_scenes)
+    ]
+    from app.services.script_preferences import build_edit_evidence
+    prompt = (job.user_instruction or "").strip()
+    instruction_target = next((
+        item["id"] for item in after
+        if item["id"] < len(before) and (
+            item["title"].strip() != (before[item["id"]].get("title") or "").strip()
+            or item["display_text"].strip() != (before[item["id"]].get("display_text") or "").strip()
+        )
+    ), 0)
+    evidence = build_edit_evidence(
+        before, after, {instruction_target: [prompt]} if prompt else {}
+    )
+    if evidence:
+        from app.models.script_preference_learning_job import ScriptPreferenceLearningJob
+        from app.services.script_preferences import resolve_pinned_target
+        target_ref, target_version = resolve_pinned_target(db, user)
+        preference_job = ScriptPreferenceLearningJob(
+            user_id=user.id, project_id=project_id,
+            idempotency_key=f"regenerate-review:{job.id}",
+            evidence_json=json.dumps(evidence, ensure_ascii=False),
+            target_ref=target_ref,
+            target_version_at_enqueue=target_version,
+            status="queued",
+        )
+        db.add(preference_job)
+        db.flush()
+        preference_job_id = preference_job.id
     job.status = "running"
     job.current_step = "generating_scenes"
     db.commit()
     db.refresh(job)
+
+    if preference_job_id is not None:
+        from app.services.script_preferences import dispatch_preference_learning_job
+        dispatch_preference_learning_job(preference_job_id)
 
     # Tell live collaborators to refetch as scene/voiceover generation begins.
     # Exclude the acting user — they already transitioned locally. Async endpoint →
@@ -3500,9 +3605,12 @@ def create_projects_bulk(
             stock_footage_enabled=_resolve_stock_footage_flag(
                 getattr(data, "stock_footage_enabled", False), user, template_id
             ),
+            script_review_enabled=bool(getattr(data, "script_review_enabled", False)),
             is_bulk=True,
             status=ProjectStatus.CREATED,
         )
+        from app.services.script_style import snapshot_style_for_project
+        snapshot_style_for_project(project, user, db)
         db.add(project)
         db.flush()
         _seed_project_logo_from_brand_kit(project, db)
@@ -3553,6 +3661,7 @@ def create_project_from_upload(
     bgm_track_id: Optional[str] = Form(None),
     bgm_volume: Optional[float] = Form(0.10),
     stock_footage_enabled: Optional[bool] = Form(False),
+    script_review_enabled: Optional[bool] = Form(False),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -3633,8 +3742,11 @@ def create_project_from_upload(
         stock_footage_enabled=_resolve_stock_footage_flag(
             stock_footage_enabled, user, template_id
         ),
+        script_review_enabled=bool(script_review_enabled),
         status=ProjectStatus.CREATED,
     )
+    from app.services.script_style import snapshot_style_for_project
+    snapshot_style_for_project(project, user, db)
     db.add(project)
     db.flush()
     _seed_project_logo_from_brand_kit(project, db)
@@ -4338,6 +4450,266 @@ MANUAL_TRACKED_FIELDS = {
 }
 
 
+class InitialScriptReviewScene(BaseModel):
+    id: int
+    title: str
+    narration_text: str
+    display_text: str | None = None
+    preferred_layout: str | None = None
+    source_fingerprint: str | None = None
+    accepted_ai_instructions: list[str] = Field(default_factory=list, max_length=10)
+
+
+class InitialScriptReviewRequest(BaseModel):
+    scenes: list[InitialScriptReviewScene]
+
+
+class InitialScriptReviewResponse(BaseModel):
+    project: ProjectOut
+    preference_learning: Literal["queued", "unchanged"]
+
+
+class ScriptReviewDraftScene(BaseModel):
+    id: int
+    title: str
+    display_text: str | None = None
+    narration_text: str
+
+
+class ScriptReviewNarrationRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=255)
+    display_text: str = Field(min_length=1, max_length=3000)
+    narration_text: str = Field(default="", max_length=6000)
+    draft_scenes: list[ScriptReviewDraftScene]
+    revision: int = Field(ge=0)
+
+
+class ScriptReviewAIRequest(ScriptReviewNarrationRequest):
+    instruction: str = Field(min_length=2, max_length=1000)
+
+
+class ScriptReviewPreviewResponse(BaseModel):
+    revision: int
+    title: str
+    display_text: str
+    narration_text: str
+    source_fingerprint: str
+
+
+def _review_fingerprint(title: str, display_text: str, narration: str) -> str:
+    normalized = "\x1f".join(
+        " ".join((part or "").split()) for part in (title, display_text, narration)
+    )
+    return hmac.new(
+        settings.JWT_SECRET.encode("utf-8"), normalized.encode("utf-8"), hashlib.sha256
+    ).hexdigest()
+
+
+def _validated_review_context(project: Project, scene_id: int, drafts: list[ScriptReviewDraftScene], db: Session):
+    scenes = (
+        db.query(Scene)
+        .filter(Scene.project_id == project.id, Scene.is_active == True)  # noqa: E712
+        .order_by(Scene.order)
+        .all()
+    )
+    ids = [draft.id for draft in drafts]
+    if len(ids) != len(set(ids)) or set(ids) != {scene.id for scene in scenes}:
+        raise HTTPException(status_code=409, detail="The script changed. Refresh the review before editing.")
+    target = next((scene for scene in scenes if scene.id == scene_id), None)
+    if not target:
+        raise HTTPException(status_code=404, detail="Scene not found.")
+    draft_dicts = [
+        {"id": d.id, "title": d.title, "display_text": d.display_text or "", "narration": d.narration_text}
+        for d in drafts
+    ]
+    return scenes, target, draft_dicts, ids.index(scene_id)
+
+
+@router.post(
+    "/{project_id}/script-review/scenes/{scene_id}/narration-preview",
+    response_model=ScriptReviewPreviewResponse,
+)
+async def preview_review_narration(
+    project_id: int, scene_id: int, body: ScriptReviewNarrationRequest,
+    user: User = Depends(get_current_user), db: Session = Depends(get_db),
+):
+    project = _get_user_project(project_id, user.id, db)
+    if project.status != ProjectStatus.AWAITING_SCRIPT_REVIEW:
+        raise HTTPException(status_code=409, detail="This project is not awaiting script review.")
+    _, _, drafts, index = _validated_review_context(project, scene_id, body.draft_scenes, db)
+    from app.dspy_modules.script_review import derive_narration
+    from app.services.language_detection import get_content_language_for_project
+    from app.services.script_style import generation_style_for_project, style_guidance_for_project
+    narration = await derive_narration(
+        source=project.blog_content or "", draft_scenes=drafts, scene_index=index,
+        title=body.title, display_text=body.display_text,
+        current_narration=body.narration_text,
+        style_guidance=style_guidance_for_project(project),
+        content_language=get_content_language_for_project(project),
+        video_style=generation_style_for_project(project),
+    )
+    return ScriptReviewPreviewResponse(
+        revision=body.revision, title=body.title.strip(),
+        display_text=body.display_text.strip(), narration_text=narration,
+        source_fingerprint=_review_fingerprint(body.title, body.display_text, narration),
+    )
+
+
+@router.post(
+    "/{project_id}/script-review/scenes/{scene_id}/ai-preview",
+    response_model=ScriptReviewPreviewResponse,
+)
+async def preview_review_ai_rewrite(
+    project_id: int, scene_id: int, body: ScriptReviewAIRequest,
+    user: User = Depends(get_current_user), db: Session = Depends(get_db),
+):
+    project = _get_user_project(project_id, user.id, db)
+    if project.status != ProjectStatus.AWAITING_SCRIPT_REVIEW:
+        raise HTTPException(status_code=409, detail="This project is not awaiting script review.")
+    _, _, drafts, index = _validated_review_context(project, scene_id, body.draft_scenes, db)
+    from app.dspy_modules.script_review import rewrite_scene
+    from app.services.language_detection import get_content_language_for_project
+    from app.services.script_style import generation_style_for_project, style_guidance_for_project
+    title, display, narration = await rewrite_scene(
+        source=project.blog_content or "", draft_scenes=drafts, scene_index=index,
+        title=body.title, display_text=body.display_text,
+        current_narration=body.narration_text, instruction=body.instruction,
+        style_guidance=style_guidance_for_project(project),
+        content_language=get_content_language_for_project(project),
+        video_style=generation_style_for_project(project),
+    )
+    return ScriptReviewPreviewResponse(
+        revision=body.revision, title=title, display_text=display,
+        narration_text=narration,
+        source_fingerprint=_review_fingerprint(title, display, narration),
+    )
+
+
+@router.post(
+    "/{project_id}/script-review/approve",
+    response_model=InitialScriptReviewResponse,
+)
+async def approve_initial_script_review(
+    project_id: int,
+    body: InitialScriptReviewRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Atomically save the reviewed script and resume before voiceover generation."""
+    project = _get_user_project(project_id, user.id, db)
+    if project.status != ProjectStatus.AWAITING_SCRIPT_REVIEW:
+        raise HTTPException(status_code=409, detail="This project is not awaiting script review.")
+
+    scenes = (
+        db.query(Scene)
+        .filter(Scene.project_id == project_id, Scene.is_active == True)  # noqa: E712
+        .order_by(Scene.order)
+        .all()
+    )
+    by_id = {scene.id: scene for scene in scenes}
+    submitted_ids = [draft.id for draft in body.scenes]
+    if len(submitted_ids) != len(set(submitted_ids)) or set(submitted_ids) != set(by_id):
+        raise HTTPException(status_code=400, detail="The reviewed scenes do not match the current script.")
+
+    before = [
+        {"id": scene.id, "title": scene.title, "display_text": scene.display_text or "", "narration": scene.narration_text or ""}
+        for scene in scenes
+    ]
+    after: list[dict] = []
+    instructions: dict[int, list[str]] = {}
+    valid_layouts = get_all_renderable_layouts(project.template)
+    for draft in body.scenes:
+        title = draft.title.strip()
+        narration = draft.narration_text.strip()
+        scene = by_id[draft.id]
+        system_countdown = scene.preferred_layout == "docreel_countdown"
+        if (not system_countdown and not title) or not narration:
+            raise HTTPException(status_code=400, detail="Every scene needs a title and narration.")
+        if len(title) > SCENE_TITLE_MAX_LENGTH:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Scene title is too long. Maximum is {SCENE_TITLE_MAX_LENGTH} characters.",
+            )
+        preferred_layout = (draft.preferred_layout or "").strip()
+        if preferred_layout and preferred_layout not in valid_layouts and not system_countdown:
+            raise HTTPException(status_code=400, detail=f"Invalid scene layout: {preferred_layout}")
+        text_changed = (
+            title != (scene.title or "").strip()
+            or (draft.display_text or "").strip() != (scene.display_text or "").strip()
+            or narration != (scene.narration_text or "").strip()
+        )
+        expected_fingerprint = _review_fingerprint(title, draft.display_text or "", narration)
+        if text_changed and not hmac.compare_digest(
+            draft.source_fingerprint or "", expected_fingerprint
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail="A scene narration is still updating. Wait for it before saving.",
+            )
+        scene.title = title
+        scene.narration_text = narration
+        scene.display_text = (draft.display_text or "").strip()
+        scene.preferred_layout = preferred_layout or scene.preferred_layout
+        after.append({"id": scene.id, "title": title, "display_text": scene.display_text, "narration": narration})
+        instructions[scene.id] = draft.accepted_ai_instructions
+
+    from app.services.script_preferences import build_edit_evidence
+    evidence = build_edit_evidence(before, after, instructions)
+    preference_job_id = None
+    preference_learning: Literal["queued", "unchanged"] = "unchanged"
+    if evidence:
+        from app.models.script_preference_learning_job import ScriptPreferenceLearningJob
+        evidence_json = json.dumps(evidence, ensure_ascii=False)
+        evidence_digest = hashlib.sha256(
+            json.dumps(evidence, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()[:24]
+        idempotency_key = f"initial-review:{project.id}:{evidence_digest}"
+        existing_job = db.query(ScriptPreferenceLearningJob).filter_by(
+            idempotency_key=idempotency_key
+        ).first()
+        if existing_job is None:
+            from app.services.script_preferences import resolve_pinned_target
+            target_ref, target_version = resolve_pinned_target(db, user)
+            job = ScriptPreferenceLearningJob(
+                user_id=user.id,
+                project_id=project.id,
+                idempotency_key=idempotency_key,
+                evidence_json=evidence_json,
+                target_ref=target_ref,
+                target_version_at_enqueue=target_version,
+                status="queued",
+            )
+            db.add(job)
+            db.flush()
+            preference_job_id = job.id
+        preference_learning = "queued"
+
+    # Commit all reviewed scenes and the gate transition together. Until this
+    # succeeds the project remains parked and _generate_scenes cannot run.
+    project.script_review_approved_at = datetime.utcnow()
+    project.status = ProjectStatus.SCRIPTED
+    db.commit()
+    db.refresh(project)
+
+    if preference_job_id is not None:
+        from app.services.script_preferences import dispatch_preference_learning_job
+        dispatch_preference_learning_job(preference_job_id)
+
+    from app.routers.pipeline import _pipeline_progress, _run_pipeline_sync
+    _pipeline_progress[project_id] = {
+        "step": 2,
+        "running": True,
+        "error": None,
+        "notice": None,
+    }
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(None, _run_pipeline_sync, project_id, project.user_id)
+    return InitialScriptReviewResponse(
+        project=_prepare_project_response(project, user, db),
+        preference_learning=preference_learning,
+    )
+
+
 class SceneImageFocusUpdate(BaseModel):
     image_focus_x: float = Field(default=50, ge=0, le=100)
     image_focus_y: float = Field(default=50, ge=0, le=100)
@@ -4430,6 +4802,17 @@ def update_scene(
     from app.services.edit_tracker import new_change_set_id
     change_set_id = new_change_set_id()
     _broadcast_changes: list[tuple[str, object]] = []
+
+    # Snapshot the learnable fields before any setattr() below, so a save that
+    # only touches one of them (e.g. title-only) still yields an accurate
+    # before/after pair for the other two when building preference evidence.
+    _learn_before = {
+        "id": scene.id,
+        "title": scene.title or "",
+        "display_text": scene.display_text or "",
+        "narration": scene.narration_text or "",
+    }
+
     for key, value in update_data.items():
         if key not in MANUAL_TRACKED_FIELDS:
             continue
@@ -4483,6 +4866,14 @@ def update_scene(
                     # Only when the user actually cleared the slot: an edit that
                     # SWAPS one clip for another must not exclude the outgoing
                     # one, or swapping would quietly retire clips.
+                    #
+                    # AND ONLY WHEN NO OTHER SCENE STILL USES THE CLIP. One clip
+                    # may be assigned to several scenes, exactly as one still
+                    # may be; `excluded` is project-wide and matched by
+                    # filename, so retiring a shared clip blanked it in every
+                    # other scene that used it — each of those kept a valid
+                    # `assignedVideo` while every resolver filtered the asset
+                    # out. Unassigning must only empty THIS scene.
                     _old_lp = (old_parsed or {}).get("layoutProps") if isinstance(old_parsed, dict) else None
                     _new_lp = new_parsed.get("layoutProps") if isinstance(new_parsed, dict) else None
                     if isinstance(_old_lp, dict) and isinstance(_new_lp, dict):
@@ -4491,6 +4882,9 @@ def update_scene(
                             _freed
                             and not _new_lp.get("assignedVideo")
                             and _new_lp.get(VISUAL_CLEARED_BY_USER)
+                            and not _clip_used_by_other_scene(
+                                db, project_id, _freed, scene_id
+                            )
                         ):
                             _exclude_freed_clip(db, project_id, _freed)
             except Exception:
@@ -4518,6 +4912,36 @@ def update_scene(
 
     db.commit()
     db.refresh(scene)
+
+    # Feed this save's title/display_text/narration diff into the same
+    # writing-style preference learner used by the Review Script approval
+    # flow, so ad-hoc edits keep growing "My Style" too. Best-effort: this
+    # runs only after the scene save has already committed successfully, and
+    # never blocks or fails the request.
+    _learn_after = {
+        "id": scene.id,
+        "title": scene.title or "",
+        "display_text": scene.display_text or "",
+        "narration": scene.narration_text or "",
+    }
+    from app.services.script_preferences import build_edit_evidence, resolve_pinned_target
+    evidence = build_edit_evidence([_learn_before], [_learn_after], {})
+    if evidence:
+        from app.models.script_preference_learning_job import ScriptPreferenceLearningJob
+        target_ref, target_version = resolve_pinned_target(db, user)
+        job = ScriptPreferenceLearningJob(
+            user_id=user.id,
+            project_id=project.id,
+            idempotency_key=f"scene-edit:{change_set_id}",
+            evidence_json=json.dumps(evidence, ensure_ascii=False),
+            target_ref=target_ref,
+            target_version_at_enqueue=target_version,
+            status="queued",
+        )
+        db.add(job)
+        db.commit()
+        from app.services.script_preferences import dispatch_preference_learning_job
+        dispatch_preference_learning_job(job.id)
 
     # Push each change live to any collaborators connected on this project.
     from app.routers.collab_ws import broadcast_scene_edit
@@ -7609,6 +8033,11 @@ async def regenerate_scene(
     from app.dspy_modules.template_scene_gen import TemplateSceneGenerator
     from app.dspy_modules.narration_edit import rewrite_narration_if_requested
     from app.services.voiceover import generate_voiceover
+    from app.services.script_style import (
+        generation_style_for_project,
+        is_personalized_style,
+        style_guidance_for_project,
+    )
     
     project = _get_user_project(project_id, user.id, db)
 
@@ -7653,7 +8082,8 @@ async def regenerate_scene(
     old_display_text = getattr(scene, "display_text", None)
     old_narration_text = scene.narration_text
     old_remotion_code = scene.remotion_code
-    
+    old_title_for_learning = scene.title
+
     keep_layout = layout == "__keep__"
     normalized_layout = None
     if layout and not keep_layout:
@@ -7762,9 +8192,16 @@ async def regenerate_scene(
     # reflects the instruction. Done BEFORE visual_description / descriptor regen so
     # those downstream calls read the updated title + narration as source of truth.
     if has_description:
+        saved_style_guidance = style_guidance_for_project(project)
+        narration_instruction = (
+            "Keep the rewrite consistent with this saved writing style:\n"
+            f"{saved_style_guidance}\n\n"
+            "CURRENT USER INSTRUCTION (takes precedence):\n"
+            f"{description}"
+        )
         new_narration = await rewrite_narration_if_requested(
             current_narration=scene.narration_text or "",
-            user_instruction=description,
+            user_instruction=narration_instruction,
             scene_title=scene.title,
         )
         if new_narration and new_narration.strip() and new_narration.strip() != (scene.narration_text or "").strip():
@@ -8098,7 +8535,9 @@ async def regenerate_scene(
         try:
             dt_gen = DisplayTextGenerator(
                 template_id=project.template,
+                video_style=generation_style_for_project(project),
                 content_language=get_content_language_for_project(project),
+                style_guidance=style_guidance_for_project(project),
             )
             dt_results = await dt_gen.generate_for_scenes([
                 {
@@ -8378,7 +8817,10 @@ async def regenerate_scene(
     # computed up front, alongside edit_cost, so the credit gate could pre-check it).
     # When verbatim, the narration_text is sent to TTS word-for-word, skipping
     # the DSPy expansion step (so the spoken voiceover matches the edited script).
-    verbatim = voiceover_verbatim.lower() == "true"
+    verbatim = (
+        voiceover_verbatim.lower() == "true"
+        or is_personalized_style(getattr(project, "video_style", None))
+    )
     # Voiceover should continue to be based on the underlying narration_text script,
     # not the shorter display_text.
     narration_source = (scene.narration_text or "").strip()
@@ -8389,10 +8831,11 @@ async def regenerate_scene(
         else:
             from app.dspy_modules.voiceover_expand import expand_narration_to_voiceover
             from app.services.language_detection import get_content_language_for_project
-            video_style = getattr(project, "video_style", None) or "explainer"
+            video_style = generation_style_for_project(project)
             content_language = get_content_language_for_project(project)
             expanded_voiceover = await expand_narration_to_voiceover(
                 narration_source, scene.title, video_style=video_style,
+                style_guidance=style_guidance_for_project(project),
                 content_language=content_language,
                 expressive=bool(getattr(project, "voice_emotion", None)),
             )
@@ -8445,6 +8888,48 @@ async def regenerate_scene(
 
     db.refresh(scene)
     _broadcast_scene_regen(project_id, user.id)
+
+    # Feed this AI rewrite's title/display_text/narration diff (plus the
+    # instruction typed into "Tell AI what to change") into the same
+    # writing-style preference learner used by the Review Script approval
+    # flow and plain manual scene edits. Best-effort: runs only after the
+    # regeneration has already committed successfully, and never blocks or
+    # fails the request.
+    _learn_before = {
+        "id": scene.id,
+        "title": old_title_for_learning or "",
+        "display_text": old_display_text or "",
+        "narration": old_narration_text or "",
+    }
+    _learn_after = {
+        "id": scene.id,
+        "title": scene.title or "",
+        "display_text": scene.display_text or "",
+        "narration": scene.narration_text or "",
+    }
+    from app.services.script_preferences import build_edit_evidence
+    _instruction = (description or "").strip()
+    _evidence = build_edit_evidence(
+        [_learn_before], [_learn_after],
+        {scene.id: [_instruction]} if _instruction else {},
+    )
+    if _evidence:
+        from app.models.script_preference_learning_job import ScriptPreferenceLearningJob
+        from app.services.script_preferences import dispatch_preference_learning_job, resolve_pinned_target
+        _target_ref, _target_version = resolve_pinned_target(db, user)
+        _pref_job = ScriptPreferenceLearningJob(
+            user_id=user.id,
+            project_id=project.id,
+            idempotency_key=f"scene-regen:{_regen_change_set}",
+            evidence_json=json.dumps(_evidence, ensure_ascii=False),
+            target_ref=_target_ref,
+            target_version_at_enqueue=_target_version,
+            status="queued",
+        )
+        db.add(_pref_job)
+        db.commit()
+        dispatch_preference_learning_job(_pref_job.id)
+
     return scene
 
 
@@ -8567,7 +9052,12 @@ async def _generate_and_insert_scene(
         position = max(1, min(int(position), active_count + 1))
 
     content_language = get_content_language_for_project(project)
-    video_style = (getattr(project, "video_style", None) or "explainer")
+    from app.services.script_style import (
+        generation_style_for_project,
+        style_guidance_for_project,
+    )
+    video_style = generation_style_for_project(project)
+    style_guidance = style_guidance_for_project(project)
     aspect_ratio = (getattr(project, "aspect_ratio", None) or "landscape")
 
     # Build an outline of the existing scenes so the new scene stays on-thread. Keep
@@ -8606,9 +9096,8 @@ async def _generate_and_insert_scene(
         f"{project.name or 'This video'} — covers: " + "; ".join(sibling_titles[:12])
     ).strip()
 
-    # The user's prompt is a HARD instruction. Combine it with an explicit length target
-    # (matching the siblings) so SceneExpander honours both — it treats
-    # ``user_instruction_summary`` as a hard constraint.
+    # The user's prompt is a HARD instruction. Style guidance travels in its own
+    # authoritative field so it is not reinterpreted as a one-time edit request.
     instruction = (
         f"{prompt}\n\n"
         f"Write the narration to roughly {target_words} words (±30%), matching the length, "
@@ -8629,6 +9118,7 @@ async def _generate_and_insert_scene(
             blog_content=blog_content,
             full_outline=json.dumps(outline),
             video_style=video_style,
+            style_guidance=style_guidance,
             content_language=content_language,
         )
         scene_title = (getattr(o, "scene_title", "") or "").strip().rstrip(".")
@@ -8655,6 +9145,7 @@ async def _generate_and_insert_scene(
             total_scenes=active_count + 1,
             hero_image="",
             video_style=video_style,
+            style_guidance=style_guidance,
             aspect_ratio=aspect_ratio,
             content_language=content_language,
             scene_title=scene_title,
@@ -8676,7 +9167,10 @@ async def _generate_and_insert_scene(
     display_text = narration
     try:
         dt = await DisplayTextGenerator(
-            project.template, video_style=video_style, content_language=content_language
+            project.template,
+            video_style=video_style,
+            content_language=content_language,
+            style_guidance=style_guidance,
         ).generate_for_scenes(
             [{"title": scene_title, "narration": narration, "visual_description": visual_description}]
         )

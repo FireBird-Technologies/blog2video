@@ -2494,3 +2494,140 @@ def test_a_regenerate_skips_a_slot_the_user_emptied(
         lp = json.loads(s.remotion_code)["layoutProps"]
         assert not lp.get("assignedVideo"), "a user-cleared slot was refilled"
         assert lp.get("visualClearedByUser"), "the user's marker was dropped"
+
+
+# ─── ...but only from the scene it was removed from ──────────────────────────
+#
+# Reported bug: one clip assigned to several scenes, removed from ONE, vanished
+# from the others too — and those scenes were not marked hideImage, so they fell
+# back to a generic still.
+#
+# Cause: `excluded` is project-wide and matched by FILENAME, while a clip (like a
+# still) may legitimately be assigned to several scenes. The other scenes kept a
+# valid `assignedVideo`, but every resolver filters on `excluded`, so nothing
+# rendered; the prune pass then stripped the key and opened the slot to an image.
+# Stills never had this failure mode — removing one only edits that descriptor.
+
+
+def _assign_clip(db, scene, filename="freed.mp4"):
+    desc = json.loads(scene.remotion_code)
+    desc["layoutProps"]["assignedVideo"] = filename
+    desc["layoutProps"]["videoMuted"] = True
+    desc["layoutProps"]["videoVolume"] = 0.35
+    scene.remotion_code = json.dumps(desc)
+    db.commit()
+
+
+def _cleared_descriptor(scene):
+    """The descriptor the editor PUTs when the user removes the visual."""
+    desc = json.loads(scene.remotion_code)
+    lp = desc["layoutProps"]
+    for k in ("assignedVideo", "videoMuted", "videoVolume", "videoStartSeconds",
+              "assignedImage", "imageFocusX", "imageFocusY", "imageZoom"):
+        lp.pop(k, None)
+    lp["hideImage"] = True
+    lp["visualClearedByUser"] = True
+    return json.dumps(desc)
+
+
+def _clip_asset(db, project_id, filename="freed.mp4"):
+    from app.models.asset import Asset, AssetType
+
+    return (
+        db.query(Asset)
+        .filter(
+            Asset.project_id == project_id,
+            Asset.filename == filename,
+            Asset.asset_type == AssetType.VIDEO,
+        )
+        .first()
+    )
+
+
+def test_removing_a_shared_clip_leaves_the_other_scene_alone(
+    client, db_session, paid_user, auth, tmp_path, monkeypatch
+):
+    """THE BUG. One clip on two scenes, removed from one, must survive on the other."""
+    project, scenes = _clip_project(db_session, paid_user, tmp_path, n_scenes=3)
+    _assign_clip(db_session, scenes[0])
+    _assign_clip(db_session, scenes[1])
+
+    resp = client.put(
+        f"/api/projects/{project.id}/scenes/{scenes[0].id}",
+        headers=auth(paid_user),
+        json={"remotion_code": _cleared_descriptor(scenes[0])},
+    )
+    assert resp.status_code == 200, resp.text
+
+    db_session.expire_all()
+    asset = _clip_asset(db_session, project.id)
+    assert asset.excluded is False, "a clip another scene still uses was retired"
+
+    _run_write(project, db_session, tmp_path, monkeypatch, redistribute=False)
+
+    by_id = {s.id: json.loads(s.remotion_code)["layoutProps"]
+             for s in db_session.query(Scene).filter(Scene.project_id == project.id).all()}
+    assert by_id[scenes[1].id].get("assignedVideo") == "freed.mp4", \
+        "the clip was stripped from a scene the user never touched"
+    assert not by_id[scenes[0].id].get("assignedVideo"), "the cleared scene kept its clip"
+    assert not by_id[scenes[1].id].get("assignedImage"), \
+        "the untouched scene fell back to a generic still"
+
+
+def test_removing_a_clips_last_use_still_retires_it(
+    client, db_session, paid_user, auth, tmp_path
+):
+    """The narrowed gate must not weaken the behaviour it guards.
+
+    No other scene uses the clip, so removing it retires it exactly as before.
+    """
+    project, scenes = _clip_project(db_session, paid_user, tmp_path, n_scenes=3)
+    _assign_clip(db_session, scenes[0])
+
+    resp = client.put(
+        f"/api/projects/{project.id}/scenes/{scenes[0].id}",
+        headers=auth(paid_user),
+        json={"remotion_code": _cleared_descriptor(scenes[0])},
+    )
+    assert resp.status_code == 200, resp.text
+
+    db_session.expire_all()
+    assert _clip_asset(db_session, project.id).excluded is True, \
+        "a clip no scene uses should stay removed"
+
+
+def test_write_remotion_data_restores_a_clip_a_scene_still_references(
+    db_session, paid_user, tmp_path, monkeypatch
+):
+    """Self-heal for projects already damaged by the project-wide exclusion."""
+    project, scenes = _clip_project(db_session, paid_user, tmp_path, n_scenes=3)
+    _assign_clip(db_session, scenes[1])
+    asset = _clip_asset(db_session, project.id)
+    asset.excluded = True
+    db_session.commit()
+
+    _run_write(project, db_session, tmp_path, monkeypatch, redistribute=False)
+
+    db_session.expire_all()
+    assert _clip_asset(db_session, project.id).excluded is False, \
+        "a referenced clip was not restored"
+    lp = json.loads(
+        db_session.query(Scene).filter(Scene.id == scenes[1].id).first().remotion_code
+    )["layoutProps"]
+    assert lp.get("assignedVideo") == "freed.mp4", "the scene lost its clip"
+
+
+def test_write_remotion_data_leaves_an_unreferenced_excluded_clip_alone(
+    db_session, paid_user, tmp_path, monkeypatch
+):
+    """The repair must not undo a deliberate removal."""
+    project, scenes = _clip_project(db_session, paid_user, tmp_path, n_scenes=3)
+    asset = _clip_asset(db_session, project.id)
+    asset.excluded = True
+    db_session.commit()
+
+    _run_write(project, db_session, tmp_path, monkeypatch, redistribute=False)
+
+    db_session.expire_all()
+    assert _clip_asset(db_session, project.id).excluded is True, \
+        "a removed clip came back"

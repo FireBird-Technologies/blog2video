@@ -13,6 +13,7 @@ import os
 import re
 import shutil
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from datetime import datetime
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 from google.oauth2 import id_token
@@ -136,6 +137,8 @@ class UserOut(BaseModel):
     custom_template_limit: int = 0
     can_create_custom_template: bool = True
     preferred_voice_emotion: str | None = None
+    script_preferences: str | None = None
+    script_preferences_updated_at: datetime | None = None
     survey_submitted: bool = False
     auth_provider: str = AuthProvider.GOOGLE.value
 
@@ -241,6 +244,8 @@ def _serialize_user(user: User) -> UserOut:
         custom_template_limit=user.custom_template_limit,
         can_create_custom_template=user.can_create_custom_template,
         preferred_voice_emotion=user.preferred_voice_emotion,
+        script_preferences=user.script_preferences,
+        script_preferences_updated_at=user.script_preferences_updated_at,
         survey_submitted=user.survey_submitted,
         auth_provider=user.auth_provider.value,
     )
@@ -284,13 +289,7 @@ def google_login(
     ref_code: str | None = Query(None, description="Referral code from an invite link"),
     db: Session = Depends(get_db),
 ):
-    """
-    Verify Google ID token and create/login user.
-    Returns a JWT access token.
-    If the email belongs to an email/password account, returns 409 wrong_auth_provider.
-    If user was soft-deleted (is_active=False), returns 403 with account_deleted
-    unless reactivate=true, in which case the account is reactivated as a free user.
-    """
+    """Verify a Google ID token and create or log in the user."""
     try:
         idinfo = id_token.verify_oauth2_token(
             body.credential,
@@ -314,8 +313,9 @@ def google_login(
         picture=idinfo.get("picture"),
         reactivate=reactivate,
     )
-
-    return _finalize_login(db, user, created_new_user=created_new_user, ref_code=ref_code)
+    return _finalize_login(
+        db, user, created_new_user=created_new_user, ref_code=ref_code
+    )
 
 
 # ─── Built-in email + password ───────────────────────────────────────────────
@@ -324,9 +324,8 @@ def google_login(
 def _send_code_or_502(send, to_email: str, code: str, *, kind: str) -> None:
     """Deliver a one-time code, converting provider failure into 502.
 
-    The caller must have COMMITTED the code row first: if the send fails we want
-    a durable, resendable code rather than a rolled-back one, so the user can
-    simply press "Resend" instead of starting over.
+    The caller commits the code row first so a provider failure leaves a
+    durable code that can be resent instead of silently rolling it back.
     """
     try:
         send(to_email, code)
@@ -341,51 +340,18 @@ def email_register_start(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    """Begin email/password registration by emailing a one-time code.
-
-    No account is created here. The password is hashed and parked on the code row
-    until the address is verified, so an unverified email never puts a credential
-    in the users table and never squats a unique email address.
-
-    Errors, all raised BEFORE any code is issued or sent, and in this order —
-    the address outranks the password, so someone who already has an account is
-    told so rather than being asked to fix a password they will never use:
-      409 wrong_auth_provider    — the address belongs to a social account.
-      409 email_already_registered — the address is already an email/password
-          account, whether live OR soft-deleted.
-      422 password_too_short / password_too_long /
-          password_needs_uppercase / password_needs_special — policy violation,
-          raised only once the address is known to be free.
-
-    A soft-deleted account deliberately answers the SAME 409 as a live one and
-    never 403 account_deleted. Reactivation is a decision about an account you
-    are signing in to, so it belongs to the login and password-reset flows, which
-    authenticate first; offering it here would put a "Reactivate your account?"
-    prompt on a form that says "Create your account" and hand it to anyone who
-    guessed the address. Collapsing the two also stops this endpoint from
-    reporting, unauthenticated, whether a known address is deleted or live.
-    """
+    """Begin registration by emailing a one-time verification code."""
     rate_limit.register_limiter.check(rate_limit.client_key(request))
-
     email = body.email
 
-    # The address is checked BEFORE the password policy, deliberately. These two
-    # orderings answer different questions, and for an address that already has
-    # an account the policy answer is noise: the user is being told to fix a
-    # password they are not going to use, on a form they should not be on. The
-    # only useful reply is "this account exists — sign in", whatever they typed.
     existing = assert_email_available_for_password(db, email)
     if existing is not None:
-        # Identical response for live and soft-deleted; see the docstring. The
-        # frontend routes both to the sign-in form, where a deleted account then
-        # gets the reactivation prompt once the password is proven.
         rate_limit.register_limiter.record_failure(rate_limit.client_key(request))
-        raise HTTPException(status_code=409, detail={"code": "email_already_registered"})
+        raise HTTPException(
+            status_code=409, detail={"code": "email_already_registered"}
+        )
 
-    # Only now does the password matter — this address is actually going to
-    # become an account.
     validate_password(body.password)
-
     _row, code = verification.issue_code(
         db,
         email=email,
@@ -394,7 +360,6 @@ def email_register_start(
         pending_name=(body.name or "").strip() or email.split("@")[0],
     )
     db.commit()
-
     _send_code_or_502(
         email_service.send_verification_code_email, email, code, kind="signup"
     )
@@ -408,14 +373,8 @@ def email_register_verify(
     ref_code: str | None = Query(None, description="Referral code from an invite link"),
     db: Session = Depends(get_db),
 ):
-    """Verify the signup code and create the account.
-
-    The provider check is repeated here, not just at start: a Google signup for
-    the same address can land in the window between the two calls, and that must
-    lose to the account that already exists rather than 500 on the unique index.
-    """
+    """Verify a signup code and create the email/password account."""
     rate_limit.verify_limiter.check(rate_limit.client_key(request))
-
     email = body.email
     row = verification.consume_code(
         db, email=email, purpose=VerificationPurpose.SIGNUP, code=body.code
@@ -423,7 +382,9 @@ def email_register_verify(
 
     existing = assert_email_available_for_password(db, email)
     if existing is not None:
-        raise HTTPException(status_code=409, detail={"code": "email_already_registered"})
+        raise HTTPException(
+            status_code=409, detail={"code": "email_already_registered"}
+        )
 
     user, created = create_password_user(
         db,
@@ -432,9 +393,10 @@ def email_register_verify(
         password_hash=row.pending_password_hash,
     )
     db.delete(row)
-
     rate_limit.verify_limiter.clear(rate_limit.client_key(request))
-    return _finalize_login(db, user, created_new_user=created, ref_code=ref_code)
+    return _finalize_login(
+        db, user, created_new_user=created, ref_code=ref_code
+    )
 
 
 @router.post("/email/register/resend", response_model=CodeSentResponse)
@@ -443,13 +405,8 @@ def email_register_resend(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    """Re-send the signup code, reusing the password already captured at start.
-
-    Returns 429 resend_too_soon (with Retry-After) inside the 60s cooldown, and
-    400 no_pending_registration when there is nothing to resend.
-    """
+    """Resend the pending signup code without asking for the password again."""
     rate_limit.resend_limiter.check(rate_limit.email_key(body.email))
-
     email = body.email
     pending = (
         db.query(EmailVerificationCode)
@@ -458,14 +415,16 @@ def email_register_resend(
             EmailVerificationCode.purpose == VerificationPurpose.SIGNUP.value,
             EmailVerificationCode.used.is_(False),
         )
-        .order_by(EmailVerificationCode.created_at.desc(), EmailVerificationCode.id.desc())
+        .order_by(
+            EmailVerificationCode.created_at.desc(),
+            EmailVerificationCode.id.desc(),
+        )
         .first()
     )
     if pending is None:
         rate_limit.resend_limiter.record_failure(rate_limit.email_key(body.email))
         raise HTTPException(status_code=400, detail="no_pending_registration")
 
-    # Never re-ask for the password: reuse what start() hashed.
     _row, code = verification.issue_code(
         db,
         email=email,
@@ -474,7 +433,6 @@ def email_register_resend(
         pending_name=pending.pending_name,
     )
     db.commit()
-
     _send_code_or_502(
         email_service.send_verification_code_email, email, code, kind="signup"
     )
@@ -488,15 +446,7 @@ def email_login(
     reactivate: bool = Query(False, description="Confirm reactivation of a previously deleted account"),
     db: Session = Depends(get_db),
 ):
-    """Sign in with email and password. No code is sent — verification happened at signup.
-
-    Ordering is deliberate and load-bearing:
-      1. resolve_password_user  -> 409 wrong_auth_provider / 401 invalid_credentials
-      2. verify_password        -> 401 invalid_credentials
-      3. only THEN reactivation
-    Checking the password before step 3 is what stops a wrong password plus
-    ?reactivate=true from resurrecting a soft-deleted account on a failed login.
-    """
+    """Sign in with an email and password."""
     ip_key = rate_limit.client_key(request)
     mail_key = rate_limit.email_key(body.email)
     rate_limit.login_ip_limiter.check(ip_key)
@@ -507,28 +457,23 @@ def email_login(
         rate_limit.login_email_limiter.record_failure(mail_key)
         return HTTPException(status_code=401, detail="invalid_credentials")
 
-    # A 409 here is a correct answer for a legitimate user, so it must not count
-    # as a failed attempt — otherwise someone who forgot they used Google gets
-    # locked out for 15 minutes for asking.
     user = resolve_password_user(db, email=body.email)
-
     if not verify_password(body.password, user.password_hash):
         raise _reject()
 
     if not user.is_active:
-        # Password is already proven; safe to run the reactivation gate, which
-        # raises 403 account_deleted unless the client confirmed.
-        _handle_soft_deleted(user, reactivate=reactivate, allow_reactivation=True)
+        _handle_soft_deleted(
+            user, reactivate=reactivate, allow_reactivation=True
+        )
 
-    # Opportunistically migrate hashes to current Argon2 parameters while we
-    # hold the plaintext. _finalize_login commits.
     if needs_rehash(user.password_hash):
         user.password_hash = hash_password(body.password)
 
     rate_limit.login_ip_limiter.clear(ip_key)
     rate_limit.login_email_limiter.clear(mail_key)
-    # ref_code is inert on login (no new user), passed as None to say so.
-    return _finalize_login(db, user, created_new_user=False, ref_code=None)
+    return _finalize_login(
+        db, user, created_new_user=False, ref_code=None
+    )
 
 
 @router.post("/password/forgot/start", response_model=CodeSentResponse)
@@ -538,29 +483,9 @@ def forgot_password_start(
     reactivate: bool = Query(False, description="Confirm reactivation of a previously deleted account"),
     db: Session = Depends(get_db),
 ):
-    """Email a password-reset code.
-
-    Enumeration behaviour differs from registration on purpose. A social-owned
-    address still returns 409 naming the provider, because the user needs to know
-    there is no password to reset. But an address with NO account returns a
-    normal 200 and sends nothing: there is no recovery path to offer, so naming
-    it would turn this into a bulk address-harvesting endpoint for free.
-
-    A soft-deleted account returns 403 account_deleted, and ``?reactivate=true``
-    is the confirmation that revives it. This is the ONLY recovery path for
-    someone who deleted their account and has also forgotten the password — the
-    login route needs the old password, which by definition they don't have.
-
-    Reactivation here deliberately issues no token: it restores the account and
-    then emails the reset code exactly as for a live account, so the user still
-    has to prove mailbox control and set a new password before
-    ``forgot/complete`` signs them in. Reviving on an unauthenticated request is
-    safe precisely because it grants no access — the mailbox, not this call, is
-    what unlocks the account.
-    """
+    """Email a password-reset code without revealing unknown addresses."""
     rate_limit.forgot_ip_limiter.check(rate_limit.client_key(request))
     rate_limit.forgot_email_limiter.check(rate_limit.email_key(body.email))
-
     email = body.email
     user = assert_email_available_for_password(db, email)
 
@@ -569,18 +494,20 @@ def forgot_password_start(
         return CodeSentResponse()
 
     if not user.is_active:
-        # Raises 403 account_deleted unless the client confirmed; on confirm it
-        # restores the row in the session, committed below alongside the code.
-        _handle_soft_deleted(user, reactivate=reactivate, allow_reactivation=True)
+        _handle_soft_deleted(
+            user, reactivate=reactivate, allow_reactivation=True
+        )
         logger.info("[AUTH] Reactivated account %s via password reset", user.id)
 
     _row, code = verification.issue_code(
         db, email=email, purpose=VerificationPurpose.PASSWORD_RESET
     )
     db.commit()
-
     _send_code_or_502(
-        email_service.send_password_reset_code_email, email, code, kind="password reset"
+        email_service.send_password_reset_code_email,
+        email,
+        code,
+        kind="password reset",
     )
     return CodeSentResponse()
 
@@ -591,20 +518,13 @@ def forgot_password_check(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    """Validate a reset code without spending it.
-
-    Lets the UI reject a wrong code at the "enter your code" step instead of
-    walking the user to the new-password screen and only failing on submit. The
-    code is NOT consumed here — forgot/complete still does that, because it is
-    what authorizes the actual password change.
-
-    Same error codes as forgot/complete's consume step, including the shared
-    attempt counter, so this cannot be used to brute-force the code for free.
-    """
+    """Validate a reset code without consuming it."""
     rate_limit.verify_limiter.check(rate_limit.client_key(request))
-
     verification.check_code(
-        db, email=body.email, purpose=VerificationPurpose.PASSWORD_RESET, code=body.code
+        db,
+        email=body.email,
+        purpose=VerificationPurpose.PASSWORD_RESET,
+        code=body.code,
     )
     return {"status": "code_valid"}
 
@@ -615,20 +535,17 @@ def forgot_password_complete(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    """Verify the reset code, set the new password, and sign the user in.
-
-    The code is consumed here and nowhere earlier — verifying it in a separate
-    round trip would spend it and leave nothing to authorize the actual change.
-    """
+    """Set a new password after verifying the reset code, then sign in."""
     rate_limit.verify_limiter.check(rate_limit.client_key(request))
-
     email = body.email
     validate_password(body.new_password)
 
     verification.consume_code(
-        db, email=email, purpose=VerificationPurpose.PASSWORD_RESET, code=body.code
+        db,
+        email=email,
+        purpose=VerificationPurpose.PASSWORD_RESET,
+        code=body.code,
     )
-
     user = resolve_password_user(db, email=email)
     if not user.is_active:
         raise HTTPException(
@@ -638,24 +555,30 @@ def forgot_password_complete(
         )
 
     user.password_hash = hash_password(body.new_password)
-    # Revoke every token issued under the OLD password. This is the point of a
-    # password reset when the account is already compromised: without it the
-    # attacker's session survives the reset that was meant to evict them, for up
-    # to 72 hours (30 days for an MCP refresh token). _finalize_login below reads
-    # the bumped value, so the user's own new token is minted against it and they
-    # stay signed in on this device.
     user.token_version = (user.token_version or 0) + 1
-    # Drop every code for this address, both purposes: an in-flight signup code
-    # must not stay replayable now that the credential has changed.
     verification.clear_codes(db, email=email)
-
     rate_limit.login_email_limiter.clear(rate_limit.email_key(email))
-    return _finalize_login(db, user, created_new_user=False, ref_code=None)
+    return _finalize_login(
+        db, user, created_new_user=False, ref_code=None
+    )
 
 
 @router.get("/me", response_model=UserOut)
 def get_me(user: User = Depends(get_current_user)):
     """Get the current authenticated user."""
+    return _serialize_user(user)
+
+
+@router.delete("/me/script-preferences", response_model=UserOut)
+def clear_script_preferences(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Backward-compatible alias for permanently deleting Your Style."""
+    from app.routers.video_styles import delete_your_style
+
+    delete_your_style(user=user, db=db)
+    db.refresh(user)
     return _serialize_user(user)
 
 
@@ -780,6 +703,9 @@ def delete_account(
         elif (user.custom_templates_created or 0) > FREE_TIER_CUSTOM_TEMPLATES:
             user.custom_templates_created = FREE_TIER_CUSTOM_TEMPLATES
         user.custom_template_bonus = 0
+        user.script_preferences = None
+        user.script_preferences_updated_at = None
+        user.script_preferences_version = (user.script_preferences_version or 0) + 1
         # Normalize the /tools counters by the same rule: a paid user (or a free user
         # already at/over the cap) comes back at the FREE limit so reactivation cannot
         # refill quota, while a free user below it keeps their partial usage.

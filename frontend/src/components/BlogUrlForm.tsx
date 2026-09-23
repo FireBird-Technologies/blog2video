@@ -13,6 +13,10 @@ import {
   primeBlogUrlFormStep2Prefetch,
   fetchBlogUrlFormBuiltinTemplatesDeduped,
   fetchBlogUrlFormAvailabilityDeduped,
+  fetchBlogUrlFormVideoStylesDeduped,
+  getCachedBlogUrlFormVideoStyles,
+  videoStyleOptionsForBlogUrlForm,
+  type VideoStyleOptionForBlogUrlForm,
 } from "../api/blogUrlFormStep2Prefetch";
 import { VIDEO_STYLE_OPTIONS, normalizeVideoStyle, type VideoStyleId } from "../constants/videoStyles";
 import { SUPPORTED_CONTENT_LANGUAGES, getLanguageOptionLabel } from "../constants/languages";
@@ -139,23 +143,6 @@ function defaultGenreForBulkTemplateId(
   return defaultGenreForTemplate(builtinTemplates.find((t) => t.id === templateId));
 }
 
-/**
- * After the style/genre split: video_style no longer changes per template — it's an orthogonal
- * user choice (Auto by default). These helpers exist only as no-op shims so existing call sites
- * keep compiling; they always return the form-wide default style.
- */
-function defaultVideoStyleForTemplate(_meta: TemplateMeta | undefined | null): VideoStyleId {
-  return DEFAULT_VIDEO_STYLE;
-}
-
-function videoStyleForBulkTemplateId(
-  _templateId: string,
-  _builtinTemplates: TemplateMeta[],
-  _customTemplatesList: CustomTemplateItem[]
-): VideoStyleId {
-  return DEFAULT_VIDEO_STYLE;
-}
-
 /** Read-only demo mode used by help videos: forces step + seeds state without firing API calls. */
 export interface BlogUrlFormDemoMode {
   step: 1 | 2 | 3;
@@ -206,7 +193,7 @@ interface Props {
    * 22 args). Read by the caller when building the create payload; the form
    * pushes the current values here whenever they change.
    */
-  onExtraOptionsChange?: (opts: { stockFootageEnabled: boolean }) => void;
+  onExtraOptionsChange?: (opts: { stockFootageEnabled: boolean; scriptReviewEnabled: boolean }) => void;
   loading?: boolean;
   asModal?: boolean;
   onClose?: () => void;
@@ -479,13 +466,6 @@ export function BlogUrlFormDemoModal({
 
         <div className="space-y-1.5">
           <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
-            Project name <span className="normal-case text-gray-300">(optional)</span>
-          </label>
-          <input type="text" readOnly value="AI Search Explainer" className={inputClass} />
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
             Estimated duration
           </label>
           <button
@@ -734,6 +714,35 @@ function containsDot(s: string): boolean {
   return s.trim().includes(".");
 }
 
+function ScriptReviewCheckbox({
+  enabled,
+  onToggle,
+  muted = false,
+}: {
+  enabled: boolean;
+  onToggle: (enabled: boolean) => void;
+  muted?: boolean;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <span className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+        Review script
+      </span>
+      <label className={`flex items-center gap-2.5 cursor-pointer select-none p-3 rounded-xl border border-gray-200/60 hover:border-purple-300/60 transition-all ${muted ? "bg-gray-50/60" : "bg-white"}`}>
+        <input
+          type="checkbox"
+          checked={enabled}
+          onChange={(event) => onToggle(event.target.checked)}
+          className="w-4 h-4 shrink-0 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
+        />
+        <span className="text-xs font-small text-gray-700 min-w-0">
+          Review Script before generation
+        </span>
+      </label>
+    </div>
+  );
+}
+
 const FILE_EXTENSIONS = [".pdf", ".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx", ".odt", ".odp", ".ods", ".txt", ".md", ".markdown", ".rtf", ".csv"];
 
 /** Returns the matched file extension if the URL ends with a document extension, else null. */
@@ -762,6 +771,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
   // instead of a live Remotion Player; only the selected tile plays live. A grid
   // of live Players exhausts iOS Safari's per-tab memory and reloads the tab.
   const isMobile = useIsMobileViewport();
+  const initialVideoStyleOptionsRef = useRef(
+    videoStyleOptionsForBlogUrlForm(getCachedBlogUrlFormVideoStyles()),
+  );
+  const initialVideoStyle = initialVideoStyleOptionsRef.current.some((style) => style.id === DEFAULT_VIDEO_STYLE)
+    ? DEFAULT_VIDEO_STYLE
+    : initialVideoStyleOptionsRef.current[0]?.id ?? DEFAULT_VIDEO_STYLE;
 
   // Wizard step
   const [step, setStep] = useState<1 | 2 | 3>(demoMode?.step ?? 1);
@@ -799,7 +814,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
   const [bulkContentLanguage, setBulkContentLanguage] = useState<string[]>(["auto"]);
   const [bulkVideoLength, setBulkVideoLength] = useState<("short" | "medium" | "detailed" | "more_detailed")[]>(["short"]);
   const [bulkAspectRatio, setBulkAspectRatio] = useState<("landscape" | "portrait")[]>(["landscape"]);
-  const [bulkVideoStyles, setBulkVideoStyles] = useState<VideoStyleId[]>([DEFAULT_VIDEO_STYLE]);
+  const [bulkVideoStyles, setBulkVideoStyles] = useState<VideoStyleId[]>([initialVideoStyle]);
   const bulkStyleManuallySet = useRef<boolean[]>([false]);
   // Empty string = "not yet set from template"; we derive from template.preview_colors on step 2.
   const [bulkAccentColors, setBulkAccentColors] = useState<string[]>([""]);
@@ -920,8 +935,49 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
     : bgmTracks;
 
   // Step 2 — video style & template
-  const [videoStyle, setVideoStyle] = useState<VideoStyleId>(DEFAULT_VIDEO_STYLE);
+  const [videoStyle, setVideoStyle] = useState<VideoStyleId>(initialVideoStyle);
   const styleManuallySet = useRef(false);
+  // The Dashboard starts this request before the form opens. Seed synchronously from that shared
+  // snapshot when warm; on a cold load, keep the safe fallback behind Step 2's loading veil until
+  // the user's actual saved selection arrives, so the tabs never visibly swap after arrival.
+  const [availableVideoStyles, setAvailableVideoStyles] = useState<VideoStyleOptionForBlogUrlForm[]>(() =>
+    initialVideoStyleOptionsRef.current.length
+      ? initialVideoStyleOptionsRef.current
+      : VIDEO_STYLES.filter((style) => style.id !== "your_style" || Boolean(user?.script_preferences)),
+  );
+  const [videoStylesLoading, setVideoStylesLoading] = useState(initialVideoStyleOptionsRef.current.length === 0);
+  useEffect(() => {
+    let active = true;
+    fetchBlogUrlFormVideoStylesDeduped().then((data) => {
+      if (!active) return;
+      const options = videoStyleOptionsForBlogUrlForm(data);
+      if (!options.length) return;
+      setAvailableVideoStyles(options);
+      // A style picked before this fetch resolved (the static default, or an
+      // auto-picked "your_style") may no longer be offered — e.g. removed on
+      // the Video Styles page. Fall back to the first style actually offered.
+      const allowed = new Set(options.map((option) => option.id));
+      setVideoStyle((current) => allowed.has(current) ? current : options[0].id);
+      setBulkVideoStyles((current) => current.map((style) => allowed.has(style) ? style : options[0].id));
+    }).catch(() => {
+      // Keep the built-in fallback so project creation is never blocked.
+    }).finally(() => {
+      if (active) setVideoStylesLoading(false);
+    });
+    return () => { active = false; };
+  }, []);
+  useEffect(() => {
+    if (!user?.script_preferences) {
+      if (videoStyle === "your_style") setVideoStyle(DEFAULT_VIDEO_STYLE);
+      setBulkVideoStyles((current) => current.map((style) => style === "your_style" ? DEFAULT_VIDEO_STYLE : style));
+      return;
+    }
+    if (!styleManuallySet.current) setVideoStyle("your_style");
+    setBulkVideoStyles((current) => current.map((style, index) =>
+      bulkStyleManuallySet.current[index] ? style : "your_style"
+    ));
+  }, [user?.script_preferences]); // user profile is loaded/refreshed independently of this modal
+
   /** Genre dropdown filter — populated dynamically from all templates' meta.genres. "" = show all. */
   const [genre, setGenre] = useState<string>(initialGenre ?? "");
   const [genreDropdownOpen, setGenreDropdownOpen] = useState(false);
@@ -929,13 +985,16 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
   // Stock footage at generation time: available on every plan and every
   // template (builtin, custom, crafted). Free users get a clip on a single
   // scene (the backend caps it), paid users on all image-capable scenes.
-  // Defaults ON — it makes for a better first video, and it costs nothing to
-  // turn off.
   const [stockFootageEnabled, setStockFootageEnabled] = useState(true);
+  const [scriptReviewEnabled, setScriptReviewEnabled] = useState(true);
+  const [bulkScriptReviewEnabled, setBulkScriptReviewEnabled] = useState(false);
   const stockFootageAvailable = true;
   useEffect(() => {
-    onExtraOptionsChange?.({ stockFootageEnabled: stockFootageAvailable && stockFootageEnabled });
-  }, [onExtraOptionsChange, stockFootageAvailable, stockFootageEnabled]);
+    onExtraOptionsChange?.({
+      stockFootageEnabled: stockFootageAvailable && stockFootageEnabled,
+      scriptReviewEnabled,
+    });
+  }, [onExtraOptionsChange, stockFootageAvailable, stockFootageEnabled, scriptReviewEnabled]);
   const [templates, setTemplates] = useState<TemplateMeta[]>([]);
   const { craftedTemplates, loading: craftedTemplatesCacheLoading, initialized: craftedTemplatesInitialized, ensureCraftedTemplateDetail } = useCraftedTemplates();
   // When a crafted template is selected, fetch its full bundle (frontend_files,
@@ -1456,7 +1515,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
   }, [addDocFileArray]);
 
   // Step 1 + Upload: Ctrl+V pastes plain text as a .txt doc, or pasted files as uploads.
-  // Skips when focus is in an input/textarea so project name & other fields work normally.
+  // Skips when focus is in an input/textarea so form fields work normally.
   useEffect(() => {
     if (step !== 1 || mode !== "upload") return;
 
@@ -1541,11 +1600,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
           resizeTo(
             prev,
             n,
-            videoStyleForBulkTemplateId(
-              pickerDefaultTemplateIdRef.current,
-              templatesRef.current,
-              customTemplatesRef.current
-            )
+            availableVideoStyles[0]?.id ?? DEFAULT_VIDEO_STYLE
           )
         );
         setBulkAccentColors((prev) => resizeTo(prev, n, ""));
@@ -1587,11 +1642,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
     setBulkAspectRatio((prev) => [...prev, "landscape"]);
     setBulkVideoStyles((prev) => [
       ...prev,
-      videoStyleForBulkTemplateId(
-        pickerDefaultTemplateIdRef.current,
-        templatesRef.current,
-        customTemplatesRef.current
-      ),
+      availableVideoStyles[0]?.id ?? DEFAULT_VIDEO_STYLE,
     ]);
     setBulkAccentColors((prev) => [...prev, ""]);
     setBulkBgColors((prev) => [...prev, ""]);
@@ -1692,11 +1743,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
         template: bulkTemplates[i] !== "default" ? bulkTemplates[i] : undefined,
         video_style:
           bulkVideoStyles[i] ??
-          videoStyleForBulkTemplateId(
-            bulkTemplates[i] ?? "default",
-            templatesRef.current,
-            customTemplatesRef.current
-          ),
+          availableVideoStyles[0]?.id ?? DEFAULT_VIDEO_STYLE,
         video_length: bulkVideoLength[i] ?? "short",
         voice_gender: inferredGender,
         voice_accent: inferredAccent,
@@ -1735,6 +1782,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
         // Per-row now (with "apply to all" in step 1); the backend still decides
         // per project whether its template can render a clip and clears otherwise.
         stock_footage_enabled: bulkStockFootage[i] ?? false,
+        script_review_enabled: bulkScriptReviewEnabled,
       };
       });
       const logoIndices: number[] = [];
@@ -1761,7 +1809,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
       setBulkVideoLength(["short"]);
       setBulkStockFootage([true]);
       setBulkAspectRatio(["landscape"]);
-      setBulkVideoStyles([DEFAULT_VIDEO_STYLE]);
+      setBulkVideoStyles([availableVideoStyles[0]?.id ?? DEFAULT_VIDEO_STYLE]);
       setBulkAccentColors([""]);
       setBulkBgColors([""]);
       setBulkTextColors([""]);
@@ -2060,6 +2108,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
           </label>
         </div>
 
+        <ScriptReviewCheckbox
+          enabled={bulkScriptReviewEnabled}
+          onToggle={setBulkScriptReviewEnabled}
+          muted
+        />
+
         {/* Estimated duration + stock footage side by side. */}
         <div className={`mt-1 grid gap-3 items-start ${stockFootageAvailable ? "grid-cols-2" : "grid-cols-1"}`}>
           <div className="space-y-1.5">
@@ -2107,10 +2161,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
             </div>
           )}
         </div>
-        <p className="mt-1 text-[10px] text-gray-400 pb-10 leading-relaxed">
+        <p className="mt-1 text-[10px] text-gray-400 leading-relaxed">
           Actual length may vary depending on content size and video style. If the scraped or uploaded content is
           very short, video might get shorten automatically.
         </p>
+
+        <div className="pb-10" />
       </>)}
 
       {/* URL input */}
@@ -2300,19 +2356,26 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
         </div>
       )}
 
-      {/* Project name (single-link / upload only; bulk has per-row name) */}
-      {mode !== "bulk" && (
-        <div>
-          <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
-            Project Name <span className="text-gray-300 font-normal">(optional)</span>
-          </label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder={mode === "url" ? "Auto-generated from URL" : "Auto-generated from file name"}
-            className="w-full px-4 py-2.5 bg-white/80 border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
+      {mode !== "bulk" && stockFootageAvailable && (
+        <div className="space-y-2">
+          <ScriptReviewCheckbox
+            enabled={scriptReviewEnabled}
+            onToggle={setScriptReviewEnabled}
           />
+          <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+            Use stock footage
+          </label>
+          <label className="flex items-center gap-2.5 cursor-pointer select-none p-3 rounded-xl bg-white border border-gray-200 hover:border-purple-300/60 transition-all">
+            <input
+              type="checkbox"
+              checked={stockFootageEnabled}
+              onChange={(event) => setStockFootageEnabled(event.target.checked)}
+              className="w-4 h-4 shrink-0 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
+            />
+            <span className="text-xs font-small text-gray-700 min-w-0">
+              Insert stock footage automatically
+            </span>
+          </label>
         </div>
       )}
 
@@ -2348,38 +2411,13 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
           </div>
 
           <div>
-            {/* Estimated duration + stock footage side by side in one row. */}
-            {/* items-stretch + h-full on each column: the duration label can wrap
-                to two lines while the checkbox stays one, so sizing each column
-                to its own content leaves the two pills visibly different heights. */}
-            <div className={`grid gap-2 items-stretch ${stockFootageAvailable ? "grid-cols-2" : "grid-cols-1"}`}>
-              <div className="flex flex-col h-full">
-                <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
-                  Estimated duration
-                </label>
-                <div className="flex flex-1 flex-col [&>details]:flex-1 [&>details>summary]:h-full">
-                  {renderVideoLengthDropdown(videoLength, setVideoLength)}
-                </div>
+            <div className="flex flex-col">
+              <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
+                Estimated duration
+              </label>
+              <div className="flex flex-col [&>details]:flex-1 [&>details>summary]:h-full">
+                {renderVideoLengthDropdown(videoLength, setVideoLength)}
               </div>
-
-              {stockFootageAvailable && (
-                <div className="flex flex-col h-full">
-                  <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
-                    Use stock footage
-                  </label>
-                  <label className="flex flex-1 items-center gap-2.5 cursor-pointer select-none p-3 rounded-xl bg-white border border-gray-200 hover:border-purple-300/60 transition-all">
-                    <input
-                      type="checkbox"
-                      checked={stockFootageEnabled}
-                      onChange={(e) => setStockFootageEnabled(e.target.checked)}
-                      className="w-4 h-4 shrink-0 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
-                    />
-                    <span className="text-xs font-small text-gray-700 min-w-0">
-                      {isPro ? "Insert stock footage automatically" : "Insert stock footage automatically"}
-                    </span>
-                  </label>
-                </div>
-              )}
             </div>
             <p className="mt-1 text-[10px] text-gray-400 leading-relaxed">
               Actual length may vary depending on content size and video style. If the scraped or uploaded content is
@@ -2909,7 +2947,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
               Video Style
             </label>
             <div className="flex flex-wrap items-center gap-1 p-1 bg-gray-100/60 rounded-xl justify-center">
-              {VIDEO_STYLES.map((s) => {
+              {availableVideoStyles.map((s) => {
                 const isSelected = videoStyle === s.id;
                 return (
                   <button
@@ -3677,7 +3715,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
             </label>
             {/* Same wrapping/alignment as the single-link Video Style row. */}
             <div className="flex flex-wrap items-center gap-1 p-1 bg-gray-100/60 rounded-xl justify-center">
-              {VIDEO_STYLES.map((s) => {
+              {availableVideoStyles.map((s) => {
                 const isSelected = activeVideoStyle === s.id;
                 return (
                   <button
@@ -3685,6 +3723,15 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
                     type="button"
                     onClick={() => {
                       const targetIndices = indexed.map(({ i }) => i);
+                      if (s.id === "your_style") {
+                        targetIndices.forEach((idx) => { bulkStyleManuallySet.current[idx] = true; });
+                        setBulkVideoStyles((prev) => {
+                          const next = [...prev];
+                          targetIndices.forEach((idx) => { next[idx] = "your_style"; });
+                          return next;
+                        });
+                        return;
+                      }
                       if (bulkApplyTemplateAll && activeIndex !== masterIndex) {
                         setBulkApplyTemplateAll(false);
                         bulkStyleManuallySet.current[activeIndex] = true;
@@ -4308,7 +4355,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
           </div>
         </div>
       )}
-
 
       <div className="flex gap-2 pt-1">
         <button
@@ -4965,7 +5011,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
   const modalWidth = "max-w-xl";
 
   const isStep2TemplatesPending =
-    step === 2 && (builtinTemplatesLoading || templateAvailabilityLoading || !sessionBuiltinInitDone);
+    step === 2 && (builtinTemplatesLoading || templateAvailabilityLoading || videoStylesLoading || !sessionBuiltinInitDone);
 
   // Constant form size: min-height so layout doesn’t jump between steps
   const stepContentWrapper = (

@@ -2,7 +2,6 @@ import React from "react";
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, useVideoConfig, spring } from "remotion";
 import { NightfallClip } from "../components/NightfallClip";
 import { NightfallStarfield } from "../NightfallStarfield";
-import { GlowSweep } from "../GlowSweep";
 import { useFitText } from "../components/useFitText";
 import type { NightfallLayoutProps } from "../types";
 
@@ -16,25 +15,21 @@ import type { NightfallLayoutProps } from "../types";
  * instrument panel" register already built for NightfallDataChart
  * (nightfall_data_visualization) — a solid dark bay, diagonal cyan/purple
  * gradient wash, corner radial glows, animated seam-lines growing in from
- * both sides, a flat-bordered panel with a neon top rule + glow shadow, and
- * a full-width neon stripe along the bottom edge. The title becomes a
+ * both sides, and a flat-bordered panel with a glow shadow.
+ * The title becomes a
  * centered micro-divider label (echoing NightfallDataChart's own title
  * treatment) instead of a floating eyebrow, and the narration reads as the
- * panel's readout text. A GlowSweep pass adds one slow white-ish glow
- * traveling diagonally across the frame over the scene's duration, layered
- * into the instrument-bay backdrop alongside the existing corner glows.
+ * panel's readout text. A purple beam with a white-hot center travels along
+ * the top edge of the panel.
  * Built entirely from devices already implemented in this template
  * (NightfallDataChart's panel recipe, glassCardStyle for the optional image
  * thumbnail's border) — no new colors, fonts, or primitives.
  */
 
 /**
- * BorderSweep — a purple glow that travels once along the panel's TOP
- * edge only, left to right, easing in/out like a scan light rather than
- * moving at constant speed, then loops with a brief hold at the left before
- * the next pass. Rendered as a small blurred bar (not a full-perimeter
- * stroke) so the motion reads as a single directional sweep, not a chase
- * around the whole border.
+ * BorderSweep — a horizontal purple beam with a concentrated white core,
+ * matching the supplied reference. It travels only along the panel's top
+ * edge and never spills into a diagonal/frame-wide wash.
  */
 const BorderSweep: React.FC<{ opacity: number }> = ({ opacity }) => {
   const frame = useCurrentFrame();
@@ -52,23 +47,41 @@ const BorderSweep: React.FC<{ opacity: number }> = ({ opacity }) => {
     { easing: (t) => t * t * (3 - 2 * t) },
   );
 
-  const widthPct = 18;
+  const widthPct = 38;
   const leftPct = travel * (100 - widthPct);
 
   return (
     <div
       style={{
         position: "absolute",
-        top: -1.5,
+        top: -2.5,
         left: `${leftPct}%`,
         width: `${widthPct}%`,
-        height: 3,
+        height: 5,
         opacity,
-        background: "linear-gradient(90deg, transparent, rgba(168,85,247,1), transparent)",
-        filter: "blur(1.5px) drop-shadow(0 0 6px rgba(168,85,247,0.95)) drop-shadow(0 0 16px rgba(126,34,206,0.72))",
         pointerEvents: "none",
       }}
-    />
+    >
+      {/* Soft elliptical bloom, narrow at both ends like the reference. */}
+      <div
+        style={{
+          position: "absolute",
+          inset: "-5px 0",
+          background: "radial-gradient(ellipse at center, rgba(129,140,248,0.72) 0%, rgba(129,140,248,0.34) 42%, transparent 74%)",
+          filter: "blur(5px)",
+        }}
+      />
+      {/* The beam itself is a lens, so its sides taper to true points. */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          clipPath: "polygon(0% 50%, 18% 42%, 38% 30%, 50% 18%, 62% 30%, 82% 42%, 100% 50%, 82% 58%, 62% 70%, 50% 82%, 38% 70%, 18% 58%)",
+          background: "linear-gradient(90deg, transparent 0%, #818CF8 16%, #818CF8 42%, #FFFFFF 50%, #818CF8 58%, #818CF8 84%, transparent 100%)",
+          filter: "drop-shadow(0 0 2px rgba(255,255,255,0.9)) drop-shadow(0 0 5px rgba(129,140,248,0.95))",
+        }}
+      />
+    </div>
   );
 };
 
@@ -115,8 +128,6 @@ export const GlassNarrativeReadout: React.FC<NightfallLayoutProps> = ({
   const imageOpacity = interpolate(frame, [26, 50], [0, 1], { extrapolateRight: "clamp" });
   const imageScale = spring({ frame: frame - 26, fps, config: { damping: 20, stiffness: 80 } });
 
-  const stripeOpacity = interpolate(frame, [40, 60], [0, 1], { extrapolateRight: "clamp" });
-
   const bodyFont = fontFamily ?? "'Playfair Display', Georgia, serif";
   const ink = textColor || "#E8E8F0";
   const paragraphs = narration.split("\n").filter((s) => s.trim());
@@ -155,10 +166,6 @@ export const GlassNarrativeReadout: React.FC<NightfallLayoutProps> = ({
       {/* Ambient corner glows — same recipe */}
       <div style={{ position: "absolute", top: "-8%", left: "-4%", width: "38%", height: "38%", borderRadius: "50%", background: `radial-gradient(circle, ${accent}10 0%, transparent 70%)`, pointerEvents: "none" }} />
       <div style={{ position: "absolute", bottom: "-8%", right: "-4%", width: "32%", height: "32%", borderRadius: "50%", background: "radial-gradient(circle, rgba(123,47,190,0.12) 0%, transparent 70%)", pointerEvents: "none" }} />
-
-      {/* One slow white-ish glow traveling across the frame over the
-          scene's duration — ambient light passing over the instrument bay. */}
-      <GlowSweep seedOffset={1} />
 
       {/* Shooting-star showers — same hero-scene device, boosted for the
           instrument-bay backdrop */}
@@ -213,7 +220,6 @@ export const GlassNarrativeReadout: React.FC<NightfallLayoutProps> = ({
             transform: `translateY(${(1 - cardIn) * 24}px)`,
             background: "rgba(0,229,255,0.04)",
             border: "1.5px solid rgba(0,229,255,0.25)",
-            borderTop: `3px solid ${accent}`,
             boxShadow: "0 0 40px rgba(0,229,255,0.14), 0 0 10px rgba(0,229,255,0.08), 0 4px 32px rgba(0,0,0,0.65)",
             backdropFilter: "blur(12px)",
             display: "flex",
@@ -298,20 +304,6 @@ export const GlassNarrativeReadout: React.FC<NightfallLayoutProps> = ({
           )}
         </div>
       </div>
-
-      {/* Bottom neon stripe — the panel's unmistakable signature */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: 3,
-          background: accent,
-          opacity: stripeOpacity,
-          boxShadow: `0 0 12px ${accent}, 0 0 4px ${accent}`,
-        }}
-      />
     </AbsoluteFill>
   );
 };

@@ -23,33 +23,17 @@ class ExpandNarrationToVoiceover(dspy.Signature):
     - Voiceover must not be very lengthy compared to text length
     - Maximum allowed size: 1.3× original word count
     - Prefer slightly longer or equal length when possible
-    - Length MUST follow style-specific word ranges:
-      - explainer: 15–25 words
-      - promotional: 15–20 words
-      - storytelling: 15–30 words
+    - Follow a specific word limit or range in style_guidance.
+    - Brief/short with no number means 10–18 words.
+    - Longer/more detailed with no number means 15–30 words.
+    - If style_guidance provides no length direction, use 12–25 words.
     - Keep output medium-length and naturally speakable.
 
-    ═══ STYLE-SPECIFIC RULES (CRITICAL — STRICTLY follow video_style) ═══
-    - Treat video_style as a HARD CONSTRAINT.
-    - Do NOT mix tones across styles.
-
-    EXPLAINER (DOCUMENTARY MODE):
-    - Voice must sound like a polished documentary narrator: factual, composed, insightful.
-    - Use clear transitions and context-setting phrasing.
-    - Avoid classroom/lecture commands and avoid ad-like hype.
-
-    PROMOTIONAL:
-    - Voice must sound like a persuasive advertisement/promo.
-    - Keep a benefit-first, action-oriented cadence.
-    - Use confident, high-conviction phrasing with momentum.
-
-    STORYTELLING:
-    - Voice must sound like a human storyteller narrating events in sequence.
-    - Keep continuity and progression cues naturally (then, next, after that, finally).
-    - Maintain emotional flow without becoming promotional or instructional.
-
-    GENERAL STYLE GUARDRAILS:
-    - Natural spoken tone for the selected style.
+    ═══ WRITING STYLE (CRITICAL) ═══
+    - Treat style_guidance as the authoritative source for tone, pacing, phrasing,
+      transitions, and narration length.
+    - Do not infer writing behavior from the video_style identifier.
+    - Preserve a natural spoken tone consistent with style_guidance.
     - Clean phrasing.
     - No elaboration beyond what fits the style.
 
@@ -77,7 +61,13 @@ class ExpandNarrationToVoiceover(dspy.Signature):
     scene_title: str = dspy.InputField(desc="Title of this scene (for context)")
     display_text: str = dspy.InputField(desc="Short display text shown on screen (1-2 sentences)")
     video_style: str = dspy.InputField(
-        desc="Video style: explainer (documentary/informative), promotional (persuasive, benefit-focused), storytelling (narrative). Match tone in the voiceover."
+        desc="Stable style identifier for routing and diagnostics"
+    )
+    style_guidance: str = dspy.InputField(
+        desc=(
+            "Authoritative saved writing rules for tone, pacing, phrasing, transitions, "
+            "and narration length. No length direction means 12-25 words."
+        )
     )
     content_language: str = dspy.InputField(
         desc="Language of the source content (e.g. 'English', 'Spanish'). Output expanded_voiceover in this language."
@@ -109,12 +99,13 @@ async def expand_narration_to_voiceover(
     display_text: str,
     scene_title: str = "",
     video_style: str = "explainer",
+    style_guidance: str = "",
     content_language: str = "English",
     expressive: bool = False,
 ) -> str:
     """
     Slightly expand a short display text into a natural voiceover narration.
-    video_style (explainer | promotional | storytelling) shapes the tone.
+    style_guidance shapes the tone and narration length.
     content_language (e.g. 'English', 'Spanish') ensures output is in the source language.
     expressive=True writes the line with emotional energy (emphasis words, "!", CAPS) — used by
     the paid Advanced/v3 path. Returns the expanded text, or the original text if expansion fails.
@@ -137,6 +128,7 @@ async def expand_narration_to_voiceover(
             scene_title=scene_title or "",
             display_text=display_text.strip(),
             video_style=style,
+            style_guidance=(style_guidance or "").strip(),
             content_language=lang,
             expressive=expressive,
         )

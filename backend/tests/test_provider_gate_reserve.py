@@ -28,6 +28,7 @@ from app.dspy_modules import (
     get_custom_lm,
     get_custom_lm_fallback,
     get_design_doc_lm,
+    get_preference_lm,
     get_scene_edit_lm,
     get_scene_lm,
     get_scene_type_lm,
@@ -68,7 +69,11 @@ def test_template_generation_lms_are_capped():
 
 def test_video_and_edit_lms_are_uncapped():
     """Scene edits and video work must be free to use the whole gate."""
-    for name, getter in [("scene_edit", get_scene_edit_lm), ("scene", get_scene_lm)]:
+    for name, getter in [
+        ("scene_edit", get_scene_edit_lm),
+        ("scene", get_scene_lm),
+        ("preference", get_preference_lm),
+    ]:
         assert getattr(getter(), "_capped", True) is False, f"{name} is capped"
 
 

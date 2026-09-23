@@ -114,6 +114,8 @@ export interface UserInfo {
   custom_template_limit: number;
   can_create_custom_template: boolean;
   preferred_voice_emotion: string | null;
+  script_preferences: string | null;
+  script_preferences_updated_at: string | null;
   survey_submitted: boolean;
   /** The provider this account is permanently bound to. Optional for sessions
    *  restored from localStorage before the backend added the field. */
@@ -225,6 +227,9 @@ export interface Project {
   bgm_track_url?: string | null;
   /** Paid + Newscast: generation pauses for stock-footage review after scripting. */
   stock_footage_enabled?: boolean;
+  script_review_enabled?: boolean;
+  script_review_approved_at?: string | null;
+  script_preferences_version_used?: number | null;
   /** Bulk-created: stock footage auto-approves (no review step). */
   is_bulk?: boolean;
   captions_enabled?: boolean;
@@ -1260,7 +1265,7 @@ export const createProject = (
   captions_enabled?: boolean,
   caption_position?: "bottom_center" | "top_center",
   /** Options that don't warrant another positional arg (already 22). */
-  extra?: { stock_footage_enabled?: boolean }
+  extra?: { stock_footage_enabled?: boolean; script_review_enabled?: boolean }
 ) =>
   api.post<Project>("/projects", {
     blog_url,
@@ -1285,6 +1290,7 @@ export const createProject = (
     captions_enabled,
     caption_position,
     stock_footage_enabled: extra?.stock_footage_enabled ?? false,
+    script_review_enabled: extra?.script_review_enabled ?? false,
   });
 
 /** One project config for bulk create (same shape as single create). */
@@ -1307,6 +1313,7 @@ export interface BulkProjectItem {
   aspect_ratio?: string;
   content_language?: string | null;
   stock_footage_enabled?: boolean;
+  script_review_enabled?: boolean;
   captions_enabled?: boolean;
   caption_position?: "bottom_center" | "top_center";
 }
@@ -1358,6 +1365,7 @@ export const createProjectFromDocs = (
     bgm_track_id?: string | null;
     bgm_volume?: number;
     stock_footage_enabled?: boolean;
+    script_review_enabled?: boolean;
   } = {}
 ) => {
   const formData = new FormData();
@@ -1387,9 +1395,11 @@ export const createProjectFromDocs = (
   if (config.bgm_track_id) formData.append("bgm_track_id", config.bgm_track_id);
   if (config.bgm_volume !== undefined && config.bgm_volume !== null) {
     formData.append("bgm_volume", String(config.bgm_volume));
+  }
   if (config.stock_footage_enabled)
     formData.append("stock_footage_enabled", "true");
-  }
+  if (config.script_review_enabled)
+    formData.append("script_review_enabled", "true");
   return api.post<Project>("/projects/upload", formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
@@ -1462,6 +1472,56 @@ export const generateScript = (id: number) =>
 
 export const generateScenes = (id: number) =>
   api.post<Project>(`/projects/${id}/generate-scenes`);
+
+export interface InitialScriptReviewScene {
+  id: number;
+  title: string;
+  narration_text: string;
+  display_text: string | null;
+  preferred_layout?: string | null;
+  source_fingerprint?: string | null;
+  accepted_ai_instructions?: string[];
+}
+
+export interface ScriptReviewDraftScene {
+  id: number;
+  title: string;
+  display_text: string | null;
+  narration_text: string;
+}
+
+export interface ScriptReviewPreview {
+  revision: number;
+  title: string;
+  display_text: string;
+  narration_text: string;
+  source_fingerprint: string;
+}
+
+export interface InitialScriptReviewResponse {
+  project: Project;
+  preference_learning: "queued" | "unchanged";
+}
+
+export const approveInitialScriptReview = (
+  projectId: number,
+  scenes: InitialScriptReviewScene[],
+) => api.post<InitialScriptReviewResponse>(`/projects/${projectId}/script-review/approve`, { scenes });
+
+export const previewInitialReviewNarration = (
+  projectId: number,
+  sceneId: number,
+  body: { title: string; display_text: string; narration_text: string; draft_scenes: ScriptReviewDraftScene[]; revision: number },
+  signal?: AbortSignal,
+) => api.post<ScriptReviewPreview>(`/projects/${projectId}/script-review/scenes/${sceneId}/narration-preview`, body, { signal });
+
+export const previewInitialReviewAI = (
+  projectId: number,
+  sceneId: number,
+  body: { title: string; display_text: string; narration_text: string; draft_scenes: ScriptReviewDraftScene[]; revision: number; instruction: string },
+) => api.post<ScriptReviewPreview>(`/projects/${projectId}/script-review/scenes/${sceneId}/ai-preview`, body);
+
+export const clearScriptPreferences = () => api.delete<UserInfo>("/auth/me/script-preferences");
 
 // ─── Async pipeline ──────────────────────────────────────
 
@@ -3086,6 +3146,67 @@ export const createCustomVoiceClone = (formData: FormData) =>
 
 export const deleteSavedVoice = (id: number) =>
   api.delete<{ ok: boolean }>(`/voices/saved/${id}`);
+
+// ─── User-managed video styles ─────────────────────────────
+
+export interface ManagedVideoStyle {
+  id: VideoStyleId;
+  custom_id?: number;
+  name: string;
+  guidance: string;
+  description?: string;
+  kind: "builtin" | "learned" | "custom";
+  editable: boolean;
+  available?: boolean;
+  creation_method?: "manual" | "ai";
+  source_prompt?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  customized?: boolean;
+  version?: number;
+  default_guidance?: string | null;
+  pinned?: boolean;
+}
+
+export interface VideoStylesResponse {
+  styles: ManagedVideoStyle[];
+  selected_ids: VideoStyleId[];
+  auto_style: { id: "auto"; name: string; description: string };
+  max_selected: number;
+  min_selected: number;
+  your_style_version: number;
+  pinned_target: VideoStyleId;
+}
+
+export const getVideoStyles = () => api.get<VideoStylesResponse>("/video-styles");
+export const generateVideoStyleDraft = (prompt: string) =>
+  api.post<{ name: string; guidance: string }>("/video-styles/ai-draft", { prompt });
+export const createCustomVideoStyle = (payload: {
+  name: string;
+  guidance: string;
+  creation_method: "manual" | "ai";
+  source_prompt?: string;
+}) => api.post<ManagedVideoStyle & { selected_ids: VideoStyleId[] }>("/video-styles/custom", payload);
+export const updateCustomVideoStyle = (id: number, payload: {
+  name: string;
+  guidance: string;
+  creation_method: "manual" | "ai";
+  source_prompt?: string;
+}) => api.patch<ManagedVideoStyle>(`/video-styles/custom/${id}`, payload);
+export const updateBuiltinVideoStyle = (styleId: VideoStyleId, guidance: string, version: number) =>
+  api.patch<ManagedVideoStyle>(`/video-styles/builtin/${styleId}`, { guidance, version });
+export const resetBuiltinVideoStyle = (styleId: VideoStyleId) =>
+  api.delete<ManagedVideoStyle>(`/video-styles/builtin/${styleId}`);
+export const deleteCustomVideoStyle = (id: number) =>
+  api.delete<{ ok: boolean; selected_ids: VideoStyleId[] }>(`/video-styles/custom/${id}`);
+export const updateVideoStyleSelection = (styleIds: VideoStyleId[]) =>
+  api.put<{ selected_ids: VideoStyleId[]; max_selected: number; min_selected: number }>("/video-styles/selection", { style_ids: styleIds });
+export const updateYourVideoStyle = (guidance: string, version: number) =>
+  api.patch<{ guidance: string; version: number; updated_at: string }>("/video-styles/your-style", { guidance, version });
+export const deleteYourVideoStyle = () =>
+  api.delete<{ ok: boolean; selected_ids: VideoStyleId[] }>("/video-styles/your-style");
+export const setPinnedVideoStyle = (targetRef: VideoStyleId) =>
+  api.put<{ pinned_target: VideoStyleId }>("/video-styles/pin", { target_ref: targetRef });
 
 // ─── Embed API ────────────────────────────────────────────
 
