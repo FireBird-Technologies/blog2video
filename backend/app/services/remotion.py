@@ -1167,7 +1167,57 @@ def write_remotion_data(
     os.makedirs(public_dir, exist_ok=True)
 
     # Query assets explicitly — ``project`` may be detached after long stock-footage I/O.
-    from app.models.asset import Asset
+    from app.models.asset import Asset, AssetType
+
+    # SELF-HEAL: a clip an active scene still points at must not stay excluded.
+    #
+    # `excluded` is project-wide and matched by filename, so retiring a clip the
+    # user removed from ONE scene used to blank it in every other scene that
+    # shared it: those scenes kept a valid `assignedVideo` while the pool build
+    # below filtered the file out, and the prune pass then stripped the key and
+    # let a generic still take the slot. The removal path is now gated on
+    # _clip_used_by_other_scene, but projects already damaged by it would stay
+    # broken — so repair them here, where the scenes and assets are both in hand.
+    #
+    # Safe by construction: only a clip some active scene REFERENCES is restored.
+    # One no scene points at stays excluded, so a deliberate removal still sticks.
+    try:
+        _referenced_clips: set[str] = set()
+        for _s in scenes:
+            _raw = getattr(_s, "remotion_code", None)
+            if not _raw:
+                continue
+            try:
+                _lp_heal = (json.loads(_raw) or {}).get("layoutProps")
+            except (json.JSONDecodeError, TypeError):
+                continue
+            if isinstance(_lp_heal, dict) and _lp_heal.get("assignedVideo"):
+                _referenced_clips.add(_lp_heal["assignedVideo"])
+        if _referenced_clips:
+            _wrongly_excluded = (
+                db.query(Asset)
+                .filter(
+                    Asset.project_id == project.id,
+                    Asset.asset_type == AssetType.VIDEO,
+                    Asset.excluded.is_(True),
+                    Asset.filename.in_(_referenced_clips),
+                )
+                .all()
+            )
+            if _wrongly_excluded:
+                for _a in _wrongly_excluded:
+                    _a.excluded = False
+                db.commit()
+                logger.info(
+                    "[REMOTION] project=%s: restored %s clip(s) still referenced by a scene",
+                    project.id, len(_wrongly_excluded),
+                )
+    except Exception:  # noqa: BLE001
+        # Never break a render over the repair pass.
+        logger.exception(
+            "[REMOTION] project=%s: could not restore referenced clips",
+            getattr(project, "id", None),
+        )
 
     project_assets = (
         db.query(Asset)
@@ -1399,8 +1449,16 @@ def write_remotion_data(
     # Scenes already showing a stock clip. Their visual slot is FULL, so every
     # image-assignment step below must skip them — otherwise a generic scraped
     # image gets assigned underneath and both the still and the clip render.
-    # A stale assignedVideo (asset deleted) is dropped here so the scene falls
-    # back to normal image assignment rather than rendering nothing.
+    # A stale assignedVideo (asset genuinely deleted) is dropped here so the
+    # scene falls back to normal image assignment rather than rendering nothing.
+    # It is deliberately NOT marked hideImage/visualClearedByUser: the user did
+    # not empty this slot, so freezing it empty forever would be wrong.
+    #
+    # A clip that is merely EXCLUDED no longer reaches this branch — the repair
+    # pass above un-excludes any clip an active scene still references. That
+    # ordering matters: excluding a shared clip used to land its other scenes
+    # here, stripping a key the user never touched and handing the slot to a
+    # generic still.
     #
     # Computed OUTSIDE the `all_image_files` block below: a project can hold
     # clips and no images at all, and pruning must still happen there.

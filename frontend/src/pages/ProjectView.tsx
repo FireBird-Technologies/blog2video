@@ -1235,13 +1235,6 @@ export default function ProjectView() {
   // ─── Social publishing ───────────────────────────────────
   /** Which platform's publish modal is open, if any. */
   const [publishPlatform, setPublishPlatform] = useState<SocialPlatform | null>(null);
-  /**
-   * Which paid-only platform a free user just tried to publish to, if any.
-   * Drives the upgrade modal in place of the publish modal, and names the
-   * platform in its copy so the prompt matches the button that was clicked.
-   */
-  const [publishUpgradePlatform, setPublishUpgradePlatform] =
-    useState<SocialPlatform | null>(null);
   /** What this deployment can offer; null until loaded. */
   const [integrationsConfig, setIntegrationsConfig] = useState<IntegrationsConfig | null>(null);
   const [publishJobs, setPublishJobs] = useState<PublishJob[]>([]);
@@ -3127,18 +3120,6 @@ export default function ProjectView() {
     ];
     return order.filter(([, on]) => on).map(([platform]) => platform);
   }, [integrationsConfig]);
-
-  /**
-   * Platforms that require a paid plan.
-   *
-   * The buttons stay VISIBLE to free users — hiding them would leave no way to
-   * discover the feature, and no surface to upsell from. Clicking one opens the
-   * upgrade modal instead of the publish modal; see the button's onClick.
-   */
-  const PAID_ONLY_PUBLISH_PLATFORMS: ReadonlySet<SocialPlatform> = useMemo(
-    () => new Set<SocialPlatform>(["youtube", "linkedin"]),
-    [],
-  );
 
   /**
    * Bumped whenever a publish is started or retried, to restart the polling
@@ -5497,17 +5478,11 @@ export default function ProjectView() {
                   project.scenes.length > 0 &&
                   project.user_id === user?.id &&
                   enabledPublishPlatforms.map((platform) => {
-                    // Free users still SEE the button; it opens the upgrade
-                    // modal rather than the publish flow.
-                    const needsUpgrade =
-                      !isPro && PAID_ONLY_PUBLISH_PLATFORMS.has(platform);
-                    const label = needsUpgrade
-                      ? `Upload to ${platformLabel(platform)} — paid plans only`
-                      : publishedPlatforms.has(platform)
-                        ? `Re-upload to ${platformLabel(platform)}`
-                        : rendered
-                          ? `Upload to ${platformLabel(platform)}`
-                          : `Render & upload to ${platformLabel(platform)}`;
+                    const label = publishedPlatforms.has(platform)
+                      ? `Re-upload to ${platformLabel(platform)}`
+                      : rendered
+                        ? `Upload to ${platformLabel(platform)}`
+                        : `Render & upload to ${platformLabel(platform)}`;
                     return (
                       <button
                         key={platform}
@@ -5515,8 +5490,7 @@ export default function ProjectView() {
                         onClick={() => {
                           setShowShareDropdown(false);
                           setShowSlidesExportMenu(false);
-                          if (needsUpgrade) setPublishUpgradePlatform(platform);
-                          else setPublishPlatform(platform);
+                          setPublishPlatform(platform);
                         }}
                         title={label}
                         aria-label={label}
@@ -6710,18 +6684,6 @@ export default function ProjectView() {
         onLeft={() => navigate("/dashboard", { replace: true })}
         successNote={showPostReviewInvite ? "Thanks for your review! You can also invite collaborators to help edit this video." : undefined}
       />
-
-      {/* Free user clicked a paid-only publish platform. Shown INSTEAD of the
-          publish modal, so no social connection is ever started. */}
-      {publishUpgradePlatform && (
-        <UpgradePlanModal
-          open
-          onClose={() => setPublishUpgradePlatform(null)}
-          projectId={projectId}
-          title={`Upgrade to upload to ${platformLabel(publishUpgradePlatform)}`}
-          subtitle={`Publishing straight to ${platformLabel(publishUpgradePlatform)} requires a paid plan. Pick a plan to continue.`}
-        />
-      )}
 
       {/* Publish to YouTube / X — opened from the Share menu. */}
       {publishPlatform && (
