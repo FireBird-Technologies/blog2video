@@ -3983,10 +3983,28 @@ export default function ProjectView() {
     }
   }
 
+  // A scene whose visual slot holds a stock clip is skipped by the image
+  // auto-assignment above, so its clip never lands in sceneImageAssetsMap.
+  // Resolve it separately (same rules as the Edit Scenes tab) so the Images tab
+  // can show the clip under its scene instead of dumping it in "Unassigned".
+  const sceneClipAssetMap: Record<number, import("../api/client").Asset> = {};
+  project.scenes.forEach((scene, idx) => {
+    let lp: Record<string, unknown> = {};
+    try {
+      lp = scene.remotion_code ? JSON.parse(scene.remotion_code).layoutProps || {} : {};
+    } catch { /* legacy */ }
+    if (lp.hideImage) return;
+    const fn = lp.assignedVideo as string | undefined;
+    if (!fn) return;
+    const asset = activeVideoAssets.find((a) => a.filename === fn);
+    if (asset) sceneClipAssetMap[idx] = asset;
+  });
+
   const unassignedAssetIds = new Set<number>();
   Object.values(sceneImageAssetsMap).forEach((sceneItems) =>
     sceneItems.forEach((item) => unassignedAssetIds.add(item.asset.id)),
   );
+  Object.values(sceneClipAssetMap).forEach((asset) => unassignedAssetIds.add(asset.id));
   const unassignedAssets = mediaAssets.filter((asset) => !unassignedAssetIds.has(asset.id));
 
   const renderMediaCard = (asset: import("../api/client").Asset) => {
@@ -9716,12 +9734,15 @@ export default function ProjectView() {
                           <>
                             {groupScenes.map((scene) => {
                               const idx = project.scenes.findIndex((s) => s.id === scene.id);
-                              const sceneAssets = sceneImageAssetsMap[idx] || [];
+                              const sceneClip = sceneClipAssetMap[idx];
+                              const sceneAssets = sceneClip
+                                ? [{ asset: sceneClip }]
+                                : sceneImageAssetsMap[idx] || [];
                               return (
-                                <div key={scene.id} className="glass-card p-4">
-                                  <div className="flex items-center gap-3 mb-3">
+                                <div key={scene.id} className="glass-card p-3">
+                                  <div className="flex items-center gap-2.5 mb-2">
                                     {/* Scene number */}
-                                    <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center flex-shrink-0">
+                                    <div className="w-7 h-7 rounded-lg bg-purple-50 flex items-center justify-center flex-shrink-0">
                                       <span className="text-xs font-semibold text-purple-600">
                                         {scene.order}
                                       </span>
@@ -9731,9 +9752,9 @@ export default function ProjectView() {
                                     </span>
                                   </div>
                                   {sceneAssets.length === 0 ? (
-                                    <p className="text-xs text-gray-400 italic py-4">No image assigned</p>
+                                    <p className="text-xs text-gray-400 italic py-2">No visual assigned</p>
                                   ) : (
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5">
                                       {sceneAssets.map(({ asset }) => renderMediaCard(asset))}
                                     </div>
                                   )}
