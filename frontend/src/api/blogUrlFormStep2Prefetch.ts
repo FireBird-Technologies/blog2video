@@ -1,14 +1,23 @@
 import {
   getTemplates,
   getTemplateAvailabilitySignal,
+  getVideoStyles,
   listCustomTemplates,
   type CustomTemplateItem,
   type TemplateMeta,
+  type VideoStylesResponse,
 } from "./client";
+import type { VideoStyleId } from "../constants/videoStyles";
 
 export type AvailabilityForBlogUrlForm = {
   hasCraftedTemplatesEligible: boolean;
   customTemplates: CustomTemplateItem[];
+};
+
+export type VideoStyleOptionForBlogUrlForm = {
+  id: VideoStyleId;
+  label: string;
+  subtitle: string;
 };
 
 let builtinTemplatesPrefetch: Promise<TemplateMeta[]> | null = null;
@@ -26,6 +35,9 @@ function builtinTemplatesDeduped(): Promise<TemplateMeta[]> {
 }
 
 let availabilityPrefetch: Promise<AvailabilityForBlogUrlForm> | null = null;
+let videoStylesPrefetch: Promise<VideoStylesResponse> | null = null;
+let videoStylesSnapshot: VideoStylesResponse | null = null;
+let videoStylesCacheVersion = 0;
 
 async function availabilityBundle(): Promise<AvailabilityForBlogUrlForm> {
   try {
@@ -61,10 +73,46 @@ function availabilityDeduped(): Promise<AvailabilityForBlogUrlForm> {
   return availabilityPrefetch;
 }
 
-/** Starts built-in templates + availability/custom fetch in the background (idempotent). */
+function videoStylesDeduped(): Promise<VideoStylesResponse> {
+  if (!videoStylesPrefetch) {
+    const requestVersion = videoStylesCacheVersion;
+    videoStylesPrefetch = getVideoStyles()
+      .then((response) => {
+        const data = response.data;
+        // A style mutation may invalidate this request while it is in flight. In that case,
+        // make this caller join the replacement request instead of receiving stale tabs.
+        if (requestVersion !== videoStylesCacheVersion) return videoStylesDeduped();
+        videoStylesSnapshot = data;
+        return data;
+      })
+      .catch((err) => {
+        if (requestVersion === videoStylesCacheVersion) videoStylesPrefetch = null;
+        throw err;
+      });
+  }
+  return videoStylesPrefetch;
+}
+
+export function videoStyleOptionsForBlogUrlForm(
+  data: VideoStylesResponse | null | undefined,
+): VideoStyleOptionForBlogUrlForm[] {
+  if (!data) return [];
+  const auto: VideoStyleOptionForBlogUrlForm[] = data.auto_style
+    ? [{ id: "auto", label: data.auto_style.name, subtitle: data.auto_style.description }]
+    : [];
+  const stylesById = new Map(data.styles.map((style) => [style.id, style]));
+  const rest = data.selected_ids.flatMap((id) => {
+    const style = stylesById.get(id);
+    return style ? [{ id, label: style.name, subtitle: style.description || style.guidance }] : [];
+  });
+  return [...auto, ...rest];
+}
+
+/** Starts all Step 2 data fetches in the background (idempotent). */
 export function primeBlogUrlFormStep2Prefetch(): void {
   void builtinTemplatesDeduped();
   void availabilityDeduped();
+  void videoStylesDeduped();
 }
 
 /**
@@ -83,4 +131,31 @@ export function fetchBlogUrlFormBuiltinTemplatesDeduped(): Promise<TemplateMeta[
 
 export function fetchBlogUrlFormAvailabilityDeduped(): Promise<AvailabilityForBlogUrlForm> {
   return availabilityDeduped();
+}
+
+export function fetchBlogUrlFormVideoStylesDeduped(): Promise<VideoStylesResponse> {
+  return videoStylesDeduped();
+}
+
+export function getCachedBlogUrlFormVideoStyles(): VideoStylesResponse | null {
+  return videoStylesSnapshot;
+}
+
+/** Replace the cached snapshot after a local mutation that already returned authoritative data. */
+export function setCachedBlogUrlFormVideoStyles(data: VideoStylesResponse): void {
+  videoStylesCacheVersion += 1;
+  videoStylesSnapshot = data;
+  videoStylesPrefetch = Promise.resolve(data);
+}
+
+/** Force the next reader to retrieve current styles from the server. */
+export function invalidateBlogUrlFormVideoStylesCache(): void {
+  videoStylesCacheVersion += 1;
+  videoStylesSnapshot = null;
+  videoStylesPrefetch = null;
+}
+
+export function refreshBlogUrlFormVideoStyles(): Promise<VideoStylesResponse> {
+  invalidateBlogUrlFormVideoStylesCache();
+  return videoStylesDeduped();
 }

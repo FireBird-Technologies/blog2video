@@ -1,6 +1,6 @@
 import enum
 from datetime import datetime, timedelta
-from sqlalchemy import String, Enum, DateTime, Integer, Boolean, func
+from sqlalchemy import String, Text, Enum, DateTime, Integer, Boolean, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship, Session
 from app.database import Base
 
@@ -166,6 +166,17 @@ class User(Base):
     # Remembered narration emotion/tone default, auto-selected in the create form next time.
     preferred_voice_emotion: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
+    # A compact, reusable writing-style profile learned from accepted script
+    # review edits.  The version is used by background jobs for optimistic
+    # concurrency and also makes clearing the profile stale-job safe.
+    script_preferences: Mapped[str | None] = mapped_column(Text, nullable=True)
+    script_preferences_version: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False
+    )
+    script_preferences_updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True
+    )
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -187,6 +198,26 @@ class User(Base):
     language_change_jobs = relationship("ProjectLanguageChangeJob", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
     referrals = relationship("Referral", foreign_keys="Referral.referrer_id", cascade="all, delete-orphan", passive_deletes=True)
     survey_response = relationship("SurveyResponse", uselist=False, cascade="all, delete-orphan", passive_deletes=True)
+    script_preference_learning_jobs = relationship(
+        "ScriptPreferenceLearningJob",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    custom_video_styles = relationship(
+        "CustomVideoStyle", back_populates="user", cascade="all, delete-orphan", passive_deletes=True
+    )
+    video_style_slots = relationship(
+        "UserVideoStyleSlot", back_populates="user", cascade="all, delete-orphan", passive_deletes=True
+    )
+    video_style_settings = relationship(
+        "UserVideoStyleSettings", back_populates="user", cascade="all, delete-orphan",
+        passive_deletes=True, uselist=False,
+    )
+    builtin_video_styles = relationship(
+        "UserBuiltinVideoStyle", back_populates="user", cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
     @property
     def survey_submitted(self) -> bool:

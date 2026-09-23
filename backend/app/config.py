@@ -92,6 +92,13 @@ class Settings(BaseSettings):
     # automatically takes the reasoning_effort path (5.3 cannot disable thinking).
     SCENE_EDIT_LM: str = os.environ.get("SCENE_EDIT_LM", "glm-5.3-flash")
 
+    # Small, constrained model used only to turn accepted script edits into a
+    # short reusable writing-preference profile. Keep this separate from the
+    # scene LM so changing it cannot affect script generation or review rewrites.
+    SCRIPT_PREFERENCE_LM: str = os.environ.get(
+        "SCRIPT_PREFERENCE_LM", "glm-5.3-flash"
+    )
+
     # Google OAuth
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""

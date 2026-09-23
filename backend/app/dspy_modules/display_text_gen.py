@@ -15,7 +15,8 @@ class GenerateDisplayText(dspy.Signature):
     ═══ INPUTS ═══
     - template_id: which visual template is being used (default, nightfall, spotlight,
       gridcraft, whiteboard, newspaper).
-    - video_style: explainer / promotional / storytelling (STRICT tone and phrasing rules).
+    - video_style: stable style identifier for routing and diagnostics.
+    - style_guidance: authoritative saved writing rules for the project.
     - scene_title: title of this scene.
     - narration: the underlying narration_text for this scene (source of truth).
     - visual_description: visual hints and layout intent.
@@ -27,10 +28,8 @@ class GenerateDisplayText(dspy.Signature):
     - No markdown, no quotes, no bullet markers. Plain text sentences only.
 
     ═══ STYLE TONE RULES (CRITICAL) ═══
-    - STRICTLY follow video_style; do not mix tones.
-    - promotional: text must feel like an ad/promo (benefit-first, persuasive, action-oriented).
-    - explainer: text must feel documentary and informative (clear, factual, polished, insight-driven).
-    - storytelling: text must feel narrative and sequential (scene-to-scene progression).
+    - Follow style_guidance as the authoritative source for tone and phrasing.
+    - Do not infer or add writing rules from the video_style identifier.
 
     ═══ TEMPLATE-SPECIFIC LENGTH RULES (CRITICAL) ═══
     1) NEWSPAPER + WHITEBOARD
@@ -61,7 +60,7 @@ class GenerateDisplayText(dspy.Signature):
         desc="Template ID in lowercase, e.g. default, nightfall, spotlight, gridcraft, whiteboard, newspaper"
     )
     video_style: str = dspy.InputField(
-        desc="Video style with strict tone rules: explainer, promotional, or storytelling"
+        desc="Stable style identifier for routing and diagnostics"
     )
     scene_title: str = dspy.InputField(desc="Title of this scene")
     narration: str = dspy.InputField(desc="Full narration_text for this scene (source of truth)")
@@ -70,6 +69,9 @@ class GenerateDisplayText(dspy.Signature):
     )
     content_language: str = dspy.InputField(
         desc="Language of the source content (e.g. 'English', 'Spanish'). Generate display_text in this language."
+    )
+    style_guidance: str = dspy.InputField(
+        desc="Authoritative saved writing guidance for this project."
     )
 
     display_text: str = dspy.OutputField(
@@ -82,11 +84,12 @@ class DisplayTextGenerator:
     Service for generating template-aware display_text strings for scenes.
     """
 
-    def __init__(self, template_id: str, video_style: str = "explainer", content_language: str = "English"):
+    def __init__(self, template_id: str, video_style: str = "explainer", content_language: str = "English", style_guidance: str = ""):
         ensure_dspy_configured()
         self.template_id = (template_id or "default").strip().lower()
         self.video_style = (video_style or "explainer").strip().lower()
         self.content_language = (content_language or "English").strip()
+        self.style_guidance = (style_guidance or "").strip()
         self._predictor = dspy.ChainOfThought(GenerateDisplayText)
         self.predictor = dspy.asyncify(self._predictor)
 
@@ -127,6 +130,7 @@ class DisplayTextGenerator:
                     narration=narration,
                     visual_description=visual,
                     content_language=self.content_language,
+                    style_guidance=self.style_guidance,
                 )
             )
 
@@ -163,4 +167,3 @@ class DisplayTextGenerator:
             display_texts.append(text)
 
         return display_texts
-

@@ -5,6 +5,7 @@ Frontend sends the Google ID token, backend verifies it and returns a JWT.
 import os
 import shutil
 from fastapi import APIRouter, Depends, HTTPException, Query
+from datetime import datetime
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from google.oauth2 import id_token
@@ -51,6 +52,8 @@ class UserOut(BaseModel):
     custom_template_limit: int = 0
     can_create_custom_template: bool = True
     preferred_voice_emotion: str | None = None
+    script_preferences: str | None = None
+    script_preferences_updated_at: datetime | None = None
     survey_submitted: bool = False
 
     class Config:
@@ -261,6 +264,8 @@ def google_login(
             custom_template_limit=user.custom_template_limit,
             can_create_custom_template=user.can_create_custom_template,
             preferred_voice_emotion=user.preferred_voice_emotion,
+            script_preferences=user.script_preferences,
+            script_preferences_updated_at=user.script_preferences_updated_at,
             survey_submitted=user.survey_submitted,
         ),
     )
@@ -284,6 +289,43 @@ def get_me(user: User = Depends(get_current_user)):
         custom_template_limit=user.custom_template_limit,
         can_create_custom_template=user.can_create_custom_template,
         preferred_voice_emotion=user.preferred_voice_emotion,
+        script_preferences=user.script_preferences,
+        script_preferences_updated_at=user.script_preferences_updated_at,
+        survey_submitted=user.survey_submitted,
+    )
+
+
+@router.delete("/me/script-preferences", response_model=UserOut)
+def clear_script_preferences(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Clear Your Style and invalidate every queued or running learner."""
+    from app.models.script_preference_learning_job import ScriptPreferenceLearningJob
+    from app.services.video_styles import effective_selection, replace_selection
+
+    selected_styles = [style for style in effective_selection(db, user) if style != "your_style"]
+    replace_selection(db, user, selected_styles or ["auto"])
+    user.script_preferences = None
+    user.script_preferences_updated_at = None
+    user.script_preferences_version = (user.script_preferences_version or 0) + 1
+    db.query(ScriptPreferenceLearningJob).filter(
+        ScriptPreferenceLearningJob.user_id == user.id,
+        ScriptPreferenceLearningJob.status.in_(["queued", "running"]),
+    ).update({"status": "cancelled", "completed_at": datetime.utcnow()}, synchronize_session=False)
+    db.commit()
+    db.refresh(user)
+    return UserOut(
+        id=user.id, email=user.email, name=user.name, picture=user.picture,
+        plan=user.plan.value, videos_used_this_period=user.videos_used_this_period,
+        video_limit=user.video_limit, can_create_video=user.can_create_video,
+        ai_edit_credits=user.ai_edit_credits or 0,
+        ai_edit_allowance_remaining=user.ai_edit_allowance_remaining,
+        custom_templates_created=user.custom_templates_created,
+        custom_template_limit=user.custom_template_limit,
+        can_create_custom_template=user.can_create_custom_template,
+        preferred_voice_emotion=user.preferred_voice_emotion,
+        script_preferences=None, script_preferences_updated_at=None,
         survey_submitted=user.survey_submitted,
     )
 
@@ -392,6 +434,9 @@ def delete_account(
         elif (user.custom_templates_created or 0) > FREE_TIER_CUSTOM_TEMPLATES:
             user.custom_templates_created = FREE_TIER_CUSTOM_TEMPLATES
         user.custom_template_bonus = 0
+        user.script_preferences = None
+        user.script_preferences_updated_at = None
+        user.script_preferences_version = (user.script_preferences_version or 0) + 1
         # Normalize the /tools counters by the same rule: a paid user (or a free user
         # already at/over the cap) comes back at the FREE limit so reactivation cannot
         # refill quota, while a free user below it keeps their partial usage.

@@ -173,7 +173,7 @@ class ProjectCreate(BaseModel):
     custom_voice_id: Optional[str] = None    # ElevenLabs voice ID (Pro users)
     voice_emotion: Optional[str] = None      # narration emotion/tone key (paid); neutral/None = default v2 path
     aspect_ratio: Optional[str] = "landscape"  # "landscape" or "portrait"
-    video_style: Optional[str] = "auto"   # auto | explainer | promotional | storytelling (auto = LLM picks after scraping)
+    video_style: Optional[str] = "auto"   # auto | explainer | promotional | storytelling | your_style
     video_length: Optional[str] = "auto"  # auto | short (4-5) | medium (12-15) | detailed (23-30) | more_detailed (35-40)
     playback_speed: Optional[float] = 1.0
     content_language: Optional[str] = None     # preferred target language (ISO code or name)
@@ -183,6 +183,7 @@ class ProjectCreate(BaseModel):
     # Free users get a clip on a single scene, paid users on all image-capable
     # scenes. When false the pipeline skips stock fetching entirely.
     stock_footage_enabled: Optional[bool] = False
+    script_review_enabled: Optional[bool] = False
     captions_enabled: Optional[bool] = False
     caption_position: Optional[str] = "bottom_center"  # bottom_center | top_center
     caption_font_family: Optional[str] = "inter"
@@ -666,12 +667,15 @@ class ProjectOut(BaseModel):
     voice_emotion: Optional[str] = None
     aspect_ratio: str = "landscape"
     video_style: str = "explainer"
+    script_preferences_version_used: Optional[int] = None
     video_length: str = "auto"
     playback_speed: float = 1.0
     bgm_track_id: Optional[str] = None
     bgm_volume: float = 0.10
     bgm_track_url: Optional[str] = None
     stock_footage_enabled: bool = False
+    script_review_enabled: bool = False
+    script_review_approved_at: Optional[datetime] = None
     is_bulk: bool = False
     captions_enabled: bool = False
     caption_position: str = "bottom_center"
@@ -760,7 +764,7 @@ class BulkProjectItem(BaseModel):
     blog_url: str
     name: Optional[str] = None
     template: Optional[str] = "default"
-    video_style: Optional[str] = "explainer"
+    video_style: Optional[str] = "explainer"  # includes your_style when the user has a profile
     voice_gender: Optional[str] = "female"
     voice_accent: Optional[str] = "american"
     # None, not a literal colour — same reason as ProjectCreate above: a literal
@@ -774,6 +778,7 @@ class BulkProjectItem(BaseModel):
     logo_opacity: Optional[float] = 0.9
     custom_voice_id: Optional[str] = None
     aspect_ratio: Optional[str] = "landscape"
+    avatar_size: Optional[float] = None
     content_language: Optional[str] = None
     video_length: Optional[str] = "auto"
     playback_speed: Optional[float] = 1.0
@@ -785,11 +790,17 @@ class BulkProjectItem(BaseModel):
     caption_font_family: Optional[str] = "inter"
     caption_font_size: Optional[str] = "medium"
     stock_footage_enabled: Optional[bool] = False
+    script_review_enabled: Optional[bool] = False
 
     @field_validator("caption_position")
     @classmethod
     def validate_bulk_caption_position(cls, v: Optional[str]) -> Optional[str]:
         return _normalize_caption_position(v)
+
+    @field_validator("avatar_size")
+    @classmethod
+    def validate_bulk_avatar_size(cls, v: Optional[float]) -> Optional[float]:
+        return _normalize_avatar_size(v)
 
     @field_validator("playback_speed")
     @classmethod

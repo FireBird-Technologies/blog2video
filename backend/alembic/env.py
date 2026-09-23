@@ -19,6 +19,11 @@ from app.models import (  # noqa: F401
     User,
     ProjectEditHistory,
     SceneEditHistory,
+    ScriptPreferenceLearningJob,
+    CustomVideoStyle,
+    UserVideoStyleSlot,
+    UserVideoStyleSettings,
+    UserBuiltinVideoStyle,
 )
 from app.models.template_version import TemplateVersion  # noqa: F401
 

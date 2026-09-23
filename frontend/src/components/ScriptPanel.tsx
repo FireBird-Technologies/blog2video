@@ -15,6 +15,8 @@ interface Props {
   /** When provided, the Edit button opens the shared SceneEditModal (same as the Edit Scenes tab)
    *  instead of the inline title/display-text form. */
   onEditScene?: (scene: Scene) => void;
+  /** Initial review uses the same cards while hiding only post-generation actions. */
+  reviewMode?: boolean;
 }
 
 // Resolve the layout to display, distinguishing the planned hint (preferred_layout, set
@@ -41,6 +43,7 @@ export default function ScriptPanel({
   isRegenerating,
   disabled,
   onEditScene,
+  reviewMode = false,
 }: Props) {
   const [editingSceneId, setEditingSceneId] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState<{ title: string; display_text: string }>({
@@ -107,7 +110,7 @@ export default function ScriptPanel({
           </span>
         </div>
 
-        {isRegenerating ? (
+        {reviewMode ? null : isRegenerating ? (
           <div className="flex items-center gap-2 text-xs text-gray-400">
             <span className="w-3 h-3 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
             Regenerating…

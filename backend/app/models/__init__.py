@@ -22,6 +22,9 @@ from app.models.project_voice_change_job import ProjectVoiceChangeJob
 from app.models.scene_avatar_job import SceneAvatarJob
 from app.models.project_language_change_job import ProjectLanguageChangeJob
 from app.models.project_add_scene_job import ProjectAddSceneJob
+from app.models.script_preference_learning_job import ScriptPreferenceLearningJob
+from app.models.custom_video_style import CustomVideoStyle
+from app.models.user_video_style import UserBuiltinVideoStyle, UserVideoStyleSlot, UserVideoStyleSettings
 from app.models.update_email import UpdateEmail
 from app.models.update_email_send import UpdateEmailSend
 from app.models.referral import Referral, ReferralSignup, ReferralInvite
@@ -47,7 +50,8 @@ __all__ = [
     "SubscriptionPlan", "Subscription", "CustomTemplate", "CustomTemplateGenRun", "BrandKit", "SavedVoice", "CustomVoice", "PrebuiltVoice",
     "ProjectEditHistory", "SceneEditHistory", "SceneComment", "Review", "TemplateRating", "AvatarReview", "TemplateVersion",
     "ProjectTemplateChangeJob", "ProjectRegenerateScriptJob", "ProjectVoiceChangeJob",
-    "ProjectLanguageChangeJob", "ProjectAddSceneJob",
+    "ProjectLanguageChangeJob", "ProjectAddSceneJob", "ScriptPreferenceLearningJob",
+    "CustomVideoStyle", "UserBuiltinVideoStyle", "UserVideoStyleSlot", "UserVideoStyleSettings",
     "UpdateEmail", "UpdateEmailSend",
     "Referral", "ReferralSignup", "ReferralInvite", "SurveyResponse", "CraftedTemplate", "CraftedTemplateEntitlement",
     "ProjectMember", "MemberRole", "MemberStatus", "ROLE_RANK",

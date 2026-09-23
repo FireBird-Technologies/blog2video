@@ -27,6 +27,7 @@ import StatusBadge from "../components/StatusBadge";
 import { setPendingUpload } from "../stores/pendingUpload";
 import CustomTemplates from "./CustomTemplates";
 import MyVoices from "./MyVoices";
+import VideoStyles from "./VideoStyles";
 import type { VideoStyleId } from "../constants/videoStyles";
 import { primeBlogUrlFormStep2Prefetch } from "../api/blogUrlFormStep2Prefetch";
 
@@ -67,8 +68,12 @@ export default function Dashboard() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
   const [creating, setCreating] = useState(false);
   // Options the form can't pass through onSubmit's positional list (22 args).
-  const [extraCreateOptions, setExtraCreateOptions] = useState<{ stockFootageEnabled: boolean }>({
+  const [extraCreateOptions, setExtraCreateOptions] = useState<{
+    stockFootageEnabled: boolean;
+    scriptReviewEnabled: boolean;
+  }>({
     stockFootageEnabled: false,
+    scriptReviewEnabled: false,
   });
   const [loaded, setLoaded] = useState(false);
   const navigate = useNavigate();
@@ -78,6 +83,11 @@ export default function Dashboard() {
   const [bulkStatuses, setBulkStatuses] = useState<
     Record<number, { step?: string; running?: boolean; error?: string; status?: string }>
   >({});
+  const [pendingVideoStyleSaveName, setPendingVideoStyleSaveName] = useState<string | null>(null);
+  const [pendingVideoStyleDelete, setPendingVideoStyleDelete] = useState<{
+    id: VideoStyleId;
+    name: string;
+  } | null>(null);
   const bulkStartedRef = useRef(false);
   const bulkPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -114,14 +124,15 @@ export default function Dashboard() {
   const isPro = isPaidPlan(user?.plan);
   const templatesRequested = searchParams.get("tab") === "templates";
   const voicesRequested = searchParams.get("tab") === "voices";
+  const stylesRequested = searchParams.get("tab") === "styles";
   /** Document landing pages (/pdf-to-video, /docx-to-video, …) deep-link here with ?mode=upload. */
   const requestedMode = searchParams.get("mode");
   const initialFormMode =
     requestedMode === "upload" || requestedMode === "bulk" || requestedMode === "url"
       ? requestedMode
       : undefined;
-  const [activeTab, setActiveTab] = useState<"projects" | "templates" | "voices">(
-    voicesRequested ? "voices" : templatesRequested ? "templates" : "projects"
+  const [activeTab, setActiveTab] = useState<"projects" | "templates" | "voices" | "styles">(
+    stylesRequested ? "styles" : voicesRequested ? "voices" : templatesRequested ? "templates" : "projects"
   );
 
   useEffect(() => {
@@ -164,6 +175,7 @@ export default function Dashboard() {
   // Poll pipeline status for bulk ids; remove each project from the list when it's done (generated/done or running false)
   useEffect(() => {
     if (bulkPendingIds.length === 0) return;
+    let tickCount = 0;
     const poll = async () => {
       const updates: Record<number, { step?: string; running?: boolean; error?: string; status?: string }> = {};
       const results = await Promise.allSettled(
@@ -181,6 +193,16 @@ export default function Dashboard() {
         }
       });
       setBulkStatuses((prev) => ({ ...prev, ...updates }));
+
+      // Status polling doesn't carry the project name, and the backend renames
+      // projects mid-pipeline (blog URL slug -> real article title). Without
+      // this, rows would show the placeholder name for the whole bulk run —
+      // refresh every 3rd tick (~6s) so renames show up without polling on
+      // every 2s tick.
+      tickCount += 1;
+      if (tickCount % 3 === 0) {
+        loadProjects();
+      }
 
       // Consider a project done only when it reaches a terminal project status.
       // `running` can be false transiently (e.g. in-memory progress loss), so
@@ -219,7 +241,18 @@ export default function Dashboard() {
     const tab = searchParams.get("tab");
     if (tab === "templates") setActiveTab("templates");
     else if (tab === "voices") setActiveTab("voices");
+    else if (tab === "styles") setActiveTab("styles");
+    else setActiveTab("projects");
   }, [searchParams]);
+
+  const selectDashboardTab = (tab: "projects" | "templates" | "voices" | "styles") => {
+    setActiveTab(tab);
+    const next = new URLSearchParams(searchParams);
+    if (tab === "projects") next.delete("tab");
+    else next.set("tab", tab);
+    const qs = next.toString();
+    navigate(qs ? `/dashboard?${qs}` : "/dashboard");
+  };
 
   // Campaign deep link: ?mode=upload opens the create form on a given step-1 tab,
   // overriding the sticky pdf2video default. Consumed then stripped from the URL.
@@ -249,7 +282,7 @@ export default function Dashboard() {
 
   // Leaving Projects (tab or URL) should close the new-project modal so returning does not reopen it.
   useEffect(() => {
-    if (activeTab === "templates" || activeTab === "voices") {
+    if (activeTab !== "projects") {
       setShowModal(false);
     }
   }, [activeTab]);
@@ -354,6 +387,7 @@ export default function Dashboard() {
           bgm_track_id: bgmTrackId,
           bgm_volume: bgmVolume,
           stock_footage_enabled: extraCreateOptions.stockFootageEnabled,
+          script_review_enabled: extraCreateOptions.scriptReviewEnabled,
         });
       } else {
         // URL flow
@@ -379,7 +413,10 @@ export default function Dashboard() {
           bgmVolume,
           undefined,
           undefined,
-          { stock_footage_enabled: extraCreateOptions.stockFootageEnabled },
+          {
+            stock_footage_enabled: extraCreateOptions.stockFootageEnabled,
+            script_review_enabled: extraCreateOptions.scriptReviewEnabled,
+          },
         );
       }
 
@@ -533,17 +570,17 @@ export default function Dashboard() {
 
       {/* Tab bar */}
       <div className="flex flex-wrap gap-1 p-1 bg-gray-100/60 rounded-xl">
-        {(["projects", "templates", "voices"] as const).map((tab) => (
+        {(["projects", "templates", "voices", "styles"] as const).map((tab) => (
           <button
             key={tab}
-            onClick={() => setActiveTab(tab)}
+            onClick={() => selectDashboardTab(tab)}
             className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
               activeTab === tab
                 ? "bg-white text-purple-600 shadow-sm"
                 : "text-gray-400 hover:text-gray-600"
             }`}
           >
-            {tab === "projects" ? "Projects" : tab === "templates" ? "My Templates" : "Voices"}
+            {tab === "projects" ? "Projects" : tab === "templates" ? "My Templates" : tab === "voices" ? "Voices" : "Video Styles"}
           </button>
         ))}
       </div>
@@ -553,6 +590,13 @@ export default function Dashboard() {
         <CustomTemplates />
       ) : activeTab === "voices" ? (
         <MyVoices />
+      ) : activeTab === "styles" ? (
+        <VideoStyles
+          pendingSaveName={pendingVideoStyleSaveName}
+          onPendingSaveNameChange={setPendingVideoStyleSaveName}
+          pendingDelete={pendingVideoStyleDelete}
+          onPendingDeleteChange={setPendingVideoStyleDelete}
+        />
       ) : (
       <>
       {/* Header */}
@@ -710,6 +754,15 @@ export default function Dashboard() {
                         {rowPercent}%
                       </span>
                     </div>
+                    {s?.status === "awaiting_script_review" && (
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/project/${id}`)}
+                        className="mt-1 rounded-lg bg-purple-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-purple-700"
+                      >
+                        Review script
+                      </button>
+                    )}
                   </div>
                 </li>
               );

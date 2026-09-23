@@ -540,6 +540,13 @@ async def generate_video(
     if project.status in (ProjectStatus.GENERATED, ProjectStatus.DONE):
         return {"detail": "Already generated", "status": project.status.value}
 
+    if project.status == ProjectStatus.AWAITING_SCRIPT_REVIEW:
+        return {
+            "detail": "Awaiting script review",
+            "step": 2,
+            "running": False,
+        }
+
     # Generation finished; parked for post-generation clip review — client
     # should poll /status or open the review modal.
     if project.status == ProjectStatus.AWAITING_STOCK_FOOTAGE_REVIEW:
@@ -897,6 +904,10 @@ def get_pipeline_status(
     running = progress.get("running", False)
     step = progress.get("step", 0)
 
+    if project.status == ProjectStatus.AWAITING_SCRIPT_REVIEW:
+        running = False
+        step = max(step, 2)
+
     # Parked at the footage gate: DB status is authoritative even if in-memory
     # ``running`` is stale (e.g. lost progress dict on another worker).
     if project.status == ProjectStatus.AWAITING_STOCK_FOOTAGE_REVIEW:
@@ -1032,8 +1043,13 @@ async def _run_pipeline(project_id: int, user_id: int):
             if project.status in (ProjectStatus.CREATED, ProjectStatus.SCRAPED) \
                     and (project.video_style or "").strip().lower() == "auto":
                 from app.dspy_modules.video_style_picker import resolve_auto_video_style
+                from app.services.script_style import snapshot_style_for_project
                 resolved = await resolve_auto_video_style(project.blog_content or "")
                 project.video_style = resolved
+                owner = db.get(User, project.user_id)
+                if owner is None:
+                    raise RuntimeError(f"Project owner {project.user_id} no longer exists")
+                snapshot_style_for_project(project, owner, db)
                 db.commit()
                 logger.info(
                     "[PIPELINE] Project %s: auto video_style resolved to %s",
@@ -1063,6 +1079,37 @@ async def _run_pipeline(project_id: int, user_id: int):
                         )
                         return
 
+                project = _reload_project(db, project_id)
+                if (
+                    project is not None
+                    and project.script_review_enabled
+                    and project.script_review_approved_at is None
+                ):
+                    # Hard pipeline boundary: no call to _generate_scenes means no
+                    # voiceovers, stock footage, or final descriptors exist yet.
+                    project.status = ProjectStatus.AWAITING_SCRIPT_REVIEW
+                    db.commit()
+                    _pipeline_progress[project_id]["running"] = False
+                    logger.info("[PIPELINE] Project %s: awaiting initial script review", project_id)
+                    return
+
+            # Re-check at the stage boundary, not only immediately after the
+            # script call. _generate_script commits SCRIPTED itself; if the
+            # process dies between that commit and the pause above, a restarted
+            # pipeline must still stop before producing any audio.
+            project = _reload_project(db, project_id)
+            if (
+                project is not None
+                and project.status == ProjectStatus.SCRIPTED
+                and project.script_review_enabled
+                and project.script_review_approved_at is None
+            ):
+                project.status = ProjectStatus.AWAITING_SCRIPT_REVIEW
+                db.commit()
+                _pipeline_progress[project_id]["running"] = False
+                logger.info("[PIPELINE] Project %s: recovered at initial script review gate", project_id)
+                return
+
             # Step 3: Generate scene descriptors + voiceovers. Stock-footage
             # clip fetching (when enabled) now runs in parallel with this step
             # (see _generate_scenes's _stock_footage_task) rather than pausing
@@ -1079,7 +1126,14 @@ async def _run_pipeline(project_id: int, user_id: int):
                     attributes={**attributes, "pipeline.stage": "generate_scenes"},
                 ):
                     try:
-                        await _generate_scenes(project, db)
+                        # Scenes the user just approved in script review carry their
+                        # exact edited wording — speak it verbatim instead of letting
+                        # the normal expansion phase silently rephrase it.
+                        await _generate_scenes(
+                            project,
+                            db,
+                            verbatim_narration=project.script_review_approved_at is not None,
+                        )
                     except Exception as e:
                         span.record_exception(e)
                         span.set_status(Status(StatusCode.ERROR, "Scene generation failed"))
@@ -2354,6 +2408,8 @@ async def _generate_script(
     content_language = get_content_language_for_project(project)
     requested_video_length = getattr(project, "video_length", "auto") or "auto"
     video_style = getattr(project, "video_style", "explainer") or "explainer"
+    from app.services.script_style import generation_style_for_project, style_guidance_for_project
+    style_guidance = style_guidance_for_project(project)
 
     def _effective_video_length_for_content(
         blog_content: str | None, requested: str, style: str
@@ -2710,12 +2766,14 @@ async def _generate_script(
 
     _template_style_hint = get_script_style_hint(template_id) if template_id else ""
 
+    generation_style = generation_style_for_project(project)
     result = await generator.generate(
         blog_content=_project_blog_content,
         blog_images=image_paths,
         hero_image=hero_image,
         aspect_ratio=_project_aspect_ratio,
-        video_style=video_style,
+        video_style=generation_style,
+        style_guidance=style_guidance,
         video_length=effective_video_length,
         layout_catalog=layout_catalog,
         content_language=content_language,
@@ -2724,6 +2782,7 @@ async def _generate_script(
         template_id=template_id or "",
         template_style_hint=_template_style_hint,
         user_instruction=user_instruction or "",
+        expressive=bool(getattr(project, "voice_emotion", None)),
         progress_callback=progress_callback,
     )
 
@@ -2734,7 +2793,12 @@ async def _generate_script(
         scenes_raw,
         include_ending_socials=include_ending_socials,
     )
-    display_gen = DisplayTextGenerator(template_id, video_style=video_style, content_language=content_language)
+    display_gen = DisplayTextGenerator(
+        template_id,
+        video_style=generation_style,
+        content_language=content_language,
+        style_guidance=style_guidance,
+    )
     display_texts = await display_gen.generate_for_scenes(scenes_raw)
 
     # Old Documentary Reel opens on a voiced 3-2-1 academy leader. It is a
@@ -2969,6 +3033,7 @@ async def _generate_scenes(
     preserve_image_assignments: bool = True,
     redistribute_images: bool = False,
     strict_voiceover: bool = False,
+    verbatim_narration: bool = False,
 ):
     """Generate voiceovers and scene layout descriptors concurrently, then write Remotion data.
 
@@ -2980,6 +3045,11 @@ async def _generate_scenes(
     and the existing ``voiceover_path`` / ``duration_seconds`` on each scene are preserved.
     Used by the "regenerate script" flow, which keeps the original narration + audio and only
     refreshes titles, on-screen text, visuals, and layouts.
+
+    ``verbatim_narration`` skips the LLM narration-expansion phase and speaks each scene's
+    ``narration_text`` exactly as stored. Set only right after the user approves the initial
+    script review, so their edited wording reaches the voiceover unchanged instead of being
+    silently rephrased by the normal expansion step.
     """
     # Force a fresh DB checkout at the start of this step. Pipeline-step
     # boundaries (script → scenes) leave a connection that may have been
@@ -3015,6 +3085,13 @@ async def _generate_scenes(
     if project is None:
         raise RuntimeError(f"Project {_project_id} disappeared before scene generation")
 
+    # Preserve personalized/custom-style narration verbatim so a second rewrite
+    # cannot dilute it. Concrete built-ins use the expander with their immutable
+    # project snapshot below.
+    from app.services.script_style import is_personalized_style, style_guidance_for_project
+    if is_personalized_style(getattr(project, "video_style", "")):
+        verbatim_narration = True
+
     scenes = project.scenes
 
     # Wealth Your Way: freeze the ending scene's narration + title BEFORE the
@@ -3024,7 +3101,7 @@ async def _generate_scenes(
     # Skipped when skip_voiceover is set — that flow keeps the existing narration/audio
     # and nulling voiceover_path here would leave the ending scene silent (no TTS re-run).
     _is_wealth = project.template in WEALTH_TEMPLATE_IDS
-    if _is_wealth and scenes and not skip_voiceover:
+    if _is_wealth and scenes and not skip_voiceover and not verbatim_narration:
         for s in scenes:
             if getattr(s, "preferred_layout", None) == "ending_socials":
                 s.title = WEALTH_ENDING_TITLE
@@ -3044,6 +3121,7 @@ async def _generate_scenes(
             {
                 "title": s.title,
                 "narration": s.narration_text,
+                "display_text": s.display_text,
                 "visual_description": vis,
                 "preferred_layout": getattr(s, "preferred_layout", None),
             }
@@ -3097,8 +3175,10 @@ async def _generate_scenes(
             vo_paths = await generate_all_voiceovers(
                 scenes, db,
                 video_style=getattr(project, "video_style", None) or "explainer",
+                style_guidance=style_guidance_for_project(project),
                 content_language=content_lang,
                 expressive=expressive,
+                verbatim=verbatim_narration,
             )
             # generate_all_voiceovers swallows per-scene TTS failures (returns "" for a
             # failed scene). In strict mode (regenerate-script, which has a restorable
@@ -3387,8 +3467,9 @@ async def _generate_scenes(
                         "secondaryWebsiteLink": WEALTH_AMAZON_URL,
                     },
                 }
-                scene.title = WEALTH_ENDING_TITLE
-                scene.narration_text = WEALTH_ENDING_NARRATION
+                if not verbatim_narration:
+                    scene.title = WEALTH_ENDING_TITLE
+                    scene.narration_text = WEALTH_ENDING_NARRATION
             else:
                 cta_from_visual, _ = strip_b2v_cta_from_visual(scene.visual_description or "")
                 cta = (cta_from_visual or "").strip()
@@ -3706,6 +3787,11 @@ async def generate_script_endpoint(
         raise HTTPException(status_code=400, detail="Blog content not yet scraped.")
     try:
         await _generate_script(project, db)
+        db.refresh(project)
+        if project.script_review_enabled and project.script_review_approved_at is None:
+            project.status = ProjectStatus.AWAITING_SCRIPT_REVIEW
+            db.commit()
+            db.refresh(project)
     except Exception as e:
         logger.exception("[GENERATE_SCRIPT_ENDPOINT] project=%s", project_id)
         _rollback_project_after_endpoint_failure(db, project_id, user.id)
@@ -3721,6 +3807,11 @@ async def generate_scenes_endpoint(
 ):
     """Generate Remotion layout descriptors + voiceovers for each scene (async)."""
     project = _get_project(project_id, user.id, db)
+    if (
+        project.status == ProjectStatus.AWAITING_SCRIPT_REVIEW
+        or (project.script_review_enabled and project.script_review_approved_at is None)
+    ):
+        raise HTTPException(status_code=409, detail="Review and approve the script before generating voiceovers.")
     if not project.scenes:
         raise HTTPException(status_code=400, detail="No scenes found.")
     try:
