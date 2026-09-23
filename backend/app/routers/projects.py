@@ -751,6 +751,45 @@ def _clear_visual_cleared_by_user(lp: dict) -> None:
     lp.pop(VISUAL_CLEARED_BY_USER, None)
 
 
+def _clip_used_by_other_scene(
+    db, project_id: int, filename: str, exclude_scene_id: int
+) -> bool:
+    """True when any OTHER active scene still has this clip in its descriptor.
+
+    The caller runs BEFORE the edited scene's `remotion_code` is written back, so
+    the scene being edited is skipped by id rather than by reading its (still
+    stale) stored descriptor.
+
+    Errs on the side of True: if the scan fails we must not retire a clip that
+    might still be in use, because excluding it would blank it everywhere.
+    """
+    try:
+        rows = (
+            db.query(Scene)
+            .filter(Scene.project_id == project_id, Scene.id != exclude_scene_id)
+            .all()
+        )
+        for row in rows:
+            if not getattr(row, "is_active", True):
+                continue
+            raw = getattr(row, "remotion_code", None)
+            if not raw:
+                continue
+            try:
+                lp = (json.loads(raw) or {}).get("layoutProps")
+            except (json.JSONDecodeError, TypeError):
+                continue  # legacy / non-JSON descriptor
+            if isinstance(lp, dict) and lp.get("assignedVideo") == filename:
+                return True
+        return False
+    except Exception:  # noqa: BLE001
+        logger.exception(
+            "[SCENE-UPDATE] could not check other scenes for clip %s on project %s",
+            filename, project_id,
+        )
+        return True
+
+
 def _exclude_freed_clip(db, project_id: int, filename: str) -> None:
     """Take a user-removed clip out of the assignment pool, project-wide.
 
@@ -759,6 +798,14 @@ def _exclude_freed_clip(db, project_id: int, filename: str) -> None:
     different scene. `excluded` is the flag the codebase already uses to hold an
     asset back (the media picker toggles the same one), and every pool build
     filters on it — so setting it is what makes "removed" mean removed.
+
+    ONLY SAFE WHEN NO OTHER SCENE USES THE CLIP. `excluded` is project-wide and
+    matched by filename, while one clip may legitimately be assigned to several
+    scenes — so callers must gate this on _clip_used_by_other_scene. Excluding a
+    shared clip blanked it in every other scene: those scenes kept a valid
+    `assignedVideo`, but every resolver filters on `excluded`, so nothing
+    rendered. Stills never had this failure mode — removing one edits that
+    scene's descriptor and never touches the Asset row.
 
     Reversible: re-assigning the clip from the picker un-excludes it. Never
     raises — a failure here must not take down the scene save that triggered it.
@@ -4483,6 +4530,14 @@ def update_scene(
                     # Only when the user actually cleared the slot: an edit that
                     # SWAPS one clip for another must not exclude the outgoing
                     # one, or swapping would quietly retire clips.
+                    #
+                    # AND ONLY WHEN NO OTHER SCENE STILL USES THE CLIP. One clip
+                    # may be assigned to several scenes, exactly as one still
+                    # may be; `excluded` is project-wide and matched by
+                    # filename, so retiring a shared clip blanked it in every
+                    # other scene that used it — each of those kept a valid
+                    # `assignedVideo` while every resolver filtered the asset
+                    # out. Unassigning must only empty THIS scene.
                     _old_lp = (old_parsed or {}).get("layoutProps") if isinstance(old_parsed, dict) else None
                     _new_lp = new_parsed.get("layoutProps") if isinstance(new_parsed, dict) else None
                     if isinstance(_old_lp, dict) and isinstance(_new_lp, dict):
@@ -4491,6 +4546,9 @@ def update_scene(
                             _freed
                             and not _new_lp.get("assignedVideo")
                             and _new_lp.get(VISUAL_CLEARED_BY_USER)
+                            and not _clip_used_by_other_scene(
+                                db, project_id, _freed, scene_id
+                            )
                         ):
                             _exclude_freed_clip(db, project_id, _freed)
             except Exception:

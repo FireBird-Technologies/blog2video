@@ -3498,12 +3498,20 @@ export default function SceneEditModal({
   const aiWillRewrite =
     description.trim().length > 0 || selectedLayout === "__auto__";
 
-  // Display-only helpers for the AI panel meta row + voiceover status.
+  // Display-only helpers for the AI panel meta row.
   const aiWordCount = aiNarration.trim() ? aiNarration.trim().split(/\s+/).length : 0;
   // Rough estimate: ~2.5 spoken words per second.
   const aiEstimatedSeconds = Math.max(1, Math.round(aiWordCount / 2.5));
-  const voiceoverUpToDate =
-    !regenerateVoiceover &&
+  // Re-recording an UNCHANGED script just re-renders the same words, burning
+  // credits for identical audio. Warn only in that case: once the narration
+  // differs, new audio is the expected outcome and needs no warning.
+  //
+  // Scoped to the verbatim option. "Rephrase with AI" rewrites the script
+  // before TTS, so it yields different audio even from an untouched narration
+  // — warning there would be wrong.
+  const rerecordWouldRepeatAudio =
+    regenerateVoiceover &&
+    matchNarrationExactly &&
     aiNarration.trim() === (scene.narration_text || "").trim();
   const voiceLabel = (() => {
     const accent = project.voice_accent ? project.voice_accent.trim() : "";
@@ -7541,14 +7549,11 @@ export default function SceneEditModal({
                 )}
               </div>
 
-              {/* STEP 3 — settings applied when you save. Grouped + labeled so each is clear. */}
+              {/* STEP 3 — settings applied when you save. */}
               <div className="rounded-xl border border-gray-100 divide-y divide-gray-100">
-                <div className="px-4 py-2.5 bg-gray-50/70 rounded-t-xl">
-                  <h4 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">When you save</h4>
-                </div>
-
-                {/* Regenerate voiceover — a setting, with description + live status. */}
-                <div className="px-4 py-3">
+                {/* Regenerate voiceover — a setting, with description + live status.
+                    First row in the group, so it carries the top rounding. */}
+                <div className="px-4 py-4 rounded-t-xl">
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-gray-800">Re-record the voiceover</p>
@@ -7600,51 +7605,98 @@ export default function SceneEditModal({
                     </div>
                   )}
 
-                  {/* Sub-option only matters when re-recording. */}
-                  {regenerateVoiceover && (
-                    <div className="mt-3 ml-0 flex items-center justify-between gap-3 rounded-lg bg-gray-50 px-3 py-2.5">
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium text-gray-700">
-                          Speak word-for-word (On) or let AI rephase it(Off).
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setMatchNarrationExactly(!matchNarrationExactly)}
-                        className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
-                          matchNarrationExactly ? "bg-purple-600" : "bg-gray-200"
-                        }`}
-                        role="switch"
-                        aria-checked={matchNarrationExactly}
-                      >
-                        <span
-                          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                            matchNarrationExactly ? "translate-x-4" : "translate-x-0"
-                          }`}
-                        />
-                      </button>
+                  {/* How the new audio is spoken. Only meaningful when re-recording,
+                      but rendered ALWAYS — greyed and inert while the toggle above is
+                      off. Hiding it outright (the previous behaviour) made the option
+                      undiscoverable until you enabled re-recording, and made the panel
+                      jump as it appeared. Greying follows AdvancedVoiceOptions. */}
+                  <div
+                    className={`mt-3 transition-opacity ${
+                      regenerateVoiceover ? "" : "opacity-50 pointer-events-none select-none"
+                    }`}
+                    aria-disabled={!regenerateVoiceover}
+                  >
+                    <div
+                      className="grid grid-cols-2 gap-x-5 gap-y-2"
+                      role="radiogroup"
+                      aria-label="How the narration is spoken"
+                    >
+                      {([
+                        {
+                          exact: true,
+                          label: "Use exact wording",
+                          desc: "Speaks your narration word for word.",
+                        },
+                        {
+                          exact: false,
+                          label: "Rephrase with AI",
+                          desc: "AI lightly rephrases it to align better with overall context."
+                        },
+                      ] as const).map((opt) => {
+                        const isActive = matchNarrationExactly === opt.exact;
+                        return (
+                          <button
+                            key={opt.label}
+                            type="button"
+                            role="radio"
+                            aria-checked={isActive}
+                            // pointer-events-none on the wrapper stops the mouse; this
+                            // also takes the options out of the tab order while inert.
+                            disabled={!regenerateVoiceover}
+                            // Set the value outright rather than flipping it, so
+                            // clicking the selected option is a no-op, not a toggle.
+                            onClick={() => setMatchNarrationExactly(opt.exact)}
+                            className="flex items-start gap-2 py-2.5 text-left"
+                          >
+                            {/* The unselected option keeps a same-size empty ring, so
+                                the two rows stay aligned and nothing shifts as the
+                                selection moves. */}
+                            {isActive ? (
+                              <span className="mt-px w-4 h-4 shrink-0 rounded-full bg-purple-600 text-white flex items-center justify-center">
+                                <svg
+                                  className="w-2.5 h-2.5"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth={3}
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                              </span>
+                            ) : (
+                              <span className="mt-px w-4 h-4 shrink-0 rounded-full border border-gray-300" />
+                            )}
+                            <span className="min-w-0">
+                              <span
+                                className={`block text-xs font-medium ${
+                                  isActive ? "text-purple-700" : "text-gray-600"
+                                }`}
+                              >
+                                {opt.label}
+                              </span>
+                              <span className="mt-0.5 block text-[11px] leading-snug text-gray-500">
+                                {opt.desc}
+                              </span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Re-recording an unchanged script reproduces the same audio.
+                      Only shown in that case — see rerecordWouldRepeatAudio. */}
+                  {rerecordWouldRepeatAudio && (
+                    <div className="mt-2.5 flex items-start gap-1.5 text-xs">
+                      <svg className="w-3.5 h-3.5 shrink-0 text-amber-500 mt-px" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.3 3.9l-7.5 13A2 2 0 004.5 20h15a2 2 0 001.7-3.1l-7.5-13a2 2 0 00-3.4 0z" />
+                      </svg>
+                      <span className="text-amber-600 font-medium">
+                        Re-recording an unchanged narration produces the same voiceover. Edit the
+                        narration to generate a different one.
+                      </span>
                     </div>
                   )}
-
-                  {/* Live status so the choice's effect is obvious. */}
-                  <div className="mt-2.5 flex items-center gap-1.5 text-xs">
-                    {voiceoverUpToDate ? (
-                      <>
-                        <svg className="w-3.5 h-3.5 text-green-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                          <circle cx="12" cy="12" r="9" />
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M8.5 12.5l2.5 2.5 4.5-5" />
-                        </svg>
-                        <span className="text-green-600 font-medium">Voiceover is up to date — no new audio needed</span>
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.3 3.9l-7.5 13A2 2 0 004.5 20h15a2 2 0 001.7-3.1l-7.5-13a2 2 0 00-3.4 0z" />
-                        </svg>
-                        <span className="text-amber-600 font-medium">New voiceover will be generated on save</span>
-                      </>
-                    )}
-                  </div>
 
                   {/* Which voice — quiet info. */}
                   <div className="mt-2 flex items-center gap-1.5 text-[11px] text-gray-400">
