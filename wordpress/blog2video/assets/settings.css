@@ -1,0 +1,133 @@
+.b2v-settings-page {
+  --b2v-purple: #7c3aed;
+  --b2v-purple-rgb: 124, 58, 237;
+  max-width: 1080px;
+  margin: 0;
+  padding: 30px 28px 50px 8px;
+  color: #27232d;
+}
+
+.b2v-settings-page * { box-sizing: border-box; }
+
+.b2v-settings-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 22px;
+}
+
+.b2v-settings-brand { display: flex; align-items: center; gap: 13px; }
+.b2v-settings-brand img { display: block; width: 46px; height: 46px; border-radius: 13px; box-shadow: 0 7px 20px rgba(var(--b2v-purple-rgb), .2); }
+.b2v-settings-brand h1 { margin: 0; padding: 0; font-size: 23px; line-height: 1.15; letter-spacing: -.025em; }
+.b2v-settings-brand p { margin: 4px 0 0; color: #716b78; font-size: 13px; }
+
+.b2v-connection-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 11px;
+  border: 1px solid #dfdbe3;
+  border-radius: 999px;
+  background: #fff;
+  color: #716b78;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.b2v-connection-state i { width: 7px; height: 7px; border-radius: 50%; background: #aaa4af; }
+.b2v-connection-state.is-connected i { background: var(--b2v-purple); box-shadow: 0 0 0 3px rgba(var(--b2v-purple-rgb), .12); }
+
+.b2v-settings-layout {
+  width: min(720px, 100%);
+}
+
+.b2v-connect-panel,
+.b2v-embed-settings {
+  padding: 28px;
+  border: 1px solid #e2dfe5;
+  border-radius: 17px;
+  background: #fff;
+  box-shadow: 0 12px 38px rgba(35, 28, 43, .045);
+}
+
+.b2v-connect-panel { min-height: 330px; }
+.b2v-connect-icon { display: grid; place-items: center; width: 44px; height: 44px; margin-bottom: 22px; border-radius: 13px; background: rgba(var(--b2v-purple-rgb), .1); color: var(--b2v-purple); font-size: 14px; font-weight: 800; }
+.b2v-connect-icon.is-success { font-size: 20px; }
+.b2v-settings-kicker { display: block; margin-bottom: 7px; color: var(--b2v-purple); font-size: 10px; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; }
+
+.b2v-connect-copy h2,
+.b2v-embed-settings h2 { margin: 0; color: #27232d; font-size: 24px; line-height: 1.2; letter-spacing: -.03em; }
+
+.b2v-connect-copy p,
+.b2v-embed-settings > p { margin: 9px 0 0; color: #716b78; font-size: 14px; line-height: 1.55; }
+
+.b2v-connect-benefits { display: grid; gap: 9px; margin: 22px 0; padding: 0; list-style: none; }
+.b2v-connect-benefits li { position: relative; margin: 0; padding-left: 22px; color: #4f4856; font-size: 13px; }
+.b2v-connect-benefits li::before { position: absolute; left: 0; color: var(--b2v-purple); content: "✓"; font-weight: 800; }
+
+.b2v-connect-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; margin-top: 24px; }
+.b2v-connect-actions form,
+.b2v-connect-panel > form { margin: 0; }
+
+.b2v-settings-page .button-primary,
+.b2v-settings-page .b2v-button-secondary,
+.b2v-settings-page .b2v-button-quiet {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 7px 16px;
+  border-radius: 999px;
+  font-weight: 650;
+  line-height: 1;
+}
+
+.b2v-settings-page .button-primary,
+.b2v-settings-page .button-primary:focus,
+.b2v-settings-page .button-primary:hover { border-color: var(--b2v-purple); background: var(--b2v-purple); color: #fff; box-shadow: none; }
+.b2v-settings-page .button-primary:hover { filter: brightness(.95); }
+.b2v-settings-page .b2v-button-secondary { border: 1px solid rgba(var(--b2v-purple-rgb), .3); background: #fff; color: var(--b2v-purple); }
+.b2v-settings-page .b2v-button-secondary:hover,
+.b2v-settings-page .b2v-button-secondary:focus { border-color: var(--b2v-purple); background: rgba(var(--b2v-purple-rgb), .05); color: var(--b2v-purple); }
+.b2v-settings-page .b2v-button-quiet { border: 0; background: transparent; color: #716b78; }
+
+.b2v-connect-note { margin: 17px 0 0; color: #8a8490; font-size: 11px; }
+.b2v-approval-status { display: flex; align-items: center; gap: 8px; margin: 18px 0 0; color: #77717e; font-size: 11px; }
+.b2v-approval-status i { width: 13px; height: 13px; border: 2px solid rgba(var(--b2v-purple-rgb), .2); border-top-color: var(--b2v-purple); border-radius: 50%; animation: b2v-settings-spin .8s linear infinite; }
+.b2v-approval-status.is-error { color: #b42318; }
+.b2v-approval-status.is-error i { border: 0; animation: none; }
+.b2v-approval-status.is-error i::before { content: "!"; font-weight: 800; }
+@keyframes b2v-settings-spin { to { transform: rotate(360deg); } }
+.b2v-embed-settings h2 { font-size: 19px; }
+.b2v-embed-settings > p { font-size: 12px; }
+
+.b2v-switch-row { display: flex; position: relative; align-items: center; justify-content: space-between; gap: 14px; margin: 22px 0; padding: 15px 0; border-top: 1px solid #eeebf0; border-bottom: 1px solid #eeebf0; cursor: pointer; }
+.b2v-switch-row span,
+.b2v-switch-row strong,
+.b2v-switch-row small { display: block; }
+.b2v-switch-row strong { font-size: 12px; }
+.b2v-switch-row small { margin-top: 3px; color: #817b87; font-size: 10px; }
+.b2v-switch-row input { position: absolute; opacity: 0; pointer-events: none; }
+.b2v-switch-row > i { position: relative; flex: 0 0 38px; height: 22px; border-radius: 999px; background: #d9d5dc; }
+.b2v-switch-row > i::after { position: absolute; left: 3px; top: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, .16); content: ""; transition: transform .15s; }
+.b2v-switch-row input:checked + i { background: var(--b2v-purple); }
+.b2v-switch-row input:checked + i::after { transform: translateX(16px); }
+.b2v-switch-row input:focus-visible + i { box-shadow: 0 0 0 3px rgba(var(--b2v-purple-rgb), .16); }
+
+@media (max-width: 900px) {
+  .b2v-settings-layout { grid-template-columns: 1fr; }
+  .b2v-connect-panel { min-height: 0; }
+}
+
+@media (max-width: 600px) {
+  .b2v-settings-page { padding-right: 12px; }
+  .b2v-settings-hero { align-items: flex-start; flex-direction: column; }
+  .b2v-connect-panel,
+  .b2v-embed-settings { padding: 21px; border-radius: 14px; }
+  .b2v-connect-actions { align-items: stretch; flex-direction: column; }
+  .b2v-connect-actions form,
+  .b2v-connect-actions .button,
+  .b2v-connect-actions form .button { width: 100%; }
+}

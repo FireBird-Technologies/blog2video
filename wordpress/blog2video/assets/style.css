@@ -1,0 +1,1 @@
+.b2v-player{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;background:#0f172a;border-radius:12px;margin:1.5rem 0}.b2v-player.is-portrait{aspect-ratio:9/16;max-width:480px;margin-left:auto;margin-right:auto}.b2v-player iframe{position:absolute;inset:0;width:100%;height:100%;border:0}

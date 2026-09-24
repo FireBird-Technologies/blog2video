@@ -101,3 +101,5 @@ backend/scripts/replace_saved_voice_defaults_fast.py
 backend/scripts/replace_saved_voice_defaults_bulk.py
 backend/scripts/fix_new_voice_preview_urls_bulk.py
 backend/scripts/shorten_new_voice_descriptions_bulk.py
+
+wordpress/
