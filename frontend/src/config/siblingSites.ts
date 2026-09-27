@@ -15,6 +15,7 @@
 
 export const PDF2VID_URL = "https://pdf2vid.com";
 export const BLOGHUB_URL = "https://bloghub.app";
+export const NOTESTACK_URL = "https://notestack.ai";
 
 function withUtm(base: string, content: string, campaign: string): string {
   const params = new URLSearchParams({
@@ -33,4 +34,8 @@ export function pdf2vidUrl(content: string): string {
 
 export function bloghubUrl(content: string): string {
   return withUtm(BLOGHUB_URL, content, "bloghub");
+}
+
+export function notestackUrl(content: string): string {
+  return withUtm(NOTESTACK_URL, content, "notestack");
 }

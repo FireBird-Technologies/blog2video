@@ -181,7 +181,8 @@ function renderMarketingPageHtml(page: MarketingPage): string {
       const bullets = s.bullets?.length
         ? `<ul>${s.bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join("")}</ul>`
         : "";
-      return `<section><h2>${escapeHtml(s.title)}</h2>${body}${bullets}</section>`;
+      const cta = s.ctaPath && s.ctaLabel ? `<p><a href="${escapeHtml(s.ctaPath)}">${escapeHtml(s.ctaLabel)}</a></p>` : "";
+      return `<section><h2>${escapeHtml(s.title)}</h2>${body}${bullets}${cta}</section>`;
     })
     .join("");
   const faqHtml = page.faq.length
@@ -234,7 +235,8 @@ function renderToolPageHtml(tool: ToolDefinition): string {
       const bullets = s.bullets?.length
         ? `<ul>${s.bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join("")}</ul>`
         : "";
-      return `<section><h2>${escapeHtml(s.title)}</h2>${body}${bullets}</section>`;
+      const cta = s.ctaPath && s.ctaLabel ? `<p><a href="${escapeHtml(s.ctaPath)}">${escapeHtml(s.ctaLabel)}</a></p>` : "";
+      return `<section><h2>${escapeHtml(s.title)}</h2>${body}${bullets}${cta}</section>`;
     })
     .join("");
   const proofHtml = tool.proofPoints?.length
@@ -456,7 +458,10 @@ function normalizePath(routePath: string) {
 function toFilePath(routePath: string) {
   const normalized = normalizePath(routePath);
   if (normalized === "/") return path.join(distDir, "index.html");
-  return path.join(distDir, normalized.slice(1), "index.html");
+  // <route>.html, not <route>/index.html: Cloudflare Pages serves /blogs/x from blogs/x.html directly, but a folder
+  // index 308-redirects /blogs/x to /blogs/x/, so every canonical and sitemap URL (no trailing slash) redirected to a
+  // page whose canonical pointed back at it.
+  return path.join(distDir, `${normalized.slice(1)}.html`);
 }
 
 async function ensureDirFor(filePath: string) {

@@ -8,7 +8,7 @@ import {
 } from "../../content/siteContent";
 import { useAuth } from "../../hooks/useAuth";
 import { getBrand, useBrand, type BrandId } from "../../brand/brand";
-import { bloghubUrl, pdf2vidUrl } from "../../config/siblingSites";
+import { bloghubUrl, notestackUrl, pdf2vidUrl } from "../../config/siblingSites";
 
 /**
  * When the pdf2video brand is active, the counterpart is blog2video — which is
@@ -104,6 +104,12 @@ export default function PublicFooter({ brandId }: { brandId?: BrandId } = {}) {
                 className="block text-sm text-gray-500 transition-colors hover:text-gray-900"
               >
                 BlogHub — the newsletter directory →
+              </a>
+              <a
+                href={notestackUrl("footer")}
+                className="block text-sm text-gray-500 transition-colors hover:text-gray-900"
+              >
+                Notestack — research your own archive →
               </a>
             </div>
           </div>

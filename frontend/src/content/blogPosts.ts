@@ -22,6 +22,9 @@ export const blogPosts: BlogPost[] = [
     description:
       "Blog2Video's latest update: your video preferences are now saved and reused, you can review and edit the script before generation, finished videos publish straight to YouTube or LinkedIn, and the app is cleaner and renders faster.",
     category: "Product Update",
+    heroImage: "/blog/blog-cover-suit-up-blog2video-update.png",
+    heroImageAlt:
+      "Stickman spinning into a dark cape suit, surrounded by cards for saved preferences, script review, YouTube and LinkedIn publish icons, and a speed boost.",
     publishedAt: "2026-09-26",
     readTime: "5 min read",
     heroEyebrow: "Product Update",
@@ -762,6 +765,14 @@ export const blogPosts: BlogPost[] = [
         ctaPath: "/blog-to-video",
         ctaLabel: "Try it without the chat window",
       },
+      {
+        heading: "ChatGPT, NotebookLM and grounded answers",
+        paragraphs: [
+          "Video is only one of the jobs people hand to ChatGPT. For research, the bigger question is whether the answer comes from a source you can check. Our sister product Notestack has a plain comparison of how ChatGPT and NotebookLM handle that.",
+        ],
+        ctaPath: "https://notestack.ai/blogs/notebooklm-vs-chatgpt",
+        ctaLabel: "Read NotebookLM vs ChatGPT",
+      },
     ],
     faq: [
       {
@@ -1236,6 +1247,14 @@ export const blogPosts: BlogPost[] = [
         ],
         ctaPath: "/blog-to-video",
         ctaLabel: "Turn a newsletter issue into a video",
+      },
+      {
+        heading: "Get your Substack in front of more readers",
+        paragraphs: [
+          "A newsletter's value follows its subscriber count. One free way to add readers is to list your Substack on BlogHub, a directory where people browse for new newsletters to subscribe to.",
+        ],
+        ctaPath: "https://bloghub.app/submit-your-newsletter",
+        ctaLabel: "List your newsletter on BlogHub",
       },
     ],
     faq: [
@@ -1746,6 +1765,14 @@ export const blogPosts: BlogPost[] = [
         ctaPath: "https://bloghub.app/blogs/article-submission-sites",
         ctaLabel: "5 places to submit your article",
       },
+      {
+        heading: "Submission sites that accept your articles",
+        paragraphs: [
+          "If you want a longer list of places to submit posts, BlogHub keeps a curated list of article submission sites, with what each one accepts and whether the link it gives you is worth anything.",
+        ],
+        ctaPath: "https://bloghub.app/blogs/article-submission-sites",
+        ctaLabel: "See article submission sites",
+      },
     ],
     faq: [
       {
@@ -2038,6 +2065,14 @@ export const blogPosts: BlogPost[] = [
           "Spending your good hours on research? Perplexity.",
           "Good posts, dead click-through? Your covers — Ideogram.",
         ],
+      },
+      {
+        heading: "Beyond Substack: AI tools for every kind of writer",
+        paragraphs: [
+          "This list is about Substack specifically. For a broader look at AI tools that help writers research, keep their voice and publish without the busywork, see the guide from Notestack, our research notebook for writers.",
+        ],
+        ctaPath: "https://notestack.ai/blogs/ai-tools-for-writers",
+        ctaLabel: "AI tools for writers",
       },
     ],
     faq: [
@@ -5593,6 +5628,14 @@ export const blogPosts: BlogPost[] = [
         ctaPath: "/blog-to-video",
         ctaLabel: "Try Blog2Video free",
       },
+      {
+        heading: "Just need slides from a PDF?",
+        paragraphs: [
+          "If you only want a slideshow from a PDF, with no narration, PDF2Video has a free PDF to slideshow tool that turns each section into a slide.",
+        ],
+        ctaPath: "https://pdf2vid.com/tools/pdf-to-slideshow",
+        ctaLabel: "Try PDF to slideshow",
+      },
     ],
     faq: [
       {
@@ -7155,366 +7198,6 @@ export const blogPosts: BlogPost[] = [
       {
         channel: "twitter",
         title: "Thread: 5 Free Headline Score Checkers That Actually Improve Your CTR",
-        angle:
-          "Post the main takeaways as a thread and link the full article.",
-      },
-    ],
-  },
-  {
-    slug: "how-to-convert-pdf-into-video",
-    title: "How to Convert a PDF Into a Video: 5 Best AI Tools in 2026",
-    description:
-      "Learn how to convert a PDF into a video using the 5 best AI tools in 2026 — Blog2Video, Synthesia, X-Pilot, Visla, and Mootion. Step-by-step guide included.",
-    category: "How-to",
-    heroImage: "/blog/blog-cover-how-to-convert-pdf-into-video.png",
-    heroImageAlt:
-      "PDF document converting into narrated video using AI tools.",
-    publishedAt: "2026-07-14",
-    readTime: "6 min read",
-    heroEyebrow: "How-to",
-    heroTitle: "How to Convert a PDF Into a Video: 5 Best AI Tools in 2026",
-    heroDescription:
-      "Learn how to convert a PDF into a video using the 5 best AI tools in 2026 — Blog2Video, Synthesia, X-Pilot, Visla, and Mootion. Step-by-step guide included.",
-    primaryKeyword: "how to convert pdf into video",
-    keywordVariant: "pdf to video converter ai",
-    relatedPaths: ["/pdf-to-video", "/blogs/how-to-make-a-pdf-into-a-video", "/blogs/how-to-convert-pdf-to-video"],
-    sections: [
-      {
-        heading: "Overview",
-        paragraphs: [
-          "TL;DR: A step-by-step guide to converting a PDF into a video using the five best AI tools in 2026 — Blog2Video, Synthesia, X-Pilot, Visla, and Mootion.",
-          "The fastest way to make your PDF actually reach people is to convert it into a video. A PDF gets downloaded and forgotten. A video gets watched, shared, embedded in blog posts, and distributed on YouTube, LinkedIn, and Instagram.",
-          "The good news: AI tools in 2026 make this conversion automatic. You upload the PDF, and the tool extracts the content, builds a narrated video, and handles the visual layout. No filming, no design work, no editing software.",
-          "Here are the five best tools for converting PDFs into videos, with a full comparison and step-by-step instructions.",
-        ],
-      },
-      {
-        heading: "Why Convert a PDF to Video?",
-        paragraphs: [
-          "PDFs are excellent for sharing dense information with a small audience that is specifically looking for it. But for everyone else:",
-          "1. PDFs don't reach new audiences. You can't embed a PDF on YouTube or boost it on LinkedIn the same way you can a video.",
-          "2. PDFs don't explain themselves. A narrated video walks the viewer through the content at your intended pace.",
-          "3. PDFs aren't mobile-friendly. Pinching and zooming on a 20-page report is a poor experience. A two-minute video covering the same content is far more watchable on a phone.",
-          "4. Video improves information retention. Studies consistently show that viewers retain more from video than from reading — especially for complex or data-heavy content.",
-          "If you've already put the work into writing the PDF, converting it to video is simply smart content distribution.",
-        ],
-      },
-      {
-        heading: "1. Blog2Video — Best for Polished, Branded Video From PDFs",
-        paragraphs: [
-          "Best for: Marketers, educators, and creators who want high-quality visual output",
-          "Blog2Video is purpose-built for turning written content — including PDFs — into professional broadcast and explainer videos. Upload the PDF, select a visual template, and the AI generates a narrated, scene-structured video in 2–3 minutes.",
-          "What makes it stand out from other PDF-to-video tools:",
-          "The template library is substantially higher quality than competitors. Instead of generic slideshows, Blog2Video produces:",
-          "1. Newscast — broadcast-style video with lower thirds, anchor narration, and data graphics that look like TV visuals",
-          "2. Nightfall — cinematic dark glass panels with neon-glow metrics; premium keynote aesthetic",
-          "3. Gridcraft — editorial bento-grid layouts; clean, modern, great for business content",
-          "4. Spotlight — bold kinetic typography that slams into frame; fast-paced and social-first",
-          "5. Geometric Explainer — clean whiteboard style for technical or educational content",
-          "Blog2Video also exports in four formats from the same PDF: MP4 video, PowerPoint (.pptx), PDF slides, and PNG images per scene. You can share the video on YouTube, use the PDF as a LinkedIn carousel, send the PowerPoint to clients for review, and use the PNGs for social posts — all from one upload.",
-          "Pricing: $4 per video; bulk rates at 10+ and 30+ exports Try it: blog2video.app",
-        ],
-      },
-      {
-        heading: "2. Synthesia — Best for Corporate-Grade AI Avatar Videos",
-        paragraphs: [
-          "Best for: Enterprise training, compliance, and sales enablement",
-          "Synthesia is the professional benchmark for AI avatar video generation. It extracts key points from your PDF, generates a script, and produces a video with one of 230+ AI presenters delivering the narration with lip-synced delivery in 140+ languages.",
-          "The result looks exactly like a real human is presenting your document on camera. For internal training videos, compliance modules, and customer onboarding — where production values signal credibility — Synthesia is the right tool.",
-          "Limitation: It's expensive relative to most PDF-to-video tools. The professional quality comes at a professional price point.",
-          "Best for: Corporate training, compliance, and sales content where human-presenter-style video matters Pricing: Paid plans starting at ~$22/month",
-        ],
-      },
-      {
-        heading: "3. X-Pilot — Best Free PDF to Video Option",
-        paragraphs: [
-          "Best for: Anyone who needs PDF-to-video conversion with no budget",
-          "X-Pilot uses AI to extract document structure and generate narrated, animated videos — not static slideshows. The free tier is genuinely useful:",
-          "1. Up to 30 pages per document",
-          "2. 1080p MP4 export",
-          "3. No watermark",
-          "4. No credit card required",
-          "The visual output is more generic than Blog2Video or Synthesia, but for the price (free), it's hard to argue with. Best for simple instructional content, research summaries, and educational PDFs where visual polish matters less than getting the content into video format.",
-          "Free tier: Yes — no watermark, no credit card, 1080p export Best for: Free PDF-to-video conversion with reasonable quality",
-        ],
-      },
-      {
-        heading: "4. Visla — Best for Short-Form and Social Video",
-        paragraphs: [
-          "Best for: Marketers turning PDFs into social media videos",
-          "Visla automatically extracts key content from the PDF, breaks it into scenes, and generates video that feels more like a reel or explainer than a presentation. It adds stock footage, narration, and scene transitions.",
-          "If the goal is a LinkedIn video, Instagram Reel, or YouTube Short rather than a full explainer, Visla's social-first approach produces better results than tools oriented toward long-form presentation content.",
-          "Best for: Short-form video for social media from PDF source content Free tier: Limited free tier",
-        ],
-      },
-      {
-        heading: "5. Mootion — Best for Speed",
-        paragraphs: [
-          "Best for: Anyone who needs a video generated as fast as possible",
-          "Mootion outperformed competitors by 65% in speed in independent tests — generating a full 3-minute video in under 2 minutes compared to the industry average of 6 minutes. If turnaround speed is your primary constraint, Mootion is worth testing.",
-          "The output quality is solid for presentation-style videos. For premium visual output at high speed, it's a reasonable middle ground.",
-          "Best for: High-volume use cases where speed is the primary priority Free tier: Limited",
-        ],
-      },
-      {
-        heading: "How to Convert a PDF Into a Video With Blog2Video (Step by Step)",
-        paragraphs: [
-        ],
-        bullets: [
-          "Go to blog2video.app and sign in (or create a free account)",
-          "Click New Project → select Upload PDF or Paste Link if the document is hosted online",
-          "Upload your PDF — the AI reads and extracts the content automatically",
-          "Select a template: - Newscast — broadcast-style with TV graphics - Gridcraft — editorial and modern - Nightfall — cinematic and premium - Spotlight — bold and social-first - Geometric Explainer — clean and educational",
-          "Choose a voiceover from the library (multiple English accents plus other languages)",
-          "Click Generate — wait 2–5 minutes for the AI to build your video",
-          "Review the scenes in the editor; adjust any scene text, images, or layout if needed",
-          "Export: - MP4 — upload to YouTube, LinkedIn, or embed on your site - PowerPoint — share with teammates or clients for editing - PDF — upload to LinkedIn as a carousel - PNG — use individual slides for social posts",
-        ],
-      },
-      {
-        heading: "Comparison: PDF to Video Converters in 2026",
-        paragraphs: [
-        ],
-        bullets: [
-          "Blog2Video — Free: Trial · Templates: ✓✓ High quality · Export Formats: MP4 + PPT + PDF + PNG · Avatar: — · Best For: Polished branded video",
-          "Synthesia — Free: No · Templates: ✓ · Export Formats: MP4 · Avatar: ✓✓ AI avatars · Best For: Enterprise/corporate",
-          "X-Pilot — Free: ✓✓ · Templates: Basic · Export Formats: MP4 · Avatar: — · Best For: Free tier, no watermark",
-          "Visla — Free: Limited · Templates: ✓ · Export Formats: MP4 · Avatar: — · Best For: Social/short-form video",
-          "Mootion — Free: Limited · Templates: ✓ · Export Formats: MP4 · Avatar: — · Best For: Speed-first generation",
-        ],
-        ctaPath: "/pdf-to-video",
-        ctaLabel: "Convert a PDF to video free",
-      },
-      {
-        heading: "If PDFs are your main input, there is a build for that",
-        paragraphs: [
-          "Blog2Video handles PDFs alongside URLs, documents and pasted text, which is right if your source material is mixed. If it is almost always a PDF — reports, whitepapers, lecture decks, handbooks, research summaries — pdf2vid.com is the same engine set up for exactly that job.",
-          "It takes the upload first rather than asking for a URL, reads the page structure directly, and maps sections and headings onto scenes without you re-pasting anything. Same templates, same automatic sizing across 16:9, 9:16 and 1:1, same MP4, PowerPoint, PDF and PNG exports.",
-          "It is the shortest route from a document that gets downloaded and forgotten to a video that gets watched, embedded, and shared.",
-        ],
-        ctaPath: "https://pdf2vid.com",
-        ctaLabel: "Generate a video from a PDF at pdf2vid.com",
-      },
-    ],
-    faq: [
-      {
-        question: "How long does it take to convert a PDF to video?",
-        answer:
-          "Blog2Video converts most PDFs in 2–5 minutes. Mootion is faster. Synthesia takes longer due to avatar rendering.",
-      },
-      {
-        question: "Do I need to edit the video after conversion?",
-        answer:
-          "Usually not. Blog2Video gives you a review screen where you can adjust scenes, but most outputs are usable without additional editing.",
-      },
-      {
-        question: "What's the best free way to convert a PDF to video?",
-        answer:
-          "X-Pilot offers the strongest free tier — 1080p MP4, no watermark, no credit card required, up to 30 pages.",
-      },
-      {
-        question: "Can I add my own voiceover to the PDF video?",
-        answer:
-          "Blog2Video uses AI voiceovers from its library. Some tools (like Synthesia) let you clone your voice. Manually adding a voiceover is also possible via video editing after export.",
-      },
-      {
-        question: "Which PDF format works best?",
-        answer:
-          "Text-based PDFs (with selectable text) work best. Scanned image PDFs produce lower quality results because the AI cannot extract the text reliably.",
-      },
-      {
-        question: "Can I upload a presentation or slide deck PDF?",
-        answer:
-          "Yes. Presentation PDFs — where each page is a slide — work particularly well because the page structure already maps closely to video scenes.",
-      },
-    ],
-    distributionPlan: [
-      {
-        channel: "site",
-        title: "How to Convert a PDF Into a Video: 5 Best AI Tools in 2026",
-        angle:
-          "Learn how to convert a PDF into a video using the 5 best AI tools in 2026 — Blog2Video, Synthesia, X-Pilot, Visla, and Mootion. Step-by-step guide included.",
-      },
-      {
-        channel: "video",
-        title: "How to Convert a PDF Into a Video — the 90-second version",
-        angle:
-          "Compress the article's core argument into a short narrated video with Blog2Video and link back to /blogs/how-to-convert-pdf-into-video.",
-      },
-      {
-        channel: "twitter",
-        title: "Thread: How to Convert a PDF Into a Video",
-        angle:
-          "Post the main takeaways as a thread and link the full article.",
-      },
-    ],
-  },
-  {
-    slug: "how-to-make-a-pdf-into-a-video",
-    title: "How to Make a PDF Into a Video: 5 AI Tools That Actually Work in 2026",
-    description:
-      "Learn how to make a PDF into a video using 5 AI tools tested in 2026 — Synthesia, Visla, X-Pilot, Vidnoz, and Blog2Video. Step-by-step instructions included.",
-    category: "How-to",
-    // Duplicate intent with the canonical PDF-to-video how-to; consolidate signals there.
-    canonicalPath: "/blogs/how-to-convert-pdf-into-video",
-    heroImage: "/blog/blog-cover-how-to-make-a-pdf-into-a-video.png",
-    heroImageAlt:
-      "Step-by-step workflow turning a PDF into a publishable MP4 video.",
-    publishedAt: "2026-07-14",
-    readTime: "6 min read",
-    heroEyebrow: "How-to",
-    heroTitle: "How to Make a PDF Into a Video: 5 AI Tools That Actually Work in 2026",
-    heroDescription:
-      "Learn how to make a PDF into a video using 5 AI tools tested in 2026 — Synthesia, Visla, X-Pilot, Vidnoz, and Blog2Video. Step-by-step instructions included.",
-    primaryKeyword: "how to make a pdf into a video",
-    keywordVariant: "make a video from a pdf",
-    relatedPaths: ["/pdf-to-video", "/blogs/how-to-convert-pdf-into-video", "/blogs/create-summary-videos-from-pdfs"],
-    sections: [
-      {
-        heading: "Overview",
-        paragraphs: [
-          "TL;DR: How to make a PDF into a video using five AI tools tested in 2026 — Synthesia, Visla, X-Pilot, Vidnoz, and Blog2Video — with step-by-step instructions for each.",
-          "Turning a PDF into a video used to mean hiring a motion designer, recording a screen capture, or spending hours in video editing software. In 2026, AI tools handle the heavy lifting — you upload the PDF, and the tool extracts the content, builds a visual structure, adds narration, and outputs a finished video.",
-          "The tricky part is that not all tools do this equally well. Some produce stiff slideshows. Others generate genuinely engaging videos with narration, transitions, and broadcast-style visuals.",
-          "Here are the five best tools for converting PDFs to video, with honest notes on what each is actually good for.",
-        ],
-      },
-      {
-        heading: "Why Converting a PDF to Video Makes Sense",
-        paragraphs: [
-          "A PDF sits in a downloads folder. A video lives on YouTube, LinkedIn, or your website — and people actually watch it.",
-          "The content you've already written in that PDF — the research, the argument, the explainer — is often better than most video scripts. The problem is packaging. Once that PDF becomes a video:",
-        ],
-        bullets: [
-          "It's shareable on platforms where PDFs don't reach",
-          "It adds audio narration that a PDF can't deliver",
-          "It's accessible to audiences who consume content by watching rather than reading",
-          "It can be embedded in blogs, newsletters, and landing pages",
-        ],
-      },
-      {
-        heading: "1. Blog2Video — Best for High-Quality Branded Videos From PDFs",
-        paragraphs: [
-          "Best for: Marketers, educators, and creators who want a visually polished output",
-          "Blog2Video is built specifically for turning written content — including PDFs — into professional broadcast and explainer videos. You upload the PDF (or paste a URL if the content is online), select a visual template, and the AI generates a narrated video with structured scenes.",
-          "The output quality is noticeably higher than most PDF-to-video tools because Blog2Video uses purpose-built templates with broadcast-style visuals:",
-          "1. Newscast — broadcast graphics, lower thirds, anchor-style narration",
-          "2. Nightfall — cinematic dark glass panels, great for launches and deep dives",
-          "3. Gridcraft — editorial bento-grid layouts, clean and modern",
-          "4. Spotlight — bold kinetic typography, fast-paced and social-first",
-          "5. Geometric Explainer — clean whiteboard-style for technical content",
-          "You can also export the same PDF content as a PowerPoint deck, PDF slides, or PNG images alongside the video — one source document, four distribution formats.",
-          "Pricing: $4 per video; bulk rates at 10+ and 30+ exports Best for: Content that deserves visual polish — marketing materials, educational content, product explainers Try it: blog2video.app",
-        ],
-      },
-      {
-        heading: "2. Synthesia — Best for Professional Corporate Videos With AI Avatars",
-        paragraphs: [
-          "Best for: Enterprise training, compliance, and sales enablement content",
-          "Synthesia is the professional-grade option. It extracts key points from your PDF, drafts a script, and produces a video with one of 230+ AI presenters delivering the narration with lip-synced delivery in 140+ languages.",
-          "The result looks like a real human is presenting your document content on camera. It's the most professional output of any tool on this list — which is also why it's the most expensive.",
-          "Best for: Corporate training, compliance modules, customer onboarding, sales presentations Limitation: Cost; overkill for casual or educational use",
-        ],
-      },
-      {
-        heading: "3. X-Pilot — Best Free PDF to Video Converter",
-        paragraphs: [
-          "Best for: Users on a tight budget who need a professional output without watermarks",
-          "X-Pilot uses AI to extract the document structure and generate narrated, animated videos — not simple slideshows. The free tier covers up to 30 pages, exports at 1080p MP4, no watermark, no credit card required.",
-          "For simple instructional content, research summaries, and educational PDFs, X-Pilot's free tier is genuinely useful. The output won't match Blog2Video or Synthesia visually, but for the price it's hard to beat.",
-          "Best for: Free PDF-to-video conversion with no watermark Limitation: Less visual polish than premium tools; templates are more generic",
-        ],
-      },
-      {
-        heading: "4. Visla — Best for Short-Form and Social Video",
-        paragraphs: [
-          "Best for: Marketers turning PDFs into short, engaging reels and explainers",
-          "Visla automatically extracts key content from the PDF, breaks it into scenes, and generates a video structure that feels closer to a reel or explainer video rather than a static presentation. It adds stock footage, narration, and transitions.",
-          "If you need to turn a PDF into a LinkedIn video, Instagram Reel, or YouTube Short, Visla's AI-driven storytelling approach is better suited than tools focused on presentation-style output.",
-          "Best for: Short-form and social video from PDF source content Limitation: Less control over branding and visual style than Blog2Video",
-        ],
-      },
-      {
-        heading: "5. Powtoon — Best for Animated Explainer Videos",
-        paragraphs: [
-          "Best for: Educators and trainers who want animated characters and scenes",
-          "Powtoon is an AI-powered platform where you upload a PDF, select an output style (animated, presentation-style, or footage-based), and let the AI generate a script, build scenes, and produce a video.",
-          "The animated style works particularly well for educational content — think explainer videos for courses, tutorials, and how-to guides.",
-          "Best for: Educational and training content with animated visuals Limitation: The animated style isn't appropriate for all content types",
-        ],
-      },
-      {
-        heading: "How to Make a PDF Into a Video With Blog2Video (Step by Step)",
-        paragraphs: [
-          "1. Go to blog2video.app and sign in",
-          "2. Click New Project → select PDF upload or paste a link if the content is hosted online",
-          "3. Upload your PDF",
-          "4. Select a template — Newscast for broadcast style, Gridcraft for editorial, Nightfall for cinematic",
-          "5. Choose a voiceover from the voice library",
-          "6. Click Generate — the AI extracts content, structures scenes, and builds the video (2–3 minutes)",
-          "7. Review scenes in the editor; adjust any scene text or images if needed",
-          "8. Export as MP4 video, PDF slides, PowerPoint, or PNG images",
-          "The full process from PDF upload to finished video takes under 10 minutes for most documents.",
-        ],
-      },
-      {
-        heading: "Comparison: PDF to Video Tools",
-        paragraphs: [
-        ],
-        bullets: [
-          "Blog2Video — Free: Trial · Avatars: — · Branding Control: ✓✓ · Export Formats: MP4, PPT, PDF, PNG · Best For: Polished explainers & carousels",
-          "Synthesia — Free: No · Avatars: ✓✓ · Branding Control: ✓ · Export Formats: MP4 · Best For: Corporate/enterprise video",
-          "X-Pilot — Free: ✓ · Avatars: — · Branding Control: Limited · Export Formats: MP4 · Best For: Budget PDF-to-video",
-          "Visla — Free: Limited · Avatars: — · Branding Control: ✓ · Export Formats: MP4 · Best For: Short-form social video",
-          "Powtoon — Free: Limited · Avatars: Animated · Branding Control: ✓ · Export Formats: MP4 · Best For: Educational animation",
-        ],
-        ctaPath: "/pdf-to-video",
-        ctaLabel: "Turn your PDF into a video",
-      },
-    ],
-    faq: [
-      {
-        question: "Can you really turn a PDF into a video automatically?",
-        answer:
-          "Yes. AI tools like Blog2Video and Synthesia extract content from the PDF, structure it into scenes, add narration, and output a finished video with no manual editing required.",
-      },
-      {
-        question: "How long does it take to convert a PDF to video?",
-        answer:
-          "With Blog2Video, most PDFs generate into a finished video in 2–5 minutes. More complex documents with many pages may take slightly longer.",
-      },
-      {
-        question: "What type of PDF works best for video conversion?",
-        answer:
-          "Written documents — reports, white papers, how-to guides, explainers, research summaries — work best. Scanned image PDFs (not machine-readable text) may produce lower quality results.",
-      },
-      {
-        question: "Do I need to edit the video after it's generated?",
-        answer:
-          "You can, but it's not required. Blog2Video gives you a review screen where you can adjust any scene. Most generated videos are usable without additional editing.",
-      },
-      {
-        question: "Which tool is best for a free PDF to video conversion?",
-        answer:
-          "X-Pilot has the strongest free tier with no watermark and 1080p export. Blog2Video's results are higher quality but require payment.",
-      },
-    ],
-    distributionPlan: [
-      {
-        channel: "site",
-        title: "How to Make a PDF Into a Video: 5 AI Tools That Actually Work in 2026",
-        angle:
-          "Learn how to make a PDF into a video using 5 AI tools tested in 2026 — Synthesia, Visla, X-Pilot, Vidnoz, and Blog2Video. Step-by-step instructions included.",
-      },
-      {
-        channel: "video",
-        title: "How to Make a PDF Into a Video — the 90-second version",
-        angle:
-          "Compress the article's core argument into a short narrated video with Blog2Video and link back to /blogs/how-to-make-a-pdf-into-a-video.",
-      },
-      {
-        channel: "twitter",
-        title: "Thread: How to Make a PDF Into a Video",
         angle:
           "Post the main takeaways as a thread and link the full article.",
       },
@@ -10900,6 +10583,14 @@ export const blogPosts: BlogPost[] = [
         ctaPath: "/",
         ctaLabel: "Try your first video free",
       },
+      {
+        heading: "What counts as AI slop",
+        paragraphs: [
+          "Relevance is one half of the problem. The other is how the video gets made. Our guide to AI slop breaks down the production methods that create it and the AI video generators that avoid it.",
+        ],
+        ctaPath: "/blogs/ai-video-generators-that-are-not-slop",
+        ctaLabel: "Read: AI slop and how to avoid it",
+      },
     ],
     faq: [
       {
@@ -11280,101 +10971,6 @@ export const blogPosts: BlogPost[] = [
       { channel: "video", title: "How To Turn a Blog Post Into a Video", angle: "Show the exact scene-by-scene workflow from URL to export." },
       { channel: "substack", title: "Repurposing is easier when the structure already exists", angle: "Speak to creators with a growing content archive." },
       { channel: "medium", title: "Do not rewrite what your blog post already solved", angle: "Lead with the anti-rewrite framing for content marketers." },
-    ],
-  },
-  {
-    slug: "create-summary-videos-from-pdfs",
-    title: "How To Create Summary Videos From PDFs",
-    description:
-      "A practical guide to turning PDFs into concise summary videos that are easier to watch, share, and revisit than the original document alone.",
-    category: "Document workflow",
-    heroImage: "/blog/blog-cover-pdf-educators.png",
-    heroImageAlt:
-      "A PDF document being condensed into a short summary video with highlighted takeaways and narration.",
-    publishedAt: "2026-04-04",
-    readTime: "7 min read",
-    heroEyebrow: "PDF to video",
-    heroTitle: "The fastest PDF-to-video workflow is usually a summary, not a full conversion",
-    heroDescription:
-      "When the source document is dense, the best video does not try to show every page. It pulls out the main points, builds a clearer sequence, and turns the PDF into something people will actually watch.",
-    primaryKeyword: "create summary videos from pdfs",
-    keywordVariant: "pdf summary video",
-    relatedPaths: ["/pdf-to-video", "/for-educators", "/article-to-video"],
-    sections: [
-      {
-        heading: "Most PDFs need summarising before they need animating",
-        paragraphs: [
-          "PDFs often contain the right information in the wrong format for video. They are usually dense, static, and designed for reading at your own pace. A summary video works because it extracts the main teaching points, claims, or steps and rebuilds them into a more guided experience.",
-          "That makes summary videos especially useful for course notes, reports, onboarding documents, research explainers, and long internal guides where the full PDF is valuable but not easy to consume quickly.",
-        ],
-      },
-      {
-        heading: "Choose the ideas that deserve a scene",
-        paragraphs: [
-          "The goal is not to cover every page evenly. It is to identify the pages or sections that carry the argument, then turn those into a narrative flow. In practice that often means opening with the conclusion, grouping related pages together, and dropping low-value detail that only matters in the full document.",
-          "A good summary video should help a viewer understand the document faster and decide whether to go deeper. It is a bridge into the PDF, not a replacement for every line inside it.",
-        ],
-        bullets: [
-          "Start with the main takeaway, not the table of contents.",
-          "Group repeated points into one clearer scene.",
-          "Keep charts, diagrams, and frameworks that carry meaning.",
-          "Leave dense reference detail in the PDF itself.",
-        ],
-      },
-      {
-        heading: "Why PDF summary videos work",
-        paragraphs: [
-          "A short summary video makes a document more usable across more contexts. It can introduce the material before a lesson, explain the key findings of a report, onboard a new team member, or help a busy reader decide what matters before opening the full file.",
-          "This is often a better use of video than full document narration because it respects how people actually consume information. Most viewers want orientation first, then depth if the topic matters to them.",
-        ],
-      },
-      {
-        heading: "How Blog2Video handles PDF-to-video summaries",
-        paragraphs: [
-          "1. Upload the PDF and let Blog2Video extract the structure and content blocks.",
-          "2. Choose a template built for clarity so the output feels instructional instead of overloaded.",
-          "3. Generate a concise narrated video, then refine the scenes to emphasize the strongest takeaways before exporting.",
-        ],
-        ctaPath: "/pdf-to-video",
-        ctaLabel: "Turn a PDF into a summary video",
-      },
-      {
-        heading: "A dedicated home for document-first workflows",
-        paragraphs: [
-          "If nearly everything you convert starts life as a PDF, pdf2vid.com is the version of this workflow built around that assumption. You upload the document instead of pasting a link, and it reads the page structure — headings, sections, figures — to decide where the scene breaks belong.",
-          "The summary-first approach described above is the default there rather than something you have to steer it towards, which matters most for the long documents that make the worst full conversions: annual reports, dissertations, policy papers, training manuals.",
-        ],
-        ctaPath: "https://pdf2vid.com",
-        ctaLabel: "Summarise a PDF into video at pdf2vid.com",
-      },
-    ],
-    faq: [
-      {
-        question: "Can I turn any PDF into a summary video?",
-        answer:
-          "Usually yes, as long as the PDF has readable text or a clear structure. Reports, lesson notes, handouts, and slide exports are especially strong candidates.",
-      },
-      {
-        question: "Should a PDF summary video cover every page?",
-        answer:
-          "Usually no. Summary videos are more effective when they focus on the main claims, steps, or lessons instead of trying to narrate the entire document evenly.",
-      },
-      {
-        question: "Who uses PDF summary videos most often?",
-        answer:
-          "Educators, trainers, researchers, consultants, and internal knowledge teams are the most common users because they already have important material trapped in documents.",
-      },
-      {
-        question: "What is the difference between a PDF summary video and a full PDF-to-video conversion?",
-        answer:
-          "A summary video prioritizes the most important ideas and condenses them for faster understanding. A full conversion tries to preserve more of the original document in scene form.",
-      },
-    ],
-    distributionPlan: [
-      { channel: "site", title: "How To Create Summary Videos From PDFs", angle: "Capture informational PDF-to-video search intent with a practical angle." },
-      { channel: "video", title: "Turn a Dense PDF Into a Summary Video", angle: "Show a before-and-after example from document to concise explainer." },
-      { channel: "substack", title: "Most PDFs should become summaries before they become videos", angle: "Use the summary-first framing for knowledge-heavy audiences." },
-      { channel: "medium", title: "The smarter PDF-to-video workflow starts with less", angle: "Lead with the idea that condensing improves comprehension." },
     ],
   },
   {
@@ -12165,6 +11761,15 @@ export const blogPosts: BlogPost[] = [
           "Mind maps and study guides for learning dense material",
           "Free, with native Google Drive/Workspace integration",
         ],
+      },
+      {
+        heading: "If you wanted NotebookLM for your own writing",
+        paragraphs: [
+          "Blog2Video is a video tool, not a research notebook. If what you actually want is NotebookLM pointed at everything you have published, with answers cited to the exact lines you wrote, that is Notestack, our sister product.",
+          "It syncs a whole blog or newsletter, makes two host audio overviews of your posts, and hands finished posts to Blog2Video when you want a video.",
+        ],
+        ctaPath: "https://notestack.ai/notebooklm-alternative",
+        ctaLabel: "Notestack vs NotebookLM",
       },
     ],
     faq: [
@@ -13720,6 +13325,14 @@ export const blogPosts: BlogPost[] = [
         ctaPath: "/",
         ctaLabel: "Try AI voiceover on your content",
       },
+      {
+        heading: "Want a conversation instead of a narration?",
+        paragraphs: [
+          "A voiceover reads your post. An AI podcast turns it into a two host conversation that explains and questions your ideas. Notestack has a free AI podcast generator that builds the script only from your own text.",
+        ],
+        ctaPath: "https://notestack.ai/tools/ai-podcast-generator",
+        ctaLabel: "Try the AI podcast generator",
+      },
     ],
     faq: faq("AI voiceover for blog content", "using synthetic narration for article repurposing"),
     distributionPlan: [
@@ -14018,105 +13631,6 @@ export const blogPosts: BlogPost[] = [
     ],
   },
   {
-    slug: "how-to-convert-pdf-to-video",
-    title: "How To Convert a PDF Into a Video",
-    description:
-      "A step-by-step PDF-to-video workflow for turning whitepapers, lesson notes, research summaries, and guides into narrated explainer videos.",
-    category: "How-to",
-    // Duplicate intent with the canonical PDF-to-video how-to; consolidate signals there.
-    canonicalPath: "/blogs/how-to-convert-pdf-into-video",
-    heroImage: "/blog/blog-cover-pdf-educators.png",
-    heroImageAlt:
-      "Editorial illustration of a PDF document being converted into a structured narrated explainer video.",
-    publishedAt: "2026-06-21",
-    readTime: "7 min read",
-    heroEyebrow: "Document how-to",
-    heroTitle: "Turn a PDF into a video by keeping its structure, not just its text",
-    heroDescription:
-      "Most PDF-to-video tools either read the file page by page as a slideshow or summarize it into a generic avatar script. Neither approach keeps the original document's logic. Here is a workflow that does.",
-    primaryKeyword: "how to convert pdf to video",
-    keywordVariant: "how to make a pdf into a video",
-    relatedPaths: [
-      "/pdf-to-video",
-      "/for-educators",
-      "/for-researchers",
-      "/blogs/pdf-to-video-fastest-workflow-for-educators",
-    ],
-    sections: [
-      {
-        heading: "Start with a PDF that already has a teaching arc",
-        paragraphs: [
-          "PDF-to-video works best when the source document already explains something in order: a whitepaper, a lesson handout, a research summary, a guide, or a report with headings and sections. If the PDF is just a scanned form or a dense, unstructured dump of text, the video will inherit that confusion.",
-          "Documents with headings, bullet lists, diagrams, and worked examples convert especially well because that structure becomes the scene outline almost directly.",
-        ],
-      },
-      {
-        heading: "Don't treat every page as one video frame",
-        paragraphs: [
-          "The weakest version of PDF-to-video is a literal slideshow: render each page as a frame, add narration, done. That ignores the fact that PDF pages are a print layout decision, not a video pacing decision — a dense page might need three scenes, and three short pages might collapse into one.",
-          "A stronger workflow reads the PDF's actual structure — headings, sections, and supporting content — and maps that structure to scenes, independent of where the original page breaks fell.",
-        ],
-        bullets: [
-          "Use headings and subheadings as scene boundaries, not page boundaries.",
-          "Let dense sections (data tables, multi-step processes) split into multiple scenes.",
-          "Carry diagrams and charts into the video as visuals instead of narrating around them.",
-        ],
-      },
-      {
-        heading: "Keep the narration grounded in the document",
-        paragraphs: [
-          "A PDF-to-video conversion should sound like a narrated version of the document, not a generic AI summary that happens to share a topic with it. That distinction matters most for research papers, technical guides, and lesson material where precision is the point.",
-          "If the conversion strips out specific numbers, caveats, or examples in favor of a smoother-sounding script, it has solved the wrong problem.",
-        ],
-      },
-      {
-        heading: "Pick a template that matches the document's purpose",
-        paragraphs: [
-          "A whitepaper, a lesson PDF, and a research summary do not need the same visual treatment. Whiteboard-style templates suit teaching material and step-by-step explanations. Cleaner editorial templates suit whitepapers and research summaries where credibility matters more than pacing energy.",
-        ],
-      },
-      {
-        heading: "How Blog2Video handles this",
-        paragraphs: [
-          "1. Upload your PDF — Blog2Video reads the full document structure, including headings, paragraphs, lists, and images, and maps it into a scene outline.",
-          "2. Choose a template — Whiteboard is the strongest default for lesson notes and teaching material; pick a cleaner editorial template for whitepapers and research summaries.",
-          "3. Generate and review — Each scene follows a section of the original PDF. Edit any scene in the AI editor, then export as MP4, or as PNG, PDF, or PowerPoint slides if you want a deck alongside the video.",
-        ],
-        component: "document-education",
-        ctaPath: "/pdf-to-video",
-        ctaLabel: "Convert a PDF to video",
-      },
-    ],
-    faq: [
-      {
-        question: "How do I make a PDF into a video?",
-        answer:
-          "Upload the PDF into Blog2Video. It reads the document's headings, paragraphs, and images, maps them into a scene-by-scene outline, adds narration, and generates a video you can edit before exporting as MP4.",
-      },
-      {
-        question: "Will the video just be my PDF pages turned into a slideshow?",
-        answer:
-          "No. Instead of rendering each page as one frame, Blog2Video maps the document's actual section structure to scenes, so dense pages can split into multiple scenes and short pages can combine — the pacing follows the content, not the original page breaks.",
-      },
-      {
-        question: "Does this work for research papers and whitepapers, not just lesson PDFs?",
-        answer:
-          "Yes. The same structure-preserving approach works for whitepapers, research summaries, reports, and guides — anything with headings and a logical sequence of ideas.",
-      },
-      {
-        question: "Can I get something other than an MP4 out of the same PDF?",
-        answer:
-          "Yes. The same generated scenes can be exported as PNG slides, a PDF deck, or a PowerPoint file, so one PDF upload can produce a video and a slide deck without a second production pass.",
-      },
-    ],
-    distributionPlan: [
-      { channel: "site", title: "Canonical PDF-to-video how-to", angle: "Capture 'how to convert pdf to video' and 'how to make a pdf into a video' search intent." },
-      { channel: "substack", title: "PDF-to-video workflow note", angle: "Explain why page-by-page slideshow conversion loses the document's logic." },
-      { channel: "medium", title: "Why most PDF-to-video tools get the pacing wrong", angle: "Lead with the structure-vs-page-breaks framing." },
-      { channel: "video", title: "PDF-to-video walkthrough", angle: "Show a dense PDF page splitting into multiple well-paced scenes." },
-    ],
-  },
-  {
     slug: "how-to-turn-a-powerpoint-into-a-video",
     title: "How To Turn a PowerPoint Into a Video",
     description:
@@ -14394,6 +13908,14 @@ export const blogPosts: BlogPost[] = [
         component: "bulk-archive",
         ctaPath: "/",
         ctaLabel: "Convert your blog archive into videos",
+      },
+      {
+        heading: "Research the archive before you convert it",
+        paragraphs: [
+          "Converting an archive goes faster when you know which posts are worth it. Notestack syncs your whole blog or newsletter, maps the topics you keep returning to, and flags evergreen posts worth resurfacing, so you pick the best ones for video first.",
+        ],
+        ctaPath: "https://notestack.ai",
+        ctaLabel: "Explore your archive with Notestack",
       },
     ],
     faq: faq("bulk blog to video", "turning archives into repeatable video pipelines"),
@@ -18270,7 +17792,7 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: "how-to-grow-your-substack-newsletter",
-    title: "How to Grow Your Substack Newsletter in 2026 (Niche Guide + YouTube Channel Option)",
+    title: "How to Grow a Substack With YouTube in 2026 (Finance, Politics and Policy Playbook)",
     description:
       "A niche-by-niche playbook for growing your Substack in finance, politics, and public policy — plus how launching a YouTube channel and using Blog2Video's designer templates can 10x your reach.",
     category: "Educational",
@@ -18283,8 +17805,9 @@ export const blogPosts: BlogPost[] = [
     heroTitle: "Your Substack can be a media empire. Most writers treat it like a hobby.",
     heroDescription:
       "Finance writers, policy analysts, political commentators — Substack is yours to own. Here's the 2026 playbook for growing your list, picking the right niche, launching a YouTube channel to amplify it, and using Blog2Video's designer templates to make every post look and feel like a broadcast.",
-    primaryKeyword: "how to grow your substack",
-    keywordVariant: "grow substack newsletter",
+    // General "how to grow on substack" intent belongs to bloghub.app/blogs/how-to-grow-on-substack; this post keeps the video angle.
+    primaryKeyword: "grow substack with youtube",
+    keywordVariant: "substack youtube channel",
     relatedPaths: [
       "/blog-to-video",
       "/blog-to-youtube-video",
@@ -18371,6 +17894,14 @@ export const blogPosts: BlogPost[] = [
         ],
         ctaPath: "/blog-to-video",
         ctaLabel: "Turn your newsletter into video",
+      },
+      {
+        heading: "The general Substack growth playbook",
+        paragraphs: [
+          "This guide is about growing with YouTube and video. For the fundamentals that apply to every Substack (recommendations, Notes, cross posts and directories), BlogHub has a full guide on how to grow on Substack.",
+        ],
+        ctaPath: "https://bloghub.app/blogs/how-to-grow-on-substack",
+        ctaLabel: "How to grow on Substack",
       },
     ],
     faq: [
@@ -19027,7 +18558,7 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: "ai-video-generators-that-are-not-slop",
-    title: "AI Video Generators That Are Not Slop",
+    title: "AI Slop: The AI Video Generators That Are Not Slop",
     description:
       "Slop is not a look, it is a production method. Two things separate the AI video generators that produce it from the ones that do not: programmatic rendering, and templates a human actually designed.",
     category: "Comparison",
@@ -19040,8 +18571,9 @@ export const blogPosts: BlogPost[] = [
     heroTitle: "Most AI video generators make slop. Two things separate the ones that do not.",
     heroDescription:
       "It is not the model, the voice, or the resolution. It is whether the video is compiled from your actual content, and whether a human designed the template that content lands in.",
-    primaryKeyword: "ai video generator",
-    keywordVariant: "ai slop",
+    // Owns "ai slop" (49.5k/mo US) for the whole network; bloghub and pdf2vid posts on the theme link here.
+    primaryKeyword: "ai slop",
+    keywordVariant: "ai video generators that are not slop",
     relatedPaths: [
       "/blogs/ai-videos-are-slop-unless-they-are-relevant",
       "/ai-video-generator-for-bloggers",
@@ -19168,7 +18700,7 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: "substack-video-70-percent-more-subscribers",
-    title: "Adding Video to a Substack Grew New Subscribers by 70%",
+    title: "Substack Video: Adding Video Grew New Subscribers by 70%",
     description:
       "Two weeks of data from roughly 200 volunteer Substack writers who started publishing video alongside their posts: 4x total audience, 70% more new subscribers, and a 20% lift in open rate.",
     category: "Strategy",
@@ -19181,8 +18713,8 @@ export const blogPosts: BlogPost[] = [
     heroTitle: "Substack writers who added video grew new subscribers by 70%",
     heroDescription:
       "We asked around 200 volunteers who had been publishing video alongside their posts for two weeks what changed. The numbers were larger than I expected, and they came from distribution rather than from the videos themselves.",
-    primaryKeyword: "how to grow your substack",
-    keywordVariant: "substack video",
+    primaryKeyword: "substack video",
+    keywordVariant: "grow your substack with video",
     relatedPaths: [
       "/for-substack-writers",
       "/blogs/how-to-grow-your-substack-newsletter",
