@@ -31,6 +31,8 @@ import ToolsHub from "./pages/ToolsHub";
 import ToolPage from "./pages/ToolPage";
 import TemplateStudio from "./pages/TemplateStudio";
 import TemplatesShowcasePage from "./pages/TemplatesShowcasePage";
+import WordPressConnect from "./pages/WordPressConnect";
+import WordPressPlugin from "./pages/WordPressPlugin";
 
 function ExternalRedirect({ to }: { to: string }) {
   useEffect(() => { window.location.replace(to); }, [to]);
@@ -66,6 +68,14 @@ function hasHandoffToken(search: string): boolean {
   return new URLSearchParams(search).has("token");
 }
 
+function SupportWidgetForRoute() {
+  const location = useLocation();
+  const presentationOnly =
+    location.pathname.startsWith("/_capture") ||
+    location.pathname.startsWith("/preview/");
+  return presentationOnly ? null : <SupportWidget />;
+}
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const location = useLocation();
@@ -76,7 +86,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
-    return <Navigate to="/" replace />;
+    const destination = `${location.pathname}${location.search}${location.hash}`;
+    if (destination.startsWith("/") && !destination.startsWith("//")) {
+      sessionStorage.setItem("b2v_post_login_redirect", destination);
+    }
+    return <Navigate to="/signin" replace />;
   }
 
   return <>{children}</>;
@@ -214,6 +228,8 @@ function AppRoutes() {
         <Route path="/tools/:slug" element={<ToolPage />} />
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/wordpress-connect" element={<WordPressConnect />} />
+        <Route path="/wordpress-plugin" element={<WordPressPlugin />} />
         {marketingPages.map((page) => (
           <Route
             key={page.path}
@@ -307,9 +323,9 @@ function App() {
                 inside ErrorModalProvider, whose helpers it reuses. */}
             <LoginModalProvider>
               <AppRoutes />
-            {/* The hidden /_capture route is screenshotted for template posters —
-                the support widget would otherwise be baked into every image. */}
-            {!window.location.pathname.startsWith("/_capture") && <SupportWidget />}
+            {/* Capture and public embed routes must stay presentation-only: support
+                UI would otherwise be baked into posters or cover the video player. */}
+            <SupportWidgetForRoute />
             <UIHighlightOverlay />
             </LoginModalProvider>
           </SupportTourProvider>

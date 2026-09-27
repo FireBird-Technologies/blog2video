@@ -2270,365 +2270,99 @@ function BookCoverGeneratorWidget() {
   );
 }
 
-// ─── Reading Time Calculator ────────────────────────────────────────────────
+// Placeholders until the plugin is live on WordPress.org and the zip is
+// hosted somewhere permanent. Mirrors the constants in pages/WordPressPlugin.tsx.
+const WORDPRESS_ORG_URL = "https://wordpress.org/plugins/blog2video/";
+const PLUGIN_ZIP_URL = "/downloads/blog2video.zip";
 
-const READING_SPEEDS = [
-  { key: "slow", label: "Careful reader", wpm: 200 },
-  { key: "average", label: "Average reader", wpm: 238 },
-  { key: "fast", label: "Fast reader", wpm: 300 },
-] as const;
-
-function countWords(text: string) {
-  const trimmed = text.trim();
-  return trimmed ? trimmed.split(/\s+/).filter(Boolean).length : 0;
-}
-
-function ReadingTimeCalculatorInner() {
-  const [text, setText] = useState("");
-  const [typedCount, setTypedCount] = useState("");
-  const pasted = useMemo(() => countWords(text), [text]);
-  const wordCount = pasted || Math.max(0, Math.round(Number(typedCount) || 0));
-  const averageMinutes = wordCount / 238;
-  const label = wordCount ? `${Math.max(1, Math.ceil(averageMinutes))} min read` : "—";
-
-  return (
-    <div className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
-      <div className="rounded-3xl border border-gray-200 bg-gray-50/70 p-6">
-        <Field label="Paste your text" hint={`${formatNumber(pasted)} words`}>
-          <textarea
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-            placeholder="Paste a blog post, newsletter or script…"
-            className="min-h-[220px] w-full rounded-2xl border border-gray-200 bg-white p-4 text-sm leading-6 text-gray-700 shadow-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
-          />
-        </Field>
-        <div className="mt-4">
-          <Field label="…or enter a word count">
-            <input
-              type="number"
-              min={0}
-              value={typedCount}
-              disabled={pasted > 0}
-              onChange={(event) => setTypedCount(event.target.value)}
-              placeholder="1500"
-              className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700 shadow-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-200 disabled:bg-gray-100"
-            />
-          </Field>
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-3">
-          {READING_SPEEDS.map((speed) => (
-            <MetricCard
-              key={speed.key}
-              label={speed.label}
-              value={wordCount ? formatRuntime((wordCount / speed.wpm) * 60) : "—"}
-              helper={`${speed.wpm} words per minute, silent`}
-            />
-          ))}
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <MetricCard
-            label="Read aloud"
-            value={wordCount ? formatRuntime((wordCount / 150) * 60) : "—"}
-            helper="150 wpm: the pace of narrated video and podcasts"
-          />
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-purple-600">Blog label</p>
-            <p className="mt-3 text-3xl font-semibold text-gray-900">{label}</p>
-            {wordCount ? (
-              <div className="mt-3">
-                <CopyButton value={label} />
-              </div>
-            ) : null}
-          </div>
-        </div>
-        <div className="rounded-2xl border border-purple-100 bg-purple-50/60 p-5">
-          <p className="text-sm leading-relaxed text-gray-600">
-            Readers who will not finish a {wordCount ? `${Math.max(1, Math.ceil(averageMinutes))}-minute` : "long"} read will often
-            watch it. Check the runtime as a video next.
-          </p>
-          <div className="mt-4">
-            <Link
-              to="/tools/video-length-calculator"
-              className="inline-flex items-center rounded-full border border-purple-200 bg-white px-5 py-2.5 text-sm font-semibold text-purple-700 transition hover:bg-purple-100"
-            >
-              Video length calculator →
-            </Link>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ReadingTimeCalculatorWidget() {
-  return (
-    <ToolGate
-      toolName="Reading Time Calculator"
-      blurb="See how long your text takes to read silently and aloud, plus a ready-made “min read” label."
-    >
-      <ReadingTimeCalculatorInner />
-    </ToolGate>
-  );
-}
-
-// ─── Readability Checker ─────────────────────────────────────────────────────
-
-function countSyllables(rawWord: string) {
-  const word = rawWord.toLowerCase().replace(/[^a-z]/g, "");
-  if (!word) return 0;
-  if (word.length <= 3) return 1;
-  const trimmed = word.replace(/(?:[^laeiouy]es|ed|[^laeiouy]e)$/, "").replace(/^y/, "");
-  const groups = trimmed.match(/[aeiouy]{1,2}/g);
-  return Math.max(1, groups ? groups.length : 1);
-}
-
-function splitSentences(text: string) {
-  return text
-    .replace(/\s+/g, " ")
-    .split(/(?<=[.!?])\s+(?=[A-Z0-9"“(])/)
-    .map((sentence) => sentence.trim())
-    .filter((sentence) => countWords(sentence) > 0);
-}
-
-function readabilityBand(score: number) {
-  if (score >= 90) return { label: "Very easy", tone: "text-emerald-600" };
-  if (score >= 70) return { label: "Easy", tone: "text-emerald-600" };
-  if (score >= 60) return { label: "Plain English", tone: "text-emerald-600" };
-  if (score >= 50) return { label: "Fairly difficult", tone: "text-amber-600" };
-  if (score >= 30) return { label: "Difficult", tone: "text-orange-600" };
-  return { label: "Very difficult", tone: "text-red-600" };
-}
-
-function ReadabilityCheckerInner() {
-  const [text, setText] = useState("");
-
-  const stats = useMemo(() => {
-    const sentences = splitSentences(text);
-    const words = text.trim() ? text.trim().split(/\s+/).filter((w) => /[a-z]/i.test(w)) : [];
-    if (sentences.length === 0 || words.length < 20) return null;
-    const syllables = words.reduce((sum, w) => sum + countSyllables(w), 0);
-    const wordsPerSentence = words.length / sentences.length;
-    const syllablesPerWord = syllables / words.length;
-    const ease = clamp(206.835 - 1.015 * wordsPerSentence - 84.6 * syllablesPerWord, 0, 100);
-    const grade = Math.max(0, 0.39 * wordsPerSentence + 11.8 * syllablesPerWord - 15.59);
-    const longSentences = sentences
-      .map((sentence) => ({ sentence, words: countWords(sentence) }))
-      .filter((s) => s.words > 25)
-      .sort((a, b) => b.words - a.words);
-    const complexWords = Array.from(
-      new Set(words.map((w) => w.replace(/[^A-Za-z-]/g, "")).filter((w) => countSyllables(w) >= 4)),
-    );
-    return { sentences: sentences.length, words: words.length, wordsPerSentence, ease, grade, longSentences, complexWords };
-  }, [text]);
-
-  const band = stats ? readabilityBand(stats.ease) : null;
-
-  return (
-    <div className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
-      <div className="rounded-3xl border border-gray-200 bg-gray-50/70 p-6">
-        <Field label="Paste your writing" hint={`${formatNumber(countWords(text))} words`}>
-          <textarea
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-            placeholder="Paste at least a paragraph (20+ words) to get a score…"
-            className="min-h-[280px] w-full rounded-2xl border border-gray-200 bg-white p-4 text-sm leading-6 text-gray-700 shadow-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
-          />
-        </Field>
-        <p className="mt-4 text-xs leading-relaxed text-gray-400">
-          Scored in your browser. Your text is not sent anywhere.
-        </p>
-      </div>
-
-      <div className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-3">
-          <MetricCard
-            label="Reading ease"
-            value={stats ? String(Math.round(stats.ease)) : "—"}
-            helper={band ? band.label : "Flesch, 0 to 100"}
-          />
-          <MetricCard
-            label="Grade level"
-            value={stats ? stats.grade.toFixed(1) : "—"}
-            helper="Flesch-Kincaid, aim for 8 or below"
-          />
-          <MetricCard
-            label="Words / sentence"
-            value={stats ? stats.wordsPerSentence.toFixed(1) : "—"}
-            helper={stats ? `${stats.sentences} sentences` : "Aim for under 20"}
-          />
-        </div>
-        {stats ? (
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-            <p className="text-sm font-semibold text-gray-900">
-              Long sentences to split{" "}
-              <span className="font-normal text-gray-500">({stats.longSentences.length} over 25 words)</span>
-            </p>
-            {stats.longSentences.length ? (
-              <ul className="mt-3 space-y-3 text-sm leading-relaxed text-gray-600">
-                {stats.longSentences.slice(0, 5).map((s) => (
-                  <li key={s.sentence} className="rounded-xl bg-amber-50 p-3">
-                    <span className="mr-2 text-xs font-semibold text-amber-700">{s.words} words</span>
-                    {s.sentence}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="mt-2 text-sm text-gray-500">None. Every sentence is 25 words or fewer.</p>
-            )}
-            {stats.complexWords.length ? (
-              <p className="mt-4 text-sm leading-relaxed text-gray-600">
-                <span className="font-semibold text-gray-900">Long words to consider swapping: </span>
-                {stats.complexWords.slice(0, 12).join(", ")}
-              </p>
-            ) : null}
-          </div>
-        ) : null}
-        <div className="rounded-2xl border border-purple-100 bg-purple-50/60 p-5">
-          <p className="text-sm leading-relaxed text-gray-600">
-            Check your headline too: the title decides whether anyone gets to the body.
-          </p>
-          <div className="mt-4">
-            <Link
-              to="/tools/headline-analyzer"
-              className="inline-flex items-center rounded-full border border-purple-200 bg-white px-5 py-2.5 text-sm font-semibold text-purple-700 transition hover:bg-purple-100"
-            >
-              Headline analyzer →
-            </Link>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ReadabilityCheckerWidget() {
-  return (
-    <ToolGate
-      toolName="Readability Checker"
-      blurb="Get a Flesch Reading Ease score, grade level, and the sentences dragging your score down."
-    >
-      <ReadabilityCheckerInner />
-    </ToolGate>
-  );
-}
-
-// ─── Hook Generator ──────────────────────────────────────────────────────────
-
-type HookFormat = "short" | "long" | "blog";
-
-const HOOK_FORMATS: { key: HookFormat; label: string }[] = [
-  { key: "short", label: "Shorts / TikTok / Reels" },
-  { key: "long", label: "YouTube video" },
-  { key: "blog", label: "Blog or newsletter intro" },
+const WORDPRESS_PLUGIN_STEPS = [
+  { title: "Install", description: "Upload the zip in Plugins → Add New, or install from WordPress.org. Activate it." },
+  { title: "Connect", description: "Settings → Blog2Video → Connect. Approve from your account — no password ever touches WordPress." },
+  { title: "Generate", description: "Open any post. Pick a template and voice, generate a draft from the post itself." },
+  { title: "Publish", description: "Render, then “Add video to post” drops it in as a block — live the moment you hit Update." },
 ];
 
-function buildHooks(topicRaw: string, audienceRaw: string, format: HookFormat) {
-  const topic = topicRaw.trim().replace(/[.?!]+$/, "");
-  const audience = audienceRaw.trim() || "most people";
-  const medium = format === "blog" ? "post" : "video";
-  const hooks = [
-    { formula: "Mistake", text: `If you're one of the ${audience} getting ${topic} wrong, this is why.` },
-    { formula: "Contrarian", text: `Everything you've been told about ${topic} is backwards.` },
-    { formula: "Curiosity", text: `Nobody talks about the part of ${topic} that actually matters.` },
-    { formula: "Number", text: `3 things about ${topic} I wish I knew sooner.` },
-    { formula: "Result", text: `Here's what happened when I finally took ${topic} seriously.` },
-    { formula: "Audience call-out", text: `${audience.charAt(0).toUpperCase()}${audience.slice(1)}: stop scrolling if ${topic} matters to you.` },
-    { formula: "Question", text: `What if ${topic} is simpler than everyone makes it look?` },
-    { formula: "Stakes", text: `Get ${topic} wrong and it quietly costs you for years.` },
-    { formula: "Shortcut", text: `The fastest way to get ${topic} right, in one ${medium}.` },
-    { formula: "Myth", text: `The biggest myth about ${topic}, and what to do instead.` },
-    { formula: "Before/after", text: `Before I understood ${topic}, I did it the hard way. Here's the easy way.` },
-    { formula: "Promise", text: `By the end of this ${medium}, ${topic} will make sense.` },
-  ];
-  if (format === "short") {
-    return hooks.map((h) => ({ ...h, text: h.text.replace(/, in one video\.$/, ".").replace(/ Here's the easy way\.$/, "") }));
-  }
-  if (format === "blog") {
-    return hooks.map((h) => ({ ...h, text: h.text.replace("stop scrolling if", "read this if") }));
-  }
-  return hooks;
-}
-
-function HookGeneratorInner() {
-  const [topic, setTopic] = useState("");
-  const [audience, setAudience] = useState("");
-  const [format, setFormat] = useState<HookFormat>("short");
-  const hooks = useMemo(() => (topic.trim().length >= 3 ? buildHooks(topic, audience, format) : []), [topic, audience, format]);
-
+function WordPressPluginWidget() {
   return (
-    <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr]">
-      <div className="space-y-4 rounded-3xl border border-gray-200 bg-gray-50/70 p-6">
-        <Field label="Topic" hint="What the video is about">
-          <input
-            value={topic}
-            onChange={(event) => setTopic(event.target.value)}
-            placeholder="e.g. growing a newsletter"
-            className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700 shadow-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
-          />
-        </Field>
-        <Field label="Audience" hint="Optional">
-          <input
-            value={audience}
-            onChange={(event) => setAudience(event.target.value)}
-            placeholder="e.g. new Substack writers"
-            className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700 shadow-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
-          />
-        </Field>
-        <Field label="Format">
-          <div className="flex flex-wrap gap-2">
-            {HOOK_FORMATS.map((f) => (
-              <button
-                key={f.key}
-                type="button"
-                onClick={() => setFormat(f.key)}
-                className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
-                  format === f.key
-                    ? "border-purple-500 bg-purple-600 text-white"
-                    : "border-gray-200 bg-white text-gray-700 hover:border-purple-300"
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-        </Field>
+    <div className="rounded-3xl border border-gray-200 bg-white p-6 sm:p-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-xl font-semibold text-gray-900">Install the Blog2Video plugin</h2>
+        <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+          <a
+            href={WORDPRESS_ORG_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-xl border border-gray-200 bg-white px-6 py-3 text-center text-sm font-semibold text-gray-700 transition hover:border-gray-300 hover:bg-gray-50"
+          >
+            View on WordPress.org
+          </a>
+          <a
+            href={PLUGIN_ZIP_URL}
+            className="rounded-xl bg-purple-600 px-6 py-3 text-center text-sm font-semibold text-white transition hover:bg-purple-700"
+          >
+            Download plugin (.zip)
+          </a>
+        </div>
       </div>
 
-      <div className="space-y-3">
-        {hooks.length ? (
-          hooks.map((hook) => (
-            <div
-              key={hook.formula}
-              className="flex items-start justify-between gap-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
-            >
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-purple-600">{hook.formula}</p>
-                <p className="mt-1 text-base leading-relaxed text-gray-900">{hook.text}</p>
-              </div>
-              <CopyButton value={hook.text} />
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {WORDPRESS_PLUGIN_STEPS.map((step, index) => (
+          <div key={step.title} className="relative rounded-2xl border border-gray-200 bg-gray-50/60 p-5 pt-8">
+            <div className="absolute -top-4 left-5 flex h-8 w-8 items-center justify-center rounded-full bg-purple-600 text-xs font-bold text-white shadow-md shadow-purple-600/25">
+              {index + 1}
             </div>
-          ))
-        ) : (
-          <div className="rounded-2xl border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500">
-            Enter a topic to generate hooks.
+            <h3 className="text-sm font-semibold text-gray-900">{step.title}</h3>
+            <p className="mt-1.5 text-xs leading-relaxed text-gray-600">{step.description}</p>
           </div>
-        )}
+        ))}
+      </div>
+
+      <div className="mt-8 overflow-hidden rounded-2xl border border-gray-200 shadow-sm">
+        <div className="flex items-center gap-2 border-b border-gray-200 bg-gray-100 px-4 py-3">
+          <span className="h-3 w-3 rounded-full bg-red-400/70" />
+          <span className="h-3 w-3 rounded-full bg-yellow-400/70" />
+          <span className="h-3 w-3 rounded-full bg-green-400/70" />
+          <span className="ml-3 truncate text-xs text-gray-400">yoursite.com/wp-admin/post.php</span>
+        </div>
+        <div className="flex flex-col gap-0 bg-white sm:flex-row">
+          <div className="flex-1 space-y-4 border-b border-gray-100 p-6 sm:border-b-0 sm:border-r">
+            <p className="text-lg font-bold text-gray-900">
+              Why Your Blog Posts Deserve a Second Life as Video
+            </p>
+            <p className="text-sm leading-relaxed text-gray-500">
+              Most of your best writing never gets seen by the people who'd rather
+              watch than read. Here's how to turn an existing post into a
+              ready-to-share video without leaving your editor.
+            </p>
+            <p className="text-sm leading-relaxed text-gray-500">
+              Start with a post that already has a clear narrative arc — how-tos and
+              explainers translate best, since the structure does most of the work
+              for you...
+            </p>
+          </div>
+          <div className="w-full flex-shrink-0 bg-purple-50/50 p-4 sm:w-64">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-purple-600">
+              Blog2Video
+            </p>
+            <p className="mt-2 text-sm font-semibold text-gray-900">Create your video</p>
+            <div className="mt-3 space-y-2">
+              <div className="rounded-lg border border-purple-200 bg-white px-3 py-2 text-xs font-medium text-gray-700">
+                Template: Geometric Explainer
+              </div>
+              <div className="rounded-lg border border-purple-200 bg-white px-3 py-2 text-xs font-medium text-gray-700">
+                Voice: Hale
+              </div>
+            </div>
+            <div className="mt-4 rounded-lg bg-purple-600 px-3 py-2.5 text-center text-xs font-semibold text-white shadow-sm">
+              Generate video
+            </div>
+            <div className="mt-2 rounded-lg border border-purple-300 px-3 py-2.5 text-center text-xs font-semibold text-purple-600">
+              Add video to post
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-  );
-}
-
-function HookGeneratorWidget() {
-  return (
-    <ToolGate
-      toolName="Hook Generator"
-      blurb="Generate opening lines for videos, Shorts and blog intros from twelve proven hook formulas."
-    >
-      <HookGeneratorInner />
-    </ToolGate>
   );
 }
 
@@ -2664,12 +2398,8 @@ export function ToolWidget({ slug }: ToolWidgetProps) {
       return <BookCoverGeneratorWidget />;
     case "pdf-to-video-converter":
       return <PdfToVideoConverter />;
-    case "reading-time-calculator":
-      return <ReadingTimeCalculatorWidget />;
-    case "readability-checker":
-      return <ReadabilityCheckerWidget />;
-    case "hook-generator":
-      return <HookGeneratorWidget />;
+    case "wordpress-plugin":
+      return <WordPressPluginWidget />;
     default:
       return null;
   }
