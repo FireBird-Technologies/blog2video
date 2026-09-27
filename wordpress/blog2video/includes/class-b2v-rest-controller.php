@@ -21,11 +21,17 @@ class B2V_REST_Controller {
 		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/embed', array_merge( $args, array( 'methods' => 'POST', 'callback' => array( $this, 'embed' ) ) ) );
 		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/embed', array_merge( $args, array( 'methods' => 'DELETE', 'callback' => array( $this, 'remove_embed' ) ) ) );
 		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/catalog', array_merge( $args, array( 'methods' => 'GET', 'callback' => array( $this, 'catalog' ) ) ) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/video-styles', array_merge( $args, array( 'methods' => 'GET', 'callback' => array( $this, 'video_styles' ) ) ) );
 		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/account', array_merge( $args, array( 'methods' => 'GET', 'callback' => array( $this, 'account' ) ) ) );
 		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/projects/library', array_merge( $args, array( 'methods' => 'GET', 'callback' => array( $this, 'project_library' ) ) ) );
 		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/projects/select', array_merge( $args, array( 'methods' => 'POST', 'callback' => array( $this, 'select_project' ) ) ) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/projects/resolve-embed', array_merge( $args, array( 'methods' => 'POST', 'callback' => array( $this, 'resolve_embed' ) ) ) );
 		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/editor', array_merge( $args, array( 'methods' => 'GET', 'callback' => array( $this, 'editor_data' ) ) ) );
 		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/layouts', array_merge( $args, array( 'methods' => 'GET', 'callback' => array( $this, 'layouts' ) ) ) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/template', array_merge( $args, array( 'methods' => 'POST', 'callback' => array( $this, 'change_template' ) ) ) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/template-status', array_merge( $args, array( 'methods' => 'GET', 'callback' => array( $this, 'template_change_status' ) ) ) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/voice', array_merge( $args, array( 'methods' => 'POST', 'callback' => array( $this, 'change_voice' ) ) ) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/voice-status', array_merge( $args, array( 'methods' => 'GET', 'callback' => array( $this, 'voice_change_status' ) ) ) );
 		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/logo', array_merge( $args, array( 'methods' => 'POST', 'callback' => array( $this, 'upload_logo' ) ) ) );
 		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/logo', array_merge( $args, array( 'methods' => 'DELETE', 'callback' => array( $this, 'delete_logo' ) ) ) );
 		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/logo', array_merge( $args, array( 'methods' => 'PATCH', 'callback' => array( $this, 'update_logo' ) ) ) );
@@ -62,6 +68,80 @@ class B2V_REST_Controller {
 		return $id ?: new WP_Error( 'b2v_no_project', __( 'Generate the video first.', 'blog2video' ), array( 'status' => 409 ) );
 	}
 
+	private function find_video_block( $blocks ) {
+		foreach ( $blocks as $block ) {
+			if ( isset( $block['blockName'] ) && 'blog2video/video' === $block['blockName'] ) {
+				return $block;
+			}
+			if ( ! empty( $block['innerBlocks'] ) ) {
+				$found = $this->find_video_block( $block['innerBlocks'] );
+				if ( $found ) { return $found; }
+			}
+		}
+		return null;
+	}
+
+	private function resolve_embed_project( $post_id, $embed_url ) {
+		$result = $this->api->request( 'POST', 'library/projects/resolve-embed', array(
+			'external_post_id' => (string) $post_id,
+			'embed_url'        => $embed_url,
+		) );
+		if ( ! is_wp_error( $result ) && ! empty( $result['project_id'] ) ) {
+			return $result;
+		}
+
+		// Backward-compatible recovery for a backend that has not yet picked up
+		// the lightweight resolve-embed endpoint. The public player already
+		// resolves this opaque token; access is still verified by the authenticated
+		// project-link request before WordPress stores anything.
+		$path = (string) wp_parse_url( $embed_url, PHP_URL_PATH );
+		if ( ! preg_match( '#/preview/([a-fA-F0-9]{32,64})/?$#', $path, $matches ) ) {
+			return $result;
+		}
+		$lookup = wp_safe_remote_get( $this->api->base_url() . '/api/embed/project/' . rawurlencode( strtolower( $matches[1] ) ), array(
+			'timeout' => 30,
+			'headers' => array( 'Accept' => 'application/json' ),
+		) );
+		if ( is_wp_error( $lookup ) || 200 !== wp_remote_retrieve_response_code( $lookup ) ) {
+			return $result;
+		}
+		$project = json_decode( wp_remote_retrieve_body( $lookup ), true );
+		$project_id = is_array( $project ) && ! empty( $project['id'] ) ? absint( $project['id'] ) : 0;
+		if ( ! $project_id ) { return $result; }
+		return $this->api->request( 'POST', 'library/projects/' . $project_id . '/link', array( 'external_post_id' => (string) $post_id ) );
+	}
+
+	/**
+	 * Local, network-free recovery: read whatever the embedded block already
+	 * carries in post_content and write it straight to meta. Safe to call on
+	 * every admin page load — it never blocks on the backend. The authoritative
+	 * resolution (by embed URL, against the backend) happens separately, on
+	 * demand, via the resolve_embed REST route the admin script calls async.
+	 */
+	private function restore_embedded_project_from_block( $post_id ) {
+		$post = get_post( $post_id );
+		if ( ! $post || ! has_blocks( $post->post_content ) ) { return; }
+		$block = $this->find_video_block( parse_blocks( $post->post_content ) );
+		$attrs = $block && ! empty( $block['attrs'] ) && is_array( $block['attrs'] ) ? $block['attrs'] : array();
+		$embed_url = isset( $attrs['embedUrl'] ) ? esc_url_raw( (string) $attrs['embedUrl'], array( 'http', 'https' ) ) : '';
+		if ( $embed_url ) {
+			update_post_meta( $post_id, '_b2v_embed_url', $embed_url );
+		}
+
+		$block_project_id = isset( $attrs['projectId'] ) ? absint( $attrs['projectId'] ) : 0;
+		if ( $block_project_id ) {
+			update_post_meta( $post_id, '_b2v_project_id', $block_project_id );
+			if ( ! empty( $attrs['projectName'] ) ) {
+				update_post_meta( $post_id, '_b2v_project_name', sanitize_text_field( (string) $attrs['projectName'] ) );
+			}
+		}
+	}
+
+	private function sanitize_video_style( $value ) {
+		$style = strtolower( trim( sanitize_text_field( (string) $value ) ) );
+		return preg_match( '/^(auto|explainer|promotional|storytelling|your_style|custom:[1-9][0-9]*)$/', $style ) ? $style : 'auto';
+	}
+
 	public function generate( WP_REST_Request $request ) {
 		$post_id  = absint( $request['id'] );
 		$source_type = 'url' === $request->get_param( 'source_type' ) ? 'url' : 'post';
@@ -74,13 +154,18 @@ class B2V_REST_Controller {
 		}
 		$allowed = array(
 			'template'               => 'sanitize_key',
-			'video_style'            => 'sanitize_key',
+			'video_style'            => array( $this, 'sanitize_video_style' ),
 			'video_length'           => 'sanitize_key',
 			'aspect_ratio'           => 'sanitize_key',
 			'voice_gender'           => 'sanitize_key',
 			'voice_accent'           => 'sanitize_key',
 			'custom_voice_id'        => 'sanitize_text_field',
 			'content_language'       => 'sanitize_text_field',
+			'accent_color'          => 'sanitize_hex_color',
+			'bg_color'              => 'sanitize_hex_color',
+			'text_color'            => 'sanitize_hex_color',
+			'bgm_track_id'          => 'sanitize_key',
+			'bgm_volume'            => 'floatval',
 			'captions_enabled'       => 'rest_sanitize_boolean',
 			'stock_footage_enabled'  => 'rest_sanitize_boolean',
 		);
@@ -137,7 +222,13 @@ class B2V_REST_Controller {
 		$post_id = absint( $request['id'] );
 		$id      = $this->project_id( $post_id );
 		$result  = is_wp_error( $id ) ? $id : $this->api->request( 'POST', "projects/{$id}/embed" );
-		if ( ! is_wp_error( $result ) && ! empty( $result['preview_url'] ) ) { update_post_meta( $post_id, '_b2v_embed_url', esc_url_raw( $result['preview_url'] ) ); }
+		if ( ! is_wp_error( $result ) && ! empty( $result['preview_url'] ) ) {
+			update_post_meta( $post_id, '_b2v_embed_url', esc_url_raw( $result['preview_url'] ) );
+			update_post_meta( $post_id, '_b2v_project_id', absint( $id ) );
+			if ( ! empty( $result['project_name'] ) ) {
+				update_post_meta( $post_id, '_b2v_project_name', sanitize_text_field( $result['project_name'] ) );
+			}
+		}
 		return $this->response( $result );
 	}
 
@@ -149,6 +240,10 @@ class B2V_REST_Controller {
 
 	public function catalog() {
 		return $this->response( $this->api->request( 'GET', 'catalog' ) );
+	}
+
+	public function video_styles() {
+		return $this->response( $this->api->request( 'GET', 'video-styles' ) );
 	}
 
 	public function account() {
@@ -178,6 +273,21 @@ class B2V_REST_Controller {
 		return $this->response( $result );
 	}
 
+	public function resolve_embed( WP_REST_Request $request ) {
+		$post_id = absint( $request['id'] );
+		$embed_url = esc_url_raw( (string) $request->get_param( 'embed_url' ), array( 'http', 'https' ) );
+		if ( ! $embed_url ) {
+			return $this->response( new WP_Error( 'b2v_embed_url_required', __( 'The embedded video URL is missing.', 'blog2video' ), array( 'status' => 400 ) ) );
+		}
+		$result = $this->resolve_embed_project( $post_id, $embed_url );
+		if ( ! is_wp_error( $result ) && ! empty( $result['project_id'] ) ) {
+			update_post_meta( $post_id, '_b2v_project_id', absint( $result['project_id'] ) );
+			update_post_meta( $post_id, '_b2v_project_name', sanitize_text_field( isset( $result['name'] ) ? $result['name'] : '' ) );
+			update_post_meta( $post_id, '_b2v_embed_url', $embed_url );
+		}
+		return $this->response( $result );
+	}
+
 	public function editor_data( WP_REST_Request $request ) {
 		$id = $this->project_id( absint( $request['id'] ) );
 		return $this->response( is_wp_error( $id ) ? $id : $this->api->request( 'GET', "projects/{$id}/editor" ) );
@@ -188,15 +298,41 @@ class B2V_REST_Controller {
 		return $this->response( is_wp_error( $id ) ? $id : $this->api->request( 'GET', "projects/{$id}/layouts" ) );
 	}
 
+	public function change_template( WP_REST_Request $request ) {
+		$id = $this->project_id( absint( $request['id'] ) );
+		$body = $request->get_json_params();
+		return $this->response( is_wp_error( $id ) ? $id : $this->api->request( 'POST', "projects/{$id}/template", is_array( $body ) ? $body : array() ) );
+	}
+
+	public function template_change_status( WP_REST_Request $request ) {
+		$id = $this->project_id( absint( $request['id'] ) );
+		return $this->response( is_wp_error( $id ) ? $id : $this->api->request( 'GET', "projects/{$id}/template-status" ) );
+	}
+
+	public function change_voice( WP_REST_Request $request ) {
+		$id = $this->project_id( absint( $request['id'] ) );
+		$body = $request->get_json_params();
+		return $this->response( is_wp_error( $id ) ? $id : $this->api->request( 'POST', "projects/{$id}/voice", is_array( $body ) ? $body : array() ) );
+	}
+
+	public function voice_change_status( WP_REST_Request $request ) {
+		$id = $this->project_id( absint( $request['id'] ) );
+		return $this->response( is_wp_error( $id ) ? $id : $this->api->request( 'GET', "projects/{$id}/voice-status" ) );
+	}
+
 	public function upload_logo( WP_REST_Request $request ) {
 		$id = $this->project_id( absint( $request['id'] ) );
 		if ( is_wp_error( $id ) ) { return $this->response( $id ); }
 		$files = $request->get_file_params();
 		$file  = isset( $files['logo'] ) && is_array( $files['logo'] ) ? $files['logo'] : null;
-		if ( ! $file || ! empty( $file['error'] ) || empty( $file['tmp_name'] ) ) {
+		if ( ! $file || UPLOAD_ERR_OK !== (int) ( $file['error'] ?? UPLOAD_ERR_NO_FILE ) || empty( $file['tmp_name'] ) ) {
 			return $this->response( new WP_Error( 'b2v_logo_missing', __( 'Choose a logo image to upload.', 'blog2video' ), array( 'status' => 400 ) ) );
 		}
-		if ( ! empty( $file['size'] ) && (int) $file['size'] > 2 * MB_IN_BYTES ) {
+		$actual_size = is_readable( $file['tmp_name'] ) ? filesize( $file['tmp_name'] ) : false;
+		if ( false === $actual_size ) {
+			return $this->response( new WP_Error( 'b2v_logo_unreadable', __( 'The uploaded logo could not be read.', 'blog2video' ), array( 'status' => 400 ) ) );
+		}
+		if ( $actual_size > 2 * MB_IN_BYTES ) {
 			return $this->response( new WP_Error( 'b2v_logo_too_large', __( 'Logo file too large. Maximum size is 2 MB.', 'blog2video' ), array( 'status' => 400 ) ) );
 		}
 		$result = $this->api->upload( "projects/{$id}/logo", 'file', $file );
@@ -221,8 +357,9 @@ class B2V_REST_Controller {
 	}
 
 	public function music_tracks( WP_REST_Request $request ) {
-		$id = $this->project_id( absint( $request['id'] ) );
-		return $this->response( is_wp_error( $id ) ? $id : $this->api->request( 'GET', "background-music/tracks" ) );
+		// The creation wizard loads music before a project exists. The backend
+		// endpoint is connection-scoped and does not require a project ID.
+		return $this->response( $this->api->request( 'GET', 'background-music/tracks' ) );
 	}
 
 	public function update_scene( WP_REST_Request $request ) {
@@ -236,10 +373,14 @@ class B2V_REST_Controller {
 		if ( is_wp_error( $id ) ) { return $this->response( $id ); }
 		$files = $request->get_file_params();
 		$file  = isset( $files['image'] ) && is_array( $files['image'] ) ? $files['image'] : null;
-		if ( ! $file || ! empty( $file['error'] ) || empty( $file['tmp_name'] ) ) {
+		if ( ! $file || UPLOAD_ERR_OK !== (int) ( $file['error'] ?? UPLOAD_ERR_NO_FILE ) || empty( $file['tmp_name'] ) ) {
 			return $this->response( new WP_Error( 'b2v_image_missing', __( 'Choose an image to upload.', 'blog2video' ), array( 'status' => 400 ) ) );
 		}
-		if ( ! empty( $file['size'] ) && (int) $file['size'] > 5 * MB_IN_BYTES ) {
+		$actual_size = is_readable( $file['tmp_name'] ) ? filesize( $file['tmp_name'] ) : false;
+		if ( false === $actual_size ) {
+			return $this->response( new WP_Error( 'b2v_image_unreadable', __( 'The uploaded image could not be read.', 'blog2video' ), array( 'status' => 400 ) ) );
+		}
+		if ( $actual_size > 5 * MB_IN_BYTES ) {
 			return $this->response( new WP_Error( 'b2v_image_too_large', __( 'Image file too large. Maximum size is 5 MB.', 'blog2video' ), array( 'status' => 400 ) ) );
 		}
 		$result = $this->api->upload( "projects/{$id}/scenes/" . absint( $request['scene_id'] ) . '/image', 'image', $file );
@@ -309,6 +450,7 @@ class B2V_REST_Controller {
 
 	public function box( $post ) {
 		if ( ! $this->api->is_connected() ) {
+			/* translators: %s: URL of the Blog2Video settings page. */
 			echo '<p>' . wp_kses_post( sprintf( __( '<a href="%s">Connect Blog2Video</a> to generate a video.', 'blog2video' ), esc_url( admin_url( 'options-general.php?page=blog2video' ) ) ) ) . '</p>';
 			return;
 		}
@@ -344,7 +486,7 @@ class B2V_REST_Controller {
 			<button type="button" class="button button-primary" id="b2v-embed" disabled><?php esc_html_e( 'Add video to post', 'blog2video' ); ?></button>
 		</div>
 
-		<div id="b2v-status-card" class="b2v-status-card" aria-live="polite" <?php echo get_post_meta( $post->ID, '_b2v_last_status', true ) ? '' : 'hidden'; ?>><span class="b2v-status-icon" aria-hidden="true"></span><div><strong id="b2v-status"><?php echo esc_html( get_post_meta( $post->ID, '_b2v_last_status', true ) ); ?></strong><div class="b2v-progress" id="b2v-progress" hidden><span></span></div><div id="b2v-upgrade-slot" class="b2v-upgrade-slot" hidden><a href="#" target="_blank" rel="noopener" class="button button-primary" id="b2v-upgrade-link"><?php esc_html_e( 'Upgrade plan', 'blog2video' ); ?></a></div></div></div>
+		<div id="b2v-status-card" class="b2v-status-card" aria-live="polite" <?php echo get_post_meta( $post->ID, '_b2v_last_status', true ) ? '' : 'hidden'; ?>><span class="b2v-status-icon" aria-hidden="true"></span><div><strong id="b2v-status"><?php echo esc_html( get_post_meta( $post->ID, '_b2v_last_status', true ) ); ?></strong><div class="b2v-progress" id="b2v-progress" hidden><span></span></div><div id="b2v-upgrade-slot" class="b2v-upgrade-slot" hidden><a href="<?php echo esc_url( $this->api->app_url() . '/signin?redirect=%2Fsubscription' ); ?>" target="_blank" rel="noopener" class="button button-primary" id="b2v-upgrade-link"><?php esc_html_e( 'Upgrade plan', 'blog2video' ); ?></a></div></div></div>
 
 		<button type="button" class="button b2v-download-button" id="b2v-download-video" data-video-url="<?php echo esc_url( get_post_meta( $post->ID, '_b2v_video_url', true ) ); ?>" <?php echo get_post_meta( $post->ID, '_b2v_video_url', true ) ? '' : 'hidden'; ?>><?php esc_html_e( 'Download video', 'blog2video' ); ?></button>
 
@@ -365,7 +507,7 @@ class B2V_REST_Controller {
 							<div class="b2v-settings-section-head"><h3><?php esc_html_e( 'Template', 'blog2video' ); ?></h3><p><?php esc_html_e( 'Rebuild scene layouts for a new template.', 'blog2video' ); ?></p></div>
 							<div class="b2v-settings-card">
 								<div class="b2v-choice-copy"><small><?php esc_html_e( 'Current template', 'blog2video' ); ?></small><strong id="b2v-modal-selected-template"><?php esc_html_e( 'Geometric Explainer', 'blog2video' ); ?></strong></div>
-								<div class="b2v-settings-card-footer"><button type="button" class="button button-primary" id="b2v-modal-browse-templates"><?php esc_html_e( 'Change template', 'blog2video' ); ?></button></div>
+								<div class="b2v-settings-card-footer"><select id="b2v-modal-template-select"><option value=""><?php esc_html_e( 'Loading templates…', 'blog2video' ); ?></option></select></div>
 							</div>
 						</section>
 
@@ -378,12 +520,12 @@ class B2V_REST_Controller {
 						</section>
 
 						<section class="b2v-settings-section">
-							<div class="b2v-settings-section-head"><h3><?php esc_html_e( 'Logo', 'blog2video' ); ?></h3><p><?php esc_html_e( 'Add your logo as a watermark on the video. PNG, JPEG, WebP or SVG, up to 2 MB.', 'blog2video' ); ?></p></div>
+							<div class="b2v-settings-section-head"><h3><?php esc_html_e( 'Logo', 'blog2video' ); ?></h3><p><?php esc_html_e( 'Add your logo as a watermark on the video. PNG, JPEG or WebP, up to 2 MB.', 'blog2video' ); ?></p></div>
 							<div class="b2v-settings-card" id="b2v-logo-card">
 								<div class="b2v-logo-preview" id="b2v-logo-preview" hidden><img id="b2v-logo-preview-image" src="" alt="<?php esc_attr_e( 'Logo preview', 'blog2video' ); ?>"></div>
 								<div class="b2v-logo-empty" id="b2v-logo-empty"><?php esc_html_e( 'No logo uploaded yet.', 'blog2video' ); ?></div>
 								<div class="b2v-logo-actions">
-									<label class="button" id="b2v-logo-choose"><?php esc_html_e( 'Upload logo', 'blog2video' ); ?><input type="file" id="b2v-logo-input" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden></label>
+									<label class="button" id="b2v-logo-choose"><?php esc_html_e( 'Upload logo', 'blog2video' ); ?><input type="file" id="b2v-logo-input" accept="image/png,image/jpeg,image/webp" hidden></label>
 									<button type="button" class="button button-link-delete" id="b2v-logo-remove" hidden><?php esc_html_e( 'Remove logo', 'blog2video' ); ?></button>
 								</div>
 								<div class="b2v-logo-settings" id="b2v-logo-settings" hidden>
@@ -512,18 +654,27 @@ class B2V_REST_Controller {
 		wp_enqueue_style( 'b2v-react-ui', B2V_URL . 'assets/react-ui.css', array( 'b2v-admin' ), $asset_version( 'react-ui.css' ) );
 		wp_enqueue_script( 'b2v-admin', B2V_URL . 'assets/admin.js', array( 'wp-api-fetch', 'wp-data', 'wp-blocks' ), $asset_version( 'admin.js' ), true );
 		wp_enqueue_script( 'b2v-react-admin', B2V_URL . 'assets/react-admin.js', array( 'b2v-admin', 'wp-element' ), $asset_version( 'react-admin.js' ), true );
-		$project_id = absint( get_post_meta( get_the_ID(), '_b2v_project_id', true ) );
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only: identifies which post is loaded in this admin screen, same as WordPress core's own use of $_GET['post']; no state is changed.
+		$post_id = isset( $_GET['post'] ) ? absint( wp_unslash( $_GET['post'] ) ) : absint( get_the_ID() );
+		$project_id = absint( get_post_meta( $post_id, '_b2v_project_id', true ) );
+		if ( ! $project_id && $post_id ) {
+			// Network-free: read whatever the embedded block already carries so the
+			// page never blocks on a backend call. The authoritative resolution by
+			// embed URL happens asynchronously, in the browser, via resolve_embed().
+			$this->restore_embedded_project_from_block( $post_id );
+			$project_id = absint( get_post_meta( $post_id, '_b2v_project_id', true ) );
+		}
 		wp_localize_script( 'b2v-admin', 'B2VAdmin', array(
-			'postId'      => get_the_ID(),
+			'postId'      => $post_id,
 			'projectId'   => $project_id,
-			'projectName' => $project_id ? (string) get_post_meta( get_the_ID(), '_b2v_project_name', true ) : '',
+			'projectName' => $project_id ? (string) get_post_meta( $post_id, '_b2v_project_name', true ) : '',
 			'root'        => '/blog2video/v1/posts/',
 			'mediaBase'   => $this->api->base_url(),
 			'appUrl'      => $this->api->app_url(),
-			'hasEmbed'    => (bool) get_post_meta( get_the_ID(), '_b2v_embed_url', true ),
+			'hasEmbed'    => (bool) get_post_meta( $post_id, '_b2v_embed_url', true ),
 			'hasProject'  => $project_id > 0,
-			'lastStatus'  => (string) get_post_meta( get_the_ID(), '_b2v_last_status', true ),
-			'videoUrl'    => (string) get_post_meta( get_the_ID(), '_b2v_video_url', true ),
+			'lastStatus'  => (string) get_post_meta( $post_id, '_b2v_last_status', true ),
+			'videoUrl'    => (string) get_post_meta( $post_id, '_b2v_video_url', true ),
 			'logoUrl'     => B2V_URL . 'assets/b2v-logo.png',
 		) );
 	}

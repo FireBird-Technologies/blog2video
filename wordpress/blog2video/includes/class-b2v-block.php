@@ -9,7 +9,8 @@ class B2V_Block {
 	}
 
 	public function register() {
-		wp_register_script( 'b2v-editor-block', B2V_URL . 'assets/editor.js', array( 'wp-blocks', 'wp-element', 'wp-components', 'wp-block-editor' ), B2V_VERSION, true );
+		$editor_modified = filemtime( B2V_DIR . 'assets/editor.js' );
+		wp_register_script( 'b2v-editor-block', B2V_URL . 'assets/editor.js', array( 'wp-blocks', 'wp-element', 'wp-components', 'wp-block-editor' ), $editor_modified ? (string) $editor_modified : B2V_VERSION, true );
 		wp_register_style( 'b2v-player', B2V_URL . 'assets/style.css', array(), B2V_VERSION );
 		register_block_type( B2V_DIR . 'block', array( 'render_callback' => array( $this, 'render' ) ) );
 	}

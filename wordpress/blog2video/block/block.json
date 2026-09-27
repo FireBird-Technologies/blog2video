@@ -1,8 +1,8 @@
 {
   "$schema": "https://schemas.wp.org/trunk/block.json",
-  "apiVersion": 2,
+  "apiVersion": 3,
   "name": "blog2video/video",
-  "version": "0.13.6",
+  "version": "0.14.13",
   "title": "Blog2Video",
   "category": "embed",
   "icon": "format-video",
@@ -10,6 +10,14 @@
   "textdomain": "blog2video",
   "attributes": {
     "embedUrl": {
+      "type": "string",
+      "default": ""
+    },
+    "projectId": {
+      "type": "integer",
+      "default": 0
+    },
+    "projectName": {
       "type": "string",
       "default": ""
     },

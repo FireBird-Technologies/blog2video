@@ -152,7 +152,7 @@ class B2V_Settings {
 				<span class="b2v-connection-state <?php echo $connected ? 'is-connected' : ''; ?>"><i></i><?php echo $connected ? esc_html__( 'Connected', 'blog2video' ) : esc_html__( 'Not connected', 'blog2video' ); ?></span>
 			</header>
 		<?php if ( isset( $_GET['b2v_notice'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
-			<div class="notice notice-info is-dismissible"><p><?php echo esc_html( wp_unslash( $_GET['b2v_notice'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?></p></div>
+			<div class="notice notice-info is-dismissible"><p><?php echo esc_html( sanitize_text_field( wp_unslash( $_GET['b2v_notice'] ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?></p></div>
 		<?php endif; ?>
 
 			<div class="b2v-settings-layout">
@@ -160,7 +160,7 @@ class B2V_Settings {
 				<?php if ( $connected ) : ?>
 					<div class="b2v-connect-icon is-success">✓</div>
 					<div class="b2v-connect-copy"><span class="b2v-settings-kicker"><?php esc_html_e( 'Account connection', 'blog2video' ); ?></span><h2><?php esc_html_e( 'Your site is ready', 'blog2video' ); ?></h2><p><?php esc_html_e( 'Editors can now create videos from any WordPress post and manage them directly in the block editor.', 'blog2video' ); ?></p></div>
-					<div class="b2v-connect-actions"><a class="button button-primary" href="<?php echo esc_url( admin_url( 'post-new.php' ) ); ?>"><?php esc_html_e( 'Create a post', 'blog2video' ); ?></a><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="b2v_disconnect"><?php wp_nonce_field( 'b2v_disconnect' ); ?><button type="submit" class="button b2v-button-quiet"><?php esc_html_e( 'Disconnect', 'blog2video' ); ?></button></form></div>
+					<div class="b2v-connect-actions"><a class="button button-primary" href="<?php echo esc_url( admin_url( 'post-new.php' ) ); ?>"><?php esc_html_e( 'Create a post', 'blog2video' ); ?></a><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="b2v_disconnect"><?php wp_nonce_field( 'b2v_disconnect' ); ?><button type="submit" class="button b2v-button-quiet b2v-disconnect-button"><?php esc_html_e( 'Disconnect account', 'blog2video' ); ?></button></form></div>
 				<?php elseif ( ! empty( $pending['verification_url'] ) ) : ?>
 					<div class="b2v-connect-icon">↗</div>
 					<div class="b2v-connect-copy"><span class="b2v-settings-kicker"><?php esc_html_e( 'One final step', 'blog2video' ); ?></span><h2><?php esc_html_e( 'Approve this site in Blog2Video', 'blog2video' ); ?></h2><p><?php esc_html_e( 'We will open a secure Blog2Video page with this site’s temporary request already filled in. Sign in and approve it.', 'blog2video' ); ?></p></div>

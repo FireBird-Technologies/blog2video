@@ -1,10 +1,9 @@
 <?php
 /**
  * Plugin Name: Blog2Video
- * Plugin URI: https://blog2video.app
- * Update URI: https://blog2video.app/wordpress
+ * Plugin URI: https://blog2video.app/wordpress-plugin
  * Description: Turn WordPress posts into narrated videos and embed them back into the post.
- * Version: 0.14.5
+ * Version: 0.14.13
  * Requires at least: 6.2
  * Requires PHP: 7.4
  * Author: Blog2Video
@@ -15,7 +14,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'B2V_VERSION', '0.14.5' );
+define( 'B2V_VERSION', '0.14.13' );
 define( 'B2V_FILE', __FILE__ );
 define( 'B2V_DIR', plugin_dir_path( __FILE__ ) );
 define( 'B2V_URL', plugin_dir_url( __FILE__ ) );
@@ -49,7 +48,10 @@ add_action(
 			wp_add_privacy_policy_content(
 				'Blog2Video',
 				wp_kses_post(
-					'<p>When an authorized editor clicks Generate, the Blog2Video plugin sends the current post title and canonical URL plus either the saved post content or a source URL selected by the editor to the connected Blog2Video account. Blog2Video processes that data to create the requested video. The plugin stores the resulting project identifiers and embed URL in post metadata.</p>'
+					'<p>Blog2Video is an external service operated by FireBird Technologies. When an administrator connects this site, WordPress stores a revocable, site-limited access token. The plugin contacts <code>https://api-staging.blog2video.app</code> to authenticate the site, load the connected account&rsquo;s projects and media options, and perform requested video operations.</p>' .
+					'<p>When an authorized editor starts video generation, the plugin sends the post title and canonical URL plus either the saved post content or a source URL selected by the editor. When the editor uses the corresponding features, the plugin also sends video settings, scene edits, and uploaded logo or scene-image files. Blog2Video processes and may store this information, generated projects, media, and rendered videos to provide the service.</p>' .
+					'<p>The plugin stores the connected-site token in WordPress options and project identifiers, project name, generation status, and video or embed URLs in post metadata. Disconnecting or uninstalling the plugin removes local connection data but does not delete the user&rsquo;s Blog2Video account or remote projects.</p>' .
+					'<p>For service data retention and deletion details, see the <a href="https://blog2video.app/privacy/">Blog2Video Privacy Policy</a>. Users can delete their account from the Account section at <a href="https://blog2video.app/subscription">Blog2Video account settings</a> or request help through the <a href="https://blog2video.app/contact/">contact page</a>. Use of the service is also governed by the <a href="https://blog2video.app/terms">Blog2Video Terms of Service</a>.</p>'
 				)
 			);
 		}
