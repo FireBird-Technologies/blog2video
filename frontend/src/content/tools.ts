@@ -705,6 +705,7 @@ export const tools: ToolDefinition[] = [
       "/templates/geometric-explainer",
     ],
   },
+  /* Commented out until the plugin is approved on WordPress.org — re-enable then.
   {
     slug: "wordpress-plugin",
     path: "/tools/wordpress-plugin",
@@ -761,14 +762,11 @@ export const tools: ToolDefinition[] = [
         answer:
           "WordPress 6.2 or later and PHP 7.4 or later. Your site must be served over HTTPS to complete the account connection.",
       },
-      {
-        question: "Can I edit scenes without leaving WordPress?",
-        answer:
-          "Yes. The plugin's scene editor lets you rewrite narration, swap visuals, reorder or regenerate individual scenes from the same sidebar panel used to generate the draft.",
-      },
+      
     ],
     relatedPaths: ["/blog-to-video", "/pricing", "/tools/free-remotion-templates"],
   },
+  */
   {
     slug: "stock-visualizer",
     path: "/tools/stock-visualizer",
