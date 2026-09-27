@@ -35,6 +35,7 @@ from app.schemas.schemas import (
     AddSceneRequest,
     ProjectCreate,
     ProjectLogoUpdate,
+    ProjectOut,
     ProjectTemplateChangeJobOut,
     ProjectTemplateChangeRequest,
     ProjectUpdate,
@@ -679,7 +680,7 @@ def wordpress_project_editor(
 ):
     project, user = _linked_project(connection, project_id, db)
     response = projects.get_project(project_id, user=user, db=db)
-    payload = jsonable_encoder(response)
+    payload = jsonable_encoder(ProjectOut.model_validate(response, from_attributes=True))
 
     if project.voice_gender == "none":
         payload["resolved_voice_id"] = None

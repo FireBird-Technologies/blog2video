@@ -269,7 +269,7 @@ def test_native_scene_editor_is_available_only_through_the_site_scoped_project(
 
     library = client.get(f"{ROOT}/library/projects", headers=headers)
     assert library.status_code == 200
-    library_project = next(item for item in library.json() if item["id"] == project_id)
+    library_project = next(item for item in library.json()["items"] if item["id"] == project_id)
     assert library_project["name"] == "Native scene editor"
     assert library_project["linked_to_site"] is True
 
