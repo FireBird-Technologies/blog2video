@@ -29,6 +29,32 @@ const processEnv =
 
 export const BACKEND_URL = viteEnv?.VITE_BACKEND_URL || processEnv?.VITE_BACKEND_URL || "";
 
+export interface WordPressConnectionApproval {
+  connected: boolean;
+  site_url: string;
+  site_name: string;
+}
+
+/** Approve the short code displayed by the Blog2Video WordPress plugin. */
+export async function approveWordPressConnection(
+  userCode: string
+): Promise<WordPressConnectionApproval> {
+  const res = await api.post<WordPressConnectionApproval>(
+    "/integrations/wordpress/v1/connections/approve",
+    { user_code: userCode }
+  );
+  return res.data;
+}
+
+export async function getPendingWordPressConnection(
+  userCode: string
+): Promise<Omit<WordPressConnectionApproval, "connected"> & { expires_at: string }> {
+  const res = await publicApi.get(
+    `/integrations/wordpress/v1/connections/pending/${encodeURIComponent(userCode)}`
+  );
+  return res.data;
+}
+
 const api = axios.create({
   baseURL: `${BACKEND_URL}/api`,
   headers: {

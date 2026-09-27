@@ -2270,6 +2270,102 @@ function BookCoverGeneratorWidget() {
   );
 }
 
+// Placeholders until the plugin is live on WordPress.org and the zip is
+// hosted somewhere permanent. Mirrors the constants in pages/WordPressPlugin.tsx.
+const WORDPRESS_ORG_URL = "https://wordpress.org/plugins/blog2video/";
+const PLUGIN_ZIP_URL = "/downloads/blog2video.zip";
+
+const WORDPRESS_PLUGIN_STEPS = [
+  { title: "Install", description: "Upload the zip in Plugins → Add New, or install from WordPress.org. Activate it." },
+  { title: "Connect", description: "Settings → Blog2Video → Connect. Approve from your account — no password ever touches WordPress." },
+  { title: "Generate", description: "Open any post. Pick a template and voice, generate a draft from the post itself." },
+  { title: "Publish", description: "Render, then “Add video to post” drops it in as a block — live the moment you hit Update." },
+];
+
+function WordPressPluginWidget() {
+  return (
+    <div className="rounded-3xl border border-gray-200 bg-white p-6 sm:p-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-xl font-semibold text-gray-900">Install the Blog2Video plugin</h2>
+        <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+          <a
+            href={WORDPRESS_ORG_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-xl border border-gray-200 bg-white px-6 py-3 text-center text-sm font-semibold text-gray-700 transition hover:border-gray-300 hover:bg-gray-50"
+          >
+            View on WordPress.org
+          </a>
+          <a
+            href={PLUGIN_ZIP_URL}
+            className="rounded-xl bg-purple-600 px-6 py-3 text-center text-sm font-semibold text-white transition hover:bg-purple-700"
+          >
+            Download plugin (.zip)
+          </a>
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {WORDPRESS_PLUGIN_STEPS.map((step, index) => (
+          <div key={step.title} className="relative rounded-2xl border border-gray-200 bg-gray-50/60 p-5 pt-8">
+            <div className="absolute -top-4 left-5 flex h-8 w-8 items-center justify-center rounded-full bg-purple-600 text-xs font-bold text-white shadow-md shadow-purple-600/25">
+              {index + 1}
+            </div>
+            <h3 className="text-sm font-semibold text-gray-900">{step.title}</h3>
+            <p className="mt-1.5 text-xs leading-relaxed text-gray-600">{step.description}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-8 overflow-hidden rounded-2xl border border-gray-200 shadow-sm">
+        <div className="flex items-center gap-2 border-b border-gray-200 bg-gray-100 px-4 py-3">
+          <span className="h-3 w-3 rounded-full bg-red-400/70" />
+          <span className="h-3 w-3 rounded-full bg-yellow-400/70" />
+          <span className="h-3 w-3 rounded-full bg-green-400/70" />
+          <span className="ml-3 truncate text-xs text-gray-400">yoursite.com/wp-admin/post.php</span>
+        </div>
+        <div className="flex flex-col gap-0 bg-white sm:flex-row">
+          <div className="flex-1 space-y-4 border-b border-gray-100 p-6 sm:border-b-0 sm:border-r">
+            <p className="text-lg font-bold text-gray-900">
+              Why Your Blog Posts Deserve a Second Life as Video
+            </p>
+            <p className="text-sm leading-relaxed text-gray-500">
+              Most of your best writing never gets seen by the people who'd rather
+              watch than read. Here's how to turn an existing post into a
+              ready-to-share video without leaving your editor.
+            </p>
+            <p className="text-sm leading-relaxed text-gray-500">
+              Start with a post that already has a clear narrative arc — how-tos and
+              explainers translate best, since the structure does most of the work
+              for you...
+            </p>
+          </div>
+          <div className="w-full flex-shrink-0 bg-purple-50/50 p-4 sm:w-64">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-purple-600">
+              Blog2Video
+            </p>
+            <p className="mt-2 text-sm font-semibold text-gray-900">Create your video</p>
+            <div className="mt-3 space-y-2">
+              <div className="rounded-lg border border-purple-200 bg-white px-3 py-2 text-xs font-medium text-gray-700">
+                Template: Geometric Explainer
+              </div>
+              <div className="rounded-lg border border-purple-200 bg-white px-3 py-2 text-xs font-medium text-gray-700">
+                Voice: Hale
+              </div>
+            </div>
+            <div className="mt-4 rounded-lg bg-purple-600 px-3 py-2.5 text-center text-xs font-semibold text-white shadow-sm">
+              Generate video
+            </div>
+            <div className="mt-2 rounded-lg border border-purple-300 px-3 py-2.5 text-center text-xs font-semibold text-purple-600">
+              Add video to post
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ToolWidget({ slug }: ToolWidgetProps) {
   switch (slug) {
     case "content-repurposing-calculator":
@@ -2302,6 +2398,8 @@ export function ToolWidget({ slug }: ToolWidgetProps) {
       return <BookCoverGeneratorWidget />;
     case "pdf-to-video-converter":
       return <PdfToVideoConverter />;
+    case "wordpress-plugin":
+      return <WordPressPluginWidget />;
     default:
       return null;
   }

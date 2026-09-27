@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import useJustLoggedIn from "../hooks/useJustLoggedIn";
 
@@ -34,6 +34,7 @@ export default function MarketingDesignerPopup() {
   const { user } = useAuth();
   const justLoggedIn = useJustLoggedIn();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [show, setShow] = useState(false);
   // Once dismissed, stay dismissed for this page — a dep re-firing (e.g. the
@@ -46,9 +47,12 @@ export default function MarketingDesignerPopup() {
     // Only fire on a real login event, not on session-restore/reload.
     if (!justLoggedIn) return;
     if (dismissedRef.current) return;
+    // The WordPress site-approval handoff is a focused, single-purpose screen —
+    // a marketing interruption here would derail the connection flow.
+    if (location.pathname.startsWith("/wordpress-connect")) return;
 
     setShow(true);
-  }, [user, justLoggedIn]);
+  }, [user, justLoggedIn, location.pathname]);
 
   const close = useCallback(() => {
     dismissedRef.current = true;

@@ -39,7 +39,7 @@ google-auth>=2.29.0
 # Argon2id rather than bcrypt: bcrypt silently truncates input at 72 bytes, so two
 # different long passwords can collide, and the SHA-256 pre-hash workaround is a
 # format decision you can never reverse. Ships prebuilt wheels — no compiler needed.
-argon2-cffi>=23.1.0
+argon2-cffi==23.1.0
 stripe>=10.0.0
 
 # PostgreSQL driver
