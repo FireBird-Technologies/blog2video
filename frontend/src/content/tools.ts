@@ -706,6 +706,70 @@ export const tools: ToolDefinition[] = [
     ],
   },
   {
+    slug: "wordpress-plugin",
+    path: "/tools/wordpress-plugin",
+    title: "Blog2Video WordPress Plugin",
+    description:
+      "Turn any WordPress post into a narrated video without leaving the editor. Install the Blog2Video plugin, connect your account, and generate, edit and publish videos straight from Gutenberg.",
+    eyebrow: "WordPress Plugin",
+    heroTitle: "Turn every post into a video, without leaving WordPress.",
+    heroDescription:
+      "Install the Blog2Video plugin, connect your account once, and generate, edit and publish narrated videos straight from the post editor — your content, your templates, your voices.",
+    category: "download",
+    icon: "WP",
+    primaryKeyword: "wordpress video plugin",
+    keywordVariant: "blog post to video wordpress plugin",
+    badges: ["Free Plugin", "Gutenberg Block", "One-Click Embed"],
+    proofPoints: [
+      "Reads the post you're already writing and turns it into a video script — no copy-pasting into a separate app.",
+      "Same template gallery, voice catalog and scene editor as the Blog2Video web app, wired directly into the post editor.",
+      "“Add video to post” inserts a live Gutenberg block — published the moment you hit Update.",
+    ],
+    sections: [
+      {
+        title: "What the plugin does",
+        body: [
+          "The Blog2Video plugin adds a panel to the WordPress post editor sidebar. Pick a template and a voice, generate a draft from the post you're writing (or any article URL), and render — all without switching tabs.",
+        ],
+      },
+      {
+        title: "How it connects",
+        body: [
+          "Connecting uses a short-lived approval code and a revocable site token, approved from your Blog2Video account. WordPress never sees or stores your Blog2Video password, and you can disconnect the site at any time from your account settings.",
+        ],
+      },
+      {
+        title: "Publishing the video",
+        body: [
+          "Once a render finishes, “Add video to post” drops the video in as a normal Gutenberg block. It publishes with the rest of the post the next time you hit Update — no separate hosting or manual upload step.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Is the plugin free?",
+        answer:
+          "Yes. The plugin itself is free to install. Video generation draws on your existing Blog2Video plan and credits, same as the web app.",
+      },
+      {
+        question: "Does it work with the classic editor?",
+        answer:
+          "The plugin panel is built for the block (Gutenberg) editor. Classic-editor sites can still generate and embed videos, but the in-editor sidebar experience targets Gutenberg.",
+      },
+      {
+        question: "What WordPress version do I need?",
+        answer:
+          "WordPress 6.2 or later and PHP 7.4 or later. Your site must be served over HTTPS to complete the account connection.",
+      },
+      {
+        question: "Can I edit scenes without leaving WordPress?",
+        answer:
+          "Yes. The plugin's scene editor lets you rewrite narration, swap visuals, reorder or regenerate individual scenes from the same sidebar panel used to generate the draft.",
+      },
+    ],
+    relatedPaths: ["/blog-to-video", "/pricing", "/tools/free-remotion-templates"],
+  },
+  {
     slug: "stock-visualizer",
     path: "/tools/stock-visualizer",
     title: "Free Stock Data Visualizer — Price History, Income Statement & Balance Sheet",

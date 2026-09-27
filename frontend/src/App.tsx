@@ -86,7 +86,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
-    return <Navigate to="/" replace />;
+    const destination = `${location.pathname}${location.search}${location.hash}`;
+    if (destination.startsWith("/") && !destination.startsWith("//")) {
+      sessionStorage.setItem("b2v_post_login_redirect", destination);
+    }
+    return <Navigate to="/signin" replace />;
   }
 
   return <>{children}</>;

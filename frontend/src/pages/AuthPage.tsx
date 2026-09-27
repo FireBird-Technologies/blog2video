@@ -27,12 +27,29 @@ export default function AuthPage(_props: AuthPageProps) {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const requestedRedirect = new URLSearchParams(location.search).get("redirect");
+  const safeRedirect =
+    requestedRedirect?.startsWith("/") && !requestedRedirect.startsWith("//")
+      ? requestedRedirect
+      : null;
+
+  // External entry points such as the WordPress plugin cannot write this
+  // origin's sessionStorage. Accept a same-origin path in the query string,
+  // persist it for every auth provider, and let usePostLoginRedirect consume it.
+  useEffect(() => {
+    if (safeRedirect) {
+      sessionStorage.setItem("b2v_post_login_redirect", safeRedirect);
+    }
+  }, [safeRedirect]);
 
   // Someone already signed in has no business here — send them on rather than
   // showing a form that would immediately bounce them.
   useEffect(() => {
-    if (!loading && user) navigate("/dashboard", { replace: true });
-  }, [user, loading, navigate]);
+    if (!loading && user) {
+      if (safeRedirect) sessionStorage.removeItem("b2v_post_login_redirect");
+      navigate(safeRedirect || "/dashboard", { replace: true });
+    }
+  }, [user, loading, navigate, safeRedirect]);
 
   return (
     <div className="min-h-screen bg-white">

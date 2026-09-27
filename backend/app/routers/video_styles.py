@@ -135,8 +135,8 @@ def _required_trimmed(value: str, field_name: str, *, minimum: int = 1) -> str:
     return cleaned
 
 
-@router.get("")
-def list_video_styles(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def video_styles_response(user: User, db: Session) -> dict:
+    """Build the authoritative video-style picker payload for every client."""
     from app.services.script_preferences import resolve_pinned_target
     pinned_target, _ = resolve_pinned_target(db, user)
 
@@ -173,6 +173,11 @@ def list_video_styles(user: User = Depends(get_current_user), db: Session = Depe
         "your_style_version": user.script_preferences_version or 0,
         "pinned_target": pinned_target,
     }
+
+
+@router.get("")
+def list_video_styles(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return video_styles_response(user, db)
 
 
 def _editable_builtin_key(style_key: str) -> str:
