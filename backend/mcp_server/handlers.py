@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 from mcp.types import CallToolResult, TextContent
 
+from app.services.template_preview_catalog import TEMPLATE_PREVIEW_URLS
 from mcp_server.client import APIError, Blog2VideoClient
 from mcp_server.polling import PollTimeout, poll_until
 
@@ -33,27 +34,6 @@ DEFAULT_POLL_TIMEOUT_RENDER = 600
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-
-# R2 public URLs for template card screenshots.
-# Populated by running (once):
-#   node backend/mcp_server/screenshot_templates.mjs
-#   cd backend && python mcp_server/upload_template_previews.py
-# The upload script prints the completed dict to paste here.
-# Empty dict → falls back to Pillow PNG grid.
-TEMPLATE_PREVIEW_URLS: dict[str, str] = {
-    'default': 'https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/default.png',
-    'nightfall': 'https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/nightfall.png',
-    'gridcraft': 'https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/gridcraft.png',
-    'spotlight': 'https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/spotlight.png',
-    'whiteboard': 'https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/whiteboard.png',
-    'newspaper': 'https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/newspaper.png',
-    'matrix': 'https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/matrix.png',
-    'newscast': 'https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/newscast.png',
-    'mosaic': 'https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/mosaic.png',
-    'blackswan': 'https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/blackswan.png',
-    'bloomberg': 'https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/bloomberg.png',
-    'chronicle': 'https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/chronicle.png',
-}
 
 # Populated by _list_voices; read by mcp_transport._read_resource to inject into voice_gallery.html
 _VOICE_CACHE: list[dict] = []

@@ -102,6 +102,21 @@ router = APIRouter(prefix="/api/projects/{project_id}", tags=["pipeline"])
 # In-memory pipeline progress tracker: project_id -> { step, error }
 _pipeline_progress: dict[int, dict] = {}
 
+
+def start_pipeline_background(project_id: int, user_id: int, loop: asyncio.AbstractEventLoop) -> None:
+    """Start the normal generation pipeline from an HTTP handler.
+
+    Integration routes use this helper too, so they get exactly the same progress
+    bookkeeping and execution path as the first-party web application.
+    """
+    _pipeline_progress[project_id] = {
+        "step": 0,
+        "running": True,
+        "error": None,
+        "notice": None,
+    }
+    loop.run_in_executor(None, _run_pipeline_sync, project_id, user_id)
+
 # Hard cap per scene: search (12s) + download (120s) + ffmpeg (300s) + R2 upload.
 # Without this, a stuck R2 upload blocks the stock gate indefinitely.
 STOCK_CLIP_ASSIGN_TIMEOUT_SECONDS = 300
@@ -610,13 +625,10 @@ async def generate_video(
             "running": False,
         }
 
-    # Initialize progress
-    _pipeline_progress[project_id] = {"step": 0, "running": True, "error": None, "notice": None}
-
-    # Run pipeline in a thread pool so the event loop is not blocked (scrape, voiceover, write_remotion_data are sync).
-    # Other API requests remain responsive while generation runs.
     loop = asyncio.get_event_loop()
-    loop.run_in_executor(None, _run_pipeline_sync, project_id, user.id)
+    # Run in a thread pool so scraping, voiceover, and workspace I/O do not
+    # block the server event loop.
+    start_pipeline_background(project_id, user.id, loop)
 
     return {"detail": "Pipeline started", "step": 0}
 

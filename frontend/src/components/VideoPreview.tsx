@@ -1197,6 +1197,14 @@ interface VideoPreviewProps {
    * back to frame 0 (Remotion's default).
    */
   holdOnLastFrame?: boolean;
+  /**
+   * Fill the parent container edge-to-edge instead of capping at 90% of the
+   * (iframe-local) viewport. Use where the parent is already precisely
+   * aspect-ratio-boxed by the embedding context (e.g. the WordPress plugin's
+   * `.b2v-player` wrapper), so no additional letterboxing padding should be
+   * applied here.
+   */
+  fillContainer?: boolean;
 }
 
 interface SceneInput {
@@ -2090,6 +2098,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     initiallyMuted = false,
     hideOverlayControls = false,
     holdOnLastFrame = false,
+    fillContainer = false,
   },
   ref
 ) {
@@ -3174,14 +3183,14 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
       >
         <div
           style={{
-            maxWidth: "min(100%, 90vw)",
-            maxHeight: "min(100%, 90vh)",
+            maxWidth: fillContainer ? "100%" : "min(100%, 90vw)",
+            maxHeight: fillContainer ? "100%" : "min(100%, 90vh)",
             width: isPortrait ? "auto" : "100%",
             height: isPortrait ? "max(100%, 80vh)" : "auto",
             aspectRatio: isPortrait ? "9/16" : "16/9",
             minWidth: 0,
             minHeight: 0,
-            backgroundColor: "#1a1a2e",
+            backgroundColor: "#0f172a",
             borderRadius: 8,
             color: "#9ca3af",
             fontSize: 14,
@@ -3223,8 +3232,8 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
       <div
         style={{
           position: "relative",
-          maxWidth: "min(100%, 90vw)",
-          maxHeight: "min(100%, 90vh)",
+          maxWidth: fillContainer ? "100%" : "min(100%, 90vw)",
+          maxHeight: fillContainer ? "100%" : "min(100%, 90vh)",
           width: isPortrait ? "auto" : "100%",
           // Portrait: use max(100%, 80vh) so we have an intrinsic height when parent
           // has no explicit height (flex chain), avoiding 0-height collapse

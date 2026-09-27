@@ -1,0 +1,23 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 2,
+  "name": "blog2video/video",
+  "version": "0.13.6",
+  "title": "Blog2Video",
+  "category": "embed",
+  "icon": "format-video",
+  "description": "Embed any Blog2Video project. Add multiple blocks to use multiple videos in one post.",
+  "textdomain": "blog2video",
+  "attributes": {
+    "embedUrl": {
+      "type": "string",
+      "default": ""
+    },
+    "aspectRatio": {
+      "type": "string",
+      "default": "16:9"
+    }
+  },
+  "editorScript": "b2v-editor-block",
+  "style": "b2v-player"
+}
