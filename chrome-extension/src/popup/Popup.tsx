@@ -73,6 +73,30 @@ function CheckIcon() {
   );
 }
 
+function Logo({ size }: { size: "small" | "large" }) {
+  return <div className={size === "small" ? "b2v-logo b2v-logo-small" : "b2v-logo b2v-logo-large"}>B2V</div>;
+}
+
+const STEP_LABELS = ["Content", "Template", "Voice"];
+
+function StepIndicator({ current }: { current: 1 | 2 | 3 }) {
+  return (
+    <div className="step-indicator">
+      <div className="step-dots">
+        {[1, 2, 3].map((n) => (
+          <div className="step-dot-wrap" key={n}>
+            <div className={n === current ? "step-dot current" : n < current ? "step-dot done" : "step-dot"}>
+              {n < current ? <CheckIcon /> : n}
+            </div>
+            {n < 3 && <div className={n < current ? "step-line done" : "step-line"} />}
+          </div>
+        ))}
+      </div>
+      <span className="step-label">Step {current} — {STEP_LABELS[current - 1]}</span>
+    </div>
+  );
+}
+
 type VideoStyle = "auto" | "explainer" | "promotional" | "storytelling";
 type VideoLength = "auto" | "short" | "medium" | "detailed" | "more_detailed";
 
@@ -111,11 +135,11 @@ export default function Popup() {
   const [videoLength, setVideoLength] = useState<VideoLength>("auto");
   const [aspectRatio, setAspectRatio] = useState<"landscape" | "portrait">("landscape");
   const [stockFootageEnabled, setStockFootageEnabled] = useState(true);
-  const [scriptReviewEnabled, setScriptReviewEnabled] = useState(false);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPosition, setLogoPosition] = useState<"top_left" | "top_right" | "bottom_left" | "bottom_right">("bottom_right");
   const [logoOpacity, setLogoOpacity] = useState(0.9);
   const [extractionFailed, setExtractionFailed] = useState(false);
+  const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1);
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
   const previewAudioRef = useState<{ current: HTMLAudioElement | null }>({ current: null })[0];
 
@@ -193,6 +217,7 @@ export default function Popup() {
       const [catalog, accountResult] = await Promise.all([getCatalog(), getAccount()]);
       setAccount(accountResult);
       setStage({ kind: "ready", catalog });
+      setWizardStep(1);
       if (catalog.templates[0]) setTemplateId(catalog.templates[0].id);
       await loadActiveTab();
     } catch (err) {
@@ -324,7 +349,7 @@ export default function Popup() {
         video_length: videoLength,
         aspect_ratio: aspectRatio,
         stock_footage_enabled: stockFootageEnabled,
-        script_review_enabled: scriptReviewEnabled,
+        script_review_enabled: false,
         logo_position: logoPosition,
         logo_opacity: logoOpacity,
         custom_voice_id: voiceId || undefined,
@@ -439,7 +464,7 @@ export default function Popup() {
   return (
     <div className="popup">
       <header>
-        <img src="/icons/icon32.png" alt="" />
+        <Logo size="small" />
         <span>Blog2Video</span>
         {stage.kind === "ready" && (
           <button className="link" onClick={handleDisconnect}>Disconnect</button>
@@ -462,9 +487,7 @@ export default function Popup() {
       {stage.kind === "disconnected" && (
         <div className="panel">
           <div className="hero">
-            <div className="hero-icon">
-              <img src="/icons/icon32.png" alt="" />
-            </div>
+            <Logo size="large" />
             <h1>Turn this page into a video</h1>
             <p>Connect your Blog2Video account to generate a narrated video from the article you're reading.</p>
             <ul className="feature-list">
@@ -489,187 +512,230 @@ export default function Popup() {
 
       {stage.kind === "ready" && (
         <div className="panel">
-          <label>Page</label>
-          <input value={tabUrl} readOnly />
-          {extractionFailed && (
-            <>
-              <label>Article text</label>
-              <textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                rows={6}
-                placeholder="Couldn't auto-extract this page — paste the article text here."
-              />
-            </>
-          )}
+          <StepIndicator current={wizardStep} />
 
-          <label>Video type</label>
-          <div className="option-grid option-grid-four">
-            {VIDEO_STYLES.map((option) => (
-              <button
-                type="button"
-                key={option.value}
-                className={videoStyle === option.value ? "option-button selected" : "option-button"}
-                onClick={() => setVideoStyle(option.value)}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+          {wizardStep === 1 && (
+            <div className="wizard-step">
+              <label>Page</label>
+              <input value={tabUrl} readOnly />
+              {extractionFailed && (
+                <>
+                  <label>Article text</label>
+                  <textarea
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    rows={6}
+                    placeholder="Couldn't auto-extract this page — paste the article text here."
+                  />
+                </>
+              )}
 
-          <label>Video format</label>
-          <div className="option-grid">
-            <button
-              type="button"
-              className={aspectRatio === "landscape" ? "option-button selected" : "option-button"}
-              onClick={() => setAspectRatio("landscape")}
-            >
-              <strong>Landscape</strong><small>YouTube</small>
-            </button>
-            <button
-              type="button"
-              className={aspectRatio === "portrait" ? "option-button selected" : "option-button"}
-              onClick={() => setAspectRatio("portrait")}
-            >
-              <strong>Portrait</strong><small>TikTok / Reels</small>
-            </button>
-          </div>
+              <label>Video format</label>
+              <div className="option-grid">
+                <button
+                  type="button"
+                  className={aspectRatio === "landscape" ? "option-button selected" : "option-button"}
+                  onClick={() => setAspectRatio("landscape")}
+                >
+                  <strong>Landscape</strong><small>YouTube</small>
+                </button>
+                <button
+                  type="button"
+                  className={aspectRatio === "portrait" ? "option-button selected" : "option-button"}
+                  onClick={() => setAspectRatio("portrait")}
+                >
+                  <strong>Portrait</strong><small>TikTok / Reels</small>
+                </button>
+              </div>
 
-          <label htmlFor="video-length">Estimated duration</label>
-          <select
-            id="video-length"
-            value={videoLength}
-            onChange={(event) => setVideoLength(event.target.value as VideoLength)}
-          >
-            {VIDEO_LENGTHS.map((option) => {
-              const locked = option.paid && account?.plan?.toLowerCase() === "free";
-              return (
-                <option key={option.value} value={option.value} disabled={locked}>
-                  {option.label}{locked ? " · Paid only" : ""}
-                </option>
-              );
-            })}
-          </select>
-
-          <div className="creation-toggles">
-            <label className="setting-toggle">
-              <input
-                type="checkbox"
-                checked={scriptReviewEnabled}
-                onChange={(event) => setScriptReviewEnabled(event.target.checked)}
-              />
-              <span><strong>Review script</strong><small>Review before scene generation</small></span>
-            </label>
-            <label className="setting-toggle">
-              <input
-                type="checkbox"
-                checked={stockFootageEnabled}
-                onChange={(event) => setStockFootageEnabled(event.target.checked)}
-              />
-              <span><strong>Stock footage</strong><small>Insert matching clips automatically</small></span>
-            </label>
-          </div>
-
-          <label htmlFor="project-logo">Logo <span className="label-note">optional · max 2 MB</span></label>
-          <input
-            id="project-logo"
-            className="file-input"
-            type="file"
-            accept="image/png,image/jpeg,image/webp,image/svg+xml"
-            onChange={(event) => {
-              const file = event.target.files?.[0] ?? null;
-              if (file && file.size > 2 * 1024 * 1024) {
-                event.target.value = "";
-                setStage({ kind: "error", message: "Logo must be under 2 MB." });
-                return;
-              }
-              setLogoFile(file);
-            }}
-          />
-          {logoFile && (
-            <div className="logo-options">
+              <label htmlFor="video-length">Estimated duration</label>
               <select
-                aria-label="Logo position"
-                value={logoPosition}
-                onChange={(event) => setLogoPosition(event.target.value as typeof logoPosition)}
+                id="video-length"
+                value={videoLength}
+                onChange={(event) => setVideoLength(event.target.value as VideoLength)}
               >
-                <option value="top_left">Top left</option>
-                <option value="top_right">Top right</option>
-                <option value="bottom_left">Bottom left</option>
-                <option value="bottom_right">Bottom right</option>
+                {VIDEO_LENGTHS.map((option) => {
+                  const locked = option.paid && account?.plan?.toLowerCase() === "free";
+                  return (
+                    <option key={option.value} value={option.value} disabled={locked}>
+                      {option.label}{locked ? " · Paid only" : ""}
+                    </option>
+                  );
+                })}
               </select>
-              <label className="opacity-control">
-                <span>Opacity {Math.round(logoOpacity * 100)}%</span>
-                <input
-                  type="range"
-                  min="10"
-                  max="100"
-                  step="5"
-                  value={Math.round(logoOpacity * 100)}
-                  onChange={(event) => setLogoOpacity(Number(event.target.value) / 100)}
-                />
-              </label>
+
+              <div className="creation-toggles creation-toggles-single">
+                <label className="setting-toggle">
+                  <input
+                    type="checkbox"
+                    checked={stockFootageEnabled}
+                    onChange={(event) => setStockFootageEnabled(event.target.checked)}
+                  />
+                  <span><strong>Stock footage</strong><small>Insert matching clips automatically</small></span>
+                </label>
+              </div>
+
+              <label htmlFor="project-logo">Logo <span className="label-note">optional · max 2 MB</span></label>
+              <input
+                id="project-logo"
+                className="file-input"
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                onChange={(event) => {
+                  const file = event.target.files?.[0] ?? null;
+                  if (file && file.size > 2 * 1024 * 1024) {
+                    event.target.value = "";
+                    setStage({ kind: "error", message: "Logo must be under 2 MB." });
+                    return;
+                  }
+                  setLogoFile(file);
+                }}
+              />
+              {logoFile && (
+                <div className="logo-options">
+                  <select
+                    aria-label="Logo position"
+                    value={logoPosition}
+                    onChange={(event) => setLogoPosition(event.target.value as typeof logoPosition)}
+                  >
+                    <option value="top_left">Top left</option>
+                    <option value="top_right">Top right</option>
+                    <option value="bottom_left">Bottom left</option>
+                    <option value="bottom_right">Bottom right</option>
+                  </select>
+                  <label className="opacity-control">
+                    <span>Opacity {Math.round(logoOpacity * 100)}%</span>
+                    <input
+                      type="range"
+                      min="10"
+                      max="100"
+                      step="5"
+                      value={Math.round(logoOpacity * 100)}
+                      onChange={(event) => setLogoOpacity(Number(event.target.value) / 100)}
+                    />
+                  </label>
+                </div>
+              )}
+
+              <div className="wizard-nav wizard-nav-single">
+                <button
+                  type="button"
+                  className="wizard-next"
+                  disabled={!content.trim()}
+                  onClick={() => setWizardStep(2)}
+                >
+                  Continue <span aria-hidden="true">→</span>
+                </button>
+              </div>
             </div>
           )}
 
-          <label>Template</label>
-          <div className="grid">
-            {stage.catalog.templates.map((t) => {
-              const isSelected = t.id === templateId;
-              return (
-                <button
-                  key={t.id}
-                  className={isSelected ? "tile selected" : "tile"}
-                  onClick={() => setTemplateId(t.id)}
-                  type="button"
-                >
-                  <div className="tile-thumb">
-                    {t.preview_url ? <img src={t.preview_url} alt="" /> : <span className="tile-fallback">{t.name}</span>}
-                    {isSelected && <span className="tile-check"><CheckIcon /></span>}
-                  </div>
-                  <span className="tile-label">{t.name}</span>
-                </button>
-              );
-            })}
-          </div>
+          {wizardStep === 2 && (
+            <div className="wizard-step">
+              <label>Template</label>
+              <div className="grid">
+                {stage.catalog.templates.map((t) => {
+                  const isSelected = t.id === templateId;
+                  return (
+                    <button
+                      key={t.id}
+                      className={isSelected ? "tile selected" : "tile"}
+                      onClick={() => setTemplateId(t.id)}
+                      type="button"
+                    >
+                      <div className="tile-thumb">
+                        {t.preview_url ? <img src={t.preview_url} alt="" /> : <span className="tile-fallback">{t.name}</span>}
+                        {isSelected && <span className="tile-check"><CheckIcon /></span>}
+                      </div>
+                      <span className="tile-label">{t.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
 
-          <label>Voice — tap to preview</label>
-          <div className="voice-list">
-            {stage.catalog.voices.length === 0 && <p className="muted">Using default voice.</p>}
-            {stage.catalog.voices.map((v) => {
-              const isSelected = v.voice_id === voiceId;
-              const isPlaying = playingVoiceId === v.voice_id;
-              const subtitle = formatVoiceSubtitle(v.gender, v.accent, v.description);
-              return (
-                <div
-                  key={v.voice_id}
-                  role="button"
-                  tabIndex={0}
-                  className={isSelected ? "voice-row selected" : "voice-row"}
-                  onClick={() => setVoiceId(v.voice_id)}
-                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setVoiceId(v.voice_id); } }}
-                >
-                  <button
-                    type="button"
-                    className={isPlaying ? "play playing" : "play"}
-                    onClick={(e) => { e.stopPropagation(); playVoicePreview(v); }}
-                    aria-label={isPlaying ? `Pause ${v.name}` : `Preview ${v.name}`}
-                  >
-                    {isPlaying ? <PauseIcon /> : <PlayIcon />}
-                  </button>
-                  <div className="voice-copy">
-                    <div className="voice-name">{v.name}</div>
-                    {subtitle && <div className="voice-subtitle">{subtitle}</div>}
-                  </div>
-                  {isSelected && <span className="voice-check"><CheckIcon /></span>}
+              <div className="style-picker-row">
+                <label className="style-picker-label">Video style</label>
+                <div className="style-pills">
+                  {VIDEO_STYLES.map((option) => (
+                    <button
+                      type="button"
+                      key={option.value}
+                      className={videoStyle === option.value ? "style-pill selected" : "style-pill"}
+                      onClick={() => setVideoStyle(option.value)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
                 </div>
-              );
-            })}
-          </div>
+              </div>
 
-          <button className="primary" disabled={!content.trim() || !templateId} onClick={handleGenerate}>
-            Create video
-          </button>
+              <div className="wizard-nav">
+                <button type="button" className="wizard-back" onClick={() => setWizardStep(1)}>
+                  <span aria-hidden="true">←</span> Back
+                </button>
+                <button
+                  type="button"
+                  className="wizard-next"
+                  disabled={!templateId}
+                  onClick={() => setWizardStep(3)}
+                >
+                  Continue <span aria-hidden="true">→</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {wizardStep === 3 && (
+            <div className="wizard-step">
+              <label>Voice — tap to preview</label>
+              <div className="voice-list">
+                {stage.catalog.voices.length === 0 && <p className="muted">Using default voice.</p>}
+                {stage.catalog.voices.map((v) => {
+                  const isSelected = v.voice_id === voiceId;
+                  const isPlaying = playingVoiceId === v.voice_id;
+                  const subtitle = formatVoiceSubtitle(v.gender, v.accent, v.description);
+                  return (
+                    <div
+                      key={v.voice_id}
+                      role="button"
+                      tabIndex={0}
+                      className={isSelected ? "voice-row selected" : "voice-row"}
+                      onClick={() => setVoiceId(v.voice_id)}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setVoiceId(v.voice_id); } }}
+                    >
+                      <button
+                        type="button"
+                        className={isPlaying ? "play playing" : "play"}
+                        onClick={(e) => { e.stopPropagation(); playVoicePreview(v); }}
+                        aria-label={isPlaying ? `Pause ${v.name}` : `Preview ${v.name}`}
+                      >
+                        {isPlaying ? <PauseIcon /> : <PlayIcon />}
+                      </button>
+                      <div className="voice-copy">
+                        <div className="voice-name">{v.name}</div>
+                        {subtitle && <div className="voice-subtitle">{subtitle}</div>}
+                      </div>
+                      {isSelected && <span className="voice-check"><CheckIcon /></span>}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="wizard-nav">
+                <button type="button" className="wizard-back" onClick={() => setWizardStep(2)}>
+                  <span aria-hidden="true">←</span> Back
+                </button>
+                <button
+                  type="button"
+                  className="wizard-next"
+                  disabled={!content.trim() || !templateId}
+                  onClick={handleGenerate}
+                >
+                  Create video
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -717,19 +783,15 @@ export default function Popup() {
 
       {stage.kind === "done" && (
         <div className="panel">
-          <div className="done-badge"><CheckIcon /> Video ready</div>
-          <video src={stage.videoUrl} controls />
-          <div className="links">
-            {stage.previewUrl && (
-              <button className="secondary" onClick={() => chrome.tabs.create({ url: stage.previewUrl! })}>
-                Preview
-              </button>
-            )}
+          <div className="connecting">
+            <div className="done-badge"><CheckIcon /> Video ready</div>
+            <p><strong>Your video is ready to view.</strong></p>
+            <p>Open it on Blog2Video to preview, edit, or download.</p>
             <button
               className="primary"
               onClick={() => chrome.tabs.create({ url: `${FRONTEND_BASE_URL}/project/${stage.projectId}` })}
             >
-              Edit on Blog2Video
+              Preview
             </button>
           </div>
           <button className="link centered" onClick={() => void handleStartOver()}>Create another video</button>

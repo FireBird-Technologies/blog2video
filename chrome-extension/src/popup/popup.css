@@ -1,9 +1,12 @@
 :root {
   color-scheme: light;
-  --accent: #7c3aed;
-  --accent-hover: #6d28d9;
-  --accent-light: #f5f3ff;
-  --accent-wash: rgba(124, 58, 237, 0.1);
+  /* Matches the app's Tailwind purple scale (bg-purple-600 / hover:bg-purple-700) */
+  --accent: #9333ea;
+  --accent-hover: #7e22ce;
+  --accent-light: #faf5ff;
+  --accent-wash: rgba(147, 51, 234, 0.1);
+  --accent-border: #d8b4fe;
+  --accent-mid: #a855f7;
   --border: #e5e7eb;
   --text: #1f2937;
   --muted: #9ca3af;
@@ -14,7 +17,7 @@
 body {
   margin: 0;
   width: 400px;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: var(--text);
   background: #fff;
 }
@@ -30,7 +33,19 @@ header {
   font-weight: 700;
   font-size: 14px;
 }
-header img { width: 22px; height: 22px; border-radius: 6px; }
+/* Matches the webapp navbar's logo badge exactly (w-7 h-7 bg-purple-600 rounded-lg) */
+.b2v-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  border-radius: 8px;
+}
+.b2v-logo-small { width: 28px; height: 28px; font-size: 11px; }
+.b2v-logo-large { width: 56px; height: 56px; font-size: 18px; border-radius: 16px; }
 header .link {
   margin-left: auto;
   background: none;
@@ -50,8 +65,70 @@ header .link:hover { background: #f1f5f9; color: var(--text); }
   padding: 16px;
   max-height: 500px;
   overflow-y: auto;
-  background: linear-gradient(180deg, #faf9ff, #ffffff 140px);
+  background: linear-gradient(180deg, var(--accent-light), #ffffff 140px);
 }
+
+.step-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 4px;
+}
+.step-dots { display: flex; align-items: center; gap: 6px; }
+.step-dot-wrap { display: flex; align-items: center; gap: 6px; }
+.step-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  background: #f1f5f9;
+  color: var(--muted);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.step-dot.current { background: var(--accent); color: #fff; }
+.step-dot.done { background: var(--accent-light); color: var(--accent); }
+.step-dot svg { width: 11px; height: 11px; }
+.step-line { width: 28px; height: 1px; background: var(--border); transition: background 0.15s ease; }
+.step-line.done { background: var(--accent-border); }
+.step-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: none; letter-spacing: 0; margin: 0; }
+
+.wizard-step { display: flex; flex-direction: column; gap: 10px; }
+
+.wizard-nav {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 6px;
+}
+.wizard-nav-single { grid-template-columns: 1fr; }
+.wizard-nav button {
+  border-radius: 10px;
+  padding: 11px 12px;
+  font-weight: 600;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.wizard-back {
+  background: #fff;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.wizard-back:hover { background: #f9fafb; }
+.wizard-next {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  transition: background 0.12s ease;
+}
+.wizard-next:hover { background: var(--accent-hover); }
+.wizard-next:active { transform: translateY(1px); }
+.wizard-next:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
 
 .hero {
   display: flex;
@@ -61,18 +138,6 @@ header .link:hover { background: #f1f5f9; color: var(--text); }
   gap: 14px;
   padding: 28px 8px 8px;
 }
-
-.hero-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, #8b5cf6, #6d28d9);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 8px 20px -6px rgba(124, 58, 237, 0.45);
-}
-.hero-icon img { width: 30px; height: 30px; }
 
 .hero h1 {
   font-size: 16px;
@@ -139,19 +204,46 @@ input, textarea, select {
 }
 input:focus, textarea:focus, select:focus {
   outline: none;
-  border-color: #8b5cf6;
+  border-color: var(--accent-mid);
   box-shadow: 0 0 0 3px var(--accent-wash);
 }
 input[readonly] { color: #6b7280; background: #f9fafb; }
 
 select { appearance: auto; }
 
+/* Matches the webapp's Step 2 "Video Style" pill row (bg-gray-100/60 rounded-xl, selected = bg-white text-purple-600 shadow-sm) */
+.style-picker-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
+.style-picker-label { margin: 0; }
+.style-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px;
+  background: rgba(243, 244, 246, 0.6);
+  border-radius: 12px;
+}
+.style-pill {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+  font-family: inherit;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.style-pill:hover { color: #4b5563; }
+.style-pill.selected { background: #fff; color: var(--accent); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06); }
+
 .option-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 7px;
 }
-.option-grid-four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .option-button {
   min-width: 0;
   border: 1px solid var(--border);
@@ -170,12 +262,13 @@ select { appearance: auto; }
 .option-button.selected {
   color: var(--accent);
   background: var(--accent-light);
-  border-color: #8b5cf6;
+  border-color: var(--accent-mid);
   box-shadow: 0 0 0 2px var(--accent-wash);
 }
-.option-button.selected small { color: #a78bfa; }
+.option-button.selected small { color: var(--accent-mid); }
 
 .creation-toggles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.creation-toggles-single { grid-template-columns: 1fr; }
 .setting-toggle {
   margin: 0;
   padding: 10px;
@@ -231,7 +324,7 @@ button {
 }
 
 button.primary {
-  background: linear-gradient(135deg, #8b5cf6, var(--accent));
+  background: var(--accent);
   color: #fff;
   border: none;
   border-radius: 10px;
@@ -239,10 +332,9 @@ button.primary {
   font-weight: 600;
   font-size: 14px;
   width: 100%;
-  box-shadow: 0 6px 16px -6px rgba(124, 58, 237, 0.55);
-  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  transition: background 0.12s ease, transform 0.1s ease;
 }
-button.primary:hover { background: linear-gradient(135deg, #7c3aed, var(--accent-hover)); box-shadow: 0 8px 18px -6px rgba(124, 58, 237, 0.65); }
+button.primary:hover { background: var(--accent-hover); }
 button.primary:active { transform: translateY(1px); }
 button.primary:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
 
@@ -282,7 +374,7 @@ button.secondary {
   font-size: 10px;
   transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
-.tile:hover { border-color: rgba(196, 181, 253, 0.6); }
+.tile:hover { border-color: var(--accent-border); }
 .tile-thumb { position: relative; width: 100%; height: 48px; background: #f3f4f6; }
 .tile-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .tile-fallback {
@@ -322,7 +414,7 @@ button.secondary {
   background: rgba(255, 255, 255, 0.8);
 }
 .tile.selected {
-  border-color: #8b5cf6;
+  border-color: var(--accent-mid);
   border-left: 3px solid var(--accent);
   box-shadow: 0 0 0 3px var(--accent-wash);
 }
@@ -341,12 +433,12 @@ button.secondary {
   cursor: pointer;
   transition: border-color 0.12s ease, background 0.12s ease;
 }
-.voice-row:hover { border-color: rgba(196, 181, 253, 0.6); background: rgba(250, 245, 255, 0.4); }
+.voice-row:hover { border-color: var(--accent-border); background: rgba(250, 245, 255, 0.4); }
 .voice-row.selected {
-  border-color: #8b5cf6;
+  border-color: var(--accent-mid);
   border-left-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-wash);
-  background: rgba(245, 243, 255, 0.6);
+  background: rgba(250, 245, 255, 0.6);
 }
 .voice-copy { flex: 1; min-width: 0; padding-top: 3px; }
 .voice-name {
