@@ -30,12 +30,15 @@ TEMPLATE_PREVIEW_URLS: dict[str, str] = {
 
 
 def build_catalog(user_id: int, db: "Session") -> dict:
-    """Templates + this user's saved voices, for third-party connector pickers.
+    """Built-in + this user's custom/crafted templates, and their saved voices,
+    for third-party connector pickers.
 
     Shared by the WordPress and browser-extension connectors so both stay
     in sync with the same template/voice shape.
     """
+    from app.models.custom_template import CustomTemplate
     from app.models.saved_voice import SavedVoice
+    from app.services.crafted_template_service import list_user_crafted_templates
     from app.services.template_service import list_templates
 
     voices = (
@@ -48,7 +51,31 @@ def build_catalog(user_id: int, db: "Session") -> dict:
     for template in list_templates():
         item = dict(template)
         item["preview_url"] = TEMPLATE_PREVIEW_URLS.get(str(item.get("id", "")), "")
+        item["source"] = "built_in"
         templates.append(item)
+
+    custom_rows = (
+        db.query(CustomTemplate)
+        .filter(CustomTemplate.user_id == user_id, CustomTemplate.generation_failed.is_(False))
+        .order_by(CustomTemplate.created_at.desc())
+        .all()
+    )
+    for tpl in custom_rows:
+        templates.append({
+            "id": f"custom_{tpl.id}",
+            "name": tpl.name,
+            "preview_url": tpl.preview_image_url or "",
+            "source": "custom",
+        })
+
+    for tpl in list_user_crafted_templates(user_id, db):
+        templates.append({
+            "id": tpl.get("id", ""),
+            "name": tpl.get("name", ""),
+            "preview_url": tpl.get("preview_image_url") or "",
+            "source": "crafted",
+        })
+
     return {
         "templates": templates,
         "voices": [

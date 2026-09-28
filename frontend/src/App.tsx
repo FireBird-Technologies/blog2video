@@ -33,6 +33,7 @@ import TemplateStudio from "./pages/TemplateStudio";
 import TemplatesShowcasePage from "./pages/TemplatesShowcasePage";
 import WordPressConnect from "./pages/WordPressConnect";
 import WordPressPlugin from "./pages/WordPressPlugin";
+import ExtensionConnect from "./pages/ExtensionConnect";
 
 function ExternalRedirect({ to }: { to: string }) {
   useEffect(() => { window.location.replace(to); }, [to]);
@@ -230,6 +231,7 @@ function AppRoutes() {
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/wordpress-connect" element={<WordPressConnect />} />
         <Route path="/wordpress-plugin" element={<WordPressPlugin />} />
+        <Route path="/extension-connect" element={<ExtensionConnect />} />
         {marketingPages.map((page) => (
           <Route
             key={page.path}

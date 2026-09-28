@@ -55,6 +55,31 @@ export async function getPendingWordPressConnection(
   return res.data;
 }
 
+export interface ExtensionConnectionApproval {
+  connected: boolean;
+  browser_label: string;
+}
+
+/** Approve the short code displayed by the Blog2Video Chrome extension. */
+export async function approveExtensionConnection(
+  userCode: string
+): Promise<ExtensionConnectionApproval> {
+  const res = await api.post<ExtensionConnectionApproval>(
+    "/integrations/extension/v1/connections/approve",
+    { user_code: userCode }
+  );
+  return res.data;
+}
+
+export async function getPendingExtensionConnection(
+  userCode: string
+): Promise<{ browser_label: string; expires_at: string }> {
+  const res = await publicApi.get(
+    `/integrations/extension/v1/connections/pending/${encodeURIComponent(userCode)}`
+  );
+  return res.data;
+}
+
 const api = axios.create({
   baseURL: `${BACKEND_URL}/api`,
   headers: {
