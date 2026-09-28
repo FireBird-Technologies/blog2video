@@ -5,9 +5,9 @@ import PublicHeader from "../components/public/PublicHeader";
 import PublicFooter from "../components/public/PublicFooter";
 import Seo from "../components/seo/Seo";
 
-// Hosted on Cloudflare R2. Mirrors the constant in components/tools/ToolWidgets.tsx.
-const PLUGIN_ZIP_URL =
-  "https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/static/plugins/blog2video-wordpress-plugin.zip";
+// Hosted on Cloudflare R2 (VITE_R2_PUBLIC_URL, same base as the backend's R2_PUBLIC_URL).
+// Mirrors the constant in components/tools/ToolWidgets.tsx.
+const PLUGIN_ZIP_URL = `${import.meta.env.VITE_R2_PUBLIC_URL}/static/plugins/blog2video-wordpress-plugin.zip`;
 
 interface Step {
   title: string;
