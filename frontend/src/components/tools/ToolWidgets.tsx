@@ -753,7 +753,7 @@ function MarkdownFormatter() {
           <textarea
             value={input}
             onChange={(event) => setInput(event.target.value)}
-            className="min-h-[420px] w-full rounded-2xl border border-gray-200 bg-white p-4 font-mono text-sm leading-6 text-gray-700 shadow-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+            className="min-h-[420px] w-full rounded-lg border border-gray-200 bg-white p-4 font-mono text-sm leading-6 text-gray-700 shadow-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
           />
         </div>
         <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -790,7 +790,7 @@ function MarkdownFormatter() {
             <textarea
               readOnly
               value={active.output}
-              className="min-h-[340px] w-full rounded-2xl border border-gray-200 bg-gray-50 p-4 font-mono text-sm leading-6 text-gray-700"
+              className="min-h-[340px] w-full rounded-lg border border-gray-200 bg-gray-50 p-4 font-mono text-sm leading-6 text-gray-700"
             />
             <div className="rounded-2xl border border-purple-100 bg-purple-50/60 p-5">
               <p className="text-sm font-semibold text-gray-900">What changed</p>
@@ -882,7 +882,7 @@ function HeadlineAnalyzer() {
           <textarea
             value={headline}
             onChange={(event) => setHeadline(event.target.value)}
-            className="min-h-[140px] w-full rounded-2xl border border-gray-200 bg-white p-4 text-lg leading-7 text-gray-700 shadow-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+            className="min-h-[140px] w-full rounded-lg border border-gray-200 bg-white p-4 text-lg leading-7 text-gray-700 shadow-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
           />
         </Field>
         <div className="mt-5">
@@ -1223,7 +1223,7 @@ function SeoTitleChecker() {
           <textarea
             value={title}
             onChange={(event) => setTitle(event.target.value)}
-            className="min-h-[96px] w-full rounded-2xl border border-gray-200 bg-white p-4 text-base leading-6 text-gray-700 shadow-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+            className="min-h-[96px] w-full rounded-lg border border-gray-200 bg-white p-4 text-base leading-6 text-gray-700 shadow-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
           />
         </Field>
         <div className="mt-3">
@@ -1245,7 +1245,7 @@ function SeoTitleChecker() {
             <textarea
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              className="min-h-[110px] w-full rounded-2xl border border-gray-200 bg-white p-4 text-sm leading-6 text-gray-700 shadow-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+              className="min-h-[110px] w-full rounded-lg border border-gray-200 bg-white p-4 text-sm leading-6 text-gray-700 shadow-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
             />
           </Field>
         </div>
@@ -1437,7 +1437,7 @@ function QuoteCardGenerator() {
             <textarea
               value={quote}
               onChange={(event) => setQuote(event.target.value)}
-              className="min-h-[160px] w-full rounded-2xl border border-gray-200 bg-white p-4 text-lg leading-7 text-gray-700 shadow-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+              className="min-h-[160px] w-full rounded-lg border border-gray-200 bg-white p-4 text-lg leading-7 text-gray-700 shadow-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
             />
           </Field>
           <div className="grid gap-5 md:grid-cols-2">
@@ -1685,7 +1685,7 @@ function VideoScriptGeneratorInner() {
             value={topic}
             onChange={(event) => setTopic(event.target.value)}
             placeholder="e.g. How to turn a blog post into a narrated video — or paste an article URL"
-            className="min-h-[140px] w-full rounded-2xl border border-gray-200 bg-white p-4 text-sm leading-6 text-gray-700 shadow-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+            className="min-h-[140px] w-full rounded-lg border border-gray-200 bg-white p-4 text-sm leading-6 text-gray-700 shadow-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
           />
         </Field>
         <div className="mt-5">
@@ -1825,7 +1825,7 @@ function ThumbnailTextGeneratorInner() {
             value={topic}
             onChange={(event) => setTopic(event.target.value)}
             placeholder="e.g. I turned one blog post into 30 days of video content"
-            className="min-h-[120px] w-full rounded-2xl border border-gray-200 bg-white p-4 text-sm leading-6 text-gray-700 shadow-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+            className="min-h-[120px] w-full rounded-lg border border-gray-200 bg-white p-4 text-sm leading-6 text-gray-700 shadow-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
           />
         </Field>
         <button
@@ -1916,7 +1916,7 @@ function YouTubeDescriptionGeneratorInner() {
             value={topic}
             onChange={(event) => setTopic(event.target.value)}
             placeholder="Paste your video topic, title, or full transcript for the most accurate description"
-            className="min-h-[180px] w-full rounded-2xl border border-gray-200 bg-white p-4 text-sm leading-6 text-gray-700 shadow-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+            className="min-h-[180px] w-full rounded-lg border border-gray-200 bg-white p-4 text-sm leading-6 text-gray-700 shadow-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
           />
         </Field>
         <button
@@ -2021,7 +2021,7 @@ function VideoLengthCalculatorInner() {
             value={text}
             onChange={(event) => setText(event.target.value)}
             placeholder="Paste your script here to estimate its spoken runtime…"
-            className="min-h-[220px] w-full rounded-2xl border border-gray-200 bg-white p-4 text-sm leading-6 text-gray-700 shadow-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+            className="min-h-[220px] w-full rounded-lg border border-gray-200 bg-white p-4 text-sm leading-6 text-gray-700 shadow-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
           />
         </Field>
         <p className="mt-4 text-xs leading-relaxed text-gray-400">
@@ -2179,7 +2179,7 @@ function BookCoverGeneratorInner() {
             value={description}
             onChange={(event) => setDescription(event.target.value)}
             placeholder="Describe your book in ~200 words — genre, mood, central idea or character, and any imagery you'd like on the cover…"
-            className="min-h-[240px] w-full rounded-2xl border border-gray-200 bg-white p-4 text-sm leading-6 text-gray-700 shadow-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+            className="min-h-[240px] w-full rounded-lg border border-gray-200 bg-white p-4 text-sm leading-6 text-gray-700 shadow-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
           />
         </Field>
         <button

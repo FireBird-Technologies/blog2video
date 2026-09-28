@@ -1190,7 +1190,8 @@ export const tools: ToolDefinition[] = [
       "Drop in your PDF and Blog2Video reads its structure, then rebuilds it as a narrated video with scenes, voiceover, and designed templates. Free account, no credit card.",
     category: "generator",
     icon: "PV",
-    primaryKeyword: "pdf to video",
+    // "pdf to video" itself belongs to pdf2vid.com (see the PDF2Video section below), so this page targets the tool query.
+    primaryKeyword: "pdf to video converter",
     keywordVariant: "convert pdf to video free",
     badges: ["Free account", "AI narration", "PDF, DOCX, PPTX"],
     proofPoints: [
@@ -1232,6 +1233,14 @@ export const tools: ToolDefinition[] = [
           "Scanned PDFs without a text layer will not convert, since there is no text to parse. Run those through OCR first.",
         ],
       },
+      {
+        title: "More PDF tools",
+        body: [
+          "PDF2Video, our dedicated PDF to video site, has step by step guides for research papers, reports, ebooks and decks, and free tools to summarize a PDF, turn it into audio, or pull out its text before you convert it.",
+        ],
+        ctaPath: "https://pdf2vid.com",
+        ctaLabel: "Go to PDF2Video",
+      },
     ],
     faq: [
       {
@@ -1272,9 +1281,232 @@ export const tools: ToolDefinition[] = [
     ],
     relatedPaths: [
       "/pdf-to-video",
-      "/blogs/how-to-convert-pdf-into-video",
+      "/pdf-to-youtube-video",
       "/tools/video-length-calculator",
       "/pptx-to-video",
+    ],
+  },
+  {
+    slug: "reading-time-calculator",
+    path: "/tools/reading-time-calculator",
+    title: "Reading Time Calculator",
+    description:
+      "Free reading time calculator. Paste your text or enter a word count to see how long it takes to read silently and aloud, plus the “X min read” label for your blog post.",
+    eyebrow: "Calculator",
+    heroTitle: "How long does it take to read? Paste your text and find out.",
+    heroDescription:
+      "Get the silent reading time for slow, average and fast readers, the time to read it aloud, and a ready-made “min read” label for your post or newsletter.",
+    category: "calculator",
+    icon: "RT",
+    primaryKeyword: "reading time calculator",
+    keywordVariant: "how long to read calculator",
+    badges: ["Silent and aloud", "Blog “min read” label", "Sign in to use"],
+    proofPoints: [
+      "Counts words from pasted text or takes a word count directly.",
+      "Shows reading time at 200, 238 and 300 words per minute.",
+      "Adds speaking time, so you know how long it runs as a video or podcast.",
+    ],
+    sections: [
+      {
+        title: "How reading time is calculated",
+        body: [
+          "The average adult reads English non-fiction silently at about 238 words per minute. Slower, careful readers sit near 200, and skimmers push past 300. The calculator divides your word count by each speed and rounds to the nearest second.",
+          "Reading aloud is much slower, around 150 words per minute, which is also the pace of most narrated video and podcasts. That number tells you how long the same text runs once it becomes audio or video.",
+        ],
+      },
+      {
+        title: "Using the “min read” label",
+        body: [
+          "Most blogs show an estimated read time next to the title. Readers use it to decide whether to start now or save it for later, and an honest estimate lowers bounce. Use the average-reader figure, rounded up to the next whole minute.",
+        ],
+        bullets: [
+          "Under 3 minutes: a quick read, good for news and updates.",
+          "7 to 10 minutes: the typical range for in-depth blog posts.",
+          "15 minutes and up: long reads that benefit from a table of contents.",
+        ],
+      },
+      {
+        title: "Turn the read into a watch",
+        body: [
+          "A 1,500-word post is a six-minute read and about a ten-minute narration. Blog2Video turns the same post into a narrated video you can trim to any target length, so the people who will not read it can still watch it.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Turn your post into a video",
+      },
+    ],
+    faq: [
+      {
+        question: "Do I need an account to use the reading time calculator?",
+        answer:
+          "Yes. The calculator is free with a Blog2Video account. Sign in with Google and you can use it right away, no credit card required.",
+      },
+      {
+        question: "How many words can you read in a minute?",
+        answer:
+          "Most adults read about 238 words per minute silently and about 150 words per minute aloud. Technical or unfamiliar material is slower, often under 200.",
+      },
+      {
+        question: "How long does it take to read 1,000 words?",
+        answer:
+          "About 4 minutes 12 seconds at an average silent reading pace, or around 6 minutes 40 seconds read aloud.",
+      },
+    ],
+    relatedPaths: [
+      "/tools/video-length-calculator",
+      "/tools/readability-checker",
+      "/tools/headline-analyzer",
+      "/blog-to-video",
+    ],
+  },
+  {
+    slug: "readability-checker",
+    path: "/tools/readability-checker",
+    title: "Readability Checker",
+    description:
+      "Free readability checker. Paste your writing to get a Flesch Reading Ease score, grade level, sentence length and a list of the hardest sentences to fix.",
+    eyebrow: "Analyzer",
+    heroTitle: "Check how easy your writing is to read.",
+    heroDescription:
+      "Paste a post, email or script to get the Flesch Reading Ease score, the Flesch-Kincaid grade level, and the exact sentences dragging your score down.",
+    category: "analyzer",
+    icon: "RC",
+    primaryKeyword: "readability checker",
+    keywordVariant: "readability score checker",
+    badges: ["Flesch Reading Ease", "Grade level", "Sign in to use"],
+    proofPoints: [
+      "Scores your text with Flesch Reading Ease and Flesch-Kincaid grade level.",
+      "Flags sentences over 25 words and words of four syllables or more.",
+      "Runs in your browser: your text is never sent anywhere.",
+    ],
+    sections: [
+      {
+        title: "How the readability score works",
+        body: [
+          "Flesch Reading Ease rates text from 0 to 100 using two things: average sentence length and average syllables per word. Higher is easier. Most web writing should land between 60 and 70, roughly what a 13 to 15 year old reads comfortably.",
+          "The Flesch-Kincaid grade level uses the same inputs to estimate the US school grade needed to follow the text. A grade of 8 or below reaches the widest audience.",
+        ],
+        bullets: [
+          "90 to 100: very easy, short sentences and simple words.",
+          "60 to 70: plain English, the target for most blogs.",
+          "30 to 50: difficult, typical of academic writing.",
+          "Below 30: very hard to read, even for experts.",
+        ],
+      },
+      {
+        title: "How to raise your score",
+        body: [
+          "Readability formulas only measure length, so the fixes are mechanical: split long sentences, and swap long words for short ones where the meaning holds. The checker lists your longest sentences first so you know where to start.",
+        ],
+        bullets: [
+          "Keep most sentences under 20 words.",
+          "Use one idea per sentence.",
+          "Prefer “use” to “utilize”, “help” to “facilitate”.",
+          "Break paragraphs after three or four sentences.",
+        ],
+      },
+      {
+        title: "Readable writing makes better video",
+        body: [
+          "Text that scores well also narrates well: short sentences give a voiceover room to breathe. When your post reads cleanly, Blog2Video can turn it into a narrated video with almost no script editing.",
+        ],
+        ctaPath: "/tools/video-script-generator",
+        ctaLabel: "Turn it into a video script",
+      },
+    ],
+    faq: [
+      {
+        question: "Do I need an account to use the readability checker?",
+        answer:
+          "Yes. The checker is free with a Blog2Video account. Sign in with Google and paste your text, no credit card required.",
+      },
+      {
+        question: "What is a good Flesch Reading Ease score?",
+        answer:
+          "For blogs, newsletters and marketing copy, aim for 60 or higher. Technical documentation often sits between 40 and 60, which is fine for an expert audience.",
+      },
+      {
+        question: "Is my text stored?",
+        answer:
+          "No. The score is calculated in your browser, so the text you paste never leaves your device.",
+      },
+    ],
+    relatedPaths: [
+      "/tools/headline-analyzer",
+      "/tools/reading-time-calculator",
+      "/tools/seo-title-checker",
+      "/tools/video-script-generator",
+    ],
+  },
+  {
+    slug: "hook-generator",
+    path: "/tools/hook-generator",
+    title: "Hook Generator",
+    description:
+      "Free hook generator for videos, Shorts, TikTok, Reels and blog intros. Enter your topic and get opening lines built on proven hook formulas.",
+    eyebrow: "Generator",
+    heroTitle: "Generate scroll-stopping hooks for your next video.",
+    heroDescription:
+      "Enter a topic and who it is for. Get a set of opening lines for YouTube, Shorts, TikTok, Reels or a blog intro, each built on a hook formula that holds attention.",
+    category: "generator",
+    icon: "HG",
+    primaryKeyword: "hook generator",
+    keywordVariant: "video hook generator",
+    badges: ["12 hook formulas", "Video and blog intros", "Sign in to use"],
+    proofPoints: [
+      "Writes hooks from twelve proven formulas: curiosity, contrarian, mistake, number, result and more.",
+      "Tunes the phrasing for short-form video, long-form YouTube or a written intro.",
+      "Copy any hook in one click.",
+    ],
+    sections: [
+      {
+        title: "What makes a good hook",
+        body: [
+          "The first two to three seconds decide whether a viewer stays. A strong hook opens a loop the viewer wants closed: a surprising claim, a mistake they might be making, or a result they want. It names the audience so the right people feel addressed, and it promises something specific.",
+        ],
+        bullets: [
+          "Say who it is for in the first line.",
+          "Promise one specific outcome, not a vague benefit.",
+          "Open a question the rest of the video answers.",
+          "Cut every word that does not earn its place.",
+        ],
+      },
+      {
+        title: "How to use the hooks",
+        body: [
+          "Generate a set, pick the two or three that fit your voice, and test them. On short-form platforms, put the hook as on-screen text and say it in the first line. For long-form, the hook becomes the cold open before your intro.",
+        ],
+      },
+      {
+        title: "From hook to finished video",
+        body: [
+          "A hook is the first line of a script. Blog2Video turns a blog post into a full narrated video, and you can open it with the hook you picked here.",
+        ],
+        ctaPath: "/blog-to-shorts",
+        ctaLabel: "Turn a post into Shorts",
+      },
+    ],
+    faq: [
+      {
+        question: "Do I need an account to use the hook generator?",
+        answer:
+          "Yes. The hook generator is free with a Blog2Video account. Sign in with Google to generate hooks, no credit card required.",
+      },
+      {
+        question: "What is a hook in a video?",
+        answer:
+          "The hook is the opening line or moment of a video, usually the first three seconds, designed to stop the scroll and give viewers a reason to keep watching.",
+      },
+      {
+        question: "Can I use these hooks for TikTok and Reels?",
+        answer:
+          "Yes. Choose the short-form option and the hooks are phrased to be read in under three seconds and to work as on-screen text.",
+      },
+    ],
+    relatedPaths: [
+      "/tools/video-script-generator",
+      "/tools/thumbnail-text-generator",
+      "/tools/youtube-description-generator",
+      "/blog-to-shorts",
     ],
   },
 ];

@@ -637,7 +637,7 @@ export default function StockVisualizer() {
                 onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
                 readOnly={!isAuthed}
                 placeholder="Search any ticker…"
-                className="w-48 rounded-xl border pl-9 pr-3 py-2 text-sm font-bold uppercase tracking-wider focus:outline-none"
+                className="w-48 rounded-lg border pl-9 pr-3 py-2 text-sm font-bold uppercase tracking-wider focus:outline-none"
                 style={{
                   border: `1px solid ${t.border}`, background: t.surfBg,
                   color: t.text, cursor: "pointer",

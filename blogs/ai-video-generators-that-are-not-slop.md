@@ -3,6 +3,8 @@ title: "AI Video Generators That Are Not Slop"
 slug: ai-video-generators-that-are-not-slop
 primary_keyword: ai video generator
 description: Slop is not a look, it is a production method. Two things separate the AI video generators that produce it from the ones that do not — programmatic rendering, and templates a human actually designed.
+hero_image: /blog/blog-cover-ai-video-generators-that-are-not-slop.png
+hero_image_alt: "blog2video.app comparison of AI slop video versus clean programmatic blog-to-video with real charts and designed templates."
 ---
 
 # AI Video Generators That Are Not Slop

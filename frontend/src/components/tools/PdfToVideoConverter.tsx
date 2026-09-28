@@ -121,7 +121,7 @@ export default function PdfToVideoConverter() {
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 placeholder="https://example.com/your-article"
-                className="w-full px-4 py-2.5 bg-white/80 border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
+                className="w-full px-4 py-2.5 bg-white/80 border border-gray-200/60 rounded-lg text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
               />
             </div>
           )}
@@ -228,7 +228,7 @@ export default function PdfToVideoConverter() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={mode === "url" ? "Auto-generated from URL" : "Auto-generated from file name"}
-              className="w-full px-4 py-2.5 bg-white/80 border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
+              className="w-full px-4 py-2.5 bg-white/80 border border-gray-200/60 rounded-lg text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
             />
           </div>
 
