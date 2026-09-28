@@ -244,6 +244,19 @@ export default function BlogPostPage() {
                 />
               </div>
             )}
+            {post.slug === "connect-ghost-to-blog2video" && (
+              <div style={{ margin: "32px 0", borderRadius: 12, overflow: "hidden", aspectRatio: "16/9" }}>
+                <iframe
+                  width="100%"
+                  height="100%"
+                  src="https://www.youtube.com/embed/xoJh8z76iCg"
+                  title="Connect Ghost to Blog2Video — 5 steps"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            )}
             {post.slug === "blog2video-vs-veed" && (
               <div style={{ margin: "32px 0", borderRadius: 12, overflow: "hidden", aspectRatio: "16/9" }}>
                 <iframe
