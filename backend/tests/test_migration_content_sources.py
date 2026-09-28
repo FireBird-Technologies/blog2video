@@ -52,14 +52,21 @@ def test_upgrade_adds_columns_idempotently_and_downgrade_removes_them(tmp_path):
 
 
 def test_revision_chains_off_current_head():
-    rev = _load_revision()
-    assert rev.down_revision == "add_pinned_learning_target"
-    versions = _REV.parent
-    children = [
-        p.name for p in versions.glob("*.py")
-        if 'down_revision = "add_content_source_integrations"' in p.read_text()
-    ]
-    assert children == ["add_wordpress_source_columns.py"]
+    """One linear history: a single head, and this branch's revisions hang off
+    the previous head without forking it. Checked structurally (no hardcoded
+    parent), so merging newer migrations underneath doesn't break the test —
+    only an actual fork does. ScriptDirectory parses the files; env.py (and
+    the live DB in backend/.env) is never touched."""
+    from alembic.script import ScriptDirectory
+
+    script = ScriptDirectory(str(_REV.parents[1]))
+    assert len(script.get_heads()) == 1, f"multiple alembic heads: {script.get_heads()}"
+
+    ours = script.get_revision("add_content_source_integrations")
+    parent = script.get_revision(ours.down_revision)
+    assert parent is not None, f"unknown parent revision {ours.down_revision!r}"
+    assert parent.nextrev == frozenset({"add_content_source_integrations"})
+    assert ours.nextrev == frozenset({"add_wordpress_source_columns"})
 
 
 _WP_REV = _REV.parent / "add_wordpress_source_columns.py"
