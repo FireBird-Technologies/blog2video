@@ -2270,13 +2270,12 @@ function BookCoverGeneratorWidget() {
   );
 }
 
-// Placeholders until the plugin is live on WordPress.org and the zip is
-// hosted somewhere permanent. Mirrors the constants in pages/WordPressPlugin.tsx.
-const WORDPRESS_ORG_URL = "https://wordpress.org/plugins/blog2video/";
-const PLUGIN_ZIP_URL = "/downloads/blog2video.zip";
+// Hosted on Cloudflare R2 (VITE_R2_PUBLIC_URL, same base as the backend's R2_PUBLIC_URL).
+// Mirrors the constant in pages/WordPressPlugin.tsx.
+const PLUGIN_ZIP_URL = `${import.meta.env.VITE_R2_PUBLIC_URL}/static/plugins/blog2video-wordpress-plugin.zip`;
 
 const WORDPRESS_PLUGIN_STEPS = [
-  { title: "Install", description: "Upload the zip in Plugins → Add New, or install from WordPress.org. Activate it." },
+  { title: "Install", description: "Download the zip and upload it in Plugins → Add New. Activate it." },
   { title: "Connect", description: "Settings → Blog2Video → Connect. Approve from your account — no password ever touches WordPress." },
   { title: "Generate", description: "Open any post. Pick a template and voice, generate a draft from the post itself." },
   { title: "Publish", description: "Render, then “Add video to post” drops it in as a block — live the moment you hit Update." },
@@ -2289,15 +2288,8 @@ function WordPressPluginWidget() {
         <h2 className="text-xl font-semibold text-gray-900">Install the Blog2Video plugin</h2>
         <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
           <a
-            href={WORDPRESS_ORG_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-xl border border-gray-200 bg-white px-6 py-3 text-center text-sm font-semibold text-gray-700 transition hover:border-gray-300 hover:bg-gray-50"
-          >
-            View on WordPress.org
-          </a>
-          <a
             href={PLUGIN_ZIP_URL}
+            download
             className="rounded-xl bg-purple-600 px-6 py-3 text-center text-sm font-semibold text-white transition hover:bg-purple-700"
           >
             Download plugin (.zip)

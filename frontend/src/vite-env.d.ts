@@ -7,6 +7,8 @@ interface ImportMetaEnv {
   readonly VITE_GA4_MEASUREMENT_ID?: string;
   readonly VITE_GOOGLE_ADS_ID?: string;
   readonly VITE_GOOGLE_ADS_PURCHASE_LABEL?: string;
+  /** Cloudflare R2 public base URL. Mirrors the backend's R2_PUBLIC_URL. */
+  readonly VITE_R2_PUBLIC_URL?: string;
 }
 
 interface ImportMeta {
