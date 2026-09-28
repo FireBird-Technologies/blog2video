@@ -705,7 +705,6 @@ export const tools: ToolDefinition[] = [
       "/templates/geometric-explainer",
     ],
   },
-  /* Commented out until the plugin is approved on WordPress.org — re-enable then.
   {
     slug: "wordpress-plugin",
     path: "/tools/wordpress-plugin",
@@ -766,7 +765,6 @@ export const tools: ToolDefinition[] = [
     ],
     relatedPaths: ["/blog-to-video", "/pricing", "/tools/free-remotion-templates"],
   },
-  */
   {
     slug: "stock-visualizer",
     path: "/tools/stock-visualizer",
