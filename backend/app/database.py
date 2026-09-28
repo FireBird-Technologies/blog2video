@@ -144,6 +144,9 @@ def _migrate_sqlite(eng) -> None:
             "caption_font_size": "VARCHAR(10) DEFAULT '36'",
             "caption_offset": "INTEGER DEFAULT 0",
             "content_language": "VARCHAR(10)",
+            "source_platform": "VARCHAR(20)",
+            "source_post_id": "VARCHAR(64)",
+            "source_site": "VARCHAR(255)",
             "created_at": "DATETIME",
             "updated_at": "DATETIME",
         }
@@ -153,6 +156,28 @@ def _migrate_sqlite(eng) -> None:
                     conn.execute(
                         text(f"ALTER TABLE projects ADD COLUMN {col_name} {col_def}")
                     )
+
+    # ─── Content-source columns on the social tables ────────────────
+    for table, table_migrations in (
+        ("social_connections", {
+            "site_url": "TEXT",
+            "auth_kind": "VARCHAR(16)",
+            "api_root": "TEXT",
+        }),
+        ("social_publish_jobs", {
+            "target_post_id": "VARCHAR(64)",
+            "target_mode": "VARCHAR(16)",
+            "delivery": "VARCHAR(16)",
+        }),
+    ):
+        if table in insp.get_table_names():
+            cols = {c["name"] for c in insp.get_columns(table)}
+            with eng.begin() as conn:
+                for col_name, col_def in table_migrations.items():
+                    if col_name not in cols:
+                        conn.execute(
+                            text(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_def}")
+                        )
 
     # ─── Users table ─────────────────────────────────────────────────
     if "users" in insp.get_table_names():

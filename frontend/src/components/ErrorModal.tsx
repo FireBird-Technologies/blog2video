@@ -2,11 +2,18 @@ import ReactDOM from "react-dom";
 
 export type ErrorModalHeadingVariant = "default" | "pipeline" | "maintenance" | "warning";
 
+/** An optional way forward offered next to the dismiss button (e.g. "Use embed"). */
+export interface ErrorModalAction {
+  label: string;
+  onClick: () => void;
+}
+
 interface Props {
   open: boolean;
   message: string;
   variant?: ErrorModalHeadingVariant;
   showUpgrade?: boolean;
+  action?: ErrorModalAction | null;
   onClose: () => void;
 }
 
@@ -19,6 +26,7 @@ export default function ErrorModal({
   message,
   variant = "default",
   showUpgrade,
+  action,
   onClose,
 }: Props) {
   if (!open) return null;
@@ -114,16 +122,28 @@ export default function ErrorModal({
               Upgrade plan
             </button>
           )}
+          {action && (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                action.onClick();
+              }}
+              className="px-4 py-2 text-sm font-medium text-white bg-purple-700 hover:bg-purple-800 rounded-lg transition-colors"
+            >
+              {action.label}
+            </button>
+          )}
           <button
             type="button"
             onClick={onClose}
             className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-              showUpgrade
+              showUpgrade || action
                 ? "text-gray-700 bg-gray-100 hover:bg-gray-200"
                 : "text-white bg-purple-700 hover:bg-purple-800"
             }`}
           >
-            OK
+            {action ? "Cancel" : "OK"}
           </button>
         </div>
         {/* Share B2V disabled

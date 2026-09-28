@@ -1,0 +1,10 @@
+{
+  "status": 500,
+  "statusText": "Internal Server Error",
+  "errors": [
+    {
+      "message": "Something went wrong",
+      "code": "internal_server_error"
+    }
+  ]
+}

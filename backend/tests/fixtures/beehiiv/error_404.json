@@ -1,0 +1,10 @@
+{
+  "status": 404,
+  "statusText": "Not Found",
+  "errors": [
+    {
+      "message": "Resource not found",
+      "code": "not_found"
+    }
+  ]
+}

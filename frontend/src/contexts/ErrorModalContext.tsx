@@ -5,7 +5,10 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import ErrorModal, { type ErrorModalHeadingVariant } from "../components/ErrorModal";
+import ErrorModal, {
+  type ErrorModalAction,
+  type ErrorModalHeadingVariant,
+} from "../components/ErrorModal";
 
 export const DEFAULT_ERROR_MESSAGE =
   "We got an unexpected error, please try again or contact support.";
@@ -52,6 +55,8 @@ interface ErrorOptions {
   variant?: ErrorModalHeadingVariant;
   /** Runs after the user dismisses the modal (OK, backdrop click, or upgrade redirect). */
   onClose?: () => void;
+  /** A button offering a way forward; the dismiss button then reads "Cancel". */
+  action?: ErrorModalAction;
 }
 
 interface ErrorModalContextType {
@@ -65,6 +70,7 @@ export function ErrorModalProvider({ children }: { children: ReactNode }) {
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [variant, setVariant] = useState<ErrorModalHeadingVariant>("default");
   const [onCloseAction, setOnCloseAction] = useState<(() => void) | null>(null);
+  const [action, setAction] = useState<ErrorModalAction | null>(null);
 
   const showError = useCallback((msg: string, options?: ErrorOptions) => {
     const finalMsg = msg && msg.trim() ? msg : DEFAULT_ERROR_MESSAGE;
@@ -79,12 +85,14 @@ export function ErrorModalProvider({ children }: { children: ReactNode }) {
     }
     setVariant(nextVariant);
     setOnCloseAction(() => options?.onClose ?? null);
+    setAction(options?.action ?? null);
   }, []);
 
   const close = useCallback(() => {
     setMessage(null);
     setShowUpgrade(false);
     setVariant("default");
+    setAction(null);
     const fn = onCloseAction;
     setOnCloseAction(null);
     try {
@@ -102,6 +110,7 @@ export function ErrorModalProvider({ children }: { children: ReactNode }) {
         message={message ?? ""}
         variant={variant}
         showUpgrade={showUpgrade}
+        action={action}
         onClose={close}
       />
     </ErrorModalContext.Provider>

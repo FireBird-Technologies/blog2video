@@ -1,0 +1,10 @@
+{
+  "status": 401,
+  "statusText": "Unauthorized",
+  "errors": [
+    {
+      "message": "Post creation via API requires an Enterprise plan.",
+      "code": "SEND_API_NOT_ENTERPRISE_PLAN"
+    }
+  ]
+}

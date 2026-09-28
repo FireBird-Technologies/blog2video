@@ -6,6 +6,11 @@ import { isPaidPlan } from "../lib/plan";
 import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useErrorModal } from "../contexts/ErrorModalContext";
 import { BulkLinksSection } from "./BulkLinksSection";
+import SourcePostPicker from "./SourcePostPicker";
+import EditableVideoTab from "./EditableVideoTab";
+import { createSourcePostsCache } from "./sourcePostsCache";
+import type { ContentSourcePlatform, IntegrationPlatform, SourceImportSettings, SourcePost } from "../api/sources";
+import ConnectTabLabel from "./ConnectTabLabel";
 import { classifyUrl, classifyUrlScrapability } from "../utils/urlScrapability";
 import { availableBgmGenres, getBgmGenre } from "../utils/bgmGenres";
 import { getVoicePreviews, getMyVoices, getPrebuiltVoices, previewVoice, getBgmTracks, BACKEND_URL, type TemplateMeta, type CraftedTemplateItem, type VoicePreview, type BulkProjectItem, type CustomTemplateItem, type SavedVoiceFromAPI, type ElevenLabsVoice } from "../api/client";
@@ -189,6 +194,15 @@ interface Props {
   /** Bulk create: one call with array of configs; per-project logo via logoIndices + logoFiles. */
   onSubmitBulk?: (items: BulkProjectItem[], logoOptions: { logoIndices: number[]; logoFiles: File[] } | null) => Promise<void>;
   /**
+   * Import posts from a connected Ghost / Beehiiv account. One project per
+   * post; one post uses the single-link settings, several use per-video
+   * settings (Multi Link layout). The tab only renders when this is provided.
+   */
+  onSubmitImport?: (
+    platform: ContentSourcePlatform,
+    items: { post: SourcePost; settings: SourceImportSettings; logoFile?: File }[]
+  ) => Promise<void>;
+  /**
    * Extra creation options that don't fit `onSubmit`'s positional list (already
    * 22 args). Read by the caller when building the create payload; the form
    * pushes the current values here whenever they change.
@@ -204,7 +218,7 @@ interface Props {
   /** Pre-select a genre filter when step 2 opens (e.g. GENRE_CRAFTED to show Designer Templates). */
   initialGenre?: string;
   /** Open the form on a specific source tab. Used by document landing pages that deep-link to upload. */
-  initialMode?: "url" | "upload" | "bulk";
+  initialMode?: "url" | "upload" | "bulk" | "import";
 }
 
 const MAX_UPLOAD_FILES = 5;
@@ -761,7 +775,7 @@ function getFileExtension(s: string): string | null {
   }
 }
 
-export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChange, loading, asModal, onClose, onDismissFlow, demoMode, initialGenre, initialMode }: Props) {
+export default function BlogUrlForm({ onSubmit, onSubmitBulk, onSubmitImport, onExtraOptionsChange, loading, asModal, onClose, onDismissFlow, demoMode, initialGenre, initialMode }: Props) {
   const { user } = useAuth();
   const { showError } = useErrorModal();
   const navigate = useNavigate();
@@ -788,9 +802,22 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
   // so seeding state from the prop is enough — no effect needed to resync.
   // "bulk" is ignored unless the bulk tab is actually rendered, otherwise the
   // form would open on a panel with no way back to it.
-  const [mode, setMode] = useState<"url" | "upload" | "bulk">(
-    initialMode && (initialMode !== "bulk" || onSubmitBulk) ? initialMode : "url"
+  const [mode, setMode] = useState<"url" | "upload" | "bulk" | "import">(
+    initialMode &&
+      (initialMode !== "bulk" || onSubmitBulk) &&
+      (initialMode !== "import" || onSubmitImport)
+      ? initialMode
+      : "url"
   );
+  const [importPlatform, setImportPlatform] = useState<IntegrationPlatform>("ghost");
+  const [importPosts, setImportPosts] = useState<SourcePost[]>([]);
+  // Connect-tab posts live as long as this form: prefetched on open, reused
+  // when step 1 remounts, dropped when the form closes (it unmounts).
+  const [sourceCache] = useState(createSourcePostsCache);
+  useEffect(() => {
+    if (onSubmitImport) sourceCache.prefetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [urls, setUrls] = useState<string[]>([""]);
   const [name, setName] = useState("");
   const [docFiles, setDocFiles] = useState<File[]>([]);
@@ -801,6 +828,14 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
   // Bulk: rows (url); per-row name, template, voice, format, logo
   const [bulkRows, setBulkRows] = useState<{ url: string }[]>([{ url: "" }]);
   const [bulkNames, setBulkNames] = useState<string[]>([""]);
+  // Custom "Video #n" tab names, per row — a reminder while filling in the form, never saved.
+  const [bulkTabLabels, setBulkTabLabels] = useState<string[]>([]);
+  const renameBulkTab = (rowIndex: number, label: string) =>
+    setBulkTabLabels((prev) => {
+      const next = [...prev];
+      next[rowIndex] = label;
+      return next;
+    });
   const [bulkTemplates, setBulkTemplates] = useState<string[]>(["default"]);
   const bulkTemplatesRef = useRef<string[]>(["default"]);
   bulkTemplatesRef.current = bulkTemplates;
@@ -987,7 +1022,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
   // scene (the backend caps it), paid users on all image-capable scenes.
   const [stockFootageEnabled, setStockFootageEnabled] = useState(true);
   const [scriptReviewEnabled, setScriptReviewEnabled] = useState(true);
-  const [bulkScriptReviewEnabled, setBulkScriptReviewEnabled] = useState(false);
+  // Per-video, with the same "apply to all" sync as duration and stock footage.
+  const [bulkScriptReview, setBulkScriptReview] = useState<boolean[]>([false]);
+  const [bulkApplyScriptReviewAll, setBulkApplyScriptReviewAll] = useState(true);
+  const [bulkScriptReviewMasterIndex, setBulkScriptReviewMasterIndex] = useState(0);
   const stockFootageAvailable = true;
   useEffect(() => {
     onExtraOptionsChange?.({
@@ -1570,6 +1608,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
     : [];
   const hasBulkBlocked = bulkScrapeRows.some((s) => s === "blocked");
 
+  // Two or more imported posts switch the flow to the Multi Link (per-video) layout.
+  const importIsBulk = mode === "import" && importPosts.length > 1;
+  const bulkLayout = mode === "bulk" || importIsBulk;
+
   // ─── Navigation ──────────────────────────────────────────────
   // Step order: 1 = Project (URL/Upload/Bulk), 2 = Template, 3 = Voice
   const canGoNext1 =
@@ -1577,7 +1619,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
       ? !!urls[0]?.trim() && !hasSpacesInMiddle(urls[0]) && containsDot(urls[0]) && !urlFileExt && urlScrape !== "blocked"
       : mode === "upload"
         ? docFiles.length > 0
-        : bulkRows.some((r) => r.url.trim()) &&
+        : mode === "import"
+          ? importPosts.length > 0
+          : bulkRows.some((r) => r.url.trim()) &&
           bulkRows.every(
             (r) =>
               !r.url.trim() || (!hasSpacesInMiddle(r.url) && containsDot(r.url))
@@ -1585,32 +1629,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
 
   const goNext = () => {
     if (step === 1 && canGoNext1) {
-      if (mode === "bulk") {
-        const n = bulkRows.length;
-        setBulkNames((prev) => resizeTo(prev, n, ""));
-        setBulkTemplates((prev) => resizeTo(prev, n, pickerDefaultTemplateId));
-        setBulkVoiceGender((prev) => resizeTo(prev, n, "female"));
-        setBulkVoiceAccent((prev) => resizeTo(prev, n, "american"));
-        setBulkCustomVoiceId((prev) => resizeTo(prev, n, ""));
-        setBulkContentLanguage((prev) => resizeTo(prev, n, "auto"));
-        setBulkVideoLength((prev) => resizeTo(prev, n, "short"));
-        setBulkStockFootage((prev) => resizeTo(prev, n, true));
-        setBulkAspectRatio((prev) => resizeTo(prev, n, "landscape"));
-        setBulkVideoStyles((prev) =>
-          resizeTo(
-            prev,
-            n,
-            availableVideoStyles[0]?.id ?? DEFAULT_VIDEO_STYLE
-          )
-        );
-        setBulkAccentColors((prev) => resizeTo(prev, n, ""));
-        setBulkBgColors((prev) => resizeTo(prev, n, ""));
-        setBulkTextColors((prev) => resizeTo(prev, n, ""));
-        setBulkLogoFile((prev) => resizeTo(prev, n, null));
-        setBulkLogoPosition((prev) => resizeTo(prev, n, "bottom_right"));
-        setBulkLogoOpacity((prev) => resizeTo(prev, n, 0.9));
-        setBulkActiveIndex(0);
-      }
+      if (bulkLayout) resizeBulkRowState(bulkRows.length);
       setStep(2);
     } else if (step === 2) {
       step3EnteredAtRef.current = Date.now();
@@ -1623,6 +1642,63 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
     if (arr.length >= len) return arr.slice(0, len);
     return [...arr, ...Array(len - arr.length).fill(fill)];
   }
+  /** Resize every per-row (Multi Link) array to n rows. */
+  const resizeBulkRowState = (n: number) => {
+    setBulkNames((prev) => resizeTo(prev, n, ""));
+    setBulkTemplates((prev) => resizeTo(prev, n, pickerDefaultTemplateId));
+    setBulkVoiceGender((prev) => resizeTo(prev, n, "female"));
+    setBulkVoiceAccent((prev) => resizeTo(prev, n, "american"));
+    setBulkCustomVoiceId((prev) => resizeTo(prev, n, ""));
+    setBulkContentLanguage((prev) => resizeTo(prev, n, "auto"));
+    setBulkVideoLength((prev) => resizeTo(prev, n, "short"));
+    setBulkStockFootage((prev) => resizeTo(prev, n, true));
+    setBulkScriptReview((prev) => resizeTo(prev, n, false));
+    setBulkAspectRatio((prev) => resizeTo(prev, n, "landscape"));
+    setBulkVideoStyles((prev) =>
+      resizeTo(
+        prev,
+        n,
+        availableVideoStyles[0]?.id ?? DEFAULT_VIDEO_STYLE
+      )
+    );
+    setBulkAccentColors((prev) => resizeTo(prev, n, ""));
+    setBulkBgColors((prev) => resizeTo(prev, n, ""));
+    setBulkTextColors((prev) => resizeTo(prev, n, ""));
+    setBulkLogoFile((prev) => resizeTo(prev, n, null));
+    setBulkLogoPosition((prev) => resizeTo(prev, n, "bottom_right"));
+    setBulkLogoOpacity((prev) => resizeTo(prev, n, 0.9));
+    setBulkActiveIndex(0);
+  };
+
+  // Several imported posts use the Multi Link layout (per-video settings);
+  // bulkRows mirrors the selection so the bulk steps and submit work unchanged.
+  // The user's own Multi Link rows are parked in a ref and restored on switching back.
+  const multiLinkBackupRef = useRef<{ rows: { url: string }[]; names: string[]; tabLabels: string[] } | null>(null);
+  useEffect(() => {
+    if (!importIsBulk) return;
+    if (!multiLinkBackupRef.current) {
+      multiLinkBackupRef.current = { rows: bulkRows, names: bulkNames, tabLabels: bulkTabLabels };
+      setBulkTabLabels([]);
+    }
+    setBulkRows(importPosts.map((p) => ({ url: p.url || `${importPlatform}:${p.id}` })));
+    setBulkNames(importPosts.map((p) => p.title));
+    resizeBulkRowState(importPosts.length);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [importIsBulk, importPosts, importPlatform]);
+
+  const switchMode = (m: typeof mode) => {
+    if (m === "bulk" && mode !== "bulk" && multiLinkBackupRef.current) {
+      const { rows, names, tabLabels } = multiLinkBackupRef.current;
+      multiLinkBackupRef.current = null;
+      setBulkRows(rows);
+      setBulkNames(names);
+      setBulkTabLabels(tabLabels);
+      resizeBulkRowState(rows.length);
+    }
+    setMode(m);
+  };
+
+
 
   const addBulkRow = () => {
     if (bulkRows.length >= MAX_BULK_LINKS) return;
@@ -1639,6 +1715,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
       const next = [...prev, bulkApplyStockAll ? (prev[bulkStockMasterIndex] ?? true) : true];
       return next;
     });
+    setBulkScriptReview((prev) => [
+      ...prev,
+      bulkApplyScriptReviewAll ? (prev[bulkScriptReviewMasterIndex] ?? false) : false,
+    ]);
     setBulkAspectRatio((prev) => [...prev, "landscape"]);
     setBulkVideoStyles((prev) => [
       ...prev,
@@ -1658,6 +1738,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
     bulkStyleManuallySet.current = bulkStyleManuallySet.current.filter((_, i) => i !== index);
     setBulkRows((prev) => prev.filter((_, i) => i !== index));
     setBulkNames((prev) => prev.filter((_, i) => i !== index));
+    setBulkTabLabels((prev) => prev.filter((_, i) => i !== index));
     setBulkTemplates((prev) => prev.filter((_, i) => i !== index));
     setBulkVoiceGender((prev) => prev.filter((_, i) => i !== index));
     setBulkVoiceAccent((prev) => prev.filter((_, i) => i !== index));
@@ -1665,6 +1746,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
     setBulkContentLanguage((prev) => prev.filter((_, i) => i !== index));
     setBulkVideoLength((prev) => prev.filter((_, i) => i !== index));
     setBulkStockFootage((prev) => prev.filter((_, i) => i !== index));
+    setBulkScriptReview((prev) => prev.filter((_, i) => i !== index));
     setBulkAspectRatio((prev) => prev.filter((_, i) => i !== index));
     setBulkVideoStyles((prev) => prev.filter((_, i) => i !== index));
     setBulkAccentColors((prev) => prev.filter((_, i) => i !== index));
@@ -1691,6 +1773,139 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
 };
 
   // ─── Submit ──────────────────────────────────────────────────
+  /** Per-row BulkProjectItems from the Multi Link state (also used for multi-post imports). */
+  const buildBulkItems = () => {
+    const valid = bulkRows
+      .map((r, i) => ({ url: r.url, name: bulkNames[i] ?? "", i }))
+      .filter((r) => r.url.trim());
+    if (valid.length === 0) return null;
+    // Detect duplicate URLs and auto-suffix names
+    const urlCounts: Record<string, number> = {};
+    const urlSeenSoFar: Record<string, number> = {};
+    for (const { url } of valid) {
+      const normalized = url.trim();
+      urlCounts[normalized] = (urlCounts[normalized] ?? 0) + 1;
+    }
+
+    const firstSavedVoiceId = myVoicesList[0]?.voice_id;
+    const items: BulkProjectItem[] = valid.map(({ url, name: n, i }) => {
+      const normalized = url.trim();
+      urlSeenSoFar[normalized] = (urlSeenSoFar[normalized] ?? 0) + 1;
+      const isDuplicate = urlCounts[normalized] > 1;
+
+      let resolvedName = n.trim() || undefined;
+      if (!resolvedName && isDuplicate) {
+        const occurrence = urlSeenSoFar[normalized];
+        const derived = deriveNameFromUrl(normalized);
+        resolvedName = occurrence === 1 ? derived : `${derived} (${occurrence})`;
+      }
+
+      const rowSelectedVoiceId = bulkCustomVoiceId[i]?.trim();
+      const selectedVoice = myVoicesList.find((v) => v.voice_id === rowSelectedVoiceId);
+      const rowGender = bulkVoiceGender[i] ?? "female";
+      const inferredGender =
+        rowGender === "none"
+          ? "none"
+          : (normalizeVoiceGender(selectedVoice?.gender) ?? rowGender);
+      const inferredAccent = normalizeVoiceAccent(selectedVoice?.accent) ?? bulkVoiceAccent[i];
+      const effectiveCustomVoiceId = rowSelectedVoiceId || firstSavedVoiceId;
+
+      return {
+      blog_url: normalized,
+      name: resolvedName,
+      template: bulkTemplates[i] !== "default" ? bulkTemplates[i] : undefined,
+      video_style:
+        bulkVideoStyles[i] ??
+        availableVideoStyles[0]?.id ?? DEFAULT_VIDEO_STYLE,
+      video_length: bulkVideoLength[i] ?? "short",
+      voice_gender: inferredGender,
+      voice_accent: inferredAccent,
+      voice_emotion: (() => {
+        const s = bulkVoiceStability[i] ?? VOICE_STABILITY_DEFAULT;
+        const sp = bulkVoiceSpeed[i] ?? VOICE_SPEED_DEFAULT;
+        const em = bulkVoiceEmotion[i] ?? "";
+        const sty = bulkVoiceStyle[i] ?? VOICE_STYLE_DEFAULT;
+        // Always send for Pro+voiced so the enabled/disabled flag + last values are remembered;
+        // the backend only applies tuning to the project when the flag is on.
+        return isPro && inferredGender !== "none" ? serializeVoiceTuning(s, sp, em, sty, expressiveEnabled) : undefined;
+      })(),
+      accent_color:
+        bulkAccentColors[i] && bulkAccentColors[i].trim()
+          ? bulkAccentColors[i]
+          : accentColor,
+      bg_color:
+        bulkBgColors[i] && bulkBgColors[i].trim()
+          ? bulkBgColors[i]
+          : bgColor,
+      text_color:
+        bulkTextColors[i] && bulkTextColors[i].trim()
+          ? bulkTextColors[i]
+          : textColor,
+      logo_position: bulkLogoPosition[i] ?? "bottom_right",
+      logo_opacity: bulkLogoOpacity[i] ?? 0.9,
+      custom_voice_id:
+        inferredGender === "none"
+          ? undefined
+          : (effectiveCustomVoiceId || undefined),
+      aspect_ratio: bulkAspectRatio[i] ?? "landscape",
+      content_language:
+        (bulkContentLanguage[i] ?? "auto") === "auto"
+          ? null
+          : (bulkContentLanguage[i] ?? "auto"),
+      // Per-row now (with "apply to all" in step 1); the backend still decides
+      // per project whether its template can render a clip and clears otherwise.
+      stock_footage_enabled: bulkStockFootage[i] ?? false,
+      script_review_enabled: bulkScriptReview[i] ?? false,
+    };
+    });
+    const logoIndices: number[] = [];
+    const logoFiles: File[] = [];
+    valid.forEach((v, j) => {
+      const f = bulkLogoFile[v.i];
+      if (f) {
+        logoIndices.push(j);
+        logoFiles.push(f);
+      }
+    });
+    return { valid, items, logoIndices, logoFiles };
+  };
+
+  const resetBulkState = () => {
+    setBulkRows([{ url: "" }]);
+    setBulkNames([""]);
+    setBulkTemplates([pickerDefaultTemplateId]);
+    setBulkVoiceGender(["female"]);
+    setBulkVoiceAccent(["american"]);
+    setBulkVoiceStability([VOICE_STABILITY_DEFAULT]);
+    setBulkVoiceSpeed([VOICE_SPEED_DEFAULT]);
+    setBulkVoiceEmotion([""]);
+    setBulkVoiceStyle([VOICE_STYLE_DEFAULT]);
+    setBulkCustomVoiceId([]);
+    setBulkContentLanguage(["auto"]);
+    setBulkVideoLength(["short"]);
+    setBulkStockFootage([true]);
+    setBulkScriptReview([false]);
+    setBulkApplyScriptReviewAll(true);
+    setBulkScriptReviewMasterIndex(0);
+    setBulkAspectRatio(["landscape"]);
+    setBulkVideoStyles([availableVideoStyles[0]?.id ?? DEFAULT_VIDEO_STYLE]);
+    setBulkAccentColors([""]);
+    setBulkBgColors([""]);
+    setBulkTextColors([""]);
+    setBulkLogoFile([null]);
+    setBulkLogoPosition(["bottom_right"]);
+    setBulkLogoOpacity([0.9]);
+    setBulkActiveIndex(0);
+    setBulkApplyLengthAll(true);
+    setBulkLengthMasterIndex(0);
+    setBulkApplyTemplateAll(true);
+    setBulkTemplateMasterIndex(0);
+    setBulkApplyVoiceAll(true);
+    setBulkVoiceMasterIndex(0);
+    setVideoLength("short");
+    setContentLanguage("auto");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isDemo) return;
@@ -1702,129 +1917,68 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
     bgmAudioRef.current?.pause();
 
     if (mode === "bulk" && onSubmitBulk) {
-      const valid = bulkRows
-        .map((r, i) => ({ url: r.url, name: bulkNames[i] ?? "", i }))
-        .filter((r) => r.url.trim());
-      if (valid.length === 0) return;
-      // Detect duplicate URLs and auto-suffix names
-      const urlCounts: Record<string, number> = {};
-      const urlSeenSoFar: Record<string, number> = {};
-      for (const { url } of valid) {
-        const normalized = url.trim();
-        urlCounts[normalized] = (urlCounts[normalized] ?? 0) + 1;
-      }
-
-      const firstSavedVoiceId = myVoicesList[0]?.voice_id;
-      const items: BulkProjectItem[] = valid.map(({ url, name: n, i }) => {
-        const normalized = url.trim();
-        urlSeenSoFar[normalized] = (urlSeenSoFar[normalized] ?? 0) + 1;
-        const isDuplicate = urlCounts[normalized] > 1;
-
-        let resolvedName = n.trim() || undefined;
-        if (!resolvedName && isDuplicate) {
-          const occurrence = urlSeenSoFar[normalized];
-          const derived = deriveNameFromUrl(normalized);
-          resolvedName = occurrence === 1 ? derived : `${derived} (${occurrence})`;
-        }
-
-        const rowSelectedVoiceId = bulkCustomVoiceId[i]?.trim();
-        const selectedVoice = myVoicesList.find((v) => v.voice_id === rowSelectedVoiceId);
-        const rowGender = bulkVoiceGender[i] ?? "female";
-        const inferredGender =
-          rowGender === "none"
-            ? "none"
-            : (normalizeVoiceGender(selectedVoice?.gender) ?? rowGender);
-        const inferredAccent = normalizeVoiceAccent(selectedVoice?.accent) ?? bulkVoiceAccent[i];
-        const effectiveCustomVoiceId = rowSelectedVoiceId || firstSavedVoiceId;
-
-        return {
-        blog_url: normalized,
-        name: resolvedName,
-        template: bulkTemplates[i] !== "default" ? bulkTemplates[i] : undefined,
-        video_style:
-          bulkVideoStyles[i] ??
-          availableVideoStyles[0]?.id ?? DEFAULT_VIDEO_STYLE,
-        video_length: bulkVideoLength[i] ?? "short",
-        voice_gender: inferredGender,
-        voice_accent: inferredAccent,
-        voice_emotion: (() => {
-          const s = bulkVoiceStability[i] ?? VOICE_STABILITY_DEFAULT;
-          const sp = bulkVoiceSpeed[i] ?? VOICE_SPEED_DEFAULT;
-          const em = bulkVoiceEmotion[i] ?? "";
-          const sty = bulkVoiceStyle[i] ?? VOICE_STYLE_DEFAULT;
-          // Always send for Pro+voiced so the enabled/disabled flag + last values are remembered;
-          // the backend only applies tuning to the project when the flag is on.
-          return isPro && inferredGender !== "none" ? serializeVoiceTuning(s, sp, em, sty, expressiveEnabled) : undefined;
-        })(),
-        accent_color:
-          bulkAccentColors[i] && bulkAccentColors[i].trim()
-            ? bulkAccentColors[i]
-            : accentColor,
-        bg_color:
-          bulkBgColors[i] && bulkBgColors[i].trim()
-            ? bulkBgColors[i]
-            : bgColor,
-        text_color:
-          bulkTextColors[i] && bulkTextColors[i].trim()
-            ? bulkTextColors[i]
-            : textColor,
-        logo_position: bulkLogoPosition[i] ?? "bottom_right",
-        logo_opacity: bulkLogoOpacity[i] ?? 0.9,
-        custom_voice_id:
-          inferredGender === "none"
-            ? undefined
-            : (effectiveCustomVoiceId || undefined),
-        aspect_ratio: bulkAspectRatio[i] ?? "landscape",
-        content_language:
-          (bulkContentLanguage[i] ?? "auto") === "auto"
-            ? null
-            : (bulkContentLanguage[i] ?? "auto"),
-        // Per-row now (with "apply to all" in step 1); the backend still decides
-        // per project whether its template can render a clip and clears otherwise.
-        stock_footage_enabled: bulkStockFootage[i] ?? false,
-        script_review_enabled: bulkScriptReviewEnabled,
-      };
-      });
-      const logoIndices: number[] = [];
-      const logoFiles: File[] = [];
-      valid.forEach((v, j) => {
-        const f = bulkLogoFile[v.i];
-        if (f) {
-          logoIndices.push(j);
-          logoFiles.push(f);
-        }
-      });
+      const built = buildBulkItems();
+      if (!built) return;
+      const { items, logoIndices, logoFiles } = built;
       await onSubmitBulk(items, logoIndices.length > 0 ? { logoIndices, logoFiles } : null);
-      setBulkRows([{ url: "" }]);
-      setBulkNames([""]);
-      setBulkTemplates([pickerDefaultTemplateId]);
-      setBulkVoiceGender(["female"]);
-      setBulkVoiceAccent(["american"]);
-      setBulkVoiceStability([VOICE_STABILITY_DEFAULT]);
-      setBulkVoiceSpeed([VOICE_SPEED_DEFAULT]);
-      setBulkVoiceEmotion([""]);
-      setBulkVoiceStyle([VOICE_STYLE_DEFAULT]);
-      setBulkCustomVoiceId([]);
-      setBulkContentLanguage(["auto"]);
-      setBulkVideoLength(["short"]);
-      setBulkStockFootage([true]);
-      setBulkAspectRatio(["landscape"]);
-      setBulkVideoStyles([availableVideoStyles[0]?.id ?? DEFAULT_VIDEO_STYLE]);
-      setBulkAccentColors([""]);
-      setBulkBgColors([""]);
-      setBulkTextColors([""]);
-      setBulkLogoFile([null]);
-      setBulkLogoPosition(["bottom_right"]);
-      setBulkLogoOpacity([0.9]);
-      setBulkActiveIndex(0);
-      setBulkApplyLengthAll(true);
-      setBulkLengthMasterIndex(0);
-      setBulkApplyTemplateAll(true);
-      setBulkTemplateMasterIndex(0);
-      setBulkApplyVoiceAll(true);
-      setBulkVoiceMasterIndex(0);
-      setVideoLength("short");
-      setContentLanguage("auto");
+      resetBulkState();
+      return;
+    }
+
+    if (importIsBulk && onSubmitImport) {
+      const built = buildBulkItems();
+      if (!built) return;
+      await onSubmitImport(
+        importPlatform,
+        built.valid.map(({ i }, j) => {
+          const { blog_url, ...settings } = built.items[j];
+          void blog_url;
+          return { post: importPosts[i], settings, logoFile: bulkLogoFile[i] ?? undefined };
+        })
+      );
+      resetBulkState();
+      setImportPosts([]);
+      return;
+    }
+
+    if (mode === "import" && onSubmitImport) {
+      if (importPosts.length === 0) return;
+      const selectedVoice = myVoicesList.find((v) => v.voice_id === customVoiceId.trim());
+      const inferredGender =
+        voiceGender === "none"
+          ? "none"
+          : (normalizeVoiceGender(selectedVoice?.gender) ?? voiceGender);
+      const inferredAccent = normalizeVoiceAccent(selectedVoice?.accent) ?? voiceAccent;
+      const effectiveCustomVoiceId = customVoiceId.trim() || myVoicesList[0]?.voice_id || "";
+      const settings: SourceImportSettings = {
+          template: template !== "default" ? template : undefined,
+          video_style: videoStyle,
+          video_length: videoLength,
+          voice_gender: inferredGender,
+          voice_accent: inferredAccent,
+          voice_emotion:
+            isPro && inferredGender !== "none"
+              ? serializeVoiceTuning(voiceStability, voiceSpeed, voiceEmotion, voiceStyle, expressiveEnabled)
+              : undefined,
+          accent_color: accentColor,
+          bg_color: bgColor,
+          text_color: textColor,
+          logo_position: logoPosition,
+          logo_opacity: logoOpacity,
+          custom_voice_id:
+            inferredGender === "none" ? undefined : (effectiveCustomVoiceId || undefined),
+          aspect_ratio: aspectRatio,
+          content_language: contentLanguage === "auto" ? null : contentLanguage,
+          stock_footage_enabled: stockFootageEnabled,
+          script_review_enabled: scriptReviewEnabled,
+          bgm_track_id: selectedBgmTrackId,
+          bgm_volume: selectedBgmVolume,
+      };
+      await onSubmitImport(
+        importPlatform,
+        importPosts.map((post) => ({ post, settings, logoFile: logoFile || undefined }))
+      );
+      setImportPosts([]);
       return;
     }
 
@@ -1997,29 +2151,98 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
     });
   };
 
+  const bulkStep1RowScriptReview = bulkScriptReview[bulkStep1ActiveIndex] ?? false;
+  const applyStep1ScriptReviewToAll = () => {
+    setBulkScriptReview((prev) => {
+      const next = resizeTo(prev, bulkRows.length, false);
+      const value = next[bulkStep1ActiveIndex] ?? false;
+      return next.map(() => value);
+    });
+  };
+  const setBulkScriptReviewAt = (value: boolean) => {
+    // Same rule as stock footage: editing a non-master row while "apply to all"
+    // is on breaks the sync; editing the master (or with sync off) sets one/all.
+    if (bulkApplyScriptReviewAll && bulkStep1ActiveIndex !== bulkScriptReviewMasterIndex) {
+      setBulkApplyScriptReviewAll(false);
+      setBulkScriptReview((prev) => {
+        const next = resizeTo(prev, bulkRows.length, false);
+        next[bulkStep1ActiveIndex] = value;
+        return next;
+      });
+      return;
+    }
+    if (bulkApplyScriptReviewAll) {
+      setBulkScriptReview((prev) => resizeTo(prev, bulkRows.length, false).map(() => value));
+      return;
+    }
+    setBulkScriptReview((prev) => {
+      const next = resizeTo(prev, bulkRows.length, false);
+      next[bulkStep1ActiveIndex] = value;
+      return next;
+    });
+  };
+
   const step1 = (
     <div className="flex flex-col flex-1 min-h-0">
       <div className="flex-1 flex flex-col space-y-5 min-h-0">
       {/* Mode tabs — selected tab purple */}
       <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl w-fit">
-        {(["url", "upload", ...(onSubmitBulk ? (["bulk"] as const) : [])] as const).map((m) => (
+        {([
+          "url",
+          "upload",
+          ...(onSubmitBulk ? (["bulk"] as const) : []),
+          ...(onSubmitImport ? (["import"] as const) : []),
+        ] as const).map((m) => (
           <button
             key={m}
             type="button"
-            onClick={() => setMode(m)}
+            onClick={() => switchMode(m)}
             className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
               mode === m
                 ? "bg-white text-purple-600 shadow-sm"
                 : "text-gray-400 hover:text-gray-600"
             }`}
           >
-            {m === "url" ? "Link" : m === "upload" ? "Upload" : "Multi Link"}
+            {m === "url" ? "Link" : m === "upload" ? "Upload" : m === "bulk" ? "Multi Link" : <ConnectTabLabel />}
           </button>
         ))}
       </div>
 
+      {mode === "import" && (
+        <SourcePostPicker
+          platform={importPlatform}
+          onPlatformChange={setImportPlatform}
+          selected={importPosts}
+          onSelectedChange={(next) => {
+            // Unchecking a post mid-list: drop its per-video settings too, so
+            // the posts after it keep their own (the arrays are index-based).
+            const removed = importPosts.findIndex((p) => !next.some((n) => n.id === p.id));
+            if (
+              importIsBulk &&
+              next.length === importPosts.length - 1 &&
+              removed !== -1 &&
+              bulkRows.length === importPosts.length
+            ) {
+              removeBulkRow(removed);
+            }
+            setImportPosts(next);
+          }}
+          maxSelect={MAX_BULK_LINKS}
+          cache={sourceCache}
+          aspectRatios={bulkAspectRatio}
+          onAspectRatioChange={(index, value) =>
+            setBulkAspectRatio((prev) => {
+              const next = resizeTo(prev, bulkRows.length, "landscape");
+              next[index] = value;
+              return next;
+            })
+          }
+        />
+      )}
+
       {/* Bulk: multiple links (url + name per row) */}
-      {mode === "bulk" && (<>
+      {bulkLayout && (<>
+        {mode === "bulk" && (<>
         <BulkLinksSection
           rows={bulkRows}
           maxBulkLinks={MAX_BULK_LINKS}
@@ -2065,22 +2288,19 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
             </p>
           </div>
         )}
+        </>)}
 
         <div className="flex flex-wrap gap-1">
           <div className="flex flex-wrap gap-1 p-1 bg-gray-100/60 rounded-xl">
             {bulkRows.map((_, i) => (
-              <button
+              <EditableVideoTab
                 key={i}
-                type="button"
-                onClick={() => setBulkActiveIndex(i)}
-                className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
-                  i === bulkStep1ActiveIndex
-                    ? "bg-white text-purple-600 shadow-sm"
-                    : "text-gray-400 hover:text-gray-600"
-                }`}
-              >
-                Video #{i + 1}
-              </button>
+                label={bulkTabLabels[i] ?? ""}
+                defaultLabel={`Video #${i + 1}`}
+                active={i === bulkStep1ActiveIndex}
+                onSelect={() => setBulkActiveIndex(i)}
+                onRename={(label) => renameBulkTab(i, label)}
+              />
             ))}
           </div>
         </div>
@@ -2090,16 +2310,23 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
           <label className="flex items-center gap-2 text-[11px] text-gray-500 cursor-pointer select-none">
             <input
               type="checkbox"
-              checked={bulkApplyLengthAll && (!stockFootageAvailable || bulkApplyStockAll)}
+              checked={
+                bulkApplyLengthAll &&
+                bulkApplyScriptReviewAll &&
+                (!stockFootageAvailable || bulkApplyStockAll)
+              }
               onChange={(e) => {
                 const checked = e.target.checked;
                 setBulkApplyLengthAll(checked);
                 setBulkApplyStockAll(checked);
+                setBulkApplyScriptReviewAll(checked);
                 if (checked) {
                   setBulkLengthMasterIndex(bulkStep1ActiveIndex);
                   setBulkStockMasterIndex(bulkStep1ActiveIndex);
+                  setBulkScriptReviewMasterIndex(bulkStep1ActiveIndex);
                   applyStep1LengthToAll();
                   applyStep1StockToAll();
+                  applyStep1ScriptReviewToAll();
                 }
               }}
               className="h-3.5 w-3.5 rounded border-gray-300 accent-purple-600 focus:ring-purple-500"
@@ -2109,8 +2336,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
         </div>
 
         <ScriptReviewCheckbox
-          enabled={bulkScriptReviewEnabled}
-          onToggle={setBulkScriptReviewEnabled}
+          enabled={bulkStep1RowScriptReview}
+          onToggle={setBulkScriptReviewAt}
           muted
         />
 
@@ -2356,7 +2583,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
         </div>
       )}
 
-      {mode !== "bulk" && stockFootageAvailable && (
+      {!bulkLayout && stockFootageAvailable && (
         <div className="space-y-2">
           <ScriptReviewCheckbox
             enabled={scriptReviewEnabled}
@@ -2380,7 +2607,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
       )}
 
       {/* Format, duration + Logo (single-link / upload only; bulk has per-row in step 3) */}
-      {mode !== "bulk" && (
+      {!bulkLayout && (
         <>
           <div>
             <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
@@ -3311,19 +3538,15 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
         <div className="flex flex-wrap gap-1 mb-2">
           <div className="flex flex-wrap gap-1 p-1 bg-gray-100/60 rounded-xl">
             {indexed.map(({ row, i }, tabIdx) => (
-              <button
+              <EditableVideoTab
                 key={i}
-                type="button"
-                onClick={() => setBulkActiveIndex(tabIdx)}
-                className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
-                  tabIdx === active
-                    ? "bg-white text-purple-600 shadow-sm"
-                    : "text-gray-400 hover:text-gray-600"
-                }`}
+                label={bulkTabLabels[i] ?? ""}
+                defaultLabel={`Video #${tabIdx + 1}`}
+                active={tabIdx === active}
+                onSelect={() => setBulkActiveIndex(tabIdx)}
+                onRename={(label) => renameBulkTab(i, label)}
                 title={row.url.trim() || undefined}
-              >
-                Video #{tabIdx + 1}
-              </button>
+              />
             ))}
           </div>
         </div>
@@ -4495,19 +4718,15 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
         <div className="flex flex-wrap gap-1 pb-2 mb-2">
           <div className="flex flex-wrap gap-1 p-1 bg-gray-100/60 rounded-xl">
             {indexed.map(({ row, i }, tabIdx) => (
-              <button
+              <EditableVideoTab
                 key={i}
-                type="button"
-                onClick={() => setBulkActiveIndex(tabIdx)}
-                className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
-                  tabIdx === active
-                    ? "bg-white text-purple-600 shadow-sm"
-                    : "text-gray-400 hover:text-gray-600"
-                }`}
+                label={bulkTabLabels[i] ?? ""}
+                defaultLabel={`Video #${tabIdx + 1}`}
+                active={tabIdx === active}
+                onSelect={() => setBulkActiveIndex(tabIdx)}
+                onRename={(label) => renameBulkTab(i, label)}
                 title={row.url.trim() || undefined}
-              >
-                Video #{tabIdx + 1}
-              </button>
+              />
             ))}
           </div>
         </div>
@@ -4978,7 +5197,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
           <button
             ref={submitButtonRef}
             type="submit"
-            disabled={loading || !onSubmitBulk}
+            disabled={loading || !(mode === "bulk" ? onSubmitBulk : onSubmitImport)}
             className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 disabled:text-white text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
           >
             {loading ? (
@@ -5001,10 +5220,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, onExtraOptionsChan
     step === 1
       ? step1
       : step === 2
-        ? mode === "bulk"
+        ? bulkLayout
           ? step2BulkTemplate
           : step2Template
-        : mode === "bulk"
+        : bulkLayout
           ? step3BulkVoice
           : step3Voice;
 
