@@ -47,6 +47,13 @@ export function usePostLoginRedirect() {
       return;
     }
 
+    const pendingDestination = sessionStorage.getItem("b2v_post_login_redirect");
+    sessionStorage.removeItem("b2v_post_login_redirect");
+    if (pendingDestination?.startsWith("/") && !pendingDestination.startsWith("//")) {
+      navigate(pendingDestination, { replace: true });
+      return;
+    }
+
     navigate("/dashboard");
   }, [navigate]);
 }

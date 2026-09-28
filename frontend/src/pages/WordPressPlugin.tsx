@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useScrollReveal } from "../hooks/useScrollReveal";
 import PublicHeader from "../components/public/PublicHeader";
@@ -315,6 +315,12 @@ export default function WordPressPlugin() {
                   Download plugin (.zip)
                 </a>
               </div>
+              <Link
+                to="/tools/wordpress-plugin"
+                className="text-sm font-medium text-purple-600 hover:text-purple-700 hover:underline"
+              >
+                Explore the plugin tool &rarr;
+              </Link>
             </div>
           </div>
         </div>

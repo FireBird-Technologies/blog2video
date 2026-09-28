@@ -3,6 +3,8 @@
 from app.models.project import Project, ProjectStatus
 from app.models.scene import Scene
 from app.models.saved_voice import SavedVoice
+from app.models.custom_video_style import CustomVideoStyle
+from app.models.user_video_style import UserVideoStyleSlot
 from app.models.wordpress_integration import WordPressConnection, WordPressProjectLink
 
 
@@ -53,6 +55,20 @@ def test_localwp_http_origin_is_allowed(client):
 def test_connection_token_is_site_scoped_and_returned_once(client, db_session, paid_user, auth):
     connection_id, headers = _connect(client, paid_user, auth)
 
+    custom_style = CustomVideoStyle(
+        user_id=paid_user.id,
+        name="Concise",
+        guidance="Use concise sentences and move directly to the key insight.",
+    )
+    db_session.add(custom_style)
+    db_session.flush()
+    db_session.add_all([
+        UserVideoStyleSlot(user_id=paid_user.id, position=0, builtin_key="explainer"),
+        UserVideoStyleSlot(user_id=paid_user.id, position=1, builtin_key="storytelling"),
+        UserVideoStyleSlot(user_id=paid_user.id, position=2, custom_style_id=custom_style.id),
+    ])
+    db_session.commit()
+
     account = client.get(f"{ROOT}/account", headers=headers)
     assert account.status_code == 200
     assert account.json()["email"] == paid_user.email
@@ -69,6 +85,31 @@ def test_connection_token_is_site_scoped_and_returned_once(client, db_session, p
     nightfall = next(item for item in catalog.json()["templates"] if item["id"] == "nightfall")
     assert nightfall["preview_url"].endswith("/mcp-ui/template-previews/nightfall.png")
     assert "voices" in catalog.json()
+    assert catalog.json()["video_styles"]["selected_ids"] == [
+        "explainer",
+        "storytelling",
+        f"custom:{custom_style.id}",
+    ]
+    catalog_styles_by_id = {
+        style["id"]: style for style in catalog.json()["video_styles"]["styles"]
+    }
+    assert catalog_styles_by_id[f"custom:{custom_style.id}"]["name"] == "Concise"
+    video_styles = client.get(f"{ROOT}/video-styles", headers=headers)
+    assert video_styles.status_code == 200
+    styles_by_id = {style["id"]: style for style in video_styles.json()["styles"]}
+    assert video_styles.json()["selected_ids"] == [
+        "explainer",
+        "storytelling",
+        f"custom:{custom_style.id}",
+    ]
+    assert video_styles.json()["auto_style"]["id"] == "auto"
+    assert styles_by_id[f"custom:{custom_style.id}"]["name"] == "Concise"
+    assert [video_styles.json()["auto_style"]["id"], *video_styles.json()["selected_ids"]] == [
+        "auto",
+        "explainer",
+        "storytelling",
+        f"custom:{custom_style.id}",
+    ]
 
 
 def test_direct_post_ingestion_is_idempotent(client, db_session, paid_user, auth, monkeypatch):
@@ -107,6 +148,44 @@ def test_direct_post_ingestion_is_idempotent(client, db_session, paid_user, auth
     assert db_session.query(WordPressProjectLink).count() == 1
 
 
+def test_free_account_at_video_limit_cannot_create_wordpress_project(
+    client, db_session, free_user, auth, monkeypatch
+):
+    free_user.videos_used_this_period = free_user.video_limit
+    db_session.commit()
+    _connection_id, headers = _connect(client, free_user, auth)
+    started = []
+    monkeypatch.setattr(
+        "app.routers.wordpress_integration.pipeline.start_pipeline_background",
+        lambda project_id, user_id, loop: started.append((project_id, user_id)),
+    )
+
+    account = client.get(f"{ROOT}/account", headers=headers)
+    assert account.status_code == 200
+    assert account.json()["plan"] == "free"
+    assert account.json()["videos_used"] == free_user.video_limit
+    assert account.json()["video_limit"] == free_user.video_limit
+    assert account.json()["can_create_video"] is False
+
+    response = client.post(
+        f"{ROOT}/projects",
+        headers=headers,
+        json={
+            "external_post_id": "free-limit-post",
+            "idempotency_key": "free-limit-revision",
+            "content_hash": "f" * 64,
+            "title": "Free account at its video limit",
+            "canonical_url": "https://publisher.example/free-limit/",
+            "content": "This content must not start a project when the account quota is exhausted. " * 3,
+        },
+    )
+
+    assert response.status_code == 403
+    assert "Video limit reached" in response.json()["detail"]
+    assert started == []
+    assert db_session.query(WordPressProjectLink).count() == 0
+
+
 def test_url_source_is_scraped_by_pipeline(client, db_session, paid_user, auth, monkeypatch):
     _connection_id, headers = _connect(client, paid_user, auth)
     db_session.add(SavedVoice(user_id=paid_user.id, voice_id="saved-voice-123", name="Test narrator"))
@@ -135,6 +214,11 @@ def test_url_source_is_scraped_by_pipeline(client, db_session, paid_user, auth, 
     assert project.custom_voice_id == "saved-voice-123"
     assert project.status == ProjectStatus.CREATED
     assert len(started) == 1
+
+    editor = client.get(f"{ROOT}/projects/{project.id}/editor", headers=headers)
+    assert editor.status_code == 200
+    assert editor.json()["resolved_voice_id"] == "saved-voice-123"
+    assert editor.json()["voice_name"] == "Test narrator"
 
 
 def test_native_scene_editor_is_available_only_through_the_site_scoped_project(
@@ -180,10 +264,12 @@ def test_native_scene_editor_is_available_only_through_the_site_scoped_project(
     assert editor.json()["scenes"][0]["display_text"] == "Existing on-screen copy"
     assert editor.json()["scenes"][0]["duration_seconds"] == 8.5
     assert "titleFontSize" in editor.json()["scenes"][0]["remotion_code"]
+    assert editor.json()["resolved_voice_id"] == "dfeOmy6Uay63tNhyO99j"
+    assert editor.json()["voice_name"] == "Kristen"
 
     library = client.get(f"{ROOT}/library/projects", headers=headers)
     assert library.status_code == 200
-    library_project = next(item for item in library.json() if item["id"] == project_id)
+    library_project = next(item for item in library.json()["items"] if item["id"] == project_id)
     assert library_project["name"] == "Native scene editor"
     assert library_project["linked_to_site"] is True
 
@@ -276,6 +362,55 @@ def test_native_scene_editor_is_available_only_through_the_site_scoped_project(
     assert observed["image_project_id"] == project_id
     assert observed["image_scene_id"] == scene.id
     assert observed["image_filename"] == "replacement.png"
+
+
+def test_embedded_preview_restores_its_wordpress_project_link(
+    client, db_session, paid_user, auth, monkeypatch
+):
+    _connection_id, headers = _connect(client, paid_user, auth)
+    monkeypatch.setattr(
+        "app.routers.wordpress_integration.pipeline.start_pipeline_background",
+        lambda project_id, user_id, loop: None,
+    )
+    created = client.post(
+        f"{ROOT}/projects",
+        headers=headers,
+        json={
+            "external_post_id": "embedded-post",
+            "idempotency_key": "embedded-post-revision-1",
+            "content_hash": "e" * 64,
+            "title": "Persisted embedded video",
+            "canonical_url": "https://publisher.example/embedded-post/",
+            "content": "Content used to create a project whose embed remains in WordPress. " * 3,
+        },
+    )
+    assert created.status_code == 202
+    project = db_session.get(Project, created.json()["project_id"])
+    # Legacy embeds used shorter tokens; these must still restore in WordPress.
+    project.embed_token = "a" * 60
+    db_session.commit()
+
+    restored = client.post(
+        f"{ROOT}/library/projects/resolve-embed",
+        headers=headers,
+        json={
+            "external_post_id": "embedded-post",
+            "embed_url": f"http://localhost:5173/preview/{project.embed_token}",
+        },
+    )
+    assert restored.status_code == 200
+    assert restored.json()["project_id"] == project.id
+    assert restored.json()["name"] == "Persisted embedded video"
+
+    invalid = client.post(
+        f"{ROOT}/library/projects/resolve-embed",
+        headers=headers,
+        json={
+            "external_post_id": "embedded-post",
+            "embed_url": "http://localhost:5173/not-a-preview/token",
+        },
+    )
+    assert invalid.status_code == 400
 
 
 def test_revocation_immediately_blocks_site_token(client, paid_user, auth):

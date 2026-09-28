@@ -12,7 +12,8 @@ import secrets
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, Depends, File, Header, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Header, HTTPException, Request, UploadFile, status
+from fastapi.encoders import jsonable_encoder
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import func, or_
@@ -21,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
 from app.config import settings
+from app.constants import FREE_PREMADE_FALLBACK
 from app.database import get_db
 from app.models.project import Project, ProjectStatus
 from app.models.project_member import MemberStatus, ProjectMember
@@ -28,24 +30,33 @@ from app.models.saved_voice import SavedVoice
 from app.models.scene import Scene
 from app.models.user import User
 from app.models.wordpress_integration import WordPressConnection, WordPressProjectLink
-from app.routers import embed, pipeline, projects
+from app.routers import embed, pipeline, projects, video_styles
 from app.schemas.schemas import (
     AddSceneRequest,
     ProjectCreate,
     ProjectLogoUpdate,
+    ProjectOut,
+    ProjectTemplateChangeJobOut,
+    ProjectTemplateChangeRequest,
     ProjectUpdate,
+    ProjectVoiceChange,
     ReorderScenesRequest,
     SceneUpdate,
 )
 from app.services.background_music import get_all_tracks
 from app.services.language_detection import normalize_preferred_language_code
 from app.services.template_preview_catalog import build_catalog
+from app.services.voiceover import resolve_voice_id
 
 router = APIRouter(prefix="/api/integrations/wordpress/v1", tags=["wordpress-integration"])
 optional_bearer = HTTPBearer(auto_error=False)
 
 CONNECTION_TTL_MINUTES = 15
 MAX_CONTENT_CHARS = 250_000
+
+_PREMADE_VOICE_NAMES = {
+    item["voice_id"]: item["name"] for item in FREE_PREMADE_FALLBACK
+}
 
 
 def _hash(value: str) -> str:
@@ -110,6 +121,11 @@ class WordPressProjectIn(BaseModel):
     voice_accent: str = "american"
     custom_voice_id: str | None = Field(default=None, max_length=100)
     content_language: str | None = None
+    accent_color: str | None = None
+    bg_color: str | None = None
+    text_color: str | None = None
+    bgm_track_id: str | None = Field(default=None, max_length=100)
+    bgm_volume: float | None = Field(default=0.10, ge=0, le=1)
     captions_enabled: bool = False
     stock_footage_enabled: bool = False
 
@@ -174,6 +190,10 @@ class WordPressProjectLinkIn(BaseModel):
     external_post_id: str = Field(min_length=1, max_length=100)
 
 
+class WordPressEmbeddedProjectIn(WordPressProjectLinkIn):
+    embed_url: str = Field(min_length=1, max_length=2048)
+
+
 def get_wordpress_connection(
     credentials: HTTPAuthorizationCredentials | None = Depends(optional_bearer),
     db: Session = Depends(get_db),
@@ -217,11 +237,25 @@ def _belongs_to_site(url: str, site_url: str) -> bool:
     )
 
 
+def _linked_elsewhere(existing: WordPressProjectLink, connection: WordPressConnection, db: Session) -> bool:
+    """True only if the link belongs to a different Blog2Video account — not
+    just a different connection row, which churns on every disconnect/reconnect
+    of the same account's own site."""
+    if existing.connection_id == connection.id:
+        return False
+    other = db.query(WordPressConnection).filter(WordPressConnection.id == existing.connection_id).first()
+    return other is None or other.user_id != connection.user_id
+
+
 def _linked_project(connection: WordPressConnection, project_id: int, db: Session) -> tuple[Project, User]:
+    # A project's link survives its owner disconnecting and reconnecting the
+    # plugin (which mints a new WordPressConnection row each time): match any
+    # connection belonging to the same Blog2Video account, not this exact row.
     link = (
         db.query(WordPressProjectLink)
+        .join(WordPressConnection, WordPressProjectLink.connection_id == WordPressConnection.id)
         .filter(
-            WordPressProjectLink.connection_id == connection.id,
+            WordPressConnection.user_id == connection.user_id,
             WordPressProjectLink.project_id == project_id,
         )
         .first()
@@ -345,7 +379,23 @@ def catalog(
     connection: WordPressConnection = Depends(get_wordpress_connection),
     db: Session = Depends(get_db),
 ):
-    return build_catalog(connection.user_id, db)
+    user = _connection_user(connection, db)
+    response = build_catalog(connection.user_id, db)
+    # Keep the WordPress creation wizard on the exact same authoritative
+    # selection and serialization path as BlogUrlForm Step 2. Bundling this
+    # with the catalog also prevents a second request failure from silently
+    # replacing the user's saved styles with hard-coded defaults.
+    response["video_styles"] = video_styles.video_styles_response(user, db)
+    return response
+
+
+@router.get("/video-styles")
+def wordpress_video_styles(
+    connection: WordPressConnection = Depends(get_wordpress_connection),
+    db: Session = Depends(get_db),
+):
+    user = _connection_user(connection, db)
+    return video_styles.video_styles_response(user, db)
 
 
 @router.get("/library/projects")
@@ -422,6 +472,61 @@ def wordpress_project_library(
     return {"items": items, "total": total, "page": page, "per_page": per_page}
 
 
+@router.post("/library/projects/resolve-embed")
+def wordpress_resolve_embedded_project(
+    data: WordPressEmbeddedProjectIn,
+    connection: WordPressConnection = Depends(get_wordpress_connection),
+    db: Session = Depends(get_db),
+):
+    """Restore a WordPress project link from a persisted preview block."""
+    parsed = urlparse(data.embed_url.strip())
+    # Current tokens are 64 hexadecimal characters. Earlier projects used
+    # shorter tokens (including 60 characters), which remain valid embeds.
+    match = re.fullmatch(r"/preview/([a-fA-F0-9]{32,64})/?", parsed.path)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc or match is None:
+        raise HTTPException(status_code=400, detail="Invalid Blog2Video preview URL")
+
+    user = _connection_user(connection, db)
+    project = (
+        db.query(Project)
+        .filter(
+            Project.embed_token == match.group(1).lower(),
+            Project.is_active == True,  # noqa: E712
+        )
+        .first()
+    )
+    if project is None:
+        raise HTTPException(status_code=404, detail="Embedded Blog2Video project was not found")
+    project = projects._get_user_project(project.id, user.id, db)
+
+    existing = (
+        db.query(WordPressProjectLink)
+        .filter(WordPressProjectLink.project_id == project.id)
+        .first()
+    )
+    if existing and _linked_elsewhere(existing, connection, db):
+        raise HTTPException(status_code=409, detail="This project is linked to another WordPress site")
+    if existing is None:
+        fingerprint = _hash(f"embedded|{connection.id}|{data.external_post_id}|{project.id}")
+        existing = WordPressProjectLink(
+            connection_id=connection.id,
+            project_id=project.id,
+            external_post_id=data.external_post_id,
+            content_hash=fingerprint,
+            idempotency_key=f"wp-embedded-{fingerprint}",
+        )
+        db.add(existing)
+        db.commit()
+
+    return {
+        "project_id": project.id,
+        "name": project.name,
+        "status": project.status.value if hasattr(project.status, "value") else str(project.status),
+        "aspect_ratio": project.aspect_ratio,
+        "has_video": bool(project.r2_video_url),
+    }
+
+
 @router.post("/library/projects/{project_id}/link")
 def wordpress_link_library_project(
     project_id: int,
@@ -433,7 +538,7 @@ def wordpress_link_library_project(
     user = _connection_user(connection, db)
     project = projects._get_user_project(project_id, user.id, db)
     existing = db.query(WordPressProjectLink).filter(WordPressProjectLink.project_id == project_id).first()
-    if existing and existing.connection_id != connection.id:
+    if existing and _linked_elsewhere(existing, connection, db):
         raise HTTPException(status_code=409, detail="This project is linked to another WordPress site")
     if existing is None:
         fingerprint = _hash(f"library|{connection.id}|{data.external_post_id}|{project_id}")
@@ -510,6 +615,11 @@ async def create_wordpress_project(
             voice_accent=data.voice_accent,
             custom_voice_id=data.custom_voice_id,
             content_language=normalize_preferred_language_code(data.content_language),
+            accent_color=data.accent_color,
+            bg_color=data.bg_color,
+            text_color=data.text_color,
+            bgm_track_id=data.bgm_track_id,
+            bgm_volume=data.bgm_volume,
             captions_enabled=data.captions_enabled,
             stock_footage_enabled=data.stock_footage_enabled,
         ),
@@ -568,8 +678,37 @@ def wordpress_project_editor(
     connection: WordPressConnection = Depends(get_wordpress_connection),
     db: Session = Depends(get_db),
 ):
-    _project, user = _linked_project(connection, project_id, db)
-    return projects.get_project(project_id, user=user, db=db)
+    project, user = _linked_project(connection, project_id, db)
+    response = projects.get_project(project_id, user=user, db=db)
+    payload = jsonable_encoder(ProjectOut.model_validate(response, from_attributes=True))
+
+    if project.voice_gender == "none":
+        payload["resolved_voice_id"] = None
+        payload["voice_name"] = "No voice"
+        return payload
+
+    resolved_voice_id = resolve_voice_id(
+        project.voice_gender,
+        project.voice_accent,
+        project.custom_voice_id,
+    )
+    saved_voice = (
+        db.query(SavedVoice)
+        .filter(
+            SavedVoice.user_id == project.user_id,
+            SavedVoice.voice_id == resolved_voice_id,
+        )
+        .first()
+        if resolved_voice_id
+        else None
+    )
+    payload["resolved_voice_id"] = resolved_voice_id
+    payload["voice_name"] = (
+        saved_voice.name
+        if saved_voice and saved_voice.name
+        else _PREMADE_VOICE_NAMES.get(resolved_voice_id, "Selected voice")
+    )
+    return payload
 
 
 @router.get("/projects/{project_id}/layouts")
@@ -580,6 +719,49 @@ def wordpress_project_layouts(
 ):
     _project, user = _linked_project(connection, project_id, db)
     return projects.get_project_layouts(project_id, user=user, db=db)
+
+
+@router.post("/projects/{project_id}/template", response_model=ProjectTemplateChangeJobOut)
+async def wordpress_change_template(
+    project_id: int,
+    data: ProjectTemplateChangeRequest,
+    connection: WordPressConnection = Depends(get_wordpress_connection),
+    db: Session = Depends(get_db),
+):
+    _project, user = _linked_project(connection, project_id, db)
+    return await projects.change_project_template_regenerate_layouts(project_id, data, user=user, db=db)
+
+
+@router.get("/projects/{project_id}/template-status", response_model=ProjectTemplateChangeJobOut | None)
+def wordpress_template_change_status(
+    project_id: int,
+    connection: WordPressConnection = Depends(get_wordpress_connection),
+    db: Session = Depends(get_db),
+):
+    _project, user = _linked_project(connection, project_id, db)
+    return projects.get_project_template_change_status(project_id, user=user, db=db)
+
+
+@router.post("/projects/{project_id}/voice")
+async def wordpress_change_voice(
+    project_id: int,
+    data: ProjectVoiceChange,
+    background_tasks: BackgroundTasks,
+    connection: WordPressConnection = Depends(get_wordpress_connection),
+    db: Session = Depends(get_db),
+):
+    _project, user = _linked_project(connection, project_id, db)
+    return await projects.change_project_voice(project_id, data, background_tasks, user=user, db=db)
+
+
+@router.get("/projects/{project_id}/voice-status")
+def wordpress_voice_change_status(
+    project_id: int,
+    connection: WordPressConnection = Depends(get_wordpress_connection),
+    db: Session = Depends(get_db),
+):
+    _project, user = _linked_project(connection, project_id, db)
+    return projects.voice_change_status(project_id, user=user, db=db)
 
 
 @router.post("/projects/{project_id}/logo")

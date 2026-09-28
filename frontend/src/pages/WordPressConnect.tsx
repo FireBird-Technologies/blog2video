@@ -76,11 +76,12 @@ export default function WordPressConnect() {
   return (
     <main className="min-h-[calc(100vh-64px)] bg-slate-50 px-5 py-16">
       <section className="mx-auto max-w-lg rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-        <img
-          src="/b2v-logo.png"
-          alt="Blog2Video"
-          className="mb-6 h-14 w-14 rounded-2xl object-contain shadow-sm"
-        />
+        <div
+          className="mb-6 flex h-7 w-7 items-center justify-center rounded-lg bg-purple-600 text-[11px] font-bold text-white"
+          aria-label="Blog2Video"
+        >
+          B2V
+        </div>
         <h1 className="text-2xl font-semibold text-slate-900">Approve WordPress connection</h1>
         <p className="mt-2 text-sm leading-6 text-slate-600">
           Confirm that you recognize the site below. Approval lets it create and manage videos in your
@@ -100,8 +101,8 @@ export default function WordPressConnect() {
                 <div className="mt-3 h-3 w-3/4 rounded bg-slate-200" />
               </div>
             ) : site ? (
-              <div className="rounded-xl border border-[#7c3aed]/20 bg-[#7c3aed]/5 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-[#7c3aed]">WordPress site</p>
+              <div className="rounded-xl border border-purple-600/20 bg-purple-600/5 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-purple-600">WordPress site</p>
                 <p className="mt-2 font-semibold text-slate-900">{site.site_name}</p>
                 <p className="mt-1 break-all text-sm text-slate-600">{site.site_url}</p>
               </div>
@@ -115,7 +116,7 @@ export default function WordPressConnect() {
               type="button"
               onClick={connect}
               disabled={busy || loadingSite || !site}
-              className="mt-5 w-full rounded-xl bg-[#7c3aed] px-4 py-3 font-medium text-white transition hover:bg-[#6d28d9] disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-5 w-full rounded-xl bg-purple-600 px-4 py-3 font-medium text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy ? "Approving…" : user ? "Approve" : "Sign in to approve"}
             </button>

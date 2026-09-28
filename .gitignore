@@ -77,6 +77,12 @@ Thumbs.db
 backend/.env
 frontend/.env
 
+# WordPress.org directory assets (icon/banner/screenshots) — staged locally
+# for the SVN assets/ upload, never committed to git (see the folder's README)
+wordpress/assets-wp-org/*.png
+wordpress/assets-wp-org/*.jpg
+wordpress/assets-wp-org/*.svg
+
 
 # Test virtualenv (Tier A QA suite)
 backend/.venv-test/
@@ -101,5 +107,3 @@ backend/scripts/replace_saved_voice_defaults_fast.py
 backend/scripts/replace_saved_voice_defaults_bulk.py
 backend/scripts/fix_new_voice_preview_urls_bulk.py
 backend/scripts/shorten_new_voice_descriptions_bulk.py
-
-wordpress/
