@@ -81,6 +81,14 @@ export const tools: ToolDefinition[] = [
           "The version people finish is the narrated one: the same argument, the same figures, read aloud over visuals, watchable on a phone. That is what PDF2Video does with the document you just summarised, and the summary is a reasonable script outline for it.",
         ],
       },
+      {
+        title: "Researching across many PDFs?",
+        body: [
+          "This tool summarizes one document. For research that spans a whole library, Notestack keeps a grounded notebook that answers from your sources and cites the exact lines. Its guide covers the best AI tools for research.",
+        ],
+        ctaPath: "https://notestack.ai/blogs/best-ai-for-research",
+        ctaLabel: "Best AI for research",
+      },
     ],
     faq: [
       {
@@ -239,6 +247,14 @@ export const tools: ToolDefinition[] = [
           "Audio is the right format for documents you need to get through yourself — commuting, walking, anywhere your eyes are busy. It is cheap to produce and needs no visuals.",
           "It falls apart on anything visual. A narrator saying 'as Figure 3 shows' to someone with no Figure 3 has communicated nothing, and spoken figures do not stick. If your document's finding lives in a chart, the video version is the one that works.",
         ],
+      },
+      {
+        title: "Want a conversation instead of a reading?",
+        body: [
+          "PDF to audio narrates your document as written. For long or technical documents, a two host podcast is often easier to follow: one host explains, the other asks what a listener would ask. Notestack, from the same team, has a free PDF to podcast tool.",
+        ],
+        ctaPath: "https://notestack.ai/tools/pdf-to-podcast",
+        ctaLabel: "Try PDF to podcast",
       },
     ],
     faq: [

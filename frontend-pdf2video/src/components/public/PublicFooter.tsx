@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { footerGroups } from "../../content/siteContent";
-import { blog2videoUrl, bloghubUrl } from "../../config/urls";
+import { blog2videoUrl, bloghubUrl, notestackUrl } from "../../config/urls";
 
 const LOGO_TEXT = "P2V";
 const SITE_NAME = "PDF2Video";
@@ -100,6 +100,12 @@ export default function PublicFooter() {
                 className="block text-sm text-gray-500 transition-colors hover:text-gray-900"
               >
                 BlogHub — the newsletter directory →
+              </a>
+              <a
+                href={notestackUrl("footer")}
+                className="block text-sm text-gray-500 transition-colors hover:text-gray-900"
+              >
+                Notestack — turn a PDF into a podcast →
               </a>
             </div>
           </div>

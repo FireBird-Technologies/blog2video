@@ -84,6 +84,14 @@ export const documentTypePosts: BlogPost[] = [
         ctaPath: "/for-researchers",
         ctaLabel: "See the researcher workflow",
       },
+      {
+        heading: "Before the video: research across many papers",
+        paragraphs: [
+          "A video explains one paper. If you are working across a stack of them, a grounded research notebook keeps every claim tied to its source. Notestack's guide compares the best AI tools for research, from discovery to synthesis.",
+        ],
+        ctaPath: "https://notestack.ai/blogs/best-ai-for-research",
+        ctaLabel: "Best AI for research",
+      },
     ],
     faq: [
       {

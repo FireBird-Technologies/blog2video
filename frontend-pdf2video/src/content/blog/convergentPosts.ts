@@ -481,6 +481,14 @@ export const convergentPosts: BlogPost[] = [
           "That sequence also keeps the video honest: it is built from selected sentences you verified, rather than from a model's paraphrase of the whole document.",
         ],
       },
+      {
+        heading: "Summarize across many documents, with citations",
+        paragraphs: [
+          "A summary covers one file. When the question spans a whole library of papers or reports, you want answers that cite the exact passage they came from. Notestack's guide to the best AI for research covers the tools that do that.",
+        ],
+        ctaPath: "https://notestack.ai/blogs/best-ai-for-research",
+        ctaLabel: "Best AI for research",
+      },
     ],
     faq: [
       {
@@ -577,6 +585,14 @@ export const convergentPosts: BlogPost[] = [
         paragraphs: [
           "Audio for consuming documents yourself. Video for distributing them to others. If a document has a chart that carries its finding, video regardless of who it is for.",
         ],
+      },
+      {
+        heading: "A third option: turn the PDF into a podcast",
+        paragraphs: [
+          "Audio narration reads the document word for word. If you would rather listeners hear the ideas talked through, Notestack, our sister product, turns a PDF into a two host podcast that explains and questions the argument, with every line tied to the page it came from.",
+        ],
+        ctaPath: "https://notestack.ai/tools/pdf-to-podcast",
+        ctaLabel: "Turn a PDF into a podcast",
       },
     ],
     faq: [
