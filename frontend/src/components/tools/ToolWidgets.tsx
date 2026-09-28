@@ -2270,9 +2270,9 @@ function BookCoverGeneratorWidget() {
   );
 }
 
-// Hosted on Cloudflare R2. Mirrors the constant in pages/WordPressPlugin.tsx.
-const PLUGIN_ZIP_URL =
-  "https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/static/plugins/blog2video-wordpress-plugin.zip";
+// Hosted on Cloudflare R2 (VITE_R2_PUBLIC_URL, same base as the backend's R2_PUBLIC_URL).
+// Mirrors the constant in pages/WordPressPlugin.tsx.
+const PLUGIN_ZIP_URL = `${import.meta.env.VITE_R2_PUBLIC_URL}/static/plugins/blog2video-wordpress-plugin.zip`;
 
 const WORDPRESS_PLUGIN_STEPS = [
   { title: "Install", description: "Download the zip and upload it in Plugins → Add New. Activate it." },
