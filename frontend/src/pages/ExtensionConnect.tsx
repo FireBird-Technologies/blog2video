@@ -100,8 +100,8 @@ export default function ExtensionConnect() {
                 <div className="mt-3 h-3 w-3/4 rounded bg-slate-200" />
               </div>
             ) : install ? (
-              <div className="rounded-xl border border-[#7c3aed]/20 bg-[#7c3aed]/5 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-[#7c3aed]">Browser</p>
+              <div className="rounded-xl border border-purple-200 bg-purple-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-purple-600">Browser</p>
                 <p className="mt-2 font-semibold text-slate-900">{install.browser_label}</p>
               </div>
             ) : null}
@@ -114,7 +114,7 @@ export default function ExtensionConnect() {
               type="button"
               onClick={connect}
               disabled={busy || loadingInstall || !install}
-              className="mt-5 w-full rounded-xl bg-[#7c3aed] px-4 py-3 font-medium text-white transition hover:bg-[#6d28d9] disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-5 w-full rounded-xl bg-purple-600 px-4 py-3 font-medium text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy ? "Approving…" : user ? "Approve" : "Sign in to approve"}
             </button>

@@ -29,7 +29,7 @@ from app.models.extension_integration import ExtensionConnection, ExtensionProje
 from app.models.project import Project
 from app.models.saved_voice import SavedVoice
 from app.models.user import User
-from app.routers import embed, pipeline, projects
+from app.routers import embed, pipeline, projects, video_styles
 from app.schemas.schemas import ProjectCreate
 from app.services.language_detection import normalize_preferred_language_code
 from app.services.template_preview_catalog import build_catalog
@@ -254,7 +254,23 @@ def catalog(
     connection: ExtensionConnection = Depends(get_extension_connection),
     db: Session = Depends(get_db),
 ):
-    return build_catalog(connection.user_id, db)
+    user = _connection_user(connection, db)
+    response = build_catalog(connection.user_id, db)
+    # Same authoritative selection/serialization path as BlogUrlForm Step 2 and
+    # the WordPress catalog — otherwise the extension's picker only ever shows
+    # the 4 hardcoded builtins and never "Your Style" or the user's named
+    # custom styles.
+    response["video_styles"] = video_styles.video_styles_response(user, db)
+    return response
+
+
+@router.get("/video-styles")
+def extension_video_styles(
+    connection: ExtensionConnection = Depends(get_extension_connection),
+    db: Session = Depends(get_db),
+):
+    user = _connection_user(connection, db)
+    return video_styles.video_styles_response(user, db)
 
 
 @router.post("/projects", status_code=status.HTTP_202_ACCEPTED)

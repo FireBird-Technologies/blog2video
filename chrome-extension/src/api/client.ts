@@ -95,9 +95,28 @@ export interface CatalogVoice {
   source: string;
 }
 
+export interface VideoStyleOption {
+  id: string;
+  name: string;
+  description: string;
+  guidance?: string;
+  kind: "builtin" | "learned" | "custom";
+  available?: boolean;
+  [key: string]: unknown;
+}
+
+export interface VideoStylesResponse {
+  styles: VideoStyleOption[];
+  selected_ids: string[];
+  auto_style: { id: string; name: string; description: string };
+  max_selected: number;
+  min_selected: number;
+}
+
 export interface Catalog {
   templates: CatalogTemplate[];
   voices: CatalogVoice[];
+  video_styles?: VideoStylesResponse;
 }
 
 export function getCatalog(): Promise<Catalog> {
@@ -113,7 +132,7 @@ export interface CreateProjectInput {
   content_hash: string;
   title: string;
   template: string;
-  video_style?: "auto" | "explainer" | "promotional" | "storytelling";
+  video_style?: string;
   video_length?: "auto" | "short" | "medium" | "detailed" | "more_detailed";
   voice_gender?: string;
   voice_accent?: string;

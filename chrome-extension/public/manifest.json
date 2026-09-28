@@ -17,8 +17,6 @@
   "permissions": ["activeTab", "storage", "scripting", "alarms"],
   "host_permissions": [
     "https://api-staging.blog2video.app/*",
-    "https://blog2video.app/*",
-    "http://localhost:8000/*",
-    "http://localhost:5173/*"
+    "https://blog2video.app/*"
   ]
 }

@@ -1,4 +1,5 @@
-// Swap these two for a production build. Matches the WordPress plugin's
-// filterable base URL pattern (wordpress/blog2video/includes/class-b2v-api-client.php).
-export const API_BASE_URL = "http://localhost:8000/api/integrations/extension/v1";
-export const FRONTEND_BASE_URL = "http://localhost:5173";
+// Matches the WordPress plugin's production defaults
+// (wordpress/blog2video/includes/class-b2v-api-client.php). For local dev,
+// swap these back to http://localhost:8000/... and http://localhost:5173.
+export const API_BASE_URL = "https://api-staging.blog2video.app/api/integrations/extension/v1";
+export const FRONTEND_BASE_URL = "https://blog2video.app";

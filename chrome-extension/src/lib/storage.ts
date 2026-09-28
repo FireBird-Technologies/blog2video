@@ -40,10 +40,12 @@ const ACTIVE_PROJECT_KEY = "b2v_active_project";
 
 export interface ActiveProject {
   projectId: number;
-  /** "generating" until the pipeline finishes scenes, "rendering" once render has
-   *  started, "review" when the website needs user input, "done" once a video URL exists — kept (not cleared) so reopening the
-   *  popup after the video finishes still shows it instead of the template picker. */
-  phase: "generating" | "rendering" | "review" | "done";
+  /** "generating" until the pipeline finishes scenes, "scenes_ready" once scenes exist
+   *  and render must be started from the webapp, "rendering" once render has started,
+   *  "review" when the website needs user input, "done" once a video URL exists — kept
+   *  (not cleared) so reopening the popup after the video finishes still shows it
+   *  instead of the template picker. */
+  phase: "generating" | "scenes_ready" | "rendering" | "review" | "done";
   videoUrl?: string;
   previewUrl?: string | null;
 }
