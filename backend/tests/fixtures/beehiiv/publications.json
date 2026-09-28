@@ -1,0 +1,22 @@
+{
+  "data": [
+    {
+      "id": "pub_14a8902d-60ba-50e1-80bd-807a1d785124",
+      "name": "The Weekly Brief",
+      "organization_name": "Firebird Mock Co",
+      "referral_program_enabled": true,
+      "created": 1722124800
+    },
+    {
+      "id": "pub_1353e581-2834-5e29-bfaf-9b1ad39ddebe",
+      "name": "Solo Notes",
+      "organization_name": "Firebird Mock Co",
+      "referral_program_enabled": false,
+      "created": 1748908800
+    }
+  ],
+  "limit": 10,
+  "page": 1,
+  "total_results": 2,
+  "total_pages": 1
+}

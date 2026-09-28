@@ -778,7 +778,7 @@ export default function PublishToSocialModal({
         )}
 
         {(step === "progress" || isBusy) && (
-          <Progress
+          <PublishProgress
             job={activeJob}
             label={label}
             form={form}
@@ -1241,7 +1241,8 @@ function MetadataForm({
   );
 }
 
-function ConfirmRender({
+/** "Render first?" step. Exported so the Ghost/Beehiiv modal asks the same way. */
+export function ConfirmRender({
   label, isRerender, submitting, onCancel, onProceed,
 }: {
   label: string;
@@ -1295,12 +1296,13 @@ function ConfirmRender({
   );
 }
 
-function Progress({
+/** Render -> upload status view. Exported so the Ghost modal shows the same thing. */
+export function PublishProgress({
   job, label, form, renderProgress, submitting, onRetry, onReconnect, onRepublish, onClose,
 }: {
   job: PublishJob | null;
   label: string;
-  form: PlatformForm;
+  form: Pick<PlatformForm, "forcedPrivateFixUrl">;
   renderProgress: number | null;
   submitting: boolean;
   onRetry: () => void;

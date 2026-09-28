@@ -51,6 +51,7 @@ from app.schemas.schemas import (
     RegenerateScriptPreviewOut, RegenerateScriptPreviewScene,
 )
 from app.services import r2_storage
+from app.services.source_urls import public_source_link
 from app.services.remotion import (
     safe_remove_workspace,
     get_workspace_dir,
@@ -895,7 +896,7 @@ def _build_ending_socials_props(project: Project, scene: Scene) -> dict:
         "tiktok": {"enabled": bool(social_flags.get("tiktok")), "label": "TikTok"},
     }
     raw_blog_url = (getattr(project, "blog_url", None) or "").strip()
-    source_link = raw_blog_url if raw_blog_url and not raw_blog_url.startswith("upload://") else ""
+    source_link = public_source_link(raw_blog_url)
 
     existing_socials = None
     cta_from_visual, _ = strip_b2v_cta_from_visual(scene.visual_description or "")
@@ -1340,6 +1341,92 @@ def _resolve_stock_footage_flag(requested: bool, user: User, template_id: str) -
     return bool(requested)
 
 
+def _build_project(
+    data,
+    user: User,
+    db: Session,
+    *,
+    name: str,
+    blog_url: str,
+    is_bulk: bool = False,
+    crafted_denied_detail: str = "You do not have access to this crafted template.",
+) -> Project:
+    """Validate creation settings and add a CREATED project to the session.
+
+    Shared by single, bulk and content-source (Ghost/Beehiiv) creation. ``data``
+    is a ProjectCreate-shaped model. Flushes (so the project has an id) but does
+    not commit, and does NOT touch the video counter — callers own quota checks
+    and the increment, since they differ (one vs N, duplicate reuse).
+    """
+    template_id = validate_template_id(data.template, db=db, user_id=user.id)
+    # Custom templates are usable on any plan (incl. Free). Access is gated solely by
+    # video credits (checked by the caller) and the per-plan template-creation cap
+    # enforced at creation time — not by subscription tier.
+    if is_crafted_template(template_id) and not validate_crafted_template_access(template_id, user.id, db):
+        raise HTTPException(status_code=403, detail=crafted_denied_detail)
+    crafted_pk = _crafted_template_pk(template_id, db)
+    colors = get_preview_colors(template_id, db=db, user_id=user.id)
+    normalized_video_style = _normalize_video_style(data.video_style)
+    voice_tuning, voice_tuning_pref = _resolve_voice_tuning(data.voice_emotion, user)
+    project = Project(
+        user_id=user.id,
+        name=name,
+        blog_url=blog_url,
+        template=template_id,
+        crafted_template_id=crafted_pk,
+        voice_gender=data.voice_gender or "female",
+        voice_accent=_normalize_voice_accent_for_db(data.voice_accent),
+        voice_emotion=voice_tuning,
+        accent_color=data.accent_color or (colors.get("accent") if colors else None) or "#7C3AED",
+        bg_color=data.bg_color or (colors.get("bg") if colors else None) or "#FFFFFF",
+        text_color=data.text_color or (colors.get("text") if colors else None) or "#000000",
+        font_family=data.font_family or None,
+        animation_instructions=data.animation_instructions or None,
+        logo_position=data.logo_position or "bottom_right",
+        logo_opacity=data.logo_opacity if data.logo_opacity is not None else 0.9,
+        custom_voice_id=data.custom_voice_id or None,
+        aspect_ratio=data.aspect_ratio or "landscape",
+        avatar_size=(
+            data.avatar_size
+            if data.avatar_size is not None
+            else _default_avatar_size(data.aspect_ratio or "landscape")
+        ),
+        video_style=normalized_video_style,
+        video_length=_normalize_video_length(getattr(data, "video_length", None), user),
+        playback_speed=_normalize_playback_speed(getattr(data, "playback_speed", None)),
+        content_language=normalize_preferred_language_code(data.content_language),
+        bgm_track_id=getattr(data, "bgm_track_id", None) or None,
+        bgm_volume=getattr(data, "bgm_volume", None) or 0.10,
+        captions_enabled=bool(getattr(data, "captions_enabled", False)),
+        caption_position=getattr(data, "caption_position", None) or "bottom_center",
+        caption_font_family=getattr(data, "caption_font_family", None) or "inter",
+        caption_font_size=getattr(data, "caption_font_size", None) or "36",
+        caption_offset=int(getattr(data, "caption_offset", 0) or 0),
+        stock_footage_enabled=_resolve_stock_footage_flag(
+            getattr(data, "stock_footage_enabled", False), user, template_id
+        ),
+        script_review_enabled=bool(getattr(data, "script_review_enabled", False)),
+        is_bulk=is_bulk,
+        status=ProjectStatus.CREATED,
+    )
+    from app.services.script_style import snapshot_style_for_project
+    snapshot_style_for_project(project, user, db)
+    db.add(project)
+    db.flush()  # assign project.id so the logo seed below can build an R2 key
+
+    # Custom templates: pre-fill the project's own (editable/removable) logo from
+    # the scraped brand-kit logo, so the editor's Logo section isn't empty by
+    # default. Best-effort — failures here must never block project creation.
+    _seed_project_logo_from_brand_kit(project, db)
+
+    # Remember the voice tuning (values + enabled flag) so the toggle state and last-enabled slider
+    # values both pre-fill next time. Disabling no longer wipes the saved values — the flag is part
+    # of the stored preference.
+    if voice_tuning_pref is not None:
+        user.preferred_voice_emotion = voice_tuning_pref
+    return project
+
+
 @router.post("", response_model=ProjectOut)
 def create_project(
     data: ProjectCreate,
@@ -1384,75 +1471,9 @@ def create_project(
         )
         return _prepare_project_response(duplicate, user, db)
 
-    name = data.name or _name_from_url(data.blog_url)
-    template_id = validate_template_id(data.template, db=db, user_id=user.id)
-    # Custom templates are usable on any plan (incl. Free). Access is gated solely by
-    # video credits (checked above via can_create_video) and the per-plan template-
-    # creation cap enforced at creation time — not by subscription tier.
-    if is_crafted_template(template_id) and not validate_crafted_template_access(template_id, user.id, db):
-        raise HTTPException(
-            status_code=403,
-            detail="You do not have access to this crafted template.",
-        )
-    crafted_pk = _crafted_template_pk(template_id, db)
-    colors = get_preview_colors(template_id, db=db, user_id=user.id)
-    normalized_video_style = _normalize_video_style(data.video_style)
-    voice_tuning, voice_tuning_pref = _resolve_voice_tuning(data.voice_emotion, user)
-    project = Project(
-        user_id=user.id,
-        name=name,
-        blog_url=data.blog_url,
-        template=template_id,
-        crafted_template_id=crafted_pk,
-        voice_gender=data.voice_gender or "female",
-        voice_accent=_normalize_voice_accent_for_db(data.voice_accent),
-        voice_emotion=voice_tuning,
-        accent_color=data.accent_color or (colors.get("accent") if colors else None) or "#7C3AED",
-        bg_color=data.bg_color or (colors.get("bg") if colors else None) or "#FFFFFF",
-        text_color=data.text_color or (colors.get("text") if colors else None) or "#000000",
-        font_family=data.font_family or None,
-        animation_instructions=data.animation_instructions or None,
-        logo_position=data.logo_position or "bottom_right",
-        logo_opacity=data.logo_opacity if data.logo_opacity is not None else 0.9,
-        custom_voice_id=data.custom_voice_id or None,
-        aspect_ratio=data.aspect_ratio or "landscape",
-        avatar_size=(
-            data.avatar_size
-            if data.avatar_size is not None
-            else _default_avatar_size(data.aspect_ratio or "landscape")
-        ),
-        video_style=normalized_video_style,
-        video_length=_normalize_video_length(getattr(data, "video_length", None), user),
-        playback_speed=_normalize_playback_speed(getattr(data, "playback_speed", None)),
-        content_language=normalize_preferred_language_code(data.content_language),
-        bgm_track_id=getattr(data, "bgm_track_id", None) or None,
-        bgm_volume=getattr(data, "bgm_volume", None) or 0.10,
-        captions_enabled=bool(getattr(data, "captions_enabled", False)),
-        caption_position=getattr(data, "caption_position", None) or "bottom_center",
-        caption_font_family=getattr(data, "caption_font_family", None) or "inter",
-        caption_font_size=getattr(data, "caption_font_size", None) or "36",
-        caption_offset=int(getattr(data, "caption_offset", 0) or 0),
-        stock_footage_enabled=_resolve_stock_footage_flag(
-            getattr(data, "stock_footage_enabled", False), user, template_id
-        ),
-        script_review_enabled=bool(getattr(data, "script_review_enabled", False)),
-        status=ProjectStatus.CREATED,
+    project = _build_project(
+        data, user, db, name=data.name or _name_from_url(data.blog_url), blog_url=data.blog_url,
     )
-    from app.services.script_style import snapshot_style_for_project
-    snapshot_style_for_project(project, user, db)
-    db.add(project)
-    db.flush()  # assign project.id so the logo seed below can build an R2 key
-
-    # Custom templates: pre-fill the project's own (editable/removable) logo from
-    # the scraped brand-kit logo, so the editor's Logo section isn't empty by
-    # default. Best-effort — failures here must never block project creation.
-    _seed_project_logo_from_brand_kit(project, db)
-
-    # Remember the voice tuning (values + enabled flag) so the toggle state and last-enabled slider
-    # values both pre-fill next time. Disabling no longer wipes the saved values — the flag is part
-    # of the stored preference.
-    if voice_tuning_pref is not None:
-        user.preferred_voice_emotion = voice_tuning_pref
 
     # Increment usage counter
     user.videos_used_this_period += 1
@@ -3556,64 +3577,13 @@ def create_projects_bulk(
     for data in items:
         if not (data.blog_url and data.blog_url.strip()):
             continue
-        name = (data.name or "").strip() or _name_from_url(data.blog_url)
-        template_id = validate_template_id(data.template, db=db, user_id=user.id)
-        if is_crafted_template(template_id) and not validate_crafted_template_access(template_id, user.id, db):
-            raise HTTPException(
-                status_code=403,
-                detail="You do not have access to one or more crafted templates in this bulk request.",
-            )
-        colors = get_preview_colors(template_id, db=db, user_id=user.id)
-        normalized_video_style = _normalize_video_style(data.video_style)
-        voice_tuning, voice_tuning_pref = _resolve_voice_tuning(data.voice_emotion, user)
-        if voice_tuning_pref is not None:
-            user.preferred_voice_emotion = voice_tuning_pref
-        project = Project(
-            user_id=user.id,
-            name=name,
+        project = _build_project(
+            data, user, db,
+            name=(data.name or "").strip() or _name_from_url(data.blog_url),
             blog_url=data.blog_url.strip(),
-            template=template_id,
-            crafted_template_id=_crafted_template_pk(template_id, db),
-            voice_gender=data.voice_gender or "female",
-            voice_accent=_normalize_voice_accent_for_db(data.voice_accent),
-            voice_emotion=voice_tuning,
-            accent_color=data.accent_color or (colors.get("accent") if colors else None) or "#7C3AED",
-            bg_color=data.bg_color or (colors.get("bg") if colors else None) or "#FFFFFF",
-            text_color=data.text_color or (colors.get("text") if colors else None) or "#000000",
-            font_family=data.font_family or None,
-            animation_instructions=data.animation_instructions or None,
-            logo_position=data.logo_position or "bottom_right",
-            logo_opacity=data.logo_opacity if data.logo_opacity is not None else 0.9,
-            custom_voice_id=data.custom_voice_id or None,
-            aspect_ratio=data.aspect_ratio or "landscape",
-            avatar_size=(
-                data.avatar_size
-                if data.avatar_size is not None
-                else _default_avatar_size(data.aspect_ratio or "landscape")
-            ),
-            video_style=normalized_video_style,
-            video_length=_normalize_video_length(getattr(data, "video_length", None), user),
-            playback_speed=_normalize_playback_speed(getattr(data, "playback_speed", None)),
-            content_language=normalize_preferred_language_code(data.content_language),
-            bgm_track_id=getattr(data, "bgm_track_id", None) or None,
-            bgm_volume=getattr(data, "bgm_volume", None) or 0.10,
-            captions_enabled=bool(getattr(data, "captions_enabled", False)),
-            caption_position=getattr(data, "caption_position", None) or "bottom_center",
-            caption_font_family=getattr(data, "caption_font_family", None) or "inter",
-            caption_font_size=getattr(data, "caption_font_size", None) or "36",
-            caption_offset=int(getattr(data, "caption_offset", 0) or 0),
-            stock_footage_enabled=_resolve_stock_footage_flag(
-                getattr(data, "stock_footage_enabled", False), user, template_id
-            ),
-            script_review_enabled=bool(getattr(data, "script_review_enabled", False)),
             is_bulk=True,
-            status=ProjectStatus.CREATED,
+            crafted_denied_detail="You do not have access to one or more crafted templates in this bulk request.",
         )
-        from app.services.script_style import snapshot_style_for_project
-        snapshot_style_for_project(project, user, db)
-        db.add(project)
-        db.flush()
-        _seed_project_logo_from_brand_kit(project, db)
         created.append(project)
         user.videos_used_this_period += 1
     if not created:
@@ -3992,6 +3962,7 @@ def list_projects(
             id=p.id,
             name=p.name,
             blog_url=p.blog_url,
+            source_platform=p.source_platform,
             status=p.status.value,
             created_at=p.created_at,
             updated_at=p.updated_at,

@@ -1,0 +1,10 @@
+{
+  "status": 503,
+  "statusText": "Service Unavailable",
+  "errors": [
+    {
+      "message": "Service temporarily unavailable",
+      "code": "service_unavailable"
+    }
+  ]
+}
