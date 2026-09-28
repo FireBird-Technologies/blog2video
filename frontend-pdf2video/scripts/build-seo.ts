@@ -7,6 +7,7 @@ import {
   getMarketingPage,
   getPublicPaths,
   getRelatedBlogPosts,
+  getStructuredInternalLinks,
   getToolByPath,
   marketingPages,
   organizationName,
@@ -164,13 +165,20 @@ function renderToolPageHtml(tool: ToolDefinition): string {
       const bullets = s.bullets?.length
         ? `<ul>${s.bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join("")}</ul>`
         : "";
-      return `<section><h2>${escapeHtml(s.title)}</h2>${body}${bullets}</section>`;
+      return `<section><h2>${escapeHtml(s.title)}</h2>${body}${bullets}${renderSectionCtaHtml(s.ctaPath, s.ctaLabel)}</section>`;
     })
     .join("");
   const proofHtml = tool.proofPoints?.length
     ? `<ul>${tool.proofPoints.map((p) => `<li>${escapeHtml(p)}</li>`).join("")}</ul>`
     : "";
-  return `<main><p>${escapeHtml(tool.eyebrow)}</p><h1>${escapeHtml(tool.heroTitle)}</h1><p>${escapeHtml(tool.heroDescription)}</p>${proofHtml}${sectionsHtml}${renderFaqHtml(tool.faq)}</main>`;
+  // Tool pages were orphans in the crawlable graph (one self link); emit the related rail the React view shows.
+  const related = getStructuredInternalLinks(tool.relatedPaths);
+  const relatedHtml = related.length
+    ? `<nav aria-label="Related pages"><h2>Related pages</h2><ul>${related
+        .map((l) => `<li><a href="${l.path}">${escapeHtml(l.label)}</a></li>`)
+        .join("")}</ul></nav>`
+    : "";
+  return `<main><p>${escapeHtml(tool.eyebrow)}</p><h1>${escapeHtml(tool.heroTitle)}</h1><p>${escapeHtml(tool.heroDescription)}</p>${proofHtml}${sectionsHtml}${renderFaqHtml(tool.faq)}${relatedHtml}</main>`;
 }
 
 function getAppHtml(routePath: string): string {
@@ -379,7 +387,10 @@ function normalizePath(routePath: string) {
 function toFilePath(routePath: string) {
   const normalized = normalizePath(routePath);
   if (normalized === "/") return path.join(distDir, "index.html");
-  return path.join(distDir, normalized.slice(1), "index.html");
+  // <route>.html, not <route>/index.html: Cloudflare Pages serves /blogs/x from blogs/x.html directly, but a folder
+  // index 308-redirects /blogs/x to /blogs/x/, so every canonical and sitemap URL (no trailing slash) redirected to a
+  // page whose canonical pointed back at it.
+  return path.join(distDir, `${normalized.slice(1)}.html`);
 }
 
 async function ensureDirFor(filePath: string) {

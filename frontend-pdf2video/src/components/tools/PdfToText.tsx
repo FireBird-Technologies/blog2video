@@ -130,7 +130,7 @@ function TextWidget() {
               readOnly
               value={output}
               rows={16}
-              className="mt-4 w-full resize-y rounded-2xl border border-gray-200 bg-gray-50/70 px-4 py-3 font-mono text-xs leading-relaxed text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
+              className="mt-4 w-full resize-y rounded-lg border border-gray-200 bg-gray-50/70 px-4 py-3 font-mono text-xs leading-relaxed text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
             />
 
             <p className="mt-2 text-xs text-gray-400">

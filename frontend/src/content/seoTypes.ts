@@ -24,6 +24,9 @@ export interface ContentSection {
   title: string;
   body: string[];
   bullets?: string[];
+  /** Optional in-content link (internal path or absolute URL to a sister site); prerendered by build-seo.ts. */
+  ctaPath?: string;
+  ctaLabel?: string;
 }
 
 export interface PageCta {

@@ -50,3 +50,8 @@ export function blog2videoUrl(content: string, path = "/"): string {
 export function bloghubUrl(content: string, path = "/"): string {
   return withUtm(BLOGHUB_URL, path, content, "bloghub");
 }
+
+/** Link to notestack.ai, the research notebook for writers in the same family. */
+export function notestackUrl(content: string, path = "/"): string {
+  return withUtm("https://notestack.ai", path, content, "notestack");
+}

@@ -146,6 +146,23 @@ export default function MarketingPageView() {
                       ))}
                     </ul>
                   ) : null}
+                  {section.ctaPath && section.ctaLabel ? (
+                    section.ctaPath.startsWith("http") ? (
+                      <a
+                        href={section.ctaPath}
+                        className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-purple-700 hover:text-purple-900"
+                      >
+                        {section.ctaLabel} <span aria-hidden="true">→</span>
+                      </a>
+                    ) : (
+                      <Link
+                        to={section.ctaPath}
+                        className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-purple-700 hover:text-purple-900"
+                      >
+                        {section.ctaLabel} <span aria-hidden="true">→</span>
+                      </Link>
+                    )
+                  ) : null}
                 </section>
               ))}
             </div>

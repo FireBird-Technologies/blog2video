@@ -31,6 +31,7 @@ export const brandSameAs = [
   // links live in PublicFooter — see ../config/siblingSites.ts.
   "https://pdf2vid.com",
   "https://bloghub.app",
+  "https://notestack.ai",
   "https://github.com/FireBird-Technologies/blog2video",
   "https://www.youtube.com/@FirebirdTechnologies",
   "https://www.linkedin.com/company/firebird-technologies-singapore/",

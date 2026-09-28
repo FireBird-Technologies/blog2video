@@ -73,6 +73,32 @@ export default function BlogPostPage() {
                 loading="eager"
               />
             </div>
+            {post.slug === "suit-up-blog2video-update" && (
+              <>
+                <div style={{ margin: "32px 0", borderRadius: 12, overflow: "hidden", aspectRatio: "16/9" }}>
+                  <iframe
+                    width="100%"
+                    height="100%"
+                    src="https://www.youtube.com/embed/990eQ2rlr6E"
+                    title="Suit up: four major upgrades to Blog2Video"
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
+                <div style={{ margin: "32px auto", borderRadius: 12, overflow: "hidden", aspectRatio: "9/16", maxWidth: 360 }}>
+                  <iframe
+                    width="100%"
+                    height="100%"
+                    src="https://www.youtube.com/embed/t5GwLVLUHoQ"
+                    title="Major updates to Blog2Video (Short)"
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
+              </>
+            )}
             {post.slug === "four-new-tricks" && (
               <div style={{ margin: "32px 0", borderRadius: 12, overflow: "hidden", aspectRatio: "16/9" }}>
                 <iframe
