@@ -8,7 +8,8 @@ import { useAuth } from "../hooks/useAuth";
 
 const MCP_SERVER_URL = "https://api-staging.blog2video.app/mcp/sse";
 
-export default function MCPConnector() {
+/** `embedded` renders just the content (no page chrome/SEO) for the dashboard's Connect tab. */
+export default function MCPConnector({ embedded = false }: { embedded?: boolean }) {
   const { token } = useAuth();
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [showToken, setShowToken] = useState(false);
@@ -34,14 +35,16 @@ export default function MCPConnector() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white text-gray-900">
-      <Seo
-        title="Connect to AI"
-        description="Connect Blog2Video to Claude, ChatGPT or n8n via the Model Context Protocol (MCP) and use Blog2Video tools directly inside your AI assistant or automations."
-        path="/mcp-connector"
-      />
+    <div className={embedded ? "text-gray-900" : "min-h-screen bg-gradient-to-b from-gray-50 to-white text-gray-900"}>
+      {!embedded && (
+        <Seo
+          title="Connect to AI"
+          description="Connect Blog2Video to Claude, ChatGPT or n8n via the Model Context Protocol (MCP) and use Blog2Video tools directly inside your AI assistant or automations."
+          path="/mcp-connector"
+        />
+      )}
 
-      <div className="max-w-5xl mx-auto px-6 py-16">
+      <div className={embedded ? "" : "max-w-5xl mx-auto px-6 py-16"}>
         {/* ─── Hero ──────────────────────────────────────────── */}
         <header className="mb-12 text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1 mb-5 rounded-full bg-purple-50 border border-purple-100 text-xs font-medium text-purple-700">
@@ -226,7 +229,7 @@ export default function MCPConnector() {
             cards have comfortable width on large screens. The negative
             margins widen the row symmetrically; below lg it stays inside
             the page padding and the grid collapses to 1 column on mobile. */}
-        <section className="mb-12 lg:-mx-24 xl:-mx-40 grid grid-cols-1 md:grid-cols-3 gap-6">
+        <section className={`mb-12 ${embedded ? "" : "lg:-mx-24 xl:-mx-40"} grid grid-cols-1 md:grid-cols-3 gap-6`}>
           {/* Claude card */}
           <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-6 hover:shadow-md transition-shadow">
             <div className="flex items-center gap-3 mb-4">

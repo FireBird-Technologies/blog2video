@@ -25,6 +25,12 @@ logger = get_logger(__name__)
 def format_scrape_failed_public_message(blog_url: str | None) -> str:
     """Message when URL/document extraction fails; quota is rolled back (no video count deducted)."""
     raw = (blog_url or "").strip()
+    if raw.startswith(("ghost://", "beehiiv://", "wordpress://")):
+        return (
+            "(Your imported post) We could not read this post's content. "
+            "We apologise for the inconvenience. No video count has been deducted. "
+            "Please check the post has content and try importing it again."
+        )
     if raw.startswith("upload://"):
         return (
             "(Your uploaded document) This document does not allow automated extraction "

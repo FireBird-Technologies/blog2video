@@ -556,6 +556,14 @@ export const coreCommercialPages: MarketingPage[] = [
           "Upload the PDF on the create step, pick a template and voice, and review the scenes Blog2Video generates before rendering. DOCX and PPTX go through the same workflow, so a deck and its accompanying write-up can both become video without changing tools.",
         ],
       },
+      {
+        title: "Working mostly from PDFs?",
+        body: [
+          "PDF2Video is our dedicated PDF to video site, built on the same engine with workflows for research papers, reports, ebooks, lecture notes and investor decks, plus free PDF tools for summaries, audio and text extraction.",
+        ],
+        ctaPath: "https://pdf2vid.com",
+        ctaLabel: "Convert PDF to video on PDF2Video",
+      },
     ],
     cta: {
       title: "Turn your PDF into a narrated video",
@@ -606,7 +614,7 @@ export const coreCommercialPages: MarketingPage[] = [
       "/docx-to-video",
       "/pptx-to-video",
       "/for-educators",
-      "/blogs/how-to-convert-pdf-into-video",
+      "/pdf-to-course-video",
       "/blogs/pdf-to-video-fastest-workflow-for-educators",
     ],
   }),

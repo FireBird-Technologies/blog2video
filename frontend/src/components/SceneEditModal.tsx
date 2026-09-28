@@ -1,4 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback, Fragment } from "react";
+import { isPlaceholderSourceUrl } from "../utils/projectSource";
 import type { MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent, ReactNode, CSSProperties } from "react";
 import ReactDOM from "react-dom";
 import SceneAvatarSection from "./SceneAvatarSection";
@@ -3847,7 +3848,7 @@ export default function SceneEditModal({
     if (isEndingScene) {
       const projectUrl = (project.blog_url || "").trim();
       const fallbackUrl =
-        projectUrl && !projectUrl.startsWith("upload://") ? projectUrl : "";
+        projectUrl && !isPlaceholderSourceUrl(projectUrl) ? projectUrl : "";
 
       const lpRecord = lpCopy as Record<string, unknown>;
 

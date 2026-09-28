@@ -13,6 +13,15 @@ import {
   getPipelineStatus,
   ProjectListItem,
 } from "../api/client";
+import {
+  importSourcePosts,
+  sourceErrorMessage,
+  type ContentSourcePlatform,
+  type SourceImportResponse,
+  type SourceImportSettings,
+  type SourcePost,
+} from "../api/sources";
+import { placeholderSourceLabel } from "../utils/projectSource";
 import { useAuth } from "../hooks/useAuth";
 import { preferredFormMode } from "../brand/brand";
 import { isPaidPlan } from "../lib/plan";
@@ -28,6 +37,8 @@ import { setPendingUpload } from "../stores/pendingUpload";
 import CustomTemplates from "./CustomTemplates";
 import MyVoices from "./MyVoices";
 import VideoStyles from "./VideoStyles";
+import Integrations from "./Integrations";
+import ConnectTabLabel from "../components/ConnectTabLabel";
 import type { VideoStyleId } from "../constants/videoStyles";
 import { primeBlogUrlFormStep2Prefetch } from "../api/blogUrlFormStep2Prefetch";
 
@@ -67,13 +78,15 @@ export default function Dashboard() {
   const [blogFormMountKey, setBlogFormMountKey] = useState(0);
   const [blogFormInitialGenre, setBlogFormInitialGenre] = useState<string | undefined>(undefined);
   /**
-   * Step-1 tab the create-project form opens on. Defaults to Upload for users
-   * who arrived via pdf2video (sticky, see src/brand/brand.ts); a ?mode= param
-   * overrides it for campaign deep links.
+   * Step-1 tab the create-project form opens on. A ?mode= param (campaign deep
+   * link) sets it explicitly; otherwise it falls back to the latest brand entry
+   * (Upload after pdf2video, Link after blog2video — see src/brand/brand.ts),
+   * read at render time so an entry recorded after mount is still honoured.
    */
-  const [blogFormMode, setBlogFormMode] = useState<"url" | "upload" | "bulk" | undefined>(
-    preferredFormMode
+  const [blogFormModeOverride, setBlogFormMode] = useState<"url" | "upload" | "bulk" | undefined>(
+    undefined
   );
+  const blogFormMode = blogFormModeOverride ?? preferredFormMode();
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
   const [creating, setCreating] = useState(false);
   // Options the form can't pass through onSubmit's positional list (22 args).
@@ -134,14 +147,15 @@ export default function Dashboard() {
   const templatesRequested = searchParams.get("tab") === "templates";
   const voicesRequested = searchParams.get("tab") === "voices";
   const stylesRequested = searchParams.get("tab") === "styles";
+  const integrationsRequested = searchParams.get("tab") === "integrations";
   /** Document landing pages (/pdf-to-video, /docx-to-video, …) deep-link here with ?mode=upload. */
   const requestedMode = searchParams.get("mode");
   const initialFormMode =
     requestedMode === "upload" || requestedMode === "bulk" || requestedMode === "url"
       ? requestedMode
       : undefined;
-  const [activeTab, setActiveTab] = useState<"projects" | "templates" | "voices" | "styles">(
-    stylesRequested ? "styles" : voicesRequested ? "voices" : templatesRequested ? "templates" : "projects"
+  const [activeTab, setActiveTab] = useState<"projects" | "templates" | "voices" | "styles" | "integrations">(
+    integrationsRequested ? "integrations" : stylesRequested ? "styles" : voicesRequested ? "voices" : templatesRequested ? "templates" : "projects"
   );
 
   useEffect(() => {
@@ -171,7 +185,7 @@ export default function Dashboard() {
   }, [page]);
 
   useEffect(() => {
-    if (bulkPendingIds.length > 0) loadProjects();
+    if (bulkPendingIds.length > 0) loadProjects(undefined, { silent: true });
   }, [bulkPendingIds.length]);
 
   useEffect(() => {
@@ -221,7 +235,7 @@ export default function Dashboard() {
       // every 2s tick.
       tickCount += 1;
       if (tickCount % 3 === 0) {
-        loadProjects();
+        loadProjects(undefined, { silent: true });
       }
 
       // Consider a project done only when it reaches a terminal project status.
@@ -244,7 +258,7 @@ export default function Dashboard() {
         localStorage.removeItem(BULK_PENDING_IDS_KEY);
         setBulkPendingIds([]);
         setBulkStatuses({});
-        loadProjects();
+        loadProjects(undefined, { silent: true });
       }
     };
     poll();
@@ -262,10 +276,11 @@ export default function Dashboard() {
     if (tab === "templates") setActiveTab("templates");
     else if (tab === "voices") setActiveTab("voices");
     else if (tab === "styles") setActiveTab("styles");
+    else if (tab === "integrations") setActiveTab("integrations");
     else setActiveTab("projects");
   }, [searchParams]);
 
-  const selectDashboardTab = (tab: "projects" | "templates" | "voices" | "styles") => {
+  const selectDashboardTab = (tab: "projects" | "templates" | "voices" | "styles" | "integrations") => {
     setActiveTab(tab);
     const next = new URLSearchParams(searchParams);
     if (tab === "projects") next.delete("tab");
@@ -310,8 +325,16 @@ export default function Dashboard() {
 
   /** Loads one page. Pass the page explicitly so callers firing from effects with
    *  stale closures (mount, bulk polling) always fetch the page they mean. */
-  const loadProjects = async (targetPage: number = page) => {
-    setPageLoading(true);
+  /**
+   * `silent` refreshes the list in place (no skeleton). Background refreshes —
+   * bulk-progress polling — must be silent, or the whole list flashes to the
+   * loading skeleton every few seconds while a bulk run is in progress.
+   */
+  const loadProjects = async (
+    targetPage: number = page,
+    { silent = false }: { silent?: boolean } = {}
+  ) => {
+    if (!silent) setPageLoading(true);
     try {
       const res = await listProjectsPaged(targetPage, PAGE_SIZE);
       const { items, total: totalCount } = res.data;
@@ -371,6 +394,99 @@ export default function Dashboard() {
         }
       } else {
         console.error("Bulk create failed:", err);
+      }
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleImport = async (
+    platform: ContentSourcePlatform,
+    items: { post: SourcePost; settings: SourceImportSettings; logoFile?: File }[]
+  ) => {
+    if (items.length === 0) return;
+    const posts = items.map((it) => it.post);
+    setCreating(true);
+    try {
+      let ids: number[] = [];
+      let failed: SourceImportResponse["failed"] = [];
+      if (items.length === 1) {
+        // Single post: step-1 checkboxes live in extraCreateOptions, as for a single link.
+        const [{ post, settings, logoFile }] = items;
+        const res = await importSourcePosts(platform, [post.id], {
+          ...settings,
+          stock_footage_enabled: extraCreateOptions.stockFootageEnabled,
+          script_review_enabled: extraCreateOptions.scriptReviewEnabled,
+        });
+        ids = res.data.project_ids;
+        failed = res.data.failed;
+        if (logoFile && ids[0] != null) {
+          try {
+            await uploadLogo(ids[0], logoFile);
+          } catch (err) {
+            showError(getErrorMessage(err, "Logo upload failed."));
+          }
+        }
+      } else {
+        // Several posts, each with its own settings: one request per post. Each
+        // request still enforces the video limit; a failure stops the rest.
+        let logoErrorShown = false;
+        for (const [idx, { post, settings, logoFile }] of items.entries()) {
+          let res;
+          try {
+            res = await importSourcePosts(platform, [post.id], settings, true);
+          } catch (err) {
+            if (ids.length === 0) throw err;
+            // Some projects already exist; report what didn't make it and move on.
+            const message = sourceErrorMessage(err, "Couldn't import that post.");
+            failed.push(...items.slice(idx).map((it) => ({ post_id: it.post.id, error_code: "error", message })));
+            break;
+          }
+          ids.push(...res.data.project_ids);
+          failed.push(...res.data.failed);
+          const projectId = res.data.project_ids[0];
+          if (logoFile && projectId != null) {
+            try {
+              await uploadLogo(projectId, logoFile);
+            } catch (err) {
+              if (!logoErrorShown) showError(getErrorMessage(err, "Logo upload failed."));
+              logoErrorShown = true;
+            }
+          }
+        }
+      }
+      await refreshUser();
+      setShowModal(false);
+      if (failed.length > 0) {
+        const titles = failed
+          .map((f) => posts.find((p) => p.id === f.post_id)?.title ?? f.post_id)
+          .join(", ");
+        showError(
+          `${failed.length} post${failed.length === 1 ? "" : "s"} couldn't be imported (${titles}): ${failed[0].message}`
+        );
+      }
+      if (ids.length === 1) {
+        navigate(`/project/${ids[0]}`);
+        return;
+      }
+      localStorage.setItem(BULK_PENDING_IDS_KEY, JSON.stringify(ids));
+      setBulkPendingIds(ids);
+      setPage(1);
+      navigate("/dashboard");
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail;
+      if (err?.response?.status === 403 && typeof detail === "object" && detail?.code === "upgrade_required_bulk") {
+        setShowBulkUpgradeModal(true);
+      } else if (err?.response?.status === 403) {
+        const opened = user?.plan === "free" ? offer.open() : false;
+        if (!opened) {
+          showError(
+            getErrorMessage(err, "Video limit reached. Upgrade to Pro for more."),
+            { showUpgrade: true }
+          );
+        }
+      } else {
+        showError(sourceErrorMessage(err, "Couldn't import that post. Please try again."));
       }
     } finally {
       setCreating(false);
@@ -559,7 +675,7 @@ export default function Dashboard() {
 
           {/* Inline form (same fields, not a modal) */}
           <div className="glass-card p-7">
-            <BlogUrlForm onSubmit={handleCreate} onSubmitBulk={handleCreateBulk} onExtraOptionsChange={setExtraCreateOptions} loading={creating} initialMode={blogFormMode} />
+            <BlogUrlForm onSubmit={handleCreate} onSubmitBulk={handleCreateBulk} onSubmitImport={handleImport} onExtraOptionsChange={setExtraCreateOptions} loading={creating} initialMode={blogFormMode} />
           </div>
 
           {/* Upgrade nudge */}
@@ -612,7 +728,7 @@ export default function Dashboard() {
 
       {/* Tab bar */}
       <div className="flex flex-wrap gap-1 p-1 bg-gray-100/60 rounded-xl">
-        {(["projects", "templates", "voices", "styles"] as const).map((tab) => (
+        {(["projects", "templates", "voices", "styles", "integrations"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => selectDashboardTab(tab)}
@@ -622,7 +738,7 @@ export default function Dashboard() {
                 : "text-gray-400 hover:text-gray-600"
             }`}
           >
-            {tab === "projects" ? "Projects" : tab === "templates" ? "My Templates" : tab === "voices" ? "Voices" : "Video Styles"}
+            {tab === "projects" ? "Projects" : tab === "templates" ? "My Templates" : tab === "voices" ? "Voices" : tab === "styles" ? "Video Styles" : <ConnectTabLabel />}
           </button>
         ))}
       </div>
@@ -639,6 +755,8 @@ export default function Dashboard() {
           pendingDelete={pendingVideoStyleDelete}
           onPendingDeleteChange={setPendingVideoStyleDelete}
         />
+      ) : activeTab === "integrations" ? (
+        <Integrations />
       ) : (
       <>
       {/* Header */}
@@ -663,6 +781,7 @@ export default function Dashboard() {
           key={blogFormMountKey}
           onSubmit={handleCreate}
           onSubmitBulk={handleCreateBulk}
+          onSubmitImport={handleImport}
           onExtraOptionsChange={setExtraCreateOptions}
           loading={creating}
           asModal
@@ -884,9 +1003,7 @@ export default function Dashboard() {
                 </div>
                 <div className="flex flex-col gap-0.5 text-xs text-gray-400 sm:flex-row sm:items-center sm:gap-3">
                   <span className="truncate max-w-[220px]">
-                    {project.blog_url?.startsWith("upload://")
-                      ? "Uploaded documents"
-                      : project.blog_url || "—"}
+                    {placeholderSourceLabel(project.blog_url) ?? (project.blog_url || "—")}
                   </span>
                   <div className="flex items-center gap-3">
                     <span>{project.scene_count} scenes</span>

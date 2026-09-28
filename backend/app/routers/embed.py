@@ -1,5 +1,4 @@
 import json
-import secrets
 from typing import Optional
 from datetime import datetime
 
@@ -10,10 +9,10 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.auth import get_current_user
-from app.config import settings
 from app.models.project import Project
 from app.models.user import User
 from app.schemas.schemas import SceneOut, AssetOut
+from app.services import embed_player
 from app.services.template_service import is_custom_template, is_crafted_template, _load_custom_template_data, get_meta
 from app.services.crafted_template_service import validate_crafted_template_access, load_crafted_template_package
 
@@ -57,11 +56,6 @@ class EmbedProjectOut(BaseModel):
         from_attributes = True
 
 
-def _get_frontend_url() -> str:
-    raw = getattr(settings, "FRONTEND_URL", "") or ""
-    return raw.split(",")[0].strip().rstrip("/") or "https://blog2video.app"
-
-
 @router.post("/token/{project_id}", response_model=EmbedTokenResponse)
 def generate_embed_token(
     project_id: int,
@@ -71,16 +65,8 @@ def generate_embed_token(
     from app.services.access import get_accessible_project
     project = get_accessible_project(project_id, current_user, db)
 
-    if not project.embed_token:
-        project.embed_token = secrets.token_hex(32)
-        db.commit()
-        db.refresh(project)
-
-    frontend_url = _get_frontend_url()
-    return EmbedTokenResponse(
-        embed_token=project.embed_token,
-        preview_url=f"{frontend_url}/preview/{project.embed_token}",
-    )
+    token = embed_player.ensure_embed_token(project, db)
+    return EmbedTokenResponse(embed_token=token, preview_url=embed_player.preview_url(token))
 
 
 @router.get("/project/{token}")

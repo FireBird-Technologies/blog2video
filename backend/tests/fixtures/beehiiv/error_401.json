@@ -1,0 +1,10 @@
+{
+  "status": 401,
+  "statusText": "Unauthorized",
+  "errors": [
+    {
+      "message": "Invalid API key",
+      "code": "unauthorized"
+    }
+  ]
+}

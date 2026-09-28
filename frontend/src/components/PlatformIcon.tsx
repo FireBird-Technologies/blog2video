@@ -1,4 +1,5 @@
 import type { SocialPlatform } from "../api/integrations";
+import type { ContentSourcePlatform } from "../api/sources";
 
 /**
  * Brand glyph for a publishing platform.
@@ -13,7 +14,7 @@ export default function PlatformIcon({
   platform,
   className,
 }: {
-  platform: SocialPlatform;
+  platform: SocialPlatform | ContentSourcePlatform;
   className?: string;
 }) {
   if (platform === "youtube") {
@@ -52,6 +53,49 @@ export default function PlatformIcon({
       >
         <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.225 0z" />
       </svg>
+    );
+  }
+
+  if (platform === "ghost") {
+    // Simplified mark (rounded tile + text bars) rather than the trademarked
+    // glyph; recognisable next to the "Ghost" label it always sits beside.
+    return (
+      <svg
+        className={className ?? "w-6 h-6 text-[#15171A] flex-shrink-0"}
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        aria-hidden
+      >
+        <rect x="1" y="1" width="22" height="22" rx="6" />
+        <rect x="6" y="7" width="12" height="2.4" rx="1.2" fill="#fff" />
+        <rect x="6" y="11" width="8" height="2.4" rx="1.2" fill="#fff" />
+        <rect x="6" y="15" width="10" height="2.4" rx="1.2" fill="#fff" />
+      </svg>
+    );
+  }
+
+  if (platform === "beehiiv") {
+    return (
+      <svg
+        className={className ?? "w-6 h-6 text-[#F5B400] flex-shrink-0"}
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        aria-hidden
+      >
+        <path d="M12 1.5l9.1 5.25v10.5L12 22.5l-9.1-5.25V6.75z" />
+        <path d="M8 10h8M8 14h8" stroke="#1a1a1a" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (platform === "wordpress") {
+    return (
+      <img
+        src="/wordpress-icon-mono.svg"
+        alt=""
+        aria-hidden
+        className={className ?? "w-6 h-6 object-contain flex-shrink-0"}
+      />
     );
   }
 

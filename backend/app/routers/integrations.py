@@ -26,7 +26,10 @@ from app.auth import get_current_user
 from app.config import settings
 from app.database import get_db
 from app.models.social_connection import (
+    PLATFORM_BEEHIIV,
+    PLATFORM_GHOST,
     PLATFORM_LINKEDIN,
+    PLATFORM_WORDPRESS,
     PLATFORM_X,
     PLATFORM_YOUTUBE,
     STATUS_ACTIVE,
@@ -42,7 +45,7 @@ from app.models.social_publish_job import (
     SocialPublishJob,
 )
 from app.models.user import User
-from app.services import publish_queue, social_oauth, token_crypto
+from app.services import embed_player, publish_queue, social_oauth, token_crypto
 from app.services.access import get_accessible_project
 
 logger = logging.getLogger(__name__)
@@ -98,6 +101,14 @@ class PublishRequest(BaseModel):
     # "auto" picks: existing when there is one, otherwise render.
     source: str = "auto"
     resolution: str = "1080p"
+    # Ghost/Beehiiv only: which post to add the video to, and where ("top",
+    # "bottom", or "new_draft"). target_post_id defaults to the post the
+    # project was imported from.
+    target_post_id: str | None = Field(default=None, max_length=64)
+    target_mode: str | None = None
+    # Ghost only: "video" uploads the MP4; "embed" adds the embed player as an
+    # HTML card (for Ghost plans whose upload cap is below the video's size).
+    delivery: str | None = None
 
 
 class PublishJobOut(BaseModel):
@@ -116,6 +127,9 @@ class PublishJobOut(BaseModel):
     source: str
     post_id: str | None = None
     post_url: str | None = None
+    target_post_id: str | None = None
+    target_mode: str | None = None
+    delivery: str = "video"
     forced_private: bool = False
     error_code: str | None = None
     error_message: str | None = None
@@ -150,6 +164,9 @@ def _job_out(job: SocialPublishJob) -> PublishJobOut:
         source=job.source,
         post_id=job.platform_post_id,
         post_url=job.platform_post_url,
+        target_post_id=job.target_post_id,
+        target_mode=job.target_mode,
+        delivery=job.delivery or DELIVERY_VIDEO,
         forced_private=bool(job.forced_private),
         error_code=job.error_code,
         error_message=job.error_message,
@@ -735,6 +752,54 @@ VALID_PRIVACY_BY_PLATFORM = {
 }
 
 
+# Content-source platforms (API-key connections, routers/content_sources.py)
+# that can take the video into a post: a new draft, or the top/bottom of an
+# existing post.
+SOURCE_PUBLISH_PLATFORMS = {
+    PLATFORM_GHOST: "Ghost",
+    PLATFORM_BEEHIIV: "Beehiiv",
+    PLATFORM_WORDPRESS: "WordPress",
+}
+SOURCE_TARGET_MODES = ("top", "bottom", "new_draft")
+GHOST_TARGET_MODES = SOURCE_TARGET_MODES  # kept for existing imports
+# How a Ghost/WordPress publish puts the video in: upload the MP4, embed our
+# player (HTML block), or — WordPress, when neither is allowed — a
+# click-to-watch thumbnail linked to the watch page.
+DELIVERY_VIDEO, DELIVERY_EMBED, DELIVERY_LINK = "video", "embed", "link"
+_DELIVERIES_BY_PLATFORM = {
+    PLATFORM_GHOST: (DELIVERY_VIDEO, DELIVERY_EMBED),
+    PLATFORM_WORDPRESS: (DELIVERY_VIDEO, DELIVERY_EMBED, DELIVERY_LINK),
+}
+# Ghost ids are 24 hex chars, Beehiiv's are "post_<uuid>"; both fit this and
+# neither can smuggle a path segment into the provider URL.
+_SOURCE_POST_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
+
+def _resolve_source_target(
+    body: "PublishRequest", project, platform: str, conn=None
+) -> tuple[str | None, str]:
+    """Where a content-source publish puts the video. Defaults to a new draft —
+    the one mode that can't touch a live post the user didn't point at explicitly.
+
+    With no post given, "the post this was made from" is used only when it lives
+    on the site now connected: post ids are per-site (WordPress's are small
+    integers), so another site's post 9 is a different post."""
+    from app.services.source_urls import source_matches_connection
+
+    label = SOURCE_PUBLISH_PLATFORMS[platform]
+    mode = body.target_mode or "new_draft"
+    if mode not in SOURCE_TARGET_MODES:
+        raise HTTPException(status_code=400, detail=f"Invalid {label} target")
+    if mode == "new_draft":
+        return None, mode
+    post_id = body.target_post_id or (
+        project.source_post_id if source_matches_connection(project, conn) else None
+    )
+    if not post_id or not _SOURCE_POST_ID_RE.match(post_id):
+        raise HTTPException(status_code=400, detail=f"Choose the {label} post to add the video to.")
+    return post_id, mode
+
+
 @router.post("/projects/{project_id}/publish")
 async def publish_project(
     project_id: int,
@@ -749,17 +814,40 @@ async def publish_project(
     authorisation problem, not a convenience. Collaborators can still watch
     progress via /publish-status.
     """
-    platform = _validate_platform(body.platform)
-    try:
-        social_oauth.assert_platform_enabled(platform)
-    except social_oauth.OAuthConfigError as exc:
-        raise HTTPException(status_code=503, detail=str(exc))
+    if body.platform in SOURCE_PUBLISH_PLATFORMS:
+        # API-key connection (routers/content_sources.py): no OAuth app to be
+        # configured, only the encryption key its credential is stored under.
+        platform = body.platform
+        if not token_crypto.is_configured():
+            raise HTTPException(status_code=503, detail="Integrations are not available on this server.")
+        # A Ghost/Beehiiv post's visibility is set in that platform, not here.
+        body.privacy_status = "public"
+    else:
+        platform = _validate_platform(body.platform)
+        try:
+            social_oauth.assert_platform_enabled(platform)
+        except social_oauth.OAuthConfigError as exc:
+            raise HTTPException(status_code=503, detail=str(exc))
 
-    allowed_privacy = VALID_PRIVACY_BY_PLATFORM.get(platform, VALID_PRIVACY)
-    if body.privacy_status not in allowed_privacy:
-        raise HTTPException(status_code=400, detail="Invalid privacy setting")
+        allowed_privacy = VALID_PRIVACY_BY_PLATFORM.get(platform, VALID_PRIVACY)
+        if body.privacy_status not in allowed_privacy:
+            raise HTTPException(status_code=400, detail="Invalid privacy setting")
 
     project = get_accessible_project(project_id, user, db, required_role="owner")
+
+    target_post_id, target_mode = None, None
+    if platform in SOURCE_PUBLISH_PLATFORMS:
+        target_post_id, target_mode = _resolve_source_target(
+            body, project, platform, _get_connection(db, user.id, platform)
+        )
+
+    delivery = body.delivery or DELIVERY_VIDEO
+    if delivery not in (DELIVERY_VIDEO, DELIVERY_EMBED, DELIVERY_LINK):
+        raise HTTPException(status_code=400, detail="Invalid delivery")
+    if delivery not in _DELIVERIES_BY_PLATFORM.get(platform, (DELIVERY_VIDEO,)):
+        raise HTTPException(
+            status_code=400, detail=f"That delivery isn't available for {platform}."
+        )
 
     conn = _get_connection(db, user.id, platform)
     if conn is None or conn.status != STATUS_ACTIVE:
@@ -778,6 +866,25 @@ async def publish_project(
                 "message": f"Reconnect your {platform} account and allow uploads.",
             },
         )
+
+    if platform == PLATFORM_BEEHIIV:
+        # Only Max/Enterprise publications may write posts. The modal already
+        # disables the button; this refuses a direct call before any render or
+        # job, and a bad key or outage fails here rather than after a render.
+        from app.routers.content_sources import _mark_revoked_on_bad_key, _source_http_error
+        from app.services import beehiiv_api, source_importer
+        from app.services.source_common import SourceError
+
+        try:
+            allowed = beehiiv_api.can_write_posts(source_importer.beehiiv_key(conn), conn.account_id or "")
+        except SourceError as exc:
+            _mark_revoked_on_bad_key(db, conn, exc)
+            raise _source_http_error(exc)
+        if not allowed:
+            raise HTTPException(
+                status_code=402,
+                detail={"error_code": "plan_required", "message": beehiiv_api.PLAN_REQUIRED_MESSAGE},
+            )
 
     # One in-flight job per (project, platform): a second click must not double-post.
     existing = (
@@ -798,6 +905,58 @@ async def publish_project(
                 "job_id": existing.id,
             },
         )
+
+    if platform == PLATFORM_GHOST and delivery == DELIVERY_VIDEO:
+        # A small Ghost plan (free trial / Starter, 5 MB) can't take a real
+        # video: embed straight away rather than render and fail the upload.
+        # The worker re-checks, this just saves the pointless render.
+        from app.services import ghost_api, source_importer
+        from app.services.source_common import SourceError
+
+        try:
+            limit = ghost_api.get_upload_limit(source_importer.ghost_credentials(conn))
+        except SourceError:
+            limit = None
+        if limit is not None and limit <= ghost_api.SMALL_PLAN_MAX:
+            delivery = DELIVERY_EMBED
+
+    if platform == PLATFORM_WORDPRESS and delivery == DELIVERY_VIDEO:
+        # A site/role that can't take video uploads at all (WordPress.com below
+        # Business, an Author without upload_files…) goes straight to the embed
+        # or thumbnail. The worker re-checks. An over-the-limit video ("ask") was
+        # already offered the fallback by the modal, so it stays a video here.
+        from app.services import source_importer, wordpress_api
+        from app.services.source_common import SourceError
+
+        try:
+            caps = wordpress_api.capabilities(source_importer.wordpress_credentials(conn))
+        except SourceError:
+            caps = None
+        if caps and not caps.get("can_upload_video"):
+            delivery = wordpress_api.fallback_delivery(caps)
+
+    if delivery == DELIVERY_EMBED:
+        # The embed player renders live from the project's scenes: no render,
+        # no MP4. Mint the token now so the worker only has to read it.
+        embed_player.ensure_embed_token(project, db)
+        job = SocialPublishJob(
+            project_id=project_id,
+            user_id=user.id,
+            connection_id=conn.id,
+            platform=platform,
+            title=body.title.strip(),
+            privacy_status=body.privacy_status,
+            source=SOURCE_EXISTING,
+            target_post_id=target_post_id,
+            target_mode=target_mode,
+            delivery=DELIVERY_EMBED,
+            status=STATUS_QUEUED,
+        )
+        db.add(job)
+        db.commit()
+        db.refresh(job)
+        publish_queue.wake()
+        return {"job": _job_out(job), "render_started": False, "render_run_id": None}
 
     has_video = bool(project.r2_video_url and project.r2_video_key)
     if body.source == SOURCE_EXISTING and not has_video:
@@ -821,6 +980,10 @@ async def publish_project(
         made_for_kids=body.made_for_kids,
         category_id=body.category_id,
         source=SOURCE_RERENDER if needs_render else SOURCE_EXISTING,
+        target_post_id=target_post_id,
+        target_mode=target_mode,
+        # "link" needs the rendered video too (its thumbnail is a frame of it).
+        delivery=delivery if delivery != DELIVERY_VIDEO else None,
     )
 
     if not needs_render:
@@ -976,8 +1139,11 @@ def retry_publish(
             status_code=409,
             detail="This upload can't be retried — please publish again.",
         )
-    if not project.r2_video_key:
+    is_embed = job.delivery == DELIVERY_EMBED
+    if not is_embed and not project.r2_video_key:
         raise HTTPException(status_code=400, detail="This video hasn't been rendered yet.")
+    if is_embed:
+        embed_player.ensure_embed_token(project, db)
 
     # Point at the current render and reset the attempt budget: the user asking
     # again is a fresh decision, not a continuation of the automatic retries.
