@@ -82,10 +82,22 @@ import {
   isPublishJobActive,
   platformLabel,
   retryPublishJob,
+  publishProject,
   type IntegrationsConfig,
   type PublishJob,
+  type PublishPlatform,
   type SocialPlatform,
 } from "../api/integrations";
+import { isPlaceholderSourceUrl, placeholderSourceLabel, sourcePostIdFor } from "../utils/projectSource";
+import {
+  INTEGRATION_LABELS,
+  INTEGRATION_LOGOS,
+  INTEGRATION_PLATFORMS,
+  getContentSourceConnections,
+  type ContentSourceConnection,
+  type IntegrationPlatform,
+} from "../api/sources";
+import PublishToSourceModal from "../components/PublishToSourceModal";
 import type { CollabEdit } from "../hooks/useCollabSocket";
 import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useErrorModal, getErrorMessage, DEFAULT_ERROR_MESSAGE } from "../contexts/ErrorModalContext";
@@ -302,6 +314,14 @@ const PIPELINE_STEPS_URL = [
 
 const PIPELINE_STEPS_UPLOAD = [
   { id: 1, label: "Uploading" },
+  { id: 2, label: "Script" },
+  { id: 3, label: "Scenes" },
+] as const;
+
+// Imported through a Ghost/Beehiiv connection: the content arrives with the
+// project, so step 1 is already done by the time generation starts.
+const PIPELINE_STEPS_IMPORT = [
+  { id: 1, label: "Importing" },
   { id: 2, label: "Script" },
   { id: 3, label: "Scenes" },
 ] as const;
@@ -1176,13 +1196,19 @@ export default function ProjectView() {
 
   // Upload-based project detection
   const isUploadProject = project?.blog_url?.startsWith("upload://") ?? false;
+  const isImportedProject = !!project?.source_platform;
   // Stock-footage clip fetching (when enabled) now runs in parallel with scene
   // generation instead of pausing the pipeline, so there's no inline "Review"
   // step anymore — the review gate (if any) appears as a modal AFTER
   // generation finishes (see awaitingStockFootageReview below).
   const PIPELINE_STEPS = useMemo(
-    () => (isUploadProject ? PIPELINE_STEPS_UPLOAD : PIPELINE_STEPS_URL),
-    [isUploadProject],
+    () =>
+      isImportedProject
+        ? PIPELINE_STEPS_IMPORT
+        : isUploadProject
+          ? PIPELINE_STEPS_UPLOAD
+          : PIPELINE_STEPS_URL,
+    [isUploadProject, isImportedProject],
   );
 
   // Page-level voiceover add/change/delete progress modal (survives tab switches
@@ -1241,6 +1267,12 @@ export default function ProjectView() {
   const [publishPlatform, setPublishPlatform] = useState<SocialPlatform | null>(null);
   /** What this deployment can offer; null until loaded. */
   const [integrationsConfig, setIntegrationsConfig] = useState<IntegrationsConfig | null>(null);
+  // Ghost (publish-back) connection, from the content-sources API. Null until
+  // loaded or when the viewer has none.
+  // Ghost/Beehiiv/WordPress connections. Kept whatever
+  // their status, so the publish modal can tell "not connected" from "reconnect".
+  const [sourceConnections, setSourceConnections] = useState<ContentSourceConnection[]>([]);
+  const [sourcePublishPlatform, setSourcePublishPlatform] = useState<IntegrationPlatform | null>(null);
   const [publishJobs, setPublishJobs] = useState<PublishJob[]>([]);
   const [downloading, setDownloading] = useState(false);
   const [downloadingStudio, setDownloadingStudio] = useState(false);
@@ -3151,6 +3183,29 @@ export default function ProjectView() {
 
   // What this deployment offers. Fetched once; decides whether the Share menu
   // shows the publish options at all.
+  // Ghost/Beehiiv connections. Re-fetched whenever the tab regains focus and
+  // whenever a publish button is clicked: a connection made on the
+  // Integrations page (often in another tab) must show up here without a reload.
+  const refreshSourceConnections = useCallback(() => {
+    getContentSourceConnections()
+      .then((res) => setSourceConnections(res.data.connections))
+      .catch(() => {
+        // Keep what we had; the modal links to the Integrations page.
+      });
+  }, []);
+  useEffect(() => {
+    refreshSourceConnections();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refreshSourceConnections();
+    };
+    window.addEventListener("focus", refreshSourceConnections);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("focus", refreshSourceConnections);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [refreshSourceConnections]);
+
   useEffect(() => {
     let cancelled = false;
     getIntegrationsConfig()
@@ -3302,7 +3357,7 @@ export default function ProjectView() {
 
   /** The most recent job per platform — what the modal and the pill display. */
   const latestPublishJobByPlatform = useMemo(() => {
-    const map = new Map<SocialPlatform, PublishJob>();
+    const map = new Map<PublishPlatform, PublishJob>();
     // An in-flight job always wins over a finished one, independently of list
     // order. Ordering alone is not enough: re-uploading moments after a publish
     // can produce two rows with the same created_at, and picking the wrong one
@@ -3362,6 +3417,49 @@ export default function ProjectView() {
       showError(getErrorMessage(err, DEFAULT_ERROR_MESSAGE));
     }
   }, [visiblePublishJob, projectId, refreshPublishJobs, showError]);
+
+  // A Ghost/WordPress video the site refused (too big for the plan or server,
+  // file type, storage — often known only after a render-first publish
+  // rendered it) isn't emailed, so with the publish modal closed, say so here
+  // with the app's "Oops" modal and offer the fallback: the embedded player,
+  // or (WordPress without embed rights) a click-to-watch thumbnail. The open
+  // modal handles this itself. Once per job: dismissing hides its banner too.
+  useEffect(() => {
+    const job = visiblePublishJob;
+    if (!job || !projectId) return;
+    if (job.platform !== "ghost" && job.platform !== "wordpress") return;
+    if (sourcePublishPlatform === job.platform) return;
+    if (job.status !== "failed") return;
+    if (!["video_too_large", "video_not_supported", "storage_full"].includes(job.error_code ?? "")) return;
+    const platform = job.platform;
+    const label = platform === "ghost" ? "Ghost" : "WordPress";
+    const useEmbed = platform === "ghost" || /embedded player/i.test(job.error_message ?? "");
+    dismissPublishJob(job.id);
+    showError(
+      job.error_message ||
+        `This video can't be uploaded to ${label}. Use ${useEmbed ? "the embedded player" : "a click-to-watch thumbnail"} instead?`,
+      {
+        variant: "warning",
+        action: {
+          label: useEmbed ? "Use embed" : "Use thumbnail",
+          onClick: () => {
+            void publishProject(Number(projectId), {
+              platform,
+              title: job.title,
+              delivery: useEmbed ? "embed" : "link",
+              ...(job.target_mode ? { target_mode: job.target_mode } : {}),
+              ...(job.target_post_id ? { target_post_id: job.target_post_id } : {}),
+            })
+              .then(() => {
+                setPublishPollNonce((n) => n + 1);
+                return refreshPublishJobs();
+              })
+              .catch((err) => showError(getErrorMessage(err, DEFAULT_ERROR_MESSAGE)));
+          },
+        },
+      }
+    );
+  }, [visiblePublishJob, projectId, sourcePublishPlatform, dismissPublishJob, showError, refreshPublishJobs]);
 
   // Resume render progress after refresh/navigation when the project is still rendering
   useEffect(() => {
@@ -5572,6 +5670,35 @@ export default function ProjectView() {
                       </button>
                     );
                   })}
+
+                {/* Ghost / Beehiiv / WordPress — owner only, like the social
+                    buttons above (they act with the owner's credentials).
+                    Always shown: the modal handles "not connected" by linking
+                    to that tab of the Integrations page. */}
+                {project?.scenes &&
+                  project.scenes.length > 0 &&
+                  project.user_id === user?.id &&
+                  INTEGRATION_PLATFORMS.map((platform) => {
+                    const label = INTEGRATION_LABELS[platform];
+                    const action = rendered ? `Add video to ${label}` : `Render & add to ${label}`;
+                    return (
+                      <button
+                        key={platform}
+                        type="button"
+                        onClick={() => {
+                          setShowShareDropdown(false);
+                          setShowSlidesExportMenu(false);
+                          setSourcePublishPlatform(platform);
+                          refreshSourceConnections();
+                        }}
+                        title={action}
+                        aria-label={action}
+                        className="p-1.5 border border-gray-200 hover:bg-gray-50 rounded-lg transition-colors flex items-center justify-center shrink-0"
+                      >
+                        <img src={INTEGRATION_LOGOS[platform]} alt="" width={16} height={16} className="w-4 h-4 object-contain" />
+                      </button>
+                    );
+                  })}
               </div>
             </div>
 
@@ -6794,6 +6921,39 @@ export default function ProjectView() {
         />
       )}
 
+      {sourcePublishPlatform && (
+        <PublishToSourceModal
+          open
+          key={sourcePublishPlatform}
+          platform={sourcePublishPlatform}
+          projectId={Number(projectId)}
+          projectName={project.name}
+          sourcePostId={sourcePostIdFor(
+            project,
+            sourceConnections.find((c) => c.platform === sourcePublishPlatform)
+          )}
+          hasRenderedVideo={Boolean(project.r2_video_url)}
+          connection={sourceConnections.find((c) => c.platform === sourcePublishPlatform) ?? null}
+          job={latestPublishJobByPlatform.get(sourcePublishPlatform) ?? null}
+          renderProgress={rendering ? renderProgress : null}
+          onClose={() => setSourcePublishPlatform(null)}
+          onJobChanged={() => {
+            setPublishPollNonce((n) => n + 1);
+            void refreshPublishJobs();
+          }}
+          onRenderStarted={(runId) => {
+            if (runId) expectedRenderRunIdRef.current = runId;
+            setHasError(false);
+            setRendered(false);
+            setRendering(true);
+            setRenderProgress(0);
+            startRenderPollingLoop();
+          }}
+          // Ghost: render alone first, then let the user choose upload vs. embed.
+          onRenderOnly={() => void handleRender(false)}
+        />
+      )}
+
       {/* Edit history + comments (opens from any tab). */}
       <EditHistoryPanel
         open={historyOpen}
@@ -7084,7 +7244,7 @@ export default function ProjectView() {
                 </h1>
                 <StatusBadge status={statusForBadge} />
               </div>
-              {project.blog_url && !project.blog_url.startsWith("upload://") ? (
+              {project.blog_url && !isPlaceholderSourceUrl(project.blog_url) ? (
                 <a
                   href={project.blog_url}
                   target="_blank"
@@ -7097,7 +7257,7 @@ export default function ProjectView() {
                 <span className="text-xs text-gray-400">
                   {project.blog_url?.startsWith("upload://")
                     ? "Created from uploaded documents"
-                    : ""}
+                    : placeholderSourceLabel(project.blog_url) ?? ""}
                 </span>
               )}
             </div>

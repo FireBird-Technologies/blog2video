@@ -12,6 +12,18 @@ from app.database import Base
 PLATFORM_YOUTUBE = "youtube"
 PLATFORM_X = "x"
 PLATFORM_LINKEDIN = "linkedin"
+# Content sources, connected with a user-supplied API key rather than OAuth.
+# They share this table because the storage contract is identical (one
+# encrypted credential per user per platform, never returned to the client),
+# but they are NOT in social_oauth.SUPPORTED_PLATFORMS — see
+# routers/content_sources.py.
+PLATFORM_GHOST = "ghost"
+PLATFORM_BEEHIIV = "beehiiv"
+# WordPress is one platform with two ways in (see auth_kind): self-hosted sites
+# connect with an application password, WordPress.com sites through OAuth.
+PLATFORM_WORDPRESS = "wordpress"
+WP_AUTH_APP_PASSWORD = "app_password"
+WP_AUTH_WPCOM_OAUTH = "wpcom_oauth"
 
 # Connection lifecycle.
 #   active  — usable; tokens decrypt and the provider still honours them
@@ -80,6 +92,14 @@ class SocialConnection(Base):
     account_handle: Mapped[str | None] = mapped_column(String(255), nullable=True)
     account_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     account_avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Base URL the credential is valid against. Ghost and WordPress need it
+    # (every site is its own host); OAuth platforms and Beehiiv leave it null.
+    site_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # WordPress only: how it authenticates (WP_AUTH_*), and the REST base URL —
+    # a discovered /wp-json/ (or ?rest_route=) root for self-hosted sites, the
+    # public-api.wordpress.com site proxy for WordPress.com.
+    auth_kind: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    api_root: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     status: Mapped[str] = mapped_column(String(20), default=STATUS_ACTIVE, index=True)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)

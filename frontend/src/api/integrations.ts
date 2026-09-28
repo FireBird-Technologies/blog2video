@@ -4,6 +4,13 @@ import api, { BACKEND_URL } from "./http";
 
 export type SocialPlatform = "youtube" | "x" | "linkedin";
 
+/**
+ * Everything a publish job can target. Ghost, Beehiiv and WordPress are content
+ * sources (see ./sources.ts) rather than OAuth social platforms, but their
+ * publishes run through the same queue, status polling and banner.
+ */
+export type PublishPlatform = SocialPlatform | "ghost" | "beehiiv" | "wordpress";
+
 export interface IntegrationsConfig {
   youtube_enabled: boolean;
   x_enabled: boolean;
@@ -18,14 +25,17 @@ export interface IntegrationsConfig {
  * in lowercase looks almost right. Keep this exhaustive over SocialPlatform so
  * adding a platform is a compile error rather than a silent wrong label.
  */
-const PLATFORM_LABELS: Record<SocialPlatform, string> = {
+const PLATFORM_LABELS: Record<PublishPlatform, string> = {
   youtube: "YouTube",
   x: "X",
   linkedin: "LinkedIn",
+  ghost: "Ghost",
+  beehiiv: "Beehiiv",
+  wordpress: "WordPress",
 };
 
 export const platformLabel = (platform: string): string =>
-  PLATFORM_LABELS[platform as SocialPlatform] ?? platform;
+  PLATFORM_LABELS[platform as PublishPlatform] ?? platform;
 
 export interface SocialConnection {
   platform: SocialPlatform;
@@ -57,7 +67,7 @@ export type PublishJobStatus =
 
 export interface PublishJob {
   id: number;
-  platform: SocialPlatform;
+  platform: PublishPlatform;
   status: PublishJobStatus;
   /** 0..1 */
   progress: number;
@@ -71,6 +81,11 @@ export interface PublishJob {
   source: string;
   post_id: string | null;
   post_url: string | null;
+  /** Ghost/Beehiiv/WordPress: the post the video was added to, and where. */
+  target_post_id?: string | null;
+  target_mode?: SourceTargetMode | null;
+  /** Ghost/WordPress: how the video went in (see SourceDelivery). */
+  delivery?: SourceDelivery;
   /** The platform forced a stricter privacy than we asked for. */
   forced_private: boolean;
   error_code: string | null;
@@ -87,8 +102,18 @@ export interface PublishJob {
  */
 export type PublishPrivacy = "public" | "unlisted" | "private" | "connections";
 
+/** Where a content-source publish puts the video. "new_draft" never touches a live post. */
+export type SourceTargetMode = "top" | "bottom" | "new_draft";
+
+/**
+ * How a Ghost/WordPress publish adds the video: upload the MP4, embed our
+ * player (no upload cap), or — WordPress only, when neither is allowed — a
+ * click-to-watch thumbnail linked to the watch page.
+ */
+export type SourceDelivery = "video" | "embed" | "link";
+
 export interface PublishRequest {
-  platform: SocialPlatform;
+  platform: PublishPlatform;
   title: string;
   description?: string;
   tags?: string[];
@@ -98,6 +123,11 @@ export interface PublishRequest {
   /** "auto" renders only when there is nothing to publish yet. */
   source?: "existing" | "rerender" | "auto";
   resolution?: string;
+  /** Content sources. target_post_id defaults to the post the project was imported from. */
+  target_post_id?: string;
+  target_mode?: SourceTargetMode;
+  /** Ghost/WordPress. "embed" skips the render and upload entirely. */
+  delivery?: SourceDelivery;
 }
 
 export interface PublishResponse {

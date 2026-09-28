@@ -476,7 +476,7 @@ To log out of Blog2Video:
 
 This signs you out immediately and returns you to the logged-out home page. There is no confirmation dialog.
 
-On mobile and Android: the "Sign out" button is in exactly the same place — the top-right corner next to your profile picture. It is always visible and is NOT inside the hamburger (☰) menu. The hamburger menu contains Survey, Connect with AI, Templates, and Billing only, so if you are looking for logout in there you will not find it.
+On mobile and Android: the "Sign out" button is in exactly the same place — the top-right corner next to your profile picture. It is always visible and is NOT inside the hamburger (☰) menu. The hamburger menu contains Survey, Templates, and Billing only, so if you are looking for logout in there you will not find it.
 
 If you cannot see the Sign out button, you are most likely already signed out, or the page is scrolled inside a project editor — scroll to the very top of the page to reveal the navigation bar.
 `.trim(),

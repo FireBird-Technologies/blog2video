@@ -27,4 +27,5 @@ markers = [
     "gates: paywall / quota / rate-limit gating",
     "webhooks: stripe webhook dispatch",
     "depth: deep correctness (money-math, pipeline glue, record/replay)",
+    "live: hits a real third-party API; opt-in via env vars (e.g. BEEHIIV_LIVE_API_KEY)",
 ]

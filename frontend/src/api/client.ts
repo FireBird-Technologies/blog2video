@@ -13,6 +13,8 @@ export * from "./billing";
 export * from "./projects";
 export * from "./enterprise";
 export * from "./integrations";
+export * from "./sources";
+import type { ContentSourcePlatform } from "./sources";
 
 import axios from "axios";
 import type { AxiosResponse } from "axios";
@@ -247,6 +249,11 @@ export interface Project {
   name: string;
   blog_url: string | null;
   blog_content: string | null;
+  /** "ghost" / "beehiiv" when imported from a connected content source. */
+  source_platform?: ContentSourcePlatform | null;
+  source_post_id?: string | null;
+  /** The site/publication the source post lives on (host+path, or Beehiiv publication id). */
+  source_site?: string | null;
   status: string;
   template?: string;
   voice_gender: string;
@@ -387,6 +394,7 @@ export interface ProjectListItem {
   id: number;
   name: string;
   blog_url: string | null;
+  source_platform?: ContentSourcePlatform | null;
   status: string;
   created_at: string;
   updated_at: string;

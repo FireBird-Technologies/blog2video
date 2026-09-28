@@ -645,6 +645,11 @@ class ProjectOut(BaseModel):
     name: str
     blog_url: Optional[str] = None
     blog_content: Optional[str] = None
+    # "ghost" / "beehiiv" when imported from a connected content source.
+    source_platform: Optional[str] = None
+    source_post_id: Optional[str] = None
+    # The site/publication the source post lives on (see Project.source_site).
+    source_site: Optional[str] = None
     status: str
     template: str = "default"
     voice_gender: str = "female"
@@ -836,6 +841,7 @@ class ProjectListOut(BaseModel):
     id: int
     name: str
     blog_url: Optional[str] = None
+    source_platform: Optional[str] = None
     status: str
     created_at: datetime
     updated_at: datetime

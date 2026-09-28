@@ -122,6 +122,16 @@ class SocialPublishJob(Base):
     # that re-uploaded from zero would spend quota twice for one video.
     resumable_url: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # ─── Publish-into-a-post targets (Ghost) ─────────────────────────────────
+    # Which existing post to insert the video into, and where: "top", "bottom",
+    # or "new_draft" (target_post_id then only seeds the draft's title).
+    target_post_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    target_mode: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # How the video goes in: "video" (null) uploads the MP4 as a video card;
+    # "embed" adds an HTML card with the embed player instead, for Ghost plans
+    # whose per-file upload cap is below the video's size.
+    delivery: Mapped[str | None] = mapped_column(String(16), nullable=True)
+
     # ─── Progress and result ─────────────────────────────────────────────────
     # BigInteger: a long 1080p render exceeds the 2^31 byte ceiling of Integer.
     uploaded_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
