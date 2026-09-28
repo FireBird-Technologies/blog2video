@@ -404,7 +404,6 @@ def test_import_beehiiv_uses_premium_content(client, paid_user, auth, db_session
 
 
 from app.models.social_publish_job import (  # noqa: E402
-    STATUS_FAILED,
     STATUS_QUEUED,
     STATUS_RUNNING,
     STATUS_SUCCEEDED,

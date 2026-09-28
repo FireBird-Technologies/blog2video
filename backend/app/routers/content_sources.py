@@ -745,7 +745,7 @@ def import_source_posts(
         db.commit()
         try:
             source_importer.apply_post(project, conn, prepared, db)
-        except Exception as exc:  # noqa: BLE001 — image download / DB hiccup
+        except Exception:  # noqa: BLE001 — image download / DB hiccup
             logger.exception(
                 "[SOURCES] Import of %s post %s failed after project %s was created",
                 platform, post_id, project.id,
