@@ -1,8 +1,8 @@
 {
   "$schema": "https://schemas.wp.org/trunk/block.json",
-  "apiVersion": 2,
+  "apiVersion": 3,
   "name": "blog2video/video",
-  "version": "0.13.6",
+  "version": "0.14.14",
   "title": "Blog2Video",
   "category": "embed",
   "icon": "format-video",
@@ -13,11 +13,19 @@
       "type": "string",
       "default": ""
     },
+    "projectId": {
+      "type": "integer",
+      "default": 0
+    },
+    "projectName": {
+      "type": "string",
+      "default": ""
+    },
     "aspectRatio": {
       "type": "string",
       "default": "16:9"
     }
   },
-  "editorScript": "b2v-editor-block",
-  "style": "b2v-player"
+  "editorScript": "blog2video-editor-block",
+  "style": "blog2video-player"
 }
